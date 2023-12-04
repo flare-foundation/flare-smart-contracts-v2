@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "commonjs",
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "outDir": "dist",
+    "typeRoots": ["node_modules/@types"]
+  },
+  "include": [
+    "./deployment",
+    "./typechain-types",
+    "./typechain",
+    "./typechain-truffle",
+    "./typechain-web3",
+    "./test-utils/utils",
+ ],
+  "files": ["./hardhat.config.ts"]
+}

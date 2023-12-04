@@ -1,6 +1,15 @@
 [profile.default]
-src = "src"
-out = "out"
-libs = ["lib"]
+src = "contracts"
+out = "artifacts-forge"
+libs = ["node_modules", "lib"]
+test = "test-forge"
+cache_path = 'cache-forge'
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+[rpc_endpoints]
+flare = "${FLARE_RPC}"
+songbird = "${SONGBIRD_RPC}"
+coston2 = "${COSTON2_RPC}"
+coston = "${COSTON2_RPC}"
+staging = "${STAGING_RPC}"

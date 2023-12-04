@@ -8,27 +8,44 @@
     "url": "git+https://gitlab.com/flarenetwork/flare-smart-contracts-v2.git"
   },
   "engines": {
-    "node": ">=12 <20"
+    "node": ">=18 <=20"
   },
   "author": "Flare SC team",
   "license": "MIT",
   "directories": {},
+  "scripts": {
+    "---------COMPILE---SCRIPTS": "",
+    "compile": "yarn hardhat compile && yarn typechain-ethers-v6 && yarn typechain-web3-v1",
+    "c": "yarn compile",
+    "typechain-ethers-v6": "yarn typechain --target=ethers-v6 --out-dir typechain \"artifacts/!(build-info)/**/+([a-zA-Z0-9_]).json\" 1> nul",
+    "typechain-truffle-v5": "yarn typechain --target=truffle-v5 --out-dir typechain-truffle \"artifacts/!(build-info)/**/+([a-zA-Z0-9_]).json\" 1> nul",
+    "typechain-web3-v1": "yarn typechain --target=web3-v1 --out-dir typechain-web3 \"artifacts/!(build-info)/**/+([a-zA-Z0-9_]).json\" 1> nul",
+    "lint": "yarn solhint \"contracts/**/*.sol\""
+  },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.0.0",
+    "@openzeppelin/contracts": "^4.9.1",
     "@typescript-eslint/eslint-plugin": "^6.7.0",
     "@typescript-eslint/parser": "^6.7.0",
-    "hardhat": "2.4.3",
+    "hardhat": "^2.15.0",
     "solhint": "3.3.2",
     "flare-smart-contracts": "git+https://gitlab.com/flarenetwork/flare-smart-contracts.git"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-foundry": "1.0.1",
     "@openzeppelin/test-helpers": "^0.5.16",
-    "@typechain/hardhat": "2.0.1",
-    "@typechain/web3-v1": "3.0.0",
+    "@typechain/hardhat": "8.0.0",
+    "@typechain/web3-v1": "^6",
     "@types/node": "15.12.1",
-    "ts-node": "10.0.0",
-    "typechain": "5.0.0",
-    "typescript": "4.3.2"
+    "ts-node": "^10.9.1",
+    "typechain": "^8.3.0",
+    "typescript": "^5.2.2",
+    "@typechain/ethers-v6": "^0.4.0",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomiclabs/hardhat-truffle5": "^2.0.7",
+    "@nomiclabs/hardhat-web3": "^2.0.0",
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.1",
+    "@nomicfoundation/hardhat-ethers": "^3.0.0",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@nomicfoundation/hardhat-verify": "^1.0.0"
   }
 }

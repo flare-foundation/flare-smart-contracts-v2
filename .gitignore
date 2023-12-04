@@ -1,14 +1,24 @@
-# Compiler files
-cache/
-out/
+.env
+node_modules
+yarn-error.log
 
-# Ignores development broadcast logs
+# Foundry files
+cache-forge/
+artifacts-forge/
 !/broadcast
 /broadcast/*/31337/
 /broadcast/**/dry-run/
 
-# Docs
-docs/
+# Hardhat files
+cache
+artifacts
 
-# Dotenv file
-.env
+# Typescript
+dist
+typechain
+typechain-truffle
+typechain-web3
+
+# misc
+nul
+.DS_Store
