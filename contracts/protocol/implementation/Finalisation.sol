@@ -6,6 +6,7 @@ import "../../governance/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../interface/IRandomProvider.sol";
 import "./VoterWhitelister.sol";
+import "./Submission.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
@@ -123,8 +124,13 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     /// Timestamp when current reward epoch ends, in seconds since UNIX epoch.
     uint64 internal currentRewardEpochEndTs;
 
+    uint64 internal lastInitialisedVotingRound;
+
     /// The VoterWhitelister contract.
     VoterWhitelister public voterWhitelister;
+
+    /// The Submission contract.
+    Submission public submission;
 
     event SigningPolicyInitialized(
         uint64 rId,                 // Reward epoch id.
@@ -213,9 +219,18 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     }
 
     function daemonize() external onlyFlareDaemon returns (bool) {
-        // is it time to
+        address[] memory revealAddresses;
+        address[] memory signingAddresses;
+        uint64 currentVotingEpoch = _getCurrentVotingEpoch();
+        uint64 currentRewardEpoch = _getCurrentRewardEpoch();
+        if (currentVotingEpoch > lastInitialisedVotingRound) {
+            // in case of new voting round - get reveal and signing addresses
+            revealAddresses = voterWhitelister.getWhitelistedFtsoAddresses(currentRewardEpoch);
+            signingAddresses = voterWhitelister.getWhitelistedSigningAddresses(currentRewardEpoch);
+        }
+
         if (block.timestamp >= currentRewardEpochEndTs - newSigningPolicyInitializationStartSeconds) {
-            uint64 nextRewardEpoch = _getCurrentRewardEpoch() + 1;
+            uint64 nextRewardEpoch = currentRewardEpoch + 1;
 
             // check if new signing policy is already defined
             if (roots[NEW_SIGNING_POLICY_PROTOCOL_ID][nextRewardEpoch] == bytes32(0)) {
@@ -242,6 +257,18 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
             }
         }
 
+        // in case of new voting round - init new voting round on Submission contract
+        if (currentVotingEpoch > lastInitialisedVotingRound) {
+            lastInitialisedVotingRound = currentVotingEpoch;
+            address[] memory commitAddresses;
+            // in case of new reward epoch - get new commit addresses otherwise they are the same as reveal addresses
+            if (_getCurrentRewardEpoch() > currentRewardEpoch) {
+                commitAddresses = voterWhitelister.getWhitelistedFtsoAddresses(currentRewardEpoch + 1);
+            } else {
+                commitAddresses = revealAddresses;
+            }
+            submission.initVotingRound(commitAddresses, revealAddresses, signingAddresses);
+        }
 
         return true;
     }
@@ -500,8 +527,8 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
             _getCurrentVotingEpoch() >= rewardEpochState[_nextRewardEpoch].startVotingRoundId;
     }
 
-    function _getCurrentVotingEpoch() internal view returns(uint256) {
-        return (block.timestamp - votingEpochsStartTs) / votingEpochDurationSeconds;
+    function _getCurrentVotingEpoch() internal view returns(uint64) {
+        return ((block.timestamp - votingEpochsStartTs) / votingEpochDurationSeconds).toUint64();
     }
 
     /**
@@ -536,5 +563,6 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         internal override
     {
         voterWhitelister = VoterWhitelister(_getContractAddress(_contractNameHashes, _contractAddresses, "VoterWhitelister"));
+        submission = Submission(_getContractAddress(_contractNameHashes, _contractAddresses, "Submission"));
     }
 }

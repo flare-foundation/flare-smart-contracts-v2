@@ -182,6 +182,18 @@ contract VoterWhitelister is Governed, AddressUpdatable {
     }
 
     /**
+     * Returns the list of whitelisted signing addresses for a given reward epoch
+     */
+    function getWhitelistedSigningAddresses(uint256 _rewardEpoch) external view returns (address[] memory _signingAddresses) {
+        VoterInfo[] storage voters = whitelist[_rewardEpoch];
+        uint256 length = voters.length;
+        _signingAddresses = new address[](length);
+        for (uint256 i = 0; i < length; i++) {
+            _signingAddresses[i] = voters[i].signingAddress;
+        }
+    }
+
+    /**
      * Returns the number of whitelisted voters for a given reward epoch
      */
     function getNumberOfWhitelistedVoters(uint256 _rewardEpoch) external view returns (uint256) {
