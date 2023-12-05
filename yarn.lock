@@ -1329,6 +1329,13 @@
   dependencies:
     fs-extra "^9.1.0"
 
+"@typechain/truffle-v5@^8.0.0":
+  version "8.0.7"
+  resolved "https://registry.yarnpkg.com/@typechain/truffle-v5/-/truffle-v5-8.0.7.tgz#8a9c79d31ccd8a036a4d847444123663a9c80600"
+  integrity sha512-zdc71/G8Zs3RZCmUCKDAXlUUGbom/GZFCgjXX8e0LEh1/eFWtdMSgiK5bluLEpLoP+rKUcJuQtCO68IQ6dboQg==
+  dependencies:
+    lodash "^4.17.15"
+
 "@typechain/web3-v1@^6":
   version "6.0.7"
   resolved "https://registry.yarnpkg.com/@typechain/web3-v1/-/web3-v1-6.0.7.tgz#7da0b3bcdb16a173b73f9e3c9d5a47daffe65138"
@@ -1380,7 +1387,7 @@
   dependencies:
     "@types/chai" "*"
 
-"@types/chai@*", "@types/chai@^4.2.0":
+"@types/chai@*", "@types/chai@^4.2.0", "@types/chai@^4.3.5":
   version "4.3.11"
   resolved "https://registry.yarnpkg.com/@types/chai/-/chai-4.3.11.tgz#e95050bf79a932cb7305dd130254ccdf9bde671c"
   integrity sha512-qQR1dr2rGIHYlJulmr8Ioq3De0Le9E4MJ5AiaeAETJJpndT1uUNHsGFK3L/UIu+rbkQSdj8J/w2bCsBZc/Y5fQ==
@@ -1433,6 +1440,11 @@
   version "5.1.2"
   resolved "https://registry.yarnpkg.com/@types/minimatch/-/minimatch-5.1.2.tgz#07508b45797cb81ec3f273011b054cd0755eddca"
   integrity sha512-K0VQKziLUWkVKiRVrx4a40iPaxTUefQmjtkQofBkYRcoaaL/8rhwDWww9qWbrgicNOgnpIsMxyNIUM4+n6dUIA==
+
+"@types/mocha@^10.0.1":
+  version "10.0.6"
+  resolved "https://registry.yarnpkg.com/@types/mocha/-/mocha-10.0.6.tgz#818551d39113081048bdddbef96701b4e8bb9d1b"
+  integrity sha512-dJvrYWxP/UcXm36Qn36fxhUKu8A/xMRXVT2cliFF1Z7UA9liG5Psj3ezNSZw+5puH2czDXRLcXQxf8JbJt0ejg==
 
 "@types/node@*":
   version "20.10.3"
