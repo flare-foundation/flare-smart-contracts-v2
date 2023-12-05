@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.18;
+pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
 import "flare-smart-contracts/contracts/tokenPools/interface/IITokenPool.sol";
@@ -10,15 +10,13 @@ import "../interface/IClaimSetupManager.sol";
 import "../lib/SafePct.sol";
 import "./VoterWhitelister.sol";
 import "./Finalisation.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 
 contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPool {
     using MerkleProof for bytes32[];
     using SafeCast for uint256;
-    using SafeMath for uint256;
     using SafePct for uint256;
 
     uint256 constant internal MAX_BIPS = 1e4;
@@ -222,13 +220,14 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
                 // claim for PDA (only WNat)
                 rewardAmount += _claimWeightBasedRewards(claimAddress, claimAddress, _rewardEpoch, minClaimableEpoch, true);
             }
-            rewardAmount = rewardAmount.sub(executorFeeValue, "claimed amount too small");
+            require(rewardAmount >= executorFeeValue, "claimed amount too small");
+            rewardAmount -= executorFeeValue;
             if (rewardAmount > 0) {
                 _transferOrWrap(claimAddress, rewardAmount, true);
             }
         }
 
-        _transferOrWrap(msg.sender, executorFeeValue.mul(_rewardOwners.length), false);
+        _transferOrWrap(msg.sender, executorFeeValue * _rewardOwners.length, false);
 
         //slither-disable-next-line reentrancy-eth      // guarded by nonReentrant
         lastBalance = address(this).balance;
@@ -705,7 +704,12 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
      * @return _initialRewardEpoch Initial reward epoch number.
      */
     function _getInitialRewardEpoch() internal view returns (uint256 _initialRewardEpoch) {
-        (, _initialRewardEpoch) = initialRewardEpoch.trySub(1);
+        if (initialRewardEpoch == 0) {
+            _initialRewardEpoch = 0;
+        }
+        else {
+            _initialRewardEpoch = initialRewardEpoch - 1;
+        }
     }
 
     function _handleSelfDestructProceeds() internal returns (uint256 _expectedBalance) {

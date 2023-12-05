@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.18;
+pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/genesis/interface/IFlareDaemonize.sol";
 import "../../governance/implementation/AddressUpdatable.sol";
@@ -9,6 +9,7 @@ import "./VoterWhitelister.sol";
 import "./Submission.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 
 // global constants
@@ -291,7 +292,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
             "new signing policy hash invalid");
         require(state.singingPolicySignEndTs == 0, "new signing policy already signed");
         bytes32 messageHash = keccak256(abi.encode(_rId, _newSigningPolicyHash));
-        bytes32 signedMessageHash = ECDSA.toEthSignedMessageHash(messageHash); // TODO - remove rId?
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash); // TODO - remove rId?
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
         (address voter, uint16 weight) = voterWhitelister.getVoterWithNormalisedWeight(_rId - 1, signingAddress);
         require(voter != address(0), "signature invalid");
@@ -321,7 +322,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         require(_rId < getCurrentRewardEpoch(), "epoch not ended yet");
         require (roots[UPTIME_VOTE_PROTOCOL_ID][_rId] == bytes32(0), "uptime vote hash already signed");
         bytes32 messageHash = keccak256(abi.encode(_rId, _uptimeVoteHash));
-        bytes32 signedMessageHash = ECDSA.toEthSignedMessageHash(messageHash);
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
         (address voter, uint16 weight) = voterWhitelister.getVoterWithNormalisedWeight(_rId, signingAddress);
         require(voter != address(0), "signature invalid");
@@ -356,7 +357,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         require(roots[UPTIME_VOTE_PROTOCOL_ID][_rId] != bytes32(0), "uptime vote hash not signed yet");
         require (roots[REWARDS_PROTOCOL_ID][_rId] == bytes32(0), "rewards hash already signed");
         bytes32 messageHash = keccak256(abi.encode(_rId, _noOfWeightBasedClaims, _rewardsHash));
-        bytes32 signedMessageHash = ECDSA.toEthSignedMessageHash(messageHash);
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
         (address voter, uint16 weight) = voterWhitelister.getVoterWithNormalisedWeight(_rId, signingAddress);
         require(voter != address(0), "signature invalid");
@@ -396,7 +397,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         uint64 nextStartVotingRoundId = rewardEpochState[rId + 1].startVotingRoundId;
         require(nextStartVotingRoundId == 0 || _votingRoundId < nextStartVotingRoundId, "voting round too high");
         uint16 accumulatedWeight = 0;
-        bytes32 messageHash = ECDSA.toEthSignedMessageHash(keccak256(abi.encode(_pId, _votingRoundId, _quality, _root)));
+        bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(_pId, _votingRoundId, _quality, _root)));
         for (uint256 i = 0; i < _signatures.length; i++) {
             SignatureWithIndex calldata signature = _signatures[i];
             address signingAddress = ECDSA.recover(messageHash, signature.v, signature.r, signature.s);
