@@ -15,12 +15,15 @@
   "directories": {},
   "scripts": {
     "---------COMPILE---SCRIPTS": "",
-    "compile": "yarn hardhat compile && yarn typechain-ethers-v6 && yarn typechain-truffle-v5 && yarn typechain-web3-v1",
+    "compile": "yarn hardhat compile && yarn typechain-ethers-v6 && yarn typechain-truffle-v5 && yarn typechain-web3-v1 && yarn typechain-prepare",
     "c": "yarn compile",
     "typechain-ethers-v6": "yarn typechain --target=ethers-v6 --out-dir typechain \"artifacts/!(build-info)/**/+([a-zA-Z0-9_]).json\" 1> nul",
     "typechain-truffle-v5": "yarn typechain --target=truffle-v5 --out-dir typechain-truffle \"artifacts/!(build-info)/**/+([a-zA-Z0-9_]).json\" 1> nul",
     "typechain-web3-v1": "yarn typechain --target=web3-v1 --out-dir typechain-web3 \"artifacts/!(build-info)/**/+([a-zA-Z0-9_]).json\" 1> nul",
-    "lint": "yarn solhint \"contracts/**/*.sol\""
+    "lint": "yarn solhint \"contracts/**/*.sol\"",
+    "typechain-prepare": "env bash scripts/remove-flattened-duplicates.sh",
+    "flatten-flare-sc": "yarn flatten-dependencies node_modules/flare-smart-contracts scripts/flatten-files.txt flattened/FlareSmartContracts.sol",
+    "flatten-dependencies": "env bash scripts/flatten-dependencies.sh"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.0",
