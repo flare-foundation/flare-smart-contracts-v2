@@ -220,15 +220,8 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     }
 
     function daemonize() external onlyFlareDaemon returns (bool) {
-        address[] memory revealAddresses;
-        address[] memory signingAddresses;
         uint64 currentVotingEpoch = _getCurrentVotingEpoch();
         uint64 currentRewardEpoch = _getCurrentRewardEpoch();
-        if (currentVotingEpoch > lastInitialisedVotingRound) {
-            // in case of new voting round - get reveal and signing addresses
-            revealAddresses = voterWhitelister.getWhitelistedFtsoAddresses(currentRewardEpoch);
-            signingAddresses = voterWhitelister.getWhitelistedSigningAddresses(currentRewardEpoch);
-        }
 
         if (block.timestamp >= currentRewardEpochEndTs - newSigningPolicyInitializationStartSeconds) {
             uint64 nextRewardEpoch = currentRewardEpoch + 1;
@@ -259,9 +252,14 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         }
 
         // in case of new voting round - init new voting round on Submission contract
+        // and get commit, reveal and signing addresses
         if (currentVotingEpoch > lastInitialisedVotingRound) {
-            lastInitialisedVotingRound = currentVotingEpoch;
+            address[] memory revealAddresses;
+            address[] memory signingAddresses;
             address[] memory commitAddresses;
+            lastInitialisedVotingRound = currentVotingEpoch;
+            revealAddresses = voterWhitelister.getWhitelistedFtsoAddresses(currentRewardEpoch);
+            signingAddresses = voterWhitelister.getWhitelistedSigningAddresses(currentRewardEpoch);
             // in case of new reward epoch - get new commit addresses otherwise they are the same as reveal addresses
             if (_getCurrentRewardEpoch() > currentRewardEpoch) {
                 commitAddresses = voterWhitelister.getWhitelistedFtsoAddresses(currentRewardEpoch + 1);
