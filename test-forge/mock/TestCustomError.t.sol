@@ -16,9 +16,17 @@ contract TestCustomErrorTest is Test {
 
     function testExpectCustomRevert() public {
         vm.expectRevert(
-                abi.encodeWithSelector(CustomErrorUint.selector, "error message", 123)
+            abi.encodeWithSelector(CustomErrorUint.selector, "error message", 123)
         );
         testCustomError.testErrorUint(123);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(CustomErrorMessage.selector, "some error message")
+        );
+        testCustomError.testError(true);
+
+        vm.expectRevert(CustomError.selector);
+        testCustomError.testError(false);
     }
 
 }

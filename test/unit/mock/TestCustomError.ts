@@ -30,6 +30,8 @@ contract(`CustomError.sol; ${getTestFile(__filename)}`, async accounts => {
     await expectRevert(testCustomError.testErrorUint(123), "CustomErrorUint");
     // and this
     await expectRevert(testCustomError.testErrorUint(123), "CustomError");
+    // or this...
+    await expectRevert(testCustomError.testErrorUint(123), "123");
   });
 
 });
