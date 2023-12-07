@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
  **/
 library NodesHistory {
 
-    uint256 public constant maxNodes = 4; // TODO can be set by governance
+    uint256 public constant MAX_NODES = 4; // TODO can be set by governance
     string private constant MAX_NODES_MSG = "Max nodes exceeded";
 
     struct Node {
@@ -20,7 +20,7 @@ library NodesHistory {
         // for all other indexes these fields will be 0
         // also, when checkpoint is empty, `length` will automatically be 0, which is ok
         uint64 fromBlock;
-        uint32 length;       // length is limited to maxNodes which fits in 32 bits
+        uint32 length;       // length is limited to MAX_NODES which fits in 32 bits
     }
 
     /**
@@ -251,7 +251,7 @@ library NodesHistory {
             // add also nodeId
             newlength = _appendNodeId(_cp, _nodeId, newlength);
         }
-        // safe - newlength <= length + 1 <= maxNodes
+        // safe - newlength <= length + 1 <= MAX_NODES
         _cp.nodeIds[0].length = SafeCast.toUint32(newlength);
     }
 
@@ -266,7 +266,7 @@ library NodesHistory {
             }
         } else if (_add) {
             uint256 newlength = _appendNodeId(_cp, _nodeId, length);
-            _cp.nodeIds[0].length = SafeCast.toUint32(newlength);  // safe - length < maxNodes
+            _cp.nodeIds[0].length = SafeCast.toUint32(newlength);  // safe - length < MAX_NODES
         }
     }
 
@@ -274,7 +274,7 @@ library NodesHistory {
         private
         returns (uint256)
     {
-        require(_length < maxNodes, MAX_NODES_MSG);
+        require(_length < MAX_NODES, MAX_NODES_MSG);
         Node storage dlg = _cp.nodeIds[_length];
         dlg.nodeId = _nodeId;
         // for nodeIds[0], fromBlock and length are assigned outside
@@ -345,7 +345,8 @@ library NodesHistory {
         uint256 historyCount = _self.length;
         if (historyCount == 0) {
             _found = false;
-        } else if (_blockNumber >= block.number || _blockNumber >= _self.checkpoints[historyCount - 1].nodeIds[0].fromBlock) {
+        } else if (_blockNumber >= block.number ||
+                _blockNumber >= _self.checkpoints[historyCount - 1].nodeIds[0].fromBlock) {
             _found = true;
             _index = historyCount - 1;  // safe, historyCount != 0 in this branch
         } else if (_blockNumber < _self.checkpoints[startIndex].nodeIds[0].fromBlock) {

@@ -13,7 +13,7 @@ import "./Finalisation.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
-
+//solhint-disable-next-line max-states-count
 contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPool {
     using MerkleProof for bytes32[];
     using SafeCast for uint256;
@@ -68,11 +68,12 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     // reward epoch when setInitialRewardData is called (set to +1) - used for forwarding closeExpiredRewardEpoch
     uint256 private initialRewardEpoch;
 
-    mapping(uint64 => mapping(ClaimType => mapping(address => UnclaimedRewardState))) public epochTypeProviderUnclaimedReward;
+    mapping(uint64 => mapping(ClaimType =>
+        mapping(address => UnclaimedRewardState))) public epochTypeProviderUnclaimedReward;
     // per reward epoch mark direct and fee claims (not weight based) that were already processed (paid out)
-    mapping(uint64 => mapping(bytes32 => bool)) epochProcessedRewardClaims;
+    mapping(uint64 => mapping(bytes32 => bool)) internal epochProcessedRewardClaims;
     // number of initialised weight based claims per reward epoch
-    mapping(uint64 => uint256) epochNoOfInitialisedWeightBasedClaims;
+    mapping(uint64 => uint256) internal epochNoOfInitialisedWeightBasedClaims;
 
     // Totals
     uint256 private totalClaimedWei;     // rewards that were claimed in time
@@ -167,7 +168,8 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         uint120 burnAmountWei;
         (_rewardAmountWei, burnAmountWei) = _processProofs(_rewardOwner, _recipient, _proofs);
 
-        _rewardAmountWei += _claimWeightBasedRewards(_rewardOwner, _recipient, _rewardEpoch, _minClaimableRewardEpoch(), false);
+        _rewardAmountWei += _claimWeightBasedRewards(
+            _rewardOwner, _recipient, _rewardEpoch, _minClaimableRewardEpoch(), false);
 
         if (burnAmountWei > 0) {
             totalBurnedWei += burnAmountWei;
@@ -176,11 +178,13 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         }
 
         if (_rewardAmountWei > 0) {
+            //solhint-disable-next-line reentrancy
             totalClaimedWei += _rewardAmountWei;
             _transferOrWrap(_recipient, _rewardAmountWei, _wrap);
         }
 
         //slither-disable-next-line reentrancy-eth      // guarded by nonReentrant
+        //solhint-disable-next-line reentrancy
         lastBalance = address(this).balance;
     }
 
@@ -215,10 +219,12 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             address rewardOwner = _rewardOwners[i];
             address claimAddress = claimAddresses[i];
             // claim for owner
-            uint256 rewardAmount = _claimWeightBasedRewards(rewardOwner, claimAddress, _rewardEpoch, minClaimableEpoch, false);
+            uint256 rewardAmount = _claimWeightBasedRewards(
+                rewardOwner, claimAddress, _rewardEpoch, minClaimableEpoch, false);
             if (rewardOwner != claimAddress) {
                 // claim for PDA (only WNat)
-                rewardAmount += _claimWeightBasedRewards(claimAddress, claimAddress, _rewardEpoch, minClaimableEpoch, true);
+                rewardAmount += _claimWeightBasedRewards(
+                    claimAddress, claimAddress, _rewardEpoch, minClaimableEpoch, true);
             }
             require(rewardAmount >= executorFeeValue, "claimed amount too small");
             rewardAmount -= executorFeeValue;
@@ -369,7 +375,14 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         return finalisation.getRewardsFeeBurnFactor(_rewardEpoch, _rewardOwner);
     }
 
-    function _getVotePower(uint64 _rewardEpoch, address _beneficiary, ClaimType _claimType) internal view returns(uint128) {
+    function _getVotePower(
+        uint64 _rewardEpoch,
+        address _beneficiary,
+        ClaimType _claimType
+    )
+        internal view
+        returns (uint128)
+    {
         uint256 votePowerBlock = _getVotePowerBlock(_rewardEpoch);
         if (_claimType == ClaimType.WNAT) {
             return wNat.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
@@ -436,14 +449,22 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
                 uint256 burnFactor = _getBurnFactor(_proof.rId, _rewardOwner);
                 if (burnFactor > 0) {
                     // calculate burn amount
-                    _burnAmountWei = Math.min(_rewardAmountWei, uint256(_rewardAmountWei).mulDiv(burnFactor, PPM_MAX)).toUint120();
+                    _burnAmountWei = Math.min(_rewardAmountWei, uint256(_rewardAmountWei).
+                        mulDiv(burnFactor, PPM_MAX)).toUint120();
                     // reduce reward amount
                     _rewardAmountWei -= _burnAmountWei; // _burnAmountWei <= _rewardAmountWei
                     // update total burned amount per epoch
                     epochBurnedRewards[_proof.rId] += _burnAmountWei;
                     // emit event how much of the reward was burned
                     // TODO - different event?
-                    emit RewardClaimed(_rewardOwner, _rewardOwner, BURN_ADDRESS, _proof.rId, ClaimType.FEE, _burnAmountWei);
+                    emit RewardClaimed(
+                        _rewardOwner,
+                        _rewardOwner,
+                        BURN_ADDRESS,
+                        _proof.rId,
+                        ClaimType.FEE,
+                        _burnAmountWei
+                    );
                 }
             }
             // update total claimed amount per epoch
@@ -451,13 +472,21 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             // mark as claimed
             epochProcessedRewardClaims[_proof.rId][claimHash] = true;
             // emit event
-            emit RewardClaimed(_rewardOwner, _rewardOwner, _recipient, _proof.rId, rewardClaim.claimType, _rewardAmountWei);
+            emit RewardClaimed(
+                _rewardOwner,
+                _rewardOwner,
+                _recipient,
+                _proof.rId,
+                rewardClaim.claimType,
+                _rewardAmountWei
+            );
         }
     }
 
     function _initialiseWeightBasedClaim(RewardClaimWithProof calldata _proof) internal {
         RewardClaim calldata rewardClaim = _proof.body;
-        UnclaimedRewardState storage state = epochTypeProviderUnclaimedReward[_proof.rId][rewardClaim.claimType][rewardClaim.beneficiary];
+        UnclaimedRewardState storage state =
+            epochTypeProviderUnclaimedReward[_proof.rId][rewardClaim.claimType][rewardClaim.beneficiary];
         if (!state.initialised) {
             // not initialised yet - check if valid merkle proof
             bytes32 merkleRoot = finalisation.getConfirmedMerkleRoot(REWARDS_PROTOCOL_ID, _proof.rId);
@@ -474,7 +503,13 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         }
     }
 
-    function _initialiseRewardAmount(uint64 _rewardEpoch, uint120 _rewardClaimAmount) internal returns (uint120 _rewardAmount) {
+    function _initialiseRewardAmount(
+        uint64 _rewardEpoch,
+        uint120 _rewardClaimAmount
+    )
+        internal
+        returns (uint120 _rewardAmount)
+    {
         // get total reward amount
         uint120 totalRewards = epochTotalRewards[_rewardEpoch];
         if (totalRewards == 0) {
@@ -504,8 +539,10 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         returns (uint120 _rewardAmountWei)
     {
         for (uint64 epoch = _nextClaimableEpoch(_rewardOwner, _minClaimableEpoch); epoch <= _rewardEpoch; epoch++) {
-            // check if all weight based claims were already initialised (in this case zero unclaimed rewards are actually zeros)
-            bool allClaimsInitialised = epochNoOfInitialisedWeightBasedClaims[epoch] == finalisation.noOfWeightBasedClaims(epoch);
+            // check if all weight based claims were already initialised
+            // (in this case zero unclaimed rewards are actually zeros)
+            bool allClaimsInitialised = epochNoOfInitialisedWeightBasedClaims[epoch]
+                == finalisation.noOfWeightBasedClaims(epoch);
             uint256 votePowerBlock = _getVotePowerBlock(epoch);
             uint120 rewardAmount = 0;
 
@@ -514,7 +551,8 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
 
             if (!_onlyWNat) {
                 // MIRROR claims
-                rewardAmount += _claimMirrorRewards(_rewardOwner, _recipient, epoch, votePowerBlock, allClaimsInitialised);
+                rewardAmount += _claimMirrorRewards(
+                    _rewardOwner, _recipient, epoch, votePowerBlock, allClaimsInitialised);
 
                 // CCHAIN claims
                 // TODO
@@ -544,10 +582,12 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         uint256 delegatorBalance = wNat.balanceOfAt(_rewardOwner, _votePowerBlock);
         if (delegatorBalance > 0) { // _rewardOwner had some funds wrapped at _votePowerBlock
             uint256 delegatedVotePower = 0;
-            (address[] memory delegates, uint256[] memory bips, , ) = wNat.delegatesOfAt(_rewardOwner, _votePowerBlock);
+            (address[] memory delegates, uint256[] memory bips, , ) = wNat.delegatesOfAt(
+                _rewardOwner, _votePowerBlock);
             if (delegates.length > 0) { // _rewardOwner had some delegations at _votePowerBlock
                 for (uint256 i = 0; i < delegates.length; i++) {
-                    UnclaimedRewardState storage state = epochTypeProviderUnclaimedReward[_epoch][ClaimType.WNAT][delegates[i]];
+                    UnclaimedRewardState storage state =
+                        epochTypeProviderUnclaimedReward[_epoch][ClaimType.WNAT][delegates[i]];
                     // check if reward state is already initialised
                     require(_allClaimsInitialised || state.initialised, "not initialised");
                     // calculate weight that corresponds to the delegate at index `i`
@@ -559,7 +599,14 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
                     // increase total reward amount
                     _rewardAmountWei += claimRewardAmount;
                     // emit event
-                    emit RewardClaimed(delegates[i], _rewardOwner, _recipient, _epoch, ClaimType.WNAT, claimRewardAmount);
+                    emit RewardClaimed(
+                        delegates[i],
+                        _rewardOwner,
+                        _recipient,
+                        _epoch,
+                        ClaimType.WNAT,
+                        claimRewardAmount
+                    );
                 }
             }
 
@@ -567,7 +614,8 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             if (delegatorBalance > delegatedVotePower &&
                 voterWhitelister.getVoterSigningAddress(_epoch, _rewardOwner) != address(0))
             {
-                UnclaimedRewardState storage state = epochTypeProviderUnclaimedReward[_epoch][ClaimType.WNAT][_rewardOwner];
+                UnclaimedRewardState storage state =
+                    epochTypeProviderUnclaimedReward[_epoch][ClaimType.WNAT][_rewardOwner];
                 // check if reward state is already initialised
                 require(_allClaimsInitialised || state.initialised, "not initialised");
                 // reduce remaining amount and weight
@@ -590,9 +638,11 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         internal
         returns (uint120 _rewardAmountWei)
     {
-        (bytes20[] memory nodeIds, uint256[] memory weights) = pChainStakeMirror.stakesOfAt(_rewardOwner, _votePowerBlock);
+        (bytes20[] memory nodeIds, uint256[] memory weights) = pChainStakeMirror.stakesOfAt(
+            _rewardOwner, _votePowerBlock);
         for (uint256 i = 0; i < nodeIds.length; i++) { // _rewardOwner had some stakes at _votePowerBlock
-            UnclaimedRewardState storage state = epochTypeProviderUnclaimedReward[_epoch][ClaimType.MIRROR][address(nodeIds[i])];
+            UnclaimedRewardState storage state =
+                epochTypeProviderUnclaimedReward[_epoch][ClaimType.MIRROR][address(nodeIds[i])];
             // check if reward state is already initialised
             require(_allClaimsInitialised || state.initialised, "not initialised");
             // reduce remaining amount and weight
@@ -600,7 +650,14 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             // increase total reward amount
             _rewardAmountWei += claimRewardAmount;
             // emit event
-            emit RewardClaimed(address(nodeIds[i]), _rewardOwner, _recipient, _epoch, ClaimType.MIRROR, claimRewardAmount);
+            emit RewardClaimed(
+                address(nodeIds[i]),
+                _rewardOwner,
+                _recipient,
+                _epoch,
+                ClaimType.MIRROR,
+                claimRewardAmount
+            );
         }
     }
 
@@ -696,7 +753,8 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     }
 
     function _minClaimableRewardEpoch() internal view returns (uint64) {
-        return Math.max(firstClaimableRewardEpoch, Math.max(_getInitialRewardEpoch(), nextRewardEpochToExpire)).toUint64();
+        return Math.max(firstClaimableRewardEpoch,
+            Math.max(_getInitialRewardEpoch(), nextRewardEpochToExpire)).toUint64();
     }
 
     /**

@@ -129,7 +129,8 @@ contract VoterWhitelister is Governed, AddressUpdatable {
     }
 
     /**
-     * Creates signing policy snaphot and returns the list of whitelisted signing addresses and normalised weights for a given reward epoch
+     * Creates signing policy snapshot and returns the list of whitelisted signing addresses
+       and normalised weights for a given reward epoch
      */
     function createSigningPolicySnapshot(uint256 _rewardEpoch)
         external onlyFinalisation
@@ -172,7 +173,12 @@ contract VoterWhitelister is Governed, AddressUpdatable {
     /**
      * Returns the list of whitelisted ftso addresses for a given reward epoch
      */
-    function getWhitelistedFtsoAddresses(uint256 _rewardEpoch) external view returns (address[] memory _ftsoAddresses) {
+    function getWhitelistedFtsoAddresses(
+        uint256 _rewardEpoch
+    )
+        external view
+        returns (address[] memory _ftsoAddresses)
+    {
         VoterInfo[] storage voters = whitelist[_rewardEpoch];
         uint256 length = voters.length;
         _ftsoAddresses = new address[](length);
@@ -184,7 +190,12 @@ contract VoterWhitelister is Governed, AddressUpdatable {
     /**
      * Returns the list of whitelisted signing addresses for a given reward epoch
      */
-    function getWhitelistedSigningAddresses(uint256 _rewardEpoch) external view returns (address[] memory _signingAddresses) {
+    function getWhitelistedSigningAddresses(
+        uint256 _rewardEpoch
+    )
+        external view
+        returns (address[] memory _signingAddresses)
+    {
         VoterInfo[] storage voters = whitelist[_rewardEpoch];
         uint256 length = voters.length;
         _signingAddresses = new address[](length);
@@ -244,7 +255,8 @@ contract VoterWhitelister is Governed, AddressUpdatable {
     {
         finalisation = Finalisation(_getContractAddress(_contractNameHashes, _contractAddresses, "Finalisation"));
         entityManager = EntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
-        pChainStakeMirror = IPChainStakeMirror(_getContractAddress(_contractNameHashes, _contractAddresses, "PChainStakeMirror"));
+        pChainStakeMirror = IPChainStakeMirror(_getContractAddress(
+            _contractNameHashes, _contractAddresses, "PChainStakeMirror"));
         wNat = IWNat(_getContractAddress(_contractNameHashes, _contractAddresses, "WNat"));
     }
 
