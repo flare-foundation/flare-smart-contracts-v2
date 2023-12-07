@@ -8,7 +8,7 @@ error CustomErrorUint(string message, uint256 value);
 
 contract TestCustomError {
 
-    function testError(bool _message) public {
+    function testError(bool _message) public pure {
         if (_message) {
             revert CustomErrorMessage("some error message");
         }
@@ -17,7 +17,7 @@ contract TestCustomError {
         }
     }
 
-    function testErrorUint(uint256 _value) public {
+    function testErrorUint(uint256 _value) public pure {
             revert CustomErrorUint("error message", _value);
     }
 

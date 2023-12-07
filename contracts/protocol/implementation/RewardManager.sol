@@ -19,10 +19,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     using SafeCast for uint256;
     using SafePct for uint256;
 
-    uint256 constant internal MAX_BIPS = 1e4;
-    uint256 constant internal PPM_MAX = 1e6;
-    address payable constant internal BURN_ADDRESS = payable(0x000000000000000000000000000000000000dEaD);
-
     enum ClaimType { DIRECT, FEE, WNAT, MIRROR, CCHAIN }
 
     struct UnclaimedRewardState {   // Used for storing unclaimed reward info.
@@ -48,6 +44,10 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         uint16 value;               // fee percentage value (value between 0 and 1e4)
         uint240 validFromEpoch;     // id of the reward epoch from which the value is valid
     }
+
+    uint256 constant internal MAX_BIPS = 1e4;
+    uint256 constant internal PPM_MAX = 1e6;
+    address payable constant internal BURN_ADDRESS = payable(0x000000000000000000000000000000000000dEaD);
 
     mapping(address => uint256) private rewardOwnerNextClaimableEpoch;
     mapping(uint64 => uint64) private epochVotePowerBlock;
@@ -346,57 +346,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         _lockedFundsWei = totalFundsReceivedWei - totalInflationReceivedWei;
         _totalInflationAuthorizedWei = totalInflationAuthorizedWei;
         _totalClaimedWei = totalClaimedWei + totalBurnedWei;
-    }
-
-    /**
-     * @notice Returns fee percentage setting for `_dataProvider` at `_rewardEpoch`.
-     * @param _dataProvider         address representing a data provider
-     * @param _rewardEpoch          reward epoch number
-     */
-    function _getDataProviderFeePercentage(
-        address _dataProvider,
-        uint256 _rewardEpoch
-    )
-        internal view
-        returns (uint16)
-    {
-        FeePercentage[] storage fps = dataProviderFeePercentages[_dataProvider];
-        uint256 index = fps.length;
-        while (index > 0) {
-            index--;
-            if (_rewardEpoch >= fps[index].validFromEpoch) {
-                return fps[index].value;
-            }
-        }
-        return defaultFeePercentageBIPS;
-    }
-
-    function _getBurnFactor(uint64 _rewardEpoch, address _rewardOwner) internal view returns(uint256) {
-        return finalisation.getRewardsFeeBurnFactor(_rewardEpoch, _rewardOwner);
-    }
-
-    function _getVotePower(
-        uint64 _rewardEpoch,
-        address _beneficiary,
-        ClaimType _claimType
-    )
-        internal view
-        returns (uint128)
-    {
-        uint256 votePowerBlock = _getVotePowerBlock(_rewardEpoch);
-        if (_claimType == ClaimType.WNAT) {
-            return wNat.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
-        } else if (_claimType == ClaimType.MIRROR) {
-            return pChainStakeMirror.votePowerOfAt(bytes20(_beneficiary), votePowerBlock).toUint128();
-        } else if (_claimType == ClaimType.CCHAIN) {
-            return 0; // TODO cChain.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
-        } else {
-            return 0;
-        }
-    }
-
-    function _getVotePowerBlock(uint64 _rewardEpoch) internal view returns (uint256) {
-        return finalisation.getVotePowerBlock(_rewardEpoch); // TODO - save locally?
     }
 
     function _processProofs(
@@ -716,6 +665,19 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         }
     }
 
+    function _handleSelfDestructProceeds() internal returns (uint256 _expectedBalance) {
+        _expectedBalance = lastBalance + msg.value;
+        uint256 currentBalance = address(this).balance;
+        if (currentBalance > _expectedBalance) {
+            // Then assume extra were self-destruct proceeds and burn it
+            //slither-disable-next-line arbitrary-send-eth
+            BURN_ADDRESS.transfer(currentBalance - _expectedBalance);
+        } else if (currentBalance < _expectedBalance) {
+            // This is a coding error
+            assert(false);
+        }
+    }
+
     /**
      * Implementation of the AddressUpdatable abstract method.
      */
@@ -735,6 +697,57 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             _getContractAddress(_contractNameHashes, _contractAddresses, "PChainStakeMirror"));
         wNat = IWNat(
             _getContractAddress(_contractNameHashes, _contractAddresses, "WNat"));
+    }
+
+    /**
+     * @notice Returns fee percentage setting for `_dataProvider` at `_rewardEpoch`.
+     * @param _dataProvider         address representing a data provider
+     * @param _rewardEpoch          reward epoch number
+     */
+    function _getDataProviderFeePercentage(
+        address _dataProvider,
+        uint256 _rewardEpoch
+    )
+        internal view
+        returns (uint16)
+    {
+        FeePercentage[] storage fps = dataProviderFeePercentages[_dataProvider];
+        uint256 index = fps.length;
+        while (index > 0) {
+            index--;
+            if (_rewardEpoch >= fps[index].validFromEpoch) {
+                return fps[index].value;
+            }
+        }
+        return defaultFeePercentageBIPS;
+    }
+
+    function _getBurnFactor(uint64 _rewardEpoch, address _rewardOwner) internal view returns(uint256) {
+        return finalisation.getRewardsFeeBurnFactor(_rewardEpoch, _rewardOwner);
+    }
+
+    function _getVotePower(
+        uint64 _rewardEpoch,
+        address _beneficiary,
+        ClaimType _claimType
+    )
+        internal view
+        returns (uint128)
+    {
+        uint256 votePowerBlock = _getVotePowerBlock(_rewardEpoch);
+        if (_claimType == ClaimType.WNAT) {
+            return wNat.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
+        } else if (_claimType == ClaimType.MIRROR) {
+            return pChainStakeMirror.votePowerOfAt(bytes20(_beneficiary), votePowerBlock).toUint128();
+        } else if (_claimType == ClaimType.CCHAIN) {
+            return 0; // TODO cChain.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
+        } else {
+            return 0;
+        }
+    }
+
+    function _getVotePowerBlock(uint64 _rewardEpoch) internal view returns (uint256) {
+        return finalisation.getVotePowerBlock(_rewardEpoch); // TODO - save locally?
     }
 
     /**
@@ -763,19 +776,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
      */
     function _getInitialRewardEpoch() internal view returns (uint256 _initialRewardEpoch) {
         _initialRewardEpoch = initialRewardEpoch == 0 ? 0 : initialRewardEpoch - 1;
-    }
-
-    function _handleSelfDestructProceeds() internal returns (uint256 _expectedBalance) {
-        _expectedBalance = lastBalance + msg.value;
-        uint256 currentBalance = address(this).balance;
-        if (currentBalance > _expectedBalance) {
-            // Then assume extra were self-destruct proceeds and burn it
-            //slither-disable-next-line arbitrary-send-eth
-            BURN_ADDRESS.transfer(currentBalance - _expectedBalance);
-        } else if (currentBalance < _expectedBalance) {
-            // This is a coding error
-            assert(false);
-        }
     }
 
     function _getExpectedBalance() private view returns(uint256 _balanceExpectedWei) {

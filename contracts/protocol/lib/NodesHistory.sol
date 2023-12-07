@@ -11,9 +11,6 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
  **/
 library NodesHistory {
 
-    uint256 public constant MAX_NODES = 4; // TODO can be set by governance
-    string private constant MAX_NODES_MSG = "Max nodes exceeded";
-
     struct Node {
         bytes20 nodeId;
         // nodeIds[0] will also hold length and blockNumber to save 1 slot of storage per checkpoint
@@ -41,6 +38,9 @@ library NodesHistory {
         uint64 startIndex;
         uint64 length;
     }
+
+    uint256 public constant MAX_NODES = 4; // TODO can be set by governance
+    string private constant MAX_NODES_MSG = "Max nodes exceeded";
 
     /**
      * @notice Adds or removes the nodeId at the current block.
@@ -85,6 +85,78 @@ library NodesHistory {
                 cp.nodeIds[0].fromBlock = SafeCast.toUint64(block.number);
             }
         }
+    }
+
+    /**
+     * Clear all nodeIds at this moment.
+     * @param _self A CheckPointHistoryState instance to manage.
+     */
+    function clear(CheckPointHistoryState storage _self) internal {
+        uint256 historyCount = _self.length;
+        if (historyCount > 0) {
+            // add an empty checkpoint
+            CheckPoint storage cp = _self.checkpoints[historyCount];
+            _self.length = SafeCast.toUint64(historyCount + 1);
+            // create empty checkpoint = only set fromBlock
+            cp.nodeIds[0] = Node({
+                nodeId: bytes20(0),
+                fromBlock: SafeCast.toUint64(block.number),
+                length: 0
+            });
+        }
+    }
+
+    /**
+     * Delete at most `_count` of the oldest checkpoints.
+     * At least one checkpoint at or before `_cleanupBlockNumber` will remain
+     * (unless the history was empty to start with).
+     */
+    function cleanupOldCheckpoints(
+        CheckPointHistoryState storage _self,
+        uint256 _count,
+        uint256 _cleanupBlockNumber
+    )
+        internal
+        returns (uint256)
+    {
+        if (_cleanupBlockNumber == 0) return 0;   // optimization for when cleaning is not enabled
+        uint256 length = _self.length;
+        if (length == 0) return 0;
+        uint256 startIndex = _self.startIndex;
+        // length - 1 is safe, since length != 0 (check above)
+        uint256 endIndex = Math.min(startIndex + _count, length - 1);    // last element can never be deleted
+        uint256 index = startIndex;
+        // we can delete `checkpoint[index]` while the next checkpoint is at `_cleanupBlockNumber` or before
+        while (index < endIndex && _self.checkpoints[index + 1].nodeIds[0].fromBlock <= _cleanupBlockNumber) {
+            CheckPoint storage cp = _self.checkpoints[index];
+            uint256 cplength = cp.nodeIds[0].length;
+            for (uint256 i = 0; i < cplength; i++) {
+                delete cp.nodeIds[i];
+            }
+            index++;
+        }
+        if (index > startIndex) {   // index is the first not deleted index
+            _self.startIndex = SafeCast.toUint64(index);
+        }
+        return index - startIndex;  // safe: index = startIndex at start and increases in loop
+    }
+
+    /**
+     * Get the number of nodeIds.
+     * @param _self A CheckPointHistoryState instance to query.
+     * @param _blockNumber The block number to query.
+     * @return _count Count of nodeIds at the time.
+     **/
+    function countAt(
+        CheckPointHistoryState storage _self,
+        uint256 _blockNumber
+    )
+        internal view
+        returns (uint256 _count)
+    {
+        (bool found, uint256 index) = _findGreatestBlockLessThan(_self, _blockNumber);
+        if (!found) return 0;
+        return _self.checkpoints[index].nodeIds[0].length;
     }
 
     /**
@@ -153,78 +225,6 @@ library NodesHistory {
         }
         CheckPoint storage cp = _self.checkpoints[length - 1];
         return (cp.nodeIds[0].length, cp.nodeIds);
-    }
-
-    /**
-     * Get the number of nodeIds.
-     * @param _self A CheckPointHistoryState instance to query.
-     * @param _blockNumber The block number to query.
-     * @return _count Count of nodeIds at the time.
-     **/
-    function countAt(
-        CheckPointHistoryState storage _self,
-        uint256 _blockNumber
-    )
-        internal view
-        returns (uint256 _count)
-    {
-        (bool found, uint256 index) = _findGreatestBlockLessThan(_self, _blockNumber);
-        if (!found) return 0;
-        return _self.checkpoints[index].nodeIds[0].length;
-    }
-
-    /**
-     * Clear all nodeIds at this moment.
-     * @param _self A CheckPointHistoryState instance to manage.
-     */
-    function clear(CheckPointHistoryState storage _self) internal {
-        uint256 historyCount = _self.length;
-        if (historyCount > 0) {
-            // add an empty checkpoint
-            CheckPoint storage cp = _self.checkpoints[historyCount];
-            _self.length = SafeCast.toUint64(historyCount + 1);
-            // create empty checkpoint = only set fromBlock
-            cp.nodeIds[0] = Node({
-                nodeId: bytes20(0),
-                fromBlock: SafeCast.toUint64(block.number),
-                length: 0
-            });
-        }
-    }
-
-    /**
-     * Delete at most `_count` of the oldest checkpoints.
-     * At least one checkpoint at or before `_cleanupBlockNumber` will remain
-     * (unless the history was empty to start with).
-     */
-    function cleanupOldCheckpoints(
-        CheckPointHistoryState storage _self,
-        uint256 _count,
-        uint256 _cleanupBlockNumber
-    )
-        internal
-        returns (uint256)
-    {
-        if (_cleanupBlockNumber == 0) return 0;   // optimization for when cleaning is not enabled
-        uint256 length = _self.length;
-        if (length == 0) return 0;
-        uint256 startIndex = _self.startIndex;
-        // length - 1 is safe, since length != 0 (check above)
-        uint256 endIndex = Math.min(startIndex + _count, length - 1);    // last element can never be deleted
-        uint256 index = startIndex;
-        // we can delete `checkpoint[index]` while the next checkpoint is at `_cleanupBlockNumber` or before
-        while (index < endIndex && _self.checkpoints[index + 1].nodeIds[0].fromBlock <= _cleanupBlockNumber) {
-            CheckPoint storage cp = _self.checkpoints[index];
-            uint256 cplength = cp.nodeIds[0].length;
-            for (uint256 i = 0; i < cplength; i++) {
-                delete cp.nodeIds[i];
-            }
-            index++;
-        }
-        if (index > startIndex) {   // index is the first not deleted index
-            _self.startIndex = SafeCast.toUint64(index);
-        }
-        return index - startIndex;  // safe: index = startIndex at start and increases in loop
     }
 
     /////////////////////////////////////////////////////////////////////////////////

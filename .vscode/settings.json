@@ -1,0 +1,34 @@
+{
+    "solidity.compileUsingRemoteVersion": "v0.8.20+commit.a1b79de6",
+    "solidity.packageDefaultDependenciesDirectory": "node_modules",
+    "[javascript]": {
+        "editor.tabSize": 2
+      },
+      "[typescript]": {
+        "editor.tabSize": 2
+      },
+      "[solidity]": {
+        "editor.tabSize": 4
+      },
+      "terminal.integrated.scrollback": 2000,
+    "peacock.color": "#ffb3b3",
+    "workbench.colorCustomizations": {
+        "activityBar.activeBackground": "#ffe6e6",
+        "activityBar.background": "#ffe6e6",
+        "activityBar.foreground": "#15202b",
+        "activityBar.inactiveForeground": "#15202b99",
+        "activityBarBadge.background": "#00bf00",
+        "activityBarBadge.foreground": "#e7e7e7",
+        "commandCenter.border": "#15202b99",
+        "sash.hoverBorder": "#ffe6e6",
+        "statusBar.background": "#ffb3b3",
+        "statusBar.foreground": "#15202b",
+        "statusBarItem.hoverBackground": "#ff8080",
+        "statusBarItem.remoteBackground": "#ffb3b3",
+        "statusBarItem.remoteForeground": "#15202b",
+        "titleBar.activeBackground": "#ffb3b3",
+        "titleBar.activeForeground": "#15202b",
+        "titleBar.inactiveBackground": "#ffb3b399",
+        "titleBar.inactiveForeground": "#15202b99"
+    }
+}
