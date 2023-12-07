@@ -19,6 +19,13 @@ contract EntityManager {
     mapping(address => address) internal signingAddressRegistered;
     mapping(address => address) internal signingAddressRegistrationQueue;
 
+    event NodeIdRegistered(address indexed voter, bytes20 indexed nodeId);
+    event NodeIdUnregistered(address indexed voter, bytes20 indexed nodeId);
+    event FtsoAddressRegistered(address indexed voter, address indexed ftsoAddress);
+    event FtsoAddressRegistrationConfirmed(address indexed ftsoAddress, address indexed voter);
+    event SigningAddressRegistered(address indexed voter, address indexed signingAddress);
+    event SigningAddressRegistrationConfirmed(address indexed signingAddress, address indexed voter);
+
     function registerNodeId(bytes20 _nodeId) external {
         require(nodeIdRegistered[_nodeId] == address(0), "node id already registered");
         register[msg.sender].nodeIds.addRemoveNodeId(_nodeId, true);

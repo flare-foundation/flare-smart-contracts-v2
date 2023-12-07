@@ -13,9 +13,6 @@ import "../../governance/implementation/Governed.sol";
  */
 contract VoterWhitelister is Governed, AddressUpdatable {
 
-    uint256 internal constant UINT16_MAX = type(uint16).max;
-    uint256 internal constant UINT256_MAX = type(uint256).max;
-
     struct VoterInfo {
         address voter; // entity
         address signingAddress;
@@ -34,6 +31,9 @@ contract VoterWhitelister is Governed, AddressUpdatable {
         bytes20[] nodeIds;
         uint256[] nodeWeights;
     }
+
+    uint256 internal constant UINT16_MAX = type(uint16).max;
+    uint256 internal constant UINT256_MAX = type(uint256).max;
 
     /// Maximum number of voters in the whitelist.
     uint256 public maxVoters;
