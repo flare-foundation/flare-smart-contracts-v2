@@ -78,11 +78,21 @@ contract VoterWhitelister is Governed, AddressUpdatable {
         IGovernanceSettings _governanceSettings,
         address _governance,
         address _addressUpdater,
-        uint256 _maxVoters
+        uint256 _maxVoters,
+        uint256 _firstRewardEpoch,
+        address[] memory _initialVoters
     )
         Governed(_governanceSettings, _governance) AddressUpdatable(_addressUpdater)
     {
         maxVoters = _maxVoters;
+
+        uint256 length = _initialVoters.length;
+        uint16 normalisedWeight = uint16(UINT16_MAX / length);
+        for (uint256 i = 0; i < length; i++) {
+            address voter = _initialVoters[i];
+            epochSigningAddressToVoter[_firstRewardEpoch][voter] = VoterWithNormalisedWeight(voter, normalisedWeight);
+            epochVoterToSigningAddress[_firstRewardEpoch][voter] = voter;
+        }
     }
 
     /**
@@ -136,7 +146,8 @@ contract VoterWhitelister is Governed, AddressUpdatable {
         external onlyFinalisation
         returns (
             address[] memory _signingAddresses,
-            uint16[] memory _normalisedWeights
+            uint16[] memory _normalisedWeights,
+            uint16 _normalisedWeightsSum
         )
     {
         VoterInfo[] storage voters = whitelist[_rewardEpoch];
@@ -156,6 +167,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
         // normalisation of weights
         for (uint256 i = 0; i < length; i++) {
             _normalisedWeights[i] = uint16(weights[i] * UINT16_MAX / weightsSum); // weights[i] <= weightsSum
+            _normalisedWeightsSum += _normalisedWeights[i];
             address voter = voters[i].voter;
             epochVoterToSigningAddress[_rewardEpoch][_signingAddresses[i]] = voter;
             epochSigningAddressToVoter[_rewardEpoch][_signingAddresses[i]] =

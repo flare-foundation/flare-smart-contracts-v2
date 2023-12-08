@@ -12,6 +12,8 @@ contract Submission is AddressUpdatable {
     mapping(address => bool) private revealAddresses;
     mapping(address => bool) private signingAddresses;
 
+    event NewVotingRoundInitiated();
+
     /// Only Finalisation contract can call this method.
     modifier onlyFinalisation {
         require (msg.sender == address(finalisation), "only finalisation");
@@ -39,6 +41,8 @@ contract Submission is AddressUpdatable {
         for (uint256 i = 0; i < _signingAddresses.length; i++) {
             signingAddresses[_signingAddresses[i]] = true;
         }
+
+        emit NewVotingRoundInitiated();
     }
 
     function commit() external returns (bool) {

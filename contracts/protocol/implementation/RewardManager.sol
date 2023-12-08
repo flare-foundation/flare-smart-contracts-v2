@@ -775,7 +775,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
      * @return _initialRewardEpoch Initial reward epoch number.
      */
     function _getInitialRewardEpoch() internal view returns (uint256 _initialRewardEpoch) {
-        _initialRewardEpoch = initialRewardEpoch == 0 ? 0 : initialRewardEpoch - 1;
+        (,_initialRewardEpoch) = Math.trySub(initialRewardEpoch, 1);
     }
 
     function _getExpectedBalance() private view returns(uint256 _balanceExpectedWei) {

@@ -1,5 +1,5 @@
 
-import { expectRevert} from '@openzeppelin/test-helpers';
+import { expectRevert } from '@openzeppelin/test-helpers';
 import { getTestFile } from "../../../utils/constants";
 import { EntityManagerInstance } from '../../../../typechain-truffle/contracts/protocol/implementation/EntityManager';
 

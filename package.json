@@ -14,6 +14,8 @@
   "license": "MIT",
   "directories": {},
   "scripts": {
+    "---------TEST---SCRIPTS": "",
+    "test_integration_hh": "env TEST_PATH=./test/integration yarn hardhat test --network hardhat",
     "---------COMPILE---SCRIPTS": "",
     "compile": "yarn hardhat compile && yarn typechain-ethers-v6 && yarn typechain-truffle-v5 && yarn typechain-web3-v1 && yarn typechain-prepare",
     "c": "yarn compile",
@@ -35,13 +37,16 @@
     "flare-smart-contracts": "git+https://gitlab.com/flarenetwork/flare-smart-contracts.git"
   },
   "devDependencies": {
+    "@gnosis.pm/mock-contract": "4.0.0",
     "@openzeppelin/test-helpers": "^0.5.16",
     "@typechain/hardhat": "^9.1.0",
     "@typechain/web3-v1": "^6.0.7",
     "@typechain/truffle-v5": "^8.0.7",
+    "@types/elliptic": "6.4.18",
     "@types/node": "20.10.3",
     "@types/chai": "^4.3.11",
     "@types/mocha": "^10.0.6",
+    "elliptic": "6.5.4",
     "ts-node": "^10.9.1",
     "typechain": "^8.3.2",
     "typescript": "^5.3.2",

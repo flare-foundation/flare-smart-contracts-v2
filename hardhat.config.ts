@@ -67,10 +67,15 @@ const config: HardhatUserConfig = {
       }
     ],
     overrides: {
-      "contracts/utils/Imports.sol": {
+      "contracts/mock/Imports.sol": {
         version: "0.6.12",
         settings: {},
       },
+      "@gnosis.pm/mock-contract/contracts/MockContract.sol": {
+        version: "0.6.12",
+        settings: {}
+      },
+      // EXTRA_OVERRIDES
     },
   },
 

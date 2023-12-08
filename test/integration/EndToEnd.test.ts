@@ -1,0 +1,369 @@
+
+import { expectEvent, expectRevert, time } from '@openzeppelin/test-helpers';
+import { getTestFile } from "../utils/constants";
+import { AddressBinderInstance, EntityManagerInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, WNatInstance } from '../../typechain-truffle';
+import { Contracts } from '../../deployment/scripts/Contracts';
+import { encodeContractNames, findRequiredEvent, toBN } from '../utils/test-helpers';
+import privateKeys from "../../deployment/test-1020-accounts.json"
+import * as util from "../utils/key-to-address";
+import { toChecksumAddress } from 'ethereumjs-util';
+import { VoterWhitelisterInstance } from '../../typechain-truffle/contracts/protocol/implementation/VoterWhitelister';
+import { FinalisationInstance } from '../../typechain-truffle/contracts/protocol/implementation/Finalisation';
+import { SubmissionInstance } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
+import { testDeployGovernanceSettings } from '../utils/contract-test-helpers';
+
+const MockContract = artifacts.require("MockContract");
+const WNat = artifacts.require("WNat");
+const VPContract = artifacts.require("VPContract");
+const PChainStakeMirror = artifacts.require("PChainStakeMirror");
+const GovernanceVotePower = artifacts.require("GovernanceVotePower");
+const AddressBinder = artifacts.require("AddressBinder");
+const PChainVerifier = artifacts.require("PChainStakeMirrorVerifier");
+const EntityManager = artifacts.require("EntityManager");
+const VoterWhitelister = artifacts.require("VoterWhitelister");
+const Finalisation = artifacts.require("Finalisation");
+const Submission = artifacts.require("Submission");
+
+
+type PChainStake = {
+    txId: string,
+    stakingType: number,
+    inputAddress: string,
+    nodeId: string,
+    startTime: number,
+    endTime: number,
+    weight: number,
+}
+
+type SigningPolicy = {
+    rId: number                 // Reward epoch id.
+    startVotingRoundId: number, // First voting round id of validity. Usually it is the first voting round of reward epoch rID.
+                                // It can be later, if the confirmation of the signing policy on Flare blockchain gets delayed.
+    threshold: number,          // Confirmation threshold in terms of PPM (parts per million). Usually more than 500,000.
+    seed: string,               // Random seed.
+    voters: string[],           // The list of eligible voters in the canonical order.
+    weights: number[]           // The corresponding list of normalised signing weights of eligible voters.
+                                // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
+                                // while approximately keeping the weight relations.
+}
+
+async function setMockStakingData(verifierMock: MockContractInstance, pChainVerifier: PChainStakeMirrorVerifierInstance, txId: string, stakingType: number, inputAddress: string, nodeId: string, startTime: BN, endTime: BN, weight: number, stakingProved: boolean = true): Promise<PChainStake> {
+    let data = {
+        txId: txId,
+        stakingType: stakingType,
+        inputAddress: inputAddress,
+        nodeId: nodeId,
+        startTime: startTime.toNumber(),
+        endTime: endTime.toNumber(),
+        weight: weight
+    };
+
+    const verifyPChainStakingMethod = pChainVerifier.contract.methods.verifyStake(data, []).encodeABI();
+    await verifierMock.givenCalldataReturnBool(verifyPChainStakingMethod, stakingProved);
+    return data;
+}
+
+function encodeSigningPolicy(signingPolicy: SigningPolicy): string {
+    return web3.utils.keccak256(web3.eth.abi.encodeParameter("(uint64,uint64,uint64,uint256,address[],uint16[])",
+        [signingPolicy.rId, signingPolicy.startVotingRoundId, signingPolicy.threshold, signingPolicy.seed, signingPolicy.voters, signingPolicy.weights]));
+}
+
+contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
+
+    const NEW_SIGNING_POLICY_PROTOCOL_ID = 0;
+    const UPTIME_VOTE_PROTOCOL_ID = 1;
+    const REWARDS_PROTOCOL_ID = 2;
+    const FTSO_PROTOCOL_ID = 100;
+
+    let wNat: WNatInstance;
+    let pChainStakeMirror: PChainStakeMirrorInstance;
+    let governanceVotePower: GovernanceVotePowerInstance;
+    let addressBinder: AddressBinderInstance;
+    let pChainVerifier: PChainStakeMirrorVerifierInstance;
+    let verifierMock: MockContractInstance;
+
+    let governanceSettings: GovernanceSettingsInstance;
+    let entityManager: EntityManagerInstance;
+    let voterWhitelister: VoterWhitelisterInstance;
+    let finalisation: FinalisationInstance;
+    let submission: SubmissionInstance;
+
+    let initialSigningPolicy: SigningPolicy;
+
+    let registeredPAddresses: string[] = [];
+    let registeredCAddresses: string[] = [];
+    let now: BN;
+    let nodeIds: string[] = [];
+    let weightsGwei: number[] = [];
+    let stakeIds: string[] = [];
+
+    const GWEI = 1e9;
+    const VOTING_EPOCH_DURATION_SEC = 90;
+
+    const ADDRESS_UPDATER = accounts[16];
+    const CLEANER_CONTRACT = accounts[100];
+    const CLEANUP_BLOCK_NUMBER_MANAGER = accounts[17];
+
+    before(async () => {
+        pChainStakeMirror = await PChainStakeMirror.new(
+            accounts[0],
+            accounts[0],
+            ADDRESS_UPDATER,
+            2
+        );
+
+        wNat = await WNat.new(accounts[0], "Wrapped NAT", "WNAT");
+        const vpContract = await VPContract.new(wNat.address, false);
+        await wNat.setWriteVpContract(vpContract.address);
+        await wNat.setReadVpContract(vpContract.address);
+        governanceVotePower = await GovernanceVotePower.new(wNat.address, pChainStakeMirror.address);
+        await wNat.setGovernanceVotePower(governanceVotePower.address);
+
+        addressBinder = await AddressBinder.new();
+        pChainVerifier = await PChainVerifier.new(ADDRESS_UPDATER, 10, 1000, 5, 5000);
+        verifierMock = await MockContract.new();
+
+        await pChainStakeMirror.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.ADDRESS_BINDER, Contracts.GOVERNANCE_VOTE_POWER, Contracts.CLEANUP_BLOCK_NUMBER_MANAGER, Contracts.P_CHAIN_STAKE_MIRROR_VERIFIER]),
+            [ADDRESS_UPDATER, addressBinder.address, governanceVotePower.address, CLEANUP_BLOCK_NUMBER_MANAGER, verifierMock.address], { from: ADDRESS_UPDATER });
+
+        await pChainStakeMirror.setCleanerContract(CLEANER_CONTRACT);
+
+        // activate contract
+        await pChainStakeMirror.activate();
+
+        // set values
+        weightsGwei = [1000, 500, 100, 50];
+        nodeIds = ["0x0123456789012345678901234567890123456789", "0x0123456789012345678901234567890123456788", "0x0123456789012345678901234567890123456787", "0x0123456789012345678901234567890123456786"];
+        stakeIds = [web3.utils.keccak256("stake1"), web3.utils.keccak256("stake2"), web3.utils.keccak256("stake3"), web3.utils.keccak256("stake4")];
+        now = await time.latest();
+
+
+        governanceSettings = await testDeployGovernanceSettings(accounts[0], 3600, [accounts[0]]);
+        entityManager = await EntityManager.new();
+        voterWhitelister = await VoterWhitelister.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, [accounts[0]]);
+
+        initialSigningPolicy = {rId: 0, startVotingRoundId: 0, threshold: Math.ceil(65535 / 2), seed: "123", voters: [accounts[0]], weights: [65535]};
+
+        const finalisationSettings = {
+            votingEpochsStartTs: now.toNumber(),
+            votingEpochDurationSeconds: VOTING_EPOCH_DURATION_SEC,
+            rewardEpochsStartTs: now.toNumber(),
+            rewardEpochDurationSeconds: 3600 * 5,
+            newSigningPolicyInitializationStartSeconds: 3600 * 2,
+            nonPunishableRandomAcquisitionMinDurationSeconds: 75 * 60,
+            nonPunishableRandomAcquisitionMinDurationBlocks: 2250,
+            voterRegistrationMinDurationSeconds: 30 * 60,
+            voterRegistrationMinDurationBlocks: 20, // default 900,
+            nonPunishableSigningPolicySignMinDurationSeconds: 20 * 60,
+            nonPunishableSigningPolicySignMinDurationBlocks: 600,
+            signingPolicyThresholdPPM: 500000,
+            signingPolicyMinNumberOfVoters: 2
+        };
+
+        finalisation = await Finalisation.new(
+            governanceSettings.address,
+            accounts[0],
+            ADDRESS_UPDATER,
+            accounts[0],
+            finalisationSettings,
+            1,
+            0,
+            encodeSigningPolicy(initialSigningPolicy)
+        );
+
+        submission = await Submission.new(ADDRESS_UPDATER);
+
+        await voterWhitelister.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FINALISATION, Contracts.ENTITY_MANAGER, Contracts.WNAT, Contracts.P_CHAIN_STAKE_MIRROR]),
+            [ADDRESS_UPDATER, finalisation.address, entityManager.address, wNat.address, pChainStakeMirror.address], { from: ADDRESS_UPDATER });
+
+        await finalisation.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_WHITELISTER, Contracts.SUBMISSION]),
+            [ADDRESS_UPDATER, voterWhitelister.address, submission.address], { from: ADDRESS_UPDATER });
+
+        await submission.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FINALISATION]),
+            [ADDRESS_UPDATER, finalisation.address], { from: ADDRESS_UPDATER });
+    });
+
+    it("Should register addresses", async () => {
+        for (let i = 0; i < 4; i++) {
+            let prvKey = privateKeys[i].privateKey.slice(2);
+            let prvkeyBuffer = Buffer.from(prvKey, 'hex');
+            let [x, y] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
+            let pubKey = "0x" + util.encodePublicKey(x, y, false).toString('hex');
+            let pAddr = "0x" + util.publicKeyToAvalancheAddress(x, y).toString('hex');
+            let cAddr = toChecksumAddress("0x" + util.publicKeyToEthereumAddress(x, y).toString('hex'));
+            await addressBinder.registerAddresses(pubKey, pAddr, cAddr);
+            registeredPAddresses.push(pAddr);
+            registeredCAddresses.push(cAddr)
+        }
+    });
+
+    it("Should verify stakes", async () => {
+        for (let i = 0; i < 4; i++) {
+            const data = await setMockStakingData(verifierMock, pChainVerifier, stakeIds[i], 0, registeredPAddresses[i], nodeIds[i], now.subn(10), now.addn(10000), weightsGwei[i]);
+            await pChainStakeMirror.mirrorStake(data, []);
+        }
+    });
+
+    it("Should wrap some funds", async () => {
+        for (let i = 0; i < 4; i++) {
+            await wNat.deposit({ value: weightsGwei[i] * GWEI, from: registeredCAddresses[i] });
+        }
+    });
+
+    it("Should register nodes", async () => {
+        for (let i = 0; i < 4; i++) {
+            await entityManager.registerNodeId(nodeIds[i], { from: registeredCAddresses[i] });
+        }
+    });
+
+    it("Should register and confirm ftso addresses", async () => {
+        for (let i = 0; i < 4; i++) {
+            await entityManager.registerFtsoAddress(accounts[10 + i], { from: registeredCAddresses[i] });
+            await entityManager.confirmFtsoAddressRegistration(registeredCAddresses[i], { from: accounts[10 + i] });
+        }
+    });
+
+    it("Should register and confirm signing addresses", async () => {
+        for (let i = 0; i < 4; i++) {
+            await entityManager.registerSigningAddress(accounts[20 + i], { from: registeredCAddresses[i] });
+            await entityManager.confirmSigningAddressRegistration(registeredCAddresses[i], { from: accounts[20 + i] });
+        }
+    });
+
+    it("Should start random acquisition", async () => {
+        await time.increaseTo(now.addn(3600 * 3)); // 2 hours before new reward epoch
+        expectEvent(await finalisation.daemonize(), "RandomAcquisitionStarted", { rId: toBN(1) });
+    });
+
+    it("Should get good random", async () => {
+        const votingRoundId = 3600 * 3 / VOTING_EPOCH_DURATION_SEC + 1;
+        const quality = true;
+        const root = web3.utils.keccak256("root");
+
+        const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+            ["uint64", "uint64", "bool", "bytes32"],
+            [FTSO_PROTOCOL_ID, votingRoundId, quality, root]));
+
+        const signature = web3.eth.accounts.sign(hash, privateKeys[0].privateKey);
+        const signatureWithIndex = {
+            index: 0,
+            v: parseInt(signature.v, 16),
+            r: signature.r,
+            s: signature.s
+        };
+
+        await finalisation.finalise(initialSigningPolicy, FTSO_PROTOCOL_ID, votingRoundId, quality, root, [signatureWithIndex]);
+        expect((await finalisation.getCurrentRandomWithQuality())[1]).to.be.true;
+    });
+
+    it("Should select vote power block", async () => {
+        expectEvent(await finalisation.daemonize(), "VotePowerBlockSelected", { rId: toBN(1) });
+    });
+
+    it("Should register a few voters", async () => {
+        for (let i = 0; i < 4; i++) {
+            expectEvent(await voterWhitelister.requestWhitelisting(registeredCAddresses[i], { from: accounts[20 + i]}),
+                "VoterWhitelisted", {voter : registeredCAddresses[i], rewardEpoch: toBN(1), signingAddress: accounts[20 + i], ftsoAddress: accounts[10 + i]});
+        }
+    });
+
+    it("Should initialise new signing policy", async () => {
+        for (let i = 0; i < 20; i++) {
+            await time.advanceBlock(); // create required number of blocks to proceed
+        }
+        await time.increaseTo(now.addn(3600 * 4)); // at lest 30 minutes from the vote power block selection
+        const votingRoundId = 3600 * 5 / VOTING_EPOCH_DURATION_SEC;
+        expectEvent(await finalisation.daemonize(), "SigningPolicyInitialized",
+            { rId: toBN(1), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(20, 24),
+                seed: toBN("97145535369057751027849867295469471754898471117276362291843467808647318845974"), threshold: toBN(32767), weights: [toBN(39718), toBN(19859), toBN(3971), toBN(1985)] });
+    });
+
+    it("Should sign new signing policy", async () => {
+        const rewardEpochId = 1;
+        const newSigningPolicyHash = await finalisation.getConfirmedMerkleRoot(NEW_SIGNING_POLICY_PROTOCOL_ID, rewardEpochId);
+        const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+            ["uint64", "bytes32"],
+            [rewardEpochId, newSigningPolicyHash]));
+
+        const signature = web3.eth.accounts.sign(hash, privateKeys[0].privateKey);
+        expectEvent(await finalisation.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature, { from: accounts[0] }), "SigningPolicySigned",
+            { rId: toBN(1), signingAddress: accounts[0], voter: accounts[0], thresholdReached: true });
+    });
+
+    it("Should start new reward epoch and initiate new voting round", async () => {
+        await time.increaseTo(now.addn(3600 * 5));
+        expect((await finalisation.getCurrentRewardEpoch()).toNumber()).to.be.equal(1);
+        const tx = await finalisation.daemonize();
+        await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
+    });
+
+    it("Should commit", async () => {
+        for (let i = 0; i < 4; i++) {
+            expect(await submission.commit.call( { from: accounts[10 + i]})).to.be.true;
+            await submission.commit( { from: accounts[10 + i]});
+            expect(await submission.commit.call( { from: accounts[10 + i]})).to.be.false;
+        }
+    });
+
+    it("Should initiate new voting round", async () => {
+        await time.increaseTo(now.addn(3600 * 5 + VOTING_EPOCH_DURATION_SEC));
+        const tx = await finalisation.daemonize();
+        await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
+    });
+
+    it("Should reveal", async () => {
+        for (let i = 0; i < 4; i++) {
+            expect(await submission.reveal.call( { from: accounts[10 + i]})).to.be.true;
+        }
+    });
+
+    it("Should sign", async () => {
+        for (let i = 0; i < 4; i++) {
+            expect(await submission.sign.call( { from: accounts[20 + i]})).to.be.true;
+        }
+    });
+
+    it("Should finalise", async () => {
+        const startVotingRoundId = 3600 * 5 / VOTING_EPOCH_DURATION_SEC;
+        const newSigningPolicy: SigningPolicy = {
+            rId: 1,
+            startVotingRoundId: startVotingRoundId,
+            threshold: Math.floor(65535 / 2),
+            seed: "97145535369057751027849867295469471754898471117276362291843467808647318845974",
+            voters: accounts.slice(20, 24),
+            weights: [39718, 19859, 3971, 1985]
+        };
+
+        const votingRoundId = startVotingRoundId + 1;
+        const quality = true;
+        const root = web3.utils.keccak256("root1");
+        const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+            ["uint64", "uint64", "bool", "bytes32"],
+            [FTSO_PROTOCOL_ID, votingRoundId, quality, root]));
+
+        const signaturesWithIndex = [];
+        for (let i = 0; i < 4; i++) {
+            const signature = web3.eth.accounts.sign(hash, privateKeys[20 + i].privateKey);
+            const signatureWithIndex = {
+                index: i,
+                v: parseInt(signature.v, 16),
+                r: signature.r,
+                s: signature.s
+            };
+            signaturesWithIndex.push(signatureWithIndex);
+        }
+
+        await submission.finalise(newSigningPolicy, FTSO_PROTOCOL_ID, votingRoundId, quality, root, signaturesWithIndex);
+        expect(await finalisation.getConfirmedMerkleRoot(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
+    });
+
+    it("Should commit 2", async () => {
+        for (let i = 0; i < 4; i++) {
+            expect(await submission.commit.call( { from: accounts[10 + i]})).to.be.true;
+        }
+    });
+});

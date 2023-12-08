@@ -4,6 +4,224 @@ pragma abicoder v2;
 
 // Sources flattened with hardhat v2.4.3 https://hardhat.org
 
+// File contracts/userInterfaces/IGovernanceSettings.sol
+
+
+
+/**
+ * Interface for the `GovernanceSettings` that hold the Flare governance address and its timelock.
+ *
+ * All governance calls are delayed by the timelock specified in this contract.
+ *
+ * **NOTE**: This contract enables updating the governance address and timelock only
+ * by hard-forking the network, meaning only by updating validator code.
+ */
+interface IGovernanceSettings {
+    /**
+     * Gets the governance account address.
+     * The governance address can only be changed by a hard fork.
+     * @return _address The governance account address.
+     */
+    function getGovernanceAddress() external view returns (address _address);
+
+    /**
+     * Gets the time in seconds that must pass between a governance call and its execution.
+     * The timelock value can only be changed by a hard fork.
+     * @return _timelock Time in seconds that passes between the governance call and execution.
+     */
+    function getTimelock() external view returns (uint256 _timelock);
+
+    /**
+     * Gets the addresses of the accounts that are allowed to execute the timelocked governance calls,
+     * once the timelock period expires.
+     * Executors can be changed without a hard fork, via a normal governance call.
+     * @return _addresses Array of executor addresses.
+     */
+    function getExecutors() external view returns (address[] memory _addresses);
+
+    /**
+     * Checks whether an address is one of the allowed executors. See `getExecutors`.
+     * @param _address The address to check.
+     * @return True if `_address` is in the executors list.
+     */
+    function isExecutor(address _address) external view returns (bool);
+}
+
+
+// File contracts/genesis/implementation/GovernanceSettings.sol
+
+// (c) 2021, Flare Networks Limited. All rights reserved.
+// Please see the file LICENSE for licensing terms.
+
+
+/**
+ * A special contract that holds the Flare governance address and its timelock.
+ *
+ * All governance calls are delayed by the timelock specified in this contract.
+ *
+ * This contract enables updating governance address and timelock only by hard-forking the network,
+ * this is, only by updating validator code.
+ */
+contract GovernanceSettings is IGovernanceSettings {
+
+    address public constant SIGNAL_COINBASE = address(0x00000000000000000000000000000000000dEAD0);
+
+    uint256 internal constant MAX_TIMELOCK = 365 days;
+
+    address internal constant GENESIS_GOVERNANCE = 0xfffEc6C83c8BF5c3F4AE0cCF8c45CE20E4560BD7;
+
+    // governance address set by the validator (set in initialise call, can be changed by fork)
+    address private governanceAddress;
+
+    // global timelock setting (in seconds), also set by validator (set in initialise call, can be changed by fork)
+    uint64 private timelock;
+
+    // prevent double initialisation
+    bool private initialised;
+
+    // executor addresses, changeable anytime by the governance
+    address[] private executors;
+    mapping (address => bool) private executorMap;
+
+    /**
+     * Emitted when the governance address has been changed.
+     * @param timestamp Timestamp of the block where the change happened, in seconds from UNIX epoch.
+     * @param oldGovernanceAddress Governance address before the change.
+     * @param newGovernanceAddress Governance address after the change.
+     */
+    event GovernanceAddressUpdated(
+        uint256 timestamp,
+        address oldGovernanceAddress,
+        address newGovernanceAddress
+    );
+
+    /**
+     * Emitted when the timelock has been changed.
+     * @param timestamp Timestamp of the block where the change happened, in seconds from UNIX epoch.
+     * @param oldTimelock Timelock before the change (in seconds).
+     * @param newTimelock Timelock after the change (in seconds).
+     */
+    event GovernanceTimelockUpdated(
+        uint256 timestamp,
+        uint256 oldTimelock,
+        uint256 newTimelock
+    );
+
+    /**
+     * The list of addresses that are allowed to perform governance calls has been changed.
+     * @param timestamp Timestamp of the block where the change happened, in seconds from UNIX epoch.
+     * @param oldExecutors Array of executor addresses before the change.
+     * @param newExecutors Array of executor addresses after the change.
+     */
+    event GovernanceExecutorsUpdated(
+        uint256 timestamp,
+        address[] oldExecutors,
+        address[] newExecutors
+    );
+
+    /**
+     * Perform initialization, which cannot be done in constructor, since this is a genesis contract.
+     * Can only be called once.
+     * @param _governanceAddress Initial governance address.
+     * @param _timelock Initial timelock value, in seconds.
+     * @param _executors Initial list of addresses allowed to perform governance calls.
+     */
+    function initialise(address _governanceAddress, uint256 _timelock, address[] memory _executors) external {
+        require(msg.sender == GENESIS_GOVERNANCE, "only genesis governance");
+        require(!initialised, "already initialised");
+        require(_timelock < MAX_TIMELOCK, "timelock too large");
+        // set the field values
+        initialised = true;
+        governanceAddress = _governanceAddress;
+        timelock = uint64(_timelock);
+        _setExecutors(_executors);
+    }
+
+    /**
+     * Change the governance address.
+     * Can only be called by validators via fork.
+     * @param _newGovernance New governance address.
+     */
+    function setGovernanceAddress(address _newGovernance) external {
+        require(governanceAddress != _newGovernance, "governanceAddress == _newGovernance");
+        if (msg.sender == block.coinbase && block.coinbase == SIGNAL_COINBASE) {
+            emit GovernanceAddressUpdated(block.timestamp, governanceAddress, _newGovernance);
+            governanceAddress = _newGovernance;
+        }
+    }
+
+    /**
+     * Change the timelock, this is, the amount of time between a governance call and
+     * its execution.
+     * Can only be called by validators via fork.
+     * @param _newTimelock New timelock value, in seconds.
+     */
+    function setTimelock(uint256 _newTimelock) external {
+        require(timelock != _newTimelock, "timelock == _newTimelock");
+        require(_newTimelock < MAX_TIMELOCK, "timelock too large");
+        if (msg.sender == block.coinbase && block.coinbase == SIGNAL_COINBASE) {
+            emit GovernanceTimelockUpdated(block.timestamp, timelock, _newTimelock);
+            timelock = uint64(_newTimelock);
+        }
+    }
+
+    /**
+     * Set the addresses of the accounts that are allowed to execute the timelocked governance calls
+     * once the timelock period expires.
+     * It isn't very dangerous to allow for anyone to execute timelocked calls, but we reserve the right to
+     * make sure the timing of the execution is under control.
+     * Can only be called by the governance.
+     * @param _newExecutors New list of allowed executors. The previous list is replaced.
+     */
+    function setExecutors(address[] memory _newExecutors) external {
+        require(msg.sender == governanceAddress, "only governance");
+        _setExecutors(_newExecutors);
+    }
+
+    /**
+     * @inheritdoc IGovernanceSettings
+     */
+    function getGovernanceAddress() external view override returns (address) {
+        return governanceAddress;
+    }
+
+    /**
+     * @inheritdoc IGovernanceSettings
+     */
+    function getTimelock() external view override returns (uint256) {
+        return timelock;
+    }
+
+    /**
+     * @inheritdoc IGovernanceSettings
+     */
+    function getExecutors() external view override returns (address[] memory) {
+        return executors;
+    }
+
+    /**
+     * @inheritdoc IGovernanceSettings
+     */
+    function isExecutor(address _address) external view override returns (bool) {
+        return executorMap[_address];
+    }
+
+    function _setExecutors(address[] memory _newExecutors) private {
+        emit GovernanceExecutorsUpdated(block.timestamp, executors, _newExecutors);
+        // clear old
+        while (executors.length > 0) {
+            executorMap[executors[executors.length - 1]] = false;
+            executors.pop();
+        }
+        // set new
+        for (uint256 i = 0; i < _newExecutors.length; i++) {
+            executors.push(_newExecutors[i]);
+            executorMap[_newExecutors[i]] = true;
+        }
+    }
+}
+
+
 // File @openzeppelin/contracts/math/Math.sol@v3.4.0
 
 
@@ -2596,50 +2814,6 @@ interface IIVPToken is IVPToken, IICleanable {
         address[] memory _owners,
         uint256 _blockNumber
     ) external view returns(uint256[] memory);
-}
-
-
-// File contracts/userInterfaces/IGovernanceSettings.sol
-
-
-
-/**
- * Interface for the `GovernanceSettings` that hold the Flare governance address and its timelock.
- *
- * All governance calls are delayed by the timelock specified in this contract.
- *
- * **NOTE**: This contract enables updating the governance address and timelock only
- * by hard-forking the network, meaning only by updating validator code.
- */
-interface IGovernanceSettings {
-    /**
-     * Gets the governance account address.
-     * The governance address can only be changed by a hard fork.
-     * @return _address The governance account address.
-     */
-    function getGovernanceAddress() external view returns (address _address);
-
-    /**
-     * Gets the time in seconds that must pass between a governance call and its execution.
-     * The timelock value can only be changed by a hard fork.
-     * @return _timelock Time in seconds that passes between the governance call and execution.
-     */
-    function getTimelock() external view returns (uint256 _timelock);
-
-    /**
-     * Gets the addresses of the accounts that are allowed to execute the timelocked governance calls,
-     * once the timelock period expires.
-     * Executors can be changed without a hard fork, via a normal governance call.
-     * @return _addresses Array of executor addresses.
-     */
-    function getExecutors() external view returns (address[] memory _addresses);
-
-    /**
-     * Checks whether an address is one of the allowed executors. See `getExecutors`.
-     * @param _address The address to check.
-     * @return True if `_address` is in the executors list.
-     */
-    function isExecutor(address _address) external view returns (bool);
 }
 
 
@@ -6113,6 +6287,552 @@ contract WNat is VPToken, IWNat {
 }
 
 
+// File contracts/token/lib/DelegateCheckPointHistory.sol
+
+
+
+
+/**
+ * @title Check Point History library
+ * @notice A contract to manage checkpoints as of a given block.
+ * @dev Store value history by block number with detachable state.
+ **/
+library DelegateCheckPointHistory {
+    using SafeMath for uint256;
+    using SafeCast for uint256;
+
+    /**
+     * @dev `DelegateCheckPoint` is the structure that attaches a block number to a
+     *  given address; the block number attached is the one that last changed the
+     *  value
+     **/
+    struct DelegateCheckPoint {
+        // `to` is the delegate's address
+        address to;
+        // `fromBlock` is the block number that the value was generated from
+        uint64 fromBlock;
+    }
+
+    struct DelegateCheckPointHistoryState {
+        // `checkpoints` is an array that tracks values at non-contiguous block numbers
+        mapping(uint256 => DelegateCheckPoint) checkpoints;
+        // `checkpoints` before `startIndex` have been deleted
+        // INVARIANT: checkpoints.endIndex == 0 || startIndex < checkpoints.endIndex      (strict!)
+        // startIndex and endIndex are both less then fromBlock, so 64 bits is enough
+        uint64 startIndex;
+        // the index AFTER last
+        uint64 endIndex;
+    }
+
+    /**
+     * @notice Binary search of _checkpoints array.
+     * @param _checkpoints An array of CheckPoint to search.
+     * @param _startIndex Smallest possible index to be returned.
+     * @param _blockNumber The block number to search for.
+     */
+    function _indexOfGreatestBlockLessThan(
+        mapping(uint256 => DelegateCheckPoint) storage _checkpoints, 
+        uint256 _startIndex,
+        uint256 _endIndex,
+        uint256 _blockNumber
+    )
+        private view 
+        returns (uint256 index)
+    {
+        // Binary search of the value by given block number in the array
+        uint256 min = _startIndex;
+        uint256 max = _endIndex.sub(1);
+        while (max > min) {
+            uint256 mid = (max.add(min).add(1)).div(2);
+            if (_checkpoints[mid].fromBlock <= _blockNumber) {
+                min = mid;
+            } else {
+                max = mid.sub(1);
+            }
+        }
+        return min;
+    }
+
+    /**
+     * @notice Queries the value at a specific `_blockNumber`
+     * @param _self A CheckPointHistoryState instance to manage
+     * @param _blockNumber The block number of the value active at that time
+     * @return _to Delegator's address at `_blockNumber`     
+     **/
+    function delegateAddressAt(
+        DelegateCheckPointHistoryState storage _self, 
+        uint256 _blockNumber
+    )
+        internal view 
+        returns (address _to)
+    {
+        uint256 historyCount = _self.endIndex;
+
+        // No _checkpoints, return 0
+        if (historyCount == 0) return address(0);
+
+        // Shortcut for the actual address (extra optimized for current block, to save one storage read)
+        // historyCount - 1 is safe, since historyCount != 0
+        if (_blockNumber >= block.number || _blockNumber >= _self.checkpoints[historyCount - 1].fromBlock) {
+            return _self.checkpoints[historyCount - 1].to;
+        }
+        
+        // guard values at start    
+        uint256 startIndex = _self.startIndex;
+        if (_blockNumber < _self.checkpoints[startIndex].fromBlock) {
+            // reading data before `startIndex` is only safe before first cleanup
+            require(startIndex == 0, "CheckPointHistory: reading from cleaned-up block");
+            return address(0);
+        }
+
+        // Find the block with number less than or equal to block given
+        uint256 index = _indexOfGreatestBlockLessThan(_self.checkpoints, startIndex, _self.endIndex, _blockNumber);
+
+        return _self.checkpoints[index].to;
+    }
+
+    /**
+     * @notice Queries the value at `block.number`
+     * @param _self A CheckPointHistoryState instance to manage.
+     * @return _to Delegator's address at `block.number`
+     **/
+    function delegateAddressAtNow(DelegateCheckPointHistoryState storage _self) internal view returns (address _to) {
+        uint256 historyCount = _self.endIndex;
+        // No _checkpoints, return 0
+        if (historyCount == 0) return address(0);
+        // Return last value
+        return _self.checkpoints[historyCount - 1].to;
+    }
+
+    /**
+     * @notice Writes the address at the current block.
+     * @param _self A DelegateCheckPointHistoryState instance to manage.
+     * @param _to Delegate's address.
+     **/
+    function writeAddress(
+        DelegateCheckPointHistoryState storage _self, 
+        address _to
+    )
+        internal
+    {
+        uint256 historyCount = _self.endIndex;
+        if (historyCount == 0) {
+            // checkpoints array empty, push new CheckPoint
+            _self.checkpoints[0] = 
+                DelegateCheckPoint({ fromBlock: block.number.toUint64(), to: _to });
+            _self.endIndex = 1;
+        } else {
+            // historyCount - 1 is safe, since historyCount != 0
+            DelegateCheckPoint storage lastCheckpoint = _self.checkpoints[historyCount - 1];
+            uint256 lastBlock = lastCheckpoint.fromBlock;
+            // slither-disable-next-line incorrect-equality
+            if (block.number == lastBlock) {
+                // If last check point is the current block, just update
+                lastCheckpoint.to = _to;
+            } else {
+                // we should never have future blocks in history
+                assert (block.number > lastBlock);
+                // push new CheckPoint
+                _self.checkpoints[historyCount] = 
+                    DelegateCheckPoint({ fromBlock: block.number.toUint64(), to: _to });
+                _self.endIndex = uint64(historyCount + 1);  // 64 bit safe, because historyCount <= block.number
+            }
+        }
+    }
+    
+    /**
+     * Delete at most `_count` of the oldest checkpoints.
+     * At least one checkpoint at or before `_cleanupBlockNumber` will remain 
+     * (unless the history was empty to start with).
+     */    
+    function cleanupOldCheckpoints(
+        DelegateCheckPointHistoryState storage _self, 
+        uint256 _count,
+        uint256 _cleanupBlockNumber
+    )
+        internal
+        returns (uint256)
+    {
+        if (_cleanupBlockNumber == 0) return 0;   // optimization for when cleaning is not enabled
+        uint256 length = _self.endIndex;
+        if (length == 0) return 0;
+        uint256 startIndex = _self.startIndex;
+        // length - 1 is safe, since length != 0 (check above)
+        uint256 endIndex = Math.min(startIndex.add(_count), length - 1);    // last element can never be deleted
+        uint256 index = startIndex;
+        // we can delete `checkpoint[index]` while the next checkpoint is at `_cleanupBlockNumber` or before
+        while (index < endIndex && _self.checkpoints[index + 1].fromBlock <= _cleanupBlockNumber) {
+            delete _self.checkpoints[index];
+            index++;
+        }
+        if (index > startIndex) {   // index is the first not deleted index
+            _self.startIndex = index.toUint64();
+        }
+        return index - startIndex;  // safe: index >= startIndex at start and then increases
+    }
+
+}
+
+
+// File contracts/token/lib/DelegateCheckPointsByAddress.sol
+
+
+
+/**
+ * @title Check Points By Address library
+ * @notice A contract to manage checkpoint history for a collection of addresses.
+ * @dev Store value history by address, and then by block number.
+ **/
+library DelegateCheckPointsByAddress {
+    using SafeMath for uint256;
+    using DelegateCheckPointHistory for DelegateCheckPointHistory.DelegateCheckPointHistoryState;
+
+    struct DelegateCheckPointsByAddressState {
+        // `historyByAddress` is the map that stores the delegate check point history of each address
+        mapping(address => DelegateCheckPointHistory.DelegateCheckPointHistoryState) historyByAddress;
+    }
+
+    /**
+     * @notice Queries the address of `_owner` at a specific `_blockNumber`.
+     * @param _self A DelegateCheckPointsByAddressState instance to manage.
+     * @param _owner The address from which the value will be retrieved.
+     * @param _blockNumber The block number to query for the then current value.
+     * @return The value at `_blockNumber` for `_owner`.
+     **/
+    function delegateAddressOfAt(
+        DelegateCheckPointsByAddressState storage _self,
+        address _owner,
+        uint256 _blockNumber
+    ) internal view returns (address) {
+        // Get history for _owner
+        DelegateCheckPointHistory.DelegateCheckPointHistoryState
+            storage history = _self.historyByAddress[_owner];
+        // Return value at given block
+        return history.delegateAddressAt(_blockNumber);
+    }
+
+    /**
+     * @notice Get the value of the `_owner` at the current `block.number`.
+     * @param _self A DelegateCheckPointsByAddressState instance to manage.
+     * @param _owner The address of the value is being requested.
+     * @return The value of `_owner` at the current block.
+     **/
+    function delegateAddressOfAtNow(
+        DelegateCheckPointsByAddressState storage _self,
+        address _owner
+    ) internal view returns (address) {
+        // Get history for _owner
+        DelegateCheckPointHistory.DelegateCheckPointHistoryState storage history = _self
+            .historyByAddress[_owner];
+        // Return value at now
+        return history.delegateAddressAtNow();
+    }
+
+    /**
+     * @notice Writes the `to` at the current block number for `_owner`.
+     * @param _self A DelegateCheckPointsByAddressState instance to manage.
+     * @param _owner The address of `_owner` to write.
+     * @param _to The value to write.
+     * @dev Sender must be the owner of the contract.
+     **/
+    function writeAddress(
+        DelegateCheckPointsByAddressState storage _self,
+        address _owner,
+        address _to
+    ) internal {
+        // Get history for _owner
+        DelegateCheckPointHistory.DelegateCheckPointHistoryState storage history = _self
+            .historyByAddress[_owner];
+        // Write the value
+        history.writeAddress(_to);
+    }
+
+    /**
+     * Delete at most `_count` of the oldest checkpoints.
+     * At least one checkpoint at or before `_cleanupBlockNumber` will remain
+     * (unless the history was empty to start with).
+     */
+    function cleanupOldCheckpoints(
+        DelegateCheckPointsByAddressState storage _self,
+        address _owner,
+        uint256 _count,
+        uint256 _cleanupBlockNumber
+    ) internal returns (uint256) {
+        if (_owner != address(0)) {
+            return
+                _self.historyByAddress[_owner].cleanupOldCheckpoints(
+                    _count,
+                    _cleanupBlockNumber
+                );
+        }
+        return 0;
+    }
+}
+
+
+// File contracts/token/implementation/GovernanceVotePower.sol
+
+
+
+
+
+
+/**
+ * Contract managing governance vote power and its delegation.
+ */
+contract GovernanceVotePower is IIGovernanceVotePower {
+    using SafeMath for uint256;
+    using SafeCast for uint256;
+    using CheckPointsByAddress for CheckPointsByAddress.CheckPointsByAddressState;
+    using DelegateCheckPointsByAddress for DelegateCheckPointsByAddress.DelegateCheckPointsByAddressState;
+
+    // `votePowerFromDelegationsHistory` tracks vote power balances obtained by delegation
+    CheckPointsByAddress.CheckPointsByAddressState private votePowerFromDelegationsHistory;
+
+    // `delegatesHistory` tracks delegates' addresses history
+    DelegateCheckPointsByAddress.DelegateCheckPointsByAddressState private delegatesHistory;
+
+    /**
+     * The VPToken and IPChainStakeMirror contracts that own this GovernanceVotePower.
+     * All state changing methods may be called only from these addresses.
+     * This is because original `msg.sender` is typically sent in a parameter
+     * and we must make sure that it cannot be faked by directly calling
+     * GovernanceVotePower methods.
+     */
+    IVPToken public immutable override ownerToken;
+    IPChainStakeMirror public immutable override pChainStakeMirror;
+
+    // The number of history cleanup steps executed for every write operation.
+    // It is more than 1 to make as certain as possible that all history gets cleaned eventually.
+    uint256 private constant CLEANUP_COUNT = 2;
+
+    // Historic data for the blocks before `cleanupBlockNumber` can be erased,
+    // history before that block should never be used since it can be inconsistent.
+    uint256 private cleanupBlockNumber;
+
+    /// Address of the contract that is allowed to call methods for history cleaning.
+    /// Set with `setCleanerContract()`.
+    address public cleanerContract;
+
+    /**
+     * All external methods in GovernanceVotePower can only be executed by the owner token.
+     */
+    modifier onlyOwnerToken {
+        require(msg.sender == address(ownerToken), "only owner token");
+        _;
+    }
+
+    /**
+     * Method `updateAtTokenTransfer` in GovernanceVotePower can only be executed by the owner contracts.
+     */
+    modifier onlyOwnerContracts {
+        require(msg.sender == address(ownerToken) || msg.sender == address(pChainStakeMirror), "only owner contracts");
+        _;
+    }
+
+    /**
+     * History cleaning methods can be called only from the cleaner address.
+     */
+    modifier onlyCleaner {
+        require(msg.sender == cleanerContract, "only cleaner contract");
+        _;
+    }
+
+    /**
+     * Construct GovernanceVotePower for given VPToken.
+     */
+    constructor(IVPToken _ownerToken, IPChainStakeMirror _pChainStakeMirror) {
+        require(address(_ownerToken) != address(0), "_ownerToken zero");
+        require(address(_pChainStakeMirror) != address(0), "_pChainStakeMirror zero");
+        ownerToken = _ownerToken;
+        pChainStakeMirror = _pChainStakeMirror;
+    }
+
+    /**
+     * @inheritdoc IGovernanceVotePower
+     */
+    function delegate(address _to) public override {
+        require(_to != msg.sender, "can't delegate to yourself");
+
+        uint256 senderBalance = ownerToken.balanceOf(msg.sender).add(pChainStakeMirror.balanceOf(msg.sender));
+
+        address currentTo = getDelegateOfAtNow(msg.sender);
+
+        // msg.sender has already delegated
+        if (currentTo != address(0)) {
+            _subVP(msg.sender, currentTo, senderBalance);
+        }
+
+        // write delegate's address to checkpoint
+        delegatesHistory.writeAddress(msg.sender, _to);
+        // cleanup checkpoints
+        delegatesHistory.cleanupOldCheckpoints(msg.sender, CLEANUP_COUNT, cleanupBlockNumber);
+
+        if (_to != address(0)) {
+            _addVP(msg.sender, _to, senderBalance);
+        }
+
+        emit DelegateChanged(msg.sender, currentTo, _to);
+    }
+
+    /**
+     * @inheritdoc IGovernanceVotePower
+     */
+    function undelegate() public override {
+        delegate(address(0));
+    }
+
+    /**
+     * @inheritdoc IIGovernanceVotePower
+     */
+    function updateAtTokenTransfer(
+        address _from,
+        address _to,
+        uint256 /* fromBalance */,
+        uint256 /* toBalance */,
+        uint256 _amount
+    )
+        external override onlyOwnerContracts
+    {
+        require(_from != _to, "Can't transfer to yourself"); // should already revert in _beforeTokenTransfer
+        require(_from != address(0) || _to != address(0));
+
+        address fromDelegate = _from == address(0) ? address(0) : getDelegateOfAtNow(_from);
+        address toDelegate = _to == address(0) ? address(0) : getDelegateOfAtNow(_to);
+
+        if (_from == address(0)) { // mint
+            if (toDelegate != address(0)) {
+                _addVP(_to, toDelegate, _amount);
+            }
+        } else if (_to == address(0)) { // burn
+            if (fromDelegate != address(0)) {
+                _subVP(_from, fromDelegate, _amount);
+            }
+        } else if (fromDelegate != toDelegate) { // transfer
+            if (fromDelegate != address(0)) {
+                _subVP(_from, fromDelegate, _amount);
+            }
+            if (toDelegate != address(0)) {
+                _addVP(_to, toDelegate, _amount);
+            }
+        }
+    }
+
+    /**
+     * @inheritdoc IIGovernanceVotePower
+     *
+     * @dev This method can be called by the ownerToken only.
+     */
+    function setCleanupBlockNumber(uint256 _blockNumber) external override onlyOwnerToken {
+        require(_blockNumber >= cleanupBlockNumber, "cleanup block number must never decrease");
+        require(_blockNumber < block.number, "cleanup block must be in the past");
+        cleanupBlockNumber = _blockNumber;
+    }
+
+    /**
+     * @inheritdoc IIGovernanceVotePower
+     */
+    function getCleanupBlockNumber() external view override returns(uint256) {
+        return cleanupBlockNumber;
+    }
+
+    /**
+     * @inheritdoc IIGovernanceVotePower
+     *
+     * @dev This method can be called by the ownerToken only.
+     */
+    function setCleanerContract(address _cleanerContract) external override onlyOwnerToken {
+        cleanerContract = _cleanerContract;
+    }
+
+    /**
+     * Delete governance vote power checkpoints that expired (i.e. are before `cleanupBlockNumber`).
+     * Method can only be called from the `cleanerContract` (which may be a proxy to external cleaners).
+     * @param _owner Vote power owner account address.
+     * @param _count Maximum number of checkpoints to delete.
+     * @return The number of deleted checkpoints.
+     */
+    function delegatedGovernanceVotePowerHistoryCleanup(
+        address _owner,
+        uint256 _count
+    ) external onlyCleaner returns (uint256) {
+        return votePowerFromDelegationsHistory.cleanupOldCheckpoints(_owner, _count, cleanupBlockNumber);
+    }
+
+    /**
+     * Delete delegates checkpoints that expired (i.e. are before `cleanupBlockNumber`).
+     * Method can only be called from the `cleanerContract` (which may be a proxy to external cleaners).
+     * @param _owner Vote power owner account address.
+     * @param _count Maximum number of checkpoints to delete.
+     * @return The number of deleted checkpoints.
+     */
+    function delegatesHistoryCleanup(
+        address _owner,
+        uint256 _count
+    ) external onlyCleaner returns (uint256) {
+        return delegatesHistory.cleanupOldCheckpoints(_owner, _count, cleanupBlockNumber);
+    }
+
+    /**
+     * @inheritdoc IGovernanceVotePower
+     */
+    function votePowerOfAt(address _who, uint256 _blockNumber) public override view returns (uint256) {
+        uint256 votePower = votePowerFromDelegationsHistory.valueOfAt(_who, _blockNumber);
+
+        address to = getDelegateOfAt(_who, _blockNumber);
+        if (to == address(0)) { // _who didn't delegate at _blockNumber
+            uint256 balance = ownerToken.balanceOfAt(_who, _blockNumber)
+                .add(pChainStakeMirror.balanceOfAt(_who, _blockNumber));
+            votePower += balance;
+        }
+
+        return votePower;
+    }
+
+    /**
+     * @inheritdoc IGovernanceVotePower
+     */
+    function getVotes(address _who) public override view returns (uint256) {
+        return votePowerOfAt(_who, block.number);
+    }
+
+    /**
+     * @inheritdoc IGovernanceVotePower
+     */
+    function getDelegateOfAt(address _who, uint256 _blockNumber) public override view returns (address) {
+        return delegatesHistory.delegateAddressOfAt(_who, _blockNumber);
+    }
+
+    /**
+     * @inheritdoc IGovernanceVotePower
+     */
+    function getDelegateOfAtNow(address _who) public override view returns (address) {
+        return delegatesHistory.delegateAddressOfAtNow(_who);
+    }
+
+    function _addVP(address /* _from */, address _to, uint256 _amount) internal {
+        uint256 toOldVP = votePowerFromDelegationsHistory.valueOfAtNow(_to);
+        uint256 toNewVP = toOldVP.add(_amount);
+
+        votePowerFromDelegationsHistory.writeValue(_to, toNewVP);
+        votePowerFromDelegationsHistory.cleanupOldCheckpoints(_to, CLEANUP_COUNT, cleanupBlockNumber);
+
+        emit DelegateVotesChanged(_to, toOldVP, toNewVP);
+    }
+
+    function _subVP(address /* _from */, address _to, uint256 _amount) internal {
+        uint256 toOldVP = votePowerFromDelegationsHistory.valueOfAtNow(_to);
+        uint256 toNewVP = toOldVP.sub(_amount);
+
+        votePowerFromDelegationsHistory.writeValue(_to, toNewVP);
+        votePowerFromDelegationsHistory.cleanupOldCheckpoints(_to, CLEANUP_COUNT, cleanupBlockNumber);
+
+        emit DelegateVotesChanged(_to, toOldVP, toNewVP);
+    }
+
+}
+
+
 // File contracts/governance/implementation/GovernedAtGenesis.sol
 
 
@@ -8057,4 +8777,504 @@ contract PChainStakeMirror is IPChainStakeMirror, PChainStake, GovernedAndFlareD
     {
         return keccak256(abi.encode(_txId, _inputAddress));
     }
+}
+
+
+// File contracts/userInterfaces/IPChainStakeMirrorMultiSigVoting.sol
+
+
+/**
+ * Interface for the `PChainStakeMirrorMultiSigVoting` contract.
+ */
+interface IPChainStakeMirrorMultiSigVoting {
+
+    /**
+     * Structure describing votes.
+     */
+    struct PChainVotes {
+        bytes32 merkleRoot;
+        address[] votes;
+    }
+
+    /**
+     * Event emitted when voting for specific epoch is reset.
+     * @param epochId Epoch id.
+     */
+    event PChainStakeMirrorVotingReset(uint256 epochId);
+
+    /**
+     * Event emitted when voting threshold is updated.
+     * @param votingThreshold New voting threshold.
+     */
+    event PChainStakeMirrorVotingThresholdSet(uint256 votingThreshold);
+
+    /**
+     * Event emitted when voters are set.
+     * @param voters List of new voters.
+     */
+    event PChainStakeMirrorVotersSet(address[] voters);
+
+    /**
+     * Event emitted when voting for specific epoch is finalized.
+     * @param epochId Epoch id.
+     * @param merkleRoot Voted Merkle root for that epoch id.
+     */
+    event PChainStakeMirrorVotingFinalized(uint256 indexed epochId, bytes32 merkleRoot);
+
+    /**
+     * Event emitted when vote for specific epoch is submitted.
+     * @param epochId Epoch id.
+     * @param voter Voter address.
+     * @param merkleRoot Merkle root voter voted for in given epoch.
+     */
+    event PChainStakeMirrorVoteSubmitted(uint256 epochId, address voter, bytes32 merkleRoot);
+
+    /**
+     * Event emitted when validator uptime vote for specific reward epoch is submitted.
+     * @param rewardEpochId Reward epoch id.
+     * @param timestamp Timestamp of the block when the vote happened, in seconds from UNIX epoch.
+     * @param voter Voter address.
+     * @param nodeIds List of node ids with high enough uptime.
+     */
+    event PChainStakeMirrorValidatorUptimeVoteSubmitted(
+        uint256 indexed rewardEpochId,
+        uint256 indexed timestamp,
+        address voter,
+        bytes20[] nodeIds
+    );
+
+    /**
+     * Method for submitting Merkle roots for given epoch.
+     * @param _epochId Epoch id voter is submitting vote for.
+     * @param _merkleRoot Merkle root for given epoch.
+     * **NOTE**: It reverts in case voter is not eligible to vote, epoch has not ended yet or is already finalized
+     *          or voter is submitting vote for the second time for the same Merkle root
+                (voter can submit a vote for a different Merkle root even if voted already).
+     */
+    function submitVote(uint256 _epochId, bytes32 _merkleRoot) external;
+
+    /**
+     * Method for submitting node ids of those validators that have high enough uptime in given reward epoch.
+     * @param _rewardEpochId Reward epoch id voter is submitting vote for.
+     * @param _nodeIds List of validators (node ids) with high enough uptime in given reward epoch.
+     * **NOTE**: Reward epochs are aligned with FTSO reward epochs.
+     */
+    function submitValidatorUptimeVote(uint256 _rewardEpochId, bytes20[] calldata _nodeIds) external;
+
+    /**
+     * Returns epochs configuration data.
+     * @return _firstEpochStartTs First epoch start timestamp
+     * @return _epochDurationSeconds Epoch duration in seconds
+     */
+    function getEpochConfiguration() external view
+        returns (
+            uint256 _firstEpochStartTs,
+            uint256 _epochDurationSeconds
+        );
+
+    /**
+     * Returns id of the epoch at the specified timestamp.
+     * @param _timestamp Timestamp as seconds from unix epoch
+     */
+    function getEpochId(uint256 _timestamp) external view returns (uint256);
+
+    /**
+     * Returns Merkle root for the given `_epochId`.
+     * @param _epochId Epoch id of the interest.
+     * @return Merkle root for finalized epoch id and `bytes32(0)` otherwise.
+     */
+    function getMerkleRoot(uint256 _epochId) external view returns(bytes32);
+
+     /**
+     * Returns all votes for the given `_epochId` util epoch is finalized. Reverts later.
+     * @param _epochId Epoch id of the interest.
+     * @return Votes for for the given `_epochId`.
+     */
+    function getVotes(uint256 _epochId) external view returns(PChainVotes[] memory);
+
+    /**
+     * Checks if `_voter` should vote for the given `_epochId`.
+     * @param _epochId Epoch id of the interest.
+     * @param _voter Address of the voter.
+     * @return False if voter is not eligible to vote, epoch already finalized or voter already voted. True otherwise.
+     * **NOTE**: The method will return true even if epoch has not ended yet - `submitVote` will revert in that case.
+     */
+    function shouldVote(uint256 _epochId, address _voter) external view returns(bool);
+
+    /**
+     * Returns the list of all voters.
+     * @return List of all voters.
+     */
+    function getVoters() external view returns(address[] memory);
+
+     /**
+     * Returns the voting threshold.
+     * @return Voting threshold.
+     */
+    function getVotingThreshold() external view returns(uint256);
+
+    /**
+     * Returns current epoch id.
+     * @return Current epoch id.
+     */
+    function getCurrentEpochId() external view returns (uint256);
+}
+
+
+// File @openzeppelin/contracts/cryptography/MerkleProof.sol@v3.4.0
+
+
+
+/**
+ * @dev These functions deal with verification of Merkle trees (hash trees),
+ */
+library MerkleProof {
+    /**
+     * @dev Returns true if a `leaf` can be proved to be a part of a Merkle tree
+     * defined by `root`. For this, a `proof` must be provided, containing
+     * sibling hashes on the branch from the leaf to the root of the tree. Each
+     * pair of leaves and each pair of pre-images are assumed to be sorted.
+     */
+    function verify(bytes32[] memory proof, bytes32 root, bytes32 leaf) internal pure returns (bool) {
+        bytes32 computedHash = leaf;
+
+        for (uint256 i = 0; i < proof.length; i++) {
+            bytes32 proofElement = proof[i];
+
+            if (computedHash <= proofElement) {
+                // Hash(current computed hash + current element of the proof)
+                computedHash = keccak256(abi.encodePacked(computedHash, proofElement));
+            } else {
+                // Hash(current element of the proof + current computed hash)
+                computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
+            }
+        }
+
+        // Check if the computed hash (root) is equal to the provided root
+        return computedHash == root;
+    }
+}
+
+
+// File contracts/staking/implementation/PChainStakeMirrorVerifier.sol
+
+
+
+
+/**
+ * Contract used for P-chain staking verification using stake data and Merkle proof
+ */
+contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
+    using MerkleProof for bytes32[];
+
+    /// P-chain stake mirror voting contract with voted Merkle roots
+    IPChainStakeMirrorMultiSigVoting public pChainStakeMirrorVoting;
+
+    uint256 public immutable minStakeDurationSeconds;
+    uint256 public immutable maxStakeDurationSeconds;
+    uint256 public immutable minStakeAmountGwei;
+    uint256 public immutable maxStakeAmountGwei;
+
+    /**
+     * Initializes the contract with default parameters
+     * @param _pChainStakeMirrorVoting PChainStakeMirrorVoting contract address.
+     * @param _minStakeDurationSeconds Minimum stake duration in seconds.
+     * @param _maxStakeDurationSeconds Maximum stake duration in seconds.
+     * @param _minStakeAmountGwei Minimum stake amount in Gwei.
+     * @param _maxStakeAmountGwei Maximum stake amount in Gwei.
+     */
+    constructor(
+        IPChainStakeMirrorMultiSigVoting _pChainStakeMirrorVoting,
+        uint256 _minStakeDurationSeconds,
+        uint256 _maxStakeDurationSeconds,
+        uint256 _minStakeAmountGwei,
+        uint256 _maxStakeAmountGwei
+    )
+    {
+        require (_minStakeDurationSeconds <= _maxStakeDurationSeconds, "durations invalid");
+        require (_minStakeAmountGwei <= _maxStakeAmountGwei, "amounts invalid");
+        pChainStakeMirrorVoting = _pChainStakeMirrorVoting;
+        minStakeDurationSeconds = _minStakeDurationSeconds;
+        maxStakeDurationSeconds = _maxStakeDurationSeconds;
+        minStakeAmountGwei = _minStakeAmountGwei;
+        maxStakeAmountGwei = _maxStakeAmountGwei;
+    }
+
+    /**
+     * @inheritdoc IIPChainStakeMirrorVerifier
+     */
+    function verifyStake(
+        PChainStake calldata _stakeData,
+        bytes32[] calldata _merkleProof
+    )
+        external view override
+        returns (bool)
+    {
+        if(_stakeData.endTime < _stakeData.startTime) {
+            return false;
+        }
+        uint256 stakeDuration = _stakeData.endTime - _stakeData.startTime;
+
+        return stakeDuration >= minStakeDurationSeconds &&
+            stakeDuration <= maxStakeDurationSeconds &&
+            _stakeData.weight >= minStakeAmountGwei &&
+            _stakeData.weight <= maxStakeAmountGwei &&
+            _verifyMerkleProof(
+                _merkleProof,
+                _merkleRootForEpochId(pChainStakeMirrorVoting.getEpochId(_stakeData.startTime)),
+                _hashPChainStaking(_stakeData)
+            );
+    }
+
+    function _merkleRootForEpochId(uint256 _epochId) internal view returns(bytes32) {
+        return pChainStakeMirrorVoting.getMerkleRoot(_epochId);
+    }
+
+    function _hashPChainStaking(PChainStake calldata _data) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_data));
+    }
+
+    function _verifyMerkleProof(
+        bytes32[] memory proof,
+        bytes32 merkleRoot,
+        bytes32 leaf
+    )
+        internal pure
+        returns (bool)
+    {
+        return proof.verify(merkleRoot, leaf);
+    }
+
+}
+
+
+// File contracts/utils/implementation/BytesLib.sol
+
+/*
+ * @title Solidity Bytes Arrays Utils
+ * @author Gonçalo Sá <goncalo.sa@consensys.net>
+ *
+ * @dev Bytes tightly packed arrays utility library for ethereum contracts written in Solidity.
+ *      The library lets you concatenate, slice and type cast bytes arrays both in memory and storage.
+ */
+
+
+library BytesLib {
+
+    //solhint-disable no-inline-assembly
+    function concat(
+        bytes memory _preBytes,
+        bytes memory _postBytes
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        bytes memory tempBytes;
+        assembly {
+            // Get a location of some free memory and store it in tempBytes as
+            // Solidity does for memory variables.
+            tempBytes := mload(0x40)
+
+            // Store the length of the first bytes array at the beginning of
+            // the memory for tempBytes.
+            let length := mload(_preBytes)
+            mstore(tempBytes, length)
+
+            // Maintain a memory counter for the current write location in the
+            // temp bytes array by adding the 32 bytes for the array length to
+            // the starting location.
+            let mc := add(tempBytes, 0x20)
+            // Stop copying when the memory counter reaches the length of the
+            // first bytes array.
+            let end := add(mc, length)
+
+            for {
+                // Initialize a copy counter to the start of the _preBytes data,
+                // 32 bytes into its memory.
+                let cc := add(_preBytes, 0x20)
+            } lt(mc, end) {
+                // Increase both counters by 32 bytes each iteration.
+                mc := add(mc, 0x20)
+                cc := add(cc, 0x20)
+            } {
+                // Write the _preBytes data into the tempBytes memory 32 bytes
+                // at a time.
+                mstore(mc, mload(cc))
+            }
+
+            // Add the length of _postBytes to the current length of tempBytes
+            // and store it as the new length in the first 32 bytes of the
+            // tempBytes memory.
+            length := mload(_postBytes)
+            mstore(tempBytes, add(length, mload(tempBytes)))
+
+            // Move the memory counter back from a multiple of 0x20 to the
+            // actual end of the _preBytes data.
+            mc := end
+            // Stop copying when the memory counter reaches the new combined
+            // length of the arrays.
+            end := add(mc, length)
+
+            for {
+                let cc := add(_postBytes, 0x20)
+            } lt(mc, end) {
+                mc := add(mc, 0x20)
+                cc := add(cc, 0x20)
+            } {
+                mstore(mc, mload(cc))
+            }
+
+            // Update the free-memory pointer by padding our last write location
+            // to 32 bytes: add 31 bytes to the end of tempBytes to move to the
+            // next 32 byte block, then round down to the nearest multiple of
+            // 32. If the sum of the length of the two arrays is zero then add
+            // one before rounding down to leave a blank 32 bytes (the length block with 0).
+            mstore(0x40, and(
+              add(add(end, iszero(add(length, mload(_preBytes)))), 31),
+              not(31) // Round down to the nearest 32 bytes.
+            ))
+        }
+
+        return tempBytes;
+    }
+
+    function toBytes32(bytes memory _bytes, uint256 _start) internal pure returns (bytes32) {
+        require(_bytes.length >= _start + 32, "toBytes32_outOfBounds");
+        bytes32 tempBytes32;
+
+        assembly {
+            tempBytes32 := mload(add(add(_bytes, 0x20), _start))
+        }
+
+        return tempBytes32;
+    }
+}
+
+
+// File contracts/staking/implementation/AddressBinder.sol
+
+
+
+/**
+ * Contract used to register P-chain and C-chain address pairs.
+ */
+contract AddressBinder is IAddressBinder {
+
+    /**
+     * @inheritdoc IAddressBinder
+     */
+    mapping(bytes20 => address) public override pAddressToCAddress;
+    /**
+     * @inheritdoc IAddressBinder
+     */
+    mapping(address => bytes20) public override cAddressToPAddress;
+
+    uint256 constant private P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
+
+    /**
+     * @inheritdoc IAddressBinder
+     */
+    // register validator/delegator (self-bonding/delegating) P-chain and C-chain addresses
+    function registerAddresses(bytes calldata _publicKey, bytes20 _pAddress, address _cAddress) external override {
+        require(_pAddress == _publicKeyToPAddress(_publicKey), "p chain address doesn't match public key");
+        require(_cAddress == _publicKeyToCAddress(_publicKey), "c chain address doesn't match public key");
+        pAddressToCAddress[_pAddress] = _cAddress;
+        cAddressToPAddress[_cAddress] = _pAddress;
+        emit AddressesRegistered(_publicKey, _pAddress, _cAddress);
+    }
+
+    /**
+     * @inheritdoc IAddressBinder
+     */
+    function registerPublicKey(
+        bytes calldata _publicKey
+    )
+        external override
+        returns(bytes20 _pAddress, address _cAddress)
+    {
+        _pAddress = _publicKeyToPAddress(_publicKey);
+        _cAddress = _publicKeyToCAddress(_publicKey);
+        pAddressToCAddress[_pAddress] = _cAddress;
+        cAddressToPAddress[_cAddress] = _pAddress;
+        emit AddressesRegistered(_publicKey, _pAddress, _cAddress);
+    }
+
+
+    function _publicKeyToCAddress(
+        bytes calldata publicKey
+    )
+        internal pure
+        returns (address)
+    {
+        (uint256 x, uint256 y) = _extractPublicKeyPair(publicKey);
+        uint256[2] memory publicKeyPair = [x, y];
+        bytes32 hash = keccak256(abi.encodePacked(publicKeyPair));
+        return address(uint160(uint256(hash)));
+    }
+
+    function _publicKeyToPAddress(
+        bytes calldata publicKey
+    )
+        internal pure
+        returns (bytes20)
+    {
+        (uint256 x, uint256 y) = _extractPublicKeyPair(publicKey);
+        bytes memory compressedPublicKey = _compressPublicKey(x, y);
+        bytes32 sha = sha256(abi.encodePacked(compressedPublicKey));
+        return ripemd160(abi.encodePacked(sha));
+    }
+
+
+    ///// helper methods
+    function _extractPublicKeyPair(
+        bytes calldata encodedPublicKey
+    )
+        internal pure
+        returns (uint256, uint256)
+    {
+        bytes1 prefix = encodedPublicKey[0];
+        if (encodedPublicKey.length == 64) {
+            // ethereum specific public key encoding
+            return (
+                uint256(BytesLib.toBytes32(encodedPublicKey, 0)),
+                uint256(BytesLib.toBytes32(encodedPublicKey, 32)));
+        } else if (encodedPublicKey.length == 65 && prefix == bytes1(0x04)) {
+                return (
+                    uint256(BytesLib.toBytes32(encodedPublicKey, 1)),
+                    uint256(BytesLib.toBytes32(encodedPublicKey, 33))
+                );
+        } else if (encodedPublicKey.length == 33) {
+                uint256 x = uint256(BytesLib.toBytes32(encodedPublicKey, 1));
+                // Tonelli–Shanks algorithm for calculating square root modulo prime of x^3 + 7
+                uint256 y = _powmod(mulmod(x, mulmod(x, x, P), P) + 7, (P + 1) / 4, P);
+                if (prefix == bytes1(0x02)) {
+                    return (x, (y % 2 == 0) ? y : P - y);
+                } else if (prefix == bytes1(0x03)) {
+                    return (x, (y % 2 == 0) ? P - y : y);
+                }
+        }
+        revert("wrong format of public key");
+    }
+
+    function _compressPublicKey(uint256 x, uint256 y) internal pure returns (bytes memory) {
+        return BytesLib.concat(_compressedPublicKeyBytePrefix(y % 2 == 0), abi.encodePacked(bytes32(x)));
+    }
+
+    function _compressedPublicKeyBytePrefix(bool evenY) internal pure returns (bytes memory) {
+        return abi.encodePacked(evenY ? bytes1(0x02) : bytes1(0x03));
+    }
+
+    function _powmod(uint256 x, uint256 n, uint256 p) private pure returns (uint256) {
+        uint256 result = 1;
+        while (n > 0) {
+            if (n & 1 == 1) {
+                result = mulmod(result, x, p);
+            }
+            x = mulmod(x, x, p);
+            n >>= 1;
+        }
+        return result;
+    }
+
 }
