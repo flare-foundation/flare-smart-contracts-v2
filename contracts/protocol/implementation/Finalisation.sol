@@ -385,7 +385,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
 
     function signRewards(
         uint64 _rId,
-        uint256 _noOfWeightBasedClaims,
+        uint64 _noOfWeightBasedClaims,
         bytes32 _rewardsHash,
         Signature calldata _signature
     )
