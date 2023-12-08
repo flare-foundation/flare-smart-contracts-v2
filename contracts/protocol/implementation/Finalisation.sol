@@ -597,6 +597,8 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         }
         timeFromStart -= votingEpochsStartTs; // currentRewardEpochEndTs >= rewardEpochsStartTs >= votingEpochsStartTs
         _startVotingRoundId = timeFromStart / votingEpochDurationSeconds;
+        // if in the middle of voting round start with the next one
+        //slither-disable-next-line weak-prng //not a random
         if (timeFromStart % votingEpochDurationSeconds != 0) {
             _startVotingRoundId += 1;
         }

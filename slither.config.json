@@ -1,0 +1,4 @@
+{
+    "filter_paths": "/mock/|@openzeppelin/contracts/utils/math/Math.sol",
+    "detectors_to_exclude": "naming-convention"
+}

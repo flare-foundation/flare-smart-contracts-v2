@@ -22,3 +22,6 @@ typechain-web3
 # misc
 nul
 .DS_Store
+
+# slither
+slither.json
