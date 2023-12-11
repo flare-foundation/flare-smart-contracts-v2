@@ -16,7 +16,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
     struct VoterInfo {
         address voter; // entity
         address signingAddress;
-        address ftsoAddress;
+        address dataProviderAddress;
         uint256 weight;
     }
 
@@ -61,7 +61,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
         address voter,
         uint256 rewardEpoch,
         address signingAddress,
-        address ftsoAddress,
+        address dataProviderAddress,
         uint256 weight,
         uint256 wNatWeight,
         bytes20[] nodeIds,
@@ -76,13 +76,13 @@ contract VoterWhitelister is Governed, AddressUpdatable {
 
     constructor(
         IGovernanceSettings _governanceSettings,
-        address _governance,
+        address _initialGovernance,
         address _addressUpdater,
         uint256 _maxVoters,
         uint256 _firstRewardEpoch,
         address[] memory _initialVoters
     )
-        Governed(_governanceSettings, _governance) AddressUpdatable(_addressUpdater)
+        Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
         maxVoters = _maxVoters;
 
@@ -183,19 +183,19 @@ contract VoterWhitelister is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the list of whitelisted ftso addresses for a given reward epoch
+     * Returns the list of whitelisted data provider addresses for a given reward epoch
      */
-    function getWhitelistedFtsoAddresses(
+    function getWhitelistedDataProviderAddresses(
         uint256 _rewardEpoch
     )
         external view
-        returns (address[] memory _ftsoAddresses)
+        returns (address[] memory _dataProviderAddresses)
     {
         VoterInfo[] storage voters = whitelist[_rewardEpoch];
         uint256 length = voters.length;
-        _ftsoAddresses = new address[](length);
+        _dataProviderAddresses = new address[](length);
         for (uint256 i = 0; i < length; i++) {
-            _ftsoAddresses[i] = voters[i].ftsoAddress;
+            _dataProviderAddresses[i] = voters[i].dataProviderAddress;
         }
     }
 
@@ -313,22 +313,23 @@ contract VoterWhitelister is Governed, AddressUpdatable {
             return false;
         }
 
-        address ftsoAddress = entityManager.getFtsoAddress(_voter);
+        address dataProviderAddress = entityManager.getDataProviderAddress(_voter);
         if (isListFull) {
             // kick the minIndex out and replace it with _voter
             address removedVoter = addressesForRewardEpoch[minIndex].voter;
-            addressesForRewardEpoch[minIndex] = VoterInfo(_voter, _signingAddress, ftsoAddress, voterData.weight);
+            addressesForRewardEpoch[minIndex] =
+                VoterInfo(_voter, _signingAddress, dataProviderAddress, voterData.weight);
             emit VoterRemoved(removedVoter, _rewardEpoch);
         } else {
             // we can just add a new one
-            addressesForRewardEpoch.push(VoterInfo(_voter, _signingAddress, ftsoAddress, voterData.weight));
+            addressesForRewardEpoch.push(VoterInfo(_voter, _signingAddress, dataProviderAddress, voterData.weight));
         }
 
         emit VoterWhitelisted(
             _voter,
             _rewardEpoch,
             _signingAddress,
-            ftsoAddress,
+            dataProviderAddress,
             voterData.weight,
             voterData.wNatWeight,
             voterData.nodeIds,

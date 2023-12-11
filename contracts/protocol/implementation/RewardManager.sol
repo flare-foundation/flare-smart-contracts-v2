@@ -139,11 +139,13 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
 
     constructor(
         IGovernanceSettings _governanceSettings,
-        address _governance,
+        address _initialGovernance,
         address _addressUpdater,
         uint64 _feePercentageUpdateOffset,
         uint16 _defaultFeePercentageBIPS
-    ) Governed(_governanceSettings, _governance) AddressUpdatable(_addressUpdater) {
+    )
+        Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
+    {
         feePercentageUpdateOffset = _feePercentageUpdateOffset;
         defaultFeePercentageBIPS = _defaultFeePercentageBIPS;
     }

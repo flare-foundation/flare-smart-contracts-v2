@@ -2,65 +2,89 @@
 pragma solidity 0.8.20;
 
 import "../lib/NodesHistory.sol";
+import "../../governance/implementation/Governed.sol";
 
-contract EntityManager {
+contract EntityManager is Governed {
     using NodesHistory for NodesHistory.CheckPointHistoryState;
 
     struct Entity {
-        address ftsoAddress;
+        address dataProviderAddress;
         address signingAddress;
         NodesHistory.CheckPointHistoryState nodeIds;
     }
 
+    uint256 public maxNodeIdsPerEntity;
+
     mapping(address => Entity) internal register; // voter to entity data
     mapping(bytes20 => address) internal nodeIdRegistered;
-    mapping(address => address) internal ftsoAddressRegistered;
-    mapping(address => address) internal ftsoAddressRegistrationQueue;
+    mapping(address => address) internal dataProviderAddressRegistered;
+    mapping(address => address) internal dataProviderAddressRegistrationQueue;
     mapping(address => address) internal signingAddressRegistered;
     mapping(address => address) internal signingAddressRegistrationQueue;
 
     event NodeIdRegistered(address indexed voter, bytes20 indexed nodeId);
     event NodeIdUnregistered(address indexed voter, bytes20 indexed nodeId);
-    event FtsoAddressRegistered(address indexed voter, address indexed ftsoAddress);
-    event FtsoAddressRegistrationConfirmed(address indexed ftsoAddress, address indexed voter);
+    event DataProviderAddressRegistered(address indexed voter, address indexed dataProviderAddress);
+    event DataProviderAddressRegistrationConfirmed(address indexed voter, address indexed dataProviderAddress);
     event SigningAddressRegistered(address indexed voter, address indexed signingAddress);
-    event SigningAddressRegistrationConfirmed(address indexed signingAddress, address indexed voter);
+    event SigningAddressRegistrationConfirmed(address indexed voter, address indexed signingAddress);
+    event MaxNodeIdsPerEntitySet(uint256 maxNodeIdsPerEntity);
+
+    constructor(
+        IGovernanceSettings _governanceSettings,
+        address _governance,
+        uint256 _maxNodeIdsPerEntity
+    )
+        Governed(_governanceSettings, _governance)
+    {
+        require(_maxNodeIdsPerEntity > 0, "max node ids per entity zero");
+        maxNodeIdsPerEntity = _maxNodeIdsPerEntity;
+        emit MaxNodeIdsPerEntitySet(_maxNodeIdsPerEntity);
+    }
 
     function registerNodeId(bytes20 _nodeId) external {
         require(nodeIdRegistered[_nodeId] == address(0), "node id already registered");
-        register[msg.sender].nodeIds.addRemoveNodeId(_nodeId, true);
+        register[msg.sender].nodeIds.addRemoveNodeId(_nodeId, true, maxNodeIdsPerEntity);
         nodeIdRegistered[_nodeId] = msg.sender;
+        emit NodeIdRegistered(msg.sender, _nodeId);
     }
 
     function unregisterNodeId(bytes20 _nodeId) external {
         require(nodeIdRegistered[_nodeId] == msg.sender, "node id not registered with msg.sender");
-        register[msg.sender].nodeIds.addRemoveNodeId(_nodeId, false);
+        register[msg.sender].nodeIds.addRemoveNodeId(_nodeId, false, maxNodeIdsPerEntity);
         delete nodeIdRegistered[_nodeId];
+        emit NodeIdUnregistered(msg.sender, _nodeId);
     }
 
     // msg.sender == voter
-    function registerFtsoAddress(address _ftsoAddress) external {
-        require(ftsoAddressRegistered[_ftsoAddress] == address(0), "ftso address already registered");
-        ftsoAddressRegistrationQueue[msg.sender] = _ftsoAddress;
+    function registerDataProviderAddress(address _dataProviderAddress) external {
+        require(dataProviderAddressRegistered[_dataProviderAddress] == address(0),
+            "data provider address already registered");
+        dataProviderAddressRegistrationQueue[msg.sender] = _dataProviderAddress;
+        emit DataProviderAddressRegistered(msg.sender, _dataProviderAddress);
     }
 
-    // msg.sender == ftso address
-    function confirmFtsoAddressRegistration(address _voter) external {
-        require(ftsoAddressRegistered[msg.sender] == address(0), "ftso address already registered");
-        require(ftsoAddressRegistrationQueue[_voter] == msg.sender, "ftso address not in registration queue");
-        address oldFtsoAddress = register[_voter].ftsoAddress;
-        if (oldFtsoAddress != address(0)) {
-            delete ftsoAddressRegistered[oldFtsoAddress];
+    // msg.sender == data provider address
+    function confirmDataProviderAddressRegistration(address _voter) external {
+        require(dataProviderAddressRegistered[msg.sender] == address(0),
+            "data provider address already registered");
+        require(dataProviderAddressRegistrationQueue[_voter] == msg.sender,
+            "data provider address not in registration queue");
+        address oldDataProviderAddress = register[_voter].dataProviderAddress;
+        if (oldDataProviderAddress != address(0)) {
+            delete dataProviderAddressRegistered[oldDataProviderAddress];
         }
-        register[_voter].ftsoAddress = msg.sender;
-        ftsoAddressRegistered[msg.sender] = _voter;
-        delete ftsoAddressRegistrationQueue[_voter];
+        register[_voter].dataProviderAddress = msg.sender;
+        dataProviderAddressRegistered[msg.sender] = _voter;
+        delete dataProviderAddressRegistrationQueue[_voter];
+        emit DataProviderAddressRegistrationConfirmed(_voter, msg.sender);
     }
 
     // msg.sender == voter
     function registerSigningAddress(address _signingAddress) external {
         require(signingAddressRegistered[_signingAddress] == address(0), "signing address already registered");
         signingAddressRegistrationQueue[msg.sender] = _signingAddress;
+        emit SigningAddressRegistered(msg.sender, _signingAddress);
     }
 
     // msg.sender == signing address
@@ -74,6 +98,13 @@ contract EntityManager {
         register[_voter].signingAddress = msg.sender;
         signingAddressRegistered[msg.sender] = _voter;
         delete signingAddressRegistrationQueue[_voter];
+        emit SigningAddressRegistrationConfirmed(_voter, msg.sender);
+    }
+
+    function setMaxNodeIdsPerEntity(uint256 _newMaxNodeIdsPerEntity) external onlyGovernance {
+        require(_newMaxNodeIdsPerEntity > maxNodeIdsPerEntity, "can increase only");
+        maxNodeIdsPerEntity = _newMaxNodeIdsPerEntity;
+        emit MaxNodeIdsPerEntitySet(_newMaxNodeIdsPerEntity);
     }
 
     function getNodeIdsOfAt(address _voter, uint256 _blockNumber) external view returns (bytes20[] memory) {
@@ -87,10 +118,10 @@ contract EntityManager {
         }
     }
 
-    function getFtsoAddress(address _voter) external view returns (address _ftsoAddress) {
-        _ftsoAddress = register[_voter].ftsoAddress;
-        if (_ftsoAddress == address(0)) {
-            _ftsoAddress = _voter;
+    function getDataProviderAddress(address _voter) external view returns (address _dataProviderAddress) {
+        _dataProviderAddress = register[_voter].dataProviderAddress;
+        if (_dataProviderAddress == address(0)) {
+            _dataProviderAddress = _voter;
         }
     }
 }

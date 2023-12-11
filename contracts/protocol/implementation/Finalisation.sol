@@ -298,11 +298,11 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
             address[] memory signingAddresses;
             address[] memory commitAddresses;
             lastInitialisedVotingRound = currentVotingEpoch;
-            revealAddresses = voterWhitelister.getWhitelistedFtsoAddresses(currentRewardEpoch);
+            revealAddresses = voterWhitelister.getWhitelistedDataProviderAddresses(currentRewardEpoch);
             signingAddresses = voterWhitelister.getWhitelistedSigningAddresses(currentRewardEpoch);
             // in case of new reward epoch - get new commit addresses otherwise they are the same as reveal addresses
             if (_getCurrentRewardEpoch() > currentRewardEpoch) {
-                commitAddresses = voterWhitelister.getWhitelistedFtsoAddresses(currentRewardEpoch + 1);
+                commitAddresses = voterWhitelister.getWhitelistedDataProviderAddresses(currentRewardEpoch + 1);
             } else {
                 commitAddresses = revealAddresses;
             }

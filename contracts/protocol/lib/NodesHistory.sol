@@ -39,7 +39,6 @@ library NodesHistory {
         uint64 length;
     }
 
-    uint256 public constant MAX_NODES = 4; // TODO can be set by governance
     string private constant MAX_NODES_MSG = "Max nodes exceeded";
 
     /**
@@ -51,7 +50,8 @@ library NodesHistory {
     function addRemoveNodeId(
         CheckPointHistoryState storage _self,
         bytes20 _nodeId,
-        bool _add
+        bool _add,
+        uint256 _maxNodeIds
     )
         internal
     {
@@ -74,14 +74,14 @@ library NodesHistory {
             // slither-disable-next-line incorrect-equality
             if (block.number == lastBlock) {
                 // If last check point is the current block, just update
-                _updateNodeIds(lastCheckpoint, _nodeId, _add);
+                _updateNodeIds(lastCheckpoint, _nodeId, _add, _maxNodeIds);
             } else {
                 // we should never have future blocks in history
                 assert(block.number > lastBlock);
                 // last check point block is before
                 CheckPoint storage cp = _self.checkpoints[historyCount];
                 _self.length = SafeCast.toUint64(historyCount + 1);
-                _copyAndUpdateNodeIds(cp, lastCheckpoint, _nodeId, _add);
+                _copyAndUpdateNodeIds(cp, lastCheckpoint, _nodeId, _add, _maxNodeIds);
                 cp.nodeIds[0].fromBlock = SafeCast.toUint64(block.number);
             }
         }
@@ -234,7 +234,8 @@ library NodesHistory {
         CheckPoint storage _cp,
         CheckPoint storage _orig,
         bytes20 _nodeId,
-        bool _add
+        bool _add,
+        uint256 _maxNodeIds
     )
         private
     {
@@ -244,18 +245,18 @@ library NodesHistory {
             Node memory origNode = _orig.nodeIds[i];
             if (origNode.nodeId != _nodeId) {
                 // copy all other nodeIds
-                newlength = _appendNodeId(_cp, origNode.nodeId, newlength);
+                newlength = _appendNodeId(_cp, origNode.nodeId, newlength, _maxNodeIds);
             }
         }
         if (_add) {
             // add also nodeId
-            newlength = _appendNodeId(_cp, _nodeId, newlength);
+            newlength = _appendNodeId(_cp, _nodeId, newlength, _maxNodeIds);
         }
         // safe - newlength <= length + 1 <= MAX_NODES
         _cp.nodeIds[0].length = SafeCast.toUint32(newlength);
     }
 
-    function _updateNodeIds(CheckPoint storage _cp, bytes20 _nodeId, bool _add) private {
+    function _updateNodeIds(CheckPoint storage _cp, bytes20 _nodeId, bool _add, uint256 _maxNodeIds) private {
         uint256 length = _cp.nodeIds[0].length;
         uint256 i = 0;
         while (i < length && _cp.nodeIds[i].nodeId != _nodeId) ++i;
@@ -265,16 +266,16 @@ library NodesHistory {
                 _cp.nodeIds[0].length = SafeCast.toUint32(length - 1);
             }
         } else if (_add) {
-            uint256 newlength = _appendNodeId(_cp, _nodeId, length);
+            uint256 newlength = _appendNodeId(_cp, _nodeId, length, _maxNodeIds);
             _cp.nodeIds[0].length = SafeCast.toUint32(newlength);  // safe - length < MAX_NODES
         }
     }
 
-    function _appendNodeId(CheckPoint storage _cp, bytes20 _nodeId, uint256 _length)
+    function _appendNodeId(CheckPoint storage _cp, bytes20 _nodeId, uint256 _length, uint256 _maxNodeIds)
         private
         returns (uint256)
     {
-        require(_length < MAX_NODES, MAX_NODES_MSG);
+        require(_length < _maxNodeIds, MAX_NODES_MSG);
         Node storage dlg = _cp.nodeIds[_length];
         dlg.nodeId = _nodeId;
         // for nodeIds[0], fromBlock and length are assigned outside

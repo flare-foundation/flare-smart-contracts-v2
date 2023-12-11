@@ -144,7 +144,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
 
         governanceSettings = await testDeployGovernanceSettings(accounts[0], 3600, [accounts[0]]);
-        entityManager = await EntityManager.new();
+        entityManager = await EntityManager.new(governanceSettings.address, accounts[0], 4);
         voterWhitelister = await VoterWhitelister.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, [accounts[0]]);
 
         initialSigningPolicy = {rId: 0, startVotingRoundId: 0, threshold: Math.ceil(65535 / 2), seed: "123", voters: [accounts[0]], weights: [65535]};
@@ -176,7 +176,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             encodeSigningPolicy(initialSigningPolicy)
         );
 
-        submission = await Submission.new(ADDRESS_UPDATER);
+        submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
 
         await voterWhitelister.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FINALISATION, Contracts.ENTITY_MANAGER, Contracts.WNAT, Contracts.P_CHAIN_STAKE_MIRROR]),
@@ -224,10 +224,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         }
     });
 
-    it("Should register and confirm ftso addresses", async () => {
+    it("Should register and confirm data provider addresses", async () => {
         for (let i = 0; i < 4; i++) {
-            await entityManager.registerFtsoAddress(accounts[10 + i], { from: registeredCAddresses[i] });
-            await entityManager.confirmFtsoAddressRegistration(registeredCAddresses[i], { from: accounts[10 + i] });
+            await entityManager.registerDataProviderAddress(accounts[10 + i], { from: registeredCAddresses[i] });
+            await entityManager.confirmDataProviderAddressRegistration(registeredCAddresses[i], { from: accounts[10 + i] });
         }
     });
 
@@ -270,7 +270,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     it("Should register a few voters", async () => {
         for (let i = 0; i < 4; i++) {
             expectEvent(await voterWhitelister.requestWhitelisting(registeredCAddresses[i], { from: accounts[20 + i]}),
-                "VoterWhitelisted", {voter : registeredCAddresses[i], rewardEpoch: toBN(1), signingAddress: accounts[20 + i], ftsoAddress: accounts[10 + i]});
+                "VoterWhitelisted", {voter : registeredCAddresses[i], rewardEpoch: toBN(1), signingAddress: accounts[20 + i], dataProviderAddress: accounts[10 + i]});
         }
     });
 
@@ -407,7 +407,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     it("Should register a few voters for reward epoch 2", async () => {
         for (let i = 0; i < 4; i++) {
             expectEvent(await voterWhitelister.requestWhitelisting(registeredCAddresses[i], { from: accounts[20 + i]}),
-                "VoterWhitelisted", {voter : registeredCAddresses[i], rewardEpoch: toBN(2), signingAddress: accounts[20 + i], ftsoAddress: accounts[10 + i]});
+                "VoterWhitelisted", {voter : registeredCAddresses[i], rewardEpoch: toBN(2), signingAddress: accounts[20 + i], dataProviderAddress: accounts[10 + i]});
         }
     });
 
@@ -462,6 +462,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             { rId: toBN(1), signingAddress: accounts[20], voter: registeredCAddresses[0], thresholdReached: true });
         const signature3 = web3.eth.accounts.sign(hash, privateKeys[22].privateKey);
         await expectRevert(finalisation.signUptimeVote(rewardEpochId, uptimeVoteHash, signature3, { from: accounts[22] }), "uptime vote hash already signed");
+        expect(await finalisation.getConfirmedMerkleRoot(UPTIME_VOTE_PROTOCOL_ID, rewardEpochId)).to.be.equal(uptimeVoteHash);
     });
 
     it("Should sign rewards for reward epoch 1", async () => {
@@ -480,5 +481,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             { rId: toBN(1), signingAddress: accounts[20], voter: registeredCAddresses[0], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: true });
         const signature3 = web3.eth.accounts.sign(hash, privateKeys[22].privateKey);
         await expectRevert(finalisation.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature3, { from: accounts[22] }), "rewards hash already signed");
+        expect(await finalisation.getConfirmedMerkleRoot(REWARDS_PROTOCOL_ID, rewardEpochId)).to.be.equal(rewardsVoteHash);
+        expect((await finalisation.noOfWeightBasedClaims(rewardEpochId)).toNumber()).to.be.equal(noOfWeightBasedClaims);
     });
 });
