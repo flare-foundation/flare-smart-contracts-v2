@@ -162,7 +162,7 @@ test-unit-forge:
     matrix:
     - TEST_ARG:
       - ./test-forge/protocol/implementation/EntityManager.t.sol
-      - ./test-forge/mock/TestCustomError.t.sol
+      - ./test-forge/mock/CustomErrorRevert.t.sol
   script:
     - forge test --match-path ${TEST_ARG} -vvv
 
