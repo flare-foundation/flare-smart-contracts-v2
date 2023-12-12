@@ -14,7 +14,7 @@ import { HardhatNetworkAccountConfig } from "hardhat/types";
 
 const Relay = artifacts.require("Relay");
 
-contract(`Submission.sol; ${getTestFile(__filename)}`, async () => {
+contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   // let accounts: Account[];
   let signers: SignerWithAddress[];
   const accountPrivateKeys = (config.networks.hardhat.accounts as HardhatNetworkAccountConfig[]).map(x => x.privateKey);
@@ -32,7 +32,7 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, async () => {
   before(async () => {
     // accounts = loadAccounts(web3);
     signers = (await ethers.getSigners()) as unknown as SignerWithAddress[];
-    relay = await Relay.new();
+    relay = await Relay.new(signers[0].address);
     signingPolicyData = defaultTestSigningPolicy(
       signers.map(x => x.address),
       N,
@@ -229,7 +229,7 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, async () => {
 
   it("Should fail due to delayed signing policy", async () => {
     // "Delayed sign policy"
-    const relay2 = await Relay.new();
+    const relay2 = await Relay.new(signers[0].address);
 
     const newSigningPolicyData = { ...signingPolicyData };
     newSigningPolicyData.startingVotingRoundId = votingRoundId + 1;
@@ -284,7 +284,7 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, async () => {
 
     newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInEpochs; // shift to next reward epoch
     fullMessage = encodeProtocolMessageMerkleRoot(newMessageData).slice(2);
-    
+
     await expect(
       signers[0].sendTransaction({
         from: signers[0].address,
@@ -333,8 +333,72 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, async () => {
   });
 
 
-  it("Should relay with new signing policy", async () => { 
+  it("Should relay with new signing policy", async () => {
 
   });
 
+  describe("Direct signing policy setup", async () => {
+    it("Should directly set the signing policy", async () => {
+      const relay2 = await Relay.new(signers[0].address);
+      const receipt = await relay2.setSigningPolicy({
+        rId: signingPolicyData.rewardEpochId,
+        startVotingRoundId: signingPolicyData.startingVotingRoundId,
+        threshold: signingPolicyData.threshold,
+        seed: signingPolicyData.randomSeed,
+        voters: signingPolicyData.signers,
+        weights: signingPolicyData.weights,
+      });
+      // console.dir(receipt);
+      let lastInitializedRewardEpoch = (await relay2.lastInitializedRewardEpoch()).toString();
+      expect(lastInitializedRewardEpoch).to.equal(signingPolicyData.rewardEpochId.toString());
+      const obtainedSigningPolicyHash = await relay2.toSigningPolicyHash(signingPolicyData.rewardEpochId);
+      const localHash = signingPolicyHash(encodeSigningPolicy(signingPolicyData));
+      expect(obtainedSigningPolicyHash).to.equal(localHash);
+
+
+      // export interface SigningPolicy {
+      //   rewardEpochId: number;
+      //   startingVotingRoundId: number;
+      //   threshold: number;
+      //   randomSeed: string;
+      //   signers: string[];
+      //   weights: number[];
+      // }
+
+
+    //   struct SigningPolicy {
+    //     uint64 rId;                 // Reward epoch id.
+    //     uint64 startVotingRoundId;  // First voting round id of validity.
+    //                                 // Usually it is the first voting round of reward epoch rID.
+    //                                 // It can be later,
+    //                                 // if the confirmation of the signing policy on Flare blockchain gets delayed.
+    //     uint64 threshold;           // Confirmation threshold (absolute value of noramalised weights).
+    //     uint256 seed;               // Random seed.
+    //     address[] voters;           // The list of eligible voters in the canonical order.
+    //     uint16[] weights;           // The corresponding list of normalised signing weights of eligible voters.
+    //                                 // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
+    //                                 // while approximately keeping the weight relations.
+    // }
+
+      
+    });
+
+    it("Should fail to directly set the signing policy due to wrong reward epoch", async () => {
+      // "not next reward epoch"
+    });
+
+    it("Should fail to directly set the signing policy due to being already set", async () => {
+      // "already set"
+    });
+    it("Should fail to directly set the signing policy due to policy being trivial", async () => {
+      // "must be non-trivial"
+    });
+
+    it("Should fail due to wrong setter", async () => {
+      // "only sign policy setter"
+    });
+
+
+
+  });
 });
