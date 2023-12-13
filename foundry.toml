@@ -4,6 +4,7 @@ out = "artifacts-forge"
 libs = ["node_modules", "lib"]
 test = "test-forge"
 cache_path = 'cache-forge'
+evm_version = 'london'
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 

@@ -1,6 +1,5 @@
 contracts/genesis/implementation/GovernanceSettings.sol
 contracts/token/implementation/WNat.sol
-contracts/token/implementation/GovernanceVotePower.sol
 contracts/staking/implementation/PChainStakeMirror.sol
 contracts/staking/implementation/PChainStakeMirrorVerifier.sol
 contracts/staking/implementation/AddressBinder.sol

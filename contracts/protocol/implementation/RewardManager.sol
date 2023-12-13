@@ -6,6 +6,7 @@ import "flare-smart-contracts/contracts/tokenPools/interface/IITokenPool.sol";
 import "../../governance/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../interface/IWNat.sol";
+import "../interface/ICChainStake.sol";
 import "../interface/IClaimSetupManager.sol";
 import "../lib/SafePct.sol";
 import "./VoterWhitelister.sol";
@@ -92,6 +93,8 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     Finalisation public finalisation;
     IPChainStakeMirror public pChainStakeMirror;
     IWNat public wNat;
+    ICChainStake public cChainStake;
+    bool public cChainStakeEnabled;
     bool public active;
 
     event FeePercentageChanged(
@@ -247,6 +250,14 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
 
         //slither-disable-next-line reentrancy-eth      // guarded by nonReentrant
         lastBalance = address(this).balance;
+    }
+
+    /**
+     * Enables C-Chain stakes.
+     * @dev Only governance can call this method.
+     */
+    function enableCChainStake() external onlyGovernance {
+        cChainStakeEnabled = true;
     }
 
     /**
@@ -571,7 +582,10 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
                     _rewardOwner, _recipient, epoch, votePowerBlock, allClaimsInitialised);
 
                 // CCHAIN claims
-                // TODO
+                if (address(cChainStake) != address(0)) {
+                    rewardAmount += _claimCChainRewards(
+                        _rewardOwner, _recipient, epoch, votePowerBlock, allClaimsInitialised);
+                }
             }
 
             // update total claimed amount per epoch
@@ -677,6 +691,39 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         }
     }
 
+    function _claimCChainRewards(
+        address _rewardOwner,
+        address _recipient,
+        uint64 _epoch,
+        uint256 _votePowerBlock,
+        bool _allClaimsInitialised
+    )
+        internal
+        returns (uint120 _rewardAmountWei)
+    {
+        (address[] memory accounts, uint256[] memory weights) = cChainStake.stakesOfAt(
+            _rewardOwner, _votePowerBlock);
+        for (uint256 i = 0; i < accounts.length; i++) { // _rewardOwner had some stakes at _votePowerBlock
+            UnclaimedRewardState storage state =
+                epochTypeProviderUnclaimedReward[_epoch][ClaimType.CCHAIN][accounts[i]];
+            // check if reward state is already initialised
+            require(_allClaimsInitialised || state.initialised, "not initialised");
+            // reduce remaining amount and weight
+            uint120 claimRewardAmount = _claimRewardAmount(state, weights[i]);
+            // increase total reward amount
+            _rewardAmountWei += claimRewardAmount;
+            // emit event
+            emit RewardClaimed(
+                accounts[i],
+                _rewardOwner,
+                _recipient,
+                _epoch,
+                ClaimType.CCHAIN,
+                claimRewardAmount
+            );
+        }
+    }
+
     /**
      * Claims and returns the reward amount
      * @param _state                unclaimed reward state
@@ -762,6 +809,9 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             _getContractAddress(_contractNameHashes, _contractAddresses, "Finalisation"));
         pChainStakeMirror = IPChainStakeMirror(
             _getContractAddress(_contractNameHashes, _contractAddresses, "PChainStakeMirror"));
+        if (cChainStakeEnabled) {
+            cChainStake = ICChainStake(_getContractAddress(_contractNameHashes, _contractAddresses, "CChainStake"));
+        }
         wNat = IWNat(
             _getContractAddress(_contractNameHashes, _contractAddresses, "WNat"));
     }

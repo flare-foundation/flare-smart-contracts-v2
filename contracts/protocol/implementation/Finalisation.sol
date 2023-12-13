@@ -331,7 +331,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
             "new signing policy hash invalid");
         require(state.singingPolicySignEndTs == 0, "new signing policy already signed");
         bytes32 messageHash = keccak256(abi.encode(_rId, _newSigningPolicyHash));
-        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash); // TODO - remove rId?
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
         (address voter, uint16 weight) = voterWhitelister.getVoterWithNormalisedWeight(_rId - 1, signingAddress);
         require(voter != address(0), "signature invalid");
@@ -450,7 +450,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         uint64 rId = _signingPolicy.rId;
         require(roots[NEW_SIGNING_POLICY_PROTOCOL_ID][rId] == keccak256(abi.encode(_signingPolicy)),
             "signing policy invalid");
-        require(rewardEpochState[rId].startVotingRoundId <= _votingRoundId, "voting round too low");
+        require(_signingPolicy.startVotingRoundId <= _votingRoundId, "voting round too low");
         uint64 nextStartVotingRoundId = rewardEpochState[rId + 1].startVotingRoundId;
         require(nextStartVotingRoundId == 0 || _votingRoundId < nextStartVotingRoundId, "voting round too high");
         uint16 accumulatedWeight = 0;
@@ -462,15 +462,17 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
             require(signingAddress == _signingPolicy.voters[signature.index], "signature invalid");
             accumulatedWeight += _signingPolicy.weights[signature.index];
         }
-        require(accumulatedWeight >= rewardEpochState[rId].threshold,
-            "threshold not reached");
+        require(accumulatedWeight >= _signingPolicy.threshold, "threshold not reached");
         // save root
         roots[_pId][_votingRoundId] = _root;
         if (_pId == FTSO_PROTOCOL_ID) {
-            currentRandom = uint256(_root);
-            // TODO check increasing time?
-            currentRandomTs = votingEpochsStartTs + _votingRoundId * votingEpochDurationSeconds;
-            currentRandomQuality = _quality;
+            // start of reveals
+            uint64 randomTimestamp = votingEpochsStartTs + (_votingRoundId + 1) * votingEpochDurationSeconds;
+            if (randomTimestamp > currentRandomTs) { // check increasing time
+                currentRandom = uint256(_root);
+                currentRandomTs = randomTimestamp;
+                currentRandomQuality = _quality;
+            }
         }
     }
 

@@ -3,6 +3,7 @@ pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
 import "../interface/IWNat.sol";
+import "../interface/ICChainStake.sol";
 import "./EntityManager.sol";
 import "./Finalisation.sol";
 import "../../governance/implementation/AddressUpdatable.sol";
@@ -28,6 +29,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
     struct VoterData {
         uint256 weight;
         uint256 wNatWeight;
+        uint256 cChainStakeWeight;
         bytes20[] nodeIds;
         uint256[] nodeWeights;
     }
@@ -54,6 +56,8 @@ contract VoterWhitelister is Governed, AddressUpdatable {
     EntityManager public entityManager;
     IPChainStakeMirror public pChainStakeMirror;
     IWNat public wNat;
+    ICChainStake public cChainStake;
+    bool public cChainStakeEnabled;
 
     event VoterChilled(address voter, uint256 untilRewardEpoch);
     event VoterRemoved(address voter, uint256 rewardEpoch);
@@ -64,6 +68,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
         address dataProviderAddress,
         uint256 weight,
         uint256 wNatWeight,
+        uint256 cChainStakeWeight,
         bytes20[] nodeIds,
         uint256[] nodeWeights
     );
@@ -136,6 +141,14 @@ contract VoterWhitelister is Governed, AddressUpdatable {
         external onlyGovernance
     {
         maxVoters = _maxVoters;
+    }
+
+    /**
+     * Enables C-Chain stakes.
+     * @dev Only governance can call this method.
+     */
+    function enableCChainStake() external onlyGovernance {
+        cChainStakeEnabled = true;
     }
 
     /**
@@ -269,6 +282,9 @@ contract VoterWhitelister is Governed, AddressUpdatable {
         entityManager = EntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
         pChainStakeMirror = IPChainStakeMirror(_getContractAddress(
             _contractNameHashes, _contractAddresses, "PChainStakeMirror"));
+        if (cChainStakeEnabled) {
+            cChainStake = ICChainStake(_getContractAddress(_contractNameHashes, _contractAddresses, "CChainStake"));
+        }
         wNat = IWNat(_getContractAddress(_contractNameHashes, _contractAddresses, "WNat"));
     }
 
@@ -332,6 +348,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
             dataProviderAddress,
             voterData.weight,
             voterData.wNatWeight,
+            voterData.cChainStakeWeight,
             voterData.nodeIds,
             voterData.nodeWeights
         );
@@ -355,7 +372,14 @@ contract VoterWhitelister is Governed, AddressUpdatable {
             _data.weight += votePowers[i];
         }
 
-        uint256 totalStakeVotePower = pChainStakeMirror.totalVotePowerAt(_votePowerBlock); // TODO cap?
+        uint256 totalPChainStakeVotePower = pChainStakeMirror.totalVotePowerAt(_votePowerBlock); // TODO cap?
+
+        if (address(cChainStake) != address(0)) {
+            _data.cChainStakeWeight = cChainStake.votePowerOfAt(_voter, _votePowerBlock);
+            uint256 totalCChainStakeVotePower = cChainStake.totalVotePowerAt(_votePowerBlock); // TODO cap?
+            _data.weight += _data.cChainStakeWeight;
+        }
+
 
         _data.wNatWeight = wNat.votePowerOfAt(_voter, _votePowerBlock);
 

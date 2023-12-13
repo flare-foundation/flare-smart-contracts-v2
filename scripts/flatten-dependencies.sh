@@ -46,5 +46,5 @@ if grep '^pragma abicoder v2' "$TMPFILE" > /dev/null; then
     echo 'pragma abicoder v2;' >> "$OUTFILE"
 fi
 echo "" >> "$OUTFILE"
-cat "$TMPFILE" | grep -v '^\$' | grep -v '^// SPDX-License-Identifier: MIT' | grep -v '^pragma solidity' | grep -v '^pragma abicoder v2' >> "$OUTFILE"
+cat "$TMPFILE" | grep -v '^\$' | grep -v '^// SPDX-License-Identifier: MIT' | grep -v '^// SPDX-License-Identifier: Unlicense' | grep -v '^pragma solidity' | grep -v '^pragma abicoder v2' >> "$OUTFILE"
 rm "$TMPFILE"
