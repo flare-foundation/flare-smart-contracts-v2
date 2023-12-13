@@ -11,6 +11,7 @@ import { VoterWhitelisterInstance } from '../../typechain-truffle/contracts/prot
 import { FinalisationInstance } from '../../typechain-truffle/contracts/protocol/implementation/Finalisation';
 import { SubmissionInstance } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
+import { RelayInstance } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
 
 const MockContract = artifacts.require("MockContract");
 const WNat = artifacts.require("WNat");
@@ -23,6 +24,7 @@ const EntityManager = artifacts.require("EntityManager");
 const VoterWhitelister = artifacts.require("VoterWhitelister");
 const Finalisation = artifacts.require("Finalisation");
 const Submission = artifacts.require("Submission");
+const Relay = artifacts.require("Relay");
 
 
 type PChainStake = {
@@ -36,8 +38,8 @@ type PChainStake = {
 }
 
 type SigningPolicy = {
-    rId: number                 // Reward epoch id.
-    startVotingRoundId: number, // First voting round id of validity. Usually it is the first voting round of reward epoch rID.
+    rewardEpochId: number,      // Reward epoch id.
+    startVotingRoundId: number, // First voting round id of validity. Usually it is the first voting round of reward epoch rewardEpochId.
                                 // It can be later, if the confirmation of the signing policy on Flare blockchain gets delayed.
     threshold: number,          // Confirmation threshold in terms of PPM (parts per million). Usually more than 500,000.
     seed: string,               // Random seed.
@@ -65,7 +67,7 @@ async function setMockStakingData(verifierMock: MockContractInstance, pChainVeri
 
 function encodeSigningPolicy(signingPolicy: SigningPolicy): string {
     return web3.utils.keccak256(web3.eth.abi.encodeParameter("(uint64,uint64,uint64,uint256,address[],uint16[])",
-        [signingPolicy.rId, signingPolicy.startVotingRoundId, signingPolicy.threshold, signingPolicy.seed, signingPolicy.voters, signingPolicy.weights]));
+        [signingPolicy.rewardEpochId, signingPolicy.startVotingRoundId, signingPolicy.threshold, signingPolicy.seed, signingPolicy.voters, signingPolicy.weights]));
 }
 
 contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
@@ -87,6 +89,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let voterWhitelister: VoterWhitelisterInstance;
     let finalisation: FinalisationInstance;
     let submission: SubmissionInstance;
+    let relay: RelayInstance;
 
     let initialSigningPolicy: SigningPolicy;
     let newSigningPolicy: SigningPolicy;
@@ -156,7 +159,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         entityManager = await EntityManager.new(governanceSettings.address, accounts[0], 4);
         voterWhitelister = await VoterWhitelister.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, [accounts[0]]);
 
-        initialSigningPolicy = {rId: 0, startVotingRoundId: 0, threshold: Math.ceil(65535 / 2), seed: "123", voters: [accounts[0]], weights: [65535]};
+        initialSigningPolicy = {rewardEpochId: 0, startVotingRoundId: 0, threshold: Math.ceil(65535 / 2), seed: "123", voters: [accounts[0]], weights: [65535]};
 
         const finalisationSettings = {
             votingEpochsStartTs: now.toNumber(),
@@ -185,6 +188,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             encodeSigningPolicy(initialSigningPolicy)
         );
 
+        relay = await Relay.new(finalisation.address);
+
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
 
         await voterWhitelister.updateContractAddresses(
@@ -192,8 +197,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [ADDRESS_UPDATER, finalisation.address, entityManager.address, wNat.address, pChainStakeMirror.address], { from: ADDRESS_UPDATER });
 
         await finalisation.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_WHITELISTER, Contracts.SUBMISSION]),
-            [ADDRESS_UPDATER, voterWhitelister.address, submission.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_WHITELISTER, Contracts.SUBMISSION, Contracts.RELAY]),
+            [ADDRESS_UPDATER, voterWhitelister.address, submission.address, relay.address], { from: ADDRESS_UPDATER });
 
         await submission.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FINALISATION]),
@@ -249,7 +254,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should start random acquisition", async () => {
         await time.increaseTo(now.addn(3600 * 3)); // 2 hours before new reward epoch
-        expectEvent(await finalisation.daemonize(), "RandomAcquisitionStarted", { rId: toBN(1) });
+        expectEvent(await finalisation.daemonize(), "RandomAcquisitionStarted", { rewardEpochId: toBN(1) });
     });
 
     it("Should get good random", async () => {
@@ -273,7 +278,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should select vote power block", async () => {
-        expectEvent(await finalisation.daemonize(), "VotePowerBlockSelected", { rId: toBN(1) });
+        expectEvent(await finalisation.daemonize(), "VotePowerBlockSelected", { rewardEpochId: toBN(1) });
     });
 
     it("Should register a few voters", async () => {
@@ -290,7 +295,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await time.increaseTo(now.addn(3600 * 4)); // at least 30 minutes from the vote power block selection
         const startVotingRoundId = 3600 * 5 / VOTING_EPOCH_DURATION_SEC;
         newSigningPolicy = {
-            rId: 1,
+            rewardEpochId: 1,
             startVotingRoundId: startVotingRoundId,
             threshold: Math.floor(65535 / 2),
             seed: RANDOM_ROOT,
@@ -298,7 +303,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             weights: [39718, 19859, 3971, 1985]
         };
         expectEvent(await finalisation.daemonize(), "SigningPolicyInitialized",
-            { rId: toBN(1), startVotingRoundId: toBN(startVotingRoundId), voters: newSigningPolicy.voters,
+            { rewardEpochId: toBN(1), startVotingRoundId: toBN(startVotingRoundId), voters: newSigningPolicy.voters,
                 seed: toBN(RANDOM_ROOT), threshold: toBN(32767), weights: newSigningPolicy.weights.map(x => toBN(x)) });
         expect(await finalisation.getConfirmedMerkleRoot(NEW_SIGNING_POLICY_PROTOCOL_ID, 1)).to.be.equal(encodeSigningPolicy(newSigningPolicy));
     });
@@ -312,7 +317,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         const signature = web3.eth.accounts.sign(hash, privateKeys[0].privateKey);
         expectEvent(await finalisation.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature, { from: accounts[0] }), "SigningPolicySigned",
-            { rId: toBN(1), signingAddress: accounts[0], voter: accounts[0], thresholdReached: true });
+            { rewardEpochId: toBN(1), signingAddress: accounts[0], voter: accounts[0], thresholdReached: true });
     });
 
     it("Should start new reward epoch and initiate new voting round", async () => {
@@ -382,7 +387,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should start random acquisition for reward epoch 2", async () => {
         await time.increaseTo(now.addn(3600 * 8)); // 2 hours before new reward epoch
-        expectEvent(await finalisation.daemonize(), "RandomAcquisitionStarted", { rId: toBN(2) });
+        expectEvent(await finalisation.daemonize(), "RandomAcquisitionStarted", { rewardEpochId: toBN(2) });
     });
 
     it("Should get good random for reward epoch 2", async () => {
@@ -410,7 +415,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should select vote power block for reward epoch 2", async () => {
-        expectEvent(await finalisation.daemonize(), "VotePowerBlockSelected", { rId: toBN(2) });
+        expectEvent(await finalisation.daemonize(), "VotePowerBlockSelected", { rewardEpochId: toBN(2) });
     });
 
     it("Should register a few voters for reward epoch 2", async () => {
@@ -427,7 +432,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await time.increaseTo(now.addn(3600 * 9)); // at least 30 minutes from the vote power block selection
         const votingRoundId = 3600 * 10 / VOTING_EPOCH_DURATION_SEC;
         expectEvent(await finalisation.daemonize(), "SigningPolicyInitialized",
-            { rId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(20, 24),
+            { rewardEpochId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(20, 24),
                 seed: toBN(RANDOM_ROOT2), threshold: toBN(32767), weights: [toBN(39718), toBN(19859), toBN(3971), toBN(1985)] });
     });
 
@@ -440,10 +445,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         const signature = web3.eth.accounts.sign(hash, privateKeys[21].privateKey);
         expectEvent(await finalisation.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature, { from: accounts[21] }), "SigningPolicySigned",
-            { rId: toBN(2), signingAddress: accounts[21], voter: registeredCAddresses[1], thresholdReached: false });
+            { rewardEpochId: toBN(2), signingAddress: accounts[21], voter: registeredCAddresses[1], thresholdReached: false });
         const signature2 = web3.eth.accounts.sign(hash, privateKeys[20].privateKey);
         expectEvent(await finalisation.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature2, { from: accounts[20] }), "SigningPolicySigned",
-            { rId: toBN(2), signingAddress: accounts[20], voter: registeredCAddresses[0], thresholdReached: true });
+            { rewardEpochId: toBN(2), signingAddress: accounts[20], voter: registeredCAddresses[0], thresholdReached: true });
         const signature3 = web3.eth.accounts.sign(hash, privateKeys[22].privateKey);
         await expectRevert(finalisation.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature3, { from: accounts[22] }), "new signing policy already signed");
 
@@ -465,10 +470,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         const signature = web3.eth.accounts.sign(hash, privateKeys[21].privateKey);
         expectEvent(await finalisation.signUptimeVote(rewardEpochId, uptimeVoteHash, signature, { from: accounts[21] }), "UptimeVoteSigned",
-            { rId: toBN(1), signingAddress: accounts[21], voter: registeredCAddresses[1], thresholdReached: false });
+            { rewardEpochId: toBN(1), signingAddress: accounts[21], voter: registeredCAddresses[1], thresholdReached: false });
         const signature2 = web3.eth.accounts.sign(hash, privateKeys[20].privateKey);
         expectEvent(await finalisation.signUptimeVote(rewardEpochId, uptimeVoteHash, signature2, { from: accounts[20] }), "UptimeVoteSigned",
-            { rId: toBN(1), signingAddress: accounts[20], voter: registeredCAddresses[0], thresholdReached: true });
+            { rewardEpochId: toBN(1), signingAddress: accounts[20], voter: registeredCAddresses[0], thresholdReached: true });
         const signature3 = web3.eth.accounts.sign(hash, privateKeys[22].privateKey);
         await expectRevert(finalisation.signUptimeVote(rewardEpochId, uptimeVoteHash, signature3, { from: accounts[22] }), "uptime vote hash already signed");
         expect(await finalisation.getConfirmedMerkleRoot(UPTIME_VOTE_PROTOCOL_ID, rewardEpochId)).to.be.equal(uptimeVoteHash);
@@ -484,10 +489,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         const signature = web3.eth.accounts.sign(hash, privateKeys[21].privateKey);
         expectEvent(await finalisation.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature, { from: accounts[21] }), "RewardsSigned",
-            { rId: toBN(1), signingAddress: accounts[21], voter: registeredCAddresses[1], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: false });
+            { rewardEpochId: toBN(1), signingAddress: accounts[21], voter: registeredCAddresses[1], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: false });
         const signature2 = web3.eth.accounts.sign(hash, privateKeys[20].privateKey);
         expectEvent(await finalisation.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature2, { from: accounts[20] }), "RewardsSigned",
-            { rId: toBN(1), signingAddress: accounts[20], voter: registeredCAddresses[0], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: true });
+            { rewardEpochId: toBN(1), signingAddress: accounts[20], voter: registeredCAddresses[0], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: true });
         const signature3 = web3.eth.accounts.sign(hash, privateKeys[22].privateKey);
         await expectRevert(finalisation.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature3, { from: accounts[22] }), "rewards hash already signed");
         expect(await finalisation.getConfirmedMerkleRoot(REWARDS_PROTOCOL_ID, rewardEpochId)).to.be.equal(rewardsVoteHash);

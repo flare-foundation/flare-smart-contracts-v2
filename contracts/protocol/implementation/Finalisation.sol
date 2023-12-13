@@ -7,6 +7,7 @@ import "../../governance/implementation/Governed.sol";
 import "../lib/SafePct.sol";
 import "../interface/IRandomProvider.sol";
 import "./VoterWhitelister.sol";
+import "./Relay.sol";
 import "./Submission.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -41,12 +42,12 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
 
 
     struct SigningPolicy {
-        uint64 rId;                 // Reward epoch id.
-        uint64 startVotingRoundId;  // First voting round id of validity.
+        uint24 rewardEpochId;       // Reward epoch id.
+        uint32 startVotingRoundId;  // First voting round id of validity.
                                     // Usually it is the first voting round of reward epoch rID.
                                     // It can be later,
                                     // if the confirmation of the signing policy on Flare blockchain gets delayed.
-        uint64 threshold;           // Confirmation threshold (absolute value of noramalised weights).
+        uint16 threshold;           // Confirmation threshold (absolute value of noramalised weights).
         uint256 seed;               // Random seed.
         address[] voters;           // The list of eligible voters in the canonical order.
         uint16[] weights;           // The corresponding list of normalised signing weights of eligible voters.
@@ -82,8 +83,8 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
 
         uint256 seed; // good random number
         uint64 votePowerBlock;
-        uint64 startVotingRoundId;
-        uint64 threshold; // absolut value in normalised weight
+        uint32 startVotingRoundId;
+        uint16 threshold; // absolut value in normalised weight
 
         Votes signingPolicyVotes;
         mapping(bytes32 => Votes) uptimeVoteVotes;
@@ -122,9 +123,9 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
 
     mapping(uint256 => RewardEpochState) internal rewardEpochState;
     // mapping: protocol id => (mapping: voting round id => root)
-    mapping(uint64 => mapping(uint64 => bytes32)) internal roots;
+    mapping(uint256 => mapping(uint256 => bytes32)) internal roots;
     // mapping: reward epoch id => number of weight based claims
-    mapping(uint64 => uint256) public noOfWeightBasedClaims;
+    mapping(uint256 => uint256) public noOfWeightBasedClaims;
 
     // current random information
     uint256 internal currentRandom;
@@ -155,13 +156,16 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     /// The Submission contract.
     Submission public submission;
 
+    /// The Submission contract.
+    Relay public relay;
+
     event SigningPolicyInitialized(
-        uint64 rId,                 // Reward epoch id.
-        uint64 startVotingRoundId,  // First voting round id of validity.
+        uint24 rewardEpochId,       // Reward epoch id
+        uint32 startVotingRoundId,  // First voting round id of validity.
                                     //  Usually it is the first voting round of reward epoch rId.
                                     // It can be later,
                                     // if the confirmation of the signing policy on Flare blockchain gets delayed.
-        uint64 threshold,           // Confirmation threshold (absolute value of noramalised weights).
+        uint16 threshold,           // Confirmation threshold (absolute value of noramalised weights).
         uint256 seed,               // Random seed.
         address[] voters,           // The list of eligible voters in the canonical order.
         uint16[] weights            // The corresponding list of normalised signing weights of eligible voters.
@@ -170,18 +174,18 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     );
 
     event RandomAcquisitionStarted(
-        uint64 rId,                 // Reward epoch id.
+        uint24 rewardEpochId,       // Reward epoch id
         uint64 timestamp            // Timestamp when this happened
     );
 
     event VotePowerBlockSelected(
-        uint64 rId,                 // Reward epoch id.
+        uint24 rewardEpochId,       // Reward epoch id
         uint64 votePowerBlock,      // Vote power block for given reward epoch
         uint64 timestamp            // Timestamp when this happened
     );
 
     event SigningPolicySigned(
-        uint64 rId,                 // Reward epoch id.
+        uint24 rewardEpochId,       // Reward epoch id
         address signingAddress,     // Address which signed this
         address voter,              // Voter (entity)
         uint64 timestamp,           // Timestamp when this happened
@@ -189,7 +193,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     );
 
     event UptimeVoteSigned(
-        uint64 rId,                 // Reward epoch id.
+        uint24 rewardEpochId,       // Reward epoch id
         address signingAddress,     // Address which signed this
         address voter,              // Voter (entity)
         bytes32 uptimeVoteHash,     // Uptime vote hash
@@ -198,7 +202,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     );
 
     event RewardsSigned(
-        uint64 rId,                     // Reward epoch id.
+        uint24 rewardEpochId,           // Reward epoch id
         address signingAddress,         // Address which signed this
         address voter,                  // Voter (entity)
         bytes32 rewardsHash,            // Rewards hash
@@ -258,11 +262,11 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     }
 
     function daemonize() external onlyFlareDaemon returns (bool) {
-        uint64 currentVotingEpoch = _getCurrentVotingEpoch();
-        uint64 currentRewardEpoch = _getCurrentRewardEpoch();
+        uint32 currentVotingEpoch = _getCurrentVotingEpoch();
+        uint24 currentRewardEpoch = _getCurrentRewardEpoch();
 
         if (block.timestamp >= currentRewardEpochEndTs - newSigningPolicyInitializationStartSeconds) {
-            uint64 nextRewardEpoch = currentRewardEpoch + 1;
+            uint24 nextRewardEpoch = currentRewardEpoch + 1;
 
             // check if new signing policy is already defined
             if (roots[NEW_SIGNING_POLICY_PROTOCOL_ID][nextRewardEpoch] == bytes32(0)) {
@@ -319,7 +323,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
      * @param _signature Signature
      */
     function signNewSigningPolicy(
-        uint64 _rId,
+        uint24 _rId,
         bytes32 _newSigningPolicyHash,
         Signature calldata _signature
     )
@@ -351,7 +355,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     }
 
     function signUptimeVote(
-        uint64 _rId,
+        uint24 _rId,
         bytes32 _uptimeVoteHash,
         Signature calldata _signature
     )
@@ -384,7 +388,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     }
 
     function signRewards(
-        uint64 _rId,
+        uint24 _rId,
         uint64 _noOfWeightBasedClaims,
         bytes32 _rewardsHash,
         Signature calldata _signature
@@ -447,7 +451,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     {
         require(_pId > 2, "protocol id invalid");
         require(roots[_pId][_votingRoundId] == bytes32(0), "already finalised");
-        uint64 rId = _signingPolicy.rId;
+        uint24 rId = _signingPolicy.rewardEpochId;
         require(roots[NEW_SIGNING_POLICY_PROTOCOL_ID][rId] == keccak256(abi.encode(_signingPolicy)),
             "signing policy invalid");
         require(_signingPolicy.startVotingRoundId <= _votingRoundId, "voting round too low");
@@ -532,7 +536,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         return "Finalisation";
     }
 
-    function getCurrentRewardEpoch() public view returns(uint64 _currentRewardEpoch) {
+    function getCurrentRewardEpoch() public view returns(uint24 _currentRewardEpoch) {
         _currentRewardEpoch = _getCurrentRewardEpoch();
         if (_isNextRewardEpoch(_currentRewardEpoch + 1)) {
             // first transaction in the block (daemonize() call will change `currentRewardEpochEndTs` value after it)
@@ -540,7 +544,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         }
     }
 
-    function _selectVotePowerBlock(uint64 _nextRewardEpoch) internal {
+    function _selectVotePowerBlock(uint24 _nextRewardEpoch) internal {
         // currentRandomTs > state.randomAcquisitionStartTs && currentRandomQuality == true
         RewardEpochState storage state = rewardEpochState[_nextRewardEpoch];
         uint64 endBlock = state.randomAcquisitionStartBlock;
@@ -565,21 +569,29 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         emit VotePowerBlockSelected(_nextRewardEpoch, votePowerBlock, block.timestamp.toUint64());
     }
 
-    function _initializeNextSigningPolicy(uint64 _nextRewardEpoch) internal {
+    function _initializeNextSigningPolicy(uint24 _nextRewardEpoch) internal {
         RewardEpochState storage state = rewardEpochState[_nextRewardEpoch];
         SigningPolicy memory sp;
-        sp.rId = _nextRewardEpoch;
+        sp.rewardEpochId = _nextRewardEpoch;
         sp.startVotingRoundId = _getStartVotingRoundId();
         uint256 normalisedWeightsSum;
         (sp.voters, sp.weights, normalisedWeightsSum) = voterWhitelister.createSigningPolicySnapshot(_nextRewardEpoch);
-        sp.threshold = normalisedWeightsSum.mulDivRoundUp(signingPolicyThresholdPPM, PPM_MAX).toUint64();
+        sp.threshold = normalisedWeightsSum.mulDivRoundUp(signingPolicyThresholdPPM, PPM_MAX).toUint16();
         sp.seed = state.seed;
 
         state.startVotingRoundId = sp.startVotingRoundId;
         state.threshold = sp.threshold;
+        relay.setSigningPolicy(sp);
         roots[NEW_SIGNING_POLICY_PROTOCOL_ID][_nextRewardEpoch] = keccak256(abi.encode(sp));
 
-        emit SigningPolicyInitialized(sp.rId, sp.startVotingRoundId, sp.threshold, sp.seed, sp.voters, sp.weights);
+        emit SigningPolicyInitialized(
+            sp.rewardEpochId,
+            sp.startVotingRoundId,
+            sp.threshold,
+            sp.seed,
+            sp.voters,
+            sp.weights
+        );
     }
 
     /**
@@ -594,20 +606,25 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         voterWhitelister = VoterWhitelister(_getContractAddress(
             _contractNameHashes, _contractAddresses, "VoterWhitelister"));
         submission = Submission(_getContractAddress(_contractNameHashes, _contractAddresses, "Submission"));
+        relay = Relay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
-    function _getCurrentRewardEpoch() internal view returns(uint64) {
-        return (currentRewardEpochEndTs - rewardEpochsStartTs) / rewardEpochDurationSeconds - 1;
+    function _getCurrentRewardEpoch() internal view returns(uint24) {
+        return (uint256(currentRewardEpochEndTs - rewardEpochsStartTs) / rewardEpochDurationSeconds - 1).toUint24();
     }
 
-    function _isNextRewardEpoch(uint64 _nextRewardEpoch) internal view returns (bool) {
+    function _isNextRewardEpoch(uint24 _nextRewardEpoch) internal view returns (bool) {
         return block.timestamp >= currentRewardEpochEndTs &&
-            roots[NEW_SIGNING_POLICY_PROTOCOL_ID][_nextRewardEpoch] != bytes32(0) &&
+            _getSingingPolicyHash(_nextRewardEpoch) != bytes32(0) &&
             _getCurrentVotingEpoch() >= rewardEpochState[_nextRewardEpoch].startVotingRoundId;
     }
 
-    function _getCurrentVotingEpoch() internal view returns(uint64) {
-        return ((block.timestamp - votingEpochsStartTs) / votingEpochDurationSeconds).toUint64();
+    function _getCurrentVotingEpoch() internal view returns(uint32) {
+        return ((block.timestamp - votingEpochsStartTs) / votingEpochDurationSeconds).toUint32();
+    }
+
+    function _getSingingPolicyHash(uint24 _rewardEpoch) internal view returns (bytes32) {
+        return relay.toSigningPolicyHash(_rewardEpoch);
     }
 
     /**
@@ -626,13 +643,13 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
             voterWhitelister.getNumberOfWhitelistedVoters(_rewardEpoch) < signingPolicyMinNumberOfVoters;
     }
 
-    function _getStartVotingRoundId() internal view returns (uint64 _startVotingRoundId) {
-        uint64 timeFromStart = currentRewardEpochEndTs;
+    function _getStartVotingRoundId() internal view returns (uint32 _startVotingRoundId) {
+        uint256 timeFromStart = currentRewardEpochEndTs;
         if (block.timestamp >= timeFromStart) {
             timeFromStart = block.timestamp.toUint64() + 1; // start in next block
         }
         timeFromStart -= votingEpochsStartTs; // currentRewardEpochEndTs >= rewardEpochsStartTs >= votingEpochsStartTs
-        _startVotingRoundId = timeFromStart / votingEpochDurationSeconds;
+        _startVotingRoundId = (timeFromStart / votingEpochDurationSeconds).toUint32();
         // if in the middle of voting round start with the next one
         //slither-disable-next-line weak-prng //not a random
         if (timeFromStart % votingEpochDurationSeconds != 0) {

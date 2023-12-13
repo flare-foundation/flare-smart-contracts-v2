@@ -25,12 +25,12 @@ contract Relay {
     }
 
     // struct SigningPolicy {
-    //     uint64 rId;                 // Reward epoch id.
-    //     uint64 startVotingRoundId;  // First voting round id of validity.
+    //     uint24 rId;                 // Reward epoch id.
+    //     uint32 startVotingRoundId;  // First voting round id of validity.
     //                                 // Usually it is the first voting round of reward epoch rID.
     //                                 // It can be later,
     //                                 // if the confirmation of the signing policy on Flare blockchain gets delayed.
-    //     uint64 threshold;           // Confirmation threshold (absolute value of noramalised weights).
+    //     uint16 threshold;           // Confirmation threshold (absolute value of noramalised weights).
     //     uint256 seed;               // Random seed.
     //     address[] voters;           // The list of eligible voters in the canonical order.
     //     uint16[] weights;           // The corresponding list of normalised signing weights of eligible voters.
@@ -43,10 +43,10 @@ contract Relay {
     ) public onlySigningPolicySetter returns (bytes32) {
         require(
             lastInitializedRewardEpoch == 0 ||
-                lastInitializedRewardEpoch + 1 == _signingPolicy.rId,
+                lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
             "not next reward epoch"
         );
-        require(toSigningPolicyHash[_signingPolicy.rId] == 0, "already set");
+        require(toSigningPolicyHash[_signingPolicy.rewardEpochId] == 0, "already set");
         require(
             _signingPolicy.voters.length == _signingPolicy.weights.length,
             "size mismatch"
@@ -55,11 +55,11 @@ contract Relay {
         // bytes32 currentHash;
         bytes memory toHash = bytes.concat(
             bytes2(uint16(_signingPolicy.voters.length)),
-            bytes3(uint24(_signingPolicy.rId)),
-            bytes4(uint32(_signingPolicy.startVotingRoundId)),
-            bytes2(uint16(_signingPolicy.threshold)),
+            bytes3(_signingPolicy.rewardEpochId),
+            bytes4(_signingPolicy.startVotingRoundId),
+            bytes2(_signingPolicy.threshold),
             bytes32(_signingPolicy.seed),
-            bytes20(uint160(_signingPolicy.voters[0])),
+            bytes20(_signingPolicy.voters[0]),
             bytes1(uint8(_signingPolicy.weights[0] >> 8))
         );
         bytes32 currentHash = keccak256(toHash);
@@ -119,7 +119,7 @@ contract Relay {
                 hashCount++;
             }
         }
-        toSigningPolicyHash[_signingPolicy.rId] = currentHash;
+        toSigningPolicyHash[_signingPolicy.rewardEpochId] = currentHash;
         return currentHash;
     }
 

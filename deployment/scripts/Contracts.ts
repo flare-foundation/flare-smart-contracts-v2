@@ -54,6 +54,7 @@ export class Contracts {
   public static readonly ENTITY_MANAGER = "EntityManager";
   public static readonly FINALISATION = "Finalisation";
   public static readonly SUBMISSION = "Submission";
+  public static readonly RELAY = "Relay";
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 
   constructor() {
