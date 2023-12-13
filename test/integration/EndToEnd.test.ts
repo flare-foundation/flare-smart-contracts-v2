@@ -10,7 +10,7 @@ import { toChecksumAddress } from 'ethereumjs-util';
 import { VoterWhitelisterInstance } from '../../typechain-truffle/contracts/protocol/implementation/VoterWhitelister';
 import { FinalisationInstance } from '../../typechain-truffle/contracts/protocol/implementation/Finalisation';
 import { SubmissionInstance } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
-import { testDeployGovernanceSettings } from '../utils/contract-test-helpers';
+import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
 
 const MockContract = artifacts.require("MockContract");
 const WNat = artifacts.require("WNat");
@@ -116,12 +116,23 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             2
         );
 
+        governanceSettings = await testDeployGovernanceSettings(accounts[0], 3600, [accounts[0]]);
         wNat = await WNat.new(accounts[0], "Wrapped NAT", "WNAT");
+        await wNat.switchToProductionMode({ from: accounts[0] });
+        let switchToProdModeTime = await time.latest();
         const vpContract = await VPContract.new(wNat.address, false);
         await wNat.setWriteVpContract(vpContract.address);
         await wNat.setReadVpContract(vpContract.address);
         governanceVotePower = await GovernanceVotePower.new(wNat.address, pChainStakeMirror.address);
         await wNat.setGovernanceVotePower(governanceVotePower.address);
+
+        await time.increaseTo(switchToProdModeTime.addn(3600)); // 2 hours before new reward epoch
+        await executeTimelockedGovernanceCall(wNat, (governance) =>
+            wNat.setWriteVpContract(vpContract.address, { from: governance }));
+        await executeTimelockedGovernanceCall(wNat, (governance) =>
+            wNat.setReadVpContract(vpContract.address, { from: governance }));
+        await executeTimelockedGovernanceCall(wNat, (governance) =>
+            wNat.setGovernanceVotePower(governanceVotePower.address, { from: governance }));
 
         addressBinder = await AddressBinder.new();
         pChainVerifier = await PChainVerifier.new(ADDRESS_UPDATER, 10, 1000, 5, 5000);
@@ -142,8 +153,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         stakeIds = [web3.utils.keccak256("stake1"), web3.utils.keccak256("stake2"), web3.utils.keccak256("stake3"), web3.utils.keccak256("stake4")];
         now = await time.latest();
 
-
-        governanceSettings = await testDeployGovernanceSettings(accounts[0], 3600, [accounts[0]]);
         entityManager = await EntityManager.new(governanceSettings.address, accounts[0], 4);
         voterWhitelister = await VoterWhitelister.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, [accounts[0]]);
 
@@ -278,7 +287,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         for (let i = 0; i < 20; i++) {
             await time.advanceBlock(); // create required number of blocks to proceed
         }
-        await time.increaseTo(now.addn(3600 * 4)); // at lest 30 minutes from the vote power block selection
+        await time.increaseTo(now.addn(3600 * 4)); // at least 30 minutes from the vote power block selection
         const startVotingRoundId = 3600 * 5 / VOTING_EPOCH_DURATION_SEC;
         newSigningPolicy = {
             rId: 1,
@@ -415,7 +424,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         for (let i = 0; i < 20; i++) {
             await time.advanceBlock(); // create required number of blocks to proceed
         }
-        await time.increaseTo(now.addn(3600 * 9)); // at lest 30 minutes from the vote power block selection
+        await time.increaseTo(now.addn(3600 * 9)); // at least 30 minutes from the vote power block selection
         const votingRoundId = 3600 * 10 / VOTING_EPOCH_DURATION_SEC;
         expectEvent(await finalisation.daemonize(), "SigningPolicyInitialized",
             { rId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(20, 24),

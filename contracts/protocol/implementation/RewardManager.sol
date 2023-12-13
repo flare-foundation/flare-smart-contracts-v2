@@ -166,7 +166,12 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     {
         _checkNonzeroRecipient(_recipient);
         _handleSelfDestructProceeds();
-        require(_isRewardClaimable(_rewardEpoch, finalisation.getCurrentRewardEpoch()), "not claimable");
+
+        uint64 currentRewardEpoch = _getCurrentRewardEpoch();
+        if (epochVotePowerBlock[currentRewardEpoch] == 0) {
+            epochVotePowerBlock[currentRewardEpoch] = finalisation.getVotePowerBlock(currentRewardEpoch).toUint64();
+        }
+        require(_isRewardClaimable(_rewardEpoch, currentRewardEpoch), "not claimable");
         uint120 burnAmountWei;
         (_rewardAmountWei, burnAmountWei) = _processProofs(_rewardOwner, _recipient, _proofs);
 
@@ -207,7 +212,10 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             _checkNonzeroRecipient(_rewardOwners[i]);
         }
 
-        uint256 currentRewardEpoch = finalisation.getCurrentRewardEpoch();
+        uint64 currentRewardEpoch = _getCurrentRewardEpoch();
+        if (epochVotePowerBlock[currentRewardEpoch] == 0) {
+            epochVotePowerBlock[currentRewardEpoch] = finalisation.getVotePowerBlock(currentRewardEpoch).toUint64();
+        }
         require(_isRewardClaimable(_rewardEpoch, currentRewardEpoch), "not claimable");
 
         (address[] memory claimAddresses, uint256 executorFeeValue) =
@@ -249,7 +257,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     function setDataProviderFeePercentage(uint16 _feePercentageBIPS) external returns (uint256) {
         require(_feePercentageBIPS <= MAX_BIPS, "fee percentage invalid");
 
-        uint64 rewardEpoch = finalisation.getCurrentRewardEpoch() + feePercentageUpdateOffset;
+        uint64 rewardEpoch = _getCurrentRewardEpoch() + feePercentageUpdateOffset;
         FeePercentage[] storage fps = dataProviderFeePercentages[msg.sender];
 
         // determine whether to update the last setting or add a new one
@@ -284,7 +292,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
      * @param _dataProvider         address representing data provider
      */
     function getDataProviderCurrentFeePercentage(address _dataProvider) external view returns (uint16) {
-        return _getDataProviderFeePercentage(_dataProvider, finalisation.getCurrentRewardEpoch());
+        return _getDataProviderFeePercentage(_dataProvider, _getCurrentRewardEpoch());
     }
 
     /**
@@ -348,6 +356,63 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         _lockedFundsWei = totalFundsReceivedWei - totalInflationReceivedWei;
         _totalInflationAuthorizedWei = totalInflationAuthorizedWei;
         _totalClaimedWei = totalClaimedWei + totalBurnedWei;
+    }
+
+    /**
+     * @notice Return expected balance of reward manager
+     */
+    function getExpectedBalance() external view returns(uint256) {
+        return _getExpectedBalance();
+    }
+
+    /**
+     * @notice Returns the start and the end of the reward epoch range for which the reward is claimable
+     * @return _startEpochId        the oldest epoch id that allows reward claiming
+     * @return _endEpochId          the newest epoch id that allows reward claiming
+     */
+    function getEpochsWithClaimableRewards() external view
+        returns (uint256 _startEpochId, uint256 _endEpochId)
+    {
+        _startEpochId = _minClaimableRewardEpoch();
+        uint256 currentRewardEpochId = _getCurrentRewardEpoch();
+        require(currentRewardEpochId > 0, "no epoch with claimable rewards");
+        _endEpochId = currentRewardEpochId - 1;
+    }
+
+    function getTotals()
+        external view
+        returns (
+            uint256 _totalClaimedWei,
+            uint256 _totalExpiredWei,
+            uint256 _totalUnearnedWei,
+            uint256 _totalBurnedWei,
+            uint256 _totalInflationAuthorizedWei,
+            uint256 _totalInflationReceivedWei
+        )
+    {
+        return (
+            totalClaimedWei,
+            totalExpiredWei,
+            totalUnearnedWei,
+            totalBurnedWei,
+            totalInflationAuthorizedWei,
+            totalInflationReceivedWei
+        );
+    }
+
+     /**
+     * @notice Return current reward epoch number
+     */
+    function getCurrentRewardEpoch() external view returns (uint64) {
+        return _getCurrentRewardEpoch();
+    }
+
+    /**
+     * @notice Return initial reward epoch number
+     * @return _initialRewardEpoch                 initial reward epoch number
+     */
+    function getInitialRewardEpoch() external view returns (uint256 _initialRewardEpoch) {
+        return _getInitialRewardEpoch();
     }
 
     function _processProofs(
@@ -748,8 +813,15 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         }
     }
 
-    function _getVotePowerBlock(uint64 _rewardEpoch) internal view returns (uint256) {
-        return finalisation.getVotePowerBlock(_rewardEpoch); // TODO - save locally?
+    /**
+     * @notice Return reward epoch vote power block
+     * @param _rewardEpoch          reward epoch number
+     */
+    function _getVotePowerBlock(uint64 _rewardEpoch) internal view returns (uint256 _votePowerBlock) {
+        _votePowerBlock = epochVotePowerBlock[_rewardEpoch];
+        if (_votePowerBlock == 0) {
+            _votePowerBlock = finalisation.getVotePowerBlock(_rewardEpoch);
+        }
     }
 
     /**
@@ -780,8 +852,15 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         (,_initialRewardEpoch) = Math.trySub(initialRewardEpoch, 1);
     }
 
+    /**
+     * @notice Return current reward epoch number
+     */
+    function _getCurrentRewardEpoch() internal view returns (uint64) {
+        return finalisation.getCurrentRewardEpoch();
+    }
+
     function _getExpectedBalance() private view returns(uint256 _balanceExpectedWei) {
-        return totalFundsReceivedWei -totalClaimedWei - totalBurnedWei;
+        return totalFundsReceivedWei - totalClaimedWei - totalBurnedWei;
     }
 
     function _checkExecutorAndAllowedRecipient(address _rewardOwner, address _recipient) private view {
