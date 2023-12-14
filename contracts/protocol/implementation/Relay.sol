@@ -6,10 +6,14 @@ import "./Finalisation.sol";
 // import "hardhat/console.sol";
 
 contract Relay {
+    // IMPORTANT: if you change this, you have to adapt the assembly writing into this in the relay() function
     struct StateData {
         uint8 randomNumberProtocolId;
         uint32 randomTimestamp;
+        uint32 randomVotingRoundId;
+        bool randomNumberQualityScore;
     }
+
     uint256 public lastInitializedRewardEpoch;
     // rewardEpochId => signingPolicyHash
     mapping(uint256 => bytes32) public toSigningPolicyHash;
@@ -23,11 +27,13 @@ contract Relay {
     constructor(
         address _signingPolicySetter,
         uint256 rewardEpochId,
-        bytes32 signingPolicyHash
+        bytes32 signingPolicyHash,
+        uint8 randomNumberProtocolId // TODO - we may want to be able to change this through governance
     ) {
         signingPolicySetter = _signingPolicySetter;
         lastInitializedRewardEpoch = rewardEpochId;
         toSigningPolicyHash[rewardEpochId] = signingPolicyHash;
+        stateData.randomNumberProtocolId = randomNumberProtocolId;
     }
 
     /// Only signingPolicySetter address/contract can call this method.
@@ -36,19 +42,21 @@ contract Relay {
         _;
     }
 
-    // struct SigningPolicy {
-    //     uint24 rId;                 // Reward epoch id.
-    //     uint32 startVotingRoundId;  // First voting round id of validity.
-    //                                 // Usually it is the first voting round of reward epoch rID.
-    //                                 // It can be later,
-    //                                 // if the confirmation of the signing policy on Flare blockchain gets delayed.
-    //     uint16 threshold;           // Confirmation threshold (absolute value of noramalised weights).
-    //     uint256 seed;               // Random seed.
-    //     address[] voters;           // The list of eligible voters in the canonical order.
-    //     uint16[] weights;           // The corresponding list of normalised signing weights of eligible voters.
-    //                                 // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
-    //                                 // while approximately keeping the weight relations.
-    // }
+    function getRandomNumber()
+        public
+        view
+        returns (
+            bytes32 randomNumber,
+            bool randomNumberQualityScore,
+            uint32 randomTimestamp
+        )
+    {
+        randomNumber = merkleRoots[stateData.randomNumberProtocolId][
+            stateData.randomVotingRoundId
+        ];
+        randomNumberQualityScore = stateData.randomNumberQualityScore;
+        randomTimestamp = stateData.randomTimestamp;
+    }
 
     function setSigningPolicy(
         Finalisation.SigningPolicy calldata _signingPolicy
@@ -181,7 +189,6 @@ contract Relay {
     //
     // (1) Initializing with signing policy. This can be done only once, usually after deployment. The calldata should include only signature and signing policy.
     function relay() external {
-        uint256 tmpVar;
         assembly {
             // Helper function to revert with a message
             // Since string length cannot be determined in assembly easily, the matching length of the message string must be provided.
@@ -211,6 +218,17 @@ contract Relay {
                 rewardEpochId := div(
                     sub(votingRoundId, firstRewardEpochVotingRoundId),
                     rewardEpochDurationInEpochs
+                )
+            }
+
+            // Helper function to calculate the end time of the voting roujnd
+            // Here the constants should be set properly
+            function votingRoundEndTime(votingRoundId) -> timeStamp {
+                let firstVotingRoundStartSec := 1636070400 // CONST firstVotingRoundStartSec = 1636070400
+                let votingRoundDurationSec := 90 // CONST votingRoundDurationSec = 90
+                timeStamp := add(
+                    firstVotingRoundStartSec,
+                    mul(add(votingRoundId, 1), votingRoundDurationSec)
                 )
             }
 
@@ -517,6 +535,46 @@ contract Relay {
                     sstore(keccak256(memPtr, 64), merkleRoot) // merkleRoot stored at merkleRoots[protocolId][votingRoundId]
 
                     // TODO: set randomNumberQualityScore
+                    // stateData
+                    let stateDataTemp := sload(stateData.slot)
+                    // struct StateData {
+                    //     uint8 randomNumberProtocolId;
+                    //     uint32 randomTimestamp;
+                    //     uint32 randomVotingRoundId;
+                    //     bool randomNumberQualityScore;
+                    // }
+                    // NOTE: the struct is packed in reverse order of bytes
+                    
+                    // stateData.randomVotingRoundId = votingRoundId
+                    // 8*(1 randomNumberProtocolId + 4 randomTimestamp) = 40
+                    stateDataTemp := or(
+                        and(stateDataTemp, not(shl(40, 0xffffffff))),
+                        shl(40, votingRoundId)
+                    )
+
+                    // Message:
+                    // 1 byte - protocolId
+                    // 4 bytes - votingRoundId
+                    // 1 byte - randomQualityScore
+                    // 32 bytes - merkleRoot
+                    // Total 38 bytes
+
+                    // stateData.randomNumberQualityScore = votingRoundId
+                    pos := add(9, signingPolicyLength) // 4 selector + 1 protocolId + 4 votingRoundId = 9
+                    calldatacopy(memPtr, pos, 1) // 1 byte for randomQualityScore
+                    stateDataTemp := or(
+                        and(stateDataTemp, not(shl(72, 0xff))),
+                        // 8*(1 randomNumberProtocolId - 4 randomTimestamp - 4 randomVotingRoundId) = 72
+                        shl(72, shr(248, mload(memPtr))) // shr(248, mload(memPtr)) - move the byte to the rightmost position
+                    )
+
+                    // stateData.randomTimestamp = end of the votingRoundId timestamp
+                    stateDataTemp := or(
+                        and(stateDataTemp, not(shl(8, 0xffffffff))),
+                        shl(8, votingRoundEndTime(votingRoundId)) // 8*(1 randomNumberProtocolId) = 8
+                    )
+                    
+                    sstore(stateData.slot, stateDataTemp)
                     return(0, 0) // all done
                 }
             }
