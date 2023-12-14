@@ -2,12 +2,14 @@
 pragma solidity 0.8.20;
 
 import "./Finalisation.sol";
+import "./Relay.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../governance/implementation/AddressUpdatable.sol";
 
 contract Submission is Governed, AddressUpdatable {
 
     Finalisation public finalisation;
+    Relay public relay;
     bool public submitMethodEnabled;
 
     mapping(address => bool) private commitAddresses;
@@ -34,7 +36,7 @@ contract Submission is Governed, AddressUpdatable {
         submitMethodEnabled = _submitMethodEnabled;
     }
 
-    function initVotingRound(
+    function initNewVotingRound(
         address[] calldata _commitSubmitAddresses,
         address[] calldata _revealAddresses,
         address[] calldata _signingAddresses
@@ -92,25 +94,12 @@ contract Submission is Governed, AddressUpdatable {
         return false;
     }
 
-    function finalise(
-        Finalisation.SigningPolicy calldata _signingPolicy,
-        uint64 _pId,
-        uint64 _votingRoundId,
-        bool _quality,
-        bytes32 _root,
-        Finalisation.SignatureWithIndex[] calldata _signatures
-    )
-        external
-        returns (bool)
-    {
-        finalisation.finalise(
-            _signingPolicy,
-            _pId,
-            _votingRoundId,
-            _quality,
-            _root,
-            _signatures
-        );
+    function finalise(bytes calldata _data) external returns (bool) {
+        /* solhint-disable avoid-low-level-calls */
+        //slither-disable-next-line arbitrary-send-eth
+        (bool success, bytes memory e) = address(relay).call(bytes.concat(abi.encodeWithSignature("relay()"), _data));
+        /* solhint-enable avoid-low-level-calls */
+        require(success, _getRevertMsg(e));
 
         return true;
     }
@@ -129,5 +118,17 @@ contract Submission is Governed, AddressUpdatable {
         internal override
     {
         finalisation = Finalisation(_getContractAddress(_contractNameHashes, _contractAddresses, "Finalisation"));
+        relay = Relay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
+    }
+
+    function _getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {
+        // If the _res length is less than 68, then the transaction failed silently (without a revert message)
+        if (_returnData.length < 68) return "Transaction reverted silently";
+
+        assembly {
+            // Slice the sighash.
+            _returnData := add(_returnData, 0x04)
+        }
+        return abi.decode(_returnData, (string)); // All that remains is the revert string
     }
 }

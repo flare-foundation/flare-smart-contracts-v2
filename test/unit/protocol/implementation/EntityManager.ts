@@ -10,7 +10,7 @@ contract(`EntityManager.sol; ${getTestFile(__filename)}`, async accounts => {
   let entityManager: EntityManagerInstance;
 
   beforeEach(async () => {
-    entityManager = await EntityManager.new();
+    entityManager = await EntityManager.new(accounts[0], accounts[1], 4);
   });
 
   it("Should set node id", async () => {

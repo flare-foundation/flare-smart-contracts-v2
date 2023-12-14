@@ -65,10 +65,6 @@ contract Relay {
             lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
             "not next reward epoch"
         );
-        require(
-            _signingPolicy.voters.length == _signingPolicy.weights.length,
-            "size mismatch"
-        );
         require(_signingPolicy.voters.length > 0, "must be non-trivial");
         require(
             _signingPolicy.voters.length == _signingPolicy.weights.length,

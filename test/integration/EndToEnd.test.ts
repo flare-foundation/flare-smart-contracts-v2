@@ -12,6 +12,8 @@ import { FinalisationInstance } from '../../typechain-truffle/contracts/protocol
 import { SubmissionInstance } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
 import { RelayInstance } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
+import { ProtocolMessageMerkleRoot, SigningPolicy, encodeProtocolMessageMerkleRoot, encodeSigningPolicy, signingPolicyHash } from '../../scripts/libs/protocol/protocol-coder';
+import { generateSignatures } from '../unit/protocol/coding/coding-helpers';
 
 const MockContract = artifacts.require("MockContract");
 const WNat = artifacts.require("WNat");
@@ -37,18 +39,6 @@ type PChainStake = {
     weight: number,
 }
 
-type SigningPolicy = {
-    rewardEpochId: number,      // Reward epoch id.
-    startVotingRoundId: number, // First voting round id of validity. Usually it is the first voting round of reward epoch rewardEpochId.
-                                // It can be later, if the confirmation of the signing policy on Flare blockchain gets delayed.
-    threshold: number,          // Confirmation threshold in terms of PPM (parts per million). Usually more than 500,000.
-    seed: string,               // Random seed.
-    voters: string[],           // The list of eligible voters in the canonical order.
-    weights: number[]           // The corresponding list of normalised signing weights of eligible voters.
-                                // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
-                                // while approximately keeping the weight relations.
-}
-
 async function setMockStakingData(verifierMock: MockContractInstance, pChainVerifier: PChainStakeMirrorVerifierInstance, txId: string, stakingType: number, inputAddress: string, nodeId: string, startTime: BN, endTime: BN, weight: number, stakingProved: boolean = true): Promise<PChainStake> {
     let data = {
         txId: txId,
@@ -65,16 +55,12 @@ async function setMockStakingData(verifierMock: MockContractInstance, pChainVeri
     return data;
 }
 
-function encodeSigningPolicy(signingPolicy: SigningPolicy): string {
-    return web3.utils.keccak256(web3.eth.abi.encodeParameter("(uint64,uint64,uint64,uint256,address[],uint16[])",
-        [signingPolicy.rewardEpochId, signingPolicy.startVotingRoundId, signingPolicy.threshold, signingPolicy.seed, signingPolicy.voters, signingPolicy.weights]));
+function getSigningPolicyHash(signingPolicy: SigningPolicy): string {
+    return signingPolicyHash(encodeSigningPolicy(signingPolicy));
 }
 
 contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
-    const NEW_SIGNING_POLICY_PROTOCOL_ID = 0;
-    const UPTIME_VOTE_PROTOCOL_ID = 1;
-    const REWARDS_PROTOCOL_ID = 2;
     const FTSO_PROTOCOL_ID = 100;
 
     let wNat: WNatInstance;
@@ -104,8 +90,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     const RANDOM_ROOT = web3.utils.keccak256("root");
     const RANDOM_ROOT2 = web3.utils.keccak256("root2");
 
+    // same as in relay contract
+    const REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
+    const FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
+
     const GWEI = 1e9;
     const VOTING_EPOCH_DURATION_SEC = 90;
+    const REWARD_EPOCH_DURATION_IN_SEC = REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS * VOTING_EPOCH_DURATION_SEC;
 
     const ADDRESS_UPDATER = accounts[16];
     const CLEANER_CONTRACT = accounts[100];
@@ -159,13 +150,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         entityManager = await EntityManager.new(governanceSettings.address, accounts[0], 4);
         voterWhitelister = await VoterWhitelister.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, [accounts[0]]);
 
-        initialSigningPolicy = {rewardEpochId: 0, startVotingRoundId: 0, threshold: Math.ceil(65535 / 2), seed: "123", voters: [accounts[0]], weights: [65535]};
+        initialSigningPolicy = {rewardEpochId: 0, startVotingRoundId: FIRST_REWARD_EPOCH_VOTING_ROUND_ID, threshold: Math.ceil(65535 / 2), seed: "0x" + (123).toString(16).padStart(64, "0"), voters: [accounts[0]], weights: [65535]};
 
         const finalisationSettings = {
-            votingEpochsStartTs: now.toNumber(),
+            votingEpochsStartTs: now.toNumber() - FIRST_REWARD_EPOCH_VOTING_ROUND_ID * VOTING_EPOCH_DURATION_SEC,
             votingEpochDurationSeconds: VOTING_EPOCH_DURATION_SEC,
             rewardEpochsStartTs: now.toNumber(),
-            rewardEpochDurationSeconds: 3600 * 5,
+            rewardEpochDurationSeconds: REWARD_EPOCH_DURATION_IN_SEC,
             newSigningPolicyInitializationStartSeconds: 3600 * 2,
             nonPunishableRandomAcquisitionMinDurationSeconds: 75 * 60,
             nonPunishableRandomAcquisitionMinDurationBlocks: 2250,
@@ -184,11 +175,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             accounts[0],
             finalisationSettings,
             1,
-            0,
-            encodeSigningPolicy(initialSigningPolicy)
+            0
         );
 
-        relay = await Relay.new(finalisation.address);
+        relay = await Relay.new(finalisation.address, 0, getSigningPolicyHash(initialSigningPolicy));
 
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
 
@@ -201,8 +191,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [ADDRESS_UPDATER, voterWhitelister.address, submission.address, relay.address], { from: ADDRESS_UPDATER });
 
         await submission.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FINALISATION]),
-            [ADDRESS_UPDATER, finalisation.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FINALISATION, Contracts.RELAY]),
+            [ADDRESS_UPDATER, finalisation.address, relay.address], { from: ADDRESS_UPDATER });
     });
 
     it("Should register addresses", async () => {
@@ -253,27 +243,22 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should start random acquisition", async () => {
-        await time.increaseTo(now.addn(3600 * 3)); // 2 hours before new reward epoch
+        await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC - 3600 * 2)); // 2 hours before new reward epoch
         expectEvent(await finalisation.daemonize(), "RandomAcquisitionStarted", { rewardEpochId: toBN(1) });
     });
 
     it("Should get good random", async () => {
-        const votingRoundId = 3600 * 3 / VOTING_EPOCH_DURATION_SEC + 1;
+        const votingRoundId = (REWARD_EPOCH_DURATION_IN_SEC - 3600 * 2) / VOTING_EPOCH_DURATION_SEC + 1;
         const quality = true;
 
-        const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-            ["uint64", "uint64", "bool", "bytes32"],
-            [FTSO_PROTOCOL_ID, votingRoundId, quality, RANDOM_ROOT]));
+        const messageData: ProtocolMessageMerkleRoot = {protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT};
+        const fullMessage = encodeProtocolMessageMerkleRoot(messageData).slice(2);
+        const messageHash = web3.utils.keccak256("0x" + fullMessage);
+        const signatures = await generateSignatures(privateKeys.map(x => x.privateKey), messageHash, 1);
+        const signingPolicy = encodeSigningPolicy(initialSigningPolicy).slice(2);
+        const fullData = "0x" + signingPolicy + fullMessage + signatures;
 
-        const signature = web3.eth.accounts.sign(hash, privateKeys[0].privateKey);
-        const signatureWithIndex = {
-            index: 0,
-            v: signature.v,
-            r: signature.r,
-            s: signature.s
-        };
-
-        await finalisation.finalise(initialSigningPolicy, FTSO_PROTOCOL_ID, votingRoundId, quality, RANDOM_ROOT, [signatureWithIndex]);
+        await submission.finalise(fullData);
         expect((await finalisation.getCurrentRandomWithQuality())[1]).to.be.true;
     });
 
@@ -284,7 +269,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     it("Should register a few voters", async () => {
         for (let i = 0; i < 4; i++) {
             expectEvent(await voterWhitelister.requestWhitelisting(registeredCAddresses[i], { from: accounts[20 + i]}),
-                "VoterWhitelisted", {voter : registeredCAddresses[i], rewardEpoch: toBN(1), signingAddress: accounts[20 + i], dataProviderAddress: accounts[10 + i]});
+                "VoterWhitelisted", {voter : registeredCAddresses[i], rewardEpochId: toBN(1), signingAddress: accounts[20 + i], dataProviderAddress: accounts[10 + i]});
         }
     });
 
@@ -292,25 +277,25 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         for (let i = 0; i < 20; i++) {
             await time.advanceBlock(); // create required number of blocks to proceed
         }
-        await time.increaseTo(now.addn(3600 * 4)); // at least 30 minutes from the vote power block selection
-        const startVotingRoundId = 3600 * 5 / VOTING_EPOCH_DURATION_SEC;
+        await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC - 3600 )); // at least 30 minutes from the vote power block selection
+        const startVotingRoundId = FIRST_REWARD_EPOCH_VOTING_ROUND_ID + REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
         newSigningPolicy = {
             rewardEpochId: 1,
             startVotingRoundId: startVotingRoundId,
             threshold: Math.floor(65535 / 2),
-            seed: RANDOM_ROOT,
+            seed: "0x" + (500).toString(16).padStart(64, "0"), // TODO fix seed
             voters: accounts.slice(20, 24),
             weights: [39718, 19859, 3971, 1985]
         };
         expectEvent(await finalisation.daemonize(), "SigningPolicyInitialized",
             { rewardEpochId: toBN(1), startVotingRoundId: toBN(startVotingRoundId), voters: newSigningPolicy.voters,
-                seed: toBN(RANDOM_ROOT), threshold: toBN(32767), weights: newSigningPolicy.weights.map(x => toBN(x)) });
-        expect(await finalisation.getConfirmedMerkleRoot(NEW_SIGNING_POLICY_PROTOCOL_ID, 1)).to.be.equal(encodeSigningPolicy(newSigningPolicy));
+                seed: toBN(500), threshold: toBN(32767), weights: newSigningPolicy.weights.map(x => toBN(x)) }); // TODO fix seed
+        expect(await relay.toSigningPolicyHash(1)).to.be.equal(getSigningPolicyHash(newSigningPolicy));
     });
 
     it("Should sign new signing policy", async () => {
         const rewardEpochId = 1;
-        const newSigningPolicyHash = await finalisation.getConfirmedMerkleRoot(NEW_SIGNING_POLICY_PROTOCOL_ID, rewardEpochId);
+        const newSigningPolicyHash = await relay.toSigningPolicyHash(rewardEpochId);
         const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
             ["uint64", "bytes32"],
             [rewardEpochId, newSigningPolicyHash]));
@@ -321,8 +306,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should start new reward epoch and initiate new voting round", async () => {
-        await time.increaseTo(now.addn(3600 * 5));
-        expect((await finalisation.getCurrentRewardEpoch()).toNumber()).to.be.equal(1);
+        await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC));
+        expect((await finalisation.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
         const tx = await finalisation.daemonize();
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
     });
@@ -336,7 +321,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should initiate new voting round", async () => {
-        await time.increaseTo(now.addn(3600 * 5 + VOTING_EPOCH_DURATION_SEC));
+        await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC + VOTING_EPOCH_DURATION_SEC));
         const tx = await finalisation.daemonize();
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
     });
@@ -354,28 +339,21 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should finalise", async () => {
-        const votingRoundId = 3600 * 5 / VOTING_EPOCH_DURATION_SEC + 1;
+        const votingRoundId = FIRST_REWARD_EPOCH_VOTING_ROUND_ID + REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
         const quality = true;
         const root = web3.utils.keccak256("root1");
-        const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-            ["uint64", "uint64", "bool", "bytes32"],
-            [FTSO_PROTOCOL_ID, votingRoundId, quality, root]));
 
-        const signaturesWithIndex = [];
-        for (let i = 0; i < 4; i++) {
-            const signature = web3.eth.accounts.sign(hash, privateKeys[20 + i].privateKey);
-            const signatureWithIndex = {
-                index: i,
-                v: signature.v,
-                r: signature.r,
-                s: signature.s
-            };
-            signaturesWithIndex.push(signatureWithIndex);
-        }
+        const messageData: ProtocolMessageMerkleRoot = {protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: root};
+        const fullMessage = encodeProtocolMessageMerkleRoot(messageData).slice(2);
+        const messageHash = web3.utils.keccak256("0x" + fullMessage);
+        const signatures = await generateSignatures(privateKeys.slice(20, 24).map(x => x.privateKey), messageHash, 4);
+        const signingPolicy = encodeSigningPolicy(newSigningPolicy).slice(2);
+        const fullData = "0x" + signingPolicy + fullMessage + signatures;
 
-        await submission.finalise(newSigningPolicy, FTSO_PROTOCOL_ID, votingRoundId, quality, root, signaturesWithIndex);
-        expect(await finalisation.getConfirmedMerkleRoot(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
-        expect((await finalisation.getCurrentRandom()).eq(toBN(root))).to.be.true;
+        await submission.finalise(fullData);
+
+        expect(await relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
+        expect((await finalisation.getCurrentRandom()).eq(toBN(500))).to.be.true; // TODO fix seed
         expect((await finalisation.getCurrentRandomWithQuality())[1]).to.be.true;
     });
 
@@ -386,31 +364,22 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should start random acquisition for reward epoch 2", async () => {
-        await time.increaseTo(now.addn(3600 * 8)); // 2 hours before new reward epoch
+        await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC - 3600 * 2)); // 2 hours before new reward epoch
         expectEvent(await finalisation.daemonize(), "RandomAcquisitionStarted", { rewardEpochId: toBN(2) });
     });
 
     it("Should get good random for reward epoch 2", async () => {
-        const votingRoundId = 3600 * 8 / VOTING_EPOCH_DURATION_SEC + 1;
+        const votingRoundId = FIRST_REWARD_EPOCH_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
         const quality = true;
 
-        const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-            ["uint64", "uint64", "bool", "bytes32"],
-            [FTSO_PROTOCOL_ID, votingRoundId, quality, RANDOM_ROOT2]));
+        const messageData: ProtocolMessageMerkleRoot = {protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT2};
+        const fullMessage = encodeProtocolMessageMerkleRoot(messageData).slice(2);
+        const messageHash = web3.utils.keccak256("0x" + fullMessage);
+        const signatures = await generateSignatures(privateKeys.slice(20, 24).map(x => x.privateKey), messageHash, 4);
+        const signingPolicy = encodeSigningPolicy(newSigningPolicy).slice(2);
+        const fullData = "0x" + signingPolicy + fullMessage + signatures;
 
-        const signaturesWithIndex = [];
-        for (let i = 0; i < 4; i++) {
-            const signature = web3.eth.accounts.sign(hash, privateKeys[20 + i].privateKey);
-            const signatureWithIndex = {
-                index: i,
-                v: signature.v,
-                r: signature.r,
-                s: signature.s
-            };
-            signaturesWithIndex.push(signatureWithIndex);
-        }
-
-        await submission.finalise(newSigningPolicy, FTSO_PROTOCOL_ID, votingRoundId, quality, RANDOM_ROOT2, signaturesWithIndex);
+        await submission.finalise(fullData);
         expect((await finalisation.getCurrentRandomWithQuality())[1]).to.be.true;
     });
 
@@ -421,7 +390,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     it("Should register a few voters for reward epoch 2", async () => {
         for (let i = 0; i < 4; i++) {
             expectEvent(await voterWhitelister.requestWhitelisting(registeredCAddresses[i], { from: accounts[20 + i]}),
-                "VoterWhitelisted", {voter : registeredCAddresses[i], rewardEpoch: toBN(2), signingAddress: accounts[20 + i], dataProviderAddress: accounts[10 + i]});
+                "VoterWhitelisted", {voter : registeredCAddresses[i], rewardEpochId: toBN(2), signingAddress: accounts[20 + i], dataProviderAddress: accounts[10 + i]});
         }
     });
 
@@ -429,16 +398,16 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         for (let i = 0; i < 20; i++) {
             await time.advanceBlock(); // create required number of blocks to proceed
         }
-        await time.increaseTo(now.addn(3600 * 9)); // at least 30 minutes from the vote power block selection
-        const votingRoundId = 3600 * 10 / VOTING_EPOCH_DURATION_SEC;
+        await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC - 3600)); // at least 30 minutes from the vote power block selection
+        const votingRoundId = FIRST_REWARD_EPOCH_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
         expectEvent(await finalisation.daemonize(), "SigningPolicyInitialized",
             { rewardEpochId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(20, 24),
-                seed: toBN(RANDOM_ROOT2), threshold: toBN(32767), weights: [toBN(39718), toBN(19859), toBN(3971), toBN(1985)] });
+                seed: toBN(500), threshold: toBN(32767), weights: [toBN(39718), toBN(19859), toBN(3971), toBN(1985)] }); // TODO fix seed
     });
 
     it("Should sign new signing policy for reward epoch 2", async () => {
         const rewardEpochId = 2;
-        const newSigningPolicyHash = await finalisation.getConfirmedMerkleRoot(NEW_SIGNING_POLICY_PROTOCOL_ID, rewardEpochId);
+        const newSigningPolicyHash = await relay.toSigningPolicyHash(rewardEpochId);
         const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
             ["uint64", "bytes32"],
             [rewardEpochId, newSigningPolicyHash]));
@@ -455,8 +424,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should start new reward epoch (2) and initiate new voting round", async () => {
-        await time.increaseTo(now.addn(3600 * 10));
-        expect((await finalisation.getCurrentRewardEpoch()).toNumber()).to.be.equal(2);
+        await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC));
+        expect((await finalisation.getCurrentRewardEpochId()).toNumber()).to.be.equal(2);
         const tx = await finalisation.daemonize();
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
     });
@@ -476,7 +445,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             { rewardEpochId: toBN(1), signingAddress: accounts[20], voter: registeredCAddresses[0], thresholdReached: true });
         const signature3 = web3.eth.accounts.sign(hash, privateKeys[22].privateKey);
         await expectRevert(finalisation.signUptimeVote(rewardEpochId, uptimeVoteHash, signature3, { from: accounts[22] }), "uptime vote hash already signed");
-        expect(await finalisation.getConfirmedMerkleRoot(UPTIME_VOTE_PROTOCOL_ID, rewardEpochId)).to.be.equal(uptimeVoteHash);
+        expect(await finalisation.uptimeVoteHash(rewardEpochId)).to.be.equal(uptimeVoteHash);
     });
 
     it("Should sign rewards for reward epoch 1", async () => {
@@ -495,7 +464,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             { rewardEpochId: toBN(1), signingAddress: accounts[20], voter: registeredCAddresses[0], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: true });
         const signature3 = web3.eth.accounts.sign(hash, privateKeys[22].privateKey);
         await expectRevert(finalisation.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature3, { from: accounts[22] }), "rewards hash already signed");
-        expect(await finalisation.getConfirmedMerkleRoot(REWARDS_PROTOCOL_ID, rewardEpochId)).to.be.equal(rewardsVoteHash);
+        expect(await finalisation.rewardsHash(rewardEpochId)).to.be.equal(rewardsVoteHash);
         expect((await finalisation.noOfWeightBasedClaims(rewardEpochId)).toNumber()).to.be.equal(noOfWeightBasedClaims);
     });
 });

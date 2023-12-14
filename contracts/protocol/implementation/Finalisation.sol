@@ -14,12 +14,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 
-// global constants
-uint64 constant NEW_SIGNING_POLICY_PROTOCOL_ID = 0;
-uint64 constant UPTIME_VOTE_PROTOCOL_ID = 1;
-uint64 constant REWARDS_PROTOCOL_ID = 2;
-uint64 constant FTSO_PROTOCOL_ID = 100;
-
 contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomProvider {
     using SafeCast for uint256;
     using SafePct for uint256;
@@ -97,13 +91,6 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         bytes32 s;
     }
 
-    struct SignatureWithIndex {
-        uint16 index;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
     uint256 internal constant UINT16_MAX = type(uint16).max;
     uint256 internal constant UINT256_MAX = type(uint256).max;
     uint256 internal constant PPM_MAX = 1e6;
@@ -122,15 +109,12 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     uint64 public immutable votingEpochDurationSeconds;
 
     mapping(uint256 => RewardEpochState) internal rewardEpochState;
-    // mapping: protocol id => (mapping: voting round id => root)
-    mapping(uint256 => mapping(uint256 => bytes32)) internal roots;
+    // mapping: reward epoch id => uptime vote hash
+    mapping(uint256 => bytes32) public uptimeVoteHash;
+    // mapping: reward epoch id => rewards hash
+    mapping(uint256 => bytes32) public rewardsHash;
     // mapping: reward epoch id => number of weight based claims
     mapping(uint256 => uint256) public noOfWeightBasedClaims;
-
-    // current random information
-    uint256 internal currentRandom;
-    uint64 internal currentRandomTs;
-    bool internal currentRandomQuality;
 
     uint64 internal immutable firstRandomAcquisitionNumberOfBlocks;
 
@@ -162,7 +146,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     event SigningPolicyInitialized(
         uint24 rewardEpochId,       // Reward epoch id
         uint32 startVotingRoundId,  // First voting round id of validity.
-                                    //  Usually it is the first voting round of reward epoch rId.
+                                    // Usually it is the first voting round of reward epoch rewardEpochId.
                                     // It can be later,
                                     // if the confirmation of the signing policy on Flare blockchain gets delayed.
         uint16 threshold,           // Confirmation threshold (absolute value of noramalised weights).
@@ -224,8 +208,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         address _flareDaemon,
         FinalisationSettings memory _settings,
         uint64 _firstRandomAcquisitionNumberOfBlocks,
-        uint64 _firstRewardEpoch,
-        bytes32 _firstRewardEpochSigningPolicyHash
+        uint64 _firstRewardEpoch
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
@@ -258,59 +241,59 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
             (_firstRewardEpoch + 1) * _settings.rewardEpochDurationSeconds;
         require(currentRewardEpochEndTs > block.timestamp + _settings.newSigningPolicyInitializationStartSeconds,
             "reward epoch end not in the future");
-        roots[NEW_SIGNING_POLICY_PROTOCOL_ID][_firstRewardEpoch] = _firstRewardEpochSigningPolicyHash;
     }
 
     function daemonize() external onlyFlareDaemon returns (bool) {
-        uint32 currentVotingEpoch = _getCurrentVotingEpoch();
-        uint24 currentRewardEpoch = _getCurrentRewardEpoch();
+        uint32 currentVotingEpochId = _getCurrentVotingEpochId();
+        uint24 currentRewardEpochId = _getCurrentRewardEpochId();
 
         if (block.timestamp >= currentRewardEpochEndTs - newSigningPolicyInitializationStartSeconds) {
-            uint24 nextRewardEpoch = currentRewardEpoch + 1;
+            uint24 nextRewardEpochId = currentRewardEpochId + 1;
 
             // check if new signing policy is already defined
-            if (roots[NEW_SIGNING_POLICY_PROTOCOL_ID][nextRewardEpoch] == bytes32(0)) {
-                RewardEpochState storage state = rewardEpochState[nextRewardEpoch];
+            if (_getSingingPolicyHash(nextRewardEpochId) == bytes32(0)) {
+                RewardEpochState storage state = rewardEpochState[nextRewardEpochId];
                 if (state.randomAcquisitionStartTs == 0) {
                     state.randomAcquisitionStartTs = block.timestamp.toUint64();
                     state.randomAcquisitionStartBlock = block.number.toUint64();
-                    emit RandomAcquisitionStarted(nextRewardEpoch, block.timestamp.toUint64());
+                    emit RandomAcquisitionStarted(nextRewardEpochId, block.timestamp.toUint64());
                 } else if (state.voterRegistrationStartTs == 0) {
-                    if (currentRandomTs > state.randomAcquisitionStartTs && currentRandomQuality) {
+                    (uint256 random, uint64 randomTs, bool randomQuality) = _getRandom();
+                    if (randomTs > state.randomAcquisitionStartTs && randomQuality) {
                         state.voterRegistrationStartTs = block.timestamp.toUint64();
                         state.voterRegistrationStartBlock = block.number.toUint64();
-                        _selectVotePowerBlock(nextRewardEpoch);
+                        _selectVotePowerBlock(nextRewardEpochId, random);
                     }
-                } else if (!_isVoterRegistrationEnabled(nextRewardEpoch, state)) {
+                } else if (!_isVoterRegistrationEnabled(nextRewardEpochId, state)) {
                     // state.singingPolicySignStartTs == 0
                     state.singingPolicySignStartTs = block.timestamp.toUint64();
                     state.singingPolicySignStartBlock = block.number.toUint64();
-                    _initializeNextSigningPolicy(nextRewardEpoch);
+                    _initializeNextSigningPolicy(nextRewardEpochId);
                 }
             }
 
             // start new reward epoch if it is time and new signing policy is defined
-            if (_isNextRewardEpoch(nextRewardEpoch)) {
+            if (_isNextRewardEpochId(nextRewardEpochId)) {
                 currentRewardEpochEndTs += rewardEpochDurationSeconds;
             }
         }
 
         // in case of new voting round - init new voting round on Submission contract
         // and get commit, reveal and signing addresses
-        if (currentVotingEpoch > lastInitialisedVotingRound) {
+        if (currentVotingEpochId > lastInitialisedVotingRound) {
             address[] memory revealAddresses;
             address[] memory signingAddresses;
             address[] memory commitAddresses;
-            lastInitialisedVotingRound = currentVotingEpoch;
-            revealAddresses = voterWhitelister.getWhitelistedDataProviderAddresses(currentRewardEpoch);
-            signingAddresses = voterWhitelister.getWhitelistedSigningAddresses(currentRewardEpoch);
+            lastInitialisedVotingRound = currentVotingEpochId;
+            revealAddresses = voterWhitelister.getWhitelistedDataProviderAddresses(currentRewardEpochId);
+            signingAddresses = voterWhitelister.getWhitelistedSigningAddresses(currentRewardEpochId);
             // in case of new reward epoch - get new commit addresses otherwise they are the same as reveal addresses
-            if (_getCurrentRewardEpoch() > currentRewardEpoch) {
-                commitAddresses = voterWhitelister.getWhitelistedDataProviderAddresses(currentRewardEpoch + 1);
+            if (_getCurrentRewardEpochId() > currentRewardEpochId) {
+                commitAddresses = voterWhitelister.getWhitelistedDataProviderAddresses(currentRewardEpochId + 1);
             } else {
                 commitAddresses = revealAddresses;
             }
-            submission.initVotingRound(commitAddresses, revealAddresses, signingAddresses);
+            submission.initNewVotingRound(commitAddresses, revealAddresses, signingAddresses);
         }
 
         return true;
@@ -318,166 +301,135 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
 
     /**
      * Method for collecting signatures for the new signing policy
-     * @param _rId Reward epoch id of the new signing policy
+     * @param _rewardEpochId Reward epoch id of the new signing policy
      * @param _newSigningPolicyHash New signing policy hash
      * @param _signature Signature
      */
     function signNewSigningPolicy(
-        uint24 _rId,
+        uint24 _rewardEpochId,
         bytes32 _newSigningPolicyHash,
         Signature calldata _signature
     )
         external
     {
-        RewardEpochState storage state = rewardEpochState[_rId - 1];
-        require(_newSigningPolicyHash != bytes32(0) &&
-            roots[NEW_SIGNING_POLICY_PROTOCOL_ID][_rId] == _newSigningPolicyHash,
+        RewardEpochState storage state = rewardEpochState[_rewardEpochId - 1];
+        require(_newSigningPolicyHash != bytes32(0) && _getSingingPolicyHash(_rewardEpochId) == _newSigningPolicyHash,
             "new signing policy hash invalid");
         require(state.singingPolicySignEndTs == 0, "new signing policy already signed");
-        bytes32 messageHash = keccak256(abi.encode(_rId, _newSigningPolicyHash));
+        bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _newSigningPolicyHash));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        (address voter, uint16 weight) = voterWhitelister.getVoterWithNormalisedWeight(_rId - 1, signingAddress);
+        (address voter, uint16 weight) =
+            voterWhitelister.getVoterWithNormalisedWeight(_rewardEpochId - 1, signingAddress);
         require(voter != address(0), "signature invalid");
         require(state.signingPolicyVotes.voters[voter].signTs == 0, "signing address already signed");
+        // save signing address timestamp and block number
         state.signingPolicyVotes.voters[voter] = VoterData(block.timestamp.toUint64(), block.number.toUint64());
-        if (state.signingPolicyVotes.accumulatedWeight + weight >= state.threshold) {
-            // threshold reached, save timestamp and block number (this enables claiming)
+        // check if signing threshold is reached
+        bool thresholdReached = state.signingPolicyVotes.accumulatedWeight + weight >= state.threshold;
+        if (thresholdReached) {
+            // save timestamp and block number (this enables claiming)
             state.singingPolicySignEndTs = block.timestamp.toUint64();
             state.singingPolicySignEndBlock = block.number.toUint64();
             delete state.signingPolicyVotes.accumulatedWeight;
-            emit SigningPolicySigned(_rId, signingAddress, voter, block.timestamp.toUint64(), true);
         } else {
             // keep collecting signatures
             state.signingPolicyVotes.accumulatedWeight += weight;
-            emit SigningPolicySigned(_rId, signingAddress, voter, block.timestamp.toUint64(), false);
         }
+        emit SigningPolicySigned(
+            _rewardEpochId,
+            signingAddress,
+            voter,
+            block.timestamp.toUint64(),
+            thresholdReached
+        );
     }
 
     function signUptimeVote(
-        uint24 _rId,
+        uint24 _rewardEpochId,
         bytes32 _uptimeVoteHash,
         Signature calldata _signature
     )
         external
     {
-        RewardEpochState storage state = rewardEpochState[_rId];
-        require(_rId < getCurrentRewardEpoch(), "epoch not ended yet");
-        require (roots[UPTIME_VOTE_PROTOCOL_ID][_rId] == bytes32(0), "uptime vote hash already signed");
-        bytes32 messageHash = keccak256(abi.encode(_rId, _uptimeVoteHash));
+        RewardEpochState storage state = rewardEpochState[_rewardEpochId];
+        require(_rewardEpochId < getCurrentRewardEpochId(), "epoch not ended yet");
+        require(uptimeVoteHash[_rewardEpochId] == bytes32(0), "uptime vote hash already signed");
+        bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _uptimeVoteHash));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        (address voter, uint16 weight) = voterWhitelister.getVoterWithNormalisedWeight(_rId, signingAddress);
+        (address voter, uint16 weight) = voterWhitelister.getVoterWithNormalisedWeight(_rewardEpochId, signingAddress);
         require(voter != address(0), "signature invalid");
         require(state.uptimeVoteVotes[_uptimeVoteHash].voters[voter].signTs == 0, "voter already signed");
         // save signing address timestamp and block number
-        state.uptimeVoteVotes[_uptimeVoteHash].voters[voter] = VoterData(
-            block.timestamp.toUint64(), block.number.toUint64());
-        if (state.uptimeVoteVotes[_uptimeVoteHash].accumulatedWeight + weight >= state.threshold) {
-            // threshold reached, save timestamp and block number (this enables rewards signing)
+        state.uptimeVoteVotes[_uptimeVoteHash].voters[voter] =
+            VoterData(block.timestamp.toUint64(), block.number.toUint64());
+        // check if signing threshold is reached
+        bool thresholdReached = state.uptimeVoteVotes[_uptimeVoteHash].accumulatedWeight + weight >= state.threshold;
+        if (thresholdReached) {
+            // save timestamp and block number (this enables rewards signing)
             state.uptimeVoteSignEndTs = block.timestamp.toUint64();
             state.uptimeVoteSignEndBlock = block.number.toUint64();
-            roots[UPTIME_VOTE_PROTOCOL_ID][_rId] = _uptimeVoteHash;
+            uptimeVoteHash[_rewardEpochId] = _uptimeVoteHash;
             delete state.uptimeVoteVotes[_uptimeVoteHash].accumulatedWeight;
-            emit UptimeVoteSigned(_rId, signingAddress, voter, _uptimeVoteHash, block.timestamp.toUint64(), true);
         } else {
             // keep collecting signatures
             state.uptimeVoteVotes[_uptimeVoteHash].accumulatedWeight += weight;
-            emit UptimeVoteSigned(_rId, signingAddress, voter, _uptimeVoteHash, block.timestamp.toUint64(), false);
         }
+        emit UptimeVoteSigned(
+            _rewardEpochId,
+            signingAddress,
+            voter,
+            _uptimeVoteHash,
+            block.timestamp.toUint64(),
+            thresholdReached
+        );
     }
 
     function signRewards(
-        uint24 _rId,
+        uint24 _rewardEpochId,
         uint64 _noOfWeightBasedClaims,
         bytes32 _rewardsHash,
         Signature calldata _signature
     )
         external
     {
-        RewardEpochState storage state = rewardEpochState[_rId];
-        require(_rId < getCurrentRewardEpoch(), "epoch not ended yet");
+        RewardEpochState storage state = rewardEpochState[_rewardEpochId];
+        require(_rewardEpochId < getCurrentRewardEpochId(), "epoch not ended yet");
         require(state.singingPolicySignEndTs != 0, "new signing policy not signed yet");
-        require(roots[UPTIME_VOTE_PROTOCOL_ID][_rId] != bytes32(0), "uptime vote hash not signed yet");
-        require (roots[REWARDS_PROTOCOL_ID][_rId] == bytes32(0), "rewards hash already signed");
-        bytes32 messageHash = keccak256(abi.encode(_rId, _noOfWeightBasedClaims, _rewardsHash));
+        require(uptimeVoteHash[_rewardEpochId] != bytes32(0), "uptime vote hash not signed yet");
+        require (rewardsHash[_rewardEpochId] == bytes32(0), "rewards hash already signed");
+        bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _noOfWeightBasedClaims, _rewardsHash));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        (address voter, uint16 weight) = voterWhitelister.getVoterWithNormalisedWeight(_rId, signingAddress);
+        (address voter, uint16 weight) = voterWhitelister.getVoterWithNormalisedWeight(_rewardEpochId, signingAddress);
         require(voter != address(0), "signature invalid");
         require(state.rewardVotes[messageHash].voters[voter].signTs == 0, "voter already signed");
         // save signing address timestamp and block number
-        state.rewardVotes[messageHash].voters[voter] = VoterData(block.timestamp.toUint64(), block.number.toUint64());
-        if (state.rewardVotes[messageHash].accumulatedWeight + weight >= state.threshold) {
-            // threshold reached, save timestamp and block number (this enables claiming)
+        state.rewardVotes[messageHash].voters[voter] =
+            VoterData(block.timestamp.toUint64(), block.number.toUint64());
+        // check if signing threshold is reached
+        bool thresholdReached = state.rewardVotes[messageHash].accumulatedWeight + weight >= state.threshold;
+        if (thresholdReached) {
+            // save timestamp and block number (this enables claiming)
             state.rewardsSignEndTs = block.timestamp.toUint64();
             state.rewardsSignEndBlock = block.number.toUint64();
-            roots[REWARDS_PROTOCOL_ID][_rId] = _rewardsHash;
-            noOfWeightBasedClaims[_rId] = _noOfWeightBasedClaims;
+            rewardsHash[_rewardEpochId] = _rewardsHash;
+            noOfWeightBasedClaims[_rewardEpochId] = _noOfWeightBasedClaims;
             delete state.rewardVotes[messageHash].accumulatedWeight;
-            emit RewardsSigned(
-                _rId,
-                signingAddress,
-                voter,
-                _rewardsHash,
-                _noOfWeightBasedClaims,
-                block.timestamp.toUint64(),
-                true
-            );
         } else {
             // keep collecting signatures
             state.rewardVotes[messageHash].accumulatedWeight += weight;
-            emit RewardsSigned(
-                _rId,
-                signingAddress,
-                voter,
-                _rewardsHash,
-                _noOfWeightBasedClaims,
-                block.timestamp.toUint64(),
-                false
-            );
         }
-    }
-
-    function finalise(
-        SigningPolicy calldata _signingPolicy,
-        uint64 _pId,
-        uint64 _votingRoundId,
-        bool _quality,
-        bytes32 _root,
-        SignatureWithIndex[] calldata _signatures
-    )
-        external
-    {
-        require(_pId > 2, "protocol id invalid");
-        require(roots[_pId][_votingRoundId] == bytes32(0), "already finalised");
-        uint24 rId = _signingPolicy.rewardEpochId;
-        require(roots[NEW_SIGNING_POLICY_PROTOCOL_ID][rId] == keccak256(abi.encode(_signingPolicy)),
-            "signing policy invalid");
-        require(_signingPolicy.startVotingRoundId <= _votingRoundId, "voting round too low");
-        uint64 nextStartVotingRoundId = rewardEpochState[rId + 1].startVotingRoundId;
-        require(nextStartVotingRoundId == 0 || _votingRoundId < nextStartVotingRoundId, "voting round too high");
-        uint16 accumulatedWeight = 0;
-        bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(
-            keccak256(abi.encode(_pId, _votingRoundId, _quality, _root)));
-        for (uint256 i = 0; i < _signatures.length; i++) {
-            SignatureWithIndex calldata signature = _signatures[i];
-            address signingAddress = ECDSA.recover(messageHash, signature.v, signature.r, signature.s);
-            require(signingAddress == _signingPolicy.voters[signature.index], "signature invalid");
-            accumulatedWeight += _signingPolicy.weights[signature.index];
-        }
-        require(accumulatedWeight >= _signingPolicy.threshold, "threshold not reached");
-        // save root
-        roots[_pId][_votingRoundId] = _root;
-        if (_pId == FTSO_PROTOCOL_ID) {
-            // start of reveals
-            uint64 randomTimestamp = votingEpochsStartTs + (_votingRoundId + 1) * votingEpochDurationSeconds;
-            if (randomTimestamp > currentRandomTs) { // check increasing time
-                currentRandom = uint256(_root);
-                currentRandomTs = randomTimestamp;
-                currentRandomQuality = _quality;
-            }
-        }
+        emit RewardsSigned(
+            _rewardEpochId,
+            signingAddress,
+            voter,
+            _rewardsHash,
+            _noOfWeightBasedClaims,
+            block.timestamp.toUint64(),
+            thresholdReached
+        );
     }
 
     function changeSigningPolicySettings(
@@ -516,15 +468,11 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     }
 
     function getCurrentRandom() external view returns(uint256 _currentRandom) {
-        return currentRandom;
+        (_currentRandom, , ) = _getRandom();
     }
 
     function getCurrentRandomWithQuality() external view returns(uint256 _currentRandom, bool _goodRandom) {
-        return (currentRandom, currentRandomQuality);
-    }
-
-    function getConfirmedMerkleRoot(uint64 _pId, uint64 _rId) external view returns(bytes32) {
-        return roots[_pId][_rId];
+        (_currentRandom, , _goodRandom) = _getRandom();
     }
 
     function switchToFallbackMode() external pure returns (bool) {
@@ -536,53 +484,53 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         return "Finalisation";
     }
 
-    function getCurrentRewardEpoch() public view returns(uint24 _currentRewardEpoch) {
-        _currentRewardEpoch = _getCurrentRewardEpoch();
-        if (_isNextRewardEpoch(_currentRewardEpoch + 1)) {
+    function getCurrentRewardEpochId() public view returns(uint24 _currentRewardEpochId) {
+        _currentRewardEpochId = _getCurrentRewardEpochId();
+        if (_isNextRewardEpochId(_currentRewardEpochId + 1)) {
             // first transaction in the block (daemonize() call will change `currentRewardEpochEndTs` value after it)
-            _currentRewardEpoch += 1;
+            _currentRewardEpochId += 1;
         }
     }
 
-    function _selectVotePowerBlock(uint24 _nextRewardEpoch) internal {
-        // currentRandomTs > state.randomAcquisitionStartTs && currentRandomQuality == true
-        RewardEpochState storage state = rewardEpochState[_nextRewardEpoch];
+    function _selectVotePowerBlock(uint24 _nextRewardEpochId, uint256 _random) internal {
+        // randomTs > state.randomAcquisitionStartTs && randomQuality == true
+        RewardEpochState storage state = rewardEpochState[_nextRewardEpochId];
         uint64 endBlock = state.randomAcquisitionStartBlock;
         uint64 numberOfBlocks;
-        if (rewardEpochState[_nextRewardEpoch - 1].randomAcquisitionStartBlock == 0) {
+        if (rewardEpochState[_nextRewardEpochId - 1].randomAcquisitionStartBlock == 0) {
             // endBlock > 0 && firstRandomAcquisitionNumberOfBlocks > 0
             numberOfBlocks = Math.min(endBlock, firstRandomAcquisitionNumberOfBlocks).toUint64();
         } else {
-            // endBlock > rewardEpochState[_nextRewardEpoch - 1].randomAcquisitionStartBlock
-            numberOfBlocks = endBlock - rewardEpochState[_nextRewardEpoch - 1].randomAcquisitionStartBlock;
+            // endBlock > rewardEpochState[_nextRewardEpochId - 1].randomAcquisitionStartBlock
+            numberOfBlocks = endBlock - rewardEpochState[_nextRewardEpochId - 1].randomAcquisitionStartBlock;
         }
 
         //slither-disable-next-line weak-prng
-        uint256 votepowerBlocksAgo = currentRandom % numberOfBlocks; // numberOfBlocks > 0
+        uint256 votepowerBlocksAgo = _random % numberOfBlocks; // numberOfBlocks > 0
         if (votepowerBlocksAgo == 0) {
             votepowerBlocksAgo = 1;
         }
         uint64 votePowerBlock = endBlock - votepowerBlocksAgo.toUint64(); // endBlock > 0
         state.votePowerBlock = votePowerBlock;
-        state.seed = currentRandom;
+        state.seed = _random;
 
-        emit VotePowerBlockSelected(_nextRewardEpoch, votePowerBlock, block.timestamp.toUint64());
+        emit VotePowerBlockSelected(_nextRewardEpochId, votePowerBlock, block.timestamp.toUint64());
     }
 
-    function _initializeNextSigningPolicy(uint24 _nextRewardEpoch) internal {
-        RewardEpochState storage state = rewardEpochState[_nextRewardEpoch];
+    function _initializeNextSigningPolicy(uint24 _nextRewardEpochId) internal {
+        RewardEpochState storage state = rewardEpochState[_nextRewardEpochId];
         SigningPolicy memory sp;
-        sp.rewardEpochId = _nextRewardEpoch;
+        sp.rewardEpochId = _nextRewardEpochId;
         sp.startVotingRoundId = _getStartVotingRoundId();
         uint256 normalisedWeightsSum;
-        (sp.voters, sp.weights, normalisedWeightsSum) = voterWhitelister.createSigningPolicySnapshot(_nextRewardEpoch);
+        (sp.voters, sp.weights, normalisedWeightsSum) =
+            voterWhitelister.createSigningPolicySnapshot(_nextRewardEpochId);
         sp.threshold = normalisedWeightsSum.mulDivRoundUp(signingPolicyThresholdPPM, PPM_MAX).toUint16();
         sp.seed = state.seed;
 
         state.startVotingRoundId = sp.startVotingRoundId;
         state.threshold = sp.threshold;
         relay.setSigningPolicy(sp);
-        roots[NEW_SIGNING_POLICY_PROTOCOL_ID][_nextRewardEpoch] = keccak256(abi.encode(sp));
 
         emit SigningPolicyInitialized(
             sp.rewardEpochId,
@@ -609,17 +557,17 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         relay = Relay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
-    function _getCurrentRewardEpoch() internal view returns(uint24) {
+    function _getCurrentRewardEpochId() internal view returns(uint24) {
         return (uint256(currentRewardEpochEndTs - rewardEpochsStartTs) / rewardEpochDurationSeconds - 1).toUint24();
     }
 
-    function _isNextRewardEpoch(uint24 _nextRewardEpoch) internal view returns (bool) {
+    function _isNextRewardEpochId(uint24 _nextRewardEpochId) internal view returns (bool) {
         return block.timestamp >= currentRewardEpochEndTs &&
-            _getSingingPolicyHash(_nextRewardEpoch) != bytes32(0) &&
-            _getCurrentVotingEpoch() >= rewardEpochState[_nextRewardEpoch].startVotingRoundId;
+            _getSingingPolicyHash(_nextRewardEpochId) != bytes32(0) &&
+            _getCurrentVotingEpochId() >= rewardEpochState[_nextRewardEpochId].startVotingRoundId;
     }
 
-    function _getCurrentVotingEpoch() internal view returns(uint32) {
+    function _getCurrentVotingEpochId() internal view returns(uint32) {
         return ((block.timestamp - votingEpochsStartTs) / votingEpochDurationSeconds).toUint32();
     }
 
@@ -641,6 +589,11 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         return block.timestamp <= _state.voterRegistrationStartTs + voterRegistrationMinDurationSeconds ||
             block.number <= _state.voterRegistrationStartBlock + voterRegistrationMinDurationBlocks ||
             voterWhitelister.getNumberOfWhitelistedVoters(_rewardEpoch) < signingPolicyMinNumberOfVoters;
+    }
+
+    function _getRandom() internal view returns (uint256 _random, uint64 _randomTs, bool _quality) {
+        // TODO use data from relay
+        return (500, block.timestamp.toUint64(), true);
     }
 
     function _getStartVotingRoundId() internal view returns (uint32 _startVotingRoundId) {
