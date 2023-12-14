@@ -31,7 +31,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
 
     struct RewardClaimWithProof {
         bytes32[] merkleProof;
-        uint64 rId;
+        uint24 rewardEpochId;
         RewardClaim body;
     }
 
@@ -43,31 +43,31 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
 
     struct FeePercentage {          // used for storing data provider fee percentage settings
         uint16 value;               // fee percentage value (value between 0 and 1e4)
-        uint240 validFromEpoch;     // id of the reward epoch from which the value is valid
+        uint240 validFromEpochId;   // id of the reward epoch from which the value is valid
     }
 
     uint256 constant internal MAX_BIPS = 1e4;
     uint256 constant internal PPM_MAX = 1e6;
     address payable constant internal BURN_ADDRESS = payable(0x000000000000000000000000000000000000dEaD);
 
-    mapping(address => uint256) private rewardOwnerNextClaimableEpoch;
+    mapping(address => uint256) private rewardOwnerNextClaimableEpochId;
     mapping(uint64 => uint64) private epochVotePowerBlock;
     mapping(uint64 => uint120) private epochTotalRewards;
     mapping(uint64 => uint120) private epochInitialisedRewards;
     mapping(uint64 => uint120) private epochClaimedRewards;
     mapping(uint64 => uint120) private epochBurnedRewards;
 
+    /// Epoch ids before the token distribution event at Flare launch were not be claimable.
+    /// This variable holds the first reward epoch that was claimable.
+    uint24 public firstClaimableRewardEpochId;
+    // id of the first epoch to expire. Closed = expired and unclaimed funds sent back
+    uint24 private nextRewardEpochIdToExpire;
+    // reward epoch when setInitialRewardData is called (set to +1) - used for forwarding closeExpiredRewardEpochId
+    uint24 private initialRewardEpochId;
+
     uint64 public immutable feePercentageUpdateOffset; // fee percentage update timelock measured in reward epochs
     uint16 public immutable defaultFeePercentageBIPS; // default value for fee percentage
     mapping(address => FeePercentage[]) public dataProviderFeePercentages;
-
-    /// Epochs before the token distribution event at Flare launch were not be claimable.
-    /// This variable holds the first reward epoch that was claimable.
-    uint256 public firstClaimableRewardEpoch;
-    // id of the first epoch to expire. Closed = expired and unclaimed funds sent back
-    uint256 private nextRewardEpochToExpire;
-    // reward epoch when setInitialRewardData is called (set to +1) - used for forwarding closeExpiredRewardEpoch
-    uint256 private initialRewardEpoch;
 
     mapping(uint64 => mapping(ClaimType =>
         mapping(address => UnclaimedRewardState))) public epochTypeProviderUnclaimedReward;
@@ -100,7 +100,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     event FeePercentageChanged(
         address indexed dataProvider,
         uint64 value,
-        uint64 validFromEpoch
+        uint64 validFromEpochId
     );
 
     /**
@@ -109,14 +109,14 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
      * @param whoClaimed Address that actually performed the claim.
      * @param sentTo Address that received the reward.
      * @param claimType Claim type
-     * @param rewardEpoch ID of the reward epoch where the reward was accrued.
+     * @param rewardEpochId ID of the reward epoch where the reward was accrued.
      * @param amount Amount of rewarded native tokens (wei).
      */
     event RewardClaimed(
         address indexed voter,
         address indexed whoClaimed,
         address indexed sentTo,
-        uint64 rewardEpoch,
+        uint64 rewardEpochId,
         ClaimType claimType,
         uint120 amount
     );
@@ -156,7 +156,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     function claim(
         address _rewardOwner,
         address payable _recipient,
-        uint64 _rewardEpoch,
+        uint24 _rewardEpochId,
         bool _wrap,
         RewardClaimWithProof[] calldata _proofs
     )
@@ -170,16 +170,17 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         _checkNonzeroRecipient(_recipient);
         _handleSelfDestructProceeds();
 
-        uint64 currentRewardEpoch = _getCurrentRewardEpoch();
-        if (epochVotePowerBlock[currentRewardEpoch] == 0) {
-            epochVotePowerBlock[currentRewardEpoch] = finalisation.getVotePowerBlock(currentRewardEpoch).toUint64();
+        uint24 currentRewardEpochId = _getCurrentRewardEpochId();
+        if (epochVotePowerBlock[currentRewardEpochId] == 0) {
+            epochVotePowerBlock[currentRewardEpochId] =
+                finalisation.getVotePowerBlock(currentRewardEpochId).toUint64();
         }
-        require(_isRewardClaimable(_rewardEpoch, currentRewardEpoch), "not claimable");
+        require(_isRewardClaimable(_rewardEpochId, currentRewardEpochId), "not claimable");
         uint120 burnAmountWei;
         (_rewardAmountWei, burnAmountWei) = _processProofs(_rewardOwner, _recipient, _proofs);
 
         _rewardAmountWei += _claimWeightBasedRewards(
-            _rewardOwner, _recipient, _rewardEpoch, _minClaimableRewardEpoch(), false);
+            _rewardOwner, _recipient, _rewardEpochId, _minClaimableRewardEpochId(), false);
 
         if (burnAmountWei > 0) {
             totalBurnedWei += burnAmountWei;
@@ -202,7 +203,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     //slither-disable-next-line reentrancy-eth          // guarded by nonReentrant
     function autoClaim(
         address[] calldata _rewardOwners,
-        uint64 _rewardEpoch,
+        uint24 _rewardEpochId,
         RewardClaimWithProof[] calldata _proofs
     )
         external
@@ -215,11 +216,12 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             _checkNonzeroRecipient(_rewardOwners[i]);
         }
 
-        uint64 currentRewardEpoch = _getCurrentRewardEpoch();
-        if (epochVotePowerBlock[currentRewardEpoch] == 0) {
-            epochVotePowerBlock[currentRewardEpoch] = finalisation.getVotePowerBlock(currentRewardEpoch).toUint64();
+        uint24 currentRewardEpochId = _getCurrentRewardEpochId();
+        if (epochVotePowerBlock[currentRewardEpochId] == 0) {
+            epochVotePowerBlock[currentRewardEpochId] =
+                finalisation.getVotePowerBlock(currentRewardEpochId).toUint64();
         }
-        require(_isRewardClaimable(_rewardEpoch, currentRewardEpoch), "not claimable");
+        require(_isRewardClaimable(_rewardEpochId, currentRewardEpochId), "not claimable");
 
         (address[] memory claimAddresses, uint256 executorFeeValue) =
             claimSetupManager.getAutoClaimAddressesAndExecutorFee(msg.sender, _rewardOwners);
@@ -227,17 +229,17 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         // initialise only weight based claims
         _processProofs(address(0), address(0), _proofs);
 
-        uint64 minClaimableEpoch = _minClaimableRewardEpoch();
+        uint64 minClaimableEpochId = _minClaimableRewardEpochId();
         for (uint256 i = 0; i < _rewardOwners.length; i++) {
             address rewardOwner = _rewardOwners[i];
             address claimAddress = claimAddresses[i];
             // claim for owner
             uint256 rewardAmount = _claimWeightBasedRewards(
-                rewardOwner, claimAddress, _rewardEpoch, minClaimableEpoch, false);
+                rewardOwner, claimAddress, _rewardEpochId, minClaimableEpochId, false);
             if (rewardOwner != claimAddress) {
                 // claim for PDA (only WNat)
                 rewardAmount += _claimWeightBasedRewards(
-                    claimAddress, claimAddress, _rewardEpoch, minClaimableEpoch, true);
+                    claimAddress, claimAddress, _rewardEpochId, minClaimableEpochId, true);
             }
             require(rewardAmount >= executorFeeValue, "claimed amount too small");
             rewardAmount -= executorFeeValue;
@@ -268,7 +270,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     function setDataProviderFeePercentage(uint16 _feePercentageBIPS) external returns (uint256) {
         require(_feePercentageBIPS <= MAX_BIPS, "fee percentage invalid");
 
-        uint64 rewardEpoch = _getCurrentRewardEpoch() + feePercentageUpdateOffset;
+        uint64 rewardEpochId = _getCurrentRewardEpochId() + feePercentageUpdateOffset;
         FeePercentage[] storage fps = dataProviderFeePercentages[msg.sender];
 
         // determine whether to update the last setting or add a new one
@@ -276,9 +278,9 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         if (position > 0) {
             // do not allow updating the settings in the past
             // (this can only happen if the sharing percentage epoch offset is updated)
-            require(rewardEpoch >= fps[position - 1].validFromEpoch, "fee percentage update failed");
+            require(rewardEpochId >= fps[position - 1].validFromEpochId, "fee percentage update failed");
 
-            if (rewardEpoch == fps[position - 1].validFromEpoch) {
+            if (rewardEpochId == fps[position - 1].validFromEpochId) {
                 // update
                 position = position - 1;
             }
@@ -290,11 +292,11 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
 
         // apply setting
         fps[position].value = uint16(_feePercentageBIPS);
-        assert(rewardEpoch < 2**240);
-        fps[position].validFromEpoch = uint240(rewardEpoch);
+        assert(rewardEpochId < 2**240);
+        fps[position].validFromEpochId = uint240(rewardEpochId);
 
-        emit FeePercentageChanged(msg.sender, _feePercentageBIPS, rewardEpoch);
-        return rewardEpoch;
+        emit FeePercentageChanged(msg.sender, _feePercentageBIPS, rewardEpochId);
+        return rewardEpochId;
     }
 
 
@@ -303,14 +305,14 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
      * @param _dataProvider         address representing data provider
      */
     function getDataProviderCurrentFeePercentage(address _dataProvider) external view returns (uint16) {
-        return _getDataProviderFeePercentage(_dataProvider, _getCurrentRewardEpoch());
+        return _getDataProviderFeePercentage(_dataProvider, _getCurrentRewardEpochId());
     }
 
     /**
      * @notice Returns the scheduled fee percentage changes of `_dataProvider`
      * @param _dataProvider         address representing data provider
      * @return _feePercentageBIPS   positional array of fee percentages in BIPS
-     * @return _validFromEpoch      positional array of block numbers the fee setings are effective from
+     * @return _validFromEpochId      positional array of block numbers the fee setings are effective from
      * @return _fixed               positional array of boolean values indicating if settings are subjected to change
      */
     function getDataProviderScheduledFeePercentageChanges(
@@ -319,33 +321,33 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         external view
         returns (
             uint256[] memory _feePercentageBIPS,
-            uint256[] memory _validFromEpoch,
+            uint256[] memory _validFromEpochId,
             bool[] memory _fixed
         )
     {
         FeePercentage[] storage fps = dataProviderFeePercentages[_dataProvider];
         if (fps.length > 0) {
-            uint256 currentEpoch = finalisation.getCurrentRewardEpoch();
+            uint256 currentEpochId = finalisation.getCurrentRewardEpochId();
             uint256 position = fps.length;
-            while (position > 0 && fps[position - 1].validFromEpoch > currentEpoch) {
+            while (position > 0 && fps[position - 1].validFromEpochId > currentEpochId) {
                 position--;
             }
             uint256 count = fps.length - position;
             if (count > 0) {
                 _feePercentageBIPS = new uint256[](count);
-                _validFromEpoch = new uint256[](count);
+                _validFromEpochId = new uint256[](count);
                 _fixed = new bool[](count);
                 for (uint256 i = 0; i < count; i++) {
                     _feePercentageBIPS[i] = fps[i + position].value;
-                    _validFromEpoch[i] = fps[i + position].validFromEpoch;
-                    _fixed[i] = (_validFromEpoch[i] - currentEpoch) != feePercentageUpdateOffset;
+                    _validFromEpochId[i] = fps[i + position].validFromEpochId;
+                    _fixed[i] = (_validFromEpochId[i] - currentEpochId) != feePercentageUpdateOffset;
                 }
             }
         }
     }
 
-    function getRewardEpochToExpireNext() external view returns (uint256) {
-        return nextRewardEpochToExpire;
+    function getRewardEpochIdToExpireNext() external view returns (uint256) {
+        return nextRewardEpochIdToExpire;
     }
 
     /**
@@ -381,11 +383,11 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
      * @return _startEpochId        the oldest epoch id that allows reward claiming
      * @return _endEpochId          the newest epoch id that allows reward claiming
      */
-    function getEpochsWithClaimableRewards() external view
+    function getEpochIdsWithClaimableRewards() external view
         returns (uint256 _startEpochId, uint256 _endEpochId)
     {
-        _startEpochId = _minClaimableRewardEpoch();
-        uint256 currentRewardEpochId = _getCurrentRewardEpoch();
+        _startEpochId = _minClaimableRewardEpochId();
+        uint256 currentRewardEpochId = _getCurrentRewardEpochId();
         require(currentRewardEpochId > 0, "no epoch with claimable rewards");
         _endEpochId = currentRewardEpochId - 1;
     }
@@ -414,16 +416,16 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
      /**
      * @notice Return current reward epoch number
      */
-    function getCurrentRewardEpoch() external view returns (uint64) {
-        return _getCurrentRewardEpoch();
+    function getCurrentRewardEpochId() external view returns (uint64) {
+        return _getCurrentRewardEpochId();
     }
 
     /**
      * @notice Return initial reward epoch number
-     * @return _initialRewardEpoch                 initial reward epoch number
+     * @return _initialRewardEpochId                 initial reward epoch number
      */
-    function getInitialRewardEpoch() external view returns (uint256 _initialRewardEpoch) {
-        return _getInitialRewardEpoch();
+    function getInitialRewardEpochId() external view returns (uint256 _initialRewardEpochId) {
+        return _getInitialRewardEpochId();
     }
 
     function _processProofs(
@@ -466,14 +468,14 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         RewardClaim calldata rewardClaim = _proof.body;
         require(rewardClaim.beneficiary == _rewardOwner, "wrong beneficiary");
         bytes32 claimHash = keccak256(abi.encode(rewardClaim));
-        if (!epochProcessedRewardClaims[_proof.rId][claimHash]) {
+        if (!epochProcessedRewardClaims[_proof.rewardEpochId][claimHash]) {
             // not claimed yet - check if valid merkle proof
-            bytes32 merkleRoot = finalisation.getConfirmedMerkleRoot(REWARDS_PROTOCOL_ID, _proof.rId);
-            require(_proof.merkleProof.verify(merkleRoot, claimHash), "merkle proof invalid");
+            bytes32 rewardsHash = finalisation.rewardsHash(_proof.rewardEpochId);
+            require(_proof.merkleProof.verify(rewardsHash, claimHash), "merkle proof invalid");
             // initialise reward amount
-            _rewardAmountWei = _initialiseRewardAmount(_proof.rId, rewardClaim.amount);
+            _rewardAmountWei = _initialiseRewardAmount(_proof.rewardEpochId, rewardClaim.amount);
             if (rewardClaim.claimType == ClaimType.FEE) {
-                uint256 burnFactor = _getBurnFactor(_proof.rId, _rewardOwner);
+                uint256 burnFactor = _getBurnFactor(_proof.rewardEpochId, _rewardOwner);
                 if (burnFactor > 0) {
                     // calculate burn amount
                     _burnAmountWei = Math.min(_rewardAmountWei, uint256(_rewardAmountWei).
@@ -481,29 +483,29 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
                     // reduce reward amount
                     _rewardAmountWei -= _burnAmountWei; // _burnAmountWei <= _rewardAmountWei
                     // update total burned amount per epoch
-                    epochBurnedRewards[_proof.rId] += _burnAmountWei;
+                    epochBurnedRewards[_proof.rewardEpochId] += _burnAmountWei;
                     // emit event how much of the reward was burned
                     // TODO - different event?
                     emit RewardClaimed(
                         _rewardOwner,
                         _rewardOwner,
                         BURN_ADDRESS,
-                        _proof.rId,
+                        _proof.rewardEpochId,
                         ClaimType.FEE,
                         _burnAmountWei
                     );
                 }
             }
             // update total claimed amount per epoch
-            epochClaimedRewards[_proof.rId] += _rewardAmountWei;
+            epochClaimedRewards[_proof.rewardEpochId] += _rewardAmountWei;
             // mark as claimed
-            epochProcessedRewardClaims[_proof.rId][claimHash] = true;
+            epochProcessedRewardClaims[_proof.rewardEpochId][claimHash] = true;
             // emit event
             emit RewardClaimed(
                 _rewardOwner,
                 _rewardOwner,
                 _recipient,
-                _proof.rId,
+                _proof.rewardEpochId,
                 rewardClaim.claimType,
                 _rewardAmountWei
             );
@@ -513,59 +515,60 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     function _initialiseWeightBasedClaim(RewardClaimWithProof calldata _proof) internal {
         RewardClaim calldata rewardClaim = _proof.body;
         UnclaimedRewardState storage state =
-            epochTypeProviderUnclaimedReward[_proof.rId][rewardClaim.claimType][rewardClaim.beneficiary];
+            epochTypeProviderUnclaimedReward[_proof.rewardEpochId][rewardClaim.claimType][rewardClaim.beneficiary];
         if (!state.initialised) {
             // not initialised yet - check if valid merkle proof
-            bytes32 merkleRoot = finalisation.getConfirmedMerkleRoot(REWARDS_PROTOCOL_ID, _proof.rId);
+            bytes32 rewardsHash = finalisation.rewardsHash(_proof.rewardEpochId);
             bytes32 claimHash = keccak256(abi.encode(rewardClaim));
-            require(_proof.merkleProof.verify(merkleRoot, claimHash), "merkle proof invalid");
+            require(_proof.merkleProof.verify(rewardsHash, claimHash), "merkle proof invalid");
             // mark as initialised
             state.initialised = true;
             // initialise reward amount
-            state.amount = _initialiseRewardAmount(_proof.rId, rewardClaim.amount);
+            state.amount = _initialiseRewardAmount(_proof.rewardEpochId, rewardClaim.amount);
             // initialise weight
-            state.weight = _getVotePower(_proof.rId, rewardClaim.beneficiary, rewardClaim.claimType);
+            state.weight = _getVotePower(_proof.rewardEpochId, rewardClaim.beneficiary, rewardClaim.claimType);
             // increase the number of initialised weight based claims
-            epochNoOfInitialisedWeightBasedClaims[_proof.rId] += 1;
+            epochNoOfInitialisedWeightBasedClaims[_proof.rewardEpochId] += 1;
         }
     }
 
     function _initialiseRewardAmount(
-        uint64 _rewardEpoch,
+        uint64 _rewardEpochId,
         uint120 _rewardClaimAmount
     )
         internal
         returns (uint120 _rewardAmount)
     {
         // get total reward amount
-        uint120 totalRewards = epochTotalRewards[_rewardEpoch];
+        uint120 totalRewards = epochTotalRewards[_rewardEpochId];
         if (totalRewards == 0) {
             // if not initialised yet, do it now
             //_totalRewards = TODO get information from offers/poll?
-            epochTotalRewards[_rewardEpoch] = totalRewards;
+            epochTotalRewards[_rewardEpochId] = totalRewards;
         }
         // get already initalised rewards
-        uint120 initialisedRewards = epochInitialisedRewards[_rewardEpoch];
+        uint120 initialisedRewards = epochInitialisedRewards[_rewardEpochId];
         _rewardAmount = _rewardClaimAmount;
         if (totalRewards < initialisedRewards + _rewardClaimAmount) {
             // reduce reward amount in case of invalid off-chain calculations
             _rewardAmount = totalRewards - initialisedRewards; // totalRewards >= initialisedRewards
         }
         // increase initialised reward amount
-        epochInitialisedRewards[_rewardEpoch] += _rewardAmount;
+        epochInitialisedRewards[_rewardEpochId] += _rewardAmount;
     }
 
     function _claimWeightBasedRewards(
         address _rewardOwner,
         address _recipient,
-        uint64 _rewardEpoch,
-        uint64 _minClaimableEpoch,
+        uint64 _rewardEpochId,
+        uint64 _minClaimableEpochId,
         bool _onlyWNat
     )
         internal
         returns (uint120 _rewardAmountWei)
     {
-        for (uint64 epoch = _nextClaimableEpoch(_rewardOwner, _minClaimableEpoch); epoch <= _rewardEpoch; epoch++) {
+        uint24 nextClaimableEpochId = _nextClaimableEpochId(_rewardOwner, _minClaimableEpochId);
+        for (uint24 epoch = nextClaimableEpochId; epoch <= _rewardEpochId; epoch++) {
             // check if all weight based claims were already initialised
             // (in this case zero unclaimed rewards are actually zeros)
             bool allClaimsInitialised = epochNoOfInitialisedWeightBasedClaims[epoch]
@@ -593,9 +596,9 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             _rewardAmountWei += rewardAmount;
         }
 
-        // mark epochs up to `_rewardEpoch` as claimed
-        if (rewardOwnerNextClaimableEpoch[_rewardOwner] < _rewardEpoch + 1) {
-            rewardOwnerNextClaimableEpoch[_rewardOwner] = _rewardEpoch + 1;
+        // mark epochs up to `_rewardEpochId` as claimed
+        if (rewardOwnerNextClaimableEpochId[_rewardOwner] < _rewardEpochId + 1) {
+            rewardOwnerNextClaimableEpochId[_rewardOwner] = _rewardEpochId + 1;
         }
     }
 
@@ -817,13 +820,13 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     }
 
     /**
-     * @notice Returns fee percentage setting for `_dataProvider` at `_rewardEpoch`.
+     * @notice Returns fee percentage setting for `_dataProvider` at `_rewardEpochId`.
      * @param _dataProvider         address representing a data provider
-     * @param _rewardEpoch          reward epoch number
+     * @param _rewardEpochId          reward epoch number
      */
     function _getDataProviderFeePercentage(
         address _dataProvider,
-        uint256 _rewardEpoch
+        uint256 _rewardEpochId
     )
         internal view
         returns (uint16)
@@ -832,26 +835,26 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         uint256 index = fps.length;
         while (index > 0) {
             index--;
-            if (_rewardEpoch >= fps[index].validFromEpoch) {
+            if (_rewardEpochId >= fps[index].validFromEpochId) {
                 return fps[index].value;
             }
         }
         return defaultFeePercentageBIPS;
     }
 
-    function _getBurnFactor(uint64 _rewardEpoch, address _rewardOwner) internal view returns(uint256) {
-        return finalisation.getRewardsFeeBurnFactor(_rewardEpoch, _rewardOwner);
+    function _getBurnFactor(uint64 _rewardEpochId, address _rewardOwner) internal view returns(uint256) {
+        return finalisation.getRewardsFeeBurnFactor(_rewardEpochId, _rewardOwner);
     }
 
     function _getVotePower(
-        uint64 _rewardEpoch,
+        uint64 _rewardEpochId,
         address _beneficiary,
         ClaimType _claimType
     )
         internal view
         returns (uint128)
     {
-        uint256 votePowerBlock = _getVotePowerBlock(_rewardEpoch);
+        uint256 votePowerBlock = _getVotePowerBlock(_rewardEpochId);
         if (_claimType == ClaimType.WNAT) {
             return wNat.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
         } else if (_claimType == ClaimType.MIRROR) {
@@ -865,48 +868,48 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
 
     /**
      * @notice Return reward epoch vote power block
-     * @param _rewardEpoch          reward epoch number
+     * @param _rewardEpochId          reward epoch number
      */
-    function _getVotePowerBlock(uint64 _rewardEpoch) internal view returns (uint256 _votePowerBlock) {
-        _votePowerBlock = epochVotePowerBlock[_rewardEpoch];
+    function _getVotePowerBlock(uint64 _rewardEpochId) internal view returns (uint256 _votePowerBlock) {
+        _votePowerBlock = epochVotePowerBlock[_rewardEpochId];
         if (_votePowerBlock == 0) {
-            _votePowerBlock = finalisation.getVotePowerBlock(_rewardEpoch);
+            _votePowerBlock = finalisation.getVotePowerBlock(_rewardEpochId);
         }
     }
 
     /**
-     * Reports if rewards for `_rewardEpoch` are claimable.
-     * @param _rewardEpoch          reward epoch number
-     * @param _currentRewardEpoch   number of the current reward epoch
+     * Reports if rewards for `_rewardEpochId` are claimable.
+     * @param _rewardEpochId          reward epoch number
+     * @param _currentRewardEpochId   number of the current reward epoch
      */
-    function _isRewardClaimable(uint256 _rewardEpoch, uint256 _currentRewardEpoch) internal view returns (bool) {
-        return _rewardEpoch >= firstClaimableRewardEpoch &&
-               _rewardEpoch >= nextRewardEpochToExpire &&
-               _rewardEpoch < _currentRewardEpoch;
+    function _isRewardClaimable(uint24 _rewardEpochId, uint24 _currentRewardEpochId) internal view returns (bool) {
+        return _rewardEpochId >= firstClaimableRewardEpochId &&
+               _rewardEpochId >= nextRewardEpochIdToExpire &&
+               _rewardEpochId < _currentRewardEpochId;
     }
 
-    function _nextClaimableEpoch(address _rewardOwner, uint256 _minClaimableEpoch) internal view returns (uint64) {
-        return Math.max(rewardOwnerNextClaimableEpoch[_rewardOwner], _minClaimableEpoch).toUint64();
+    function _nextClaimableEpochId(address _rewardOwner, uint256 _minClaimableEpochId) internal view returns (uint24) {
+        return Math.max(rewardOwnerNextClaimableEpochId[_rewardOwner], _minClaimableEpochId).toUint24();
     }
 
-    function _minClaimableRewardEpoch() internal view returns (uint64) {
-        return Math.max(firstClaimableRewardEpoch,
-            Math.max(_getInitialRewardEpoch(), nextRewardEpochToExpire)).toUint64();
+    function _minClaimableRewardEpochId() internal view returns (uint24) {
+        return Math.max(firstClaimableRewardEpochId,
+            Math.max(_getInitialRewardEpochId(), nextRewardEpochIdToExpire)).toUint24();
     }
 
     /**
      * Return initial reward epoch number
-     * @return _initialRewardEpoch Initial reward epoch number.
+     * @return _initialRewardEpochId Initial reward epoch number.
      */
-    function _getInitialRewardEpoch() internal view returns (uint256 _initialRewardEpoch) {
-        (,_initialRewardEpoch) = Math.trySub(initialRewardEpoch, 1);
+    function _getInitialRewardEpochId() internal view returns (uint256 _initialRewardEpochId) {
+        (,_initialRewardEpochId) = Math.trySub(initialRewardEpochId, 1);
     }
 
     /**
      * @notice Return current reward epoch number
      */
-    function _getCurrentRewardEpoch() internal view returns (uint64) {
-        return finalisation.getCurrentRewardEpoch();
+    function _getCurrentRewardEpochId() internal view returns (uint24) {
+        return finalisation.getCurrentRewardEpochId();
     }
 
     function _getExpectedBalance() private view returns(uint256 _balanceExpectedWei) {

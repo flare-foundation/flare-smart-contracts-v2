@@ -22,12 +22,12 @@ contract Relay {
 
     constructor(
         address _signingPolicySetter,
-        uint256 rewardEpochId,
-        bytes32 signingPolicyHash
+        uint256 _rewardEpochId,
+        bytes32 _signingPolicyHash
     ) {
         signingPolicySetter = _signingPolicySetter;
-        lastInitializedRewardEpoch = rewardEpochId;
-        toSigningPolicyHash[rewardEpochId] = signingPolicyHash;
+        lastInitializedRewardEpoch = _rewardEpochId;
+        toSigningPolicyHash[_rewardEpochId] = _signingPolicyHash;
     }
 
     /// Only signingPolicySetter address/contract can call this method.
@@ -56,10 +56,6 @@ contract Relay {
         require(
             lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
             "not next reward epoch"
-        );
-        require(
-            _signingPolicy.voters.length == _signingPolicy.weights.length,
-            "size mismatch"
         );
         require(_signingPolicy.voters.length > 0, "must be non-trivial");
         require(

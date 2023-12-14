@@ -10,7 +10,7 @@ contract EntityManagerTest is Test {
     EntityManager private entityManager;
 
     function setUp() public {
-        entityManager = new EntityManager();
+        entityManager = new EntityManager(IGovernanceSettings(makeAddr("contract")), makeAddr("user0"), 4);
     }
 
     function testRegisterNodeId() public {
