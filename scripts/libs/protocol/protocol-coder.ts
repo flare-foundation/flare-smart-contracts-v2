@@ -1,4 +1,5 @@
- import { ethers } from "ethers";
+import { ethers } from "ethers";
+import Web3 from "web3";
 
 //////////////////////////////////////////////////////////////////////////////
 // Interfaces
@@ -6,10 +7,10 @@
 
 export interface SigningPolicy {
   rewardEpochId: number;
-  startingVotingRoundId: number;
+  startVotingRoundId: number;
   threshold: number;
-  randomSeed: string;
-  signers: string[];
+  seed: string;
+  voters: string[];
   weights: number[];
 }
 
@@ -49,26 +50,26 @@ export function encodeSigningPolicy(policy: SigningPolicy) {
   if (!policy) {
     throw Error("Signing policy is undefined");
   }
-  if (!policy.signers || !policy.weights) {
+  if (!policy.voters || !policy.weights) {
     throw Error("Invalid signing policy");
   }
-  if (policy.signers.length !== policy.weights.length) throw Error("Invalid signing policy");
+  if (policy.voters.length !== policy.weights.length) throw Error("Invalid signing policy");
   let signersAndWeights = "";
-  const size = policy.signers.length;
+  const size = policy.voters.length;
   if (size > 2 ** 16 - 1) {
     throw Error("Too many signers");
   }
   for (let i = 0; i < size; i++) {
-    signersAndWeights += policy.signers[i].slice(2) + policy.weights[i].toString(16).padStart(4, "0");
+    signersAndWeights += policy.voters[i].slice(2) + policy.weights[i].toString(16).padStart(4, "0");
   }
-  if (!/^0x[0-9a-f]{64}$/i.test(policy.randomSeed)) {
-    throw Error(`Invalid random seed format: ${policy.randomSeed}`);
+  if (!/^0x[0-9a-f]{64}$/i.test(policy.seed)) {
+    throw Error(`Invalid random seed format: ${policy.seed}`);
   }
   if (policy.rewardEpochId < 0 || policy.rewardEpochId > 2 ** 24 - 1) {
     throw Error(`Reward epoch id out of range: ${policy.rewardEpochId}`);
   }
-  if (policy.startingVotingRoundId < 0 || policy.startingVotingRoundId > 2 ** 32 - 1) {
-    throw Error(`Starting voting round id out of range: ${policy.startingVotingRoundId}`);
+  if (policy.startVotingRoundId < 0 || policy.startVotingRoundId > 2 ** 32 - 1) {
+    throw Error(`Starting voting round id out of range: ${policy.startVotingRoundId}`);
   }
   if (policy.threshold < 0 || policy.threshold > 2 ** 16 - 1) {
     throw Error(`Threshold out of range: ${policy.threshold}`);
@@ -77,9 +78,9 @@ export function encodeSigningPolicy(policy: SigningPolicy) {
     "0x" +
     size.toString(16).padStart(4, "0") +
     policy.rewardEpochId.toString(16).padStart(6, "0") +
-    policy.startingVotingRoundId.toString(16).padStart(8, "0") +
+    policy.startVotingRoundId.toString(16).padStart(8, "0") +
     policy.threshold.toString(16).padStart(4, "0") +
-    policy.randomSeed.slice(2) +
+    policy.seed.slice(2) +
     signersAndWeights
   ).toLowerCase();
 }
@@ -124,10 +125,10 @@ export function decodeSigningPolicy(encodedPolicy: string): SigningPolicy {
   }
   return {
     rewardEpochId,
-    startingVotingRoundId,
+    startVotingRoundId: startingVotingRoundId,
     threshold,
-    randomSeed,
-    signers,
+    seed: randomSeed,
+    voters: signers,
     weights,
   };
 }
@@ -291,13 +292,36 @@ export async function signMessageHashECDSAWithIndex(
   if (!/^0x[0-9a-f]{64}$/i.test(messageHash)) {
     throw Error(`Invalid message hash format: ${messageHash}`);
   }
+  const web3 = new Web3();
+  let signatureObject = web3.eth.accounts.sign(messageHash, privateKey);
+  return {
+    v: parseInt(signatureObject.v.slice(2), 16),
+    r: signatureObject.r,
+    s: signatureObject.s,
+    index,
+  } as ECDSASignatureWithIndex;
+  
+  // The next code occasionally does not work well
+  // Example is first private key and the message:
+  // {
+  //   protocolId: 15,
+  //   votingRoundId: 4111,
+  //   randomQualityScore: true,
+  //   merkleRoot: '0x29c81c1d44d6d822982fa1d09e09bde8db25fb8df6cd03b6e8d6c3bea1d512f6'
+  // }
+  // TODO: find out why
+
+  /*
   const wallet = new ethers.Wallet(privateKey);
   const sigBytes = await wallet.signMessage(ethers.toBeArray(messageHash));
   const sig = ethers.Signature.from(sigBytes);
+  console.log("SIG")
+  console.dir(sig)
   return {
     v: sig.v,
     r: sig.r,
     s: sig.s,
     index,
   };
+  */
 }

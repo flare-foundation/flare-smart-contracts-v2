@@ -11,6 +11,7 @@ import {
   signingPolicyHash,
 } from "../../../../scripts/libs/protocol/protocol-coder";
 import { HardhatNetworkAccountConfig } from "hardhat/types";
+import { expectRevert } from "@openzeppelin/test-helpers";
 
 const Relay = artifacts.require("Relay");
 
@@ -32,13 +33,15 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   before(async () => {
     // accounts = loadAccounts(web3);
     signers = (await ethers.getSigners()) as unknown as SignerWithAddress[];
-    relay = await Relay.new(signers[0].address);
     signingPolicyData = defaultTestSigningPolicy(
       signers.map(x => x.address),
       N,
       singleWeight
     );
     signingPolicyData.rewardEpochId = rewardEpochId;
+    const signingPolicy = encodeSigningPolicy(signingPolicyData);
+    const localHash = signingPolicyHash(signingPolicy);
+    relay = await Relay.new(signers[0].address, signingPolicyData.rewardEpochId, localHash);
   });
 
   let merkleRoot: string;
@@ -54,36 +57,13 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     } as ProtocolMessageMerkleRoot;
   });
 
-  it("Should initialise (ECDSA)", async () => {
+  it("Should initial signing policy be initialized", async () => {
     const signingPolicy = encodeSigningPolicy(signingPolicyData);
-
-    const receipt = await (
-      await signers[0].sendTransaction({
-        from: signers[0].address,
-        to: relay.address,
-        data: selector + signingPolicy.slice(2),
-      })
-    ).wait();
-
-    console.log("Gas used:", receipt!.gasUsed.toString());
     const lastInitializedRewardEpoch = (await relay.lastInitializedRewardEpoch()).toString();
     expect(lastInitializedRewardEpoch).to.equal(signingPolicyData.rewardEpochId.toString());
     const obtainedSigningPolicyHash = await relay.toSigningPolicyHash(signingPolicyData.rewardEpochId);
     const localHash = signingPolicyHash(signingPolicy);
     expect(obtainedSigningPolicyHash).to.equal(localHash);
-  });
-
-  it("Should fail on second initialization (ECDSA)", async () => {
-    const signingPolicy = encodeSigningPolicy(signingPolicyData);
-
-
-    await expect(
-      signers[0].sendTransaction({
-        from: signers[0].address,
-        to: relay.address,
-        data: selector + signingPolicy.slice(2),
-      })
-    ).to.be.revertedWith("Already initialized");
   });
 
   it("Should relay", async () => {
@@ -229,20 +209,13 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
   it("Should fail due to delayed signing policy", async () => {
     // "Delayed sign policy"
-    const relay2 = await Relay.new(signers[0].address);
+
 
     const newSigningPolicyData = { ...signingPolicyData };
-    newSigningPolicyData.startingVotingRoundId = votingRoundId + 1;
-    const signingPolicy = encodeSigningPolicy(newSigningPolicyData).slice(2);
+    newSigningPolicyData.startVotingRoundId = votingRoundId + 1;
+    const signingPolicy = encodeSigningPolicy(newSigningPolicyData);
 
-    const receipt = await (
-      await signers[0].sendTransaction({
-        from: signers[0].address,
-        to: relay2.address,
-        data: selector + signingPolicy,
-      })
-    ).wait();
-
+    const relay2 = await Relay.new(signers[0].address, newSigningPolicyData.rewardEpochId, signingPolicyHash(signingPolicy));
 
     const fullMessage = encodeProtocolMessageMerkleRoot(messageData).slice(2);
 
@@ -250,7 +223,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       signers[0].sendTransaction({
         from: signers[0].address,
         to: relay2.address,
-        data: selector + signingPolicy + fullMessage
+        data: selector + signingPolicy.slice(2) + fullMessage
       })
     ).to.be.revertedWith("Delayed sign policy");
 
@@ -339,63 +312,60 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
   describe("Direct signing policy setup", async () => {
     it("Should directly set the signing policy", async () => {
-      const relay2 = await Relay.new(signers[0].address);
-      const receipt = await relay2.setSigningPolicy({
-        rId: signingPolicyData.rewardEpochId,
-        startVotingRoundId: signingPolicyData.startingVotingRoundId,
-        threshold: signingPolicyData.threshold,
-        seed: signingPolicyData.randomSeed,
-        voters: signingPolicyData.signers,
-        weights: signingPolicyData.weights,
-      });
+      const relay2 = await Relay.new(signers[0].address, 0, signingPolicyHash(encodeSigningPolicy(signingPolicyData)));
+
+      const newSigningPolicyData = { ...signingPolicyData };
+      newSigningPolicyData.rewardEpochId += 1;
+
+      const receipt = await relay2.setSigningPolicy(newSigningPolicyData);
+
       // console.dir(receipt);
       let lastInitializedRewardEpoch = (await relay2.lastInitializedRewardEpoch()).toString();
-      expect(lastInitializedRewardEpoch).to.equal(signingPolicyData.rewardEpochId.toString());
-      const obtainedSigningPolicyHash = await relay2.toSigningPolicyHash(signingPolicyData.rewardEpochId);
-      const localHash = signingPolicyHash(encodeSigningPolicy(signingPolicyData));
+      expect(lastInitializedRewardEpoch).to.equal(newSigningPolicyData.rewardEpochId.toString());
+      const obtainedSigningPolicyHash = await relay2.toSigningPolicyHash(newSigningPolicyData.rewardEpochId);
+      const localHash = signingPolicyHash(encodeSigningPolicy(newSigningPolicyData));
       expect(obtainedSigningPolicyHash).to.equal(localHash);
 
-
-      // export interface SigningPolicy {
-      //   rewardEpochId: number;
-      //   startingVotingRoundId: number;
-      //   threshold: number;
-      //   randomSeed: string;
-      //   signers: string[];
-      //   weights: number[];
-      // }
-
-
-    //   struct SigningPolicy {
-    //     uint64 rId;                 // Reward epoch id.
-    //     uint64 startVotingRoundId;  // First voting round id of validity.
-    //                                 // Usually it is the first voting round of reward epoch rID.
-    //                                 // It can be later,
-    //                                 // if the confirmation of the signing policy on Flare blockchain gets delayed.
-    //     uint64 threshold;           // Confirmation threshold (absolute value of noramalised weights).
-    //     uint256 seed;               // Random seed.
-    //     address[] voters;           // The list of eligible voters in the canonical order.
-    //     uint16[] weights;           // The corresponding list of normalised signing weights of eligible voters.
-    //                                 // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
-    //                                 // while approximately keeping the weight relations.
-    // }
-
-      
     });
 
     it("Should fail to directly set the signing policy due to wrong reward epoch", async () => {
       // "not next reward epoch"
+      const relay2 = await Relay.new(signers[0].address, 0, signingPolicyHash(encodeSigningPolicy(signingPolicyData)));
+      const newSigningPolicyData = { ...signingPolicyData };
+
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "not next reward epoch");
+      newSigningPolicyData.rewardEpochId += 2;
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "not next reward epoch");
+
     });
 
-    it("Should fail to directly set the signing policy due to being already set", async () => {
-      // "already set"
-    });
     it("Should fail to directly set the signing policy due to policy being trivial", async () => {
       // "must be non-trivial"
+      const relay2 = await Relay.new(signers[0].address, 0, signingPolicyHash(encodeSigningPolicy(signingPolicyData)));
+      const newSigningPolicyData = { ...signingPolicyData };
+      newSigningPolicyData.rewardEpochId += 1;
+      newSigningPolicyData.voters = [];
+      newSigningPolicyData.weights = [];
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "must be non-trivial");
+
+    });
+
+    it("Should fail due to voters and weights length mismatch", async () => {
+      // "size mismatch"
+      const relay2 = await Relay.new(signers[0].address, 0, signingPolicyHash(encodeSigningPolicy(signingPolicyData)));
+      const newSigningPolicyData = { ...signingPolicyData };
+      newSigningPolicyData.rewardEpochId += 1;
+      newSigningPolicyData.weights = [];
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "size mismatch");
+
     });
 
     it("Should fail due to wrong setter", async () => {
       // "only sign policy setter"
+      const relay2 = await Relay.new(signers[0].address, 0, signingPolicyHash(encodeSigningPolicy(signingPolicyData)));
+      const newSigningPolicyData = { ...signingPolicyData };
+      newSigningPolicyData.rewardEpochId += 1;
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData, { from: signers[1].address }), "only sign policy setter");
     });
 
 

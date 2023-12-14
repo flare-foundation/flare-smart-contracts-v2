@@ -1,16 +1,17 @@
+import Web3 from "web3";
 import { SigningPolicy, encodeECDSASignatureWithIndex, signMessageHashECDSAWithIndex } from "../../../../scripts/libs/protocol/protocol-coder";
 
 export function defaultTestSigningPolicy(accounts: string[], N: number, singleWeight: number): SigningPolicy {
   const signingPolicyData = {
-    signers: [],
+    voters: [],
     weights: [],
     rewardEpochId: 1,
-    startingVotingRoundId: 1,
+    startVotingRoundId: 1,
     threshold: Math.ceil((N / 2) * singleWeight),
-    randomSeed: "0x1122334455667788990011223344556677889900112233445566778899001122",
+    seed: "0x1122334455667788990011223344556677889900112233445566778899001122",
   } as SigningPolicy;
   for (let i = 0; i < N; i++) {
-    signingPolicyData.signers.push(accounts[i]);
+    signingPolicyData.voters.push(accounts[i]);
     signingPolicyData.weights.push(singleWeight);
   }
   return signingPolicyData;

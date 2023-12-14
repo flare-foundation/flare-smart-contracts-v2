@@ -6,6 +6,10 @@ import "./Finalisation.sol";
 // import "hardhat/console.sol";
 
 contract Relay {
+    struct StateData {
+        uint8 randomNumberProtocolId;
+        uint32 randomTimestamp;
+    }
     uint256 public lastInitializedRewardEpoch;
     // rewardEpochId => signingPolicyHash
     mapping(uint256 => bytes32) public toSigningPolicyHash;
@@ -14,8 +18,16 @@ contract Relay {
 
     address public signingPolicySetter;
 
-    constructor(address _signingPolicySetter) {
+    StateData public stateData;
+
+    constructor(
+        address _signingPolicySetter,
+        uint256 rewardEpochId,
+        bytes32 signingPolicyHash
+    ) {
         signingPolicySetter = _signingPolicySetter;
+        lastInitializedRewardEpoch = rewardEpochId;
+        toSigningPolicyHash[rewardEpochId] = signingPolicyHash;
     }
 
     /// Only signingPolicySetter address/contract can call this method.
@@ -42,16 +54,18 @@ contract Relay {
         Finalisation.SigningPolicy calldata _signingPolicy
     ) public onlySigningPolicySetter returns (bytes32) {
         require(
-            lastInitializedRewardEpoch == 0 ||
-                lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
+            lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
             "not next reward epoch"
         );
-        require(toSigningPolicyHash[_signingPolicy.rewardEpochId] == 0, "already set");
         require(
             _signingPolicy.voters.length == _signingPolicy.weights.length,
             "size mismatch"
         );
         require(_signingPolicy.voters.length > 0, "must be non-trivial");
+        require(
+            _signingPolicy.voters.length == _signingPolicy.weights.length,
+            "size mismatch"
+        );
         // bytes32 currentHash;
         bytes memory toHash = bytes.concat(
             bytes2(uint16(_signingPolicy.voters.length)),
@@ -91,9 +105,9 @@ contract Relay {
                         weightPos = 0;
                         weightIndex++;
                     }
-                    nextSlot = nextSlot | bytes32(
-                        ((weightData << (8 * pos)) >> (8 * count))
-                    );
+                    nextSlot =
+                        nextSlot |
+                        bytes32(((weightData << (8 * pos)) >> (8 * count)));
                 } else {
                     bytesToTake = 20 - voterPos;
                     pos = voterPos;
@@ -108,9 +122,9 @@ contract Relay {
                         voterPos = 0;
                         voterIndex++;
                     }
-                    nextSlot = nextSlot | bytes32(
-                        ((voterData << (8 * pos)) >> (8 * count))
-                    );
+                    nextSlot =
+                        nextSlot |
+                        bytes32(((voterData << (8 * pos)) >> (8 * count)));
                 }
                 count += bytesToTake;
             }
@@ -120,6 +134,7 @@ contract Relay {
             }
         }
         toSigningPolicyHash[_signingPolicy.rewardEpochId] = currentHash;
+        lastInitializedRewardEpoch = _signingPolicy.rewardEpochId;
         return currentHash;
     }
 
@@ -166,6 +181,7 @@ contract Relay {
     //
     // (1) Initializing with signing policy. This can be done only once, usually after deployment. The calldata should include only signature and signing policy.
     function relay() external {
+        uint256 tmpVar;
         assembly {
             // Helper function to revert with a message
             // Since string length cannot be determined in assembly easily, the matching length of the message string must be provided.
@@ -178,6 +194,11 @@ contract Relay {
                 mstore(add(memPtr, 0x24), msgLength) // Revert reason length
                 mstore(add(memPtr, 0x44), message)
                 revert(memPtr, 0x64) // Revert data length is 4 bytes for selector and 3 slots of 0x20 bytes
+            }
+
+            function revertWithValue(memPtr, val) {
+                mstore(memPtr, val)
+                revert(memPtr, 0x20)
             }
 
             // Helper function to calculate the matching reward epoch id from voting round id
@@ -248,7 +269,8 @@ contract Relay {
             // 43 + 22 * numberOfVoters
             let signingPolicyLength := add(43, mul(shr(72, metadata), 22))
 
-            if lt(calldatasize(), add(signingPolicyLength, 4)) {
+            // The calldata must be of length at least 4 (function selector) + signingPolicyLength + 1 (protocolId)
+            if lt(calldatasize(), add(signingPolicyLength, 5)) {
                 revertWithMessage(memPtr, "Invalid sign policy length", 26)
             }
 
@@ -264,26 +286,6 @@ contract Relay {
             mstore(memPtr, rewardEpochId) // key (rewardEpochId)
             mstore(add(memPtr, 32), toSigningPolicyHash.slot)
             let existingSigningPolicyHash := sload(keccak256(memPtr, 64))
-
-            ///////////// Mode (1) - inital relay /////////////
-            // Can be done only once, usually after deployment
-            // The indicator is the size of data containing exactly the signing policy
-            if eq(calldatasize(), add(4, signingPolicyLength)) {
-                // Check for prior initialization
-                if and(
-                    eq(sload(lastInitializedRewardEpoch.slot), 0),
-                    eq(existingSigningPolicyHash, 0)
-                ) {
-                    // lastInitializedRewardEpoch = rewardEpochId
-                    sstore(lastInitializedRewardEpoch.slot, rewardEpochId)
-                    // toSigningPolicyHash[rewardEpochId] = signingPolicyHash
-                    mstore(memPtr, rewardEpochId)
-                    mstore(add(memPtr, 32), toSigningPolicyHash.slot)
-                    sstore(keccak256(memPtr, 64), signingPolicyHash)
-                    return(0, 0) // all done
-                }
-                revertWithMessage(memPtr, "Already initialized", 19)
-            }
 
             // From here on we have calldatasize() > 4 + signingPolicyLength
 
