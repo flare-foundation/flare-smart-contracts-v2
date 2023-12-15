@@ -43,7 +43,8 @@ contract Relay {
     }
 
     function setSigningPolicy(
-        Finalisation.SigningPolicy calldata _signingPolicy
+        // using memory instead of calldata as called from another contract where signing policy is already in memory
+        Finalisation.SigningPolicy memory _signingPolicy
     )
         external
         onlySigningPolicySetter

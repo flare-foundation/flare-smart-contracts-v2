@@ -102,6 +102,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     const ADDRESS_UPDATER = accounts[16];
     const CLEANER_CONTRACT = accounts[100];
     const CLEANUP_BLOCK_NUMBER_MANAGER = accounts[17];
+    const PRICE_SUBMITTER = accounts[18];
 
     before(async () => {
         pChainStakeMirror = await PChainStakeMirror.new(
@@ -151,7 +152,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         entityManager = await EntityManager.new(governanceSettings.address, accounts[0], 4);
         voterWhitelister = await VoterWhitelister.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, [accounts[0]]);
 
-        initialSigningPolicy = {rewardEpochId: 0, startVotingRoundId: FIRST_REWARD_EPOCH_VOTING_ROUND_ID, threshold: Math.ceil(65535 / 2), seed: "0x" + (123).toString(16).padStart(64, "0"), voters: [accounts[0]], weights: [65535]};
+        initialSigningPolicy = {rewardEpochId: 0, startVotingRoundId: FIRST_REWARD_EPOCH_VOTING_ROUND_ID, threshold: 65500 / 2, seed: "0x" + (123).toString(16).padStart(64, "0"), voters: accounts.slice(0, 100), weights: Array(100).fill(655)};
 
         const finalisationSettings = {
             votingEpochsStartTs: now.toNumber() - FIRST_REWARD_EPOCH_VOTING_ROUND_ID * VOTING_EPOCH_DURATION_SEC,
@@ -188,8 +189,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [ADDRESS_UPDATER, finalisation.address, entityManager.address, wNat.address, pChainStakeMirror.address], { from: ADDRESS_UPDATER });
 
         await finalisation.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_WHITELISTER, Contracts.SUBMISSION, Contracts.RELAY]),
-            [ADDRESS_UPDATER, voterWhitelister.address, submission.address, relay.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_WHITELISTER, Contracts.SUBMISSION, Contracts.RELAY, Contracts.PRICE_SUBMITTER]),
+            [ADDRESS_UPDATER, voterWhitelister.address, submission.address, relay.address, PRICE_SUBMITTER], { from: ADDRESS_UPDATER });
 
         await submission.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FINALISATION, Contracts.RELAY]),
@@ -255,11 +256,18 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const messageData: ProtocolMessageMerkleRoot = {protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT};
         const fullMessage = encodeProtocolMessageMerkleRoot(messageData).slice(2);
         const messageHash = web3.utils.keccak256("0x" + fullMessage);
-        const signatures = await generateSignatures(privateKeys.map(x => x.privateKey), messageHash, 1);
+        const signatures = await generateSignatures(privateKeys.map(x => x.privateKey), messageHash, 51);
         const signingPolicy = encodeSigningPolicy(initialSigningPolicy).slice(2);
         const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
 
-        await submission.finalise(fullData);
+        const tx = await submission.finalise(fullData);
+        console.log(tx.receipt.gasUsed);
+        // const tx = await web3.eth.sendTransaction({
+        //     from: accounts[0],
+        //     to: relay.address,
+        //     data: fullData,
+        // });
+        // console.log(tx.gasUsed);
         expect((await finalisation.getCurrentRandomWithQuality())[1]).to.be.true;
     });
 
@@ -352,7 +360,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
 
         await submission.finalise(fullData);
-
         expect(await relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
         expect((await finalisation.getCurrentRandom()).eq(toBN(root))).to.be.true;
         expect((await finalisation.getCurrentRandomWithQuality())[1]).to.be.true;

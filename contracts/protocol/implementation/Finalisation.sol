@@ -2,6 +2,7 @@
 pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/genesis/interface/IFlareDaemonize.sol";
+import "flare-smart-contracts/contracts/userInterfaces/IPriceSubmitter.sol";
 import "../../governance/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../lib/SafePct.sol";
@@ -18,7 +19,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     using SafeCast for uint256;
     using SafePct for uint256;
 
-    struct FinalisationSettings {
+    struct Settings {
         uint64 votingEpochsStartTs;
         uint64 votingEpochDurationSeconds;
         uint64 rewardEpochsStartTs;
@@ -33,7 +34,6 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         uint64 signingPolicyThresholdPPM;
         uint64 signingPolicyMinNumberOfVoters;
     }
-
 
     struct SigningPolicy {
         uint24 rewardEpochId;       // Reward epoch id.
@@ -140,8 +140,13 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     /// The Submission contract.
     Submission public submission;
 
-    /// The Submission contract.
+    /// The Relay contract.
     Relay public relay;
+    /// flag indicating if random is obtained using price submitter or relay contract
+    bool public usePriceSubmitterAsRandomProvider;
+
+    /// The PriceSubmitter contract.
+    IPriceSubmitter public priceSubmitter;
 
     event SigningPolicyInitialized(
         uint24 rewardEpochId,       // Reward epoch id
@@ -206,9 +211,9 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         address _initialGovernance,
         address _addressUpdater,
         address _flareDaemon,
-        FinalisationSettings memory _settings,
+        Settings memory _settings,
         uint64 _firstRandomAcquisitionNumberOfBlocks,
-        uint64 _firstRewardEpoch
+        uint24 _firstRewardEpochId
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
@@ -238,7 +243,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
 
         firstRandomAcquisitionNumberOfBlocks = _firstRandomAcquisitionNumberOfBlocks;
         currentRewardEpochEndTs = _settings.rewardEpochsStartTs +
-            (_firstRewardEpoch + 1) * _settings.rewardEpochDurationSeconds;
+            (_firstRewardEpochId + 1) * _settings.rewardEpochDurationSeconds;
         require(currentRewardEpochEndTs > block.timestamp + _settings.newSigningPolicyInitializationStartSeconds,
             "reward epoch end not in the future");
     }
@@ -444,6 +449,10 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         signingPolicyMinNumberOfVoters = _signingPolicyMinNumberOfVoters;
     }
 
+    function changeRandomProvider(bool _usePriceSubmitter) external onlyGovernance {
+        usePriceSubmitterAsRandomProvider = _usePriceSubmitter;
+    }
+
     function getVotePowerBlock(uint256 _rewardEpoch) external view returns(uint256 _votePowerBlock) {
         _votePowerBlock = rewardEpochState[_rewardEpoch].votePowerBlock;
         require(_votePowerBlock != 0, "vote power block not initialized yet");
@@ -555,6 +564,8 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
             _contractNameHashes, _contractAddresses, "VoterWhitelister"));
         submission = Submission(_getContractAddress(_contractNameHashes, _contractAddresses, "Submission"));
         relay = Relay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
+        priceSubmitter = IPriceSubmitter(_getContractAddress(
+            _contractNameHashes, _contractAddresses, "PriceSubmitter"));
     }
 
     function _getCurrentRewardEpochId() internal view returns(uint24) {
@@ -592,6 +603,9 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     }
 
     function _getRandom() internal view returns (uint256 _random, bool _quality, uint64 _randomTs) {
+        if (usePriceSubmitterAsRandomProvider) {
+            return (priceSubmitter.getCurrentRandom(), true, block.timestamp.toUint64());
+        }
         return relay.getRandomNumber();
     }
 

@@ -471,7 +471,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         if (!epochProcessedRewardClaims[_proof.rewardEpochId][claimHash]) {
             // not claimed yet - check if valid merkle proof
             bytes32 rewardsHash = finalisation.rewardsHash(_proof.rewardEpochId);
-            require(_proof.merkleProof.verify(rewardsHash, claimHash), "merkle proof invalid");
+            require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
             // initialise reward amount
             _rewardAmountWei = _initialiseRewardAmount(_proof.rewardEpochId, rewardClaim.amount);
             if (rewardClaim.claimType == ClaimType.FEE) {
@@ -520,7 +520,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             // not initialised yet - check if valid merkle proof
             bytes32 rewardsHash = finalisation.rewardsHash(_proof.rewardEpochId);
             bytes32 claimHash = keccak256(abi.encode(rewardClaim));
-            require(_proof.merkleProof.verify(rewardsHash, claimHash), "merkle proof invalid");
+            require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
             // mark as initialised
             state.initialised = true;
             // initialise reward amount
