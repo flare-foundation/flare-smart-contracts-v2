@@ -178,7 +178,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             0
         );
 
-        relay = await Relay.new(finalisation.address, 0, getSigningPolicyHash(initialSigningPolicy));
+        relay = await Relay.new(finalisation.address, 0, getSigningPolicyHash(initialSigningPolicy), FTSO_PROTOCOL_ID);
 
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
 
@@ -283,13 +283,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             rewardEpochId: 1,
             startVotingRoundId: startVotingRoundId,
             threshold: Math.floor(65535 / 2),
-            seed: "0x" + (500).toString(16).padStart(64, "0"), // TODO fix seed
+            seed: RANDOM_ROOT,
             voters: accounts.slice(20, 24),
             weights: [39718, 19859, 3971, 1985]
         };
         expectEvent(await finalisation.daemonize(), "SigningPolicyInitialized",
             { rewardEpochId: toBN(1), startVotingRoundId: toBN(startVotingRoundId), voters: newSigningPolicy.voters,
-                seed: toBN(500), threshold: toBN(32767), weights: newSigningPolicy.weights.map(x => toBN(x)) }); // TODO fix seed
+                seed: toBN(RANDOM_ROOT), threshold: toBN(32767), weights: newSigningPolicy.weights.map(x => toBN(x)) });
         expect(await relay.toSigningPolicyHash(1)).to.be.equal(getSigningPolicyHash(newSigningPolicy));
     });
 
@@ -353,7 +353,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await submission.finalise(fullData);
 
         expect(await relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
-        expect((await finalisation.getCurrentRandom()).eq(toBN(500))).to.be.true; // TODO fix seed
+        expect((await finalisation.getCurrentRandom()).eq(toBN(root))).to.be.true;
         expect((await finalisation.getCurrentRandomWithQuality())[1]).to.be.true;
     });
 
@@ -402,7 +402,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const votingRoundId = FIRST_REWARD_EPOCH_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
         expectEvent(await finalisation.daemonize(), "SigningPolicyInitialized",
             { rewardEpochId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(20, 24),
-                seed: toBN(500), threshold: toBN(32767), weights: [toBN(39718), toBN(19859), toBN(3971), toBN(1985)] }); // TODO fix seed
+                seed: toBN(RANDOM_ROOT2), threshold: toBN(32767), weights: [toBN(39718), toBN(19859), toBN(3971), toBN(1985)] });
     });
 
     it("Should sign new signing policy for reward epoch 2", async () => {

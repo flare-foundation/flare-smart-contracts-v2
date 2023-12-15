@@ -24,43 +24,31 @@ contract Relay {
 
     StateData public stateData;
 
-    constructor(
-        address _signingPolicySetter,
-        uint256 rewardEpochId,
-        bytes32 signingPolicyHash,
-        uint8 randomNumberProtocolId // TODO - we may want to be able to change this through governance
-    ) {
-        signingPolicySetter = _signingPolicySetter;
-        lastInitializedRewardEpoch = rewardEpochId;
-        toSigningPolicyHash[rewardEpochId] = signingPolicyHash;
-        stateData.randomNumberProtocolId = randomNumberProtocolId;
-    }
-
     /// Only signingPolicySetter address/contract can call this method.
     modifier onlySigningPolicySetter() {
         require(msg.sender == signingPolicySetter, "only sign policy setter");
         _;
     }
 
-    function getRandomNumber()
-        public
-        view
-        returns (
-            bytes32 randomNumber,
-            bool randomNumberQualityScore,
-            uint32 randomTimestamp
-        )
-    {
-        randomNumber = merkleRoots[stateData.randomNumberProtocolId][
-            stateData.randomVotingRoundId
-        ];
-        randomNumberQualityScore = stateData.randomNumberQualityScore;
-        randomTimestamp = stateData.randomTimestamp;
+    constructor(
+        address _signingPolicySetter,
+        uint256 _rewardEpochId,
+        bytes32 _signingPolicyHash,
+        uint8 _randomNumberProtocolId // TODO - we may want to be able to change this through governance
+    ) {
+        signingPolicySetter = _signingPolicySetter;
+        lastInitializedRewardEpoch = _rewardEpochId;
+        toSigningPolicyHash[_rewardEpochId] = _signingPolicyHash;
+        stateData.randomNumberProtocolId = _randomNumberProtocolId;
     }
 
     function setSigningPolicy(
         Finalisation.SigningPolicy calldata _signingPolicy
-    ) public onlySigningPolicySetter returns (bytes32) {
+    )
+        external
+        onlySigningPolicySetter
+        returns (bytes32)
+    {
         require(
             lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
             "not next reward epoch"
@@ -185,6 +173,7 @@ contract Relay {
     //
     // (1) Initializing with signing policy. This can be done only once, usually after deployment. The calldata should include only signature and signing policy.
     function relay() external {
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             // Helper function to revert with a message
             // Since string length cannot be determined in assembly easily, the matching length of the message string must be provided.
@@ -540,7 +529,7 @@ contract Relay {
                     //     bool randomNumberQualityScore;
                     // }
                     // NOTE: the struct is packed in reverse order of bytes
-                    
+
                     // stateData.randomVotingRoundId = votingRoundId
                     // 8*(1 randomNumberProtocolId + 4 randomTimestamp) = 40
                     stateDataTemp := or(
@@ -569,12 +558,25 @@ contract Relay {
                         and(stateDataTemp, not(shl(8, 0xffffffff))),
                         shl(8, votingRoundEndTime(votingRoundId)) // 8*(1 randomNumberProtocolId) = 8
                     )
-                    
+
                     sstore(stateData.slot, stateDataTemp)
                     return(0, 0) // all done
                 }
             }
         }
         revert("Not enough weight");
+    }
+
+    function getRandomNumber()
+        external view
+        returns (
+            uint256 _randomNumber,
+            bool _randomNumberQualityScore,
+            uint32 _randomTimestamp
+        )
+    {
+        _randomNumber = uint256(merkleRoots[stateData.randomNumberProtocolId][stateData.randomVotingRoundId]);
+        _randomNumberQualityScore = stateData.randomNumberQualityScore;
+        _randomTimestamp = stateData.randomTimestamp;
     }
 }

@@ -258,7 +258,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
                     state.randomAcquisitionStartBlock = block.number.toUint64();
                     emit RandomAcquisitionStarted(nextRewardEpochId, block.timestamp.toUint64());
                 } else if (state.voterRegistrationStartTs == 0) {
-                    (uint256 random, uint64 randomTs, bool randomQuality) = _getRandom();
+                    (uint256 random, bool randomQuality, uint64 randomTs) = _getRandom();
                     if (randomTs > state.randomAcquisitionStartTs && randomQuality) {
                         state.voterRegistrationStartTs = block.timestamp.toUint64();
                         state.voterRegistrationStartBlock = block.number.toUint64();
@@ -472,7 +472,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     }
 
     function getCurrentRandomWithQuality() external view returns(uint256 _currentRandom, bool _goodRandom) {
-        (_currentRandom, , _goodRandom) = _getRandom();
+        (_currentRandom, _goodRandom, ) = _getRandom();
     }
 
     function switchToFallbackMode() external pure returns (bool) {
@@ -591,9 +591,8 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
             voterWhitelister.getNumberOfWhitelistedVoters(_rewardEpoch) < signingPolicyMinNumberOfVoters;
     }
 
-    function _getRandom() internal view returns (uint256 _random, uint64 _randomTs, bool _quality) {
-        // TODO use data from relay
-        return (500, block.timestamp.toUint64(), true);
+    function _getRandom() internal view returns (uint256 _random, bool _quality, uint64 _randomTs) {
+        return relay.getRandomNumber();
     }
 
     function _getStartVotingRoundId() internal view returns (uint32 _startVotingRoundId) {
