@@ -97,7 +97,7 @@ contract Submission is Governed, AddressUpdatable {
     function finalise(bytes calldata _data) external returns (bool) {
         /* solhint-disable avoid-low-level-calls */
         //slither-disable-next-line arbitrary-send-eth
-        (bool success, bytes memory e) = address(relay).call(bytes.concat(abi.encodeWithSignature("relay()"), _data));
+        (bool success, bytes memory e) = address(relay).call(_data);
         /* solhint-enable avoid-low-level-calls */
         require(success, _getRevertMsg(e));
 

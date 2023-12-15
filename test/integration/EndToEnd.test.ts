@@ -93,6 +93,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     // same as in relay contract
     const REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
     const FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
+    const RELAY_SELECTOR = web3.utils.sha3("relay()")!.slice(0, 10); // first 4 bytes is function selector
 
     const GWEI = 1e9;
     const VOTING_EPOCH_DURATION_SEC = 90;
@@ -256,7 +257,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const messageHash = web3.utils.keccak256("0x" + fullMessage);
         const signatures = await generateSignatures(privateKeys.map(x => x.privateKey), messageHash, 1);
         const signingPolicy = encodeSigningPolicy(initialSigningPolicy).slice(2);
-        const fullData = "0x" + signingPolicy + fullMessage + signatures;
+        const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
 
         await submission.finalise(fullData);
         expect((await finalisation.getCurrentRandomWithQuality())[1]).to.be.true;
@@ -348,7 +349,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const messageHash = web3.utils.keccak256("0x" + fullMessage);
         const signatures = await generateSignatures(privateKeys.slice(20, 24).map(x => x.privateKey), messageHash, 4);
         const signingPolicy = encodeSigningPolicy(newSigningPolicy).slice(2);
-        const fullData = "0x" + signingPolicy + fullMessage + signatures;
+        const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
 
         await submission.finalise(fullData);
 
@@ -377,7 +378,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const messageHash = web3.utils.keccak256("0x" + fullMessage);
         const signatures = await generateSignatures(privateKeys.slice(20, 24).map(x => x.privateKey), messageHash, 4);
         const signingPolicy = encodeSigningPolicy(newSigningPolicy).slice(2);
-        const fullData = "0x" + signingPolicy + fullMessage + signatures;
+        const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
 
         await submission.finalise(fullData);
         expect((await finalisation.getCurrentRandomWithQuality())[1]).to.be.true;
