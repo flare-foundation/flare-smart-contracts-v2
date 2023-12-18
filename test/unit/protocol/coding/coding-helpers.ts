@@ -8,7 +8,8 @@ export function defaultTestSigningPolicy(accounts: string[], N: number, singleWe
     rewardEpochId: 1,
     startVotingRoundId: 1,
     threshold: Math.ceil((N / 2) * singleWeight),
-    seed: "0x1122334455667788990011223344556677889900112233445566778899001122",
+    publicKeyMerkleRoot: "0x0000000000000000000000000000000000000000000000000000000000000000",
+    seed: "0x1122334455667788990011223344556677889900112233445566778899001122",          
   } as SigningPolicy;
   for (let i = 0; i < N; i++) {
     signingPolicyData.voters.push(accounts[i]);
@@ -23,14 +24,16 @@ export async function generateSignatures(
   count: number,
   indices?: number[]
 ) {
-  let signatures = "";
+  let signatures = ""; 
   if (indices) {
+    signatures += indices.length.toString(16).padStart(4, "0");
     for (const i of indices) {
       const signature = await signMessageHashECDSAWithIndex(messageHash, privateKeys[i], i);
       signatures += encodeECDSASignatureWithIndex(signature).slice(2);
     }
     return signatures;
   }
+  signatures += count.toString(16).padStart(4, "0");
   for (let i = 0; i < count; i++) {
     const signature = await signMessageHashECDSAWithIndex(messageHash, privateKeys[i], i);
     signatures += encodeECDSASignatureWithIndex(signature).slice(2);

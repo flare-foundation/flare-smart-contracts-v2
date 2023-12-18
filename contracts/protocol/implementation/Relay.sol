@@ -19,11 +19,12 @@ contract Relay {
     // 3 bytes - rewardEpochId
     // 4 bytes - startingVotingRoundId
     // 2 bytes - threshold
+    // 32 bytes - public key Merkle root
     // 32 bytes - randomSeed
     // array of 'size':
     // - 20 bytes address
     // - 2 bytes weight
-    // Total 43 + size * (20 + 2) bytes
+    // Total 75 + size * (20 + 2) bytes
     // metadataLength = 11 bytes (size, rewardEpochId, startingVotingRoundId, threshold)
 
     uint256 public constant NUMBER_OF_VOTERS_BYTES = 2;
@@ -38,11 +39,12 @@ contract Relay {
     uint256 public constant STARTING_VOTING_ROUND_ID_RIGHT_SHIFT_BITS = 16; // 2 threshold * 8
     uint256 public constant THRESHOLD_MASK = 0xffff;
     uint256 public constant THRESHOLD_RIGHT_SHIFT_BITS = 0; // 0 bytes
+    uint256 public constant PUBLIC_KEY_MERKLE_ROOT_BYTES = 32;
     uint256 public constant RANDOM_SEED_BYTES = 32;
     uint256 public constant ADDRESS_BYTES = 20;
     uint256 public constant WEIGHT_BYTES = 2;
     uint256 public constant ADDRESS_AND_WEIGHT_BYTES = 22; // ADDRESS_BYTES + WEIGHT_BYTES;
-    uint256 public constant SIGNING_POLICY_PREFIX_BYTES = 43; //METADATA_BYTES + RANDOM_SEED_BYTES;
+    uint256 public constant SIGNING_POLICY_PREFIX_BYTES = 75; //METADATA_BYTES +PUBLIC_KEY_MERKLE_ROOT_BYTES + RANDOM_SEED_BYTES;
 
     uint256 public constant M_0 = 0;
     uint256 public constant M_1 = 32;
@@ -92,6 +94,9 @@ contract Relay {
     // 2 byte - index in signing policy
     // Total 67 bytes
 
+    uint256 public constant NUMBER_OF_SIGNATURES_BYTES = 2;
+    uint256 public constant NUMBER_OF_SIGNATURES_RIGHT_SHIFT_BITS = 240; // 8 * (32 - NUMBER_OF_SIGNATURES_BYTES)
+    uint256 public constant NUMBER_OF_SIGNATURES_MASK = 0xffff;
     uint256 public constant SIGNATURE_WITH_INDEX_BYTES = 67; // 1 v + 32 r + 32 s + 2 index
     uint256 public constant SIGNATURE_V_BYTES = 1;
     uint256 public constant SIGNATURE_INDEX_RIGHT_SHIFT_BITS = 240; // 256 - 2*8 = 240
@@ -143,11 +148,20 @@ contract Relay {
             bytes3(_signingPolicy.rewardEpochId),
             bytes4(_signingPolicy.startVotingRoundId),
             bytes2(_signingPolicy.threshold),
-            bytes32(_signingPolicy.seed),
+            bytes32(uint256(0)), // TODO: for this Merkle root should be calculated
+            bytes21(uint168(_signingPolicy.seed >> (8 * 11)))
+        );
+
+        bytes32 currentHash = keccak256(toHash);
+        toHash = bytes.concat(
+            currentHash,
+            bytes11(bytes32(_signingPolicy.seed << (8 * 21))),
             bytes20(_signingPolicy.voters[0]),
             bytes1(uint8(_signingPolicy.weights[0] >> 8))
         );
-        bytes32 currentHash = keccak256(toHash);
+
+        currentHash = keccak256(toHash);
+
         uint256 weightIndex = 0;
         uint256 weightPos = 1;
         uint256 voterIndex = 1;
@@ -490,7 +504,7 @@ contract Relay {
                 let tmpLastInitializedRewardEpochId := sload(
                     lastInitializedRewardEpoch.slot
                 )
-                // let nextRewardEpochId := add(tmpLastInitializedRewardEpochId, 1)
+                // Should be next reward epoch id
                 if iszero(
                     eq(
                         add(1, tmpLastInitializedRewardEpochId),
@@ -526,12 +540,36 @@ contract Relay {
             // - signatureStart points to the first signature in calldata
             // - We are sure that calldatasize() >= signatureStart
 
-            // There need to be exactly multiple of 66 bytes for signatures
-            if mod(
-                sub(calldatasize(), signatureStart),
-                SIGNATURE_WITH_INDEX_BYTES
+            // Use M_2 temporarily to extract number of signatures
+            // Note that M_1 is used for the hash
+            if lt(
+                calldatasize(),
+                add(signatureStart, NUMBER_OF_SIGNATURES_BYTES)
             ) {
-                revertWithMessage(memPtr, "Wrong signatures length", 23)
+                revertWithMessage(memPtr, "No signature count", 18)
+            }
+
+            calldatacopy(
+                add(memPtr, M_2),
+                signatureStart,
+                NUMBER_OF_SIGNATURES_BYTES
+            )
+            let numberOfSignatures := and(
+                shr(
+                    NUMBER_OF_SIGNATURES_RIGHT_SHIFT_BITS,
+                    mload(add(memPtr, M_2))
+                ),
+                NUMBER_OF_SIGNATURES_MASK
+            )
+            signatureStart := add(signatureStart, NUMBER_OF_SIGNATURES_BYTES)
+            if lt(
+                calldatasize(),
+                add(
+                    signatureStart,
+                    mul(numberOfSignatures, SIGNATURE_WITH_INDEX_BYTES)
+                )
+            ) {
+                revertWithMessage(memPtr, "Not enough signatures", 21)
             }
 
             // Prefixed hash calculation
@@ -542,29 +580,26 @@ contract Relay {
 
             // Processing signatures. Memory map:
             // memPtr (slot 0)  | prefixedHash
-            // M_1              | v  // first 31 bytes always 0
+            // M_1              | v
             // M_2              | r, signer
             // M_3              | s, expectedSigner
             // M_4              | index, weight
             mstore(add(memPtr, M_1), 0) // clear v - only the lowest byte will change
-
             for {
                 let i := 0
                 // accumulated weight of signatures
                 let weight := 0
                 // enforces increasing order of indices in signatures
                 let nextUnusedIndex := 0
-                // number of signatures
-                let numberOfSignatures := div(
-                    sub(calldatasize(), signatureStart),
-                    SIGNATURE_WITH_INDEX_BYTES
-                )
             } lt(i, numberOfSignatures) {
                 i := add(i, 1)
             } {
                 // signature position
                 pos := add(signatureStart, mul(i, SIGNATURE_WITH_INDEX_BYTES))
-                // overriding only the last byte of 'v' and setting r, s
+
+                // clear v - only the last byte will change
+                mstore(add(memPtr, M_1), 0) 
+
                 calldatacopy(
                     add(memPtr, add(M_1, sub(32, SIGNATURE_V_BYTES))),
                     pos,
@@ -620,7 +655,7 @@ contract Relay {
 
                 // extract weight, reuse field for r (slot 64)
                 mstore(add(memPtr, M_2), 0) // clear r field
-                
+
                 calldatacopy(
                     add(memPtr, add(M_2, sub(32, WEIGHT_BYTES))), // weight copied to the right of slot M2
                     add(addressPos, ADDRESS_BYTES),
@@ -651,16 +686,19 @@ contract Relay {
                     // stateData.randomVotingRoundId = votingRoundId
                     // 8*(1 randomNumberProtocolId + 4 randomTimestamp) = 40
                     stateDataTemp := or(
-                        and(    // zeroing the field
+                        and(
+                            // zeroing the field
                             stateDataTemp,
-                            not(   // zero ion mask
+                            not(
+                                // zero ion mask
                                 shl(
                                     RANDOM_VOTING_ROUND_ID_LEFT_SHIFT_BITS,
                                     RANDOM_VOTING_ROUND_ID_MASK
                                 )
                             )
                         ),
-                        shl(  // new value
+                        shl(
+                            // new value
                             RANDOM_VOTING_ROUND_ID_LEFT_SHIFT_BITS,
                             votingRoundId
                         )
@@ -677,18 +715,22 @@ contract Relay {
                     pos := add(SELECTOR_BYTES, signingPolicyLength)
                     calldatacopy(memPtr, pos, sub(MESSAGE_BYTES, 32))
                     stateDataTemp := or(
-                        and(    // zeroing the field
+                        and(
+                            // zeroing the field
                             stateDataTemp,
-                            not( // zeroing mask
+                            not(
+                                // zeroing mask
                                 shl(
                                     RANDOM_NUMBER_QUALITY_SCORE_LEFT_SHIFT_BITS,
                                     RANDOM_NUMBER_QUALITY_SCORE_MASK
                                 )
                             )
-                        ),                        
-                        shl(  // new value - shifting to position in struct
-                            RANDOM_NUMBER_QUALITY_SCORE_LEFT_SHIFT_BITS, 
-                            and(  // extracting value from message
+                        ),
+                        shl(
+                            // new value - shifting to position in struct
+                            RANDOM_NUMBER_QUALITY_SCORE_LEFT_SHIFT_BITS,
+                            and(
+                                // extracting value from message
                                 shr(
                                     RANDOM_QUALITY_SCORE_RIGHT_SHIFT_BITS,
                                     mload(memPtr)
@@ -700,16 +742,19 @@ contract Relay {
 
                     // stateData.randomTimestamp = end of the votingRoundId timestamp
                     stateDataTemp := or(
-                        and( // zeroing the field
+                        and(
+                            // zeroing the field
                             stateDataTemp,
-                            not( // zeroing mask
+                            not(
+                                // zeroing mask
                                 shl(
                                     RANDOM_TIMESTAMP_LEFT_SHIFT_BITS,
                                     RANDOM_TIMESTAMP_MASK
                                 )
                             )
                         ),
-                        shl( // new value, shifting to position in struct
+                        shl(
+                            // new value, shifting to position in struct
                             RANDOM_TIMESTAMP_LEFT_SHIFT_BITS,
                             votingRoundEndTime(votingRoundId)
                         )

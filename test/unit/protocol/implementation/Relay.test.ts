@@ -240,7 +240,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
   });
 
-  it("Should wrong signing policy reward epoch id", async () => {
+  it("Should fail due to wrong signing policy reward epoch id", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = votingRoundId - rewardEpochDurationInEpochs; // shift to previous reward epoch
     let fullMessage = encodeProtocolMessageMerkleRoot(newMessageData).slice(2);
@@ -269,14 +269,23 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInEpochs; // shift to next reward epoch
     fullMessage = encodeProtocolMessageMerkleRoot(newMessageData).slice(2);
 
+    // should be able to use previous reward epoch signing policy, but since no signatures count is provided, should fail
     await expect(
       signers[0].sendTransaction({
         from: signers[0].address,
         to: relay.address,
         data: selector + signingPolicy + fullMessage
       })
-    ).to.be.revertedWith("Not enough weight");  // should be able to use messages previous epoch, but since no signatures are provided, it should fail on weight check
-
+    ).to.be.revertedWith("No signature count");  
+    
+    // should be able to use previous reward epoch signing policy, but since 0 are provided, it should fail     
+    await expect(
+      signers[0].sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + signingPolicy + fullMessage + "0000"
+      })
+    ).to.be.revertedWith("Not enough weight");  
   });
 
   it("Should relay with old signing policy and 20% signatures more", async () => {
