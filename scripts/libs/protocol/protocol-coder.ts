@@ -108,7 +108,7 @@ export function decodeSigningPolicy(encodedPolicy: string): SigningPolicy {
     throw Error("Too short encoded signing policy");
   }
   const size = parseInt(encodedPolicyInternal.slice(0, 4), 16);
-  const expectedLength = 86 + size * (20 + 2) * 2; //(2 + 3 + 4 + 2 + 32) * 2 = 86
+  const expectedLength = 150 + size * (20 + 2) * 2; //(2 + 3 + 4 + 2 + 32 + 32) * 2 = 150
   if (encodedPolicyInternal.length !== expectedLength) {
     throw Error(`Invalid encoded signing policy length: size = ${size}, length = ${encodedPolicyInternal.length}`);
   }
