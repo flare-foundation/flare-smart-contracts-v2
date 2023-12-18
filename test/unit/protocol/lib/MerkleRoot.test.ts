@@ -15,7 +15,6 @@ contract(`MerkleRoot.sol; ${getTestFile(__filename)}`, async () => {
 
 
   let merkleTreeMock: MerkleTreeMockInstance;
-  let merkleRoot: MerkleRootInstance;
 
   before(async () => {
     // accounts = loadAccounts(web3);
@@ -46,10 +45,10 @@ contract(`MerkleRoot.sol; ${getTestFile(__filename)}`, async () => {
         let result = await merkleTreeMock.merkleRootWithSpecificProof(hashes, i);
 
         expect(result[0]).to.equal(tree.root);
-        const contractMerkleRoot = result[1];
-        expect(contractMerkleRoot.length).to.equal(proof!.length);
-        for (let j = 0; j < contractMerkleRoot.length; j++) {
-          expect(contractMerkleRoot[j]).to.equal(proof![j]);
+        const contractMerkleProof = result[1];
+        expect(contractMerkleProof.length).to.equal(proof!.length);
+        for (let j = 0; j < contractMerkleProof.length; j++) {
+          expect(contractMerkleProof[j]).to.equal(proof![j]);
         }
       }
     }

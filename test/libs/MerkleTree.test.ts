@@ -1,6 +1,6 @@
 import { assert, expect } from "chai";
 import { ethers } from "ethers";
-import { MerkleTree, commitHash, verifyWithMerkleProof } from "../../scripts/libs/merkle/MerkleTree";
+import { MerkleTree, commitHash, merkleRootAndProofFromLeaves, verifyWithMerkleProof } from "../../scripts/libs/merkle/MerkleTree";
 
 describe(`Merkle Tree`, () => {
     const makeHashes = (i: number, shiftSeed = 0) => new Array(i).fill(0).map((x, i) => ethers.keccak256(ethers.toBeHex(shiftSeed + i)));
@@ -41,6 +41,7 @@ describe(`Merkle Tree`, () => {
             assert(tree.tree.length === 3);
         });
 
+
         it("Should merkle proof work for up to 10 hashes", () => {
             for (let i = 95; i < 100; i++) {
                 const hashes = makeHashes(i);
@@ -53,6 +54,25 @@ describe(`Merkle Tree`, () => {
                 }
             }
         });
+
+        it("Should merkle proof work for up to 10 hashes without sorting and deduplication", () => {
+            for (let i = 95; i < 100; i++) {
+                let hashes = makeHashes(Math.floor(i / 2));
+                hashes = [...hashes, ...hashes];
+                if (i % 2 === 1) {
+                    hashes.push(hashes[0]);
+                }
+                const tree = new MerkleTree(hashes, false);
+                expect(tree.sortedHashes.length).to.be.eq(hashes.length);
+                for (let j = 0; j < tree.hashCount; j++) {
+                    const leaf = tree.getHash(j);
+                    const proof = tree.getProof(j);
+                    const ver = verifyWithMerkleProof(leaf!, proof!, tree.root!);
+                    expect(ver).to.be.eq(true);
+                }
+            }
+        });
+
 
         it("Should reject insufficient data", () => {
             for (let i = 95; i < 100; i++) {
@@ -85,4 +105,33 @@ describe(`Merkle Tree`, () => {
             assert(commitHash(merkleRoot, randomNum, address).slice(0, 2) === "0x");
         });
     });
+    
+    describe("Roots and proof from the leaves", () => {
+        it("Should calculate Merkle roots and proofs from the list", () => {
+            const n = 17;  // Takes long time if bigger number
+            for (let len = 1; len < n; len++) {
+                const hashes = makeHashes(n);
+                const tree = new MerkleTree(hashes, false);
+                for (let i = 0; i < tree.hashCount; i++) {
+                    const proof = tree.getProof(i);
+                    let result = merkleRootAndProofFromLeaves(hashes, i);
+
+                    expect(result[0]).to.equal(tree.root);
+                    const merkleProof = result[1]!;
+                    expect(merkleProof.length).to.equal(proof!.length);
+                    for (let j = 0; j < merkleProof.length; j++) {
+                        expect(merkleProof[j]).to.equal(proof![j]);
+                    }
+                }
+            }
+        });
+    });
+
+
 });
+
+
+
+
+
+

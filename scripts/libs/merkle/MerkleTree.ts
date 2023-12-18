@@ -65,8 +65,8 @@ export function sortedHashPair(x: string, y: string) {
 export class MerkleTree {
     _tree: string[] = [];
 
-    constructor(values: string[], sort = true) {
-        this.build(values, sort);
+    constructor(values: string[], sortAndDeduplicate = true) {
+        this.build(values, sortAndDeduplicate);
     }
 
     /**
@@ -110,19 +110,19 @@ export class MerkleTree {
      * Given an array of leave hashes (`0x`-prefixed 32-byte hex strings) it builds the Merkle tree.
      * @param values
      */
-    private build(values: string[], sort = true) {
+    private build(values: string[], sortAndDeduplicate = true) {
         values.forEach((x) => {
             if (!/^0x[0-9a-f]{64}$/i.test(x)) {
                 throw new Error(`Invalid hash '${x}'`);
             }
         });
         const sorted = values.map((x) => x);
-        if (sort) {
+        if (sortAndDeduplicate) {
             sorted.sort();
         }
         const hashes = [];
         for (let i = 0; i < sorted.length; i++) {
-            if (i == 0 || sorted[i] !== sorted[i - 1]) {
+            if (!sortAndDeduplicate || i === 0 || sorted[i] !== sorted[i - 1]) {
                 hashes.push(sorted[i]);
             }
         }
@@ -152,14 +152,14 @@ export class MerkleTree {
     private binarySearch(hash: string): number | undefined {
         let [low, high] = [0, this.hashCount];
         let count = high;
-        if (count == 0) return undefined;
+        if (count === 0) return undefined;
         while (count > 1) {
-            // Invariants: low < high, 2 <= count == high - low == [low .. high].length
+            // Invariants: low < high, 2 <= count === high - low === [low .. high].length
             const mid = low + Math.floor(count / 2); // low < mid < high _strictly_
             hash < this.sortedHashes[mid] ? (high = mid) : (low = mid); // low < high still
             count = high - low; // preserves invariant
         }
-        const i = low; // Only element left: count == 1, since 0 != count <= 1
+        const i = low; // Only element left: count === 1, since 0 != count <= 1
         if (hash != this.sortedHashes[i]) return undefined;
         return i;
     }
@@ -214,5 +214,96 @@ export function verifyWithMerkleProof(leaf: string, proof: string[], root: strin
     for (const pair of proof) {
         hash = sortedHashPair(pair, hash)!;
     }
-    return hash == root;
+    return hash === root;
 }
+
+/**
+ * Given a fixed list of leaves (hashes) and an index, it returns the Merkle root and the Merkle proof for the leaf at the given index.
+ * Note that the list of leaves is not sorted and/or deduplicated.
+ * @param leaves list of hashes of leaves
+ * @param index if valid index, the Merkle proof will be returned, otherwise `undefined`
+ * @returns 
+ */
+export function merkleRootAndProofFromLeaves(leaves: string[], index: number): [string, string[] | undefined] {
+    if (leaves.length === 0) {
+        throw new Error("Must have at least one leaf");
+    }
+    if (leaves.length === 1) {
+        return [leaves[0], []];
+    }
+    if (index < 0 || index >= leaves.length) {
+        throw new Error("Index too big");
+    }
+    let n = leaves.length;
+    let logN = Math.floor(Math.log2(n));
+
+    interface HashWithLevel {
+        hash: string;
+        level: number;
+    }
+
+    const stack: HashWithLevel[] = [];
+    const leftStart = 2 ** logN - (leaves.length % 2 ** logN);
+    // Undefined indicates no proof is needed
+    const proof: string[] | undefined = index >= 0 && index < leaves.length ? [] : undefined;
+
+    let nextMerkleHashSiblingStackIndex = -1;
+
+    for (let initialLevel = 0; initialLevel < 2; initialLevel++) {
+        let arrayLength;
+        let arrayPtr;
+        if (initialLevel === 0) {
+            arrayPtr = leftStart;
+            arrayLength = leaves.length;
+        } else {
+            arrayPtr = 0;
+            arrayLength = leftStart;
+        }
+        while (
+            arrayPtr < arrayLength ||
+            (stack.length > 1 && stack[stack.length - 1].level === stack[stack.length - 2].level)
+        ) {
+            // prioritize merging top of stack if the same level
+            if (stack.length > 1 && stack[stack.length - 1].level === stack[stack.length - 2].level) {
+                // check if the sibling is to be added to the Merkle proof
+                if (proof) {
+                    if (nextMerkleHashSiblingStackIndex === stack.length - 1) {
+                        proof.push(stack[stack.length - 2].hash);
+                        // This is the the position on which the hash of the two will end up in the stack
+                        nextMerkleHashSiblingStackIndex = stack.length - 2;
+                    } else if (nextMerkleHashSiblingStackIndex === stack.length - 2) {
+                        proof.push(stack[stack.length - 1].hash);
+                        nextMerkleHashSiblingStackIndex === stack.length - 2
+                    }
+                }
+
+                let first = stack.pop()!;
+                let second = stack.pop()!;
+                stack.push({
+                    hash: sortedHashPair(first.hash, second.hash)!,
+                    level: first.level + 1,
+                });
+                continue;
+            }
+            // only if it is nothing to merge, add one more leaf to the stack
+            if (arrayPtr < arrayLength) {
+                stack.push({
+                    hash: leaves[arrayPtr],
+                    level: initialLevel,
+                });
+                if (proof && arrayPtr === index) {
+                    nextMerkleHashSiblingStackIndex = stack.length - 1
+                }
+                arrayPtr++;
+                continue;
+            }
+            throw new Error("Should not happen");
+        }
+
+    }
+    if (stack.length !== 1) {
+        throw new Error("Should not happen");
+    }
+    return [stack[0].hash, proof!];
+}
+
