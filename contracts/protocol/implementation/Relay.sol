@@ -10,8 +10,8 @@ contract Relay {
     // IMPORTANT: if you change this, you have to adapt the assembly writing into this in the relay() function
     struct StateData {
         uint8 randomNumberProtocolId;
-        uint32 firstVotingRoundStartSec;
-        uint8 votingRoundDurationSec;
+        uint32 firstVotingRoundStartTs;
+        uint8 votingEpochDurationSeconds;
         uint32 firstRewardEpochStartVotingRoundId;
         uint16 rewardEpochDurationInVotingEpochs;
         uint16 thresholdIncreaseBIPS;
@@ -79,16 +79,16 @@ contract Relay {
     /* solhint-disable const-name-snakecase */
     uint256 public constant SD_MASK_randomNumberProtocolId = 0xff;
     uint256 public constant SD_BOFF_randomNumberProtocolId = 0;
-    uint256 public constant SD_MASK_firstVotingRoundStartSec = 0xffffffff;
-    uint256 public constant SD_BOFF_firstVotingRoundStartSec = 8;
-    uint256 public constant SD_MASK_votingRoundDurationSec = 0xff;
-    uint256 public constant SD_BOFF_votingRoundDurationSec = 40;
-    uint256 public constant SD_MASK_firstRewardEpochVotingRoundId = 0xffffffff;
-    uint256 public constant SD_BOFF_firstRewardEpochVotingRoundId = 48;
+    uint256 public constant SD_MASK_firstVotingRoundStartTs = 0xffffffff;
+    uint256 public constant SD_BOFF_firstVotingRoundStartTs = 8;
+    uint256 public constant SD_MASK_votingEpochDurationSeconds = 0xff;
+    uint256 public constant SD_BOFF_votingEpochDurationSeconds = 40;
+    uint256 public constant SD_MASK_firstRewardEpochStartVotingRoundId = 0xffffffff;
+    uint256 public constant SD_BOFF_firstRewardEpochStartVotingRoundId = 48;
     uint256 public constant SD_MASK_rewardEpochDurationInVotingEpochs = 0xffff;
     uint256 public constant SD_BOFF_rewardEpochDurationInVotingEpochs = 80;
-    uint256 public constant SD_MASK_thresholdIncrease = 0xffff;
-    uint256 public constant SD_BOFF_thresholdIncrease = 96;
+    uint256 public constant SD_MASK_thresholdIncreaseBIPS = 0xffff;
+    uint256 public constant SD_BOFF_thresholdIncreaseBIPS = 96;
     uint256 public constant SD_MASK_randomVotingRoundId = 0xffffffff;
     uint256 public constant SD_BOFF_randomVotingRoundId = 112;
     uint256 public constant SD_MASK_randomNumberQualityScore = 0xff;
@@ -141,22 +141,22 @@ contract Relay {
 
     constructor(
         address _signingPolicySetter,
-        uint256 _rewardEpochId,
-        bytes32 _signingPolicyHash,
+        uint256 _initialRewardEpochId,
+        bytes32 _initialSigningPolicyHash,
         uint8 _randomNumberProtocolId, // TODO - we may want to be able to change this through governance
-        uint32 _firstVotingRoundStartSec,
-        uint8 _votingRoundDurationSec,
+        uint32 _firstVotingRoundStartTs,
+        uint8 _votingEpochDurationSeconds,
         uint32 _firstRewardEpochStartVotingRoundId,
         uint16 _rewardEpochDurationInVotingEpochs,
         uint16 _thresholdIncreaseBIPS
     ) {
         require(_thresholdIncreaseBIPS >= THRESHOLD_BIPS, "threshold increase too small");
         signingPolicySetter = _signingPolicySetter;
-        lastInitializedRewardEpoch = _rewardEpochId;
-        toSigningPolicyHash[_rewardEpochId] = _signingPolicyHash;
+        lastInitializedRewardEpoch = _initialRewardEpochId;
+        toSigningPolicyHash[_initialRewardEpochId] = _initialSigningPolicyHash;
         stateData.randomNumberProtocolId = _randomNumberProtocolId;
-        stateData.firstVotingRoundStartSec = _firstVotingRoundStartSec;
-        stateData.votingRoundDurationSec = _votingRoundDurationSec;
+        stateData.firstVotingRoundStartTs = _firstVotingRoundStartTs;
+        stateData.votingEpochDurationSeconds = _votingEpochDurationSeconds;
         stateData.firstRewardEpochStartVotingRoundId = _firstRewardEpochStartVotingRoundId;
         stateData.rewardEpochDurationInVotingEpochs = _rewardEpochDurationInVotingEpochs;
         stateData.thresholdIncreaseBIPS = _thresholdIncreaseBIPS;
@@ -319,8 +319,8 @@ contract Relay {
                         _votingRoundId,
                         structValue(
                             _stateDataObj,
-                            SD_BOFF_firstRewardEpochVotingRoundId,
-                            SD_MASK_firstRewardEpochVotingRoundId
+                            SD_BOFF_firstRewardEpochStartVotingRoundId,
+                            SD_MASK_firstRewardEpochStartVotingRoundId
                         )
                     ),
                     structValue(
@@ -339,15 +339,15 @@ contract Relay {
                 _timestamp := add(
                     structValue(
                         _stateDataObj,
-                        SD_BOFF_firstVotingRoundStartSec,
-                        SD_MASK_firstVotingRoundStartSec
+                        SD_BOFF_firstVotingRoundStartTs,
+                        SD_MASK_firstVotingRoundStartTs
                     ),
                     mul(
                         add(_votingRoundId, 1),
                         structValue(
                             _stateDataObj,
-                            SD_BOFF_votingRoundDurationSec,
-                            SD_MASK_votingRoundDurationSec
+                            SD_BOFF_votingEpochDurationSeconds,
+                            SD_MASK_votingEpochDurationSeconds
                         )
                     )
                 )
@@ -542,8 +542,8 @@ contract Relay {
                             threshold,
                             structValue(
                                 mload(add(memPtrGP0, M_5_stateData)),
-                                SD_BOFF_thresholdIncrease,
-                                SD_MASK_thresholdIncrease
+                                SD_BOFF_thresholdIncreaseBIPS,
+                                SD_MASK_thresholdIncreaseBIPS
                             )
                         ),
                         THRESHOLD_BIPS
@@ -862,8 +862,8 @@ contract Relay {
         );
         _randomNumberQualityScore = stateData.randomNumberQualityScore;
         _randomTimestamp =
-            stateData.firstVotingRoundStartSec +
+            stateData.firstVotingRoundStartTs +
             (stateData.randomVotingRoundId + 1) *
-            stateData.votingRoundDurationSec;
+            stateData.votingEpochDurationSeconds;
     }
 }
