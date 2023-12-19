@@ -273,58 +273,58 @@ contract Relay {
         assembly {
             // Helper function to revert with a message
             // Since string length cannot be determined in assembly easily, the matching length of the message string must be provided.
-            function revertWithMessage(memPtr, message, msgLength) {
+            function revertWithMessage(_memPtr, _message, _msgLength) {
                 mstore(
-                    memPtr,
+                    _memPtr,
                     0x08c379a000000000000000000000000000000000000000000000000000000000
                 )
-                mstore(add(memPtr, 0x04), 0x20) // String offset
-                mstore(add(memPtr, 0x24), msgLength) // Revert reason length
-                mstore(add(memPtr, 0x44), message)
-                revert(memPtr, 0x64) // Revert data length is 4 bytes for selector and 3 slots of 0x20 bytes
+                mstore(add(_memPtr, 0x04), 0x20) // String offset
+                mstore(add(_memPtr, 0x24), _msgLength) // Revert reason length
+                mstore(add(_memPtr, 0x44), _message)
+                revert(_memPtr, 0x64) // Revert data length is 4 bytes for selector and 3 slots of 0x20 bytes
             }
 
-            function revertWithValue(memPtr, val) {
-                mstore(memPtr, val)
-                revert(memPtr, 0x20)
+            function revertWithValue(_memPtr, _val) {
+                mstore(_memPtr, _val)
+                revert(_memPtr, 0x20)
             }
 
-            function assignStruct(structObj, valOffset, valMask, newVal)
-                -> newStructObj
+            function assignStruct(_structObj, _valOffset, _valMask, newVal)
+                -> _newStructObj
             {
-                newStructObj := or(
+                _newStructObj := or(
                     and(
                         // zeroing the field
-                        structObj,
+                        _structObj,
                         not(
                             // zeroing mask
-                            shl(valOffset, valMask)
+                            shl(_valOffset, _valMask)
                         )
                     ),
-                    shl(valOffset, newVal)
+                    shl(_valOffset, newVal)
                 )
             }
 
-            function structValue(structObj, valOffset, valMask) -> val {
-                val := and(shr(valOffset, structObj), valMask)
+            function structValue(_structObj, _valOffset, _valMask) -> _val {
+                _val := and(shr(_valOffset, _structObj), _valMask)
             }
 
             // Helper function to calculate the matching reward epoch id from voting round id
             // Here the constants should be set properly
-            function rewardEpochIdFromVotingRoundId(stateDataObj, votingRoundId)
-                -> rewardEpochId
+            function rewardEpochIdFromVotingRoundId(_stateDataObj, _votingRoundId)
+                -> _rewardEpochId
             {
-                rewardEpochId := div(
+                _rewardEpochId := div(
                     sub(
-                        votingRoundId,
+                        _votingRoundId,
                         structValue(
-                            stateDataObj,
+                            _stateDataObj,
                             SD_BOFF_firstRewardEpochVotingRoundId,
                             SD_MASK_firstRewardEpochVotingRoundId
                         )
                     ),
                     structValue(
-                        stateDataObj,
+                        _stateDataObj,
                         SD_BOFF_rewardEpochDurationInVotingEpochs,
                         SD_MASK_rewardEpochDurationInVotingEpochs
                     )
@@ -333,19 +333,19 @@ contract Relay {
 
             // Helper function to calculate the end time of the voting roujnd
             // Here the constants should be set properly
-            function votingRoundEndTime(stateDataObj, votingRoundId)
-                -> timeStamp
+            function votingRoundEndTime(_stateDataObj, _votingRoundId)
+                -> _timestamp
             {
-                timeStamp := add(
+                _timestamp := add(
                     structValue(
-                        stateDataObj,
+                        _stateDataObj,
                         SD_BOFF_firstVotingRoundStartSec,
                         SD_MASK_firstVotingRoundStartSec
                     ),
                     mul(
-                        add(votingRoundId, 1),
+                        add(_votingRoundId, 1),
                         structValue(
-                            stateDataObj,
+                            _stateDataObj,
                             SD_BOFF_votingRoundDurationSec,
                             SD_MASK_votingRoundDurationSec
                         )
@@ -356,28 +356,28 @@ contract Relay {
             // Helper function to calculate the signing policy hash while trying to minimize the usage of memory
             // Uses slots 0 and 32
             function calculateSigningPolicyHash(
-                memPos,
-                calldataPos,
-                policyLength
-            ) -> policyHash {
+                _memPos,
+                _calldataPos,
+                _policyLength
+            ) -> _policyHash {
                 // first byte
-                calldatacopy(memPos, calldataPos, 32)
+                calldatacopy(_memPos, _calldataPos, 32)
                 // all but last 32-byte word
-                let endPos := add(calldataPos, mul(div(policyLength, 32), 32))
+                let endPos := add(_calldataPos, mul(div(_policyLength, 32), 32))
                 for {
-                    let pos := add(calldataPos, 32)
+                    let pos := add(_calldataPos, 32)
                 } lt(pos, endPos) {
                     pos := add(pos, 32)
                 } {
-                    calldatacopy(add(memPos, M_1), pos, 32)
-                    mstore(memPos, keccak256(memPos, 64))
+                    calldatacopy(add(_memPos, M_1), pos, 32)
+                    mstore(_memPos, keccak256(_memPos, 64))
                 }
 
                 // handle the remaining bytes
-                mstore(add(memPos, M_1), 0)
-                calldatacopy(add(memPos, M_1), endPos, mod(policyLength, 32)) // remaining bytes
-                mstore(memPos, keccak256(memPos, 64))
-                policyHash := mload(memPos)
+                mstore(add(_memPos, M_1), 0)
+                calldatacopy(add(_memPos, M_1), endPos, mod(_policyLength, 32)) // remaining bytes
+                mstore(_memPos, keccak256(_memPos, 64))
+                _policyHash := mload(_memPos)
             }
 
             // Helper function to assign value to right alligned byte encoded struct like object
@@ -487,23 +487,24 @@ contract Relay {
             // protocolId > 0 means we are relaying (Mode 2)
             // The signed hash is the message hash and it gets prepared into slot 32
             if gt(protocolId, 0) {
+                let memPtrGP0 := memPtr
                 signatureStart := add(
                     SELECTOR_BYTES,
                     add(signingPolicyLength, MESSAGE_BYTES)
                 )
                 if lt(calldatasize(), signatureStart) {
-                    revertWithMessage(memPtr, "Too short message", 17)
+                    revertWithMessage(memPtrGP0, "Too short message", 17)
                 }
-                calldatacopy(memPtr, pos, MESSAGE_BYTES)
+                calldatacopy(memPtrGP0, pos, MESSAGE_BYTES)
 
                 votingRoundId := structValue(
-                    shr(sub(256, mul(8, MESSAGE_NO_MR_BYTES)), mload(memPtr)),
+                    shr(sub(256, mul(8, MESSAGE_NO_MR_BYTES)), mload(memPtrGP0)),
                     MSG_NMR_BOFF_votingRoundId,
                     MSG_NMR_MASK_votingRoundId
                 )
                 // the usual reward epoch id
                 let messageRewardEpochId := rewardEpochIdFromVotingRoundId(
-                    mload(add(memPtr, M_5_stateData)),
+                    mload(add(memPtrGP0, M_5_stateData)),
                     votingRoundId
                 )
 
@@ -518,7 +519,7 @@ contract Relay {
                     eq(messageRewardEpochId, rewardEpochId),
                     lt(votingRoundId, startingVotingRoundId)
                 ) {
-                    revertWithMessage(memPtr, "Delayed sign policy", 19)
+                    revertWithMessage(memPtrGP0, "Delayed sign policy", 19)
                 }
 
                 // Given a signing policy for reward epoch R one can sign either messages
@@ -528,7 +529,7 @@ contract Relay {
                     lt(messageRewardEpochId, rewardEpochId)
                 ) {
                     revertWithMessage(
-                        memPtr,
+                        memPtrGP0,
                         "Wrong sign policy reward epoch",
                         30
                     )
@@ -540,7 +541,7 @@ contract Relay {
                         mul(
                             threshold,
                             structValue(
-                                mload(add(memPtr, M_5_stateData)),
+                                mload(add(memPtrGP0, M_5_stateData)),
                                 SD_BOFF_thresholdIncrease,
                                 SD_MASK_thresholdIncrease
                             )
@@ -550,12 +551,15 @@ contract Relay {
                 }
 
                 // Prepera the message hash into slot 32
-                mstore(add(memPtr, M_1), keccak256(memPtr, MESSAGE_BYTES))
+                mstore(add(memPtrGP0, M_1), keccak256(memPtrGP0, MESSAGE_BYTES))
             }
+
             // protocolId == 0 means we are relaying new signing policy (Mode 1)
             // The signed hash is the signing policy hash and it gets prepared into slot 32
 
             if eq(protocolId, 0) {
+                let memPtrP0 := memPtr
+                
                 if lt(
                     calldatasize(),
                     add(
@@ -566,12 +570,12 @@ contract Relay {
                         )
                     )
                 ) {
-                    revertWithMessage(memPtr, "No new sign policy size", 23)
+                    revertWithMessage(memPtrP0, "No new sign policy size", 23)
                 }
 
                 // New metadata
                 calldatacopy(
-                    memPtr,
+                    memPtrP0,
                     add(
                         SELECTOR_BYTES,
                         add(PROTOCOL_ID_BYTES, signingPolicyLength)
@@ -581,7 +585,7 @@ contract Relay {
 
                 let newMetadata := shr(
                     sub(256, mul(8, METADATA_BYTES)),
-                    mload(memPtr)
+                    mload(memPtrP0)
                 )
                 let newNumberOfVoters := structValue(
                     newMetadata,
@@ -604,7 +608,7 @@ contract Relay {
 
                 if lt(calldatasize(), signatureStart) {
                     revertWithMessage(
-                        memPtr,
+                        memPtrP0,
                         "Wrong size for new sign policy",
                         30
                     )
@@ -625,11 +629,11 @@ contract Relay {
                         newSigningPolicyRewardEpochId
                     )
                 ) {
-                    revertWithMessage(memPtr, "Not next reward epoch", 21)
+                    revertWithMessage(memPtrP0, "Not next reward epoch", 21)
                 }
 
                 let newSigningPolicyHash := calculateSigningPolicyHash(
-                    memPtr,
+                    memPtrP0,
                     add(
                         SELECTOR_BYTES,
                         add(signingPolicyLength, PROTOCOL_ID_BYTES)
@@ -642,11 +646,12 @@ contract Relay {
                     newSigningPolicyRewardEpochId
                 )
                 // toSigningPolicyHash[newSigningPolicyRewardEpochId] = newSigningPolicyHash
-                mstore(memPtr, newSigningPolicyRewardEpochId)
-                mstore(add(memPtr, M_1), toSigningPolicyHash.slot)
-                sstore(keccak256(memPtr, 64), newSigningPolicyHash)
+                mstore(memPtrP0, newSigningPolicyRewardEpochId)
+                mstore(add(memPtrP0, M_1), toSigningPolicyHash.slot)
+                sstore(keccak256(memPtrP0, 64), newSigningPolicyHash)
                 // Prepare the hash on slot 32 for signature verification
-                mstore(add(memPtr, M_1), newSigningPolicyHash)
+                mstore(add(memPtrP0, M_1), newSigningPolicyHash)
+                
             }
 
             // Assumptions here:
@@ -699,7 +704,9 @@ contract Relay {
             // M_3              | s, expectedSigner
             // M_4              | index, weight
             mstore(add(memPtr, M_1), 0) // clear v - only the lowest byte will change
+            
             for {
+                let memPtrFor := memPtr
                 let i := 0
                 // accumulated weight of signatures
                 let weight := 0
@@ -707,16 +714,16 @@ contract Relay {
                 let nextUnusedIndex := 0
             } lt(i, numberOfSignatures) {
                 i := add(i, 1)
-            } {
+            } { 
                 // signature position
-                pos := add(signatureStart, mul(i, SIGNATURE_WITH_INDEX_BYTES))
+                let posFor := add(signatureStart, mul(i, SIGNATURE_WITH_INDEX_BYTES))
 
                 // clear v - only the last byte will change
-                mstore(add(memPtr, M_1), 0)
+                mstore(add(memPtrFor, M_1), 0)
 
                 calldatacopy(
-                    add(memPtr, add(M_1, sub(32, SIGNATURE_V_BYTES))),
-                    pos,
+                    add(memPtrFor, add(M_1, sub(32, SIGNATURE_V_BYTES))),
+                    posFor,
                     SIGNATURE_WITH_INDEX_BYTES
                 ) // 63 ... last byte of slot +32
                 // Note that those things get set
@@ -726,27 +733,27 @@ contract Relay {
                 // - slot M_4   - index (only the top 2 bytes)
                 let index := shr(
                     SIGNATURE_INDEX_RIGHT_SHIFT_BITS,
-                    mload(add(memPtr, M_4))
+                    mload(add(memPtrFor, M_4))
                 )
 
                 // Index sanity checks in regard to signing policy
                 if gt(index, sub(numberOfVoters, 1)) {
-                    revertWithMessage(memPtr, "Index out of range", 18)
+                    revertWithMessage(memPtrFor, "Index out of range", 18)
                 }
 
                 if lt(index, nextUnusedIndex) {
-                    revertWithMessage(memPtr, "Index out of order", 18)
+                    revertWithMessage(memPtrFor, "Index out of order", 18)
                 }
                 nextUnusedIndex := add(index, 1)
 
                 // ecrecover call. Address goes to slot 64, it is 0 padded
                 if iszero(
-                    staticcall(not(0), 0x01, memPtr, 0x80, add(memPtr, M_2), 32)
+                    staticcall(not(0), 0x01, memPtrFor, 0x80, add(memPtrFor, M_2), 32)
                 ) {
-                    revertWithMessage(memPtr, "ecrecover error", 15)
+                    revertWithMessage(memPtrFor, "ecrecover error", 15)
                 }
                 // extract expected signer address to slot no 96
-                mstore(add(memPtr, M_3), 0) // zeroing slot for expected address
+                mstore(add(memPtrFor, M_3), 0) // zeroing slot for expected address
 
                 // position of address on 'index': 4 + 20 + index x 22 (expectedSigner)
                 let addressPos := add(
@@ -755,49 +762,47 @@ contract Relay {
                 )
 
                 calldatacopy(
-                    add(memPtr, add(M_3, ADDRESS_OFFSET)),
+                    add(memPtrFor, add(M_3, ADDRESS_OFFSET)),
                     addressPos,
                     ADDRESS_BYTES
                 )
 
                 // Check if the recovered signer is the expected signer
                 if iszero(
-                    eq(mload(add(memPtr, M_2)), mload(add(memPtr, M_3)))
+                    eq(mload(add(memPtrFor, M_2)), mload(add(memPtrFor, M_3)))
                 ) {
-                    revertWithMessage(memPtr, "Wrong signature", 15)
+                    revertWithMessage(memPtrFor, "Wrong signature", 15)
                 }
 
                 // extract weight, reuse field for r (slot 64)
-                mstore(add(memPtr, M_2), 0) // clear r field
+                mstore(add(memPtrFor, M_2), 0) // clear r field
 
                 calldatacopy(
-                    add(memPtr, add(M_2, sub(32, WEIGHT_BYTES))), // weight copied to the right of slot M2
+                    add(memPtrFor, add(M_2, sub(32, WEIGHT_BYTES))), // weight copied to the right of slot M2
                     add(addressPos, ADDRESS_BYTES),
                     WEIGHT_BYTES
                 )
-                weight := add(weight, mload(add(memPtr, M_2)))
+                weight := add(weight, mload(add(memPtrFor, M_2)))
 
                 if gt(weight, threshold) {
-                    // redefinition of memPtr to avoid stack too deep
-                    let memPtrDup := memPtr
                     // jump over fun selector, signing policy and 17 bytes of protocolId,
                     // votingRoundId and randomQualityScore
-                    pos := add(
+                    posFor := add(
                         add(SELECTOR_BYTES, signingPolicyLength),
                         sub(MESSAGE_BYTES, 32)
                     ) // last 32 bytes are merkleRoot
-                    calldatacopy(memPtrDup, pos, 32)
-                    let merkleRoot := mload(memPtrDup)
+                    calldatacopy(memPtrFor, posFor, 32)
+                    let merkleRoot := mload(memPtrFor)
                     // writing into the map
-                    mstore(memPtrDup, protocolId) // key 1 (protocolId)
-                    mstore(add(memPtrDup, M_1), merkleRoots.slot) // merkleRoot slot
+                    mstore(memPtrFor, protocolId) // key 1 (protocolId)
+                    mstore(add(memPtrFor, M_1), merkleRoots.slot) // merkleRoot slot
 
-                    mstore(add(memPtrDup, M_1), keccak256(memPtrDup, 64)) // parent map location in slot for next hashing
-                    mstore(memPtrDup, votingRoundId) // key 2 (votingRoundId)
-                    sstore(keccak256(memPtrDup, 64), merkleRoot) // merkleRoot stored at merkleRoots[protocolId][votingRoundId]
+                    mstore(add(memPtrFor, M_1), keccak256(memPtrFor, 64)) // parent map location in slot for next hashing
+                    mstore(memPtrFor, votingRoundId) // key 2 (votingRoundId)
+                    sstore(keccak256(memPtrFor, 64), merkleRoot) // merkleRoot stored at merkleRoots[protocolId][votingRoundId]
 
                     // stateData.randomVotingRoundId = votingRoundId
-                    let stateDataTemp := mload(add(memPtrDup, M_5_stateData))
+                    let stateDataTemp := mload(add(memPtrFor, M_5_stateData))
                     stateDataTemp := assignStruct(
                         stateDataTemp,
                         SD_BOFF_randomVotingRoundId,
@@ -807,15 +812,15 @@ contract Relay {
 
                     // stateData.randomNumberQualityScore = message.randomQualityScore
                     calldatacopy(
-                        memPtrDup,
+                        memPtrFor,
                         add(SELECTOR_BYTES, signingPolicyLength),
                         MESSAGE_NO_MR_BYTES
                     )
                     mstore(
-                        memPtrDup,
+                        memPtrFor,
                         shr(
                             sub(256, mul(8, MESSAGE_NO_MR_BYTES)),
-                            mload(memPtrDup)
+                            mload(memPtrFor)
                         )
                     ) // move message no mr right
 
@@ -824,7 +829,7 @@ contract Relay {
                         SD_BOFF_randomNumberQualityScore,
                         SD_MASK_randomNumberQualityScore,
                         structValue(
-                            mload(memPtrDup),
+                            mload(memPtrFor),
                             MSG_NMR_BOFF_randomQualityScore,
                             MSG_NMR_MASK_randomQualityScore
                         )
@@ -834,7 +839,9 @@ contract Relay {
 
                     return(0, 0) // all done
                 }
-            }
+                
+            } // for
+            
         }
         revert("Not enough weight");
     }
