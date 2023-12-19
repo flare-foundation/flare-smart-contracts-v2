@@ -6,16 +6,11 @@ import "./Finalisation.sol";
 // import "hardhat/console.sol";
 
 contract Relay {
-    uint256 public constant FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
-    uint256 public constant REWARD_EPOCH_DURATION_IN_EPOCHS = 3360;
-    uint256 public constant FIRST_VOTING_ROUND_START_SEC = 1636070400;
-    uint256 public constant VOTING_ROUND_DURATION_SEC = 90;
-    uint256 public constant THRESHOLD_INCREASE = 120;
-    uint256 public constant THRESHOLD_SHARES = 100;
+    uint256 public constant THRESHOLD_BIPS = 10000;
     uint256 public constant SELECTOR_BYTES = 4;
 
     // Signing policy byte encoding structure
-    // 2 bytes - size (numberOfVoters)
+    // 2 bytes - numberOfVoters
     // 3 bytes - rewardEpochId
     // 4 bytes - startingVotingRoundId
     // 2 bytes - threshold
@@ -27,31 +22,27 @@ contract Relay {
     // Total 75 + size * (20 + 2) bytes
     // metadataLength = 11 bytes (size, rewardEpochId, startingVotingRoundId, threshold)
 
+    /* solhint-disable const-name-snakecase */
     uint256 public constant NUMBER_OF_VOTERS_BYTES = 2;
     uint256 public constant NUMBER_OF_VOTERS_MASK = 0xffff;
     uint256 public constant METADATA_BYTES = 11;
-    uint256 public constant NUMBER_OF_VOTERS_RIGHT_SHIFT_BITS = 72; // 8 * (3 rewardEpochId + 4 startingVotingRoundId + 2 threshold) = 72
-    uint256 public constant REWARD_EPOCH_ID_MASK = 0xffffff;
-    // uint256 public constant REWARD_EPOCH_ID_RIGHT_OFFSET_BYTES = 6; // 4 bytes startingVotingRoundId + 2 bytes threshold
-    uint256 public constant REWARD_EPOCH_ID_RIGHT_SHIFT_BITS = 48; // 8*(4 bytes startingVotingRoundId + 2 bytes threshold)
+    uint256 public constant MD_MASK_threshold = 0xffff;
+    uint256 public constant MD_BOFF_threshold = 0;
+    uint256 public constant MD_MASK_startingVotingRoundId = 0xffffffff;
+    uint256 public constant MD_BOFF_startingVotingRoundId = 16;
+    uint256 public constant MD_MASK_rewardEpochId = 0xffffff;
+    uint256 public constant MD_BOFF_rewardEpochId = 48;
+    uint256 public constant MD_MASK_numberOfVoters = 0xffff;
+    uint256 public constant MD_BOFF_numberOfVoters = 72;
+    /* solhint-enable const-name-snakecase */
 
-    uint256 public constant STARTING_VOTING_ROUND_ID_MASK = 0xffffffff;
-    uint256 public constant STARTING_VOTING_ROUND_ID_RIGHT_SHIFT_BITS = 16; // 2 threshold * 8
-    uint256 public constant THRESHOLD_MASK = 0xffff;
-    uint256 public constant THRESHOLD_RIGHT_SHIFT_BITS = 0; // 0 bytes
     uint256 public constant PUBLIC_KEY_MERKLE_ROOT_BYTES = 32;
     uint256 public constant RANDOM_SEED_BYTES = 32;
     uint256 public constant ADDRESS_BYTES = 20;
     uint256 public constant WEIGHT_BYTES = 2;
     uint256 public constant ADDRESS_AND_WEIGHT_BYTES = 22; // ADDRESS_BYTES + WEIGHT_BYTES;
-    uint256 public constant SIGNING_POLICY_PREFIX_BYTES = 75; //METADATA_BYTES +PUBLIC_KEY_MERKLE_ROOT_BYTES + RANDOM_SEED_BYTES;
-
-    uint256 public constant M_0 = 0;
-    uint256 public constant M_1 = 32;
-    uint256 public constant M_2 = 64;
-    uint256 public constant M_3 = 96;
-    uint256 public constant M_4 = 128;
-    uint256 public constant ADDRESS_OFFSET = 12;
+    //METADATA_BYTES + PUBLIC_KEY_MERKLE_ROOT_BYTES + RANDOM_SEED_BYTES;
+    uint256 public constant SIGNING_POLICY_PREFIX_BYTES = 75;
 
     // Protocol message merkle root structure
     // 1 byte - protocolId
@@ -60,32 +51,48 @@ contract Relay {
     // 32 bytes - merkleRoot
     // Total 38 bytes
     // if loaded into a memory slot, these are right shifts and masks
-    uint256 public constant PROTOCOL_ID_BYTES = 1;
-    uint256 public constant PROTOCOL_ID_MASK = 0xff;
-    uint256 public constant PROTOCOL_ID_RIGHT_SHIFT_BITS = 248; // (>> 256 - (1 protocolID)*8 = 248)
-    uint256 public constant VOTING_ROUND_ID_BYTES = 4;
-    uint256 public constant VOTING_ROUND_ID_MASK = 0xffffffff;
-    uint256 public constant VOTING_ROUND_ID_RIGHT_SHIFT_BITS = 216; // (>> 256 - (1 protocolID + 4 votingRoundId)*8 = 216)
-    uint256 public constant RANDOM_QUALITY_SCORE_BYTES = 1;
-    uint256 public constant RANDOM_QUALITY_SCORE_MASK = 0xff;
-    uint256 public constant RANDOM_QUALITY_SCORE_RIGHT_SHIFT_BITS = 208; // (>> 256 - (1 protocolID + 4 votingRoundId + 1 randomQualityScore)*8 = 208)
-
+    /* solhint-disable const-name-snakecase */
     uint256 public constant MESSAGE_BYTES = 38;
+    uint256 public constant PROTOCOL_ID_BYTES = 1;
+    uint256 public constant MESSAGE_NO_MR_BYTES = 6;
+    uint256 public constant MSG_NMR_MASK_randomQualityScore = 0xff;
+    uint256 public constant MSG_NMR_BOFF_randomQualityScore = 0;
+    uint256 public constant MSG_NMR_MASK_votingRoundId = 0xffffffff;
+    uint256 public constant MSG_NMR_BOFF_votingRoundId = 8;
+    uint256 public constant MSG_NMR_MASK_protocolId = 0xff;
+    uint256 public constant MSG_NMR_BOFF_protocolId = 40;
+    /* solhint-enable const-name-snakecase */
 
     // IMPORTANT: if you change this, you have to adapt the assembly writing into this in the relay() function
     struct StateData {
         uint8 randomNumberProtocolId;
-        uint32 randomTimestamp;
+        uint32 firstVotingRoundStartSec;
+        uint8 votingRoundDurationSec;
+        uint32 firstRewardEpochVotingRoundId;
+        uint16 rewardEpochDurationInVotingEpochs;
+        uint16 thresholdIncrease;
         uint32 randomVotingRoundId;
         bool randomNumberQualityScore;
     }
 
-    uint256 public constant RANDOM_TIMESTAMP_MASK = 0xffffffff;
-    uint256 public constant RANDOM_TIMESTAMP_LEFT_SHIFT_BITS = 8; // 8 * 1 randomNumberProtocolId = 8
-    uint256 public constant RANDOM_VOTING_ROUND_ID_MASK = 0xffffffff;
-    uint256 public constant RANDOM_VOTING_ROUND_ID_LEFT_SHIFT_BITS = 40; // 8 * (1 randomNumberProtocolId + 4 randomTimestamp) = 40
-    uint256 public constant RANDOM_NUMBER_QUALITY_SCORE_MASK = 0xff;
-    uint256 public constant RANDOM_NUMBER_QUALITY_SCORE_LEFT_SHIFT_BITS = 72; // 8 * (1 randomNumberProtocolId + 4 randomTimestamp + 4 randomVotingRoundId) = 72
+    /* solhint-disable const-name-snakecase */
+    uint256 public constant SD_MASK_randomNumberProtocolId = 0xff;
+    uint256 public constant SD_BOFF_randomNumberProtocolId = 0;
+    uint256 public constant SD_MASK_firstVotingRoundStartSec = 0xffffffff;
+    uint256 public constant SD_BOFF_firstVotingRoundStartSec = 8;
+    uint256 public constant SD_MASK_votingRoundDurationSec = 0xff;
+    uint256 public constant SD_BOFF_votingRoundDurationSec = 40;
+    uint256 public constant SD_MASK_firstRewardEpochVotingRoundId = 0xffffffff;
+    uint256 public constant SD_BOFF_firstRewardEpochVotingRoundId = 48;
+    uint256 public constant SD_MASK_rewardEpochDurationInVotingEpochs = 0xffff;
+    uint256 public constant SD_BOFF_rewardEpochDurationInVotingEpochs = 80;
+    uint256 public constant SD_MASK_thresholdIncrease = 0xffff;
+    uint256 public constant SD_BOFF_thresholdIncrease = 96;
+    uint256 public constant SD_MASK_randomVotingRoundId = 0xffffffff;
+    uint256 public constant SD_BOFF_randomVotingRoundId = 112;
+    uint256 public constant SD_MASK_randomNumberQualityScore = 0xff;
+    uint256 public constant SD_BOFF_randomNumberQualityScore = 144;
+    /* solhint-enable const-name-snakecase */
 
     // Signature with index structure
     // 1 byte - v
@@ -100,6 +107,20 @@ contract Relay {
     uint256 public constant SIGNATURE_WITH_INDEX_BYTES = 67; // 1 v + 32 r + 32 s + 2 index
     uint256 public constant SIGNATURE_V_BYTES = 1;
     uint256 public constant SIGNATURE_INDEX_RIGHT_SHIFT_BITS = 240; // 256 - 2*8 = 240
+
+    // Memory slots
+    /* solhint-disable const-name-snakecase */
+    uint256 public constant M_0 = 0;
+    uint256 public constant M_1 = 32;
+    uint256 public constant M_2 = 64;
+    uint256 public constant M_2_signingPolicyHashTmp = 64;
+    uint256 public constant M_3 = 96;
+    uint256 public constant M_3_existingSigningPolicyHashTmp = 96;
+    uint256 public constant M_4 = 128;
+    uint256 public constant M_5_stateData = 160;
+    uint256 public constant M_6_signingPolicyLength = 192;
+    uint256 public constant ADDRESS_OFFSET = 12;
+    /* solhint-enable const-name-snakecase */
 
     uint256 public lastInitializedRewardEpoch;
     // rewardEpochId => signingPolicyHash
@@ -121,12 +142,23 @@ contract Relay {
         address _signingPolicySetter,
         uint256 _rewardEpochId,
         bytes32 _signingPolicyHash,
-        uint8 _randomNumberProtocolId // TODO - we may want to be able to change this through governance
+        uint8 _randomNumberProtocolId, // TODO - we may want to be able to change this through governance
+        uint32 firstVotingRoundStartSec,
+        uint8 votingRoundDurationSec,
+        uint32 firstRewardEpochVotingRoundId,
+        uint16 rewardEpochDurationInVotingEpochs,
+        uint16 thresholdIncrease
     ) {
         signingPolicySetter = _signingPolicySetter;
         lastInitializedRewardEpoch = _rewardEpochId;
         toSigningPolicyHash[_rewardEpochId] = _signingPolicyHash;
         stateData.randomNumberProtocolId = _randomNumberProtocolId;
+        stateData.firstVotingRoundStartSec = firstVotingRoundStartSec;
+        stateData.votingRoundDurationSec = votingRoundDurationSec;
+        stateData.firstRewardEpochVotingRoundId = firstRewardEpochVotingRoundId;
+        stateData
+            .rewardEpochDurationInVotingEpochs = rewardEpochDurationInVotingEpochs;
+        stateData.thresholdIncrease = thresholdIncrease;
     }
 
     function setSigningPolicy(
@@ -256,23 +288,67 @@ contract Relay {
                 revert(memPtr, 0x20)
             }
 
+            function assignStruct(structObj, valOffset, valMask, newVal)
+                -> newStructObj
+            {
+                newStructObj := or(
+                    and(
+                        // zeroing the field
+                        structObj,
+                        not(
+                            // zeroing mask
+                            shl(valOffset, valMask)
+                        )
+                    ),
+                    shl(valOffset, newVal)
+                )
+            }
+
+            function structValue(structObj, valOffset, valMask) -> val {
+                val := and(shr(valOffset, structObj), valMask)
+            }
+
             // Helper function to calculate the matching reward epoch id from voting round id
             // Here the constants should be set properly
-            function rewardEpochIdFromVotingRoundId(votingRoundId)
+            function rewardEpochIdFromVotingRoundId(stateDataObj, votingRoundId)
                 -> rewardEpochId
             {
                 rewardEpochId := div(
-                    sub(votingRoundId, FIRST_REWARD_EPOCH_VOTING_ROUND_ID),
-                    REWARD_EPOCH_DURATION_IN_EPOCHS
+                    sub(
+                        votingRoundId,
+                        structValue(
+                            stateDataObj,
+                            SD_BOFF_firstRewardEpochVotingRoundId,
+                            SD_MASK_firstRewardEpochVotingRoundId
+                        )
+                    ),
+                    structValue(
+                        stateDataObj,
+                        SD_BOFF_rewardEpochDurationInVotingEpochs,
+                        SD_MASK_rewardEpochDurationInVotingEpochs
+                    )
                 )
             }
 
             // Helper function to calculate the end time of the voting roujnd
             // Here the constants should be set properly
-            function votingRoundEndTime(votingRoundId) -> timeStamp {
+            function votingRoundEndTime(stateDataObj, votingRoundId)
+                -> timeStamp
+            {
                 timeStamp := add(
-                    FIRST_VOTING_ROUND_START_SEC,
-                    mul(add(votingRoundId, 1), VOTING_ROUND_DURATION_SEC)
+                    structValue(
+                        stateDataObj,
+                        SD_BOFF_firstVotingRoundStartSec,
+                        SD_MASK_firstVotingRoundStartSec
+                    ),
+                    mul(
+                        add(votingRoundId, 1),
+                        structValue(
+                            stateDataObj,
+                            SD_BOFF_votingRoundDurationSec,
+                            SD_MASK_votingRoundDurationSec
+                        )
+                    )
                 )
             }
 
@@ -303,8 +379,14 @@ contract Relay {
                 policyHash := mload(memPos)
             }
 
+            // Helper function to assign value to right alligned byte encoded struct like object
+
             // Constants
             let memPtr := mload(0x40) // free memory pointer
+            // NOTE: the struct is packed in reverse order of bytes
+
+            // stateData loaded into memory to slot M_5_stateData
+            mstore(add(memPtr, M_5_stateData), sload(stateData.slot))
 
             // Variables
             let pos := 4 // Calldata position
@@ -318,24 +400,28 @@ contract Relay {
             calldatacopy(memPtr, pos, METADATA_BYTES)
             // shift to right of bytes32
             let metadata := shr(sub(256, mul(8, METADATA_BYTES)), mload(memPtr))
-            let numberOfVoters := and(
-                shr(NUMBER_OF_VOTERS_RIGHT_SHIFT_BITS, metadata),
-                NUMBER_OF_VOTERS_MASK
+            let numberOfVoters := structValue(
+                metadata,
+                MD_BOFF_numberOfVoters,
+                MD_MASK_numberOfVoters
             )
-            let rewardEpochId := and(
-                shr(REWARD_EPOCH_ID_RIGHT_SHIFT_BITS, metadata),
-                REWARD_EPOCH_ID_MASK
+            let rewardEpochId := structValue(
+                metadata,
+                MD_BOFF_rewardEpochId,
+                MD_MASK_rewardEpochId
             )
-
-            let threshold := and(
-                shr(THRESHOLD_RIGHT_SHIFT_BITS, metadata),
-                THRESHOLD_MASK
+            let threshold := structValue(
+                metadata,
+                MD_BOFF_threshold,
+                MD_MASK_threshold
             )
 
             let signingPolicyLength := add(
                 SIGNING_POLICY_PREFIX_BYTES,
                 mul(numberOfVoters, ADDRESS_AND_WEIGHT_BYTES)
             )
+            // storing signingPolicyLength to slot M_6_signingPolicyLength for access when stack is too deep
+            mstore(add(memPtr, M_6_signingPolicyLength), signingPolicyLength)
 
             // The calldata must be of length at least 4 function selector + signingPolicyLength + 1 protocolId
             if lt(
@@ -346,22 +432,35 @@ contract Relay {
             }
 
             ///////////// Verifying signing policy /////////////
-            // signing policy hash
-            let signingPolicyHash := calculateSigningPolicyHash(
-                memPtr,
-                SELECTOR_BYTES,
-                signingPolicyLength
+            // signing policy hash temporarily stored to slot M_2
+            mstore(
+                add(memPtr, M_2_signingPolicyHashTmp),
+                calculateSigningPolicyHash(
+                    memPtr,
+                    SELECTOR_BYTES,
+                    signingPolicyLength
+                )
             )
 
-            //  toSigningPolicyHash[rewardEpochId] = existingSigningPolicyHash
+            //  toSigningPolicyHash[rewardEpochId] -> existingSigningPolicyHash
             mstore(memPtr, rewardEpochId) // key (rewardEpochId)
             mstore(add(memPtr, M_1), toSigningPolicyHash.slot)
-            let existingSigningPolicyHash := sload(keccak256(memPtr, 64))
+
+            // store existing signing policy hash to slot M_3 temporarily
+            mstore(
+                add(memPtr, M_3_existingSigningPolicyHashTmp),
+                sload(keccak256(memPtr, 64))
+            )
 
             // From here on we have calldatasize() > 4 + signingPolicyLength
 
             ///////////// Verifying signing policy /////////////
-            if iszero(eq(signingPolicyHash, existingSigningPolicyHash)) {
+            if iszero(
+                eq(
+                    mload(add(memPtr, M_2_signingPolicyHashTmp)),
+                    mload(add(memPtr, M_3_existingSigningPolicyHashTmp))
+                )
+            ) {
                 revertWithMessage(memPtr, "Signing policy hash mismatch", 28)
             }
             // jump to protocol message Merkle root
@@ -396,19 +495,24 @@ contract Relay {
                 }
                 calldatacopy(memPtr, pos, MESSAGE_BYTES)
 
-                votingRoundId := and(
-                    shr(VOTING_ROUND_ID_RIGHT_SHIFT_BITS, mload(memPtr)),
-                    VOTING_ROUND_ID_MASK
+                votingRoundId := structValue(
+                    shr(sub(256, mul(8, MESSAGE_NO_MR_BYTES)), mload(memPtr)),
+                    MSG_NMR_BOFF_votingRoundId,
+                    MSG_NMR_MASK_votingRoundId
                 )
                 // the usual reward epoch id
                 let messageRewardEpochId := rewardEpochIdFromVotingRoundId(
+                    mload(add(memPtr, M_5_stateData)),
                     votingRoundId
                 )
-                let startingVotingRoundId := and(
-                    shr(STARTING_VOTING_ROUND_ID_RIGHT_SHIFT_BITS, metadata),
-                    STARTING_VOTING_ROUND_ID_MASK
+
+                let startingVotingRoundId := structValue(
+                    metadata,
+                    MD_BOFF_startingVotingRoundId,
+                    MD_MASK_startingVotingRoundId
                 )
-                // in case the reward epoch id start gets delayed -> signing policy for earlier reward epoch must be provided
+                // in case the reward epoch id start gets delayed -> signing policy for earlier
+                // reward epoch must be provided
                 if and(
                     eq(messageRewardEpochId, rewardEpochId),
                     lt(votingRoundId, startingVotingRoundId)
@@ -416,7 +520,8 @@ contract Relay {
                     revertWithMessage(memPtr, "Delayed sign policy", 19)
                 }
 
-                // Given a signing policy for reward epoch R one can sign either messages in reward epochs R and R+1 only
+                // Given a signing policy for reward epoch R one can sign either messages
+                // in reward epochs R and R+1 only
                 if or(
                     gt(messageRewardEpochId, add(rewardEpochId, 1)),
                     lt(messageRewardEpochId, rewardEpochId)
@@ -431,8 +536,15 @@ contract Relay {
                 // When signing with previous reward epoch's signing policy, use higher threshold
                 if eq(sub(messageRewardEpochId, 1), rewardEpochId) {
                     threshold := div(
-                        mul(threshold, THRESHOLD_INCREASE),
-                        THRESHOLD_SHARES
+                        mul(
+                            threshold,
+                            structValue(
+                                mload(add(memPtr, M_5_stateData)),
+                                SD_BOFF_thresholdIncrease,
+                                SD_MASK_thresholdIncrease
+                            )
+                        ),
+                        THRESHOLD_BIPS
                     )
                 }
 
@@ -441,6 +553,7 @@ contract Relay {
             }
             // protocolId == 0 means we are relaying new signing policy (Mode 1)
             // The signed hash is the signing policy hash and it gets prepared into slot 32
+
             if eq(protocolId, 0) {
                 if lt(
                     calldatasize(),
@@ -469,10 +582,10 @@ contract Relay {
                     sub(256, mul(8, METADATA_BYTES)),
                     mload(memPtr)
                 )
-
-                let newNumberOfVoters := and(
-                    shr(NUMBER_OF_VOTERS_RIGHT_SHIFT_BITS, newMetadata),
-                    NUMBER_OF_VOTERS_MASK
+                let newNumberOfVoters := structValue(
+                    newMetadata,
+                    MD_BOFF_numberOfVoters,
+                    MD_MASK_numberOfVoters
                 )
 
                 let newSigningPolicyLength := add(
@@ -495,10 +608,10 @@ contract Relay {
                         30
                     )
                 }
-
-                let newSigningPolicyRewardEpochId := and(
-                    shr(REWARD_EPOCH_ID_RIGHT_SHIFT_BITS, newMetadata),
-                    REWARD_EPOCH_ID_MASK
+                let newSigningPolicyRewardEpochId := structValue(
+                    newMetadata,
+                    MD_BOFF_rewardEpochId,
+                    MD_MASK_rewardEpochId
                 )
 
                 let tmpLastInitializedRewardEpochId := sload(
@@ -598,7 +711,7 @@ contract Relay {
                 pos := add(signatureStart, mul(i, SIGNATURE_WITH_INDEX_BYTES))
 
                 // clear v - only the last byte will change
-                mstore(add(memPtr, M_1), 0) 
+                mstore(add(memPtr, M_1), 0)
 
                 calldatacopy(
                     add(memPtr, add(M_1, sub(32, SIGNATURE_V_BYTES))),
@@ -664,103 +777,60 @@ contract Relay {
                 weight := add(weight, mload(add(memPtr, M_2)))
 
                 if gt(weight, threshold) {
-                    // jump over fun selector, signing policy and 17 bytes of protocolId, votingRoundId and randomQualityScore
+                    // redefinition of memPtr to avoid stack too deep
+                    let memPtrDup := memPtr
+                    // jump over fun selector, signing policy and 17 bytes of protocolId,
+                    // votingRoundId and randomQualityScore
                     pos := add(
                         add(SELECTOR_BYTES, signingPolicyLength),
                         sub(MESSAGE_BYTES, 32)
                     ) // last 32 bytes are merkleRoot
-                    calldatacopy(memPtr, pos, 32)
-                    let merkleRoot := mload(memPtr)
+                    calldatacopy(memPtrDup, pos, 32)
+                    let merkleRoot := mload(memPtrDup)
                     // writing into the map
-                    mstore(memPtr, protocolId) // key 1 (protocolId)
-                    mstore(add(memPtr, M_1), merkleRoots.slot) // merkleRoot slot
+                    mstore(memPtrDup, protocolId) // key 1 (protocolId)
+                    mstore(add(memPtrDup, M_1), merkleRoots.slot) // merkleRoot slot
 
-                    mstore(add(memPtr, M_1), keccak256(memPtr, 64)) // parent map location in slot for next hashing
-                    mstore(memPtr, votingRoundId) // key 2 (votingRoundId)
-                    sstore(keccak256(memPtr, 64), merkleRoot) // merkleRoot stored at merkleRoots[protocolId][votingRoundId]
-
-                    // stateData
-                    let stateDataTemp := sload(stateData.slot)
-                    // NOTE: the struct is packed in reverse order of bytes
+                    mstore(add(memPtrDup, M_1), keccak256(memPtrDup, 64)) // parent map location in slot for next hashing
+                    mstore(memPtrDup, votingRoundId) // key 2 (votingRoundId)
+                    sstore(keccak256(memPtrDup, 64), merkleRoot) // merkleRoot stored at merkleRoots[protocolId][votingRoundId]
 
                     // stateData.randomVotingRoundId = votingRoundId
-                    // 8*(1 randomNumberProtocolId + 4 randomTimestamp) = 40
-                    stateDataTemp := or(
-                        and(
-                            // zeroing the field
-                            stateDataTemp,
-                            not(
-                                // zero ion mask
-                                shl(
-                                    RANDOM_VOTING_ROUND_ID_LEFT_SHIFT_BITS,
-                                    RANDOM_VOTING_ROUND_ID_MASK
-                                )
-                            )
-                        ),
-                        shl(
-                            // new value
-                            RANDOM_VOTING_ROUND_ID_LEFT_SHIFT_BITS,
-                            votingRoundId
+                    let stateDataTemp := mload(add(memPtrDup, M_5_stateData))
+                    stateDataTemp := assignStruct(
+                        stateDataTemp,
+                        SD_BOFF_randomVotingRoundId,
+                        SD_MASK_randomVotingRoundId,
+                        votingRoundId
+                    )
+
+                    // stateData.randomNumberQualityScore = message.randomQualityScore
+                    calldatacopy(
+                        memPtrDup,
+                        add(SELECTOR_BYTES, signingPolicyLength),
+                        MESSAGE_NO_MR_BYTES
+                    )
+                    mstore(
+                        memPtrDup,
+                        shr(
+                            sub(256, mul(8, MESSAGE_NO_MR_BYTES)),
+                            mload(memPtrDup)
                         )
-                    )
+                    ) // move message no mr right
 
-                    // Message:
-                    // 1 byte - protocolId
-                    // 4 bytes - votingRoundId
-                    // 1 byte - randomQualityScore
-                    // 32 bytes - merkleRoot
-                    // Total 38 bytes
-
-                    // stateData.randomNumberQualityScore = votingRoundId
-                    pos := add(SELECTOR_BYTES, signingPolicyLength)
-                    calldatacopy(memPtr, pos, sub(MESSAGE_BYTES, 32))
-                    stateDataTemp := or(
-                        and(
-                            // zeroing the field
-                            stateDataTemp,
-                            not(
-                                // zeroing mask
-                                shl(
-                                    RANDOM_NUMBER_QUALITY_SCORE_LEFT_SHIFT_BITS,
-                                    RANDOM_NUMBER_QUALITY_SCORE_MASK
-                                )
-                            )
-                        ),
-                        shl(
-                            // new value - shifting to position in struct
-                            RANDOM_NUMBER_QUALITY_SCORE_LEFT_SHIFT_BITS,
-                            and(
-                                // extracting value from message
-                                shr(
-                                    RANDOM_QUALITY_SCORE_RIGHT_SHIFT_BITS,
-                                    mload(memPtr)
-                                ),
-                                RANDOM_QUALITY_SCORE_MASK
-                            )
-                        ) // shr(248, mload(memPtr)) - move the byte to the rightmost position
-                    )
-
-                    // stateData.randomTimestamp = end of the votingRoundId timestamp
-                    stateDataTemp := or(
-                        and(
-                            // zeroing the field
-                            stateDataTemp,
-                            not(
-                                // zeroing mask
-                                shl(
-                                    RANDOM_TIMESTAMP_LEFT_SHIFT_BITS,
-                                    RANDOM_TIMESTAMP_MASK
-                                )
-                            )
-                        ),
-                        shl(
-                            // new value, shifting to position in struct
-                            RANDOM_TIMESTAMP_LEFT_SHIFT_BITS,
-                            votingRoundEndTime(votingRoundId)
+                    stateDataTemp := assignStruct(
+                        stateDataTemp,
+                        SD_BOFF_randomNumberQualityScore,
+                        SD_MASK_randomNumberQualityScore,
+                        structValue(
+                            mload(memPtrDup),
+                            MSG_NMR_BOFF_randomQualityScore,
+                            MSG_NMR_MASK_randomQualityScore
                         )
                     )
 
                     sstore(stateData.slot, stateDataTemp)
+
                     return(0, 0) // all done
                 }
             }
@@ -783,6 +853,9 @@ contract Relay {
             ]
         );
         _randomNumberQualityScore = stateData.randomNumberQualityScore;
-        _randomTimestamp = stateData.randomTimestamp;
+        _randomTimestamp =
+            stateData.firstVotingRoundStartSec +
+            (stateData.randomVotingRoundId + 1) *
+            stateData.votingRoundDurationSec;
     }
 }
