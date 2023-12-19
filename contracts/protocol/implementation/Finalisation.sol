@@ -20,10 +20,10 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     using SafePct for uint256;
 
     struct Settings {
-        uint64 votingEpochsStartTs;
+        uint64 firstVotingRoundStartTs;
         uint64 votingEpochDurationSeconds;
-        uint64 rewardEpochsStartTs;
-        uint64 rewardEpochDurationSeconds;
+        uint64 firstRewardEpochStartVotingRoundId;
+        uint64 rewardEpochDurationInVotingEpochs;
         uint64 newSigningPolicyInitializationStartSeconds;
         uint64 nonPunishableRandomAcquisitionMinDurationSeconds;
         uint64 nonPunishableRandomAcquisitionMinDurationBlocks;
@@ -104,7 +104,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     uint64 public immutable rewardEpochDurationSeconds;
 
     /// Timestamp when the first voting epoch started, in seconds since UNIX epoch.
-    uint64 public immutable votingEpochsStartTs;
+    uint64 public immutable firstVotingRoundStartTs;
     /// Duration of voting epochs, in seconds.
     uint64 public immutable votingEpochDurationSeconds;
 
@@ -218,19 +218,18 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
         require(_flareDaemon != address(0), "flare daemon zero");
-        require(_settings.rewardEpochDurationSeconds > 0, "reward epoch duration zero");
+        require(_settings.rewardEpochDurationInVotingEpochs > 0, "reward epoch duration zero");
         require(_settings.votingEpochDurationSeconds > 0, "voting epoch duration zero");
-        require(_settings.rewardEpochDurationSeconds % _settings.votingEpochDurationSeconds == 0, "invalid durations");
-        require((_settings.rewardEpochsStartTs - _settings.votingEpochsStartTs) %
-            _settings.votingEpochDurationSeconds == 0, "invalid start timestamps");
         require(_settings.signingPolicyThresholdPPM <= PPM_MAX, "threshold too high");
         require(_settings.signingPolicyMinNumberOfVoters > 0, "zero voters");
         require(_firstRandomAcquisitionNumberOfBlocks > 0, "zero blocks");
         flareDaemon = _flareDaemon;
-        votingEpochsStartTs = _settings.votingEpochsStartTs;
+        firstVotingRoundStartTs = _settings.firstVotingRoundStartTs;
         votingEpochDurationSeconds = _settings.votingEpochDurationSeconds;
-        rewardEpochsStartTs = _settings.rewardEpochsStartTs;
-        rewardEpochDurationSeconds = _settings.rewardEpochDurationSeconds;
+        rewardEpochsStartTs = _settings.firstVotingRoundStartTs +
+            _settings.firstRewardEpochStartVotingRoundId * _settings.votingEpochDurationSeconds;
+        rewardEpochDurationSeconds =
+            _settings.rewardEpochDurationInVotingEpochs * _settings.votingEpochDurationSeconds;
         newSigningPolicyInitializationStartSeconds = _settings.newSigningPolicyInitializationStartSeconds;
         nonPunishableRandomAcquisitionMinDurationSeconds = _settings.nonPunishableRandomAcquisitionMinDurationSeconds;
         nonPunishableRandomAcquisitionMinDurationBlocks = _settings.nonPunishableRandomAcquisitionMinDurationBlocks;
@@ -242,8 +241,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         signingPolicyMinNumberOfVoters = _settings.signingPolicyMinNumberOfVoters;
 
         firstRandomAcquisitionNumberOfBlocks = _firstRandomAcquisitionNumberOfBlocks;
-        currentRewardEpochEndTs = _settings.rewardEpochsStartTs +
-            (_firstRewardEpochId + 1) * _settings.rewardEpochDurationSeconds;
+        currentRewardEpochEndTs = rewardEpochsStartTs + (_firstRewardEpochId + 1) * rewardEpochDurationSeconds;
         require(currentRewardEpochEndTs > block.timestamp + _settings.newSigningPolicyInitializationStartSeconds,
             "reward epoch end not in the future");
     }
@@ -579,7 +577,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     }
 
     function _getCurrentVotingEpochId() internal view returns(uint32) {
-        return ((block.timestamp - votingEpochsStartTs) / votingEpochDurationSeconds).toUint32();
+        return ((block.timestamp - firstVotingRoundStartTs) / votingEpochDurationSeconds).toUint32();
     }
 
     function _getSingingPolicyHash(uint24 _rewardEpoch) internal view returns (bytes32) {
@@ -614,7 +612,8 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         if (block.timestamp >= timeFromStart) {
             timeFromStart = block.timestamp.toUint64() + 1; // start in next block
         }
-        timeFromStart -= votingEpochsStartTs; // currentRewardEpochEndTs >= rewardEpochsStartTs >= votingEpochsStartTs
+        // currentRewardEpochEndTs >= rewardEpochsStartTs >= firstVotingRoundStartTs
+        timeFromStart -= firstVotingRoundStartTs;
         _startVotingRoundId = (timeFromStart / votingEpochDurationSeconds).toUint32();
         // if in the middle of voting round start with the next one
         //slither-disable-next-line weak-prng //not a random

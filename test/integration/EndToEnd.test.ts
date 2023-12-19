@@ -8,10 +8,10 @@ import privateKeys from "../../deployment/test-1020-accounts.json"
 import * as util from "../utils/key-to-address";
 import { toChecksumAddress } from 'ethereumjs-util';
 import { VoterWhitelisterInstance } from '../../typechain-truffle/contracts/protocol/implementation/VoterWhitelister';
-import { FinalisationInstance } from '../../typechain-truffle/contracts/protocol/implementation/Finalisation';
-import { SubmissionInstance } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
+import { FinalisationContract, FinalisationInstance } from '../../typechain-truffle/contracts/protocol/implementation/Finalisation';
+import { SubmissionContract, SubmissionInstance } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
-import { RelayInstance } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
+import { RelayContract, RelayInstance } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
 import { ProtocolMessageMerkleRoot, SigningPolicy, encodeProtocolMessageMerkleRoot, encodeSigningPolicy, signingPolicyHash } from '../../scripts/libs/protocol/protocol-coder';
 import { generateSignatures } from '../unit/protocol/coding/coding-helpers';
 
@@ -24,9 +24,9 @@ const AddressBinder = artifacts.require("AddressBinder");
 const PChainVerifier = artifacts.require("PChainStakeMirrorVerifier");
 const EntityManager = artifacts.require("EntityManager");
 const VoterWhitelister = artifacts.require("VoterWhitelister");
-const Finalisation = artifacts.require("Finalisation");
-const Submission = artifacts.require("Submission");
-const Relay = artifacts.require("Relay");
+const Finalisation: FinalisationContract = artifacts.require("Finalisation");
+const Submission: SubmissionContract = artifacts.require("Submission");
+const Relay: RelayContract = artifacts.require("Relay");
 
 
 type PChainStake = {
@@ -93,7 +93,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     // same as in relay contract
     const REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
-    const FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
+    const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
     const RELAY_SELECTOR = web3.utils.sha3("relay()")!.slice(0, 10); // first 4 bytes is function selector
     const GET_CURRENT_RANDOM_SELECTOR = web3.utils.sha3("getCurrentRandom()")!.slice(0, 10); // first 4 bytes is function selector
 
@@ -158,7 +158,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         initialSigningPolicy = {
             rewardEpochId: 0,
-            startVotingRoundId: FIRST_REWARD_EPOCH_VOTING_ROUND_ID,
+            startVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
             threshold: 65500 / 2,
             seed: web3.utils.keccak256("123"),
             publicKeyMerkleRoot: "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -166,11 +166,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             weights: Array(100).fill(655)
         };
 
-        const finalisationSettings = {
-            votingEpochsStartTs: now.toNumber() - FIRST_REWARD_EPOCH_VOTING_ROUND_ID * VOTING_EPOCH_DURATION_SEC,
+        const settings = {
+            firstVotingRoundStartTs: now.toNumber() - FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID * VOTING_EPOCH_DURATION_SEC,
             votingEpochDurationSeconds: VOTING_EPOCH_DURATION_SEC,
-            rewardEpochsStartTs: now.toNumber(),
-            rewardEpochDurationSeconds: REWARD_EPOCH_DURATION_IN_SEC,
+            firstRewardEpochStartVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
+            rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             newSigningPolicyInitializationStartSeconds: 3600 * 2,
             nonPunishableRandomAcquisitionMinDurationSeconds: 75 * 60,
             nonPunishableRandomAcquisitionMinDurationBlocks: 2250,
@@ -187,14 +187,24 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             accounts[0],
             ADDRESS_UPDATER,
             accounts[0],
-            finalisationSettings,
+            settings,
             1,
             0
         );
 
         await finalisation.changeRandomProvider(true);
 
-        relay = await Relay.new(finalisation.address, 0, getSigningPolicyHash(initialSigningPolicy), FTSO_PROTOCOL_ID);
+        relay = await Relay.new(
+            finalisation.address,
+            0,
+            getSigningPolicyHash(initialSigningPolicy),
+            FTSO_PROTOCOL_ID,
+            settings.firstVotingRoundStartTs,
+            settings.votingEpochDurationSeconds,
+            settings.firstRewardEpochStartVotingRoundId,
+            settings.rewardEpochDurationInVotingEpochs,
+            12000
+            );
 
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
 
@@ -301,7 +311,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             await time.advanceBlock(); // create required number of blocks to proceed
         }
         await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC - 3600 )); // at least 30 minutes from the vote power block selection
-        const startVotingRoundId = FIRST_REWARD_EPOCH_VOTING_ROUND_ID + REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
+        const startVotingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
         newSigningPolicy = {
             rewardEpochId: 1,
             startVotingRoundId: startVotingRoundId,
@@ -368,7 +378,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should finalise", async () => {
-        const votingRoundId = FIRST_REWARD_EPOCH_VOTING_ROUND_ID + REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
+        const votingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
         const quality = true;
         const root = web3.utils.keccak256("root1");
 
@@ -397,7 +407,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should get good random for reward epoch 2", async () => {
-        const votingRoundId = FIRST_REWARD_EPOCH_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
+        const votingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
         const quality = true;
 
         const messageData: ProtocolMessageMerkleRoot = {protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT2};
@@ -427,7 +437,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             await time.advanceBlock(); // create required number of blocks to proceed
         }
         await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC - 3600)); // at least 30 minutes from the vote power block selection
-        const votingRoundId = FIRST_REWARD_EPOCH_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
+        const votingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
         expectEvent(await finalisation.daemonize(), "SigningPolicyInitialized",
             { rewardEpochId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(20, 24),
                 seed: toBN(RANDOM_ROOT2), threshold: toBN(32767), weights: [toBN(39718), toBN(19859), toBN(3971), toBN(1985)] });
