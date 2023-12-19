@@ -86,11 +86,11 @@ library MerkleRoot {
 
         // deepest level has index 0. The hash array is on at most
         // 2 last levels. If there is only one level, then n = 2^k,
-        // and leftStart = , and the while in the second loop will not be executed.
+        // and leftStart = n, and the while in the second loop will not be executed.
         // The recursion algorithm would first consume leaves on indices [leftStart, n - 1] on level 0
         // and then leaves [0, leftStart - 1] on level 1.
         // The outer for loop accounts for those two steps.
-        // The inner while loop tries to merge two hashes is they are on the same level (levels are inverted depth).
+        // The inner while loop tries to merge two hashes if they are on the same level (levels are inverted depth).
         // If the top two entries are not mergable, then the next element from concatenated array
         // [leftStart ... n - 1, 0 ... leftStart - 1] is pushed to the stack.
         // For loop accounts for concatenation.
@@ -143,9 +143,8 @@ library MerkleRoot {
 
                     // swap the top of the stack - needed for correct hashing order
                     if (hashStack[stackTop - 1] < hashStack[stackTop - 2]) {
-                        bytes32 tmp = hashStack[stackTop - 1];
-                        hashStack[stackTop - 1] = hashStack[stackTop - 2];
-                        hashStack[stackTop - 2] = tmp;
+                        (hashStack[stackTop - 1], hashStack[stackTop - 2]) =
+                            (hashStack[stackTop - 2], hashStack[stackTop - 1]);
                     }
 
                     assembly {
@@ -161,7 +160,7 @@ library MerkleRoot {
                     //         hashStack[stackTop - 1]
                     //     )
                     // );
-                    levelStack[stackTop - 2] = levelStack[stackTop - 1] + 1;
+                    levelStack[stackTop - 2]++;
                     stackTop--;
                     continue;
                 }

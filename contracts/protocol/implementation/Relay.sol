@@ -6,6 +6,19 @@ import "./Finalisation.sol";
 // import "hardhat/console.sol";
 
 contract Relay {
+
+    // IMPORTANT: if you change this, you have to adapt the assembly writing into this in the relay() function
+    struct StateData {
+        uint8 randomNumberProtocolId;
+        uint32 firstVotingRoundStartSec;
+        uint8 votingRoundDurationSec;
+        uint32 firstRewardEpochStartVotingRoundId;
+        uint16 rewardEpochDurationInVotingEpochs;
+        uint16 thresholdIncreaseBIPS;
+        uint32 randomVotingRoundId;
+        bool randomNumberQualityScore;
+    }
+
     uint256 public constant THRESHOLD_BIPS = 10000;
     uint256 public constant SELECTOR_BYTES = 4;
 
@@ -62,18 +75,6 @@ contract Relay {
     uint256 public constant MSG_NMR_MASK_protocolId = 0xff;
     uint256 public constant MSG_NMR_BOFF_protocolId = 40;
     /* solhint-enable const-name-snakecase */
-
-    // IMPORTANT: if you change this, you have to adapt the assembly writing into this in the relay() function
-    struct StateData {
-        uint8 randomNumberProtocolId;
-        uint32 firstVotingRoundStartSec;
-        uint8 votingRoundDurationSec;
-        uint32 firstRewardEpochVotingRoundId;
-        uint16 rewardEpochDurationInVotingEpochs;
-        uint16 thresholdIncrease;
-        uint32 randomVotingRoundId;
-        bool randomNumberQualityScore;
-    }
 
     /* solhint-disable const-name-snakecase */
     uint256 public constant SD_MASK_randomNumberProtocolId = 0xff;
@@ -143,22 +144,22 @@ contract Relay {
         uint256 _rewardEpochId,
         bytes32 _signingPolicyHash,
         uint8 _randomNumberProtocolId, // TODO - we may want to be able to change this through governance
-        uint32 firstVotingRoundStartSec,
-        uint8 votingRoundDurationSec,
-        uint32 firstRewardEpochVotingRoundId,
-        uint16 rewardEpochDurationInVotingEpochs,
-        uint16 thresholdIncrease
+        uint32 _firstVotingRoundStartSec,
+        uint8 _votingRoundDurationSec,
+        uint32 _firstRewardEpochStartVotingRoundId,
+        uint16 _rewardEpochDurationInVotingEpochs,
+        uint16 _thresholdIncreaseBIPS
     ) {
+        require(_thresholdIncreaseBIPS >= THRESHOLD_BIPS, "threshold increase too small");
         signingPolicySetter = _signingPolicySetter;
         lastInitializedRewardEpoch = _rewardEpochId;
         toSigningPolicyHash[_rewardEpochId] = _signingPolicyHash;
         stateData.randomNumberProtocolId = _randomNumberProtocolId;
-        stateData.firstVotingRoundStartSec = firstVotingRoundStartSec;
-        stateData.votingRoundDurationSec = votingRoundDurationSec;
-        stateData.firstRewardEpochVotingRoundId = firstRewardEpochVotingRoundId;
-        stateData
-            .rewardEpochDurationInVotingEpochs = rewardEpochDurationInVotingEpochs;
-        stateData.thresholdIncrease = thresholdIncrease;
+        stateData.firstVotingRoundStartSec = _firstVotingRoundStartSec;
+        stateData.votingRoundDurationSec = _votingRoundDurationSec;
+        stateData.firstRewardEpochStartVotingRoundId = _firstRewardEpochStartVotingRoundId;
+        stateData.rewardEpochDurationInVotingEpochs = _rewardEpochDurationInVotingEpochs;
+        stateData.thresholdIncreaseBIPS = _thresholdIncreaseBIPS;
     }
 
     function setSigningPolicy(
