@@ -123,7 +123,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         governanceVotePower = await GovernanceVotePower.new(wNat.address, pChainStakeMirror.address);
         await wNat.setGovernanceVotePower(governanceVotePower.address);
 
-        await time.increaseTo(switchToProdModeTime.addn(3600)); // 2 hours before new reward epoch
+        await time.increaseTo(switchToProdModeTime.addn(3600)); // 1 hour after switching to production mode
         await executeTimelockedGovernanceCall(wNat, (governance) =>
             wNat.setWriteVpContract(vpContract.address, { from: governance }));
         await executeTimelockedGovernanceCall(wNat, (governance) =>
