@@ -75,7 +75,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
 
     /// Only Finalisation contract can call this method.
     modifier onlyFinalisation {
-        require (msg.sender == address(finalisation), "only finalisation");
+        require(msg.sender == address(finalisation), "only finalisation");
         _;
     }
 
@@ -106,7 +106,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
      */
     function requestWhitelisting(address _voter) external {
         address signingAddress = entityManager.getSigningAddress(_voter);
-        require (signingAddress == msg.sender, "invalid signing address for voter");
+        require(signingAddress == msg.sender, "invalid signing address for voter");
         uint256 untilRewardEpochId = chilledUntilRewardEpochId[_voter];
         uint256 nextRewardEpochId = finalisation.getCurrentRewardEpochId() + 1;
         require(untilRewardEpochId == 0 || untilRewardEpochId <= nextRewardEpochId, "voter chilled");
@@ -301,10 +301,10 @@ contract VoterWhitelister is Governed, AddressUpdatable {
     {
 
         (uint256 votePowerBlock, bool enabled) = finalisation.getVoterRegistrationData(_rewardEpochId);
-        require (votePowerBlock != 0, "vote power block zero");
-        require (enabled, "voter registration phase ended");
+        require(votePowerBlock != 0, "vote power block zero");
+        require(enabled, "voter registration phase ended");
         VoterData memory voterData = _getVoterData(_voter, votePowerBlock);
-        require (voterData.weight > 0, "voter weight zero");
+        require(voterData.weight > 0, "voter weight zero");
 
         VoterInfo[] storage addressesForRewardEpochId = whitelist[_rewardEpochId];
         uint256 length = addressesForRewardEpochId.length;

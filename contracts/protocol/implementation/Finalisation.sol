@@ -35,20 +35,6 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         uint64 signingPolicyMinNumberOfVoters;
     }
 
-    struct SigningPolicy {
-        uint24 rewardEpochId;       // Reward epoch id.
-        uint32 startVotingRoundId;  // First voting round id of validity.
-                                    // Usually it is the first voting round of reward epoch rID.
-                                    // It can be later,
-                                    // if the confirmation of the signing policy on Flare blockchain gets delayed.
-        uint16 threshold;           // Confirmation threshold (absolute value of noramalised weights).
-        uint256 seed;               // Random seed.
-        address[] voters;           // The list of eligible voters in the canonical order.
-        uint16[] weights;           // The corresponding list of normalised signing weights of eligible voters.
-                                    // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
-                                    // while approximately keeping the weight relations.
-    }
-
     struct VoterData {
         uint64 signTs;
         uint64 signBlock;
@@ -202,7 +188,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
 
     /// Only FlareDaemon contract can call this method.
     modifier onlyFlareDaemon {
-        require (msg.sender == flareDaemon, "only flare daemon");
+        require(msg.sender == flareDaemon, "only flare daemon");
         _;
     }
 
@@ -401,7 +387,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         require(_rewardEpochId < getCurrentRewardEpochId(), "epoch not ended yet");
         require(state.singingPolicySignEndTs != 0, "new signing policy not signed yet");
         require(uptimeVoteHash[_rewardEpochId] != bytes32(0), "uptime vote hash not signed yet");
-        require (rewardsHash[_rewardEpochId] == bytes32(0), "rewards hash already signed");
+        require(rewardsHash[_rewardEpochId] == bytes32(0), "rewards hash already signed");
         bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _noOfWeightBasedClaims, _rewardsHash));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
@@ -526,26 +512,26 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
 
     function _initializeNextSigningPolicy(uint24 _nextRewardEpochId) internal {
         RewardEpochState storage state = rewardEpochState[_nextRewardEpochId];
-        SigningPolicy memory sp;
-        sp.rewardEpochId = _nextRewardEpochId;
-        sp.startVotingRoundId = _getStartVotingRoundId();
+        Relay.SigningPolicy memory signingPolicy;
+        signingPolicy.rewardEpochId = _nextRewardEpochId;
+        signingPolicy.startVotingRoundId = _getStartVotingRoundId();
         uint256 normalisedWeightsSum;
-        (sp.voters, sp.weights, normalisedWeightsSum) =
+        (signingPolicy.voters, signingPolicy.weights, normalisedWeightsSum) =
             voterWhitelister.createSigningPolicySnapshot(_nextRewardEpochId);
-        sp.threshold = normalisedWeightsSum.mulDivRoundUp(signingPolicyThresholdPPM, PPM_MAX).toUint16();
-        sp.seed = state.seed;
+        signingPolicy.threshold = normalisedWeightsSum.mulDivRoundUp(signingPolicyThresholdPPM, PPM_MAX).toUint16();
+        signingPolicy.seed = state.seed;
 
-        state.startVotingRoundId = sp.startVotingRoundId;
-        state.threshold = sp.threshold;
-        relay.setSigningPolicy(sp);
+        state.startVotingRoundId = signingPolicy.startVotingRoundId;
+        state.threshold = signingPolicy.threshold;
+        relay.setSigningPolicy(signingPolicy);
 
         emit SigningPolicyInitialized(
-            sp.rewardEpochId,
-            sp.startVotingRoundId,
-            sp.threshold,
-            sp.seed,
-            sp.voters,
-            sp.weights
+            signingPolicy.rewardEpochId,
+            signingPolicy.startVotingRoundId,
+            signingPolicy.threshold,
+            signingPolicy.seed,
+            signingPolicy.voters,
+            signingPolicy.weights
         );
     }
 

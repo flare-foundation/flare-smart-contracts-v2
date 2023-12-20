@@ -7,27 +7,36 @@ import { encodeContractNames, findRequiredEvent, toBN } from '../utils/test-help
 import privateKeys from "../../deployment/test-1020-accounts.json"
 import * as util from "../utils/key-to-address";
 import { toChecksumAddress } from 'ethereumjs-util';
-import { VoterWhitelisterInstance } from '../../typechain-truffle/contracts/protocol/implementation/VoterWhitelister';
+import { VoterWhitelisterContract, VoterWhitelisterInstance } from '../../typechain-truffle/contracts/protocol/implementation/VoterWhitelister';
 import { FinalisationContract, FinalisationInstance } from '../../typechain-truffle/contracts/protocol/implementation/Finalisation';
 import { SubmissionContract, SubmissionInstance } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
 import { RelayContract, RelayInstance } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
 import { ProtocolMessageMerkleRoot, SigningPolicy, encodeProtocolMessageMerkleRoot, encodeSigningPolicy, signingPolicyHash } from '../../scripts/libs/protocol/protocol-coder';
 import { generateSignatures } from '../unit/protocol/coding/coding-helpers';
+import { GovernanceVotePowerContract } from '../../typechain-truffle/contracts/mock/GovernanceVotePower';
+import { AddressBinderContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressBinder';
+import { PChainStakeMirrorContract } from '../../typechain-truffle/contracts/mock/PChainStakeMirror';
+import { VPContractContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/VPContract';
+import { WNatContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/WNat';
+import { MockContractContract } from '../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract';
+import { EntityManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/EntityManager';
+import { PChainStakeMirrorVerifierContract } from '../../typechain-truffle/contracts/protocol/implementation/PChainStakeMirrorVerifier';
+import { CChainStakeContract, CChainStakeInstance } from '../../typechain-truffle/contracts/mock/CChainStake';
 
-const MockContract = artifacts.require("MockContract");
-const WNat = artifacts.require("WNat");
-const VPContract = artifacts.require("VPContract");
-const PChainStakeMirror = artifacts.require("PChainStakeMirror");
-const GovernanceVotePower = artifacts.require("flattened/FlareSmartContracts.sol:GovernanceVotePower" as any);
-const AddressBinder = artifacts.require("AddressBinder");
-const PChainVerifier = artifacts.require("PChainStakeMirrorVerifier");
-const EntityManager = artifacts.require("EntityManager");
-const VoterWhitelister = artifacts.require("VoterWhitelister");
+const MockContract: MockContractContract = artifacts.require("MockContract");
+const WNat: WNatContract = artifacts.require("WNat");
+const VPContract: VPContractContract = artifacts.require("VPContract");
+const PChainStakeMirror: PChainStakeMirrorContract = artifacts.require("PChainStakeMirror");
+const GovernanceVotePower: GovernanceVotePowerContract = artifacts.require("GovernanceVotePower");
+const AddressBinder: AddressBinderContract = artifacts.require("AddressBinder");
+const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = artifacts.require("PChainStakeMirrorVerifier");
+const EntityManager: EntityManagerContract = artifacts.require("EntityManager");
+const VoterWhitelister: VoterWhitelisterContract = artifacts.require("VoterWhitelister");
 const Finalisation: FinalisationContract = artifacts.require("Finalisation");
 const Submission: SubmissionContract = artifacts.require("Submission");
 const Relay: RelayContract = artifacts.require("Relay");
-
+const CChainStake: CChainStakeContract = artifacts.require("CChainStake");
 
 type PChainStake = {
     txId: string,
@@ -39,7 +48,7 @@ type PChainStake = {
     weight: number,
 }
 
-async function setMockStakingData(verifierMock: MockContractInstance, pChainVerifier: PChainStakeMirrorVerifierInstance, txId: string, stakingType: number, inputAddress: string, nodeId: string, startTime: BN, endTime: BN, weight: number, stakingProved: boolean = true): Promise<PChainStake> {
+async function setMockStakingData(verifierMock: MockContractInstance, pChainStakeMirrorVerifierInterface: PChainStakeMirrorVerifierInstance, txId: string, stakingType: number, inputAddress: string, nodeId: string, startTime: BN, endTime: BN, weight: number, stakingProved: boolean = true): Promise<PChainStake> {
     let data = {
         txId: txId,
         stakingType: stakingType,
@@ -50,7 +59,7 @@ async function setMockStakingData(verifierMock: MockContractInstance, pChainVeri
         weight: weight
     };
 
-    const verifyPChainStakingMethod = pChainVerifier.contract.methods.verifyStake(data, []).encodeABI();
+    const verifyPChainStakingMethod = pChainStakeMirrorVerifierInterface.contract.methods.verifyStake(data, []).encodeABI();
     await verifierMock.givenCalldataReturnBool(verifyPChainStakingMethod, stakingProved);
     return data;
 }
@@ -67,7 +76,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let pChainStakeMirror: PChainStakeMirrorInstance;
     let governanceVotePower: GovernanceVotePowerInstance;
     let addressBinder: AddressBinderInstance;
-    let pChainVerifier: PChainStakeMirrorVerifierInstance;
+    let pChainStakeMirrorVerifierInterface: PChainStakeMirrorVerifierInstance;
     let verifierMock: MockContractInstance;
     let priceSubmitterMock: MockContractInstance;
 
@@ -77,6 +86,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let finalisation: FinalisationInstance;
     let submission: SubmissionInstance;
     let relay: RelayInstance;
+    let cChainStake: CChainStakeInstance;
 
     let initialSigningPolicy: SigningPolicy;
     let newSigningPolicy: SigningPolicy;
@@ -110,8 +120,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             accounts[0],
             accounts[0],
             ADDRESS_UPDATER,
-            2
+            50
         );
+
+        cChainStake = await CChainStake.new(accounts[0], accounts[0], ADDRESS_UPDATER, 0, 100, 1e10, 50);
 
         governanceSettings = await testDeployGovernanceSettings(accounts[0], 3600, [accounts[0]]);
         wNat = await WNat.new(accounts[0], "Wrapped NAT", "WNAT");
@@ -120,7 +132,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const vpContract = await VPContract.new(wNat.address, false);
         await wNat.setWriteVpContract(vpContract.address);
         await wNat.setReadVpContract(vpContract.address);
-        governanceVotePower = await GovernanceVotePower.new(wNat.address, pChainStakeMirror.address);
+        governanceVotePower = await GovernanceVotePower.new(wNat.address, pChainStakeMirror.address, cChainStake.address);
         await wNat.setGovernanceVotePower(governanceVotePower.address);
 
         await time.increaseTo(switchToProdModeTime.addn(3600)); // 1 hour after switching to production mode
@@ -132,20 +144,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             wNat.setGovernanceVotePower(governanceVotePower.address, { from: governance }));
 
         addressBinder = await AddressBinder.new();
-        pChainVerifier = await PChainVerifier.new(ADDRESS_UPDATER, 10, 1000, 5, 5000);
+        pChainStakeMirrorVerifierInterface = await PChainStakeMirrorVerifier.new(accounts[5], accounts[6], 10, 1000, 5, 5000);
         verifierMock = await MockContract.new();
         priceSubmitterMock = await MockContract.new();
         // set random number
         await priceSubmitterMock.givenMethodReturnUint(GET_CURRENT_RANDOM_SELECTOR, RANDOM_ROOT);
-
-        await pChainStakeMirror.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.ADDRESS_BINDER, Contracts.GOVERNANCE_VOTE_POWER, Contracts.CLEANUP_BLOCK_NUMBER_MANAGER, Contracts.P_CHAIN_STAKE_MIRROR_VERIFIER]),
-            [ADDRESS_UPDATER, addressBinder.address, governanceVotePower.address, CLEANUP_BLOCK_NUMBER_MANAGER, verifierMock.address], { from: ADDRESS_UPDATER });
-
-        await pChainStakeMirror.setCleanerContract(CLEANER_CONTRACT);
-
-        // activate contract
-        await pChainStakeMirror.activate();
 
         // set values
         weightsGwei = [1000, 500, 100, 50];
@@ -208,6 +211,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
 
+        // update contract addresses
+        await pChainStakeMirror.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.ADDRESS_BINDER, Contracts.GOVERNANCE_VOTE_POWER, Contracts.CLEANUP_BLOCK_NUMBER_MANAGER, Contracts.P_CHAIN_STAKE_MIRROR_VERIFIER]),
+            [ADDRESS_UPDATER, addressBinder.address, governanceVotePower.address, CLEANUP_BLOCK_NUMBER_MANAGER, verifierMock.address], { from: ADDRESS_UPDATER });
+
+        await cChainStake.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.GOVERNANCE_VOTE_POWER, Contracts.CLEANUP_BLOCK_NUMBER_MANAGER]),
+            [ADDRESS_UPDATER, governanceVotePower.address, CLEANUP_BLOCK_NUMBER_MANAGER], { from: ADDRESS_UPDATER });
+
         await voterWhitelister.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FINALISATION, Contracts.ENTITY_MANAGER, Contracts.WNAT, Contracts.P_CHAIN_STAKE_MIRROR]),
             [ADDRESS_UPDATER, finalisation.address, entityManager.address, wNat.address, pChainStakeMirror.address], { from: ADDRESS_UPDATER });
@@ -219,6 +231,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await submission.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FINALISATION, Contracts.RELAY]),
             [ADDRESS_UPDATER, finalisation.address, relay.address], { from: ADDRESS_UPDATER });
+
+        await pChainStakeMirror.setCleanerContract(CLEANER_CONTRACT);
+
+        // activate contracts
+        await pChainStakeMirror.activate();
+        await cChainStake.activate();
     });
 
     it("Should register addresses", async () => {
@@ -237,7 +255,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should verify stakes", async () => {
         for (let i = 0; i < 4; i++) {
-            const data = await setMockStakingData(verifierMock, pChainVerifier, stakeIds[i], 0, registeredPAddresses[i], nodeIds[i], now.subn(10), now.addn(10000), weightsGwei[i]);
+            const data = await setMockStakingData(verifierMock, pChainStakeMirrorVerifierInterface, stakeIds[i], 0, registeredPAddresses[i], nodeIds[i], now.subn(10), now.addn(10000), weightsGwei[i]);
             await pChainStakeMirror.mirrorStake(data, []);
         }
     });

@@ -262,6 +262,14 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         cChainStakeEnabled = true;
     }
 
+    function receiveOfferRewards(uint32 _rewardEpochId) external payable mustBalance {
+        // TODO - check allowed sender(s)
+        lastBalance = _handleSelfDestructProceeds();
+        require(_rewardEpochId >= _getCurrentRewardEpochId(), "reward epoch id in the past");
+        epochTotalRewards[_rewardEpochId] += msg.value.toUint120();
+        totalFundsReceivedWei += msg.value;
+    }
+
     /**
      * @notice Allows data provider to set (or update last) fee percentage.
      * @param _feePercentageBIPS    number representing fee percentage in BIPS

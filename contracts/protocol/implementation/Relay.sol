@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "./Finalisation.sol";
-
 // import "hardhat/console.sol";
 
 contract Relay {
@@ -17,6 +15,20 @@ contract Relay {
         uint16 thresholdIncreaseBIPS;
         uint32 randomVotingRoundId;
         bool randomNumberQualityScore;
+    }
+
+    struct SigningPolicy {
+        uint24 rewardEpochId;       // Reward epoch id.
+        uint32 startVotingRoundId;  // First voting round id of validity.
+                                    // Usually it is the first voting round of reward epoch rID.
+                                    // It can be later,
+                                    // if the confirmation of the signing policy on Flare blockchain gets delayed.
+        uint16 threshold;           // Confirmation threshold (absolute value of noramalised weights).
+        uint256 seed;               // Random seed.
+        address[] voters;           // The list of eligible voters in the canonical order.
+        uint16[] weights;           // The corresponding list of normalised signing weights of eligible voters.
+                                    // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
+                                    // while approximately keeping the weight relations.
     }
 
     uint256 public constant THRESHOLD_BIPS = 10000;
@@ -164,7 +176,7 @@ contract Relay {
 
     function setSigningPolicy(
         // using memory instead of calldata as called from another contract where signing policy is already in memory
-        Finalisation.SigningPolicy memory _signingPolicy
+        SigningPolicy memory _signingPolicy
     ) external onlySigningPolicySetter returns (bytes32) {
         require(
             lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
@@ -865,5 +877,10 @@ contract Relay {
             stateData.firstVotingRoundStartTs +
             (stateData.randomVotingRoundId + 1) *
             stateData.votingEpochDurationSeconds;
+    }
+
+    function getVotingRoundId(uint256 _timestamp) external view returns(uint256) {
+        require(_timestamp >= stateData.firstVotingRoundStartTs, "before the start");
+        return (_timestamp - stateData.firstVotingRoundStartTs) / stateData.votingEpochDurationSeconds;
     }
 }

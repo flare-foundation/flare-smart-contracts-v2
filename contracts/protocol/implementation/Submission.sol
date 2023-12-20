@@ -21,7 +21,7 @@ contract Submission is Governed, AddressUpdatable {
 
     /// Only Finalisation contract can call this method.
     modifier onlyFinalisation {
-        require (msg.sender == address(finalisation), "only finalisation");
+        require(msg.sender == address(finalisation), "only finalisation");
         _;
     }
 
