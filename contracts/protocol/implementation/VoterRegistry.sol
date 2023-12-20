@@ -5,14 +5,14 @@ import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
 import "../interface/IWNat.sol";
 import "../interface/ICChainStake.sol";
 import "./EntityManager.sol";
-import "./Finalisation.sol";
+import "./FlareSystemManager.sol";
 import "../../governance/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 
 /**
  * Only addresses registered in this contract can vote.
  */
-contract VoterWhitelister is Governed, AddressUpdatable {
+contract VoterRegistry is Governed, AddressUpdatable {
 
     struct VoterInfo {
         address voter; // entity
@@ -52,7 +52,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
     mapping(uint256 => mapping(address => address)) internal epochVoterToSigningAddress;
 
     // Addresses of the external contracts.
-    Finalisation public finalisation;
+    FlareSystemManager public flareSystemManager;
     EntityManager public entityManager;
     IPChainStakeMirror public pChainStakeMirror;
     IWNat public wNat;
@@ -73,9 +73,9 @@ contract VoterWhitelister is Governed, AddressUpdatable {
         uint256[] nodeWeights
     );
 
-    /// Only Finalisation contract can call this method.
-    modifier onlyFinalisation {
-        require(msg.sender == address(finalisation), "only finalisation");
+    /// Only FlareSystemManager contract can call this method.
+    modifier onlyFlareSystemManager {
+        require(msg.sender == address(flareSystemManager), "only flareSystemManager");
         _;
     }
 
@@ -108,7 +108,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
         address signingAddress = entityManager.getSigningAddress(_voter);
         require(signingAddress == msg.sender, "invalid signing address for voter");
         uint256 untilRewardEpochId = chilledUntilRewardEpochId[_voter];
-        uint256 nextRewardEpochId = finalisation.getCurrentRewardEpochId() + 1;
+        uint256 nextRewardEpochId = flareSystemManager.getCurrentRewardEpochId() + 1;
         require(untilRewardEpochId == 0 || untilRewardEpochId <= nextRewardEpochId, "voter chilled");
         bool success = _requestWhitelistingVoter(_voter, signingAddress, nextRewardEpochId);
         require(success, "vote power too low");
@@ -126,7 +126,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
             uint256 _untilRewardEpochId
         )
     {
-        uint256 currentRewardEpochId = finalisation.getCurrentRewardEpochId();
+        uint256 currentRewardEpochId = flareSystemManager.getCurrentRewardEpochId();
         _untilRewardEpochId = currentRewardEpochId + _noOfRewardEpochIds;
         chilledUntilRewardEpochId[_voter] = _untilRewardEpochId;
         emit VoterChilled(_voter, _untilRewardEpochId);
@@ -157,7 +157,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
        and normalised weights for a given reward epoch
      */
     function createSigningPolicySnapshot(uint256 _rewardEpochId)
-        external onlyFinalisation
+        external onlyFlareSystemManager
         returns (
             address[] memory _signingAddresses,
             uint16[] memory _normalisedWeights,
@@ -279,7 +279,8 @@ contract VoterWhitelister is Governed, AddressUpdatable {
     )
         internal override
     {
-        finalisation = Finalisation(_getContractAddress(_contractNameHashes, _contractAddresses, "Finalisation"));
+        flareSystemManager = FlareSystemManager(_getContractAddress(
+            _contractNameHashes, _contractAddresses, "FlareSystemManager"));
         entityManager = EntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
         pChainStakeMirror = IPChainStakeMirror(_getContractAddress(
             _contractNameHashes, _contractAddresses, "PChainStakeMirror"));
@@ -300,7 +301,7 @@ contract VoterWhitelister is Governed, AddressUpdatable {
         internal returns(bool)
     {
 
-        (uint256 votePowerBlock, bool enabled) = finalisation.getVoterRegistrationData(_rewardEpochId);
+        (uint256 votePowerBlock, bool enabled) = flareSystemManager.getVoterRegistrationData(_rewardEpochId);
         require(votePowerBlock != 0, "vote power block zero");
         require(enabled, "voter registration phase ended");
         VoterData memory voterData = _getVoterData(_voter, votePowerBlock);

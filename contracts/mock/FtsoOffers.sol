@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import "../governance/implementation/AddressUpdatable.sol";
 import "../governance/implementation/Governed.sol";
-import "../protocol/implementation/Finalisation.sol";
+import "../protocol/implementation/FlareSystemManager.sol";
 import "../protocol/implementation/RewardManager.sol";
 
 
@@ -29,7 +29,7 @@ contract FtsoOffers is Governed, AddressUpdatable {
 
     uint256 public minimalOfferValueWei;
     uint256 public maxRewardEpochsInTheFuture;
-    Finalisation public finalisation;
+    FlareSystemManager public flareSystemManager;
     RewardManager public rewardManager;
 
     event RewardOffered(
@@ -72,7 +72,7 @@ contract FtsoOffers is Governed, AddressUpdatable {
         uint32 _rewardEpochId,
         Offer[] calldata _offers
     ) external payable {
-        uint32 currentRewardEpochId = finalisation.getCurrentRewardEpochId();
+        uint32 currentRewardEpochId = flareSystemManager.getCurrentRewardEpochId();
         require(_rewardEpochId >= currentRewardEpochId, "reward epoch id in the past");
         require(_rewardEpochId <= currentRewardEpochId + maxRewardEpochsInTheFuture,
             "reward epoch id too far in the future");
@@ -123,7 +123,8 @@ contract FtsoOffers is Governed, AddressUpdatable {
     )
         internal override
     {
-        finalisation = Finalisation(_getContractAddress(_contractNameHashes, _contractAddresses, "Finalisation"));
+        flareSystemManager = FlareSystemManager(_getContractAddress(
+            _contractNameHashes, _contractAddresses, "FlareSystemManager"));
         rewardManager = RewardManager(_getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
     }
 }
