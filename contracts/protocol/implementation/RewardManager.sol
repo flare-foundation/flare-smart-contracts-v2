@@ -9,8 +9,8 @@ import "../interface/IWNat.sol";
 import "../interface/ICChainStake.sol";
 import "../interface/IClaimSetupManager.sol";
 import "../lib/SafePct.sol";
-import "./VoterWhitelister.sol";
-import "./Finalisation.sol";
+import "./VoterRegistry.sol";
+import "./FlareSystemManager.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
@@ -87,10 +87,10 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
 
     uint256 private lastBalance;
 
-    /// The VoterWhitelister contract.
-    VoterWhitelister public voterWhitelister;
+    /// The VoterRegistry contract.
+    VoterRegistry public voterRegistry;
     IClaimSetupManager public claimSetupManager;
-    Finalisation public finalisation;
+    FlareSystemManager public flareSystemManager;
     IPChainStakeMirror public pChainStakeMirror;
     IWNat public wNat;
     ICChainStake public cChainStake;
@@ -173,7 +173,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         uint24 currentRewardEpochId = _getCurrentRewardEpochId();
         if (epochVotePowerBlock[currentRewardEpochId] == 0) {
             epochVotePowerBlock[currentRewardEpochId] =
-                finalisation.getVotePowerBlock(currentRewardEpochId).toUint64();
+                flareSystemManager.getVotePowerBlock(currentRewardEpochId).toUint64();
         }
         require(_isRewardClaimable(_rewardEpochId, currentRewardEpochId), "not claimable");
         uint120 burnAmountWei;
@@ -219,7 +219,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         uint24 currentRewardEpochId = _getCurrentRewardEpochId();
         if (epochVotePowerBlock[currentRewardEpochId] == 0) {
             epochVotePowerBlock[currentRewardEpochId] =
-                finalisation.getVotePowerBlock(currentRewardEpochId).toUint64();
+                flareSystemManager.getVotePowerBlock(currentRewardEpochId).toUint64();
         }
         require(_isRewardClaimable(_rewardEpochId, currentRewardEpochId), "not claimable");
 
@@ -260,6 +260,14 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
      */
     function enableCChainStake() external onlyGovernance {
         cChainStakeEnabled = true;
+    }
+
+    function receiveOfferRewards(uint32 _rewardEpochId) external payable mustBalance {
+        // TODO - check allowed sender(s)
+        lastBalance = _handleSelfDestructProceeds();
+        require(_rewardEpochId >= _getCurrentRewardEpochId(), "reward epoch id in the past");
+        epochTotalRewards[_rewardEpochId] += msg.value.toUint120();
+        totalFundsReceivedWei += msg.value;
     }
 
     /**
@@ -327,7 +335,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     {
         FeePercentage[] storage fps = dataProviderFeePercentages[_dataProvider];
         if (fps.length > 0) {
-            uint256 currentEpochId = finalisation.getCurrentRewardEpochId();
+            uint256 currentEpochId = flareSystemManager.getCurrentRewardEpochId();
             uint256 position = fps.length;
             while (position > 0 && fps[position - 1].validFromEpochId > currentEpochId) {
                 position--;
@@ -470,7 +478,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         bytes32 claimHash = keccak256(abi.encode(rewardClaim));
         if (!epochProcessedRewardClaims[_proof.rewardEpochId][claimHash]) {
             // not claimed yet - check if valid merkle proof
-            bytes32 rewardsHash = finalisation.rewardsHash(_proof.rewardEpochId);
+            bytes32 rewardsHash = flareSystemManager.rewardsHash(_proof.rewardEpochId);
             require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
             // initialise reward amount
             _rewardAmountWei = _initialiseRewardAmount(_proof.rewardEpochId, rewardClaim.amount);
@@ -518,7 +526,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             epochTypeProviderUnclaimedReward[_proof.rewardEpochId][rewardClaim.claimType][rewardClaim.beneficiary];
         if (!state.initialised) {
             // not initialised yet - check if valid merkle proof
-            bytes32 rewardsHash = finalisation.rewardsHash(_proof.rewardEpochId);
+            bytes32 rewardsHash = flareSystemManager.rewardsHash(_proof.rewardEpochId);
             bytes32 claimHash = keccak256(abi.encode(rewardClaim));
             require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
             // mark as initialised
@@ -572,7 +580,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             // check if all weight based claims were already initialised
             // (in this case zero unclaimed rewards are actually zeros)
             bool allClaimsInitialised = epochNoOfInitialisedWeightBasedClaims[epoch]
-                == finalisation.noOfWeightBasedClaims(epoch);
+                == flareSystemManager.noOfWeightBasedClaims(epoch);
             uint256 votePowerBlock = _getVotePowerBlock(epoch);
             uint120 rewardAmount = 0;
 
@@ -645,7 +653,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
 
             // if undelegated vote power > 0 and _rewardOwner is a voter - claim self delegation rewards
             if (delegatorBalance > delegatedVotePower &&
-                voterWhitelister.getVoterSigningAddress(_epoch, _rewardOwner) != address(0))
+                voterRegistry.getVoterSigningAddress(_epoch, _rewardOwner) != address(0))
             {
                 UnclaimedRewardState storage state =
                     epochTypeProviderUnclaimedReward[_epoch][ClaimType.WNAT][_rewardOwner];
@@ -804,12 +812,12 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     )
         internal override
     {
-        voterWhitelister = VoterWhitelister(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "VoterWhitelister"));
+        voterRegistry = VoterRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "VoterRegistry"));
         claimSetupManager = IClaimSetupManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "ClaimSetupManager"));
-        finalisation = Finalisation(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "Finalisation"));
+        flareSystemManager = FlareSystemManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
         pChainStakeMirror = IPChainStakeMirror(
             _getContractAddress(_contractNameHashes, _contractAddresses, "PChainStakeMirror"));
         if (cChainStakeEnabled) {
@@ -843,7 +851,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     }
 
     function _getBurnFactor(uint64 _rewardEpochId, address _rewardOwner) internal view returns(uint256) {
-        return finalisation.getRewardsFeeBurnFactor(_rewardEpochId, _rewardOwner);
+        return flareSystemManager.getRewardsFeeBurnFactor(_rewardEpochId, _rewardOwner);
     }
 
     function _getVotePower(
@@ -873,7 +881,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     function _getVotePowerBlock(uint64 _rewardEpochId) internal view returns (uint256 _votePowerBlock) {
         _votePowerBlock = epochVotePowerBlock[_rewardEpochId];
         if (_votePowerBlock == 0) {
-            _votePowerBlock = finalisation.getVotePowerBlock(_rewardEpochId);
+            _votePowerBlock = flareSystemManager.getVotePowerBlock(_rewardEpochId);
         }
     }
 
@@ -909,7 +917,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
      * @notice Return current reward epoch number
      */
     function _getCurrentRewardEpochId() internal view returns (uint24) {
-        return finalisation.getCurrentRewardEpochId();
+        return flareSystemManager.getCurrentRewardEpochId();
     }
 
     function _getExpectedBalance() private view returns(uint256 _balanceExpectedWei) {

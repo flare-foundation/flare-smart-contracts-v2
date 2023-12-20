@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "./Finalisation.sol";
+import "./FlareSystemManager.sol";
 import "./Relay.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../governance/implementation/AddressUpdatable.sol";
 
 contract Submission is Governed, AddressUpdatable {
 
-    Finalisation public finalisation;
+    FlareSystemManager public flareSystemManager;
     Relay public relay;
     bool public submitMethodEnabled;
 
@@ -19,9 +19,9 @@ contract Submission is Governed, AddressUpdatable {
 
     event NewVotingRoundInitiated();
 
-    /// Only Finalisation contract can call this method.
-    modifier onlyFinalisation {
-        require (msg.sender == address(finalisation), "only finalisation");
+    /// Only FlareSystemManager contract can call this method.
+    modifier onlyFlareSystemManager {
+        require(msg.sender == address(flareSystemManager), "only flareSystemManager");
         _;
     }
 
@@ -42,7 +42,7 @@ contract Submission is Governed, AddressUpdatable {
         address[] calldata _signingAddresses
     )
         external
-        onlyFinalisation
+        onlyFlareSystemManager
     {
         for (uint256 i = 0; i < _commitSubmitAddresses.length; i++) {
             commitAddresses[_commitSubmitAddresses[i]] = true;
@@ -117,7 +117,8 @@ contract Submission is Governed, AddressUpdatable {
     )
         internal override
     {
-        finalisation = Finalisation(_getContractAddress(_contractNameHashes, _contractAddresses, "Finalisation"));
+        flareSystemManager = FlareSystemManager(_getContractAddress(
+            _contractNameHashes, _contractAddresses, "FlareSystemManager"));
         relay = Relay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 

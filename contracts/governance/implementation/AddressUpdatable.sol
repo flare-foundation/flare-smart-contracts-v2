@@ -12,7 +12,7 @@ abstract contract AddressUpdatable is IIAddressUpdatable {
         keccak256("flare.diamond.AddressUpdatable.ADDRESS_STORAGE_POSITION");
 
     modifier onlyAddressUpdater() {
-        require (msg.sender == getAddressUpdater(), "only address updater");
+        require(msg.sender == getAddressUpdater(), "only address updater");
         _;
     }
 

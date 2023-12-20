@@ -52,9 +52,10 @@ export class Contracts {
   public static readonly P_CHAIN_STAKE_MIRROR_VERIFIER = "PChainStakeMirrorVerifier";
   public static readonly P_CHAIN_STAKE_MIRROR = "PChainStakeMirror";
   public static readonly ENTITY_MANAGER = "EntityManager";
-  public static readonly FINALISATION = "Finalisation";
+  public static readonly FLARE_SYSTEM_MANAGER = "FlareSystemManager";
   public static readonly SUBMISSION = "Submission";
   public static readonly RELAY = "Relay";
+  public static readonly VOTER_REGISTRY = "VoterRegistry";
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 
   constructor() {

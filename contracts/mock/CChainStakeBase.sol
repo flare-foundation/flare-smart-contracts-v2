@@ -218,7 +218,7 @@ contract CChainStakeBase is ICChainVotePower, CheckPointable {
     )
         internal virtual
     {
-        require (_account != address(0), "Cannot stake to zero");
+        require(_account != address(0), "Cannot stake to zero");
         votePower.changeValue(_account, _amount, 0);
         votePower.cleanupOldCheckpoints(_account, CHECKPOINTS_CLEANUP_COUNT, _cleanupBlockNumber());
 
@@ -250,7 +250,7 @@ contract CChainStakeBase is ICChainVotePower, CheckPointable {
     )
         internal virtual
     {
-        require (_account != address(0), "Cannot stake to zero");
+        require(_account != address(0), "Cannot stake to zero");
         votePower.changeValue(_account, 0, _amount);
         votePower.cleanupOldCheckpoints(_account, CHECKPOINTS_CLEANUP_COUNT, _cleanupBlockNumber());
 

@@ -7,7 +7,7 @@ import "../../governance/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../lib/SafePct.sol";
 import "../interface/IRandomProvider.sol";
-import "./VoterWhitelister.sol";
+import "./VoterRegistry.sol";
 import "./Relay.sol";
 import "./Submission.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -15,7 +15,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 
-contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomProvider {
+contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRandomProvider {
     using SafeCast for uint256;
     using SafePct for uint256;
 
@@ -33,20 +33,6 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         uint64 nonPunishableSigningPolicySignMinDurationBlocks;
         uint64 signingPolicyThresholdPPM;
         uint64 signingPolicyMinNumberOfVoters;
-    }
-
-    struct SigningPolicy {
-        uint24 rewardEpochId;       // Reward epoch id.
-        uint32 startVotingRoundId;  // First voting round id of validity.
-                                    // Usually it is the first voting round of reward epoch rID.
-                                    // It can be later,
-                                    // if the confirmation of the signing policy on Flare blockchain gets delayed.
-        uint16 threshold;           // Confirmation threshold (absolute value of noramalised weights).
-        uint256 seed;               // Random seed.
-        address[] voters;           // The list of eligible voters in the canonical order.
-        uint16[] weights;           // The corresponding list of normalised signing weights of eligible voters.
-                                    // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
-                                    // while approximately keeping the weight relations.
     }
 
     struct VoterData {
@@ -134,8 +120,8 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
 
     uint64 internal lastInitialisedVotingRound;
 
-    /// The VoterWhitelister contract.
-    VoterWhitelister public voterWhitelister;
+    /// The VoterRegistry contract.
+    VoterRegistry public voterRegistry;
 
     /// The Submission contract.
     Submission public submission;
@@ -202,7 +188,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
 
     /// Only FlareDaemon contract can call this method.
     modifier onlyFlareDaemon {
-        require (msg.sender == flareDaemon, "only flare daemon");
+        require(msg.sender == flareDaemon, "only flare daemon");
         _;
     }
 
@@ -288,11 +274,11 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
             address[] memory signingAddresses;
             address[] memory commitAddresses;
             lastInitialisedVotingRound = currentVotingEpochId;
-            revealAddresses = voterWhitelister.getWhitelistedDataProviderAddresses(currentRewardEpochId);
-            signingAddresses = voterWhitelister.getWhitelistedSigningAddresses(currentRewardEpochId);
+            revealAddresses = voterRegistry.getWhitelistedDataProviderAddresses(currentRewardEpochId);
+            signingAddresses = voterRegistry.getWhitelistedSigningAddresses(currentRewardEpochId);
             // in case of new reward epoch - get new commit addresses otherwise they are the same as reveal addresses
             if (_getCurrentRewardEpochId() > currentRewardEpochId) {
-                commitAddresses = voterWhitelister.getWhitelistedDataProviderAddresses(currentRewardEpochId + 1);
+                commitAddresses = voterRegistry.getWhitelistedDataProviderAddresses(currentRewardEpochId + 1);
             } else {
                 commitAddresses = revealAddresses;
             }
@@ -323,7 +309,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
         (address voter, uint16 weight) =
-            voterWhitelister.getVoterWithNormalisedWeight(_rewardEpochId - 1, signingAddress);
+            voterRegistry.getVoterWithNormalisedWeight(_rewardEpochId - 1, signingAddress);
         require(voter != address(0), "signature invalid");
         require(state.signingPolicyVotes.voters[voter].signTs == 0, "signing address already signed");
         // save signing address timestamp and block number
@@ -361,7 +347,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _uptimeVoteHash));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        (address voter, uint16 weight) = voterWhitelister.getVoterWithNormalisedWeight(_rewardEpochId, signingAddress);
+        (address voter, uint16 weight) = voterRegistry.getVoterWithNormalisedWeight(_rewardEpochId, signingAddress);
         require(voter != address(0), "signature invalid");
         require(state.uptimeVoteVotes[_uptimeVoteHash].voters[voter].signTs == 0, "voter already signed");
         // save signing address timestamp and block number
@@ -401,11 +387,11 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
         require(_rewardEpochId < getCurrentRewardEpochId(), "epoch not ended yet");
         require(state.singingPolicySignEndTs != 0, "new signing policy not signed yet");
         require(uptimeVoteHash[_rewardEpochId] != bytes32(0), "uptime vote hash not signed yet");
-        require (rewardsHash[_rewardEpochId] == bytes32(0), "rewards hash already signed");
+        require(rewardsHash[_rewardEpochId] == bytes32(0), "rewards hash already signed");
         bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _noOfWeightBasedClaims, _rewardsHash));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        (address voter, uint16 weight) = voterWhitelister.getVoterWithNormalisedWeight(_rewardEpochId, signingAddress);
+        (address voter, uint16 weight) = voterRegistry.getVoterWithNormalisedWeight(_rewardEpochId, signingAddress);
         require(voter != address(0), "signature invalid");
         require(state.rewardVotes[messageHash].voters[voter].signTs == 0, "voter already signed");
         // save signing address timestamp and block number
@@ -483,12 +469,12 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     }
 
     function switchToFallbackMode() external pure returns (bool) {
-        // do nothing - there is no fallback mode in Finalisation contract
+        // do nothing - there is no fallback mode in FlareSystemManager contract
         return false;
     }
 
     function getContractName() external pure returns (string memory) {
-        return "Finalisation";
+        return "FlareSystemManager";
     }
 
     function getCurrentRewardEpochId() public view returns(uint24 _currentRewardEpochId) {
@@ -526,26 +512,26 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
 
     function _initializeNextSigningPolicy(uint24 _nextRewardEpochId) internal {
         RewardEpochState storage state = rewardEpochState[_nextRewardEpochId];
-        SigningPolicy memory sp;
-        sp.rewardEpochId = _nextRewardEpochId;
-        sp.startVotingRoundId = _getStartVotingRoundId();
+        Relay.SigningPolicy memory signingPolicy;
+        signingPolicy.rewardEpochId = _nextRewardEpochId;
+        signingPolicy.startVotingRoundId = _getStartVotingRoundId();
         uint256 normalisedWeightsSum;
-        (sp.voters, sp.weights, normalisedWeightsSum) =
-            voterWhitelister.createSigningPolicySnapshot(_nextRewardEpochId);
-        sp.threshold = normalisedWeightsSum.mulDivRoundUp(signingPolicyThresholdPPM, PPM_MAX).toUint16();
-        sp.seed = state.seed;
+        (signingPolicy.voters, signingPolicy.weights, normalisedWeightsSum) =
+            voterRegistry.createSigningPolicySnapshot(_nextRewardEpochId);
+        signingPolicy.threshold = normalisedWeightsSum.mulDivRoundUp(signingPolicyThresholdPPM, PPM_MAX).toUint16();
+        signingPolicy.seed = state.seed;
 
-        state.startVotingRoundId = sp.startVotingRoundId;
-        state.threshold = sp.threshold;
-        relay.setSigningPolicy(sp);
+        state.startVotingRoundId = signingPolicy.startVotingRoundId;
+        state.threshold = signingPolicy.threshold;
+        relay.setSigningPolicy(signingPolicy);
 
         emit SigningPolicyInitialized(
-            sp.rewardEpochId,
-            sp.startVotingRoundId,
-            sp.threshold,
-            sp.seed,
-            sp.voters,
-            sp.weights
+            signingPolicy.rewardEpochId,
+            signingPolicy.startVotingRoundId,
+            signingPolicy.threshold,
+            signingPolicy.seed,
+            signingPolicy.voters,
+            signingPolicy.weights
         );
     }
 
@@ -558,8 +544,8 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     )
         internal override
     {
-        voterWhitelister = VoterWhitelister(_getContractAddress(
-            _contractNameHashes, _contractAddresses, "VoterWhitelister"));
+        voterRegistry = VoterRegistry(_getContractAddress(
+            _contractNameHashes, _contractAddresses, "VoterRegistry"));
         submission = Submission(_getContractAddress(_contractNameHashes, _contractAddresses, "Submission"));
         relay = Relay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
         priceSubmitter = IPriceSubmitter(_getContractAddress(
@@ -597,7 +583,7 @@ contract Finalisation is Governed, AddressUpdatable, IFlareDaemonize, IRandomPro
     {
         return block.timestamp <= _state.voterRegistrationStartTs + voterRegistrationMinDurationSeconds ||
             block.number <= _state.voterRegistrationStartBlock + voterRegistrationMinDurationBlocks ||
-            voterWhitelister.getNumberOfWhitelistedVoters(_rewardEpoch) < signingPolicyMinNumberOfVoters;
+            voterRegistry.getNumberOfWhitelistedVoters(_rewardEpoch) < signingPolicyMinNumberOfVoters;
     }
 
     function _getRandom() internal view returns (uint256 _random, bool _quality, uint64 _randomTs) {
