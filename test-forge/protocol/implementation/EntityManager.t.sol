@@ -113,7 +113,7 @@ contract EntityManagerTest is Test {
         entityManager.registerDataProviderAddress(dataProvider1);
     }
 
-    function testConfirmDataProviderRegistration() public {
+    function testConfirmDataProviderAddressRegistration() public {
         address dataProvider1 = makeAddr("dataProvider1");
 
         // should not confirm if not in queue
@@ -142,6 +142,31 @@ contract EntityManagerTest is Test {
         vm.prank(dataProvider1);
         vm.expectRevert("data provider address already registered");
         entityManager.confirmDataProviderAddressRegistration(user1);
+    }
+
+    function testChangeDataProviderAddress() public {
+        address dataProvider1 = makeAddr("dataProvider1");
+        address dataProvider2 = makeAddr("dataProvider2");
+
+        // register data provider
+        vm.prank(user1);
+        entityManager.registerDataProviderAddress(dataProvider1);
+        assertEq(entityManager.getDataProviderAddress(user1), user1);
+
+        // confirm registration
+        vm.prank(dataProvider1);
+        entityManager.confirmDataProviderAddressRegistration(user1);
+        assertEq(entityManager.getDataProviderAddress(user1), dataProvider1);
+
+        // register another data provider
+        vm.prank(user1);
+        entityManager.registerDataProviderAddress(dataProvider2);
+        assertEq(entityManager.getDataProviderAddress(user1), dataProvider1);
+
+        // confirm registration and replace first data provider
+        vm.prank(dataProvider2);
+        entityManager.confirmDataProviderAddressRegistration(user1);
+        assertEq(entityManager.getDataProviderAddress(user1), dataProvider2);
     }
 
     function testRegisterSigningAddress() public {
@@ -181,6 +206,31 @@ contract EntityManagerTest is Test {
         vm.prank(signer1);
         vm.expectRevert("signing address already registered");
         entityManager.confirmSigningAddressRegistration(user1);
+    }
+
+    function testChangeSigningAddress() public {
+        address signer1 = makeAddr("signer1");
+        address signer2 = makeAddr("signer2");
+
+        // register signing address
+        vm.prank(user1);
+        entityManager.registerSigningAddress(signer1);
+        assertEq(entityManager.getSigningAddress(user1), user1);
+
+        // confirm registration
+        vm.prank(signer1);
+        entityManager.confirmSigningAddressRegistration(user1);
+        assertEq(entityManager.getSigningAddress(user1), signer1);
+
+        // register another signing address
+        vm.prank(user1);
+        entityManager.registerSigningAddress(signer2);
+        assertEq(entityManager.getSigningAddress(user1), signer1);
+
+        // confirm registration and replace first signing address
+        vm.prank(signer2);
+        entityManager.confirmSigningAddressRegistration(user1);
+        assertEq(entityManager.getSigningAddress(user1), signer2);
     }
 
 }

@@ -385,7 +385,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
 
         _data.wNatWeight = wNat.votePowerOfAt(_voter, _votePowerBlock);
 
-        // staking is required to get additinal WNat weight
+        // staking is required to get additional WNat weight
         if (_data.weight > 0) {
             uint256 totalWNatVotePower = wNat.totalVotePowerAt(_votePowerBlock); // TODO cap?
             _data.weight += _data.wNatWeight / 4; // TODO final factor and cap?
