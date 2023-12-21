@@ -30,7 +30,7 @@ contract SubmissionTest is Test {
     }
 
     function test_initNewVotingRoundNonFinalisation() public {
-        vm.expectRevert("only finalisation");
+        vm.expectRevert("only flareSystemManager");
 
         submission.initNewVotingRound(users, users, users);
     }
@@ -39,7 +39,7 @@ contract SubmissionTest is Test {
         address[] calldata usersGen
     ) public {
         vm.assume(usersGen.length > 0);
-        vm.prank(address(submission.finalisation()));
+        vm.prank(address(submission.flareSystemManager()));
         submission.initNewVotingRound(usersGen, usersGen, usersGen);
 
         vm.prank(usersGen[0]);
@@ -64,7 +64,7 @@ contract SubmissionTest is Test {
     }
 
     function testFuzz_initNewVotingRoundFinalisationEmpty() public {
-        vm.prank(address(submission.finalisation()));
+        vm.prank(address(submission.flareSystemManager()));
         submission.initNewVotingRound(
             emptyAddresses,
             emptyAddresses,
@@ -101,8 +101,8 @@ contract SubmissionTest is Test {
     function test_updateContractAddress() public {
         nameHashes.push(keccak256(abi.encode("AddressUpdater")));
         addresses.push(makeAddr("AddressUpdater"));
-        nameHashes.push(keccak256(abi.encode("Finalisation")));
-        addresses.push(makeAddr("Finalisation"));
+        nameHashes.push(keccak256(abi.encode("FlareSystemManager")));
+        addresses.push(makeAddr("FlareSystemManager"));
         nameHashes.push(keccak256(abi.encode("Relay")));
         addresses.push(makeAddr("Relay"));
 
@@ -111,19 +111,23 @@ contract SubmissionTest is Test {
         vm.stopPrank();
 
         assertEq(address(submission.relay()), makeAddr("Relay"));
-        assertEq(address(submission.finalisation()), makeAddr("Finalisation"));
+        assertEq(
+            address(submission.flareSystemManager()),
+            makeAddr("FlareSystemManager")
+        );
     }
 
     function test_setSubmitRev() public {
         vm.expectRevert("only governance");
         submission.setSubmitMethodEnabled(true);
 
-        vm.prank(address(submission.finalisation()));
+        vm.prank(address(submission.flareSystemManager()));
     }
 
     function test_setSubmit() public {
         vm.prank(makeAddr("governance"));
         submission.setSubmitMethodEnabled(true);
+        assertEq(submission.submitMethodEnabled(), true);
     }
 
     function testFuzz_initNewVotingRoundFinalisationAfterSubmitEn(
@@ -134,7 +138,7 @@ contract SubmissionTest is Test {
 
         vm.assume(usersGen.length > 0);
 
-        vm.prank(address(submission.finalisation()));
+        vm.prank(address(submission.flareSystemManager()));
         submission.initNewVotingRound(usersGen, usersGen, usersGen);
 
         vm.prank(usersGen[0]);
