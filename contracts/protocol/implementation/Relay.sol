@@ -4,7 +4,6 @@ pragma solidity 0.8.20;
 // import "hardhat/console.sol";
 
 contract Relay {
-
     // IMPORTANT: if you change this, you have to adapt the assembly writing into this in the relay() function
     struct StateData {
         uint8 randomNumberProtocolId;
@@ -278,13 +277,16 @@ contract Relay {
     /**
      * Finalization function for new signing policies and protocol messages.
      * It can be used as finalization contract on Flare chain or as relay contract on other EVM chain.
-     * Can be called in two modes. It expects calldata that is parsed in a custom manner. Hence the transaction calls should
-     * assemble relevant calldata in the 'data' field. Depending on the data provided, the contract operations in essentially two modes:
+     * Can be called in two modes. It expects calldata that is parsed in a custom manner. 
+     * Hence the transaction calls should assemble relevant calldata in the 'data' field. 
+     * Depending on the data provided, the contract operations in essentially two modes:
      * (1) Relaying signing policy. The structure of the calldata is:
-     *        function signature (4 bytes) + active signing policy (2209 bytes) + 0 (1 byte) + new signing policy (2209 bytes),
+     *        function signature (4 bytes) + active signing policy (2209 bytes) 
+     *             + 0 (1 byte) + new signing policy (2209 bytes),
      *     total of exactly 4423 bytes.
      * (2) Relaying signed message. The structure of the calldata is:
-     *        function signature (4 bytes) + signing policy (2209 bytes) + signed message (38 bytes) + ECDSA signatures with indices (66 bytes each),
+     *        function signature (4 bytes) + signing policy (2209 bytes) 
+     *           + signed message (38 bytes) + ECDSA signatures with indices (66 bytes each),
      *     total of 2251 + 66 * N bytes, where N is the number of signatures.
      */
     function relay() external returns (uint256 _result) {
@@ -294,7 +296,8 @@ contract Relay {
         // solhint-disable-next-line no-inline-assembly
         assembly {
             // Helper function to revert with a message
-            // Since string length cannot be determined in assembly easily, the matching length of the message string must be provided.
+            // Since string length cannot be determined in assembly easily, the matching length 
+            // of the message string must be provided.
             function revertWithMessage(_memPtr, _message, _msgLength) {
                 mstore(
                     _memPtr,
@@ -700,6 +703,7 @@ contract Relay {
                 sstore(keccak256(memPtrP0, 64), newSigningPolicyHash)
                 // Prepare the hash on slot 32 for signature verification
                 mstore(add(memPtrP0, M_1), newSigningPolicyHash)
+                // IMPORTANT: assumes that if threshold is not sufficient, the transaction will be reverted
             }
 
             // Assumptions here:
@@ -835,78 +839,92 @@ contract Relay {
                     weight,
                     and(mload(add(memPtrFor, M_3)), WEIGHT_MASK)
                 )
-                if gt(weight, threshold) {
-                    // jump over fun selector, signing policy and 17 bytes of protocolId,
-                    // votingRoundId and randomQualityScore
 
-                    let votingRoundId := extractVotingRoundIdFromMessage(
-                        memPtrFor,
-                        signingPolicyLength
-                    )
-                    // M_3 <- Merkle root
-                    calldatacopy(
-                        add(memPtrFor, M_3),
-                        add(
-                            add(SELECTOR_BYTES, signingPolicyLength),
-                            sub(MESSAGE_BYTES, 32) // last 32 bytes are merkleRoot
-                        ),
-                        32
-                    )
-
-                    // let merkleRoot := mload(memPtrFor)
-
-                    // writing into the map
-                    mstore(memPtrFor, protocolId) // key 1 (protocolId)
-                    mstore(add(memPtrFor, M_1), merkleRoots.slot) // merkleRoot slot
-
-                    // parent map location in slot for next hashing
-                    mstore(add(memPtrFor, M_1), keccak256(memPtrFor, 64))
-                    mstore(memPtrFor, votingRoundId) // key 2 (votingRoundId)
-                    // merkleRoot stored at merkleRoots[protocolId][votingRoundId]
-                    sstore(keccak256(memPtrFor, 64), mload(add(memPtrFor, M_3))) // set Merkle Root
-
-                    // stateData.randomVotingRoundId = votingRoundId
-                    // let stateDataTemp := mload(add(memPtrFor, M_5_stateData))
-
-                    mstore(
-                        add(memPtrFor, M_5_stateData),
-                        assignStruct(
-                            mload(add(memPtrFor, M_5_stateData)),
-                            SD_BOFF_randomVotingRoundId,
-                            SD_MASK_randomVotingRoundId,
-                            votingRoundId
+                if gt(weight, threshold) {                    
+                    // If relaying messages, store the Merkle root
+                    if gt(protocolId, 0) {
+                        let votingRoundId := extractVotingRoundIdFromMessage(
+                            memPtrFor,
+                            signingPolicyLength
                         )
-                    )
-
-                    // stateData.randomNumberQualityScore = message.randomQualityScore
-                    calldatacopy(
-                        memPtrFor,
-                        add(SELECTOR_BYTES, signingPolicyLength),
-                        MESSAGE_NO_MR_BYTES
-                    )
-                    mstore(
-                        memPtrFor,
-                        shr(
-                            sub(256, mul(8, MESSAGE_NO_MR_BYTES)),
-                            mload(memPtrFor)
+                        // M_3 <- Merkle root
+                        calldatacopy(
+                            add(memPtrFor, M_3),
+                            add(
+                                add(SELECTOR_BYTES, signingPolicyLength),
+                                sub(MESSAGE_BYTES, 32) // last 32 bytes are merkleRoot
+                            ),
+                            32
                         )
-                    ) // move message no mr right
 
-                    mstore(
-                        add(memPtrFor, M_5_stateData),
-                        assignStruct(
-                            mload(add(memPtrFor, M_5_stateData)),
-                            SD_BOFF_randomNumberQualityScore,
-                            SD_MASK_randomNumberQualityScore,
+                        // writing into the map
+                        mstore(memPtrFor, protocolId) // key 1 (protocolId)
+                        mstore(add(memPtrFor, M_1), merkleRoots.slot) // merkleRoot slot
+
+                        // parent map location in slot for next hashing
+                        mstore(add(memPtrFor, M_1), keccak256(memPtrFor, 64))
+                        mstore(memPtrFor, votingRoundId) // key 2 (votingRoundId)
+                        // merkleRoot stored at merkleRoots[protocolId][votingRoundId]
+                        sstore(
+                            keccak256(memPtrFor, 64),
+                            mload(add(memPtrFor, M_3))
+                        ) // set Merkle Root
+
+                        // if protocolId == stateData.randomNumberProtocolId
+                        if eq(
+                            protocolId,
                             structValue(
-                                mload(memPtrFor),
-                                MSG_NMR_BOFF_randomQualityScore,
-                                MSG_NMR_MASK_randomQualityScore
+                                mload(add(memPtrFor, M_5_stateData)),
+                                SD_BOFF_randomNumberProtocolId,
+                                SD_MASK_randomNumberProtocolId
                             )
-                        )
-                    )
+                        ) {
+                            
+                            // stateData.randomVotingRoundId = votingRoundId
+                            mstore(
+                                add(memPtrFor, M_5_stateData),
+                                assignStruct(
+                                    mload(add(memPtrFor, M_5_stateData)),
+                                    SD_BOFF_randomVotingRoundId,
+                                    SD_MASK_randomVotingRoundId,
+                                    votingRoundId
+                                )
+                            )
 
-                    sstore(stateData.slot, mload(add(memPtrFor, M_5_stateData)))
+                            // stateData.randomNumberQualityScore = message.randomQualityScore
+                            calldatacopy(
+                                memPtrFor,
+                                add(SELECTOR_BYTES, signingPolicyLength),
+                                MESSAGE_NO_MR_BYTES
+                            )
+                            mstore(
+                                memPtrFor,
+                                shr(
+                                    sub(256, mul(8, MESSAGE_NO_MR_BYTES)),
+                                    mload(memPtrFor)
+                                )
+                            )
+
+                            mstore(
+                                add(memPtrFor, M_5_stateData),
+                                assignStruct(
+                                    mload(add(memPtrFor, M_5_stateData)),
+                                    SD_BOFF_randomNumberQualityScore,
+                                    SD_MASK_randomNumberQualityScore,
+                                    structValue(
+                                        mload(memPtrFor),
+                                        MSG_NMR_BOFF_randomQualityScore,
+                                        MSG_NMR_MASK_randomQualityScore
+                                    )
+                                )
+                            )
+
+                            sstore(
+                                stateData.slot,
+                                mload(add(memPtrFor, M_5_stateData))
+                            )
+                        } // if protocolId == stateData.randomNumberProtocolId
+                    } // if protocolId > 0
                     // set _result to 1 to indicate successful relay/finalization
                     _result := 1
                     break
@@ -943,8 +961,15 @@ contract Relay {
             stateData.votingEpochDurationSeconds;
     }
 
-    function getVotingRoundId(uint256 _timestamp) external view returns(uint256) {
-        require(_timestamp >= stateData.firstVotingRoundStartTs, "before the start");
-        return (_timestamp - stateData.firstVotingRoundStartTs) / stateData.votingEpochDurationSeconds;
+    function getVotingRoundId(
+        uint256 _timestamp
+    ) external view returns (uint256) {
+        require(
+            _timestamp >= stateData.firstVotingRoundStartTs,
+            "before the start"
+        );
+        return
+            (_timestamp - stateData.firstVotingRoundStartTs) /
+            stateData.votingEpochDurationSeconds;
     }
 }
