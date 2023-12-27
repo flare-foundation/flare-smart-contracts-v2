@@ -25,6 +25,21 @@ library AddressSet {
         delete _state.index[_address];
     }
 
+    function replace(State storage _state, address _addressToRemove, address _addressToAdd) internal {
+        uint256 position = _state.index[_addressToRemove];
+        if (position == 0) {
+            add(_state, _addressToAdd);
+            return;
+        }
+        if (_state.index[_addressToAdd] != 0) {
+            remove(_state, _addressToRemove);
+            return;
+        }
+        _state.list[position - 1] = _addressToAdd;
+        _state.index[_addressToAdd] = position;
+        delete _state.index[_addressToRemove];
+    }
+
     function addAll(State storage _state, address[] memory _addresses) internal {
         for (uint256 i = 0; i < _addresses.length; i++) {
             add(_state, _addresses[i]);

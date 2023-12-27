@@ -30,6 +30,21 @@ contract Relay {
                                     // while approximately keeping the weight relations.
     }
 
+    event SigningPolicyInitialized(
+        uint24 rewardEpochId,       // Reward epoch id
+        uint32 startVotingRoundId,  // First voting round id of validity.
+                                    // Usually it is the first voting round of reward epoch rewardEpochId.
+                                    // It can be later,
+                                    // if the confirmation of the signing policy on Flare blockchain gets delayed.
+        uint16 threshold,           // Confirmation threshold (absolute value of noramalised weights).
+        uint256 seed,               // Random seed.
+        address[] voters,           // The list of eligible voters in the canonical order.
+        uint16[] weights,           // The corresponding list of normalised signing weights of eligible voters.
+                                    // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
+                                    // while approximately keeping the weight relations.
+        bytes signingPolicyBytes    // The full signing policy byte encoded.
+    );
+
     uint256 public constant THRESHOLD_BIPS = 10000;
     uint256 public constant SELECTOR_BYTES = 4;
 
@@ -180,6 +195,19 @@ contract Relay {
         stateData.thresholdIncreaseBIPS = _thresholdIncreaseBIPS;
     }
 
+    struct Counters {
+        uint256 weightIndex;
+        uint256 weightPos;
+        uint256 voterIndex;
+        uint256 voterPos;
+        uint256 count;
+        uint256 bytesToTake;
+        bytes32 nextSlot;
+        uint256 pos;
+        uint256 hashCount;
+        uint256 signingPolicyPos;
+    }
+
     function setSigningPolicy(
         // using memory instead of calldata as called from another contract where signing policy is already in memory
         SigningPolicy memory _signingPolicy
@@ -193,6 +221,14 @@ contract Relay {
             _signingPolicy.voters.length == _signingPolicy.weights.length,
             "size mismatch"
         );
+        bytes memory signingPolicyBytes = new bytes(
+            SIGNING_POLICY_PREFIX_BYTES +
+                _signingPolicy.voters.length *
+                ADDRESS_AND_WEIGHT_BYTES
+        );
+
+        Counters memory m;
+
         // bytes32 currentHash;
         bytes memory toHash = bytes.concat(
             bytes2(uint16(_signingPolicy.voters.length)),
@@ -203,6 +239,10 @@ contract Relay {
             bytes21(uint168(_signingPolicy.seed >> (8 * 11)))
         );
 
+        for (; m.signingPolicyPos < 64; m.signingPolicyPos++) {
+            signingPolicyBytes[m.signingPolicyPos] = toHash[m.signingPolicyPos];
+        }
+
         bytes32 currentHash = keccak256(toHash);
         toHash = bytes.concat(
             currentHash,
@@ -211,81 +251,100 @@ contract Relay {
             bytes1(uint8(_signingPolicy.weights[0] >> 8))
         );
 
+        for (uint256 toHashPos = 32; toHashPos < toHash.length; toHashPos++) {
+            signingPolicyBytes[m.signingPolicyPos] = toHash[toHashPos];
+            m.signingPolicyPos++;
+        }
+
         currentHash = keccak256(toHash);
 
-        uint256 weightIndex = 0;
-        uint256 weightPos = 1;
-        uint256 voterIndex = 1;
-        uint256 voterPos = 0;
-        uint256 count;
-        uint256 bytesToTake;
-        bytes32 nextSlot;
-        uint256 pos;
-        uint256 hashCount = 1;
+        m.weightIndex = 0;
+        m.weightPos = 1;
+        m.voterIndex = 1;
+        m.voterPos = 0;
+        m.hashCount = 1;
 
-        while (weightIndex < _signingPolicy.voters.length) {
-            count = 0;
-            nextSlot = bytes32(uint256(0));
-            while (count < 32 && weightIndex < _signingPolicy.voters.length) {
-                if (weightIndex < voterIndex) {
-                    bytesToTake = 2 - weightPos;
-                    pos = weightPos;
+        while (m.weightIndex < _signingPolicy.voters.length) {
+            m.count = 0;
+            m.nextSlot = bytes32(uint256(0));
+            m.bytesToTake = 0;
+            while (
+                m.count < 32 && m.weightIndex < _signingPolicy.voters.length
+            ) {
+                if (m.weightIndex < m.voterIndex) {
+                    m.bytesToTake = 2 - m.weightPos;
+                    m.pos = m.weightPos;
                     bytes32 weightData = bytes32(
-                        uint256(uint16(_signingPolicy.weights[weightIndex])) <<
-                            (30 * 8)
+                        uint256(
+                            uint16(_signingPolicy.weights[m.weightIndex])
+                        ) << (30 * 8)
                     );
-                    if (count + bytesToTake > 32) {
-                        bytesToTake = 32 - count;
-                        weightPos += bytesToTake;
+                    if (m.count + m.bytesToTake > 32) {
+                        m.bytesToTake = 32 - m.count;
+                        m.weightPos += m.bytesToTake;
                     } else {
-                        weightPos = 0;
-                        weightIndex++;
+                        m.weightPos = 0;
+                        m.weightIndex++;
                     }
-                    nextSlot =
-                        nextSlot |
-                        bytes32(((weightData << (8 * pos)) >> (8 * count)));
+                    m.nextSlot |= bytes32(
+                        ((weightData << (8 * m.pos)) >> (8 * m.count))
+                    );
                 } else {
-                    bytesToTake = 20 - voterPos;
-                    pos = voterPos;
+                    m.bytesToTake = 20 - m.voterPos;
+                    m.pos = m.voterPos;
                     bytes32 voterData = bytes32(
-                        uint256(uint160(_signingPolicy.voters[voterIndex])) <<
+                        uint256(uint160(_signingPolicy.voters[m.voterIndex])) <<
                             (12 * 8)
                     );
-                    if (count + bytesToTake > 32) {
-                        bytesToTake = 32 - count;
-                        voterPos += bytesToTake;
+                    if (m.count + m.bytesToTake > 32) {
+                        m.bytesToTake = 32 - m.count;
+                        m.voterPos += m.bytesToTake;
                     } else {
-                        voterPos = 0;
-                        voterIndex++;
+                        m.voterPos = 0;
+                        m.voterIndex++;
                     }
-                    nextSlot =
-                        nextSlot |
-                        bytes32(((voterData << (8 * pos)) >> (8 * count)));
+                    m.nextSlot |= bytes32(
+                        ((voterData << (8 * m.pos)) >> (8 * m.count))
+                    );
                 }
-                count += bytesToTake;
+                m.count += m.bytesToTake;
             }
-            if (count > 0) {
-                currentHash = keccak256(bytes.concat(currentHash, nextSlot));
-                hashCount++;
+            if (m.count > 0) {
+                currentHash = keccak256(bytes.concat(currentHash, m.nextSlot));
+                for (uint256 i = 0; i < m.count; i++) {
+                    signingPolicyBytes[m.signingPolicyPos] = m.nextSlot[i];
+                    m.signingPolicyPos++;
+                }
+                m.hashCount++;
             }
         }
         toSigningPolicyHash[_signingPolicy.rewardEpochId] = currentHash;
         lastInitializedRewardEpoch = _signingPolicy.rewardEpochId;
+        emit SigningPolicyInitialized(
+            _signingPolicy.rewardEpochId,
+            _signingPolicy.startVotingRoundId,
+            _signingPolicy.threshold,
+            _signingPolicy.seed,
+            _signingPolicy.voters,
+            _signingPolicy.weights,
+            signingPolicyBytes
+        );
+
         return currentHash;
     }
 
     /**
      * Finalization function for new signing policies and protocol messages.
      * It can be used as finalization contract on Flare chain or as relay contract on other EVM chain.
-     * Can be called in two modes. It expects calldata that is parsed in a custom manner. 
-     * Hence the transaction calls should assemble relevant calldata in the 'data' field. 
+     * Can be called in two modes. It expects calldata that is parsed in a custom manner.
+     * Hence the transaction calls should assemble relevant calldata in the 'data' field.
      * Depending on the data provided, the contract operations in essentially two modes:
      * (1) Relaying signing policy. The structure of the calldata is:
-     *        function signature (4 bytes) + active signing policy (2209 bytes) 
+     *        function signature (4 bytes) + active signing policy (2209 bytes)
      *             + 0 (1 byte) + new signing policy (2209 bytes),
      *     total of exactly 4423 bytes.
      * (2) Relaying signed message. The structure of the calldata is:
-     *        function signature (4 bytes) + signing policy (2209 bytes) 
+     *        function signature (4 bytes) + signing policy (2209 bytes)
      *           + signed message (38 bytes) + ECDSA signatures with indices (66 bytes each),
      *     total of 2251 + 66 * N bytes, where N is the number of signatures.
      */
@@ -296,7 +355,7 @@ contract Relay {
         // solhint-disable-next-line no-inline-assembly
         assembly {
             // Helper function to revert with a message
-            // Since string length cannot be determined in assembly easily, the matching length 
+            // Since string length cannot be determined in assembly easily, the matching length
             // of the message string must be provided.
             function revertWithMessage(_memPtr, _message, _msgLength) {
                 mstore(
@@ -330,6 +389,7 @@ contract Relay {
                 )
             }
 
+            // Helper function to assign value to right alligned byte encoded struct like object
             function structValue(_structObj, _valOffset, _valMask) -> _val {
                 _val := and(shr(_valOffset, _structObj), _valMask)
             }
@@ -423,10 +483,8 @@ contract Relay {
                 )
             }
 
-            // Helper function to assign value to right alligned byte encoded struct like object
-
-            // Constants
-            let memPtr := mload(0x40) // free memory pointer
+            // free memory pointer
+            let memPtr := mload(0x40)
             // NOTE: the struct is packed in reverse order of bytes
 
             // stateData loaded into memory to slot M_5_stateData
@@ -553,6 +611,16 @@ contract Relay {
                     MSG_NMR_BOFF_votingRoundId,
                     MSG_NMR_MASK_votingRoundId
                 )
+                // Check if merkleRoots[protocolId][votingRoundId] is set
+                // NOTE: M1 is already consumed. Hence using M_3 and M_4
+                mstore(add(memPtrGP0, M_3), protocolId) // key 1 (protocolId)
+                mstore(add(memPtrGP0, M_4), merkleRoots.slot) // merkleRoot slot
+                mstore(add(memPtrGP0, M_4), keccak256(add(memPtrGP0, M_3), 64))
+                mstore(add(memPtrGP0, M_3), votingRoundId) // key 2 (votingRoundId)
+
+                if gt(sload(keccak256(add(memPtrGP0, M_3), 64)), 0) {
+                    revertWithMessage(memPtrGP0, "Already relayed", 15)
+                }
 
                 // the usual reward epoch id
                 let messageRewardEpochId := rewardEpochIdFromVotingRoundId(
@@ -840,7 +908,7 @@ contract Relay {
                     and(mload(add(memPtrFor, M_3)), WEIGHT_MASK)
                 )
 
-                if gt(weight, threshold) {                    
+                if gt(weight, threshold) {
                     // If relaying messages, store the Merkle root
                     if gt(protocolId, 0) {
                         let votingRoundId := extractVotingRoundIdFromMessage(
@@ -879,7 +947,6 @@ contract Relay {
                                 SD_MASK_randomNumberProtocolId
                             )
                         ) {
-                            
                             // stateData.randomVotingRoundId = votingRoundId
                             mstore(
                                 add(memPtrFor, M_5_stateData),

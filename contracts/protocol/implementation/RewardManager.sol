@@ -11,11 +11,12 @@ import "../interface/IClaimSetupManager.sol";
 import "../lib/SafePct.sol";
 import "./VoterRegistry.sol";
 import "./FlareSystemManager.sol";
+import "./TokenPoolBase.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 //solhint-disable-next-line max-states-count
-contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPool {
+contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyGuard, IITokenPool {
     using MerkleProof for bytes32[];
     using SafeCast for uint256;
     using SafePct for uint256;
@@ -48,7 +49,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
 
     uint256 constant internal MAX_BIPS = 1e4;
     uint256 constant internal PPM_MAX = 1e6;
-    address payable constant internal BURN_ADDRESS = payable(0x000000000000000000000000000000000000dEaD);
 
     mapping(address => uint256) private rewardOwnerNextClaimableEpochId;
     mapping(uint64 => uint64) private epochVotePowerBlock;
@@ -85,8 +85,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     uint256 private totalInflationReceivedWei;
     uint256 private totalInflationAuthorizedWei;
 
-    uint256 private lastBalance;
-
     /// The VoterRegistry contract.
     VoterRegistry public voterRegistry;
     IClaimSetupManager public claimSetupManager;
@@ -120,11 +118,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         ClaimType claimType,
         uint120 amount
     );
-
-    modifier mustBalance {
-        _;
-        _checkMustBalance();
-    }
 
     /// This method can only be called if the contract is `active`.
     modifier onlyIfActive() {
@@ -168,7 +161,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         returns (uint256 _rewardAmountWei)
     {
         _checkNonzeroRecipient(_recipient);
-        _handleSelfDestructProceeds();
 
         uint24 currentRewardEpochId = _getCurrentRewardEpochId();
         if (epochVotePowerBlock[currentRewardEpochId] == 0) {
@@ -193,10 +185,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             totalClaimedWei += _rewardAmountWei;
             _transferOrWrap(_recipient, _rewardAmountWei, _wrap);
         }
-
-        //slither-disable-next-line reentrancy-eth      // guarded by nonReentrant
-        //solhint-disable-next-line reentrancy
-        lastBalance = address(this).balance;
     }
 
     // it supports only claiming from weight based claims
@@ -211,7 +199,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         mustBalance
         nonReentrant
     {
-        _handleSelfDestructProceeds();
         for (uint256 i = 0; i < _rewardOwners.length; i++) {
             _checkNonzeroRecipient(_rewardOwners[i]);
         }
@@ -249,9 +236,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         }
 
         _transferOrWrap(msg.sender, executorFeeValue * _rewardOwners.length, false);
-
-        //slither-disable-next-line reentrancy-eth      // guarded by nonReentrant
-        lastBalance = address(this).balance;
     }
 
     /**
@@ -262,12 +246,14 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         cChainStakeEnabled = true;
     }
 
-    function receiveOfferRewards(uint32 _rewardEpochId) external payable mustBalance {
-        // TODO - check allowed sender(s)
-        lastBalance = _handleSelfDestructProceeds();
+    function receiveRewards(uint32 _rewardEpochId, bool _inflation) external payable mustBalance {
+        // TODO - check allowed sender
         require(_rewardEpochId >= _getCurrentRewardEpochId(), "reward epoch id in the past");
         epochTotalRewards[_rewardEpochId] += msg.value.toUint120();
         totalFundsReceivedWei += msg.value;
+        if (_inflation) {
+            totalInflationReceivedWei = totalInflationReceivedWei + msg.value;
+        }
     }
 
     /**
@@ -549,11 +535,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
     {
         // get total reward amount
         uint120 totalRewards = epochTotalRewards[_rewardEpochId];
-        if (totalRewards == 0) {
-            // if not initialised yet, do it now
-            //_totalRewards = TODO get information from offers/poll?
-            epochTotalRewards[_rewardEpochId] = totalRewards;
-        }
         // get already initalised rewards
         uint120 initialisedRewards = epochInitialisedRewards[_rewardEpochId];
         _rewardAmount = _rewardClaimAmount;
@@ -652,9 +633,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             }
 
             // if undelegated vote power > 0 and _rewardOwner is a voter - claim self delegation rewards
-            if (delegatorBalance > delegatedVotePower &&
-                voterRegistry.getVoterSigningAddress(_epoch, _rewardOwner) != address(0))
-            {
+            if (delegatorBalance > delegatedVotePower && voterRegistry.isVoterRegistered(_rewardOwner, _epoch)) {
                 UnclaimedRewardState storage state =
                     epochTypeProviderUnclaimedReward[_epoch][ClaimType.WNAT][_rewardOwner];
                 // check if reward state is already initialised
@@ -790,19 +769,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         }
     }
 
-    function _handleSelfDestructProceeds() internal returns (uint256 _expectedBalance) {
-        _expectedBalance = lastBalance + msg.value;
-        uint256 currentBalance = address(this).balance;
-        if (currentBalance > _expectedBalance) {
-            // Then assume extra were self-destruct proceeds and burn it
-            //slither-disable-next-line arbitrary-send-eth
-            BURN_ADDRESS.transfer(currentBalance - _expectedBalance);
-        } else if (currentBalance < _expectedBalance) {
-            // This is a coding error
-            assert(false);
-        }
-    }
-
     /**
      * Implementation of the AddressUpdatable abstract method.
      */
@@ -868,7 +834,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         } else if (_claimType == ClaimType.MIRROR) {
             return pChainStakeMirror.votePowerOfAt(bytes20(_beneficiary), votePowerBlock).toUint128();
         } else if (_claimType == ClaimType.CCHAIN) {
-            return 0; // TODO cChain.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
+            return cChainStake.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
         } else {
             return 0;
         }
@@ -920,7 +886,7 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
         return flareSystemManager.getCurrentRewardEpochId();
     }
 
-    function _getExpectedBalance() private view returns(uint256 _balanceExpectedWei) {
+    function _getExpectedBalance() internal view override returns(uint256 _balanceExpectedWei) {
         return totalFundsReceivedWei - totalClaimedWei - totalBurnedWei;
     }
 
@@ -929,11 +895,6 @@ contract RewardManager is Governed, AddressUpdatable, ReentrancyGuard, IITokenPo
             return;
         }
         claimSetupManager.checkExecutorAndAllowedRecipient(msg.sender, _rewardOwner, _recipient);
-    }
-
-
-    function _checkMustBalance() private view {
-        require(address(this).balance == _getExpectedBalance(), "out of balance");
     }
 
     function _checkOnlyActive() private view {
