@@ -45,6 +45,21 @@ contract Relay {
         bytes signingPolicyBytes    // The full signing policy byte encoded.
     );
 
+    // Event is emitted when a signing policy is relayed.
+    // It contains minimalistic data in order to save gas. Data about the signing policy are
+    // extractable from the calldata, assuming prefered usage of direct top-level call to relay().
+    event SigningPolicyRelayed(
+        uint256 indexed rewardEpochId        // Reward epoch id
+    );
+
+    // Event is emitted when a protocol message is relayed.
+    event ProtocolMessageRelayed(
+        uint8 indexed protocolId,           // Protocol id
+        uint32 indexed votingRoundId,       // Voting round id
+        bool randomQualityScore,   // Random quality score
+        bytes32 merkleRoot          // Merkle root of the protocol message
+    );
+
     uint256 public constant THRESHOLD_BIPS = 10000;
     uint256 public constant SELECTOR_BYTES = 4;
 
@@ -147,7 +162,8 @@ contract Relay {
     uint256 public constant M_3_existingSigningPolicyHashTmp = 96;
     uint256 public constant M_4 = 128;
     uint256 public constant M_5_stateData = 160;
-    uint256 public constant M_6_signingPolicyLength = 192;
+    uint256 public constant M_6_merkleRoot = 192;
+
     uint256 public constant ADDRESS_OFFSET = 12;
     /* solhint-enable const-name-snakecase */
 
@@ -515,8 +531,6 @@ contract Relay {
                     ADDRESS_AND_WEIGHT_BYTES
                 )
             )
-            // storing signingPolicyLength to slot M_6_signingPolicyLength for access when stack is too deep
-            mstore(add(memPtr, M_6_signingPolicyLength), signingPolicyLength)
 
             // The calldata must be of length at least 4 function selector + signingPolicyLength + 1 protocolId
             if lt(
@@ -670,7 +684,7 @@ contract Relay {
                     )
                 }
 
-                // Prepera the message hash into slot 32
+                // Prepare the message hash into slot M_1
                 mstore(add(memPtrGP0, M_1), keccak256(memPtrGP0, MESSAGE_BYTES))
             }
 
@@ -772,6 +786,11 @@ contract Relay {
                 // Prepare the hash on slot 32 for signature verification
                 mstore(add(memPtrP0, M_1), newSigningPolicyHash)
                 // IMPORTANT: assumes that if threshold is not sufficient, the transaction will be reverted
+                
+                // emit event    
+                // use temporarily M_3 to store event signature
+                mstore(add(memPtrP0, M_3), "SigningPolicyRelayed(uint256)")
+                log2(memPtrP0, 0, keccak256(add(memPtrP0, M_3), 29), newSigningPolicyRewardEpochId)      
             }
 
             // Assumptions here:
@@ -915,9 +934,9 @@ contract Relay {
                             memPtrFor,
                             signingPolicyLength
                         )
-                        // M_3 <- Merkle root
+                        // M_6_merkleRoot <- Merkle root
                         calldatacopy(
-                            add(memPtrFor, M_3),
+                            add(memPtrFor, M_6_merkleRoot),
                             add(
                                 add(SELECTOR_BYTES, signingPolicyLength),
                                 sub(MESSAGE_BYTES, 32) // last 32 bytes are merkleRoot
@@ -935,7 +954,7 @@ contract Relay {
                         // merkleRoot stored at merkleRoots[protocolId][votingRoundId]
                         sstore(
                             keccak256(memPtrFor, 64),
-                            mload(add(memPtrFor, M_3))
+                            mload(add(memPtrFor, M_6_merkleRoot))
                         ) // set Merkle Root
 
                         // if protocolId == stateData.randomNumberProtocolId
@@ -990,8 +1009,28 @@ contract Relay {
                                 stateData.slot,
                                 mload(add(memPtrFor, M_5_stateData))
                             )
+
+                            // Reuse M_5_stateData for randomQualityScore, and use
+                            // M_6_merkleRoot together to provide data for event
+                            mstore(
+                                add(memPtrFor, M_5_stateData),
+                                structValue(
+                                    mload(add(memPtrFor, M_5_stateData)),
+                                    SD_BOFF_randomNumberQualityScore,
+                                    SD_MASK_randomNumberQualityScore
+                                )
+                            )
+                            // Use M_3 and M4 to store event signature
+                            mstore(add(memPtrFor, M_3), "ProtocolMessageRelayed(uint8,uin")
+                            mstore(add(memPtrFor, M_4), "t32,bool,bytes32)")
+                            log3(
+                                add(memPtrFor, M_5_stateData), 64, keccak256(add(memPtrFor, M_3), 49), 
+                                protocolId, votingRoundId
+                            )      
                         } // if protocolId == stateData.randomNumberProtocolId
                     } // if protocolId > 0
+                    // in case protocolId == 0, the new signing policy is already stored
+                    // and event emitted
                     // set _result to 1 to indicate successful relay/finalization
                     _result := 1
                     break

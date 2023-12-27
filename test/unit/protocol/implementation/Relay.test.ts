@@ -97,14 +97,17 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     const signingPolicy = encodeSigningPolicy(signingPolicyData).slice(2);
     const fullData = signingPolicy + fullMessage + signatures;
 
-    const receipt = await (
-      await signers[0].sendTransaction({
-        from: signers[0].address,
-        to: relay.address,
-        data: selector + fullData,
-      })
-    ).wait();
-
+    const receipt = await web3.eth.sendTransaction({
+      from: signers[0].address,
+      to: relay.address,
+      data: selector + fullData,
+    })
+    await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
+      protocolId: toBN(messageData.protocolId),
+      votingRoundId: toBN(messageData.votingRoundId),
+      randomQualityScore: messageData.randomQualityScore,
+      merkleRoot: merkleRoot,
+    });
     console.log("Gas used:", receipt?.gasUsed?.toString());
     const confirmedMerkleRoot = await relay.merkleRoots(messageData.protocolId, messageData.votingRoundId);
     expect(confirmedMerkleRoot).to.equal(merkleRoot);
@@ -343,26 +346,20 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
     const hashBefore = await relay.toSigningPolicyHash(newRewardEpoch);
     expect(hashBefore).to.equal(ZERO_BYTES32);
-    const receipt = await (
-      await signers[0].sendTransaction({
-        from: signers[0].address,
-        to: relay.address,
-        data: selector + fullData,
-      })
-    ).wait();
 
+    const receipt = await web3.eth.sendTransaction({
+      from: signers[0].address,
+      to: relay.address,
+      data: selector + fullData,
+    })
+    await expectEvent.inTransaction(receipt!.transactionHash, relay, "SigningPolicyRelayed", {
+      rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
+    });
     const hashAfter = await relay.toSigningPolicyHash(newRewardEpoch);
     expect(hashAfter).to.equal(localHash);
+    const lastInitializedRewardEpoch = await relay.lastInitializedRewardEpoch();
+    expect(lastInitializedRewardEpoch.toString()).to.equal(newRewardEpoch.toString());
     console.log("Gas used:", receipt?.gasUsed?.toString());
-
-    // const confirmedMerkleRoot = await relay.merkleRoots(messageData.protocolId, messageData.votingRoundId);
-    // expect(confirmedMerkleRoot).to.equal(merkleRoot);
-
-    // let stateData = await relay.stateData();
-    // expect(stateData.randomNumberProtocolId.toString()).to.be.equal(messageData.protocolId.toString());
-    // expect(stateData.randomVotingRoundId.toString()).to.be.equal(messageData.votingRoundId.toString());
-    // expect(stateData.randomNumberQualityScore.toString()).to.be.equal(messageData.randomQualityScore.toString());
-
   });
 
   it.skip("Should fail due to not provided new sign policy size", async () => {
@@ -419,11 +416,11 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
       expectEvent(await relay2.setSigningPolicy(newSigningPolicyData), "SigningPolicyInitialized",
         {
-          rewardEpochId: toBN(newSigningPolicyData.rewardEpochId), 
-          startVotingRoundId: toBN(newSigningPolicyData.startVotingRoundId), 
+          rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
+          startVotingRoundId: toBN(newSigningPolicyData.startVotingRoundId),
           voters: newSigningPolicyData.voters,
-          seed: toBN(newSigningPolicyData.seed), 
-          threshold: toBN(newSigningPolicyData.threshold), 
+          seed: toBN(newSigningPolicyData.seed),
+          threshold: toBN(newSigningPolicyData.threshold),
           weights: newSigningPolicyData.weights.map(x => toBN(x)),
           signingPolicyBytes: encodeSigningPolicy(newSigningPolicyData)
         });
