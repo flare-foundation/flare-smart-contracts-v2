@@ -156,7 +156,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         now = await time.latest();
 
         entityManager = await EntityManager.new(governanceSettings.address, accounts[0], 4);
-        voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, [accounts[0]]);
+        voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, accounts.slice(0,100));
 
         initialSigningPolicy = {
             rewardEpochId: 0,
@@ -277,10 +277,17 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         }
     });
 
-    it("Should register and confirm signing addresses", async () => {
+    it("Should register and confirm deposit signatures addresses", async () => {
         for (let i = 0; i < 4; i++) {
-            await entityManager.registerSigningAddress(accounts[20 + i], { from: registeredCAddresses[i] });
-            await entityManager.confirmSigningAddressRegistration(registeredCAddresses[i], { from: accounts[20 + i] });
+            await entityManager.registerDepositSignaturesAddress(accounts[20 + i], { from: registeredCAddresses[i] });
+            await entityManager.confirmDepositSignaturesAddressRegistration(registeredCAddresses[i], { from: accounts[20 + i] });
+        }
+    });
+
+    it("Should register and confirm signing policy addresses", async () => {
+        for (let i = 0; i < 4; i++) {
+            await entityManager.registerSigningPolicyAddress(accounts[30 + i], { from: registeredCAddresses[i] });
+            await entityManager.confirmSigningPolicyAddressRegistration(registeredCAddresses[i], { from: accounts[30 + i] });
         }
     });
 
@@ -300,14 +307,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const signingPolicy = encodeSigningPolicy(initialSigningPolicy).slice(2);
         const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
 
-        const tx = await submission.finalise(fullData);
-        console.log(tx.receipt.gasUsed);
-        // const tx = await web3.eth.sendTransaction({
-        //     from: accounts[0],
-        //     to: relay.address,
-        //     data: fullData,
-        // });
-        // console.log(tx.gasUsed);
+        const tx = await web3.eth.sendTransaction({
+            from: accounts[0],
+            to: relay.address,
+            data: fullData,
+        });
+        console.log(tx.gasUsed);
         expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
     });
 
@@ -316,9 +321,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should register a few voters", async () => {
+        const rewardEpochId = 1;
         for (let i = 0; i < 4; i++) {
-            expectEvent(await voterRegistry.requestWhitelisting(registeredCAddresses[i], { from: accounts[20 + i]}),
-                "VoterWhitelisted", {voter : registeredCAddresses[i], rewardEpochId: toBN(1), signingAddress: accounts[20 + i], dataProviderAddress: accounts[10 + i]});
+            const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+                ["uint24", "address"],
+                [rewardEpochId, registeredCAddresses[i]]));
+
+            const signature = web3.eth.accounts.sign(hash, privateKeys[30 + i].privateKey);
+            expectEvent(await voterRegistry.registerVoter(registeredCAddresses[i], signature),
+                "VoterRegistered", {voter : registeredCAddresses[i], rewardEpochId: toBN(1), signingPolicyAddress: accounts[30 + i], dataProviderAddress: accounts[10 + i], depositSignaturesAddress: accounts[20 + i]});
         }
     });
 
@@ -334,7 +345,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             threshold: Math.floor(65535 / 2),
             seed: RANDOM_ROOT,
             publicKeyMerkleRoot: "0x0000000000000000000000000000000000000000000000000000000000000000",
-            voters: accounts.slice(20, 24),
+            voters: accounts.slice(30, 34),
             weights: [39718, 19859, 3971, 1985]
         };
         expectEvent(await flareSystemManager.daemonize(), "SigningPolicyInitialized",
@@ -347,12 +358,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const rewardEpochId = 1;
         const newSigningPolicyHash = await relay.toSigningPolicyHash(rewardEpochId);
         const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-            ["uint64", "bytes32"],
+            ["uint24", "bytes32"],
             [rewardEpochId, newSigningPolicyHash]));
 
         const signature = web3.eth.accounts.sign(hash, privateKeys[0].privateKey);
         expectEvent(await flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature, { from: accounts[0] }), "SigningPolicySigned",
-            { rewardEpochId: toBN(1), signingAddress: accounts[0], voter: accounts[0], thresholdReached: true });
+            { rewardEpochId: toBN(1), signingPolicyAddress: accounts[0], voter: accounts[0], thresholdReached: true });
     });
 
     it("Should start new reward epoch and initiate new voting round", async () => {
@@ -387,9 +398,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         }
     });
 
-    it("Should sign", async () => {
+    it("Should deposit signature", async () => {
         for (let i = 0; i < 4; i++) {
-            expect(await submission.sign.call( { from: accounts[20 + i]})).to.be.true;
+            expect(await submission.depositSignatures.call( { from: accounts[20 + i]})).to.be.true;
         }
     });
 
@@ -401,11 +412,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const messageData: ProtocolMessageMerkleRoot = {protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: root};
         const fullMessage = encodeProtocolMessageMerkleRoot(messageData).slice(2);
         const messageHash = web3.utils.keccak256("0x" + fullMessage);
-        const signatures = await generateSignatures(privateKeys.slice(20, 24).map(x => x.privateKey), messageHash, 4);
+        const signatures = await generateSignatures(privateKeys.slice(30, 34).map(x => x.privateKey), messageHash, 4);
         const signingPolicy = encodeSigningPolicy(newSigningPolicy).slice(2);
         const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
 
-        await submission.finalise(fullData);
+        await web3.eth.sendTransaction({
+            from: accounts[0],
+            to: relay.address,
+            data: fullData,
+        });
         expect(await relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
         expect((await flareSystemManager.getCurrentRandom()).eq(toBN(root))).to.be.true;
         expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
@@ -429,11 +444,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const messageData: ProtocolMessageMerkleRoot = {protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT2};
         const fullMessage = encodeProtocolMessageMerkleRoot(messageData).slice(2);
         const messageHash = web3.utils.keccak256("0x" + fullMessage);
-        const signatures = await generateSignatures(privateKeys.slice(20, 24).map(x => x.privateKey), messageHash, 4);
+        const signatures = await generateSignatures(privateKeys.slice(30, 34).map(x => x.privateKey), messageHash, 4);
         const signingPolicy = encodeSigningPolicy(newSigningPolicy).slice(2);
         const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
 
-        await submission.finalise(fullData);
+        await web3.eth.sendTransaction({
+            from: accounts[0],
+            to: relay.address,
+            data: fullData,
+        });
         expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
     });
 
@@ -442,9 +461,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should register a few voters for reward epoch 2", async () => {
+        const rewardEpochId = 2;
         for (let i = 0; i < 4; i++) {
-            expectEvent(await voterRegistry.requestWhitelisting(registeredCAddresses[i], { from: accounts[20 + i]}),
-                "VoterWhitelisted", {voter : registeredCAddresses[i], rewardEpochId: toBN(2), signingAddress: accounts[20 + i], dataProviderAddress: accounts[10 + i]});
+            const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+                ["uint24", "address"],
+                [rewardEpochId, registeredCAddresses[i]]));
+
+            const signature = web3.eth.accounts.sign(hash, privateKeys[30 + i].privateKey);
+            expectEvent(await voterRegistry.registerVoter(registeredCAddresses[i], signature),
+                "VoterRegistered", {voter : registeredCAddresses[i], rewardEpochId: toBN(2), signingPolicyAddress: accounts[30 + i], dataProviderAddress: accounts[10 + i], depositSignaturesAddress: accounts[20 + i]});
         }
     });
 
@@ -455,7 +480,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC - 3600)); // at least 30 minutes from the vote power block selection
         const votingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
         expectEvent(await flareSystemManager.daemonize(), "SigningPolicyInitialized",
-            { rewardEpochId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(20, 24),
+            { rewardEpochId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(30, 34),
                 seed: toBN(RANDOM_ROOT2), threshold: toBN(32767), weights: [toBN(39718), toBN(19859), toBN(3971), toBN(1985)] });
     });
 
@@ -463,17 +488,17 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const rewardEpochId = 2;
         const newSigningPolicyHash = await relay.toSigningPolicyHash(rewardEpochId);
         const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-            ["uint64", "bytes32"],
+            ["uint24", "bytes32"],
             [rewardEpochId, newSigningPolicyHash]));
 
-        const signature = web3.eth.accounts.sign(hash, privateKeys[21].privateKey);
-        expectEvent(await flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature, { from: accounts[21] }), "SigningPolicySigned",
-            { rewardEpochId: toBN(2), signingAddress: accounts[21], voter: registeredCAddresses[1], thresholdReached: false });
-        const signature2 = web3.eth.accounts.sign(hash, privateKeys[20].privateKey);
-        expectEvent(await flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature2, { from: accounts[20] }), "SigningPolicySigned",
-            { rewardEpochId: toBN(2), signingAddress: accounts[20], voter: registeredCAddresses[0], thresholdReached: true });
-        const signature3 = web3.eth.accounts.sign(hash, privateKeys[22].privateKey);
-        await expectRevert(flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature3, { from: accounts[22] }), "new signing policy already signed");
+        const signature = web3.eth.accounts.sign(hash, privateKeys[31].privateKey);
+        expectEvent(await flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature), "SigningPolicySigned",
+            { rewardEpochId: toBN(2), signingPolicyAddress: accounts[31], voter: registeredCAddresses[1], thresholdReached: false });
+        const signature2 = web3.eth.accounts.sign(hash, privateKeys[30].privateKey);
+        expectEvent(await flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature2), "SigningPolicySigned",
+            { rewardEpochId: toBN(2), signingPolicyAddress: accounts[30], voter: registeredCAddresses[0], thresholdReached: true });
+        const signature3 = web3.eth.accounts.sign(hash, privateKeys[32].privateKey);
+        await expectRevert(flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature3), "new signing policy already signed");
 
     });
 
@@ -488,17 +513,17 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const rewardEpochId = 1;
         const uptimeVoteHash = web3.utils.keccak256("uptime");
         const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-            ["uint64", "bytes32"],
+            ["uint24", "bytes32"],
             [rewardEpochId, uptimeVoteHash]));
 
-        const signature = web3.eth.accounts.sign(hash, privateKeys[21].privateKey);
-        expectEvent(await flareSystemManager.signUptimeVote(rewardEpochId, uptimeVoteHash, signature, { from: accounts[21] }), "UptimeVoteSigned",
-            { rewardEpochId: toBN(1), signingAddress: accounts[21], voter: registeredCAddresses[1], thresholdReached: false });
-        const signature2 = web3.eth.accounts.sign(hash, privateKeys[20].privateKey);
-        expectEvent(await flareSystemManager.signUptimeVote(rewardEpochId, uptimeVoteHash, signature2, { from: accounts[20] }), "UptimeVoteSigned",
-            { rewardEpochId: toBN(1), signingAddress: accounts[20], voter: registeredCAddresses[0], thresholdReached: true });
-        const signature3 = web3.eth.accounts.sign(hash, privateKeys[22].privateKey);
-        await expectRevert(flareSystemManager.signUptimeVote(rewardEpochId, uptimeVoteHash, signature3, { from: accounts[22] }), "uptime vote hash already signed");
+        const signature = web3.eth.accounts.sign(hash, privateKeys[31].privateKey);
+        expectEvent(await flareSystemManager.signUptimeVote(rewardEpochId, uptimeVoteHash, signature), "UptimeVoteSigned",
+            { rewardEpochId: toBN(1), signingPolicyAddress: accounts[31], voter: registeredCAddresses[1], thresholdReached: false });
+        const signature2 = web3.eth.accounts.sign(hash, privateKeys[30].privateKey);
+        expectEvent(await flareSystemManager.signUptimeVote(rewardEpochId, uptimeVoteHash, signature2), "UptimeVoteSigned",
+            { rewardEpochId: toBN(1), signingPolicyAddress: accounts[30], voter: registeredCAddresses[0], thresholdReached: true });
+        const signature3 = web3.eth.accounts.sign(hash, privateKeys[32].privateKey);
+        await expectRevert(flareSystemManager.signUptimeVote(rewardEpochId, uptimeVoteHash, signature3), "uptime vote hash already signed");
         expect(await flareSystemManager.uptimeVoteHash(rewardEpochId)).to.be.equal(uptimeVoteHash);
     });
 
@@ -507,17 +532,17 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const noOfWeightBasedClaims = 5;
         const rewardsVoteHash = web3.utils.keccak256("rewards");
         const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-            ["uint64", "uint64", "bytes32"],
+            ["uint24", "uint64", "bytes32"],
             [rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash]));
 
-        const signature = web3.eth.accounts.sign(hash, privateKeys[21].privateKey);
-        expectEvent(await flareSystemManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature, { from: accounts[21] }), "RewardsSigned",
-            { rewardEpochId: toBN(1), signingAddress: accounts[21], voter: registeredCAddresses[1], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: false });
-        const signature2 = web3.eth.accounts.sign(hash, privateKeys[20].privateKey);
-        expectEvent(await flareSystemManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature2, { from: accounts[20] }), "RewardsSigned",
-            { rewardEpochId: toBN(1), signingAddress: accounts[20], voter: registeredCAddresses[0], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: true });
-        const signature3 = web3.eth.accounts.sign(hash, privateKeys[22].privateKey);
-        await expectRevert(flareSystemManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature3, { from: accounts[22] }), "rewards hash already signed");
+        const signature = web3.eth.accounts.sign(hash, privateKeys[31].privateKey);
+        expectEvent(await flareSystemManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature), "RewardsSigned",
+            { rewardEpochId: toBN(1), signingPolicyAddress: accounts[31], voter: registeredCAddresses[1], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: false });
+        const signature2 = web3.eth.accounts.sign(hash, privateKeys[30].privateKey);
+        expectEvent(await flareSystemManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature2), "RewardsSigned",
+            { rewardEpochId: toBN(1), signingPolicyAddress: accounts[30], voter: registeredCAddresses[0], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: true });
+        const signature3 = web3.eth.accounts.sign(hash, privateKeys[32].privateKey);
+        await expectRevert(flareSystemManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature3), "rewards hash already signed");
         expect(await flareSystemManager.rewardsHash(rewardEpochId)).to.be.equal(rewardsVoteHash);
         expect((await flareSystemManager.noOfWeightBasedClaims(rewardEpochId)).toNumber()).to.be.equal(noOfWeightBasedClaims);
     });

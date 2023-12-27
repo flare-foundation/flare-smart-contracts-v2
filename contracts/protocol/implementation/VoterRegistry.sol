@@ -8,22 +8,19 @@ import "./EntityManager.sol";
 import "./FlareSystemManager.sol";
 import "../../governance/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * Only addresses registered in this contract can vote.
  */
 contract VoterRegistry is Governed, AddressUpdatable {
 
-    struct VoterInfo {
-        address voter; // entity
-        address signingAddress;
-        address dataProviderAddress;
-        uint256 weight;
-    }
-
-    struct VoterWithNormalisedWeight {
-        address voter; // entity
-        uint16 weight;
+    struct VotersAndWeights {
+        address[] voters;
+        mapping (address => uint256) weights;
+        uint128 weightsSum;
+        uint16 normalisedWeightsSum;
     }
 
     struct VoterData {
@@ -34,22 +31,27 @@ contract VoterRegistry is Governed, AddressUpdatable {
         uint256[] nodeWeights;
     }
 
+    struct Signature {
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
     uint256 internal constant UINT16_MAX = type(uint16).max;
     uint256 internal constant UINT256_MAX = type(uint256).max;
 
-    /// Maximum number of voters in the whitelist.
+    /// Maximum number of voters in the register.
     uint256 public maxVoters;
 
     /// In case of providing bad votes (e.g. ftso collusion), the voter can be chilled for a few reward epochs.
-    /// A voter can whitelist again from a returned reward epoch onwards.
+    /// A voter can register again from a returned reward epoch onwards.
     mapping(address => uint256) public chilledUntilRewardEpochId;
 
-    // mapping: rewardEpochId => list of whitelisted voters for each reward epoch
-    mapping(uint256 => VoterInfo[]) internal whitelist;
+    // mapping: rewardEpochId => list of registered voters and their weights
+    mapping(uint256 => VotersAndWeights) internal register;
 
-    // mapping: rewardEpochId => mapping: signing address => voter with normalised weight
-    mapping(uint256 => mapping(address => VoterWithNormalisedWeight)) internal epochSigningAddressToVoter;
-    mapping(uint256 => mapping(address => address)) internal epochVoterToSigningAddress;
+    // mapping: rewardEpochId => block number of new signing policy initialisation start
+    mapping(uint256 => uint256) public newSigningPolicyInitializationStartBlockNumber;
 
     // Addresses of the external contracts.
     FlareSystemManager public flareSystemManager;
@@ -61,11 +63,12 @@ contract VoterRegistry is Governed, AddressUpdatable {
 
     event VoterChilled(address voter, uint256 untilRewardEpochId);
     event VoterRemoved(address voter, uint256 rewardEpochId);
-    event VoterWhitelisted(
-        address voter,
+    event VoterRegistered(
         uint256 rewardEpochId,
-        address signingAddress,
+        address voter,
+        address signingPolicyAddress,
         address dataProviderAddress,
+        address depositSignaturesAddress,
         uint256 weight,
         uint256 wNatWeight,
         uint256 cChainStakeWeight,
@@ -75,7 +78,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
 
     /// Only FlareSystemManager contract can call this method.
     modifier onlyFlareSystemManager {
-        require(msg.sender == address(flareSystemManager), "only flareSystemManager");
+        require(msg.sender == address(flareSystemManager), "only flare system manager");
         _;
     }
 
@@ -89,28 +92,35 @@ contract VoterRegistry is Governed, AddressUpdatable {
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
+        require(_maxVoters <= UINT16_MAX, "_maxVoters too high");
         maxVoters = _maxVoters;
 
         uint256 length = _initialVoters.length;
-        uint16 normalisedWeight = uint16(UINT16_MAX / length);
+        require(length > 0 && length <= _maxVoters, "_initialVoters length invalid");
+        uint256 weight = UINT16_MAX / length;
+        VotersAndWeights storage votersAndWeights = register[_firstRewardEpochId];
         for (uint256 i = 0; i < length; i++) {
-            address voter = _initialVoters[i];
-            epochSigningAddressToVoter[_firstRewardEpochId][voter] =
-                VoterWithNormalisedWeight(voter, normalisedWeight);
-            epochVoterToSigningAddress[_firstRewardEpochId][voter] = voter;
+            votersAndWeights.voters.push(_initialVoters[i]);
+            votersAndWeights.weights[_initialVoters[i]] = weight;
         }
+        votersAndWeights.weightsSum = uint128(weight * length);
+        votersAndWeights.normalisedWeightsSum = uint16(weight * length);
     }
 
     /**
-     * Request to whitelist voter
+     * Register voter
      */
-    function requestWhitelisting(address _voter) external {
-        address signingAddress = entityManager.getSigningAddress(_voter);
-        require(signingAddress == msg.sender, "invalid signing address for voter");
+    function registerVoter(address _voter, Signature calldata _signature) external {
         uint256 untilRewardEpochId = chilledUntilRewardEpochId[_voter];
-        uint256 nextRewardEpochId = flareSystemManager.getCurrentRewardEpochId() + 1;
+        uint32 nextRewardEpochId = flareSystemManager.getCurrentRewardEpochId() + 1;
         require(untilRewardEpochId == 0 || untilRewardEpochId <= nextRewardEpochId, "voter chilled");
-        bool success = _requestWhitelistingVoter(_voter, signingAddress, nextRewardEpochId);
+        bytes32 messageHash = keccak256(abi.encode(nextRewardEpochId, _voter));
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+        address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
+        uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[nextRewardEpochId];
+        EntityManager.VoterAddresses memory voterAddresses = entityManager.getVoterAddresses(_voter, initBlock);
+        require(signingPolicyAddress == voterAddresses.signingPolicyAddress, "invalid signature");
+        bool success = _registerVoter(_voter, voterAddresses, nextRewardEpochId);
         require(success, "vote power too low");
     }
 
@@ -141,6 +151,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     )
         external onlyGovernance
     {
+        require(_maxVoters <= UINT16_MAX, "_maxVoters too high");
         maxVoters = _maxVoters;
     }
 
@@ -153,96 +164,114 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Creates signing policy snapshot and returns the list of whitelisted signing addresses
-       and normalised weights for a given reward epoch
+     * Sets new signing policy initialisation start block number
+     */
+    function setNewSigningPolicyInitializationStartBlockNumber(uint256 _rewardEpochId)
+        external onlyFlareSystemManager
+    {
+        // this is only called once from FlareSystemManager
+        assert(newSigningPolicyInitializationStartBlockNumber[_rewardEpochId] == 0);
+        newSigningPolicyInitializationStartBlockNumber[_rewardEpochId] = block.number;
+    }
+
+    /**
+     * Creates signing policy snapshot and returns the list of registered signing policy addresses
+     * and normalised weights for a given reward epoch
      */
     function createSigningPolicySnapshot(uint256 _rewardEpochId)
         external onlyFlareSystemManager
         returns (
-            address[] memory _signingAddresses,
+            address[] memory _signingPolicyAddresses,
             uint16[] memory _normalisedWeights,
             uint16 _normalisedWeightsSum
         )
     {
-        VoterInfo[] storage voters = whitelist[_rewardEpochId];
-        uint256 length = voters.length;
+        VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
+        uint256 length = votersAndWeights.voters.length;
         assert(length > 0);
-        _signingAddresses = new address[](length);
-        _normalisedWeights = new uint16[](length);
+        address[] memory voters = new address[](length);
         uint256[] memory weights = new uint256[](length);
         uint256 weightsSum = 0;
         for (uint256 i = 0; i < length; i++) {
-            VoterInfo storage voter = voters[i];
-            _signingAddresses[i] = voter.signingAddress;
-            weights[i] = voter.weight;
+            voters[i] = votersAndWeights.voters[i];
+            weights[i] = votersAndWeights.weights[voters[i]];
             weightsSum += weights[i];
         }
 
+        // get signing policy addresses
+        _signingPolicyAddresses = entityManager.getSigningPolicyAddresses(voters,
+            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+
+        _normalisedWeights = new uint16[](length);
         // normalisation of weights
         for (uint256 i = 0; i < length; i++) {
             _normalisedWeights[i] = uint16(weights[i] * UINT16_MAX / weightsSum); // weights[i] <= weightsSum
             _normalisedWeightsSum += _normalisedWeights[i];
-            address voter = voters[i].voter;
-            epochVoterToSigningAddress[_rewardEpochId][_signingAddresses[i]] = voter;
-            epochSigningAddressToVoter[_rewardEpochId][_signingAddresses[i]] =
-                VoterWithNormalisedWeight(voter, _normalisedWeights[i]);
         }
+
+        votersAndWeights.weightsSum = uint128(weightsSum);
+        votersAndWeights.normalisedWeightsSum = _normalisedWeightsSum;
     }
 
     /**
-     * Returns the list of whitelisted voters for a given reward epoch
+     * Returns the list of registered voters for a given reward epoch
      */
-    function getWhitelistedVoters(uint256 _rewardEpochId) external view returns (VoterInfo[] memory) {
-        return whitelist[_rewardEpochId];
+    function getRegisteredVoters(uint256 _rewardEpochId) external view returns (address[] memory) {
+        return register[_rewardEpochId].voters;
     }
 
     /**
-     * Returns the list of whitelisted data provider addresses for a given reward epoch
+     * Returns the list of registered voters' data provider addresses for a given reward epoch
      */
-    function getWhitelistedDataProviderAddresses(
+    function getRegisteredDataProviderAddresses(
         uint256 _rewardEpochId
     )
         external view
-        returns (address[] memory _dataProviderAddresses)
+        returns (address[] memory)
     {
-        VoterInfo[] storage voters = whitelist[_rewardEpochId];
-        uint256 length = voters.length;
-        _dataProviderAddresses = new address[](length);
-        for (uint256 i = 0; i < length; i++) {
-            _dataProviderAddresses[i] = voters[i].dataProviderAddress;
-        }
+        return entityManager.getDataProviderAddresses(register[_rewardEpochId].voters,
+            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
     }
 
     /**
-     * Returns the list of whitelisted signing addresses for a given reward epoch
+     * Returns the list of registered voters' deposit signatures addresses for a given reward epoch
      */
-    function getWhitelistedSigningAddresses(
+    function getRegisteredDepositSignaturesAddresses(
         uint256 _rewardEpochId
     )
         external view
-        returns (address[] memory _signingAddresses)
+        returns (address[] memory _signingPolicyAddresses)
     {
-        VoterInfo[] storage voters = whitelist[_rewardEpochId];
-        uint256 length = voters.length;
-        _signingAddresses = new address[](length);
-        for (uint256 i = 0; i < length; i++) {
-            _signingAddresses[i] = voters[i].signingAddress;
-        }
+        return entityManager.getDepositSignaturesAddresses(register[_rewardEpochId].voters,
+            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
     }
 
     /**
-     * Returns the number of whitelisted voters for a given reward epoch
+     * Returns the list of registered voters' signing policy addresses for a given reward epoch
      */
-    function getNumberOfWhitelistedVoters(uint256 _rewardEpochId) external view returns (uint256) {
-        return whitelist[_rewardEpochId].length;
+    function getRegisteredSigningPolicyAddresses(
+        uint256 _rewardEpochId
+    )
+        external view
+        returns (address[] memory _signingPolicyAddresses)
+    {
+        return entityManager.getSigningPolicyAddresses(register[_rewardEpochId].voters,
+            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
     }
 
     /**
-     * Returns voter's address and normalised weight for a given reward epoch and signing address
+     * Returns the number of registered voters for a given reward epoch
+     */
+    function getNumberOfRegisteredVoters(uint256 _rewardEpochId) external view returns (uint256) {
+        return register[_rewardEpochId].voters.length;
+    }
+
+    /**
+     * Returns voter's address and normalised weight for a given reward epoch and signing policy address
      */
     function getVoterWithNormalisedWeight(
         uint256 _rewardEpochId,
-        address _signingAddress
+        address _signingPolicyAddress
     )
         external view
         returns (
@@ -250,24 +279,16 @@ contract VoterRegistry is Governed, AddressUpdatable {
             uint16 _normalisedWeight
         )
     {
-        VoterWithNormalisedWeight storage data = epochSigningAddressToVoter[_rewardEpochId][_signingAddress];
-        _voter = data.voter;
-        _normalisedWeight = data.weight;
+        uint256 weightsSum = register[_rewardEpochId].weightsSum;
+        require(weightsSum > 0, "reward epoch id not supported");
+        _voter = entityManager.getVoterForSigningPolicyAddress(_signingPolicyAddress,
+            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+        uint256 weight = register[_rewardEpochId].weights[_voter];
+        _normalisedWeight = uint16(weight * UINT16_MAX / weightsSum);
     }
 
-    /**
-     * Returns voter's signing address
-     */
-    function getVoterSigningAddress(
-        uint256 _rewardEpochId,
-        address _voter
-    )
-        external view
-        returns (
-            address _signingAddress
-        )
-    {
-        return epochVoterToSigningAddress[_rewardEpochId][_voter];
+    function isVoterRegistered(address _voter, uint256 _rewardEpochId) external view returns(bool) {
+        return register[_rewardEpochId].weights[_voter] > 0;
     }
 
     /**
@@ -291,11 +312,11 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Request to whitelist `_voter` account - implementation.
+     * Request to register `_voter` account - implementation.
      */
-    function _requestWhitelistingVoter(
+    function _registerVoter(
         address _voter,
-        address _signingAddress,
+        EntityManager.VoterAddresses memory _voterAddresses,
         uint256 _rewardEpochId
     )
         internal returns(bool)
@@ -307,47 +328,53 @@ contract VoterRegistry is Governed, AddressUpdatable {
         VoterData memory voterData = _getVoterData(_voter, votePowerBlock);
         require(voterData.weight > 0, "voter weight zero");
 
-        VoterInfo[] storage addressesForRewardEpochId = whitelist[_rewardEpochId];
-        uint256 length = addressesForRewardEpochId.length;
+        VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
 
-        bool isListFull = length >= maxVoters; // length > maxVoters could happen if maxVoters value was reduced
-        uint256 minIndex = 0;
-        uint256 minIndexWeight = UINT256_MAX;
-
-        // check if it contains _voter and find minimum to kick out (if needed)
-        for (uint256 i = 0; i < length; i++) {
-            VoterInfo storage voter = addressesForRewardEpochId[i];
-            if (voter.voter == _voter) {
-                // _voter is already whitelisted, return
-                return true;
-            } else if (isListFull && minIndexWeight > voter.weight) { // TODO optimize reading?
-                minIndexWeight = voter.weight;
-                minIndex = i;
-            }
+        // check if _voter already registered
+        if (votersAndWeights.weights[_voter] > 0) {
+            return true;
         }
 
-        if (isListFull && minIndexWeight >= voterData.weight) {
-            // _voter has the lowest weight among all
-            return false;
-        }
 
-        address dataProviderAddress = entityManager.getDataProviderAddress(_voter);
-        if (isListFull) {
-            // kick the minIndex out and replace it with _voter
-            address removedVoter = addressesForRewardEpochId[minIndex].voter;
-            addressesForRewardEpochId[minIndex] =
-                VoterInfo(_voter, _signingAddress, dataProviderAddress, voterData.weight);
-            emit VoterRemoved(removedVoter, _rewardEpochId);
-        } else {
+        uint256 length = votersAndWeights.voters.length;
+
+        if (length < maxVoters) {
             // we can just add a new one
-            addressesForRewardEpochId.push(VoterInfo(_voter, _signingAddress, dataProviderAddress, voterData.weight));
+            votersAndWeights.voters.push(_voter);
+            votersAndWeights.weights[_voter] = voterData.weight;
+        } else {
+            // find minimum to kick out (if needed)
+            uint256 minIndex = 0;
+            uint256 minIndexWeight = UINT256_MAX;
+
+            for (uint256 i = 0; i < length; i++) {
+                address voter = votersAndWeights.voters[i];
+                uint256 voterWeight = votersAndWeights.weights[voter];
+                if (minIndexWeight > voterWeight) {
+                    minIndexWeight = voterWeight;
+                    minIndex = i;
+                }
+            }
+
+            if (minIndexWeight >= voterData.weight) {
+                // _voter has the lowest weight among all
+                return false;
+            }
+
+            // kick the minIndex out and replace it with _voter
+            address removedVoter = votersAndWeights.voters[minIndex];
+            delete votersAndWeights.weights[removedVoter];
+            votersAndWeights.voters[minIndex] = _voter;
+            votersAndWeights.weights[_voter] = voterData.weight;
+            emit VoterRemoved(removedVoter, _rewardEpochId);
         }
 
-        emit VoterWhitelisted(
-            _voter,
+        emit VoterRegistered(
             _rewardEpochId,
-            _signingAddress,
-            dataProviderAddress,
+            _voter,
+            _voterAddresses.signingPolicyAddress,
+            _voterAddresses.dataProviderAddress,
+            _voterAddresses.depositSignaturesAddress,
             voterData.weight,
             voterData.wNatWeight,
             voterData.cChainStakeWeight,
