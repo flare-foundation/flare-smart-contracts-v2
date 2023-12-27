@@ -15,13 +15,13 @@ contract Submission is Governed, AddressUpdatable {
     mapping(address => bool) private commitAddresses;
     mapping(address => bool) private submitAddresses;
     mapping(address => bool) private revealAddresses;
-    mapping(address => bool) private signingAddresses;
+    mapping(address => bool) private depositSignaturesAddresses;
 
     event NewVotingRoundInitiated();
 
     /// Only FlareSystemManager contract can call this method.
     modifier onlyFlareSystemManager {
-        require(msg.sender == address(flareSystemManager), "only flareSystemManager");
+        require(msg.sender == address(flareSystemManager), "only flare system manager");
         _;
     }
 
@@ -39,7 +39,7 @@ contract Submission is Governed, AddressUpdatable {
     function initNewVotingRound(
         address[] calldata _commitSubmitAddresses,
         address[] calldata _revealAddresses,
-        address[] calldata _signingAddresses
+        address[] calldata _depositSignaturesAddresses
     )
         external
         onlyFlareSystemManager
@@ -47,16 +47,19 @@ contract Submission is Governed, AddressUpdatable {
         for (uint256 i = 0; i < _commitSubmitAddresses.length; i++) {
             commitAddresses[_commitSubmitAddresses[i]] = true;
         }
+
         if (submitMethodEnabled) {
             for (uint256 i = 0; i < _commitSubmitAddresses.length; i++) {
                 submitAddresses[_commitSubmitAddresses[i]] = true;
             }
         }
+
         for (uint256 i = 0; i < _revealAddresses.length; i++) {
             revealAddresses[_revealAddresses[i]] = true;
         }
-        for (uint256 i = 0; i < _signingAddresses.length; i++) {
-            signingAddresses[_signingAddresses[i]] = true;
+
+        for (uint256 i = 0; i < _depositSignaturesAddresses.length; i++) {
+            depositSignaturesAddresses[_depositSignaturesAddresses[i]] = true;
         }
 
         emit NewVotingRoundInitiated();
@@ -78,9 +81,9 @@ contract Submission is Governed, AddressUpdatable {
         return false;
     }
 
-    function sign() external returns (bool) {
-        if(signingAddresses[msg.sender]) {
-            delete signingAddresses[msg.sender];
+    function depositSignatures() external returns (bool) {
+        if(depositSignaturesAddresses[msg.sender]) {
+            delete depositSignaturesAddresses[msg.sender];
             return true;
         }
         return false;
@@ -92,16 +95,6 @@ contract Submission is Governed, AddressUpdatable {
             return true;
         }
         return false;
-    }
-
-    function finalise(bytes calldata _data) external returns (bool) {
-        /* solhint-disable avoid-low-level-calls */
-        //slither-disable-next-line arbitrary-send-eth
-        (bool success, bytes memory e) = address(relay).call(_data);
-        /* solhint-enable avoid-low-level-calls */
-        require(success, _getRevertMsg(e));
-
-        return true;
     }
 
     function setSubmitMethodEnabled(bool _enabled) external onlyGovernance {
@@ -120,17 +113,5 @@ contract Submission is Governed, AddressUpdatable {
         flareSystemManager = FlareSystemManager(_getContractAddress(
             _contractNameHashes, _contractAddresses, "FlareSystemManager"));
         relay = Relay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
-    }
-
-    function _getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {
-        // If the _res length is less than 68, then the transaction failed silently (without a revert message)
-        if (_returnData.length < 68) return "Transaction reverted silently";
-
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            // Slice the sighash.
-            _returnData := add(_returnData, 0x04)
-        }
-        return abi.decode(_returnData, (string)); // All that remains is the revert string
     }
 }

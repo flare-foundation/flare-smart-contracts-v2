@@ -51,7 +51,7 @@ library NodesHistory {
         CheckPointHistoryState storage _self,
         bytes20 _nodeId,
         bool _add,
-        uint256 _maxNodeIds
+        uint32 _maxNodeIds
     )
         internal
     {
@@ -84,25 +84,6 @@ library NodesHistory {
                 _copyAndUpdateNodeIds(cp, lastCheckpoint, _nodeId, _add, _maxNodeIds);
                 cp.nodeIds[0].fromBlock = SafeCast.toUint64(block.number);
             }
-        }
-    }
-
-    /**
-     * Clear all nodeIds at this moment.
-     * @param _self A CheckPointHistoryState instance to manage.
-     */
-    function clear(CheckPointHistoryState storage _self) internal {
-        uint256 historyCount = _self.length;
-        if (historyCount > 0) {
-            // add an empty checkpoint
-            CheckPoint storage cp = _self.checkpoints[historyCount];
-            _self.length = SafeCast.toUint64(historyCount + 1);
-            // create empty checkpoint = only set fromBlock
-            cp.nodeIds[0] = Node({
-                nodeId: bytes20(0),
-                fromBlock: SafeCast.toUint64(block.number),
-                length: 0
-            });
         }
     }
 
@@ -155,7 +136,9 @@ library NodesHistory {
         returns (uint256 _count)
     {
         (bool found, uint256 index) = _findGreatestBlockLessThan(_self, _blockNumber);
-        if (!found) return 0;
+        if (!found) {
+            return 0;
+        }
         return _self.checkpoints[index].nodeIds[0].length;
     }
 
@@ -342,21 +325,26 @@ library NodesHistory {
             uint256 _index
         )
     {
-        uint256 startIndex = _self.startIndex;
         uint256 historyCount = _self.length;
+        // No _checkpoints, return (false, 0)
         if (historyCount == 0) {
-            _found = false;
-        } else if (_blockNumber >= block.number ||
-                _blockNumber >= _self.checkpoints[historyCount - 1].nodeIds[0].fromBlock) {
-            _found = true;
-            _index = historyCount - 1;  // safe, historyCount != 0 in this branch
-        } else if (_blockNumber < _self.checkpoints[startIndex].nodeIds[0].fromBlock) {
+            return (false, 0);
+        }
+
+        // Shortcut for the actual node ids (extra optimized for current block, to save one storage read)
+        // historyCount - 1 is safe, since historyCount != 0
+        if (_blockNumber >= block.number || _blockNumber >= _self.checkpoints[historyCount - 1].nodeIds[0].fromBlock) {
+            return (true, historyCount - 1);
+        }
+
+        uint256 startIndex = _self.startIndex;
+        if (_blockNumber < _self.checkpoints[startIndex].nodeIds[0].fromBlock) {
             // reading data before `_startIndex` is only safe before first cleanup
             require(startIndex == 0, "NodesHistory: reading from cleaned-up block");
-            _found = false;
-        } else {
-            _found = true;
-            _index = _binarySearchGreatestBlockLessThan(_self.checkpoints, startIndex, historyCount, _blockNumber);
+            return (false, 0);
         }
+
+        // Find the block with number less than or equal to block given
+        return (true, _binarySearchGreatestBlockLessThan(_self.checkpoints, startIndex, historyCount, _blockNumber));
     }
 }
