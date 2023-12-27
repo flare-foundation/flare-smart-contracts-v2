@@ -319,12 +319,67 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     ).to.be.revertedWith("Not enough weight");
   });
 
-  it.skip("Should relay with old signing policy and 20% signatures more", async () => {
+  it("Should relay with old signing policy and 20% signatures more", async () => {
+
+    const newMessageData = { ...messageData };
+    newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs; // shift to next reward epoch
+    let fullMessage = encodeProtocolMessageMerkleRoot(newMessageData).slice(2);
+
+    const messageHash = ethers.keccak256("0x" + fullMessage);
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      messageHash,
+      Math.round(N * 0.6) + 1
+    );
+
+    const signingPolicy = encodeSigningPolicy(signingPolicyData).slice(2);
+    const fullData = signingPolicy + fullMessage + signatures;
+
+    const receipt = await web3.eth.sendTransaction({
+      from: signers[0].address,
+      to: relay.address,
+      data: selector + fullData,
+    })
+    await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
+      protocolId: toBN(newMessageData.protocolId),
+      votingRoundId: toBN(newMessageData.votingRoundId),
+      randomQualityScore: newMessageData.randomQualityScore,
+      merkleRoot: merkleRoot,
+    });
+    console.log("Gas used:", receipt?.gasUsed?.toString());
+    const confirmedMerkleRoot = await relay.merkleRoots(newMessageData.protocolId, newMessageData.votingRoundId);
+    expect(confirmedMerkleRoot).to.equal(merkleRoot);
+
+    let stateData = await relay.stateData();
+    expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
+    expect(stateData.randomVotingRoundId.toString()).to.be.equal(newMessageData.votingRoundId.toString());
+    expect(stateData.randomNumberQualityScore.toString()).to.be.equal(newMessageData.randomQualityScore.toString());
 
   });
 
-  it.skip("Should fail to relay with old signing policy with just 50% of signatures", async () => {
+  it("Should fail to relay with old signing policy and 20% signatures more due to slightly less weight", async () => {
 
+    const newMessageData = { ...messageData };
+    newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs + 1; // shift to next reward epoch
+    let fullMessage = encodeProtocolMessageMerkleRoot(newMessageData).slice(2);
+
+    const messageHash = ethers.keccak256("0x" + fullMessage);
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      messageHash,
+      Math.round(N * 0.6)
+    );
+
+    const signingPolicy = encodeSigningPolicy(signingPolicyData).slice(2);
+    const fullData = signingPolicy + fullMessage + signatures;
+
+    await expect(
+      signers[0].sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData,
+      })
+    ).to.be.revertedWith("Not enough weight");
   });
 
   it("Should relay new signing policy", async () => {
@@ -333,6 +388,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     newSigningPolicyData.rewardEpochId = newRewardEpoch;
     newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
     newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
+    newSigningPolicyData.threshold = Math.round(newSigningPolicyData.threshold / 2);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
     const localHash = signingPolicyHash(encodeSigningPolicy(newSigningPolicyData));
     const signatures = await generateSignatures(
@@ -362,38 +418,252 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     console.log("Gas used:", receipt?.gasUsed?.toString());
   });
 
-  it.skip("Should fail due to not provided new sign policy size", async () => {
+  it("Should fail to relay again the message with new signing policy", async () => {
+    const newMessageData = { ...messageData };
+    newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs; // shift to next reward epoch
+    let fullMessage = encodeProtocolMessageMerkleRoot(newMessageData).slice(2);
+    const messageHash = ethers.keccak256("0x" + fullMessage);
+
+    const newSigningPolicyData = { ...signingPolicyData };
+    const newRewardEpoch = newSigningPolicyData.rewardEpochId + 1;
+    newSigningPolicyData.rewardEpochId = newRewardEpoch;
+    newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
+    newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
+    newSigningPolicyData.threshold = Math.round(newSigningPolicyData.threshold / 2);
+    newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
+    const newSigningPolicy = encodeSigningPolicy(newSigningPolicyData).slice(2);
+
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      messageHash,
+      26
+    );
+
+    const signingPolicy = encodeSigningPolicy(signingPolicyData).slice(2);
+    const fullData = newSigningPolicy + fullMessage + signatures;
+
+    await expect(
+      signers[0].sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData,
+      })
+    ).to.be.revertedWith("Already relayed");
+  });
+
+  it("Should relay with new signing policy", async () => {
+    const newMessageData = { ...messageData };
+    newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs + 1; // shift to next reward epoch
+    let fullMessage = encodeProtocolMessageMerkleRoot(newMessageData).slice(2);
+    const messageHash = ethers.keccak256("0x" + fullMessage);
+
+    const newSigningPolicyData = { ...signingPolicyData };
+    const newRewardEpoch = newSigningPolicyData.rewardEpochId + 1;
+    newSigningPolicyData.rewardEpochId = newRewardEpoch;
+    newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
+    newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
+    newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
+    newSigningPolicyData.threshold = Math.round(newSigningPolicyData.threshold / 2);
+    const newSigningPolicy = encodeSigningPolicy(newSigningPolicyData).slice(2);
+
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      messageHash,
+      26
+    );
+
+    const signingPolicy = encodeSigningPolicy(signingPolicyData).slice(2);
+    const fullData = newSigningPolicy + fullMessage + signatures;
+
+    const receipt = await web3.eth.sendTransaction({
+      from: signers[0].address,
+      to: relay.address,
+      data: selector + fullData,
+    })
+    await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
+      protocolId: toBN(newMessageData.protocolId),
+      votingRoundId: toBN(newMessageData.votingRoundId),
+      randomQualityScore: newMessageData.randomQualityScore,
+      merkleRoot: merkleRoot,
+    });
+    console.log("Gas used:", receipt?.gasUsed?.toString());
+    const confirmedMerkleRoot = await relay.merkleRoots(newMessageData.protocolId, newMessageData.votingRoundId);
+    expect(confirmedMerkleRoot).to.equal(merkleRoot);
+
+    let stateData = await relay.stateData();
+    expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
+    expect(stateData.randomVotingRoundId.toString()).to.be.equal(newMessageData.votingRoundId.toString());
+    expect(stateData.randomNumberQualityScore.toString()).to.be.equal(newMessageData.randomQualityScore.toString());
+
+  });
+
+
+  it("Should fail due to not provided new sign policy size", async () => {
     // "No new sign policy size"
 
+    const newSigningPolicyData = { ...signingPolicyData };
+    const newRewardEpoch = newSigningPolicyData.rewardEpochId + 1;
+    newSigningPolicyData.rewardEpochId = newRewardEpoch;
+    newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
+    newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
+    newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
+    const localHash = signingPolicyHash(encodeSigningPolicy(newSigningPolicyData));
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      localHash,
+      N / 2 + 1
+    );
+    const newSigningPolicy = encodeSigningPolicy(newSigningPolicyData).slice(2);
+    const signingPolicy = encodeSigningPolicy(signingPolicyData).slice(2);
+    const fullData = signingPolicy + "00";
+
+    await expect(
+      signers[0].sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData,
+      })
+    ).to.be.revertedWith("No new sign policy size");
   });
 
-  it.skip("Should fail due to wrong size of new signing policy", async () => {
+  it("Should fail due to wrong size of new signing policy", async () => {
     // "Wrong size for new sign policy"
+    const newSigningPolicyData = { ...signingPolicyData };
+    const newRewardEpoch = newSigningPolicyData.rewardEpochId + 1;
+    newSigningPolicyData.rewardEpochId = newRewardEpoch;
+    newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
+    newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
+    newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
+    const localHash = signingPolicyHash(encodeSigningPolicy(newSigningPolicyData));
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      localHash,
+      N / 2 + 1
+    );
+    let newSigningPolicy = encodeSigningPolicy(newSigningPolicyData).slice(2);
+    const signingPolicy = encodeSigningPolicy(signingPolicyData).slice(2);
+    newSigningPolicy = (parseInt(newSigningPolicy.slice(0, 4), 16) + 1).toString(16).padStart(4, "0") + newSigningPolicy.slice(4);
+    const fullData = signingPolicy + "00" + newSigningPolicy;
+
+    await expect(
+      signers[0].sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData,
+      })
+    ).to.be.revertedWith("Wrong size for new sign policy");
+
 
   });
 
-  it.skip("Should fail due to providing new signing policy for a wrong reward epoch", async () => {
+  it("Should fail due to providing new signing policy for a wrong reward epoch", async () => {
     // "Not next reward epoch"
+    const newSigningPolicyData = { ...signingPolicyData };
+    const lastInitializedRewardEpoch = parseInt((await relay.lastInitializedRewardEpoch()).toString());
+    const newRewardEpoch = lastInitializedRewardEpoch + 2;
+    newSigningPolicyData.rewardEpochId = newRewardEpoch;
+    newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
+    newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
+    newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
+    const localHash = signingPolicyHash(encodeSigningPolicy(newSigningPolicyData));
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      localHash,
+      N / 2 + 1
+    );
+    const newSigningPolicy = encodeSigningPolicy(newSigningPolicyData).slice(2);
+    const signingPolicy = encodeSigningPolicy(signingPolicyData).slice(2);
+    const fullData = signingPolicy + "00" + newSigningPolicy + signatures;
+
+    await expect(
+      signers[0].sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData,
+      })
+    ).to.be.revertedWith("Not next reward epoch");
+  });
+
+  it("Should fail due to wrong length of signature data", async () => {
+    // "Not enough signatures"
+    const newSigningPolicyData = { ...signingPolicyData };
+    const lastInitializedRewardEpoch = parseInt((await relay.lastInitializedRewardEpoch()).toString());
+    const newRewardEpoch = lastInitializedRewardEpoch + 1;
+    newSigningPolicyData.rewardEpochId = newRewardEpoch;
+    newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
+    newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
+    newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
+    const localHash = signingPolicyHash(encodeSigningPolicy(newSigningPolicyData));
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      localHash,
+      N / 2 + 1
+    );
+    const newSigningPolicy = encodeSigningPolicy(newSigningPolicyData).slice(2);
+    const signingPolicy = encodeSigningPolicy(signingPolicyData).slice(2);
+    const fullData = signingPolicy + "00" + newSigningPolicy + signatures.slice(0, -2);
+
+    await expect(
+      signers[0].sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData,
+      })
+    ).to.be.revertedWith("Not enough signatures");
+
 
   });
 
-  it.skip("Should fail due to wrong length of signature data", async () => {
-    // "Wrong signatures length"
-
-  });
-
-  it.skip("Should fail due to a wrong signature", async () => {
+  it("Should fail due to a wrong signature", async () => {
     // "Wrong signature"
+    const newSigningPolicyData = { ...signingPolicyData };
+    const lastInitializedRewardEpoch = parseInt((await relay.lastInitializedRewardEpoch()).toString());
+    const newRewardEpoch = lastInitializedRewardEpoch + 1;
+    newSigningPolicyData.rewardEpochId = newRewardEpoch;
+    newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
+    newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
+    newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
+    const localHash = signingPolicyHash(encodeSigningPolicy(newSigningPolicyData));
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      localHash,
+      N / 2 + 1
+    );
+    const newSigningPolicy = encodeSigningPolicy(newSigningPolicyData).slice(2);
+    const signingPolicy = encodeSigningPolicy(signingPolicyData).slice(2);
+    const tweakedSignatures = signatures.slice(0, -6) + ((parseInt(signatures.slice(-6, -4), 16) + 1) % 256).toString(16).padStart(2, "0") + signatures.slice(-4);
+    const fullData = signingPolicy + "00" + newSigningPolicy + tweakedSignatures;
+    await expect(
+      signers[0].sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData,
+      })
+    ).to.be.revertedWith("Wrong signature");
+
 
   });
-  it.skip("Should fail due message already relayed", async () => {
+  it("Should fail due message already relayed", async () => {
     // "Already relayed"
 
-  });
+    const fullMessage = encodeProtocolMessageMerkleRoot(messageData).slice(2);
+    const messageHash = ethers.keccak256("0x" + fullMessage);
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      messageHash,
+      N / 2 + 1
+    );
 
+    const signingPolicy = encodeSigningPolicy(signingPolicyData).slice(2);
+    const fullData = signingPolicy + fullMessage + signatures;
 
-
-  it.skip("Should relay with new signing policy", async () => {
+    await expect(
+      signers[0].sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData,
+      })
+    ).to.be.revertedWith("Already relayed");
 
   });
 
