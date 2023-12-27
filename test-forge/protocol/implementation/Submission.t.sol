@@ -162,13 +162,13 @@ contract SubmissionTest is Test {
         assertEq(randomCallSub, false, "62");
 
         vm.prank(usersGen[0]);
-        bool firstCallSig = submission.sign();
+        bool firstCallSig = submission.depositSignatures();
         assertEq(firstCallSig, true, "72");
         vm.prank(usersGen[0]);
-        bool secondCallSig = submission.sign();
+        bool secondCallSig = submission.depositSignatures();
         assertEq(secondCallSig, false, "73");
         vm.prank(makeAddr("randomAddress12391234891"));
-        bool radnomCallSig = submission.sign();
+        bool radnomCallSig = submission.depositSignatures();
         assertEq(radnomCallSig, false, "74");
     }
 }
