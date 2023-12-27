@@ -43,7 +43,7 @@ export interface ProtocolMessageMerkleRoot {
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * Encodes signing policy into hex string without 0x prefix representing byte encoding
+ * Encodes signing policy into 0x-prefixed hex string representing byte encoding
  * @param policy
  * @returns
  */
@@ -151,7 +151,7 @@ export function decodeSigningPolicy(encodedPolicy: string): SigningPolicy {
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * Encodes ECDSA signature with index into hex string without 0x prefix representing byte encoding
+ * Encodes ECDSA signature with index into 0x-prefixed hex string representing byte encoding
  * @param signature
  * @returns
  */

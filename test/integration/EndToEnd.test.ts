@@ -337,7 +337,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             voters: accounts.slice(20, 24),
             weights: [39718, 19859, 3971, 1985]
         };
-        expectEvent(await flareSystemManager.daemonize(), "SigningPolicyInitialized",
+
+        const receipt = await flareSystemManager.daemonize();
+        await expectEvent.inTransaction(receipt.tx, relay, "SigningPolicyInitialized",
             { rewardEpochId: toBN(1), startVotingRoundId: toBN(startVotingRoundId), voters: newSigningPolicy.voters,
                 seed: toBN(RANDOM_ROOT), threshold: toBN(32767), weights: newSigningPolicy.weights.map(x => toBN(x)) });
         expect(await relay.toSigningPolicyHash(1)).to.be.equal(getSigningPolicyHash(newSigningPolicy));
@@ -454,7 +456,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         }
         await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC - 3600)); // at least 30 minutes from the vote power block selection
         const votingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
-        expectEvent(await flareSystemManager.daemonize(), "SigningPolicyInitialized",
+        const receipt = await flareSystemManager.daemonize()
+        await expectEvent.inTransaction(receipt.tx, relay, "SigningPolicyInitialized",
             { rewardEpochId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(20, 24),
                 seed: toBN(RANDOM_ROOT2), threshold: toBN(32767), weights: [toBN(39718), toBN(19859), toBN(3971), toBN(1985)] });
     });

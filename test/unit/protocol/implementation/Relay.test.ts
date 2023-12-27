@@ -11,7 +11,8 @@ import {
   signingPolicyHash,
 } from "../../../../scripts/libs/protocol/protocol-coder";
 import { HardhatNetworkAccountConfig } from "hardhat/types";
-import { expectRevert } from "@openzeppelin/test-helpers";
+import { expectEvent, expectRevert } from "@openzeppelin/test-helpers";
+import { toBN } from "../../../utils/test-helpers";
 
 const Relay = artifacts.require("Relay");
 const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -116,7 +117,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   });
 
   it("Should fail to relay due to low weight", async () => {
-    const fullMessage = encodeProtocolMessageMerkleRoot(messageData).slice(2);
+    const newMessageData = { ...messageData };
+    newMessageData.votingRoundId++;
+    const fullMessage = encodeProtocolMessageMerkleRoot(newMessageData).slice(2);
     const messageHash = ethers.keccak256("0x" + fullMessage);
 
     const signatures = await generateSignatures(
@@ -138,7 +141,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   });
 
   it("Should fail to relay due non increasing signature indices", async () => {
-    const fullMessage = encodeProtocolMessageMerkleRoot(messageData).slice(2);
+    const newMessageData = { ...messageData };
+    newMessageData.votingRoundId++;
+    const fullMessage = encodeProtocolMessageMerkleRoot(newMessageData).slice(2);
     const messageHash = ethers.keccak256("0x" + fullMessage);
 
     const signatures = await generateSignatures(
@@ -161,7 +166,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   });
 
   it("Should fail to relay due signature indices out of range", async () => {
-    const fullMessage = encodeProtocolMessageMerkleRoot(messageData).slice(2);
+    const newMessageData = { ...messageData };
+    newMessageData.votingRoundId++;
+    const fullMessage = encodeProtocolMessageMerkleRoot(newMessageData).slice(2);
     const messageHash = ethers.keccak256("0x" + fullMessage);
 
     const signatures = await generateSignatures(
@@ -382,6 +389,11 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     // "Wrong signature"
 
   });
+  it.skip("Should fail due message already relayed", async () => {
+    // "Already relayed"
+
+  });
+
 
 
   it.skip("Should relay with new signing policy", async () => {
@@ -405,7 +417,17 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
 
-      const receipt = await relay2.setSigningPolicy(newSigningPolicyData);
+      expectEvent(await relay2.setSigningPolicy(newSigningPolicyData), "SigningPolicyInitialized",
+        {
+          rewardEpochId: toBN(newSigningPolicyData.rewardEpochId), 
+          startVotingRoundId: toBN(newSigningPolicyData.startVotingRoundId), 
+          voters: newSigningPolicyData.voters,
+          seed: toBN(newSigningPolicyData.seed), 
+          threshold: toBN(newSigningPolicyData.threshold), 
+          weights: newSigningPolicyData.weights.map(x => toBN(x)),
+          signingPolicyBytes: encodeSigningPolicy(newSigningPolicyData)
+        });
+
 
       // console.dir(receipt);
       let lastInitializedRewardEpoch = (await relay2.lastInitializedRewardEpoch()).toString();

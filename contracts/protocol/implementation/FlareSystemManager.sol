@@ -134,20 +134,6 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     /// The PriceSubmitter contract.
     IPriceSubmitter public priceSubmitter;
 
-    event SigningPolicyInitialized(
-        uint24 rewardEpochId,       // Reward epoch id
-        uint32 startVotingRoundId,  // First voting round id of validity.
-                                    // Usually it is the first voting round of reward epoch rewardEpochId.
-                                    // It can be later,
-                                    // if the confirmation of the signing policy on Flare blockchain gets delayed.
-        uint16 threshold,           // Confirmation threshold (absolute value of noramalised weights).
-        uint256 seed,               // Random seed.
-        address[] voters,           // The list of eligible voters in the canonical order.
-        uint16[] weights            // The corresponding list of normalised signing weights of eligible voters.
-                                    // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
-                                    // while approximately keeping the weight relations.
-    );
-
     event RandomAcquisitionStarted(
         uint24 rewardEpochId,       // Reward epoch id
         uint64 timestamp            // Timestamp when this happened
@@ -524,15 +510,6 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         state.startVotingRoundId = signingPolicy.startVotingRoundId;
         state.threshold = signingPolicy.threshold;
         relay.setSigningPolicy(signingPolicy);
-
-        emit SigningPolicyInitialized(
-            signingPolicy.rewardEpochId,
-            signingPolicy.startVotingRoundId,
-            signingPolicy.threshold,
-            signingPolicy.seed,
-            signingPolicy.voters,
-            signingPolicy.weights
-        );
     }
 
     /**
