@@ -48,8 +48,7 @@ contract FtsoRewardOffersManager is Governed, InflationReceiver {
         // elastic band width in PPM (parts per million) in relation to the median price.
         uint256 elasticBandWidthPPM,
         // Each offer defines IQR and PCT share in PPM (parts per million). The sum of all offers must be 1M.
-        uint256 iqrSharePPM,
-        uint256 pctSharePPM,
+        uint256[2] iqrAndPctSharesPPM,
         address remainderClaimer,  // address that can claim undistributed part of the reward
         bool inflationRewards // indicates if offer is triggered by system (inflation)
     );
@@ -104,8 +103,7 @@ contract FtsoRewardOffersManager is Governed, InflationReceiver {
                 offer.leadProviders,
                 offer.rewardBeltPPM,
                 offer.elasticBandWidthPPM,
-                offer.iqrSharePPM,
-                offer.pctSharePPM,
+                [offer.iqrSharePPM, offer.pctSharePPM],
                 remainderClaimer,
                 false
             );
