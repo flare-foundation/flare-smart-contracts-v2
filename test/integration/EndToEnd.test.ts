@@ -163,7 +163,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             startVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
             threshold: 65500 / 2,
             seed: web3.utils.keccak256("123"),
-            publicKeyMerkleRoot: "0x0000000000000000000000000000000000000000000000000000000000000000",
             voters: accounts.slice(0, 100),
             weights: Array(100).fill(655)
         };
@@ -344,7 +343,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             startVotingRoundId: startVotingRoundId,
             threshold: Math.floor(65535 / 2),
             seed: RANDOM_ROOT,
-            publicKeyMerkleRoot: "0x0000000000000000000000000000000000000000000000000000000000000000",
             voters: accounts.slice(30, 34),
             weights: [39718, 19859, 3971, 1985]
         };

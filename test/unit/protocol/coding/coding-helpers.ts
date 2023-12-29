@@ -8,7 +8,6 @@ export function defaultTestSigningPolicy(accounts: string[], N: number, singleWe
     rewardEpochId: 1,
     startVotingRoundId: 1,
     threshold: Math.ceil((N / 2) * singleWeight),
-    publicKeyMerkleRoot: "0x0000000000000000000000000000000000000000000000000000000000000000",
     seed: "0x1122334455667788990011223344556677889900112233445566778899001122",          
   } as SigningPolicy;
   for (let i = 0; i < N; i++) {

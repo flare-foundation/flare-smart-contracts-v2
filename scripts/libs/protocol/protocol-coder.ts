@@ -9,7 +9,6 @@ export interface SigningPolicy {
   rewardEpochId: number;
   startVotingRoundId: number;
   threshold: number;
-  publicKeyMerkleRoot: string;
   seed: string;
   voters: string[];
   weights: number[];
@@ -66,9 +65,6 @@ export function encodeSigningPolicy(policy: SigningPolicy) {
   if (!/^0x[0-9a-f]{64}$/i.test(policy.seed)) {
     throw Error(`Invalid random seed format: ${policy.seed}`);
   }
-  if (!/^0x[0-9a-f]{64}$/i.test(policy.publicKeyMerkleRoot)) {
-    throw Error(`Invalid public key Merkle root format: ${policy.publicKeyMerkleRoot}`);
-  }
 
   if (policy.rewardEpochId < 0 || policy.rewardEpochId > 2 ** 24 - 1) {
     throw Error(`Reward epoch id out of range: ${policy.rewardEpochId}`);
@@ -85,7 +81,6 @@ export function encodeSigningPolicy(policy: SigningPolicy) {
     policy.rewardEpochId.toString(16).padStart(6, "0") +
     policy.startVotingRoundId.toString(16).padStart(8, "0") +
     policy.threshold.toString(16).padStart(4, "0") +
-    policy.publicKeyMerkleRoot.slice(2) +
     policy.seed.slice(2) +
     signersAndWeights
   ).toLowerCase();
@@ -134,7 +129,6 @@ export function decodeSigningPolicy(encodedPolicy: string): SigningPolicy {
     rewardEpochId,
     startVotingRoundId: startingVotingRoundId,
     threshold,
-    publicKeyMerkleRoot,
     seed: randomSeed,
     voters: signers,
     weights,

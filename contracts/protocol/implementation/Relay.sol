@@ -68,7 +68,6 @@ contract Relay {
     // 3 bytes - rewardEpochId
     // 4 bytes - startingVotingRoundId
     // 2 bytes - threshold
-    // 32 bytes - public key Merkle root
     // 32 bytes - randomSeed
     // array of 'size':
     // - 20 bytes address
@@ -90,14 +89,13 @@ contract Relay {
     uint256 public constant MD_BOFF_numberOfVoters = 72;
     /* solhint-enable const-name-snakecase */
 
-    uint256 public constant PUBLIC_KEY_MERKLE_ROOT_BYTES = 32;
     uint256 public constant RANDOM_SEED_BYTES = 32;
     uint256 public constant ADDRESS_BYTES = 20;
     uint256 public constant WEIGHT_BYTES = 2;
     uint256 public constant WEIGHT_MASK = 0xffff;
     uint256 public constant ADDRESS_AND_WEIGHT_BYTES = 22; // ADDRESS_BYTES + WEIGHT_BYTES;
-    //METADATA_BYTES + PUBLIC_KEY_MERKLE_ROOT_BYTES + RANDOM_SEED_BYTES;
-    uint256 public constant SIGNING_POLICY_PREFIX_BYTES = 75;
+    //METADATA_BYTES + RANDOM_SEED_BYTES;
+    uint256 public constant SIGNING_POLICY_PREFIX_BYTES = 43;
 
     // Protocol message merkle root structure
     // 1 byte - protocolId
@@ -251,8 +249,9 @@ contract Relay {
             bytes3(_signingPolicy.rewardEpochId),
             bytes4(_signingPolicy.startVotingRoundId),
             bytes2(_signingPolicy.threshold),
-            bytes32(uint256(0)), // TODO: for this Merkle root should be calculated
-            bytes21(uint168(_signingPolicy.seed >> (8 * 11)))
+            bytes32(uint256(_signingPolicy.seed)),
+            bytes20(_signingPolicy.voters[0]),
+            bytes1(uint8(_signingPolicy.weights[0] >> 8))
         );
 
         for (; m.signingPolicyPos < 64; m.signingPolicyPos++) {
@@ -260,19 +259,6 @@ contract Relay {
         }
 
         bytes32 currentHash = keccak256(toHash);
-        toHash = bytes.concat(
-            currentHash,
-            bytes11(bytes32(_signingPolicy.seed << (8 * 21))),
-            bytes20(_signingPolicy.voters[0]),
-            bytes1(uint8(_signingPolicy.weights[0] >> 8))
-        );
-
-        for (uint256 toHashPos = 32; toHashPos < toHash.length; toHashPos++) {
-            signingPolicyBytes[m.signingPolicyPos] = toHash[toHashPos];
-            m.signingPolicyPos++;
-        }
-
-        currentHash = keccak256(toHash);
 
         m.weightIndex = 0;
         m.weightPos = 1;
