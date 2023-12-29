@@ -109,7 +109,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
-    const confirmedMerkleRoot = await relay.merkleRoots(messageData.protocolId, messageData.votingRoundId);
+    const confirmedMerkleRoot = await relay.getConfirmedMerkleRoot(messageData.protocolId, messageData.votingRoundId);
     expect(confirmedMerkleRoot).to.equal(merkleRoot);
 
     let stateData = await relay.stateData();
@@ -344,7 +344,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
-    const confirmedMerkleRoot = await relay.merkleRoots(newMessageData.protocolId, newMessageData.votingRoundId);
+    const confirmedMerkleRoot = await relay.getConfirmedMerkleRoot(newMessageData.protocolId, newMessageData.votingRoundId);
     expect(confirmedMerkleRoot).to.equal(merkleRoot);
 
     let stateData = await relay.stateData();
@@ -482,7 +482,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
-    const confirmedMerkleRoot = await relay.merkleRoots(newMessageData.protocolId, newMessageData.votingRoundId);
+    const confirmedMerkleRoot = await relay.getConfirmedMerkleRoot(newMessageData.protocolId, newMessageData.votingRoundId);
     expect(confirmedMerkleRoot).to.equal(merkleRoot);
 
     let stateData = await relay.stateData();

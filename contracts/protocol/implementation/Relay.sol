@@ -1064,4 +1064,15 @@ contract Relay {
             (_timestamp - stateData.firstVotingRoundStartTs) /
             stateData.votingEpochDurationSeconds;
     }
+
+    function getConfirmedMerkleRoot(uint256 _protocolId, uint256 _votingRoundId)
+        external
+        view
+        returns (bytes32)
+    {
+        if(_protocolId == 0) {
+            return toSigningPolicyHash[_votingRoundId];
+        }
+        return merkleRoots[_protocolId][_votingRoundId];
+    }
 }

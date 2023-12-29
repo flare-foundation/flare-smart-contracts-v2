@@ -423,7 +423,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             to: relay.address,
             data: fullData,
         });
-        expect(await relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
+        expect(await relay.getConfirmedMerkleRoot(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
         expect((await flareSystemManager.getCurrentRandom()).eq(toBN(root))).to.be.true;
         expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
     });
