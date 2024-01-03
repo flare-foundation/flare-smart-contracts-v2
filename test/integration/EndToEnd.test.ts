@@ -163,7 +163,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             startVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
             threshold: 65500 / 2,
             seed: web3.utils.keccak256("123"),
-            publicKeyMerkleRoot: "0x0000000000000000000000000000000000000000000000000000000000000000",
             voters: accounts.slice(0, 100),
             weights: Array(100).fill(655)
         };
@@ -344,7 +343,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             startVotingRoundId: startVotingRoundId,
             threshold: Math.floor(65535 / 2),
             seed: RANDOM_ROOT,
-            publicKeyMerkleRoot: "0x0000000000000000000000000000000000000000000000000000000000000000",
             voters: accounts.slice(30, 34),
             weights: [39718, 19859, 3971, 1985]
         };
@@ -425,7 +423,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             to: relay.address,
             data: fullData,
         });
-        expect(await relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
+        expect(await relay.getConfirmedMerkleRoot(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
         expect((await flareSystemManager.getCurrentRandom()).eq(toBN(root))).to.be.true;
         expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
     });
