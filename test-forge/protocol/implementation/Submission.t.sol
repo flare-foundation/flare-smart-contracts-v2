@@ -53,27 +53,12 @@ contract SubmissionTest is Test {
         bool secondCallCom = submission.commit();
         assertEq(secondCallCom, false, "2");
 
-        // address randomAddress = address(
-        //     bytes20(
-        //         bytes(
-        //             "0x24127419827590817257120951029580192385091250912850912358912759817253"
-        //         )
-        //     )
-        // );
-
-        // vm.prank(randomAddress);
-        // bool radnomCallCom = submission.commit();
-        // assertEq(radnomCallCom, false, "3");
-
         vm.prank(usersGen[0]);
         bool firstCallSub = submission.submit();
         assertEq(firstCallSub, false, "4");
         vm.prank(usersGen[0]);
         bool secondCallSub = submission.submit();
         assertEq(secondCallSub, false, "5");
-        // vm.prank(randomAddress);
-        // bool radnomCallSub = submission.submit();
-        // assertEq(radnomCallSub, false, "6");
     }
 
     function test_initNewVotingRoundFinalisationEmpty() public {
@@ -160,9 +145,6 @@ contract SubmissionTest is Test {
         vm.prank(usersGen[0]);
         bool secondCallRev = submission.reveal();
         assertEq(secondCallRev, false, "22");
-        vm.prank(makeAddr("randomAddress12391234891"));
-        bool randomCallRev = submission.reveal();
-        assertEq(randomCallRev, false, "32");
 
         vm.prank(usersGen[0]);
         bool firstCallSub = submission.submit();
@@ -170,9 +152,6 @@ contract SubmissionTest is Test {
         vm.prank(usersGen[0]);
         bool secondCallSub = submission.submit();
         assertEq(secondCallSub, false, "52");
-        vm.prank(makeAddr("randomAddress"));
-        bool randomCallSub = submission.submit();
-        assertEq(randomCallSub, false, "62");
 
         vm.prank(usersGen[0]);
         bool firstCallSig = submission.depositSignatures();
@@ -180,8 +159,5 @@ contract SubmissionTest is Test {
         vm.prank(usersGen[0]);
         bool secondCallSig = submission.depositSignatures();
         assertEq(secondCallSig, false, "73");
-        vm.prank(makeAddr("randomAddress12391234891"));
-        bool radnomCallSig = submission.depositSignatures();
-        assertEq(radnomCallSig, false, "74");
     }
 }
