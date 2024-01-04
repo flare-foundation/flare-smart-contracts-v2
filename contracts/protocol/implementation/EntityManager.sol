@@ -249,6 +249,20 @@ contract EntityManager is Governed {
         }
     }
 
+    function getDelegationAddresses(address[] memory _voters, uint256 _blockNumber)
+        external view
+        returns (address[] memory _delegationAddresses)
+    {
+        uint256 length = _voters.length;
+        _delegationAddresses = new address[](length);
+        for (uint256 i = 0; i < length; i++) {
+            _delegationAddresses[i] = register[_voters[i]].delegationAddress.addressAt(_blockNumber);
+            if (_delegationAddresses[i] == address(0)) {
+                _delegationAddresses[i] = _voters[i];
+            }
+        }
+    }
+
     function getSigningPolicyAddresses(address[] memory _voters, uint256 _blockNumber)
         external view
         returns (address[] memory _signingPolicyAddresses)
@@ -297,6 +311,16 @@ contract EntityManager is Governed {
         _voter = signingPolicyAddressRegistered[_signingPolicyAddress].addressAt(_blockNumber);
         if (_voter == address(0)) {
             _voter = _signingPolicyAddress;
+        }
+    }
+
+    function getVoterForDelegationAddress(address _delegationAddress, uint256 _blockNumber)
+        external view
+        returns (address _voter)
+    {
+        _voter = delegationAddressRegistered[_delegationAddress].addressAt(_blockNumber);
+        if (_voter == address(0)) {
+            _voter = _delegationAddress;
         }
     }
 }
