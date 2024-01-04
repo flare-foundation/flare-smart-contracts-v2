@@ -67,8 +67,9 @@ contract VoterRegistry is Governed, AddressUpdatable {
         uint256 rewardEpochId,
         address voter,
         address signingPolicyAddress,
-        address dataProviderAddress,
-        address depositSignaturesAddress,
+        address delegationAddress,
+        address submitAddress,
+        address submitSignaturesAddress,
         uint256 weight,
         uint256 wNatWeight,
         uint256 cChainStakeWeight,
@@ -88,7 +89,8 @@ contract VoterRegistry is Governed, AddressUpdatable {
         address _addressUpdater,
         uint256 _maxVoters,
         uint256 _firstRewardEpochId,
-        address[] memory _initialVoters
+        address[] memory _initialVoters,
+        uint16[] memory _initialNormalisedWeights
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
@@ -97,14 +99,16 @@ contract VoterRegistry is Governed, AddressUpdatable {
 
         uint256 length = _initialVoters.length;
         require(length > 0 && length <= _maxVoters, "_initialVoters length invalid");
-        uint256 weight = UINT16_MAX / length;
+        require(length == _initialNormalisedWeights.length, "array lengths do not match");
         VotersAndWeights storage votersAndWeights = register[_firstRewardEpochId];
+        uint16 weightsSum = 0;
         for (uint256 i = 0; i < length; i++) {
             votersAndWeights.voters.push(_initialVoters[i]);
-            votersAndWeights.weights[_initialVoters[i]] = weight;
+            votersAndWeights.weights[_initialVoters[i]] = _initialNormalisedWeights[i];
+            weightsSum += _initialNormalisedWeights[i];
         }
-        votersAndWeights.weightsSum = uint128(weight * length);
-        votersAndWeights.normalisedWeightsSum = uint16(weight * length);
+        votersAndWeights.weightsSum = weightsSum;
+        votersAndWeights.normalisedWeightsSum = weightsSum;
     }
 
     /**
@@ -223,26 +227,26 @@ contract VoterRegistry is Governed, AddressUpdatable {
     /**
      * Returns the list of registered voters' data provider addresses for a given reward epoch
      */
-    function getRegisteredDataProviderAddresses(
+    function getRegisteredSubmitAddresses(
         uint256 _rewardEpochId
     )
         external view
         returns (address[] memory)
     {
-        return entityManager.getDataProviderAddresses(register[_rewardEpochId].voters,
+        return entityManager.getSubmitAddresses(register[_rewardEpochId].voters,
             newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
     }
 
     /**
      * Returns the list of registered voters' deposit signatures addresses for a given reward epoch
      */
-    function getRegisteredDepositSignaturesAddresses(
+    function getRegisteredSubmitSignaturesAddresses(
         uint256 _rewardEpochId
     )
         external view
         returns (address[] memory _signingPolicyAddresses)
     {
-        return entityManager.getDepositSignaturesAddresses(register[_rewardEpochId].voters,
+        return entityManager.getSubmitSignaturesAddresses(register[_rewardEpochId].voters,
             newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
     }
 
@@ -325,7 +329,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
         (uint256 votePowerBlock, bool enabled) = flareSystemManager.getVoterRegistrationData(_rewardEpochId);
         require(votePowerBlock != 0, "vote power block zero");
         require(enabled, "voter registration phase ended");
-        VoterData memory voterData = _getVoterData(_voter, votePowerBlock);
+        VoterData memory voterData = _getVoterData(_voter, _voterAddresses.delegationAddress, votePowerBlock);
         require(voterData.weight > 0, "voter weight zero");
 
         VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
@@ -373,8 +377,9 @@ contract VoterRegistry is Governed, AddressUpdatable {
             _rewardEpochId,
             _voter,
             _voterAddresses.signingPolicyAddress,
-            _voterAddresses.dataProviderAddress,
-            _voterAddresses.depositSignaturesAddress,
+            _voterAddresses.delegationAddress,
+            _voterAddresses.submitAddress,
+            _voterAddresses.submitSignaturesAddress,
             voterData.weight,
             voterData.wNatWeight,
             voterData.cChainStakeWeight,
@@ -387,6 +392,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
 
     function _getVoterData(
         address _voter,
+        address _wNatDelegationAddress,
         uint256 _votePowerBlock
     )
         private view
@@ -410,7 +416,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
         }
 
 
-        _data.wNatWeight = wNat.votePowerOfAt(_voter, _votePowerBlock);
+        _data.wNatWeight = wNat.votePowerOfAt(_wNatDelegationAddress, _votePowerBlock);
 
         // staking is required to get additional WNat weight
         if (_data.weight > 0) {

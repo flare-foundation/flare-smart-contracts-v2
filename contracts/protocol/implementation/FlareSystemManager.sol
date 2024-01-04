@@ -185,7 +185,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         address _flareDaemon,
         Settings memory _settings,
         uint64 _firstRandomAcquisitionNumberOfBlocks,
-        uint24 _firstRewardEpochId
+        uint24 _firstRewardEpochId,
+        uint16 _firstRewardEpochThreshold
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
@@ -214,6 +215,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
 
         firstRandomAcquisitionNumberOfBlocks = _firstRandomAcquisitionNumberOfBlocks;
         currentRewardEpochExpectedEndTs = rewardEpochsStartTs + (_firstRewardEpochId + 1) * rewardEpochDurationSeconds;
+        rewardEpochState[_firstRewardEpochId].threshold = _firstRewardEpochThreshold;
         require(
             currentRewardEpochExpectedEndTs > block.timestamp + _settings.newSigningPolicyInitializationStartSeconds,
             "reward epoch end not in the future");
@@ -256,21 +258,25 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         }
 
         // in case of new voting round - init new voting round on Submission contract
-        // and get commit, reveal and signing addresses
         if (currentVotingEpochId > lastInitialisedVotingRound) {
-            address[] memory revealAddresses;
-            address[] memory depositSignaturesAddresses;
-            address[] memory commitAddresses;
+            address[] memory submit1Addresses;
+            address[] memory submit2Addresses;
+            address[] memory submitSignaturesAddresses;
             lastInitialisedVotingRound = currentVotingEpochId;
-            revealAddresses = voterRegistry.getRegisteredDataProviderAddresses(currentRewardEpochId);
-            depositSignaturesAddresses = voterRegistry.getRegisteredDepositSignaturesAddresses(currentRewardEpochId);
-            // in case of new reward epoch - get new commit addresses otherwise they are the same as reveal addresses
+            submit2Addresses = voterRegistry.getRegisteredSubmitAddresses(currentRewardEpochId);
+            submitSignaturesAddresses = voterRegistry.getRegisteredSubmitSignaturesAddresses(currentRewardEpochId);
+            // in case of new reward epoch - get new submit1Addresses otherwise they are the same as submit2Addresses
             if (_getCurrentRewardEpochId() > currentRewardEpochId) {
-                commitAddresses = voterRegistry.getRegisteredDataProviderAddresses(currentRewardEpochId + 1);
+                submit1Addresses = voterRegistry.getRegisteredSubmitAddresses(currentRewardEpochId + 1);
             } else {
-                commitAddresses = revealAddresses;
+                submit1Addresses = submit2Addresses;
             }
-            submission.initNewVotingRound(commitAddresses, revealAddresses, depositSignaturesAddresses);
+            submission.initNewVotingRound(
+                submit1Addresses,
+                submit2Addresses,
+                submit1Addresses,
+                submitSignaturesAddresses
+            );
         }
 
         return true;
@@ -303,7 +309,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         // save signing address timestamp and block number
         state.signingPolicyVotes.voters[voter] = VoterData(block.timestamp.toUint64(), block.number.toUint64());
         // check if signing threshold is reached
-        bool thresholdReached = state.signingPolicyVotes.accumulatedWeight + weight >= state.threshold;
+        bool thresholdReached = state.signingPolicyVotes.accumulatedWeight + weight > state.threshold;
         if (thresholdReached) {
             // save timestamp and block number (this enables claiming)
             state.singingPolicySignEndTs = block.timestamp.toUint64();
@@ -342,7 +348,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         state.uptimeVoteVotes[_uptimeVoteHash].voters[voter] =
             VoterData(block.timestamp.toUint64(), block.number.toUint64());
         // check if signing threshold is reached
-        bool thresholdReached = state.uptimeVoteVotes[_uptimeVoteHash].accumulatedWeight + weight >= state.threshold;
+        bool thresholdReached = state.uptimeVoteVotes[_uptimeVoteHash].accumulatedWeight + weight > state.threshold;
         if (thresholdReached) {
             // save timestamp and block number (this enables rewards signing)
             state.uptimeVoteSignEndTs = block.timestamp.toUint64();
@@ -386,7 +392,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         state.rewardVotes[messageHash].voters[voter] =
             VoterData(block.timestamp.toUint64(), block.number.toUint64());
         // check if signing threshold is reached
-        bool thresholdReached = state.rewardVotes[messageHash].accumulatedWeight + weight >= state.threshold;
+        bool thresholdReached = state.rewardVotes[messageHash].accumulatedWeight + weight > state.threshold;
         if (thresholdReached) {
             // save timestamp and block number (this enables claiming)
             state.rewardsSignEndTs = block.timestamp.toUint64();

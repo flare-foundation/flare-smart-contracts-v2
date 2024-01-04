@@ -1070,7 +1070,7 @@ contract Relay {
         view
         returns (bytes32)
     {
-        if(_protocolId == 0) {
+        if (_protocolId == 0) {
             return toSigningPolicyHash[_votingRoundId];
         }
         return merkleRoots[_protocolId][_votingRoundId];

@@ -123,6 +123,7 @@ contract FlareSystemManagerTest is Test {
             flareDaemon,
             settings,
             5,
+            0,
             0
         );
 
@@ -215,6 +216,7 @@ contract FlareSystemManagerTest is Test {
             flareDaemon,
             settings,
             5,
+            0,
             0
         );
     }
@@ -229,6 +231,7 @@ contract FlareSystemManagerTest is Test {
             flareDaemon,
             settings,
             5,
+            0,
             0
         );
     }
@@ -243,6 +246,7 @@ contract FlareSystemManagerTest is Test {
             flareDaemon,
             settings,
             5,
+            0,
             0
         );
     }
@@ -257,6 +261,7 @@ contract FlareSystemManagerTest is Test {
             flareDaemon,
             settings,
             5,
+            0,
             0
         );
     }
@@ -271,6 +276,7 @@ contract FlareSystemManagerTest is Test {
             flareDaemon,
             settings,
             0,
+            0,
             0
         );
     }
@@ -283,6 +289,7 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
+            0,
             0,
             0
         );
@@ -298,6 +305,7 @@ contract FlareSystemManagerTest is Test {
             flareDaemon,
             settings,
             5,
+            0,
             0
         );
     }
@@ -1142,12 +1150,12 @@ contract FlareSystemManagerTest is Test {
     function _mockRegisteredAddresses(uint256 _epochid) internal {
         vm.mockCall(
             mockVoterRegistry,
-            abi.encodeWithSelector(VoterRegistry.getRegisteredDataProviderAddresses.selector, _epochid),
+            abi.encodeWithSelector(VoterRegistry.getRegisteredSubmitAddresses.selector, _epochid),
             abi.encode(new address[](0))
         );
         vm.mockCall(
             mockVoterRegistry,
-            abi.encodeWithSelector(VoterRegistry.getRegisteredDepositSignaturesAddresses.selector, _epochid),
+            abi.encodeWithSelector(VoterRegistry.getRegisteredSubmitSignaturesAddresses.selector, _epochid),
             abi.encode(new address[](0))
         );
     }

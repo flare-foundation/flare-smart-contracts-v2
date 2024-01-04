@@ -10,15 +10,17 @@ contract EntityManager is Governed {
     using NodesHistory for NodesHistory.CheckPointHistoryState;
 
     struct Entity {
-        AddressHistory.CheckPointHistoryState dataProviderAddress;
-        AddressHistory.CheckPointHistoryState depositSignaturesAddress;
+        AddressHistory.CheckPointHistoryState delegationAddress;
+        AddressHistory.CheckPointHistoryState submitAddress;
+        AddressHistory.CheckPointHistoryState submitSignaturesAddress;
         AddressHistory.CheckPointHistoryState signingPolicyAddress;
         NodesHistory.CheckPointHistoryState nodeIds;
     }
 
     struct VoterAddresses {
-        address dataProviderAddress;
-        address depositSignaturesAddress;
+        address delegationAddress;
+        address submitAddress;
+        address submitSignaturesAddress;
         address signingPolicyAddress;
     }
 
@@ -26,10 +28,12 @@ contract EntityManager is Governed {
 
     mapping(address => Entity) internal register; // voter to entity data
     mapping(bytes20 => AddressHistory.CheckPointHistoryState) internal nodeIdRegistered;
-    mapping(address => AddressHistory.CheckPointHistoryState) internal dataProviderAddressRegistered;
-    mapping(address => address) internal dataProviderAddressRegistrationQueue;
-    mapping(address => AddressHistory.CheckPointHistoryState) internal depositSignaturesAddressRegistered;
-    mapping(address => address) internal depositSignaturesAddressRegistrationQueue;
+    mapping(address => AddressHistory.CheckPointHistoryState) internal delegationAddressRegistered;
+    mapping(address => address) internal delegationAddressRegistrationQueue;
+    mapping(address => AddressHistory.CheckPointHistoryState) internal submitAddressRegistered;
+    mapping(address => address) internal submitAddressRegistrationQueue;
+    mapping(address => AddressHistory.CheckPointHistoryState) internal submitSignaturesAddressRegistered;
+    mapping(address => address) internal submitSignaturesAddressRegistrationQueue;
     mapping(address => AddressHistory.CheckPointHistoryState) internal signingPolicyAddressRegistered;
     mapping(address => address) internal signingPolicyAddressRegistrationQueue;
 
@@ -37,14 +41,18 @@ contract EntityManager is Governed {
         address indexed voter, bytes20 indexed nodeId);
     event NodeIdUnregistered(
         address indexed voter, bytes20 indexed nodeId);
-    event DataProviderAddressRegistered(
-        address indexed voter, address indexed dataProviderAddress);
-    event DataProviderAddressRegistrationConfirmed(
-        address indexed voter, address indexed dataProviderAddress);
-    event DepositSignaturesAddressRegistered(
-        address indexed voter, address indexed depositSignaturesAddress);
-    event DepositSignaturesAddressRegistrationConfirmed(
-        address indexed voter, address indexed depositSignaturesAddress);
+    event DelegationAddressRegistered(
+        address indexed voter, address indexed delegationAddress);
+    event DelegationAddressRegistrationConfirmed(
+        address indexed voter, address indexed delegationAddress);
+    event SubmitAddressRegistered(
+        address indexed voter, address indexed submitAddress);
+    event SubmitAddressRegistrationConfirmed(
+        address indexed voter, address indexed submitAddress);
+    event SubmitSignaturesAddressRegistered(
+        address indexed voter, address indexed submitSignaturesAddress);
+    event SubmitSignaturesAddressRegistrationConfirmed(
+        address indexed voter, address indexed submitSignaturesAddress);
     event SigningPolicyAddressRegistered(
         address indexed voter, address indexed signingPolicyAddress);
     event SigningPolicyAddressRegistrationConfirmed(
@@ -79,51 +87,75 @@ contract EntityManager is Governed {
     }
 
     // msg.sender == voter
-    function registerDataProviderAddress(address _dataProviderAddress) external {
-        require(dataProviderAddressRegistered[_dataProviderAddress].addressAtNow() == address(0),
-            "data provider address already registered");
-        dataProviderAddressRegistrationQueue[msg.sender] = _dataProviderAddress;
-        emit DataProviderAddressRegistered(msg.sender, _dataProviderAddress);
+    function registerDelegationAddress(address _delegationAddress) external {
+        require(delegationAddressRegistered[_delegationAddress].addressAtNow() == address(0),
+            "delegation address already registered");
+        delegationAddressRegistrationQueue[msg.sender] = _delegationAddress;
+        emit DelegationAddressRegistered(msg.sender, _delegationAddress);
     }
 
-    // msg.sender == data provider address
-    function confirmDataProviderAddressRegistration(address _voter) external {
-        require(dataProviderAddressRegistered[msg.sender].addressAtNow() == address(0),
-            "data provider address already registered");
-        require(dataProviderAddressRegistrationQueue[_voter] == msg.sender,
-            "data provider address not in registration queue");
-        address oldDataProviderAddress = register[_voter].dataProviderAddress.addressAtNow();
-        if (oldDataProviderAddress != address(0)) {
-            dataProviderAddressRegistered[oldDataProviderAddress].setAddress(address(0));
+    // msg.sender == delegation address
+    function confirmDelegationAddressRegistration(address _voter) external {
+        require(delegationAddressRegistered[msg.sender].addressAtNow() == address(0),
+            "delegation address already registered");
+        require(delegationAddressRegistrationQueue[_voter] == msg.sender,
+            "delegation address not in registration queue");
+        address oldDelegationAddress = register[_voter].delegationAddress.addressAtNow();
+        if (oldDelegationAddress != address(0)) {
+            delegationAddressRegistered[oldDelegationAddress].setAddress(address(0));
         }
-        register[_voter].dataProviderAddress.setAddress(msg.sender);
-        dataProviderAddressRegistered[msg.sender].setAddress(_voter);
-        delete dataProviderAddressRegistrationQueue[_voter];
-        emit DataProviderAddressRegistrationConfirmed(_voter, msg.sender);
+        register[_voter].delegationAddress.setAddress(msg.sender);
+        delegationAddressRegistered[msg.sender].setAddress(_voter);
+        delete delegationAddressRegistrationQueue[_voter];
+        emit DelegationAddressRegistrationConfirmed(_voter, msg.sender);
     }
 
     // msg.sender == voter
-    function registerDepositSignaturesAddress(address _depositSignaturesAddress) external {
-        require(depositSignaturesAddressRegistered[_depositSignaturesAddress].addressAtNow() == address(0),
-            "deposit signatures address already registered");
-        depositSignaturesAddressRegistrationQueue[msg.sender] = _depositSignaturesAddress;
-        emit DepositSignaturesAddressRegistered(msg.sender, _depositSignaturesAddress);
+    function registerSubmitAddress(address _submitAddress) external {
+        require(submitAddressRegistered[_submitAddress].addressAtNow() == address(0),
+            "submit address already registered");
+        submitAddressRegistrationQueue[msg.sender] = _submitAddress;
+        emit SubmitAddressRegistered(msg.sender, _submitAddress);
     }
 
-    // msg.sender == deposit signatures address
-    function confirmDepositSignaturesAddressRegistration(address _voter) external {
-        require(depositSignaturesAddressRegistered[msg.sender].addressAtNow() == address(0),
-            "deposit signatures address already registered");
-        require(depositSignaturesAddressRegistrationQueue[_voter] == msg.sender,
-            "deposit signatures address not in registration queue");
-        address oldDepositSignaturesAddress = register[_voter].depositSignaturesAddress.addressAtNow();
-        if (oldDepositSignaturesAddress != address(0)) {
-            depositSignaturesAddressRegistered[oldDepositSignaturesAddress].setAddress(address(0));
+    // msg.sender == submit address
+    function confirmSubmitAddressRegistration(address _voter) external {
+        require(submitAddressRegistered[msg.sender].addressAtNow() == address(0),
+            "submit address already registered");
+        require(submitAddressRegistrationQueue[_voter] == msg.sender,
+            "submit address not in registration queue");
+        address oldSubmitAddress = register[_voter].submitAddress.addressAtNow();
+        if (oldSubmitAddress != address(0)) {
+            submitAddressRegistered[oldSubmitAddress].setAddress(address(0));
         }
-        register[_voter].depositSignaturesAddress.setAddress(msg.sender);
-        depositSignaturesAddressRegistered[msg.sender].setAddress(_voter);
-        delete depositSignaturesAddressRegistrationQueue[_voter];
-        emit DepositSignaturesAddressRegistrationConfirmed(_voter, msg.sender);
+        register[_voter].submitAddress.setAddress(msg.sender);
+        submitAddressRegistered[msg.sender].setAddress(_voter);
+        delete submitAddressRegistrationQueue[_voter];
+        emit SubmitAddressRegistrationConfirmed(_voter, msg.sender);
+    }
+
+    // msg.sender == voter
+    function registerSubmitSignaturesAddress(address _submitSignaturesAddress) external {
+        require(submitSignaturesAddressRegistered[_submitSignaturesAddress].addressAtNow() == address(0),
+            "submit signatures address already registered");
+        submitSignaturesAddressRegistrationQueue[msg.sender] = _submitSignaturesAddress;
+        emit SubmitSignaturesAddressRegistered(msg.sender, _submitSignaturesAddress);
+    }
+
+    // msg.sender == submit signatures address
+    function confirmSubmitSignaturesAddressRegistration(address _voter) external {
+        require(submitSignaturesAddressRegistered[msg.sender].addressAtNow() == address(0),
+            "submit signatures address already registered");
+        require(submitSignaturesAddressRegistrationQueue[_voter] == msg.sender,
+            "submit signatures address not in registration queue");
+        address oldSubmitSignaturesAddress = register[_voter].submitSignaturesAddress.addressAtNow();
+        if (oldSubmitSignaturesAddress != address(0)) {
+            submitSignaturesAddressRegistered[oldSubmitSignaturesAddress].setAddress(address(0));
+        }
+        register[_voter].submitSignaturesAddress.setAddress(msg.sender);
+        submitSignaturesAddressRegistered[msg.sender].setAddress(_voter);
+        delete submitSignaturesAddressRegistrationQueue[_voter];
+        emit SubmitSignaturesAddressRegistrationConfirmed(_voter, msg.sender);
     }
 
     // msg.sender == voter
@@ -168,14 +200,19 @@ contract EntityManager is Governed {
         external view
         returns (VoterAddresses memory _addresses)
     {
-        _addresses.dataProviderAddress = register[_voter].dataProviderAddress.addressAt(_blockNumber);
-        if (_addresses.dataProviderAddress == address(0)) {
-            _addresses.dataProviderAddress = _voter;
+        _addresses.delegationAddress = register[_voter].delegationAddress.addressAt(_blockNumber);
+        if (_addresses.delegationAddress == address(0)) {
+            _addresses.delegationAddress = _voter;
         }
 
-        _addresses.depositSignaturesAddress = register[_voter].depositSignaturesAddress.addressAt(_blockNumber);
-        if (_addresses.depositSignaturesAddress == address(0)) {
-            _addresses.depositSignaturesAddress = _voter;
+        _addresses.submitAddress = register[_voter].submitAddress.addressAt(_blockNumber);
+        if (_addresses.submitAddress == address(0)) {
+            _addresses.submitAddress = _voter;
+        }
+
+        _addresses.submitSignaturesAddress = register[_voter].submitSignaturesAddress.addressAt(_blockNumber);
+        if (_addresses.submitSignaturesAddress == address(0)) {
+            _addresses.submitSignaturesAddress = _voter;
         }
 
         _addresses.signingPolicyAddress = register[_voter].signingPolicyAddress.addressAt(_blockNumber);
@@ -184,30 +221,30 @@ contract EntityManager is Governed {
         }
     }
 
-    function getDataProviderAddresses(address[] memory _voters, uint256 _blockNumber)
+    function getSubmitAddresses(address[] memory _voters, uint256 _blockNumber)
         external view
-        returns (address[] memory _dataProviderAddresses)
+        returns (address[] memory _submitAddresses)
     {
         uint256 length = _voters.length;
-        _dataProviderAddresses = new address[](length);
+        _submitAddresses = new address[](length);
         for (uint256 i = 0; i < length; i++) {
-            _dataProviderAddresses[i] = register[_voters[i]].dataProviderAddress.addressAt(_blockNumber);
-            if (_dataProviderAddresses[i] == address(0)) {
-                _dataProviderAddresses[i] = _voters[i];
+            _submitAddresses[i] = register[_voters[i]].submitAddress.addressAt(_blockNumber);
+            if (_submitAddresses[i] == address(0)) {
+                _submitAddresses[i] = _voters[i];
             }
         }
     }
 
-    function getDepositSignaturesAddresses(address[] memory _voters, uint256 _blockNumber)
+    function getSubmitSignaturesAddresses(address[] memory _voters, uint256 _blockNumber)
         external view
-        returns (address[] memory _depositSignaturesAddresses)
+        returns (address[] memory _submitSignaturesAddresses)
     {
         uint256 length = _voters.length;
-        _depositSignaturesAddresses = new address[](length);
+        _submitSignaturesAddresses = new address[](length);
         for (uint256 i = 0; i < length; i++) {
-            _depositSignaturesAddresses[i] = register[_voters[i]].depositSignaturesAddress.addressAt(_blockNumber);
-            if (_depositSignaturesAddresses[i] == address(0)) {
-                _depositSignaturesAddresses[i] = _voters[i];
+            _submitSignaturesAddresses[i] = register[_voters[i]].submitSignaturesAddress.addressAt(_blockNumber);
+            if (_submitSignaturesAddresses[i] == address(0)) {
+                _submitSignaturesAddresses[i] = _voters[i];
             }
         }
     }
@@ -233,23 +270,23 @@ contract EntityManager is Governed {
         _voter = nodeIdRegistered[_nodeId].addressAt(_blockNumber);
     }
 
-    function getVoterForDataProviderAddress(address _dataProviderAddress, uint256 _blockNumber)
+    function getVoterForSubmitAddress(address _submitAddress, uint256 _blockNumber)
         external view
         returns (address _voter)
     {
-        _voter = dataProviderAddressRegistered[_dataProviderAddress].addressAt(_blockNumber);
+        _voter = submitAddressRegistered[_submitAddress].addressAt(_blockNumber);
         if (_voter == address(0)) {
-            _voter = _dataProviderAddress;
+            _voter = _submitAddress;
         }
     }
 
-    function getVoterForDepositSignaturesAddress(address _depositSignaturesAddress, uint256 _blockNumber)
+    function getVoterForSubmitSignaturesAddress(address _submitSignaturesAddress, uint256 _blockNumber)
         external view
         returns (address _voter)
     {
-        _voter = depositSignaturesAddressRegistered[_depositSignaturesAddress].addressAt(_blockNumber);
+        _voter = submitSignaturesAddressRegistered[_submitSignaturesAddress].addressAt(_blockNumber);
         if (_voter == address(0)) {
-            _voter = _depositSignaturesAddress;
+            _voter = _submitSignaturesAddress;
         }
     }
 

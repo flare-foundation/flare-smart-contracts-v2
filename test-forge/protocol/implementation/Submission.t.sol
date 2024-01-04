@@ -32,7 +32,7 @@ contract SubmissionTest is Test {
     function test_initNewVotingRoundNonFinalisation() public {
         vm.expectRevert("only flare system manager");
 
-        submission.initNewVotingRound(users, users, users);
+        submission.initNewVotingRound(users, users, users, users);
     }
 
     function testFuzz_initNewVotingRoundFinalisation(
@@ -41,23 +41,23 @@ contract SubmissionTest is Test {
         vm.assume(usersGen.length > 0);
 
         vm.prank(makeAddr("governance"));
-        submission.setSubmitMethodEnabled(false);
+        submission.setSubmit3MethodEnabled(false);
 
         vm.prank(address(submission.flareSystemManager()));
-        submission.initNewVotingRound(usersGen, usersGen, usersGen);
+        submission.initNewVotingRound(usersGen, usersGen, usersGen, usersGen);
 
         vm.prank(usersGen[0]);
-        bool firstCallCom = submission.commit();
+        bool firstCallCom = submission.submit1();
         assertEq(firstCallCom, true, "1");
         vm.prank(usersGen[0]);
-        bool secondCallCom = submission.commit();
+        bool secondCallCom = submission.submit1();
         assertEq(secondCallCom, false, "2");
 
         vm.prank(usersGen[0]);
-        bool firstCallSub = submission.submit();
+        bool firstCallSub = submission.submit3();
         assertEq(firstCallSub, false, "4");
         vm.prank(usersGen[0]);
-        bool secondCallSub = submission.submit();
+        bool secondCallSub = submission.submit3();
         assertEq(secondCallSub, false, "5");
     }
 
@@ -66,15 +66,16 @@ contract SubmissionTest is Test {
         submission.initNewVotingRound(
             emptyAddresses,
             emptyAddresses,
+            emptyAddresses,
             emptyAddresses
         );
 
         vm.prank(makeAddr("randomAddressic12391234891"));
-        bool radnomCallCom = submission.commit();
+        bool radnomCallCom = submission.submit1();
         assertEq(radnomCallCom, false, "3");
 
         vm.prank(makeAddr("randomAddress424"));
-        bool radnomCallSub = submission.submit();
+        bool radnomCallSub = submission.submit3();
         assertEq(radnomCallSub, false, "6");
     }
 
@@ -101,14 +102,11 @@ contract SubmissionTest is Test {
         addresses.push(makeAddr("AddressUpdater"));
         nameHashes.push(keccak256(abi.encode("FlareSystemManager")));
         addresses.push(makeAddr("FlareSystemManager"));
-        nameHashes.push(keccak256(abi.encode("Relay")));
-        addresses.push(makeAddr("Relay"));
 
         vm.startPrank(makeAddr("updater"));
         submission.updateContractAddresses(nameHashes, addresses);
         vm.stopPrank();
 
-        assertEq(address(submission.relay()), makeAddr("Relay"));
         assertEq(
             address(submission.flareSystemManager()),
             makeAddr("FlareSystemManager")
@@ -117,47 +115,47 @@ contract SubmissionTest is Test {
 
     function test_setSubmitRev() public {
         vm.expectRevert("only governance");
-        submission.setSubmitMethodEnabled(true);
+        submission.setSubmit3MethodEnabled(true);
 
         vm.prank(address(submission.flareSystemManager()));
     }
 
     function test_setSubmit() public {
         vm.prank(makeAddr("governance"));
-        submission.setSubmitMethodEnabled(true);
-        assertEq(submission.submitMethodEnabled(), true);
+        submission.setSubmit3MethodEnabled(true);
+        assertEq(submission.submit3MethodEnabled(), true);
     }
 
     function testFuzz_initNewVotingRoundFinalisationAfterSubmitEn(
         address[] calldata usersGen
     ) public {
         vm.prank(makeAddr("governance"));
-        submission.setSubmitMethodEnabled(true);
+        submission.setSubmit3MethodEnabled(true);
 
         vm.assume(usersGen.length > 0);
 
         vm.prank(address(submission.flareSystemManager()));
-        submission.initNewVotingRound(usersGen, usersGen, usersGen);
+        submission.initNewVotingRound(usersGen, usersGen, usersGen, usersGen);
 
         vm.prank(usersGen[0]);
-        bool firstCallRev = submission.reveal();
+        bool firstCallRev = submission.submit2();
         assertEq(firstCallRev, true, "12");
         vm.prank(usersGen[0]);
-        bool secondCallRev = submission.reveal();
+        bool secondCallRev = submission.submit2();
         assertEq(secondCallRev, false, "22");
 
         vm.prank(usersGen[0]);
-        bool firstCallSub = submission.submit();
+        bool firstCallSub = submission.submit3();
         assertEq(firstCallSub, true, "42");
         vm.prank(usersGen[0]);
-        bool secondCallSub = submission.submit();
+        bool secondCallSub = submission.submit3();
         assertEq(secondCallSub, false, "52");
 
         vm.prank(usersGen[0]);
-        bool firstCallSig = submission.depositSignatures();
+        bool firstCallSig = submission.submitSignatures();
         assertEq(firstCallSig, true, "72");
         vm.prank(usersGen[0]);
-        bool secondCallSig = submission.depositSignatures();
+        bool secondCallSig = submission.submitSignatures();
         assertEq(secondCallSig, false, "73");
     }
 }

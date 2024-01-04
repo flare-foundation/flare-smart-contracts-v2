@@ -156,15 +156,19 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         now = await time.latest();
 
         entityManager = await EntityManager.new(governanceSettings.address, accounts[0], 4);
-        voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, accounts.slice(0, 100));
+        const intialThreshold = 65500 / 2;
+        const initialVoters = accounts.slice(0, 100);
+        const initialWeights = Array(100).fill(655);
+
+        voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, initialVoters, initialWeights);
 
         initialSigningPolicy = {
             rewardEpochId: 0,
             startVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
-            threshold: 65500 / 2,
+            threshold: intialThreshold,
             seed: web3.utils.keccak256("123"),
-            voters: accounts.slice(0, 100),
-            weights: Array(100).fill(655)
+            voters: initialVoters,
+            weights: initialWeights
         };
 
         const settings = {
@@ -190,7 +194,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             accounts[0],
             settings,
             1,
-            0
+            0,
+            intialThreshold
         );
 
         await flareSystemManager.changeRandomProvider(true);
@@ -271,15 +276,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should register and confirm data provider addresses", async () => {
         for (let i = 0; i < 4; i++) {
-            await entityManager.registerDataProviderAddress(accounts[10 + i], { from: registeredCAddresses[i] });
-            await entityManager.confirmDataProviderAddressRegistration(registeredCAddresses[i], { from: accounts[10 + i] });
+            await entityManager.registerSubmitAddress(accounts[10 + i], { from: registeredCAddresses[i] });
+            await entityManager.confirmSubmitAddressRegistration(registeredCAddresses[i], { from: accounts[10 + i] });
         }
     });
 
     it("Should register and confirm deposit signatures addresses", async () => {
         for (let i = 0; i < 4; i++) {
-            await entityManager.registerDepositSignaturesAddress(accounts[20 + i], { from: registeredCAddresses[i] });
-            await entityManager.confirmDepositSignaturesAddressRegistration(registeredCAddresses[i], { from: accounts[20 + i] });
+            await entityManager.registerSubmitSignaturesAddress(accounts[20 + i], { from: registeredCAddresses[i] });
+            await entityManager.confirmSubmitSignaturesAddressRegistration(registeredCAddresses[i], { from: accounts[20 + i] });
         }
     });
 
@@ -328,7 +333,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
             const signature = web3.eth.accounts.sign(hash, privateKeys[30 + i].privateKey);
             expectEvent(await voterRegistry.registerVoter(registeredCAddresses[i], signature),
-                "VoterRegistered", { voter: registeredCAddresses[i], rewardEpochId: toBN(1), signingPolicyAddress: accounts[30 + i], dataProviderAddress: accounts[10 + i], depositSignaturesAddress: accounts[20 + i] });
+                "VoterRegistered", { voter: registeredCAddresses[i], rewardEpochId: toBN(1), signingPolicyAddress: accounts[30 + i], submitAddress: accounts[10 + i], submitSignaturesAddress: accounts[20 + i] });
         }
     });
 
@@ -363,9 +368,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             ["uint24", "bytes32"],
             [rewardEpochId, newSigningPolicyHash]));
 
-        const signature = web3.eth.accounts.sign(hash, privateKeys[0].privateKey);
-        expectEvent(await flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature, { from: accounts[0] }), "SigningPolicySigned",
-            { rewardEpochId: toBN(1), signingPolicyAddress: accounts[0], voter: accounts[0], thresholdReached: true });
+        for (let i = 0; i < 50; i++) {
+            const signature = web3.eth.accounts.sign(hash, privateKeys[i].privateKey);
+            expectEvent(await flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature), "SigningPolicySigned",
+                { rewardEpochId: toBN(1), signingPolicyAddress: accounts[i], voter: accounts[i], thresholdReached: false });
+        }
+        const signature = web3.eth.accounts.sign(hash, privateKeys[50].privateKey);
+        expectEvent(await flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature), "SigningPolicySigned",
+            { rewardEpochId: toBN(1), signingPolicyAddress: accounts[50], voter: accounts[50], thresholdReached: true });
     });
 
     it("Should start new reward epoch and initiate new voting round", async () => {
@@ -382,9 +392,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should commit", async () => {
         for (let i = 0; i < 4; i++) {
-            expect(await submission.commit.call({ from: accounts[10 + i] })).to.be.true;
-            await submission.commit({ from: accounts[10 + i] });
-            expect(await submission.commit.call({ from: accounts[10 + i] })).to.be.false;
+            expect(await submission.submit1.call({ from: accounts[10 + i] })).to.be.true;
+            await submission.submit1({ from: accounts[10 + i] });
+            expect(await submission.submit1.call({ from: accounts[10 + i] })).to.be.false;
         }
     });
 
@@ -396,13 +406,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should reveal", async () => {
         for (let i = 0; i < 4; i++) {
-            expect(await submission.reveal.call({ from: accounts[10 + i] })).to.be.true;
+            expect(await submission.submit2.call({ from: accounts[10 + i] })).to.be.true;
         }
     });
 
     it("Should deposit signature", async () => {
         for (let i = 0; i < 4; i++) {
-            expect(await submission.depositSignatures.call({ from: accounts[20 + i] })).to.be.true;
+            expect(await submission.submitSignatures.call({ from: accounts[20 + i] })).to.be.true;
         }
     });
 
@@ -430,7 +440,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should commit 2", async () => {
         for (let i = 0; i < 4; i++) {
-            expect(await submission.commit.call({ from: accounts[10 + i] })).to.be.true;
+            expect(await submission.submit1.call({ from: accounts[10 + i] })).to.be.true;
         }
     });
 
@@ -471,7 +481,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
             const signature = web3.eth.accounts.sign(hash, privateKeys[30 + i].privateKey);
             expectEvent(await voterRegistry.registerVoter(registeredCAddresses[i], signature),
-                "VoterRegistered", { voter: registeredCAddresses[i], rewardEpochId: toBN(2), signingPolicyAddress: accounts[30 + i], dataProviderAddress: accounts[10 + i], depositSignaturesAddress: accounts[20 + i] });
+                "VoterRegistered", { voter: registeredCAddresses[i], rewardEpochId: toBN(2), signingPolicyAddress: accounts[30 + i], submitAddress: accounts[10 + i], submitSignaturesAddress: accounts[20 + i] });
         }
     });
 

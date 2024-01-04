@@ -13,13 +13,13 @@ contract EntityManagerTest is Test {
 
     event NodeIdRegistered(address indexed voter, bytes20 indexed nodeId);
     event NodeIdUnregistered(address indexed voter, bytes20 indexed nodeId);
-    event DataProviderAddressRegistered(address indexed voter, address indexed dataProviderAddress);
-    event DataProviderAddressRegistrationConfirmed(address indexed voter, address indexed signingAddress);
+    event SubmitAddressRegistered(address indexed voter, address indexed submitAddress);
+    event SubmitAddressRegistrationConfirmed(address indexed voter, address indexed signingAddress);
     event MaxNodeIdsPerEntitySet(uint256 maxNodeIdsPerEntity);
-    event DepositSignaturesAddressRegistered(
-        address indexed voter, address indexed depositSignaturesAddress);
-    event DepositSignaturesAddressRegistrationConfirmed(
-        address indexed voter, address indexed depositSignaturesAddress);
+    event SubmitSignaturesAddressRegistered(
+        address indexed voter, address indexed submitSignaturesAddress);
+    event SubmitSignaturesAddressRegistrationConfirmed(
+        address indexed voter, address indexed submitSignaturesAddress);
     event SigningPolicyAddressRegistered(
         address indexed voter, address indexed signingPolicyAddress);
     event SigningPolicyAddressRegistrationConfirmed(
@@ -117,51 +117,51 @@ contract EntityManagerTest is Test {
         assertEq(nodeIds.length, 0);
     }
 
-    function testRegisterDataProviderAddress() public {
+    function testRegisterSubmitAddress() public {
         address dataProvider1 = makeAddr("dataProvider1");
         vm.prank(user1);
         vm.expectEmit();
-        emit DataProviderAddressRegistered(user1, dataProvider1);
-        entityManager.registerDataProviderAddress(dataProvider1);
+        emit SubmitAddressRegistered(user1, dataProvider1);
+        entityManager.registerSubmitAddress(dataProvider1);
     }
 
-    function testConfirmDataProviderAddressRegistration() public {
+    function testConfirmSubmitAddressRegistration() public {
         vm.roll(100);
         address dataProvider1 = makeAddr("dataProvider1");
         address[] memory voters = new address[](1);
         voters[0] = user1;
-        assertEq(entityManager.getDataProviderAddresses(voters, 100)[0], user1);
+        assertEq(entityManager.getSubmitAddresses(voters, 100)[0], user1);
 
         // should not confirm if not in queue
         vm.prank(dataProvider1);
-        vm.expectRevert("data provider address not in registration queue");
-        entityManager.confirmDataProviderAddressRegistration(user1);
+        vm.expectRevert("submit address not in registration queue");
+        entityManager.confirmSubmitAddressRegistration(user1);
 
-        // register data provider
+        // register submit address
         vm.prank(user1);
-        entityManager.registerDataProviderAddress(dataProvider1);
+        entityManager.registerSubmitAddress(dataProvider1);
 
         // confirm registration
-        assertEq(entityManager.getDataProviderAddresses(voters, 100)[0], user1);
+        assertEq(entityManager.getSubmitAddresses(voters, 100)[0], user1);
         vm.roll(200);
         vm.prank(dataProvider1);
         vm.expectEmit();
-        emit DataProviderAddressRegistrationConfirmed(user1, dataProvider1);
-        entityManager.confirmDataProviderAddressRegistration(user1);
-        assertEq(entityManager.getDataProviderAddresses(voters, 200)[0], dataProvider1);
+        emit SubmitAddressRegistrationConfirmed(user1, dataProvider1);
+        entityManager.confirmSubmitAddressRegistration(user1);
+        assertEq(entityManager.getSubmitAddresses(voters, 200)[0], dataProvider1);
 
         // should not register if already registered
         vm.prank(user1);
-        vm.expectRevert("data provider address already registered");
-        entityManager.registerDataProviderAddress(dataProvider1);
+        vm.expectRevert("submit address already registered");
+        entityManager.registerSubmitAddress(dataProvider1);
 
         // should not confirm if already registered
         vm.prank(dataProvider1);
-        vm.expectRevert("data provider address already registered");
-        entityManager.confirmDataProviderAddressRegistration(user1);
+        vm.expectRevert("submit address already registered");
+        entityManager.confirmSubmitAddressRegistration(user1);
     }
 
-    function testChangeDataProviderAddress() public {
+    function testChangeSubmitAddress() public {
         vm.roll(100);
         address dataProvider1 = makeAddr("dataProvider1");
         address dataProvider2 = makeAddr("dataProvider2");
@@ -170,105 +170,105 @@ contract EntityManagerTest is Test {
 
         // register data provider
         vm.prank(user1);
-        entityManager.registerDataProviderAddress(dataProvider1);
-        assertEq(entityManager.getDataProviderAddresses(voters, 100)[0], user1);
-        assertEq(entityManager.getVoterForDataProviderAddress(dataProvider1, 100), dataProvider1);
+        entityManager.registerSubmitAddress(dataProvider1);
+        assertEq(entityManager.getSubmitAddresses(voters, 100)[0], user1);
+        assertEq(entityManager.getVoterForSubmitAddress(dataProvider1, 100), dataProvider1);
 
         // confirm registration
         vm.prank(dataProvider1);
-        entityManager.confirmDataProviderAddressRegistration(user1);
-        assertEq(entityManager.getDataProviderAddresses(voters, 100)[0], dataProvider1);
-        assertEq(entityManager.getVoterForDataProviderAddress(dataProvider1, 100), user1);
+        entityManager.confirmSubmitAddressRegistration(user1);
+        assertEq(entityManager.getSubmitAddresses(voters, 100)[0], dataProvider1);
+        assertEq(entityManager.getVoterForSubmitAddress(dataProvider1, 100), user1);
 
         // register another data provider
         vm.prank(user1);
-        entityManager.registerDataProviderAddress(dataProvider2);
-        assertEq(entityManager.getDataProviderAddresses(voters, 100)[0], dataProvider1);
+        entityManager.registerSubmitAddress(dataProvider2);
+        assertEq(entityManager.getSubmitAddresses(voters, 100)[0], dataProvider1);
 
         // confirm registration and replace first data provider
         vm.roll(200);
         vm.prank(dataProvider2);
-        entityManager.confirmDataProviderAddressRegistration(user1);
-        assertEq(entityManager.getDataProviderAddresses(voters, 100)[0], dataProvider1);
-        assertEq(entityManager.getDataProviderAddresses(voters, 200)[0], dataProvider2);
+        entityManager.confirmSubmitAddressRegistration(user1);
+        assertEq(entityManager.getSubmitAddresses(voters, 100)[0], dataProvider1);
+        assertEq(entityManager.getSubmitAddresses(voters, 200)[0], dataProvider2);
     }
 
-    function testRegisterDepositSignatureAddress() public {
-        address depositSignaturesAddr1 = makeAddr("depositSignaturesAddr1");
+    function testRegisterSubmitSignaturesAddress() public {
+        address submitSignaturesAddr1 = makeAddr("submitSignaturesAddr1");
         vm.prank(user1);
         vm.expectEmit();
-        emit DepositSignaturesAddressRegistered(user1, depositSignaturesAddr1);
-        entityManager.registerDepositSignaturesAddress(depositSignaturesAddr1);
+        emit SubmitSignaturesAddressRegistered(user1, submitSignaturesAddr1);
+        entityManager.registerSubmitSignaturesAddress(submitSignaturesAddr1);
     }
 
-    function testConfirmDepositSignaturesAddressRegistration() public {
+    function testConfirmSubmitSignaturesAddressRegistration() public {
         vm.roll(100);
-        address depositSignaturesAddr1 = makeAddr("depositSignaturesAddr1");
+        address submitSignaturesAddr1 = makeAddr("submitSignaturesAddr1");
         address[] memory voters = new address[](1);
         voters[0] = user1;
-        assertEq(entityManager.getDepositSignaturesAddresses(voters, 100)[0], user1);
+        assertEq(entityManager.getSubmitSignaturesAddresses(voters, 100)[0], user1);
 
 
         // should not confirm if not in queue
-        vm.prank(depositSignaturesAddr1);
-        vm.expectRevert("deposit signatures address not in registration queue");
-        entityManager.confirmDepositSignaturesAddressRegistration(user1);
+        vm.prank(submitSignaturesAddr1);
+        vm.expectRevert("submit signatures address not in registration queue");
+        entityManager.confirmSubmitSignaturesAddressRegistration(user1);
 
-        // register data provider
+        // register submit signatures address
         vm.prank(user1);
-        entityManager.registerDepositSignaturesAddress(depositSignaturesAddr1);
+        entityManager.registerSubmitSignaturesAddress(submitSignaturesAddr1);
 
         // confirm registration
-        assertEq(entityManager.getDepositSignaturesAddresses(voters, 100)[0], user1);
+        assertEq(entityManager.getSubmitSignaturesAddresses(voters, 100)[0], user1);
         vm.roll(200);
-        vm.prank(depositSignaturesAddr1);
+        vm.prank(submitSignaturesAddr1);
         vm.expectEmit();
-        emit DepositSignaturesAddressRegistrationConfirmed(user1, depositSignaturesAddr1);
-        entityManager.confirmDepositSignaturesAddressRegistration(user1);
-        assertEq(entityManager.getDepositSignaturesAddresses(voters, 200)[0], depositSignaturesAddr1);
+        emit SubmitSignaturesAddressRegistrationConfirmed(user1, submitSignaturesAddr1);
+        entityManager.confirmSubmitSignaturesAddressRegistration(user1);
+        assertEq(entityManager.getSubmitSignaturesAddresses(voters, 200)[0], submitSignaturesAddr1);
 
         // should not register if already registered
         vm.prank(user1);
-        vm.expectRevert("deposit signatures address already registered");
-        entityManager.registerDepositSignaturesAddress(depositSignaturesAddr1);
+        vm.expectRevert("submit signatures address already registered");
+        entityManager.registerSubmitSignaturesAddress(submitSignaturesAddr1);
 
         // should not confirm if already registered
-        vm.prank(depositSignaturesAddr1);
-        vm.expectRevert("deposit signatures address already registered");
-        entityManager.confirmDepositSignaturesAddressRegistration(user1);
+        vm.prank(submitSignaturesAddr1);
+        vm.expectRevert("submit signatures address already registered");
+        entityManager.confirmSubmitSignaturesAddressRegistration(user1);
     }
 
-    function testChangeDepositSignaturesAddress() public {
+    function testChangeSubmitSignaturesAddress() public {
         vm.roll(100);
-        address depositSignaturesAddr1 = makeAddr("depositSignaturesAddr1");
-        address depositSignaturesAddr2 = makeAddr("depositSignaturesAddr2");
+        address submitSignaturesAddr1 = makeAddr("submitSignaturesAddr1");
+        address submitSignaturesAddr2 = makeAddr("submitSignaturesAddr2");
         address[] memory voters = new address[](1);
         voters[0] = user1;
 
         // register data provider
         vm.prank(user1);
-        entityManager.registerDepositSignaturesAddress(depositSignaturesAddr1);
-        assertEq(entityManager.getDepositSignaturesAddresses(voters, 100)[0], user1);
-        assertEq(entityManager.getVoterForDepositSignaturesAddress(
-            depositSignaturesAddr1, 100), depositSignaturesAddr1);
+        entityManager.registerSubmitSignaturesAddress(submitSignaturesAddr1);
+        assertEq(entityManager.getSubmitSignaturesAddresses(voters, 100)[0], user1);
+        assertEq(entityManager.getVoterForSubmitSignaturesAddress(
+            submitSignaturesAddr1, 100), submitSignaturesAddr1);
 
         // confirm registration
-        vm.prank(depositSignaturesAddr1);
-        entityManager.confirmDepositSignaturesAddressRegistration(user1);
-        assertEq(entityManager.getDepositSignaturesAddresses(voters, 100)[0], depositSignaturesAddr1);
-        assertEq(entityManager.getVoterForDepositSignaturesAddress(depositSignaturesAddr1, 100), user1);
+        vm.prank(submitSignaturesAddr1);
+        entityManager.confirmSubmitSignaturesAddressRegistration(user1);
+        assertEq(entityManager.getSubmitSignaturesAddresses(voters, 100)[0], submitSignaturesAddr1);
+        assertEq(entityManager.getVoterForSubmitSignaturesAddress(submitSignaturesAddr1, 100), user1);
 
         // register another data provider
         vm.prank(user1);
-        entityManager.registerDepositSignaturesAddress(depositSignaturesAddr2);
-        assertEq(entityManager.getDepositSignaturesAddresses(voters, 100)[0], depositSignaturesAddr1);
+        entityManager.registerSubmitSignaturesAddress(submitSignaturesAddr2);
+        assertEq(entityManager.getSubmitSignaturesAddresses(voters, 100)[0], submitSignaturesAddr1);
 
         // confirm registration and replace first data provider
         vm.roll(200);
-        vm.prank(depositSignaturesAddr2);
-        entityManager.confirmDepositSignaturesAddressRegistration(user1);
-        assertEq(entityManager.getDepositSignaturesAddresses(voters, 100)[0], depositSignaturesAddr1);
-        assertEq(entityManager.getDepositSignaturesAddresses(voters, 200)[0], depositSignaturesAddr2);
+        vm.prank(submitSignaturesAddr2);
+        entityManager.confirmSubmitSignaturesAddressRegistration(user1);
+        assertEq(entityManager.getSubmitSignaturesAddresses(voters, 100)[0], submitSignaturesAddr1);
+        assertEq(entityManager.getSubmitSignaturesAddresses(voters, 200)[0], submitSignaturesAddr2);
     }
 
     function testRegisterSigningPolicyAddress() public {
@@ -350,39 +350,39 @@ contract EntityManagerTest is Test {
     function testGetVoterAddresses() public {
         vm.roll(100);
         EntityManager.VoterAddresses memory voterAddresses = entityManager.getVoterAddresses(user1, block.number);
-        assertEq(voterAddresses.dataProviderAddress, user1);
-        assertEq(voterAddresses.depositSignaturesAddress, user1);
+        assertEq(voterAddresses.submitAddress, user1);
+        assertEq(voterAddresses.submitSignaturesAddress, user1);
         assertEq(voterAddresses.signingPolicyAddress, user1);
 
         address dataProvider1 = makeAddr("dataProvider1");
-        address depositSignaturesAddr1 = makeAddr("depositSignaturesAddr1");
+        address submitSignaturesAddr1 = makeAddr("submitSignaturesAddr1");
         address signingPolicyAddr1 = makeAddr("signingPolicyAddr1");
 
         // register addresses
         vm.startPrank(user1);
-        entityManager.registerDataProviderAddress(dataProvider1);
-        entityManager.registerDepositSignaturesAddress(depositSignaturesAddr1);
+        entityManager.registerSubmitAddress(dataProvider1);
+        entityManager.registerSubmitSignaturesAddress(submitSignaturesAddr1);
         entityManager.registerSigningPolicyAddress(signingPolicyAddr1);
         vm.stopPrank();
 
         // confirm registrations
         vm.roll(200);
         vm.prank(dataProvider1);
-        entityManager.confirmDataProviderAddressRegistration(user1);
-        vm.prank(depositSignaturesAddr1);
-        entityManager.confirmDepositSignaturesAddressRegistration(user1);
+        entityManager.confirmSubmitAddressRegistration(user1);
+        vm.prank(submitSignaturesAddr1);
+        entityManager.confirmSubmitSignaturesAddressRegistration(user1);
         vm.prank(signingPolicyAddr1);
         entityManager.confirmSigningPolicyAddressRegistration(user1);
 
         EntityManager.VoterAddresses memory voterAddressesAtBlock100 = entityManager.getVoterAddresses(user1, 100);
-        assertEq(voterAddressesAtBlock100.dataProviderAddress, user1);
-        assertEq(voterAddressesAtBlock100.depositSignaturesAddress, user1);
+        assertEq(voterAddressesAtBlock100.submitAddress, user1);
+        assertEq(voterAddressesAtBlock100.submitSignaturesAddress, user1);
         assertEq(voterAddressesAtBlock100.signingPolicyAddress, user1);
 
         EntityManager.VoterAddresses memory voterAddressesAtBlock200 = entityManager.getVoterAddresses(
             user1, block.number);
-        assertEq(voterAddressesAtBlock200.dataProviderAddress, dataProvider1);
-        assertEq(voterAddressesAtBlock200.depositSignaturesAddress, depositSignaturesAddr1);
+        assertEq(voterAddressesAtBlock200.submitAddress, dataProvider1);
+        assertEq(voterAddressesAtBlock200.submitSignaturesAddress, submitSignaturesAddr1);
         assertEq(voterAddressesAtBlock200.signingPolicyAddress, signingPolicyAddr1);
     }
 

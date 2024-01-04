@@ -60,7 +60,7 @@ contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
         external view override
         returns (bool)
     {
-        if(_stakeData.endTime < _stakeData.startTime) {
+        if (_stakeData.endTime < _stakeData.startTime) {
             return false;
         }
         uint256 stakeDuration = _stakeData.endTime - _stakeData.startTime;
