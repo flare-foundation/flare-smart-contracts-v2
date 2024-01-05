@@ -133,7 +133,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
      */
     function chillVoter(
         address _voter,
-        uint256 _noOfRewardEpochIds
+        uint256 _noOfRewardEpochs
     )
         external onlyGovernance
         returns(
@@ -141,7 +141,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
         )
     {
         uint256 currentRewardEpochId = flareSystemManager.getCurrentRewardEpochId();
-        _untilRewardEpochId = currentRewardEpochId + _noOfRewardEpochIds;
+        _untilRewardEpochId = currentRewardEpochId + _noOfRewardEpochs;
         chilledUntilRewardEpochId[_voter] = _untilRewardEpochId;
         emit VoterChilled(_voter, _untilRewardEpochId);
     }
@@ -260,6 +260,19 @@ contract VoterRegistry is Governed, AddressUpdatable {
         returns (address[] memory _signingPolicyAddresses)
     {
         return entityManager.getSigningPolicyAddresses(register[_rewardEpochId].voters,
+            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+    }
+
+    /**
+     * Returns the list of registered voters' delegation addresses for a given reward epoch
+     */
+    function getRegisteredDelegationAddresses(
+        uint256 _rewardEpochId
+    )
+        external view
+        returns (address[] memory _delegationAddresses)
+    {
+        return entityManager.getDelegationAddresses(register[_rewardEpochId].voters,
             newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
     }
 

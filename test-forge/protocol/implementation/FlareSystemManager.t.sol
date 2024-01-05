@@ -13,7 +13,6 @@ import "forge-std/console2.sol";
 
 contract FlareSystemManagerTest is Test {
 
-    //// contracts
     FlareSystemManager private flareSystemManager;
     address private flareDaemon;
     address private governance;
@@ -127,18 +126,6 @@ contract FlareSystemManagerTest is Test {
             0
         );
 
-        // voter registry contract
-        // voter1 = makeAddr("voter1");
-        // address[] memory initialVoters = new address[](1);
-        // initialVoters[0] = voter1;
-        // voterRegistry = new VoterRegistry(
-        //     IGovernanceSettings(makeAddr("governanceSettings")),
-        //     governance,
-        //     addressUpdater,
-        //     100,
-        //     0,
-        //     initialVoters
-        // );
         mockVoterRegistry = makeAddr("voterRegistry");
 
         // submission contract
@@ -184,19 +171,6 @@ contract FlareSystemManagerTest is Test {
         contractAddresses[2] = mockRelay;
         submission.updateContractAddresses(contractNameHashes, contractAddresses);
 
-        // contractNameHashes = new bytes32[](5);
-        // contractAddresses = new address[](5);
-        // contractNameHashes[0] = _keccak256AbiEncode("AddressUpdater");
-        // contractNameHashes[1] = _keccak256AbiEncode("FlareSystemManager");
-        // contractNameHashes[2] = _keccak256AbiEncode("EntityManager");
-        // contractNameHashes[3] = _keccak256AbiEncode("PChainStakeMirror");
-        // contractNameHashes[4] = _keccak256AbiEncode("WNat");
-        // contractAddresses[0] = addressUpdater;
-        // contractAddresses[1] = address(flareSystemManager);
-        // contractAddresses[2] = address(entityManager);
-        // contractAddresses[3] = makeAddr("pChainStakeMirror");
-        // contractAddresses[4] = makeAddr("wNat");
-        // voterRegistry.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
         // mock registered addresses
@@ -601,6 +575,9 @@ contract FlareSystemManagerTest is Test {
         ); // define new signing policy
         _mockRegisteredAddresses(2);
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
+        // reward epoch 1 is already finished.
+        // First transaction in the block (daemonize() call will change `currentRewardEpochExpectedEndTs` value)
+        assertEq(flareSystemManager.getCurrentRewardEpochId(), 2);
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
 
@@ -1210,11 +1187,6 @@ contract FlareSystemManagerTest is Test {
 
 
     //// helper functions
-    function _keccak256AbiEncode(string memory _value) internal pure returns(bytes32) {
-        return keccak256(abi.encode(_value));
-    }
-
-
     function _mockRegisteredAddresses(uint256 _epochid) internal {
         vm.mockCall(
             mockVoterRegistry,
@@ -1294,6 +1266,10 @@ contract FlareSystemManagerTest is Test {
         ); // 3 registered voters
         flareSystemManager.daemonize();
         vm.stopPrank();
+    }
+
+    function _keccak256AbiEncode(string memory _value) internal pure returns(bytes32) {
+        return keccak256(abi.encode(_value));
     }
 
 }
