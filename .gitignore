@@ -1,6 +1,7 @@
 .env
 node_modules
 yarn-error.log
+db
 
 # Foundry files
 cache-forge/
@@ -26,6 +27,7 @@ typechain-web3
 # misc
 nul
 .DS_Store
+simulation-accounts.json
 
 # slither
 slither.json

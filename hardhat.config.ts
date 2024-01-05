@@ -3,8 +3,9 @@ import "@nomiclabs/hardhat-truffle5";
 import "@nomiclabs/hardhat-web3";
 import "@nomicfoundation/hardhat-chai-matchers";
 
-import { HardhatUserConfig } from "hardhat/config";
+import { HardhatUserConfig, task } from "hardhat/config";
 import * as dotenv from "dotenv";
+import { runSimulation } from "./deployment/tasks/run-simulation";
 
 dotenv.config();
 
@@ -43,6 +44,13 @@ let accounts = [
   ...(process.env.GOVERNANCE_PRIVATE_KEY ? [{ privateKey: process.env.GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
 ];
 
+// Tasks
+
+task("run-simulation", `Runs local simulation.`) // prettier-ignore
+  .addPositionalParam("voters", "Number of voters to simulate", "4")
+  .setAction(async (args, hre, _runSuper) => {
+    await runSimulation(hre, accounts, +args.voters);
+  });
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -65,7 +73,7 @@ const config: HardhatUserConfig = {
             runs: 200,
           },
         },
-      }
+      },
     ],
     overrides: {
       "contracts/mock/Imports.sol": {
@@ -74,7 +82,7 @@ const config: HardhatUserConfig = {
       },
       "@gnosis.pm/mock-contract/contracts/MockContract.sol": {
         version: "0.6.12",
-        settings: {}
+        settings: {},
       },
       // EXTRA_OVERRIDES
     },
@@ -119,8 +127,17 @@ const config: HardhatUserConfig = {
     },
     hardhat: {
       accounts,
-      initialDate: "2021-01-01",  // no time - get UTC @ 00:00:00
-      blockGasLimit: 125000000 // 10x ETH gas
+      initialDate: "2021-01-01", // no time - get UTC @ 00:00:00
+      blockGasLimit: 125000000, // 10x ETH gas
+      /*
+        Normally each Truffle smart contract interaction that modifies state results in a transaction mined in a new block
+        with a +1s block timestamp. This is problematic because we need perform multiple smart contract actions
+        in the same price epoch, and the block timestamps end up not fitting into an epoch duration, causing test failures.
+        Enabling consecutive blocks with the same timestamp is not perfect, but it alleviates this problem.
+        A better solution would be manual mining and packing multiple e.g. setup transactions into a single block with a controlled
+        timestamp, but that  would make test code more complex and seems to be not very well supported by Truffle.
+      */
+      allowBlocksWithSameTimestamp: true,
     },
     local: {
       url: "http://127.0.0.1:8545",
