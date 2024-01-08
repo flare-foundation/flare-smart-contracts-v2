@@ -23,6 +23,7 @@ import { sqliteDatabase } from "../utils/indexer/data-source";
 import { getLogger } from "../utils/logger";
 
 // Simulation config
+const SETTINGS_FILE_LOCATION = "/tmp/epoch-settings.json";
 export const TIMELOCK_SEC = 3600;
 const REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 5;
 const VOTING_EPOCH_DURATION_SEC = 20;
@@ -132,6 +133,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     (await c.flareSystemManager.nonPunishableSigningPolicySignMinDurationSeconds()).toNumber()
   );
   logger.info(`EpochSettings:\n${JSON.stringify(epochSettings, null, 2)}`);
+  fs.writeFileSync(SETTINGS_FILE_LOCATION, JSON.stringify(epochSettings, null, 2));
+  logger.info(`Epoch settings written to ${SETTINGS_FILE_LOCATION}`);
 
   const signingPolicies = new Map<number, ISigningPolicy>();
   await defineInitialSigningPolicy(
