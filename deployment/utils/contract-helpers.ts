@@ -3,7 +3,6 @@ import { toBN } from "web3-utils";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
-
 export async function transferWithSuicide(amount: BN, from: string, to: string, web3: any) {
     const SuicidalMock = artifacts.require("SuicidalMock");
     if (amount.lten(0)) throw new Error("Amount must be positive");
