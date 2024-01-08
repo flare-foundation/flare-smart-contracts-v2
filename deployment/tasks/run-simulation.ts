@@ -223,7 +223,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
         events.initializedVotingRound = votingRoundId;
       }
     } else {
-      const rewardEpochId = (await c.flareSystemManager.getCurrentRewardEpochId()).toNumber();
+      const rewardEpochId = epochSettings.rewardEpochForTime(timestamp * 1000);
       const existing = events.rewardEpochEvents.get(rewardEpochId) || [];
       existing.push(log.event);
       events.rewardEpochEvents.set(rewardEpochId, existing);
@@ -389,19 +389,16 @@ async function runVotingRound(
 ) {
   const logger = getLogger("voting");
 
-  const votingRoundId = epochSettings.votingEpochForTime(Date.now());
-  const rewardEpochId = (await c.flareSystemManager.getCurrentRewardEpochId()).toNumber();
+  const now = Date.now();
+  const votingRoundId = epochSettings.votingEpochForTime(now);
+  const rewardEpochId = epochSettings.rewardEpochForTime(now);
 
   while (votingRoundId < events.initializedVotingRound) {
     logger.info("Waiting for voting round to start", votingRoundId);
     await sleep(500);
   }
 
-  logger.info(
-    `Running voting protocol for round ${votingRoundId}, current reward epoch: ${(
-      await c.flareSystemManager.getCurrentRewardEpochId()
-    ).toNumber()}`
-  );
+  logger.info(`Running voting protocol for round ${votingRoundId}, reward epoch: ${rewardEpochId}`);
 
   for (const acc of registeredAccounts) {
     await c.submission.submit1({ from: acc.submit.address });
