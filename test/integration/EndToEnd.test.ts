@@ -101,9 +101,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     const RANDOM_ROOT = web3.utils.keccak256("root");
     const RANDOM_ROOT2 = web3.utils.keccak256("root2");
 
-    // same as in relay contract
+    // same as in relay and Flare system manager contracts
     const REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
     const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
+    const NEW_SIGNING_POLICY_INITIALIZATION_START_SEC = 3600 * 2; // 2 hours
     const RELAY_SELECTOR = web3.utils.sha3("relay()")!.slice(0, 10); // first 4 bytes is function selector
     const GET_CURRENT_RANDOM_SELECTOR = web3.utils.sha3("getCurrentRandom()")!.slice(0, 10); // first 4 bytes is function selector
 
@@ -176,7 +177,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             votingEpochDurationSeconds: VOTING_EPOCH_DURATION_SEC,
             firstRewardEpochStartVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
             rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            newSigningPolicyInitializationStartSeconds: 3600 * 2,
+            newSigningPolicyInitializationStartSeconds: NEW_SIGNING_POLICY_INITIALIZATION_START_SEC,
             nonPunishableRandomAcquisitionMinDurationSeconds: 75 * 60,
             nonPunishableRandomAcquisitionMinDurationBlocks: 2250,
             voterRegistrationMinDurationSeconds: 30 * 60,
@@ -296,12 +297,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should start random acquisition", async () => {
-        await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC - 3600 * 2)); // 2 hours before new reward epoch
+        await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC - NEW_SIGNING_POLICY_INITIALIZATION_START_SEC)); // 2 hours before new reward epoch
         expectEvent(await flareSystemManager.daemonize(), "RandomAcquisitionStarted", { rewardEpochId: toBN(1) });
     });
 
     it.skip("Should get good random", async () => {
-        const votingRoundId = (REWARD_EPOCH_DURATION_IN_SEC - 3600 * 2) / VOTING_EPOCH_DURATION_SEC + 1;
+        const votingRoundId = (REWARD_EPOCH_DURATION_IN_SEC - NEW_SIGNING_POLICY_INITIALIZATION_START_SEC) / VOTING_EPOCH_DURATION_SEC + 1;
         const quality = true;
 
         const messageData: ProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT };
@@ -321,6 +322,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should select vote power block", async () => {
+        await time.increase(1); // new random is later than random acquisition start
         expectEvent(await flareSystemManager.daemonize(), "VotePowerBlockSelected", { rewardEpochId: toBN(1) });
     });
 
@@ -445,12 +447,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should start random acquisition for reward epoch 2", async () => {
-        await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC - 3600 * 2)); // 2 hours before new reward epoch
+        await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC - NEW_SIGNING_POLICY_INITIALIZATION_START_SEC)); // 2 hours before new reward epoch
         expectEvent(await flareSystemManager.daemonize(), "RandomAcquisitionStarted", { rewardEpochId: toBN(2) });
     });
 
     it("Should get good random for reward epoch 2", async () => {
-        const votingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
+        const votingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS -
+            NEW_SIGNING_POLICY_INITIALIZATION_START_SEC / VOTING_EPOCH_DURATION_SEC + 1;
         const quality = true;
 
         const messageData: ProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT2 };
