@@ -300,7 +300,7 @@ export async function deployContracts(
   await cChainStake.activate();
 
   logger.info(
-    `Finished deploying contracts:\n  FlareSystemManager: ${flareSystemManager.address},\n  Submission: ${submission.address}`
+    `Finished deploying contracts:\n  FlareSystemManager: ${flareSystemManager.address},\n  Submission: ${submission.address},\n  Relay: ${relay.address}`
   );
   logger.info(`Current network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 

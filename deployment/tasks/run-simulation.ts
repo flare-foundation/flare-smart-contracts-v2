@@ -101,6 +101,14 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
 
   const [c, rewardEpochStart] = await deployContracts(accounts, hre, governanceAccount);
 
+  const submissionSelectors = {
+    submit1: Web3.utils.sha3("submit1()")!.slice(2, 10),
+    submit2: Web3.utils.sha3("submit2()")!.slice(2, 10),
+    submitSignatures: Web3.utils.sha3("submitSignatures()")!.slice(2, 10),
+  };
+
+  logger.info(`Function selectors:\n${JSON.stringify(submissionSelectors, null, 2)}`);
+
   const indexer = new MockDBIndexer(hre.web3, {
     submission: c.submission.address,
     flareSystemManager: c.flareSystemManager.address,
@@ -208,7 +216,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   }
 
   async function processLog(log: any, timestamp: number, events: EventStore) {
-    logger.info(`Event ${log.event} emitted`);
+    logger.info(`Event ${log.event} emitted:\n${JSON.stringify(log, null, 2)}`);
     if (log.event == "NewVotingRoundInitiated") {
       const votingRoundId = epochSettings.votingEpochForTime(timestamp * 1000);
       if (votingRoundId > events.initializedVotingRound) {
