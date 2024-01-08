@@ -101,6 +101,14 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
 
   const [c, rewardEpochStart] = await deployContracts(accounts, hre, governanceAccount);
 
+  const submissionSelectors = {
+    submit1: Web3.utils.sha3("submit1()")!.slice(2, 10),
+    submit2: Web3.utils.sha3("submit2()")!.slice(2, 10),
+    submitSignatures: Web3.utils.sha3("submitSignatures()")!.slice(2, 10),
+  };
+
+  logger.info(`Function selectors:\n${JSON.stringify(submissionSelectors, null, 2)}`);
+
   const indexer = new MockDBIndexer(hre.web3, {
     submission: c.submission.address,
     flareSystemManager: c.flareSystemManager.address,
@@ -139,10 +147,9 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
 
   logger.info(`Syncing network time with system time`);
   const firstEpochStartMs = epochSettings.rewardEpochStartMs(1);
-  const systemTime = Date.now();
-  if (systemTime > firstEpochStartMs) await time.increaseTo(Math.floor(Date.now() / 1000));
+  if (Date.now() > firstEpochStartMs) await time.increaseTo(Math.floor(Date.now() / 1000));
   else {
-    while (systemTime < firstEpochStartMs) await sleep(500);
+    while (Date.now() < firstEpochStartMs) await sleep(500);
   }
 
   const currentRewardEpochId = (await c.flareSystemManager.getCurrentRewardEpochId()).toNumber();
@@ -156,6 +163,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     ).toISOString()}`
   );
 
+  const systemTime = Date.now();
   const timeUntilSigningPolicyProtocolStart =
     epochSettings.nextRewardEpochStartMs(systemTime) -
     epochSettings.newSigningPolicyInitializationStartSeconds * 1000 -
