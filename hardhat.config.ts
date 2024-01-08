@@ -129,6 +129,15 @@ const config: HardhatUserConfig = {
       accounts,
       initialDate: "2021-01-01", // no time - get UTC @ 00:00:00
       blockGasLimit: 125000000, // 10x ETH gas
+      /*
+        Normally each Truffle smart contract interaction that modifies state results in a transaction mined in a new block
+        with a +1s block timestamp. This is problematic because we need perform multiple smart contract actions
+        in the same price epoch, and the block timestamps end up not fitting into an epoch duration, causing test failures.
+        Enabling consecutive blocks with the same timestamp is not perfect, but it alleviates this problem.
+        A better solution would be manual mining and packing multiple e.g. setup transactions into a single block with a controlled
+        timestamp, but that  would make test code more complex and seems to be not very well supported by Truffle.
+      */
+      allowBlocksWithSameTimestamp: true,
     },
     local: {
       url: "http://127.0.0.1:8545",
