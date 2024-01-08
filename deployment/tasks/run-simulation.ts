@@ -147,10 +147,9 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
 
   logger.info(`Syncing network time with system time`);
   const firstEpochStartMs = epochSettings.rewardEpochStartMs(1);
-  const systemTime = Date.now();
-  if (systemTime > firstEpochStartMs) await time.increaseTo(Math.floor(Date.now() / 1000));
+  if (Date.now() > firstEpochStartMs) await time.increaseTo(Math.floor(Date.now() / 1000));
   else {
-    while (systemTime < firstEpochStartMs) await sleep(500);
+    while (Date.now() < firstEpochStartMs) await sleep(500);
   }
 
   const currentRewardEpochId = (await c.flareSystemManager.getCurrentRewardEpochId()).toNumber();
@@ -164,6 +163,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     ).toISOString()}`
   );
 
+  const systemTime = Date.now();
   const timeUntilSigningPolicyProtocolStart =
     epochSettings.nextRewardEpochStartMs(systemTime) -
     epochSettings.newSigningPolicyInitializationStartSeconds * 1000 -
