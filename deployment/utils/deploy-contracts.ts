@@ -220,7 +220,8 @@ export async function deployContracts(
   await flareSystemManager.changeRandomProvider(true);
   const relay = await Relay.new(
     flareSystemManager.address,
-    0,
+    initialSigningPolicy.rewardEpochId,
+    initialSigningPolicy.startVotingRoundId,
     getSigningPolicyHash(initialSigningPolicy),
     FTSO_PROTOCOL_ID,
     settings.firstVotingRoundStartTs,

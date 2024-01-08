@@ -14,6 +14,8 @@ contract Relay {
         uint16 thresholdIncreaseBIPS;
         uint32 randomVotingRoundId;
         bool randomNumberQualityScore;
+        uint32 lastInitializedRewardEpoch;
+        bool noSigningPolicyRelay;        
     }
 
     struct SigningPolicy {
@@ -134,6 +136,10 @@ contract Relay {
     uint256 public constant SD_BOFF_randomVotingRoundId = 112;
     uint256 public constant SD_MASK_randomNumberQualityScore = 0xff;
     uint256 public constant SD_BOFF_randomNumberQualityScore = 144;
+    uint256 public constant SD_MASK_lastInitializedRewardEpoch = 0xffffffff;
+    uint256 public constant SD_BOFF_lastInitializedRewardEpoch = 152;
+    uint256 public constant SD_MASK_noSigningPolicyRelay = 0xff;
+    uint256 public constant SD_BOFF_noSigningPolicyRelay = 184;
     /* solhint-enable const-name-snakecase */
 
     // Signature with index structure
@@ -160,16 +166,18 @@ contract Relay {
     uint256 public constant M_3_existingSigningPolicyHashTmp = 96;
     uint256 public constant M_4 = 128;
     uint256 public constant M_5_stateData = 160;
+    uint256 public constant M_5_randomQualityScore = 160;
     uint256 public constant M_6_merkleRoot = 192;
 
     uint256 public constant ADDRESS_OFFSET = 12;
     /* solhint-enable const-name-snakecase */
 
-    uint256 public lastInitializedRewardEpoch;
     // rewardEpochId => signingPolicyHash
     mapping(uint256 => bytes32) public toSigningPolicyHash;
     // protocolId => votingRoundId => merkleRoot
     mapping(uint256 => mapping(uint256 => bytes32)) public merkleRoots;
+    // rewardEpochId => startingVotingRoundId
+    mapping(uint256 => uint256) public startingVotingRoundIds;
 
     address public signingPolicySetter;
 
@@ -183,7 +191,8 @@ contract Relay {
 
     constructor(
         address _signingPolicySetter,
-        uint256 _initialRewardEpochId,
+        uint32 _initialRewardEpochId,
+        uint32 _startingVotingRoundIdForInitialRewardEpochId,
         bytes32 _initialSigningPolicyHash,
         uint8 _randomNumberProtocolId, // TODO - we may want to be able to change this through governance
         uint32 _firstVotingRoundStartTs,
@@ -197,7 +206,8 @@ contract Relay {
             "threshold increase too small"
         );
         signingPolicySetter = _signingPolicySetter;
-        lastInitializedRewardEpoch = _initialRewardEpochId;
+        stateData.lastInitializedRewardEpoch = _initialRewardEpochId;
+        startingVotingRoundIds[_initialRewardEpochId] = _startingVotingRoundIdForInitialRewardEpochId;
         toSigningPolicyHash[_initialRewardEpochId] = _initialSigningPolicyHash;
         stateData.randomNumberProtocolId = _randomNumberProtocolId;
         stateData.firstVotingRoundStartTs = _firstVotingRoundStartTs;
@@ -207,8 +217,11 @@ contract Relay {
         stateData
             .rewardEpochDurationInVotingEpochs = _rewardEpochDurationInVotingEpochs;
         stateData.thresholdIncreaseBIPS = _thresholdIncreaseBIPS;
+        if(signingPolicySetter != address(0)) {
+            stateData.noSigningPolicyRelay = true;
+        }
     }
-
+    // Auxilary struct for memory variables
     struct Counters {
         uint256 weightIndex;
         uint256 weightPos;
@@ -227,7 +240,7 @@ contract Relay {
         SigningPolicy memory _signingPolicy
     ) external onlySigningPolicySetter returns (bytes32) {
         require(
-            lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
+            stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
             "not next reward epoch"
         );
         require(_signingPolicy.voters.length > 0, "must be non-trivial");
@@ -321,7 +334,9 @@ contract Relay {
             }
         }
         toSigningPolicyHash[_signingPolicy.rewardEpochId] = currentHash;
-        lastInitializedRewardEpoch = _signingPolicy.rewardEpochId;
+        stateData.lastInitializedRewardEpoch = _signingPolicy.rewardEpochId;
+        startingVotingRoundIds[_signingPolicy.rewardEpochId] = _signingPolicy
+            .startVotingRoundId;
         emit SigningPolicyInitialized(
             _signingPolicy.rewardEpochId,
             _signingPolicy.startVotingRoundId,
@@ -353,7 +368,7 @@ contract Relay {
     function relay() external returns (uint256 _result) {
         // 0 - not relayed
         // 1 - relayed
-        // 2 - relayed and priority checked
+
         // solhint-disable-next-line no-inline-assembly
         assembly {
             // Helper function to revert with a message
@@ -655,19 +670,52 @@ contract Relay {
                     )
                 }
 
-                // When signing with previous reward epoch's signing policy, use higher threshold
+                // signing with "old" signing policy
                 if eq(sub(messageRewardEpochId, 1), rewardEpochId) {
-                    threshold := div(
-                        mul(
-                            threshold,
-                            structValue(
-                                mload(add(memPtrGP0, M_5_stateData)),
-                                SD_BOFF_thresholdIncreaseBIPS,
-                                SD_MASK_thresholdIncreaseBIPS
-                            )
+                    // increase the threshold, if messageRewardEpochId is not yet initialized              
+                    
+                    if lt(
+                        structValue(
+                            mload(add(memPtrGP0, M_5_stateData)),
+                            SD_BOFF_lastInitializedRewardEpoch,
+                            SD_MASK_lastInitializedRewardEpoch
                         ),
-                        THRESHOLD_BIPS
-                    )
+                        messageRewardEpochId
+                    ) {                    
+                        threshold := div(
+                            mul(
+                                threshold,
+                                structValue(
+                                    mload(add(memPtrGP0, M_5_stateData)),
+                                    SD_BOFF_thresholdIncreaseBIPS,
+                                    SD_MASK_thresholdIncreaseBIPS
+                                )
+                            ),
+                            THRESHOLD_BIPS
+                        )
+                    }
+                    // if messageRewardEpochId is initialized and votingRoundId >= messageRewardEpochId.startingVotingRoundId, revert
+                    if eq(
+                        structValue(
+                                mload(add(memPtrGP0, M_5_stateData)),
+                                SD_BOFF_lastInitializedRewardEpoch,
+                                SD_MASK_lastInitializedRewardEpoch
+                        ),
+                        messageRewardEpochId
+                    ) {
+                        mstore(add(memPtrGP0, M_3), messageRewardEpochId) // key (messageRewardEpochId)
+                        mstore(add(memPtrGP0, M_4), startingVotingRoundIds.slot) // startingVotingRoundIds slot
+                        // may be zero if not initialized
+                        let nextStartingVotingRoundId := sload(keccak256(add(memPtrGP0, M_3), 64))
+                        // if votingRoundId >= nextStartingVotingRoundId, revert
+                        if gt(votingRoundId, sub(nextStartingVotingRoundId, 1)) {
+                            revertWithMessage(memPtrGP0, "Must use new sign policy", 24)
+                        }
+                    }
+                    // At this point we have situation:
+                    // - messageRewardEpochId is not initialized -> increased threshold
+                    // - messageRewardEpochId is initialized -> votingRoundId < nextStartingVotingRoundId
+                    // consequently the threshold can stay the same                   
                 }
 
                 // Prepare the message hash into slot M_1
@@ -678,7 +726,19 @@ contract Relay {
             // The signed hash is the signing policy hash and it gets prepared into slot 32
 
             if eq(protocolId, 0) {
-                let memPtrP0 := mload(0x40)
+                // Check if signing policy relay is enabled
+                
+
+                if gt(
+                    structValue(
+                        mload(add(mload(0x40), M_5_stateData)),
+                        SD_BOFF_noSigningPolicyRelay,
+                        SD_MASK_noSigningPolicyRelay
+                    ),
+                    0
+                ) {
+                    revertWithMessage(mload(0x40), "Sign policy relay disabled", 26)
+                }
 
                 if lt(
                     calldatasize(),
@@ -690,12 +750,12 @@ contract Relay {
                         )
                     )
                 ) {
-                    revertWithMessage(memPtrP0, "No new sign policy size", 23)
+                    revertWithMessage(mload(0x40), "No new sign policy size", 23)
                 }
 
                 // New metadata
                 calldatacopy(
-                    memPtrP0,
+                    mload(0x40),
                     add(
                         SELECTOR_BYTES,
                         add(PROTOCOL_ID_BYTES, signingPolicyLength)
@@ -705,7 +765,7 @@ contract Relay {
 
                 let newMetadata := shr(
                     sub(256, mul(8, METADATA_BYTES)),
-                    mload(memPtrP0)
+                    mload(mload(0x40))
                 )
                 let newNumberOfVoters := structValue(
                     newMetadata,
@@ -728,7 +788,7 @@ contract Relay {
 
                 if lt(calldatasize(), signatureStart) {
                     revertWithMessage(
-                        memPtrP0,
+                        mload(0x40),
                         "Wrong size for new sign policy",
                         30
                     )
@@ -739,8 +799,10 @@ contract Relay {
                     MD_MASK_rewardEpochId
                 )
 
-                let tmpLastInitializedRewardEpochId := sload(
-                    lastInitializedRewardEpoch.slot
+                let tmpLastInitializedRewardEpochId := structValue(
+                    mload(add(mload(0x40), M_5_stateData)),
+                    SD_BOFF_lastInitializedRewardEpoch,
+                    SD_MASK_lastInitializedRewardEpoch
                 )
                 // Should be next reward epoch id
                 if iszero(
@@ -749,34 +811,53 @@ contract Relay {
                         newSigningPolicyRewardEpochId
                     )
                 ) {
-                    revertWithMessage(memPtrP0, "Not next reward epoch", 21)
+                    revertWithMessage(mload(0x40), "Not next reward epoch", 21)
                 }
 
                 let newSigningPolicyHash := calculateSigningPolicyHash(
-                    memPtrP0,
+                    mload(0x40),
                     add(
                         SELECTOR_BYTES,
                         add(signingPolicyLength, PROTOCOL_ID_BYTES)
                     ),
                     newSigningPolicyLength
                 )
-                // Write to storage - if signature weight is not sufficient, this will be reverted
-                sstore(
-                    lastInitializedRewardEpoch.slot,
-                    newSigningPolicyRewardEpochId
+                // Update temporary stateData. If the weight of signatures if 
+                // over threshold, then this will be written to storage
+                mstore(
+                    add(mload(0x40), M_5_stateData),
+                    assignStruct(
+                        mload(add(mload(0x40), M_5_stateData)),
+                        SD_BOFF_lastInitializedRewardEpoch,
+                        SD_MASK_lastInitializedRewardEpoch,
+                        newSigningPolicyRewardEpochId
+                    )
                 )
+
+                // startingVotingRoundId[newSigningPolicyRewardEpochId] = newMetadata.startingVotingRoundId
+                mstore(mload(0x40), newSigningPolicyRewardEpochId)
+                mstore(add(mload(0x40), M_1), startingVotingRoundIds.slot)
+                sstore(
+                    keccak256(mload(0x40), 64), 
+                    structValue(
+                        newMetadata,
+                        MD_BOFF_startingVotingRoundId,
+                        MD_MASK_startingVotingRoundId
+                    )                        
+                )
+
                 // toSigningPolicyHash[newSigningPolicyRewardEpochId] = newSigningPolicyHash
-                mstore(memPtrP0, newSigningPolicyRewardEpochId)
-                mstore(add(memPtrP0, M_1), toSigningPolicyHash.slot)
-                sstore(keccak256(memPtrP0, 64), newSigningPolicyHash)
+                mstore(mload(0x40), newSigningPolicyRewardEpochId)
+                mstore(add(mload(0x40), M_1), toSigningPolicyHash.slot)
+                sstore(keccak256(mload(0x40), 64), newSigningPolicyHash)
                 // Prepare the hash on slot 32 for signature verification
-                mstore(add(memPtrP0, M_1), newSigningPolicyHash)
+                mstore(add(mload(0x40), M_1), newSigningPolicyHash)
                 // IMPORTANT: assumes that if threshold is not sufficient, the transaction will be reverted
                 
                 // emit event    
                 // use temporarily M_3 to store event signature
-                mstore(add(memPtrP0, M_3), "SigningPolicyRelayed(uint256)")
-                log2(memPtrP0, 0, keccak256(add(memPtrP0, M_3), 29), newSigningPolicyRewardEpochId)      
+                mstore(add(mload(0x40), M_3), "SigningPolicyRelayed(uint256)")
+                log2(mload(0x40), 0, keccak256(add(mload(0x40), M_3), 29), newSigningPolicyRewardEpochId)      
             }
 
             // Assumptions here:
@@ -914,7 +995,14 @@ contract Relay {
                 )
 
                 if gt(weight, threshold) {
-                    // If relaying messages, store the Merkle root
+                    if eq(protocolId, 0) {
+                        // Store updated stateData (lastInitializedRewardEpoch)
+                        sstore(
+                            stateData.slot,
+                            mload(add(memPtrFor, M_5_stateData))
+                        )                        
+                    }
+                    
                     if gt(protocolId, 0) {
                         let votingRoundId := extractVotingRoundIdFromMessage(
                             memPtrFor,
@@ -996,12 +1084,12 @@ contract Relay {
                                 mload(add(memPtrFor, M_5_stateData))
                             )
 
-                            // Reuse M_5_stateData for randomQualityScore, and use
-                            // M_6_merkleRoot together to provide data for event
+                            // M_5_stateData is not used anymore. Using M_5_randomQualityScore for 
+                            // randomQualityScore, together with M_6_merkleRoot for data of an event
                             mstore(
-                                add(memPtrFor, M_5_stateData),
+                                add(memPtrFor, M_5_randomQualityScore),
                                 structValue(
-                                    mload(add(memPtrFor, M_5_stateData)),
+                                    mload(add(memPtrFor, M_5_randomQualityScore)),
                                     SD_BOFF_randomNumberQualityScore,
                                     SD_MASK_randomNumberQualityScore
                                 )
@@ -1010,7 +1098,7 @@ contract Relay {
                             mstore(add(memPtrFor, M_3), "ProtocolMessageRelayed(uint8,uin")
                             mstore(add(memPtrFor, M_4), "t32,bool,bytes32)")
                             log3(
-                                add(memPtrFor, M_5_stateData), 64, keccak256(add(memPtrFor, M_3), 49), 
+                                add(memPtrFor, M_5_randomQualityScore), 64, keccak256(add(memPtrFor, M_3), 49), 
                                 protocolId, votingRoundId
                             )      
                         } // if protocolId == stateData.randomNumberProtocolId
@@ -1029,7 +1117,6 @@ contract Relay {
             revert("Not enough weight");
         }
         // _result is 1
-        // TODO: check if cryptographic sortition proof is valid. If so, return 2
     }
 
     function getRandomNumber()
@@ -1074,5 +1161,14 @@ contract Relay {
             return toSigningPolicyHash[_votingRoundId];
         }
         return merkleRoots[_protocolId][_votingRoundId];
+    }
+
+    function lastInitializedRewardEpochData() external view returns (
+        uint32 lastInitializedRewardEpoch,
+        uint32 startingVotingRoundIdForLastInitializedRewardEpoch
+    ) {
+        lastInitializedRewardEpoch = stateData.lastInitializedRewardEpoch;
+        startingVotingRoundIdForLastInitializedRewardEpoch = 
+            uint32(startingVotingRoundIds[lastInitializedRewardEpoch]);
     }
 }

@@ -1,8 +1,10 @@
-import { constants } from "@openzeppelin/test-helpers";
+// !!!Causes wrong initialization of truffle web3 when yarn hardhat test is run
+// import { constants } from "@openzeppelin/test-helpers";
 import { GovernedBaseInstance } from "../../typechain-truffle";
 import { toBN } from "web3-utils";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
+const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 export async function transferWithSuicide(amount: BN, from: string, to: string, web3: any) {
     const SuicidalMock = artifacts.require("SuicidalMock");
     if (amount.lten(0)) throw new Error("Amount must be positive");
@@ -54,7 +56,7 @@ export async function testDeployGovernanceSettings(artifacts: any, governance: s
     const tempGovSettings = await GovernanceSettings.new();
     const governanceSettingsCode = await web3.eth.getCode(tempGovSettings.address);   // get deployed code
     await network.provider.send("hardhat_setCode", [GOVERNANCE_SETTINGS_ADDRESS, governanceSettingsCode]);
-    await network.provider.send("hardhat_setStorageAt", [GOVERNANCE_SETTINGS_ADDRESS, "0x0", constants.ZERO_BYTES32]);  // clear initialisation
+    await network.provider.send("hardhat_setStorageAt", [GOVERNANCE_SETTINGS_ADDRESS, "0x0", ZERO_BYTES32]);  // clear initialisation
     const governanceSettings = await GovernanceSettings.at(GOVERNANCE_SETTINGS_ADDRESS);
     await governanceSettings.initialise(governance, timelock, executors, { from: GENESIS_GOVERNANCE_ADDRESS });
     return governanceSettings;

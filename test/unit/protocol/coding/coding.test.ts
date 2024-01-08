@@ -2,14 +2,17 @@ import { config, contract, ethers, web3 } from "hardhat";
 import { defaultTestSigningPolicy } from "./coding-helpers";
 import { getTestFile } from "../../../utils/constants";
 import {
+  PayloadMessage,
   ProtocolMessageMerkleRoot,
   SigningPolicy,
   decodeECDSASignatureWithIndex,
   decodeProtocolMessageMerkleRoot,
   decodeSigningPolicy,
+  encodeBeforeConcatenation,
   encodeECDSASignatureWithIndex,
   encodeProtocolMessageMerkleRoot,
   encodeSigningPolicy,
+  prefixDecodeEncodingBeforeConcatenation,
   signMessageHashECDSAWithIndex,
 } from "../../../../scripts/libs/protocol/protocol-coder";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -62,4 +65,22 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
     const decoded = decodeProtocolMessageMerkleRoot(encoded);
     expect(decoded).to.deep.equal(messageData);
   });
+
+  it("Should encode and decode signature payloads", async () => {
+    let payloads: PayloadMessage<string>[] = [];
+    const N = 10;
+    let encoded = "0x";    
+    for (let i = 0; i < N; i++) {
+      let payload = {
+        protocolId: i,
+        votingRoundId: 10 * i,
+        payload: web3.utils.randomHex(2 * (N - i)),
+      } as PayloadMessage<string>;
+      payloads.push(payload);
+      encoded += encodeBeforeConcatenation(payload).slice(2);
+    }
+    const decoded = prefixDecodeEncodingBeforeConcatenation(encoded);
+    expect(decoded).to.deep.equal(payloads);
+  });
+
 });

@@ -21,11 +21,30 @@ export interface ECDSASignatureWithIndex {
   index: number;
 }
 
+export interface ECDSASignature {
+  r: string;
+  s: string;
+  v: number;
+}
+
 export interface ProtocolMessageMerkleRoot {
   protocolId: number;
   votingRoundId: number;
   randomQualityScore: boolean;
   merkleRoot: string;
+}
+
+export interface PayloadMessage<T> {
+  protocolId: number;
+  votingRoundId: number;
+  payload: T;
+}
+
+export interface SignaturePayload {
+  type: string;
+  message: ProtocolMessageMerkleRoot;
+  signature: ECDSASignature;
+  unsignedMessage: string;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -103,20 +122,19 @@ export function decodeSigningPolicy(encodedPolicy: string): SigningPolicy {
     throw Error("Too short encoded signing policy");
   }
   const size = parseInt(encodedPolicyInternal.slice(0, 4), 16);
-  const expectedLength = 150 + size * (20 + 2) * 2; //(2 + 3 + 4 + 2 + 32 + 32) * 2 = 150
+  const expectedLength = 86 + size * (20 + 2) * 2; //(2 + 3 + 4 + 2 + 32) * 2 = 150
   if (encodedPolicyInternal.length !== expectedLength) {
     throw Error(`Invalid encoded signing policy length: size = ${size}, length = ${encodedPolicyInternal.length}`);
   }
   const rewardEpochId = parseInt(encodedPolicyInternal.slice(4, 10), 16);
   const startingVotingRoundId = parseInt(encodedPolicyInternal.slice(10, 18), 16);
   const threshold = parseInt(encodedPolicyInternal.slice(18, 22), 16);
-  const publicKeyMerkleRoot = "0x" + encodedPolicyInternal.slice(22, 86);
-  const randomSeed = "0x" + encodedPolicyInternal.slice(86, 150);
+  const randomSeed = "0x" + encodedPolicyInternal.slice(22, 86);
   const signers: string[] = [];
   const weights: number[] = [];
   let totalWeight = 0;
   for (let i = 0; i < size; i++) {
-    const start = 150 + i * 44; // 20 (address) + 2 (weight) = 44
+    const start = 86 + i * 44; // 20 (address) + 2 (weight) = 44
     signers.push("0x" + encodedPolicyInternal.slice(start, start + 40));
     const weight = parseInt(encodedPolicyInternal.slice(start + 40, start + 44), 16);
     weights.push(weight);
@@ -157,6 +175,21 @@ export function encodeECDSASignatureWithIndex(signature: ECDSASignatureWithIndex
     signature.s.slice(2) +
     signature.index.toString(16).padStart(4, "0")
   );
+}
+
+/**
+ * Encodes ECDSA signature into 0x-prefixed hex string representing byte encoding
+ * @param signature 
+ * @returns 
+ */
+export function encodeECDSASignature(signature: ECDSASignature): string {
+  return (
+    "0x" +
+    signature.v.toString(16).padStart(2, "0") +
+    signature.r.slice(2) +
+    signature.s.slice(2)
+  );
+
 }
 
 /**
@@ -301,7 +334,7 @@ export async function signMessageHashECDSAWithIndex(
     s: signatureObject.s,
     index,
   } as ECDSASignatureWithIndex;
-  
+
   // The next code occasionally does not work well
   // Example is first private key and the message:
   // {
@@ -325,4 +358,137 @@ export async function signMessageHashECDSAWithIndex(
     index,
   };
   */
+}
+
+/**
+ * Encodes data in byte sequence that can be concatenated with other encoded data for use in submission functions in
+ * Submission.sol contract
+ * @param protocolId 
+ * @param votingRoundRoundId 
+ * @param payload 
+ * @returns 
+ */
+export function encodeBeforeConcatenation(payloadMessage: PayloadMessage<string>): string {
+  if (payloadMessage.protocolId < 0 || payloadMessage.protocolId > 2 ** 8 - 1) {
+    throw Error(`Protocol id out of range: ${payloadMessage.protocolId}`);
+  }
+  if (payloadMessage.votingRoundId < 0 || payloadMessage.votingRoundId > 2 ** 32 - 1) {
+    throw Error(`Voting round id out of range: ${payloadMessage.votingRoundId}`);
+  }
+  if (!/^0x[0-9a-f]*$/i.test(payloadMessage.payload)) {
+    throw Error(`Invalid payload format: ${payloadMessage.payload}`);
+  }
+  return (
+    "0x" +
+    payloadMessage.protocolId.toString(16).padStart(2, "0") +
+    payloadMessage.votingRoundId.toString(16).padStart(8, "0") +
+    (payloadMessage.payload.slice(2).length / 2).toString(16).padStart(4, "0") +
+    payloadMessage.payload.slice(2)
+  ).toLowerCase();
+}
+
+/**
+ * Decodes data from concatenated byte sequence
+ * @param message 
+ * @returns 
+ */
+export function prefixDecodeEncodingBeforeConcatenation(message: string): PayloadMessage<string>[] {
+  const messageInternal = message.startsWith("0x") ? message.slice(2) : message;
+  if (!/^[0-9a-f]*$/.test(messageInternal)) {
+    throw Error(`Invalid format - not hex string: ${message}`);
+  }
+  if (messageInternal.length % 2 !== 0) {
+    throw Error(`Invalid format - not even length: ${message.length}`);
+  }
+  let i = 0;
+  let result: PayloadMessage<string>[] = [];
+  while (i < messageInternal.length) {
+    // 14 = 2 + 8 + 4
+    if (messageInternal.length - i < 14) {
+      throw Error(`Invalid format - too short. Error at ${i} of ${message.length}`);
+    }
+    const protocolId = parseInt(messageInternal.slice(i, i + 2), 16);
+    const votingRoundId = parseInt(messageInternal.slice(i + 2, i + 10), 16);
+    const payloadLength = parseInt(messageInternal.slice(i + 10, i + 14), 16);
+    const payload = "0x" + messageInternal.slice(i + 14, i + 14 + payloadLength * 2);
+    if (payloadLength * 2 + 14 > messageInternal.length - i) {
+      throw Error(`Invalid format - too short: ${message.length}`);
+    }
+    i += payloadLength * 2 + 14;
+    result.push({
+      protocolId,
+      votingRoundId,
+      payload,
+    });
+  }
+  return result;
+}
+
+/**
+ * Endodes signature payload into byte encoding, represented by 0x-prefixed hex string
+ * @param signaturePayload 
+ * @returns 
+ */
+export function encodeSignaturePayload(signaturePayload: SignaturePayload): string {
+  const message = encodeProtocolMessageMerkleRoot(signaturePayload.message);
+  const signature = encodeECDSASignature(signaturePayload.signature);
+  return (
+    "0x" +
+    signaturePayload.type.slice(2) +
+    message.slice(2) +
+    signature.slice(2) +
+    signaturePayload.unsignedMessage.slice(2)
+  ).toLowerCase();
+}
+
+/**
+ * Decodes signature payload from byte encoding, represented by 0x-prefixed hex string
+ * @param encodedSignaturePayload 
+ * @returns 
+ */
+export function decodeSignaturePayload(encodedSignaturePayload: string): SignaturePayload {
+  const encodedSignaturePayloadInternal = encodedSignaturePayload.startsWith("0x")
+    ? encodedSignaturePayload.slice(2)
+    : encodedSignaturePayload;
+  if (!/^[0-9a-f]*$/.test(encodedSignaturePayloadInternal)) {
+    throw Error(`Invalid format - not hex string: ${encodedSignaturePayload}`);
+  }
+  if (encodedSignaturePayloadInternal.length < 2 + 38 * 2 + 65 * 2) {
+    throw Error(`Invalid format - too short: ${encodedSignaturePayload}`);
+  }
+  const type = "0x" + encodedSignaturePayloadInternal.slice(0, 2);
+  const message = "0x" + encodedSignaturePayloadInternal.slice(2, 2 + 38 * 2);
+  const signature = "0x" + encodedSignaturePayloadInternal.slice(2 + 38 * 2, 2 + 38 * 2 + 65 * 2);
+  const unsignedMessage = "0x" + encodedSignaturePayloadInternal.slice(2 + 38 * 2 + 65 * 2);
+  return {
+    type,
+    message: decodeProtocolMessageMerkleRoot(message),
+    signature: decodeECDSASignatureWithIndex(signature),
+    unsignedMessage,
+  };
+}
+
+/**
+ * Decodes properly formated signature calldata into array of payloads with signatures
+ * @param calldata 
+ */
+export function decodeSignatureCalldata(calldata: string): PayloadMessage<SignaturePayload>[] {
+  const calldataInternal = calldata.startsWith("0x") ? calldata.slice(2) : calldata;
+  if (!(/^[0-9a-f]*$/.test(calldataInternal) && calldataInternal.length % 2 === 0)) {
+    throw Error(`Invalid format - not byte sequence representing hex string: ${calldata}`);
+  }
+  if (calldataInternal.length < 8) {
+    throw Error(`Invalid format - too short: ${calldata}`);
+  }
+  const strippedCalldata = "0x" + calldataInternal.slice(8);
+  const signatureRecords = prefixDecodeEncodingBeforeConcatenation(strippedCalldata);
+  const result: PayloadMessage<SignaturePayload>[] = [];
+  for(let record of signatureRecords) {
+    result.push({
+      protocolId: record.protocolId,
+      votingRoundId: record.votingRoundId,
+      payload: decodeSignaturePayload(record.payload),
+    })
+  }
+  return result;
 }
