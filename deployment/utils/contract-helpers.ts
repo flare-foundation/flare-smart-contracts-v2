@@ -1,5 +1,3 @@
-// !!!Causes wrong initialization of truffle web3 when yarn hardhat test is run
-// import { constants } from "@openzeppelin/test-helpers";
 import { GovernedBaseInstance } from "../../typechain-truffle";
 import { toBN } from "web3-utils";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
@@ -68,4 +66,3 @@ export function findRequiredEvent<E extends Truffle.AnyEvent, N extends E['name'
     assert.isTrue(event != null);
     return event;
 }
-

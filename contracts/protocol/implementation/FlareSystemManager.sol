@@ -310,8 +310,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         require(_newSigningPolicyHash != bytes32(0) && _getSingingPolicyHash(_rewardEpochId) == _newSigningPolicyHash,
             "new signing policy hash invalid");
         require(state.singingPolicySignEndTs == 0, "new signing policy already signed");
-        bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _newSigningPolicyHash));
-        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(_newSigningPolicyHash);
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
         (address voter, uint16 weight) =
             voterRegistry.getVoterWithNormalisedWeight(_rewardEpochId - 1, signingAddress);

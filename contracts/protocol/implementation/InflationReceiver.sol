@@ -35,7 +35,7 @@ abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, Addre
      * @param _toAuthorizeWei the amount of inflation that can be awarded in the coming day
      */
     function setDailyAuthorizedInflation(uint256 _toAuthorizeWei) external override onlyInflation {
-        dailyAuthorizedInflation= _toAuthorizeWei;
+        dailyAuthorizedInflation = _toAuthorizeWei;
         totalInflationAuthorizedWei = totalInflationAuthorizedWei + _toAuthorizeWei;
         lastInflationAuthorizationReceivedTs = block.timestamp;
 
@@ -83,9 +83,9 @@ abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, Addre
     }
 
     /**
-     * @dev Method that is called when new daily inlfation is authorized.
+     * @dev Method that is called when new daily inflation is authorized.
      */
-    function _setDailyAuthorizedInflation(uint256 _toAuthorizeWei) internal virtual  {}
+    function _setDailyAuthorizedInflation(uint256 _toAuthorizeWei) internal virtual {}
 
     /**
      * @dev Method that is called when new inflation is received.
