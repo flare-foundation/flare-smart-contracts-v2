@@ -1,28 +1,26 @@
-import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { PChainStakeMirrorVerifierInstance } from "../../typechain-truffle";
-import * as util from "../../test/utils/key-to-address";
-import Web3 from "web3";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
-import {
-  ProtocolMessageMerkleRoot,
-  SigningPolicy,
-  encodeProtocolMessageMerkleRoot,
-  encodeSigningPolicy,
-  signingPolicyHash,
-} from "../../scripts/libs/protocol/protocol-coder";
-import { MockContractInstance } from "../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract";
-import { toBN } from "web3-utils";
-import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
-import { EpochSettings } from "../utils/EpochSettings";
-import { Account } from "web3-core";
-import { DeployedContracts, deployContracts } from "../utils/deploy-contracts";
-import { MockDBIndexer } from "../utils/indexer/MockDBIndexer";
 import fs from "fs";
-import { getLogger } from "../utils/logger";
-import { sqliteDatabase } from "../utils/indexer/data-source";
-import { decodeLogs as decodeRawLogs } from "../utils/events";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+import Web3 from "web3";
+import { Account } from "web3-core";
+import { toBN } from "web3-utils";
+import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
+import {
+  ISigningPolicy,
+  SigningPolicy
+} from "../../scripts/libs/protocol/SigningPolicy";
+import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
+import * as util from "../../test/utils/key-to-address";
+import { PChainStakeMirrorVerifierInstance } from "../../typechain-truffle";
+import { MockContractInstance } from "../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract";
 import { VoterRegistryInstance } from "../../typechain-truffle/contracts/protocol/implementation/VoterRegistry";
+import { EpochSettings } from "../utils/EpochSettings";
+import { DeployedContracts, deployContracts } from "../utils/deploy-contracts";
 import { errorString } from "../utils/error";
+import { decodeLogs as decodeRawLogs } from "../utils/events";
+import { MockDBIndexer } from "../utils/indexer/MockDBIndexer";
+import { sqliteDatabase } from "../utils/indexer/data-source";
+import { getLogger } from "../utils/logger";
 
 // Simulation config
 export const TIMELOCK_SEC = 3600;
@@ -135,7 +133,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   );
   logger.info(`EpochSettings:\n${JSON.stringify(epochSettings, null, 2)}`);
 
-  const signingPolicies = new Map<number, SigningPolicy>();
+  const signingPolicies = new Map<number, ISigningPolicy>();
   await defineInitialSigningPolicy(
     c,
     rewardEpochStart,
@@ -381,7 +379,7 @@ async function defineNextSigningPolicy(
  */
 async function runVotingRound(
   c: DeployedContracts,
-  signingPolicies: Map<number, SigningPolicy>,
+  signingPolicies: Map<number, ISigningPolicy>,
   registeredAccounts: RegisteredAccount[],
   epochSettings: EpochSettings,
   events: EventStore,
@@ -418,20 +416,20 @@ async function runVotingRound(
 
   // TODO: Obtain actual merkle root and sigantures from the indexer, use fake if not present.
   const fakeMerkleRoot = web3.utils.keccak256("root1" + votingRoundId);
-  const messageData: ProtocolMessageMerkleRoot = {
+  const messageData: IProtocolMessageMerkleRoot = {
     protocolId: FTSO_PROTOCOL_ID,
     votingRoundId: votingRoundId,
     randomQualityScore: true,
     merkleRoot: fakeMerkleRoot,
   };
-  const fullMessage = encodeProtocolMessageMerkleRoot(messageData).slice(2);
+  const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
   const messageHash = Web3.utils.keccak256("0x" + fullMessage);
   const signatures = await generateSignatures(
     registeredAccounts.map(x => x.policySigning.privateKey),
     messageHash,
     registeredAccounts.length
   );
-  const encodedSigningPolicy = encodeSigningPolicy(signingPolicies.get(rewardEpochId)!).slice(2);
+  const encodedSigningPolicy = SigningPolicy.encode(signingPolicies.get(rewardEpochId)!).slice(2);
   const fullData = RELAY_SELECTOR + encodedSigningPolicy + fullMessage + signatures;
 
   await web3.eth.sendTransaction({
@@ -449,7 +447,7 @@ async function defineInitialSigningPolicy(
   rewardEpochStart: number,
   epochSettings: EpochSettings,
   registeredAccounts: RegisteredAccount[],
-  signingPolicies: Map<number, SigningPolicy>,
+  signingPolicies: Map<number, ISigningPolicy>,
   governanceAccount: Account
 ) {
   await time.increaseTo(
@@ -562,6 +560,6 @@ export function encodeContractNames(web3: any, names: string[]): string[] {
 export function encodeString(text: string, web3: any): string {
   return web3.utils.keccak256(web3.eth.abi.encodeParameters(["string"], [text]));
 }
-export function getSigningPolicyHash(signingPolicy: SigningPolicy): string {
-  return signingPolicyHash(encodeSigningPolicy(signingPolicy));
+export function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {
+  return SigningPolicy.hash(signingPolicy);
 }
