@@ -103,20 +103,19 @@ export function decodeSigningPolicy(encodedPolicy: string): SigningPolicy {
     throw Error("Too short encoded signing policy");
   }
   const size = parseInt(encodedPolicyInternal.slice(0, 4), 16);
-  const expectedLength = 150 + size * (20 + 2) * 2; //(2 + 3 + 4 + 2 + 32 + 32) * 2 = 150
+  const expectedLength = 86 + size * (20 + 2) * 2; //(2 + 3 + 4 + 2 + 32) * 2 = 86
   if (encodedPolicyInternal.length !== expectedLength) {
     throw Error(`Invalid encoded signing policy length: size = ${size}, length = ${encodedPolicyInternal.length}`);
   }
   const rewardEpochId = parseInt(encodedPolicyInternal.slice(4, 10), 16);
   const startingVotingRoundId = parseInt(encodedPolicyInternal.slice(10, 18), 16);
   const threshold = parseInt(encodedPolicyInternal.slice(18, 22), 16);
-  const publicKeyMerkleRoot = "0x" + encodedPolicyInternal.slice(22, 86);
-  const randomSeed = "0x" + encodedPolicyInternal.slice(86, 150);
+  const randomSeed = "0x" + encodedPolicyInternal.slice(22, 86);
   const signers: string[] = [];
   const weights: number[] = [];
   let totalWeight = 0;
   for (let i = 0; i < size; i++) {
-    const start = 150 + i * 44; // 20 (address) + 2 (weight) = 44
+    const start = 86 + i * 44; // 20 (address) + 2 (weight) = 44
     signers.push("0x" + encodedPolicyInternal.slice(start, start + 40));
     const weight = parseInt(encodedPolicyInternal.slice(start + 40, start + 44), 16);
     weights.push(weight);
