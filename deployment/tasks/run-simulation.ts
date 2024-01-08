@@ -349,12 +349,9 @@ async function defineNextSigningPolicy(
 
   logger.info("Signing policy for next reward epoch", nextRewardEpochId);
   const newSigningPolicyHash = await c.relay.toSigningPolicyHash(nextRewardEpochId);
-  const hash = web3.utils.keccak256(
-    web3.eth.abi.encodeParameters(["uint64", "bytes32"], [nextRewardEpochId, newSigningPolicyHash])
-  );
 
   for (const acc of registeredAccounts) {
-    const signature = web3.eth.accounts.sign(hash, acc.policySigning.privateKey);
+    const signature = web3.eth.accounts.sign(newSigningPolicyHash, acc.policySigning.privateKey);
 
     const signResponse = await c.flareSystemManager.signNewSigningPolicy(
       nextRewardEpochId,
@@ -493,11 +490,8 @@ async function defineInitialSigningPolicy(
   }
   const rewardEpochId = 1;
   const newSigningPolicyHash = await c.relay.toSigningPolicyHash(rewardEpochId);
-  const hash = web3.utils.keccak256(
-    web3.eth.abi.encodeParameters(["uint64", "bytes32"], [rewardEpochId, newSigningPolicyHash])
-  );
 
-  const signature = web3.eth.accounts.sign(hash, governanceAccount.privateKey);
+  const signature = web3.eth.accounts.sign(newSigningPolicyHash, governanceAccount.privateKey);
   const resp4 = await c.flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature, {
     from: governanceAccount.address,
   });
