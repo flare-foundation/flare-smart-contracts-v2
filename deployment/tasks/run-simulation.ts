@@ -216,7 +216,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   }
 
   async function processLog(log: any, timestamp: number, events: EventStore) {
-    logger.info(`Event ${log.event} emitted:\n${JSON.stringify(log, null, 2)}`);
+    logger.info(`Event ${log.event} emitted`);
     if (log.event == "NewVotingRoundInitiated") {
       const votingRoundId = epochSettings.votingEpochForTime(timestamp * 1000);
       if (votingRoundId > events.initializedVotingRound) {
