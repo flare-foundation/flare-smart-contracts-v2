@@ -19,6 +19,7 @@ contract VoterRegistryTest is Test {
     address private mockPChainStakeMirror;
     address private mockCChainStake;
     address private mockWNat;
+    IPChainStakeMirror pChainStakeMirror;
 
     address private governance;
     address private addressUpdater;
@@ -69,7 +70,7 @@ contract VoterRegistryTest is Test {
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            5,
+            4,
             0,
             initialVoters,
             initialNormWeights
@@ -153,7 +154,7 @@ contract VoterRegistryTest is Test {
         vm.expectRevert("_maxVoters too high");
         voterRegistry.setMaxVoters(UINT16_MAX + 1);
 
-        assertEq(voterRegistry.maxVoters(), 5);
+        assertEq(voterRegistry.maxVoters(), 4);
         voterRegistry.setMaxVoters(100);
         assertEq(voterRegistry.maxVoters(), 100);
         vm.stopPrank();
@@ -326,7 +327,7 @@ contract VoterRegistryTest is Test {
             _createSigningPolicyAddressSignature(0, 4);
 
         // try to register
-        _mockGetVoterAddresses(0);
+        _mockGetVoterAddresses();
         vm.expectRevert("invalid signature");
         voterRegistry.registerVoter(initialVoters[0], signature);
     }
@@ -335,7 +336,7 @@ contract VoterRegistryTest is Test {
         _mockGetCurrentEpochId(0);
         VoterRegistry.Signature memory signature =
             _createSigningPolicyAddressSignature(0, 1);
-        _mockGetVoterAddresses(0);
+        _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(0, true);
 
         vm.expectRevert("vote power block zero");
@@ -346,23 +347,207 @@ contract VoterRegistryTest is Test {
         _mockGetCurrentEpochId(0);
         VoterRegistry.Signature memory signature =
             _createSigningPolicyAddressSignature(0, 1);
-        _mockGetVoterAddresses(0);
+        _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(1, false);
 
         vm.expectRevert("voter registration phase ended");
         voterRegistry.registerVoter(initialVoters[0], signature);
     }
 
-    function testRegisterVoter() public {
+    // register 3 voters (max voters == 3)
+    function testRegisterVoters() public {
+        bytes20[] memory nodeIds = new bytes20[](1);
+        uint256[] memory pChainVPs = new uint256[](1);
+        VoterRegistry.Signature memory signature;
+
         _mockGetCurrentEpochId(0);
-        VoterRegistry.Signature memory signature =
-            _createSigningPolicyAddressSignature(0, 1);
-        _mockGetVoterAddresses(0);
+        _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(10, true);
         _mockVotePowers();
+        vm.prank(governance);
+        voterRegistry.setMaxVoters(3);
+
+        for (uint256 i = 0; i < initialVoters.length - 1; i++) {
+            signature = _createSigningPolicyAddressSignature(i, 1);
+            nodeIds[0] = initialVotersNodeIds[i];
+            pChainVPs[0] = initialVotersPChainVP[i];
+            vm.expectEmit();
+            emit VoterRegistered(
+                1,
+                initialVoters[i],
+                initialSigningPolicyAddresses[i],
+                initialDelegationAddresses[i],
+                initialSubmitAddresses[i],
+                initialSubmitSignaturesAddresses[i],
+                initialVotersPChainVP[i] + initialVotersWNatVP[i] / 4,
+                initialVotersWNatVP[i],
+                0, // cChain staking disabled
+                nodeIds,
+                pChainVPs
+            );
+            voterRegistry.registerVoter(initialVoters[i], signature);
+        }
+    }
+
+    function testRemoveVoter() public {
+        // add 3 voters
+        testRegisterVoters();
+
+        // add new voter and remove one with lowest weight (initialVoters[0])
+        bytes20[] memory nodeIds = new bytes20[](1);
+        uint256[] memory pChainVPs = new uint256[](1);
+        VoterRegistry.Signature memory signature = _createSigningPolicyAddressSignature(3, 1);
+        nodeIds[0] = initialVotersNodeIds[3];
+        pChainVPs[0] = initialVotersPChainVP[3];
+
+        vm.expectEmit();
+        emit VoterRemoved(initialVoters[0], 1);
+        vm.expectEmit();
+        emit VoterRegistered(
+            1,
+            initialVoters[3],
+            initialSigningPolicyAddresses[3],
+            initialDelegationAddresses[3],
+            initialSubmitAddresses[3],
+            initialSubmitSignaturesAddresses[3],
+            initialVotersPChainVP[3] + initialVotersWNatVP[3] / 4,
+            initialVotersWNatVP[3],
+            0, // cChain staking disabled
+            nodeIds,
+            pChainVPs
+        );
+        voterRegistry.registerVoter(initialVoters[3], signature);
+    }
+
+    // register voters (cChain enabled)
+    function testRegisterVoterCChainEnabled() public {
+        // enable cChain
+        testEnableCChainStake();
+
+        // register voter
+        bytes20[] memory nodeIds = new bytes20[](1);
+        uint256[] memory pChainVPs = new uint256[](1);
+        VoterRegistry.Signature memory signature;
+        _mockGetCurrentEpochId(0);
+        _mockGetVoterAddresses();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVotePowers();
+        vm.prank(governance);
+        voterRegistry.setMaxVoters(3);
+
+        for (uint256 i = 0; i < initialVoters.length - 1; i++) {
+            signature = _createSigningPolicyAddressSignature(i, 1);
+            nodeIds[0] = initialVotersNodeIds[i];
+            pChainVPs[0] = initialVotersPChainVP[i];
+            vm.expectEmit();
+            emit VoterRegistered(
+                1,
+                initialVoters[i],
+                initialSigningPolicyAddresses[i],
+                initialDelegationAddresses[i],
+                initialSubmitAddresses[i],
+                initialSubmitSignaturesAddresses[i],
+                initialVotersPChainVP[i] + initialVotersWNatVP[i] / 4 + initialVotersCChainVP[i],
+                initialVotersWNatVP[i],
+                initialVotersCChainVP[i], // cChain staking enabled
+                nodeIds,
+                pChainVPs
+            );
+            voterRegistry.registerVoter(initialVoters[i], signature);
+        }
+    }
+
+    // max voters = 1
+    // register voter[1], try to register voter[0] -> not possible because voter[1] has higher vote power
+    function testRegisterVoterRevertWeightTooLow() public {
+        bytes20[] memory nodeIds = new bytes20[](1);
+        uint256[] memory pChainVPs = new uint256[](1);
+        VoterRegistry.Signature memory signature;
+
+        _mockGetCurrentEpochId(0);
+        _mockGetVoterAddresses();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVotePowers();
+        vm.prank(governance);
+        voterRegistry.setMaxVoters(1);
+
+        signature = _createSigningPolicyAddressSignature(1, 1);
+        nodeIds[0] = initialVotersNodeIds[1];
+        pChainVPs[0] = initialVotersPChainVP[1];
+        voterRegistry.registerVoter(initialVoters[1], signature);
+
+        signature = _createSigningPolicyAddressSignature(0, 1);
+        nodeIds[0] = initialVotersNodeIds[0];
+        pChainVPs[0] = initialVotersPChainVP[0];
+        vm.expectRevert("vote power too low");
         voterRegistry.registerVoter(initialVoters[0], signature);
     }
 
+    // try to register voter twice
+    function testRegisterVoterTwice() public {
+        bytes20[] memory nodeIds = new bytes20[](1);
+        uint256[] memory pChainVPs = new uint256[](1);
+        VoterRegistry.Signature memory signature;
+
+        _mockGetCurrentEpochId(0);
+        _mockGetVoterAddresses();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVotePowers();
+        vm.prank(governance);
+
+        // register
+        signature = _createSigningPolicyAddressSignature(1, 1);
+        nodeIds[0] = initialVotersNodeIds[1];
+        pChainVPs[0] = initialVotersPChainVP[1];
+        vm.expectEmit();
+        emit VoterRegistered(
+            1,
+            initialVoters[1],
+            initialSigningPolicyAddresses[1],
+            initialDelegationAddresses[1],
+            initialSubmitAddresses[1],
+            initialSubmitSignaturesAddresses[1],
+            initialVotersPChainVP[1] + initialVotersWNatVP[1] / 4,
+            initialVotersWNatVP[1],
+            0,
+            nodeIds,
+            pChainVPs
+        );
+        voterRegistry.registerVoter(initialVoters[1], signature);
+
+        // try to register again
+        vm.recordLogs();
+        voterRegistry.registerVoter(initialVoters[1], signature);
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        // there were no logs emitted -> voter was not registered again
+        assertEq(entries.length, 0);
+    }
+
+    // voter has zero p-chain weight => its wNat votePower is not taken into account
+    // => vote power is 0 and registration should revert
+    function testRegisterVoterRevertWeightZero() public {
+        bytes20[] memory nodeIds = new bytes20[](1);
+        uint256[] memory pChainVPs = new uint256[](1);
+        VoterRegistry.Signature memory signature;
+
+        _mockGetCurrentEpochId(0);
+        _mockGetVoterAddresses();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVotePowers();
+
+        // set p-chain weight to 0
+        nodeIds[0] = initialVotersNodeIds[0];
+        pChainVPs[0] = 0;
+        vm.mockCall(
+            mockPChainStakeMirror,
+            abi.encodeWithSelector(pChainStakeMirror.batchVotePowerOfAt.selector, nodeIds, 10),
+            abi.encode(pChainVPs)
+        );
+
+        signature = _createSigningPolicyAddressSignature(0, 1);
+        vm.expectRevert("voter weight zero");
+        voterRegistry.registerVoter(initialVoters[0], signature);
+    }
 
 
     ///// helper functions
@@ -390,12 +575,6 @@ contract VoterRegistryTest is Test {
                 initialSubmitSignaturesAddresses[i],
                 initialSigningPolicyAddresses[i]
             ));
-            // vm.mockCall(
-            //     mockEntityManager,
-            //     abi.encodeWithSelector(EntityManager.getVoterAddresses.selector, initialVoters[i], 0),
-            //     abi.encode(initialVotersRegisteredAddresses[i])
-            // );
-            // didnt work???
 
             // nodeIds (each voter has 1)
             initialVotersNodeIds.push(bytes20((makeAddr(string.concat("nodeId", vm.toString(i))))));
@@ -414,12 +593,14 @@ contract VoterRegistryTest is Test {
             wNatTotalVP = 4000;
     }
 
-    function _mockGetVoterAddresses(uint256 _voterIndex) internal {
-        vm.mockCall(
-            mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getVoterAddresses.selector, initialVoters[_voterIndex]),
-            abi.encode(initialVotersRegisteredAddresses[_voterIndex])
-        );
+    function _mockGetVoterAddresses() internal {
+        for (uint256 i = 0; i < initialVoters.length; i++) {
+            vm.mockCall(
+                mockEntityManager,
+                abi.encodeWithSelector(EntityManager.getVoterAddresses.selector, initialVoters[i], 0),
+                abi.encode(initialVotersRegisteredAddresses[i])
+            );
+        }
     }
 
     function _mockGetCurrentEpochId(uint256 _epochId) internal {
@@ -454,7 +635,6 @@ contract VoterRegistryTest is Test {
     }
 
     function _mockVotePowers() internal {
-        IPChainStakeMirror pChainStakeMirror;
         ICChainStake cChainStakeMirror;
         IWNat wNat;
         bytes20[] memory nodeIds = new bytes20[](1);
