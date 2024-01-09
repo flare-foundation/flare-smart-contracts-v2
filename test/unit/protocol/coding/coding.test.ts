@@ -1,22 +1,15 @@
-import { config, contract, ethers, web3 } from "hardhat";
-import { defaultTestSigningPolicy } from "./coding-helpers";
-import { getTestFile } from "../../../utils/constants";
-import {
-  PayloadMessage,
-  ProtocolMessageMerkleRoot,
-  SigningPolicy,
-  decodeECDSASignatureWithIndex,
-  decodeProtocolMessageMerkleRoot,
-  decodeSigningPolicy,
-  encodeBeforeConcatenation,
-  encodeECDSASignatureWithIndex,
-  encodeProtocolMessageMerkleRoot,
-  encodeSigningPolicy,
-  prefixDecodeEncodingBeforeConcatenation,
-  signMessageHashECDSAWithIndex,
-} from "../../../../scripts/libs/protocol/protocol-coder";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { config, contract, ethers, web3 } from "hardhat";
 import { HardhatNetworkAccountConfig } from "hardhat/types";
+import { ECDSASignatureWithIndex } from "../../../../scripts/libs/protocol/ECDSASignatureWithIndex";
+import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
+import { ISigningPolicy, SigningPolicy } from "../../../../scripts/libs/protocol/SigningPolicy";
+import {
+  IPayloadMessage,
+  PayloadMessage
+} from "../../../../scripts/libs/protocol/PayloadMessage";
+import { getTestFile } from "../../../utils/constants";
+import { defaultTestSigningPolicy } from "./coding-helpers";
 
 contract(`Coding; ${getTestFile(__filename)}`, async () => {
   let signers: SignerWithAddress[];
@@ -28,7 +21,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
   const rewardEpochDurationInEpochs = 3360; // 3.5 days
   const votingRoundId = 4111;
   const rewardEpochId = Math.floor((votingRoundId - firstRewardEpochVotingRoundId) / rewardEpochDurationInEpochs);
-  let signingPolicyData: SigningPolicy;
+  let signingPolicyData: ISigningPolicy;
 
   before(async () => {
     accountAddresses = (await ethers.getSigners()).map(x => x.address);
@@ -41,16 +34,16 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
   });
 
   it("Should encode and decode signing policy", async () => {
-    const encoded = encodeSigningPolicy(signingPolicyData);
-    const decoded = decodeSigningPolicy(encoded);
+    const encoded = SigningPolicy.encode(signingPolicyData);
+    const decoded = SigningPolicy.decode(encoded);
     expect(decoded).to.deep.equal(signingPolicyData);
   });
 
   it("Should encode and decode ECDSA signature", async () => {
     const messageHash = "0x1122334455667788990011223344556677889900112233445566778899001122";
-    const signature = await signMessageHashECDSAWithIndex(messageHash, accountPrivateKeys[0], 0);
-    const encoded = encodeECDSASignatureWithIndex(signature);
-    const decoded = decodeECDSASignatureWithIndex(encoded);
+    const signature = await ECDSASignatureWithIndex.signMessageHash(messageHash, accountPrivateKeys[0], 0);
+    const encoded = ECDSASignatureWithIndex.encode(signature);
+    const decoded = ECDSASignatureWithIndex.decode(encoded);
     expect(decoded).to.deep.equal(signature);
   });
 
@@ -60,14 +53,14 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
       votingRoundId: 1234,
       randomQualityScore: true,
       merkleRoot: "0x1122334455667788990011223344556677889900112233445566778899001122",
-    } as ProtocolMessageMerkleRoot;
-    const encoded = encodeProtocolMessageMerkleRoot(messageData);
-    const decoded = decodeProtocolMessageMerkleRoot(encoded);
+    } as IProtocolMessageMerkleRoot;
+    const encoded = ProtocolMessageMerkleRoot.encode(messageData);
+    const decoded = ProtocolMessageMerkleRoot.decode(encoded);
     expect(decoded).to.deep.equal(messageData);
   });
 
   it("Should encode and decode signature payloads", async () => {
-    let payloads: PayloadMessage<string>[] = [];
+    let payloads: IPayloadMessage<string>[] = [];
     const N = 10;
     let encoded = "0x";    
     for (let i = 0; i < N; i++) {
@@ -75,11 +68,11 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
         protocolId: i,
         votingRoundId: 10 * i,
         payload: web3.utils.randomHex(2 * (N - i)),
-      } as PayloadMessage<string>;
+      } as IPayloadMessage<string>;
       payloads.push(payload);
-      encoded += encodeBeforeConcatenation(payload).slice(2);
+      encoded += PayloadMessage.encode(payload).slice(2);
     }
-    const decoded = prefixDecodeEncodingBeforeConcatenation(encoded);
+    const decoded = PayloadMessage.decode(encoded);
     expect(decoded).to.deep.equal(payloads);
   });
 

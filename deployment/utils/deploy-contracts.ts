@@ -12,7 +12,7 @@ import {
   SubmissionInstance,
 } from "../../typechain-truffle/contracts/protocol/implementation/Submission";
 import { RelayContract, RelayInstance } from "../../typechain-truffle/contracts/protocol/implementation/Relay";
-import { SigningPolicy } from "../../scripts/libs/protocol/protocol-coder";
+import { ISigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
 import { VPContractInstance } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/VPContract";
 import { WNatContract } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/WNat";
 import { MockContractContract } from "../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract";
@@ -196,7 +196,7 @@ export async function deployContracts(
     initialWeights
   );
 
-  const initialSigningPolicy: SigningPolicy = {
+  const initialSigningPolicy: ISigningPolicy = {
     rewardEpochId: 0,
     startVotingRoundId: FIRST_REWARD_EPOCH_VOTING_ROUND_ID,
     threshold: intialThreshold,
