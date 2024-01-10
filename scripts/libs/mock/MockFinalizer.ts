@@ -105,7 +105,6 @@ export class MockFinalizer {
   recentProcessedSummary(lastVotingRoundId: number): string {
     let result = "Processed:";
     for (const [votingRoundId, protocolIdToProcessed] of this.processed.entries()) {
-      console.log(votingRoundId, protocolIdToProcessed)
       if (votingRoundId > lastVotingRoundId) {
         let processedProtocolIds: number[] = []
         for (const [protocolId, processed] of protocolIdToProcessed.entries()) {
@@ -284,7 +283,6 @@ export class MockFinalizer {
     this.logger.info("---------------------------------------")
     this.logger.info(`Expected reward epoch: ${expectedRewardEpochId}`);
     this.logger.info(`Signing policies: ${this.signingPolicies.size} [${this.minRewardEpochSigningPolicy}, ${this.maxRewardEpochSigningPolicy}]`);
-    this.logger.info(`Queue size: ${this.queue.size}`);
     this.logger.info(`${this.recentProcessedSummary(expectedRewardEpochId - SUMMARY_RANGE)}`);
   }
 

@@ -9,6 +9,7 @@ import { retry } from "../retry";
 export interface ContractAddresses {
   submission: string;
   flareSystemManager: string;
+  voterRegistry: string;
 }
 
 export interface BlockData {
@@ -55,6 +56,7 @@ export class MockDBIndexer {
             return await getFilteredBlock(this.web3, this.lastProcessedBlockNumber + 1, [
               this.contractAddresses.submission,
               this.contractAddresses.flareSystemManager,
+              this.contractAddresses.voterRegistry,
             ]);
           },
           3,

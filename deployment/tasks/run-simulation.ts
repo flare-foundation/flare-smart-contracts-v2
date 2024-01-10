@@ -4,11 +4,11 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import Web3 from "web3";
 import { Account } from "web3-core";
 import { toBN } from "web3-utils";
-import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import {
-  ISigningPolicy,
-  SigningPolicy
-} from "../../scripts/libs/protocol/SigningPolicy";
+  IProtocolMessageMerkleRoot,
+  ProtocolMessageMerkleRoot,
+} from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
+import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
 import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
 import * as util from "../../test/utils/key-to-address";
 import { PChainStakeMirrorVerifierInstance } from "../../typechain-truffle";
@@ -58,8 +58,8 @@ const RELAY_SELECTOR = Web3.utils.sha3("relay()")!.slice(0, 10);
 
 interface RegisteredAccount {
   readonly submit: Account;
-  readonly signing: Account;
-  readonly policySigning: Account;
+  readonly submitSignatures: Account;
+  readonly signingPolicy: Account;
   readonly identity: Account;
 }
 
@@ -112,6 +112,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   const indexer = new MockDBIndexer(hre.web3, {
     submission: c.submission.address,
     flareSystemManager: c.flareSystemManager.address,
+    voterRegistry: c.voterRegistry.address,
   });
 
   logger.info(`Starting a mock c-chain indexer, data is recorded to SQLite database at ${sqliteDatabase}`);
@@ -309,8 +310,8 @@ async function registerAccounts(
     registeredAccounts.push({
       identity: identityAccount,
       submit: submitAccount,
-      signing: signingAccount,
-      policySigning: policySigningAccount,
+      submitSignatures: signingAccount,
+      signingPolicy: policySigningAccount,
     });
   }
   return registeredAccounts;
@@ -354,7 +355,7 @@ async function defineNextSigningPolicy(
   const newSigningPolicyHash = await c.relay.toSigningPolicyHash(nextRewardEpochId);
 
   for (const acc of registeredAccounts) {
-    const signature = web3.eth.accounts.sign(newSigningPolicyHash, acc.policySigning.privateKey);
+    const signature = web3.eth.accounts.sign(newSigningPolicyHash, acc.signingPolicy.privateKey);
 
     const signResponse = await c.flareSystemManager.signNewSigningPolicy(
       nextRewardEpochId,
@@ -370,7 +371,7 @@ async function defineNextSigningPolicy(
 
     const args = signResponse.logs[0].args as any;
     if (args.thresholdReached) {
-      logger.info(`Signed policy with account ${acc.policySigning.address} - threshold reached`);
+      logger.info(`Signed policy with account ${acc.signingPolicy.address} - threshold reached`);
       return;
     }
   }
@@ -425,7 +426,7 @@ async function runVotingRound(
 
   for (const acc of registeredAccounts) {
     try {
-      await c.submission.submitSignatures({ from: acc.signing.address });
+      await c.submission.submitSignatures({ from: acc.submitSignatures.address });
     } catch (e) {
       logger.error(e);
     }
@@ -442,7 +443,7 @@ async function runVotingRound(
   const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
   const messageHash = Web3.utils.keccak256("0x" + fullMessage);
   const signatures = await generateSignatures(
-    registeredAccounts.map(x => x.policySigning.privateKey),
+    registeredAccounts.map(x => x.signingPolicy.privateKey),
     messageHash,
     registeredAccounts.length
   );
@@ -450,15 +451,15 @@ async function runVotingRound(
   const fullData = RELAY_SELECTOR + encodedSigningPolicy + fullMessage + signatures;
   try {
     await web3.eth.sendTransaction({
-      from: registeredAccounts[0].policySigning.address,
+      from: registeredAccounts[0].signingPolicy.address,
       to: c.relay.address,
       data: fullData,
     });
+
     logger.info(`Voting round ${votingRoundId} finished`);
   } catch (e) {
     logger.error(e);
   }
-
 }
 
 /** Initializes a signing policy for the first reward epoch, signed by governance. */
@@ -473,7 +474,7 @@ async function defineInitialSigningPolicy(
   await time.increaseTo(
     rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds)
   );
-  
+
   const resp = await c.flareSystemManager.daemonize();
   if (resp.logs[0]?.event != "RandomAcquisitionStarted") {
     throw new Error("Expected random acquisition to start");
@@ -527,8 +528,8 @@ async function registerVoter(rewardEpochId: number, acc: RegisteredAccount, vote
     web3.eth.abi.encodeParameters(["uint24", "address"], [rewardEpochId, acc.identity.address])
   );
 
-  const signature = web3.eth.accounts.sign(hash, acc.policySigning.privateKey);
-  await voterRegistry.registerVoter(acc.identity.address, signature, { from: acc.signing.address });
+  const signature = web3.eth.accounts.sign(hash, acc.signingPolicy.privateKey);
+  await voterRegistry.registerVoter(acc.identity.address, signature, { from: acc.submitSignatures.address });
 }
 
 function extractSigningPolicy(logArg: any) {

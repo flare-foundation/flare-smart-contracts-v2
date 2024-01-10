@@ -6,7 +6,7 @@ import "../interface/IWNat.sol";
 import "../interface/ICChainStake.sol";
 import "./EntityManager.sol";
 import "./FlareSystemManager.sol";
-import "../../governance/implementation/AddressUpdatable.sol";
+import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -116,12 +116,13 @@ contract VoterRegistry is Governed, AddressUpdatable {
      */
     function registerVoter(address _voter, Signature calldata _signature) external {
         uint256 untilRewardEpochId = chilledUntilRewardEpochId[_voter];
-        uint32 nextRewardEpochId = flareSystemManager.getCurrentRewardEpochId() + 1;
+        uint256 nextRewardEpochId = flareSystemManager.getCurrentRewardEpochId() + 1;
         require(untilRewardEpochId == 0 || untilRewardEpochId <= nextRewardEpochId, "voter chilled");
+        uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[nextRewardEpochId];
+        require(initBlock != 0, "registration not available yet");
         bytes32 messageHash = keccak256(abi.encode(nextRewardEpochId, _voter));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[nextRewardEpochId];
         EntityManager.VoterAddresses memory voterAddresses = entityManager.getVoterAddresses(_voter, initBlock);
         require(signingPolicyAddress == voterAddresses.signingPolicyAddress, "invalid signature");
         bool success = _registerVoter(_voter, voterAddresses, nextRewardEpochId);
@@ -329,7 +330,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
 
         (uint256 votePowerBlock, bool enabled) = flareSystemManager.getVoterRegistrationData(_rewardEpochId);
         require(votePowerBlock != 0, "vote power block zero");
-        require(enabled, "voter registration phase ended");
+        require(enabled, "voter registration not enabled");
         VoterData memory voterData = _getVoterData(_voter, _voterAddresses.delegationAddress, votePowerBlock);
         require(voterData.weight > 0, "voter weight zero");
 

@@ -26,6 +26,9 @@ library AddressSet {
     }
 
     function replace(State storage _state, address _addressToRemove, address _addressToAdd) internal {
+        if (_addressToRemove == _addressToAdd) {
+            return;
+        }
         uint256 position = _state.index[_addressToRemove];
         if (position == 0) {
             add(_state, _addressToAdd);
