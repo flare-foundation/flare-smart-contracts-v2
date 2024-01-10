@@ -62,8 +62,8 @@ contract Relay {
         bytes32 merkleRoot          // Merkle root of the protocol message
     );
 
-    uint256 public constant THRESHOLD_BIPS = 10000;
-    uint256 public constant SELECTOR_BYTES = 4;
+    uint256 private constant THRESHOLD_BIPS = 10000;
+    uint256 private constant SELECTOR_BYTES = 4;
 
     // Signing policy byte encoding structure
     // 2 bytes - numberOfVoters
@@ -78,26 +78,26 @@ contract Relay {
     // metadataLength = 11 bytes (size, rewardEpochId, startingVotingRoundId, threshold)
 
     /* solhint-disable const-name-snakecase */
-    uint256 public constant NUMBER_OF_VOTERS_BYTES = 2;
-    uint256 public constant NUMBER_OF_VOTERS_MASK = 0xffff;
-    uint256 public constant METADATA_BYTES = 11;
-    uint256 public constant MD_MASK_threshold = 0xffff;
-    uint256 public constant MD_BOFF_threshold = 0;
-    uint256 public constant MD_MASK_startingVotingRoundId = 0xffffffff;
-    uint256 public constant MD_BOFF_startingVotingRoundId = 16;
-    uint256 public constant MD_MASK_rewardEpochId = 0xffffff;
-    uint256 public constant MD_BOFF_rewardEpochId = 48;
-    uint256 public constant MD_MASK_numberOfVoters = 0xffff;
-    uint256 public constant MD_BOFF_numberOfVoters = 72;
+    uint256 private constant NUMBER_OF_VOTERS_BYTES = 2;
+    uint256 private constant NUMBER_OF_VOTERS_MASK = 0xffff;
+    uint256 private constant METADATA_BYTES = 11;
+    uint256 private constant MD_MASK_threshold = 0xffff;
+    uint256 private constant MD_BOFF_threshold = 0;
+    uint256 private constant MD_MASK_startingVotingRoundId = 0xffffffff;
+    uint256 private constant MD_BOFF_startingVotingRoundId = 16;
+    uint256 private constant MD_MASK_rewardEpochId = 0xffffff;
+    uint256 private constant MD_BOFF_rewardEpochId = 48;
+    uint256 private constant MD_MASK_numberOfVoters = 0xffff;
+    uint256 private constant MD_BOFF_numberOfVoters = 72;
     /* solhint-enable const-name-snakecase */
 
-    uint256 public constant RANDOM_SEED_BYTES = 32;
-    uint256 public constant ADDRESS_BYTES = 20;
-    uint256 public constant WEIGHT_BYTES = 2;
-    uint256 public constant WEIGHT_MASK = 0xffff;
-    uint256 public constant ADDRESS_AND_WEIGHT_BYTES = 22; // ADDRESS_BYTES + WEIGHT_BYTES;
+    uint256 private constant RANDOM_SEED_BYTES = 32;
+    uint256 private constant ADDRESS_BYTES = 20;
+    uint256 private constant WEIGHT_BYTES = 2;
+    uint256 private constant WEIGHT_MASK = 0xffff;
+    uint256 private constant ADDRESS_AND_WEIGHT_BYTES = 22; // ADDRESS_BYTES + WEIGHT_BYTES;
     //METADATA_BYTES + RANDOM_SEED_BYTES;
-    uint256 public constant SIGNING_POLICY_PREFIX_BYTES = 43;
+    uint256 private constant SIGNING_POLICY_PREFIX_BYTES = 43;
 
     // Protocol message merkle root structure
     // 1 byte - protocolId
@@ -107,39 +107,39 @@ contract Relay {
     // Total 38 bytes
     // if loaded into a memory slot, these are right shifts and masks
     /* solhint-disable const-name-snakecase */
-    uint256 public constant MESSAGE_BYTES = 38;
-    uint256 public constant PROTOCOL_ID_BYTES = 1;
-    uint256 public constant MESSAGE_NO_MR_BYTES = 6;
-    uint256 public constant MSG_NMR_MASK_randomQualityScore = 0xff;
-    uint256 public constant MSG_NMR_BOFF_randomQualityScore = 0;
-    uint256 public constant MSG_NMR_MASK_votingRoundId = 0xffffffff;
-    uint256 public constant MSG_NMR_BOFF_votingRoundId = 8;
-    uint256 public constant MSG_NMR_MASK_protocolId = 0xff;
-    uint256 public constant MSG_NMR_BOFF_protocolId = 40;
+    uint256 private constant MESSAGE_BYTES = 38;
+    uint256 private constant PROTOCOL_ID_BYTES = 1;
+    uint256 private constant MESSAGE_NO_MR_BYTES = 6;
+    uint256 private constant MSG_NMR_MASK_randomQualityScore = 0xff;
+    uint256 private constant MSG_NMR_BOFF_randomQualityScore = 0;
+    uint256 private constant MSG_NMR_MASK_votingRoundId = 0xffffffff;
+    uint256 private constant MSG_NMR_BOFF_votingRoundId = 8;
+    uint256 private constant MSG_NMR_MASK_protocolId = 0xff;
+    uint256 private constant MSG_NMR_BOFF_protocolId = 40;
     /* solhint-enable const-name-snakecase */
 
     /* solhint-disable const-name-snakecase */
-    uint256 public constant SD_MASK_randomNumberProtocolId = 0xff;
-    uint256 public constant SD_BOFF_randomNumberProtocolId = 0;
-    uint256 public constant SD_MASK_firstVotingRoundStartTs = 0xffffffff;
-    uint256 public constant SD_BOFF_firstVotingRoundStartTs = 8;
-    uint256 public constant SD_MASK_votingEpochDurationSeconds = 0xff;
-    uint256 public constant SD_BOFF_votingEpochDurationSeconds = 40;
-    uint256 public constant SD_MASK_firstRewardEpochStartVotingRoundId =
+    uint256 private constant SD_MASK_randomNumberProtocolId = 0xff;
+    uint256 private constant SD_BOFF_randomNumberProtocolId = 0;
+    uint256 private constant SD_MASK_firstVotingRoundStartTs = 0xffffffff;
+    uint256 private constant SD_BOFF_firstVotingRoundStartTs = 8;
+    uint256 private constant SD_MASK_votingEpochDurationSeconds = 0xff;
+    uint256 private constant SD_BOFF_votingEpochDurationSeconds = 40;
+    uint256 private constant SD_MASK_firstRewardEpochStartVotingRoundId =
         0xffffffff;
-    uint256 public constant SD_BOFF_firstRewardEpochStartVotingRoundId = 48;
-    uint256 public constant SD_MASK_rewardEpochDurationInVotingEpochs = 0xffff;
-    uint256 public constant SD_BOFF_rewardEpochDurationInVotingEpochs = 80;
-    uint256 public constant SD_MASK_thresholdIncreaseBIPS = 0xffff;
-    uint256 public constant SD_BOFF_thresholdIncreaseBIPS = 96;
-    uint256 public constant SD_MASK_randomVotingRoundId = 0xffffffff;
-    uint256 public constant SD_BOFF_randomVotingRoundId = 112;
-    uint256 public constant SD_MASK_randomNumberQualityScore = 0xff;
-    uint256 public constant SD_BOFF_randomNumberQualityScore = 144;
-    uint256 public constant SD_MASK_lastInitializedRewardEpoch = 0xffffffff;
-    uint256 public constant SD_BOFF_lastInitializedRewardEpoch = 152;
-    uint256 public constant SD_MASK_noSigningPolicyRelay = 0xff;
-    uint256 public constant SD_BOFF_noSigningPolicyRelay = 184;
+    uint256 private constant SD_BOFF_firstRewardEpochStartVotingRoundId = 48;
+    uint256 private constant SD_MASK_rewardEpochDurationInVotingEpochs = 0xffff;
+    uint256 private constant SD_BOFF_rewardEpochDurationInVotingEpochs = 80;
+    uint256 private constant SD_MASK_thresholdIncreaseBIPS = 0xffff;
+    uint256 private constant SD_BOFF_thresholdIncreaseBIPS = 96;
+    uint256 private constant SD_MASK_randomVotingRoundId = 0xffffffff;
+    uint256 private constant SD_BOFF_randomVotingRoundId = 112;
+    uint256 private constant SD_MASK_randomNumberQualityScore = 0xff;
+    uint256 private constant SD_BOFF_randomNumberQualityScore = 144;
+    uint256 private constant SD_MASK_lastInitializedRewardEpoch = 0xffffffff;
+    uint256 private constant SD_BOFF_lastInitializedRewardEpoch = 152;
+    uint256 private constant SD_MASK_noSigningPolicyRelay = 0xff;
+    uint256 private constant SD_BOFF_noSigningPolicyRelay = 184;
     /* solhint-enable const-name-snakecase */
 
     // Signature with index structure
@@ -149,27 +149,27 @@ contract Relay {
     // 2 byte - index in signing policy
     // Total 67 bytes
 
-    uint256 public constant NUMBER_OF_SIGNATURES_BYTES = 2;
-    uint256 public constant NUMBER_OF_SIGNATURES_RIGHT_SHIFT_BITS = 240; // 8 * (32 - NUMBER_OF_SIGNATURES_BYTES)
-    uint256 public constant NUMBER_OF_SIGNATURES_MASK = 0xffff;
-    uint256 public constant SIGNATURE_WITH_INDEX_BYTES = 67; // 1 v + 32 r + 32 s + 2 index
-    uint256 public constant SIGNATURE_V_BYTES = 1;
-    uint256 public constant SIGNATURE_INDEX_RIGHT_SHIFT_BITS = 240; // 256 - 2*8 = 240
+    uint256 private constant NUMBER_OF_SIGNATURES_BYTES = 2;
+    uint256 private constant NUMBER_OF_SIGNATURES_RIGHT_SHIFT_BITS = 240; // 8 * (32 - NUMBER_OF_SIGNATURES_BYTES)
+    uint256 private constant NUMBER_OF_SIGNATURES_MASK = 0xffff;
+    uint256 private constant SIGNATURE_WITH_INDEX_BYTES = 67; // 1 v + 32 r + 32 s + 2 index
+    uint256 private constant SIGNATURE_V_BYTES = 1;
+    uint256 private constant SIGNATURE_INDEX_RIGHT_SHIFT_BITS = 240; // 256 - 2*8 = 240
 
     // Memory slots
     /* solhint-disable const-name-snakecase */
-    uint256 public constant M_0 = 0;
-    uint256 public constant M_1 = 32;
-    uint256 public constant M_2 = 64;
-    uint256 public constant M_2_signingPolicyHashTmp = 64;
-    uint256 public constant M_3 = 96;
-    uint256 public constant M_3_existingSigningPolicyHashTmp = 96;
-    uint256 public constant M_4 = 128;
-    uint256 public constant M_5_stateData = 160;
-    uint256 public constant M_5_randomQualityScore = 160;
-    uint256 public constant M_6_merkleRoot = 192;
+    uint256 private constant M_0 = 0;
+    uint256 private constant M_1 = 32;
+    uint256 private constant M_2 = 64;
+    uint256 private constant M_2_signingPolicyHashTmp = 64;
+    uint256 private constant M_3 = 96;
+    uint256 private constant M_3_existingSigningPolicyHashTmp = 96;
+    uint256 private constant M_4 = 128;
+    uint256 private constant M_5_stateData = 160;
+    uint256 private constant M_5_randomQualityScore = 160;
+    uint256 private constant M_6_merkleRoot = 192;
 
-    uint256 public constant ADDRESS_OFFSET = 12;
+    uint256 private constant ADDRESS_OFFSET = 12;
     /* solhint-enable const-name-snakecase */
 
     // rewardEpochId => signingPolicyHash

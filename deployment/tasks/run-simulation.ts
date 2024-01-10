@@ -15,7 +15,7 @@ import { PChainStakeMirrorVerifierInstance } from "../../typechain-truffle";
 import { MockContractInstance } from "../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract";
 import { VoterRegistryInstance } from "../../typechain-truffle/contracts/protocol/implementation/VoterRegistry";
 import { EpochSettings } from "../utils/EpochSettings";
-import { DeployedContracts, deployContracts } from "../utils/deploy-contracts";
+import { DeployedContracts, deployContracts, serializeDeployedContractsAddresses } from "../utils/deploy-contracts";
 import { errorString } from "../utils/error";
 import { decodeLogs as decodeRawLogs } from "../utils/events";
 import { MockDBIndexer } from "../utils/indexer/MockDBIndexer";
@@ -31,6 +31,7 @@ export const REWARD_EPOCH_DURATION_IN_SEC = REWARD_EPOCH_DURATION_IN_VOTING_EPOC
 
 export const FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
 const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
+export const DEPLOY_ADDRESSES_FILE = "./db/deployed-addresses.json";
 
 export const systemSettings = function (now: number) {
   return {
@@ -99,7 +100,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   const governanceAccount = accounts[0];
 
   const [c, rewardEpochStart] = await deployContracts(accounts, hre, governanceAccount);
-
+  serializeDeployedContractsAddresses(c, DEPLOY_ADDRESSES_FILE);
   const submissionSelectors = {
     submit1: Web3.utils.sha3("submit1()")!.slice(2, 10),
     submit2: Web3.utils.sha3("submit2()")!.slice(2, 10),
@@ -137,6 +138,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   logger.info(`Epoch settings written to ${SETTINGS_FILE_LOCATION}`);
 
   const signingPolicies = new Map<number, ISigningPolicy>();
+
   await defineInitialSigningPolicy(
     c,
     rewardEpochStart,
@@ -402,11 +404,19 @@ async function runVotingRound(
   logger.info(`Running voting protocol for round ${votingRoundId}, reward epoch: ${rewardEpochId}`);
 
   for (const acc of registeredAccounts) {
-    await c.submission.submit1({ from: acc.submit.address });
+    try {
+      await c.submission.submit1({ from: acc.submit.address });
+    } catch (e) {
+      logger.error(e);
+    }
   }
 
   for (const acc of registeredAccounts) {
-    await c.submission.submit2({ from: acc.submit.address });
+    try {
+      await c.submission.submit2({ from: acc.submit.address });
+    } catch (e) {
+      logger.error(e);
+    }
   }
 
   const revealDeadlineMs =
@@ -414,7 +424,11 @@ async function runVotingRound(
   await sleep(revealDeadlineMs - Date.now());
 
   for (const acc of registeredAccounts) {
-    await c.submission.submitSignatures({ from: acc.signing.address });
+    try {
+      await c.submission.submitSignatures({ from: acc.signing.address });
+    } catch (e) {
+      logger.error(e);
+    }
   }
 
   // TODO: Obtain actual merkle root and sigantures from the indexer, use fake if not present.
@@ -434,14 +448,17 @@ async function runVotingRound(
   );
   const encodedSigningPolicy = SigningPolicy.encode(signingPolicies.get(rewardEpochId)!).slice(2);
   const fullData = RELAY_SELECTOR + encodedSigningPolicy + fullMessage + signatures;
+  try {
+    await web3.eth.sendTransaction({
+      from: registeredAccounts[0].policySigning.address,
+      to: c.relay.address,
+      data: fullData,
+    });
+    logger.info(`Voting round ${votingRoundId} finished`);
+  } catch (e) {
+    logger.error(e);
+  }
 
-  await web3.eth.sendTransaction({
-    from: registeredAccounts[0].policySigning.address,
-    to: c.relay.address,
-    data: fullData,
-  });
-
-  logger.info(`Voting round ${votingRoundId} finished`);
 }
 
 /** Initializes a signing policy for the first reward epoch, signed by governance. */
@@ -456,7 +473,7 @@ async function defineInitialSigningPolicy(
   await time.increaseTo(
     rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds)
   );
-
+  
   const resp = await c.flareSystemManager.daemonize();
   if (resp.logs[0]?.event != "RandomAcquisitionStarted") {
     throw new Error("Expected random acquisition to start");

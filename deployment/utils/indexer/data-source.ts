@@ -6,7 +6,7 @@ import fs from "fs";
 export const sqliteDatabase = `./db/indexer.db`;
 
 export async function getDataSource(readOnly = false) {
-  if (fs.existsSync(sqliteDatabase)) {
+  if (!readOnly && fs.existsSync(sqliteDatabase)) {
     fs.unlinkSync(sqliteDatabase);
   }
 

@@ -91,4 +91,14 @@ export namespace ProtocolMessageMerkleRoot {
       a.merkleRoot === b.merkleRoot
     );
   }
+
+  /**
+   * Provides string representation of protocol message merkle root. 
+   * Can be used for e.g. logging.
+   * @param message 
+   * @returns 
+   */
+  export function print(message: IProtocolMessageMerkleRoot) {
+    return `(${message.protocolId}, ${message.votingRoundId}, ${message.randomQualityScore}, ${message.merkleRoot})`
+  } 
 }
