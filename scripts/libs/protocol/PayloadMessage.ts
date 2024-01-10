@@ -70,4 +70,21 @@ export namespace PayloadMessage {
     return result;
   }
 
+  /**
+   * Concatenates hex strings into one hex string.
+   * In the process it checks if each string is a valid hex string.
+   * @param hexStrings 
+   * @returns 
+   */
+  export function concatenateHexStrings(hexStrings: string[]): string {
+    let result = "0x";
+    for (let hexString of hexStrings) {
+      if (!/^0x([0-9a-f][0-9a-f])*$/i.test(hexString)) {
+        throw Error(`Invalid hex string format: ${hexString}`);
+      }
+      result += hexString.slice(2);
+    }
+    return result;
+  }
+
 }

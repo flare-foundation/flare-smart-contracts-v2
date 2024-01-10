@@ -1,3 +1,4 @@
+import fs from "fs";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import {
   VoterRegistryContract,
@@ -303,6 +304,7 @@ export async function deployContracts(
   logger.info(
     `Finished deploying contracts:\n  FlareSystemManager: ${flareSystemManager.address},\n  Submission: ${submission.address},\n  Relay: ${relay.address}`
   );
+  
   logger.info(`Current network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
   const contracts: DeployedContracts = {
@@ -323,3 +325,12 @@ export async function deployContracts(
 
   return [contracts, rewardEpochStart];
 }
+
+export function serializeDeployedContractsAddresses(contracts: DeployedContracts, fname: string) {
+  const result: any = {};
+  Object.entries(contracts).forEach(([name, contract]) => {
+    result[contract.constructor.contractName] = (contract as any).address;
+  });
+  fs.writeFileSync(fname, JSON.stringify(result, null, 2));
+}
+

@@ -40,4 +40,8 @@ export class EpochSettings {
     const nextEpochStartSec = this.rewardEpochStartSec + (currentEpoch + 1) * this.rewardEpochDurationSec;
     return nextEpochStartSec * 1000;
   }
+
+  expectedRewardEpochForVotingRoundId(votingRoundId: number): number {
+    return this.rewardEpochForTime(this.votingEpochStartMs(votingRoundId));
+  }
 }

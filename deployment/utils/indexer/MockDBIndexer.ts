@@ -79,15 +79,15 @@ export class MockDBIndexer {
   async processTx(tx: TxData, timestamp: number, blockHash: string) {
     try {
       const ftx = new TLPTransaction();
-      ftx.hash = tx.tx.hash.slice(2);
-      ftx.function_sig = tx.tx.input.slice(2, 10);
-      ftx.input = tx.tx.input.slice(2);
+      ftx.hash = tx.tx.hash.slice(2).toLowerCase();
+      ftx.function_sig = tx.tx.input.slice(2, 10).toLowerCase();
+      ftx.input = tx.tx.input.slice(2).toLowerCase();
       ftx.block_number = tx.tx.blockNumber!;
-      ftx.block_hash = blockHash;
+      ftx.block_hash = blockHash.startsWith("0x") ? blockHash.slice(2).toLowerCase() : blockHash.toLowerCase();
       ftx.status = tx.status ? 1 : 0;
-      ftx.from_address = tx.tx.from.slice(2);
+      ftx.from_address = tx.tx.from.slice(2)?.toLowerCase() ?? "";
       ftx.transaction_index = tx.tx.transactionIndex ?? -1;
-      ftx.to_address = tx.tx.to?.slice(2) ?? "";
+      ftx.to_address = tx.tx.to?.slice(2)?.toLowerCase() ?? "";
       ftx.timestamp = timestamp;
       ftx.value = tx.tx.value;
       ftx.gas_price = tx.tx.gasPrice;
@@ -99,12 +99,12 @@ export class MockDBIndexer {
         for (const log of tx.logs) {
           const event = new TLPEvents();
           event.transaction_id = ftx;
-          event.data = log.data.slice(2);
-          event.topic0 = log.topics[0];
-          event.topic1 = log.topics[1] ?? "";
-          event.topic2 = log.topics[2] ?? "";
-          event.topic3 = log.topics[3] ?? "";
-          event.address = log.address.slice(2);
+          event.data = log.data.slice(2).toLowerCase();
+          event.topic0 = log.topics[0]?.slice(2)?.toLowerCase() ?? "";
+          event.topic1 = log.topics[1]?.slice(2)?.toLowerCase() ?? "";
+          event.topic2 = log.topics[2]?.slice(2)?.toLowerCase() ?? "";
+          event.topic3 = log.topics[3]?.slice(2)?.toLowerCase() ?? "";
+          event.address = log.address.slice(2).toLowerCase();
           event.log_index = log.logIndex;
           event.timestamp = timestamp;
 
