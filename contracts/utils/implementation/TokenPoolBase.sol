@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../governance/implementation/AddressUpdatable.sol";
+import "../../utils/implementation/AddressUpdatable.sol";
 
 
 abstract contract TokenPoolBase {

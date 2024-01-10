@@ -3,21 +3,22 @@ pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
 import "flare-smart-contracts/contracts/tokenPools/interface/IITokenPool.sol";
-import "../../governance/implementation/AddressUpdatable.sol";
+import "../../utils/implementation/TokenPoolBase.sol";
 import "../../governance/implementation/Governed.sol";
 import "../interface/IWNat.sol";
 import "../interface/ICChainStake.sol";
 import "../interface/IClaimSetupManager.sol";
-import "../lib/SafePct.sol";
+import "../../utils/lib/SafePct.sol";
+import "../../utils/lib/AddressSet.sol";
 import "./VoterRegistry.sol";
 import "./FlareSystemManager.sol";
-import "./TokenPoolBase.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 //solhint-disable-next-line max-states-count
 contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyGuard, IITokenPool {
     using MerkleProof for bytes32[];
+    using AddressSet for AddressSet.State;
     using SafeCast for uint256;
     using SafePct for uint256;
 
@@ -65,7 +66,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     // reward epoch when setInitialRewardData is called (set to +1) - used for forwarding closeExpiredRewardEpochId
     uint24 private initialRewardEpochId;
 
-    uint64 public immutable feePercentageUpdateOffset; // fee percentage update timelock measured in reward epochs
+    uint24 public immutable feePercentageUpdateOffset; // fee percentage update timelock measured in reward epochs
     uint16 public immutable defaultFeePercentageBIPS; // default value for fee percentage
     mapping(address => FeePercentage[]) public dataProviderFeePercentages;
 
@@ -95,6 +96,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     bool public cChainStakeEnabled;
     bool public active;
 
+    AddressSet.State internal rewardOffersManagerSet;
+
     event FeePercentageChanged(
         address indexed dataProvider,
         uint64 value,
@@ -121,7 +124,13 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
     /// This method can only be called if the contract is `active`.
     modifier onlyIfActive() {
-        _checkOnlyActive();
+        _checkIfActive();
+        _;
+    }
+
+    /// This method can only be called by reward offers manager
+    modifier onlyRewardOffersManager() {
+        _checkRewardOffersManager();
         _;
     }
 
@@ -137,7 +146,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
-        uint64 _feePercentageUpdateOffset,
+        uint24 _feePercentageUpdateOffset,
         uint16 _defaultFeePercentageBIPS
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
@@ -246,8 +255,21 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         cChainStakeEnabled = true;
     }
 
-    function receiveRewards(uint32 _rewardEpochId, bool _inflation) external payable mustBalance {
-        // TODO - check allowed sender
+    function setSewardOffersManagerList(address[] calldata _rewardOffersManagerList) external onlyGovernance {
+        rewardOffersManagerSet.replaceAll(_rewardOffersManagerList);
+    }
+
+    function addDailyAuthorizedInflation(uint256 _toAuthorizeWei) external onlyRewardOffersManager {
+        totalInflationAuthorizedWei = totalInflationAuthorizedWei + _toAuthorizeWei;
+    }
+
+    function receiveRewards(
+        uint24 _rewardEpochId,
+        bool _inflation
+    )
+        external payable
+        onlyRewardOffersManager mustBalance
+    {
         require(_rewardEpochId >= _getCurrentRewardEpochId(), "reward epoch id in the past");
         epochTotalRewards[_rewardEpochId] += msg.value.toUint120();
         totalFundsReceivedWei += msg.value;
@@ -264,7 +286,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     function setDataProviderFeePercentage(uint16 _feePercentageBIPS) external returns (uint256) {
         require(_feePercentageBIPS <= MAX_BIPS, "fee percentage invalid");
 
-        uint64 rewardEpochId = _getCurrentRewardEpochId() + feePercentageUpdateOffset;
+        uint24 rewardEpochId = _getCurrentRewardEpochId() + feePercentageUpdateOffset;
         FeePercentage[] storage fps = dataProviderFeePercentages[msg.sender];
 
         // determine whether to update the last setting or add a new one
@@ -293,6 +315,9 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         return rewardEpochId;
     }
 
+    function getRewardOffersManagerList() external view returns(address[] memory) {
+        return rewardOffersManagerSet.list;
+    }
 
     /**
      * @notice Returns the current fee percentage of `_dataProvider`
@@ -410,7 +435,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      /**
      * @notice Return current reward epoch number
      */
-    function getCurrentRewardEpochId() external view returns (uint64) {
+    function getCurrentRewardEpochId() external view returns (uint24) {
         return _getCurrentRewardEpochId();
     }
 
@@ -830,7 +855,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     {
         uint256 votePowerBlock = _getVotePowerBlock(_rewardEpochId);
         if (_claimType == ClaimType.WNAT) {
-            return wNat.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
+            return wNat.votePowerOfAt(_beneficiary, votePowerBlock).toUint128(); // TODO check revocation
         } else if (_claimType == ClaimType.MIRROR) {
             return pChainStakeMirror.votePowerOfAt(bytes20(_beneficiary), votePowerBlock).toUint128();
         } else if (_claimType == ClaimType.CCHAIN) {
@@ -897,8 +922,12 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         claimSetupManager.checkExecutorAndAllowedRecipient(msg.sender, _rewardOwner, _recipient);
     }
 
-    function _checkOnlyActive() private view {
+    function _checkIfActive() private view {
         require(active, "reward manager deactivated");
+    }
+
+    function _checkRewardOffersManager() private view {
+        require(rewardOffersManagerSet.index[msg.sender] != 0, "only reward offers manager");
     }
 
     function _checkNonzeroRecipient(address _address) private pure {
