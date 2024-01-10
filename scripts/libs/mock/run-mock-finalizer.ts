@@ -7,7 +7,7 @@ const mf = new MockFinalizer(
   web3, 
   contractAddress("Submission"),
   contractAddress("Relay"),
-  contractAddress("FlareSystemManager")
+  contractAddress("FlareSystemManager"),
 );
 
 mf.run()

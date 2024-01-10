@@ -29,8 +29,10 @@
     "flatten-dependencies": "env bash scripts/flatten-dependencies.sh",
     "slither": "pip3 install slither-analyzer && rm -f ./slither.json && rm -f ./slither_badge.json 2> /dev/null; slither . --compile-force-framework hardhat --json=./slither.json 2> /dev/null || true; node scripts/slither-parse.js ./slither.json",
     "---------SIMULATION---SCRIPTS": "",
-    "mock-finalizer": "yarn hardhat run scripts/libs/mock/run-mock-finalizer.ts --network local",
-    "signer-emulators": "yarn hardhat run scripts/libs/mock/run-signer-emulators.ts --network local"
+    "sim-node": "yarn hardhat node",
+    "sim-run": "yarn hardhat run-simulation --network local",
+    "sim-sign": "yarn hardhat run scripts/libs/mock/run-signer-emulators.ts --network local",
+    "sim-fin": "yarn hardhat run scripts/libs/mock/run-mock-finalizer.ts --network local"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.0",

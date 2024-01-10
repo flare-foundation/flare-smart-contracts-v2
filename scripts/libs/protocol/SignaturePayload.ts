@@ -3,6 +3,7 @@ import { ECDSASignature, IECDSASignature } from "./ECDSASignature";
 import { IPayloadMessage, PayloadMessage } from "./PayloadMessage";
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "./ProtocolMessageMerkleRoot";
 import { ISigningPolicy } from "./SigningPolicy";
+import { ECDSASignatureWithIndex, IECDSASignatureWithIndex } from "./ECDSASignatureWithIndex";
 
 
 export interface ISignaturePayload {
@@ -202,28 +203,28 @@ export namespace SignaturePayload {
     entry: ISignaturePayload
   ): boolean {
     // Nothing to do
-    if(entry.signer === undefined || entry.index === undefined || entry.messageHash === undefined) {
+    if (entry.signer === undefined || entry.index === undefined || entry.messageHash === undefined) {
       return false;
     }
     // First entry, fixes messageHash
-    if(signaturePayloads.length === 0) {
+    if (signaturePayloads.length === 0) {
       signaturePayloads.push(entry);
       return true;
     }
     // Each entry must match the messageHash
-    if(signaturePayloads[0].messageHash !== entry.messageHash) {
+    if (signaturePayloads[0].messageHash !== entry.messageHash) {
       return false;
     }
     // Calculate insertion position according to index using binary search
     let left = 0;
     let right = signaturePayloads.length - 1;
     let middle = 0;
-    while(left <= right) {
+    while (left <= right) {
       middle = Math.floor((left + right) / 2);
-      if(signaturePayloads[middle].index === entry.index) {
+      if (signaturePayloads[middle].index === entry.index) {
         return false;
       }
-      if(signaturePayloads[middle].index! < entry.index) {
+      if (signaturePayloads[middle].index! < entry.index) {
         left = middle + 1;
       } else {
         right = middle - 1;
@@ -231,6 +232,35 @@ export namespace SignaturePayload {
     }
     signaturePayloads.splice(left, 0, entry);
     return true;
+  }
+
+  /**
+   * Encodes signature payloads into 0x-prefixed hex string representing byte encoding
+   * in which first 2 bytes are represent the number of signatures N while the rest is 
+   * N * (1 + 32 + 32 + 2) bytes representing byte encoded signatures with index.
+   * @param signaturePayloads 
+   * @returns 
+   */
+  export function encodeForRelay(signaturePayloads: ISignaturePayload[]): string {
+    let signatures = "0x" + signaturePayloads.length.toString(16).padStart(4, "0");
+    let lastIndex = -1;
+    for (const payload of signaturePayloads) {
+      if (payload.index === undefined) {
+        throw new Error(`Payload ${payload} does not have index.`)
+      }
+      if (payload.index <= lastIndex) {
+        throw new Error(`Payloads are not strictly monotonic sorted by index.`)
+      }
+      const signatureWithIndex = {
+        r: payload.signature.r,
+        s: payload.signature.s,
+        v: payload.signature.v,
+        index: payload.index!
+      } as IECDSASignatureWithIndex;
+      signatures += ECDSASignatureWithIndex.encode(signatureWithIndex).slice(2);
+      lastIndex = payload.index;
+    }
+    return signatures;
   }
 
   /**
