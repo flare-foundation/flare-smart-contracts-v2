@@ -95,6 +95,12 @@ contract FlareSystemManagerTest is Test {
         bool thresholdReached           // Indicates if signing threshold was reached
     );
 
+    event RewardEpochStarted(
+        uint24 rewardEpochId,           // Reward epoch id
+        uint32 startVotingRoundId,      // First voting round id of validity
+        uint64 timestamp                // Timestamp when this happened
+    );
+
     function setUp() public {
         flareDaemon = makeAddr("flareDaemon");
         governance = makeAddr("governance");
@@ -448,7 +454,11 @@ contract FlareSystemManagerTest is Test {
     }
 
     function testSignNewSigningPolicy() public {
+        assertEq(flareSystemManager.isVoterRegistrationEnabled(1), true);
         _initializeSigningPolicy(1);
+        // signing policy initialized -> voter registration period ended
+        assertEq(flareSystemManager.isVoterRegistrationEnabled(1), false);
+
 
         bytes32 newSigningPolicyHash = keccak256("new signing policy hash");
         vm.mockCall(
@@ -579,6 +589,8 @@ contract FlareSystemManagerTest is Test {
         // First transaction in the block (daemonize() call will change `currentRewardEpochExpectedEndTs` value)
         assertEq(flareSystemManager.getCurrentRewardEpochId(), 2);
         vm.prank(flareDaemon);
+        vm.expectEmit();
+        emit RewardEpochStarted(2, 2 * 3360, uint64(block.timestamp));
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
 
         bytes32 uptimeHash = keccak256("uptime vote hash");
@@ -677,6 +689,7 @@ contract FlareSystemManagerTest is Test {
         _mockRegisteredAddresses(2);
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         vm.prank(flareDaemon);
+
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
 
         bytes32 uptimeHash = keccak256("uptime vote hash");
@@ -719,7 +732,7 @@ contract FlareSystemManagerTest is Test {
             abi.encode(newSigningPolicyHash)
         );
 
-        bytes32 messageHash = keccak256(abi.encode(2, newSigningPolicyHash));
+        bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs
