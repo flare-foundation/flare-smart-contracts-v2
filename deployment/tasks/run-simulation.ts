@@ -4,11 +4,11 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import Web3 from "web3";
 import { Account } from "web3-core";
 import { toBN } from "web3-utils";
-import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import {
-  ISigningPolicy,
-  SigningPolicy
-} from "../../scripts/libs/protocol/SigningPolicy";
+  IProtocolMessageMerkleRoot,
+  ProtocolMessageMerkleRoot,
+} from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
+import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
 import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
 import * as util from "../../test/utils/key-to-address";
 import { PChainStakeMirrorVerifierInstance } from "../../typechain-truffle";
@@ -111,6 +111,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   const indexer = new MockDBIndexer(hre.web3, {
     submission: c.submission.address,
     flareSystemManager: c.flareSystemManager.address,
+    voterRegistry: c.voterRegistry.address,
   });
 
   logger.info(`Starting a mock c-chain indexer, data is recorded to SQLite database at ${sqliteDatabase}`);
