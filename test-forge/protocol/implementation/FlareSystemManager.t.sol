@@ -386,7 +386,10 @@ contract FlareSystemManagerTest is Test {
         assertEq(quality, true);
         vm.expectEmit();
         emit VotePowerBlockSelected(1,231,uint64(block.timestamp));
+        assertEq(flareSystemManager.isVoterRegistrationEnabled(), false);
         flareSystemManager.daemonize();
+        // voter registration started
+        assertEq(flareSystemManager.isVoterRegistrationEnabled(), true);
         // endBlock = 234, _firstRandomAcquisitionNumberOfBlocks = 5
         // numberOfBlocks = 5, random (=123) % 5 = 3 -> vote power block = 234 - 3 = 231
         assertEq(flareSystemManager.getVotePowerBlock(1), 231);
@@ -454,10 +457,10 @@ contract FlareSystemManagerTest is Test {
     }
 
     function testSignNewSigningPolicy() public {
-        assertEq(flareSystemManager.isVoterRegistrationEnabled(1), true);
+        assertEq(flareSystemManager.isVoterRegistrationEnabled(), false);
         _initializeSigningPolicy(1);
         // signing policy initialized -> voter registration period ended
-        assertEq(flareSystemManager.isVoterRegistrationEnabled(1), false);
+        assertEq(flareSystemManager.isVoterRegistrationEnabled(), false);
 
 
         bytes32 newSigningPolicyHash = keccak256("new signing policy hash");

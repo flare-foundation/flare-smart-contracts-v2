@@ -326,6 +326,9 @@ contract VoterRegistryTest is Test {
         VoterRegistry.Signature memory signature =
             _createSigningPolicyAddressSignature(0, 4);
 
+        vm.prank(mockFlareSystemManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
+
         // try to register
         _mockGetVoterAddresses();
         vm.expectRevert("invalid signature");
@@ -338,6 +341,8 @@ contract VoterRegistryTest is Test {
             _createSigningPolicyAddressSignature(0, 1);
         _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(0, true);
+        vm.prank(mockFlareSystemManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
         vm.expectRevert("vote power block zero");
         voterRegistry.registerVoter(initialVoters[0], signature);
@@ -349,8 +354,10 @@ contract VoterRegistryTest is Test {
             _createSigningPolicyAddressSignature(0, 1);
         _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(1, false);
+        vm.prank(mockFlareSystemManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
-        vm.expectRevert("voter registration phase ended");
+        vm.expectRevert("voter registration not enabled");
         voterRegistry.registerVoter(initialVoters[0], signature);
     }
 
@@ -366,6 +373,8 @@ contract VoterRegistryTest is Test {
         _mockVotePowers();
         vm.prank(governance);
         voterRegistry.setMaxVoters(3);
+        vm.prank(mockFlareSystemManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
         for (uint256 i = 0; i < initialVoters.length - 1; i++) {
             signature = _createSigningPolicyAddressSignature(i, 1);
@@ -398,6 +407,8 @@ contract VoterRegistryTest is Test {
         _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(10, true);
         _mockVotePowers();
+        vm.prank(mockFlareSystemManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
         uint256 weightsSum = 0;
         for (uint256 i = 0; i < initialVoters.length ; i++) {
@@ -478,6 +489,8 @@ contract VoterRegistryTest is Test {
         _mockVotePowers();
         vm.prank(governance);
         voterRegistry.setMaxVoters(3);
+        vm.prank(mockFlareSystemManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
         for (uint256 i = 0; i < initialVoters.length - 1; i++) {
             signature = _createSigningPolicyAddressSignature(i, 1);
@@ -514,6 +527,8 @@ contract VoterRegistryTest is Test {
         _mockVotePowers();
         vm.prank(governance);
         voterRegistry.setMaxVoters(1);
+        vm.prank(mockFlareSystemManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
         signature = _createSigningPolicyAddressSignature(1, 1);
         nodeIds[0] = initialVotersNodeIds[1];
@@ -537,7 +552,8 @@ contract VoterRegistryTest is Test {
         _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(10, true);
         _mockVotePowers();
-        vm.prank(governance);
+        vm.prank(mockFlareSystemManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
         // register
         signature = _createSigningPolicyAddressSignature(1, 1);
@@ -578,6 +594,8 @@ contract VoterRegistryTest is Test {
         _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(10, true);
         _mockVotePowers();
+        vm.prank(mockFlareSystemManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
         // set p-chain weight to 0
         nodeIds[0] = initialVotersNodeIds[0];
@@ -641,7 +659,7 @@ contract VoterRegistryTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             vm.mockCall(
                 mockEntityManager,
-                abi.encodeWithSelector(EntityManager.getVoterAddresses.selector, initialVoters[i], 0),
+                abi.encodeWithSelector(EntityManager.getVoterAddresses.selector, initialVoters[i]),
                 abi.encode(initialVotersRegisteredAddresses[i])
             );
         }
