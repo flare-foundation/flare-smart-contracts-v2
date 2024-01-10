@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 import "./FlareSystemManager.sol";
 import "./Relay.sol";
 import "../../governance/implementation/Governed.sol";
-import "../../governance/implementation/AddressUpdatable.sol";
+import "../../utils/implementation/AddressUpdatable.sol";
 
 contract Submission is Governed, AddressUpdatable {
 

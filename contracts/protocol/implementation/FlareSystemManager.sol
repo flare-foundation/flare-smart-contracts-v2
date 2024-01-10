@@ -3,18 +3,20 @@ pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/genesis/interface/IFlareDaemonize.sol";
 import "flare-smart-contracts/contracts/userInterfaces/IPriceSubmitter.sol";
-import "../../governance/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
-import "../lib/SafePct.sol";
+import "../../utils/implementation/AddressUpdatable.sol";
+import "../../utils/lib/SafePct.sol";
 import "../interface/IRandomProvider.sol";
+import "../interface/IRewardEpochSwitchoverTrigger.sol";
 import "./VoterRegistry.sol";
 import "./Relay.sol";
 import "./Submission.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
-
+//solhint-disable-next-line max-states-count
 contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRandomProvider {
     using SafeCast for uint256;
     using SafePct for uint256;
@@ -118,7 +120,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     /// Timestamp when current reward epoch should end, in seconds since UNIX epoch.
     uint64 public currentRewardEpochExpectedEndTs;
 
-    uint64 internal lastInitialisedVotingRound;
+    uint64 public lastInitialisedVotingRoundId;
 
     /// The VoterRegistry contract.
     VoterRegistry public voterRegistry;
@@ -133,6 +135,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
 
     /// The PriceSubmitter contract.
     IPriceSubmitter public priceSubmitter;
+
+    IRewardEpochSwitchoverTrigger[] internal rewardEpochSwitchoverTriggerContracts;
 
     event RandomAcquisitionStarted(
         uint24 rewardEpochId,       // Reward epoch id
@@ -227,7 +231,10 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
             "reward epoch end not in the future");
     }
 
-    function daemonize() external onlyFlareDaemon returns (bool) {
+    /**
+     * @inheritdoc IFlareDaemonize
+     */
+    function daemonize() external override onlyFlareDaemon returns (bool) {
         uint32 currentVotingEpochId = _getCurrentVotingEpochId();
         uint24 currentRewardEpochId = _getCurrentRewardEpochId();
 
@@ -259,21 +266,30 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
 
             // start new reward epoch if it is time and new signing policy is defined
             if (_isNextRewardEpochId(nextRewardEpochId)) {
-                currentRewardEpochExpectedEndTs += rewardEpochDurationSeconds;
+                uint64 nextRewardEpochExpectedEndTs = currentRewardEpochExpectedEndTs + rewardEpochDurationSeconds;
+                currentRewardEpochExpectedEndTs = nextRewardEpochExpectedEndTs;
                 emit RewardEpochStarted(
                     nextRewardEpochId,
                     rewardEpochState[nextRewardEpochId].startVotingRoundId,
                     block.timestamp.toUint64()
                 );
+                uint256 len = rewardEpochSwitchoverTriggerContracts.length;
+                for (uint256 i = 0; i < len; i++) {
+                    rewardEpochSwitchoverTriggerContracts[i].triggerRewardEpochSwitchover(
+                        nextRewardEpochId,
+                        nextRewardEpochExpectedEndTs,
+                        rewardEpochDurationSeconds
+                    );
+                }
             }
         }
 
         // in case of new voting round - init new voting round on Submission contract
-        if (currentVotingEpochId > lastInitialisedVotingRound) {
+        if (currentVotingEpochId > lastInitialisedVotingRoundId) {
             address[] memory submit1Addresses;
             address[] memory submit2Addresses;
             address[] memory submitSignaturesAddresses;
-            lastInitialisedVotingRound = currentVotingEpochId;
+            lastInitialisedVotingRoundId = currentVotingEpochId;
             submit2Addresses = voterRegistry.getRegisteredSubmitAddresses(currentRewardEpochId);
             submitSignaturesAddresses = voterRegistry.getRegisteredSubmitSignaturesAddresses(currentRewardEpochId);
             // in case of new reward epoch - get new submit1Addresses otherwise they are the same as submit2Addresses
@@ -463,6 +479,18 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         usePriceSubmitterAsRandomProvider = _usePriceSubmitter;
     }
 
+    function setRewardEpochSwitchoverTriggerContracts(
+        IRewardEpochSwitchoverTrigger[] calldata _contracts
+    )
+        external onlyGovernance
+    {
+        rewardEpochSwitchoverTriggerContracts = _contracts; // TODO cehck duplicates
+    }
+
+    function getRewardEpochSwitchoverTriggerContracts() external view returns(IRewardEpochSwitchoverTrigger[] memory) {
+        return rewardEpochSwitchoverTriggerContracts;
+    }
+
     function getVotePowerBlock(uint256 _rewardEpoch) external view returns(uint256 _votePowerBlock) {
         _votePowerBlock = rewardEpochState[_rewardEpoch].votePowerBlock;
         require(_votePowerBlock != 0, "vote power block not initialized yet");
@@ -481,8 +509,9 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         _enabled = _isVoterRegistrationEnabled(_rewardEpoch, rewardEpochState[_rewardEpoch]);
     }
 
-    function isVoterRegistrationEnabled(uint256 _rewardEpoch) external view returns (bool) {
-        return _isVoterRegistrationEnabled(_rewardEpoch, rewardEpochState[_rewardEpoch]);
+    function isVoterRegistrationEnabled() external view returns (bool) {
+        uint256 nextRewardEpochId = getCurrentRewardEpochId() + 1;
+        return _isVoterRegistrationEnabled(nextRewardEpochId, rewardEpochState[nextRewardEpochId]);
     }
 
     // <= PPM_MAX
@@ -498,12 +527,18 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         (_currentRandom, _goodRandom, ) = _getRandom();
     }
 
-    function switchToFallbackMode() external pure returns (bool) {
+    /**
+     * @inheritdoc IFlareDaemonize
+     */
+    function switchToFallbackMode() external pure override returns (bool) {
         // do nothing - there is no fallback mode in FlareSystemManager contract
         return false;
     }
 
-    function getContractName() external pure returns (string memory) {
+    /**
+     * @inheritdoc IFlareDaemonize
+     */
+    function getContractName() external pure override returns (string memory) {
         return "FlareSystemManager";
     }
 
@@ -603,9 +638,10 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         internal view
         returns(bool)
     {
-        return block.timestamp <= _state.voterRegistrationStartTs + voterRegistrationMinDurationSeconds ||
+        return _state.voterRegistrationStartTs != 0 && (
+            block.timestamp <= _state.voterRegistrationStartTs + voterRegistrationMinDurationSeconds ||
             block.number <= _state.voterRegistrationStartBlock + voterRegistrationMinDurationBlocks ||
-            voterRegistry.getNumberOfRegisteredVoters(_rewardEpoch) < signingPolicyMinNumberOfVoters;
+            voterRegistry.getNumberOfRegisteredVoters(_rewardEpoch) < signingPolicyMinNumberOfVoters);
     }
 
     function _getRandom() internal view returns (uint256 _random, bool _quality, uint64 _randomTs) {

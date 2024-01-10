@@ -2,8 +2,8 @@
 pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/inflation/interface/IIInflationReceiver.sol";
-import "../../governance/implementation/AddressUpdatable.sol";
-import "./TokenPoolBase.sol";
+import "../../utils/implementation/AddressUpdatable.sol";
+import "../../utils/implementation/TokenPoolBase.sol";
 
 
 abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, AddressUpdatable {
@@ -12,6 +12,7 @@ abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, Addre
     uint256 internal totalInflationAuthorizedWei;
     uint256 internal totalInflationReceivedWei;
     uint256 internal lastInflationAuthorizationReceivedTs;
+    uint256 internal lastInflationReceivedTs;
     uint256 internal dailyAuthorizedInflation;
 
     // addresses
@@ -49,6 +50,7 @@ abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, Addre
      */
     function receiveInflation() external payable override mustBalance onlyInflation {
         totalInflationReceivedWei = totalInflationReceivedWei + msg.value;
+        lastInflationReceivedTs = block.timestamp;
 
         _receiveInflation();
 

@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/staking/interface/IIPChainStakeMirrorVerifier.sol";
 import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirrorMultiSigVoting.sol";
-import "./Relay.sol";
+import "../../protocol/implementation/Relay.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
