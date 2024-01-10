@@ -153,6 +153,12 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         bool thresholdReached           // Indicates if signing threshold was reached
     );
 
+    event RewardEpochStarted(
+        uint24 rewardEpochId,           // Reward epoch id
+        uint32 startVotingRoundId,      // First voting round id of validity
+        uint64 timestamp                // Timestamp when this happened
+    );
+
     event UptimeVoteSigned(
         uint24 rewardEpochId,           // Reward epoch id
         address signingPolicyAddress,   // Address which signed this
@@ -254,6 +260,11 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
             // start new reward epoch if it is time and new signing policy is defined
             if (_isNextRewardEpochId(nextRewardEpochId)) {
                 currentRewardEpochExpectedEndTs += rewardEpochDurationSeconds;
+                emit RewardEpochStarted(
+                    nextRewardEpochId,
+                    rewardEpochState[nextRewardEpochId].startVotingRoundId,
+                    block.timestamp.toUint64()
+                );
             }
         }
 
@@ -299,8 +310,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         require(_newSigningPolicyHash != bytes32(0) && _getSingingPolicyHash(_rewardEpochId) == _newSigningPolicyHash,
             "new signing policy hash invalid");
         require(state.singingPolicySignEndTs == 0, "new signing policy already signed");
-        bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _newSigningPolicyHash));
-        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(_newSigningPolicyHash);
         address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
         (address voter, uint16 weight) =
             voterRegistry.getVoterWithNormalisedWeight(_rewardEpochId - 1, signingAddress);
@@ -469,6 +479,10 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     {
         _votePowerBlock = rewardEpochState[_rewardEpoch].votePowerBlock;
         _enabled = _isVoterRegistrationEnabled(_rewardEpoch, rewardEpochState[_rewardEpoch]);
+    }
+
+    function isVoterRegistrationEnabled(uint256 _rewardEpoch) external view returns (bool) {
+        return _isVoterRegistrationEnabled(_rewardEpoch, rewardEpochState[_rewardEpoch]);
     }
 
     // <= PPM_MAX

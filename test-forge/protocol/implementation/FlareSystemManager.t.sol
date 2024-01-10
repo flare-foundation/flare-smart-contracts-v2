@@ -437,7 +437,7 @@ contract FlareSystemManagerTest is Test {
         );
 
         bytes32 newSigningPolicyHash = keccak256("new signing policy hash");
-        bytes32 messageHash = keccak256(abi.encode(1, newSigningPolicyHash));
+        bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
@@ -457,7 +457,7 @@ contract FlareSystemManagerTest is Test {
             abi.encode(newSigningPolicyHash)
         );
 
-        bytes32 messageHash = keccak256(abi.encode(2, newSigningPolicyHash));
+        bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs
@@ -499,7 +499,7 @@ contract FlareSystemManagerTest is Test {
             abi.encode(newSigningPolicyHash)
         );
 
-        bytes32 messageHash = keccak256(abi.encode(2, newSigningPolicyHash));
+        bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs
@@ -527,7 +527,7 @@ contract FlareSystemManagerTest is Test {
             abi.encode(newSigningPolicyHash)
         );
 
-        bytes32 messageHash = keccak256(abi.encode(2, newSigningPolicyHash));
+        bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs
@@ -787,7 +787,7 @@ contract FlareSystemManagerTest is Test {
             abi.encode(newSigningPolicyHash)
         );
 
-        bytes32 messageHash = keccak256(abi.encode(2, newSigningPolicyHash));
+        bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs
@@ -864,7 +864,7 @@ contract FlareSystemManagerTest is Test {
             abi.encode(newSigningPolicyHash)
         );
 
-        bytes32 messageHash = keccak256(abi.encode(2, newSigningPolicyHash));
+        bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs
@@ -972,7 +972,7 @@ contract FlareSystemManagerTest is Test {
             abi.encode(newSigningPolicyHash)
         );
 
-        bytes32 messageHash = keccak256(abi.encode(2, newSigningPolicyHash));
+        bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs
@@ -1069,7 +1069,7 @@ contract FlareSystemManagerTest is Test {
             abi.encode(newSigningPolicyHash)
         );
 
-        bytes32 messageHash = keccak256(abi.encode(2, newSigningPolicyHash));
+        bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs

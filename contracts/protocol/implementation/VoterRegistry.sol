@@ -64,8 +64,8 @@ contract VoterRegistry is Governed, AddressUpdatable {
     event VoterChilled(address voter, uint256 untilRewardEpochId);
     event VoterRemoved(address voter, uint256 rewardEpochId);
     event VoterRegistered(
-        uint256 rewardEpochId,
         address voter,
+        uint256 rewardEpochId,
         address signingPolicyAddress,
         address delegationAddress,
         address submitAddress,
@@ -301,6 +301,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
         _voter = entityManager.getVoterForSigningPolicyAddress(_signingPolicyAddress,
             newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
         uint256 weight = register[_rewardEpochId].weights[_voter];
+        require(weight > 0, "voter not registered");
         _normalisedWeight = uint16(weight * UINT16_MAX / weightsSum);
     }
 
@@ -387,8 +388,8 @@ contract VoterRegistry is Governed, AddressUpdatable {
         }
 
         emit VoterRegistered(
-            _rewardEpochId,
             _voter,
+            _rewardEpochId,
             _voterAddresses.signingPolicyAddress,
             _voterAddresses.delegationAddress,
             _voterAddresses.submitAddress,
