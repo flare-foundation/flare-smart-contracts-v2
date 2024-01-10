@@ -57,8 +57,8 @@ const RELAY_SELECTOR = Web3.utils.sha3("relay()")!.slice(0, 10);
 
 interface RegisteredAccount {
   readonly submit: Account;
-  readonly signing: Account;
-  readonly policySigning: Account;
+  readonly submitSignatures: Account;
+  readonly signingPolicy: Account;
   readonly identity: Account;
 }
 
@@ -308,8 +308,8 @@ async function registerAccounts(
     registeredAccounts.push({
       identity: identityAccount,
       submit: submitAccount,
-      signing: signingAccount,
-      policySigning: policySigningAccount,
+      submitSignatures: signingAccount,
+      signingPolicy: policySigningAccount,
     });
   }
   return registeredAccounts;
@@ -353,7 +353,7 @@ async function defineNextSigningPolicy(
   const newSigningPolicyHash = await c.relay.toSigningPolicyHash(nextRewardEpochId);
 
   for (const acc of registeredAccounts) {
-    const signature = web3.eth.accounts.sign(newSigningPolicyHash, acc.policySigning.privateKey);
+    const signature = web3.eth.accounts.sign(newSigningPolicyHash, acc.signingPolicy.privateKey);
 
     const signResponse = await c.flareSystemManager.signNewSigningPolicy(
       nextRewardEpochId,
@@ -369,7 +369,7 @@ async function defineNextSigningPolicy(
 
     const args = signResponse.logs[0].args as any;
     if (args.thresholdReached) {
-      logger.info(`Signed policy with account ${acc.policySigning.address} - threshold reached`);
+      logger.info(`Signed policy with account ${acc.signingPolicy.address} - threshold reached`);
       return;
     }
   }
@@ -415,7 +415,7 @@ async function runVotingRound(
   await sleep(revealDeadlineMs - Date.now());
 
   for (const acc of registeredAccounts) {
-    await c.submission.submitSignatures({ from: acc.signing.address });
+    await c.submission.submitSignatures({ from: acc.submitSignatures.address });
   }
 
   // TODO: Obtain actual merkle root and sigantures from the indexer, use fake if not present.
@@ -429,7 +429,7 @@ async function runVotingRound(
   const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
   const messageHash = Web3.utils.keccak256("0x" + fullMessage);
   const signatures = await generateSignatures(
-    registeredAccounts.map(x => x.policySigning.privateKey),
+    registeredAccounts.map(x => x.signingPolicy.privateKey),
     messageHash,
     registeredAccounts.length
   );
@@ -437,7 +437,7 @@ async function runVotingRound(
   const fullData = RELAY_SELECTOR + encodedSigningPolicy + fullMessage + signatures;
 
   await web3.eth.sendTransaction({
-    from: registeredAccounts[0].policySigning.address,
+    from: registeredAccounts[0].signingPolicy.address,
     to: c.relay.address,
     data: fullData,
   });
@@ -511,8 +511,8 @@ async function registerVoter(rewardEpochId: number, acc: RegisteredAccount, vote
     web3.eth.abi.encodeParameters(["uint24", "address"], [rewardEpochId, acc.identity.address])
   );
 
-  const signature = web3.eth.accounts.sign(hash, acc.policySigning.privateKey);
-  await voterRegistry.registerVoter(acc.identity.address, signature, { from: acc.signing.address });
+  const signature = web3.eth.accounts.sign(hash, acc.signingPolicy.privateKey);
+  await voterRegistry.registerVoter(acc.identity.address, signature, { from: acc.submitSignatures.address });
 }
 
 function extractSigningPolicy(logArg: any) {
