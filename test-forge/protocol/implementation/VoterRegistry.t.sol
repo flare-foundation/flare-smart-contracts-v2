@@ -46,8 +46,8 @@ contract VoterRegistryTest is Test {
     event VoterChilled(address voter, uint256 untilRewardEpochId);
     event VoterRemoved(address voter, uint256 rewardEpochId);
     event VoterRegistered(
-        uint256 rewardEpochId,
         address voter,
+        uint256 rewardEpochId,
         address signingPolicyAddress,
         address delegationAddress,
         address submitAddress,
@@ -373,8 +373,8 @@ contract VoterRegistryTest is Test {
             pChainVPs[0] = initialVotersPChainVP[i];
             vm.expectEmit();
             emit VoterRegistered(
-                1,
                 initialVoters[i],
+                1,
                 initialSigningPolicyAddresses[i],
                 initialDelegationAddresses[i],
                 initialSubmitAddresses[i],
@@ -448,8 +448,8 @@ contract VoterRegistryTest is Test {
         emit VoterRemoved(initialVoters[0], 1);
         vm.expectEmit();
         emit VoterRegistered(
-            1,
             initialVoters[3],
+            1,
             initialSigningPolicyAddresses[3],
             initialDelegationAddresses[3],
             initialSubmitAddresses[3],
@@ -485,8 +485,8 @@ contract VoterRegistryTest is Test {
             pChainVPs[0] = initialVotersPChainVP[i];
             vm.expectEmit();
             emit VoterRegistered(
-                1,
                 initialVoters[i],
+                1,
                 initialSigningPolicyAddresses[i],
                 initialDelegationAddresses[i],
                 initialSubmitAddresses[i],
@@ -545,8 +545,8 @@ contract VoterRegistryTest is Test {
         pChainVPs[0] = initialVotersPChainVP[1];
         vm.expectEmit();
         emit VoterRegistered(
-            1,
             initialVoters[1],
+            1,
             initialSigningPolicyAddresses[1],
             initialDelegationAddresses[1],
             initialSubmitAddresses[1],
