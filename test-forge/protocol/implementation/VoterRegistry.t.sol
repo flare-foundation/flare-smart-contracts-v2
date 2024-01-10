@@ -389,6 +389,50 @@ contract VoterRegistryTest is Test {
         }
     }
 
+    function testRegisterVotersAndCreateSigningPolicySnapshot() public {
+        bytes20[] memory nodeIds = new bytes20[](1);
+        uint256[] memory pChainVPs = new uint256[](1);
+        VoterRegistry.Signature memory signature;
+
+        _mockGetCurrentEpochId(0);
+        _mockGetVoterAddresses();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVotePowers();
+
+        uint256 weightsSum = 0;
+        for (uint256 i = 0; i < initialVoters.length ; i++) {
+            signature = _createSigningPolicyAddressSignature(i, 1);
+            nodeIds[0] = initialVotersNodeIds[i];
+            pChainVPs[0] = initialVotersPChainVP[i];
+            voterRegistry.registerVoter(initialVoters[i], signature);
+            weightsSum += initialVotersPChainVP[i] + initialVotersWNatVP[i] / 4;
+        }
+
+        // create signing policy snapshot
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(EntityManager.getSigningPolicyAddresses.selector,
+                initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
+            abi.encode(initialSigningPolicyAddresses)
+        );
+        vm.prank(mockFlareSystemManager);
+        (address[] memory signPolAddresses, uint16[] memory normWeights, uint16 normWeightsSum) =
+            voterRegistry.createSigningPolicySnapshot(1);
+
+        assertEq(initialSigningPolicyAddresses.length, signPolAddresses.length);
+        uint16 sum = 0;
+        uint256 voterWeight;
+        uint16 normVoterWeight;
+        for (uint256 i = 0; i < initialVoters.length; i++) {
+            assertEq(signPolAddresses[i], initialSigningPolicyAddresses[i]);
+            voterWeight = initialVotersPChainVP[i] + initialVotersWNatVP[i] / 4;
+            normVoterWeight = uint16(voterWeight * UINT16_MAX / weightsSum);
+            assertEq(normWeights[i], normVoterWeight);
+            sum += normVoterWeight;
+        }
+        assertEq(sum, normWeightsSum);
+    }
+
     function testRemoveVoter() public {
         // add 3 voters
         testRegisterVoters();
