@@ -33,6 +33,25 @@ export const FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
 const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
 export const DEPLOY_ADDRESSES_FILE = "./db/deployed-addresses.json";
 
+const SKIP_VOTER_REGISTRATION_SET = new Set<string>();
+const SKIP_SIGNING_POLICY_SIGNING_SET = new Set<string>();
+
+if (process.env.SKIP_VOTER_REGISTRATION_SET) {
+  process.env.SKIP_VOTER_REGISTRATION_SET.split(",").forEach(x => {
+    if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
+      SKIP_VOTER_REGISTRATION_SET.add(x.trim().toLowerCase())
+    }
+  });
+}
+
+if (process.env.SKIP_SIGNING_POLICY_SIGNING_SET) {
+  process.env.SKIP_SIGNING_POLICY_SIGNING_SET.split(",").forEach(x => {
+    if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
+      SKIP_SIGNING_POLICY_SIGNING_SET.add(x.trim().toLowerCase())
+    }
+  });
+}
+
 export const systemSettings = function (now: number) {
   return {
     firstVotingRoundStartTs: now - FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID * VOTING_EPOCH_DURATION_SEC,
@@ -343,6 +362,11 @@ async function defineNextSigningPolicy(
   }
 
   for (const acc of registeredAccounts) {
+    
+    if (SKIP_VOTER_REGISTRATION_SET.has(acc.identity.address.toLowerCase())) {
+      logger.info(`Skipping automatic voter registration for ${acc.identity.address}`);
+      continue;
+    }
     await registerVoter(nextRewardEpochId, acc, c.voterRegistry);
   }
 
@@ -355,6 +379,10 @@ async function defineNextSigningPolicy(
   const newSigningPolicyHash = await c.relay.toSigningPolicyHash(nextRewardEpochId);
 
   for (const acc of registeredAccounts) {
+    if (SKIP_SIGNING_POLICY_SIGNING_SET.has(acc.identity.address.toLowerCase())) {
+      logger.info(`Skipping automatic new signing policy signing for ${acc.identity.address}`);
+      continue;
+    }
     const signature = web3.eth.accounts.sign(newSigningPolicyHash, acc.signingPolicy.privateKey);
 
     const signResponse = await c.flareSystemManager.signNewSigningPolicy(
@@ -441,13 +469,23 @@ async function runVotingRound(
     merkleRoot: fakeMerkleRoot,
   };
   const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
+  const signingPolicy = signingPolicies.get(rewardEpochId)!;
+  const privateKeysInOrder = [];
+  for (const voter of signingPolicy.voters) {
+    const acc = registeredAccounts.find(x => x.signingPolicy.address.toLowerCase() == voter.toLowerCase())!;
+    if (acc) {
+      privateKeysInOrder.push(acc.signingPolicy.privateKey);
+    } else {
+      logger.info(`Voter not among registered accounts: ${voter}`)
+    }
+  }
   const messageHash = Web3.utils.keccak256("0x" + fullMessage);
   const signatures = await generateSignatures(
-    registeredAccounts.map(x => x.signingPolicy.privateKey),
+    privateKeysInOrder,
     messageHash,
-    registeredAccounts.length
+    privateKeysInOrder.length
   );
-  const encodedSigningPolicy = SigningPolicy.encode(signingPolicies.get(rewardEpochId)!).slice(2);
+  const encodedSigningPolicy = SigningPolicy.encode(signingPolicy).slice(2);
   const fullData = RELAY_SELECTOR + encodedSigningPolicy + fullMessage + signatures;
   try {
     await web3.eth.sendTransaction({
