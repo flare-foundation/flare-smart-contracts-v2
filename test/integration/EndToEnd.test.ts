@@ -6,7 +6,7 @@ import privateKeys from "../../deployment/test-1020-accounts.json";
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { ECDSASignatureWithIndex } from "../../scripts/libs/protocol/ECDSASignatureWithIndex";
 import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
-import { AddressBinderInstance, EntityManagerInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, WNatInstance } from '../../typechain-truffle';
+import { AddressBinderInstance, EntityManagerInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance } from '../../typechain-truffle';
 import { MockContractContract } from '../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract';
 import { CChainStakeContract, CChainStakeInstance } from '../../typechain-truffle/contracts/mock/CChainStake';
 import { GovernanceVotePowerContract } from '../../typechain-truffle/contracts/mock/GovernanceVotePower';
@@ -25,6 +25,8 @@ import { getTestFile } from "../utils/constants";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
 import * as util from "../utils/key-to-address";
 import { encodeContractNames, toBN } from '../utils/test-helpers';
+import { SigningPolicyWeightCalculatorContract, SigningPolicyWeightCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/SigningPolicyWeightCalculator';
+import { RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -35,7 +37,9 @@ const AddressBinder: AddressBinderContract = artifacts.require("AddressBinder");
 const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = artifacts.require("PChainStakeMirrorVerifier");
 const EntityManager: EntityManagerContract = artifacts.require("EntityManager");
 const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
+const SigningPolicyWeightCalculator: SigningPolicyWeightCalculatorContract = artifacts.require("SigningPolicyWeightCalculator");
 const FlareSystemManager: FlareSystemManagerContract = artifacts.require("FlareSystemManager");
+const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
 const Submission: SubmissionContract = artifacts.require("Submission");
 const Relay: RelayContract = artifacts.require("Relay");
 const CChainStake: CChainStakeContract = artifacts.require("CChainStake");
@@ -85,7 +89,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let governanceSettings: GovernanceSettingsInstance;
     let entityManager: EntityManagerInstance;
     let voterRegistry: VoterRegistryInstance;
+    let signingPolicyWeightCalculator: SigningPolicyWeightCalculatorInstance;
     let flareSystemManager: FlareSystemManagerInstance;
+    let rewardManager: RewardManagerInstance;
     let submission: SubmissionInstance;
     let relay: RelayInstance;
     let relay2: RelayInstance;
@@ -117,6 +123,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     const ADDRESS_UPDATER = accounts[16];
     const CLEANUP_BLOCK_NUMBER_MANAGER = accounts[17];
+    const CLAIM_SETUP_MANAGER = accounts[18];
 
     before(async () => {
         pChainStakeMirror = await PChainStakeMirror.new(
@@ -165,6 +172,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const initialWeights = Array(100).fill(655);
 
         voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, initialVoters, initialWeights);
+        signingPolicyWeightCalculator = await SigningPolicyWeightCalculator.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2500);
 
         initialSigningPolicy = {
             rewardEpochId: 0,
@@ -200,6 +208,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             1,
             0,
             initialThreshold
+        );
+
+        rewardManager = await RewardManager.new(
+            governanceSettings.address,
+            accounts[0],
+            ADDRESS_UPDATER,
+            3,
+            2000
         );
 
         await flareSystemManager.changeRandomProvider(true);
@@ -242,12 +258,20 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [ADDRESS_UPDATER, governanceVotePower.address, CLEANUP_BLOCK_NUMBER_MANAGER], { from: ADDRESS_UPDATER });
 
         await voterRegistry.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.ENTITY_MANAGER, Contracts.WNAT, Contracts.P_CHAIN_STAKE_MIRROR]),
-            [ADDRESS_UPDATER, flareSystemManager.address, entityManager.address, wNat.address, pChainStakeMirror.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.ENTITY_MANAGER, Contracts.SIGNING_POLICY_WEIGHT_CALCULATOR]),
+            [ADDRESS_UPDATER, flareSystemManager.address, entityManager.address, signingPolicyWeightCalculator.address], { from: ADDRESS_UPDATER });
+
+        await signingPolicyWeightCalculator.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.ENTITY_MANAGER, Contracts.REWARD_MANAGER, Contracts.VOTER_REGISTRY, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
+            [ADDRESS_UPDATER, entityManager.address, rewardManager.address, voterRegistry.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
 
         await flareSystemManager.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY, Contracts.PRICE_SUBMITTER]),
             [ADDRESS_UPDATER, voterRegistry.address, submission.address, relay.address, priceSubmitterMock.address], { from: ADDRESS_UPDATER });
+
+        await rewardManager.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
+            [ADDRESS_UPDATER, voterRegistry.address, CLAIM_SETUP_MANAGER, flareSystemManager.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
 
         await submission.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.RELAY]),
@@ -368,7 +392,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             threshold: Math.floor(65535 / 2),
             seed: RANDOM_ROOT,
             voters: accounts.slice(30, 34),
-            weights: [39718, 19859, 3971, 1985]
+            weights: [34664, 20660, 6334, 3875]
         };
 
         const receipt = await flareSystemManager.daemonize();
@@ -549,7 +573,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await expectEvent.inTransaction(receipt.tx, relay, "SigningPolicyInitialized",
             {
                 rewardEpochId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(30, 34),
-                seed: toBN(RANDOM_ROOT2), threshold: toBN(32767), weights: [toBN(39718), toBN(19859), toBN(3971), toBN(1985)]
+                seed: toBN(RANDOM_ROOT2), threshold: toBN(32767), weights: [toBN(34664), toBN(20660), toBN(6334), toBN(3875)]
             });
     });
 

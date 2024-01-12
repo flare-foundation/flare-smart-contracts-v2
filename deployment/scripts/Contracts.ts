@@ -56,6 +56,8 @@ export class Contracts {
   public static readonly SUBMISSION = "Submission";
   public static readonly RELAY = "Relay";
   public static readonly VOTER_REGISTRY = "VoterRegistry";
+  public static readonly REWARD_MANAGER = "RewardManager";
+  public static readonly SIGNING_POLICY_WEIGHT_CALCULATOR = "SigningPolicyWeightCalculator";
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 
   constructor() {

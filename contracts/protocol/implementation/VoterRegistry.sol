@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
-import "../interface/IWNat.sol";
-import "../interface/ICChainStake.sol";
 import "./EntityManager.sol";
 import "./FlareSystemManager.sol";
+import "./SigningPolicyWeightCalculator.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
+import "../../utils/lib/SafePct.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
@@ -15,20 +14,13 @@ import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
  * Only addresses registered in this contract can vote.
  */
 contract VoterRegistry is Governed, AddressUpdatable {
+    using SafePct for uint256;
 
     struct VotersAndWeights {
         address[] voters;
         mapping (address => uint256) weights;
         uint128 weightsSum;
         uint16 normalisedWeightsSum;
-    }
-
-    struct VoterData {
-        uint256 weight;
-        uint256 wNatWeight;
-        uint256 cChainStakeWeight;
-        bytes20[] nodeIds;
-        uint256[] nodeWeights;
     }
 
     struct Signature {
@@ -56,10 +48,10 @@ contract VoterRegistry is Governed, AddressUpdatable {
     // Addresses of the external contracts.
     FlareSystemManager public flareSystemManager;
     EntityManager public entityManager;
-    IPChainStakeMirror public pChainStakeMirror;
-    IWNat public wNat;
-    ICChainStake public cChainStake;
-    bool public cChainStakeEnabled;
+    SigningPolicyWeightCalculator public signingPolicyWeightCalculator;
+
+    string public systemRegistrationContractName;
+    address public systemRegistrationContractAddress;
 
     event VoterChilled(address voter, uint256 untilRewardEpochId);
     event VoterRemoved(address voter, uint256 rewardEpochId);
@@ -70,16 +62,17 @@ contract VoterRegistry is Governed, AddressUpdatable {
         address delegationAddress,
         address submitAddress,
         address submitSignaturesAddress,
-        uint256 weight,
-        uint256 wNatWeight,
-        uint256 cChainStakeWeight,
-        bytes20[] nodeIds,
-        uint256[] nodeWeights
+        uint256 registrationWeight
     );
 
     /// Only FlareSystemManager contract can call this method.
     modifier onlyFlareSystemManager {
         require(msg.sender == address(flareSystemManager), "only flare system manager");
+        _;
+    }
+
+    modifier onlySystemRegistrationContract {
+        require(msg.sender == systemRegistrationContractAddress, "only system registration contract");
         _;
     }
 
@@ -115,18 +108,23 @@ contract VoterRegistry is Governed, AddressUpdatable {
      * Register voter
      */
     function registerVoter(address _voter, Signature calldata _signature) external {
-        uint256 untilRewardEpochId = chilledUntilRewardEpochId[_voter];
-        uint256 nextRewardEpochId = flareSystemManager.getCurrentRewardEpochId() + 1;
-        require(untilRewardEpochId == 0 || untilRewardEpochId <= nextRewardEpochId, "voter chilled");
-        uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[nextRewardEpochId];
-        require(initBlock != 0, "registration not available yet");
-        bytes32 messageHash = keccak256(abi.encode(nextRewardEpochId, _voter));
+        (uint256 rewardEpochId, EntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
+        // check signature
+        bytes32 messageHash = keccak256(abi.encode(rewardEpochId, _voter));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        EntityManager.VoterAddresses memory voterAddresses = entityManager.getVoterAddresses(_voter, initBlock);
         require(signingPolicyAddress == voterAddresses.signingPolicyAddress, "invalid signature");
-        bool success = _registerVoter(_voter, voterAddresses, nextRewardEpochId);
-        require(success, "vote power too low");
+        // register voter
+        _registerVoter(_voter, rewardEpochId, voterAddresses);
+    }
+
+    /**
+     * Enables automatic voter registration triggered by system registration contract.
+     */
+    function systemRegistration(address _voter) external onlySystemRegistrationContract {
+        (uint256 rewardEpochId, EntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
+        // register voter
+        _registerVoter(_voter, rewardEpochId, voterAddresses);
     }
 
     /**
@@ -151,21 +149,20 @@ contract VoterRegistry is Governed, AddressUpdatable {
      * Sets the max number of voters.
      * @dev Only governance can call this method.
      */
-    function setMaxVoters(
-        uint256 _maxVoters
-    )
-        external onlyGovernance
-    {
+    function setMaxVoters(uint256 _maxVoters) external onlyGovernance {
         require(_maxVoters <= UINT16_MAX, "_maxVoters too high");
         maxVoters = _maxVoters;
     }
 
     /**
-     * Enables C-Chain stakes.
+     * Sets system registration contract.
      * @dev Only governance can call this method.
      */
-    function enableCChainStake() external onlyGovernance {
-        cChainStakeEnabled = true;
+    function setSystemRegistrationContractName(string memory _contractName) external onlyGovernance {
+        systemRegistrationContractName = _contractName;
+        if (keccak256(abi.encode(_contractName)) == keccak256(abi.encode(""))) {
+            systemRegistrationContractAddress = address(0);
+        }
     }
 
     /**
@@ -319,15 +316,16 @@ contract VoterRegistry is Governed, AddressUpdatable {
     )
         internal override
     {
-        flareSystemManager = FlareSystemManager(_getContractAddress(
-            _contractNameHashes, _contractAddresses, "FlareSystemManager"));
+        flareSystemManager = FlareSystemManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
         entityManager = EntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
-        pChainStakeMirror = IPChainStakeMirror(_getContractAddress(
-            _contractNameHashes, _contractAddresses, "PChainStakeMirror"));
-        if (cChainStakeEnabled) {
-            cChainStake = ICChainStake(_getContractAddress(_contractNameHashes, _contractAddresses, "CChainStake"));
+        signingPolicyWeightCalculator = SigningPolicyWeightCalculator(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "SigningPolicyWeightCalculator"));
+
+        if (keccak256(abi.encode(systemRegistrationContractName)) != keccak256(abi.encode(""))) {
+            systemRegistrationContractAddress =
+                _getContractAddress(_contractNameHashes, _contractAddresses, systemRegistrationContractName);
         }
-        wNat = IWNat(_getContractAddress(_contractNameHashes, _contractAddresses, "WNat"));
     }
 
     /**
@@ -335,32 +333,31 @@ contract VoterRegistry is Governed, AddressUpdatable {
      */
     function _registerVoter(
         address _voter,
-        EntityManager.VoterAddresses memory _voterAddresses,
-        uint256 _rewardEpochId
+        uint256 _rewardEpochId,
+        EntityManager.VoterAddresses memory _voterAddresses
     )
-        internal returns(bool)
+        internal
     {
-
         (uint256 votePowerBlock, bool enabled) = flareSystemManager.getVoterRegistrationData(_rewardEpochId);
         require(votePowerBlock != 0, "vote power block zero");
         require(enabled, "voter registration not enabled");
-        VoterData memory voterData = _getVoterData(_voter, _voterAddresses.delegationAddress, votePowerBlock);
-        require(voterData.weight > 0, "voter weight zero");
+        uint256 weight = signingPolicyWeightCalculator
+            .calculateWeight(_voter, _voterAddresses.delegationAddress, _rewardEpochId, votePowerBlock);
+        require(weight > 0, "voter weight zero");
 
         VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
 
         // check if _voter already registered
         if (votersAndWeights.weights[_voter] > 0) {
-            return true;
+            return;
         }
-
 
         uint256 length = votersAndWeights.voters.length;
 
         if (length < maxVoters) {
             // we can just add a new one
             votersAndWeights.voters.push(_voter);
-            votersAndWeights.weights[_voter] = voterData.weight;
+            votersAndWeights.weights[_voter] = weight;
         } else {
             // find minimum to kick out (if needed)
             uint256 minIndex = 0;
@@ -375,16 +372,16 @@ contract VoterRegistry is Governed, AddressUpdatable {
                 }
             }
 
-            if (minIndexWeight >= voterData.weight) {
+            if (minIndexWeight >= weight) {
                 // _voter has the lowest weight among all
-                return false;
+                revert("vote power too low");
             }
 
             // kick the minIndex out and replace it with _voter
             address removedVoter = votersAndWeights.voters[minIndex];
             delete votersAndWeights.weights[removedVoter];
             votersAndWeights.voters[minIndex] = _voter;
-            votersAndWeights.weights[_voter] = voterData.weight;
+            votersAndWeights.weights[_voter] = weight;
             emit VoterRemoved(removedVoter, _rewardEpochId);
         }
 
@@ -395,48 +392,22 @@ contract VoterRegistry is Governed, AddressUpdatable {
             _voterAddresses.delegationAddress,
             _voterAddresses.submitAddress,
             _voterAddresses.submitSignaturesAddress,
-            voterData.weight,
-            voterData.wNatWeight,
-            voterData.cChainStakeWeight,
-            voterData.nodeIds,
-            voterData.nodeWeights
+            weight
         );
-
-        return true;
     }
 
-    function _getVoterData(
-        address _voter,
-        address _wNatDelegationAddress,
-        uint256 _votePowerBlock
-    )
-        private view
-        returns (VoterData memory _data)
+    function _getRegistrationData(address _voter)
+        internal view
+        returns(
+            uint256 _rewardEpochId,
+            EntityManager.VoterAddresses memory _voterAddresses
+        )
     {
-        _data.nodeIds = entityManager.getNodeIdsOfAt(_voter, _votePowerBlock);
-        uint256 length = _data.nodeIds.length;
-        _data.nodeWeights = new uint256[](length);
-        uint256[] memory votePowers = pChainStakeMirror.batchVotePowerOfAt(_data.nodeIds, _votePowerBlock);
-        for (uint256 i = 0; i < length; i++) {
-            _data.nodeWeights[i] = votePowers[i];
-            _data.weight += votePowers[i];
-        }
-
-        uint256 totalPChainStakeVotePower = pChainStakeMirror.totalVotePowerAt(_votePowerBlock); // TODO cap?
-
-        if (address(cChainStake) != address(0)) {
-            _data.cChainStakeWeight = cChainStake.votePowerOfAt(_voter, _votePowerBlock);
-            uint256 totalCChainStakeVotePower = cChainStake.totalVotePowerAt(_votePowerBlock); // TODO cap?
-            _data.weight += _data.cChainStakeWeight;
-        }
-
-
-        _data.wNatWeight = wNat.votePowerOfAt(_wNatDelegationAddress, _votePowerBlock);
-
-        // staking is required to get additional WNat weight
-        if (_data.weight > 0) {
-            uint256 totalWNatVotePower = wNat.totalVotePowerAt(_votePowerBlock); // TODO cap?
-            _data.weight += _data.wNatWeight / 4; // TODO final factor and cap?
-        }
+        _rewardEpochId = flareSystemManager.getCurrentRewardEpochId() + 1;
+        uint256 untilRewardEpochId = chilledUntilRewardEpochId[_voter];
+        require(untilRewardEpochId == 0 || untilRewardEpochId <= _rewardEpochId, "voter chilled");
+        uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[_rewardEpochId];
+        require(initBlock != 0, "registration not available yet");
+        _voterAddresses = entityManager.getVoterAddresses(_voter, initBlock);
     }
 }
