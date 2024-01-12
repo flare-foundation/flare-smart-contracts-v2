@@ -84,7 +84,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let addressBinder: AddressBinderInstance;
     let pChainStakeMirrorVerifierInterface: PChainStakeMirrorVerifierInstance;
     let verifierMock: MockContractInstance;
-    let priceSubmitterMock: MockContractInstance;
 
     let governanceSettings: GovernanceSettingsInstance;
     let entityManager: EntityManagerInstance;
@@ -115,7 +114,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
     const NEW_SIGNING_POLICY_INITIALIZATION_START_SEC = 3600 * 2; // 2 hours
     const RELAY_SELECTOR = web3.utils.sha3("relay()")!.slice(0, 10); // first 4 bytes is function selector
-    const GET_CURRENT_RANDOM_SELECTOR = web3.utils.sha3("getCurrentRandom()")!.slice(0, 10); // first 4 bytes is function selector
 
     const GWEI = 1e9;
     const VOTING_EPOCH_DURATION_SEC = 90;
@@ -156,9 +154,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         addressBinder = await AddressBinder.new();
         pChainStakeMirrorVerifierInterface = await PChainStakeMirrorVerifier.new(accounts[5], accounts[6], 10, 1000, 5, 5000);
         verifierMock = await MockContract.new();
-        priceSubmitterMock = await MockContract.new();
-        // set random number
-        await priceSubmitterMock.givenMethodReturnUint(GET_CURRENT_RANDOM_SELECTOR, RANDOM_ROOT);
 
         // set values
         weightsGwei = [1000, 500, 100, 50];
@@ -218,8 +213,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             2000
         );
 
-        await flareSystemManager.changeRandomProvider(true);
-
         relay = await Relay.new(
             flareSystemManager.address,
             initialSigningPolicy.rewardEpochId,
@@ -266,8 +259,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [ADDRESS_UPDATER, entityManager.address, rewardManager.address, voterRegistry.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
 
         await flareSystemManager.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY, Contracts.PRICE_SUBMITTER]),
-            [ADDRESS_UPDATER, voterRegistry.address, submission.address, relay.address, priceSubmitterMock.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY]),
+            [ADDRESS_UPDATER, voterRegistry.address, submission.address, relay.address], { from: ADDRESS_UPDATER });
 
         await rewardManager.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
@@ -342,8 +335,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         expectEvent(await flareSystemManager.daemonize(), "RandomAcquisitionStarted", { rewardEpochId: toBN(1) });
     });
 
-    it.skip("Should get good random", async () => {
-        const votingRoundId = (REWARD_EPOCH_DURATION_IN_SEC - NEW_SIGNING_POLICY_INITIALIZATION_START_SEC) / VOTING_EPOCH_DURATION_SEC + 1;
+    it("Should get good random", async () => {
+        const votingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS -
+            NEW_SIGNING_POLICY_INITIALIZATION_START_SEC / VOTING_EPOCH_DURATION_SEC + 1;
         const quality = true;
 
         const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT };
@@ -453,11 +447,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
         const tx = await flareSystemManager.daemonize();
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
-    });
-
-    it("Should switch to using flareSystemManager root as random", async () => {
-        await flareSystemManager.changeRandomProvider(false);
-        expect(await flareSystemManager.usePriceSubmitterAsRandomProvider()).to.be.false;
     });
 
     it("Should commit", async () => {

@@ -2,12 +2,12 @@
 pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/genesis/interface/IFlareDaemonize.sol";
-import "flare-smart-contracts/contracts/userInterfaces/IPriceSubmitter.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../utils/lib/SafePct.sol";
 import "../interface/IRandomProvider.sol";
 import "../interface/IRewardEpochSwitchoverTrigger.sol";
+import "../interface/IVoterRegistrationTrigger.sol";
 import "./VoterRegistry.sol";
 import "./Relay.sol";
 import "./Submission.sol";
@@ -122,7 +122,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
 
     uint64 public lastInitialisedVotingRoundId;
 
-    uint24 public rewardEpochIdToExpireNext;
+    uint24 public rewardEpochIdToExpireNext; // TODO
 
     /// The VoterRegistry contract.
     VoterRegistry public voterRegistry;
@@ -132,12 +132,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
 
     /// The Relay contract.
     Relay public relay;
-    /// flag indicating if random is obtained using price submitter or relay contract
-    bool public usePriceSubmitterAsRandomProvider;
 
-    /// The PriceSubmitter contract.
-    IPriceSubmitter public priceSubmitter;
-
+    IVoterRegistrationTrigger public voterRegistrationTriggerContract;
     IRewardEpochSwitchoverTrigger[] internal rewardEpochSwitchoverTriggerContracts;
 
     event RandomAcquisitionStarted(
@@ -257,6 +253,9 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
                         state.voterRegistrationStartTs = block.timestamp.toUint64();
                         state.voterRegistrationStartBlock = block.number.toUint64();
                         _selectVotePowerBlock(nextRewardEpochId, random);
+                        if (address(voterRegistrationTriggerContract) != address(0)) {
+                            voterRegistrationTriggerContract.triggerVoterRegistration(nextRewardEpochId);
+                        }
                     }
                 } else if (!_isVoterRegistrationEnabled(nextRewardEpochId, state)) {
                     // state.singingPolicySignStartTs == 0
@@ -269,7 +268,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
             // start new reward epoch if it is time and new signing policy is defined
             if (_isNextRewardEpochId(nextRewardEpochId)) {
                 uint64 nextRewardEpochExpectedEndTs = currentRewardEpochExpectedEndTs + rewardEpochDurationSeconds;
-                currentRewardEpochExpectedEndTs = nextRewardEpochExpectedEndTs;
+                currentRewardEpochExpectedEndTs = nextRewardEpochExpectedEndTs; // update storage value
                 emit RewardEpochStarted(
                     nextRewardEpochId,
                     rewardEpochState[nextRewardEpochId].startVotingRoundId,
@@ -477,8 +476,12 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         signingPolicyMinNumberOfVoters = _signingPolicyMinNumberOfVoters;
     }
 
-    function changeRandomProvider(bool _usePriceSubmitter) external onlyGovernance {
-        usePriceSubmitterAsRandomProvider = _usePriceSubmitter;
+    function setVoterRegistrationTriggerContract(
+        IVoterRegistrationTrigger _contract
+    )
+        external onlyGovernance
+    {
+        voterRegistrationTriggerContract = _contract;
     }
 
     function setRewardEpochSwitchoverTriggerContracts(
@@ -486,7 +489,15 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     )
         external onlyGovernance
     {
-        rewardEpochSwitchoverTriggerContracts = _contracts; // TODO cehck duplicates
+        delete rewardEpochSwitchoverTriggerContracts;
+        uint256 length = _contracts.length;
+        for (uint256 i = 0; i < length; i++) {
+            IRewardEpochSwitchoverTrigger contractAddress = _contracts[i];
+            for (uint256 j = i + 1; j < length; j++) {
+                require(contractAddress != _contracts[j], "duplicated contracts");
+            }
+            rewardEpochSwitchoverTriggerContracts.push(contractAddress);
+        }
     }
 
     function getRewardEpochSwitchoverTriggerContracts() external view returns(IRewardEpochSwitchoverTrigger[] memory) {
@@ -521,11 +532,11 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         // TODO
     }
 
-    function getCurrentRandom() external view returns(uint256 _currentRandom) {
+    function getCurrentRandom() external view override returns(uint256 _currentRandom) {
         (_currentRandom, , ) = _getRandom();
     }
 
-    function getCurrentRandomWithQuality() external view returns(uint256 _currentRandom, bool _goodRandom) {
+    function getCurrentRandomWithQuality() external view override returns(uint256 _currentRandom, bool _goodRandom) {
         (_currentRandom, _goodRandom, ) = _getRandom();
     }
 
@@ -555,22 +566,20 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     function _selectVotePowerBlock(uint24 _nextRewardEpochId, uint256 _random) internal {
         // randomTs > state.randomAcquisitionStartTs && randomQuality == true
         RewardEpochState storage state = rewardEpochState[_nextRewardEpochId];
-        uint64 endBlock = state.randomAcquisitionStartBlock;
+        uint64 startBlock = rewardEpochState[_nextRewardEpochId - 1].randomAcquisitionStartBlock;
+        uint64 endBlock = state.randomAcquisitionStartBlock; // endBlock > 0
         uint64 numberOfBlocks;
-        if (rewardEpochState[_nextRewardEpochId - 1].randomAcquisitionStartBlock == 0) {
+        if (startBlock == 0) {
             // endBlock > 0 && firstRandomAcquisitionNumberOfBlocks > 0
             numberOfBlocks = Math.min(endBlock, firstRandomAcquisitionNumberOfBlocks).toUint64();
         } else {
-            // endBlock > rewardEpochState[_nextRewardEpochId - 1].randomAcquisitionStartBlock
-            numberOfBlocks = endBlock - rewardEpochState[_nextRewardEpochId - 1].randomAcquisitionStartBlock;
+            // endBlock > startBlock
+            numberOfBlocks = endBlock - startBlock;
         }
 
         //slither-disable-next-line weak-prng
-        uint256 votepowerBlocksAgo = _random % numberOfBlocks; // numberOfBlocks > 0
-        if (votepowerBlocksAgo == 0) {
-            votepowerBlocksAgo = 1;
-        }
-        uint64 votePowerBlock = endBlock - votepowerBlocksAgo.toUint64(); // endBlock > 0
+        uint256 votePowerBlocksAgo = _random % numberOfBlocks; // numberOfBlocks > 0
+        uint64 votePowerBlock = endBlock - votePowerBlocksAgo.toUint64();
         state.votePowerBlock = votePowerBlock;
         state.seed = _random;
 
@@ -606,8 +615,6 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
             _getContractAddress(_contractNameHashes, _contractAddresses, "VoterRegistry"));
         submission = Submission(_getContractAddress(_contractNameHashes, _contractAddresses, "Submission"));
         relay = Relay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
-        priceSubmitter = IPriceSubmitter(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "PriceSubmitter"));
     }
 
     function _getCurrentRewardEpochId() internal view returns(uint24) {
@@ -647,9 +654,6 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     }
 
     function _getRandom() internal view returns (uint256 _random, bool _quality, uint64 _randomTs) {
-        if (usePriceSubmitterAsRandomProvider) {
-            return (priceSubmitter.getCurrentRandom(), true, block.timestamp.toUint64());
-        }
         return relay.getRandomNumber();
     }
 

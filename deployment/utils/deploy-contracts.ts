@@ -49,13 +49,9 @@ import {
   getSigningPolicyHash,
   FTSO_PROTOCOL_ID,
 } from "../tasks/run-simulation";
-import Web3 from "web3";
 import { getLogger } from "./logger";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from "./contract-helpers";
 import { PChainStakeMirrorContract } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/PChainStakeMirror";
-
-const RANDOM_ROOT = Web3.utils.keccak256("root");
-const GET_CURRENT_RANDOM_SELECTOR = Web3.utils.sha3("getCurrentRandom()")!.slice(0, 10);
 
 export interface DeployedContracts {
   readonly pChainStakeMirror: PChainStakeMirrorInstance;
@@ -81,7 +77,7 @@ export async function deployContracts(
   accounts: Account[],
   hre: HardhatRuntimeEnvironment,
   governanceAccount: Account
-): Promise<[DeployedContracts, number]> {
+): Promise<[DeployedContracts, number, ISigningPolicy]> {
   const FLARE_DAEMON_ADDR = governanceAccount.address;
   const ADDRESS_UPDATER_ADDR = accounts[1].address;
   const CLEANER_CONTRACT_ADDR = accounts[2].address;
@@ -161,8 +157,6 @@ export async function deployContracts(
   const pChainVerifier = await PChainStakeMirrorVerifier.new(MULTI_SIG_VOTING_ADDR, RELAY_ADDR, 10, 1000, 5, 5000);
 
   const verifierMock = await MockContract.new();
-  const priceSubmitterMock = await MockContract.new();
-  await priceSubmitterMock.givenMethodReturnUint(GET_CURRENT_RANDOM_SELECTOR, RANDOM_ROOT);
 
   await pChainStakeMirror.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -242,7 +236,6 @@ export async function deployContracts(
     2000
   );
 
-  await flareSystemManager.changeRandomProvider(true);
   const relay = await Relay.new(
     flareSystemManager.address,
     initialSigningPolicy.rewardEpochId,
@@ -320,9 +313,8 @@ export async function deployContracts(
       Contracts.VOTER_REGISTRY,
       Contracts.SUBMISSION,
       Contracts.RELAY,
-      Contracts.PRICE_SUBMITTER,
     ]),
-    [ADDRESS_UPDATER_ADDR, voterRegistry.address, submission.address, relay.address, priceSubmitterMock.address],
+    [ADDRESS_UPDATER_ADDR, voterRegistry.address, submission.address, relay.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -373,7 +365,7 @@ export async function deployContracts(
     relay,
   };
 
-  return [contracts, rewardEpochStart];
+  return [contracts, rewardEpochStart, initialSigningPolicy];
 }
 
 export function serializeDeployedContractsAddresses(contracts: DeployedContracts, fname: string) {

@@ -113,6 +113,7 @@ contract SigningPolicyWeightCalculator is Governed, AddressUpdatable {
         wNat = IWNat(_getContractAddress(_contractNameHashes, _contractAddresses, "WNat"));
     }
 
+    // https://ethereum-magicians.org/t/eip-7054-gas-efficient-square-root-calculation-with-binary-search-approach
     function _sqrt(uint256 x) internal pure returns (uint128) {
         if (x == 0) return 0;
         else{
