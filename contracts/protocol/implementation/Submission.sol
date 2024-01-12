@@ -133,8 +133,8 @@ contract Submission is Governed, AddressUpdatable {
     )
         internal override
     {
-        flareSystemManager = FlareSystemManager(_getContractAddress(
-            _contractNameHashes, _contractAddresses, "FlareSystemManager"));
+        flareSystemManager = FlareSystemManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
     }
 
     function _getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {

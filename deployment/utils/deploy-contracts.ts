@@ -28,6 +28,10 @@ import {
   MockContractInstance,
   PChainStakeMirrorInstance,
   PChainStakeMirrorVerifierInstance,
+  RewardManagerContract,
+  RewardManagerInstance,
+  SigningPolicyWeightCalculatorContract,
+  SigningPolicyWeightCalculatorInstance,
   WNatInstance,
 } from "../../typechain-truffle";
 
@@ -64,7 +68,9 @@ export interface DeployedContracts {
   readonly verifierMock: MockContractInstance;
   readonly entityManager: EntityManagerInstance;
   readonly voterRegistry: VoterRegistryInstance;
+  readonly signingPolicyWeightCalculator: SigningPolicyWeightCalculatorInstance;
   readonly flareSystemManager: FlareSystemManagerInstance;
+  readonly rewardManager: RewardManagerInstance;
   readonly submission: SubmissionInstance;
   readonly relay: RelayInstance;
 }
@@ -82,6 +88,7 @@ export async function deployContracts(
   const CLEANUP_BLOCK_NUMBER_MANAGER_ADDR = accounts[3].address;
   const MULTI_SIG_VOTING_ADDR = accounts[4].address;
   const RELAY_ADDR = accounts[5].address;
+  const CLAIM_SETUP_MANAGER_ADDR = accounts[5].address;
 
   const MockContract: MockContractContract = hre.artifacts.require("MockContract");
   const WNat: WNatContract = hre.artifacts.require("WNat");
@@ -91,8 +98,10 @@ export async function deployContracts(
   const AddressBinder: AddressBinderContract = hre.artifacts.require("AddressBinder");
   const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = artifacts.require("PChainStakeMirrorVerifier");
   const EntityManager: EntityManagerContract = hre.artifacts.require("EntityManager");
-  const VoterRegistry: VoterRegistryContract = hre.artifacts.require("VoterRegistry");
-  const FlareSystemManager: FlareSystemManagerContract = hre.artifacts.require("FlareSystemManager");
+  const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
+  const SigningPolicyWeightCalculator: SigningPolicyWeightCalculatorContract = artifacts.require("SigningPolicyWeightCalculator");
+  const FlareSystemManager: FlareSystemManagerContract = artifacts.require("FlareSystemManager");
+  const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
   const Submission: SubmissionContract = hre.artifacts.require("Submission");
   const CChainStake: CChainStakeContract = artifacts.require("CChainStake");
   const Relay: RelayContract = hre.artifacts.require("Relay");
@@ -197,6 +206,13 @@ export async function deployContracts(
     initialWeights
   );
 
+  const signingPolicyWeightCalculator = await SigningPolicyWeightCalculator.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    2500
+  );
+
   const initialSigningPolicy: ISigningPolicy = {
     rewardEpochId: 0,
     startVotingRoundId: FIRST_REWARD_EPOCH_VOTING_ROUND_ID,
@@ -216,6 +232,14 @@ export async function deployContracts(
     1,
     0,
     intialThreshold
+  );
+
+  const rewardManager = await RewardManager.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    3,
+    2000
   );
 
   await flareSystemManager.changeRandomProvider(true);
@@ -272,10 +296,21 @@ export async function deployContracts(
       Contracts.ADDRESS_UPDATER,
       Contracts.FLARE_SYSTEM_MANAGER,
       Contracts.ENTITY_MANAGER,
-      Contracts.WNAT,
-      Contracts.P_CHAIN_STAKE_MIRROR,
+      Contracts.SIGNING_POLICY_WEIGHT_CALCULATOR,
     ]),
-    [ADDRESS_UPDATER_ADDR, flareSystemManager.address, entityManager.address, wNat.address, pChainStakeMirror.address],
+    [ADDRESS_UPDATER_ADDR, flareSystemManager.address, entityManager.address, signingPolicyWeightCalculator.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
+
+  await signingPolicyWeightCalculator.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.ENTITY_MANAGER,
+      Contracts.REWARD_MANAGER,
+      Contracts.VOTER_REGISTRY,
+      Contracts.P_CHAIN_STAKE_MIRROR,
+      Contracts.WNAT]),
+    [ADDRESS_UPDATER_ADDR, entityManager.address, rewardManager.address, voterRegistry.address, pChainStakeMirror.address, wNat.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -291,6 +326,19 @@ export async function deployContracts(
     { from: ADDRESS_UPDATER_ADDR }
   );
 
+  await rewardManager.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.VOTER_REGISTRY,
+      Contracts.CLAIM_SETUP_MANAGER,
+      Contracts.FLARE_SYSTEM_MANAGER,
+      Contracts.P_CHAIN_STAKE_MIRROR,
+      Contracts.WNAT]),
+    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemManager.address, pChainStakeMirror.address, wNat.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
+
+
   await submission.updateContractAddresses(
     encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.RELAY]),
     [ADDRESS_UPDATER_ADDR, flareSystemManager.address, relay.address],
@@ -304,7 +352,7 @@ export async function deployContracts(
   logger.info(
     `Finished deploying contracts:\n  FlareSystemManager: ${flareSystemManager.address},\n  Submission: ${submission.address},\n  Relay: ${relay.address}`
   );
-  
+
   logger.info(`Current network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
   const contracts: DeployedContracts = {
@@ -318,7 +366,9 @@ export async function deployContracts(
     verifierMock,
     entityManager,
     voterRegistry,
+    signingPolicyWeightCalculator,
     flareSystemManager,
+    rewardManager,
     submission,
     relay,
   };

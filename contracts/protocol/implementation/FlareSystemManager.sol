@@ -122,6 +122,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
 
     uint64 public lastInitialisedVotingRoundId;
 
+    uint24 public rewardEpochIdToExpireNext;
+
     /// The VoterRegistry contract.
     VoterRegistry public voterRegistry;
 
@@ -600,12 +602,12 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     )
         internal override
     {
-        voterRegistry = VoterRegistry(_getContractAddress(
-            _contractNameHashes, _contractAddresses, "VoterRegistry"));
+        voterRegistry = VoterRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "VoterRegistry"));
         submission = Submission(_getContractAddress(_contractNameHashes, _contractAddresses, "Submission"));
         relay = Relay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
-        priceSubmitter = IPriceSubmitter(_getContractAddress(
-            _contractNameHashes, _contractAddresses, "PriceSubmitter"));
+        priceSubmitter = IPriceSubmitter(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "PriceSubmitter"));
     }
 
     function _getCurrentRewardEpochId() internal view returns(uint24) {

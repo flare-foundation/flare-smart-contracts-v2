@@ -3,11 +3,13 @@ pragma solidity 0.8.20;
 
 import "../lib/AddressHistory.sol";
 import "../lib/NodesHistory.sol";
+import "../lib/PublicKeyHistory.sol";
 import "../../governance/implementation/Governed.sol";
 
 contract EntityManager is Governed {
     using AddressHistory for AddressHistory.CheckPointHistoryState;
     using NodesHistory for NodesHistory.CheckPointHistoryState;
+    using PublicKeyHistory for PublicKeyHistory.CheckPointHistoryState;
 
     struct Entity {
         AddressHistory.CheckPointHistoryState delegationAddress;
@@ -15,6 +17,7 @@ contract EntityManager is Governed {
         AddressHistory.CheckPointHistoryState submitSignaturesAddress;
         AddressHistory.CheckPointHistoryState signingPolicyAddress;
         NodesHistory.CheckPointHistoryState nodeIds;
+        PublicKeyHistory.CheckPointHistoryState publicKey;
     }
 
     struct VoterAddresses {
@@ -28,6 +31,7 @@ contract EntityManager is Governed {
 
     mapping(address => Entity) internal register; // voter to entity data
     mapping(bytes20 => AddressHistory.CheckPointHistoryState) internal nodeIdRegistered;
+    mapping(bytes32 => AddressHistory.CheckPointHistoryState) internal publicKeyRegistered;
     mapping(address => AddressHistory.CheckPointHistoryState) internal delegationAddressRegistered;
     mapping(address => address) internal delegationAddressRegistrationQueue;
     mapping(address => AddressHistory.CheckPointHistoryState) internal submitAddressRegistered;
@@ -41,6 +45,10 @@ contract EntityManager is Governed {
         address indexed voter, bytes20 indexed nodeId);
     event NodeIdUnregistered(
         address indexed voter, bytes20 indexed nodeId);
+    event PublicKeyRegistered(
+        address indexed voter, bytes32 indexed part1, bytes32 indexed part2);
+    event PublicKeyUnregistered(
+        address indexed voter, bytes32 indexed part1, bytes32 indexed part2);
     event DelegationAddressRegistered(
         address indexed voter, address indexed delegationAddress);
     event DelegationAddressRegistrationConfirmed(
@@ -84,6 +92,32 @@ contract EntityManager is Governed {
         register[msg.sender].nodeIds.addRemoveNodeId(_nodeId, false, maxNodeIdsPerEntity);
         nodeIdRegistered[_nodeId].setAddress(address(0));
         emit NodeIdUnregistered(msg.sender, _nodeId);
+    }
+
+    function registerPublicKey(bytes32 _part1, bytes32 _part2) external {
+        require(_part1 != bytes32(0) || _part2 != bytes32(0), "public key invalid");
+        bytes32 publicKeyHash = keccak256(abi.encode(_part1, _part2));
+        require(publicKeyRegistered[publicKeyHash].addressAtNow() == address(0), "public key already registered");
+        (bytes32 oldPart1, bytes32 oldPart2) = register[msg.sender].publicKey.publicKeyAtNow();
+        if (oldPart1 != bytes32(0) || oldPart2 != bytes32(0)) {
+            bytes32 oldPublicKeyHash = keccak256(abi.encode(oldPart1, oldPart2));
+            publicKeyRegistered[oldPublicKeyHash].setAddress(address(0));
+            emit PublicKeyUnregistered(msg.sender, oldPart1, oldPart2);
+        }
+        register[msg.sender].publicKey.setPublicKey(_part1, _part2);
+        publicKeyRegistered[publicKeyHash].setAddress(msg.sender);
+        emit PublicKeyRegistered(msg.sender, _part1, _part2);
+    }
+
+    function unregisterPublicKey() external {
+        (bytes32 part1, bytes32 part2) = register[msg.sender].publicKey.publicKeyAtNow();
+        if (part1 == bytes32(0) && part2 == bytes32(0)) {
+            return;
+        }
+        bytes32 publicKeyHash = keccak256(abi.encode(part1, part2));
+        register[msg.sender].publicKey.setPublicKey(bytes32(0), bytes32(0));
+        publicKeyRegistered[publicKeyHash].setAddress(address(0));
+        emit PublicKeyUnregistered(msg.sender, part1, part2);
     }
 
     // msg.sender == voter
@@ -196,6 +230,14 @@ contract EntityManager is Governed {
         return register[_voter].nodeIds.nodeIdsAt(block.number);
     }
 
+    function getPublicKeyOfAt(address _voter, uint256 _blockNumber) external view returns(bytes32, bytes32) {
+        return register[_voter].publicKey.publicKeyAt(_blockNumber);
+    }
+
+    function getPublicKeyOf(address _voter) external view returns(bytes32, bytes32) {
+        return register[_voter].publicKey.publicKeyAtNow();
+    }
+
     function getVoterAddresses(address _voter, uint256 _blockNumber)
         external view
         returns (VoterAddresses memory _addresses)
@@ -268,6 +310,14 @@ contract EntityManager is Governed {
         returns (address _voter)
     {
         _voter = nodeIdRegistered[_nodeId].addressAt(_blockNumber);
+    }
+
+    function getVoterForPublicKey(bytes32 _part1, bytes32 _part2, uint256 _blockNumber)
+        external view
+        returns (address _voter)
+    {
+        bytes32 publicKeyHash = keccak256(abi.encode(_part1, _part2));
+        _voter = publicKeyRegistered[publicKeyHash].addressAt(_blockNumber);
     }
 
     function getVoterForSubmitAddress(address _submitAddress, uint256 _blockNumber)

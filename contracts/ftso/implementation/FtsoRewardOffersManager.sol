@@ -48,9 +48,6 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
     uint128 public minimalOfferValueWei;
     /// rewards can be offered for up to `maxRewardEpochsInTheFuture` future reward epochs
     uint24 public maxRewardEpochsInTheFuture;
-    /// rewards for current reward epoch can be offered up to `lastOfferBeforeRewardEpochEndSeconds`
-    /// seconds before the expected reward epoch end
-    uint24 public lastOfferBeforeRewardEpochEndSeconds;
     /// default primary band reward share in PPM (parts per million) in relation to the median price - inflation offers
     uint24 public defaultPrimaryBandRewardSharePPM;
 
@@ -83,14 +80,13 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         address _initialGovernance,
         address _addressUpdater,
         uint128 _minimalOfferValueWei,
-        uint24 _maxRewardEpochsInTheFuture,
-        uint24 _lastOfferBeforeRewardEpochEndSeconds
+        uint24 _maxRewardEpochsInTheFuture
     )
         RewardOffersManagerBase(_governanceSettings, _initialGovernance, _addressUpdater)
     {
+        require(_maxRewardEpochsInTheFuture > 0, "_maxRewardEpochsInTheFuture zero");
         minimalOfferValueWei = _minimalOfferValueWei;
         maxRewardEpochsInTheFuture = _maxRewardEpochsInTheFuture;
-        lastOfferBeforeRewardEpochEndSeconds = _lastOfferBeforeRewardEpochEndSeconds;
     }
 
     // This contract does not have any concept of symbols/price feeds and it is
@@ -107,8 +103,9 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         require(_rewardEpochId > currentRewardEpochId, "not future reward epoch id");
         require(_rewardEpochId <= currentRewardEpochId + maxRewardEpochsInTheFuture,
             "reward epoch id too far in the future");
-        require(_rewardEpochId > currentRewardEpochId + 1 || flareSystemManager.currentRewardEpochExpectedEndTs() >=
-            block.timestamp + lastOfferBeforeRewardEpochEndSeconds, "too late for next reward epoch");
+        require(_rewardEpochId > currentRewardEpochId + 1 || flareSystemManager.currentRewardEpochExpectedEndTs() >
+            block.timestamp + flareSystemManager.newSigningPolicyInitializationStartSeconds(),
+            "too late for next reward epoch");
         uint256 sumOfferAmounts = 0;
         for (uint i = 0; i < _offers.length; ++i) {
             Offer calldata offer = _offers[i];
@@ -136,14 +133,13 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
 
     function setOfferSettings(
         uint128 _minimalOfferValueWei,
-        uint24 _maxRewardEpochsInTheFuture,
-        uint24 _lastOfferBeforeRewardEpochEndSeconds
+        uint24 _maxRewardEpochsInTheFuture
     )
         external onlyGovernance
     {
+        require(_maxRewardEpochsInTheFuture > 0, "_maxRewardEpochsInTheFuture zero");
         minimalOfferValueWei = _minimalOfferValueWei;
         maxRewardEpochsInTheFuture = _maxRewardEpochsInTheFuture;
-        lastOfferBeforeRewardEpochEndSeconds = _lastOfferBeforeRewardEpochEndSeconds;
     }
 
     function addInflationSupportedFtsos(Ftso[] calldata _ftsos) external onlyGovernance {
@@ -189,8 +185,8 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         internal override
     {
         super._updateContractAddresses(_contractNameHashes, _contractAddresses);
-        flareSystemManager = FlareSystemManager(_getContractAddress(
-            _contractNameHashes, _contractAddresses, "FlareSystemManager"));
+        flareSystemManager = FlareSystemManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
         rewardManager = RewardManager(_getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
     }
 
@@ -202,6 +198,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         rewardManager.addDailyAuthorizedInflation(_toAuthorizeWei);
     }
 
+    // beginning of the current reward epoch
     function _triggerInflationOffers(
         uint24 _currentRewardEpochId,
         uint64 _currentRewardEpochExpectedEndTs,
@@ -209,12 +206,14 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
     )
         internal override
     {
-        uint256 intervalStart = _currentRewardEpochExpectedEndTs - _rewardEpochDurationSeconds;
-        uint256 intervalEnd = Math.max(_currentRewardEpochExpectedEndTs,
-            lastInflationReceivedTs + INFLATION_TIME_FRAME_SEC);
+        // start of previous reward epoch
+        uint256 intervalStart = _currentRewardEpochExpectedEndTs - 2 * _rewardEpochDurationSeconds;
+        uint256 intervalEnd = Math.max(lastInflationReceivedTs + INFLATION_TIME_FRAME_SEC,
+            _currentRewardEpochExpectedEndTs - _rewardEpochDurationSeconds); // start of current reward epoch (in past)
         uint256 availableFunds = (totalInflationReceivedWei - totalInflationRewardOffersWei)
             .mulDiv(intervalEnd - intervalStart, _rewardEpochDurationSeconds);
         // emit offers
+        uint24 nextRewardEpochId = _currentRewardEpochId + 1;
         uint256 length = inflationSupportedFtsos.length;
         uint256 amountWei = availableFunds / length;
         address burnAddress = BURN_ADDRESS; // load in memory
@@ -223,7 +222,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         for (uint i = 0; i < length; ++i) {
             Ftso storage ftso = inflationSupportedFtsos[i];
             emit RewardOffered(
-                _currentRewardEpochId,
+                nextRewardEpochId,
                 amountWei,
                 ftso.feedSymbol,
                 ftso.primaryBandRewardSharePPM == 0 ? defaultPrimarySharePPM : ftso.primaryBandRewardSharePPM,
@@ -236,7 +235,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         }
         // send reward amount to reward manager
         uint128 rewardAmount = uint128(amountWei * length);
-        rewardManager.receiveRewards{value: rewardAmount} (_currentRewardEpochId, true);
+        rewardManager.receiveRewards{value: rewardAmount} (nextRewardEpochId, true);
         totalInflationRewardOffersWei += rewardAmount;
     }
 
