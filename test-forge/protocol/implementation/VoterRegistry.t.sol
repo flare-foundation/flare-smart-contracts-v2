@@ -655,6 +655,8 @@ contract VoterRegistryTest is Test {
             wNatTotalVP = 4000;
     }
 
+    // TODO test with more than one node id for one of the voters
+
     function _mockGetVoterAddresses() internal {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             vm.mockCall(

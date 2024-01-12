@@ -66,7 +66,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         uint256 seed; // good random number
         uint64 votePowerBlock;
         uint32 startVotingRoundId;
-        uint16 threshold; // absolut value in normalised weight
+        uint16 threshold; // absolute value in normalised weight
 
         Votes signingPolicyVotes;
         mapping(bytes32 => Votes) uptimeVoteVotes;
@@ -327,9 +327,9 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
             "new signing policy hash invalid");
         require(state.singingPolicySignEndTs == 0, "new signing policy already signed");
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(_newSigningPolicyHash);
-        address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        (address voter, uint16 weight) =
-            voterRegistry.getVoterWithNormalisedWeight(_rewardEpochId - 1, signingAddress);
+        address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
+        (address voter, uint16 weight) = voterRegistry.getVoterWithNormalisedWeight(
+            _rewardEpochId - 1, signingPolicyAddress);
         require(voter != address(0), "signature invalid");
         require(state.signingPolicyVotes.voters[voter].signTs == 0, "signing address already signed");
         // save signing address timestamp and block number
@@ -347,7 +347,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         }
         emit SigningPolicySigned(
             _rewardEpochId,
-            signingAddress,
+            signingPolicyAddress,
             voter,
             block.timestamp.toUint64(),
             thresholdReached
@@ -366,8 +366,9 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         require(uptimeVoteHash[_rewardEpochId] == bytes32(0), "uptime vote hash already signed");
         bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _uptimeVoteHash));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
-        address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        (address voter, uint16 weight) = voterRegistry.getVoterWithNormalisedWeight(_rewardEpochId, signingAddress);
+        address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
+        (address voter, uint16 weight) = voterRegistry.getVoterWithNormalisedWeight(
+            _rewardEpochId, signingPolicyAddress);
         require(voter != address(0), "signature invalid");
         require(state.uptimeVoteVotes[_uptimeVoteHash].voters[voter].signTs == 0, "voter already signed");
         // save signing address timestamp and block number
@@ -387,7 +388,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         }
         emit UptimeVoteSigned(
             _rewardEpochId,
-            signingAddress,
+            signingPolicyAddress,
             voter,
             _uptimeVoteHash,
             block.timestamp.toUint64(),
@@ -410,8 +411,9 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         require(rewardsHash[_rewardEpochId] == bytes32(0), "rewards hash already signed");
         bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _noOfWeightBasedClaims, _rewardsHash));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
-        address signingAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        (address voter, uint16 weight) = voterRegistry.getVoterWithNormalisedWeight(_rewardEpochId, signingAddress);
+        address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
+        (address voter, uint16 weight) =
+            voterRegistry.getVoterWithNormalisedWeight(_rewardEpochId, signingPolicyAddress);
         require(voter != address(0), "signature invalid");
         require(state.rewardVotes[messageHash].voters[voter].signTs == 0, "voter already signed");
         // save signing address timestamp and block number
@@ -432,7 +434,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         }
         emit RewardsSigned(
             _rewardEpochId,
-            signingAddress,
+            signingPolicyAddress,
             voter,
             _rewardsHash,
             _noOfWeightBasedClaims,
