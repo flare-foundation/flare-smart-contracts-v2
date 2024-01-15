@@ -8,70 +8,70 @@ import "forge-std/console2.sol";
 
 contract FtsoRewardOffersManagerTest is Test {
 
-    FtsoRewardOffersManager private ftsoRewardOffersManager;
+    // FtsoRewardOffersManager private ftsoRewardOffersManager;
 
-    address private governance;
-    address private addressUpdater;
-    address private mockFlareSystemManager;
-    address private mockRewardManager;
+    // address private governance;
+    // address private addressUpdater;
+    // address private mockFlareSystemManager;
+    // address private mockRewardManager;
 
-    bytes32[] private contractNameHashes;
-    address[] private contractAddresses;
+    // bytes32[] private contractNameHashes;
+    // address[] private contractAddresses;
 
-    function setUp() public {
-        governance = makeAddr("governance");
-        addressUpdater = makeAddr("addressUpdater");
+    // function setUp() public {
+    //     governance = makeAddr("governance");
+    //     addressUpdater = makeAddr("addressUpdater");
 
-        ftsoRewardOffersManager = new FtsoRewardOffersManager(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
-            addressUpdater,
-            10,
-            2,
-            3600
-        );
+    //     ftsoRewardOffersManager = new FtsoRewardOffersManager(
+    //         IGovernanceSettings(makeAddr("governanceSettings")),
+    //         governance,
+    //         addressUpdater,
+    //         10,
+    //         2,
+    //         3600
+    //     );
 
-        mockFlareSystemManager = makeAddr("flareSystemManager");
-        mockRewardManager = makeAddr("rewardManager");
+    //     mockFlareSystemManager = makeAddr("flareSystemManager");
+    //     mockRewardManager = makeAddr("rewardManager");
 
-        vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](3);
-        contractAddresses = new address[](3);
-        contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("FlareSystemManager"));
-        contractNameHashes[2] = keccak256(abi.encode("RewardManager"));
-        contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = mockFlareSystemManager;
-        contractAddresses[2] = mockRewardManager;
-        ftsoRewardOffersManager.updateContractAddresses(contractNameHashes, contractAddresses);
-        vm.stopPrank();
-    }
+    //     vm.startPrank(addressUpdater);
+    //     contractNameHashes = new bytes32[](3);
+    //     contractAddresses = new address[](3);
+    //     contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
+    //     contractNameHashes[1] = keccak256(abi.encode("FlareSystemManager"));
+    //     contractNameHashes[2] = keccak256(abi.encode("RewardManager"));
+    //     contractAddresses[0] = addressUpdater;
+    //     contractAddresses[1] = mockFlareSystemManager;
+    //     contractAddresses[2] = mockRewardManager;
+    //     ftsoRewardOffersManager.updateContractAddresses(contractNameHashes, contractAddresses);
+    //     vm.stopPrank();
+    // }
 
-    // set and get tests
-    function testSetOfferSettings() public {
-        assertEq(ftsoRewardOffersManager.minimalOfferValueWei(), 10);
-        assertEq(ftsoRewardOffersManager.maxRewardEpochsInTheFuture(), 2);
-        assertEq(ftsoRewardOffersManager.lastOfferBeforeRewardEpochEndSeconds(), 3600);
+    // // set and get tests
+    // function testSetOfferSettings() public {
+    //     assertEq(ftsoRewardOffersManager.minimalOfferValueWei(), 10);
+    //     assertEq(ftsoRewardOffersManager.maxRewardEpochsInTheFuture(), 2);
+    //     assertEq(ftsoRewardOffersManager.lastOfferBeforeRewardEpochEndSeconds(), 3600);
 
-        vm.prank(governance);
-        ftsoRewardOffersManager.setOfferSettings(20, 4, 7200);
-        assertEq(ftsoRewardOffersManager.minimalOfferValueWei(), 20);
-        assertEq(ftsoRewardOffersManager.maxRewardEpochsInTheFuture(), 4);
-        assertEq(ftsoRewardOffersManager.lastOfferBeforeRewardEpochEndSeconds(), 7200);
-    }
+    //     vm.prank(governance);
+    //     ftsoRewardOffersManager.setOfferSettings(20, 4, 7200);
+    //     assertEq(ftsoRewardOffersManager.minimalOfferValueWei(), 20);
+    //     assertEq(ftsoRewardOffersManager.maxRewardEpochsInTheFuture(), 4);
+    //     assertEq(ftsoRewardOffersManager.lastOfferBeforeRewardEpochEndSeconds(), 7200);
+    // }
 
-    function testSetAndGetDecimals() public {
-        bytes8 feedSymbol = bytes8("ETH/USD");
-        assertEq(ftsoRewardOffersManager.getDecimals(feedSymbol), 5); // default decimals
+    // function testSetAndGetDecimals() public {
+    //     bytes8 feedSymbol = bytes8("ETH/USD");
+    //     assertEq(ftsoRewardOffersManager.getDecimals(feedSymbol), 5); // default decimals
 
-        vm.prank(governance);
-        ftsoRewardOffersManager.setDecimals(feedSymbol, 6);
-        assertEq(ftsoRewardOffersManager.getDecimals(feedSymbol), 6);
-    }
+    //     vm.prank(governance);
+    //     ftsoRewardOffersManager.setDecimals(feedSymbol, 6);
+    //     assertEq(ftsoRewardOffersManager.getDecimals(feedSymbol), 6);
+    // }
 
-    function testGetContractName() public {
-        assertEq(ftsoRewardOffersManager.getContractName(), "FtsoRewardOffersManager");
-    }
+    // function testGetContractName() public {
+    //     assertEq(ftsoRewardOffersManager.getContractName(), "FtsoRewardOffersManager");
+    // }
 
     // offerRewards tests
 

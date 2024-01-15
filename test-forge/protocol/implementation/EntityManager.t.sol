@@ -5,6 +5,8 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import "../../../contracts/protocol/implementation/EntityManager.sol";
 
+import "forge-std/console2.sol";
+
 contract EntityManagerTest is Test {
 
     EntityManager private entityManager;
@@ -28,6 +30,10 @@ contract EntityManagerTest is Test {
         address indexed voter, address indexed delegationAddress);
     event DelegationAddressRegistrationConfirmed(
         address indexed voter, address indexed delegationAddress);
+    event PublicKeyRegistered(
+        address indexed voter, bytes32 indexed part1, bytes32 indexed part2);
+    event PublicKeyUnregistered(
+        address indexed voter, bytes32 indexed part1, bytes32 indexed part2);
 
     function setUp() public {
         entityManager = new EntityManager(IGovernanceSettings(makeAddr("contract")), makeAddr("user0"), 4);
@@ -471,6 +477,85 @@ contract EntityManagerTest is Test {
         assertEq(voterAddressesAtBlock200.submitSignaturesAddress, submitSignaturesAddr1);
         assertEq(voterAddressesAtBlock200.signingPolicyAddress, signingPolicyAddr1);
         assertEq(voterAddressesAtBlock200.delegationAddress, delegationAddr1);
+    }
+
+    // public key tests
+    function testRegisterPublicKeyRevertKeyInvalid() public {
+        bytes32 publicKey1 = bytes32(0);
+        bytes32 publicKey2 = bytes32(0);
+        vm.expectRevert("public key invalid");
+        entityManager.registerPublicKey(publicKey1, publicKey2);
+    }
+
+    function testRegisterPublicKey() public {
+        bytes32 publicKey1 = bytes32("publicKey1");
+        bytes32 publicKey2 = bytes32("publicKey2");
+        vm.roll(100);
+        vm.prank(user1);
+        vm.expectEmit();
+        emit PublicKeyRegistered(user1, publicKey1, publicKey2);
+        entityManager.registerPublicKey(publicKey1, publicKey2);
+        (bytes32 publicKey1_, bytes32 publicKey2_) = entityManager.getPublicKeyOf(user1);
+        assertEq(publicKey1_, publicKey1);
+        assertEq(publicKey2_, publicKey2);
+        assertEq(entityManager.getVoterForPublicKey(publicKey1, publicKey2, 100), user1);
+
+        // block number at the beginning was 1
+        (bytes32 oldPublicKey1, bytes32 oldPublicKey2) = entityManager.getPublicKeyOfAt(user1, 1);
+        assertEq(oldPublicKey1, bytes32(0));
+        assertEq(oldPublicKey2, bytes32(0));
+    }
+
+    function testRegisterPublicKeyRevertAlreadyRegistered() public {
+        bytes32 publicKey1 = bytes32("publicKey1");
+        bytes32 publicKey2 = bytes32("publicKey2");
+
+        vm.prank(user1);
+        entityManager.registerPublicKey(publicKey1, publicKey2);
+
+        // can't register the same key twice
+        vm.prank(makeAddr("user2"));
+        vm.expectRevert("public key already registered");
+        entityManager.registerPublicKey(publicKey1, publicKey2);
+    }
+
+    function testReplacePublicKey() public {
+        bytes32 publicKey11 = bytes32("publicKey11");
+        bytes32 publicKey12 = bytes32("publicKey12");
+        vm.prank(user1);
+        entityManager.registerPublicKey(publicKey11, publicKey12);
+        (bytes32 pk1, bytes32 pk2) = entityManager.getPublicKeyOf(user1);
+        assertEq(pk1, publicKey11);
+        assertEq(pk2, publicKey12);
+
+        bytes32 publicKey21 = bytes32("publicKey21");
+        bytes32 publicKey22 = bytes32("publicKey22");
+        vm.prank(user1);
+        vm.expectEmit();
+        emit PublicKeyUnregistered(user1, publicKey11, publicKey12);
+        emit PublicKeyRegistered(user1, publicKey21, publicKey22);
+        entityManager.registerPublicKey(publicKey21, publicKey22);
+        (pk1, pk2) = entityManager.getPublicKeyOf(user1);
+        assertEq(pk1, publicKey21);
+        assertEq(pk2, publicKey22);
+    }
+
+    function testUnregisterPublicKey() public {
+        bytes32 publicKey1 = bytes32("publicKey1");
+        bytes32 publicKey2 = bytes32("publicKey2");
+        vm.recordLogs();
+        vm.startPrank(user1);
+        entityManager.unregisterPublicKey();
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        // nothing to unregister yet -> no event emitted
+        assertEq(entries.length, 0);
+
+        entityManager.registerPublicKey(publicKey1, publicKey2);
+
+        vm.expectEmit();
+        emit PublicKeyUnregistered(user1, publicKey1, publicKey2);
+        entityManager.unregisterPublicKey();
+        vm.stopPrank();
     }
 
 }

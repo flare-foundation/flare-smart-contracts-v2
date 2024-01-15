@@ -16,10 +16,7 @@ contract VoterRegistryTest is Test {
     VoterRegistry private voterRegistry;
     address private mockFlareSystemManager;
     address private mockEntityManager;
-    address private mockPChainStakeMirror;
-    address private mockCChainStake;
-    address private mockWNat;
-    IPChainStakeMirror pChainStakeMirror;
+    address private mockSigningPolicyWeightCalculator;
 
     address private governance;
     address private addressUpdater;
@@ -32,11 +29,8 @@ contract VoterRegistryTest is Test {
     address[] private initialSubmitAddresses;
     address[] private initialSubmitSignaturesAddresses;
     address[] private initialSigningPolicyAddresses;
-    bytes20[] private initialVotersNodeIds;
     EntityManager.VoterAddresses[] private initialVotersRegisteredAddresses;
-    uint256[] private initialVotersPChainVP;
-    uint256[] private initialVotersCChainVP;
-    uint256[] private initialVotersWNatVP;
+    uint256[] private initialVotersWeights;
     uint256 private pChainTotalVP;
     uint256 private cChainTotalVP;
     uint256 private wNatTotalVP;
@@ -52,13 +46,8 @@ contract VoterRegistryTest is Test {
         address delegationAddress,
         address submitAddress,
         address submitSignaturesAddress,
-        uint256 weight,
-        uint256 wNatWeight,
-        uint256 cChainStakeWeight,
-        bytes20[] nodeIds,
-        uint256[] nodeWeights
+        uint256 registrationWeight
     );
-
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -79,24 +68,18 @@ contract VoterRegistryTest is Test {
         //// update contract addresses
         mockFlareSystemManager = makeAddr("flareSystemManager");
         mockEntityManager = makeAddr("entityManager");
-        mockPChainStakeMirror = makeAddr("pChainStakeMirror");
-        mockCChainStake = makeAddr("cChainStake");
-        mockWNat = makeAddr("wNat");
+        mockSigningPolicyWeightCalculator = makeAddr("signingPolicyWeightCalculator");
         vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](6);
-        contractAddresses = new address[](6);
+        contractNameHashes = new bytes32[](4);
+        contractAddresses = new address[](4);
         contractNameHashes[0] = _keccak256AbiEncode("AddressUpdater");
         contractNameHashes[1] = _keccak256AbiEncode("FlareSystemManager");
         contractNameHashes[2] = _keccak256AbiEncode("EntityManager");
-        contractNameHashes[3] = _keccak256AbiEncode("PChainStakeMirror");
-        contractNameHashes[4] = _keccak256AbiEncode("CChainStake");
-        contractNameHashes[5] = _keccak256AbiEncode("WNat");
+        contractNameHashes[3] = _keccak256AbiEncode("SigningPolicyWeightCalculator");
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockFlareSystemManager;
         contractAddresses[2] = mockEntityManager;
-        contractAddresses[3] = mockPChainStakeMirror;
-        contractAddresses[4] = mockCChainStake;
-        contractAddresses[5] = mockWNat;
+        contractAddresses[3] = mockSigningPolicyWeightCalculator;
         voterRegistry.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
     }
@@ -158,17 +141,6 @@ contract VoterRegistryTest is Test {
         voterRegistry.setMaxVoters(100);
         assertEq(voterRegistry.maxVoters(), 100);
         vm.stopPrank();
-    }
-
-    function testEnableCChainStake() public {
-        assertEq(voterRegistry.cChainStakeEnabled(), false);
-        vm.prank(governance);
-        voterRegistry.enableCChainStake();
-        assertEq(voterRegistry.cChainStakeEnabled(), true);
-        assertEq(address(voterRegistry.cChainStake()), address(0));
-        vm.prank(addressUpdater);
-        voterRegistry.updateContractAddresses(contractNameHashes, contractAddresses);
-        assertEq(address(voterRegistry.cChainStake()), mockCChainStake);
     }
 
     function testSetNewSigningPolicyInitializationStartBlockNumber() public {
@@ -291,6 +263,16 @@ contract VoterRegistryTest is Test {
             assertEq(voter, initialVoters[i]);
             assertEq(normWeight, initialNormWeights[i]);
         }
+        address notRegistered = makeAddr("notRegisteredVoter");
+        address notRegisteredSignPolicyAddr = makeAddr("notRegisteredVoterSigningPolicyAddress");
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(EntityManager.getVoterForSigningPolicyAddress.selector,
+                notRegisteredSignPolicyAddr, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
+            abi.encode(notRegistered)
+        );
+        vm.expectRevert("voter not registered");
+        voterRegistry.getVoterWithNormalisedWeight(0, notRegisteredSignPolicyAddr);
     }
 
     function testRevertGetVoterWithNormalisedWeigth() public {
@@ -363,14 +345,12 @@ contract VoterRegistryTest is Test {
 
     // register 3 voters (max voters == 3)
     function testRegisterVoters() public {
-        bytes20[] memory nodeIds = new bytes20[](1);
-        uint256[] memory pChainVPs = new uint256[](1);
         VoterRegistry.Signature memory signature;
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(10, true);
-        _mockVotePowers();
+        _mockVoterWeights();
         vm.prank(governance);
         voterRegistry.setMaxVoters(3);
         vm.prank(mockFlareSystemManager);
@@ -378,8 +358,6 @@ contract VoterRegistryTest is Test {
 
         for (uint256 i = 0; i < initialVoters.length - 1; i++) {
             signature = _createSigningPolicyAddressSignature(i, 1);
-            nodeIds[0] = initialVotersNodeIds[i];
-            pChainVPs[0] = initialVotersPChainVP[i];
             vm.expectEmit();
             emit VoterRegistered(
                 initialVoters[i],
@@ -388,35 +366,27 @@ contract VoterRegistryTest is Test {
                 initialDelegationAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialVotersPChainVP[i] + initialVotersWNatVP[i] / 4,
-                initialVotersWNatVP[i],
-                0, // cChain staking disabled
-                nodeIds,
-                pChainVPs
+                initialVotersWeights[i]
             );
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
     }
 
     function testRegisterVotersAndCreateSigningPolicySnapshot() public {
-        bytes20[] memory nodeIds = new bytes20[](1);
-        uint256[] memory pChainVPs = new uint256[](1);
         VoterRegistry.Signature memory signature;
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(10, true);
-        _mockVotePowers();
+        _mockVoterWeights();
         vm.prank(mockFlareSystemManager);
         voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
         uint256 weightsSum = 0;
         for (uint256 i = 0; i < initialVoters.length ; i++) {
             signature = _createSigningPolicyAddressSignature(i, 1);
-            nodeIds[0] = initialVotersNodeIds[i];
-            pChainVPs[0] = initialVotersPChainVP[i];
             voterRegistry.registerVoter(initialVoters[i], signature);
-            weightsSum += initialVotersPChainVP[i] + initialVotersWNatVP[i] / 4;
+            weightsSum += initialVotersWeights[i];
         }
 
         // create signing policy snapshot
@@ -436,7 +406,7 @@ contract VoterRegistryTest is Test {
         uint16 normVoterWeight;
         for (uint256 i = 0; i < initialVoters.length; i++) {
             assertEq(signPolAddresses[i], initialSigningPolicyAddresses[i]);
-            voterWeight = initialVotersPChainVP[i] + initialVotersWNatVP[i] / 4;
+            voterWeight = initialVotersWeights[i];
             normVoterWeight = uint16(voterWeight * UINT16_MAX / weightsSum);
             assertEq(normWeights[i], normVoterWeight);
             sum += normVoterWeight;
@@ -449,11 +419,7 @@ contract VoterRegistryTest is Test {
         testRegisterVoters();
 
         // add new voter and remove one with lowest weight (initialVoters[0])
-        bytes20[] memory nodeIds = new bytes20[](1);
-        uint256[] memory pChainVPs = new uint256[](1);
         VoterRegistry.Signature memory signature = _createSigningPolicyAddressSignature(3, 1);
-        nodeIds[0] = initialVotersNodeIds[3];
-        pChainVPs[0] = initialVotersPChainVP[3];
 
         vm.expectEmit();
         emit VoterRemoved(initialVoters[0], 1);
@@ -465,100 +431,46 @@ contract VoterRegistryTest is Test {
             initialDelegationAddresses[3],
             initialSubmitAddresses[3],
             initialSubmitSignaturesAddresses[3],
-            initialVotersPChainVP[3] + initialVotersWNatVP[3] / 4,
-            initialVotersWNatVP[3],
-            0, // cChain staking disabled
-            nodeIds,
-            pChainVPs
+            initialVotersWeights[3]
         );
         voterRegistry.registerVoter(initialVoters[3], signature);
-    }
-
-    // register voters (cChain enabled)
-    function testRegisterVoterCChainEnabled() public {
-        // enable cChain
-        testEnableCChainStake();
-
-        // register voter
-        bytes20[] memory nodeIds = new bytes20[](1);
-        uint256[] memory pChainVPs = new uint256[](1);
-        VoterRegistry.Signature memory signature;
-        _mockGetCurrentEpochId(0);
-        _mockGetVoterAddresses();
-        _mockGetVoterRegistrationData(10, true);
-        _mockVotePowers();
-        vm.prank(governance);
-        voterRegistry.setMaxVoters(3);
-        vm.prank(mockFlareSystemManager);
-        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
-
-        for (uint256 i = 0; i < initialVoters.length - 1; i++) {
-            signature = _createSigningPolicyAddressSignature(i, 1);
-            nodeIds[0] = initialVotersNodeIds[i];
-            pChainVPs[0] = initialVotersPChainVP[i];
-            vm.expectEmit();
-            emit VoterRegistered(
-                initialVoters[i],
-                1,
-                initialSigningPolicyAddresses[i],
-                initialDelegationAddresses[i],
-                initialSubmitAddresses[i],
-                initialSubmitSignaturesAddresses[i],
-                initialVotersPChainVP[i] + initialVotersWNatVP[i] / 4 + initialVotersCChainVP[i],
-                initialVotersWNatVP[i],
-                initialVotersCChainVP[i], // cChain staking enabled
-                nodeIds,
-                pChainVPs
-            );
-            voterRegistry.registerVoter(initialVoters[i], signature);
-        }
     }
 
     // max voters = 1
     // register voter[1], try to register voter[0] -> not possible because voter[1] has higher vote power
     function testRegisterVoterRevertWeightTooLow() public {
-        bytes20[] memory nodeIds = new bytes20[](1);
-        uint256[] memory pChainVPs = new uint256[](1);
         VoterRegistry.Signature memory signature;
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(10, true);
-        _mockVotePowers();
+        _mockVoterWeights();
         vm.prank(governance);
         voterRegistry.setMaxVoters(1);
         vm.prank(mockFlareSystemManager);
         voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
         signature = _createSigningPolicyAddressSignature(1, 1);
-        nodeIds[0] = initialVotersNodeIds[1];
-        pChainVPs[0] = initialVotersPChainVP[1];
         voterRegistry.registerVoter(initialVoters[1], signature);
 
         signature = _createSigningPolicyAddressSignature(0, 1);
-        nodeIds[0] = initialVotersNodeIds[0];
-        pChainVPs[0] = initialVotersPChainVP[0];
         vm.expectRevert("vote power too low");
         voterRegistry.registerVoter(initialVoters[0], signature);
     }
 
     // try to register voter twice
     function testRegisterVoterTwice() public {
-        bytes20[] memory nodeIds = new bytes20[](1);
-        uint256[] memory pChainVPs = new uint256[](1);
         VoterRegistry.Signature memory signature;
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(10, true);
-        _mockVotePowers();
+        _mockVoterWeights();
         vm.prank(mockFlareSystemManager);
         voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
         // register
         signature = _createSigningPolicyAddressSignature(1, 1);
-        nodeIds[0] = initialVotersNodeIds[1];
-        pChainVPs[0] = initialVotersPChainVP[1];
         vm.expectEmit();
         emit VoterRegistered(
             initialVoters[1],
@@ -567,11 +479,7 @@ contract VoterRegistryTest is Test {
             initialDelegationAddresses[1],
             initialSubmitAddresses[1],
             initialSubmitSignaturesAddresses[1],
-            initialVotersPChainVP[1] + initialVotersWNatVP[1] / 4,
-            initialVotersWNatVP[1],
-            0,
-            nodeIds,
-            pChainVPs
+            initialVotersWeights[1]
         );
         voterRegistry.registerVoter(initialVoters[1], signature);
 
@@ -583,31 +491,39 @@ contract VoterRegistryTest is Test {
         assertEq(entries.length, 0);
     }
 
-    // voter has zero p-chain weight => its wNat votePower is not taken into account
-    // => vote power is 0 and registration should revert
     function testRegisterVoterRevertWeightZero() public {
-        bytes20[] memory nodeIds = new bytes20[](1);
-        uint256[] memory pChainVPs = new uint256[](1);
         VoterRegistry.Signature memory signature;
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(10, true);
-        _mockVotePowers();
+        _mockVoterWeights();
         vm.prank(mockFlareSystemManager);
         voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
-        // set p-chain weight to 0
-        nodeIds[0] = initialVotersNodeIds[0];
-        pChainVPs[0] = 0;
         vm.mockCall(
-            mockPChainStakeMirror,
-            abi.encodeWithSelector(pChainStakeMirror.batchVotePowerOfAt.selector, nodeIds, 10),
-            abi.encode(pChainVPs)
+            mockSigningPolicyWeightCalculator,
+            abi.encodeWithSelector(SigningPolicyWeightCalculator.calculateWeight.selector,
+                initialVoters[0], initialDelegationAddresses[0], 1, 10),
+            abi.encode(0)
         );
 
         signature = _createSigningPolicyAddressSignature(0, 1);
         vm.expectRevert("voter weight zero");
+        voterRegistry.registerVoter(initialVoters[0], signature);
+    }
+
+    function testRegisterVoterRevertRegistrationNotAvailable() public {
+        VoterRegistry.Signature memory signature;
+
+        _mockGetCurrentEpochId(0);
+        _mockGetVoterAddresses();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVoterWeights();
+        vm.prank(mockFlareSystemManager);
+
+        signature = _createSigningPolicyAddressSignature(0, 1);
+        vm.expectRevert("registration not available yet");
         voterRegistry.registerVoter(initialVoters[0], signature);
     }
 
@@ -638,21 +554,9 @@ contract VoterRegistryTest is Test {
                 initialSigningPolicyAddresses[i]
             ));
 
-            // nodeIds (each voter has 1)
-            initialVotersNodeIds.push(bytes20((makeAddr(string.concat("nodeId", vm.toString(i))))));
-
-            // p-chain VP
-            initialVotersPChainVP.push(100 * (i + 1));
-
-            // c-chain VP
-            initialVotersCChainVP.push(200 * (i + 1));
-
-            // wNat VP
-            initialVotersWNatVP.push(300 * (i + 1));
+            // weights
+            initialVotersWeights.push(100 * (i + 1));
         }
-            pChainTotalVP = 2000;
-            cChainTotalVP = 3000;
-            wNatTotalVP = 4000;
     }
 
     // TODO test with more than one node id for one of the voters
@@ -698,53 +602,16 @@ contract VoterRegistryTest is Test {
         );
     }
 
-    function _mockVotePowers() internal {
-        ICChainStake cChainStakeMirror;
-        IWNat wNat;
-        bytes20[] memory nodeIds = new bytes20[](1);
-        uint256[] memory pChainVPs = new uint256[](1);
+    // mock calculate weight
+    function _mockVoterWeights() internal {
         for (uint256 i = 0; i < initialVoters.length; i++) {
-            nodeIds[0] = initialVotersNodeIds[i];
             vm.mockCall(
-                mockEntityManager,
-                abi.encodeWithSelector(EntityManager.getNodeIdsOfAt.selector, initialVoters[i]),
-                abi.encode(nodeIds)
-            );
-            pChainVPs[0] = initialVotersPChainVP[i];
-            vm.mockCall(
-                mockPChainStakeMirror,
-                abi.encodeWithSelector(pChainStakeMirror.batchVotePowerOfAt.selector, nodeIds, 10),
-                abi.encode(pChainVPs)
-            );
-
-            vm.mockCall(
-                mockCChainStake,
-                abi.encodeWithSelector(cChainStakeMirror.votePowerOfAt.selector, initialVoters[i]),
-                abi.encode(initialVotersCChainVP[i])
-            );
-
-            vm.mockCall(
-                mockWNat,
-                abi.encodeWithSelector(wNat.votePowerOfAt.selector, initialDelegationAddresses[i]),
-                abi.encode(initialVotersWNatVP[i])
+                mockSigningPolicyWeightCalculator,
+                abi.encodeWithSelector(SigningPolicyWeightCalculator.calculateWeight.selector,
+                    initialVoters[i], initialDelegationAddresses[i]),
+                abi.encode(initialVotersWeights[i])
             );
         }
-
-        vm.mockCall(
-            mockPChainStakeMirror,
-            abi.encodeWithSelector(pChainStakeMirror.totalVotePowerAt.selector),
-            abi.encode(pChainTotalVP)
-        );
-        vm.mockCall(
-            mockCChainStake,
-            abi.encodeWithSelector(cChainStakeMirror.totalVotePowerAt.selector),
-            abi.encode(cChainTotalVP)
-        );
-        vm.mockCall(
-            mockWNat,
-            abi.encodeWithSelector(wNat.totalVotePowerAt.selector),
-            abi.encode(wNatTotalVP)
-        );
     }
 
     function _keccak256AbiEncode(string memory _value) internal pure returns(bytes32) {

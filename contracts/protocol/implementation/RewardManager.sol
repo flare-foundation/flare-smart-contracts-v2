@@ -410,6 +410,14 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         return rewardEpochId;
     }
 
+    function activate() external onlyImmediateGovernance {
+        active = true;
+    }
+
+    function deactivate() external onlyImmediateGovernance {
+        active = false;
+    }
+
     function getRewardOffersManagerList() external view returns(address[] memory) {
         return rewardOffersManagerSet.list;
     }
