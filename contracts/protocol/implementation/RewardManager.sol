@@ -35,19 +35,19 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
     struct RewardClaimWithProof {
         bytes32[] merkleProof;
-        uint24 rewardEpochId;
         RewardClaim body;
     }
 
     struct RewardClaim {
+        uint24 rewardEpochId;
+        bytes20 beneficiary; // c-chain address or node id (bytes20) in case of type MIRROR
+        uint120 amount; // in wei
         ClaimType claimType;
-        uint120 amount;
-        address beneficiary; // c-chain address or node id (bytes20) in case of type MIRROR
     }
 
     struct FeePercentage {          // used for storing data provider fee percentage settings
         uint16 value;               // fee percentage value (value between 0 and 1e4)
-        uint240 validFromEpochId;   // id of the reward epoch from which the value is valid
+        uint24 validFromEpochId;    // id of the reward epoch from which the value is valid
     }
 
     uint256 constant internal MAX_BIPS = 1e4;
@@ -278,7 +278,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @dev Only governance can call this method.
      */
     function enableClaims() external onlyImmediateGovernance {
-        require (firstClaimableRewardEpochId == FIRST_CLAIMABLE_EPOCH, "already enabled");
+        require(firstClaimableRewardEpochId == FIRST_CLAIMABLE_EPOCH, "already enabled");
         firstClaimableRewardEpochId = _getCurrentRewardEpochId();
         emit RewardClaimsEnabled(firstClaimableRewardEpochId);
     }
@@ -388,8 +388,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         uint256 position = fps.length;
         if (position > 0) {
             // do not allow updating the settings in the past
-            // (this can only happen if the sharing percentage epoch offset is updated)
-            require(rewardEpochId >= fps[position - 1].validFromEpochId, "fee percentage update failed");
+            assert(rewardEpochId >= fps[position - 1].validFromEpochId);
 
             if (rewardEpochId == fps[position - 1].validFromEpochId) {
                 // update
@@ -402,9 +401,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         }
 
         // apply setting
-        fps[position].value = uint16(_feePercentageBIPS);
-        assert(rewardEpochId < 2**240);
-        fps[position].validFromEpochId = uint240(rewardEpochId);
+        fps[position].value = _feePercentageBIPS;
+        fps[position].validFromEpochId = rewardEpochId;
 
         emit FeePercentageChanged(msg.sender, _feePercentageBIPS, rewardEpochId);
         return rewardEpochId;
@@ -588,7 +586,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                     _rewardAmountWei += rewardAmountWei;
                     _burnAmountWei += burnAmountWei;
                 }
-            } else if (_proofs[i].rewardEpochId >= _minClaimableEpochId) {
+            } else if (_proofs[i].body.rewardEpochId >= _minClaimableEpochId) {
                 _initialiseWeightBasedClaim(_proofs[i]);
             }
         }
@@ -606,16 +604,16 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         )
     {
         RewardClaim calldata rewardClaim = _proof.body;
-        require(rewardClaim.beneficiary == _rewardOwner, "wrong beneficiary");
+        require(address(rewardClaim.beneficiary) == _rewardOwner, "wrong beneficiary");
         bytes32 claimHash = keccak256(abi.encode(rewardClaim));
-        if (!epochProcessedRewardClaims[_proof.rewardEpochId][claimHash]) {
+        if (!epochProcessedRewardClaims[rewardClaim.rewardEpochId][claimHash]) {
             // not claimed yet - check if valid merkle proof
-            bytes32 rewardsHash = flareSystemManager.rewardsHash(_proof.rewardEpochId);
+            bytes32 rewardsHash = flareSystemManager.rewardsHash(rewardClaim.rewardEpochId);
             require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
             // initialise reward amount
-            _rewardAmountWei = _initialiseRewardAmount(_proof.rewardEpochId, rewardClaim.amount);
+            _rewardAmountWei = _initialiseRewardAmount(rewardClaim.rewardEpochId, rewardClaim.amount);
             if (rewardClaim.claimType == ClaimType.FEE) {
-                uint256 burnFactor = _getBurnFactor(_proof.rewardEpochId, _rewardOwner);
+                uint256 burnFactor = _getBurnFactor(rewardClaim.rewardEpochId, _rewardOwner);
                 if (burnFactor > 0) {
                     // calculate burn amount
                     _burnAmountWei = Math.min(_rewardAmountWei, uint256(_rewardAmountWei).
@@ -623,29 +621,29 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                     // reduce reward amount
                     _rewardAmountWei -= _burnAmountWei; // _burnAmountWei <= _rewardAmountWei
                     // update total burned amount per epoch
-                    epochBurnedRewards[_proof.rewardEpochId] += _burnAmountWei;
+                    epochBurnedRewards[rewardClaim.rewardEpochId] += _burnAmountWei;
                     // emit event how much of the reward was burned
                     // TODO - different event?
                     emit RewardClaimed(
                         _rewardOwner,
                         _rewardOwner,
                         BURN_ADDRESS,
-                        _proof.rewardEpochId,
+                        rewardClaim.rewardEpochId,
                         ClaimType.FEE,
                         _burnAmountWei
                     );
                 }
             }
             // update total claimed amount per epoch
-            epochClaimedRewards[_proof.rewardEpochId] += _rewardAmountWei;
+            epochClaimedRewards[rewardClaim.rewardEpochId] += _rewardAmountWei;
             // mark as claimed
-            epochProcessedRewardClaims[_proof.rewardEpochId][claimHash] = true;
+            epochProcessedRewardClaims[rewardClaim.rewardEpochId][claimHash] = true;
             // emit event
             emit RewardClaimed(
                 _rewardOwner,
                 _rewardOwner,
                 _recipient,
-                _proof.rewardEpochId,
+                rewardClaim.rewardEpochId,
                 rewardClaim.claimType,
                 _rewardAmountWei
             );
@@ -654,21 +652,21 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
     function _initialiseWeightBasedClaim(RewardClaimWithProof calldata _proof) internal {
         RewardClaim calldata rewardClaim = _proof.body;
-        UnclaimedRewardState storage state =
-            epochTypeProviderUnclaimedReward[_proof.rewardEpochId][rewardClaim.claimType][rewardClaim.beneficiary];
+        UnclaimedRewardState storage state = epochTypeProviderUnclaimedReward
+            [rewardClaim.rewardEpochId][rewardClaim.claimType][address(rewardClaim.beneficiary)];
         if (!state.initialised) {
             // not initialised yet - check if valid merkle proof
-            bytes32 rewardsHash = flareSystemManager.rewardsHash(_proof.rewardEpochId);
+            bytes32 rewardsHash = flareSystemManager.rewardsHash(rewardClaim.rewardEpochId);
             bytes32 claimHash = keccak256(abi.encode(rewardClaim));
             require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
             // mark as initialised
             state.initialised = true;
             // initialise reward amount
-            state.amount = _initialiseRewardAmount(_proof.rewardEpochId, rewardClaim.amount);
+            state.amount = _initialiseRewardAmount(rewardClaim.rewardEpochId, rewardClaim.amount);
             // initialise weight
-            state.weight = _getVotePower(_proof.rewardEpochId, rewardClaim.beneficiary, rewardClaim.claimType);
+            state.weight = _getVotePower(rewardClaim.rewardEpochId, rewardClaim.beneficiary, rewardClaim.claimType);
             // increase the number of initialised weight based claims
-            epochNoOfInitialisedWeightBasedClaims[_proof.rewardEpochId] += 1;
+            epochNoOfInitialisedWeightBasedClaims[rewardClaim.rewardEpochId] += 1;
         }
     }
 
@@ -942,7 +940,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     /**
      * Returns fee percentage setting for `_dataProvider` at `_rewardEpochId`.
      * @param _dataProvider         address representing a data provider
-     * @param _rewardEpochId          reward epoch number
+     * @param _rewardEpochId        reward epoch id
      */
     function _getDataProviderFeePercentage(
         address _dataProvider,
@@ -968,7 +966,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
     function _getVotePower(
         uint24 _rewardEpochId,
-        address _beneficiary,
+        bytes20 _beneficiary,
         ClaimType _claimType
     )
         internal view
@@ -976,11 +974,11 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     {
         uint256 votePowerBlock = _getVotePowerBlock(_rewardEpochId);
         if (_claimType == ClaimType.WNAT) {
-            return wNat.votePowerOfAt(_beneficiary, votePowerBlock).toUint128(); // TODO check revocation
+            return wNat.votePowerOfAt(address(_beneficiary), votePowerBlock).toUint128(); // TODO check revocation
         } else if (_claimType == ClaimType.MIRROR) {
-            return pChainStakeMirror.votePowerOfAt(bytes20(_beneficiary), votePowerBlock).toUint128();
+            return pChainStakeMirror.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
         } else if (_claimType == ClaimType.CCHAIN) {
-            return cChainStake.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
+            return cChainStake.votePowerOfAt(address(_beneficiary), votePowerBlock).toUint128();
         } else {
             return 0;
         }
