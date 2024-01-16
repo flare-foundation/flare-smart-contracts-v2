@@ -5,8 +5,8 @@ pragma solidity 0.8.20;
 interface IFtsoInflationConfigurations {
 
     struct FtsoConfiguration {
-        // base/quote symbol - multiple of 8 (one feedSymbol)
-        bytes names;
+        // concatenated feed names - i.e. base/quote symbol - multiple of 8 (one feedName is bytes8)
+        bytes feedNames;
         // inflation share for this configuration group
         uint24 inflationShare;
         // rewards split mode (0 means equally, 1 means random,...)

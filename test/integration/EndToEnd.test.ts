@@ -27,6 +27,7 @@ import * as util from "../utils/key-to-address";
 import { encodeContractNames, toBN } from '../utils/test-helpers';
 import { SigningPolicyWeightCalculatorContract, SigningPolicyWeightCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/SigningPolicyWeightCalculator';
 import { RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
+import { WNatDelegationFeeContract, WNatDelegationFeeInstance } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -43,6 +44,7 @@ const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
 const Submission: SubmissionContract = artifacts.require("Submission");
 const Relay: RelayContract = artifacts.require("Relay");
 const CChainStake: CChainStakeContract = artifacts.require("CChainStake");
+const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDelegationFee");
 
 type PChainStake = {
     txId: string,
@@ -95,6 +97,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let relay: RelayInstance;
     let relay2: RelayInstance;
     let cChainStake: CChainStakeInstance;
+    let wNatDelegationFee: WNatDelegationFeeInstance;
 
     let initialSigningPolicy: ISigningPolicy;
     let newSigningPolicy: ISigningPolicy;
@@ -208,9 +211,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         rewardManager = await RewardManager.new(
             governanceSettings.address,
             accounts[0],
-            ADDRESS_UPDATER,
-            3,
-            2000
+            ADDRESS_UPDATER
         );
 
         relay = await Relay.new(
@@ -241,6 +242,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
 
+        wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER, 3, 2000);
+
         // update contract addresses
         await pChainStakeMirror.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.ADDRESS_BINDER, Contracts.GOVERNANCE_VOTE_POWER, Contracts.CLEANUP_BLOCK_NUMBER_MANAGER, Contracts.P_CHAIN_STAKE_MIRROR_VERIFIER]),
@@ -255,8 +258,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [ADDRESS_UPDATER, flareSystemManager.address, entityManager.address, signingPolicyWeightCalculator.address], { from: ADDRESS_UPDATER });
 
         await signingPolicyWeightCalculator.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.ENTITY_MANAGER, Contracts.REWARD_MANAGER, Contracts.VOTER_REGISTRY, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
-            [ADDRESS_UPDATER, entityManager.address, rewardManager.address, voterRegistry.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.ENTITY_MANAGER, Contracts.WNAT_DELEGATION_FEE, Contracts.VOTER_REGISTRY, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
+            [ADDRESS_UPDATER, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
 
         await flareSystemManager.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY]),

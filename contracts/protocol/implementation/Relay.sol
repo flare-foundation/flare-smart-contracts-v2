@@ -694,7 +694,8 @@ contract Relay {
                             THRESHOLD_BIPS
                         )
                     }
-                    // if messageRewardEpochId is initialized and votingRoundId >= messageRewardEpochId.startingVotingRoundId, revert
+                    // if messageRewardEpochId is initialized and
+                    // votingRoundId >= messageRewardEpochId.startingVotingRoundId, revert
                     if eq(
                         structValue(
                                 mload(add(memPtrGP0, M_5_stateData)),

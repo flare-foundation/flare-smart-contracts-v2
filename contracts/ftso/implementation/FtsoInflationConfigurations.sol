@@ -48,11 +48,11 @@ contract FtsoInflationConfigurations is Governed, IFtsoInflationConfigurations {
     function _checkFtsoConfiguration(FtsoConfiguration calldata _configuration) internal pure {
         require(_configuration.primaryBandRewardSharePPM <= PPM_MAX, "invalid primaryBandRewardSharePPM value");
         //slither-disable-next-line weak-prng
-        require(_configuration.names.length % 8 == 0, "invalid names length");
+        require(_configuration.feedNames.length % 8 == 0, "invalid feedNames length");
         //slither-disable-next-line weak-prng
         require(_configuration.secondaryBandWidthPPMs.length % 3 == 0, "invalid secondaryBandWidthPPMs length");
 
-        uint256 length = _configuration.names.length / 8;
+        uint256 length = _configuration.feedNames.length / 8;
         require(_configuration.secondaryBandWidthPPMs.length / 3 == length, "array lengths do not match");
 
         for (uint256 i = 0; i < length; i++) {

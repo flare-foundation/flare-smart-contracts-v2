@@ -32,6 +32,7 @@ import {
   RewardManagerInstance,
   SigningPolicyWeightCalculatorContract,
   SigningPolicyWeightCalculatorInstance,
+  WNatDelegationFeeContract,
   WNatInstance,
 } from "../../typechain-truffle";
 
@@ -52,6 +53,7 @@ import {
 import { getLogger } from "./logger";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from "./contract-helpers";
 import { PChainStakeMirrorContract } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/PChainStakeMirror";
+import { WNatDelegationFeeInstance } from "../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee";
 
 export interface DeployedContracts {
   readonly pChainStakeMirror: PChainStakeMirrorInstance;
@@ -69,6 +71,7 @@ export interface DeployedContracts {
   readonly rewardManager: RewardManagerInstance;
   readonly submission: SubmissionInstance;
   readonly relay: RelayInstance;
+  readonly wNatDelegationFee: WNatDelegationFeeInstance;
 }
 
 const logger = getLogger("contracts");
@@ -100,6 +103,7 @@ export async function deployContracts(
   const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
   const Submission: SubmissionContract = hre.artifacts.require("Submission");
   const CChainStake: CChainStakeContract = artifacts.require("CChainStake");
+  const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDelegationFee");
   const Relay: RelayContract = hre.artifacts.require("Relay");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
@@ -231,9 +235,7 @@ export async function deployContracts(
   const rewardManager = await RewardManager.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
-    3,
-    2000
+    ADDRESS_UPDATER_ADDR
   );
 
   const relay = await Relay.new(
@@ -255,6 +257,8 @@ export async function deployContracts(
     ADDRESS_UPDATER_ADDR,
     false
   );
+
+  const wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER_ADDR, 3, 2000);
 
   await pChainStakeMirror.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -299,11 +303,11 @@ export async function deployContracts(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
       Contracts.ENTITY_MANAGER,
-      Contracts.REWARD_MANAGER,
+      Contracts.WNAT_DELEGATION_FEE,
       Contracts.VOTER_REGISTRY,
       Contracts.P_CHAIN_STAKE_MIRROR,
       Contracts.WNAT]),
-    [ADDRESS_UPDATER_ADDR, entityManager.address, rewardManager.address, voterRegistry.address, pChainStakeMirror.address, wNat.address],
+    [ADDRESS_UPDATER_ADDR, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -363,6 +367,7 @@ export async function deployContracts(
     rewardManager,
     submission,
     relay,
+    wNatDelegationFee
   };
 
   return [contracts, rewardEpochStart, initialSigningPolicy];

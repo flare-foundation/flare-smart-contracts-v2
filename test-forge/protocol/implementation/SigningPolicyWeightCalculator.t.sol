@@ -23,7 +23,7 @@ contract SigningPolicyWeightCalculatorTest is Test {
 
     bytes32[] memory contractNameHashes = new bytes32[](6);
     contractNameHashes[0] = keccak256(abi.encode("EntityManager"));
-    contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
+    contractNameHashes[1] = keccak256(abi.encode("WNatDelegationFee"));
     contractNameHashes[2] = keccak256(abi.encode("VoterRegistry"));
     contractNameHashes[3] = keccak256(abi.encode("PChainStakeMirror"));
     contractNameHashes[4] = keccak256(abi.encode("WNat"));
@@ -31,7 +31,7 @@ contract SigningPolicyWeightCalculatorTest is Test {
 
     address[] memory contractAddresses = new address[](6);
     contractAddresses[0] = makeAddr("EntityManager");
-    contractAddresses[1] = makeAddr("RewardManager");
+    contractAddresses[1] = makeAddr("WNatDelegationFee");
     contractAddresses[2] = makeAddr("VoterRegistry");
     contractAddresses[3] = makeAddr("PChainStakeMirror");
     contractAddresses[4] = makeAddr("WNat");
@@ -137,8 +137,8 @@ contract SigningPolicyWeightCalculatorTest is Test {
     );
 
     vm.mockCall(
-      address(calcualtor.rewardManager()),
-      abi.encodeWithSelector(RewardManager.getDataProviderFeePercentage.selector, voter, rewardEpochId),
+      address(calcualtor.wNatDelegationFee()),
+      abi.encodeWithSelector(WNatDelegationFee.getVoterFeePercentage.selector, voter, rewardEpochId),
       abi.encode(delegationFeeBIPS)
     );
 
