@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import "../../protocol/implementation/RewardManager.sol";
 import "../../protocol/implementation/RewardOffersManagerBase.sol";
 import "../interface/IFtsoInflationConfigurations.sol";
+import "./FtsoFeedDecimals.sol";
 import "../../utils/lib/SafePct.sol";
 
 
@@ -16,8 +17,8 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
     struct Offer {
         // amount (in wei) of reward in native coin
         uint120 amount;
-        // offer name - i.e. base/quote symbol
-        bytes8 name;
+        // feed name - i.e. base/quote symbol
+        bytes8 feedName;
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM;
         // secondary band width in PPM (parts per million) in relation to the median
@@ -30,17 +31,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         address claimBackAddress;
     }
 
-    struct Decimals {               // used for storing data provider fee percentage settings
-        int8 value;                 // number of decimals (negative exponent)
-        uint24 validFromEpochId;    // id of the reward epoch from which the value is valid
-    }
-
     uint256 internal constant PPM_MAX = 1e6;
-    uint8 internal constant INT8_MIN = uint8(-type(int8).min);
-
-    int8 public immutable defaultDecimals; // default value for number of decimals
-    uint24 public immutable decimalsUpdateOffset; // decimals update timelock measured in reward epochs
-    mapping(bytes8 => Decimals[]) internal decimals;
 
     /// total rewards offered by inflation (in wei)
     uint256 public totalInflationRewardsOfferedWei;
@@ -49,14 +40,15 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
 
     RewardManager public rewardManager;
     IFtsoInflationConfigurations public ftsoInflationConfigurations;
+    FtsoFeedDecimals public ftsoFeedDecimals;
 
     event MinimalRewardsOfferValueSet(uint256 valueWei);
 
     event RewardsOffered(
         // reward epoch id
         uint24 rewardEpochId,
-        // name of the offer - i.e. base/quote symbol
-        bytes8 name,
+        // feed name - i.e. base/quote symbol
+        bytes8 feedName,
         // number of decimals (negative exponent)
         int8 decimals,
         // amount (in wei) of reward in native coin
@@ -76,8 +68,8 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
     event InflationRewardsOffered(
         // reward epoch id
         uint24 rewardEpochId,
-        // offer names - i.e. base/quote symbols - multiple of 8 (one name)
-        bytes names,
+        // feed names - i.e. base/quote symbols - multiple of 8 (one feedName is bytes8)
+        bytes feedNames,
         // decimals encoded to - multiple of 1 (int8)
         bytes decimals,
         // amount (in wei) of reward in native coin
@@ -90,26 +82,19 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         bytes secondaryBandWidthPPMs
     );
 
-    event DecimalsChanged(bytes8 name, int8 decimals, uint24 rewardEpochId);
-
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
-        uint128 _minimalRewardsOfferValueWei,
-        int8 _defaultDecimals,
-        uint24 _decimalsUpdateOffset
+        uint128 _minimalRewardsOfferValueWei
     )
         RewardOffersManagerBase(_governanceSettings, _initialGovernance, _addressUpdater)
     {
-        require(_decimalsUpdateOffset > 1, "offset too small");
         minimalRewardsOfferValueWei = _minimalRewardsOfferValueWei;
-        defaultDecimals = _defaultDecimals;
-        decimalsUpdateOffset = _decimalsUpdateOffset;
         emit MinimalRewardsOfferValueSet(_minimalRewardsOfferValueWei);
     }
 
-    // This contract does not have any concept of names and it is
+    // This contract does not have any concept of feed names and it is
     // entirely up to the clients to keep track of the total amount allocated to
     // them and determine the correct distribution of rewards to voters.
     // Ultimately, of course, only the actual amount of value stored for an
@@ -138,8 +123,8 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
             }
             emit RewardsOffered(
                 _nextRewardEpochId,
-                offer.name,
-                _getDecimals(offer.name, _nextRewardEpochId),
+                offer.feedName,
+                ftsoFeedDecimals.getDecimals(offer.feedName, _nextRewardEpochId),
                 offer.amount,
                 offer.primaryBandRewardSharePPM,
                 offer.secondaryBandWidthPPM,
@@ -155,62 +140,6 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
     function setMinimalRewardsOfferValue(uint128 _minimalRewardsOfferValueWei) external onlyGovernance {
         minimalRewardsOfferValueWei = _minimalRewardsOfferValueWei;
         emit MinimalRewardsOfferValueSet(_minimalRewardsOfferValueWei);
-    }
-
-    /**
-     * Allows governance to set (or update last) decimal for given name.
-     * @param _name name
-     * @param _decimals number of decimals (negative exponent)
-     */
-    function setDecimals(bytes8 _name, int8 _decimals) external onlyGovernance {
-        uint24 rewardEpochId = flareSystemManager.getCurrentRewardEpochId() + decimalsUpdateOffset;
-        Decimals[] storage decimalsForName = decimals[_name];
-
-        // determine whether to update the last setting or add a new one
-        uint256 position = decimalsForName.length;
-        if (position > 0) {
-            // do not allow updating the settings in the past
-            assert(rewardEpochId >= decimalsForName[position - 1].validFromEpochId);
-
-            if (rewardEpochId == decimalsForName[position - 1].validFromEpochId) {
-                // update
-                position = position - 1;
-            }
-        }
-        if (position == decimalsForName.length) {
-            // add
-            decimalsForName.push();
-        }
-
-        // apply setting
-        decimalsForName[position].value = _decimals;
-        decimalsForName[position].validFromEpochId = rewardEpochId;
-
-        emit DecimalsChanged(_name, _decimals, rewardEpochId);
-    }
-
-    /**
-     * Returns current decimals set for `_name`
-     * @param _name                 name
-     */
-    function getCurrentDecimals(bytes8 _name) external view returns (int8) {
-        return _getDecimals(_name, flareSystemManager.getCurrentRewardEpochId());
-    }
-
-    /**
-     * Returns the decimals of `_name` for given reward epoch id
-     * @param _name                 name
-     * @param _rewardEpochId        reward epoch id
-     * **NOTE:** decimals might still change for future reward epoch ids
-     */
-    function getDecimals(
-        bytes8 _name,
-        uint256 _rewardEpochId
-    )
-        external view
-        returns (int8)
-    {
-        return _getDecimals(_name, _rewardEpochId);
     }
 
     /**
@@ -231,11 +160,11 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         internal override
     {
         super._updateContractAddresses(_contractNameHashes, _contractAddresses);
-        flareSystemManager = FlareSystemManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
         rewardManager = RewardManager(_getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
         ftsoInflationConfigurations = IFtsoInflationConfigurations(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoInflationConfigurations"));
+        ftsoFeedDecimals = FtsoFeedDecimals(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoFeedDecimals"));
     }
 
     /**
@@ -259,7 +188,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         uint256 intervalEnd = Math.max(lastInflationReceivedTs + INFLATION_TIME_FRAME_SEC,
             _currentRewardEpochExpectedEndTs - _rewardEpochDurationSeconds); // start of current reward epoch (in past)
         uint256 totalRewardsAmount = (totalInflationReceivedWei - totalInflationRewardsOfferedWei)
-            .mulDiv(intervalEnd - intervalStart, _rewardEpochDurationSeconds);
+            .mulDiv(_rewardEpochDurationSeconds, intervalEnd - intervalStart);
         // emit offers
         uint24 nextRewardEpochId = _currentRewardEpochId + 1;
         IFtsoInflationConfigurations.FtsoConfiguration[] memory configurations =
@@ -282,8 +211,8 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
             inflationShareSum -= config.inflationShare;
             emit InflationRewardsOffered(
                 nextRewardEpochId,
-                config.names,
-                _getDecimalsBulk(config.names, nextRewardEpochId),
+                config.feedNames,
+                ftsoFeedDecimals.getDecimalsBulk(config.feedNames, nextRewardEpochId),
                 amount,
                 config.mode,
                 config.primaryBandRewardSharePPM,
@@ -293,55 +222,6 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         // send reward amount to reward manager
         totalInflationRewardsOfferedWei += totalRewardsAmount;
         rewardManager.receiveRewards{value: totalRewardsAmount} (nextRewardEpochId, true);
-    }
-
-    /**
-     * Returns decimals setting for `_name` at `_rewardEpochId`.
-     * @param _name                 name for offer
-     * @param _rewardEpochId        reward epoch id
-     */
-    function _getDecimals(
-        bytes8 _name,
-        uint256 _rewardEpochId
-    )
-        internal view
-        returns (int8)
-    {
-        Decimals[] storage decimalsForName = decimals[_name];
-        uint256 index = decimalsForName.length;
-        while (index > 0) {
-            index--;
-            if (_rewardEpochId >= decimalsForName[index].validFromEpochId) {
-                return decimalsForName[index].value;
-            }
-        }
-        return defaultDecimals;
-    }
-
-    /**
-     * Returns decimals setting for `_names` at `_rewardEpochId`.
-     * @param _names                concatenated names (each name bytes8)
-     * @param _rewardEpochId        reward epoch id
-     */
-    function _getDecimalsBulk(
-        bytes memory _names,
-        uint256 _rewardEpochId
-    )
-        internal view
-        returns (bytes memory _decimals)
-    {
-        //slither-disable-next-line weak-prng
-        assert(_names.length % 8 == 0);
-        uint256 length = _names.length / 8;
-        _decimals = new bytes(length);
-        bytes memory name = new bytes(8);
-        for (uint256 i = 0; i < length; i++) {
-            for (uint256 j = 0; j < 8; j++) {
-                name[j] = _names[8 * i + j];
-            }
-            int8 dec = _getDecimals(bytes8(name), _rewardEpochId);
-            _decimals[i] = bytes1(uint8(dec));
-        }
     }
 
     /**

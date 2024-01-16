@@ -11,6 +11,7 @@ export interface ContractAddresses {
   submission: string;
   flareSystemManager: string;
   voterRegistry: string;
+  ftsoRewardOffersManager: string;
 }
 
 export interface BlockData {
@@ -76,6 +77,7 @@ export class MockDBIndexer {
               this.contractAddresses.submission,
               this.contractAddresses.flareSystemManager,
               this.contractAddresses.voterRegistry,
+              this.contractAddresses.ftsoRewardOffersManager,
             ]);
           },
           3,

@@ -18,4 +18,11 @@ interface IFtsoFeedPublisher {
         uint256 value;
         bool isSecure;
     }
+
+    struct FeedWithProof {
+        bytes32[] merkleProof;
+        Feed body;
+    }
+
+    function publish(FeedWithProof[] calldata _proofs) external;
 }

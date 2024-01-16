@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
 import "../interface/IWNat.sol";
 import "./EntityManager.sol";
-import "./RewardManager.sol";
+import "./WNatDelegationFee.sol";
 import "./VoterRegistry.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
@@ -15,7 +15,7 @@ contract SigningPolicyWeightCalculator is Governed, AddressUpdatable {
 
     // Addresses of the external contracts.
     EntityManager public entityManager;
-    RewardManager public rewardManager;
+    WNatDelegationFee public wNatDelegationFee;
     VoterRegistry public voterRegistry;
     IPChainStakeMirror public pChainStakeMirror;
     IWNat public wNat;
@@ -67,7 +67,7 @@ contract SigningPolicyWeightCalculator is Governed, AddressUpdatable {
         uint256 wNatWeightCap = totalWNatVotePower * wNatCapPPM / PPM_MAX; // no overflow possible
         uint256 wNatWeight = wNat.votePowerOfAt(_delegationAddress, _votePowerBlockNumber);
         uint256 wNatCappedWeight = Math.min(wNatWeightCap, wNatWeight);
-        uint16 delegationFeeBIPS = rewardManager.getDataProviderFeePercentage(_voter, _rewardEpochId);
+        uint16 delegationFeeBIPS = wNatDelegationFee.getVoterFeePercentage(_voter, _rewardEpochId);
 
         _signingPolicyWeight = _sqrt(_signingPolicyWeight + wNatCappedWeight);
         _signingPolicyWeight *= _sqrt(_signingPolicyWeight);
@@ -106,7 +106,8 @@ contract SigningPolicyWeightCalculator is Governed, AddressUpdatable {
         internal override
     {
         entityManager = EntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
-        rewardManager = RewardManager(_getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
+        wNatDelegationFee = WNatDelegationFee(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "WNatDelegationFee"));
         voterRegistry = VoterRegistry(_getContractAddress(_contractNameHashes, _contractAddresses, "VoterRegistry"));
         pChainStakeMirror = IPChainStakeMirror(
             _getContractAddress(_contractNameHashes, _contractAddresses, "PChainStakeMirror"));

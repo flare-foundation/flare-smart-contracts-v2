@@ -450,7 +450,6 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         external onlyGovernance
     {
         require(_rewardEpochId < getCurrentRewardEpochId(), "epoch not ended yet");
-        require(rewardsHash[_rewardEpochId] == bytes32(0), "rewards hash already signed");
         rewardsHash[_rewardEpochId] = _rewardsHash;
         noOfWeightBasedClaims[_rewardEpochId] = _noOfWeightBasedClaims;
         emit RewardsSigned(

@@ -290,6 +290,30 @@ contract VoterRegistry is Governed, AddressUpdatable {
         _normalisedWeight = uint16(weight * UINT16_MAX / weightsSum);
     }
 
+    /**
+     * Returns voter's public key and normalised weight for a given reward epoch and signing policy address
+     */
+    function getPublicKeyAndNormalisedWeight(
+        uint256 _rewardEpochId,
+        address _signingPolicyAddress
+    )
+        external view
+        returns (
+            bytes32 _publicKeyPart1,
+            bytes32 _publicKeyPart2,
+            uint16 _normalisedWeight
+        )
+    {
+        uint256 weightsSum = register[_rewardEpochId].weightsSum;
+        require(weightsSum > 0, "reward epoch id not supported");
+        uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[_rewardEpochId];
+        address voter = entityManager.getVoterForSigningPolicyAddress(_signingPolicyAddress, initBlock);
+        uint256 weight = register[_rewardEpochId].weights[voter];
+        require(weight > 0, "voter not registered");
+        _normalisedWeight = uint16(weight * UINT16_MAX / weightsSum);
+        (_publicKeyPart1, _publicKeyPart2) = entityManager.getPublicKeyOfAt(voter, initBlock);
+    }
+
     function isVoterRegistered(address _voter, uint256 _rewardEpochId) external view returns(bool) {
         return register[_rewardEpochId].weights[_voter] > 0;
     }
