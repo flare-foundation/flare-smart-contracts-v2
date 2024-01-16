@@ -38,3 +38,15 @@
 //         assertEq(rewardManager.getDataProviderCurrentFeePercentage(dataProvider), 1500);
 //         vm.stopPrank();
 //     }
+
+
+    // function testConstructorOffsetTooSmall() public {
+    //     vm.expectRevert("offset too small");
+    //     new RewardManager(
+    //         IGovernanceSettings(makeAddr("governanceSettings")),
+    //         governance,
+    //         addressUpdater,
+    //         1,
+    //         2000
+    //     );
+    // }
