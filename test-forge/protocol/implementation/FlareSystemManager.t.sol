@@ -6,7 +6,6 @@ import "../../../contracts/protocol/implementation/FlareSystemManager.sol";
 import "../../../contracts/protocol/implementation/Relay.sol";
 import "../../../contracts/protocol/implementation/VoterRegistry.sol";
 import "../../../contracts/protocol/implementation/EntityManager.sol";
-import "flare-smart-contracts/contracts/userInterfaces/IPriceSubmitter.sol";
 
 import "forge-std/console2.sol";
 
@@ -19,10 +18,8 @@ contract FlareSystemManagerTest is Test {
     address private addressUpdater;
     Submission private submission;
     address private mockRelay;
-    address private mockPriceSubmitter;
     EntityManager private entityManager;
     address private mockVoterRegistry;
-    IPriceSubmitter private priceSubmitter;
     Relay private relay;
 
     FlareSystemManager.Settings private settings;
@@ -149,7 +146,6 @@ contract FlareSystemManagerTest is Test {
             4
         );
         mockRelay = makeAddr("relay");
-        mockPriceSubmitter = makeAddr("priceSubmitter");
 
         //// update contract addresses
         vm.startPrank(addressUpdater);
@@ -159,12 +155,10 @@ contract FlareSystemManagerTest is Test {
         contractNameHashes[1] = _keccak256AbiEncode("VoterRegistry");
         contractNameHashes[2] = _keccak256AbiEncode("Submission");
         contractNameHashes[3] = _keccak256AbiEncode("Relay");
-        contractNameHashes[4] = _keccak256AbiEncode("PriceSubmitter");
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockVoterRegistry;
         contractAddresses[2] = address(submission);
         contractAddresses[3] = mockRelay;
-        contractAddresses[4] = mockPriceSubmitter;
         flareSystemManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
         contractNameHashes = new bytes32[](3);
@@ -310,13 +304,6 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.changeSigningPolicySettings(60000, 0);
     }
 
-    function testChangeRandomProvider() public {
-        assertEq(flareSystemManager.usePriceSubmitterAsRandomProvider(), false);
-        vm.prank(governance);
-        flareSystemManager.changeRandomProvider(true);
-        assertEq(flareSystemManager.usePriceSubmitterAsRandomProvider(), true);
-    }
-
     function testGetContractName() public {
         assertEq(flareSystemManager.getContractName(), "FlareSystemManager");
     }
@@ -329,7 +316,6 @@ contract FlareSystemManagerTest is Test {
         assertEq(address(flareSystemManager.voterRegistry()), mockVoterRegistry);
         assertEq(address(flareSystemManager.submission()), address(submission));
         assertEq(address(flareSystemManager.relay()), mockRelay);
-        assertEq(address(flareSystemManager.priceSubmitter()), mockPriceSubmitter);
     }
 
     /////
@@ -390,45 +376,6 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.daemonize();
         // voter registration started
         assertEq(flareSystemManager.isVoterRegistrationEnabled(), true);
-        // endBlock = 234, _firstRandomAcquisitionNumberOfBlocks = 5
-        // numberOfBlocks = 5, random (=123) % 5 = 3 -> vote power block = 234 - 3 = 231
-        assertEq(flareSystemManager.getVotePowerBlock(1), 231);
-        (uint256 vpBlock, bool enabled) = flareSystemManager.getVoterRegistrationData(1);
-        assertEq(vpBlock, 231);
-        assertEq(enabled, true);
-    }
-
-     function testPriceSubmitterAsRandomProvider() public {
-        vm.prank(governance);
-        flareSystemManager.changeRandomProvider(true);
-
-        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
-        vm.warp(currentTime);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32(0))
-        );
-
-        // start random acquisition
-        vm.roll(234);
-        vm.startPrank(flareDaemon);
-        flareSystemManager.daemonize();
-
-        // select vote power block
-        vm.mockCall(
-            mockPriceSubmitter,
-            abi.encodeWithSelector(IPriceSubmitter.getCurrentRandom.selector),
-            abi.encode(123)
-        );
-        assertEq(flareSystemManager.getCurrentRandom(), 123);
-        (uint256 currentRandom, bool quality) = flareSystemManager.getCurrentRandomWithQuality();
-        assertEq(currentRandom, 123);
-        assertEq(quality, true);
-        vm.warp(currentTime + 1); // randomTs > state.randomAcquisitionStartTs
-        vm.expectEmit(false, false, false, false);
-        emit VotePowerBlockSelected(1,2,3);
-        flareSystemManager.daemonize();
         // endBlock = 234, _firstRandomAcquisitionNumberOfBlocks = 5
         // numberOfBlocks = 5, random (=123) % 5 = 3 -> vote power block = 234 - 3 = 231
         assertEq(flareSystemManager.getVotePowerBlock(1), 231);

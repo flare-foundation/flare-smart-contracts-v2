@@ -118,7 +118,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   const accounts = privateKeys.map(x => hre.web3.eth.accounts.privateKeyToAccount(x.privateKey));
   const governanceAccount = accounts[0];
 
-  const [c, rewardEpochStart] = await deployContracts(accounts, hre, governanceAccount);
+  const [c, rewardEpochStart, initialSigningPolicy] = await deployContracts(accounts, hre, governanceAccount);
   serializeDeployedContractsAddresses(c, DEPLOY_ADDRESSES_FILE);
   const submissionSelectors = {
     submit1: Web3.utils.sha3("submit1()")!.slice(2, 10),
@@ -158,6 +158,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   logger.info(`Epoch settings written to ${SETTINGS_FILE_LOCATION}`);
 
   const signingPolicies = new Map<number, ISigningPolicy>();
+  signingPolicies.set(initialSigningPolicy.rewardEpochId, initialSigningPolicy);
+  const events = new EventStore();
 
   await defineInitialSigningPolicy(
     c,
@@ -165,6 +167,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     epochSettings,
     registeredAccounts,
     signingPolicies,
+    events,
+    hre.web3,
     governanceAccount
   );
 
@@ -202,7 +206,6 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   // Hardhat set interval mining to auto-mine blocks every second
   await hre.network.provider.send("evm_setIntervalMining", [1000]);
 
-  const events = new EventStore();
   while (true) {
     const response = await c.flareSystemManager.daemonize({ gas: 10000000 });
     const blockTimestamp = +(await hre.web3.eth.getBlock(response.receipt.blockNumber)).timestamp;
@@ -417,11 +420,11 @@ async function runVotingRound(
   registeredAccounts: RegisteredAccount[],
   epochSettings: EpochSettings,
   events: EventStore,
-  web3: Web3
+  web3: Web3,
+  now: number = Date.now()
 ) {
   const logger = getLogger("voting");
 
-  const now = Date.now();
   const votingRoundId = epochSettings.votingEpochForTime(now);
   const rewardEpochId = epochSettings.rewardEpochForTime(now);
 
@@ -507,6 +510,8 @@ async function defineInitialSigningPolicy(
   epochSettings: EpochSettings,
   registeredAccounts: RegisteredAccount[],
   signingPolicies: Map<number, ISigningPolicy>,
+  events: EventStore,
+  web3: Web3,
   governanceAccount: Account
 ) {
   await time.increaseTo(
@@ -517,6 +522,15 @@ async function defineInitialSigningPolicy(
   if (resp.logs[0]?.event != "RandomAcquisitionStarted") {
     throw new Error("Expected random acquisition to start");
   }
+
+  const governance = {
+    identity: governanceAccount,
+    submit: governanceAccount,
+    submitSignatures: governanceAccount,
+    signingPolicy: governanceAccount,
+  };
+
+  await runVotingRound(c, signingPolicies, [governance], epochSettings, events, web3, await time.latest() * 1000);
 
   await time.increase(epochSettings.nonPunishableRandomAcquisitionMinDurationSeconds);
 
@@ -557,8 +571,6 @@ async function defineInitialSigningPolicy(
   if (!args.thresholdReached) {
     throw new Error("Threshold not reached");
   }
-
-  await c.flareSystemManager.changeRandomProvider(false);
 }
 
 async function registerVoter(rewardEpochId: number, acc: RegisteredAccount, voterRegistry: VoterRegistryInstance) {

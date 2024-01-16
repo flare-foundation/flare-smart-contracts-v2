@@ -27,6 +27,7 @@ import * as util from "../utils/key-to-address";
 import { encodeContractNames, toBN } from '../utils/test-helpers';
 import { SigningPolicyWeightCalculatorContract, SigningPolicyWeightCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/SigningPolicyWeightCalculator';
 import { RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
+import { WNatDelegationFeeContract, WNatDelegationFeeInstance } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -43,6 +44,7 @@ const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
 const Submission: SubmissionContract = artifacts.require("Submission");
 const Relay: RelayContract = artifacts.require("Relay");
 const CChainStake: CChainStakeContract = artifacts.require("CChainStake");
+const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDelegationFee");
 
 type PChainStake = {
     txId: string,
@@ -84,7 +86,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let addressBinder: AddressBinderInstance;
     let pChainStakeMirrorVerifierInterface: PChainStakeMirrorVerifierInstance;
     let verifierMock: MockContractInstance;
-    let priceSubmitterMock: MockContractInstance;
 
     let governanceSettings: GovernanceSettingsInstance;
     let entityManager: EntityManagerInstance;
@@ -96,6 +97,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let relay: RelayInstance;
     let relay2: RelayInstance;
     let cChainStake: CChainStakeInstance;
+    let wNatDelegationFee: WNatDelegationFeeInstance;
 
     let initialSigningPolicy: ISigningPolicy;
     let newSigningPolicy: ISigningPolicy;
@@ -115,7 +117,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
     const NEW_SIGNING_POLICY_INITIALIZATION_START_SEC = 3600 * 2; // 2 hours
     const RELAY_SELECTOR = web3.utils.sha3("relay()")!.slice(0, 10); // first 4 bytes is function selector
-    const GET_CURRENT_RANDOM_SELECTOR = web3.utils.sha3("getCurrentRandom()")!.slice(0, 10); // first 4 bytes is function selector
 
     const GWEI = 1e9;
     const VOTING_EPOCH_DURATION_SEC = 90;
@@ -156,9 +157,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         addressBinder = await AddressBinder.new();
         pChainStakeMirrorVerifierInterface = await PChainStakeMirrorVerifier.new(accounts[5], accounts[6], 10, 1000, 5, 5000);
         verifierMock = await MockContract.new();
-        priceSubmitterMock = await MockContract.new();
-        // set random number
-        await priceSubmitterMock.givenMethodReturnUint(GET_CURRENT_RANDOM_SELECTOR, RANDOM_ROOT);
 
         // set values
         weightsGwei = [1000, 500, 100, 50];
@@ -213,12 +211,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         rewardManager = await RewardManager.new(
             governanceSettings.address,
             accounts[0],
-            ADDRESS_UPDATER,
-            3,
-            2000
+            ADDRESS_UPDATER
         );
-
-        await flareSystemManager.changeRandomProvider(true);
 
         relay = await Relay.new(
             flareSystemManager.address,
@@ -248,6 +242,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
 
+        wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER, 3, 2000);
+
         // update contract addresses
         await pChainStakeMirror.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.ADDRESS_BINDER, Contracts.GOVERNANCE_VOTE_POWER, Contracts.CLEANUP_BLOCK_NUMBER_MANAGER, Contracts.P_CHAIN_STAKE_MIRROR_VERIFIER]),
@@ -262,12 +258,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [ADDRESS_UPDATER, flareSystemManager.address, entityManager.address, signingPolicyWeightCalculator.address], { from: ADDRESS_UPDATER });
 
         await signingPolicyWeightCalculator.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.ENTITY_MANAGER, Contracts.REWARD_MANAGER, Contracts.VOTER_REGISTRY, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
-            [ADDRESS_UPDATER, entityManager.address, rewardManager.address, voterRegistry.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.ENTITY_MANAGER, Contracts.WNAT_DELEGATION_FEE, Contracts.VOTER_REGISTRY, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
+            [ADDRESS_UPDATER, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
 
         await flareSystemManager.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY, Contracts.PRICE_SUBMITTER]),
-            [ADDRESS_UPDATER, voterRegistry.address, submission.address, relay.address, priceSubmitterMock.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY]),
+            [ADDRESS_UPDATER, voterRegistry.address, submission.address, relay.address], { from: ADDRESS_UPDATER });
 
         await rewardManager.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
@@ -342,8 +338,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         expectEvent(await flareSystemManager.daemonize(), "RandomAcquisitionStarted", { rewardEpochId: toBN(1) });
     });
 
-    it.skip("Should get good random", async () => {
-        const votingRoundId = (REWARD_EPOCH_DURATION_IN_SEC - NEW_SIGNING_POLICY_INITIALIZATION_START_SEC) / VOTING_EPOCH_DURATION_SEC + 1;
+    it("Should get good random", async () => {
+        const votingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS -
+            NEW_SIGNING_POLICY_INITIALIZATION_START_SEC / VOTING_EPOCH_DURATION_SEC + 1;
         const quality = true;
 
         const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT };
@@ -453,11 +450,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
         const tx = await flareSystemManager.daemonize();
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
-    });
-
-    it("Should switch to using flareSystemManager root as random", async () => {
-        await flareSystemManager.changeRandomProvider(false);
-        expect(await flareSystemManager.usePriceSubmitterAsRandomProvider()).to.be.false;
     });
 
     it("Should commit", async () => {

@@ -35,19 +35,14 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
     struct RewardClaimWithProof {
         bytes32[] merkleProof;
-        uint24 rewardEpochId;
         RewardClaim body;
     }
 
     struct RewardClaim {
+        uint24 rewardEpochId;
+        bytes20 beneficiary; // c-chain address or node id (bytes20) in case of type MIRROR
+        uint120 amount; // in wei
         ClaimType claimType;
-        uint120 amount;
-        address beneficiary; // c-chain address or node id (bytes20) in case of type MIRROR
-    }
-
-    struct FeePercentage {          // used for storing data provider fee percentage settings
-        uint16 value;               // fee percentage value (value between 0 and 1e4)
-        uint240 validFromEpochId;   // id of the reward epoch from which the value is valid
     }
 
     uint256 constant internal MAX_BIPS = 1e4;
@@ -68,10 +63,6 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     uint24 private nextRewardEpochIdToExpire;
     // reward epoch when setInitialRewardData is called (set to +1) - used for forwarding closeExpiredRewardEpochId
     uint24 private initialRewardEpochId;
-
-    uint24 public immutable feePercentageUpdateOffset; // fee percentage update timelock measured in reward epochs
-    uint16 public immutable defaultFeePercentageBIPS; // default value for fee percentage
-    mapping(address => FeePercentage[]) public dataProviderFeePercentages;
 
     mapping(uint256 => mapping(ClaimType =>
         mapping(address => UnclaimedRewardState))) public epochTypeProviderUnclaimedReward;
@@ -103,12 +94,6 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     address public newRewardManager;
 
     AddressSet.State internal rewardOffersManagerSet;
-
-    event FeePercentageChanged(
-        address indexed dataProvider,
-        uint16 value,
-        uint24 validFromEpochId
-    );
 
     /**
      * Emitted when a data provider claims its FTSO rewards.
@@ -169,15 +154,10 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
-        address _addressUpdater,
-        uint24 _feePercentageUpdateOffset,
-        uint16 _defaultFeePercentageBIPS
+        address _addressUpdater
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
-        require(_feePercentageUpdateOffset > 1, "offset too small");
-        feePercentageUpdateOffset = _feePercentageUpdateOffset;
-        defaultFeePercentageBIPS = _defaultFeePercentageBIPS;
         firstClaimableRewardEpochId = FIRST_CLAIMABLE_EPOCH;
     }
 
@@ -278,7 +258,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @dev Only governance can call this method.
      */
     function enableClaims() external onlyImmediateGovernance {
-        require (firstClaimableRewardEpochId == FIRST_CLAIMABLE_EPOCH, "already enabled");
+        require(firstClaimableRewardEpochId == FIRST_CLAIMABLE_EPOCH, "already enabled");
         firstClaimableRewardEpochId = _getCurrentRewardEpochId();
         emit RewardClaimsEnabled(firstClaimableRewardEpochId);
     }
@@ -373,43 +353,6 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         }
     }
 
-    /**
-     * Allows data provider to set (or update last) fee percentage.
-     * @param _feePercentageBIPS    number representing fee percentage in BIPS
-     * @return Returns the reward epoch number when the setting becomes effective.
-     */
-    function setDataProviderFeePercentage(uint16 _feePercentageBIPS) external returns (uint256) {
-        require(_feePercentageBIPS <= MAX_BIPS, "fee percentage invalid");
-
-        uint24 rewardEpochId = _getCurrentRewardEpochId() + feePercentageUpdateOffset;
-        FeePercentage[] storage fps = dataProviderFeePercentages[msg.sender];
-
-        // determine whether to update the last setting or add a new one
-        uint256 position = fps.length;
-        if (position > 0) {
-            // do not allow updating the settings in the past
-            // (this can only happen if the sharing percentage epoch offset is updated)
-            require(rewardEpochId >= fps[position - 1].validFromEpochId, "fee percentage update failed");
-
-            if (rewardEpochId == fps[position - 1].validFromEpochId) {
-                // update
-                position = position - 1;
-            }
-        }
-        if (position == fps.length) {
-            // add
-            fps.push();
-        }
-
-        // apply setting
-        fps[position].value = uint16(_feePercentageBIPS);
-        assert(rewardEpochId < 2**240);
-        fps[position].validFromEpochId = uint240(rewardEpochId);
-
-        emit FeePercentageChanged(msg.sender, _feePercentageBIPS, rewardEpochId);
-        return rewardEpochId;
-    }
-
     function activate() external onlyImmediateGovernance {
         active = true;
     }
@@ -420,68 +363,6 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
     function getRewardOffersManagerList() external view returns(address[] memory) {
         return rewardOffersManagerSet.list;
-    }
-
-    /**
-     * Returns the current fee percentage of `_dataProvider`
-     * @param _dataProvider         address representing data provider
-     */
-    function getDataProviderCurrentFeePercentage(address _dataProvider) external view returns (uint16) {
-        return _getDataProviderFeePercentage(_dataProvider, _getCurrentRewardEpochId());
-    }
-
-    /**
-     * Returns the fee percentage of `_dataProvider` for given reward epoch id
-     * @param _dataProvider         address representing data provider
-     * @param _rewardEpochId        reward epoch id
-     * **NOTE:** fee percentage might still change for future reward epoch ids
-     */
-    function getDataProviderFeePercentage(
-        address _dataProvider,
-        uint256 _rewardEpochId
-    )
-        external view
-        returns (uint16)
-    {
-        return _getDataProviderFeePercentage(_dataProvider, _rewardEpochId);
-    }
-
-    /**
-     * Returns the scheduled fee percentage changes of `_dataProvider`
-     * @param _dataProvider         address representing data provider
-     * @return _feePercentageBIPS   positional array of fee percentages in BIPS
-     * @return _validFromEpochId    positional array of block numbers the fee setings are effective from
-     * @return _fixed               positional array of boolean values indicating if settings are subjected to change
-     */
-    function getDataProviderScheduledFeePercentageChanges(
-        address _dataProvider
-    )
-        external view
-        returns (
-            uint256[] memory _feePercentageBIPS,
-            uint256[] memory _validFromEpochId,
-            bool[] memory _fixed
-        )
-    {
-        FeePercentage[] storage fps = dataProviderFeePercentages[_dataProvider];
-        if (fps.length > 0) {
-            uint256 currentEpochId = flareSystemManager.getCurrentRewardEpochId();
-            uint256 position = fps.length;
-            while (position > 0 && fps[position - 1].validFromEpochId > currentEpochId) {
-                position--;
-            }
-            uint256 count = fps.length - position;
-            if (count > 0) {
-                _feePercentageBIPS = new uint256[](count);
-                _validFromEpochId = new uint256[](count);
-                _fixed = new bool[](count);
-                for (uint256 i = 0; i < count; i++) {
-                    _feePercentageBIPS[i] = fps[i + position].value;
-                    _validFromEpochId[i] = fps[i + position].validFromEpochId;
-                    _fixed[i] = (_validFromEpochId[i] - currentEpochId) != feePercentageUpdateOffset;
-                }
-            }
-        }
     }
 
     /**
@@ -596,7 +477,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                     _rewardAmountWei += rewardAmountWei;
                     _burnAmountWei += burnAmountWei;
                 }
-            } else if (_proofs[i].rewardEpochId >= _minClaimableEpochId) {
+            } else if (_proofs[i].body.rewardEpochId >= _minClaimableEpochId) {
                 _initialiseWeightBasedClaim(_proofs[i]);
             }
         }
@@ -614,16 +495,16 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         )
     {
         RewardClaim calldata rewardClaim = _proof.body;
-        require(rewardClaim.beneficiary == _rewardOwner, "wrong beneficiary");
+        require(address(rewardClaim.beneficiary) == _rewardOwner, "wrong beneficiary");
         bytes32 claimHash = keccak256(abi.encode(rewardClaim));
-        if (!epochProcessedRewardClaims[_proof.rewardEpochId][claimHash]) {
+        if (!epochProcessedRewardClaims[rewardClaim.rewardEpochId][claimHash]) {
             // not claimed yet - check if valid merkle proof
-            bytes32 rewardsHash = flareSystemManager.rewardsHash(_proof.rewardEpochId);
+            bytes32 rewardsHash = flareSystemManager.rewardsHash(rewardClaim.rewardEpochId);
             require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
             // initialise reward amount
-            _rewardAmountWei = _initialiseRewardAmount(_proof.rewardEpochId, rewardClaim.amount);
+            _rewardAmountWei = _initialiseRewardAmount(rewardClaim.rewardEpochId, rewardClaim.amount);
             if (rewardClaim.claimType == ClaimType.FEE) {
-                uint256 burnFactor = _getBurnFactor(_proof.rewardEpochId, _rewardOwner);
+                uint256 burnFactor = _getBurnFactor(rewardClaim.rewardEpochId, _rewardOwner);
                 if (burnFactor > 0) {
                     // calculate burn amount
                     _burnAmountWei = Math.min(_rewardAmountWei, uint256(_rewardAmountWei).
@@ -631,29 +512,29 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                     // reduce reward amount
                     _rewardAmountWei -= _burnAmountWei; // _burnAmountWei <= _rewardAmountWei
                     // update total burned amount per epoch
-                    epochBurnedRewards[_proof.rewardEpochId] += _burnAmountWei;
+                    epochBurnedRewards[rewardClaim.rewardEpochId] += _burnAmountWei;
                     // emit event how much of the reward was burned
                     // TODO - different event?
                     emit RewardClaimed(
                         _rewardOwner,
                         _rewardOwner,
                         BURN_ADDRESS,
-                        _proof.rewardEpochId,
+                        rewardClaim.rewardEpochId,
                         ClaimType.FEE,
                         _burnAmountWei
                     );
                 }
             }
             // update total claimed amount per epoch
-            epochClaimedRewards[_proof.rewardEpochId] += _rewardAmountWei;
+            epochClaimedRewards[rewardClaim.rewardEpochId] += _rewardAmountWei;
             // mark as claimed
-            epochProcessedRewardClaims[_proof.rewardEpochId][claimHash] = true;
+            epochProcessedRewardClaims[rewardClaim.rewardEpochId][claimHash] = true;
             // emit event
             emit RewardClaimed(
                 _rewardOwner,
                 _rewardOwner,
                 _recipient,
-                _proof.rewardEpochId,
+                rewardClaim.rewardEpochId,
                 rewardClaim.claimType,
                 _rewardAmountWei
             );
@@ -662,21 +543,21 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
     function _initialiseWeightBasedClaim(RewardClaimWithProof calldata _proof) internal {
         RewardClaim calldata rewardClaim = _proof.body;
-        UnclaimedRewardState storage state =
-            epochTypeProviderUnclaimedReward[_proof.rewardEpochId][rewardClaim.claimType][rewardClaim.beneficiary];
+        UnclaimedRewardState storage state = epochTypeProviderUnclaimedReward
+            [rewardClaim.rewardEpochId][rewardClaim.claimType][address(rewardClaim.beneficiary)];
         if (!state.initialised) {
             // not initialised yet - check if valid merkle proof
-            bytes32 rewardsHash = flareSystemManager.rewardsHash(_proof.rewardEpochId);
+            bytes32 rewardsHash = flareSystemManager.rewardsHash(rewardClaim.rewardEpochId);
             bytes32 claimHash = keccak256(abi.encode(rewardClaim));
             require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
             // mark as initialised
             state.initialised = true;
             // initialise reward amount
-            state.amount = _initialiseRewardAmount(_proof.rewardEpochId, rewardClaim.amount);
+            state.amount = _initialiseRewardAmount(rewardClaim.rewardEpochId, rewardClaim.amount);
             // initialise weight
-            state.weight = _getVotePower(_proof.rewardEpochId, rewardClaim.beneficiary, rewardClaim.claimType);
+            state.weight = _getVotePower(rewardClaim.rewardEpochId, rewardClaim.beneficiary, rewardClaim.claimType);
             // increase the number of initialised weight based claims
-            epochNoOfInitialisedWeightBasedClaims[_proof.rewardEpochId] += 1;
+            epochNoOfInitialisedWeightBasedClaims[rewardClaim.rewardEpochId] += 1;
         }
     }
 
@@ -947,36 +828,13 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             _getContractAddress(_contractNameHashes, _contractAddresses, "WNat"));
     }
 
-    /**
-     * Returns fee percentage setting for `_dataProvider` at `_rewardEpochId`.
-     * @param _dataProvider         address representing a data provider
-     * @param _rewardEpochId          reward epoch number
-     */
-    function _getDataProviderFeePercentage(
-        address _dataProvider,
-        uint256 _rewardEpochId
-    )
-        internal view
-        returns (uint16)
-    {
-        FeePercentage[] storage fps = dataProviderFeePercentages[_dataProvider];
-        uint256 index = fps.length;
-        while (index > 0) {
-            index--;
-            if (_rewardEpochId >= fps[index].validFromEpochId) {
-                return fps[index].value;
-            }
-        }
-        return defaultFeePercentageBIPS;
-    }
-
     function _getBurnFactor(uint24 _rewardEpochId, address _rewardOwner) internal view returns(uint256) {
         return flareSystemManager.getRewardsFeeBurnFactor(_rewardEpochId, _rewardOwner);
     }
 
     function _getVotePower(
         uint24 _rewardEpochId,
-        address _beneficiary,
+        bytes20 _beneficiary,
         ClaimType _claimType
     )
         internal view
@@ -984,11 +842,11 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     {
         uint256 votePowerBlock = _getVotePowerBlock(_rewardEpochId);
         if (_claimType == ClaimType.WNAT) {
-            return wNat.votePowerOfAt(_beneficiary, votePowerBlock).toUint128(); // TODO check revocation
+            return wNat.votePowerOfAt(address(_beneficiary), votePowerBlock).toUint128(); // TODO check revocation
         } else if (_claimType == ClaimType.MIRROR) {
-            return pChainStakeMirror.votePowerOfAt(bytes20(_beneficiary), votePowerBlock).toUint128();
+            return pChainStakeMirror.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
         } else if (_claimType == ClaimType.CCHAIN) {
-            return cChainStake.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
+            return cChainStake.votePowerOfAt(address(_beneficiary), votePowerBlock).toUint128();
         } else {
             return 0;
         }

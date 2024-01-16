@@ -32,6 +32,7 @@ import {
   RewardManagerInstance,
   SigningPolicyWeightCalculatorContract,
   SigningPolicyWeightCalculatorInstance,
+  WNatDelegationFeeContract,
   WNatInstance,
 } from "../../typechain-truffle";
 
@@ -49,13 +50,10 @@ import {
   getSigningPolicyHash,
   FTSO_PROTOCOL_ID,
 } from "../tasks/run-simulation";
-import Web3 from "web3";
 import { getLogger } from "./logger";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from "./contract-helpers";
 import { PChainStakeMirrorContract } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/PChainStakeMirror";
-
-const RANDOM_ROOT = Web3.utils.keccak256("root");
-const GET_CURRENT_RANDOM_SELECTOR = Web3.utils.sha3("getCurrentRandom()")!.slice(0, 10);
+import { WNatDelegationFeeInstance } from "../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee";
 
 export interface DeployedContracts {
   readonly pChainStakeMirror: PChainStakeMirrorInstance;
@@ -73,6 +71,7 @@ export interface DeployedContracts {
   readonly rewardManager: RewardManagerInstance;
   readonly submission: SubmissionInstance;
   readonly relay: RelayInstance;
+  readonly wNatDelegationFee: WNatDelegationFeeInstance;
 }
 
 const logger = getLogger("contracts");
@@ -81,7 +80,7 @@ export async function deployContracts(
   accounts: Account[],
   hre: HardhatRuntimeEnvironment,
   governanceAccount: Account
-): Promise<[DeployedContracts, number]> {
+): Promise<[DeployedContracts, number, ISigningPolicy]> {
   const FLARE_DAEMON_ADDR = governanceAccount.address;
   const ADDRESS_UPDATER_ADDR = accounts[1].address;
   const CLEANER_CONTRACT_ADDR = accounts[2].address;
@@ -104,6 +103,7 @@ export async function deployContracts(
   const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
   const Submission: SubmissionContract = hre.artifacts.require("Submission");
   const CChainStake: CChainStakeContract = artifacts.require("CChainStake");
+  const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDelegationFee");
   const Relay: RelayContract = hre.artifacts.require("Relay");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
@@ -161,8 +161,6 @@ export async function deployContracts(
   const pChainVerifier = await PChainStakeMirrorVerifier.new(MULTI_SIG_VOTING_ADDR, RELAY_ADDR, 10, 1000, 5, 5000);
 
   const verifierMock = await MockContract.new();
-  const priceSubmitterMock = await MockContract.new();
-  await priceSubmitterMock.givenMethodReturnUint(GET_CURRENT_RANDOM_SELECTOR, RANDOM_ROOT);
 
   await pChainStakeMirror.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -237,12 +235,9 @@ export async function deployContracts(
   const rewardManager = await RewardManager.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
-    3,
-    2000
+    ADDRESS_UPDATER_ADDR
   );
 
-  await flareSystemManager.changeRandomProvider(true);
   const relay = await Relay.new(
     flareSystemManager.address,
     initialSigningPolicy.rewardEpochId,
@@ -262,6 +257,8 @@ export async function deployContracts(
     ADDRESS_UPDATER_ADDR,
     false
   );
+
+  const wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER_ADDR, 3, 2000);
 
   await pChainStakeMirror.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -306,11 +303,11 @@ export async function deployContracts(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
       Contracts.ENTITY_MANAGER,
-      Contracts.REWARD_MANAGER,
+      Contracts.WNAT_DELEGATION_FEE,
       Contracts.VOTER_REGISTRY,
       Contracts.P_CHAIN_STAKE_MIRROR,
       Contracts.WNAT]),
-    [ADDRESS_UPDATER_ADDR, entityManager.address, rewardManager.address, voterRegistry.address, pChainStakeMirror.address, wNat.address],
+    [ADDRESS_UPDATER_ADDR, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -320,9 +317,8 @@ export async function deployContracts(
       Contracts.VOTER_REGISTRY,
       Contracts.SUBMISSION,
       Contracts.RELAY,
-      Contracts.PRICE_SUBMITTER,
     ]),
-    [ADDRESS_UPDATER_ADDR, voterRegistry.address, submission.address, relay.address, priceSubmitterMock.address],
+    [ADDRESS_UPDATER_ADDR, voterRegistry.address, submission.address, relay.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -371,9 +367,10 @@ export async function deployContracts(
     rewardManager,
     submission,
     relay,
+    wNatDelegationFee
   };
 
-  return [contracts, rewardEpochStart];
+  return [contracts, rewardEpochStart, initialSigningPolicy];
 }
 
 export function serializeDeployedContractsAddresses(contracts: DeployedContracts, fname: string) {
