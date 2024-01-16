@@ -1179,7 +1179,7 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.setRewardsHash(1, 2, keccak256("rewards hash"));
     }
 
-    function testSetRewardshash() public {
+    function testSetRewardsHash() public {
         // end reward epoch 0
         _initializeSigningPolicy(1);
         vm.mockCall(
