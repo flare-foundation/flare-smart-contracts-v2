@@ -6,7 +6,7 @@ import privateKeys from "../../deployment/test-1020-accounts.json";
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { ECDSASignatureWithIndex } from "../../scripts/libs/protocol/ECDSASignatureWithIndex";
 import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
-import { AddressBinderInstance, EntityManagerInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance } from '../../typechain-truffle';
+import { AddressBinderInstance, EntityManagerInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance } from '../../typechain-truffle';
 import { MockContractContract } from '../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract';
 import { CChainStakeContract, CChainStakeInstance } from '../../typechain-truffle/contracts/mock/CChainStake';
 import { GovernanceVotePowerContract } from '../../typechain-truffle/contracts/mock/GovernanceVotePower';
@@ -28,6 +28,10 @@ import { encodeContractNames, toBN } from '../utils/test-helpers';
 import { SigningPolicyWeightCalculatorContract, SigningPolicyWeightCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/SigningPolicyWeightCalculator';
 import { RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
 import { WNatDelegationFeeContract, WNatDelegationFeeInstance } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
+import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
+import { FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
+import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
+import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -45,6 +49,9 @@ const Submission: SubmissionContract = artifacts.require("Submission");
 const Relay: RelayContract = artifacts.require("Relay");
 const CChainStake: CChainStakeContract = artifacts.require("CChainStake");
 const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDelegationFee");
+const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifacts.require("FtsoInflationConfigurations");
+const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
+const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
 
 type PChainStake = {
     txId: string,
@@ -98,6 +105,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let relay2: RelayInstance;
     let cChainStake: CChainStakeInstance;
     let wNatDelegationFee: WNatDelegationFeeInstance;
+    let ftsoInflationConfigurations: FtsoInflationConfigurationsInstance;
+    let ftsoRewardOffersManager: FtsoRewardOffersManagerInstance;
+    let ftsoFeedDecimals: FtsoFeedDecimalsInstance;
 
     let initialSigningPolicy: ISigningPolicy;
     let newSigningPolicy: ISigningPolicy;
@@ -125,6 +135,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     const ADDRESS_UPDATER = accounts[16];
     const CLEANUP_BLOCK_NUMBER_MANAGER = accounts[17];
     const CLAIM_SETUP_MANAGER = accounts[18];
+    const INFLATION = accounts[19];
 
     before(async () => {
         pChainStakeMirror = await PChainStakeMirror.new(
@@ -242,7 +253,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
 
-        wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER, 3, 2000);
+        wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER, 2, 2000);
+
+        ftsoInflationConfigurations = await FtsoInflationConfigurations.new(governanceSettings.address, accounts[0]);
+
+        ftsoRewardOffersManager = await FtsoRewardOffersManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100);
+
+        ftsoFeedDecimals = await FtsoFeedDecimals.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2, 5);
 
         // update contract addresses
         await pChainStakeMirror.updateContractAddresses(
@@ -273,6 +290,48 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.RELAY]),
             [ADDRESS_UPDATER, flareSystemManager.address, relay.address], { from: ADDRESS_UPDATER });
 
+        await wNatDelegationFee.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
+            [ADDRESS_UPDATER, flareSystemManager.address], { from: ADDRESS_UPDATER });
+
+        await ftsoRewardOffersManager.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.REWARD_MANAGER, Contracts.FTSO_INFLATION_CONFIGURATIONS, Contracts.FTSO_FEED_DECIMALS, Contracts.INFLATION]),
+            [ADDRESS_UPDATER, flareSystemManager.address, rewardManager.address, ftsoInflationConfigurations.address, ftsoFeedDecimals.address, INFLATION], { from: ADDRESS_UPDATER });
+
+        await ftsoFeedDecimals.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
+            [ADDRESS_UPDATER, flareSystemManager.address], { from: ADDRESS_UPDATER });
+
+        // set reward offers manager list
+        await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address]);
+
+        // send some inflation funds
+        const inflationFunds = web3.utils.toWei("200000");
+        await ftsoRewardOffersManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION });
+        await ftsoRewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION });
+
+        // set rewards offer switchover trigger contracts
+        await flareSystemManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address]);
+
+        // set ftso configurations
+        await ftsoInflationConfigurations.addFtsoConfiguration(
+            {
+                feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "XRP", "FLR", "ETH"]),
+                inflationShare: 200,
+                mode: 0,
+                primaryBandRewardSharePPM: 700000,
+                secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([400, 800, 100, 250])
+            }
+        );
+        await ftsoInflationConfigurations.addFtsoConfiguration(
+            {
+                feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "LTC"]),
+                inflationShare: 100,
+                mode: 0,
+                primaryBandRewardSharePPM: 600000,
+                secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([200, 1000])
+            }
+        );
 
         // activate contracts
         await pChainStakeMirror.activate();
@@ -449,7 +508,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC));
         expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
         const tx = await flareSystemManager.daemonize();
+        expectEvent(tx, "RewardEpochStarted");
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
+        await expectEvent.inTransaction(tx.tx, ftsoRewardOffersManager, "InflationRewardsOffered");
     });
 
     it("Should commit", async () => {

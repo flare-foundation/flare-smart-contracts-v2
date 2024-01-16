@@ -1058,11 +1058,14 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.setRewardsHash(1, 2, keccak256("rewards hash"));
     }
 
-    function testRevertSetRewardsHashAlreadySigned() public {
+    function testUpdateRewardsHash() public {
         testSignRewards();
+        uint64 noOfWeightBasedClaims = 1;
         vm.prank(governance);
-        vm.expectRevert("rewards hash already signed");
-        flareSystemManager.setRewardsHash(1, 2, keccak256("rewards hash"));
+        vm.expectEmit();
+        emit RewardsSigned(1, governance, governance,
+            keccak256("rewards hash2"), noOfWeightBasedClaims, uint64(block.timestamp), true);
+        flareSystemManager.setRewardsHash(1, noOfWeightBasedClaims, keccak256("rewards hash2"));
     }
 
     function testSetRewardshash() public {

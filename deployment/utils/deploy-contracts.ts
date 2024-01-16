@@ -24,6 +24,12 @@ import { EntityManagerContract } from "../../typechain-truffle/contracts/protoco
 import {
   AddressBinderInstance,
   EntityManagerInstance,
+  FtsoFeedDecimalsContract,
+  FtsoFeedDecimalsInstance,
+  FtsoInflationConfigurationsContract,
+  FtsoInflationConfigurationsInstance,
+  FtsoRewardOffersManagerContract,
+  FtsoRewardOffersManagerInstance,
   GovernanceVotePowerInstance,
   MockContractInstance,
   PChainStakeMirrorInstance,
@@ -54,6 +60,7 @@ import { getLogger } from "./logger";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from "./contract-helpers";
 import { PChainStakeMirrorContract } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/PChainStakeMirror";
 import { WNatDelegationFeeInstance } from "../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee";
+import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 
 export interface DeployedContracts {
   readonly pChainStakeMirror: PChainStakeMirrorInstance;
@@ -72,6 +79,9 @@ export interface DeployedContracts {
   readonly submission: SubmissionInstance;
   readonly relay: RelayInstance;
   readonly wNatDelegationFee: WNatDelegationFeeInstance;
+  readonly ftsoInflationConfigurations: FtsoInflationConfigurationsInstance;
+  readonly ftsoRewardOffersManager: FtsoRewardOffersManagerInstance;
+  readonly ftsoFeedDecimals: FtsoFeedDecimalsInstance; 
 }
 
 const logger = getLogger("contracts");
@@ -88,6 +98,7 @@ export async function deployContracts(
   const MULTI_SIG_VOTING_ADDR = accounts[4].address;
   const RELAY_ADDR = accounts[5].address;
   const CLAIM_SETUP_MANAGER_ADDR = accounts[5].address;
+  const INFLATION_ADDR = accounts[5].address;
 
   const MockContract: MockContractContract = hre.artifacts.require("MockContract");
   const WNat: WNatContract = hre.artifacts.require("WNat");
@@ -104,6 +115,9 @@ export async function deployContracts(
   const Submission: SubmissionContract = hre.artifacts.require("Submission");
   const CChainStake: CChainStakeContract = artifacts.require("CChainStake");
   const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDelegationFee");
+  const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifacts.require("FtsoInflationConfigurations");
+  const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
+  const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
   const Relay: RelayContract = hre.artifacts.require("Relay");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
@@ -258,7 +272,31 @@ export async function deployContracts(
     false
   );
 
-  const wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER_ADDR, 3, 2000);
+  const wNatDelegationFee = await WNatDelegationFee.new(
+    ADDRESS_UPDATER_ADDR,
+    2,
+    2000
+  );
+
+  const ftsoInflationConfigurations = await FtsoInflationConfigurations.new(
+    governanceSettings.address,
+    governanceAccount.address
+  );
+
+  const ftsoRewardOffersManager = await FtsoRewardOffersManager.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    100
+  );
+
+  const ftsoFeedDecimals = await FtsoFeedDecimals.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    2,
+    5
+  );
 
   await pChainStakeMirror.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -334,11 +372,66 @@ export async function deployContracts(
     { from: ADDRESS_UPDATER_ADDR }
   );
 
-
   await submission.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.RELAY]),
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEM_MANAGER,
+      Contracts.RELAY]),
     [ADDRESS_UPDATER_ADDR, flareSystemManager.address, relay.address],
     { from: ADDRESS_UPDATER_ADDR }
+  );
+
+  await wNatDelegationFee.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEM_MANAGER]),
+    [ADDRESS_UPDATER_ADDR, flareSystemManager.address], { from: ADDRESS_UPDATER_ADDR });
+
+  await ftsoRewardOffersManager.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEM_MANAGER,
+      Contracts.REWARD_MANAGER,
+      Contracts.FTSO_INFLATION_CONFIGURATIONS,
+      Contracts.FTSO_FEED_DECIMALS,
+      Contracts.INFLATION]),
+    [ADDRESS_UPDATER_ADDR, flareSystemManager.address, rewardManager.address, ftsoInflationConfigurations.address, ftsoFeedDecimals.address, INFLATION_ADDR], { from: ADDRESS_UPDATER_ADDR });
+
+  await ftsoFeedDecimals.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEM_MANAGER]),
+    [ADDRESS_UPDATER_ADDR, flareSystemManager.address], { from: ADDRESS_UPDATER_ADDR });
+
+  // set reward offers manager list
+  await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address]);
+
+  // send some inflation funds
+  const inflationFunds = hre.web3.utils.toWei("200000");
+  await ftsoRewardOffersManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION_ADDR });
+  await ftsoRewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION_ADDR });
+
+  // set rewards offer switchover trigger contracts
+  await flareSystemManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address]);
+
+  // set ftso configurations
+  await ftsoInflationConfigurations.addFtsoConfiguration(
+    {
+        feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "XRP", "FLR", "ETH"]),
+        inflationShare: 200,
+        mode: 0,
+        primaryBandRewardSharePPM: 700000,
+        secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([400, 800, 100, 250])
+    }
+  );
+  await ftsoInflationConfigurations.addFtsoConfiguration(
+    {
+        feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "LTC"]),
+        inflationShare: 100,
+        mode: 0,
+        primaryBandRewardSharePPM: 600000,
+        secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([200, 1000])
+    }
   );
 
   await pChainStakeMirror.setCleanerContract(CLEANER_CONTRACT_ADDR);
@@ -367,7 +460,10 @@ export async function deployContracts(
     rewardManager,
     submission,
     relay,
-    wNatDelegationFee
+    wNatDelegationFee,
+    ftsoInflationConfigurations,
+    ftsoRewardOffersManager,
+    ftsoFeedDecimals
   };
 
   return [contracts, rewardEpochStart, initialSigningPolicy];

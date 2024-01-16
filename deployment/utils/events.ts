@@ -12,7 +12,7 @@ export function decodeLogs(
   response: Truffle.TransactionResponse<Truffle.AnyEvent>,
   emitter: Truffle.ContractInstance,
   eventName: string
-): Truffle.TransactionLog<never> {
+): Truffle.TransactionLog<never>[] {
   const logs: any[] = response.receipt.rawLogs;
 
   let abi: any[];
@@ -37,5 +37,5 @@ export function decodeLogs(
   return logs
     .filter(log => log.topics.length > 0 && log.topics[0] === eventTopic && (!address || log.address === address))
     .map(log => web3.eth.abi.decodeLog(eventABI.inputs, log.data, log.topics.slice(1)))
-    .map(decoded => ({ event: eventName, args: decoded }))[0] as any;
+    .map(decoded => ({ event: eventName, args: decoded })) as any;
 }

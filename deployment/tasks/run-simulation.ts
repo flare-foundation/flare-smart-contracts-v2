@@ -132,6 +132,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     submission: c.submission.address,
     flareSystemManager: c.flareSystemManager.address,
     voterRegistry: c.voterRegistry.address,
+    ftsoRewardOffersManager: c.ftsoRewardOffersManager.address,
   });
 
   logger.info(`Starting a mock c-chain indexer, data is recorded to SQLite database at ${sqliteDatabase}`);
@@ -215,10 +216,16 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
       for (const log of response.logs) {
         await processLog(log, blockTimestamp, events);
       }
+      const logs = decodeRawLogs(response, c.ftsoRewardOffersManager, "InflationRewardsOffered");
+      for (const log of logs) {
+        await processLog(log, blockTimestamp, events);
+      }
     } else {
       // For events emitted by the Relay (Truffle won't decode it automatically).
-      const log = decodeRawLogs(response, c.relay, "SigningPolicyInitialized");
-      if (log !== undefined) await processLog(log, blockTimestamp, events);
+      const logs = decodeRawLogs(response, c.relay, "SigningPolicyInitialized");
+      for (const log of logs) {
+        await processLog(log, blockTimestamp, events);
+      }
     }
     await sleep(500);
   }
@@ -548,7 +555,7 @@ async function defineInitialSigningPolicy(
   );
 
   const resp3 = await c.flareSystemManager.daemonize();
-  const eventLog = decodeRawLogs(resp3, c.relay, "SigningPolicyInitialized");
+  const eventLog = decodeRawLogs(resp3, c.relay, "SigningPolicyInitialized")[0];
 
   if (eventLog.event != "SigningPolicyInitialized") {
     throw new Error("Expected signing policy to be initialized");
