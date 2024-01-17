@@ -6,24 +6,33 @@ import "../interface/IWNat.sol";
 import "./EntityManager.sol";
 import "./WNatDelegationFee.sol";
 import "./VoterRegistry.sol";
+import "./FlareSystemManager.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 
-contract SigningPolicyWeightCalculator is Governed, AddressUpdatable {
+contract FlareSystemCalculator is Governed, AddressUpdatable {
 
     uint256 internal constant PPM_MAX = 1e6;
 
     // Addresses of the external contracts.
+    FlareSystemManager public flareSystemManager;
     EntityManager public entityManager;
     WNatDelegationFee public wNatDelegationFee;
     VoterRegistry public voterRegistry;
     IPChainStakeMirror public pChainStakeMirror;
     IWNat public wNat;
-    uint24 public wNatCapPPM;
+
+    uint24 public wNatCapPPM; // 2.5%
+    /// non-punishable time to sign new signing policy
+    uint64 public signingPolicySignNonPunishableDurationSeconds; // 20 minutes
+    /// number of non-punishable blocks to sign new signing policy
+    uint64 public signingPolicySignNonPunishableDurationBlocks; // 600
+    /// number of blocks (in addition to non-punishable blocks) after which all rewards are burned
+    uint64 public signingPolicySignNoRewardsDurationBlocks; // 600
 
     event VoterRegistrationInfo(
         address voter,
-        uint256 rewardEpochId,
+        uint24 rewardEpochId,
         uint256 wNatWeight,
         uint256 wNatCappedWeight,
         bytes20[] nodeIds,
@@ -40,27 +49,33 @@ contract SigningPolicyWeightCalculator is Governed, AddressUpdatable {
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
-        uint24 _wNatCapPPM
+        uint24 _wNatCapPPM,
+        uint64 _signingPolicySignNonPunishableDurationSeconds,
+        uint64 _signingPolicySignNonPunishableDurationBlocks,
+        uint64 _signingPolicySignNoRewardsDurationBlocks
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
         require(_wNatCapPPM <= PPM_MAX, "_wNatCapPPM too high");
         wNatCapPPM = _wNatCapPPM;
+        signingPolicySignNonPunishableDurationSeconds = _signingPolicySignNonPunishableDurationSeconds;
+        signingPolicySignNonPunishableDurationBlocks = _signingPolicySignNonPunishableDurationBlocks;
+        signingPolicySignNoRewardsDurationBlocks = _signingPolicySignNoRewardsDurationBlocks;
     }
 
-    function calculateWeight(
+    function calculateRegistrationWeight(
         address _voter,
         address _delegationAddress,
-        uint256 _rewardEpochId,
+        uint24 _rewardEpochId,
         uint256 _votePowerBlockNumber
     )
         external onlyVoterRegistry
-        returns (uint256 _signingPolicyWeight)
+        returns (uint256 _registrationWeight)
     {
         bytes20[] memory nodeIds = entityManager.getNodeIdsOfAt(_voter, _votePowerBlockNumber);
         uint256[] memory nodeWeights = pChainStakeMirror.batchVotePowerOfAt(nodeIds, _votePowerBlockNumber);
         for (uint256 i = 0; i < nodeWeights.length; i++) {
-            _signingPolicyWeight += nodeWeights[i];
+            _registrationWeight += nodeWeights[i];
         }
 
         uint256 totalWNatVotePower = wNat.totalVotePowerAt(_votePowerBlockNumber);
@@ -69,8 +84,8 @@ contract SigningPolicyWeightCalculator is Governed, AddressUpdatable {
         uint256 wNatCappedWeight = Math.min(wNatWeightCap, wNatWeight);
         uint16 delegationFeeBIPS = wNatDelegationFee.getVoterFeePercentage(_voter, _rewardEpochId);
 
-        _signingPolicyWeight = _sqrt(_signingPolicyWeight + wNatCappedWeight);
-        _signingPolicyWeight *= _sqrt(_signingPolicyWeight);
+        _registrationWeight = _sqrt(_registrationWeight + wNatCappedWeight);
+        _registrationWeight *= _sqrt(_registrationWeight);
 
         emit VoterRegistrationInfo(
             _voter,
@@ -92,6 +107,36 @@ contract SigningPolicyWeightCalculator is Governed, AddressUpdatable {
         wNatCapPPM = _wNatCapPPM;
     }
 
+    function calculateBurnFactorPPM(uint24 _rewardEpochId, address _voter) external view returns(uint256) {
+        (uint64 startTs, uint64 startBlock, uint64 endTs, uint64 endBlock) =
+            flareSystemManager.getSigningPolicySignInfo(_rewardEpochId);
+        require(endTs != 0, "signing policy not signed yet");
+        if (endTs - startTs <= signingPolicySignNonPunishableDurationSeconds) {
+            return 0;
+        }
+        uint64 lastNonPunishableBlock = startBlock + signingPolicySignNonPunishableDurationBlocks;
+        if (endBlock <= lastNonPunishableBlock) {
+            return 0;
+        }
+        // signing policy not signed on time, check when/if voter signed
+        (, uint64 signBlock) = flareSystemManager.getVoterSigningPolicySignInfo(_rewardEpochId, _voter);
+        if (signBlock == 0) {
+            signBlock = endBlock; // voter did not sign
+        }
+        if (signBlock <= lastNonPunishableBlock) {
+            return 0; // voter signed on time
+        }
+        // voter will be punished
+        uint256 punishableBlocks = signBlock - lastNonPunishableBlock; // signBlock > lastNonPunishableBlock
+        if (punishableBlocks >= signingPolicySignNoRewardsDurationBlocks) {
+            return PPM_MAX; // all rewards should be burned
+        }
+
+        uint256 linearBurnFactor = punishableBlocks * PPM_MAX / signingPolicySignNoRewardsDurationBlocks; // < PPM_MAX
+        // quadratic burn factor
+        return linearBurnFactor * linearBurnFactor / PPM_MAX; // < PPM_MAX
+    }
+
     function sqrt(uint256 x) external pure returns (uint128) {
         return _sqrt(x);
     }
@@ -105,6 +150,8 @@ contract SigningPolicyWeightCalculator is Governed, AddressUpdatable {
     )
         internal override
     {
+        flareSystemManager = FlareSystemManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
         entityManager = EntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
         wNatDelegationFee = WNatDelegationFee(
             _getContractAddress(_contractNameHashes, _contractAddresses, "WNatDelegationFee"));

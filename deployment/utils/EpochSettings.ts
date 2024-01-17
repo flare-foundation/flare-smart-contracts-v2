@@ -5,11 +5,9 @@ export class EpochSettings {
     readonly firstVotingEpochStartSec: number,
     readonly votingEpochDurationSec: number,
 
-    // TODO: Incorporate block configs as well
     readonly newSigningPolicyInitializationStartSeconds: number,
-    readonly nonPunishableRandomAcquisitionMinDurationSeconds: number,
     readonly voterRegistrationMinDurationSeconds: number,
-    readonly nonPunishableSigningPolicySignMinDurationSeconds: number
+    readonly voterRegistrationMinDurationBlocks: number
   ) {}
 
   votingEpochForTime(unixMilli: number): number {

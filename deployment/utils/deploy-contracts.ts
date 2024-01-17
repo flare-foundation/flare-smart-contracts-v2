@@ -1,49 +1,47 @@
 import fs from "fs";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { ISigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
 import {
-  VoterRegistryContract,
-  VoterRegistryInstance,
-} from "../../typechain-truffle/contracts/protocol/implementation/VoterRegistry";
-import {
+  AddressBinderContract,
+  AddressBinderInstance,
+  CChainStakeContract,
+  CChainStakeInstance,
+  EntityManagerContract,
+  EntityManagerInstance,
+  FlareSystemCalculatorContract,
+  FlareSystemCalculatorInstance,
   FlareSystemManagerContract,
   FlareSystemManagerInstance,
-} from "../../typechain-truffle/contracts/protocol/implementation/FlareSystemManager";
-import {
-  SubmissionContract,
-  SubmissionInstance,
-} from "../../typechain-truffle/contracts/protocol/implementation/Submission";
-import { RelayContract, RelayInstance } from "../../typechain-truffle/contracts/protocol/implementation/Relay";
-import { ISigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
-import { VPContractInstance } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/VPContract";
-import { WNatContract } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/WNat";
-import { MockContractContract } from "../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract";
-import { GovernanceVotePowerContract } from "../../typechain-truffle/contracts/mock/GovernanceVotePower";
-import { AddressBinderContract } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressBinder";
-import { VPContractContract } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/VPContract";
-import { EntityManagerContract } from "../../typechain-truffle/contracts/protocol/implementation/EntityManager";
-import {
-  AddressBinderInstance,
-  EntityManagerInstance,
   FtsoFeedDecimalsContract,
   FtsoFeedDecimalsInstance,
   FtsoInflationConfigurationsContract,
   FtsoInflationConfigurationsInstance,
   FtsoRewardOffersManagerContract,
   FtsoRewardOffersManagerInstance,
+  GovernanceVotePowerContract,
   GovernanceVotePowerInstance,
+  MockContractContract,
   MockContractInstance,
+  PChainStakeMirrorContract,
   PChainStakeMirrorInstance,
+  PChainStakeMirrorVerifierContract,
   PChainStakeMirrorVerifierInstance,
+  RelayContract,
+  RelayInstance,
   RewardManagerContract,
   RewardManagerInstance,
-  SigningPolicyWeightCalculatorContract,
-  SigningPolicyWeightCalculatorInstance,
+  SubmissionContract,
+  SubmissionInstance,
+  VPContractContract,
+  VPContractInstance,
+  VoterRegistryContract,
+  VoterRegistryInstance,
+  WNatContract,
   WNatDelegationFeeContract,
+  WNatDelegationFeeInstance,
   WNatInstance,
 } from "../../typechain-truffle";
 
-import { PChainStakeMirrorVerifierContract } from "../../typechain-truffle/contracts/protocol/implementation/PChainStakeMirrorVerifier";
-import { CChainStakeContract, CChainStakeInstance } from "../../typechain-truffle/contracts/mock/CChainStake";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { Contracts } from "../scripts/Contracts";
 import { Account } from "web3-core";
@@ -58,8 +56,6 @@ import {
 } from "../tasks/run-simulation";
 import { getLogger } from "./logger";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from "./contract-helpers";
-import { PChainStakeMirrorContract } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/PChainStakeMirror";
-import { WNatDelegationFeeInstance } from "../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 
 export interface DeployedContracts {
@@ -73,7 +69,7 @@ export interface DeployedContracts {
   readonly verifierMock: MockContractInstance;
   readonly entityManager: EntityManagerInstance;
   readonly voterRegistry: VoterRegistryInstance;
-  readonly signingPolicyWeightCalculator: SigningPolicyWeightCalculatorInstance;
+  readonly flareSystemCalculator: FlareSystemCalculatorInstance;
   readonly flareSystemManager: FlareSystemManagerInstance;
   readonly rewardManager: RewardManagerInstance;
   readonly submission: SubmissionInstance;
@@ -81,7 +77,7 @@ export interface DeployedContracts {
   readonly wNatDelegationFee: WNatDelegationFeeInstance;
   readonly ftsoInflationConfigurations: FtsoInflationConfigurationsInstance;
   readonly ftsoRewardOffersManager: FtsoRewardOffersManagerInstance;
-  readonly ftsoFeedDecimals: FtsoFeedDecimalsInstance; 
+  readonly ftsoFeedDecimals: FtsoFeedDecimalsInstance;
 }
 
 const logger = getLogger("contracts");
@@ -109,7 +105,7 @@ export async function deployContracts(
   const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = artifacts.require("PChainStakeMirrorVerifier");
   const EntityManager: EntityManagerContract = hre.artifacts.require("EntityManager");
   const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
-  const SigningPolicyWeightCalculator: SigningPolicyWeightCalculatorContract = artifacts.require("SigningPolicyWeightCalculator");
+  const FlareSystemCalculator: FlareSystemCalculatorContract = artifacts.require("FlareSystemCalculator");
   const FlareSystemManager: FlareSystemManagerContract = artifacts.require("FlareSystemManager");
   const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
   const Submission: SubmissionContract = hre.artifacts.require("Submission");
@@ -218,11 +214,14 @@ export async function deployContracts(
     initialWeights
   );
 
-  const signingPolicyWeightCalculator = await SigningPolicyWeightCalculator.new(
+  const flareSystemCalculator = await FlareSystemCalculator.new(
     governanceSettings.address,
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
-    2500
+    2500,
+    200,
+    100,
+    100
   );
 
   const initialSigningPolicy: ISigningPolicy = {
@@ -331,21 +330,22 @@ export async function deployContracts(
       Contracts.ADDRESS_UPDATER,
       Contracts.FLARE_SYSTEM_MANAGER,
       Contracts.ENTITY_MANAGER,
-      Contracts.SIGNING_POLICY_WEIGHT_CALCULATOR,
+      Contracts.FLARE_SYSTEM_CALCULATOR,
     ]),
-    [ADDRESS_UPDATER_ADDR, flareSystemManager.address, entityManager.address, signingPolicyWeightCalculator.address],
+    [ADDRESS_UPDATER_ADDR, flareSystemManager.address, entityManager.address, flareSystemCalculator.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
-  await signingPolicyWeightCalculator.updateContractAddresses(
+  await flareSystemCalculator.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEM_MANAGER,
       Contracts.ENTITY_MANAGER,
       Contracts.WNAT_DELEGATION_FEE,
       Contracts.VOTER_REGISTRY,
       Contracts.P_CHAIN_STAKE_MIRROR,
       Contracts.WNAT]),
-    [ADDRESS_UPDATER_ADDR, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address],
+    [ADDRESS_UPDATER_ADDR, flareSystemManager.address, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -366,9 +366,10 @@ export async function deployContracts(
       Contracts.VOTER_REGISTRY,
       Contracts.CLAIM_SETUP_MANAGER,
       Contracts.FLARE_SYSTEM_MANAGER,
+      Contracts.FLARE_SYSTEM_CALCULATOR,
       Contracts.P_CHAIN_STAKE_MIRROR,
       Contracts.WNAT]),
-    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemManager.address, pChainStakeMirror.address, wNat.address],
+    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemManager.address, flareSystemCalculator.address, pChainStakeMirror.address, wNat.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -455,7 +456,7 @@ export async function deployContracts(
     verifierMock,
     entityManager,
     voterRegistry,
-    signingPolicyWeightCalculator,
+    flareSystemCalculator,
     flareSystemManager,
     rewardManager,
     submission,

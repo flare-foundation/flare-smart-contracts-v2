@@ -55,29 +55,77 @@ export namespace FtsoConfigurations {
   }
 
   /**
-   * Decodes feed names from byte encoding, represented by 0x-prefixed hex string
-   * @param encodedFeedNames
+   * Decodes secondary band width PPMs from byte encoding, represented by 0x-prefixed hex string
+   * @param encodedSecondaryBandWidthPPMs
    * @returns
    */
-  export function decodeSecondaryBandWidthPPMs(encodeSecondaryBandWidthPPMs: string): number[] {
-    const encodeSecondaryBandWidthPPMsInternal = encodeSecondaryBandWidthPPMs.startsWith("0x")
-      ? encodeSecondaryBandWidthPPMs.slice(2)
-      : encodeSecondaryBandWidthPPMs;
-    if (!/^[0-9a-f]*$/.test(encodeSecondaryBandWidthPPMsInternal)) {
-      throw Error(`Invalid format - not hex string: ${encodeSecondaryBandWidthPPMs}`);
+  export function decodeSecondaryBandWidthPPMs(encodedSecondaryBandWidthPPMs: string): number[] {
+    const encodedSecondaryBandWidthPPMsInternal = encodedSecondaryBandWidthPPMs.startsWith("0x")
+      ? encodedSecondaryBandWidthPPMs.slice(2)
+      : encodedSecondaryBandWidthPPMs;
+    if (!/^[0-9a-f]*$/.test(encodedSecondaryBandWidthPPMsInternal)) {
+      throw Error(`Invalid format - not hex string: ${encodedSecondaryBandWidthPPMs}`);
     }
-    if (encodeSecondaryBandWidthPPMsInternal.length % 6 != 0) {
-      throw Error(`Invalid format - wrong length: ${encodeSecondaryBandWidthPPMs}`);
+    if (encodedSecondaryBandWidthPPMsInternal.length % 6 != 0) {
+      throw Error(`Invalid format - wrong length: ${encodedSecondaryBandWidthPPMs}`);
     }
     const result: number[] = [];
-    for (let i = 0; i < encodeSecondaryBandWidthPPMsInternal.length / 6; i++) {
-      const value = parseInt(encodeSecondaryBandWidthPPMsInternal.slice(i * 6, (i + 1) * 6), 16);
+    for (let i = 0; i < encodedSecondaryBandWidthPPMsInternal.length / 6; i++) {
+      const value = parseInt(encodedSecondaryBandWidthPPMsInternal.slice(i * 6, (i + 1) * 6), 16);
       if (value < 0 || value > 1000000) {
         throw Error(`Invalid secondary band width PPM: ${value}`);
       }
       result[i] = value;
     }
 
+    return result;
+  }
+
+  /**
+   * Encodes decimals into byte encoding, represented by 0x-prefixed hex string
+   * @param values
+   * @returns
+   */
+  export function encodeDecimals(values: number[]): string {
+    let result = "0x";
+    for (let value of values) {
+      if (value < -(2**7) || value >= 2**7) {
+        throw Error(`Invalid decimals: ${value}`);
+      }
+      if (value < 0) {
+        value += 2**8;
+      }
+      result += value.toString(16).padStart(2, "0");
+    }
+    return result;
+  }
+
+  /**
+   * Decodes decimals from byte encoding, represented by 0x-prefixed hex string
+   * @param encodedDecimals
+   * @returns
+   */
+  export function decodeDecimals(encodedDecimals: string): number[] {
+    const encodedDecimalsInternal = encodedDecimals.startsWith("0x")
+      ? encodedDecimals.slice(2)
+      : encodedDecimals;
+    if (!/^[0-9a-f]*$/.test(encodedDecimalsInternal)) {
+      throw Error(`Invalid format - not hex string: ${encodedDecimals}`);
+    }
+    if (encodedDecimalsInternal.length % 2 != 0) {
+      throw Error(`Invalid format - wrong length: ${encodedDecimals}`);
+    }
+    const result: number[] = [];
+    for (let i = 0; i < encodedDecimalsInternal.length / 2; i++) {
+      let value = parseInt(encodedDecimalsInternal.slice(i * 2, (i + 1) * 2), 16);
+      if (value < 0 || value >= 2**8) { // can never happen
+        throw Error(`Invalid decimals: ${value}`);
+      }
+      if (value >= 2**7) {
+        value -= 2**8;
+      }
+      result[i] = value;
+    }
     return result;
   }
 }
