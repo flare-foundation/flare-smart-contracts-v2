@@ -59,12 +59,8 @@ export const systemSettings = function (now: number) {
     firstRewardEpochStartVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
     rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
     newSigningPolicyInitializationStartSeconds: 40,
-    nonPunishableRandomAcquisitionMinDurationSeconds: 10,
-    nonPunishableRandomAcquisitionMinDurationBlocks: 1,
     voterRegistrationMinDurationSeconds: 10,
     voterRegistrationMinDurationBlocks: 1,
-    nonPunishableSigningPolicySignMinDurationSeconds: 10,
-    nonPunishableSigningPolicySignMinDurationBlocks: 1,
     signingPolicyThresholdPPM: 500000,
     signingPolicyMinNumberOfVoters: 2,
   };
@@ -150,9 +146,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     (await c.flareSystemManager.firstVotingRoundStartTs()).toNumber(),
     (await c.flareSystemManager.votingEpochDurationSeconds()).toNumber(),
     (await c.flareSystemManager.newSigningPolicyInitializationStartSeconds()).toNumber(),
-    (await c.flareSystemManager.nonPunishableRandomAcquisitionMinDurationSeconds()).toNumber(),
     (await c.flareSystemManager.voterRegistrationMinDurationSeconds()).toNumber(),
-    (await c.flareSystemManager.nonPunishableSigningPolicySignMinDurationSeconds()).toNumber()
+    (await c.flareSystemManager.voterRegistrationMinDurationBlocks()).toNumber()
   );
   logger.info(`EpochSettings:\n${JSON.stringify(epochSettings, null, 2)}`);
   fs.writeFileSync(SETTINGS_FILE_LOCATION, JSON.stringify(epochSettings, null, 2));
@@ -539,7 +534,9 @@ async function defineInitialSigningPolicy(
 
   await runVotingRound(c, signingPolicies, [governance], epochSettings, events, web3, await time.latest() * 1000);
 
-  await time.increase(epochSettings.nonPunishableRandomAcquisitionMinDurationSeconds);
+  await time.increaseTo(
+    rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds / 2)
+  );
 
   const resp2 = await c.flareSystemManager.daemonize();
   if (resp2.logs[0]?.event != "VotePowerBlockSelected") {
@@ -551,7 +548,7 @@ async function defineInitialSigningPolicy(
   }
 
   await time.increaseTo(
-    rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.nonPunishableSigningPolicySignMinDurationSeconds)
+    rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds / 2 + epochSettings.voterRegistrationMinDurationSeconds + 1)
   );
 
   const resp3 = await c.flareSystemManager.daemonize();

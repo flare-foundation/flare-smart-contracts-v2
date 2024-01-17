@@ -103,12 +103,8 @@ contract FlareSystemManagerTest is Test {
             0,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             3600 * 2,
-            75 * 60,
-            2250,
             30 * 60,
             20,
-            20 * 60,
-            600,
             500000,
             2
         );

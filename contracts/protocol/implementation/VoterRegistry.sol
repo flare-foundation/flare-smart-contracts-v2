@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import "./EntityManager.sol";
 import "./FlareSystemManager.sol";
-import "./SigningPolicyWeightCalculator.sol";
+import "./FlareSystemCalculator.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../utils/lib/SafePct.sol";
@@ -48,7 +48,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     // Addresses of the external contracts.
     FlareSystemManager public flareSystemManager;
     EntityManager public entityManager;
-    SigningPolicyWeightCalculator public signingPolicyWeightCalculator;
+    FlareSystemCalculator public flareSystemCalculator;
 
     string public systemRegistrationContractName;
     address public systemRegistrationContractAddress;
@@ -57,7 +57,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     event VoterRemoved(address voter, uint256 rewardEpochId);
     event VoterRegistered(
         address voter,
-        uint256 rewardEpochId,
+        uint24 rewardEpochId,
         address signingPolicyAddress,
         address delegationAddress,
         address submitAddress,
@@ -108,7 +108,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
      * Register voter
      */
     function registerVoter(address _voter, Signature calldata _signature) external {
-        (uint256 rewardEpochId, EntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
+        (uint24 rewardEpochId, EntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
         // check signature
         bytes32 messageHash = keccak256(abi.encode(rewardEpochId, _voter));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
@@ -122,7 +122,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
      * Enables automatic voter registration triggered by system registration contract.
      */
     function systemRegistration(address _voter) external onlySystemRegistrationContract {
-        (uint256 rewardEpochId, EntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
+        (uint24 rewardEpochId, EntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
         // register voter
         _registerVoter(_voter, rewardEpochId, voterAddresses);
     }
@@ -330,8 +330,8 @@ contract VoterRegistry is Governed, AddressUpdatable {
         flareSystemManager = FlareSystemManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
         entityManager = EntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
-        signingPolicyWeightCalculator = SigningPolicyWeightCalculator(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "SigningPolicyWeightCalculator"));
+        flareSystemCalculator = FlareSystemCalculator(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemCalculator"));
 
         if (keccak256(abi.encode(systemRegistrationContractName)) != keccak256(abi.encode(""))) {
             systemRegistrationContractAddress =
@@ -344,7 +344,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
      */
     function _registerVoter(
         address _voter,
-        uint256 _rewardEpochId,
+        uint24 _rewardEpochId,
         EntityManager.VoterAddresses memory _voterAddresses
     )
         internal
@@ -352,15 +352,15 @@ contract VoterRegistry is Governed, AddressUpdatable {
         (uint256 votePowerBlock, bool enabled) = flareSystemManager.getVoterRegistrationData(_rewardEpochId);
         require(votePowerBlock != 0, "vote power block zero");
         require(enabled, "voter registration not enabled");
-        uint256 weight = signingPolicyWeightCalculator
-            .calculateWeight(_voter, _voterAddresses.delegationAddress, _rewardEpochId, votePowerBlock);
+        uint256 weight = flareSystemCalculator
+            .calculateRegistrationWeight(_voter, _voterAddresses.delegationAddress, _rewardEpochId, votePowerBlock);
         require(weight > 0, "voter weight zero");
 
         VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
 
         // check if _voter already registered
         if (votersAndWeights.weights[_voter] > 0) {
-            return;
+            revert("already registered");
         }
 
         uint256 length = votersAndWeights.voters.length;
@@ -410,7 +410,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     function _getRegistrationData(address _voter)
         internal view
         returns(
-            uint256 _rewardEpochId,
+            uint24 _rewardEpochId,
             EntityManager.VoterAddresses memory _voterAddresses
         )
     {

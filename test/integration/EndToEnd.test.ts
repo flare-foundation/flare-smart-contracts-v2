@@ -25,13 +25,13 @@ import { getTestFile } from "../utils/constants";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
 import * as util from "../utils/key-to-address";
 import { encodeContractNames, toBN } from '../utils/test-helpers';
-import { SigningPolicyWeightCalculatorContract, SigningPolicyWeightCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/SigningPolicyWeightCalculator';
 import { RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
 import { WNatDelegationFeeContract, WNatDelegationFeeInstance } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
 import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
 import { FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
 import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
+import { FlareSystemCalculatorContract, FlareSystemCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemCalculator';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -42,7 +42,7 @@ const AddressBinder: AddressBinderContract = artifacts.require("AddressBinder");
 const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = artifacts.require("PChainStakeMirrorVerifier");
 const EntityManager: EntityManagerContract = artifacts.require("EntityManager");
 const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
-const SigningPolicyWeightCalculator: SigningPolicyWeightCalculatorContract = artifacts.require("SigningPolicyWeightCalculator");
+const FlareSystemCalculator: FlareSystemCalculatorContract = artifacts.require("FlareSystemCalculator");
 const FlareSystemManager: FlareSystemManagerContract = artifacts.require("FlareSystemManager");
 const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
 const Submission: SubmissionContract = artifacts.require("Submission");
@@ -97,7 +97,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let governanceSettings: GovernanceSettingsInstance;
     let entityManager: EntityManagerInstance;
     let voterRegistry: VoterRegistryInstance;
-    let signingPolicyWeightCalculator: SigningPolicyWeightCalculatorInstance;
+    let flareSystemCalculator: FlareSystemCalculatorInstance;
     let flareSystemManager: FlareSystemManagerInstance;
     let rewardManager: RewardManagerInstance;
     let submission: SubmissionInstance;
@@ -181,7 +181,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const initialWeights = Array(100).fill(655);
 
         voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, initialVoters, initialWeights);
-        signingPolicyWeightCalculator = await SigningPolicyWeightCalculator.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2500);
+        flareSystemCalculator = await FlareSystemCalculator.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2500, 20 * 60, 600, 600);
 
         initialSigningPolicy = {
             rewardEpochId: 0,
@@ -198,12 +198,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             firstRewardEpochStartVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
             rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             newSigningPolicyInitializationStartSeconds: NEW_SIGNING_POLICY_INITIALIZATION_START_SEC,
-            nonPunishableRandomAcquisitionMinDurationSeconds: 75 * 60,
-            nonPunishableRandomAcquisitionMinDurationBlocks: 2250,
             voterRegistrationMinDurationSeconds: 30 * 60,
             voterRegistrationMinDurationBlocks: 20, // default 900,
-            nonPunishableSigningPolicySignMinDurationSeconds: 20 * 60,
-            nonPunishableSigningPolicySignMinDurationBlocks: 600,
             signingPolicyThresholdPPM: 500000,
             signingPolicyMinNumberOfVoters: 2
         };
@@ -271,20 +267,20 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [ADDRESS_UPDATER, governanceVotePower.address, CLEANUP_BLOCK_NUMBER_MANAGER], { from: ADDRESS_UPDATER });
 
         await voterRegistry.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.ENTITY_MANAGER, Contracts.SIGNING_POLICY_WEIGHT_CALCULATOR]),
-            [ADDRESS_UPDATER, flareSystemManager.address, entityManager.address, signingPolicyWeightCalculator.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.ENTITY_MANAGER, Contracts.FLARE_SYSTEM_CALCULATOR]),
+            [ADDRESS_UPDATER, flareSystemManager.address, entityManager.address, flareSystemCalculator.address], { from: ADDRESS_UPDATER });
 
-        await signingPolicyWeightCalculator.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.ENTITY_MANAGER, Contracts.WNAT_DELEGATION_FEE, Contracts.VOTER_REGISTRY, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
-            [ADDRESS_UPDATER, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
+        await flareSystemCalculator.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.ENTITY_MANAGER, Contracts.WNAT_DELEGATION_FEE, Contracts.VOTER_REGISTRY, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
+            [ADDRESS_UPDATER, flareSystemManager.address, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
 
         await flareSystemManager.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY]),
             [ADDRESS_UPDATER, voterRegistry.address, submission.address, relay.address], { from: ADDRESS_UPDATER });
 
         await rewardManager.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
-            [ADDRESS_UPDATER, voterRegistry.address, CLAIM_SETUP_MANAGER, flareSystemManager.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.FLARE_SYSTEM_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
+            [ADDRESS_UPDATER, voterRegistry.address, CLAIM_SETUP_MANAGER, flareSystemManager.address, flareSystemCalculator.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
 
         await submission.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.RELAY]),
