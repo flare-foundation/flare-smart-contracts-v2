@@ -233,7 +233,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
             uint24 nextRewardEpochId = currentRewardEpochId + 1;
 
             // check if new signing policy is already defined
-            if (_getsigningPolicyHash(nextRewardEpochId) == bytes32(0)) {
+            if (_getSigningPolicyHash(nextRewardEpochId) == bytes32(0)) {
                 RewardEpochState storage state = rewardEpochState[nextRewardEpochId];
                 if (state.randomAcquisitionStartTs == 0) {
                     state.randomAcquisitionStartTs = block.timestamp.toUint64();
@@ -317,7 +317,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         external
     {
         RewardEpochState storage state = rewardEpochState[_rewardEpochId - 1];
-        require(_newSigningPolicyHash != bytes32(0) && _getsigningPolicyHash(_rewardEpochId) == _newSigningPolicyHash,
+        require(_newSigningPolicyHash != bytes32(0) && _getSigningPolicyHash(_rewardEpochId) == _newSigningPolicyHash,
             "new signing policy hash invalid");
         require(state.signingPolicySignEndTs == 0, "new signing policy already signed");
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(_newSigningPolicyHash);
@@ -727,7 +727,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
 
     function _isNextRewardEpochId(uint24 _nextRewardEpochId) internal view returns (bool) {
         return block.timestamp >= currentRewardEpochExpectedEndTs &&
-            _getsigningPolicyHash(_nextRewardEpochId) != bytes32(0) &&
+            _getSigningPolicyHash(_nextRewardEpochId) != bytes32(0) &&
             _getCurrentVotingEpochId() >= rewardEpochState[_nextRewardEpochId].startVotingRoundId;
     }
 
@@ -735,7 +735,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         return ((block.timestamp - firstVotingRoundStartTs) / votingEpochDurationSeconds).toUint32();
     }
 
-    function _getsigningPolicyHash(uint24 _rewardEpoch) internal view returns (bytes32) {
+    function _getSigningPolicyHash(uint24 _rewardEpoch) internal view returns (bytes32) {
         return relay.toSigningPolicyHash(_rewardEpoch);
     }
 

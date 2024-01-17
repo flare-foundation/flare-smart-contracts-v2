@@ -21,6 +21,7 @@ import { decodeLogs as decodeRawLogs } from "../utils/events";
 import { MockDBIndexer } from "../utils/indexer/MockDBIndexer";
 import { sqliteDatabase } from "../utils/indexer/data-source";
 import { getLogger } from "../utils/logger";
+import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 
 // Simulation config
 const SETTINGS_FILE_LOCATION = "/tmp/epoch-settings.json";
@@ -35,6 +36,27 @@ export const DEPLOY_ADDRESSES_FILE = "./db/deployed-addresses.json";
 
 const SKIP_VOTER_REGISTRATION_SET = new Set<string>();
 const SKIP_SIGNING_POLICY_SIGNING_SET = new Set<string>();
+
+const OFFERS = [
+  {
+    amount: 25000000,
+    feedName: FtsoConfigurations.encodeFeedNames(["BTC"]),
+    primaryBandRewardSharePPM: 450000,
+    secondaryBandWidthPPM: 50000,
+    rewardEligibilityPPM: 0,
+    leadProviders: [],
+    claimBackAddress: "0x0000000000000000000000000000000000000000"
+  },
+  {
+    amount: 50000000,
+    feedName: FtsoConfigurations.encodeFeedNames(["XRP"]),
+    primaryBandRewardSharePPM: 650000,
+    secondaryBandWidthPPM: 20000,
+    rewardEligibilityPPM: 0,
+    leadProviders: [],
+    claimBackAddress: "0x0000000000000000000000000000000000000000"
+  }
+]
 
 if (process.env.SKIP_VOTER_REGISTRATION_SET) {
   process.env.SKIP_VOTER_REGISTRATION_SET.split(",").forEach(x => {
@@ -197,6 +219,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     await runSigningPolicyProtocol();
   }, timeUntilSigningPolicyProtocolStart);
 
+  scheduleOfferRewardsActions();
   scheduleVotingEpochActions();
 
   // Hardhat set interval mining to auto-mine blocks every second
@@ -241,6 +264,16 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
       scheduleVotingEpochActions();
       await runVotingRound(c, signingPolicies, registeredAccounts, epochSettings, events, hre.web3);
     }, nextEpochStartMs - time + 1);
+  }
+
+  function scheduleOfferRewardsActions() {
+    const time = Date.now();
+    const nextEpochStartMs = epochSettings.nextRewardEpochStartMs(time);
+
+    setTimeout(async () => {
+      scheduleOfferRewardsActions();
+      await runOfferRewards(c, epochSettings);
+    }, nextEpochStartMs - time + 1000);
   }
 
   async function processLog(log: any, timestamp: number, events: EventStore) {
@@ -367,7 +400,6 @@ async function defineNextSigningPolicy(
   }
 
   for (const acc of registeredAccounts) {
-    
     if (SKIP_VOTER_REGISTRATION_SET.has(acc.identity.address.toLowerCase())) {
       logger.info(`Skipping automatic voter registration for ${acc.identity.address}`);
       continue;
@@ -408,6 +440,20 @@ async function defineNextSigningPolicy(
       return;
     }
   }
+}
+
+async function runOfferRewards(
+  c: DeployedContracts,
+  epochSettings: EpochSettings,
+) {
+  const logger = getLogger("offerRewards");
+  const nextRewardEpochId = epochSettings.rewardEpochForTime(Date.now()) + 1;
+  let rewards = 0;
+  for (const offer of OFFERS) {
+    rewards += offer.amount;
+  }
+  await c.ftsoRewardOffersManager.offerRewards(nextRewardEpochId, OFFERS, {value: rewards});
+  logger.info("Rewards offered");
 }
 
 /**
