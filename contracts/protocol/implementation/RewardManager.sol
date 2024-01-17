@@ -233,6 +233,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         // initialise only weight based claims
         _processProofs(address(0), address(0), _proofs, minClaimableEpochId);
 
+        uint256 totalClaimed;
         for (uint256 i = 0; i < _rewardOwners.length; i++) {
             address rewardOwner = _rewardOwners[i];
             address claimAddress = claimAddresses[i];
@@ -245,12 +246,13 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                     claimAddress, claimAddress, _rewardEpochId, minClaimableEpochId, true);
             }
             require(rewardAmount >= executorFeeValue, "claimed amount too small");
+            totalClaimed += rewardAmount;
             rewardAmount -= executorFeeValue;
             if (rewardAmount > 0) {
                 _transferOrWrap(claimAddress, rewardAmount, true);
             }
         }
-
+        totalClaimedWei += totalClaimed;
         _transferOrWrap(msg.sender, executorFeeValue * _rewardOwners.length, false);
     }
 
@@ -845,10 +847,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             return wNat.votePowerOfAt(address(_beneficiary), votePowerBlock).toUint128(); // TODO check revocation
         } else if (_claimType == ClaimType.MIRROR) {
             return pChainStakeMirror.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
-        } else if (_claimType == ClaimType.CCHAIN) {
+        } else { //_claimType == ClaimType.CCHAIN
             return cChainStake.votePowerOfAt(address(_beneficiary), votePowerBlock).toUint128();
-        } else {
-            return 0;
         }
     }
 
