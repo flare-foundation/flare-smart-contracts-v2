@@ -13,8 +13,8 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable {
         uint24 validFromEpochId;    // id of the reward epoch from which the value is valid
     }
 
-    int8 public immutable defaultDecimals; // default value for number of decimals
     uint24 public immutable decimalsUpdateOffset; // decimals update timelock measured in reward epochs
+    int8 public immutable defaultDecimals; // default value for number of decimals
     mapping(bytes8 => Decimals[]) internal decimals;
 
     FlareSystemManager public flareSystemManager;
@@ -25,14 +25,14 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable {
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
-        int8 _defaultDecimals,
-        uint24 _decimalsUpdateOffset
+        uint24 _decimalsUpdateOffset,
+        int8 _defaultDecimals
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
         require(_decimalsUpdateOffset > 1, "offset too small");
-        defaultDecimals = _defaultDecimals;
         decimalsUpdateOffset = _decimalsUpdateOffset;
+        defaultDecimals = _defaultDecimals;
     }
 
     /**

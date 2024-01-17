@@ -6,5 +6,5 @@ interface IRandomProvider {
 
     function getCurrentRandom() external view returns(uint256 _currentRandom);
 
-    function getCurrentRandomWithQuality() external view returns(uint256 _currentRandom, bool _goodRandom);
+    function getCurrentRandomWithQuality() external view returns(uint256 _currentRandom, bool _secureRandom);
 }

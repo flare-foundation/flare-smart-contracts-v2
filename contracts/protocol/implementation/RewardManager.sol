@@ -6,43 +6,31 @@ import "flare-smart-contracts/contracts/tokenPools/interface/IITokenPool.sol";
 import "../../utils/implementation/TokenPoolBase.sol";
 import "../../governance/implementation/Governed.sol";
 import "../interface/IWNat.sol";
+import "../interface/IRewardManager.sol";
 import "../interface/ICChainStake.sol";
 import "../interface/IClaimSetupManager.sol";
 import "../../utils/lib/SafePct.sol";
 import "../../utils/lib/AddressSet.sol";
 import "./VoterRegistry.sol";
 import "./FlareSystemManager.sol";
+import "./FlareSystemCalculator.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 //solhint-disable-next-line max-states-count
-contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyGuard, IITokenPool {
+contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyGuard, IITokenPool, IRewardManager {
     using MerkleProof for bytes32[];
     using AddressSet for AddressSet.State;
     using SafeCast for uint256;
     using SafePct for uint256;
-
-    enum ClaimType { DIRECT, FEE, WNAT, MIRROR, CCHAIN }
 
     struct UnclaimedRewardState {   // Used for storing unclaimed reward info.
         bool initialised;           // Information if already initialised
                                     // amount and weight might be 0 if all users already claimed
         uint120 amount;             // Total unclaimed amount.
         uint128 weight;             // Total unclaimed weight.
-    }
-
-    struct RewardClaimWithProof {
-        bytes32[] merkleProof;
-        RewardClaim body;
-    }
-
-    struct RewardClaim {
-        uint24 rewardEpochId;
-        bytes20 beneficiary; // c-chain address or node id (bytes20) in case of type MIRROR
-        uint120 amount; // in wei
-        ClaimType claimType;
     }
 
     uint256 constant internal MAX_BIPS = 1e4;
@@ -82,6 +70,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     VoterRegistry public voterRegistry;
     IClaimSetupManager public claimSetupManager;
     FlareSystemManager public flareSystemManager;
+    FlareSystemCalculator public flareSystemCalculator;
     IPChainStakeMirror public pChainStakeMirror;
     IWNat public wNat;
     ICChainStake public cChainStake;
@@ -506,11 +495,12 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             // initialise reward amount
             _rewardAmountWei = _initialiseRewardAmount(rewardClaim.rewardEpochId, rewardClaim.amount);
             if (rewardClaim.claimType == ClaimType.FEE) {
-                uint256 burnFactor = _getBurnFactor(rewardClaim.rewardEpochId, _rewardOwner);
+                uint256 burnFactor = flareSystemCalculator
+                    .calculateBurnFactorPPM(rewardClaim.rewardEpochId, _rewardOwner);
                 if (burnFactor > 0) {
                     // calculate burn amount
-                    _burnAmountWei = Math.min(_rewardAmountWei, uint256(_rewardAmountWei).
-                        mulDiv(burnFactor, PPM_MAX)).toUint120();
+                    _burnAmountWei = Math.min(uint256(_rewardAmountWei).mulDiv(burnFactor, PPM_MAX),
+                        _rewardAmountWei).toUint120();
                     // reduce reward amount
                     _rewardAmountWei -= _burnAmountWei; // _burnAmountWei <= _rewardAmountWei
                     // update total burned amount per epoch
@@ -821,6 +811,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             _getContractAddress(_contractNameHashes, _contractAddresses, "ClaimSetupManager"));
         flareSystemManager = FlareSystemManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
+        flareSystemCalculator = FlareSystemCalculator(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemCalculator"));
         pChainStakeMirror = IPChainStakeMirror(
             _getContractAddress(_contractNameHashes, _contractAddresses, "PChainStakeMirror"));
         if (cChainStakeEnabled) {
@@ -828,10 +820,6 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         }
         wNat = IWNat(
             _getContractAddress(_contractNameHashes, _contractAddresses, "WNat"));
-    }
-
-    function _getBurnFactor(uint24 _rewardEpochId, address _rewardOwner) internal view returns(uint256) {
-        return flareSystemManager.getRewardsFeeBurnFactor(_rewardEpochId, _rewardOwner);
     }
 
     function _getVotePower(

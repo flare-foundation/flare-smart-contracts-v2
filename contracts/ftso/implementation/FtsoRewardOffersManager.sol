@@ -160,8 +160,6 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         internal override
     {
         super._updateContractAddresses(_contractNameHashes, _contractAddresses);
-        flareSystemManager = FlareSystemManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
         rewardManager = RewardManager(_getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
         ftsoInflationConfigurations = IFtsoInflationConfigurations(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoInflationConfigurations"));
@@ -190,7 +188,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         uint256 intervalEnd = Math.max(lastInflationReceivedTs + INFLATION_TIME_FRAME_SEC,
             _currentRewardEpochExpectedEndTs - _rewardEpochDurationSeconds); // start of current reward epoch (in past)
         uint256 totalRewardsAmount = (totalInflationReceivedWei - totalInflationRewardsOfferedWei)
-            .mulDiv(intervalEnd - intervalStart, _rewardEpochDurationSeconds);
+            .mulDiv(_rewardEpochDurationSeconds, intervalEnd - intervalStart);
         // emit offers
         uint24 nextRewardEpochId = _currentRewardEpochId + 1;
         IFtsoInflationConfigurations.FtsoConfiguration[] memory configurations =

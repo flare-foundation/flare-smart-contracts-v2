@@ -225,7 +225,7 @@ export class MockFinalizer {
       const voterToIndexMap = this.voterToIndexMaps.get(matchingSigningPolicy!.signingPolicy.rewardEpochId!);
       const augPayload = SignaturePayload.augment(payload, voterToIndexMap!);
       if (augPayload.signer === undefined) {
-        this.logger.info(`Signer not in the singing policy for rewardEpochId: ${matchingSigningPolicy!.signingPolicy.rewardEpochId!}.`);
+        this.logger.info(`Signer not in the signing policy for rewardEpochId: ${matchingSigningPolicy!.signingPolicy.rewardEpochId!}.`);
         return;
       }
       const messageHash = augPayload.messageHash;

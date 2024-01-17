@@ -2,10 +2,10 @@
 pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
-import "../../../contracts/protocol/implementation/SigningPolicyWeightCalculator.sol";
+import "../../../contracts/protocol/implementation/FlareSystemCalculator.sol";
 
-contract SigningPolicyWeightCalculatorTest is Test {
-  SigningPolicyWeightCalculator calcualtor;
+contract FlareSystemCalculatorTest is Test {
+  FlareSystemCalculator calcualtor;
 
   IGovernanceSettings govSetting;
 
@@ -14,28 +14,33 @@ contract SigningPolicyWeightCalculatorTest is Test {
   function setUp() public {
     govSetting = IGovernanceSettings(makeAddr("govSetting"));
 
-    calcualtor = new SigningPolicyWeightCalculator(
+    calcualtor = new FlareSystemCalculator(
       govSetting,
       makeAddr("initialGovernence"),
       makeAddr("AddressUpdater"),
-      200000
+      200000,
+      25,
+      10,
+      10
     );
 
-    bytes32[] memory contractNameHashes = new bytes32[](6);
+    bytes32[] memory contractNameHashes = new bytes32[](7);
     contractNameHashes[0] = keccak256(abi.encode("EntityManager"));
     contractNameHashes[1] = keccak256(abi.encode("WNatDelegationFee"));
     contractNameHashes[2] = keccak256(abi.encode("VoterRegistry"));
     contractNameHashes[3] = keccak256(abi.encode("PChainStakeMirror"));
     contractNameHashes[4] = keccak256(abi.encode("WNat"));
     contractNameHashes[5] = keccak256(abi.encode("AddressUpdater"));
+    contractNameHashes[6] = keccak256(abi.encode("FlareSystemManager"));
 
-    address[] memory contractAddresses = new address[](6);
+    address[] memory contractAddresses = new address[](7);
     contractAddresses[0] = makeAddr("EntityManager");
     contractAddresses[1] = makeAddr("WNatDelegationFee");
     contractAddresses[2] = makeAddr("VoterRegistry");
     contractAddresses[3] = makeAddr("PChainStakeMirror");
     contractAddresses[4] = makeAddr("WNat");
     contractAddresses[5] = makeAddr("AddressUpdater");
+    contractAddresses[6] = makeAddr("FlareSystemManager");
 
     vm.prank(calcualtor.getAddressUpdater());
     calcualtor.updateContractAddresses(contractNameHashes, contractAddresses);
@@ -89,7 +94,7 @@ contract SigningPolicyWeightCalculatorTest is Test {
     assertEq(calcualtor.wNatCapPPM(), uint24(30000));
   }
 
-  function test_calculateWeight() public {
+  function test_calculateRegistrationWeight() public {
     bytes20[] memory nodeIds = new bytes20[](3);
     nodeIds[0] = bytes20(makeAddr("1"));
     nodeIds[1] = bytes20(makeAddr("2"));
@@ -105,7 +110,7 @@ contract SigningPolicyWeightCalculatorTest is Test {
     uint16 delegationFeeBIPS = 15;
     address voter = makeAddr("voter");
     address delegationAddress = makeAddr("delagation");
-    uint256 rewardEpochId = 12345;
+    uint24 rewardEpochId = 12345;
     uint256 votePowerBlockNumber = 1234567;
 
     vm.mockCall(
@@ -144,13 +149,13 @@ contract SigningPolicyWeightCalculatorTest is Test {
 
     vm.prank(makeAddr("VoterRegistry"));
 
-    uint256 signingPolicyWeight = calcualtor.calculateWeight(
+    uint256 registrationWeight = calcualtor.calculateRegistrationWeight(
       voter,
       delegationAddress,
       rewardEpochId,
       votePowerBlockNumber
     );
 
-    assertEq(signingPolicyWeight < 9809897, true);
+    assertEq(registrationWeight < 9809897, true);
   }
 }

@@ -57,8 +57,10 @@ export class Contracts {
   public static readonly RELAY = "Relay";
   public static readonly VOTER_REGISTRY = "VoterRegistry";
   public static readonly REWARD_MANAGER = "RewardManager";
-  public static readonly SIGNING_POLICY_WEIGHT_CALCULATOR = "SigningPolicyWeightCalculator";
+  public static readonly FLARE_SYSTEM_CALCULATOR = "FlareSystemCalculator";
   public static readonly WNAT_DELEGATION_FEE = "WNatDelegationFee";
+  public static readonly FTSO_INFLATION_CONFIGURATIONS = "FtsoInflationConfigurations";
+  public static readonly FTSO_FEED_DECIMALS = "FtsoFeedDecimals";
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 
   constructor() {

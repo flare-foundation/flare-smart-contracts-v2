@@ -21,6 +21,7 @@ import { decodeLogs as decodeRawLogs } from "../utils/events";
 import { MockDBIndexer } from "../utils/indexer/MockDBIndexer";
 import { sqliteDatabase } from "../utils/indexer/data-source";
 import { getLogger } from "../utils/logger";
+import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 
 // Simulation config
 const SETTINGS_FILE_LOCATION = "/tmp/epoch-settings.json";
@@ -35,6 +36,27 @@ export const DEPLOY_ADDRESSES_FILE = "./db/deployed-addresses.json";
 
 const SKIP_VOTER_REGISTRATION_SET = new Set<string>();
 const SKIP_SIGNING_POLICY_SIGNING_SET = new Set<string>();
+
+const OFFERS = [
+  {
+    amount: 25000000,
+    feedName: FtsoConfigurations.encodeFeedNames(["BTC"]),
+    primaryBandRewardSharePPM: 450000,
+    secondaryBandWidthPPM: 50000,
+    rewardEligibilityPPM: 0,
+    leadProviders: [],
+    claimBackAddress: "0x0000000000000000000000000000000000000000"
+  },
+  {
+    amount: 50000000,
+    feedName: FtsoConfigurations.encodeFeedNames(["XRP"]),
+    primaryBandRewardSharePPM: 650000,
+    secondaryBandWidthPPM: 20000,
+    rewardEligibilityPPM: 0,
+    leadProviders: [],
+    claimBackAddress: "0x0000000000000000000000000000000000000000"
+  }
+]
 
 if (process.env.SKIP_VOTER_REGISTRATION_SET) {
   process.env.SKIP_VOTER_REGISTRATION_SET.split(",").forEach(x => {
@@ -59,12 +81,8 @@ export const systemSettings = function (now: number) {
     firstRewardEpochStartVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
     rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
     newSigningPolicyInitializationStartSeconds: 40,
-    nonPunishableRandomAcquisitionMinDurationSeconds: 10,
-    nonPunishableRandomAcquisitionMinDurationBlocks: 1,
     voterRegistrationMinDurationSeconds: 10,
     voterRegistrationMinDurationBlocks: 1,
-    nonPunishableSigningPolicySignMinDurationSeconds: 10,
-    nonPunishableSigningPolicySignMinDurationBlocks: 1,
     signingPolicyThresholdPPM: 500000,
     signingPolicyMinNumberOfVoters: 2,
   };
@@ -132,6 +150,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     submission: c.submission.address,
     flareSystemManager: c.flareSystemManager.address,
     voterRegistry: c.voterRegistry.address,
+    ftsoRewardOffersManager: c.ftsoRewardOffersManager.address,
   });
 
   logger.info(`Starting a mock c-chain indexer, data is recorded to SQLite database at ${sqliteDatabase}`);
@@ -149,9 +168,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     (await c.flareSystemManager.firstVotingRoundStartTs()).toNumber(),
     (await c.flareSystemManager.votingEpochDurationSeconds()).toNumber(),
     (await c.flareSystemManager.newSigningPolicyInitializationStartSeconds()).toNumber(),
-    (await c.flareSystemManager.nonPunishableRandomAcquisitionMinDurationSeconds()).toNumber(),
     (await c.flareSystemManager.voterRegistrationMinDurationSeconds()).toNumber(),
-    (await c.flareSystemManager.nonPunishableSigningPolicySignMinDurationSeconds()).toNumber()
+    (await c.flareSystemManager.voterRegistrationMinDurationBlocks()).toNumber()
   );
   logger.info(`EpochSettings:\n${JSON.stringify(epochSettings, null, 2)}`);
   fs.writeFileSync(SETTINGS_FILE_LOCATION, JSON.stringify(epochSettings, null, 2));
@@ -201,6 +219,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     await runSigningPolicyProtocol();
   }, timeUntilSigningPolicyProtocolStart);
 
+  scheduleOfferRewardsActions();
   scheduleVotingEpochActions();
 
   // Hardhat set interval mining to auto-mine blocks every second
@@ -215,10 +234,16 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
       for (const log of response.logs) {
         await processLog(log, blockTimestamp, events);
       }
+      const logs = decodeRawLogs(response, c.ftsoRewardOffersManager, "InflationRewardsOffered");
+      for (const log of logs) {
+        await processLog(log, blockTimestamp, events);
+      }
     } else {
       // For events emitted by the Relay (Truffle won't decode it automatically).
-      const log = decodeRawLogs(response, c.relay, "SigningPolicyInitialized");
-      if (log !== undefined) await processLog(log, blockTimestamp, events);
+      const logs = decodeRawLogs(response, c.relay, "SigningPolicyInitialized");
+      for (const log of logs) {
+        await processLog(log, blockTimestamp, events);
+      }
     }
     await sleep(500);
   }
@@ -239,6 +264,16 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
       scheduleVotingEpochActions();
       await runVotingRound(c, signingPolicies, registeredAccounts, epochSettings, events, hre.web3);
     }, nextEpochStartMs - time + 1);
+  }
+
+  function scheduleOfferRewardsActions() {
+    const time = Date.now();
+    const nextEpochStartMs = epochSettings.nextRewardEpochStartMs(time);
+
+    setTimeout(async () => {
+      scheduleOfferRewardsActions();
+      await runOfferRewards(c, epochSettings);
+    }, nextEpochStartMs - time + 1000);
   }
 
   async function processLog(log: any, timestamp: number, events: EventStore) {
@@ -365,7 +400,6 @@ async function defineNextSigningPolicy(
   }
 
   for (const acc of registeredAccounts) {
-    
     if (SKIP_VOTER_REGISTRATION_SET.has(acc.identity.address.toLowerCase())) {
       logger.info(`Skipping automatic voter registration for ${acc.identity.address}`);
       continue;
@@ -406,6 +440,20 @@ async function defineNextSigningPolicy(
       return;
     }
   }
+}
+
+async function runOfferRewards(
+  c: DeployedContracts,
+  epochSettings: EpochSettings,
+) {
+  const logger = getLogger("offerRewards");
+  const nextRewardEpochId = epochSettings.rewardEpochForTime(Date.now()) + 1;
+  let rewards = 0;
+  for (const offer of OFFERS) {
+    rewards += offer.amount;
+  }
+  await c.ftsoRewardOffersManager.offerRewards(nextRewardEpochId, OFFERS, {value: rewards});
+  logger.info("Rewards offered");
 }
 
 /**
@@ -532,7 +580,9 @@ async function defineInitialSigningPolicy(
 
   await runVotingRound(c, signingPolicies, [governance], epochSettings, events, web3, await time.latest() * 1000);
 
-  await time.increase(epochSettings.nonPunishableRandomAcquisitionMinDurationSeconds);
+  await time.increaseTo(
+    rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds / 2)
+  );
 
   const resp2 = await c.flareSystemManager.daemonize();
   if (resp2.logs[0]?.event != "VotePowerBlockSelected") {
@@ -544,11 +594,11 @@ async function defineInitialSigningPolicy(
   }
 
   await time.increaseTo(
-    rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.nonPunishableSigningPolicySignMinDurationSeconds)
+    rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds / 2 + epochSettings.voterRegistrationMinDurationSeconds + 1)
   );
 
   const resp3 = await c.flareSystemManager.daemonize();
-  const eventLog = decodeRawLogs(resp3, c.relay, "SigningPolicyInitialized");
+  const eventLog = decodeRawLogs(resp3, c.relay, "SigningPolicyInitialized")[0];
 
   if (eventLog.event != "SigningPolicyInitialized") {
     throw new Error("Expected signing policy to be initialized");
