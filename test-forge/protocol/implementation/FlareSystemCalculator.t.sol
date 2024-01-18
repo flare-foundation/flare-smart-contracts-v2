@@ -19,9 +19,9 @@ contract FlareSystemCalculatorTest is Test {
       makeAddr("initialGovernence"),
       makeAddr("AddressUpdater"),
       200000,
-      25,
-      10,
-      10
+      20 * 60,
+      600,
+      600
     );
 
     bytes32[] memory contractNameHashes = new bytes32[](7);
@@ -157,5 +157,174 @@ contract FlareSystemCalculatorTest is Test {
     );
 
     assertEq(registrationWeight < 9809897, true);
+  }
+
+  function test_calculateBurnFactorPPMSignedInTime() public {
+    address voter = makeAddr("voter");
+    uint24 rewardEpochId = 10000;
+
+    uint64 startTs = 1e6;
+    uint64 startBlock = 100000;
+    uint64 endTs = 1e6 + 1000;
+    uint64 endBlock = 100300;
+
+    uint64 signTs = 1e6 + 1e5 + 1;
+    uint64 signBlock = 110001;
+
+    vm.mockCall(
+      address(calcualtor.flareSystemManager()),
+      abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
+      abi.encode(startTs, startBlock, endTs, endBlock)
+    );
+
+    vm.mockCall(
+      address(calcualtor.flareSystemManager()),
+      abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
+      abi.encode(signTs, signBlock)
+    );
+
+    uint256 burnFactor = calcualtor.calculateBurnFactorPPM(rewardEpochId, voter);
+    assertEq(burnFactor, 0);
+  }
+
+  function test_calculateBurnFactorPPMSignedInTimeBlock() public {
+    address voter = makeAddr("voter");
+    uint24 rewardEpochId = 10000;
+
+    uint64 startTs = 1e6;
+    uint64 startBlock = 100000;
+    uint64 endTs = 1e6 + 1e5;
+    uint64 endBlock = 100300;
+
+    uint64 signTs = 1e6 + 1e5 + 1;
+    uint64 signBlock = 110001;
+
+    vm.mockCall(
+      address(calcualtor.flareSystemManager()),
+      abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
+      abi.encode(startTs, startBlock, endTs, endBlock)
+    );
+
+    vm.mockCall(
+      address(calcualtor.flareSystemManager()),
+      abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
+      abi.encode(signTs, signBlock)
+    );
+
+    uint256 burnFactor = calcualtor.calculateBurnFactorPPM(rewardEpochId, voter);
+    assertEq(burnFactor, 0);
+  }
+
+  function test_calculateBurnFactorPPMSignedLateVoterOnTime() public {
+    address voter = makeAddr("voter");
+    uint24 rewardEpochId = 10000;
+
+    uint64 startTs = 1e6;
+    uint64 startBlock = 100000;
+    uint64 endTs = 1e6 + 1e5;
+    uint64 endBlock = 101500;
+
+    uint64 signTs = 1e6 + 100;
+    uint64 signBlock = 100100;
+
+    vm.mockCall(
+      address(calcualtor.flareSystemManager()),
+      abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
+      abi.encode(startTs, startBlock, endTs, endBlock)
+    );
+
+    vm.mockCall(
+      address(calcualtor.flareSystemManager()),
+      abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
+      abi.encode(signTs, signBlock)
+    );
+
+    uint256 burnFactor = calcualtor.calculateBurnFactorPPM(rewardEpochId, voter);
+    assertEq(burnFactor, 0);
+  }
+
+  function test_calculateBurnFactorPPMSignedLateVoterDidNotSign() public {
+    address voter = makeAddr("voter");
+    uint24 rewardEpochId = 10000;
+
+    uint64 startTs = 1e6;
+    uint64 startBlock = 100000;
+    uint64 endTs = 1e6 + 1e5;
+    uint64 endBlock = 101100;
+
+    uint64 signTs = 0;
+    uint64 signBlock = 0;
+
+    vm.mockCall(
+      address(calcualtor.flareSystemManager()),
+      abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
+      abi.encode(startTs, startBlock, endTs, endBlock)
+    );
+
+    vm.mockCall(
+      address(calcualtor.flareSystemManager()),
+      abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
+      abi.encode(signTs, signBlock)
+    );
+
+    uint256 burnFactor = calcualtor.calculateBurnFactorPPM(rewardEpochId, voter);
+    assertEq(burnFactor > 0, true);
+    assertEq(burnFactor < 1e6, true);
+  }
+
+  function test_calculateBurnFactorPPMSignedVeryLateVoterDidNotSign() public {
+    address voter = makeAddr("voter");
+    uint24 rewardEpochId = 10000;
+
+    uint64 startTs = 1e6;
+    uint64 startBlock = 100000;
+    uint64 endTs = 1e6 + 1e5;
+    uint64 endBlock = 101500;
+
+    uint64 signTs = 0;
+    uint64 signBlock = 0;
+
+    vm.mockCall(
+      address(calcualtor.flareSystemManager()),
+      abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
+      abi.encode(startTs, startBlock, endTs, endBlock)
+    );
+
+    vm.mockCall(
+      address(calcualtor.flareSystemManager()),
+      abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
+      abi.encode(signTs, signBlock)
+    );
+
+    uint256 burnFactor = calcualtor.calculateBurnFactorPPM(rewardEpochId, voter);
+    assertEq(burnFactor, 1e6);
+  }
+
+  function test_calculateBurnFactorPPMPolicyNotSigned() public {
+    address voter = makeAddr("voter");
+    uint24 rewardEpochId = 10000;
+
+    uint64 startTs = 1e6;
+    uint64 startBlock = 100000;
+    uint64 endTs = 0;
+    uint64 endBlock = 0;
+
+    uint64 signTs = 1e6 + 1e5 + 1;
+    uint64 signBlock = 110001;
+
+    vm.mockCall(
+      address(calcualtor.flareSystemManager()),
+      abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
+      abi.encode(startTs, startBlock, endTs, endBlock)
+    );
+
+    vm.mockCall(
+      address(calcualtor.flareSystemManager()),
+      abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
+      abi.encode(signTs, signBlock)
+    );
+
+    vm.expectRevert("signing policy not signed yet");
+    uint256 burnFactor = calcualtor.calculateBurnFactorPPM(rewardEpochId, voter);
   }
 }
