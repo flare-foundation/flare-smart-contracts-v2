@@ -139,12 +139,13 @@ contract Submission is Governed, AddressUpdatable {
 
     function _getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {
         // If the _res length is less than 68, then the transaction failed silently (without a revert message)
-        if (_returnData.length < 68) return "Transaction reverted silently";
+        uint256 length = _returnData.length;
+        if (length < 68) return "Transaction reverted silently";
 
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            // Slice the sighash.
-            _returnData := add(_returnData, 0x04)
+            _returnData := add(_returnData, 0x04) // Slice the signature hash
+            mstore(_returnData, sub(length, 0x04)) // Set proper length
         }
         return abi.decode(_returnData, (string)); // All that remains is the revert string
     }
