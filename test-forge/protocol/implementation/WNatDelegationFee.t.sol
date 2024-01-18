@@ -2,7 +2,6 @@
 pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
-import "../../../contracts/protocol/implementation/FlareSystemManager.sol";
 import "../../../contracts/protocol/implementation/WNatDelegationFee.sol";
 
 contract WNatDelegationFeeTest is Test {
@@ -14,7 +13,7 @@ contract WNatDelegationFeeTest is Test {
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
-    address voter;
+    address private voter;
 
     function setUp() public {
         addressUpdater = makeAddr("addressUpdater");

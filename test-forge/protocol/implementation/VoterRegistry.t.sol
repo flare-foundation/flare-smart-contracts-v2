@@ -9,8 +9,6 @@ import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
 import "../../../contracts/protocol/interface/IWNat.sol";
 import "../../../contracts/protocol/interface/ICChainStake.sol";
 
-import "forge-std/console2.sol";
-
 contract VoterRegistryTest is Test {
 
     VoterRegistry private voterRegistry;

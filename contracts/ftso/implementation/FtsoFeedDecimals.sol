@@ -37,12 +37,12 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable {
 
     /**
      * Allows governance to set (or update last) decimal for given feed name.
-     * @param _feedNname feed name
+     * @param _feedName feed name
      * @param _decimals number of decimals (negative exponent)
      */
-    function setDecimals(bytes8 _feedNname, int8 _decimals) external onlyGovernance {
+    function setDecimals(bytes8 _feedName, int8 _decimals) external onlyGovernance {
         uint24 rewardEpochId = flareSystemManager.getCurrentRewardEpochId() + decimalsUpdateOffset;
-        Decimals[] storage decimalsForFeedName = decimals[_feedNname];
+        Decimals[] storage decimalsForFeedName = decimals[_feedName];
 
         // determine whether to update the last setting or add a new one
         uint256 position = decimalsForFeedName.length;
@@ -64,15 +64,15 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable {
         decimalsForFeedName[position].value = _decimals;
         decimalsForFeedName[position].validFromEpochId = rewardEpochId;
 
-        emit DecimalsChanged(_feedNname, _decimals, rewardEpochId);
+        emit DecimalsChanged(_feedName, _decimals, rewardEpochId);
     }
 
     /**
-     * Returns current decimals set for `_feedNname`
-     * @param _feedNname feed name
+     * Returns current decimals set for `_feedName`
+     * @param _feedName feed name
      */
-    function getCurrentDecimals(bytes8 _feedNname) external view returns (int8) {
-        return _getDecimals(_feedNname, flareSystemManager.getCurrentRewardEpochId());
+    function getCurrentDecimals(bytes8 _feedName) external view returns (int8) {
+        return _getDecimals(_feedName, flareSystemManager.getCurrentRewardEpochId());
     }
 
     /**
