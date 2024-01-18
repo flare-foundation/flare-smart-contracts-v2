@@ -38,6 +38,7 @@ contract FtsoInflationConfigurations is Governed, IFtsoInflationConfigurations {
     }
 
     function getFtsoConfiguration(uint256 _index) external view returns(FtsoConfiguration memory) {
+        require(ftsoConfigurations.length > _index, "invalid index");
         return ftsoConfigurations[_index];
     }
 
