@@ -81,6 +81,9 @@ export const systemSettings = function (now: number) {
     firstRewardEpochStartVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
     rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
     newSigningPolicyInitializationStartSeconds: 40,
+    randomAcquisitionMaxDurationSeconds: 80,
+    randomAcquisitionMaxDurationBlocks: 1000,
+    newSigningPolicyMinNumberOfVotingRoundsDelay: 0,
     voterRegistrationMinDurationSeconds: 10,
     voterRegistrationMinDurationBlocks: 1,
     signingPolicyThresholdPPM: 500000,
@@ -163,7 +166,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   logger.info("Registered account keys written to ./simulation-accounts.json");
 
   const epochSettings = new EpochSettings(
-    (await c.flareSystemManager.rewardEpochsStartTs()).toNumber(),
+    (await c.flareSystemManager.firstRewardEpochStartTs()).toNumber(),
     (await c.flareSystemManager.rewardEpochDurationSeconds()).toNumber(),
     (await c.flareSystemManager.firstVotingRoundStartTs()).toNumber(),
     (await c.flareSystemManager.votingEpochDurationSeconds()).toNumber(),

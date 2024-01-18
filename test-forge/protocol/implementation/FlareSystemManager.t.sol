@@ -33,11 +33,11 @@ contract FlareSystemManagerTest is Test {
     address[] private voters;
     uint16[] private votersWeight;
 
-    uint64 private constant REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
-    uint64 private constant VOTING_EPOCH_DURATION_SEC = 90;
+    uint16 private constant REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
+    uint8 private constant VOTING_EPOCH_DURATION_SEC = 90;
     uint64 private constant REWARD_EPOCH_DURATION_IN_SEC =
-    REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS * VOTING_EPOCH_DURATION_SEC;
-    uint64 private constant PPM_MAX = 1e6;
+    uint64(REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS) * VOTING_EPOCH_DURATION_SEC;
+    uint24 private constant PPM_MAX = 1e6;
 
     //// events
     event SigningPolicyInitialized(
@@ -103,11 +103,14 @@ contract FlareSystemManagerTest is Test {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
         settings = FlareSystemManager.Settings(
-            uint64(block.timestamp), // 1,
+            uint32(block.timestamp), // 1,
             VOTING_EPOCH_DURATION_SEC,
             0,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            3600 * 8,
+            15000,
             3600 * 2,
+            0,
             30 * 60,
             20,
             500000,
@@ -372,7 +375,7 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.daemonize();
         // voter registration started
         assertEq(flareSystemManager.isVoterRegistrationEnabled(), true);
-        // endBlock = 234, _firstRandomAcquisitionNumberOfBlocks = 5
+        // endBlock = 234, _initialRandomVotePowerBlockSelectionSize = 5
         // numberOfBlocks = 5, random (=123) % 5 = 3 -> vote power block = 234 - 3 = 231
         assertEq(flareSystemManager.getVotePowerBlock(1), 231);
         (uint256 vpBlock, bool enabled) = flareSystemManager.getVoterRegistrationData(1);

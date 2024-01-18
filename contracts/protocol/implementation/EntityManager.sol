@@ -27,6 +27,15 @@ contract EntityManager is Governed {
         address signingPolicyAddress;
     }
 
+    struct InitialVoterData {
+        address voter;
+        address delegationAddress;
+        address submitAddress;
+        address submitSignaturesAddress;
+        address signingPolicyAddress;
+        bytes20[] nodeIds;
+    }
+
     uint32 public maxNodeIdsPerEntity;
 
     mapping(address => Entity) internal register; // voter to entity data
@@ -222,6 +231,56 @@ contract EntityManager is Governed {
         emit MaxNodeIdsPerEntitySet(_newMaxNodeIdsPerEntity);
     }
 
+    function setInitialVoterData(InitialVoterData[] calldata _data) external onlyGovernance {
+        require(!productionMode, "already in production mode");
+        uint32 maxNodeIds = maxNodeIdsPerEntity; // load in memory
+        for (uint256 i = 0; i < _data.length; i++) {
+            InitialVoterData calldata voterData = _data[i];
+            require(voterData.voter != address(0), "voter address zero");
+            Entity storage entity = register[voterData.voter];
+            if (voterData.delegationAddress != address(0)) {
+                assert(entity.delegationAddress.addressAtNow() == address(0));
+                assert(delegationAddressRegistered[voterData.delegationAddress].addressAtNow() == address(0));
+                entity.delegationAddress.setAddress(voterData.delegationAddress);
+                delegationAddressRegistered[voterData.delegationAddress].setAddress(voterData.voter);
+                emit DelegationAddressRegistered(voterData.voter, voterData.delegationAddress);
+                emit DelegationAddressRegistrationConfirmed(voterData.voter, voterData.delegationAddress);
+            }
+            if (voterData.submitAddress != address(0)) {
+                assert(entity.submitAddress.addressAtNow() == address(0));
+                assert(submitAddressRegistered[voterData.submitAddress].addressAtNow() == address(0));
+                entity.submitAddress.setAddress(voterData.submitAddress);
+                submitAddressRegistered[voterData.submitAddress].setAddress(voterData.voter);
+                emit SubmitAddressRegistered(voterData.voter, voterData.submitAddress);
+                emit SubmitAddressRegistrationConfirmed(voterData.voter, voterData.submitAddress);
+            }
+            if (voterData.submitSignaturesAddress != address(0)) {
+                assert(entity.submitSignaturesAddress.addressAtNow() == address(0));
+                assert(
+                    submitSignaturesAddressRegistered[voterData.submitSignaturesAddress].addressAtNow() == address(0));
+                entity.submitSignaturesAddress.setAddress(voterData.submitSignaturesAddress);
+                submitSignaturesAddressRegistered[voterData.submitSignaturesAddress].setAddress(voterData.voter);
+                emit SubmitSignaturesAddressRegistered(voterData.voter, voterData.submitSignaturesAddress);
+                emit SubmitSignaturesAddressRegistrationConfirmed(voterData.voter, voterData.submitSignaturesAddress);
+            }
+            if (voterData.signingPolicyAddress != address(0)) {
+                assert(entity.signingPolicyAddress.addressAtNow() == address(0));
+                assert(signingPolicyAddressRegistered[voterData.signingPolicyAddress].addressAtNow() == address(0));
+                entity.signingPolicyAddress.setAddress(voterData.signingPolicyAddress);
+                signingPolicyAddressRegistered[voterData.signingPolicyAddress].setAddress(voterData.voter);
+                emit SigningPolicyAddressRegistered(voterData.voter, voterData.signingPolicyAddress);
+                emit SigningPolicyAddressRegistrationConfirmed(voterData.voter, voterData.signingPolicyAddress);
+            }
+            for (uint256 j = 0; j < voterData.nodeIds.length; j++) {
+                bytes20 nodeId = voterData.nodeIds[j];
+                assert(nodeIdRegistered[nodeId].addressAtNow() == address(0));
+                entity.nodeIds.addRemoveNodeId(nodeId, true, maxNodeIds);
+                nodeIdRegistered[nodeId].setAddress(voterData.voter);
+                emit NodeIdRegistered(voterData.voter, nodeId);
+            }
+        }
+    }
+
     function getNodeIdsOfAt(address _voter, uint256 _blockNumber) external view returns (bytes20[] memory) {
         return register[_voter].nodeIds.nodeIdsAt(_blockNumber);
     }
@@ -263,6 +322,20 @@ contract EntityManager is Governed {
         }
     }
 
+    function getDelegationAddresses(address[] memory _voters, uint256 _blockNumber)
+        external view
+        returns (address[] memory _delegationAddresses)
+    {
+        uint256 length = _voters.length;
+        _delegationAddresses = new address[](length);
+        for (uint256 i = 0; i < length; i++) {
+            _delegationAddresses[i] = register[_voters[i]].delegationAddress.addressAt(_blockNumber);
+            if (_delegationAddresses[i] == address(0)) {
+                _delegationAddresses[i] = _voters[i];
+            }
+        }
+    }
+
     function getSubmitAddresses(address[] memory _voters, uint256 _blockNumber)
         external view
         returns (address[] memory _submitAddresses)
@@ -287,20 +360,6 @@ contract EntityManager is Governed {
             _submitSignaturesAddresses[i] = register[_voters[i]].submitSignaturesAddress.addressAt(_blockNumber);
             if (_submitSignaturesAddresses[i] == address(0)) {
                 _submitSignaturesAddresses[i] = _voters[i];
-            }
-        }
-    }
-
-    function getDelegationAddresses(address[] memory _voters, uint256 _blockNumber)
-        external view
-        returns (address[] memory _delegationAddresses)
-    {
-        uint256 length = _voters.length;
-        _delegationAddresses = new address[](length);
-        for (uint256 i = 0; i < length; i++) {
-            _delegationAddresses[i] = register[_voters[i]].delegationAddress.addressAt(_blockNumber);
-            if (_delegationAddresses[i] == address(0)) {
-                _delegationAddresses[i] = _voters[i];
             }
         }
     }
@@ -334,6 +393,16 @@ contract EntityManager is Governed {
         _voter = publicKeyRegistered[publicKeyHash].addressAt(_blockNumber);
     }
 
+    function getVoterForDelegationAddress(address _delegationAddress, uint256 _blockNumber)
+        external view
+        returns (address _voter)
+    {
+        _voter = delegationAddressRegistered[_delegationAddress].addressAt(_blockNumber);
+        if (_voter == address(0)) {
+            _voter = _delegationAddress;
+        }
+    }
+
     function getVoterForSubmitAddress(address _submitAddress, uint256 _blockNumber)
         external view
         returns (address _voter)
@@ -361,16 +430,6 @@ contract EntityManager is Governed {
         _voter = signingPolicyAddressRegistered[_signingPolicyAddress].addressAt(_blockNumber);
         if (_voter == address(0)) {
             _voter = _signingPolicyAddress;
-        }
-    }
-
-    function getVoterForDelegationAddress(address _delegationAddress, uint256 _blockNumber)
-        external view
-        returns (address _voter)
-    {
-        _voter = delegationAddressRegistered[_delegationAddress].addressAt(_blockNumber);
-        if (_voter == address(0)) {
-            _voter = _delegationAddress;
         }
     }
 }

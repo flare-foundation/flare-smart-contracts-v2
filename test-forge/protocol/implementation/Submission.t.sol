@@ -4,6 +4,23 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import "../../../contracts/protocol/implementation/Submission.sol";
 
+contract PassContract {
+    address public account;
+    uint16 public value;
+
+    function test(address _account, uint16 _value) external returns(uint8) {
+        account = _account;
+        value = _value;
+
+        return 5;
+    }
+
+    function testRevert() external {
+        value = 5;
+        revert("testError");
+    }
+}
+
 contract SubmissionTest is Test {
     Submission private submission;
     address private user1;
@@ -157,5 +174,43 @@ contract SubmissionTest is Test {
         vm.prank(usersGen[0]);
         bool secondCallSig = submission.submitSignatures();
         assertEq(secondCallSig, false, "73");
+    }
+
+    function testSubmitAndPass() public {
+        PassContract passContract = new PassContract();
+        vm.prank(makeAddr("governance"));
+        bytes4 selector = PassContract.test.selector;
+        submission.setSubmitAndPassData(address(passContract), selector);
+
+        bytes memory data = abi.encode(makeAddr("test123"), 16);
+        submission.submitAndPass(data);
+        assertEq(passContract.account(), makeAddr("test123"));
+        assertEq(passContract.value(), 16);
+    }
+
+    function testSubmitAndPassRevert() public {
+        PassContract passContract = new PassContract();
+        vm.prank(makeAddr("governance"));
+        bytes4 selector = PassContract.testRevert.selector;
+        submission.setSubmitAndPassData(address(passContract), selector);
+
+        bytes memory data = abi.encode(makeAddr("test123"), 16);
+        vm.expectRevert("testError");
+        submission.submitAndPass(data);
+    }
+
+    function testSubmitAndPassRevert2() public {
+        address passContract = makeAddr("passContract");
+        vm.prank(makeAddr("governance"));
+        bytes4 selector = PassContract.test.selector;
+        submission.setSubmitAndPassData(passContract, selector);
+
+        bytes memory data = abi.encode(makeAddr("test123"), 16);
+        vm.mockCallRevert(
+            passContract,
+            bytes.concat(selector, data),
+            abi.encode("error123"));
+        vm.expectRevert("error123");
+        submission.submitAndPass(data);
     }
 }
