@@ -44,7 +44,8 @@ contract Relay {
         uint16[] weights,           // The corresponding list of normalised signing weights of eligible voters.
                                     // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
                                     // while approximately keeping the weight relations.
-        bytes signingPolicyBytes    // The full signing policy byte encoded.
+        bytes signingPolicyBytes,    // The full signing policy byte encoded.
+        uint64 timestamp            // Timestamp when this happened
     );
 
     // Event is emitted when a signing policy is relayed.
@@ -344,7 +345,8 @@ contract Relay {
             _signingPolicy.seed,
             _signingPolicy.voters,
             _signingPolicy.weights,
-            signingPolicyBytes
+            signingPolicyBytes,
+            uint64(block.timestamp)
         );
 
         return currentHash;

@@ -5,6 +5,7 @@ import { errorString } from "../error";
 import { TLPEvents, TLPState, TLPTransaction } from "./Entity";
 import { TxData, getFilteredBlock } from "./web3";
 import { retry } from "../retry";
+import { FIRST_DATABASE_INDEX_STATE, LAST_CHAIN_INDEX_STATE, LAST_DATABASE_INDEX_STATE } from "../constants";
 
 export interface ContractAddresses {
   submission: string;
@@ -35,20 +36,38 @@ export class MockDBIndexer {
       this.lastProcessedBlockNumber = (await this.web3.eth.getBlockNumber()) - 1;
     }
 
-    const state = new TLPState();
-    state.id = 3;
-    state.name = "last_chain_block";
-    state.index = this.lastProcessedBlockNumber;
-    state.block_timestamp = 0;
-    state.updated = new Date();
+
+    const firstDatabaseIndexState = new TLPState();
+    firstDatabaseIndexState.id = 1;
+    firstDatabaseIndexState.name = FIRST_DATABASE_INDEX_STATE;
+    firstDatabaseIndexState.index = this.lastProcessedBlockNumber;
+    firstDatabaseIndexState.block_timestamp = 0;
+    firstDatabaseIndexState.updated = new Date();
+
+
+    const lastDatabaseIndexState = new TLPState();
+    lastDatabaseIndexState.id = 2;
+    lastDatabaseIndexState.name = LAST_DATABASE_INDEX_STATE;
+    lastDatabaseIndexState.index = this.lastProcessedBlockNumber;
+    lastDatabaseIndexState.block_timestamp = 0;
+    lastDatabaseIndexState.updated = new Date();
+
+
+    const lastChainIndexState = new TLPState();
+    lastChainIndexState.id = 3;
+    lastChainIndexState.name = LAST_CHAIN_INDEX_STATE;
+    lastChainIndexState.index = this.lastProcessedBlockNumber;
+    lastChainIndexState.block_timestamp = 0;
+    lastChainIndexState.updated = new Date();
 
     while (true) {
-      await this.processNewBlocks(state);
+      await this.processNewBlocks(firstDatabaseIndexState, lastDatabaseIndexState, lastChainIndexState);
       await sleep(500);
     }
   }
 
-  async processNewBlocks(state: TLPState) {
+
+  async processNewBlocks(firstDatabaseIndexState: TLPState, lastDatabaseIndexState: TLPState, lastChainIndexState: TLPState) {
     try {
       const currentBlockNumber = await this.web3.eth.getBlockNumber();
       while (this.lastProcessedBlockNumber < currentBlockNumber) {
@@ -67,9 +86,23 @@ export class MockDBIndexer {
         for (const tx of block.transactions) {
           await this.processTx(tx, block.timestamp, block.hash);
         }
-        state.index = block.number;
-        state.block_timestamp = block.timestamp;
-        await this.dataSource.getRepository(TLPState).save(state);
+        await this.dataSource.transaction(async (manager) => {
+          if (firstDatabaseIndexState.block_timestamp === 0) {
+            firstDatabaseIndexState.index = block.number;
+            firstDatabaseIndexState.block_timestamp = block.timestamp;
+            firstDatabaseIndexState.updated = new Date();
+          }  
+
+          lastDatabaseIndexState.index = block.number;
+          lastDatabaseIndexState.block_timestamp = block.timestamp;
+          lastDatabaseIndexState.updated = new Date();
+          lastChainIndexState.index = block.number;
+          lastChainIndexState.block_timestamp = block.timestamp;
+          lastChainIndexState.updated = new Date();
+          await manager.getRepository(TLPState).save(firstDatabaseIndexState);
+          await manager.getRepository(TLPState).save(lastDatabaseIndexState);
+          await manager.getRepository(TLPState).save(lastChainIndexState);
+        });
         this.lastProcessedBlockNumber++;
       }
     } catch (e: unknown) {
