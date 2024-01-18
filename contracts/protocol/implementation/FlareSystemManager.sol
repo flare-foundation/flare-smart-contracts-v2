@@ -22,15 +22,18 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     using SafePct for uint256;
 
     struct Settings {
-        uint64 firstVotingRoundStartTs;
-        uint64 votingEpochDurationSeconds;
-        uint64 firstRewardEpochStartVotingRoundId;
-        uint64 rewardEpochDurationInVotingEpochs;
-        uint64 newSigningPolicyInitializationStartSeconds;
-        uint64 voterRegistrationMinDurationSeconds;
-        uint64 voterRegistrationMinDurationBlocks;
-        uint64 signingPolicyThresholdPPM;
-        uint64 signingPolicyMinNumberOfVoters;
+        uint32 firstVotingRoundStartTs;
+        uint8 votingEpochDurationSeconds;
+        uint32 firstRewardEpochStartVotingRoundId;
+        uint16 rewardEpochDurationInVotingEpochs;
+        uint16 randomAcquisitionMaxDurationSeconds;
+        uint16 randomAcquisitionMaxDurationBlocks;
+        uint16 newSigningPolicyInitializationStartSeconds;
+        uint8 newSigningPolicyMinNumberOfVotingRoundsDelay;
+        uint16 voterRegistrationMinDurationSeconds;
+        uint16 voterRegistrationMinDurationBlocks;
+        uint24 signingPolicyThresholdPPM;
+        uint16 signingPolicyMinNumberOfVoters;
     }
 
     struct VoterData {
@@ -64,6 +67,9 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         uint32 startVotingRoundId;
         uint16 threshold; // absolute value in normalised weight
 
+        uint64 rewardEpochStartTs;
+        uint64 rewardEpochStartBlock;
+
         Votes signingPolicyVotes;
         mapping(bytes32 => Votes) uptimeVoteVotes;
         mapping(bytes32 => Votes) rewardVotes;
@@ -83,7 +89,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     address public immutable flareDaemon;
 
     /// Timestamp when the first reward epoch started, in seconds since UNIX epoch.
-    uint64 public immutable rewardEpochsStartTs;
+    uint64 public immutable firstRewardEpochStartTs;
     /// Duration of reward epochs, in seconds.
     uint64 public immutable rewardEpochDurationSeconds;
 
@@ -91,6 +97,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     uint64 public immutable firstVotingRoundStartTs;
     /// Duration of voting epochs, in seconds.
     uint64 public immutable votingEpochDurationSeconds;
+    /// number of blocks used for initial random vote power block selection
+    uint64 internal immutable initialRandomVotePowerBlockSelectionSize;
 
     mapping(uint256 => RewardEpochState) internal rewardEpochState;
     // mapping: reward epoch id => uptime vote hash
@@ -100,19 +108,20 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     // mapping: reward epoch id => number of weight based claims
     mapping(uint256 => uint256) public noOfWeightBasedClaims;
 
-    uint64 internal immutable firstRandomAcquisitionNumberOfBlocks;
-
     // Signing policy settings
+    uint64 public randomAcquisitionMaxDurationSeconds; // 8 hours
+    uint64 public randomAcquisitionMaxDurationBlocks; // 15000
     uint64 public newSigningPolicyInitializationStartSeconds; // 2 hours
+    uint32 public newSigningPolicyMinNumberOfVotingRoundsDelay; // 3
     uint64 public voterRegistrationMinDurationSeconds; // 30 minutes
     uint64 public voterRegistrationMinDurationBlocks; // 900
-    uint64 public signingPolicyThresholdPPM;
-    uint64 public signingPolicyMinNumberOfVoters;
+    uint24 public signingPolicyThresholdPPM;
+    uint16 public signingPolicyMinNumberOfVoters;
 
     /// Timestamp when current reward epoch should end, in seconds since UNIX epoch.
     uint64 public currentRewardEpochExpectedEndTs;
 
-    uint64 public lastInitialisedVotingRoundId;
+    uint32 public lastInitialisedVotingRoundId;
 
     uint24 public rewardEpochIdToExpireNext; // TODO
 
@@ -189,9 +198,9 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         address _addressUpdater,
         address _flareDaemon,
         Settings memory _settings,
-        uint64 _firstRandomAcquisitionNumberOfBlocks,
-        uint24 _firstRewardEpochId,
-        uint16 _firstRewardEpochThreshold
+        uint16 _initialRandomVotePowerBlockSelectionSize,
+        uint24 _initialRewardEpochId,
+        uint16 _initialRewardEpochThreshold
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
@@ -200,23 +209,27 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         require(_settings.votingEpochDurationSeconds > 0, "voting epoch duration zero");
         require(_settings.signingPolicyThresholdPPM <= PPM_MAX, "threshold too high");
         require(_settings.signingPolicyMinNumberOfVoters > 0, "zero voters");
-        require(_firstRandomAcquisitionNumberOfBlocks > 0, "zero blocks");
+        require(_initialRandomVotePowerBlockSelectionSize > 0, "zero blocks");
         flareDaemon = _flareDaemon;
         firstVotingRoundStartTs = _settings.firstVotingRoundStartTs;
         votingEpochDurationSeconds = _settings.votingEpochDurationSeconds;
-        rewardEpochsStartTs = _settings.firstVotingRoundStartTs +
+        firstRewardEpochStartTs = _settings.firstVotingRoundStartTs +
             _settings.firstRewardEpochStartVotingRoundId * _settings.votingEpochDurationSeconds;
         rewardEpochDurationSeconds =
-            _settings.rewardEpochDurationInVotingEpochs * _settings.votingEpochDurationSeconds;
+            uint64(_settings.rewardEpochDurationInVotingEpochs) * _settings.votingEpochDurationSeconds;
+        randomAcquisitionMaxDurationSeconds = _settings.randomAcquisitionMaxDurationSeconds;
+        randomAcquisitionMaxDurationBlocks = _settings.randomAcquisitionMaxDurationBlocks;
         newSigningPolicyInitializationStartSeconds = _settings.newSigningPolicyInitializationStartSeconds;
+        newSigningPolicyMinNumberOfVotingRoundsDelay = _settings.newSigningPolicyMinNumberOfVotingRoundsDelay;
         voterRegistrationMinDurationSeconds = _settings.voterRegistrationMinDurationSeconds;
         voterRegistrationMinDurationBlocks = _settings.voterRegistrationMinDurationBlocks;
         signingPolicyThresholdPPM = _settings.signingPolicyThresholdPPM;
         signingPolicyMinNumberOfVoters = _settings.signingPolicyMinNumberOfVoters;
 
-        firstRandomAcquisitionNumberOfBlocks = _firstRandomAcquisitionNumberOfBlocks;
-        currentRewardEpochExpectedEndTs = rewardEpochsStartTs + (_firstRewardEpochId + 1) * rewardEpochDurationSeconds;
-        rewardEpochState[_firstRewardEpochId].threshold = _firstRewardEpochThreshold;
+        initialRandomVotePowerBlockSelectionSize = _initialRandomVotePowerBlockSelectionSize;
+        currentRewardEpochExpectedEndTs = firstRewardEpochStartTs +
+            (_initialRewardEpochId + 1) * rewardEpochDurationSeconds;
+        rewardEpochState[_initialRewardEpochId].threshold = _initialRewardEpochThreshold;
         require(
             currentRewardEpochExpectedEndTs > block.timestamp + _settings.newSigningPolicyInitializationStartSeconds,
             "reward epoch end not in the future");
@@ -242,10 +255,32 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
                     emit RandomAcquisitionStarted(nextRewardEpochId, block.timestamp.toUint64());
                 } else if (state.randomAcquisitionEndTs == 0) {
                     (uint256 random, bool secureRandom, uint64 randomTs) = _getRandom();
+                    uint64 votePowerBlock = 0;
                     if (randomTs > state.randomAcquisitionStartTs && secureRandom) {
                         state.randomAcquisitionEndTs = block.timestamp.toUint64();
                         state.randomAcquisitionEndBlock = block.number.toUint64();
-                        _selectVotePowerBlock(nextRewardEpochId, random);
+                        votePowerBlock = _selectVotePowerBlock(nextRewardEpochId, random);
+                        if (address(voterRegistrationTriggerContract) != address(0)) {
+                            voterRegistrationTriggerContract.triggerVoterRegistration(nextRewardEpochId);
+                        }
+                    } else if (state.randomAcquisitionStartBlock + randomAcquisitionMaxDurationBlocks < block.number &&
+                        state.randomAcquisitionStartTs + randomAcquisitionMaxDurationSeconds < block.timestamp)
+                    {
+                        // use current vote power block => same voters
+                        votePowerBlock = rewardEpochState[currentRewardEpochId].votePowerBlock;
+                        if (votePowerBlock == 0) { // initial reward epoch
+                            votePowerBlock = block.number.toUint64() - 1;
+                        } else {
+                            random = rewardEpochState[currentRewardEpochId].seed; // use current seed
+                        }
+                    }
+                    if (votePowerBlock != 0) { // vote power block was selected
+                        state.randomAcquisitionEndTs = block.timestamp.toUint64();
+                        state.randomAcquisitionEndBlock = block.number.toUint64();
+                        state.votePowerBlock = votePowerBlock;
+                        state.seed = random;
+                        emit VotePowerBlockSelected(nextRewardEpochId, votePowerBlock, block.timestamp.toUint64());
+
                         if (address(voterRegistrationTriggerContract) != address(0)) {
                             voterRegistrationTriggerContract.triggerVoterRegistration(nextRewardEpochId);
                         }
@@ -262,6 +297,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
             if (_isNextRewardEpochId(nextRewardEpochId)) {
                 uint64 nextRewardEpochExpectedEndTs = currentRewardEpochExpectedEndTs + rewardEpochDurationSeconds;
                 currentRewardEpochExpectedEndTs = nextRewardEpochExpectedEndTs; // update storage value
+                rewardEpochState[nextRewardEpochId].rewardEpochStartTs = block.timestamp.toUint64();
+                rewardEpochState[nextRewardEpochId].rewardEpochStartBlock = block.number.toUint64();
                 emit RewardEpochStarted(
                     nextRewardEpochId,
                     rewardEpochState[nextRewardEpochId].startVotingRoundId,
@@ -459,8 +496,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     }
 
     function changeSigningPolicySettings(
-        uint64 _signingPolicyThresholdPPM,
-        uint64 _signingPolicyMinNumberOfVoters
+        uint24 _signingPolicyThresholdPPM,
+        uint16 _signingPolicyMinNumberOfVoters
     )
         external onlyGovernance
     {
@@ -503,7 +540,16 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         returns(uint64 _votePowerBlock)
     {
         _votePowerBlock = rewardEpochState[_rewardEpochId].votePowerBlock;
-        require(_votePowerBlock != 0,"vote power block not initialized yet");
+        require(_votePowerBlock != 0, "vote power block not initialized yet");
+    }
+
+    function getSeed(uint256 _rewardEpochId)
+        external view
+        returns(uint256)
+    {
+        // check votePowerBlock, seed can be zero
+        require(rewardEpochState[_rewardEpochId].votePowerBlock != 0, "seed not initialized yet");
+        return rewardEpochState[_rewardEpochId].seed;
     }
 
     function getStartVotingRoundId(uint256 _rewardEpochId)
@@ -520,14 +566,6 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         returns(uint16)
     {
         return rewardEpochState[_rewardEpochId].threshold;
-    }
-
-    function getSeed(uint256 _rewardEpochId)
-        external view
-        onlyIfInitialised(_rewardEpochId)
-        returns(uint256)
-    {
-        return rewardEpochState[_rewardEpochId].seed;
     }
 
     function getVoterRegistrationData(
@@ -554,6 +592,18 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
 
     function getCurrentRandomWithQuality() external view override returns(uint256 _currentRandom, bool _secureRandom) {
         (_currentRandom, _secureRandom, ) = _getRandom();
+    }
+
+    function getRewarEpochStartInfo(uint24 _rewardEpochId)
+        external view
+        returns(
+            uint64 _rewardEpochStartTs,
+            uint64 _rewardEpochStartBlock
+        )
+    {
+        RewardEpochState storage state = rewardEpochState[_rewardEpochId];
+        _rewardEpochStartTs = state.rewardEpochStartTs;
+        _rewardEpochStartBlock = state.rewardEpochStartBlock;
     }
 
     function getRandomAcquisitionInfo(uint24 _rewardEpochId)
@@ -668,29 +718,6 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         }
     }
 
-    function _selectVotePowerBlock(uint24 _nextRewardEpochId, uint256 _random) internal {
-        // randomTs > state.randomAcquisitionStartTs && secureRandom == true
-        RewardEpochState storage state = rewardEpochState[_nextRewardEpochId];
-        uint64 startBlock = rewardEpochState[_nextRewardEpochId - 1].randomAcquisitionStartBlock;
-        uint64 endBlock = state.randomAcquisitionStartBlock; // endBlock > 0
-        uint64 numberOfBlocks;
-        if (startBlock == 0) {
-            // endBlock > 0 && firstRandomAcquisitionNumberOfBlocks > 0
-            numberOfBlocks = Math.min(endBlock, firstRandomAcquisitionNumberOfBlocks).toUint64();
-        } else {
-            // endBlock > startBlock
-            numberOfBlocks = endBlock - startBlock;
-        }
-
-        //slither-disable-next-line weak-prng
-        uint256 votePowerBlocksAgo = _random % numberOfBlocks; // numberOfBlocks > 0
-        uint64 votePowerBlock = endBlock - votePowerBlocksAgo.toUint64();
-        state.votePowerBlock = votePowerBlock;
-        state.seed = _random;
-
-        emit VotePowerBlockSelected(_nextRewardEpochId, votePowerBlock, block.timestamp.toUint64());
-    }
-
     function _initializeNextSigningPolicy(uint24 _nextRewardEpochId) internal {
         RewardEpochState storage state = rewardEpochState[_nextRewardEpochId];
         Relay.SigningPolicy memory signingPolicy;
@@ -722,8 +749,30 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         relay = Relay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
+    function _selectVotePowerBlock(uint24 _nextRewardEpochId, uint256 _random)
+        internal view
+        returns(uint64 _votePowerBlock)
+    {
+        // randomTs > state.randomAcquisitionStartTs && secureRandom == true
+        uint64 startBlock = rewardEpochState[_nextRewardEpochId - 1].randomAcquisitionStartBlock;
+        // 0 < endBlock < block.number
+        uint64 endBlock = rewardEpochState[_nextRewardEpochId].randomAcquisitionStartBlock;
+        uint64 numberOfBlocks;
+        if (startBlock == 0) {
+            // endBlock > 0 && initialRandomVotePowerBlockSelectionSize > 0
+            numberOfBlocks = Math.min(endBlock, initialRandomVotePowerBlockSelectionSize).toUint64();
+        } else {
+            // endBlock > startBlock
+            numberOfBlocks = endBlock - startBlock;
+        }
+
+        //slither-disable-next-line weak-prng
+        uint256 votePowerBlocksAgo = _random % numberOfBlocks; // numberOfBlocks > 0
+        _votePowerBlock = endBlock - votePowerBlocksAgo.toUint64();
+    }
+
     function _getCurrentRewardEpochId() internal view returns(uint24) {
-        return (uint256(currentRewardEpochExpectedEndTs - rewardEpochsStartTs) / rewardEpochDurationSeconds - 1)
+        return (uint256(currentRewardEpochExpectedEndTs - firstRewardEpochStartTs) / rewardEpochDurationSeconds - 1)
             .toUint24();
     }
 
@@ -763,17 +812,11 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     }
 
     function _getStartVotingRoundId() internal view returns (uint32 _startVotingRoundId) {
-        uint256 timeFromStart = currentRewardEpochExpectedEndTs;
-        if (block.timestamp >= timeFromStart) {
-            timeFromStart = block.timestamp.toUint64() + 1; // start in next block
-        }
-        // currentRewardEpochExpectedEndTs >= rewardEpochsStartTs >= firstVotingRoundStartTs
-        timeFromStart -= firstVotingRoundStartTs;
+        uint256 timeFromStart = currentRewardEpochExpectedEndTs - firstVotingRoundStartTs;
         _startVotingRoundId = (timeFromStart / votingEpochDurationSeconds).toUint32();
-        // if in the middle of voting round start with the next one
-        //slither-disable-next-line weak-prng //not a random
-        if (timeFromStart % votingEpochDurationSeconds != 0) {
-            _startVotingRoundId += 1;
+        uint32 minStartVotingRoundId = _getCurrentVotingEpochId() + newSigningPolicyMinNumberOfVotingRoundsDelay + 1;
+        if (_startVotingRoundId < minStartVotingRoundId) {
+            _startVotingRoundId = minStartVotingRoundId;
         }
     }
 }

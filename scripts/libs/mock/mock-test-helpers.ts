@@ -39,14 +39,13 @@ const FlareSystemManager: FlareSystemManagerContract = artifacts.require("FlareS
 export async function extractEpochSettings(flareSystemManagerAddress: string): Promise<EpochSettings> {
   const flareSystemManager: FlareSystemManagerInstance = await FlareSystemManager.at(flareSystemManagerAddress);
   return new EpochSettings(
-    (await flareSystemManager.rewardEpochsStartTs()).toNumber(),
+    (await flareSystemManager.firstRewardEpochStartTs()).toNumber(),
     (await flareSystemManager.rewardEpochDurationSeconds()).toNumber(),
     (await flareSystemManager.firstVotingRoundStartTs()).toNumber(),
     (await flareSystemManager.votingEpochDurationSeconds()).toNumber(),
     (await flareSystemManager.newSigningPolicyInitializationStartSeconds()).toNumber(),
-    (await flareSystemManager.nonPunishableRandomAcquisitionMinDurationSeconds()).toNumber(),
     (await flareSystemManager.voterRegistrationMinDurationSeconds()).toNumber(),
-    (await flareSystemManager.nonPunishableSigningPolicySignMinDurationSeconds()).toNumber()
+    (await flareSystemManager.voterRegistrationMinDurationBlocks()).toNumber()
   );
 }
 
