@@ -66,11 +66,11 @@ contract FtsoRewardOffersManagerTest is Test {
         mockFlareSystemManager = makeAddr("flareSystemManager");
         mockInflation = makeAddr("inflation");
 
-        rewardManager = new RewardManager(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
-            addressUpdater
-        );
+        // rewardManager = new RewardManager(
+        //     IGovernanceSettings(makeAddr("governanceSettings")),
+        //     governance,
+        //     addressUpdater
+        // );
 
         vm.startPrank(addressUpdater);
         contractNameHashes = new bytes32[](6);

@@ -228,8 +228,6 @@ contract FtsoFeedPublisherTest is Test {
         // feed for voting round 12 was overwritten by feed for voting round 2 (history size is 10)
         vm.expectRevert("feed not published yet");
         getFeed = ftsoFeedPublisher.getFeed(feedName1, 12);
-
-
     }
 
 
