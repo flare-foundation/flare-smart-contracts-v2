@@ -8,14 +8,14 @@ contract PassContract {
     address public account;
     uint16 public value;
 
-    function test(address _account, uint16 _value) external returns(uint8) {
+    function setData1(address _account, uint16 _value) external returns(uint8) {
         account = _account;
         value = _value;
 
         return 5;
     }
 
-    function testRevert() external {
+    function setData2() external {
         value = 5;
         revert("testError");
     }
@@ -179,7 +179,7 @@ contract SubmissionTest is Test {
     function testSubmitAndPass() public {
         PassContract passContract = new PassContract();
         vm.prank(makeAddr("governance"));
-        bytes4 selector = PassContract.test.selector;
+        bytes4 selector = PassContract.setData1.selector;
         submission.setSubmitAndPassData(address(passContract), selector);
 
         bytes memory data = abi.encode(makeAddr("test123"), 16);
@@ -191,7 +191,7 @@ contract SubmissionTest is Test {
     function testSubmitAndPassRevert() public {
         PassContract passContract = new PassContract();
         vm.prank(makeAddr("governance"));
-        bytes4 selector = PassContract.testRevert.selector;
+        bytes4 selector = PassContract.setData2.selector;
         submission.setSubmitAndPassData(address(passContract), selector);
 
         bytes memory data = abi.encode(makeAddr("test123"), 16);
@@ -199,17 +199,19 @@ contract SubmissionTest is Test {
         submission.submitAndPass(data);
     }
 
+    error CustomError(string message, uint256 value);
     function testSubmitAndPassRevert2() public {
         address passContract = makeAddr("passContract");
         vm.prank(makeAddr("governance"));
-        bytes4 selector = PassContract.test.selector;
+        bytes4 selector = PassContract.setData1.selector;
         submission.setSubmitAndPassData(passContract, selector);
 
+        bytes4 errorSelector = bytes4(keccak256("Error(string)"));
         bytes memory data = abi.encode(makeAddr("test123"), 16);
         vm.mockCallRevert(
             passContract,
             bytes.concat(selector, data),
-            abi.encode("error123"));
+            abi.encodeWithSelector(errorSelector, "error123"));
         vm.expectRevert("error123");
         submission.submitAndPass(data);
     }
