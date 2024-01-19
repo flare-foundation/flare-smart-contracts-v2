@@ -593,11 +593,15 @@ async function defineInitialSigningPolicy(
   }
 
   for (const acc of registeredAccounts) {
+    if (SKIP_VOTER_REGISTRATION_SET.has(acc.identity.address.toLowerCase())) {
+      getLogger("").info(`Skipping automatic voter registration for ${acc.identity.address}`);
+      continue;
+    }
     await registerVoter(1, acc, c.voterRegistry);
   }
 
   await time.increaseTo(
-    rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds / 2 + epochSettings.voterRegistrationMinDurationSeconds + 1)
+    rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds / 2 + epochSettings.voterRegistrationMinDurationSeconds + 5)
   );
 
   const resp3 = await c.flareSystemManager.daemonize();
