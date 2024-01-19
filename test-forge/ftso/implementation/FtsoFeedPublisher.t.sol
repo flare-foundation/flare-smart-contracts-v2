@@ -162,7 +162,74 @@ contract FtsoFeedPublisherTest is Test {
     }
 
     function testPublishFeeds() public {
+        IFtsoFeedPublisher.Feed memory getFeed;
         testSetFeedsPublisher();
+        _mockGetVotingRoundId(block.timestamp, 4);
+        uint32 roundId = 2;
+        IFtsoFeedPublisher.Feed memory feed1 = IFtsoFeedPublisher.Feed(
+            roundId, feedName1, int32(100), uint16(1000), int8(2));
+        IFtsoFeedPublisher.Feed memory feed2 = IFtsoFeedPublisher.Feed(
+            roundId, feedName2, int32(200), uint16(2000), int8(3));
+
+        IFtsoFeedPublisher.Feed[] memory feeds = new IFtsoFeedPublisher.Feed[](2);
+        feeds[0] = feed1;
+        feeds[1] = feed2;
+
+        vm.expectEmit();
+        emit FtsoFeedPublished(feed1);
+        vm.expectEmit();
+        emit FtsoFeedPublished(feed2);
+        vm.prank(feedsPublisher);
+        ftsoFeedPublisher.publishFeeds(feeds);
+
+        getFeed = ftsoFeedPublisher.getFeed(feedName1, 2);
+        assertEq(getFeed.votingRoundId, roundId);
+        assertEq(getFeed.name, feedName1);
+        assertEq(getFeed.value, int32(100));
+        assertEq(getFeed.turnoutBIPS, uint16(1000));
+        assertEq(getFeed.decimals, int8(2));
+
+        // move to voting round 15
+        roundId = 12;
+        IFtsoFeedPublisher.Feed memory feed = IFtsoFeedPublisher.Feed(
+            roundId, feedName1, int32(8), uint16(18), int8(13));
+        feeds = new IFtsoFeedPublisher.Feed[](1);
+        feeds[0] = feed;
+        vm.prank(feedsPublisher);
+        ftsoFeedPublisher.publishFeeds(feeds);
+
+        getFeed = ftsoFeedPublisher.getFeed(feedName1, 12);
+        assertEq(getFeed.votingRoundId, roundId);
+        assertEq(getFeed.name, feedName1);
+        assertEq(getFeed.value, int32(8));
+        assertEq(getFeed.turnoutBIPS, uint16(18));
+        assertEq(getFeed.decimals, int8(13));
+
+        // feed for voting round 2 was overwritten by feed for voting round 12 (history size is 10)
+        vm.expectRevert("feed not published yet");
+        getFeed = ftsoFeedPublisher.getFeed(feedName1, 2);
+
+        // publish again feed for voting round 2
+        roundId = 2;
+        feed = IFtsoFeedPublisher.Feed(
+            roundId, feedName1, int32(100), uint16(1000), int8(2));
+        feeds = new IFtsoFeedPublisher.Feed[](1);
+        feeds[0] = feed;
+        vm.prank(feedsPublisher);
+        ftsoFeedPublisher.publishFeeds(feeds);
+
+        getFeed = ftsoFeedPublisher.getFeed(feedName1, 2);
+        assertEq(getFeed.votingRoundId, 2);
+        assertEq(getFeed.name, feedName1);
+        assertEq(getFeed.value, int32(100));
+        assertEq(getFeed.turnoutBIPS, uint16(1000));
+        assertEq(getFeed.decimals, int8(2));
+
+        // feed for voting round 12 was overwritten by feed for voting round 2 (history size is 10)
+        vm.expectRevert("feed not published yet");
+        getFeed = ftsoFeedPublisher.getFeed(feedName1, 12);
+
+
     }
 
 
