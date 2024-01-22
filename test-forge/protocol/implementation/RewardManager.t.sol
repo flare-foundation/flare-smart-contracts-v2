@@ -126,12 +126,13 @@ contract RewardManagerTest is Test {
 
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 0); // only DIRECT claim
-        _setWNatData();
-        _setPChainMirrorData();
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         // set executor who will claim instead of a reward owner
         address executor = makeAddr("executor");
+        vm.prank(executor);
         vm.mockCall(
             mockClaimSetupManager,
             abi.encodeWithSelector(
@@ -178,8 +179,8 @@ contract RewardManagerTest is Test {
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 1); // DIRECT claim and one weight based claim (WNAT)
         // voter1 balance = 250; vp = 300; he is delegating 100% to himself
-        _setWNatData();
-        _setPChainMirrorData();
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         uint256 balanceBefore = voter1.balance;
@@ -207,8 +208,8 @@ contract RewardManagerTest is Test {
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 1); // DIRECT claim and one weight based claim (WNAT)
         // voter1 balance = 250; vp = 300; he is delegating 100% to himself
-        _setWNatData();
-        _setPChainMirrorData();
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         // override delegations data from _setWnatData
@@ -253,7 +254,6 @@ contract RewardManagerTest is Test {
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
         assertEq(voter1.balance, body1.amount + 166);
     }
-
 
     // claim DIRECT and weight based (WNAT, MIRROR & CCHAIN)
     function testClaimDirectAndWeightBased2() public {
@@ -320,11 +320,11 @@ contract RewardManagerTest is Test {
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 3);
         // voter1 balance = 250; vp = 300; he is delegating 100% to himself
-        _setWNatData();
+        _setWNatData(rewardEpochData.vpBlock);
         // voter1 has 350 weight on node1, which has 400 vp
-        _setPChainMirrorData();
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         // voter1 has 450 weight on account1, which has 500 vp
-        _setCChainData();
+        _setCChainData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         // uint256 balanceBefore = voter1.balance;
@@ -344,6 +344,180 @@ contract RewardManagerTest is Test {
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
         // uint256 balanceAfter = voter1.balance;
         assertEq(voter1.balance, body1.amount + 166 + 262 + 360);
+    }
+
+    // claim DIRECT and weight based (WNAT, MIRROR & CCHAIN) for two epochs. In second epochs there is not enough funds on contract for all rewards
+    function testClaimDirectAndWeightBased3() public {
+        // enable cChain stake
+        vm.prank(governance);
+        rewardManager.enableCChainStake();
+        assertEq(address(rewardManager.cChainStake()), address(0));
+        vm.prank(addressUpdater);
+        rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
+        assertEq(address(rewardManager.cChainStake()), mockCChainStake);
+
+        RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
+        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](4);
+        bytes32[] memory merkleProof1 = new bytes32[](2);
+        bytes32[] memory merkleProof2 = new bytes32[](2);
+        bytes32[] memory merkleProof3 = new bytes32[](2);
+        bytes32[] memory merkleProof4 = new bytes32[](2);
+
+        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
+        IRewardManager.RewardClaim memory body2 = IRewardManager.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        IRewardManager.RewardClaim memory body3 = IRewardManager.RewardClaim(
+            rewardEpochData.id, nodeId1, 300, IRewardManager.ClaimType.MIRROR);
+        IRewardManager.RewardClaim memory body4 = IRewardManager.RewardClaim(
+            rewardEpochData.id, bytes20(account1), 400, IRewardManager.ClaimType.CCHAIN);
+        bytes32[] memory hashes = new bytes32[](7);
+        hashes[0] = keccak256(abi.encode(body1)); // leaf1
+        hashes[1] = keccak256(abi.encode(body2)); // leaf2
+        hashes[2] = keccak256(abi.encode(body3)); // leaf3
+        hashes[3] = keccak256(abi.encode(body4)); // leaf4
+        hashes[4] = _hashPair(hashes[0], hashes[1]); // hash1
+        hashes[5] = _hashPair(hashes[2], hashes[3]); // hash2
+        hashes[6] = _hashPair(hashes[4], hashes[5]); // merkleRoot
+
+        // proof for DIRECT claim
+        merkleProof1[0] = hashes[1];
+        merkleProof1[1] = hashes[5];
+        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+
+        // proof for WNAT claim
+        merkleProof2[0] = hashes[0];
+        merkleProof2[1] = hashes[5];
+        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+
+        // proof for MIRROR claim
+        merkleProof3[0] = hashes[3];
+        merkleProof3[1] = hashes[4];
+        proofs[2] = IRewardManager.RewardClaimWithProof(merkleProof3, body3);
+
+        // proof for CCHAIN claim
+        merkleProof4[0] = hashes[2];
+        merkleProof4[1] = hashes[4];
+        proofs[3] = IRewardManager.RewardClaimWithProof(merkleProof4, body4);
+
+        // contract needs some funds for rewarding
+        _fundRewardContract(1000, rewardEpochData.id);
+
+        _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
+        _mockRewardsHash(rewardEpochData.id, hashes[6]);
+
+        _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
+
+        // _claimWeightBasedRewards
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 3);
+        // voter1 balance = 250; vp = 300; he is delegating 100% to himself
+        _setWNatData(rewardEpochData.vpBlock);
+        // voter1 has 350 weight on node1, which has 400 vp
+        _setPChainMirrorData(rewardEpochData.vpBlock);
+        // voter1 has 450 weight on account1, which has 500 vp
+        _setCChainData(rewardEpochData.vpBlock);
+        _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
+
+        // uint256 balanceBefore = voter1.balance;
+        vm.prank(voter1);
+        // DIRECT rewards
+        vm.expectEmit();
+        emit RewardClaimed(voter1, voter1, voter1, rewardEpochData.id, body1.claimType, body1.amount);
+        // WNAT rewards; should receive floor(200 * 250 / 300) = 166
+        vm.expectEmit();
+        emit RewardClaimed(voter1, voter1, voter1, rewardEpochData.id, body2.claimType, 166);
+        // MIRROR rewards; should receive floor(300 * 350 / 400) = 262
+        vm.expectEmit();
+        emit RewardClaimed(address(nodeId1), voter1, voter1, rewardEpochData.id, body3.claimType, 262);
+        // CCHAIN rewards; should receive floor(400 * 450 / 500) = 360
+        vm.expectEmit();
+        emit RewardClaimed(account1, voter1, voter1, rewardEpochData.id, body4.claimType, 360);
+        rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
+        // uint256 balanceAfter = voter1.balance;
+        assertEq(voter1.balance, body1.amount + 166 + 262 + 360);
+
+        // claim for next epoch (1)
+        // vp block for epoch 1 was set to 2* vp block for epoch 0 (=20)
+        rewardEpochData = RewardEpochData(1, 20);
+        proofs = new IRewardManager.RewardClaimWithProof[](4);
+        merkleProof1 = new bytes32[](2);
+        merkleProof2 = new bytes32[](2);
+        merkleProof3 = new bytes32[](2);
+        merkleProof4 = new bytes32[](2);
+
+        body1 = IRewardManager.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
+        body2 = IRewardManager.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        body3 = IRewardManager.RewardClaim(
+            rewardEpochData.id, nodeId1, 300, IRewardManager.ClaimType.MIRROR);
+        body4 = IRewardManager.RewardClaim(
+            rewardEpochData.id, bytes20(account1), 400, IRewardManager.ClaimType.CCHAIN);
+        hashes = new bytes32[](7);
+        hashes[0] = keccak256(abi.encode(body1)); // leaf1
+        hashes[1] = keccak256(abi.encode(body2)); // leaf2
+        hashes[2] = keccak256(abi.encode(body3)); // leaf3
+        hashes[3] = keccak256(abi.encode(body4)); // leaf4
+        hashes[4] = _hashPair(hashes[0], hashes[1]); // hash1
+        hashes[5] = _hashPair(hashes[2], hashes[3]); // hash2
+        hashes[6] = _hashPair(hashes[4], hashes[5]); // merkleRoot
+
+        // proof for DIRECT claim
+        merkleProof1[0] = hashes[1];
+        merkleProof1[1] = hashes[5];
+        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+
+        // proof for WNAT claim
+        merkleProof2[0] = hashes[0];
+        merkleProof2[1] = hashes[5];
+        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+
+        // proof for MIRROR claim
+        merkleProof3[0] = hashes[3];
+        merkleProof3[1] = hashes[4];
+        proofs[2] = IRewardManager.RewardClaimWithProof(merkleProof3, body3);
+
+        // proof for CCHAIN claim
+        merkleProof4[0] = hashes[2];
+        merkleProof4[1] = hashes[4];
+        proofs[3] = IRewardManager.RewardClaimWithProof(merkleProof4, body4);
+
+        _mockRewardsHash(rewardEpochData.id, hashes[6]);
+        _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
+        // _claimWeightBasedRewards
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 3);
+        // voter1 balance = 250; vp = 300; he is delegating 100% to himself
+        _setWNatData(rewardEpochData.vpBlock);
+        // voter1 has 350 weight on node1, which has 400 vp
+        _setPChainMirrorData(rewardEpochData.vpBlock);
+        // voter1 has 450 weight on account1, which has 500 vp
+        _setCChainData(rewardEpochData.vpBlock);
+        _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
+
+        //// claim for next epoch (1)
+        _mockGetVpBlock(2, rewardEpochData.vpBlock * 2);
+        // vp block for epoch 1 was set to 2* vp block for epoch 0 (=20)
+        // reward contract has only 500 funds
+        _fundRewardContract(500, rewardEpochData.id);
+        // move one epoch forward
+        _mockGetCurrentEpochId(2);
+        vm.prank(voter1);
+        // DIRECT rewards
+        vm.expectEmit();
+        emit RewardClaimed(voter1, voter1, voter1, rewardEpochData.id, body1.claimType, body1.amount);
+        // WNAT rewards; should receive floor(200 * 250 / 300) = 166
+        vm.expectEmit();
+        emit RewardClaimed(voter1, voter1, voter1, rewardEpochData.id, body2.claimType, 166);
+        // reward contract had only 500 funds. 100 was already spent for direct claim and
+        // 200 was initialized for wNat. Only 200 is left for MIRROR
+        // MIRROR rewards; should receive floor(300 * 350 / 400) = 175
+        vm.expectEmit();
+        emit RewardClaimed(address(nodeId1), voter1, voter1, rewardEpochData.id, body3.claimType, 175);
+        // CCHAIN rewards; all 500 were already used for initializations. nothing left for cChain claim
+        vm.expectEmit();
+        emit RewardClaimed(account1, voter1, voter1, rewardEpochData.id, body4.claimType, 0);
+        rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
+        assertEq(voter1.balance, (body1.amount + 166 + 262 + 360) + (body1.amount + 166 + 175));
     }
 
     // weight based reward are already initialized; delegator claims for himself
@@ -395,6 +569,63 @@ contract RewardManagerTest is Test {
         vm.prank(delegator2);
         rewardManager.claim(delegator2, payable(delegator2), 0, false, proofs);
         assertEq(delegator2.balance, 0);
+    }
+
+    // weight based reward are already initialized; two delegators claim
+    function testClaimWeightBased2() public {
+        testClaimDirectAndWeightBased2();
+        address delegator1 = makeAddr("delegator1");
+        address delegator2 = makeAddr("delegator2");
+
+        // set data for delegator
+        address[] memory delegates = new address[](1);
+        delegates[0] = voter1;
+        uint256[] memory bips = new uint256[](1);
+        bips[0] = 10000;
+        _mockWNatDelegations(delegator1, 10, delegates, bips);
+        _mockWNatBalance(delegator1, 10, 25);
+        _mockWNatDelegations(delegator2, 10, delegates, bips);
+        _mockWNatBalance(delegator2, 10, 25);
+
+        bytes20[] memory nodeIds = new bytes20[](1);
+        uint256[] memory weights = new uint256[](1);
+        nodeIds[0] = nodeId1;
+        weights[0] = 50;
+        _mockStakes(delegator1, 10, nodeIds, weights);
+        bytes20[] memory nodeIds1 = new bytes20[](0);
+        uint256[] memory weights1 = new uint256[](0);
+        // nodeIds = new bytes20[](0);
+        // weights = new uint256[](0);
+        _mockStakes(delegator2, 10, nodeIds1, weights1);
+
+        address[] memory accounts = new address[](1);
+        accounts[0] = account1;
+        weights[0] = 50;
+        _mockCChainStakes(delegator1, 10, accounts, weights);
+        accounts = new address[](0);
+        _mockCChainStakes(delegator2, 10, accounts, weights);
+
+        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+
+        vm.prank(delegator1);
+        // WNAT rewards; should receive (200 - 166) * 25 / (300 - 250) = 17
+        vm.expectEmit();
+        emit RewardClaimed(voter1, delegator1, delegator1, 0, IRewardManager.ClaimType.WNAT, 17);
+        // MIRROR rewards; should receive ceil(300 * 50/400) = 38
+        vm.expectEmit();
+        emit RewardClaimed(address(nodeId1), delegator1, delegator1, 0, IRewardManager.ClaimType.MIRROR, 38);
+        // CCHAIN rewards; should receive ceil(400 * 50/500) = 400 - 360 = 40
+        vm.expectEmit();
+        emit RewardClaimed(account1, delegator1, delegator1, 0, IRewardManager.ClaimType.CCHAIN, 40);
+        rewardManager.claim(delegator1, payable(delegator1), 0, false, proofs);
+        assertEq(delegator1.balance, 17 + 38 + 40);
+
+        vm.prank(delegator2);
+        vm.expectEmit();
+        // WNAT rewards; should receive what is left (= 17)
+        emit RewardClaimed(voter1, delegator2, delegator2, 0, IRewardManager.ClaimType.WNAT, 17);
+        rewardManager.claim(delegator2, payable(delegator2), 0, false, proofs);
+        assertEq(delegator2.balance, 17);
     }
 
     // reward weight > unclaimed weight
@@ -513,8 +744,8 @@ contract RewardManagerTest is Test {
 
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 0); // only DIRECT claim
-        _setWNatData();
-        _setPChainMirrorData();
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         vm.prank(voter1);
@@ -548,8 +779,8 @@ contract RewardManagerTest is Test {
 
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 0); // only FEE claim
-        _setWNatData();
-        _setPChainMirrorData();
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         vm.prank(voter1);
@@ -586,8 +817,8 @@ contract RewardManagerTest is Test {
 
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 0); // only FEE claim
-        _setWNatData();
-        _setPChainMirrorData();
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         vm.prank(voter1);
@@ -618,8 +849,8 @@ contract RewardManagerTest is Test {
 
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 0); // only FEE claim
-        _setWNatData();
-        _setPChainMirrorData();
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         vm.prank(voter1);
@@ -650,8 +881,8 @@ contract RewardManagerTest is Test {
 
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 0); // only FEE claim
-        _setWNatData();
-        _setPChainMirrorData();
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         address voter2 = makeAddr("voter2");
@@ -684,8 +915,8 @@ contract RewardManagerTest is Test {
 
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 0); // only FEE claim
-        _setWNatData();
-        _setPChainMirrorData();
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         vm.prank(voter1);
@@ -719,6 +950,49 @@ contract RewardManagerTest is Test {
         vm.prank(voter1);
         vm.expectRevert("recipient zero");
         rewardManager.claim(voter1, payable(address(0)), 0, false, proofs);
+    }
+
+    function testClaimRevertTransferFailed() public {
+        RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
+
+        bytes32[] memory merkleProof = new bytes32[](0);
+        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
+        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+            merkleProof, body);
+        proofs[0] = proof;
+        bytes32 leaf1 = keccak256(abi.encode(body));
+        bytes32 merkleRoot = leaf1;
+
+        // reward manager not yet activated
+        vm.expectRevert("reward manager deactivated");
+        rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
+
+        // contract needs some funds for rewarding
+        _fundRewardContract(1000, rewardEpochData.id);
+
+        _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
+        _mockRewardsHash(rewardEpochData.id, merkleRoot);
+
+        _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
+
+        // _claimWeightBasedRewards
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 0); // only DIRECT claim
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
+        _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
+
+        // transfer of reward to voter failed
+        vm.mockCallRevert(
+            voter1,
+            abi.encode(),
+            abi.encode()
+        );
+
+        vm.prank(voter1);
+        vm.expectRevert("transfer failed");
+        rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
     }
 
     //// auto claim tests
@@ -803,13 +1077,13 @@ contract RewardManagerTest is Test {
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 3);
 
-        _setWNatData();
+        _setWNatData(rewardEpochData.vpBlock);
         _setWNatDataRewardOwners(rewardOwners, false);
 
-        _setPChainMirrorData();
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _setPChainMirrorDataRewardOwners(rewardOwners);
 
-        _setCChainData();
+        _setCChainData(rewardEpochData.vpBlock);
         _setCChainDataRewardOwners(rewardOwners);
 
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
@@ -916,14 +1190,14 @@ contract RewardManagerTest is Test {
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 3);
 
-        _setWNatData();
+        _setWNatData(rewardEpochData.vpBlock);
         _setWNatDataRewardOwners(rewardOwners, false);
         _setWNatDataRewardOwners(pdas, true);
 
-        _setPChainMirrorData();
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _setPChainMirrorDataRewardOwners(rewardOwners);
 
-        _setCChainData();
+        _setCChainData(rewardEpochData.vpBlock);
         _setCChainDataRewardOwners(rewardOwners);
 
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
@@ -994,13 +1268,13 @@ contract RewardManagerTest is Test {
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 1);
 
-        _setWNatData();
+        _setWNatData(rewardEpochData.vpBlock);
         _setWNatDataRewardOwners(rewardOwners, false);
 
-        _setPChainMirrorData();
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _setPChainMirrorDataRewardOwners(rewardOwners);
 
-        _setCChainData();
+        _setCChainData(rewardEpochData.vpBlock);
         _setCChainDataRewardOwners(rewardOwners);
 
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
@@ -1009,8 +1283,6 @@ contract RewardManagerTest is Test {
         vm.expectRevert("claimed amount too small");
         rewardManager.autoClaim(rewardOwners, rewardEpochData.id, proofs);
     }
-
-
 
     ////
     function testActivateAndDeactivate() public {
@@ -1058,8 +1330,8 @@ contract RewardManagerTest is Test {
         _mockCalculateBurnFactor(rewardEpochData.id, voter1, 100000);
 
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 0);
-        _setWNatData();
-        _setPChainMirrorData();
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         vm.prank(voter1);
@@ -1107,8 +1379,8 @@ contract RewardManagerTest is Test {
         _mockRewardsHash(rewardEpochData.id, merkleRoot);
         _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 0);
-        _setWNatData();
-        _setPChainMirrorData();
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         assertEq(rewardManager.nextClaimableRewardEpochId(voter1), 0);
@@ -1147,9 +1419,32 @@ contract RewardManagerTest is Test {
         assertEq(endId, 13 - 1);
     }
 
-    // TODO test new, old reawrd manager, expire epoch, setInitialRewardData; require(success, "transfer failed");
+    // TODO test new, old reward manager, expire epoch, setInitialRewardData;
     // TODO test claim more than one delegator, nodeId
-    function testSetNewRewardManager() public {
+    function testSetNewRewardManagerRevert() public {
+        vm.startPrank(governance);
+        vm.expectRevert("address zero");
+        rewardManager.setNewRewardManager(address(0));
+
+        rewardManager.setNewRewardManager(makeAddr("newRewardManager"));
+        assertEq(rewardManager.newRewardManager(), makeAddr("newRewardManager"));
+
+        vm.expectRevert("already set");
+        rewardManager.setNewRewardManager(makeAddr("newRewardManager1"));
+        vm.stopPrank();
+    }
+
+    function testSetOldRewardManagerRevert() public {
+        vm.startPrank(governance);
+        vm.expectRevert("address zero");
+        rewardManager.setOldRewardManager(address(0));
+
+        rewardManager.setOldRewardManager(makeAddr("oldRewardManager"));
+        assertEq(rewardManager.oldRewardManager(), makeAddr("oldRewardManager"));
+
+        vm.expectRevert("already set");
+        rewardManager.setOldRewardManager(makeAddr("oldRewardManager1"));
+        vm.stopPrank();
     }
 
 
@@ -1207,7 +1502,8 @@ contract RewardManagerTest is Test {
     }
 
     function _mockWNatDelegations(
-        address _user, uint256 _vpBlock,
+        address _user,
+        uint256 _vpBlock,
         address[] memory _delegates,
         uint256[] memory _bips
     )
@@ -1298,24 +1594,24 @@ contract RewardManagerTest is Test {
         );
     }
 
-    function _setWNatData() internal {
+    function _setWNatData(uint256 _vpBlock) internal {
         address[] memory delegates = new address[](1);
         delegates[0] = voter1;
         uint256[] memory bips = new uint256[](1);
         bips[0] = 10000;
-        _mockWNatDelegations(voter1, 10, delegates, bips);
-        _mockWNatBalance(voter1, 10, 250);
-        _mockWNatVp(voter1, 10, 300);
+        _mockWNatDelegations(voter1, _vpBlock, delegates, bips);
+        _mockWNatBalance(voter1, _vpBlock, 250);
+        _mockWNatVp(voter1, _vpBlock, 300);
     }
 
-    function _setWNatDataRewardOwners(address[] memory _rewardOwners, bool _PDA) internal {
+    function _setWNatDataRewardOwners(address[] memory _rewardOwners, bool _pda) internal {
         address[] memory delegates = new address[](1);
         uint256[] memory bips = new uint256[](1);
         delegates[0] = voter1;
         bips[0] = 10000;
         uint256 balance1;
         uint256 balance2;
-        if (!_PDA) {
+        if (!_pda) {
             balance1 = 10;
             balance2 = 20;
         } else {
@@ -1328,13 +1624,13 @@ contract RewardManagerTest is Test {
         _mockWNatBalance(_rewardOwners[1], 10, balance2);
     }
 
-    function _setPChainMirrorData() internal {
+    function _setPChainMirrorData(uint256 _vpBlock) internal {
         bytes20[] memory nodeIds = new bytes20[](1);
         uint256[] memory weights = new uint256[](1);
         nodeIds[0] = nodeId1;
         weights[0] = 350;
-        _mockStakes(voter1, 10, nodeIds, weights);
-        _mockMirroredVp(nodeIds[0], 10, 400);
+        _mockStakes(voter1, _vpBlock, nodeIds, weights);
+        _mockMirroredVp(nodeIds[0], _vpBlock, 400);
     }
 
     function _setPChainMirrorDataRewardOwners(address[] memory _rewardOwners) internal {
@@ -1348,13 +1644,13 @@ contract RewardManagerTest is Test {
 
     }
 
-    function _setCChainData() internal {
+    function _setCChainData(uint256 _vpBlock) internal {
         address[] memory accounts = new address[](1);
         uint256[] memory weights = new uint256[](1);
         accounts[0] = account1;
         weights[0] = 450;
-        _mockCChainStakes(voter1, 10, accounts, weights);
-        _mockCChainVp(accounts[0], 10, 500);
+        _mockCChainStakes(voter1, _vpBlock, accounts, weights);
+        _mockCChainVp(accounts[0], _vpBlock, 500);
     }
 
     function _setCChainDataRewardOwners(address[] memory _rewardOwners) internal {

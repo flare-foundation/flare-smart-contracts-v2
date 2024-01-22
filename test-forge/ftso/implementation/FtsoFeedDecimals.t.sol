@@ -95,7 +95,7 @@ contract FtsoFeedDecimalsTest is Test {
         _mockGetCurrentEpochId(0);
         feedNames = bytes.concat(feedName1, feedName2, bytes9("feed3"));
         decimals = bytes.concat(bytes1(uint8(6)), bytes1(uint8(6)));
-        vm.expectRevert();
+        vm.expectRevert("invalid _feedNames length");
         ftsoFeedDecimals.getCurrentDecimalsBulk(feedNames);
     }
 
