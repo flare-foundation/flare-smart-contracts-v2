@@ -3,6 +3,7 @@ import { constants, expectEvent, expectRevert } from "@openzeppelin/test-helpers
 import { artifacts, config, contract, ethers } from "hardhat";
 import { HardhatNetworkAccountConfig } from "hardhat/types";
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
+import { RelayMessage } from "../../../../scripts/libs/protocol/RelayMessage";
 import {
   ISigningPolicy,
   SigningPolicy
@@ -10,7 +11,7 @@ import {
 import { RelayInstance } from "../../../../typechain-truffle";
 import { getTestFile } from "../../../utils/constants";
 import { toBN } from "../../../utils/test-helpers";
-import { defaultTestSigningPolicy, generateSignatures } from "../coding/coding-helpers";
+import { defaultTestSigningPolicy, generateSignatures, generateSignaturesEncoded } from "../coding/coding-helpers";
 
 const Relay = artifacts.require("Relay");
 const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -85,22 +86,24 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   });
 
   it("Should relay a message", async () => {
-
-    const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
-    const messageHash = ethers.keccak256("0x" + fullMessage);
+    const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
     const signatures = await generateSignatures(
       accountPrivateKeys,
       messageHash,
       N / 2 + 1
     );
 
-    const signingPolicy = SigningPolicy.encode(signingPolicyData).slice(2);
-    const fullData = signingPolicy + fullMessage + signatures;
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: messageData,
+    };
 
+    const fullData = RelayMessage.encode(relayMessage);
     const receipt = await web3.eth.sendTransaction({
       from: signers[0].address,
       to: relay.address,
-      data: selector + fullData,
+      data: selector + fullData.slice(2),
     })
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
       protocolId: toBN(messageData.protocolId),
@@ -117,13 +120,19 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     expect(stateData.randomVotingRoundId.toString()).to.be.equal(messageData.votingRoundId.toString());
     expect(stateData.randomNumberQualityScore.toString()).to.be.equal(messageData.randomQualityScore.toString());
 
+    expect(RelayMessage.decode(fullData)).not.to.throw;
+    const decodedRelayMessage = RelayMessage.decode(fullData);
+
+    expect(RelayMessage.equals(relayMessage, decodedRelayMessage)).to.be.true;
+
+
   });
 
   it("Should fail to relay a message due to low weight", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId++;
-    const fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
-    const messageHash = ethers.keccak256("0x" + fullMessage);
+
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -131,14 +140,19 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       N / 2
     );
 
-    const signingPolicy = SigningPolicy.encode(signingPolicyData).slice(2);
-    const fullData = signingPolicy + fullMessage + signatures;
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: newMessageData,
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
 
     await expect(
       signers[0].sendTransaction({
         from: signers[0].address,
         to: relay.address,
-        data: selector + fullData,
+        data: selector + fullData.slice(2),
       })
     ).to.be.revertedWith("Not enough weight");
   });
@@ -146,8 +160,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   it("Should fail to relay a message due to non increasing signature indices", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId++;
-    const fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
-    const messageHash = ethers.keccak256("0x" + fullMessage);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -156,14 +169,20 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       [0, 1, 2, 2, 1]
     );
 
-    const signingPolicy = SigningPolicy.encode(signingPolicyData).slice(2);
-    const fullData = signingPolicy + fullMessage + signatures;
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: newMessageData,
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
+
 
     await expect(
       signers[0].sendTransaction({
         from: signers[0].address,
         to: relay.address,
-        data: selector + fullData,
+        data: selector + fullData.slice(2),
       })
     ).to.be.revertedWith("Index out of order");
   });
@@ -171,8 +190,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   it("Should fail to relay a message due signature indices out of range", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId++;
-    const fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
-    const messageHash = ethers.keccak256("0x" + fullMessage);
+
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -181,14 +200,19 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       [0, 1, 2, 101]
     );
 
-    const signingPolicy = SigningPolicy.encode(signingPolicyData).slice(2);
-    const fullData = signingPolicy + fullMessage + signatures;
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: newMessageData,
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
 
     await expect(
       signers[0].sendTransaction({
         from: signers[0].address,
         to: relay.address,
-        data: selector + fullData,
+        data: selector + fullData.slice(2),
       })
     ).to.be.revertedWith("Index out of range");
   });
@@ -321,22 +345,25 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   it("Should relay a message with old signing policy and 20% signatures more", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs; // shift to next reward epoch
-    let fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
 
-    const messageHash = ethers.keccak256("0x" + fullMessage);
-    const signatures = await generateSignatures(
+    const signatureObjects = await generateSignatures(
       accountPrivateKeys,
       messageHash,
       Math.round(N * 0.6) + 1
     );
 
-    const signingPolicy = SigningPolicy.encode(signingPolicyData).slice(2);
-    const fullData = signingPolicy + fullMessage + signatures;
+    let relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures: signatureObjects,
+      protocolMessageMerkleRoot: newMessageData,
+    };
+    const fullData = RelayMessage.encode(relayMessage);
 
     const receipt = await web3.eth.sendTransaction({
       from: signers[0].address,
       to: relay.address,
-      data: selector + fullData,
+      data: selector + fullData.slice(2),
     })
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
       protocolId: toBN(newMessageData.protocolId),
@@ -352,29 +379,32 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
     expect(stateData.randomVotingRoundId.toString()).to.be.equal(newMessageData.votingRoundId.toString());
     expect(stateData.randomNumberQualityScore.toString()).to.be.equal(newMessageData.randomQualityScore.toString());
-
   });
 
   it("Should fail to relay a message with old signing policy and less then 20%+ more weight", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = firstVotingRoundInRewardEpoch(signingPolicyData.rewardEpochId + 1) + 5;//votingRoundId + rewardEpochDurationInVotingEpochs + 1; // shift to next reward epoch
-    let fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
 
-    const messageHash = ethers.keccak256("0x" + fullMessage);
     const signatures = await generateSignatures(
       accountPrivateKeys,
       messageHash,
       Math.round(N * 0.6)
     );
 
-    const signingPolicy = SigningPolicy.encode(signingPolicyData).slice(2);
-    const fullData = signingPolicy + fullMessage + signatures;
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: newMessageData,
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
 
     await expect(
       signers[0].sendTransaction({
         from: signers[0].address,
         to: relay.address,
-        data: selector + fullData,
+        data: selector + fullData.slice(2),
       })
     ).to.be.revertedWith("Not enough weight");
   });
@@ -387,15 +417,22 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
     newSigningPolicyData.threshold = Math.round(newSigningPolicyData.threshold / 2);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch) + 10;  // create a delay
+
     const localHash = SigningPolicy.hash(newSigningPolicyData);
+
     const signatures = await generateSignatures(
       accountPrivateKeys,
       localHash,
       N / 2 + 1
     );
-    const newSigningPolicy = SigningPolicy.encode(newSigningPolicyData).slice(2);
-    const signingPolicy = SigningPolicy.encode(signingPolicyData).slice(2);
-    const fullData = signingPolicy + "00" + newSigningPolicy + signatures;
+
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      newSigningPolicy: newSigningPolicyData
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
 
     const hashBefore = await relay.toSigningPolicyHash(newRewardEpoch);
     expect(hashBefore).to.equal(ZERO_BYTES32);
@@ -403,7 +440,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     const receipt = await web3.eth.sendTransaction({
       from: signers[0].address,
       to: relay.address,
-      data: selector + fullData,
+      data: selector + fullData.slice(2),
     })
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "SigningPolicyRelayed", {
       rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
@@ -419,8 +456,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   it("Should fail to relay an already relayed message by old signing policy with a new signing policy", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs; // shift to next reward epoch
-    let fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
-    const messageHash = ethers.keccak256("0x" + fullMessage);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
 
     const newSigningPolicyData = { ...signingPolicyData };
     const newRewardEpoch = newSigningPolicyData.rewardEpochId + 1;
@@ -429,7 +465,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
     newSigningPolicyData.threshold = Math.round(newSigningPolicyData.threshold / 2);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch) + 10;
-    const newSigningPolicy = SigningPolicy.encode(newSigningPolicyData).slice(2);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -437,13 +472,19 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       26
     );
 
-    const fullData = newSigningPolicy + fullMessage + signatures;
+    const relayMessage = {
+      signingPolicy: newSigningPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: newMessageData,
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
 
     await expect(
       signers[0].sendTransaction({
         from: signers[0].address,
         to: relay.address,
-        data: selector + fullData,
+        data: selector + fullData.slice(2),
       })
     ).to.be.revertedWith("Already relayed");
   });
@@ -455,15 +496,13 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     const newMessageData = { ...messageData };
     // newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs - 1; // shift to next reward epoch
     newMessageData.votingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch) + 12;
-    let fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
-    const messageHash = ethers.keccak256("0x" + fullMessage);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
 
     newSigningPolicyData.rewardEpochId = newRewardEpoch;
     newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
     newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch) + 10;
     newSigningPolicyData.threshold = Math.round(newSigningPolicyData.threshold / 2);
-    const newSigningPolicy = SigningPolicy.encode(newSigningPolicyData).slice(2);
 
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -471,12 +510,18 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       26
     );
 
-    const fullData = newSigningPolicy + fullMessage + signatures;
+    const relayMessage = {
+      signingPolicy: newSigningPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: newMessageData,
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
 
     const receipt = await web3.eth.sendTransaction({
       from: signers[0].address,
       to: relay.address,
-      data: selector + fullData,
+      data: selector + fullData.slice(2),
     })
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
       protocolId: toBN(newMessageData.protocolId),
@@ -498,22 +543,26 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   it("Should relay a message with old signing policy and less then 20%+ more weight after delayed reward epoch initialization", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = firstVotingRoundInRewardEpoch(signingPolicyData.rewardEpochId + 1) + 9; // new startingVotingRoundId is on +10
-    let fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
 
-    const messageHash = ethers.keccak256("0x" + fullMessage);
     const signatures = await generateSignatures(
       accountPrivateKeys,
       messageHash,
       Math.round(N * 0.6)
     );
 
-    const signingPolicy = SigningPolicy.encode(signingPolicyData).slice(2);
-    const fullData = signingPolicy + fullMessage + signatures;
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: newMessageData,
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
 
     const receipt = await web3.eth.sendTransaction({
       from: signers[0].address,
       to: relay.address,
-      data: selector + fullData,
+      data: selector + fullData.slice(2),
     })
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
       protocolId: toBN(newMessageData.protocolId),
@@ -534,23 +583,27 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   it("Should fail to relay a message with old signing policy when a new was initialized and votingRoundId is over startingVotingRoundId", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId = firstVotingRoundInRewardEpoch(signingPolicyData.rewardEpochId + 1) + 10; // new startingVotingRoundId is on +10
-    let fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
+    const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
 
-    const messageHash = ethers.keccak256("0x" + fullMessage);
     const signatures = await generateSignatures(
       accountPrivateKeys,
       messageHash,
       Math.round(N * 0.6)
     );
 
-    const signingPolicy = SigningPolicy.encode(signingPolicyData).slice(2);
-    const fullData = signingPolicy + fullMessage + signatures;
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: newMessageData,
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
 
     await expect(
       signers[0].sendTransaction({
         from: signers[0].address,
         to: relay.address,
-        data: selector + fullData,
+        data: selector + fullData.slice(2),
       })
     ).to.be.revertedWith("Must use new sign policy");
   });
@@ -600,7 +653,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       })
     ).to.be.revertedWith("Wrong size for new sign policy");
 
-
   });
 
   it("Should fail to relay a new signing policy due to provided new signing policy for a wrong reward epoch", async () => {
@@ -613,20 +665,26 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
     const localHash = SigningPolicy.hash(newSigningPolicyData);
+
     const signatures = await generateSignatures(
       accountPrivateKeys,
       localHash,
       N / 2 + 1
     );
-    const newSigningPolicy = SigningPolicy.encode(newSigningPolicyData).slice(2);
-    const signingPolicy = SigningPolicy.encode(signingPolicyData).slice(2);
-    const fullData = signingPolicy + "00" + newSigningPolicy + signatures;
+
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      newSigningPolicy: newSigningPolicyData
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
 
     await expect(
       signers[0].sendTransaction({
         from: signers[0].address,
         to: relay.address,
-        data: selector + fullData,
+        data: selector + fullData.slice(2),
       })
     ).to.be.revertedWith("Not next reward epoch");
   });
@@ -641,7 +699,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
     const localHash = SigningPolicy.hash(newSigningPolicyData);
-    const signatures = await generateSignatures(
+    const signatures = await generateSignaturesEncoded(
       accountPrivateKeys,
       localHash,
       N / 2 + 1
@@ -657,8 +715,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         data: selector + fullData,
       })
     ).to.be.revertedWith("Not enough signatures");
-
-
   });
 
   it("Should fail to relay a new signing policy due to a wrong signature", async () => {
@@ -671,7 +727,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
     const localHash = SigningPolicy.hash(newSigningPolicyData);
-    const signatures = await generateSignatures(
+    const signatures = await generateSignaturesEncoded(
       accountPrivateKeys,
       localHash,
       N / 2 + 1
@@ -693,22 +749,27 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   it("Should fail to relay a message due to message already relayed", async () => {
     // "Already relayed"
 
-    const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
-    const messageHash = ethers.keccak256("0x" + fullMessage);
+    const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+
     const signatures = await generateSignatures(
       accountPrivateKeys,
       messageHash,
       N / 2 + 1
     );
 
-    const signingPolicy = SigningPolicy.encode(signingPolicyData).slice(2);
-    const fullData = signingPolicy + fullMessage + signatures;
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: messageData,
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
 
     await expect(
       signers[0].sendTransaction({
         from: signers[0].address,
         to: relay.address,
-        data: selector + fullData,
+        data: selector + fullData.slice(2),
       })
     ).to.be.revertedWith("Already relayed");
   });
@@ -861,20 +922,26 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       newSigningPolicyData.threshold = Math.round(newSigningPolicyData.threshold / 2);
       newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch) + 10;  // create a delay
       const localHash = SigningPolicy.hash(newSigningPolicyData);
+
       const signatures = await generateSignatures(
         accountPrivateKeys,
         localHash,
         N / 2 + 1
       );
-      const newSigningPolicy = SigningPolicy.encode(newSigningPolicyData).slice(2);
-      
-      const fullData = signingPolicy.slice(2) + "00" + newSigningPolicy + signatures;
-    
+
+      const relayMessage = {
+        signingPolicy: signingPolicyData,
+        signatures,
+        newSigningPolicy: newSigningPolicyData,
+      };
+
+      const fullData = RelayMessage.encode(relayMessage);
+
       await expect(
         signers[0].sendTransaction({
           from: signers[0].address,
           to: relay2.address,
-          data: selector + fullData,
+          data: selector + fullData.slice(2),
         })
       ).to.be.revertedWith("Sign policy relay disabled");
     });

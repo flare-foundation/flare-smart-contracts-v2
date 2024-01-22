@@ -1,9 +1,11 @@
+import { ethers } from "ethers";
 
 export interface IProtocolMessageMerkleRoot {
   protocolId: number;
   votingRoundId: number;
   randomQualityScore: boolean;
   merkleRoot: string;
+  encodedLength?: number;  // used only as a parsing result when parsing signing policy encoded into Relay message
 }
 
 export namespace ProtocolMessageMerkleRoot {
@@ -51,11 +53,21 @@ export namespace ProtocolMessageMerkleRoot {
    * @param encodedMessage
    * @returns
    */
-  export function decode(encodedMessage: string): IProtocolMessageMerkleRoot {
+  export function decode(encodedMessage: string, exactEncoding = true): IProtocolMessageMerkleRoot {
     const encodedMessageInternal = encodedMessage.startsWith("0x") ? encodedMessage.slice(2) : encodedMessage;
     // (1 + 4 + 1 + 32) * 2 = 38 * 2 = 76
-    if (!/^[0-9a-f]{76}$/.test(encodedMessageInternal)) {
+    if (!/^[0-9a-f]*$/.test(encodedMessageInternal)) {
       throw Error(`Invalid format - not hex string: ${encodedMessage}`);
+    }
+    if (encodedMessageInternal.length < 76) {
+      throw Error(`Invalid encoded message length: ${encodedMessageInternal.length}`);
+    }
+    if (exactEncoding && encodedMessageInternal.length !== 76) {
+      throw Error(`Invalid encoded message length: ${encodedMessageInternal.length}. Should be exact length 76`);
+    }
+    let encodedLengthEntry = {};
+    if (!exactEncoding) {
+      encodedLengthEntry = {encodedLength: 76};
     }
     const protocolId = parseInt(encodedMessageInternal.slice(0, 2), 16);
     const votingRoundId = parseInt(encodedMessageInternal.slice(2, 10), 16);
@@ -74,6 +86,7 @@ export namespace ProtocolMessageMerkleRoot {
       votingRoundId,
       randomQualityScore,
       merkleRoot,
+      ...encodedLengthEntry
     };
   }
 
@@ -92,6 +105,10 @@ export namespace ProtocolMessageMerkleRoot {
     );
   }
 
+
+  export function hash(message: IProtocolMessageMerkleRoot): string {
+    return ethers.keccak256(encode(message));
+  }
   /**
    * Provides string representation of protocol message merkle root. 
    * Can be used for e.g. logging.
@@ -100,5 +117,5 @@ export namespace ProtocolMessageMerkleRoot {
    */
   export function print(message: IProtocolMessageMerkleRoot) {
     return `(${message.protocolId}, ${message.votingRoundId}, ${message.randomQualityScore}, ${message.merkleRoot})`
-  } 
+  }
 }

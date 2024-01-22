@@ -9,6 +9,7 @@ export interface ISigningPolicy {
   seed: string;
   voters: string[];
   weights: number[];
+  encodedLength?: number;  // used only as a parsing result when parsing signing policy encoded into Relay message
 }
 
 export namespace SigningPolicy {
@@ -37,11 +38,21 @@ export namespace SigningPolicy {
     if (!policy.voters || !policy.weights) {
       throw Error("Invalid signing policy");
     }
-    if (policy.voters.length !== policy.weights.length) throw Error("Invalid signing policy");
+    if (policy.voters.length !== policy.weights.length) {
+      throw Error("Invalid signing policy");
+    }
     let signersAndWeights = "";
     const size = policy.voters.length;
     if (size > 2 ** 16 - 1) {
       throw Error("Too many signers");
+    }
+    for(let i = 0; i < size; i++) {
+      if(!/^0x[0-9a-f]{40}$/i.test(policy.voters[i])) {
+        throw Error(`Invalid signer address format: ${policy.voters[i]}`);
+      }
+      if(policy.weights[i] < 0 || policy.weights[i] > 2 ** 16 - 1 || policy.weights[i] % 1 !== 0) {
+        throw Error(`Invalid signer weight: ${policy.weights[i]}`);
+      }
     }
     for (let i = 0; i < size; i++) {
       signersAndWeights += policy.voters[i].slice(2) + policy.weights[i].toString(16).padStart(4, "0");
@@ -49,14 +60,13 @@ export namespace SigningPolicy {
     if (!/^0x[0-9a-f]{64}$/i.test(policy.seed)) {
       throw Error(`Invalid random seed format: ${policy.seed}`);
     }
-
     if (policy.rewardEpochId < 0 || policy.rewardEpochId > 2 ** 24 - 1) {
       throw Error(`Reward epoch id out of range: ${policy.rewardEpochId}`);
     }
     if (policy.startVotingRoundId < 0 || policy.startVotingRoundId > 2 ** 32 - 1) {
       throw Error(`Starting voting round id out of range: ${policy.startVotingRoundId}`);
     }
-    if (policy.threshold < 0 || policy.threshold > 2 ** 16 - 1) {
+    if (policy.threshold < 0 || policy.threshold > 2 ** 16 - 1 || policy.threshold % 1 !== 0) {
       throw Error(`Threshold out of range: ${policy.threshold}`);
     }
     return (
@@ -73,9 +83,13 @@ export namespace SigningPolicy {
   /**
    * Decodes signing policy from hex string (can be 0x-prefixed or not).
    * @param encodedPolicy
+   * @param exactEncoding - if true, then encoded policy length must be exactly 86 + size * (20 + 2) * 2 bytes
+   *                       if false, then encoded policy length must be at least that size and the excess bytes are ignored
+   *                       (this is used when parsing signing policy encoded into Relay message).
+   *                       In this case, encodedLength property of the result is set to the actual length of the encoded policy.
    * @returns
    */
-  export function decode(encodedPolicy: string): ISigningPolicy {
+  export function decode(encodedPolicy: string, exactEncoding = true): ISigningPolicy {
     const encodedPolicyInternal = (encodedPolicy.startsWith("0x") ? encodedPolicy.slice(2) : encodedPolicy).toLowerCase();
     if (!/^[0-9a-f]*$/.test(encodedPolicyInternal)) {
       throw Error(`Invalid format - not hex string: ${encodedPolicy}`);
@@ -88,7 +102,7 @@ export namespace SigningPolicy {
     }
     const size = parseInt(encodedPolicyInternal.slice(0, 4), 16);
     const expectedLength = 86 + size * (20 + 2) * 2; //(2 + 3 + 4 + 2 + 32) * 2 = 86
-    if (encodedPolicyInternal.length !== expectedLength) {
+    if (exactEncoding && encodedPolicyInternal.length !== expectedLength) {
       throw Error(`Invalid encoded signing policy length: size = ${size}, length = ${encodedPolicyInternal.length}`);
     }
     const rewardEpochId = parseInt(encodedPolicyInternal.slice(4, 10), 16);
@@ -108,6 +122,7 @@ export namespace SigningPolicy {
     if (totalWeight > 2 ** 16 - 1) {
       throw Error(`Total weight exceeds 16-byte value: ${totalWeight}`);
     }
+    const encodedLengthEntry = exactEncoding ? {} : {encodedLength: expectedLength};
     return {
       rewardEpochId,
       startVotingRoundId: startingVotingRoundId,
@@ -115,6 +130,7 @@ export namespace SigningPolicy {
       seed: randomSeed,
       voters: signers,
       weights,
+      ...encodedLengthEntry,
     };
   }
 
@@ -135,8 +151,48 @@ export namespace SigningPolicy {
     return hash;
   }
 
+  /**
+   * Normalizes addresses in signing policy by converting them to lower case.
+   * @param signingPolicy 
+   * @returns 
+   */
+  export function normalizeAddresses(signingPolicy: ISigningPolicy) {
+    signingPolicy.voters = signingPolicy.voters.map(x => x.toLowerCase());
+    return signingPolicy;
+  }
+  /**
+   * Calculates signing policy hash from signing policy object
+   * @param signingPolicy 
+   * @returns 
+   */
   export function hash(signingPolicy: ISigningPolicy) {
     return SigningPolicy.hashEncoded(SigningPolicy.encode(signingPolicy));
+  }
+
+  /**
+   * Checks if two signing policies are equal as objects. Essentially checks if all properties are equal,
+   * except the encodedLength property.
+   * @param signingPolicy1 
+   * @param signingPolicy2 
+   * @returns 
+   */
+  export function equals(signingPolicy1: ISigningPolicy, signingPolicy2: ISigningPolicy) {
+    const test = signingPolicy1.rewardEpochId === signingPolicy2.rewardEpochId &&
+        signingPolicy1.startVotingRoundId === signingPolicy2.startVotingRoundId &&
+        signingPolicy1.threshold === signingPolicy2.threshold &&
+        signingPolicy1.seed === signingPolicy2.seed;
+    if(!test) {
+      return false;
+    }
+    if(signingPolicy1.voters.length !== signingPolicy2.voters.length) {
+      return false;
+    }
+    for(let i = 0; i < signingPolicy1.voters.length; i++) {
+      if(signingPolicy1.voters[i].toLowerCase() !== signingPolicy2.voters[i].toLowerCase() || signingPolicy1.weights[i] !== signingPolicy2.weights[i]) {
+        return false;
+      }
+    }  
+    return true;
   }
 
 }

@@ -4,10 +4,12 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import Web3 from "web3";
 import { Account } from "web3-core";
 import { toBN } from "web3-utils";
+import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 import {
   IProtocolMessageMerkleRoot,
   ProtocolMessageMerkleRoot,
 } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
+import { RelayMessage } from "../../scripts/libs/protocol/RelayMessage";
 import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
 import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
 import * as util from "../../test/utils/key-to-address";
@@ -21,7 +23,6 @@ import { decodeLogs as decodeRawLogs } from "../utils/events";
 import { MockDBIndexer } from "../utils/indexer/MockDBIndexer";
 import { sqliteDatabase } from "../utils/indexer/data-source";
 import { getLogger } from "../utils/logger";
-import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 
 // Simulation config
 const SETTINGS_FILE_LOCATION = "/tmp/epoch-settings.json";
@@ -455,7 +456,7 @@ async function runOfferRewards(
   for (const offer of OFFERS) {
     rewards += offer.amount;
   }
-  await c.ftsoRewardOffersManager.offerRewards(nextRewardEpochId, OFFERS, {value: rewards});
+  await c.ftsoRewardOffersManager.offerRewards(nextRewardEpochId, OFFERS, { value: rewards });
   logger.info("Rewards offered");
 }
 
@@ -522,7 +523,7 @@ async function runVotingRound(
     randomQualityScore: true,
     merkleRoot: fakeMerkleRoot,
   };
-  const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
+
   const signingPolicy = signingPolicies.get(rewardEpochId)!;
   const privateKeysInOrder = [];
   for (const voter of signingPolicy.voters) {
@@ -533,19 +534,26 @@ async function runVotingRound(
       logger.info(`Voter not among registered accounts: ${voter}`)
     }
   }
-  const messageHash = Web3.utils.keccak256("0x" + fullMessage);
+  const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
   const signatures = await generateSignatures(
     privateKeysInOrder,
     messageHash,
     privateKeysInOrder.length
   );
-  const encodedSigningPolicy = SigningPolicy.encode(signingPolicy).slice(2);
-  const fullData = RELAY_SELECTOR + encodedSigningPolicy + fullMessage + signatures;
+
+  const relayMessage = {
+    signingPolicy: signingPolicy,
+    signatures,
+    protocolMessageMerkleRoot: messageData,
+  };
+
+  const fullData = RelayMessage.encode(relayMessage);
+
   try {
     await web3.eth.sendTransaction({
       from: registeredAccounts[0].signingPolicy.address,
       to: c.relay.address,
-      data: fullData,
+      data: RELAY_SELECTOR + fullData.slice(2),
     });
 
     logger.info(`Voting round ${votingRoundId} finished`);

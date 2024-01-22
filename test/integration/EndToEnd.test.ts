@@ -3,20 +3,28 @@ import { constants, expectEvent, expectRevert, time } from '@openzeppelin/test-h
 import { toChecksumAddress } from 'ethereumjs-util';
 import { Contracts } from '../../deployment/scripts/Contracts';
 import privateKeys from "../../deployment/test-1020-accounts.json";
-import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { ECDSASignatureWithIndex } from "../../scripts/libs/protocol/ECDSASignatureWithIndex";
+import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
+import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
+import { RelayMessage } from '../../scripts/libs/protocol/RelayMessage';
 import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
 import { AddressBinderInstance, EntityManagerInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance } from '../../typechain-truffle';
 import { MockContractContract } from '../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract';
+import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
+import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
+import { FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
 import { CChainStakeContract, CChainStakeInstance } from '../../typechain-truffle/contracts/mock/CChainStake';
 import { GovernanceVotePowerContract } from '../../typechain-truffle/contracts/mock/GovernanceVotePower';
 import { PChainStakeMirrorContract } from '../../typechain-truffle/contracts/mock/PChainStakeMirror';
 import { EntityManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/EntityManager';
+import { FlareSystemCalculatorContract, FlareSystemCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemCalculator';
 import { FlareSystemManagerContract, FlareSystemManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemManager';
 import { PChainStakeMirrorVerifierContract } from '../../typechain-truffle/contracts/protocol/implementation/PChainStakeMirrorVerifier';
 import { RelayContract, RelayInstance } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
+import { RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
 import { SubmissionContract, SubmissionInstance } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
 import { VoterRegistryContract, VoterRegistryInstance } from '../../typechain-truffle/contracts/protocol/implementation/VoterRegistry';
+import { WNatDelegationFeeContract, WNatDelegationFeeInstance } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
 import { AddressBinderContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressBinder';
 import { VPContractContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/VPContract';
 import { WNatContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/WNat';
@@ -25,13 +33,6 @@ import { getTestFile } from "../utils/constants";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
 import * as util from "../utils/key-to-address";
 import { encodeContractNames, toBN } from '../utils/test-helpers';
-import { RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
-import { WNatDelegationFeeContract, WNatDelegationFeeInstance } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
-import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
-import { FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
-import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
-import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
-import { FlareSystemCalculatorContract, FlareSystemCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemCalculator';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -402,16 +403,21 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const quality = true;
 
         const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT };
-        const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
-        const messageHash = web3.utils.keccak256("0x" + fullMessage);
+        const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
         const signatures = await generateSignatures(privateKeys.map(x => x.privateKey), messageHash, 51);
-        const signingPolicy = SigningPolicy.encode(initialSigningPolicy).slice(2);
-        const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
+
+        const relayMessage = {
+            signingPolicy: initialSigningPolicy,
+            signatures,
+            protocolMessageMerkleRoot: messageData,
+        };
+
+        const fullData = RelayMessage.encode(relayMessage);
 
         const tx = await web3.eth.sendTransaction({
             from: accounts[0],
             to: relay.address,
-            data: fullData,
+            data: RELAY_SELECTOR + fullData.slice(2),
         });
         console.log(tx.gasUsed);
         expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
@@ -544,16 +550,22 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const root = web3.utils.keccak256("root1");
 
         const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: root };
-        const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
-        const messageHash = web3.utils.keccak256("0x" + fullMessage);
+        const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+
         const signatures = await generateSignatures(privateKeys.slice(30, 34).map(x => x.privateKey), messageHash, 4);
-        const signingPolicy = SigningPolicy.encode(newSigningPolicy).slice(2);
-        const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
+
+        const relayMessage = {
+            signingPolicy: newSigningPolicy,
+            signatures,
+            protocolMessageMerkleRoot: messageData,
+        };
+
+        const fullData = RelayMessage.encode(relayMessage);
 
         await web3.eth.sendTransaction({
             from: accounts[0],
             to: relay.address,
-            data: fullData,
+            data: RELAY_SELECTOR + fullData.slice(2),
         });
         expect(await relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
         expect((await flareSystemManager.getCurrentRandom()).eq(toBN(root))).to.be.true;
@@ -562,7 +574,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await web3.eth.sendTransaction({
             from: accounts[0],
             to: relay2.address,
-            data: fullData,
+            data: RELAY_SELECTOR + fullData.slice(2),
         });
         expect(await relay2.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
     });
@@ -584,16 +596,22 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const quality = true;
 
         const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT2 };
-        const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
-        const messageHash = web3.utils.keccak256("0x" + fullMessage);
+        const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+
         const signatures = await generateSignatures(privateKeys.slice(30, 34).map(x => x.privateKey), messageHash, 4);
-        const signingPolicy = SigningPolicy.encode(newSigningPolicy).slice(2);
-        const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
+
+        const relayMessage = {
+            signingPolicy: newSigningPolicy,
+            signatures,
+            protocolMessageMerkleRoot: messageData,
+        };
+
+        const fullData = RelayMessage.encode(relayMessage);
 
         await web3.eth.sendTransaction({
             from: accounts[0],
             to: relay.address,
-            data: fullData,
+            data: RELAY_SELECTOR + fullData.slice(2),
         });
         expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
     });

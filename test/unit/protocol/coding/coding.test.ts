@@ -9,7 +9,8 @@ import {
   PayloadMessage
 } from "../../../../scripts/libs/protocol/PayloadMessage";
 import { getTestFile } from "../../../utils/constants";
-import { defaultTestSigningPolicy } from "./coding-helpers";
+import { defaultTestSigningPolicy, generateSignatures } from "./coding-helpers";
+import { RelayMessage } from "../../../../scripts/libs/protocol/RelayMessage";
 
 contract(`Coding; ${getTestFile(__filename)}`, async () => {
   let signers: SignerWithAddress[];
@@ -22,6 +23,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
   const votingRoundId = 4111;
   const rewardEpochId = Math.floor((votingRoundId - firstRewardEpochVotingRoundId) / rewardEpochDurationInEpochs);
   let signingPolicyData: ISigningPolicy;
+  let newSigningPolicyData: ISigningPolicy;
 
   before(async () => {
     accountAddresses = (await ethers.getSigners()).map(x => x.address);
@@ -31,12 +33,16 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
       singleWeight
     );
     signingPolicyData.rewardEpochId = rewardEpochId;
+    newSigningPolicyData = {...signingPolicyData};
+    newSigningPolicyData.rewardEpochId++;
   });
 
   it("Should encode and decode signing policy", async () => {
     const encoded = SigningPolicy.encode(signingPolicyData);
     const decoded = SigningPolicy.decode(encoded);
     expect(decoded).to.deep.equal(signingPolicyData);
+    const decoded2 = SigningPolicy.decode(encoded + "123456", false);
+    expect(decoded2).to.deep.equal({...decoded, encodedLength: encoded.length - 2});
   });
 
   it("Should encode and decode ECDSA signature", async () => {
@@ -57,6 +63,8 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
     const encoded = ProtocolMessageMerkleRoot.encode(messageData);
     const decoded = ProtocolMessageMerkleRoot.decode(encoded);
     expect(decoded).to.deep.equal(messageData);
+    const decoded2 = ProtocolMessageMerkleRoot.decode(encoded + "123456", false);
+    expect(decoded2).to.deep.equal({...decoded, encodedLength: encoded.length - 2});
   });
 
   it("Should encode and decode signature payloads", async () => {
@@ -74,6 +82,46 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
     }
     const decoded = PayloadMessage.decode(encoded);
     expect(decoded).to.deep.equal(payloads);
+  });
+
+  it("Should encode and decode Relay message", async () => {
+    const merkleRoot = ethers.hexlify(ethers.randomBytes(32));
+    const messageData = {
+      protocolId: 15,
+      votingRoundId,
+      randomQualityScore: true,
+      merkleRoot,
+    } as IProtocolMessageMerkleRoot;
+
+    const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      messageHash,
+      N / 2 + 1
+    );
+
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: messageData,
+    };
+
+    let fullData = RelayMessage.encode(relayMessage);
+    expect(RelayMessage.decode(fullData)).not.to.throw;
+    let decodedRelayMessage = RelayMessage.decode(fullData);
+    expect(RelayMessage.equals(relayMessage, decodedRelayMessage)).to.be.true;
+
+    const relayMessage2 = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      newSigningPolicy: newSigningPolicyData,
+    };
+
+    expect(RelayMessage.equals(relayMessage, relayMessage2)).to.be.false;
+    fullData = RelayMessage.encode(relayMessage2);
+    expect(RelayMessage.decode(fullData)).not.to.throw;
+    decodedRelayMessage = RelayMessage.decode(fullData);
+    expect(RelayMessage.equals(relayMessage2, decodedRelayMessage)).to.be.true;
   });
 
 });
