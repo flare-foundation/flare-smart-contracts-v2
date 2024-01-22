@@ -9,11 +9,11 @@ import "../../utils/implementation/TokenPoolBase.sol";
 abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, AddressUpdatable {
 
     // totals
-    uint256 internal totalInflationAuthorizedWei;
-    uint256 internal totalInflationReceivedWei;
-    uint256 internal lastInflationAuthorizationReceivedTs;
-    uint256 internal lastInflationReceivedTs;
-    uint256 internal dailyAuthorizedInflation;
+    uint256 public totalInflationAuthorizedWei;
+    uint256 public totalInflationReceivedWei;
+    uint256 public lastInflationAuthorizationReceivedTs;
+    uint256 public lastInflationReceivedTs;
+    uint256 public dailyAuthorizedInflation;
 
     // addresses
     address internal inflation;
