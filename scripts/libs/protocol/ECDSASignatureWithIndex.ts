@@ -121,30 +121,6 @@ export namespace ECDSASignatureWithIndex {
       s: signatureObject.s,
       index,
     } as IECDSASignatureWithIndex;
-
-    // The next code occasionally does not work well
-    // Example is first private key and the message:
-    // {
-    //   protocolId: 15,
-    //   votingRoundId: 4111,
-    //   randomQualityScore: true,
-    //   merkleRoot: '0x29c81c1d44d6d822982fa1d09e09bde8db25fb8df6cd03b6e8d6c3bea1d512f6'
-    // }
-    // TODO: find out why
-
-    /*
-    const wallet = new ethers.Wallet(privateKey);
-    const sigBytes = await wallet.signMessage(ethers.toBeArray(messageHash));
-    const sig = ethers.Signature.from(sigBytes);
-    console.log("SIG")
-    console.dir(sig)
-    return {
-      v: sig.v,
-      r: sig.r,
-      s: sig.s,
-      index,
-    };
-    */
   }
 
   /**
