@@ -452,7 +452,6 @@ contract FtsoRewardOffersManagerTest is Test {
         );
         _mockGetFtsoConfigurations(ftsoConfigs);
         _mockGetCurrentEpochId(2);
-        vm.prank(mockFlareSystemManager);
         vm.expectEmit();
         emit InflationRewardsOffered(
             2 + 1,
@@ -473,7 +472,10 @@ contract FtsoRewardOffersManagerTest is Test {
             ftsoConfigs[1].primaryBandRewardSharePPM,
             ftsoConfigs[1].secondaryBandWidthPPMs
         );
+        assertEq(ftsoRewardOffersManager.getExpectedBalance(), 5000);
+        vm.prank(mockFlareSystemManager);
         ftsoRewardOffersManager.triggerRewardEpochSwitchover(2, 3 * DAY, DAY);
+        assertEq(ftsoRewardOffersManager.getExpectedBalance(), 0);
     }
 
     // length of feeds is 0
@@ -508,55 +510,14 @@ contract FtsoRewardOffersManagerTest is Test {
         assertEq(entries.length, 0);
     }
 
-    // inflation share sum > inflation shares for one feeds group
-    function testTriggerInflationRevert() public {
-        // fund inflation contract
-        vm.deal(mockInflation, 1 ether);
-
-        vm.startPrank(mockInflation);
-        // add daily authorized inflation on reward manager contract
-        vm.warp(100); // block.timestamp = 100
-        ftsoRewardOffersManager.setDailyAuthorizedInflation(5000);
-        ( , , uint256 authorizedInflation, ) = rewardManager.getTotals();
-        assertEq(authorizedInflation, 5000);
-
-        // receive inflation
-        vm.warp(200); // block.timestamp = 200
-        ftsoRewardOffersManager.receiveInflation{value: 5000} ();
-        assertEq(address(ftsoRewardOffersManager).balance, 5000);
-        vm.stopPrank();
-
-        // set inflation configurations
-        IFtsoInflationConfigurations.FtsoConfiguration[] memory ftsoConfigs =
-            new IFtsoInflationConfigurations.FtsoConfiguration[](2);
-        feeds1 = bytes.concat(bytes8("feed1"), bytes8("feed2"));
-        bytes memory secondaryBands = bytes.concat(bytes3(uint24(10000)), bytes3(uint24(20000)));
-        ftsoConfigs[0] = IFtsoInflationConfigurations.FtsoConfiguration(
-            feeds1,
-            60,
-            0,
-            30000,
-            secondaryBands
-        );
-        bytes memory decimals1 = bytes.concat(bytes1(uint8(4)), bytes1(uint8(int8(-5))));
-        _mockGetDecimalsBulk(feeds1, decimals1);
-
-        feeds2 = bytes.concat(bytes8("feed3"), bytes8("feed4"));
-        ftsoConfigs[1] = IFtsoInflationConfigurations.FtsoConfiguration(
-            feeds2,
-            60, // zero share
-            0,
-            40000,
-            secondaryBands
-        );
-        _mockGetFtsoConfigurations(ftsoConfigs);
-        _mockGetCurrentEpochId(2);
-
-        vm.prank(mockFlareSystemManager);
-        vm.expectRevert();
-        ftsoRewardOffersManager.triggerRewardEpochSwitchover(2, 3 * DAY, DAY);
+    function testGetInflationAddress() public {
+        assertEq(ftsoRewardOffersManager.getInflationAddress(), mockInflation);
     }
 
+    function testReceiveInflationRevert() public {
+        vm.expectRevert("inflation only");
+        ftsoRewardOffersManager.receiveInflation();
+    }
 
     //// helper functions
     function _mockGetCurrentEpochId(uint256 _epochId) internal {
