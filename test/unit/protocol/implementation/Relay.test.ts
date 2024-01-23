@@ -70,7 +70,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     messageData = {
       protocolId: randomNumberProtocolId,
       votingRoundId,
-      randomQualityScore: true,
+      isGoodRandom: true,
       merkleRoot,
     } as IProtocolMessageMerkleRoot;
   });
@@ -108,7 +108,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
       protocolId: toBN(messageData.protocolId),
       votingRoundId: toBN(messageData.votingRoundId),
-      randomQualityScore: messageData.randomQualityScore,
+      randomQualityScore: messageData.isGoodRandom,
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
@@ -118,7 +118,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     let stateData = await relay.stateData();
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(messageData.protocolId.toString());
     expect(stateData.randomVotingRoundId.toString()).to.be.equal(messageData.votingRoundId.toString());
-    expect(stateData.randomNumberQualityScore.toString()).to.be.equal(messageData.randomQualityScore.toString());
+    expect(stateData.randomNumberQualityScore.toString()).to.be.equal(messageData.isGoodRandom.toString());
 
     expect(RelayMessage.decode(fullData)).not.to.throw;
     const decodedRelayMessage = RelayMessage.decode(fullData);
@@ -368,7 +368,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
       protocolId: toBN(newMessageData.protocolId),
       votingRoundId: toBN(newMessageData.votingRoundId),
-      randomQualityScore: newMessageData.randomQualityScore,
+      randomQualityScore: newMessageData.isGoodRandom,
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
@@ -378,7 +378,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     let stateData = await relay.stateData();
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
     expect(stateData.randomVotingRoundId.toString()).to.be.equal(newMessageData.votingRoundId.toString());
-    expect(stateData.randomNumberQualityScore.toString()).to.be.equal(newMessageData.randomQualityScore.toString());
+    expect(stateData.randomNumberQualityScore.toString()).to.be.equal(newMessageData.isGoodRandom.toString());
   });
 
   it("Should fail to relay a message with old signing policy and less then 20%+ more weight", async () => {
@@ -526,7 +526,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
       protocolId: toBN(newMessageData.protocolId),
       votingRoundId: toBN(newMessageData.votingRoundId),
-      randomQualityScore: newMessageData.randomQualityScore,
+      randomQualityScore: newMessageData.isGoodRandom,
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
@@ -536,7 +536,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     let stateData = await relay.stateData();
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
     expect(stateData.randomVotingRoundId.toString()).to.be.equal(newMessageData.votingRoundId.toString());
-    expect(stateData.randomNumberQualityScore.toString()).to.be.equal(newMessageData.randomQualityScore.toString());
+    expect(stateData.randomNumberQualityScore.toString()).to.be.equal(newMessageData.isGoodRandom.toString());
 
   });
 
@@ -567,7 +567,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
       protocolId: toBN(newMessageData.protocolId),
       votingRoundId: toBN(newMessageData.votingRoundId),
-      randomQualityScore: newMessageData.randomQualityScore,
+      randomQualityScore: newMessageData.isGoodRandom,
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
@@ -577,7 +577,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     let stateData = await relay.stateData();
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
     expect(stateData.randomVotingRoundId.toString()).to.be.equal(newMessageData.votingRoundId.toString());
-    expect(stateData.randomNumberQualityScore.toString()).to.be.equal(newMessageData.randomQualityScore.toString());
+    expect(stateData.randomNumberQualityScore.toString()).to.be.equal(newMessageData.isGoodRandom.toString());
   });
 
   it("Should fail to relay a message with old signing policy when a new was initialized and votingRoundId is over startingVotingRoundId", async () => {

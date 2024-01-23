@@ -57,7 +57,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
     const messageData = {
       protocolId: 15,
       votingRoundId: 1234,
-      randomQualityScore: true,
+      isGoodRandom: true,
       merkleRoot: "0x1122334455667788990011223344556677889900112233445566778899001122",
     } as IProtocolMessageMerkleRoot;
     const encoded = ProtocolMessageMerkleRoot.encode(messageData);
@@ -89,7 +89,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
     const messageData = {
       protocolId: 15,
       votingRoundId,
-      randomQualityScore: true,
+      isGoodRandom: true,
       merkleRoot,
     } as IProtocolMessageMerkleRoot;
 

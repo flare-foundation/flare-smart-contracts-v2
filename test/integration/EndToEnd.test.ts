@@ -402,7 +402,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             NEW_SIGNING_POLICY_INITIALIZATION_START_SEC / VOTING_EPOCH_DURATION_SEC + 1;
         const quality = true;
 
-        const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT };
+        const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isGoodRandom: quality, merkleRoot: RANDOM_ROOT };
         const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
         const signatures = await generateSignatures(privateKeys.map(x => x.privateKey), messageHash, 51);
 
@@ -549,7 +549,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const quality = true;
         const root = web3.utils.keccak256("root1");
 
-        const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: root };
+        const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isGoodRandom: quality, merkleRoot: root };
         const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
 
         const signatures = await generateSignatures(privateKeys.slice(30, 34).map(x => x.privateKey), messageHash, 4);
@@ -595,7 +595,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             NEW_SIGNING_POLICY_INITIALIZATION_START_SEC / VOTING_EPOCH_DURATION_SEC + 1;
         const quality = true;
 
-        const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT2 };
+        const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isGoodRandom: quality, merkleRoot: RANDOM_ROOT2 };
         const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
 
         const signatures = await generateSignatures(privateKeys.slice(30, 34).map(x => x.privateKey), messageHash, 4);
