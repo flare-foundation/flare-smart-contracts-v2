@@ -15,6 +15,8 @@ contract FtsoInflationConfigurationsTest is Test {
     bytes8 private feed2;
     bytes private secondaryBands;
 
+    uint16 internal constant MAX_BIPS = 1e4;
+
     function setUp() public {
         governance = makeAddr("governance");
         inflationConfigs = new FtsoInflationConfigurations(
@@ -29,13 +31,27 @@ contract FtsoInflationConfigurationsTest is Test {
         vm.startPrank(governance);
     }
 
+    function testAddConfigRevertInvalidThreshold() public {
+        config = IFtsoInflationConfigurations.FtsoConfiguration(
+            feeds,
+            10,
+            MAX_BIPS + 1,
+            3000000,
+            secondaryBands,
+            0
+        );
+        vm.expectRevert("invalid minimalThresholdBIPS value");
+        inflationConfigs.addFtsoConfiguration(config);
+    }
+
     function testAddConfigRevertInvalidPrimary() public {
         config = IFtsoInflationConfigurations.FtsoConfiguration(
             feeds,
             10,
-            0,
+            5000,
             3000000,
-            secondaryBands
+            secondaryBands,
+            0
         );
         vm.expectRevert("invalid primaryBandRewardSharePPM value");
         inflationConfigs.addFtsoConfiguration(config);
@@ -46,9 +62,10 @@ contract FtsoInflationConfigurationsTest is Test {
         config = IFtsoInflationConfigurations.FtsoConfiguration(
             feeds,
             10,
-            0,
+            5000,
             30000,
-            secondaryBands
+            secondaryBands,
+            0
         );
         vm.expectRevert("invalid feedNames length");
         inflationConfigs.addFtsoConfiguration(config);
@@ -59,9 +76,10 @@ contract FtsoInflationConfigurationsTest is Test {
         config = IFtsoInflationConfigurations.FtsoConfiguration(
             feeds,
             10,
-            0,
+            5000,
             30000,
-            secondaryBands
+            secondaryBands,
+            0
         );
         vm.expectRevert("invalid secondaryBandWidthPPMs length");
         inflationConfigs.addFtsoConfiguration(config);
@@ -72,9 +90,10 @@ contract FtsoInflationConfigurationsTest is Test {
         config = IFtsoInflationConfigurations.FtsoConfiguration(
             feeds,
             10,
-            0,
+            5000,
             30000,
-            secondaryBands
+            secondaryBands,
+            0
         );
         vm.expectRevert("array lengths do not match");
         inflationConfigs.addFtsoConfiguration(config);
@@ -85,9 +104,10 @@ contract FtsoInflationConfigurationsTest is Test {
         config = IFtsoInflationConfigurations.FtsoConfiguration(
             feeds,
             10,
-            0,
+            5000,
             30000,
-            secondaryBands
+            secondaryBands,
+            0
         );
         vm.expectRevert("invalid secondaryBandWidthPPMs value");
         inflationConfigs.addFtsoConfiguration(config);
@@ -99,9 +119,10 @@ contract FtsoInflationConfigurationsTest is Test {
         config = IFtsoInflationConfigurations.FtsoConfiguration(
             feeds,
             10,
-            0,
+            5000,
             30000,
-            secondaryBands
+            secondaryBands,
+            0
         );
         inflationConfigs.addFtsoConfiguration(config);
 
@@ -112,15 +133,18 @@ contract FtsoInflationConfigurationsTest is Test {
         config = IFtsoInflationConfigurations.FtsoConfiguration(
             feeds,
             10,
-            0,
+            6000,
             40000,
-            secondaryBands
+            secondaryBands,
+            0
         );
         inflationConfigs.addFtsoConfiguration(config);
 
         ftsoConfigurations = inflationConfigs.getFtsoConfigurations();
         assertEq(ftsoConfigurations.length, 2);
         assertEq(ftsoConfigurations[1].feedNames, feeds);
+        assertEq(ftsoConfigurations[0].minimalThresholdBIPS, 5000);
+        assertEq(ftsoConfigurations[1].minimalThresholdBIPS, 6000);
         assertEq(ftsoConfigurations[0].primaryBandRewardSharePPM, 30000);
         assertEq(ftsoConfigurations[1].primaryBandRewardSharePPM, 40000);
     }
@@ -132,18 +156,21 @@ contract FtsoInflationConfigurationsTest is Test {
         config = IFtsoInflationConfigurations.FtsoConfiguration(
             feeds,
             10,
-            0,
+            8000,
             50000,
-            secondaryBands
+            secondaryBands,
+            0
         );
         vm.expectRevert("invalid index");
         inflationConfigs.replaceFtsoConfiguration(2, config);
 
         // replace ftso configuration on index 1
         getConfig = inflationConfigs.getFtsoConfiguration(1);
+        assertEq(getConfig.minimalThresholdBIPS, 6000);
         assertEq(getConfig.primaryBandRewardSharePPM, 40000);
         inflationConfigs.replaceFtsoConfiguration(1, config);
         getConfig = inflationConfigs.getFtsoConfiguration(1);
+        assertEq(getConfig.minimalThresholdBIPS, 8000);
         assertEq(getConfig.primaryBandRewardSharePPM, 50000);
     }
 

@@ -24,18 +24,17 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         uint120 amount;
         // feed name - i.e. base/quote symbol
         bytes8 feedName;
+        // minimal reward eligibility threshold in BIPS (basis points)
+        uint16 minimalThresholdBIPS;
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM;
         // secondary band width in PPM (parts per million) in relation to the median
         uint24 secondaryBandWidthPPM;
-        // reward eligibility in PPM (parts per million) in relation to the median of the lead providers
-        uint24 rewardEligibilityPPM;
-        // list of lead providers
-        address[] leadProviders;
         // address that can claim undistributed part of the reward (or burn address)
         address claimBackAddress;
     }
 
+    uint256 internal constant MAX_BIPS = 1e4;
     uint256 internal constant PPM_MAX = 1e6;
 
     /// Total rewards offered by inflation (in wei).
@@ -63,14 +62,12 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         int8 decimals,
         // amount (in wei) of reward in native coin
         uint256 amount,
+        // minimal reward eligibility threshold in BIPS (basis points)
+        uint16 minimalThresholdBIPS,
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM,
         // secondary band width in PPM (parts per million) in relation to the median
         uint24 secondaryBandWidthPPM,
-        // reward eligibility in PPM (parts per million) in relation to the median of the lead providers
-        uint24 rewardEligibilityPPM,
-        // list of lead providers
-        address[] leadProviders,
         // address that can claim undistributed part of the reward (or burn address)
         address claimBackAddress
     );
@@ -85,12 +82,14 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         bytes decimals,
         // amount (in wei) of reward in native coin
         uint256 amount,
-        // rewards split mode (0 means equally, 1 means random,...)
-        uint16 mode,
+        // minimal reward eligibility threshold in BIPS (basis points)
+        uint16 minimalThresholdBIPS,
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM,
         // secondary band width in PPM (parts per million) in relation to the median - multiple of 3 (uint24)
-        bytes secondaryBandWidthPPMs
+        bytes secondaryBandWidthPPMs,
+        // rewards split mode (0 means equally, 1 means random,...)
+        uint16 mode
     );
 
     /**
@@ -129,9 +128,9 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         uint256 sumRewardsOfferValues = 0;
         for (uint i = 0; i < _offers.length; ++i) {
             Offer calldata offer = _offers[i];
+            require(offer.minimalThresholdBIPS <= MAX_BIPS, "invalid minimalThresholdBIPS value");
             require(offer.primaryBandRewardSharePPM <= PPM_MAX, "invalid primaryBandRewardSharePPM value");
             require(offer.secondaryBandWidthPPM <= PPM_MAX, "invalid secondaryBandWidthPPM value");
-            require(offer.rewardEligibilityPPM <= PPM_MAX, "invalid rewardEligibilityPPM value");
             require(offer.amount >= minimalRewardsOfferValueWei, "rewards offer value too small");
             sumRewardsOfferValues += offer.amount;
             address claimBackAddress = offer.claimBackAddress;
@@ -143,10 +142,9 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
                 offer.feedName,
                 ftsoFeedDecimals.getDecimals(offer.feedName, _nextRewardEpochId),
                 offer.amount,
+                offer.minimalThresholdBIPS,
                 offer.primaryBandRewardSharePPM,
                 offer.secondaryBandWidthPPM,
-                offer.rewardEligibilityPPM,
-                offer.leadProviders,
                 claimBackAddress
             );
         }
@@ -239,9 +237,10 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
                 config.feedNames,
                 ftsoFeedDecimals.getDecimalsBulk(config.feedNames, nextRewardEpochId),
                 amount,
-                config.mode,
+                config.minimalThresholdBIPS,
                 config.primaryBandRewardSharePPM,
-                config.secondaryBandWidthPPMs
+                config.secondaryBandWidthPPMs,
+                config.mode
             );
         }
         // send reward amount to reward manager

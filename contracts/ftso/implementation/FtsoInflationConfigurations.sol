@@ -11,6 +11,7 @@ import "../../governance/implementation/Governed.sol";
  */
 contract FtsoInflationConfigurations is Governed, IFtsoInflationConfigurations {
 
+    uint256 internal constant MAX_BIPS = 1e4;
     uint256 internal constant PPM_MAX = 1e6;
 
     FtsoConfiguration[] internal ftsoConfigurations;
@@ -83,6 +84,7 @@ contract FtsoInflationConfigurations is Governed, IFtsoInflationConfigurations {
      * @param _configuration The FTSO configuration.
      */
     function _checkFtsoConfiguration(FtsoConfiguration calldata _configuration) internal pure {
+        require(_configuration.minimalThresholdBIPS <= MAX_BIPS, "invalid minimalThresholdBIPS value");
         require(_configuration.primaryBandRewardSharePPM <= PPM_MAX, "invalid primaryBandRewardSharePPM value");
         //slither-disable-next-line weak-prng
         require(_configuration.feedNames.length % 8 == 0, "invalid feedNames length");

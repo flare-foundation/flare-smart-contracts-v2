@@ -22,8 +22,8 @@ contract FtsoRewardOffersManagerTest is Test {
 
     bytes8 private feedName1;
     bytes8 private feedName2;
+    uint16 internal constant MAX_BIPS = 1e4;
     uint24 internal constant PPM_MAX = 1e6;
-    address[] private leadProviders;
     address private claimBackAddr;
     address private sender;
     bytes private feeds1;
@@ -40,14 +40,12 @@ contract FtsoRewardOffersManagerTest is Test {
         int8 decimals,
         // amount (in wei) of reward in native coin
         uint256 amount,
+        // minimal reward eligibility threshold in BIPS (basis points)
+        uint16 minimalThresholdBIPS,
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM,
         // secondary band width in PPM (parts per million) in relation to the median
         uint24 secondaryBandWidthPPM,
-        // reward eligibility in PPM (parts per million) in relation to the median of the lead providers
-        uint24 rewardEligibilityPPM,
-        // list of lead providers
-        address[] leadProviders,
         // address that can claim undistributed part of the reward (or burn address)
         address claimBackAddress
     );
@@ -61,12 +59,14 @@ contract FtsoRewardOffersManagerTest is Test {
         bytes decimals,
         // amount (in wei) of reward in native coin
         uint256 amount,
-        // rewards split mode (0 means equally, 1 means random,...)
-        uint16 mode,
+        // minimal reward eligibility threshold in BIPS (basis points)
+        uint16 minimalThresholdBIPS,
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM,
         // secondary band width in PPM (parts per million) in relation to the median - multiple of 3 (uint24)
-        bytes secondaryBandWidthPPMs
+        bytes secondaryBandWidthPPMs,
+        // rewards split mode (0 means equally, 1 means random,...)
+        uint16 mode
     );
 
     function setUp() public {
@@ -132,9 +132,6 @@ contract FtsoRewardOffersManagerTest is Test {
 
         feedName1 = bytes8("feed1");
         feedName2 = bytes8("feed2");
-        leadProviders = new address[](2);
-        leadProviders[0] = makeAddr("leadProvider1");
-        leadProviders[1] = makeAddr("leadProvider2");
         claimBackAddr = makeAddr("claimBackAddr");
         sender = makeAddr("sender");
 
@@ -174,6 +171,22 @@ contract FtsoRewardOffersManagerTest is Test {
         ftsoRewardOffersManager.offerRewards(2 + 1, offers);
     }
 
+    function testOfferRewardsRevertInvalidThresholdValue() public {
+        _setTimes();
+        FtsoRewardOffersManager.Offer[] memory offers;
+        offers = new FtsoRewardOffersManager.Offer[](1);
+        offers[0] = FtsoRewardOffersManager.Offer(
+            uint120(1000),
+            feedName1,
+            MAX_BIPS + 1,
+            10000,
+            20000,
+            claimBackAddr
+        );
+        vm.expectRevert("invalid minimalThresholdBIPS value");
+        ftsoRewardOffersManager.offerRewards(2 + 1, offers);
+    }
+
     function testOfferRewardsRevertInvalidPrimaryBand() public {
         _setTimes();
         FtsoRewardOffersManager.Offer[] memory offers;
@@ -181,10 +194,9 @@ contract FtsoRewardOffersManagerTest is Test {
         offers[0] = FtsoRewardOffersManager.Offer(
             uint120(1000),
             feedName1,
+            5000,
             PPM_MAX + 1,
             20000,
-            3000,
-            leadProviders,
             claimBackAddr
         );
         vm.expectRevert("invalid primaryBandRewardSharePPM value");
@@ -198,30 +210,12 @@ contract FtsoRewardOffersManagerTest is Test {
         offers[0] = FtsoRewardOffersManager.Offer(
             uint120(1000),
             feedName1,
+            5000,
             10000,
             PPM_MAX + 1,
-            3000,
-            leadProviders,
             claimBackAddr
         );
         vm.expectRevert("invalid secondaryBandWidthPPM value");
-        ftsoRewardOffersManager.offerRewards(2 + 1, offers);
-    }
-
-    function testOfferRewardsRevertInvalidRewardEligibilityValue() public {
-        _setTimes();
-        FtsoRewardOffersManager.Offer[] memory offers;
-        offers = new FtsoRewardOffersManager.Offer[](1);
-        offers[0] = FtsoRewardOffersManager.Offer(
-            uint120(1000),
-            feedName1,
-            10000,
-            20000,
-            PPM_MAX + 1,
-            leadProviders,
-            claimBackAddr
-        );
-        vm.expectRevert("invalid rewardEligibilityPPM value");
         ftsoRewardOffersManager.offerRewards(2 + 1, offers);
     }
 
@@ -232,10 +226,9 @@ contract FtsoRewardOffersManagerTest is Test {
         offers[0] = FtsoRewardOffersManager.Offer(
             uint120(90),
             feedName1,
+            5000,
             10000,
             20000,
-            30000,
-            leadProviders,
             claimBackAddr
         );
         vm.expectRevert("rewards offer value too small");
@@ -249,19 +242,17 @@ contract FtsoRewardOffersManagerTest is Test {
         offers[0] = FtsoRewardOffersManager.Offer(
             uint120(1000),
             feedName1,
+            5000,
             10000,
             20000,
-            30000,
-            leadProviders,
             claimBackAddr
         );
         offers[1] = FtsoRewardOffersManager.Offer(
             uint120(2000),
             feedName2,
+            6000,
             40000,
             50000,
-            60000,
-            leadProviders,
             address(0)
         );
 
@@ -274,10 +265,9 @@ contract FtsoRewardOffersManagerTest is Test {
             offers[0].feedName,
             int8(4),
             offers[0].amount,
+            offers[0].minimalThresholdBIPS,
             offers[0].primaryBandRewardSharePPM,
             offers[0].secondaryBandWidthPPM,
-            offers[0].rewardEligibilityPPM,
-            leadProviders,
             claimBackAddr
         );
         vm.expectEmit();
@@ -286,10 +276,9 @@ contract FtsoRewardOffersManagerTest is Test {
             offers[1].feedName,
             int8(-5),
             offers[1].amount,
+            offers[1].minimalThresholdBIPS,
             offers[1].primaryBandRewardSharePPM,
             offers[1].secondaryBandWidthPPM,
-            offers[1].rewardEligibilityPPM,
-            leadProviders,
             sender
         );
 
@@ -338,9 +327,10 @@ contract FtsoRewardOffersManagerTest is Test {
         ftsoConfigs[0] = IFtsoInflationConfigurations.FtsoConfiguration(
             feeds1,
             60,
-            0,
+            5000,
             30000,
-            secondaryBands
+            secondaryBands,
+            0
         );
         bytes memory decimals1 = bytes.concat(bytes1(uint8(4)), bytes1(uint8(int8(-5))));
         _mockGetDecimalsBulk(feeds1, decimals1);
@@ -349,9 +339,10 @@ contract FtsoRewardOffersManagerTest is Test {
         ftsoConfigs[1] = IFtsoInflationConfigurations.FtsoConfiguration(
             feeds2,
             40,
-            0,
+            6000,
             40000,
-            secondaryBands
+            secondaryBands,
+            0
         );
         // bytes memory decimals2 = bytes.concat(bytes1(uint8(6)), bytes1(uint8(int8(-7))));
         // _mockGetDecimalsBulk(feeds2, decimals2);
@@ -368,9 +359,10 @@ contract FtsoRewardOffersManagerTest is Test {
             feeds1,
             decimals1,
             5000 * 60 / 100,
-            ftsoConfigs[0].mode,
+            ftsoConfigs[0].minimalThresholdBIPS,
             ftsoConfigs[0].primaryBandRewardSharePPM,
-            ftsoConfigs[0].secondaryBandWidthPPMs
+            ftsoConfigs[0].secondaryBandWidthPPMs,
+            ftsoConfigs[0].mode
         );
         vm.expectEmit();
         emit InflationRewardsOffered(
@@ -378,9 +370,10 @@ contract FtsoRewardOffersManagerTest is Test {
             feeds2,
             decimals1,
             5000 * 40 / 100,
-            ftsoConfigs[1].mode,
+            ftsoConfigs[1].minimalThresholdBIPS,
             ftsoConfigs[1].primaryBandRewardSharePPM,
-            ftsoConfigs[1].secondaryBandWidthPPMs
+            ftsoConfigs[1].secondaryBandWidthPPMs,
+            ftsoConfigs[1].mode
         );
         ftsoRewardOffersManager.triggerRewardEpochSwitchover(2, 3 * DAY, DAY);
 
@@ -392,9 +385,10 @@ contract FtsoRewardOffersManagerTest is Test {
             feeds1,
             decimals1,
             0, // amount
-            ftsoConfigs[0].mode,
+            ftsoConfigs[0].minimalThresholdBIPS,
             ftsoConfigs[0].primaryBandRewardSharePPM,
-            ftsoConfigs[0].secondaryBandWidthPPMs
+            ftsoConfigs[0].secondaryBandWidthPPMs,
+            ftsoConfigs[0].mode
         );
         vm.expectEmit();
         emit InflationRewardsOffered(
@@ -402,9 +396,10 @@ contract FtsoRewardOffersManagerTest is Test {
             feeds2,
             decimals1,
             0, // amount
-            ftsoConfigs[1].mode,
+            ftsoConfigs[1].minimalThresholdBIPS,
             ftsoConfigs[1].primaryBandRewardSharePPM,
-            ftsoConfigs[1].secondaryBandWidthPPMs
+            ftsoConfigs[1].secondaryBandWidthPPMs,
+            ftsoConfigs[1].mode
         );
         ftsoRewardOffersManager.triggerRewardEpochSwitchover(2, 3 * DAY, DAY);
     }
@@ -435,9 +430,10 @@ contract FtsoRewardOffersManagerTest is Test {
         ftsoConfigs[0] = IFtsoInflationConfigurations.FtsoConfiguration(
             feeds1,
             60,
-            0,
+            3000,
             30000,
-            secondaryBands
+            secondaryBands,
+            0
         );
         bytes memory decimals1 = bytes.concat(bytes1(uint8(4)), bytes1(uint8(int8(-5))));
         _mockGetDecimalsBulk(feeds1, decimals1);
@@ -446,9 +442,10 @@ contract FtsoRewardOffersManagerTest is Test {
         ftsoConfigs[1] = IFtsoInflationConfigurations.FtsoConfiguration(
             feeds2,
             0, // zero share
-            0,
+            4000,
             40000,
-            secondaryBands
+            secondaryBands,
+            0
         );
         _mockGetFtsoConfigurations(ftsoConfigs);
         _mockGetCurrentEpochId(2);
@@ -458,9 +455,10 @@ contract FtsoRewardOffersManagerTest is Test {
             feeds1,
             decimals1,
             5000,
-            ftsoConfigs[0].mode,
+            ftsoConfigs[0].minimalThresholdBIPS,
             ftsoConfigs[0].primaryBandRewardSharePPM,
-            ftsoConfigs[0].secondaryBandWidthPPMs
+            ftsoConfigs[0].secondaryBandWidthPPMs,
+            ftsoConfigs[0].mode
         );
         vm.expectEmit();
         emit InflationRewardsOffered(
@@ -468,9 +466,10 @@ contract FtsoRewardOffersManagerTest is Test {
             feeds2,
             decimals1,
             5000 * 0 / 100,
-            ftsoConfigs[1].mode,
+            ftsoConfigs[1].minimalThresholdBIPS,
             ftsoConfigs[1].primaryBandRewardSharePPM,
-            ftsoConfigs[1].secondaryBandWidthPPMs
+            ftsoConfigs[1].secondaryBandWidthPPMs,
+            ftsoConfigs[1].mode
         );
         assertEq(ftsoRewardOffersManager.getExpectedBalance(), 5000);
         vm.prank(mockFlareSystemManager);
