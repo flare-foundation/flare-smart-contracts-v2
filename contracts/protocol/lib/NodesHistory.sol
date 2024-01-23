@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title NodesHistory library
- * @notice A contract to manage checkpoints as of a given block.
+ * A contract to manage checkpoints as of a given block.
  * @dev Store value history by block number with detachable state.
  **/
 library NodesHistory {
@@ -42,7 +42,7 @@ library NodesHistory {
     string private constant MAX_NODES_MSG = "Max nodes exceeded";
 
     /**
-     * @notice Adds or removes the nodeId at the current block.
+     * Adds or removes the nodeId at the current block.
      * @param _self A CheckPointHistoryState instance to manage.
      * @param _nodeId The nodeId to update.
      * @param _add Indicates if _nodeId should be added (true) or removed (false)
@@ -278,7 +278,7 @@ library NodesHistory {
     // helper functions for querying
 
     /**
-     * @notice Binary search of _checkpoints array.
+     * Binary search of _checkpoints array.
      * @param _checkpoints An array of CheckPoint to search.
      * @param _startIndex Smallest possible index to be returned.
      * @param _blockNumber The block number to search for.
@@ -307,7 +307,7 @@ library NodesHistory {
     }
 
     /**
-     * @notice Binary search of _checkpoints array. Extra optimized for the common case when we are
+     * Binary search of _checkpoints array. Extra optimized for the common case when we are
      *   searching for the last block.
      * @param _self The state to query.
      * @param _blockNumber The block number to search for.

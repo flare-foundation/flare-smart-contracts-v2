@@ -6,7 +6,7 @@ import "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 /**
  * @title Governed Base
- * @notice This abstract base class defines behaviors for a governed contract.
+ * This abstract base class defines behaviors for a governed contract.
  * @dev This class is abstract so that specific behaviors can be defined for the constructor.
  *   Contracts should not be left ungoverned, but not all contract will have a constructor
  *   (for example those pre-defined in genesis).
@@ -56,7 +56,7 @@ abstract contract GovernedBase {
     }
 
     /**
-     * @notice Execute the timelocked governance calls once the timelock period expires.
+     * Execute the timelocked governance calls once the timelock period expires.
      * @dev Only executor can call this method.
      * @param _selector The method selector (only one timelocked call per method is stored).
      */
@@ -100,7 +100,7 @@ abstract contract GovernedBase {
     }
 
     /**
-     * @notice Initialize the governance address if not first initialized.
+     * Initialize the governance address if not first initialized.
      */
     function initialise(IGovernanceSettings _governanceSettings, address _initialGovernance) public virtual {
         require(initialised == false, "initialised != false");

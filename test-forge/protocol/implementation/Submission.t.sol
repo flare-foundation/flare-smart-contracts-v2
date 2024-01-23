@@ -215,4 +215,10 @@ contract SubmissionTest is Test {
         vm.expectRevert("error123");
         submission.submitAndPass(data);
     }
+
+    function testSubmitAndPassRevertDisabled() public {
+        bytes memory data = abi.encode(makeAddr("test123"), 16);
+        vm.expectRevert("submitAndPass disabled");
+        submission.submitAndPass(data);
+    }
 }

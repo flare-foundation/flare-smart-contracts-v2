@@ -7,21 +7,25 @@ import "../../protocol/implementation/Relay.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
- * Contract used for P-chain staking verification using stake data and Merkle proof
+ * Contract used for P-chain staking verification using stake data and Merkle proof.
  */
 contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
     using MerkleProof for bytes32[];
 
     uint256 public constant P_CHAIN_STAKE_MIRROR_PROTOCOL_ID = 1;
 
-    /// Relay contract with voted Merkle roots
+    /// Relay contract with voted Merkle roots.
     Relay public immutable relay;
-    /// P-chain stake mirror voting contract with voted Merkle roots
+    /// P-chain stake mirror voting contract with voted Merkle roots.
     IPChainStakeMirrorMultiSigVoting public immutable pChainStakeMirrorVoting;
 
+    /// Minimum stake duration in seconds.
     uint256 public immutable minStakeDurationSeconds;
+    /// Maximum stake duration in seconds.
     uint256 public immutable maxStakeDurationSeconds;
+    /// Minimum stake amount in Gwei.
     uint256 public immutable minStakeAmountGwei;
+    /// Maximum stake amount in Gwei.
     uint256 public immutable maxStakeAmountGwei;
 
     /**
@@ -76,6 +80,11 @@ contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
             );
     }
 
+    /**
+     * Gets the Merkle root for the given start time.
+     * @param _startTime The start time.
+     * @return _merkleRoot The Merkle root.
+     */
     function _merkleRootForStartTime(uint256 _startTime) internal view returns(bytes32 _merkleRoot) {
         _merkleRoot = relay.merkleRoots(P_CHAIN_STAKE_MIRROR_PROTOCOL_ID, relay.getVotingRoundId(_startTime));
         if (_merkleRoot == bytes32(0)) {
@@ -83,19 +92,31 @@ contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
         }
     }
 
+    /**
+     * Hashes the PChainStake data.
+     * @param _data The PChainStake data.
+     * @return _hash The hash.
+     */
     function _hashPChainStaking(PChainStake calldata _data) internal pure returns (bytes32) {
         return keccak256(abi.encode(_data));
     }
 
+    /**
+     * Verifies the Merkle proof.
+     * @param _proof The Merkle proof.
+     * @param _merkleRoot The Merkle root.
+     * @param _leaf The leaf.
+     * @return True if the proof is valid.
+     */
     function _verifyMerkleProof(
-        bytes32[] memory proof,
-        bytes32 merkleRoot,
-        bytes32 leaf
+        bytes32[] memory _proof,
+        bytes32 _merkleRoot,
+        bytes32 _leaf
     )
         internal pure
         returns (bool)
     {
-        return proof.verify(merkleRoot, leaf);
+        return _proof.verify(_merkleRoot, _leaf);
     }
 
 }

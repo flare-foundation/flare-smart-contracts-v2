@@ -8,24 +8,43 @@ import "../../governance/implementation/Governed.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 
+/**
+ * FtsoFeedPublisher contract.
+ *
+ * This contract is used to publish the FTSO feeds.
+ */
 contract FtsoFeedPublisher is Governed, AddressUpdatable, IFtsoFeedPublisher {
     using MerkleProof for bytes32[];
 
     mapping(bytes8 => Feed) internal lastFeeds;
     mapping(bytes8 => mapping(uint256 => Feed)) internal publishedFeeds;
 
+    /// The Relay contract.
     Relay public relay;
+    /// The FTSO protocol id.
     uint8 public immutable ftsoProtocolId;
+    /// The size of the feeds history.
     uint256 public immutable feedsHistorySize;
+    /// The address of the feeds publisher contract.
     address public feedsPublisher;
 
+    /// Event emitted when a new feed is published.
     event FtsoFeedPublished(Feed feed);
 
+    /// Only feeds publisher can call this method.
     modifier onlyFeedsPublisher {
         require(msg.sender == feedsPublisher, "only feeds publisher");
         _;
     }
 
+    /**
+     * Constructor.
+     * @param _governanceSettings The address of the GovernanceSettings contract.
+     * @param _initialGovernance The initial governance address.
+     * @param _addressUpdater The address of the AddressUpdater contract.
+     * @param _ftsoProtocolId The FTSO protocol id.
+     * @param _feedsHistorySize The size of the feeds history.
+     */
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
@@ -41,6 +60,9 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IFtsoFeedPublisher {
         feedsHistorySize = _feedsHistorySize;
     }
 
+    /**
+     * @inheritdoc IFtsoFeedPublisher
+     */
     function publish(FeedWithProof[] calldata _proofs) external override {
         uint256 minVotingRoundId = _getMinVotingRoundId();
         uint256 length = _proofs.length;
@@ -67,6 +89,11 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IFtsoFeedPublisher {
         }
     }
 
+    /**
+     * Publishes feeds.
+     * @param _feeds The feeds to publish.
+     * @dev This method can only be called by the feeds publisher contract.
+     */
     function publishFeeds(Feed[] memory _feeds) external onlyFeedsPublisher {
         uint256 minVotingRoundId = _getMinVotingRoundId();
         uint256 length = _feeds.length;
@@ -89,14 +116,28 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IFtsoFeedPublisher {
         }
     }
 
+    /**
+     * Sets the feeds publisher address.
+     * @param _feedsPublisher The address of the feeds publisher contract.
+     * @dev Only governance can call this method.
+     */
     function setFeedsPublisher(address _feedsPublisher) external onlyGovernance {
         feedsPublisher = _feedsPublisher;
     }
 
+    /**
+     * Returns the current feed.
+     * @param _feedName Feed name.
+     */
     function getCurrentFeed(bytes8 _feedName) external view returns(Feed memory) {
         return lastFeeds[_feedName];
     }
 
+    /**
+     * Returns the feed for given voting round id.
+     * @param _feedName Feed name.
+     * @param _votingRoundId Voting round id.
+     */
     function getFeed(bytes8 _feedName, uint256 _votingRoundId) external view returns(Feed memory _feed) {
         require(_getMinVotingRoundId() <= _votingRoundId, "too old voting round id");
         //slither-disable-next-line weak-prng
@@ -105,8 +146,7 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IFtsoFeedPublisher {
     }
 
     /**
-     * @notice Implementation of the AddressUpdatable abstract method.
-     * @dev It can be overridden if other contracts are needed.
+     * @inheritdoc AddressUpdatable
      */
     function _updateContractAddresses(
         bytes32[] memory _contractNameHashes,
@@ -117,6 +157,9 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IFtsoFeedPublisher {
         relay = Relay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
+    /**
+     * Returns the minimum voting round id.
+     */
     function _getMinVotingRoundId() internal view returns(uint256 _minVotingRoundId) {
         uint256 currentVotingRoundId = relay.getVotingRoundId(block.timestamp);
         if (currentVotingRoundId > feedsHistorySize) {

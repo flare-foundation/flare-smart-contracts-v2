@@ -23,6 +23,7 @@ contract FlareSystemManagerTest is Test {
     Relay private relay;
 
     FlareSystemManager.Settings private settings;
+    FlareSystemManager.InitialSettings private initialSettings;
     address private voter1;
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -103,10 +104,6 @@ contract FlareSystemManagerTest is Test {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
         settings = FlareSystemManager.Settings(
-            uint32(block.timestamp), // 1,
-            VOTING_EPOCH_DURATION_SEC,
-            0,
-            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             3600 * 8,
             15000,
             3600 * 2,
@@ -114,7 +111,14 @@ contract FlareSystemManagerTest is Test {
             30 * 60,
             20,
             500000,
-            2
+            2,
+            1000
+        );
+
+        initialSettings = FlareSystemManager.InitialSettings(
+            5,
+            0,
+            0
         );
 
         flareSystemManager = new FlareSystemManager(
@@ -123,9 +127,11 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
-            5,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
             0,
-            0
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            initialSettings
         );
 
         mockVoterRegistry = makeAddr("voterRegistry");
@@ -148,16 +154,20 @@ contract FlareSystemManagerTest is Test {
 
         //// update contract addresses
         vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](5);
-        contractAddresses = new address[](5);
+        contractNameHashes = new bytes32[](6);
+        contractAddresses = new address[](6);
         contractNameHashes[0] = _keccak256AbiEncode("AddressUpdater");
         contractNameHashes[1] = _keccak256AbiEncode("VoterRegistry");
         contractNameHashes[2] = _keccak256AbiEncode("Submission");
         contractNameHashes[3] = _keccak256AbiEncode("Relay");
+        contractNameHashes[4] = _keccak256AbiEncode("RewardManager");
+        contractNameHashes[5] = _keccak256AbiEncode("CleanupBlockNumberManager");
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockVoterRegistry;
         contractAddresses[2] = address(submission);
         contractAddresses[3] = mockRelay;
+        contractAddresses[4] = makeAddr("rewardManager");
+        contractAddresses[5] = makeAddr("cleanupBlockNumberManager");
         flareSystemManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
         contractNameHashes = new bytes32[](3);
@@ -188,14 +198,15 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
-            5,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
             0,
-            0
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            initialSettings
         );
     }
 
     function testRevertRewardEpochDurationZero() public {
-        settings.rewardEpochDurationInVotingEpochs = 0;
         vm.expectRevert("reward epoch duration zero");
         new FlareSystemManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
@@ -203,14 +214,15 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
-            5,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
             0,
-            0
+            0,
+            initialSettings
         );
     }
 
     function testRevertVotingEpochDurationZero() public {
-        settings.votingEpochDurationSeconds = 0;
         vm.expectRevert("voting epoch duration zero");
         new FlareSystemManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
@@ -218,9 +230,11 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
-            5,
+            uint32(block.timestamp),
             0,
-            0
+            0,
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            initialSettings
         );
     }
 
@@ -233,9 +247,11 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
-            5,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
             0,
-            0
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            initialSettings
         );
     }
 
@@ -248,13 +264,16 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
             0,
-            0,
-            0
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            initialSettings
         );
     }
 
     function testRevertZeroRandomAcqBlocks() public {
+        initialSettings.initialRandomVotePowerBlockSelectionSize = 0;
         vm.expectRevert("zero blocks");
         new FlareSystemManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
@@ -262,13 +281,16 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
             0,
-            0,
-            0
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            initialSettings
         );
     }
 
     function testRevertRewardEpochEndInThePast() public {
+        uint32 firstVotingRoundStartTs = uint32(block.timestamp);
         vm.warp(1641070800);
         vm.expectRevert("reward epoch end not in the future");
         new FlareSystemManager(
@@ -277,9 +299,11 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
-            5,
+            firstVotingRoundStartTs,
+            VOTING_EPOCH_DURATION_SEC,
             0,
-            0
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            initialSettings
         );
     }
 
@@ -1112,23 +1136,23 @@ contract FlareSystemManagerTest is Test {
     }
 
     // set rewards hash tests
-    function testRevertSetRewardsHashEpochNotEnded() public {
+    function testRevertSetRewardsDataEpochNotEnded() public {
         vm.prank(governance);
         vm.expectRevert("epoch not ended yet");
-        flareSystemManager.setRewardsHash(1, 2, keccak256("rewards hash"));
+        flareSystemManager.setRewardsData(1, 2, keccak256("rewards hash"));
     }
 
-    function testUpdateRewardsHash() public {
+    function testUpdateRewardsData() public {
         testSignRewards();
         uint64 noOfWeightBasedClaims = 1;
         vm.prank(governance);
         vm.expectEmit();
         emit RewardsSigned(1, governance, governance,
             keccak256("rewards hash2"), noOfWeightBasedClaims, uint64(block.timestamp), true);
-        flareSystemManager.setRewardsHash(1, noOfWeightBasedClaims, keccak256("rewards hash2"));
+        flareSystemManager.setRewardsData(1, noOfWeightBasedClaims, keccak256("rewards hash2"));
     }
 
-    function testSetRewardsHash() public {
+    function testSetRewardsData() public {
         // end reward epoch 0
         _initializeSigningPolicy(1);
         vm.mockCall(
@@ -1146,7 +1170,7 @@ contract FlareSystemManagerTest is Test {
         vm.expectEmit();
         emit RewardsSigned(0, governance, governance,
             keccak256("rewards hash"), noOfWeightBasedClaims, uint64(block.timestamp), true);
-        flareSystemManager.setRewardsHash(0, noOfWeightBasedClaims, keccak256("rewards hash"));
+        flareSystemManager.setRewardsData(0, noOfWeightBasedClaims, keccak256("rewards hash"));
     }
 
 
@@ -1214,6 +1238,7 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.daemonize();
 
         // select vote power block
+        vm.roll(block.number + 1);
         vm.mockCall(
             mockRelay,
             abi.encodeWithSelector(Relay.getRandomNumber.selector),

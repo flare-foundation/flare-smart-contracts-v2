@@ -176,6 +176,7 @@ contract Relay {
     // rewardEpochId => signingPolicyHash
     mapping(uint256 => bytes32) public toSigningPolicyHash;
     // protocolId => votingRoundId => merkleRoot
+    //slither-disable-next-line uninitialized-state
     mapping(uint256 => mapping(uint256 => bytes32)) public merkleRoots;
     // rewardEpochId => startingVotingRoundId
     mapping(uint256 => uint256) public startingVotingRoundIds;

@@ -6,11 +6,15 @@ import "../lib/NodesHistory.sol";
 import "../lib/PublicKeyHistory.sol";
 import "../../governance/implementation/Governed.sol";
 
+/**
+ * Entity manager contract.
+ */
 contract EntityManager is Governed {
     using AddressHistory for AddressHistory.CheckPointHistoryState;
     using NodesHistory for NodesHistory.CheckPointHistoryState;
     using PublicKeyHistory for PublicKeyHistory.CheckPointHistoryState;
 
+    /// Entity data.
     struct Entity {
         AddressHistory.CheckPointHistoryState delegationAddress;
         AddressHistory.CheckPointHistoryState submitAddress;
@@ -20,6 +24,7 @@ contract EntityManager is Governed {
         PublicKeyHistory.CheckPointHistoryState publicKey;
     }
 
+    /// Voter addresses.
     struct VoterAddresses {
         address delegationAddress;
         address submitAddress;
@@ -27,15 +32,14 @@ contract EntityManager is Governed {
         address signingPolicyAddress;
     }
 
+    /// Initial voter data.
     struct InitialVoterData {
         address voter;
         address delegationAddress;
-        address submitAddress;
-        address submitSignaturesAddress;
-        address signingPolicyAddress;
         bytes20[] nodeIds;
     }
 
+    /// Maximum number of node ids per entity.
     uint32 public maxNodeIdsPerEntity;
 
     mapping(address => Entity) internal register; // voter to entity data
@@ -50,33 +54,52 @@ contract EntityManager is Governed {
     mapping(address => AddressHistory.CheckPointHistoryState) internal signingPolicyAddressRegistered;
     mapping(address => address) internal signingPolicyAddressRegistrationQueue;
 
+    /// Event emitted when a node id is registered.
     event NodeIdRegistered(
         address indexed voter, bytes20 indexed nodeId);
+    /// Event emitted when a node id is unregistered.
     event NodeIdUnregistered(
         address indexed voter, bytes20 indexed nodeId);
+    /// Event emitted when a public key is registered.
     event PublicKeyRegistered(
         address indexed voter, bytes32 indexed part1, bytes32 indexed part2);
+    /// Event emitted when a public key is unregistered.
     event PublicKeyUnregistered(
         address indexed voter, bytes32 indexed part1, bytes32 indexed part2);
+    /// Event emitted when a delegation address is registered.
     event DelegationAddressRegistered(
         address indexed voter, address indexed delegationAddress);
+    /// Event emitted when a delegation address registration is confirmed.
     event DelegationAddressRegistrationConfirmed(
         address indexed voter, address indexed delegationAddress);
+    /// Event emitted when a submit address is registered.
     event SubmitAddressRegistered(
         address indexed voter, address indexed submitAddress);
+    /// Event emitted when a submit address registration is confirmed.
     event SubmitAddressRegistrationConfirmed(
         address indexed voter, address indexed submitAddress);
+    /// Event emitted when a submit signatures address is registered.
     event SubmitSignaturesAddressRegistered(
         address indexed voter, address indexed submitSignaturesAddress);
+    /// Event emitted when a submit signatures address registration is confirmed.
     event SubmitSignaturesAddressRegistrationConfirmed(
         address indexed voter, address indexed submitSignaturesAddress);
+    /// Event emitted when a signing policy address is registered.
     event SigningPolicyAddressRegistered(
         address indexed voter, address indexed signingPolicyAddress);
+    /// Event emitted when a signing policy address registration is confirmed.
     event SigningPolicyAddressRegistrationConfirmed(
         address indexed voter, address indexed signingPolicyAddress);
+    /// Event emitted when the maximum number of node ids per entity is set.
     event MaxNodeIdsPerEntitySet(
         uint256 maxNodeIdsPerEntity);
 
+    /**
+     * @dev Constructor.
+     * @param _governanceSettings Governance settings contract.
+     * @param _governance Governance contract.
+     * @param _maxNodeIdsPerEntity Maximum number of node ids per entity.
+     */
     constructor(
         IGovernanceSettings _governanceSettings,
         address _governance,
@@ -89,6 +112,10 @@ contract EntityManager is Governed {
         emit MaxNodeIdsPerEntitySet(_maxNodeIdsPerEntity);
     }
 
+    /**
+     * Registers a node id.
+     * @param _nodeId Node id.
+     */
     function registerNodeId(bytes20 _nodeId) external {
         require(nodeIdRegistered[_nodeId].addressAtNow() == address(0), "node id already registered");
         register[msg.sender].nodeIds.addRemoveNodeId(_nodeId, true, maxNodeIdsPerEntity);
@@ -96,6 +123,10 @@ contract EntityManager is Governed {
         emit NodeIdRegistered(msg.sender, _nodeId);
     }
 
+    /**
+     * Unregisters a node id.
+     * @param _nodeId Node id.
+     */
     function unregisterNodeId(bytes20 _nodeId) external {
         require(nodeIdRegistered[_nodeId].addressAtNow() == msg.sender, "node id not registered with msg.sender");
         register[msg.sender].nodeIds.addRemoveNodeId(_nodeId, false, maxNodeIdsPerEntity);
@@ -103,6 +134,11 @@ contract EntityManager is Governed {
         emit NodeIdUnregistered(msg.sender, _nodeId);
     }
 
+    /**
+     * Registers a public key.
+     * @param _part1 First part of the public key.
+     * @param _part2 Second part of the public key.
+     */
     function registerPublicKey(bytes32 _part1, bytes32 _part2) external {
         require(_part1 != bytes32(0) || _part2 != bytes32(0), "public key invalid");
         bytes32 publicKeyHash = keccak256(abi.encode(_part1, _part2));
@@ -118,6 +154,9 @@ contract EntityManager is Governed {
         emit PublicKeyRegistered(msg.sender, _part1, _part2);
     }
 
+    /**
+     * Unregisters a public key.
+     */
     function unregisterPublicKey() external {
         (bytes32 part1, bytes32 part2) = register[msg.sender].publicKey.publicKeyAtNow();
         if (part1 == bytes32(0) && part2 == bytes32(0)) {
@@ -129,7 +168,10 @@ contract EntityManager is Governed {
         emit PublicKeyUnregistered(msg.sender, part1, part2);
     }
 
-    // msg.sender == voter
+    /**
+     * Registers a delegation address (called by the voter).
+     * @param _delegationAddress Delegation address.
+     */
     function registerDelegationAddress(address _delegationAddress) external {
         require(delegationAddressRegistered[_delegationAddress].addressAtNow() == address(0),
             "delegation address already registered");
@@ -137,7 +179,10 @@ contract EntityManager is Governed {
         emit DelegationAddressRegistered(msg.sender, _delegationAddress);
     }
 
-    // msg.sender == delegation address
+    /**
+     * Confirms a delegation address registration (called by the delegation address).
+     * @param _voter Voter address.
+     */
     function confirmDelegationAddressRegistration(address _voter) external {
         require(delegationAddressRegistered[msg.sender].addressAtNow() == address(0),
             "delegation address already registered");
@@ -153,7 +198,10 @@ contract EntityManager is Governed {
         emit DelegationAddressRegistrationConfirmed(_voter, msg.sender);
     }
 
-    // msg.sender == voter
+    /**
+     * Registers a submit address (called by the voter).
+     * @param _submitAddress Submit address.
+     */
     function registerSubmitAddress(address _submitAddress) external {
         require(submitAddressRegistered[_submitAddress].addressAtNow() == address(0),
             "submit address already registered");
@@ -161,7 +209,10 @@ contract EntityManager is Governed {
         emit SubmitAddressRegistered(msg.sender, _submitAddress);
     }
 
-    // msg.sender == submit address
+    /**
+     * Confirms a submit address registration (called by the submit address).
+     * @param _voter Voter address.
+     */
     function confirmSubmitAddressRegistration(address _voter) external {
         require(submitAddressRegistered[msg.sender].addressAtNow() == address(0),
             "submit address already registered");
@@ -177,7 +228,10 @@ contract EntityManager is Governed {
         emit SubmitAddressRegistrationConfirmed(_voter, msg.sender);
     }
 
-    // msg.sender == voter
+    /**
+     * Registers a submit signatures address (called by the voter).
+     * @param _submitSignaturesAddress Submit signatures address.
+     */
     function registerSubmitSignaturesAddress(address _submitSignaturesAddress) external {
         require(submitSignaturesAddressRegistered[_submitSignaturesAddress].addressAtNow() == address(0),
             "submit signatures address already registered");
@@ -185,7 +239,10 @@ contract EntityManager is Governed {
         emit SubmitSignaturesAddressRegistered(msg.sender, _submitSignaturesAddress);
     }
 
-    // msg.sender == submit signatures address
+    /**
+     * Confirms a submit signatures address registration (called by the submit signatures address).
+     * @param _voter Voter address.
+     */
     function confirmSubmitSignaturesAddressRegistration(address _voter) external {
         require(submitSignaturesAddressRegistered[msg.sender].addressAtNow() == address(0),
             "submit signatures address already registered");
@@ -201,7 +258,10 @@ contract EntityManager is Governed {
         emit SubmitSignaturesAddressRegistrationConfirmed(_voter, msg.sender);
     }
 
-    // msg.sender == voter
+    /**
+     * Registers a signing policy address (called by the voter).
+     * @param _signingPolicyAddress Signing policy address.
+     */
     function registerSigningPolicyAddress(address _signingPolicyAddress) external {
         require(signingPolicyAddressRegistered[_signingPolicyAddress].addressAtNow() == address(0),
             "signing policy address already registered");
@@ -209,7 +269,10 @@ contract EntityManager is Governed {
         emit SigningPolicyAddressRegistered(msg.sender, _signingPolicyAddress);
     }
 
-    // msg.sender == signing address
+    /**
+     * Confirms a signing policy address registration (called by the signing policy address).
+     * @param _voter Voter address.
+     */
     function confirmSigningPolicyAddressRegistration(address _voter) external {
         require(signingPolicyAddressRegistered[msg.sender].addressAtNow() == address(0),
             "signing policy address already registered");
@@ -225,12 +288,23 @@ contract EntityManager is Governed {
         emit SigningPolicyAddressRegistrationConfirmed(_voter, msg.sender);
     }
 
+    /**
+     * Sets the maximum number of node ids per entity.
+     * @param _newMaxNodeIdsPerEntity New maximum number of node ids per entity.
+     * @dev Max node ids per entity can only be increased.
+     * @dev Only governance can call this method.
+     */
     function setMaxNodeIdsPerEntity(uint32 _newMaxNodeIdsPerEntity) external onlyGovernance {
         require(_newMaxNodeIdsPerEntity > maxNodeIdsPerEntity, "can increase only");
         maxNodeIdsPerEntity = _newMaxNodeIdsPerEntity;
         emit MaxNodeIdsPerEntitySet(_newMaxNodeIdsPerEntity);
     }
 
+    /**
+     * Sets the initial voter data.
+     * @param _data Initial voter data list.
+     * @dev Only governance can call this method.
+     */
     function setInitialVoterData(InitialVoterData[] calldata _data) external onlyGovernance {
         require(!productionMode, "already in production mode");
         uint32 maxNodeIds = maxNodeIdsPerEntity; // load in memory
@@ -239,41 +313,17 @@ contract EntityManager is Governed {
             require(voterData.voter != address(0), "voter address zero");
             Entity storage entity = register[voterData.voter];
             if (voterData.delegationAddress != address(0)) {
-                assert(entity.delegationAddress.addressAtNow() == address(0));
-                assert(delegationAddressRegistered[voterData.delegationAddress].addressAtNow() == address(0));
+                require(entity.delegationAddress.addressAtNow() == address(0), "delegation address already set");
+                require(delegationAddressRegistered[voterData.delegationAddress].addressAtNow() == address(0),
+                    "delegation address already registered");
                 entity.delegationAddress.setAddress(voterData.delegationAddress);
                 delegationAddressRegistered[voterData.delegationAddress].setAddress(voterData.voter);
                 emit DelegationAddressRegistered(voterData.voter, voterData.delegationAddress);
                 emit DelegationAddressRegistrationConfirmed(voterData.voter, voterData.delegationAddress);
             }
-            if (voterData.submitAddress != address(0)) {
-                assert(entity.submitAddress.addressAtNow() == address(0));
-                assert(submitAddressRegistered[voterData.submitAddress].addressAtNow() == address(0));
-                entity.submitAddress.setAddress(voterData.submitAddress);
-                submitAddressRegistered[voterData.submitAddress].setAddress(voterData.voter);
-                emit SubmitAddressRegistered(voterData.voter, voterData.submitAddress);
-                emit SubmitAddressRegistrationConfirmed(voterData.voter, voterData.submitAddress);
-            }
-            if (voterData.submitSignaturesAddress != address(0)) {
-                assert(entity.submitSignaturesAddress.addressAtNow() == address(0));
-                assert(
-                    submitSignaturesAddressRegistered[voterData.submitSignaturesAddress].addressAtNow() == address(0));
-                entity.submitSignaturesAddress.setAddress(voterData.submitSignaturesAddress);
-                submitSignaturesAddressRegistered[voterData.submitSignaturesAddress].setAddress(voterData.voter);
-                emit SubmitSignaturesAddressRegistered(voterData.voter, voterData.submitSignaturesAddress);
-                emit SubmitSignaturesAddressRegistrationConfirmed(voterData.voter, voterData.submitSignaturesAddress);
-            }
-            if (voterData.signingPolicyAddress != address(0)) {
-                assert(entity.signingPolicyAddress.addressAtNow() == address(0));
-                assert(signingPolicyAddressRegistered[voterData.signingPolicyAddress].addressAtNow() == address(0));
-                entity.signingPolicyAddress.setAddress(voterData.signingPolicyAddress);
-                signingPolicyAddressRegistered[voterData.signingPolicyAddress].setAddress(voterData.voter);
-                emit SigningPolicyAddressRegistered(voterData.voter, voterData.signingPolicyAddress);
-                emit SigningPolicyAddressRegistrationConfirmed(voterData.voter, voterData.signingPolicyAddress);
-            }
             for (uint256 j = 0; j < voterData.nodeIds.length; j++) {
                 bytes20 nodeId = voterData.nodeIds[j];
-                assert(nodeIdRegistered[nodeId].addressAtNow() == address(0));
+                require(nodeIdRegistered[nodeId].addressAtNow() == address(0), "node id already registered");
                 entity.nodeIds.addRemoveNodeId(nodeId, true, maxNodeIds);
                 nodeIdRegistered[nodeId].setAddress(voterData.voter);
                 emit NodeIdRegistered(voterData.voter, nodeId);
@@ -281,22 +331,50 @@ contract EntityManager is Governed {
         }
     }
 
+    /**
+     * Gets the node ids of a voter at a specific block number.
+     * @param _voter Voter address.
+     * @param _blockNumber Block number.
+     * @return Node ids.
+     */
     function getNodeIdsOfAt(address _voter, uint256 _blockNumber) external view returns (bytes20[] memory) {
         return register[_voter].nodeIds.nodeIdsAt(_blockNumber);
     }
 
+    /**
+     * Gets the node ids of a voter at the current block number.
+     * @param _voter Voter address.
+     * @return Node ids.
+     */
     function getNodeIdsOf(address _voter) external view returns (bytes20[] memory) {
         return register[_voter].nodeIds.nodeIdsAt(block.number);
     }
 
+    /**
+     * Gets the public key of a voter at a specific block number.
+     * @param _voter Voter address.
+     * @param _blockNumber Block number.
+     * @return Public key.
+     */
     function getPublicKeyOfAt(address _voter, uint256 _blockNumber) external view returns(bytes32, bytes32) {
         return register[_voter].publicKey.publicKeyAt(_blockNumber);
     }
 
+    /**
+     * Gets the public key of a voter at the current block number.
+     * @param _voter Voter address.
+     * @return Public key.
+     */
     function getPublicKeyOf(address _voter) external view returns(bytes32, bytes32) {
         return register[_voter].publicKey.publicKeyAtNow();
     }
 
+    /**
+     * Gets voter addresses at a specific block number.
+     * @param _voter Voter address.
+     * @param _blockNumber Block number.
+     * @return _addresses Voter addresses.
+     */
     function getVoterAddresses(address _voter, uint256 _blockNumber)
         external view
         returns (VoterAddresses memory _addresses)
@@ -322,6 +400,12 @@ contract EntityManager is Governed {
         }
     }
 
+    /**
+     * Gets voters' delegation addresses at a specific block number.
+     * @param _voters Voters' addresses.
+     * @param _blockNumber Block number.
+     * @return _delegationAddresses Delegation addresses.
+     */
     function getDelegationAddresses(address[] memory _voters, uint256 _blockNumber)
         external view
         returns (address[] memory _delegationAddresses)
@@ -336,6 +420,12 @@ contract EntityManager is Governed {
         }
     }
 
+    /**
+     * Gets voters' submit addresses at a specific block number.
+     * @param _voters Voters' addresses.
+     * @param _blockNumber Block number.
+     * @return _submitAddresses Submit addresses.
+     */
     function getSubmitAddresses(address[] memory _voters, uint256 _blockNumber)
         external view
         returns (address[] memory _submitAddresses)
@@ -350,6 +440,12 @@ contract EntityManager is Governed {
         }
     }
 
+    /**
+     * Gets voters' submit signatures addresses at a specific block number.
+     * @param _voters Voters' addresses.
+     * @param _blockNumber Block number.
+     * @return _submitSignaturesAddresses Submit signatures addresses.
+     */
     function getSubmitSignaturesAddresses(address[] memory _voters, uint256 _blockNumber)
         external view
         returns (address[] memory _submitSignaturesAddresses)
@@ -364,6 +460,12 @@ contract EntityManager is Governed {
         }
     }
 
+    /**
+     * Gets voters' signing policy addresses at a specific block number.
+     * @param _voters Voters' addresses.
+     * @param _blockNumber Block number.
+     * @return _signingPolicyAddresses Signing policy addresses.
+     */
     function getSigningPolicyAddresses(address[] memory _voters, uint256 _blockNumber)
         external view
         returns (address[] memory _signingPolicyAddresses)
@@ -378,6 +480,12 @@ contract EntityManager is Governed {
         }
     }
 
+    /**
+     * Gets voter's address for a node id at a specific block number.
+     * @param _nodeId Node id.
+     * @param _blockNumber Block number.
+     * @return _voter Voter address.
+     */
     function getVoterForNodeId(bytes20 _nodeId, uint256 _blockNumber)
         external view
         returns (address _voter)
@@ -385,6 +493,13 @@ contract EntityManager is Governed {
         _voter = nodeIdRegistered[_nodeId].addressAt(_blockNumber);
     }
 
+    /**
+     * Gets voter's address for a public key at a specific block number.
+     * @param _part1 First part of the public key.
+     * @param _part2 Second part of the public key.
+     * @param _blockNumber Block number.
+     * @return _voter Voter address.
+     */
     function getVoterForPublicKey(bytes32 _part1, bytes32 _part2, uint256 _blockNumber)
         external view
         returns (address _voter)
@@ -393,6 +508,12 @@ contract EntityManager is Governed {
         _voter = publicKeyRegistered[publicKeyHash].addressAt(_blockNumber);
     }
 
+    /**
+     * Gets voter's address for a delegation address at a specific block number.
+     * @param _delegationAddress Delegation address.
+     * @param _blockNumber Block number.
+     * @return _voter Voter address.
+     */
     function getVoterForDelegationAddress(address _delegationAddress, uint256 _blockNumber)
         external view
         returns (address _voter)
@@ -403,6 +524,12 @@ contract EntityManager is Governed {
         }
     }
 
+    /**
+     * Gets voter's address for a submit address at a specific block number.
+     * @param _submitAddress Submit address.
+     * @param _blockNumber Block number.
+     * @return _voter Voter address.
+     */
     function getVoterForSubmitAddress(address _submitAddress, uint256 _blockNumber)
         external view
         returns (address _voter)
@@ -413,6 +540,12 @@ contract EntityManager is Governed {
         }
     }
 
+    /**
+     * Gets voter's address for a submit signatures address at a specific block number.
+     * @param _submitSignaturesAddress Submit signatures address.
+     * @param _blockNumber Block number.
+     * @return _voter Voter address.
+     */
     function getVoterForSubmitSignaturesAddress(address _submitSignaturesAddress, uint256 _blockNumber)
         external view
         returns (address _voter)
@@ -423,6 +556,12 @@ contract EntityManager is Governed {
         }
     }
 
+    /**
+     * Gets voter's address for a signing policy address at a specific block number.
+     * @param _signingPolicyAddress Signing policy address.
+     * @param _blockNumber Block number.
+     * @return _voter Voter address.
+     */
     function getVoterForSigningPolicyAddress(address _signingPolicyAddress, uint256 _blockNumber)
         external view
         returns (address _voter)

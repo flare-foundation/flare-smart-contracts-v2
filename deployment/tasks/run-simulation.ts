@@ -44,8 +44,7 @@ const OFFERS = [
     feedName: FtsoConfigurations.encodeFeedNames(["BTC"]),
     primaryBandRewardSharePPM: 450000,
     secondaryBandWidthPPM: 50000,
-    rewardEligibilityPPM: 0,
-    leadProviders: [],
+    minimalThresholdBIPS: 5000,
     claimBackAddress: "0x0000000000000000000000000000000000000000"
   },
   {
@@ -53,8 +52,7 @@ const OFFERS = [
     feedName: FtsoConfigurations.encodeFeedNames(["XRP"]),
     primaryBandRewardSharePPM: 650000,
     secondaryBandWidthPPM: 20000,
-    rewardEligibilityPPM: 0,
-    leadProviders: [],
+    minimalThresholdBIPS: 5000,
     claimBackAddress: "0x0000000000000000000000000000000000000000"
   }
 ]
@@ -81,14 +79,17 @@ export const systemSettings = function (now: number) {
     votingEpochDurationSeconds: VOTING_EPOCH_DURATION_SEC,
     firstRewardEpochStartVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
     rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-    newSigningPolicyInitializationStartSeconds: 40,
-    randomAcquisitionMaxDurationSeconds: 80,
-    randomAcquisitionMaxDurationBlocks: 1000,
-    newSigningPolicyMinNumberOfVotingRoundsDelay: 0,
-    voterRegistrationMinDurationSeconds: 10,
-    voterRegistrationMinDurationBlocks: 1,
-    signingPolicyThresholdPPM: 500000,
-    signingPolicyMinNumberOfVoters: 2,
+    updatableSettings: {
+      newSigningPolicyInitializationStartSeconds: 40,
+      randomAcquisitionMaxDurationSeconds: 80,
+      randomAcquisitionMaxDurationBlocks: 1000,
+      newSigningPolicyMinNumberOfVotingRoundsDelay: 0,
+      voterRegistrationMinDurationSeconds: 10,
+      voterRegistrationMinDurationBlocks: 1,
+      signingPolicyThresholdPPM: 500000,
+      signingPolicyMinNumberOfVoters: 2,
+      rewardExpiryOffsetSeconds: 1000
+    }
   };
 };
 

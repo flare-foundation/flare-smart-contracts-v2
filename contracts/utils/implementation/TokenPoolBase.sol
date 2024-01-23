@@ -26,7 +26,7 @@ abstract contract TokenPoolBase {
     function _getExpectedBalance() internal virtual view returns(uint256 _balanceExpectedWei);
 
     /**
-     * @notice Burn all funds that came from self-destructor sending a balance to this contract.
+     * Burn all funds that came from self-destructor sending a balance to this contract.
      */
     function _handleSelfDestructProceeds() private {
         uint256 expectedBalance = _getExpectedBalance() + msg.value;

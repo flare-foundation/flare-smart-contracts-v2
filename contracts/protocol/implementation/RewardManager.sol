@@ -11,7 +11,6 @@ import "../interface/ICChainStake.sol";
 import "../interface/IClaimSetupManager.sol";
 import "../../utils/lib/SafePct.sol";
 import "../../utils/lib/AddressSet.sol";
-import "./VoterRegistry.sol";
 import "./FlareSystemManager.sol";
 import "./FlareSystemCalculator.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -19,6 +18,9 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
+/**
+ * Reward manager contract.
+ */
 //solhint-disable-next-line max-states-count
 contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyGuard, IITokenPool, IRewardManager {
     using MerkleProof for bytes32[];
@@ -26,7 +28,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     using SafeCast for uint256;
     using SafePct for uint256;
 
-    struct UnclaimedRewardState {   // Used for storing unclaimed reward info.
+    /// Struct used for storing unclaimed reward data.
+    struct UnclaimedRewardState {
         bool initialised;           // Information if already initialised
                                     // amount and weight might be 0 if all users already claimed
         uint120 amount;             // Total unclaimed amount.
@@ -44,16 +47,15 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     mapping(uint256 => uint120) private epochClaimedRewards;
     mapping(uint256 => uint120) private epochBurnedRewards;
 
-    /// Epoch ids before the token distribution event at Flare launch were not be claimable.
-    /// This variable holds the first reward epoch that was claimable.
+    /// This variable holds the first reward epoch id that was claimable.
     uint24 public firstClaimableRewardEpochId;
-    // id of the first epoch to expire. Closed = expired and unclaimed funds sent back
+    // Id of the next reward epoch to expire. Closed = expired and unclaimed funds are burned.
     uint24 private nextRewardEpochIdToExpire;
-    // reward epoch when setInitialRewardData is called (set to +1) - used for forwarding closeExpiredRewardEpochId
+    // Reward epoch id when setInitialRewardData is called (set to +1) - used for forwarding closeExpiredRewardEpoch
     uint24 private initialRewardEpochId;
 
     mapping(uint256 => mapping(ClaimType =>
-        mapping(address => UnclaimedRewardState))) public epochTypeProviderUnclaimedReward;
+        mapping(address => UnclaimedRewardState))) internal epochTypeProviderUnclaimedReward;
     // per reward epoch mark direct and fee claims (not weight based) that were already processed (paid out)
     mapping(uint256 => mapping(bytes32 => bool)) internal epochProcessedRewardClaims;
     // number of initialised weight based claims per reward epoch
@@ -66,15 +68,23 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     uint256 private totalInflationReceivedWei;
     uint256 private totalInflationAuthorizedWei;
 
-    /// The VoterRegistry contract.
-    VoterRegistry public voterRegistry;
+    /// The ClaimSetupManager contract.
     IClaimSetupManager public claimSetupManager;
+    /// The FlareSystemManager contract.
     FlareSystemManager public flareSystemManager;
+    /// The FlareSystemCalculator contract.
     FlareSystemCalculator public flareSystemCalculator;
+    /// The PChainStakeMirror contract.
     IPChainStakeMirror public pChainStakeMirror;
+    /// Indicates if P-Chain stakes mirror is enabled.
+    bool public pChainStakeMirrorEnabled;
+    /// The WNAT contract.
     IWNat public wNat;
+    /// The CChainStake contract.
     ICChainStake public cChainStake;
+    /// Indicates if C-Chain stakes are enabled.
     bool public cChainStakeEnabled;
+    /// Indicates if the contract is active - claims are enabled.
     bool public active;
 
     /// Address of the old `RewardManager`, replaced by this one.
@@ -82,6 +92,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     /// Address of the new `RewardManager` that replaced this one.
     address public newRewardManager;
 
+    /// List of reward offers managers.
     AddressSet.State internal rewardOffersManagerSet;
 
     /**
@@ -89,8 +100,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @param voter Address of the voter (or node id) that accrued the reward.
      * @param whoClaimed Address that actually performed the claim.
      * @param sentTo Address that received the reward.
+     * @param rewardEpochId Id of the reward epoch where the reward was accrued.
      * @param claimType Claim type
-     * @param rewardEpochId ID of the reward epoch where the reward was accrued.
      * @param amount Amount of rewarded native tokens (wei).
      */
     event RewardClaimed(
@@ -105,8 +116,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     /**
      * Unclaimed rewards have expired and are now inaccessible.
      *
-     * `getUnclaimedReward()` can be used to retrieve more information.
-     * @param rewardEpochId ID of the reward epoch that has just expired.
+     * `getUnclaimedRewardState()` can be used to retrieve more information.
+     * @param rewardEpochId Id of the reward epoch that has just expired.
      */
     event RewardClaimsExpired(
         uint256 rewardEpochId
@@ -126,7 +137,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         _;
     }
 
-    /// This method can only be called by reward offers manager
+    /// This method can only be called by reward offers manager.
     modifier onlyRewardOffersManager() {
         _checkRewardOffersManager();
         _;
@@ -140,6 +151,12 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         _;
     }
 
+    /**
+     * Constructor.
+     * @param _governanceSettings Address of the GovernanceSettings contract.
+     * @param _initialGovernance The initial governance address.
+     * @param _addressUpdater Address of the AddressUpdater contract.
+     */
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
@@ -150,6 +167,16 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         firstClaimableRewardEpochId = FIRST_CLAIMABLE_EPOCH;
     }
 
+    /**
+     * Claim rewards for `_rewardOwner` and transfer them to `_recipient`.
+     * It can be called by reward owner or its authorized executor.
+     * @param _rewardOwner Address of the reward owner.
+     * @param _recipient Address of the reward recipient.
+     * @param _rewardEpochId Id of the reward epoch up to which the rewards are claimed.
+     * @param _wrap Indicates if the reward should be wrapped (deposited) to the WNAT contract.
+     * @param _proofs Array of reward claims with merkle proofs.
+     * @return _rewardAmountWei Amount of rewarded native tokens (wei).
+     */
     function claim(
         address _rewardOwner,
         address payable _recipient,
@@ -167,11 +194,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         _checkNonzeroRecipient(_recipient);
 
         uint24 currentRewardEpochId = _getCurrentRewardEpochId();
-        if (epochVotePowerBlock[currentRewardEpochId] == 0) {
-            epochVotePowerBlock[currentRewardEpochId] =
-                flareSystemManager.getVotePowerBlock(currentRewardEpochId);
-        }
         require(_isRewardClaimable(_rewardEpochId, currentRewardEpochId), "not claimable");
+
         uint24 minClaimableEpochId = _minClaimableRewardEpochId();
         uint120 burnAmountWei;
         (_rewardAmountWei, burnAmountWei) = _processProofs(_rewardOwner, _recipient, _proofs, minClaimableEpochId);
@@ -192,7 +216,15 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         }
     }
 
-    // it supports only claiming from weight based claims
+    /**
+     * Claim rewards for `_rewardOwners` and their PDAs.
+     * Rewards are deposited to the WNAT (to reward owner or PDA if enabled).
+     * It can be called by reward owner or its authorized executor.
+     * Only claiming from weight based claims is supported.
+     * @param _rewardOwners Array of reward owners.
+     * @param _rewardEpochId Id of the reward epoch up to which the rewards are claimed.
+     * @param _proofs Array of reward claims with merkle proofs.
+     */
     //slither-disable-next-line reentrancy-eth          // guarded by nonReentrant
     function autoClaim(
         address[] calldata _rewardOwners,
@@ -209,10 +241,6 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         }
 
         uint24 currentRewardEpochId = _getCurrentRewardEpochId();
-        if (epochVotePowerBlock[currentRewardEpochId] == 0) {
-            epochVotePowerBlock[currentRewardEpochId] =
-                flareSystemManager.getVotePowerBlock(currentRewardEpochId);
-        }
         require(_isRewardClaimable(_rewardEpochId, currentRewardEpochId), "not claimable");
 
         (address[] memory claimAddresses, uint256 executorFeeValue) =
@@ -246,12 +274,21 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
+     * Enables reward claims from the current reward epoch id onwards.
      * @dev Only governance can call this method.
      */
     function enableClaims() external onlyImmediateGovernance {
         require(firstClaimableRewardEpochId == FIRST_CLAIMABLE_EPOCH, "already enabled");
         firstClaimableRewardEpochId = _getCurrentRewardEpochId();
         emit RewardClaimsEnabled(firstClaimableRewardEpochId);
+    }
+
+    /**
+     * Enables P-Chain stakes mirror.
+     * @dev Only governance can call this method.
+     */
+    function enablePChainStakeMirror() external onlyGovernance {
+        pChainStakeMirrorEnabled = true;
     }
 
     /**
@@ -262,14 +299,29 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         cChainStakeEnabled = true;
     }
 
+    /**
+     * Sets reward offers manager list.
+     * @dev Only governance can call this method.
+     */
     function setRewardOffersManagerList(address[] calldata _rewardOffersManagerList) external onlyGovernance {
         rewardOffersManagerSet.replaceAll(_rewardOffersManagerList);
     }
 
+    /**
+     * Adds daily authorized inflation.
+     * @param _toAuthorizeWei Amount of inflation to authorize (wei).
+     * @dev Only reward offers manager can call this method.
+     */
     function addDailyAuthorizedInflation(uint256 _toAuthorizeWei) external onlyRewardOffersManager {
         totalInflationAuthorizedWei = totalInflationAuthorizedWei + _toAuthorizeWei;
     }
 
+    /**
+     * Receives funds from reward offers manager.
+     * @param _rewardEpochId ID of the reward epoch for which the funds are received.
+     * @param _inflation Indicates if the funds come from the inflation (true) or from the community (false).
+     * @dev Only reward offers manager can call this method.
+     */
     function receiveRewards(
         uint24 _rewardEpochId,
         bool _inflation
@@ -297,9 +349,9 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
-     * Copy initial reward data from `oldFtsoRewardManager` before starting up this new reward manager.
-     * Should be called at the time of switching to the new reward manager, can be called only once, and only
-     * by governance.
+     * Copy initial reward data from `flareSystemManager` before starting up this new reward manager.
+     * Should be called at the time of switching to the new reward manager, can be called only once.
+     * @dev Only governance can call this method.
      */
     function setInitialRewardData() external onlyGovernance {
         require(!active && initialRewardEpochId == 0 && nextRewardEpochIdToExpire == 0, "not initial state");
@@ -325,7 +377,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * Operation is irreversible: when some reward epoch is closed according to current
      * settings, it cannot be reopened even if new parameters would
      * allow it, because `nextRewardEpochIdToExpire` in FlareSystemManager never decreases.
-     * @param _rewardEpochId ID of the epoch to close.
+     * @param _rewardEpochId Id of the reward epoch to close.
      */
     function closeExpiredRewardEpoch(uint256 _rewardEpochId) external {
         require(msg.sender == address(flareSystemManager) || msg.sender == newRewardManager, "only managers");
@@ -344,14 +396,53 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         }
     }
 
+    /**
+     * Activates the contract - enables claims.
+     * @dev Only immediate governance can call this method.
+     */
     function activate() external onlyImmediateGovernance {
         active = true;
     }
 
+    /**
+     * Deactivates the contract - disables claims.
+     * @dev Only immediate governance can call this method.
+     */
     function deactivate() external onlyImmediateGovernance {
         active = false;
     }
 
+    /**
+     * Get the current cleanup block number.
+     * @return The currently set cleanup block number.
+     */
+    function cleanupBlockNumber() external view returns (uint256) {
+        return wNat.cleanupBlockNumber();
+    }
+
+    /**
+     * Gets the unclaimed reward state for a reward owner, reward epoch id and claim type.
+     * @param _rewardOwner Address of the reward owner to query.
+     * @param _rewardEpochId Id of the reward epoch to query.
+     * @param _claimType Claim type to query.
+     * @return _state Unclaimed reward state.
+     */
+    function getUnclaimedRewardState(
+        address _rewardOwner,
+        uint24 _rewardEpochId,
+        ClaimType _claimType
+    )
+        external view
+        returns (
+            UnclaimedRewardState memory _state
+        )
+    {
+        return epochTypeProviderUnclaimedReward[_rewardEpochId][_claimType][_rewardOwner];
+    }
+
+    /**
+     * Returns reward offers manager list.
+     */
     function getRewardOffersManagerList() external view returns(address[] memory) {
         return rewardOffersManagerSet.list;
     }
@@ -378,16 +469,17 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
-     * Return expected balance of reward manager
+     * Returns expected balance of reward manager.
      */
     function getExpectedBalance() external view returns(uint256) {
         return _getExpectedBalance();
     }
 
     /**
-     * Returns the start and the end of the reward epoch range for which the reward is claimable
-     * @return _startEpochId        the oldest epoch id that allows reward claiming
-     * @return _endEpochId          the newest epoch id that allows reward claiming
+     * Returns the start and the end of the reward epoch range for which the reward is claimable.
+     * **NOTE**: If rewards hash was not signed yet, some epoch might not be claimable.
+     * @return _startEpochId The oldest epoch id that allows reward claiming.
+     * @return _endEpochId The newest epoch id that allows reward claiming.
      */
     function getEpochIdsWithClaimableRewards() external view
         returns (uint256 _startEpochId, uint256 _endEpochId)
@@ -398,9 +490,18 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         _endEpochId = currentRewardEpochId - 1;
     }
 
+    /**
+     * Returns totals.
+     * @return _totalFundsReceivedWei Total amount of funds ever received (wei).
+     * @return _totalClaimedWei Total claimed amount (wei).
+     * @return _totalBurnedWei Total burned amount (wei).
+     * @return _totalInflationAuthorizedWei Total inflation authorized amount (wei).
+     * @return _totalInflationReceivedWei Total inflation received amount (wei).
+     */
     function getTotals()
         external view
         returns (
+            uint256 _totalFundsReceivedWei,
             uint256 _totalClaimedWei,
             uint256 _totalBurnedWei,
             uint256 _totalInflationAuthorizedWei,
@@ -408,6 +509,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         )
     {
         return (
+            totalFundsReceivedWei,
             totalClaimedWei,
             totalBurnedWei,
             totalInflationAuthorizedWei,
@@ -416,21 +518,21 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
      /**
-     * Return current reward epoch number
+     * Returns current reward epoch id.
      */
     function getCurrentRewardEpochId() external view returns (uint24) {
         return _getCurrentRewardEpochId();
     }
 
     /**
-     * Return initial reward epoch number
+     * Returns initial reward epoch id.
      */
     function getInitialRewardEpochId() external view returns (uint256) {
         return _getInitialRewardEpochId();
     }
 
     /**
-     * Returns the reward epoch that will expire next once a new reward epoch starts.
+     * Returns the reward epoch id that will expire next once a new reward epoch starts.
      */
     function getRewardEpochIdToExpireNext() external view returns (uint256) {
         return nextRewardEpochIdToExpire;
@@ -445,7 +547,13 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
-     * claims from DIRECT and FEE claims and initialises weight based claims
+     * Claims from DIRECT and FEE claims and initialises weight based claims.
+     * @param _rewardOwner Address of the reward owner.
+     * @param _recipient Address of the reward recipient.
+     * @param _proofs Array of reward claims with merkle proofs.
+     * @param _minClaimableEpochId Minimum claimable epoch id.
+     * @return _rewardAmountWei Reward amount in native tokens (wei).
+     * @return _burnAmountWei Burn amount in native tokens (wei).
      */
     function _processProofs(
         address _rewardOwner,
@@ -474,6 +582,14 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         }
     }
 
+    /**
+     * Claims from DIRECT or FEE claim and returns the reward amount and burn amount.
+     * @param _rewardOwner Address of the reward owner.
+     * @param _recipient Address of the reward recipient.
+     * @param _proof Reward claim with merkle proof.
+     * @return _rewardAmountWei Reward amount in native tokens (wei).
+     * @return _burnAmountWei Burn amount in native tokens (wei).
+     */
     function _claimFromDirectOrFeeClaim(
         address _rewardOwner,
         address _recipient,
@@ -493,7 +609,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             bytes32 rewardsHash = flareSystemManager.rewardsHash(rewardClaim.rewardEpochId);
             require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
             // initialise reward amount
-            _rewardAmountWei = _initialiseRewardAmount(rewardClaim.rewardEpochId, rewardClaim.amount);
+            _rewardAmountWei = _initRewardAmount(rewardClaim.rewardEpochId, rewardClaim.amount);
             if (rewardClaim.claimType == ClaimType.FEE) {
                 uint256 burnFactor = flareSystemCalculator
                     .calculateBurnFactorPPM(rewardClaim.rewardEpochId, _rewardOwner);
@@ -506,7 +622,6 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                     // update total burned amount per epoch
                     epochBurnedRewards[rewardClaim.rewardEpochId] += _burnAmountWei;
                     // emit event how much of the reward was burned
-                    // TODO - different event?
                     emit RewardClaimed(
                         _rewardOwner,
                         _rewardOwner,
@@ -533,6 +648,10 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         }
     }
 
+    /**
+     * Initialises weight based claim.
+     * @param _proof Reward claim with merkle proof.
+     */
     function _initialiseWeightBasedClaim(RewardClaimWithProof calldata _proof) internal {
         RewardClaim calldata rewardClaim = _proof.body;
         UnclaimedRewardState storage state = epochTypeProviderUnclaimedReward
@@ -545,15 +664,21 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             // mark as initialised
             state.initialised = true;
             // initialise reward amount
-            state.amount = _initialiseRewardAmount(rewardClaim.rewardEpochId, rewardClaim.amount);
+            state.amount = _initRewardAmount(rewardClaim.rewardEpochId, rewardClaim.amount);
             // initialise weight
-            state.weight = _getVotePower(rewardClaim.rewardEpochId, rewardClaim.beneficiary, rewardClaim.claimType);
+            state.weight = _initVotePower(rewardClaim.rewardEpochId, rewardClaim.beneficiary, rewardClaim.claimType);
             // increase the number of initialised weight based claims
             epochNoOfInitialisedWeightBasedClaims[rewardClaim.rewardEpochId] += 1;
         }
     }
 
-    function _initialiseRewardAmount(
+    /**
+     * Initialises reward amount.
+     * @param _rewardEpochId Id of the reward epoch.
+     * @param _rewardClaimAmount Reward amount of the claim.
+     * @return _rewardAmount Initialised reward amount.
+     */
+    function _initRewardAmount(
         uint24 _rewardEpochId,
         uint120 _rewardClaimAmount
     )
@@ -573,6 +698,9 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         epochInitialisedRewards[_rewardEpochId] += _rewardAmount;
     }
 
+    /**
+     * Claims weight based rewards.
+     */
     function _claimWeightBasedRewards(
         address _rewardOwner,
         address _recipient,
@@ -587,8 +715,11 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         for (uint24 epoch = nextClaimableEpochId; epoch <= _rewardEpochId; epoch++) {
             // check if all weight based claims were already initialised
             // (in this case zero unclaimed rewards are actually zeros)
-            bool allClaimsInitialised = epochNoOfInitialisedWeightBasedClaims[epoch]
-                >= flareSystemManager.noOfWeightBasedClaims(epoch);
+            uint256 noOfWeightBasedClaims = flareSystemManager.noOfWeightBasedClaims(epoch);
+            if (noOfWeightBasedClaims == 0) {
+                require(flareSystemManager.rewardsHash(epoch) != bytes32(0), "rewards hash zero");
+            }
+            bool allClaimsInitialised = epochNoOfInitialisedWeightBasedClaims[epoch] >= noOfWeightBasedClaims;
             uint256 votePowerBlock = _getVotePowerBlock(epoch);
             uint120 rewardAmount = 0;
 
@@ -597,8 +728,10 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
             if (!_onlyWNat) {
                 // MIRROR claims
-                rewardAmount += _claimMirrorRewards(
-                    _rewardOwner, _recipient, epoch, votePowerBlock, allClaimsInitialised);
+                if (address(pChainStakeMirror) != address(0)) {
+                    rewardAmount += _claimMirrorRewards(
+                        _rewardOwner, _recipient, epoch, votePowerBlock, allClaimsInitialised);
+                }
 
                 // CCHAIN claims
                 if (address(cChainStake) != address(0)) {
@@ -618,6 +751,9 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         }
     }
 
+    /**
+     * Claims WNAT rewards.
+     */
     function _claimWNatRewards(
         address _rewardOwner,
         address _recipient,
@@ -630,7 +766,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     {
         uint256 delegatorBalance = wNat.balanceOfAt(_rewardOwner, _votePowerBlock);
         if (delegatorBalance > 0) { // _rewardOwner had some funds wrapped at _votePowerBlock
-            uint256 delegatedVotePower = 0;
+            uint256 delegatedBIPS = 0;
             (address[] memory delegates, uint256[] memory bips, , ) = wNat.delegatesOfAt(
                 _rewardOwner, _votePowerBlock);
             if (delegates.length > 0) { // _rewardOwner had some delegations at _votePowerBlock
@@ -641,8 +777,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                     require(_allClaimsInitialised || state.initialised, "not initialised");
                     // calculate weight that corresponds to the delegate at index `i`
                     uint256 weight = delegatorBalance.mulDiv(bips[i], MAX_BIPS);
-                    // increase delegated vote power
-                    delegatedVotePower += weight;
+                    // increase delegated bips
+                    delegatedBIPS += bips[i];
                     // reduce remaining amount and weight
                     uint120 claimRewardAmount = _claimRewardAmount(state, weight);
                     // increase total reward amount
@@ -659,22 +795,37 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                 }
             }
 
-            // if undelegated vote power > 0 and _rewardOwner is a voter - claim self delegation rewards
-            if (delegatorBalance > delegatedVotePower && voterRegistry.isVoterRegistered(_rewardOwner, _epoch)) {
-                UnclaimedRewardState storage state =
-                    epochTypeProviderUnclaimedReward[_epoch][ClaimType.WNAT][_rewardOwner];
-                // check if reward state is already initialised
-                require(_allClaimsInitialised || state.initialised, "not initialised");
-                // reduce remaining amount and weight
-                uint120 claimRewardAmount = _claimRewardAmount(state, delegatorBalance - delegatedVotePower);
-                // increase total reward amount
-                _rewardAmountWei += claimRewardAmount;
-                // emit event
-                emit RewardClaimed(_rewardOwner, _rewardOwner, _recipient, _epoch, ClaimType.WNAT, claimRewardAmount);
+            // if delegatedBIPS < MAX_BIPS - undelegated vote power or some revocations
+            if (delegatedBIPS < MAX_BIPS) {
+                // get undelegated vote power including revocations
+                uint256 undelegatedVotePower = wNat.undelegatedVotePowerOfAt(_rewardOwner, _votePowerBlock);
+                if (undelegatedVotePower > 0) {
+                    UnclaimedRewardState storage state =
+                        epochTypeProviderUnclaimedReward[_epoch][ClaimType.WNAT][_rewardOwner];
+                    // check if reward state is already initialised
+                    require(_allClaimsInitialised || state.initialised, "not initialised");
+                    // reduce remaining amount and weight
+                    uint120 claimRewardAmount =
+                        _claimRewardAmount(state, undelegatedVotePower);
+                    // increase total reward amount
+                    _rewardAmountWei += claimRewardAmount;
+                    // emit event
+                    emit RewardClaimed(
+                        _rewardOwner,
+                        _rewardOwner,
+                        _recipient,
+                        _epoch,
+                        ClaimType.WNAT,
+                        claimRewardAmount
+                    );
+                }
             }
         }
     }
 
+    /**
+     * Claims MIRROR rewards.
+     */
     function _claimMirrorRewards(
         address _rewardOwner,
         address _recipient,
@@ -708,6 +859,9 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         }
     }
 
+    /**
+     * Claims CCHAIN rewards.
+     */
     function _claimCChainRewards(
         address _rewardOwner,
         address _recipient,
@@ -776,9 +930,9 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
     /**
      * Transfers or wrap (deposit) `_rewardAmount` to `_recipient`.
-     * @param _recipient            address representing the reward recipient
-     * @param _rewardAmount         number representing the amount to transfer
-     * @param _wrap                 should reward be wrapped immediately
+     * @param _recipient Adress representing the reward recipient.
+     * @param _rewardAmount Reward amount in native tokens (wei).
+     * @param _wrap Flag indicating if the transfer should be wrapped (deposited) to WNAT.
      * @dev Uses low level call to transfer funds.
      */
     function _transferOrWrap(address _recipient, uint256 _rewardAmount, bool _wrap) internal {
@@ -797,7 +951,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
-     * Implementation of the AddressUpdatable abstract method.
+     * @inheritdoc AddressUpdatable
      */
     function _updateContractAddresses(
         bytes32[] memory _contractNameHashes,
@@ -805,16 +959,16 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     )
         internal override
     {
-        voterRegistry = VoterRegistry(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "VoterRegistry"));
         claimSetupManager = IClaimSetupManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "ClaimSetupManager"));
         flareSystemManager = FlareSystemManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
         flareSystemCalculator = FlareSystemCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemCalculator"));
-        pChainStakeMirror = IPChainStakeMirror(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "PChainStakeMirror"));
+        if (pChainStakeMirrorEnabled) {
+            pChainStakeMirror = IPChainStakeMirror(
+                _getContractAddress(_contractNameHashes, _contractAddresses, "PChainStakeMirror"));
+        }
         if (cChainStakeEnabled) {
             cChainStake = ICChainStake(_getContractAddress(_contractNameHashes, _contractAddresses, "CChainStake"));
         }
@@ -822,17 +976,27 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             _getContractAddress(_contractNameHashes, _contractAddresses, "WNat"));
     }
 
-    function _getVotePower(
+    /**
+     * Initialises reward epoch vote power and returns it.
+     * @param _rewardEpochId Reward epoch id.
+     * @param _beneficiary Address of the reward beneficiary.
+     * @param _claimType Claim type.
+     */
+    function _initVotePower(
         uint24 _rewardEpochId,
         bytes20 _beneficiary,
         ClaimType _claimType
     )
-        internal view
+        internal
         returns (uint128)
     {
-        uint256 votePowerBlock = _getVotePowerBlock(_rewardEpochId);
+        uint256 votePowerBlock = epochVotePowerBlock[_rewardEpochId];
+        if (votePowerBlock == 0) {
+            votePowerBlock = flareSystemManager.getVotePowerBlock(_rewardEpochId);
+            epochVotePowerBlock[_rewardEpochId] = votePowerBlock;
+        }
         if (_claimType == ClaimType.WNAT) {
-            return wNat.votePowerOfAt(address(_beneficiary), votePowerBlock).toUint128(); // TODO check revocation
+            return wNat.votePowerOfAt(address(_beneficiary), votePowerBlock).toUint128();
         } else if (_claimType == ClaimType.MIRROR) {
             return pChainStakeMirror.votePowerOfAt(_beneficiary, votePowerBlock).toUint128();
         } else { //_claimType == ClaimType.CCHAIN
@@ -841,8 +1005,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
-     * Return reward epoch vote power block
-     * @param _rewardEpochId          reward epoch number
+     * Returns reward epoch vote power block.
+     * @param _rewardEpochId Reward epoch id.
      */
     function _getVotePowerBlock(uint24 _rewardEpochId) internal view returns (uint256 _votePowerBlock) {
         _votePowerBlock = epochVotePowerBlock[_rewardEpochId];
@@ -853,8 +1017,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
     /**
      * Reports if rewards for `_rewardEpochId` are claimable.
-     * @param _rewardEpochId          reward epoch number
-     * @param _currentRewardEpochId   number of the current reward epoch
+     * @param _rewardEpochId Reward epoch id.
+     * @param _currentRewardEpochId Id of the current reward epoch.
      */
     function _isRewardClaimable(uint24 _rewardEpochId, uint24 _currentRewardEpochId) internal view returns (bool) {
         return _rewardEpochId >= firstClaimableRewardEpochId &&
@@ -862,34 +1026,50 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                _rewardEpochId < _currentRewardEpochId;
     }
 
+    /**
+     * Returns next claimable epoch id for `_rewardOwner`.
+     * @param _rewardOwner Address of the reward owner.
+     * @param _minClaimableEpochId Minimum claimable epoch id.
+     */
     function _nextClaimableEpochId(address _rewardOwner, uint256 _minClaimableEpochId) internal view returns (uint24) {
         return Math.max(rewardOwnerNextClaimableEpochId[_rewardOwner], _minClaimableEpochId).toUint24();
     }
 
+    /**
+     * Returns minimum claimable epoch id.
+     */
     function _minClaimableRewardEpochId() internal view returns (uint24) {
         return Math.max(firstClaimableRewardEpochId,
             Math.max(_getInitialRewardEpochId(), nextRewardEpochIdToExpire)).toUint24();
     }
 
     /**
-     * Return initial reward epoch number
-     * @return _initialRewardEpochId Initial reward epoch number.
+     * Returns initial reward epoch id.
+     * @return _initialRewardEpochId Initial reward epoch id.
      */
     function _getInitialRewardEpochId() internal view returns (uint256 _initialRewardEpochId) {
         (,_initialRewardEpochId) = Math.trySub(initialRewardEpochId, 1);
     }
 
     /**
-     * Return current reward epoch number
+     * Returns current reward epoch id.
      */
     function _getCurrentRewardEpochId() internal view returns (uint24) {
         return flareSystemManager.getCurrentRewardEpochId();
     }
 
-    function _getExpectedBalance() internal view override returns(uint256 _balanceExpectedWei) {
+    /**
+     * Returns expected balance of reward manager (wei).
+     */
+    function _getExpectedBalance() internal view override returns(uint256) {
         return totalFundsReceivedWei - totalClaimedWei - totalBurnedWei;
     }
 
+    /**
+     * Checks if the caller is the reward owner or the executor and that recipient is allowed.
+     * @param _rewardOwner Address of the reward owner.
+     * @param _recipient Address of the reward recipient.
+     */
     function _checkExecutorAndAllowedRecipient(address _rewardOwner, address _recipient) private view {
         if (msg.sender == _rewardOwner) {
             return;
@@ -897,15 +1077,24 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         claimSetupManager.checkExecutorAndAllowedRecipient(msg.sender, _rewardOwner, _recipient);
     }
 
+    /**
+     * Checks if the contract is active.
+     */
     function _checkIfActive() private view {
         require(active, "reward manager deactivated");
     }
 
+    /**
+     * Checks if caller is reward offers manager.
+     */
     function _checkRewardOffersManager() private view {
         require(rewardOffersManagerSet.index[msg.sender] != 0, "only reward offers manager");
     }
 
-    function _checkNonzeroRecipient(address _address) private pure {
-        require(_address != address(0), "recipient zero");
+    /**
+     * Checks if recipient is not zero address.
+     */
+    function _checkNonzeroRecipient(address _recipient) private pure {
+        require(_recipient != address(0), "recipient zero");
     }
 }

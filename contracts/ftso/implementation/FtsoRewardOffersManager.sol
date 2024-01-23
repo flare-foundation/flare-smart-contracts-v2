@@ -7,7 +7,12 @@ import "../interface/IFtsoInflationConfigurations.sol";
 import "./FtsoFeedDecimals.sol";
 import "../../utils/lib/SafePct.sol";
 
-
+/**
+ * FtsoRewardOffersManager contract.
+ *
+ * This contract is used to manage the FTSO reward offers and receive the inflation.
+ * It is used by the Flare system to trigger the reward offers.
+ */
 contract FtsoRewardOffersManager is RewardOffersManagerBase {
     using SafePct for uint256;
 
@@ -19,31 +24,35 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         uint120 amount;
         // feed name - i.e. base/quote symbol
         bytes8 feedName;
+        // minimal reward eligibility threshold in BIPS (basis points)
+        uint16 minimalThresholdBIPS;
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM;
         // secondary band width in PPM (parts per million) in relation to the median
         uint24 secondaryBandWidthPPM;
-        // reward eligibility in PPM (parts per million) in relation to the median of the lead providers
-        uint24 rewardEligibilityPPM;
-        // list of lead providers
-        address[] leadProviders;
         // address that can claim undistributed part of the reward (or burn address)
         address claimBackAddress;
     }
 
+    uint256 internal constant MAX_BIPS = 1e4;
     uint256 internal constant PPM_MAX = 1e6;
 
-    /// total rewards offered by inflation (in wei)
+    /// Total rewards offered by inflation (in wei).
     uint256 public totalInflationRewardsOfferedWei;
-    /// mininal rewards offer (in wei)
+    /// Mininal rewards offer value (in wei).
     uint256 public minimalRewardsOfferValueWei;
 
+    /// The RewardManager contract.
     RewardManager public rewardManager;
+    /// The FtsoInflationConfigurations contract.
     IFtsoInflationConfigurations public ftsoInflationConfigurations;
+    /// The FtsoFeedDecimals contract.
     FtsoFeedDecimals public ftsoFeedDecimals;
 
+    /// Event emitted when the minimal rewards offer value is set.
     event MinimalRewardsOfferValueSet(uint256 valueWei);
 
+    /// Event emitted when a reward offer is received.
     event RewardsOffered(
         // reward epoch id
         uint24 rewardEpochId,
@@ -53,18 +62,17 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         int8 decimals,
         // amount (in wei) of reward in native coin
         uint256 amount,
+        // minimal reward eligibility threshold in BIPS (basis points)
+        uint16 minimalThresholdBIPS,
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM,
         // secondary band width in PPM (parts per million) in relation to the median
         uint24 secondaryBandWidthPPM,
-        // reward eligibility in PPM (parts per million) in relation to the median of the lead providers
-        uint24 rewardEligibilityPPM,
-        // list of lead providers
-        address[] leadProviders,
         // address that can claim undistributed part of the reward (or burn address)
         address claimBackAddress
     );
 
+    /// Event emitted when inflation rewards are offered.
     event InflationRewardsOffered(
         // reward epoch id
         uint24 rewardEpochId,
@@ -74,14 +82,23 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         bytes decimals,
         // amount (in wei) of reward in native coin
         uint256 amount,
-        // rewards split mode (0 means equally, 1 means random,...)
-        uint16 mode,
+        // minimal reward eligibility threshold in BIPS (basis points)
+        uint16 minimalThresholdBIPS,
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM,
         // secondary band width in PPM (parts per million) in relation to the median - multiple of 3 (uint24)
-        bytes secondaryBandWidthPPMs
+        bytes secondaryBandWidthPPMs,
+        // rewards split mode (0 means equally, 1 means random,...)
+        uint16 mode
     );
 
+    /**
+     * Constructor.
+     * @param _governanceSettings The address of the GovernanceSettings contract.
+     * @param _initialGovernance The initial governance address.
+     * @param _addressUpdater The address of the AddressUpdater contract.
+     * @param _minimalRewardsOfferValueWei The minimal rewards offer value (in wei).
+     */
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
@@ -94,12 +111,11 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         emit MinimalRewardsOfferValueSet(_minimalRewardsOfferValueWei);
     }
 
-    // This contract does not have any concept of feed names and it is
-    // entirely up to the clients to keep track of the total amount allocated to
-    // them and determine the correct distribution of rewards to voters.
-    // Ultimately, of course, only the actual amount of value stored for an
-    // epoch's rewards can be claimed.
-    //
+    /**
+     * Allows community to offer rewards.
+     * @param _nextRewardEpochId The next reward epoch id.
+     * @param _offers The list of offers.
+     */
     function offerRewards(
         uint24 _nextRewardEpochId,
         Offer[] calldata _offers
@@ -112,9 +128,9 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         uint256 sumRewardsOfferValues = 0;
         for (uint i = 0; i < _offers.length; ++i) {
             Offer calldata offer = _offers[i];
+            require(offer.minimalThresholdBIPS <= MAX_BIPS, "invalid minimalThresholdBIPS value");
             require(offer.primaryBandRewardSharePPM <= PPM_MAX, "invalid primaryBandRewardSharePPM value");
             require(offer.secondaryBandWidthPPM <= PPM_MAX, "invalid secondaryBandWidthPPM value");
-            require(offer.rewardEligibilityPPM <= PPM_MAX, "invalid rewardEligibilityPPM value");
             require(offer.amount >= minimalRewardsOfferValueWei, "rewards offer value too small");
             sumRewardsOfferValues += offer.amount;
             address claimBackAddress = offer.claimBackAddress;
@@ -126,10 +142,9 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
                 offer.feedName,
                 ftsoFeedDecimals.getDecimals(offer.feedName, _nextRewardEpochId),
                 offer.amount,
+                offer.minimalThresholdBIPS,
                 offer.primaryBandRewardSharePPM,
                 offer.secondaryBandWidthPPM,
-                offer.rewardEligibilityPPM,
-                offer.leadProviders,
                 claimBackAddress
             );
         }
@@ -137,6 +152,11 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         rewardManager.receiveRewards{value: msg.value} (_nextRewardEpochId, false);
     }
 
+    /**
+     * Allows governance to set the minimal rewards offer value.
+     * @param _minimalRewardsOfferValueWei The minimal rewards offer value (in wei).
+     * @dev Only governance can call this method.
+     */
     function setMinimalRewardsOfferValue(uint128 _minimalRewardsOfferValueWei) external onlyGovernance {
         minimalRewardsOfferValueWei = _minimalRewardsOfferValueWei;
         emit MinimalRewardsOfferValueSet(_minimalRewardsOfferValueWei);
@@ -168,14 +188,16 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
     }
 
     /**
-     * @dev Method that is called when new daily inflation is authorized.
+     * @inheritdoc InflationReceiver
      */
     function _setDailyAuthorizedInflation(uint256 _toAuthorizeWei) internal override {
         // all authorized inflation should be forwarded to the reward manager
         rewardManager.addDailyAuthorizedInflation(_toAuthorizeWei);
     }
 
-    // beginning of the current reward epoch
+    /**
+     * @inheritdoc RewardOffersManagerBase
+     */
     function _triggerInflationOffers(
         uint24 _currentRewardEpochId,
         uint64 _currentRewardEpochExpectedEndTs,
@@ -187,6 +209,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         uint256 intervalStart = _currentRewardEpochExpectedEndTs - 2 * _rewardEpochDurationSeconds;
         uint256 intervalEnd = Math.max(lastInflationReceivedTs + INFLATION_TIME_FRAME_SEC,
             _currentRewardEpochExpectedEndTs - _rewardEpochDurationSeconds); // start of current reward epoch (in past)
+        // _rewardEpochDurationSeconds <= intervalEnd - intervalStart
         uint256 totalRewardsAmount = (totalInflationReceivedWei - totalInflationRewardsOfferedWei)
             .mulDiv(_rewardEpochDurationSeconds, intervalEnd - intervalStart);
         // emit offers
@@ -199,7 +222,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         for (uint256 i = 0; i < length; i++) {
             inflationShareSum += configurations[i].inflationShare;
         }
-        if (length == 0 || inflationShareSum == 0) {
+        if (inflationShareSum == 0) { // also covers length == 0
             return;
         }
 
@@ -214,9 +237,10 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
                 config.feedNames,
                 ftsoFeedDecimals.getDecimalsBulk(config.feedNames, nextRewardEpochId),
                 amount,
-                config.mode,
+                config.minimalThresholdBIPS,
                 config.primaryBandRewardSharePPM,
-                config.secondaryBandWidthPPMs
+                config.secondaryBandWidthPPMs,
+                config.mode
             );
         }
         // send reward amount to reward manager
@@ -232,6 +256,12 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         return totalInflationReceivedWei - totalInflationRewardsOfferedWei;
     }
 
+    /**
+     * @dev Returns the rewards amount for `_inflationShare` of `_inflationShareSum` of `_totalRewardAmount`.
+     * @param _totalRewardAmount The total reward amount.
+     * @param _inflationShareSum The sum of all inflation shares.
+     * @param _inflationShare The inflation share.
+     */
     function _getRewardsAmount(
         uint256 _totalRewardAmount,
         uint256 _inflationShareSum,

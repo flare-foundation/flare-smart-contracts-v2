@@ -5,13 +5,18 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import "../../../contracts/protocol/implementation/EntityManager.sol";
 
-import "forge-std/console2.sol";
-
 contract EntityManagerTest is Test {
 
     EntityManager private entityManager;
     address private user1;
+    address private user2;
     bytes20 private nodeId1;
+    bytes20 private nodeId2;
+    bytes20 private nodeId3;
+    address private delegationAddr1;
+    address private delegationAddr2;
+    address private governance;
+    address private governanceSettings;
 
     event NodeIdRegistered(address indexed voter, bytes20 indexed nodeId);
     event NodeIdUnregistered(address indexed voter, bytes20 indexed nodeId);
@@ -36,9 +41,17 @@ contract EntityManagerTest is Test {
         address indexed voter, bytes32 indexed part1, bytes32 indexed part2);
 
     function setUp() public {
-        entityManager = new EntityManager(IGovernanceSettings(makeAddr("contract")), makeAddr("user0"), 4);
+        governance = makeAddr("governance");
+        governanceSettings = makeAddr("governanceSettings");
+        entityManager = new EntityManager(IGovernanceSettings(governanceSettings), governance, 4);
+
         user1 = makeAddr("user1");
+        user2 = makeAddr("user2");
         nodeId1 = bytes20(keccak256("nodeId1"));
+        nodeId2 = bytes20(keccak256("nodeId2"));
+        nodeId3 = bytes20(keccak256("nodeId3"));
+        delegationAddr1 = makeAddr("delegationAddr1");
+        delegationAddr2 = makeAddr("delegationAddr2");
     }
 
     function testRevertConstructorZeroNodesPerEntity() public {
@@ -71,8 +84,6 @@ contract EntityManagerTest is Test {
     }
 
     function testRevertSettingTooManyNodesPerEntity() public {
-        bytes20 nodeId2 = bytes20(keccak256("nodeId2"));
-        bytes20 nodeId3 = bytes20(keccak256("nodeId3"));
         bytes20 nodeId4 = bytes20(keccak256("nodeId4"));
         bytes20 nodeId5 = bytes20(keccak256("nodeId5"));
 
@@ -88,7 +99,7 @@ contract EntityManagerTest is Test {
     function testSetMaxNodePerEntity() public {
         assertEq(entityManager.maxNodeIdsPerEntity(), 4);
         // only governance
-        vm.prank(makeAddr("user0"));
+        vm.prank(governance);
         vm.expectEmit();
         emit MaxNodeIdsPerEntitySet(5);
         entityManager.setMaxNodeIdsPerEntity(5);
@@ -101,7 +112,7 @@ contract EntityManagerTest is Test {
     }
 
     function testRevertDecreaseMaxNodePerEntity() public {
-        vm.startPrank(makeAddr("user0"));
+        vm.startPrank(governance);
         vm.expectRevert("can increase only");
         entityManager.setMaxNodeIdsPerEntity(3);
     }
@@ -358,16 +369,14 @@ contract EntityManagerTest is Test {
     }
 
     function testRegisterDelegationAddress() public {
-        address delegationAddr1 = makeAddr("delegationAddr1");
         vm.prank(user1);
         vm.expectEmit();
-        emit SigningPolicyAddressRegistered(user1, delegationAddr1);
-        entityManager.registerSigningPolicyAddress(delegationAddr1);
+        emit DelegationAddressRegistered(user1, delegationAddr1);
+        entityManager.registerDelegationAddress(delegationAddr1);
     }
 
     function testConfirmDelegationAddressRegistration() public {
         vm.roll(100);
-        address delegationAddr1 = makeAddr("delegationAddr1");
         address[] memory voters = new address[](1);
         voters[0] = user1;
         assertEq(entityManager.getDelegationAddresses(voters, 100)[0], user1);
@@ -403,8 +412,6 @@ contract EntityManagerTest is Test {
 
     function testChangeDelegationAddress() public {
         vm.roll(100);
-        address delegationAddr1 = makeAddr("delegationAddr1");
-        address delegationAddr2 = makeAddr("delegationAddr2");
         address[] memory voters = new address[](1);
         voters[0] = user1;
 
@@ -444,7 +451,6 @@ contract EntityManagerTest is Test {
         address dataProvider1 = makeAddr("dataProvider1");
         address submitSignaturesAddr1 = makeAddr("submitSignaturesAddr1");
         address signingPolicyAddr1 = makeAddr("signingPolicyAddr1");
-        address delegationAddr1 = makeAddr("delegationAddr1");
 
         // register addresses
         vm.startPrank(user1);
@@ -556,6 +562,136 @@ contract EntityManagerTest is Test {
         emit PublicKeyUnregistered(user1, publicKey1, publicKey2);
         entityManager.unregisterPublicKey();
         vm.stopPrank();
+    }
+
+    //// set initial voter data
+    function testSetInitialVoterDataRevertInProductionMode() public {
+        vm.mockCall(
+            address(governanceSettings),
+            abi.encodeWithSelector(bytes4(keccak256("getGovernanceAddress()"))),
+            abi.encode(governance)
+        );
+        vm.mockCall(
+            address(governanceSettings),
+            abi.encodeWithSelector(bytes4(keccak256("isExecutor(address)")), governance),
+            abi.encode(true)
+        );
+        vm.mockCall(
+            address(governanceSettings),
+            abi.encodeWithSelector(bytes4(keccak256("getTimelock()"))),
+            abi.encode(1)
+        );
+
+        vm.startPrank(governance);
+        entityManager.switchToProductionMode();
+        EntityManager.InitialVoterData[] memory initialVotersData = new EntityManager.InitialVoterData[](0);
+        entityManager.setInitialVoterData(initialVotersData);
+        vm.warp(block.timestamp + 2);
+        vm.expectRevert("already in production mode");
+        entityManager.executeGovernanceCall(EntityManager.setInitialVoterData.selector);
+        vm.stopPrank();
+    }
+
+    function testSetInitialVoterDataRevertVoterZero() public {
+        EntityManager.InitialVoterData[] memory initialVotersData = _setInitialVoterData();
+        initialVotersData[0].voter = address(0);
+
+        vm.prank(governance);
+        vm.expectRevert("voter address zero");
+        entityManager.setInitialVoterData(initialVotersData);
+    }
+
+    function testSetInitialVoterDataRevertDelegationAddressAlreadySet() public {
+        EntityManager.InitialVoterData[] memory initialVotersData = _setInitialVoterData();
+        // set delegation address for voter1
+        testConfirmDelegationAddressRegistration();
+
+        vm.prank(governance);
+        vm.expectRevert("delegation address already set");
+        entityManager.setInitialVoterData(initialVotersData);
+    }
+
+    function testSetInitialVoterDataRevertDelegationAddressAlreadyRegistered() public {
+        EntityManager.InitialVoterData[] memory initialVotersData = _setInitialVoterData();
+        // set delegation address (delegationAddr1) for voter1
+        testConfirmDelegationAddressRegistration();
+        initialVotersData[0].voter = makeAddr("user3");
+
+        // should revert - delegationAddr1 is already registered as delegation address for another voter
+        vm.prank(governance);
+        vm.expectRevert("delegation address already registered");
+        entityManager.setInitialVoterData(initialVotersData);
+    }
+
+    function testSetInitialVoterDataRevertNodeIdAlreadyRegistered() public {
+        EntityManager.InitialVoterData[] memory initialVotersData = _setInitialVoterData();
+        testRegisterNodeId();
+
+        vm.prank(governance);
+        vm.expectRevert("node id already registered");
+        entityManager.setInitialVoterData(initialVotersData);
+    }
+
+    function testSetInitialVoterData() public {
+        EntityManager.InitialVoterData[] memory initialVotersData = _setInitialVoterData();
+
+        vm.prank(governance);
+        vm.expectEmit();
+        emit DelegationAddressRegistered(user1, delegationAddr1);
+        vm.expectEmit();
+        emit DelegationAddressRegistrationConfirmed(user1, delegationAddr1);
+        vm.expectEmit();
+        emit NodeIdRegistered(user1, initialVotersData[0].nodeIds[0]);
+        vm.expectEmit();
+        emit DelegationAddressRegistered(user2, delegationAddr2);
+        vm.expectEmit();
+        emit DelegationAddressRegistrationConfirmed(user2, delegationAddr2);
+        vm.expectEmit();
+        emit NodeIdRegistered(user2, initialVotersData[1].nodeIds[0]);
+        vm.expectEmit();
+        emit NodeIdRegistered(user2, initialVotersData[1].nodeIds[1]);
+
+        entityManager.setInitialVoterData(initialVotersData);
+    }
+
+    function testSetInitialVoterDataOnlyNodeIds() public {
+        EntityManager.InitialVoterData[] memory initialVotersData = _setInitialVoterData();
+        initialVotersData[0].delegationAddress = address(0);
+        initialVotersData[1].delegationAddress = address(0);
+
+        vm.prank(governance);
+        vm.expectEmit();
+        emit NodeIdRegistered(user1, initialVotersData[0].nodeIds[0]);
+        vm.expectEmit();
+        emit NodeIdRegistered(user2, initialVotersData[1].nodeIds[0]);
+        vm.expectEmit();
+        emit NodeIdRegistered(user2, initialVotersData[1].nodeIds[1]);
+
+        vm.recordLogs();
+        entityManager.setInitialVoterData(initialVotersData);
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        // should register 3 events
+        assertEq(entries.length, 3);
+    }
+
+    function _setInitialVoterData() private view returns(EntityManager.InitialVoterData[] memory) {
+        EntityManager.InitialVoterData[] memory initialVotersData =
+            new EntityManager.InitialVoterData[](2);
+
+        initialVotersData[0].voter = user1;
+        bytes20[] memory nodes = new bytes20[](1);
+        nodes[0] = nodeId1;
+        initialVotersData[0].nodeIds = nodes;
+        initialVotersData[0].delegationAddress = delegationAddr1;
+
+        initialVotersData[1].voter = user2;
+        nodes = new bytes20[](2);
+        nodes[0] = nodeId2;
+        nodes[1] = nodeId3;
+        initialVotersData[1].nodeIds = nodes;
+        initialVotersData[1].delegationAddress = delegationAddr2;
+
+        return initialVotersData;
     }
 
 }

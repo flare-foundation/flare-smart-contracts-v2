@@ -33,6 +33,14 @@ import { getTestFile } from "../utils/constants";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
 import * as util from "../utils/key-to-address";
 import { encodeContractNames, toBN } from '../utils/test-helpers';
+import { RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
+import { WNatDelegationFeeContract, WNatDelegationFeeInstance } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
+import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
+import { FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
+import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
+import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
+import { FlareSystemCalculatorContract, FlareSystemCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemCalculator';
+import { CleanupBlockNumberManagerContract, CleanupBlockNumberManagerInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/CleanupBlockNumberManager';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -53,6 +61,7 @@ const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDele
 const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifacts.require("FtsoInflationConfigurations");
 const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
 const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
+const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
 
 type PChainStake = {
     txId: string,
@@ -109,6 +118,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let ftsoInflationConfigurations: FtsoInflationConfigurationsInstance;
     let ftsoRewardOffersManager: FtsoRewardOffersManagerInstance;
     let ftsoFeedDecimals: FtsoFeedDecimalsInstance;
+    let cleanupBlockNumberManager: CleanupBlockNumberManagerInstance;
 
     let initialSigningPolicy: ISigningPolicy;
     let newSigningPolicy: ISigningPolicy;
@@ -194,10 +204,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         };
 
         const settings = {
-            firstVotingRoundStartTs: now.toNumber() - FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID * VOTING_EPOCH_DURATION_SEC,
-            votingEpochDurationSeconds: VOTING_EPOCH_DURATION_SEC,
-            firstRewardEpochStartVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
-            rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             newSigningPolicyInitializationStartSeconds: NEW_SIGNING_POLICY_INITIALIZATION_START_SEC,
             randomAcquisitionMaxDurationSeconds: 8 * 3600,
             randomAcquisitionMaxDurationBlocks: 15000,
@@ -205,8 +211,17 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             voterRegistrationMinDurationSeconds: 30 * 60,
             voterRegistrationMinDurationBlocks: 20, // default 900,
             signingPolicyThresholdPPM: 500000,
-            signingPolicyMinNumberOfVoters: 2
+            signingPolicyMinNumberOfVoters: 2,
+            rewardExpiryOffsetSeconds: 90 * 24 * 3600
         };
+
+        const initialSettings = {
+            initialRandomVotePowerBlockSelectionSize: 1,
+            initialRewardEpochId: 0,
+            initialRewardEpochThreshold: initialThreshold
+        }
+
+        const firstVotingRoundStartTs = now.toNumber() - FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID * VOTING_EPOCH_DURATION_SEC;
 
         flareSystemManager = await FlareSystemManager.new(
             governanceSettings.address,
@@ -214,9 +229,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             ADDRESS_UPDATER,
             accounts[0],
             settings,
-            1,
-            0,
-            initialThreshold
+            firstVotingRoundStartTs,
+            VOTING_EPOCH_DURATION_SEC,
+            FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            initialSettings
         );
 
         rewardManager = await RewardManager.new(
@@ -231,10 +248,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             initialSigningPolicy.startVotingRoundId,
             getSigningPolicyHash(initialSigningPolicy),
             FTSO_PROTOCOL_ID,
-            settings.firstVotingRoundStartTs,
-            settings.votingEpochDurationSeconds,
-            settings.firstRewardEpochStartVotingRoundId,
-            settings.rewardEpochDurationInVotingEpochs,
+            firstVotingRoundStartTs,
+            VOTING_EPOCH_DURATION_SEC,
+            FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             12000
         );
 
@@ -244,10 +261,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             initialSigningPolicy.startVotingRoundId,
             getSigningPolicyHash(initialSigningPolicy),
             FTSO_PROTOCOL_ID,
-            settings.firstVotingRoundStartTs,
-            settings.votingEpochDurationSeconds,
-            settings.firstRewardEpochStartVotingRoundId,
-            settings.rewardEpochDurationInVotingEpochs,
+            firstVotingRoundStartTs,
+            VOTING_EPOCH_DURATION_SEC,
+            FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             12000
         );
 
@@ -260,6 +277,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         ftsoRewardOffersManager = await FtsoRewardOffersManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100);
 
         ftsoFeedDecimals = await FtsoFeedDecimals.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2, 5);
+
+        cleanupBlockNumberManager = await CleanupBlockNumberManager.new(accounts[0], ADDRESS_UPDATER, "FlareSystemManager");
+
+        await flareSystemCalculator.enablePChainStakeMirror();
+        await rewardManager.enablePChainStakeMirror();
 
         // update contract addresses
         await pChainStakeMirror.updateContractAddresses(
@@ -279,8 +301,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [ADDRESS_UPDATER, flareSystemManager.address, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
 
         await flareSystemManager.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY]),
-            [ADDRESS_UPDATER, voterRegistry.address, submission.address, relay.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY, Contracts.REWARD_MANAGER, Contracts.CLEANUP_BLOCK_NUMBER_MANAGER]),
+            [ADDRESS_UPDATER, voterRegistry.address, submission.address, relay.address, rewardManager.address, cleanupBlockNumberManager.address], { from: ADDRESS_UPDATER });
 
         await rewardManager.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.FLARE_SYSTEM_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
@@ -302,6 +324,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
             [ADDRESS_UPDATER, flareSystemManager.address], { from: ADDRESS_UPDATER });
 
+        await cleanupBlockNumberManager.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
+            [ADDRESS_UPDATER, flareSystemManager.address], { from: ADDRESS_UPDATER });
+
         // set reward offers manager list
         await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address]);
 
@@ -318,6 +344,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             {
                 feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "XRP", "FLR", "ETH"]),
                 inflationShare: 200,
+                minimalThresholdBIPS: 5000,
                 mode: 0,
                 primaryBandRewardSharePPM: 700000,
                 secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([400, 800, 100, 250])
@@ -327,6 +354,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             {
                 feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "LTC"]),
                 inflationShare: 100,
+                minimalThresholdBIPS: 5000,
                 mode: 0,
                 primaryBandRewardSharePPM: 600000,
                 secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([200, 1000])
