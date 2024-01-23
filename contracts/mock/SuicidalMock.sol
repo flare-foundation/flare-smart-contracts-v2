@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 /**
  * @title Suicidal Mock
- * @notice Provide a means to test behavior of contracts that are targets of a self-destructing contract.
+ * Provide a means to test behavior of contracts that are targets of a self-destructing contract.
  **/
 contract SuicidalMock {
     address payable public target;

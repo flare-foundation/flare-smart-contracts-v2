@@ -103,10 +103,6 @@ contract FlareSystemManagerTest is Test {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
         settings = FlareSystemManager.Settings(
-            uint32(block.timestamp), // 1,
-            VOTING_EPOCH_DURATION_SEC,
-            0,
-            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             3600 * 8,
             15000,
             3600 * 2,
@@ -114,7 +110,8 @@ contract FlareSystemManagerTest is Test {
             30 * 60,
             20,
             500000,
-            2
+            2,
+            1000
         );
 
         flareSystemManager = new FlareSystemManager(
@@ -123,6 +120,10 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
+            0,
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             5,
             0,
             0
@@ -148,16 +149,20 @@ contract FlareSystemManagerTest is Test {
 
         //// update contract addresses
         vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](5);
-        contractAddresses = new address[](5);
+        contractNameHashes = new bytes32[](6);
+        contractAddresses = new address[](6);
         contractNameHashes[0] = _keccak256AbiEncode("AddressUpdater");
         contractNameHashes[1] = _keccak256AbiEncode("VoterRegistry");
         contractNameHashes[2] = _keccak256AbiEncode("Submission");
         contractNameHashes[3] = _keccak256AbiEncode("Relay");
+        contractNameHashes[4] = _keccak256AbiEncode("RewardManager");
+        contractNameHashes[5] = _keccak256AbiEncode("CleanupBlockNumberManager");
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockVoterRegistry;
         contractAddresses[2] = address(submission);
         contractAddresses[3] = mockRelay;
+        contractAddresses[4] = makeAddr("rewardManager");
+        contractAddresses[5] = makeAddr("cleanupBlockNumberManager");
         flareSystemManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
         contractNameHashes = new bytes32[](3);
@@ -188,6 +193,10 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
+            0,
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             5,
             0,
             0
@@ -195,7 +204,6 @@ contract FlareSystemManagerTest is Test {
     }
 
     function testRevertRewardEpochDurationZero() public {
-        settings.rewardEpochDurationInVotingEpochs = 0;
         vm.expectRevert("reward epoch duration zero");
         new FlareSystemManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
@@ -203,6 +211,10 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
+            0,
+            0,
             5,
             0,
             0
@@ -210,7 +222,6 @@ contract FlareSystemManagerTest is Test {
     }
 
     function testRevertVotingEpochDurationZero() public {
-        settings.votingEpochDurationSeconds = 0;
         vm.expectRevert("voting epoch duration zero");
         new FlareSystemManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
@@ -218,6 +229,10 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
+            uint32(block.timestamp),
+            0,
+            0,
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             5,
             0,
             0
@@ -233,6 +248,10 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
+            0,
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             5,
             0,
             0
@@ -248,7 +267,11 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
             0,
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            5,
             0,
             0
         );
@@ -262,6 +285,10 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
+            0,
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             0,
             0,
             0
@@ -269,6 +296,7 @@ contract FlareSystemManagerTest is Test {
     }
 
     function testRevertRewardEpochEndInThePast() public {
+        uint32 firstVotingRoundStartTs = uint32(block.timestamp);
         vm.warp(1641070800);
         vm.expectRevert("reward epoch end not in the future");
         new FlareSystemManager(
@@ -277,6 +305,10 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             flareDaemon,
             settings,
+            firstVotingRoundStartTs,
+            VOTING_EPOCH_DURATION_SEC,
+            0,
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             5,
             0,
             0
@@ -1214,6 +1246,7 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.daemonize();
 
         // select vote power block
+        vm.roll(block.number + 1);
         vm.mockCall(
             mockRelay,
             abi.encodeWithSelector(Relay.getRandomNumber.selector),

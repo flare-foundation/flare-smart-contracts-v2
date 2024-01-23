@@ -2,32 +2,33 @@
 pragma solidity >=0.7.6 <0.9;
 
 import "flare-smart-contracts/contracts/userInterfaces/IVPToken.sol";
+import "flare-smart-contracts/contracts/token/interface/IICleanable.sol";
 
 
 /**
  * @title Wrapped Native token
- * @notice Accept native token deposits and mint ERC20 WNAT (wrapped native) tokens 1-1.
+ * Accept native token deposits and mint ERC20 WNAT (wrapped native) tokens 1-1.
  */
-interface IWNat is IVPToken {
+interface IWNat is IVPToken, IICleanable {
     /**
-     * @notice Deposit Native and mint wNat ERC20.
+     * Deposit Native and mint wNat ERC20.
      */
     function deposit() external payable;
 
     /**
-     * @notice Deposit Native from msg.sender and mints WNAT ERC20 to recipient address.
+     * Deposit Native from msg.sender and mints WNAT ERC20 to recipient address.
      * @param recipient An address to receive minted WNAT.
      */
     function depositTo(address recipient) external payable;
 
     /**
-     * @notice Withdraw Native and burn WNAT ERC20.
+     * Withdraw Native and burn WNAT ERC20.
      * @param amount The amount to withdraw.
      */
     function withdraw(uint256 amount) external;
 
     /**
-     * @notice Withdraw WNAT from an owner and send native tokens to msg.sender given an allowance.
+     * Withdraw WNAT from an owner and send native tokens to msg.sender given an allowance.
      * @param owner An address spending the Native tokens.
      * @param amount The amount to spend.
      *

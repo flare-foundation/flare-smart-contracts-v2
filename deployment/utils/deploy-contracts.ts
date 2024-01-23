@@ -6,6 +6,8 @@ import {
   AddressBinderInstance,
   CChainStakeContract,
   CChainStakeInstance,
+  CleanupBlockNumberManagerContract,
+  CleanupBlockNumberManagerInstance,
   EntityManagerContract,
   EntityManagerInstance,
   FlareSystemCalculatorContract,
@@ -78,6 +80,7 @@ export interface DeployedContracts {
   readonly ftsoInflationConfigurations: FtsoInflationConfigurationsInstance;
   readonly ftsoRewardOffersManager: FtsoRewardOffersManagerInstance;
   readonly ftsoFeedDecimals: FtsoFeedDecimalsInstance;
+  readonly cleanupBlockNumberManager: CleanupBlockNumberManagerInstance;
 }
 
 const logger = getLogger("contracts");
@@ -114,6 +117,7 @@ export async function deployContracts(
   const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifacts.require("FtsoInflationConfigurations");
   const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
   const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
+  const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
   const Relay: RelayContract = hre.artifacts.require("Relay");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
@@ -239,7 +243,11 @@ export async function deployContracts(
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
     FLARE_DAEMON_ADDR,
-    settings,
+    settings.updatableSettings,
+    settings.firstVotingRoundStartTs,
+    settings.votingEpochDurationSeconds,
+    settings.firstRewardEpochStartVotingRoundId,
+    settings.rewardEpochDurationInVotingEpochs,
     1,
     0,
     intialThreshold
@@ -296,6 +304,16 @@ export async function deployContracts(
     2,
     5
   );
+
+
+  const cleanupBlockNumberManager = await CleanupBlockNumberManager.new(
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    "FlareSystemManager"
+  );
+
+  await flareSystemCalculator.enablePChainStakeMirror({ from: governanceAccount.address });
+  await rewardManager.enablePChainStakeMirror({ from: governanceAccount.address });
 
   await pChainStakeMirror.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -355,8 +373,10 @@ export async function deployContracts(
       Contracts.VOTER_REGISTRY,
       Contracts.SUBMISSION,
       Contracts.RELAY,
+      Contracts.REWARD_MANAGER,
+      Contracts.CLEANUP_BLOCK_NUMBER_MANAGER,
     ]),
-    [ADDRESS_UPDATER_ADDR, voterRegistry.address, submission.address, relay.address],
+    [ADDRESS_UPDATER_ADDR, voterRegistry.address, submission.address, relay.address, rewardManager.address, cleanupBlockNumberManager.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -404,6 +424,12 @@ export async function deployContracts(
       Contracts.FLARE_SYSTEM_MANAGER]),
     [ADDRESS_UPDATER_ADDR, flareSystemManager.address], { from: ADDRESS_UPDATER_ADDR });
 
+  await cleanupBlockNumberManager.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEM_MANAGER]),
+    [ADDRESS_UPDATER_ADDR, flareSystemManager.address], { from: ADDRESS_UPDATER_ADDR });
+
   // set reward offers manager list
   await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address]);
 
@@ -413,7 +439,7 @@ export async function deployContracts(
   await ftsoRewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION_ADDR });
 
   // set rewards offer switchover trigger contracts
-  await flareSystemManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address]);
+  await flareSystemManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address], { from: governanceAccount.address });
 
   // set ftso configurations
   await ftsoInflationConfigurations.addFtsoConfiguration(
@@ -423,7 +449,8 @@ export async function deployContracts(
         mode: 0,
         primaryBandRewardSharePPM: 700000,
         secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([400, 800, 100, 250])
-    }
+    },
+    { from: governanceAccount.address }
   );
   await ftsoInflationConfigurations.addFtsoConfiguration(
     {
@@ -432,12 +459,13 @@ export async function deployContracts(
         mode: 0,
         primaryBandRewardSharePPM: 600000,
         secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([200, 1000])
-    }
+    },
+    { from: governanceAccount.address }
   );
 
-  await pChainStakeMirror.setCleanerContract(CLEANER_CONTRACT_ADDR);
-  await pChainStakeMirror.activate();
-  await cChainStake.activate();
+  await pChainStakeMirror.setCleanerContract(CLEANER_CONTRACT_ADDR, { from: governanceAccount.address });
+  await pChainStakeMirror.activate({ from: governanceAccount.address });
+  await cChainStake.activate({ from: governanceAccount.address });
 
   logger.info(
     `Finished deploying contracts:\n  FlareSystemManager: ${flareSystemManager.address},\n  Submission: ${submission.address},\n  Relay: ${relay.address}`
@@ -464,7 +492,8 @@ export async function deployContracts(
     wNatDelegationFee,
     ftsoInflationConfigurations,
     ftsoRewardOffersManager,
-    ftsoFeedDecimals
+    ftsoFeedDecimals,
+    cleanupBlockNumberManager
   };
 
   return [contracts, rewardEpochStart, initialSigningPolicy];

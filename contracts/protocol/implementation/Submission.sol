@@ -6,11 +6,20 @@ import "./Relay.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 
+/**
+ * Submission contract.
+ *
+ * This contract is used to manage the submissions - prioritized transactions.
+ */
 contract Submission is Governed, AddressUpdatable {
 
+    /// The FlareSystemManager contract.
     FlareSystemManager public flareSystemManager;
+    /// Indicates if the submit3 method is enabled.
     bool public submit3MethodEnabled;
+    /// The contract address to call when submitAndPass is called.
     address public submitAndPassContract;
+    /// The selector to call when submitAndPass is called.
     bytes4 public submitAndPassSelector;
 
     mapping(address => bool) private submit1Addresses;
@@ -18,6 +27,7 @@ contract Submission is Governed, AddressUpdatable {
     mapping(address => bool) private submit3Addresses;
     mapping(address => bool) private submitSignaturesAddresses;
 
+    /// Event emitted when a new voting round is initiated.
     event NewVotingRoundInitiated();
 
     /// Only FlareSystemManager contract can call this method.
@@ -26,6 +36,13 @@ contract Submission is Governed, AddressUpdatable {
         _;
     }
 
+    /**
+     * Constructor.
+     * @param _governanceSettings The address of the GovernanceSettings contract.
+     * @param _initialGovernance The initial governance address.
+     * @param _addressUpdater The address of the AddressUpdater contract.
+     * @param _submit3MethodEnabled Indicates if the submit3 method is enabled.
+     */
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
@@ -37,6 +54,14 @@ contract Submission is Governed, AddressUpdatable {
         submit3MethodEnabled = _submit3MethodEnabled;
     }
 
+    /**
+     * Initiates a new voting round.
+     * @param _submit1Addresses The addresses that can call submit1.
+     * @param _submit2Addresses The addresses that can call submit2.
+     * @param _submit3Addresses The addresses that can call submit3.
+     * @param _submitSignaturesAddresses The addresses that can call submitSignatures.
+     * @dev This method can only be called by the FlareSystemManager contract.
+     */
     function initNewVotingRound(
         address[] memory _submit1Addresses,
         address[] memory _submit2Addresses,
@@ -67,6 +92,9 @@ contract Submission is Governed, AddressUpdatable {
         emit NewVotingRoundInitiated();
     }
 
+    /**
+     * Submit1 method. Used in multiple protocols (i.e. as FTSO commit method).
+     */
     function submit1() external returns (bool) {
         if (submit1Addresses[msg.sender]) {
             delete submit1Addresses[msg.sender];
@@ -75,6 +103,9 @@ contract Submission is Governed, AddressUpdatable {
         return false;
     }
 
+    /**
+     * Submit2 method. Used in multiple protocols (i.e. as FTSO reveal method).
+     */
     function submit2() external returns (bool) {
         if (submit2Addresses[msg.sender]) {
             delete submit2Addresses[msg.sender];
@@ -83,6 +114,9 @@ contract Submission is Governed, AddressUpdatable {
         return false;
     }
 
+    /**
+     * Submit3 method. Future usage.
+     */
     function submit3() external returns (bool) {
         if (submit3Addresses[msg.sender]) {
             delete submit3Addresses[msg.sender];
@@ -91,6 +125,9 @@ contract Submission is Governed, AddressUpdatable {
         return false;
     }
 
+    /**
+     * SubmitSignatures method. Used in multiple protocols (i.e. as FTSO submit signature method).
+     */
     function submitSignatures() external returns (bool) {
         if (submitSignaturesAddresses[msg.sender]) {
             delete submitSignaturesAddresses[msg.sender];
@@ -99,6 +136,10 @@ contract Submission is Governed, AddressUpdatable {
         return false;
     }
 
+    /**
+     * SubmitAndPass method. Future usage.
+     * @param _data The data to pass to the submitAndPassContract.
+     */
     function submitAndPass(bytes calldata _data) external returns (bool) {
         require(submitAndPassContract != address(0) && submitAndPassSelector != bytes4(0), "submitAndPass disabled");
         /* solhint-disable avoid-low-level-calls */
@@ -110,10 +151,21 @@ contract Submission is Governed, AddressUpdatable {
         return true;
     }
 
+    /**
+     * Sets the submit3 method enabled flag.
+     * @param _enabled Indicates if the submit3 method is enabled.
+     * @dev Only governance can call this method.
+     */
     function setSubmit3MethodEnabled(bool _enabled) external onlyGovernance {
         submit3MethodEnabled = _enabled;
     }
 
+    /**
+     * Sets the submitAndPass contract and selector.
+     * @param _submitAndPassContract The contract address to call when submitAndPass is called.
+     * @param _submitAndPassSelector The selector to call when submitAndPass is called.
+     * @dev Only governance can call this method.
+     */
     function setSubmitAndPassData(
         address _submitAndPassContract,
         bytes4 _submitAndPassSelector
@@ -137,6 +189,11 @@ contract Submission is Governed, AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
     }
 
+    /**
+     * @dev Returns the revert message from the returned bytes.
+     * @param _returnData The returned bytes.
+     * @return The revert message.
+     */
     function _getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {
         // If the _res length is less than 68, then the transaction failed silently (without a revert message)
         uint256 length = _returnData.length;

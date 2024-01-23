@@ -4,6 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 
 interface IFtsoInflationConfigurations {
 
+    /// The FTSO configuration struct.
     struct FtsoConfiguration {
         // concatenated feed names - i.e. base/quote symbol - multiple of 8 (one feedName is bytes8)
         bytes feedNames;
@@ -17,5 +18,8 @@ interface IFtsoInflationConfigurations {
         bytes secondaryBandWidthPPMs;
     }
 
+    /**
+     * Returns the FTSO configurations.
+     */
     function getFtsoConfigurations() external view returns(FtsoConfiguration[] memory);
 }

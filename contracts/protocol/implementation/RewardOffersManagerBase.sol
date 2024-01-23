@@ -6,7 +6,12 @@ import "../../inflation/implementation/InflationReceiver.sol";
 import "../../protocol/implementation/FlareSystemManager.sol";
 import "../interface/IRewardEpochSwitchoverTrigger.sol";
 
-
+/**
+ * RewardOffersManagerBase contrat.
+ *
+ * This contract is used to manage the reward offers and receive the inflation.
+ * It is used by the Flare system to trigger the reward offers.
+ */
 abstract contract RewardOffersManagerBase is Governed, InflationReceiver, IRewardEpochSwitchoverTrigger {
 
     uint256 internal constant INFLATION_TIME_FRAME_SEC = 1 days;
@@ -20,6 +25,12 @@ abstract contract RewardOffersManagerBase is Governed, InflationReceiver, IRewar
         _;
     }
 
+    /**
+     * Constructor.
+     * @param _governanceSettings The address of the GovernanceSettings contract.
+     * @param _initialGovernance The initial governance address.
+     * @param _addressUpdater The address of the AddressUpdater contract.
+     */
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
@@ -28,6 +39,9 @@ abstract contract RewardOffersManagerBase is Governed, InflationReceiver, IRewar
         Governed(_governanceSettings, _initialGovernance) InflationReceiver(_addressUpdater)
     { }
 
+    /**
+     * @inheritdoc IRewardEpochSwitchoverTrigger
+     */
     function triggerRewardEpochSwitchover(
         uint24 _currentRewardEpochId,
         uint64 _currentRewardEpochExpectedEndTs,
@@ -53,6 +67,12 @@ abstract contract RewardOffersManagerBase is Governed, InflationReceiver, IRewar
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
     }
 
+    /**
+     * @dev Triggers the inflation offers.
+     * @param _currentRewardEpochId The current reward epoch id.
+     * @param _currentRewardEpochExpectedEndTs The current reward epoch expected end timestamp.
+     * @param _rewardEpochDurationSeconds The reward epoch duration in seconds.
+     */
     function _triggerInflationOffers(
         uint24 _currentRewardEpochId,
         uint64 _currentRewardEpochExpectedEndTs,

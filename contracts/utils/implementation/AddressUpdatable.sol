@@ -21,7 +21,7 @@ abstract contract AddressUpdatable is IIAddressUpdatable {
     }
 
     /**
-     * @notice external method called from AddressUpdater only
+     * external method called from AddressUpdater only
      */
     function updateContractAddresses(
         bytes32[] memory _contractNameHashes,
@@ -46,7 +46,7 @@ abstract contract AddressUpdatable is IIAddressUpdatable {
     }
 
     /**
-     * @notice virtual method that a contract extending AddressUpdatable must implement
+     * virtual method that a contract extending AddressUpdatable must implement
      */
     function _updateContractAddresses(
         bytes32[] memory _contractNameHashes,
@@ -63,7 +63,7 @@ abstract contract AddressUpdatable is IIAddressUpdatable {
     }
 
     /**
-     * @notice helper method to get contract address
+     * helper method to get contract address
      * @dev it reverts if contract name does not exist
      */
     function _getContractAddress(
