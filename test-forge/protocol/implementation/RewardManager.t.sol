@@ -14,7 +14,6 @@ contract RewardManagerTest is Test {
     RewardManager private rewardManager;
     address private addressUpdater;
     address private governance;
-    address private mockVoterRegistry;
     address private mockClaimSetupManager;
     address private mockFlareSystemManager;
     address private mockPChainStakeMirror;
@@ -54,7 +53,6 @@ contract RewardManagerTest is Test {
             addressUpdater
         );
 
-        mockVoterRegistry = makeAddr("mockVoterRegistry");
         mockClaimSetupManager = makeAddr("mockClaimSetupManager");
         mockFlareSystemManager = makeAddr("mockFlareSystemManager");
         mockPChainStakeMirror = makeAddr("mockPChainStakeMirror");
@@ -63,24 +61,22 @@ contract RewardManagerTest is Test {
         mockFlareSystemCalculator = makeAddr("mockFlareSystemCalculator");
 
         vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](8);
-        contractAddresses = new address[](8);
+        contractNameHashes = new bytes32[](7);
+        contractAddresses = new address[](7);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("VoterRegistry"));
-        contractNameHashes[2] = keccak256(abi.encode("ClaimSetupManager"));
-        contractNameHashes[3] = keccak256(abi.encode("FlareSystemManager"));
-        contractNameHashes[4] = keccak256(abi.encode("PChainStakeMirror"));
-        contractNameHashes[5] = keccak256(abi.encode("CChainStake"));
-        contractNameHashes[6] = keccak256(abi.encode("WNat"));
-        contractNameHashes[7] = keccak256(abi.encode("FlareSystemCalculator"));
+        contractNameHashes[1] = keccak256(abi.encode("ClaimSetupManager"));
+        contractNameHashes[2] = keccak256(abi.encode("FlareSystemManager"));
+        contractNameHashes[3] = keccak256(abi.encode("PChainStakeMirror"));
+        contractNameHashes[4] = keccak256(abi.encode("CChainStake"));
+        contractNameHashes[5] = keccak256(abi.encode("WNat"));
+        contractNameHashes[6] = keccak256(abi.encode("FlareSystemCalculator"));
         contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = mockVoterRegistry;
-        contractAddresses[2] = mockClaimSetupManager;
-        contractAddresses[3] = mockFlareSystemManager;
-        contractAddresses[4] = mockPChainStakeMirror;
-        contractAddresses[5] = mockCChainStake;
-        contractAddresses[6] = mockWNat;
-        contractAddresses[7] = mockFlareSystemCalculator;
+        contractAddresses[1] = mockClaimSetupManager;
+        contractAddresses[2] = mockFlareSystemManager;
+        contractAddresses[3] = mockPChainStakeMirror;
+        contractAddresses[4] = mockCChainStake;
+        contractAddresses[5] = mockWNat;
+        contractAddresses[6] = mockFlareSystemCalculator;
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
@@ -142,6 +138,7 @@ contract RewardManagerTest is Test {
 
     // claim DIRECT and weight based (WNAT)
     function testClaimDirectAndWeightBased1() public {
+        _enablePChainStakeMirror();
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](2);
         bytes32[] memory merkleProof1 = new bytes32[](1);
@@ -193,6 +190,7 @@ contract RewardManagerTest is Test {
 
     // user has undelegated voter power and is voter - claim self delegation rewards
     function testClaimDirectAndWeightBase2() public {
+        _enablePChainStakeMirror();
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
 
@@ -202,7 +200,6 @@ contract RewardManagerTest is Test {
 
         // _claimWeightBasedRewards
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 1); // DIRECT claim and one weight based claim (WNAT)
-        // voter1 balance = 250; vp = 300; he is delegating 100% to himself
         _setWNatData(rewardEpochData.vpBlock);
         _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
@@ -211,7 +208,7 @@ contract RewardManagerTest is Test {
         address[] memory delegates = new address[](0);
         uint256[] memory bips = new uint256[](0);
         _mockWNatDelegations(voter1, 10, delegates, bips);
-        _mockIsVoterRegistered(voter1, 0, true);
+        _mockUndelegatedVotePowerOfAt(voter1, rewardEpochData.vpBlock, 250);
 
         vm.prank(voter1);
         vm.expectRevert("not initialised");
@@ -249,9 +246,12 @@ contract RewardManagerTest is Test {
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
         assertEq(voter1.balance, body1.amount + 166);
     }
+    // TODO: test claim WNAT - user is delegating but not 100%
+    // TODO test claim p chain mirror disabled
 
     // claim DIRECT and weight based (WNAT, MIRROR & CCHAIN)
     function testClaimDirectAndWeightBased2() public {
+        _enablePChainStakeMirror();
         // enable cChain stake
         vm.prank(governance);
         rewardManager.enableCChainStake();
@@ -341,8 +341,10 @@ contract RewardManagerTest is Test {
         assertEq(voter1.balance, body1.amount + 166 + 262 + 360);
     }
 
-    // claim DIRECT and weight based (WNAT, MIRROR & CCHAIN) for two epochs. In second epochs there is not enough funds on contract for all rewards
+    // claim DIRECT and weight based (WNAT, MIRROR & CCHAIN) for two epochs.
+    // In second epoch there is not enough funds on contract for all rewards
     function testClaimDirectAndWeightBased3() public {
+        _enablePChainStakeMirror();
         // enable cChain stake
         vm.prank(governance);
         rewardManager.enableCChainStake();
@@ -692,7 +694,7 @@ contract RewardManagerTest is Test {
         rewardManager.claim(delegator, payable(delegator), 0, false, proofs);
 
         // _mockWNatBalance(delegator, 10, 0);
-        _mockIsVoterRegistered(delegator, 0, false);
+        _mockUndelegatedVotePowerOfAt(delegator, 10, 10);
         delegates = new address[](0);
         bips = new uint256[](0);
         _mockWNatDelegations(delegator, 10, delegates, bips);
@@ -1063,6 +1065,7 @@ contract RewardManagerTest is Test {
 
     // no PDA;
     function testAutoClaim() public {
+        _enablePChainStakeMirror();
         rewardOwners = new address[](2);
         rewardOwners[0] = makeAddr("rewardOwner1");
         rewardOwners[1] = makeAddr("rewardOwner2");
@@ -1172,6 +1175,7 @@ contract RewardManagerTest is Test {
     }
 
     function testAutoClaimPDA() public {
+        _enablePChainStakeMirror();
         rewardOwners = new address[](2);
         rewardOwners[0] = makeAddr("rewardOwner1");
         rewardOwners[1] = makeAddr("rewardOwner2");
@@ -1391,17 +1395,19 @@ contract RewardManagerTest is Test {
         rewardManager.addDailyAuthorizedInflation(15);
         rewardManager.receiveRewards{value: 800} (1, true);
         vm.expectRevert("reward epoch id in the past");
-        rewardManager.receiveRewards{value: 800} (0, true);
+        rewardManager.receiveRewards{value: 700} (0, true);
         vm.stopPrank();
         vm.expectRevert("only reward offers manager");
-        rewardManager.receiveRewards{value: 800} (0, true);
+        rewardManager.receiveRewards{value: 600} (0, true);
 
 
         (uint256 locked, uint256 inflation, uint256 totalClaimed) = rewardManager.getTokenPoolSupplyData();
         assertEq(locked, 1000 + 800 - 800);
         assertEq(inflation, 15);
         assertEq(totalClaimed, 90 + 10);
-        (uint256 claimed, uint256 burned, uint256 inflationAuth, uint256 inflationRec) = rewardManager.getTotals();
+        (uint256 received, uint256 claimed, uint256 burned, uint256 inflationAuth, uint256 inflationRec) =
+            rewardManager.getTotals();
+        assertEq(received, 1000 + 800);
         assertEq(claimed, 90);
         assertEq(burned, 10);
         assertEq(inflationAuth, 15);
@@ -1471,6 +1477,7 @@ contract RewardManagerTest is Test {
 
     // TODO test new, old reward manager, expire epoch, setInitialRewardData;
     // TODO test claim more than one delegator, nodeId
+    // TODO only initialized and doesn't claim anything
     function testSetNewRewardManagerRevert() public {
         vm.startPrank(governance);
         vm.expectRevert("address zero");
@@ -1620,14 +1627,6 @@ contract RewardManagerTest is Test {
         );
     }
 
-    function _mockIsVoterRegistered(address _voter, uint256 _epoch, bool _registered) private {
-        vm.mockCall(
-            mockVoterRegistry,
-            abi.encodeWithSelector(VoterRegistry.isVoterRegistered.selector, _voter, _epoch),
-            abi.encode(_registered)
-        );
-    }
-
     function _mockGetAutoClaimAddressesAndExecutorFee(
         address _executor,
         address[] memory _rewardOwners,
@@ -1742,5 +1741,26 @@ contract RewardManagerTest is Test {
         bytes20[] memory nodeIds = new bytes20[](0);
         uint256[] memory weights = new uint256[](0);
         _mockStakes(_account, _vpBlock, nodeIds, weights);
+    }
+
+    function _mockUndelegatedVotePowerOfAt(
+        address _account,
+        uint256 _vpBlock,
+        uint256 _undelegatedVotePower
+    )
+        private
+    {
+        vm.mockCall(
+            mockWNat,
+            abi.encodeWithSelector(bytes4(keccak256("undelegatedVotePowerOfAt(address,uint256)")), _account, _vpBlock),
+            abi.encode(_undelegatedVotePower)
+        );
+    }
+
+    function _enablePChainStakeMirror() private {
+        vm.prank(governance);
+        rewardManager.enablePChainStakeMirror();
+        vm.prank(addressUpdater);
+        rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
     }
 }

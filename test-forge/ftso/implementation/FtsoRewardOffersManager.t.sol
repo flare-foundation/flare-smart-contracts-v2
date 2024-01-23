@@ -321,7 +321,7 @@ contract FtsoRewardOffersManagerTest is Test {
         // add daily authorized inflation on reward manager contract
         vm.warp(100); // block.timestamp = 100
         ftsoRewardOffersManager.setDailyAuthorizedInflation(5000);
-        ( , , uint256 authorizedInflation, ) = rewardManager.getTotals();
+        ( , , , uint256 authorizedInflation, ) = rewardManager.getTotals();
         assertEq(authorizedInflation, 5000);
 
         // receive inflation
@@ -418,7 +418,7 @@ contract FtsoRewardOffersManagerTest is Test {
         // add daily authorized inflation on reward manager contract
         vm.warp(100); // block.timestamp = 100
         ftsoRewardOffersManager.setDailyAuthorizedInflation(5000);
-        ( , , uint256 authorizedInflation, ) = rewardManager.getTotals();
+        ( , , , uint256 authorizedInflation, ) = rewardManager.getTotals();
         assertEq(authorizedInflation, 5000);
 
         // receive inflation
@@ -487,7 +487,7 @@ contract FtsoRewardOffersManagerTest is Test {
         // add daily authorized inflation on reward manager contract
         vm.warp(100); // block.timestamp = 100
         ftsoRewardOffersManager.setDailyAuthorizedInflation(5000);
-        ( , , uint256 authorizedInflation, ) = rewardManager.getTotals();
+        ( , , , uint256 authorizedInflation, ) = rewardManager.getTotals();
         assertEq(authorizedInflation, 5000);
 
         // receive inflation

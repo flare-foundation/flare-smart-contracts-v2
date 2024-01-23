@@ -63,6 +63,10 @@ contract FtsoFeedDecimalsTest is Test {
         decimals = bytes.concat(bytes1(uint8(6)), bytes1(uint8(6)));
         assertEq(ftsoFeedDecimals.getCurrentDecimalsBulk(feedNames), decimals);
 
+        (int8[] memory _decimals, uint256[] memory validFrom, bool[] memory isFixed) =
+            ftsoFeedDecimals.getScheduledDecimalsChanges(feedName1);
+        assertEq(_decimals.length, 0);
+
         vm.startPrank(governance);
         ftsoFeedDecimals.setDecimals(feedName1, 8);
         assertEq(ftsoFeedDecimals.getCurrentDecimals(feedName1), 6);
@@ -74,6 +78,15 @@ contract FtsoFeedDecimalsTest is Test {
         _mockGetCurrentEpochId(1);
         ftsoFeedDecimals.setDecimals(feedName1, 12);
         assertEq(ftsoFeedDecimals.getDecimals(feedName1, 1 + 2), 12);
+
+        (_decimals, validFrom, isFixed) = ftsoFeedDecimals.getScheduledDecimalsChanges(feedName1);
+        assertEq(_decimals.length, 2);
+        assertEq(_decimals[0], 10);
+        assertEq(_decimals[1], 12);
+        assertEq(validFrom[0], 2);
+        assertEq(validFrom[1], 3);
+        assertEq(isFixed[0], true);
+        assertEq(isFixed[1], false);
 
         decimals = bytes.concat(bytes1(uint8(12)), bytes1(uint8(6)));
         assertEq(ftsoFeedDecimals.getDecimalsBulk(feedNames, 3), decimals);
@@ -89,6 +102,12 @@ contract FtsoFeedDecimalsTest is Test {
         vm.expectRevert();
         ftsoFeedDecimals.setDecimals(feedName1, 5);
         vm.stopPrank();
+    }
+
+    function testGetVoterFeePercentageRevert() public {
+        _mockGetCurrentEpochId(1);
+        vm.expectRevert("invalid reward epoch id");
+        ftsoFeedDecimals.getDecimalsBulk(feedNames, 6);
     }
 
     function testGetDecimalsRevertWrongFeedsLength() public {
