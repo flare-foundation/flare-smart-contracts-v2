@@ -3,12 +3,6 @@ pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
 import "../../../contracts/protocol/implementation/RewardManager.sol";
-import "../../../contracts/protocol/implementation/FlareSystemManager.sol";
-import "../../../contracts/protocol/interface/IWNat.sol";
-import "../../../contracts/protocol/implementation/VoterRegistry.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-
-import "forge-std/console2.sol";
 
 contract RewardManagerTest is Test {
 
@@ -29,11 +23,6 @@ contract RewardManagerTest is Test {
     address[] private rewardOffersManagers;
     address private mockFlareSystemCalculator;
 
-    FlareSystemManager private flareSystemManager;
-    IWNat private wNat;
-    IPChainStakeMirror private pChainStakeMirror;
-    ICChainStake private cChainStake;
-
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
     address[] private rewardOwners;
@@ -42,6 +31,9 @@ contract RewardManagerTest is Test {
     bytes20 private nodeId1;
     address private account1;
     address payable constant private BURN_ADDRESS = payable(0x000000000000000000000000000000000000dEaD);
+    address private voter2;
+    address private delegator;
+    address private recipient;
 
     event RewardClaimed(
         address indexed voter,
@@ -95,6 +87,9 @@ contract RewardManagerTest is Test {
         voter1 = makeAddr("voter1");
         nodeId1 = bytes20(makeAddr("nodeId1"));
         account1 = makeAddr("account1");
+        voter2 = makeAddr("voter2");
+        delegator = makeAddr("delegator");
+        recipient = makeAddr("recipient");
     }
 
     //// claim tests
@@ -523,7 +518,6 @@ contract RewardManagerTest is Test {
     // weight based reward are already initialized; delegator claims for himself
     function testClaimWeightBased() public {
         testClaimDirectAndWeightBased2();
-        address delegator = makeAddr("delegator");
 
         // set data for delegator
         address[] memory delegates = new address[](1);
@@ -631,7 +625,6 @@ contract RewardManagerTest is Test {
     // reward weight > unclaimed weight
     function testClaimRevertRewardWeightTooLarge() public {
         testClaimDirectAndWeightBased2();
-        address delegator = makeAddr("delegator");
 
         // set data for delegator
         address[] memory delegates = new address[](1);
@@ -673,7 +666,6 @@ contract RewardManagerTest is Test {
         _mockNoOfWeightBasedClaims(0, 3);
         _mockGetVpBlock(0, 10);
 
-        address delegator = makeAddr("delegator");
         // set data for delegator
         address[] memory delegates = new address[](1);
         delegates[0] = voter1;
@@ -885,7 +877,6 @@ contract RewardManagerTest is Test {
         _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
-        address voter2 = makeAddr("voter2");
         vm.prank(voter2);
         vm.expectRevert("wrong beneficiary");
         rewardManager.claim(voter2, payable(voter1), rewardEpochData.id, false, proofs);
@@ -993,6 +984,65 @@ contract RewardManagerTest is Test {
         vm.prank(voter1);
         vm.expectRevert("transfer failed");
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
+    }
+
+    // claim weight based (wNat)  - delegating to two delegators
+    function testClaimWNatTwoDelegations() public {
+        RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
+        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](2);
+        bytes32[] memory merkleProof1 = new bytes32[](1);
+        bytes32[] memory merkleProof2 = new bytes32[](1);
+
+        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.WNAT);
+        IRewardManager.RewardClaim memory body2 = IRewardManager.RewardClaim(
+            rewardEpochData.id, bytes20(voter2), 200, IRewardManager.ClaimType.WNAT);
+        bytes32 leaf1 = keccak256(abi.encode(body1));
+        bytes32 leaf2 = keccak256(abi.encode(body2));
+        bytes32 merkleRoot = _hashPair(leaf1, leaf2);
+
+        // proof for the first WNAT claim
+        merkleProof1[0] = leaf2;
+        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+
+        // proof for the second WNAT claim
+        merkleProof2[0] = leaf1;
+        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+
+        // contract needs some funds for rewarding
+        _fundRewardContract(300, rewardEpochData.id);
+
+        _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
+        _mockRewardsHash(rewardEpochData.id, merkleRoot);
+        _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
+
+        // _claimWeightBasedRewards
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 2);
+
+        address[] memory delegates = new address[](2);
+        delegates[0] = voter1;
+        delegates[1] = voter2;
+        uint256[] memory bips = new uint256[](2);
+        bips[0] = 7000;
+        bips[1] = 3000;
+        _mockWNatDelegations(delegator, rewardEpochData.vpBlock, delegates, bips);
+        _mockWNatBalance(delegator, rewardEpochData.vpBlock, 250);
+        _mockWNatVp(voter1, rewardEpochData.vpBlock, 300);
+        _mockWNatVp(voter2, rewardEpochData.vpBlock, 400);
+
+        _setZeroStakes(delegator, rewardEpochData.vpBlock);
+
+        _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
+
+        vm.prank(delegator);
+        // first WNAT claim reward; should receive floor(250 * 0.7 / 300 * 100) = 58
+        vm.expectEmit();
+        emit RewardClaimed(voter1, delegator, recipient, rewardEpochData.id, body1.claimType, 58);
+        // second WNAT claim reward; should receive floor(250 * 0.3 / 400 * 200) = 37
+        vm.expectEmit();
+        emit RewardClaimed(voter2, delegator, recipient, rewardEpochData.id, body2.claimType, 37);
+        rewardManager.claim(delegator, payable(recipient), rewardEpochData.id, false, proofs);
+        assertEq(recipient.balance, 58 + 37);
     }
 
     //// auto claim tests
@@ -1472,7 +1522,7 @@ contract RewardManagerTest is Test {
     function _mockRewardsHash(uint256 _epochId, bytes32 _hash) private {
         vm.mockCall(
             mockFlareSystemManager,
-            abi.encodeWithSelector(flareSystemManager.rewardsHash.selector, _epochId),
+            abi.encodeWithSelector(bytes4(keccak256("rewardsHash(uint256)")), _epochId),
             abi.encode(_hash)
         );
     }
@@ -1488,7 +1538,7 @@ contract RewardManagerTest is Test {
     function _mockNoOfWeightBasedClaims(uint256 _epoch, uint256 _noOfClaims) private {
         vm.mockCall(
             mockFlareSystemManager,
-            abi.encodeWithSelector(flareSystemManager.noOfWeightBasedClaims.selector, _epoch),
+            abi.encodeWithSelector(bytes4(keccak256("noOfWeightBasedClaims(uint256)")), _epoch),
             abi.encode(_noOfClaims)
         );
     }
@@ -1496,7 +1546,7 @@ contract RewardManagerTest is Test {
     function _mockWNatBalance(address _user, uint256 _vpBlock, uint256 _balance) private {
         vm.mockCall(
             mockWNat,
-            abi.encodeWithSelector(wNat.balanceOfAt.selector, _user, _vpBlock),
+            abi.encodeWithSelector(bytes4(keccak256("balanceOfAt(address,uint256)")), _user, _vpBlock),
             abi.encode(_balance)
         );
     }
@@ -1511,7 +1561,7 @@ contract RewardManagerTest is Test {
     {
         vm.mockCall(
             mockWNat,
-            abi.encodeWithSelector(wNat.delegatesOfAt.selector, _user, _vpBlock),
+            abi.encodeWithSelector(bytes4(keccak256("delegatesOfAt(address,uint256)")), _user, _vpBlock),
             abi.encode(_delegates, _bips)
         );
     }
@@ -1526,7 +1576,7 @@ contract RewardManagerTest is Test {
     {
         vm.mockCall(
             mockPChainStakeMirror,
-            abi.encodeWithSelector(pChainStakeMirror.stakesOfAt.selector, _user, _vpBlock),
+            abi.encodeWithSelector(bytes4(keccak256("stakesOfAt(address,uint256)")), _user, _vpBlock),
             abi.encode(_nodeIds, _weights)
         );
     }
@@ -1541,7 +1591,7 @@ contract RewardManagerTest is Test {
     {
         vm.mockCall(
             mockCChainStake,
-            abi.encodeWithSelector(cChainStake.stakesOfAt.selector, _user, _vpBlock),
+            abi.encodeWithSelector(bytes4(keccak256("stakesOfAt(address,uint256)")), _user, _vpBlock),
             abi.encode(_accounts, _weights)
         );
     }
@@ -1549,7 +1599,7 @@ contract RewardManagerTest is Test {
     function _mockWNatVp(address _user, uint256 _vpBlock, uint256 _vp) private {
         vm.mockCall(
             mockWNat,
-            abi.encodeWithSelector(wNat.votePowerOfAt.selector, _user, _vpBlock),
+            abi.encodeWithSelector(bytes4(keccak256("votePowerOfAt(address,uint256)")), _user, _vpBlock),
             abi.encode(_vp)
         );
     }
@@ -1557,7 +1607,7 @@ contract RewardManagerTest is Test {
     function _mockMirroredVp(bytes20 _nodeId, uint256 _vpBlock, uint256 _vp) private {
         vm.mockCall(
             mockPChainStakeMirror,
-            abi.encodeWithSelector(pChainStakeMirror.votePowerOfAt.selector, _nodeId, _vpBlock),
+            abi.encodeWithSelector(bytes4(keccak256("votePowerOfAt(bytes20,uint256)")), _nodeId, _vpBlock),
             abi.encode(_vp)
         );
     }
@@ -1565,7 +1615,7 @@ contract RewardManagerTest is Test {
     function _mockCChainVp(address _account, uint256 _vpBlock, uint256 _vp) private {
         vm.mockCall(
             mockCChainStake,
-            abi.encodeWithSelector(cChainStake.votePowerOfAt.selector, _account, _vpBlock),
+            abi.encodeWithSelector(bytes4(keccak256("votePowerOfAt(address,uint256)")), _account, _vpBlock),
             abi.encode(_vp)
         );
     }
@@ -1686,5 +1736,11 @@ contract RewardManagerTest is Test {
         _mockGetCurrentEpochId(_epochId + 1);
         // mock next reward epoch data
         _mockGetVpBlock(_epochId + 1, _vpBlock * 2);
+    }
+
+    function _setZeroStakes(address _account, uint256 _vpBlock) private {
+        bytes20[] memory nodeIds = new bytes20[](0);
+        uint256[] memory weights = new uint256[](0);
+        _mockStakes(_account, _vpBlock, nodeIds, weights);
     }
 }

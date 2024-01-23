@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "../../../contracts/protocol/implementation/FlareSystemCalculator.sol";
 
 contract FlareSystemCalculatorTest is Test {
-  FlareSystemCalculator calcualtor;
+  FlareSystemCalculator calculator;
 
   IGovernanceSettings govSetting;
 
@@ -14,7 +14,7 @@ contract FlareSystemCalculatorTest is Test {
   function setUp() public {
     govSetting = IGovernanceSettings(makeAddr("govSetting"));
 
-    calcualtor = new FlareSystemCalculator(
+    calculator = new FlareSystemCalculator(
       govSetting,
       makeAddr("initialGovernence"),
       makeAddr("AddressUpdater"),
@@ -42,26 +42,26 @@ contract FlareSystemCalculatorTest is Test {
     contractAddresses[5] = makeAddr("AddressUpdater");
     contractAddresses[6] = makeAddr("FlareSystemManager");
 
-    vm.prank(calcualtor.getAddressUpdater());
-    calcualtor.updateContractAddresses(contractNameHashes, contractAddresses);
+    vm.prank(calculator.getAddressUpdater());
+    calculator.updateContractAddresses(contractNameHashes, contractAddresses);
   }
 
   function testFuzz_perfectSquare(uint256 n) public {
     vm.assume(n < max);
-    uint128 root = calcualtor.sqrt(n * n);
+    uint128 root = calculator.sqrt(n * n);
     assertEq(root, n);
   }
 
   function testFuzz_perfectSquareMinusOne(uint256 n) public {
     vm.assume(n < max);
     vm.assume(0 < n);
-    uint128 root = calcualtor.sqrt((n * n) - 1);
+    uint128 root = calculator.sqrt((n * n) - 1);
     assertEq(root, n - 1);
   }
 
   function testFuzz_perfectSquarePlusN(uint256 n) public {
     vm.assume(n < max);
-    uint128 root = calcualtor.sqrt(n * (n + 1));
+    uint128 root = calculator.sqrt(n * (n + 1));
     assertEq(root, n);
   }
 
@@ -69,13 +69,13 @@ contract FlareSystemCalculatorTest is Test {
     vm.assume(n < max);
     vm.assume(0 < n);
 
-    uint128 root = calcualtor.sqrt(n * (n - 1));
+    uint128 root = calculator.sqrt(n * (n - 1));
     assertEq(root, n - 1);
   }
 
   function test_setWNatCapFail1() public {
     vm.expectRevert("only governance");
-    calcualtor.setWNatCapPPM(1000);
+    calculator.setWNatCapPPM(1000);
   }
 
   function test_setWNatCapFail2() public {
@@ -83,15 +83,15 @@ contract FlareSystemCalculatorTest is Test {
 
     vm.prank(makeAddr("initialGovernence"));
 
-    calcualtor.setWNatCapPPM(1000001);
+    calculator.setWNatCapPPM(1000001);
   }
 
   function test_setWNatCap() public {
     vm.prank(makeAddr("initialGovernence"));
 
-    calcualtor.setWNatCapPPM(30000);
+    calculator.setWNatCapPPM(30000);
 
-    assertEq(calcualtor.wNatCapPPM(), uint24(30000));
+    assertEq(calculator.wNatCapPPM(), uint24(30000));
   }
 
   function test_calculateRegistrationWeight() public {
@@ -114,25 +114,25 @@ contract FlareSystemCalculatorTest is Test {
     uint256 votePowerBlockNumber = 1234567;
 
     vm.mockCall(
-      address(calcualtor.entityManager()),
+      address(calculator.entityManager()),
       abi.encodeWithSelector(EntityManager.getNodeIdsOfAt.selector, voter, votePowerBlockNumber),
       abi.encode(nodeIds)
     );
 
     vm.mockCall(
-      address(calcualtor.pChainStakeMirror()),
+      address(calculator.pChainStakeMirror()),
       abi.encodeWithSelector(bytes4(keccak256("batchVotePowerOfAt(bytes20[],uint256)")), nodeIds, votePowerBlockNumber),
       abi.encode(nodeWeights)
     );
 
     vm.mockCall(
-      address(calcualtor.wNat()),
+      address(calculator.wNat()),
       abi.encodeWithSelector(bytes4(keccak256("totalVotePowerAt(uint256)")), votePowerBlockNumber),
       abi.encode(totalWNatVotePower)
     );
 
     vm.mockCall(
-      address(calcualtor.wNat()),
+      address(calculator.wNat()),
       abi.encodeWithSelector(
         bytes4(keccak256("votePowerOfAt(address,uint256)")),
         delegationAddress,
@@ -142,14 +142,14 @@ contract FlareSystemCalculatorTest is Test {
     );
 
     vm.mockCall(
-      address(calcualtor.wNatDelegationFee()),
+      address(calculator.wNatDelegationFee()),
       abi.encodeWithSelector(WNatDelegationFee.getVoterFeePercentage.selector, voter, rewardEpochId),
       abi.encode(delegationFeeBIPS)
     );
 
     vm.prank(makeAddr("VoterRegistry"));
 
-    uint256 registrationWeight = calcualtor.calculateRegistrationWeight(
+    uint256 registrationWeight = calculator.calculateRegistrationWeight(
       voter,
       delegationAddress,
       rewardEpochId,
@@ -172,18 +172,18 @@ contract FlareSystemCalculatorTest is Test {
     uint64 signBlock = 110001;
 
     vm.mockCall(
-      address(calcualtor.flareSystemManager()),
+      address(calculator.flareSystemManager()),
       abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
       abi.encode(startTs, startBlock, endTs, endBlock)
     );
 
     vm.mockCall(
-      address(calcualtor.flareSystemManager()),
+      address(calculator.flareSystemManager()),
       abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
       abi.encode(signTs, signBlock)
     );
 
-    uint256 burnFactor = calcualtor.calculateBurnFactorPPM(rewardEpochId, voter);
+    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId, voter);
     assertEq(burnFactor, 0);
   }
 
@@ -200,18 +200,18 @@ contract FlareSystemCalculatorTest is Test {
     uint64 signBlock = 110001;
 
     vm.mockCall(
-      address(calcualtor.flareSystemManager()),
+      address(calculator.flareSystemManager()),
       abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
       abi.encode(startTs, startBlock, endTs, endBlock)
     );
 
     vm.mockCall(
-      address(calcualtor.flareSystemManager()),
+      address(calculator.flareSystemManager()),
       abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
       abi.encode(signTs, signBlock)
     );
 
-    uint256 burnFactor = calcualtor.calculateBurnFactorPPM(rewardEpochId, voter);
+    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId, voter);
     assertEq(burnFactor, 0);
   }
 
@@ -228,18 +228,18 @@ contract FlareSystemCalculatorTest is Test {
     uint64 signBlock = 100100;
 
     vm.mockCall(
-      address(calcualtor.flareSystemManager()),
+      address(calculator.flareSystemManager()),
       abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
       abi.encode(startTs, startBlock, endTs, endBlock)
     );
 
     vm.mockCall(
-      address(calcualtor.flareSystemManager()),
+      address(calculator.flareSystemManager()),
       abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
       abi.encode(signTs, signBlock)
     );
 
-    uint256 burnFactor = calcualtor.calculateBurnFactorPPM(rewardEpochId, voter);
+    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId, voter);
     assertEq(burnFactor, 0);
   }
 
@@ -256,18 +256,18 @@ contract FlareSystemCalculatorTest is Test {
     uint64 signBlock = 0;
 
     vm.mockCall(
-      address(calcualtor.flareSystemManager()),
+      address(calculator.flareSystemManager()),
       abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
       abi.encode(startTs, startBlock, endTs, endBlock)
     );
 
     vm.mockCall(
-      address(calcualtor.flareSystemManager()),
+      address(calculator.flareSystemManager()),
       abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
       abi.encode(signTs, signBlock)
     );
 
-    uint256 burnFactor = calcualtor.calculateBurnFactorPPM(rewardEpochId, voter);
+    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId, voter);
     assertEq(burnFactor > 0, true);
     assertEq(burnFactor < 1e6, true);
   }
@@ -285,18 +285,18 @@ contract FlareSystemCalculatorTest is Test {
     uint64 signBlock = 0;
 
     vm.mockCall(
-      address(calcualtor.flareSystemManager()),
+      address(calculator.flareSystemManager()),
       abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
       abi.encode(startTs, startBlock, endTs, endBlock)
     );
 
     vm.mockCall(
-      address(calcualtor.flareSystemManager()),
+      address(calculator.flareSystemManager()),
       abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
       abi.encode(signTs, signBlock)
     );
 
-    uint256 burnFactor = calcualtor.calculateBurnFactorPPM(rewardEpochId, voter);
+    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId, voter);
     assertEq(burnFactor, 1e6);
   }
 
@@ -313,18 +313,18 @@ contract FlareSystemCalculatorTest is Test {
     uint64 signBlock = 110001;
 
     vm.mockCall(
-      address(calcualtor.flareSystemManager()),
+      address(calculator.flareSystemManager()),
       abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
       abi.encode(startTs, startBlock, endTs, endBlock)
     );
 
     vm.mockCall(
-      address(calcualtor.flareSystemManager()),
+      address(calculator.flareSystemManager()),
       abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
       abi.encode(signTs, signBlock)
     );
 
     vm.expectRevert("signing policy not signed yet");
-    uint256 burnFactor = calcualtor.calculateBurnFactorPPM(rewardEpochId, voter);
+    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId, voter);
   }
 }
