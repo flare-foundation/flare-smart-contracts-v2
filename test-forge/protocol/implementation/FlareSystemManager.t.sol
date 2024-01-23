@@ -1144,23 +1144,23 @@ contract FlareSystemManagerTest is Test {
     }
 
     // set rewards hash tests
-    function testRevertSetRewardsHashEpochNotEnded() public {
+    function testRevertSetRewardsDataEpochNotEnded() public {
         vm.prank(governance);
         vm.expectRevert("epoch not ended yet");
-        flareSystemManager.setRewardsHash(1, 2, keccak256("rewards hash"));
+        flareSystemManager.setRewardsData(1, 2, keccak256("rewards hash"));
     }
 
-    function testUpdateRewardsHash() public {
+    function testUpdateRewardsData() public {
         testSignRewards();
         uint64 noOfWeightBasedClaims = 1;
         vm.prank(governance);
         vm.expectEmit();
         emit RewardsSigned(1, governance, governance,
             keccak256("rewards hash2"), noOfWeightBasedClaims, uint64(block.timestamp), true);
-        flareSystemManager.setRewardsHash(1, noOfWeightBasedClaims, keccak256("rewards hash2"));
+        flareSystemManager.setRewardsData(1, noOfWeightBasedClaims, keccak256("rewards hash2"));
     }
 
-    function testSetRewardsHash() public {
+    function testSetRewardsData() public {
         // end reward epoch 0
         _initializeSigningPolicy(1);
         vm.mockCall(
@@ -1178,7 +1178,7 @@ contract FlareSystemManagerTest is Test {
         vm.expectEmit();
         emit RewardsSigned(0, governance, governance,
             keccak256("rewards hash"), noOfWeightBasedClaims, uint64(block.timestamp), true);
-        flareSystemManager.setRewardsHash(0, noOfWeightBasedClaims, keccak256("rewards hash"));
+        flareSystemManager.setRewardsData(0, noOfWeightBasedClaims, keccak256("rewards hash"));
     }
 
 

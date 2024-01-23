@@ -566,18 +566,29 @@ contract EntityManagerTest is Test {
 
     //// set initial voter data
     function testSetInitialVoterDataRevertInProductionMode() public {
-        vm.skip(true);
         vm.mockCall(
-            address(entityManager),
-            abi.encodeWithSelector(bytes4(keccak256("productionMode()"))),
+            address(governanceSettings),
+            abi.encodeWithSelector(bytes4(keccak256("getGovernanceAddress()"))),
+            abi.encode(governance)
+        );
+        vm.mockCall(
+            address(governanceSettings),
+            abi.encodeWithSelector(bytes4(keccak256("isExecutor(address)")), governance),
             abi.encode(true)
+        );
+        vm.mockCall(
+            address(governanceSettings),
+            abi.encodeWithSelector(bytes4(keccak256("getTimelock()"))),
+            abi.encode(1)
         );
 
         vm.startPrank(governance);
-        console2.log("prod. mode", entityManager.productionMode());
+        entityManager.switchToProductionMode();
         EntityManager.InitialVoterData[] memory initialVotersData = new EntityManager.InitialVoterData[](0);
-        vm.expectRevert("already in production mode");
         entityManager.setInitialVoterData(initialVotersData);
+        vm.warp(block.timestamp + 2);
+        vm.expectRevert("already in production mode");
+        entityManager.executeGovernanceCall(EntityManager.setInitialVoterData.selector);
         vm.stopPrank();
     }
 
