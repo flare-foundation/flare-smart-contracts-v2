@@ -5,7 +5,11 @@ import "flare-smart-contracts/contracts/inflation/interface/IIInflationReceiver.
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../utils/implementation/TokenPoolBase.sol";
 
-
+/**
+ * InflationReceiver contract.
+ *
+ * This is a base contract for receiving the inflation.
+ */
 abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, AddressUpdatable {
 
     // totals
@@ -18,21 +22,25 @@ abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, Addre
     // addresses
     address internal inflation;
 
+    /// Event emitted when a new daily inflation is authorized.
     event DailyAuthorizedInflationSet(uint256 authorizedAmountWei);
+    /// Event emitted when new inflation is received.
     event InflationReceived(uint256 amountReceivedWei);
 
-    /**
-     * @dev This modifier ensures that method can only be called by inflation.
-     */
+    /// Modifier that checks that only inflation can call this method.
     modifier onlyInflation{
         _checkOnlyInflation();
         _;
     }
 
+    /**
+     * Constructor.
+     * @param _addressUpdater The address of the AddressUpdater contract.
+     */
     constructor(address _addressUpdater) AddressUpdatable(_addressUpdater) {}
 
     /**
-     * @notice Notify the receiver that it is entitled to receive `_toAuthorizeWei` inflation amount.
+     * Notify the receiver that it is entitled to receive `_toAuthorizeWei` inflation amount.
      * @param _toAuthorizeWei the amount of inflation that can be awarded in the coming day
      */
     function setDailyAuthorizedInflation(uint256 _toAuthorizeWei) external override onlyInflation {
@@ -46,7 +54,7 @@ abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, Addre
     }
 
     /**
-     * @notice Receive native tokens from inflation.
+     * Receive native tokens from inflation.
      */
     function receiveInflation() external payable override mustBalance onlyInflation {
         totalInflationReceivedWei = totalInflationReceivedWei + msg.value;
@@ -58,21 +66,21 @@ abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, Addre
     }
 
     /**
-     * @notice Inflation receivers have a reference to the inflation contract.
+     * Inflation receivers have a reference to the inflation contract.
      */
     function getInflationAddress() external view override returns(address) {
         return inflation;
     }
 
     /**
-     * @notice Return expected balance of reward manager ignoring sent self-destruct funds
+     * Return expected balance of reward manager ignoring sent self-destruct funds.
      */
     function getExpectedBalance() external view override returns(uint256) {
         return _getExpectedBalance();
     }
 
     /**
-     * @notice Implementation of the AddressUpdatable abstract method.
+     * Implementation of the AddressUpdatable abstract method.
      * @dev It can be overridden if other contracts are needed.
      */
     function _updateContractAddresses(
@@ -85,15 +93,18 @@ abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, Addre
     }
 
     /**
-     * @dev Method that is called when new daily inflation is authorized.
+     * Method that is called when new daily inflation is authorized.
      */
     function _setDailyAuthorizedInflation(uint256 _toAuthorizeWei) internal virtual {}
 
     /**
-     * @dev Method that is called when new inflation is received.
+     * Method that is called when new inflation is received.
      */
     function _receiveInflation() internal virtual {}
 
+    /**
+     * Checks that the caller is inflation.
+     */
     function _checkOnlyInflation() private view {
         require(msg.sender == inflation, "inflation only");
     }

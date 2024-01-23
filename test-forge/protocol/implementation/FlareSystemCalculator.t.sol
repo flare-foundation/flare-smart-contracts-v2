@@ -8,15 +8,17 @@ contract FlareSystemCalculatorTest is Test {
   FlareSystemCalculator calculator;
 
   IGovernanceSettings govSetting;
+  address governance;
 
   uint256 internal constant max = 2 ** 128;
 
   function setUp() public {
     govSetting = IGovernanceSettings(makeAddr("govSetting"));
+    governance = makeAddr("initialGovernence");
 
     calculator = new FlareSystemCalculator(
       govSetting,
-      makeAddr("initialGovernence"),
+      governance,
       makeAddr("AddressUpdater"),
       200000,
       20 * 60,
@@ -41,6 +43,9 @@ contract FlareSystemCalculatorTest is Test {
     contractAddresses[4] = makeAddr("WNat");
     contractAddresses[5] = makeAddr("AddressUpdater");
     contractAddresses[6] = makeAddr("FlareSystemManager");
+
+    vm.prank(governance);
+    calculator.enablePChainStakeMirror();
 
     vm.prank(calculator.getAddressUpdater());
     calculator.updateContractAddresses(contractNameHashes, contractAddresses);

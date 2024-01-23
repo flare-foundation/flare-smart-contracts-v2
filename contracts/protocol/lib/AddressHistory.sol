@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title AddressHistory library
- * @notice A contract to manage checkpoints as of a given block.
+ * A contract to manage checkpoints as of a given block.
  * @dev Store value history by block number with detachable state.
  **/
 library AddressHistory {
@@ -35,7 +35,7 @@ library AddressHistory {
     }
 
     /**
-     * @notice Changes the address at the current block.
+     * Changes the address at the current block.
      * @param _self A CheckPointHistoryState instance to manage.
      * @param _account The address to change.
      **/
@@ -162,7 +162,7 @@ library AddressHistory {
     }
 
     /**
-     * @notice Binary search of _checkpoints array.
+     * Binary search of _checkpoints array.
      * @param _checkpoints An array of CheckPoint to search.
      * @param _startIndex Smallest possible index to be returned.
      * @param _blockNumber The block number to search for.

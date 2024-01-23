@@ -11,11 +11,13 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
+ * VoterRegistry contract.
  * Only addresses registered in this contract can vote.
  */
 contract VoterRegistry is Governed, AddressUpdatable {
     using SafePct for uint256;
 
+    /// Voter registration data.
     struct VotersAndWeights {
         address[] voters;
         mapping (address => uint256) weights;
@@ -23,6 +25,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
         uint16 normalisedWeightsSum;
     }
 
+    /// Signature data.
     struct Signature {
         uint8 v;
         bytes32 r;
@@ -32,7 +35,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     uint256 internal constant UINT16_MAX = type(uint16).max;
     uint256 internal constant UINT256_MAX = type(uint256).max;
 
-    /// Maximum number of voters in the register.
+    /// Maximum number of voters in one reward epoch.
     uint256 public maxVoters;
 
     /// In case of providing bad votes (e.g. ftso collusion), the voter can be chilled for a few reward epochs.
@@ -43,18 +46,25 @@ contract VoterRegistry is Governed, AddressUpdatable {
     mapping(uint256 => VotersAndWeights) internal register;
 
     // mapping: rewardEpochId => block number of new signing policy initialisation start
+    /// Snapshot of the voters' addresses for a given reward epoch.
     mapping(uint256 => uint256) public newSigningPolicyInitializationStartBlockNumber;
 
     // Addresses of the external contracts.
+    /// The FlareSystemManager contract.
     FlareSystemManager public flareSystemManager;
+    /// The EntityManager contract.
     EntityManager public entityManager;
+    /// The FlareSystemCalculator contract.
     FlareSystemCalculator public flareSystemCalculator;
 
     string public systemRegistrationContractName;
     address public systemRegistrationContractAddress;
 
+    /// Event emitted when a voter is chilled.
     event VoterChilled(address voter, uint256 untilRewardEpochId);
+    /// Event emitted when a voter is removed.
     event VoterRemoved(address voter, uint256 rewardEpochId);
+    /// Event emitted when a voter is registered.
     event VoterRegistered(
         address voter,
         uint24 rewardEpochId,
@@ -71,11 +81,22 @@ contract VoterRegistry is Governed, AddressUpdatable {
         _;
     }
 
+    /// Only system registration contract can call this method.
     modifier onlySystemRegistrationContract {
         require(msg.sender == systemRegistrationContractAddress, "only system registration contract");
         _;
     }
 
+    /**
+     * Constructor.
+     * @param _governanceSettings The address of the GovernanceSettings contract.
+     * @param _initialGovernance The initial governance address.
+     * @param _addressUpdater The address of the AddressUpdater contract.
+     * @param _maxVoters The maximum number of voters in one reward epoch.
+     * @param _firstRewardEpochId The first reward epoch id.
+     * @param _initialVoters The initial voters' addresses.
+     * @param _initialNormalisedWeights The initial voters' normalised weights.
+     */
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
@@ -105,7 +126,9 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Register voter
+     * Registers a voter if the weight is high enough.
+     * @param _voter The voter address.
+     * @param _signature The signature.
      */
     function registerVoter(address _voter, Signature calldata _signature) external {
         (uint24 rewardEpochId, EntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
@@ -120,6 +143,8 @@ contract VoterRegistry is Governed, AddressUpdatable {
 
     /**
      * Enables automatic voter registration triggered by system registration contract.
+     * @param _voter The voter address.
+     * @dev Only system registration contract can call this method.
      */
     function systemRegistration(address _voter) external onlySystemRegistrationContract {
         (uint24 rewardEpochId, EntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
@@ -128,6 +153,9 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
+     * Chills voter for a given number of reward epochs.
+     * @param _voter The voter address.
+     * @param _noOfRewardEpochs The number of reward epochs to chill the voter for.
      * @dev Only governance can call this method.
      */
     function chillVoter(
@@ -166,7 +194,9 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Sets new signing policy initialisation start block number
+     * Sets new signing policy initialisation start block number for a given reward epoch id.
+     * @param _rewardEpochId The reward epoch id.
+     * @dev Only FlareSystemManager contract can call this method.
      */
     function setNewSigningPolicyInitializationStartBlockNumber(uint256 _rewardEpochId)
         external onlyFlareSystemManager
@@ -178,7 +208,9 @@ contract VoterRegistry is Governed, AddressUpdatable {
 
     /**
      * Creates signing policy snapshot and returns the list of registered signing policy addresses
-     * and normalised weights for a given reward epoch
+     * and normalised weights for a given reward epoch.
+     * @param _rewardEpochId The reward epoch id.
+     * @dev Only FlareSystemManager contract can call this method.
      */
     function createSigningPolicySnapshot(uint256 _rewardEpochId)
         external onlyFlareSystemManager
@@ -216,14 +248,14 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the list of registered voters for a given reward epoch
+     * Returns the list of registered voters for a given reward epoch.
      */
     function getRegisteredVoters(uint256 _rewardEpochId) external view returns (address[] memory) {
         return register[_rewardEpochId].voters;
     }
 
     /**
-     * Returns the list of registered voters' data provider addresses for a given reward epoch
+     * Returns the list of registered voters' data provider addresses for a given reward epoch.
      */
     function getRegisteredSubmitAddresses(
         uint256 _rewardEpochId
@@ -236,7 +268,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the list of registered voters' deposit signatures addresses for a given reward epoch
+     * Returns the list of registered voters' deposit signatures addresses for a given reward epoch.
      */
     function getRegisteredSubmitSignaturesAddresses(
         uint256 _rewardEpochId
@@ -249,7 +281,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the list of registered voters' signing policy addresses for a given reward epoch
+     * Returns the list of registered voters' signing policy addresses for a given reward epoch.
      */
     function getRegisteredSigningPolicyAddresses(
         uint256 _rewardEpochId
@@ -262,7 +294,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the list of registered voters' delegation addresses for a given reward epoch
+     * Returns the list of registered voters' delegation addresses for a given reward epoch.
      */
     function getRegisteredDelegationAddresses(
         uint256 _rewardEpochId
@@ -275,14 +307,14 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the number of registered voters for a given reward epoch
+     * Returns the number of registered voters for a given reward epoch.
      */
     function getNumberOfRegisteredVoters(uint256 _rewardEpochId) external view returns (uint256) {
         return register[_rewardEpochId].voters.length;
     }
 
     /**
-     * Returns voter's address and normalised weight for a given reward epoch and signing policy address
+     * Returns voter's address and normalised weight for a given reward epoch and signing policy address.
      */
     function getVoterWithNormalisedWeight(
         uint256 _rewardEpochId,
@@ -304,7 +336,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns voter's public key and normalised weight for a given reward epoch and signing policy address
+     * Returns voter's public key and normalised weight for a given reward epoch and signing policy address.
      */
     function getPublicKeyAndNormalisedWeight(
         uint256 _rewardEpochId,
@@ -354,6 +386,9 @@ contract VoterRegistry is Governed, AddressUpdatable {
 
     /**
      * Request to register `_voter` account - implementation.
+     * @param _voter The voter address.
+     * @param _rewardEpochId The reward epoch id.
+     * @param _voterAddresses The voter's addresses.
      */
     function _registerVoter(
         address _voter,
@@ -420,6 +455,9 @@ contract VoterRegistry is Governed, AddressUpdatable {
         );
     }
 
+    /**
+     * Returns registration data for a given voter.
+     */
     function _getRegistrationData(address _voter)
         internal view
         returns(
