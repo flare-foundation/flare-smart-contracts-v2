@@ -226,7 +226,7 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable {
         returns (bytes memory _decimals)
     {
         //slither-disable-next-line weak-prng
-        assert(_feedNames.length % 8 == 0);
+        require(_feedNames.length % 8 == 0, "invalid _feedNames length");
         uint256 length = _feedNames.length / 8;
         _decimals = new bytes(length);
         bytes memory feedName = new bytes(8);

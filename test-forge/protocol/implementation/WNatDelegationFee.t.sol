@@ -88,6 +88,12 @@ contract WNatDelegationFeeTest is Test {
         feeManager.setVoterFeePercentage(uint16(500));
     }
 
+    function testGetVoterFeePercentageRevert() public {
+        _mockGetCurrentEpochId(1);
+        vm.expectRevert("invalid reward epoch id");
+        feeManager.getVoterFeePercentage(voter, 6);
+    }
+
     //// helper functions
     function _mockGetCurrentEpochId(uint256 _epochId) private {
         vm.mockCall(
