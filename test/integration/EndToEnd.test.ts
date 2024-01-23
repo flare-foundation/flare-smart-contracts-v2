@@ -207,6 +207,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             rewardExpiryOffsetSeconds: 90 * 24 * 3600
         };
 
+        const initialSettings = {
+            initialRandomVotePowerBlockSelectionSize: 1,
+            initialRewardEpochId: 0,
+            initialRewardEpochThreshold: initialThreshold
+        }
+
         const firstVotingRoundStartTs = now.toNumber() - FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID * VOTING_EPOCH_DURATION_SEC;
 
         flareSystemManager = await FlareSystemManager.new(
@@ -219,9 +225,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             VOTING_EPOCH_DURATION_SEC,
             FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            1,
-            0,
-            initialThreshold
+            initialSettings
         );
 
         rewardManager = await RewardManager.new(

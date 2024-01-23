@@ -23,6 +23,7 @@ contract FlareSystemManagerTest is Test {
     Relay private relay;
 
     FlareSystemManager.Settings private settings;
+    FlareSystemManager.InitialSettings private initialSettings;
     address private voter1;
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -114,6 +115,12 @@ contract FlareSystemManagerTest is Test {
             1000
         );
 
+        initialSettings = FlareSystemManager.InitialSettings(
+            5,
+            0,
+            0
+        );
+
         flareSystemManager = new FlareSystemManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
@@ -124,9 +131,7 @@ contract FlareSystemManagerTest is Test {
             VOTING_EPOCH_DURATION_SEC,
             0,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            5,
-            0,
-            0
+            initialSettings
         );
 
         mockVoterRegistry = makeAddr("voterRegistry");
@@ -197,9 +202,7 @@ contract FlareSystemManagerTest is Test {
             VOTING_EPOCH_DURATION_SEC,
             0,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            5,
-            0,
-            0
+            initialSettings
         );
     }
 
@@ -215,9 +218,7 @@ contract FlareSystemManagerTest is Test {
             VOTING_EPOCH_DURATION_SEC,
             0,
             0,
-            5,
-            0,
-            0
+            initialSettings
         );
     }
 
@@ -233,9 +234,7 @@ contract FlareSystemManagerTest is Test {
             0,
             0,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            5,
-            0,
-            0
+            initialSettings
         );
     }
 
@@ -252,9 +251,7 @@ contract FlareSystemManagerTest is Test {
             VOTING_EPOCH_DURATION_SEC,
             0,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            5,
-            0,
-            0
+            initialSettings
         );
     }
 
@@ -271,13 +268,12 @@ contract FlareSystemManagerTest is Test {
             VOTING_EPOCH_DURATION_SEC,
             0,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            5,
-            0,
-            0
+            initialSettings
         );
     }
 
     function testRevertZeroRandomAcqBlocks() public {
+        initialSettings.initialRandomVotePowerBlockSelectionSize = 0;
         vm.expectRevert("zero blocks");
         new FlareSystemManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
@@ -289,9 +285,7 @@ contract FlareSystemManagerTest is Test {
             VOTING_EPOCH_DURATION_SEC,
             0,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            0,
-            0,
-            0
+            initialSettings
         );
     }
 
@@ -309,9 +303,7 @@ contract FlareSystemManagerTest is Test {
             VOTING_EPOCH_DURATION_SEC,
             0,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            5,
-            0,
-            0
+            initialSettings
         );
     }
 

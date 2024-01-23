@@ -206,7 +206,7 @@ export async function deployContracts(
 
   const initialVoters = [governanceAccount.address];
   const initialWeights = [1000];
-  const intialThreshold = 500;
+  const initialThreshold = 500;
 
   const voterRegistry = await VoterRegistry.new(
     governanceSettings.address,
@@ -231,11 +231,17 @@ export async function deployContracts(
   const initialSigningPolicy: ISigningPolicy = {
     rewardEpochId: 0,
     startVotingRoundId: FIRST_REWARD_EPOCH_VOTING_ROUND_ID,
-    threshold: intialThreshold,
+    threshold: initialThreshold,
     seed: web3.utils.keccak256("123"),
     voters: initialVoters,
     weights: initialWeights,
   };
+
+  const initialSettings = {
+    initialRandomVotePowerBlockSelectionSize: 1,
+    initialRewardEpochId: 0,
+    initialRewardEpochThreshold: initialThreshold
+}
 
   const settings = systemSettings(rewardEpochStart);
   const flareSystemManager: FlareSystemManagerInstance = await FlareSystemManager.new(
@@ -248,9 +254,7 @@ export async function deployContracts(
     settings.votingEpochDurationSeconds,
     settings.firstRewardEpochStartVotingRoundId,
     settings.rewardEpochDurationInVotingEpochs,
-    1,
-    0,
-    intialThreshold
+    initialSettings
   );
 
   const rewardManager = await RewardManager.new(

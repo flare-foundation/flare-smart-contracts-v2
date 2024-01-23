@@ -40,6 +40,13 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         uint32 rewardExpiryOffsetSeconds;
     }
 
+    /// Initial settings.
+    struct InitialSettings {
+        uint16 initialRandomVotePowerBlockSelectionSize;
+        uint24 initialRewardEpochId;
+        uint16 initialRewardEpochThreshold;
+    }
+
     /// Voter data - timestamp and block number of signing
     struct VoterData {
         uint64 signTs;
@@ -248,16 +255,14 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         uint8 _votingEpochDurationSeconds,
         uint32 _firstRewardEpochStartVotingRoundId,
         uint16 _rewardEpochDurationInVotingEpochs,
-        uint16 _initialRandomVotePowerBlockSelectionSize,
-        uint24 _initialRewardEpochId,
-        uint16 _initialRewardEpochThreshold
+        InitialSettings memory _initialSettings
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
         require(_flareDaemon != address(0), "flare daemon zero");
         require(_rewardEpochDurationInVotingEpochs > 0, "reward epoch duration zero");
         require(_votingEpochDurationSeconds > 0, "voting epoch duration zero");
-        require(_initialRandomVotePowerBlockSelectionSize > 0, "zero blocks");
+        require(_initialSettings.initialRandomVotePowerBlockSelectionSize > 0, "zero blocks");
 
         // set updatable settings
         _updateSettings(_settings);
@@ -269,12 +274,13 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         firstRewardEpochStartTs = _firstVotingRoundStartTs +
             _firstRewardEpochStartVotingRoundId * _votingEpochDurationSeconds;
         rewardEpochDurationSeconds = uint64(_rewardEpochDurationInVotingEpochs) * _votingEpochDurationSeconds;
-        initialRandomVotePowerBlockSelectionSize = _initialRandomVotePowerBlockSelectionSize;
+        initialRandomVotePowerBlockSelectionSize = _initialSettings.initialRandomVotePowerBlockSelectionSize;
 
-        rewardEpochIdToExpireNext = _initialRewardEpochId;
+        rewardEpochIdToExpireNext = _initialSettings.initialRewardEpochId;
         currentRewardEpochExpectedEndTs = firstRewardEpochStartTs +
-            (_initialRewardEpochId + 1) * rewardEpochDurationSeconds;
-        rewardEpochState[_initialRewardEpochId].threshold = _initialRewardEpochThreshold;
+            (_initialSettings.initialRewardEpochId + 1) * rewardEpochDurationSeconds;
+        rewardEpochState[_initialSettings.initialRewardEpochId].threshold =
+            _initialSettings.initialRewardEpochThreshold;
         require(
             currentRewardEpochExpectedEndTs > block.timestamp + _settings.newSigningPolicyInitializationStartSeconds,
             "reward epoch end not in the future");
