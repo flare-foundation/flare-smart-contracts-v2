@@ -33,6 +33,7 @@ import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typech
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 import { FlareSystemCalculatorContract, FlareSystemCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemCalculator';
 import { CleanupBlockNumberManagerContract, CleanupBlockNumberManagerInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/CleanupBlockNumberManager';
+import { RelayMessage } from '../../scripts/libs/protocol/RelayMessage';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -323,6 +324,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         // set reward offers manager list
         await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address]);
 
+        // set initial reward data
+        await rewardManager.setInitialRewardData();
+
         // send some inflation funds
         const inflationFunds = web3.utils.toWei("200000");
         await ftsoRewardOffersManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION });
@@ -336,7 +340,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             {
                 feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "XRP", "FLR", "ETH"]),
                 inflationShare: 200,
-                minimalThresholdBIPS: 5000,
+                minRewardedTurnoutBIPS: 5000,
                 mode: 0,
                 primaryBandRewardSharePPM: 700000,
                 secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([400, 800, 100, 250])
@@ -346,7 +350,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             {
                 feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "LTC"]),
                 inflationShare: 100,
-                minimalThresholdBIPS: 5000,
+                minRewardedTurnoutBIPS: 5000,
                 mode: 0,
                 primaryBandRewardSharePPM: 600000,
                 secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([200, 1000])
@@ -422,17 +426,22 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             NEW_SIGNING_POLICY_INITIALIZATION_START_SEC / VOTING_EPOCH_DURATION_SEC + 1;
         const quality = true;
 
-        const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT };
-        const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
-        const messageHash = web3.utils.keccak256("0x" + fullMessage);
+        const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isSecureRandom: quality, merkleRoot: RANDOM_ROOT };
+        const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
         const signatures = await generateSignatures(privateKeys.map(x => x.privateKey), messageHash, 51);
-        const signingPolicy = SigningPolicy.encode(initialSigningPolicy).slice(2);
-        const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
+
+        const relayMessage = {
+            signingPolicy: initialSigningPolicy,
+            signatures,
+            protocolMessageMerkleRoot: messageData,
+        };
+
+        const fullData = RelayMessage.encode(relayMessage);
 
         const tx = await web3.eth.sendTransaction({
             from: accounts[0],
             to: relay.address,
-            data: fullData,
+            data: RELAY_SELECTOR + fullData.slice(2),
         });
         console.log(tx.gasUsed);
         expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
@@ -564,17 +573,23 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const quality = true;
         const root = web3.utils.keccak256("root1");
 
-        const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: root };
-        const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
-        const messageHash = web3.utils.keccak256("0x" + fullMessage);
+        const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isSecureRandom: quality, merkleRoot: root };
+        const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+
         const signatures = await generateSignatures(privateKeys.slice(30, 34).map(x => x.privateKey), messageHash, 4);
-        const signingPolicy = SigningPolicy.encode(newSigningPolicy).slice(2);
-        const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
+
+        const relayMessage = {
+            signingPolicy: newSigningPolicy,
+            signatures,
+            protocolMessageMerkleRoot: messageData,
+        };
+
+        const fullData = RelayMessage.encode(relayMessage);
 
         await web3.eth.sendTransaction({
             from: accounts[0],
             to: relay.address,
-            data: fullData,
+            data: RELAY_SELECTOR + fullData.slice(2),
         });
         expect(await relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
         expect((await flareSystemManager.getCurrentRandom()).eq(toBN(root))).to.be.true;
@@ -583,7 +598,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await web3.eth.sendTransaction({
             from: accounts[0],
             to: relay2.address,
-            data: fullData,
+            data: RELAY_SELECTOR + fullData.slice(2),
         });
         expect(await relay2.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
     });
@@ -604,17 +619,23 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             NEW_SIGNING_POLICY_INITIALIZATION_START_SEC / VOTING_EPOCH_DURATION_SEC + 1;
         const quality = true;
 
-        const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, randomQualityScore: quality, merkleRoot: RANDOM_ROOT2 };
-        const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
-        const messageHash = web3.utils.keccak256("0x" + fullMessage);
+        const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isSecureRandom: quality, merkleRoot: RANDOM_ROOT2 };
+        const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+
         const signatures = await generateSignatures(privateKeys.slice(30, 34).map(x => x.privateKey), messageHash, 4);
-        const signingPolicy = SigningPolicy.encode(newSigningPolicy).slice(2);
-        const fullData = RELAY_SELECTOR + signingPolicy + fullMessage + signatures;
+
+        const relayMessage = {
+            signingPolicy: newSigningPolicy,
+            signatures,
+            protocolMessageMerkleRoot: messageData,
+        };
+
+        const fullData = RelayMessage.encode(relayMessage);
 
         await web3.eth.sendTransaction({
             from: accounts[0],
             to: relay.address,
-            data: fullData,
+            data: RELAY_SELECTOR + fullData.slice(2),
         });
         expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
     });

@@ -23,6 +23,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
         mapping (address => uint256) weights;
         uint128 weightsSum;
         uint16 normalisedWeightsSum;
+        uint16 normalisedWeightsSumOfVotersWithPublicKeys;
     }
 
     /// Signature data.
@@ -57,7 +58,6 @@ contract VoterRegistry is Governed, AddressUpdatable {
     /// The FlareSystemCalculator contract.
     FlareSystemCalculator public flareSystemCalculator;
 
-    string public systemRegistrationContractName;
     address public systemRegistrationContractAddress;
 
     /// Event emitted when a voter is chilled.
@@ -93,7 +93,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
      * @param _initialGovernance The initial governance address.
      * @param _addressUpdater The address of the AddressUpdater contract.
      * @param _maxVoters The maximum number of voters in one reward epoch.
-     * @param _firstRewardEpochId The first reward epoch id.
+     * @param _initialRewardEpochId The initial reward epoch id.
      * @param _initialVoters The initial voters' addresses.
      * @param _initialNormalisedWeights The initial voters' normalised weights.
      */
@@ -102,7 +102,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
         address _initialGovernance,
         address _addressUpdater,
         uint256 _maxVoters,
-        uint256 _firstRewardEpochId,
+        uint256 _initialRewardEpochId,
         address[] memory _initialVoters,
         uint16[] memory _initialNormalisedWeights
     )
@@ -114,7 +114,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
         uint256 length = _initialVoters.length;
         require(length > 0 && length <= _maxVoters, "_initialVoters length invalid");
         require(length == _initialNormalisedWeights.length, "array lengths do not match");
-        VotersAndWeights storage votersAndWeights = register[_firstRewardEpochId];
+        VotersAndWeights storage votersAndWeights = register[_initialRewardEpochId];
         uint16 weightsSum = 0;
         for (uint256 i = 0; i < length; i++) {
             votersAndWeights.voters.push(_initialVoters[i]);
@@ -186,11 +186,8 @@ contract VoterRegistry is Governed, AddressUpdatable {
      * Sets system registration contract.
      * @dev Only governance can call this method.
      */
-    function setSystemRegistrationContractName(string memory _contractName) external onlyGovernance {
-        systemRegistrationContractName = _contractName;
-        if (keccak256(abi.encode(_contractName)) == keccak256(abi.encode(""))) {
-            systemRegistrationContractAddress = address(0);
-        }
+    function setSystemRegistrationContractAddress(address _systemRegistrationContractAddress) external onlyGovernance {
+        systemRegistrationContractAddress = _systemRegistrationContractAddress;
     }
 
     /**
@@ -236,65 +233,49 @@ contract VoterRegistry is Governed, AddressUpdatable {
         _signingPolicyAddresses = entityManager.getSigningPolicyAddresses(voters,
             newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
 
+        // get public keys of voters
+        (bytes32[] memory parts1, bytes32[] memory parts2) = entityManager.getPublicKeys(voters,
+            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+
         _normalisedWeights = new uint16[](length);
+        uint16 normalisedWeightsSumOfVotersWithPublicKeys = 0;
         // normalisation of weights
         for (uint256 i = 0; i < length; i++) {
-            _normalisedWeights[i] = uint16(weights[i] * UINT16_MAX / weightsSum); // weights[i] <= weightsSum
+            _normalisedWeights[i] = uint16((weights[i] * UINT16_MAX) / weightsSum); // weights[i] <= weightsSum
             _normalisedWeightsSum += _normalisedWeights[i];
+            if (parts1[i] != bytes32(0) || parts2[i] != bytes32(0)) {
+                normalisedWeightsSumOfVotersWithPublicKeys += _normalisedWeights[i];
+            }
         }
 
         votersAndWeights.weightsSum = uint128(weightsSum);
         votersAndWeights.normalisedWeightsSum = _normalisedWeightsSum;
+        votersAndWeights.normalisedWeightsSumOfVotersWithPublicKeys = normalisedWeightsSumOfVotersWithPublicKeys;
     }
 
     /**
      * Returns the list of registered voters for a given reward epoch.
+     * List can be empty if the reward epoch is not supported (before initial reward epoch or future reward epoch).
+     * List for the next reward epoch can still change until the signing policy snapshot is created.
+     * @param _rewardEpochId The reward epoch id.
      */
     function getRegisteredVoters(uint256 _rewardEpochId) external view returns (address[] memory) {
         return register[_rewardEpochId].voters;
     }
 
     /**
-     * Returns the list of registered voters' data provider addresses for a given reward epoch.
+     * Returns the number of registered voters for a given reward epoch.
+     * Size can be zero if the reward epoch is not supported (before initial reward epoch or future reward epoch).
+     * Size for the next reward epoch can still change until the signing policy snapshot is created.
+     * @param _rewardEpochId The reward epoch id.
      */
-    function getRegisteredSubmitAddresses(
-        uint256 _rewardEpochId
-    )
-        external view
-        returns (address[] memory)
-    {
-        return entityManager.getSubmitAddresses(register[_rewardEpochId].voters,
-            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
-    }
-
-    /**
-     * Returns the list of registered voters' deposit signatures addresses for a given reward epoch.
-     */
-    function getRegisteredSubmitSignaturesAddresses(
-        uint256 _rewardEpochId
-    )
-        external view
-        returns (address[] memory _signingPolicyAddresses)
-    {
-        return entityManager.getSubmitSignaturesAddresses(register[_rewardEpochId].voters,
-            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
-    }
-
-    /**
-     * Returns the list of registered voters' signing policy addresses for a given reward epoch.
-     */
-    function getRegisteredSigningPolicyAddresses(
-        uint256 _rewardEpochId
-    )
-        external view
-        returns (address[] memory _signingPolicyAddresses)
-    {
-        return entityManager.getSigningPolicyAddresses(register[_rewardEpochId].voters,
-            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+    function getNumberOfRegisteredVoters(uint256 _rewardEpochId) external view returns (uint256) {
+        return register[_rewardEpochId].voters.length;
     }
 
     /**
      * Returns the list of registered voters' delegation addresses for a given reward epoch.
+     * @param _rewardEpochId The reward epoch id.
      */
     function getRegisteredDelegationAddresses(
         uint256 _rewardEpochId
@@ -302,19 +283,92 @@ contract VoterRegistry is Governed, AddressUpdatable {
         external view
         returns (address[] memory _delegationAddresses)
     {
+        require(register[_rewardEpochId].weightsSum > 0, "reward epoch id not supported");
         return entityManager.getDelegationAddresses(register[_rewardEpochId].voters,
             newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
     }
 
     /**
-     * Returns the number of registered voters for a given reward epoch.
+     * Returns the list of registered voters' data provider addresses for a given reward epoch.
+     * @param _rewardEpochId The reward epoch id.
      */
-    function getNumberOfRegisteredVoters(uint256 _rewardEpochId) external view returns (uint256) {
-        return register[_rewardEpochId].voters.length;
+    function getRegisteredSubmitAddresses(
+        uint256 _rewardEpochId
+    )
+        external view
+        returns (address[] memory)
+    {
+        require(register[_rewardEpochId].weightsSum > 0, "reward epoch id not supported");
+        return entityManager.getSubmitAddresses(register[_rewardEpochId].voters,
+            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+    }
+
+    /**
+     * Returns the list of registered voters' deposit signatures addresses for a given reward epoch.
+     * @param _rewardEpochId The reward epoch id.
+     */
+    function getRegisteredSubmitSignaturesAddresses(
+        uint256 _rewardEpochId
+    )
+        external view
+        returns (address[] memory _signingPolicyAddresses)
+    {
+        require(register[_rewardEpochId].weightsSum > 0, "reward epoch id not supported");
+        return entityManager.getSubmitSignaturesAddresses(register[_rewardEpochId].voters,
+            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+    }
+
+    /**
+     * Returns the list of registered voters' signing policy addresses for a given reward epoch.
+     * @param _rewardEpochId The reward epoch id.
+     */
+    function getRegisteredSigningPolicyAddresses(
+        uint256 _rewardEpochId
+    )
+        external view
+        returns (address[] memory _signingPolicyAddresses)
+    {
+        require(register[_rewardEpochId].weightsSum > 0, "reward epoch id not supported");
+        return entityManager.getSigningPolicyAddresses(register[_rewardEpochId].voters,
+            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+    }
+
+    /**
+     * Returns the list of registered voters' public keys (parts1 and parts2) for a given reward epoch.
+     * @param _rewardEpochId The reward epoch id.
+     */
+    function getRegisteredPublicKeys(
+        uint256 _rewardEpochId
+    )
+        external view
+        returns (bytes32[] memory _parts1, bytes32[] memory _parts2)
+    {
+        require(register[_rewardEpochId].weightsSum > 0, "reward epoch id not supported");
+        return entityManager.getPublicKeys(register[_rewardEpochId].voters,
+            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+    }
+
+    /**
+     * Returns the list of registered voters' node ids for a given reward epoch.
+     * @param _rewardEpochId The reward epoch id.
+     */
+    function getRegisteredNodeIds(
+        uint256 _rewardEpochId
+    )
+        external view
+        returns (bytes20[][] memory _nodeIds)
+    {
+        require(register[_rewardEpochId].weightsSum > 0, "reward epoch id not supported");
+        return entityManager.getNodeIds(register[_rewardEpochId].voters,
+            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
     }
 
     /**
      * Returns voter's address and normalised weight for a given reward epoch and signing policy address.
+     * @param _rewardEpochId The reward epoch id.
+     * @param _signingPolicyAddress The signing policy address of the voter.
+     * @return _voter The voter address.
+     * @return _normalisedWeight The normalised weight of the voter.
      */
     function getVoterWithNormalisedWeight(
         uint256 _rewardEpochId,
@@ -326,17 +380,24 @@ contract VoterRegistry is Governed, AddressUpdatable {
             uint16 _normalisedWeight
         )
     {
-        uint256 weightsSum = register[_rewardEpochId].weightsSum;
+        VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
+        uint256 weightsSum = votersAndWeights.weightsSum;
         require(weightsSum > 0, "reward epoch id not supported");
         _voter = entityManager.getVoterForSigningPolicyAddress(_signingPolicyAddress,
             newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
-        uint256 weight = register[_rewardEpochId].weights[_voter];
+        uint256 weight = votersAndWeights.weights[_voter];
         require(weight > 0, "voter not registered");
-        _normalisedWeight = uint16(weight * UINT16_MAX / weightsSum);
+        _normalisedWeight = uint16((weight * UINT16_MAX) / weightsSum);
     }
 
     /**
      * Returns voter's public key and normalised weight for a given reward epoch and signing policy address.
+     * @param _rewardEpochId The reward epoch id.
+     * @param _signingPolicyAddress The signing policy address.
+     * @return _publicKeyPart1 The first part of the public key.
+     * @return _publicKeyPart2 The second part of the public key.
+     * @return _normalisedWeight The normalised weight of the voter.
+     * @return _normalisedWeightsSumOfVotersWithPublicKeys The normalised weights sum of voters with public keys.
      */
     function getPublicKeyAndNormalisedWeight(
         uint256 _rewardEpochId,
@@ -346,19 +407,49 @@ contract VoterRegistry is Governed, AddressUpdatable {
         returns (
             bytes32 _publicKeyPart1,
             bytes32 _publicKeyPart2,
-            uint16 _normalisedWeight
+            uint16 _normalisedWeight,
+            uint16 _normalisedWeightsSumOfVotersWithPublicKeys
         )
     {
-        uint256 weightsSum = register[_rewardEpochId].weightsSum;
+        VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
+        uint256 weightsSum = votersAndWeights.weightsSum;
         require(weightsSum > 0, "reward epoch id not supported");
         uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[_rewardEpochId];
         address voter = entityManager.getVoterForSigningPolicyAddress(_signingPolicyAddress, initBlock);
-        uint256 weight = register[_rewardEpochId].weights[voter];
+        uint256 weight = votersAndWeights.weights[voter];
         require(weight > 0, "voter not registered");
-        _normalisedWeight = uint16(weight * UINT16_MAX / weightsSum);
+        _normalisedWeight = uint16((weight * UINT16_MAX) / weightsSum);
         (_publicKeyPart1, _publicKeyPart2) = entityManager.getPublicKeyOfAt(voter, initBlock);
+        _normalisedWeightsSumOfVotersWithPublicKeys = votersAndWeights.normalisedWeightsSumOfVotersWithPublicKeys;
     }
 
+    /**
+     * Returns weights sums for a given reward epoch id.
+     * @param _rewardEpochId The reward epoch id.
+     * @return _weightsSum The weights sum.
+     * @return _normalisedWeightsSum The normalised weights sum.
+     * @return _normalisedWeightsSumOfVotersWithPublicKeys The normalised weights sum of voters with public keys.
+     */
+    function getWeightsSums(uint256 _rewardEpochId)
+        external view
+        returns (
+            uint128 _weightsSum,
+            uint16 _normalisedWeightsSum,
+            uint16 _normalisedWeightsSumOfVotersWithPublicKeys
+        )
+    {
+        VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
+        _weightsSum = votersAndWeights.weightsSum;
+        _normalisedWeightsSum = votersAndWeights.normalisedWeightsSum;
+        _normalisedWeightsSumOfVotersWithPublicKeys = votersAndWeights.normalisedWeightsSumOfVotersWithPublicKeys;
+        require(_weightsSum > 0, "reward epoch id not supported");
+    }
+
+    /**
+     * Returns true if a voter was (is currently) registered in a given reward epoch.
+     * @param _voter The voter address.
+     * @param _rewardEpochId The reward epoch id.
+     */
     function isVoterRegistered(address _voter, uint256 _rewardEpochId) external view returns(bool) {
         return register[_rewardEpochId].weights[_voter] > 0;
     }
@@ -377,11 +468,6 @@ contract VoterRegistry is Governed, AddressUpdatable {
         entityManager = EntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
         flareSystemCalculator = FlareSystemCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemCalculator"));
-
-        if (keccak256(abi.encode(systemRegistrationContractName)) != keccak256(abi.encode(""))) {
-            systemRegistrationContractAddress =
-                _getContractAddress(_contractNameHashes, _contractAddresses, systemRegistrationContractName);
-        }
     }
 
     /**
@@ -457,6 +543,9 @@ contract VoterRegistry is Governed, AddressUpdatable {
 
     /**
      * Returns registration data for a given voter.
+     * @param _voter The voter address.
+     * @return _rewardEpochId The reward epoch id.
+     * @return _voterAddresses The voter's addresses.
      */
     function _getRegistrationData(address _voter)
         internal view

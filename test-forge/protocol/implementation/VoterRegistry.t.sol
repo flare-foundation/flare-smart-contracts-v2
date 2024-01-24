@@ -33,10 +33,7 @@ contract VoterRegistryTest is Test {
     uint256 private cChainTotalVP;
     uint256 private wNatTotalVP;
 
-    string public mockSystemRegistrationContractName;
-    address public mockSystemRegistrationContractAddress;
-
-    uint256 private constant UINT16_MAX = type(uint16).max;
+    uint16 private constant UINT16_MAX = type(uint16).max;
 
     event VoterChilled(address voter, uint256 untilRewardEpochId);
     event VoterRemoved(address voter, uint256 rewardEpochId);
@@ -70,20 +67,17 @@ contract VoterRegistryTest is Test {
         mockFlareSystemManager = makeAddr("flareSystemManager");
         mockEntityManager = makeAddr("entityManager");
         mockFlareSystemCalculator = makeAddr("flareSystemCalculator");
-        mockSystemRegistrationContractAddress = makeAddr("systemRegistration");
         vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](5);
-        contractAddresses = new address[](5);
+        contractNameHashes = new bytes32[](4);
+        contractAddresses = new address[](4);
         contractNameHashes[0] = _keccak256AbiEncode("AddressUpdater");
         contractNameHashes[1] = _keccak256AbiEncode("FlareSystemManager");
         contractNameHashes[2] = _keccak256AbiEncode("EntityManager");
         contractNameHashes[3] = _keccak256AbiEncode("FlareSystemCalculator");
-        contractNameHashes[4] = _keccak256AbiEncode(mockSystemRegistrationContractName);
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockFlareSystemManager;
         contractAddresses[2] = mockEntityManager;
         contractAddresses[3] = mockFlareSystemCalculator;
-        contractAddresses[4] = mockSystemRegistrationContractAddress;
         voterRegistry.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
     }
@@ -570,7 +564,7 @@ contract VoterRegistryTest is Test {
 
         uint256 sum = initialVotersWeights[0] +
             initialVotersWeights[1] + initialVotersWeights[2] + initialVotersWeights[3];
-        (bytes32 key1, bytes32 key2, uint16 normWeight) =
+        (bytes32 key1, bytes32 key2, uint16 normWeight, uint16 normWeightSum) =
             voterRegistry.getPublicKeyAndNormalisedWeight(1, initialSigningPolicyAddresses[0]);
         assertEq(key1, publicKey1);
         assertEq(key2, publicKey2);
@@ -579,17 +573,11 @@ contract VoterRegistryTest is Test {
 
     function testSystemRegistration() public {
         vm.prank(governance);
-        // contract address is "" -> address should be zero
-        voterRegistry.setSystemRegistrationContractName(mockSystemRegistrationContractName);
         assertEq(voterRegistry.systemRegistrationContractAddress(), address(0));
 
-        // change system registration contract name
-        mockSystemRegistrationContractName = "SystemRegistration";
+        address mockSystemRegistrationContractAddress = makeAddr("systemRegistration");
         vm.prank(governance);
-        voterRegistry.setSystemRegistrationContractName(mockSystemRegistrationContractName);
-        contractNameHashes[4] = _keccak256AbiEncode(mockSystemRegistrationContractName);
-        vm.prank(addressUpdater);
-        voterRegistry.updateContractAddresses(contractNameHashes, contractAddresses);
+        voterRegistry.setSystemRegistrationContractAddress(mockSystemRegistrationContractAddress);
         assertEq(voterRegistry.systemRegistrationContractAddress(), mockSystemRegistrationContractAddress);
 
         // register voters

@@ -24,8 +24,8 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         uint120 amount;
         // feed name - i.e. base/quote symbol
         bytes8 feedName;
-        // minimal reward eligibility threshold in BIPS (basis points)
-        uint16 minimalThresholdBIPS;
+        // minimal reward eligibility turnout threshold in BIPS (basis points)
+        uint16 minRewardedTurnoutBIPS;
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM;
         // secondary band width in PPM (parts per million) in relation to the median
@@ -62,8 +62,8 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         int8 decimals,
         // amount (in wei) of reward in native coin
         uint256 amount,
-        // minimal reward eligibility threshold in BIPS (basis points)
-        uint16 minimalThresholdBIPS,
+        // minimal reward eligibility turnout threshold in BIPS (basis points)
+        uint16 minRewardedTurnoutBIPS,
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM,
         // secondary band width in PPM (parts per million) in relation to the median
@@ -82,8 +82,8 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         bytes decimals,
         // amount (in wei) of reward in native coin
         uint256 amount,
-        // minimal reward eligibility threshold in BIPS (basis points)
-        uint16 minimalThresholdBIPS,
+        // minimal reward eligibility turnout threshold in BIPS (basis points)
+        uint16 minRewardedTurnoutBIPS,
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM,
         // secondary band width in PPM (parts per million) in relation to the median - multiple of 3 (uint24)
@@ -128,7 +128,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         uint256 sumRewardsOfferValues = 0;
         for (uint i = 0; i < _offers.length; ++i) {
             Offer calldata offer = _offers[i];
-            require(offer.minimalThresholdBIPS <= MAX_BIPS, "invalid minimalThresholdBIPS value");
+            require(offer.minRewardedTurnoutBIPS <= MAX_BIPS, "invalid minRewardedTurnoutBIPS value");
             require(offer.primaryBandRewardSharePPM <= PPM_MAX, "invalid primaryBandRewardSharePPM value");
             require(offer.secondaryBandWidthPPM <= PPM_MAX, "invalid secondaryBandWidthPPM value");
             require(offer.amount >= minimalRewardsOfferValueWei, "rewards offer value too small");
@@ -142,7 +142,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
                 offer.feedName,
                 ftsoFeedDecimals.getDecimals(offer.feedName, _nextRewardEpochId),
                 offer.amount,
-                offer.minimalThresholdBIPS,
+                offer.minRewardedTurnoutBIPS,
                 offer.primaryBandRewardSharePPM,
                 offer.secondaryBandWidthPPM,
                 claimBackAddress
@@ -237,7 +237,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
                 config.feedNames,
                 ftsoFeedDecimals.getDecimalsBulk(config.feedNames, nextRewardEpochId),
                 amount,
-                config.minimalThresholdBIPS,
+                config.minRewardedTurnoutBIPS,
                 config.primaryBandRewardSharePPM,
                 config.secondaryBandWidthPPMs,
                 config.mode
