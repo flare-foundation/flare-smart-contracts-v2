@@ -5,6 +5,7 @@ export interface IECDSASignature {
   v: number;
 }
 
+const web3 = new Web3();
 export namespace ECDSASignature {
   /**
    * Encodes ECDSA signature into 0x-prefixed hex string representing byte encoding
@@ -68,5 +69,16 @@ export namespace ECDSASignature {
       r: signatureObject.r,
       s: signatureObject.s
     } as IECDSASignature;
-  }  
+  }
+
+  /**
+   * Recovers signer address from message hash and signature
+   * @param messageHash 
+   * @param signature 
+   * @returns 
+   */
+  export function recoverSigner(messageHash: string, signature: IECDSASignature): string {
+    return web3.eth.accounts.recover(messageHash, "0x" + signature.v.toString(16), signature.r, signature.s).toLowerCase();
+  }
+
 }
