@@ -19,7 +19,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
- * FlareSystemManager is responsible for initialisation of reward epochs and voting rounds using FlareDaemon calls.
+ * FlareSystemManager is responsible for initialization of reward epochs and voting rounds using FlareDaemon calls.
  * This contract is also used for managing signing policies, uptime votes and rewards.
  */
 //solhint-disable-next-line max-states-count
@@ -300,6 +300,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     function daemonize() external override onlyFlareDaemon returns (bool) {
         uint32 currentVotingEpochId = _getCurrentVotingEpochId();
         uint24 currentRewardEpochId = _getCurrentRewardEpochId();
+        uint24 initializationRewardEpochId = currentRewardEpochId;
 
         if (block.timestamp >= currentRewardEpochExpectedEndTs - newSigningPolicyInitializationStartSeconds) {
             uint24 nextRewardEpochId = currentRewardEpochId + 1;
@@ -313,9 +314,9 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
                     voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(nextRewardEpochId);
                     emit RandomAcquisitionStarted(nextRewardEpochId, block.timestamp.toUint64());
                 } else if (state.randomAcquisitionEndTs == 0) {
-                    (uint256 random, bool secureRandom, uint64 randomTs) = _getRandom();
+                    (uint256 random, bool isSecureRandom, uint64 randomTs) = _getRandom();
                     uint64 votePowerBlock = 0;
-                    if (randomTs > state.randomAcquisitionStartTs && secureRandom) {
+                    if (randomTs > state.randomAcquisitionStartTs && isSecureRandom) {
                         votePowerBlock = _selectVotePowerBlock(nextRewardEpochId, random);
                     } else if (state.randomAcquisitionStartBlock + randomAcquisitionMaxDurationBlocks < block.number &&
                         state.randomAcquisitionStartTs + randomAcquisitionMaxDurationSeconds < block.timestamp)
@@ -352,20 +353,21 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
 
             // start new reward epoch if it is time and new signing policy is defined
             if (_isNextRewardEpochId(nextRewardEpochId)) {
+                currentRewardEpochId = nextRewardEpochId;
                 currentRewardEpochExpectedEndTs += rewardEpochDurationSeconds; // update storage value
-                rewardEpochState[nextRewardEpochId].rewardEpochStartTs = block.timestamp.toUint64();
-                rewardEpochState[nextRewardEpochId].rewardEpochStartBlock = block.number.toUint64();
+                rewardEpochState[currentRewardEpochId].rewardEpochStartTs = block.timestamp.toUint64();
+                rewardEpochState[currentRewardEpochId].rewardEpochStartBlock = block.number.toUint64();
                 emit RewardEpochStarted(
-                    nextRewardEpochId,
-                    rewardEpochState[nextRewardEpochId].startVotingRoundId,
+                    currentRewardEpochId,
+                    rewardEpochState[currentRewardEpochId].startVotingRoundId,
                     block.timestamp.toUint64()
                 );
                 if (triggerExpirationAndCleanup) {
                     // close expired reward epochs and cleanup vote power block
-                    _closeExpiredRewardEpochs(nextRewardEpochId);
+                    _closeExpiredRewardEpochs(currentRewardEpochId);
                     _cleanupOnRewardEpochFinalization();
                 }
-                _triggerRewardEpochSwitchover(nextRewardEpochId, currentRewardEpochExpectedEndTs);
+                _triggerRewardEpochSwitchover(currentRewardEpochId, currentRewardEpochExpectedEndTs);
             }
         }
 
@@ -375,11 +377,12 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
             address[] memory submit2Addresses;
             address[] memory submitSignaturesAddresses;
             lastInitializedVotingRoundId = currentVotingEpochId;
-            submit2Addresses = voterRegistry.getRegisteredSubmitAddresses(currentRewardEpochId);
-            submitSignaturesAddresses = voterRegistry.getRegisteredSubmitSignaturesAddresses(currentRewardEpochId);
+            submit2Addresses = voterRegistry.getRegisteredSubmitAddresses(initializationRewardEpochId);
+            submitSignaturesAddresses =
+                voterRegistry.getRegisteredSubmitSignaturesAddresses(initializationRewardEpochId);
             // in case of new reward epoch - get new submit1Addresses otherwise they are the same as submit2Addresses
-            if (_getCurrentRewardEpochId() > currentRewardEpochId) {
-                submit1Addresses = voterRegistry.getRegisteredSubmitAddresses(currentRewardEpochId + 1);
+            if (currentRewardEpochId > initializationRewardEpochId) {
+                submit1Addresses = voterRegistry.getRegisteredSubmitAddresses(currentRewardEpochId);
             } else {
                 submit1Addresses = submit2Addresses;
             }
@@ -394,7 +397,9 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         // if cleanup is triggered elsewhere, check if it is time to close some reward epochs with cleaned up block
         if (!triggerExpirationAndCleanup) {
             uint256 cleanupBlockNumber = rewardManager.cleanupBlockNumber();
-            while (rewardEpochState[rewardEpochIdToExpireNext].votePowerBlock < cleanupBlockNumber) {
+            while (rewardEpochIdToExpireNext < currentRewardEpochId &&
+                rewardEpochState[rewardEpochIdToExpireNext].votePowerBlock < cleanupBlockNumber)
+            {
                 try rewardManager.closeExpiredRewardEpoch(rewardEpochIdToExpireNext) {
                     rewardEpochIdToExpireNext++;
                 } catch {
@@ -745,10 +750,13 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     /**
      * Returns the current random number with quality.
      * @return _currentRandom Current random number.
-     * @return _secureRandom Indicates if the random number is secure.
+     * @return _isSecureRandom Indicates if the random number is secure.
      */
-    function getCurrentRandomWithQuality() external view override returns(uint256 _currentRandom, bool _secureRandom) {
-        (_currentRandom, _secureRandom, ) = _getRandom();
+    function getCurrentRandomWithQuality()
+        external view override
+        returns(uint256 _currentRandom, bool _isSecureRandom)
+    {
+        (_currentRandom, _isSecureRandom, ) = _getRandom();
     }
 
     /**
@@ -930,7 +938,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     }
 
     /**
-     * Initialisation of the next signing policy.
+     * Initialization of the next signing policy.
      * @param _nextRewardEpochId Reward epoch id of the next signing policy.
      */
     function _initializeNextSigningPolicy(uint24 _nextRewardEpochId) internal {
@@ -1005,8 +1013,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         // This loop is clearly bounded by the value currentRewardEpoch, which is
         // always kept to the value of rewardEpochs.length - 1 in code and this value
         // does not change in the loop.
-        while (
-            rewardEpochIdToExpireNext < _currentRewardEpochId &&
+        while (rewardEpochIdToExpireNext < _currentRewardEpochId &&
             rewardEpochState[rewardEpochIdToExpireNext + 1].rewardEpochStartTs <= expiryThreshold)
         {   // Note: Since nextRewardEpochToExpire + 1 starts at that time
             // nextRewardEpochToExpire ends strictly before expiryThreshold,
@@ -1053,7 +1060,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         internal view
         returns(uint64 _votePowerBlock)
     {
-        // randomTs > state.randomAcquisitionStartTs && secureRandom == true
+        // randomTs > state.randomAcquisitionStartTs && isSecureRandom == true
         uint64 startBlock = rewardEpochState[_nextRewardEpochId - 1].randomAcquisitionStartBlock;
         // 0 < endBlock < block.number
         uint64 endBlock = rewardEpochState[_nextRewardEpochId].randomAcquisitionStartBlock;
