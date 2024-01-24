@@ -40,8 +40,8 @@ contract FtsoRewardOffersManagerTest is Test {
         int8 decimals,
         // amount (in wei) of reward in native coin
         uint256 amount,
-        // minimal reward eligibility threshold in BIPS (basis points)
-        uint16 minimalThresholdBIPS,
+        // minimal reward eligibility turnout threshold in BIPS (basis points)
+        uint16 minRewardedTurnoutBIPS,
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM,
         // secondary band width in PPM (parts per million) in relation to the median
@@ -59,8 +59,8 @@ contract FtsoRewardOffersManagerTest is Test {
         bytes decimals,
         // amount (in wei) of reward in native coin
         uint256 amount,
-        // minimal reward eligibility threshold in BIPS (basis points)
-        uint16 minimalThresholdBIPS,
+        // minimal reward eligibility turnout threshold in BIPS (basis points)
+        uint16 minRewardedTurnoutBIPS,
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM,
         // secondary band width in PPM (parts per million) in relation to the median - multiple of 3 (uint24)
@@ -183,7 +183,7 @@ contract FtsoRewardOffersManagerTest is Test {
             20000,
             claimBackAddr
         );
-        vm.expectRevert("invalid minimalThresholdBIPS value");
+        vm.expectRevert("invalid minRewardedTurnoutBIPS value");
         ftsoRewardOffersManager.offerRewards(2 + 1, offers);
     }
 
@@ -265,7 +265,7 @@ contract FtsoRewardOffersManagerTest is Test {
             offers[0].feedName,
             int8(4),
             offers[0].amount,
-            offers[0].minimalThresholdBIPS,
+            offers[0].minRewardedTurnoutBIPS,
             offers[0].primaryBandRewardSharePPM,
             offers[0].secondaryBandWidthPPM,
             claimBackAddr
@@ -276,7 +276,7 @@ contract FtsoRewardOffersManagerTest is Test {
             offers[1].feedName,
             int8(-5),
             offers[1].amount,
-            offers[1].minimalThresholdBIPS,
+            offers[1].minRewardedTurnoutBIPS,
             offers[1].primaryBandRewardSharePPM,
             offers[1].secondaryBandWidthPPM,
             sender
@@ -359,7 +359,7 @@ contract FtsoRewardOffersManagerTest is Test {
             feeds1,
             decimals1,
             5000 * 60 / 100,
-            ftsoConfigs[0].minimalThresholdBIPS,
+            ftsoConfigs[0].minRewardedTurnoutBIPS,
             ftsoConfigs[0].primaryBandRewardSharePPM,
             ftsoConfigs[0].secondaryBandWidthPPMs,
             ftsoConfigs[0].mode
@@ -370,7 +370,7 @@ contract FtsoRewardOffersManagerTest is Test {
             feeds2,
             decimals1,
             5000 * 40 / 100,
-            ftsoConfigs[1].minimalThresholdBIPS,
+            ftsoConfigs[1].minRewardedTurnoutBIPS,
             ftsoConfigs[1].primaryBandRewardSharePPM,
             ftsoConfigs[1].secondaryBandWidthPPMs,
             ftsoConfigs[1].mode
@@ -385,7 +385,7 @@ contract FtsoRewardOffersManagerTest is Test {
             feeds1,
             decimals1,
             0, // amount
-            ftsoConfigs[0].minimalThresholdBIPS,
+            ftsoConfigs[0].minRewardedTurnoutBIPS,
             ftsoConfigs[0].primaryBandRewardSharePPM,
             ftsoConfigs[0].secondaryBandWidthPPMs,
             ftsoConfigs[0].mode
@@ -396,7 +396,7 @@ contract FtsoRewardOffersManagerTest is Test {
             feeds2,
             decimals1,
             0, // amount
-            ftsoConfigs[1].minimalThresholdBIPS,
+            ftsoConfigs[1].minRewardedTurnoutBIPS,
             ftsoConfigs[1].primaryBandRewardSharePPM,
             ftsoConfigs[1].secondaryBandWidthPPMs,
             ftsoConfigs[1].mode
@@ -455,7 +455,7 @@ contract FtsoRewardOffersManagerTest is Test {
             feeds1,
             decimals1,
             5000,
-            ftsoConfigs[0].minimalThresholdBIPS,
+            ftsoConfigs[0].minRewardedTurnoutBIPS,
             ftsoConfigs[0].primaryBandRewardSharePPM,
             ftsoConfigs[0].secondaryBandWidthPPMs,
             ftsoConfigs[0].mode
@@ -466,7 +466,7 @@ contract FtsoRewardOffersManagerTest is Test {
             feeds2,
             decimals1,
             5000 * 0 / 100,
-            ftsoConfigs[1].minimalThresholdBIPS,
+            ftsoConfigs[1].minRewardedTurnoutBIPS,
             ftsoConfigs[1].primaryBandRewardSharePPM,
             ftsoConfigs[1].secondaryBandWidthPPMs,
             ftsoConfigs[1].mode

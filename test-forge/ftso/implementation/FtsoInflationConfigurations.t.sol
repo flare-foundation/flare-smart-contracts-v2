@@ -40,7 +40,7 @@ contract FtsoInflationConfigurationsTest is Test {
             secondaryBands,
             0
         );
-        vm.expectRevert("invalid minimalThresholdBIPS value");
+        vm.expectRevert("invalid minRewardedTurnoutBIPS value");
         inflationConfigs.addFtsoConfiguration(config);
     }
 
@@ -143,8 +143,8 @@ contract FtsoInflationConfigurationsTest is Test {
         ftsoConfigurations = inflationConfigs.getFtsoConfigurations();
         assertEq(ftsoConfigurations.length, 2);
         assertEq(ftsoConfigurations[1].feedNames, feeds);
-        assertEq(ftsoConfigurations[0].minimalThresholdBIPS, 5000);
-        assertEq(ftsoConfigurations[1].minimalThresholdBIPS, 6000);
+        assertEq(ftsoConfigurations[0].minRewardedTurnoutBIPS, 5000);
+        assertEq(ftsoConfigurations[1].minRewardedTurnoutBIPS, 6000);
         assertEq(ftsoConfigurations[0].primaryBandRewardSharePPM, 30000);
         assertEq(ftsoConfigurations[1].primaryBandRewardSharePPM, 40000);
     }
@@ -166,11 +166,11 @@ contract FtsoInflationConfigurationsTest is Test {
 
         // replace ftso configuration on index 1
         getConfig = inflationConfigs.getFtsoConfiguration(1);
-        assertEq(getConfig.minimalThresholdBIPS, 6000);
+        assertEq(getConfig.minRewardedTurnoutBIPS, 6000);
         assertEq(getConfig.primaryBandRewardSharePPM, 40000);
         inflationConfigs.replaceFtsoConfiguration(1, config);
         getConfig = inflationConfigs.getFtsoConfiguration(1);
-        assertEq(getConfig.minimalThresholdBIPS, 8000);
+        assertEq(getConfig.minRewardedTurnoutBIPS, 8000);
         assertEq(getConfig.primaryBandRewardSharePPM, 50000);
     }
 

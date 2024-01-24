@@ -437,6 +437,9 @@ export async function deployContracts(
   // set reward offers manager list
   await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address]);
 
+  // set initial reward data
+  await rewardManager.setInitialRewardData();
+
   // send some inflation funds
   const inflationFunds = hre.web3.utils.toWei("200000");
   await ftsoRewardOffersManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION_ADDR });
@@ -450,7 +453,7 @@ export async function deployContracts(
     {
         feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "XRP", "FLR", "ETH"]),
         inflationShare: 200,
-        minimalThresholdBIPS: 5000,
+        minRewardedTurnoutBIPS: 5000,
         mode: 0,
         primaryBandRewardSharePPM: 700000,
         secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([400, 800, 100, 250])
@@ -461,7 +464,7 @@ export async function deployContracts(
     {
         feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "LTC"]),
         inflationShare: 100,
-        minimalThresholdBIPS: 5000,
+        minRewardedTurnoutBIPS: 5000,
         mode: 0,
         primaryBandRewardSharePPM: 600000,
         secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([200, 1000])
