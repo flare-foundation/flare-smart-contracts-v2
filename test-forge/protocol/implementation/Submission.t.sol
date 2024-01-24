@@ -199,7 +199,6 @@ contract SubmissionTest is Test {
         submission.submitAndPass(data);
     }
 
-    error CustomError(string message, uint256 value);
     function testSubmitAndPassRevert2() public {
         address passContract = makeAddr("passContract");
         vm.prank(makeAddr("governance"));

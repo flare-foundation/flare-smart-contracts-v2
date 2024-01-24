@@ -97,6 +97,10 @@ contract FlareSystemManagerTest is Test {
         uint64 timestamp                // Timestamp when this happened
     );
 
+    event TriggeringVoterRegistrationFailed(uint24 rewardEpochId);
+    event ClosingExpiredRewardEpochFailed(uint24 rewardEpochId);
+    event SettingCleanUpBlockNumberFailed(uint64 blockNumber);
+
     function setUp() public {
         flareDaemon = makeAddr("flareDaemon");
         governance = makeAddr("governance");
@@ -491,7 +495,6 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.daemonize();
     }
 
-
     function testTriggerRewardEpochSwitchover() public {
         // set switchover contracts
         switchoverContracts = new IRewardEpochSwitchoverTrigger[](1);
@@ -508,12 +511,95 @@ contract FlareSystemManagerTest is Test {
 
         vm.mockCall(
             mockSwitchover,
-            abi.encodeWithSelector(bytes4(keccak256("triggerRewardEpochSwitchover(uint24,uint64,uint64)")), 1),
+            abi.encodeWithSelector(IRewardEpochSwitchoverTrigger.triggerRewardEpochSwitchover.selector, 1),
             abi.encode()
         );
 
         // start new reward epoch and do switchover
         vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+    }
+
+    function testTriggerVoterRegistration() public {
+        // set voter register trigger contract
+        address voterRegTrigger = makeAddr("voterRegTrigger");
+        vm.prank(governance);
+        flareSystemManager.setVoterRegistrationTriggerContract(IVoterRegistrationTrigger(voterRegTrigger));
+        assertEq(address(flareSystemManager.voterRegistrationTriggerContract()), voterRegTrigger);
+
+        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        vm.warp(currentTime);
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
+            abi.encode(bytes32(0))
+        );
+
+        // start random acquisition
+        vm.startPrank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // select vote power block and trigger voter registration
+        vm.roll(234);
+        vm.warp(currentTime + uint64(11));
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(Relay.getRandomNumber.selector),
+            abi.encode(123, true, currentTime + 1)
+        );
+
+        vm.mockCall(
+            voterRegTrigger,
+            abi.encodeWithSelector(IVoterRegistrationTrigger.triggerVoterRegistration.selector, 1),
+            abi.encode()
+        );
+
+        flareSystemManager.daemonize();
+    }
+
+
+    function testTriggerVoterRegistrationFailed() public {
+        // TODO: why is that not working?
+        // vm.mockCallRevert(
+        //     voterRegTrigger,
+        //     abi.encodeWithSelector(IVoterRegistrationTrigger.triggerVoterRegistration.selector, 1),
+        //     abi.encode()
+        // );
+        // address voterRegTrigger = makeAddr("voterRegTrigger");
+        // vm.prank(governance);
+        // flareSystemManager.setVoterRegistrationTriggerContract(IVoterRegistrationTrigger(voterRegTrigger));
+        // assertEq(address(flareSystemManager.voterRegistrationTriggerContract()), voterRegTrigger);
+
+
+        // set voter register trigger contract
+        MockVoterRegistrationTrigger voterRegTrigger = new MockVoterRegistrationTrigger();
+        vm.prank(governance);
+        flareSystemManager.setVoterRegistrationTriggerContract(IVoterRegistrationTrigger(voterRegTrigger));
+        assertEq(address(flareSystemManager.voterRegistrationTriggerContract()), address(voterRegTrigger));
+
+
+        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        vm.warp(currentTime);
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
+            abi.encode(bytes32(0))
+        );
+
+        // start random acquisition
+        vm.startPrank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // select vote power block and trigger voter registration
+        vm.roll(234);
+        vm.warp(currentTime + uint64(11));
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(Relay.getRandomNumber.selector),
+            abi.encode(123, true, currentTime + 1)
+        );
+        vm.expectEmit();
+        emit TriggeringVoterRegistrationFailed(1);
         flareSystemManager.daemonize();
     }
 
@@ -1504,4 +1590,12 @@ contract FlareSystemManagerTest is Test {
         return keccak256(abi.encode(_value));
     }
 
+}
+
+contract MockVoterRegistrationTrigger is IVoterRegistrationTrigger {
+        uint24 public _rewardEpochId;
+        function triggerVoterRegistration(uint24 _rewardEpochId) external {
+            _rewardEpochId = _rewardEpochId;
+            revert("testError");
+        }
 }
