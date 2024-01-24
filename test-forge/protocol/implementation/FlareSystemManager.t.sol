@@ -30,6 +30,8 @@ contract FlareSystemManagerTest is Test {
     address[] private voters;
     uint16[] private votersWeight;
 
+    IRewardEpochSwitchoverTrigger[] private switchoverContracts;
+
     uint16 private constant REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
     uint8 private constant VOTING_EPOCH_DURATION_SEC = 90;
     uint64 private constant REWARD_EPOCH_DURATION_IN_SEC =
@@ -416,6 +418,105 @@ contract FlareSystemManagerTest is Test {
         assertEq(endBlock, 234);
     }
 
+    // use current vote power block; initial reward epoch -> use unsecure random
+    function testSelectVotePowerBlockUnsecureRandom() public {
+        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        vm.warp(currentTime);
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
+            abi.encode(bytes32(0))
+        );
+
+        // start random acquisition
+        vm.roll(199);
+        vm.startPrank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // select vote power block
+        // move to the end of acquisition period and don't get secure random
+        vm.roll(block.number + 15000 + 1);
+        vm.warp(block.timestamp + uint64(8 * 60 * 60 + 1));
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(Relay.getRandomNumber.selector),
+            abi.encode(123, false, currentTime + 1)
+        );
+
+        vm.expectEmit();
+        emit VotePowerBlockSelected(1, 196, uint64(block.timestamp));
+        flareSystemManager.daemonize();
+        // voter registration started
+        // endBlock = 199, _initialRandomVotePowerBlockSelectionSize = 5
+        // numberOfBlocks = 5, random (=123) % 5 = 3 -> vote power block = 199 - 3 = 196
+        assertEq(flareSystemManager.getVotePowerBlock(1), 196);
+    }
+
+    function testSelectVotePowerBlockCurrentBlock() public {
+        _initializedSigningPolicyAndMoveToNewEpoch(1);
+        // start new epoch
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        vm.warp(currentTime);
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
+            abi.encode(bytes32(0))
+        );
+
+        // start random acquisition
+        // vm.roll(199);
+        vm.startPrank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // don't yet select vote power block
+        flareSystemManager.daemonize();
+
+        // select vote power block
+        // move to the end of acquisition period and don't get secure random
+        vm.roll(block.number + 15000 + 1);
+        vm.warp(block.timestamp + uint64(8 * 60 * 60 + 1));
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(Relay.getRandomNumber.selector),
+            abi.encode(123, false, currentTime + 1)
+        );
+
+        // should use current vp block
+        uint64 vpBlock1 = flareSystemManager.getVotePowerBlock(1);
+        vm.expectEmit();
+        emit VotePowerBlockSelected(2, vpBlock1, uint64(block.timestamp));
+        flareSystemManager.daemonize();
+    }
+
+
+    function testTriggerRewardEpochSwitchover() public {
+        // set switchover contracts
+        switchoverContracts = new IRewardEpochSwitchoverTrigger[](1);
+        address mockSwitchover = makeAddr("switchover");
+        switchoverContracts[0] = IRewardEpochSwitchoverTrigger(mockSwitchover);
+        vm.prank(governance);
+        flareSystemManager.setRewardEpochSwitchoverTriggerContracts(switchoverContracts);
+        IRewardEpochSwitchoverTrigger[] memory getContracts =
+            flareSystemManager.getRewardEpochSwitchoverTriggerContracts();
+        assertEq(getContracts.length, 1);
+        assertEq(address(getContracts[0]), mockSwitchover);
+
+        _initializedSigningPolicyAndMoveToNewEpoch(1);
+
+        vm.mockCall(
+            mockSwitchover,
+            abi.encodeWithSelector(bytes4(keccak256("triggerRewardEpochSwitchover(uint24,uint64,uint64)")), 1),
+            abi.encode()
+        );
+
+        // start new reward epoch and do switchover
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+    }
+
     //// sign signing policy tests
     function testRevertInvalidNewSigningPolicyHash() public {
         vm.mockCall(
@@ -444,22 +545,15 @@ contract FlareSystemManagerTest is Test {
         bytes32 newSigningPolicyHash = keccak256("new signing policy hash");
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(newSigningPolicyHash)
-        );
-
-        vm.mockCall(
-            mockRelay,
             abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
             abi.encode(newSigningPolicyHash)
         );
 
-        bytes32 messageHash = newSigningPolicyHash;
-        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
-
-        // voter0 signs
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        FlareSystemManager.Signature memory signature = FlareSystemManager.Signature(v, r, s);
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(VoterRegistry.getVoterWithNormalisedWeight.selector, 0, signingAddresses[0]),
+            abi.encode(voters[0], votersWeight[0])
+        );
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(VoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -467,49 +561,87 @@ contract FlareSystemManagerTest is Test {
         );
         vm.mockCall(
             mockVoterRegistry,
-            abi.encodeWithSelector(VoterRegistry.getVoterWithNormalisedWeight.selector, 0, signingAddresses[0]),
-            abi.encode(voters[0], votersWeight[0])
-        );
-        vm.expectEmit();
-        emit SigningPolicySigned(1, signingAddresses[0], voters[0], uint64(block.timestamp), false);
-        flareSystemManager.signNewSigningPolicy(1, newSigningPolicyHash, signature);
-
-        uint64 signPolicyStartTs = uint64(block.timestamp);
-        uint64 signPolicyStartBlock = uint64(block.number);
-        (uint64 signTs, uint64 signBlock) = flareSystemManager.getVoterSigningPolicySignInfo(1, voters[0]);
-        // assertEq(signTs, signPolicyStartTs);
-        // assertEq(signBlock, signPolicyStartBlock);
-
-        vm.warp(signPolicyStartTs + 100);
-        vm.roll(signPolicyStartBlock + 100);
-
-        // voter1 signs; threshold (500) is reached
-        (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = FlareSystemManager.Signature(v, r, s);
-        vm.mockCall(
-            mockVoterRegistry,
             abi.encodeWithSelector(VoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
             abi.encode(voters[1], votersWeight[1])
         );
-        // vm.expectEmit();
-        // emit SigningPolicySigned(1, signingAddresses[1], voters[1], uint64(block.timestamp), true);
-        flareSystemManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
-        (signTs, signBlock) = flareSystemManager.getVoterSigningPolicySignInfo(1, voters[1]);
-        // assertEq(signTs, signPolicyStartTs + 100);
-        // assertEq(signBlock, signPolicyStartBlock + 100);
+        bytes32 messageHash = newSigningPolicyHash;
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
+        FlareSystemManager.Signature memory signature = FlareSystemManager.Signature(v, r, s);
+
+
+        // move in time and voter0 signs
+        uint64 signPolicyStartTs = uint64(block.timestamp);
+        uint64 signPolicyStartBlock = uint64(block.number);
+        vm.warp(signPolicyStartTs + 100);
+        vm.roll(signPolicyStartBlock + 100);
+
+        vm.expectEmit();
+        emit SigningPolicySigned(1, signingAddresses[0], voters[0], uint64(block.timestamp), true);
+        flareSystemManager.signNewSigningPolicy(1, newSigningPolicyHash, signature);
+        (uint64 signTs, uint64 signBlock) = flareSystemManager.getVoterSigningPolicySignInfo(1, voters[0]);
+        assertEq(signTs, signPolicyStartTs + 100);
+        assertEq(signBlock, signPolicyStartBlock + 100);
+
 
         uint64[] memory signingPolicyInfo = new uint64[](4);
         (signingPolicyInfo[0], signingPolicyInfo[1], signingPolicyInfo[2], signingPolicyInfo[3]) =
             flareSystemManager.getSigningPolicySignInfo(1);
-        // assertEq(signingPolicyInfo[0], signPolicyStartTs);
-        // assertEq(signingPolicyInfo[1], signPolicyStartBlock);
-        // assertEq(signingPolicyInfo[2], signPolicyStartTs + 100);
-        // assertEq(signingPolicyInfo[3], signPolicyStartBlock + 100);
+        assertEq(signingPolicyInfo[0], signPolicyStartTs);
+        assertEq(signingPolicyInfo[1], signPolicyStartBlock);
+        assertEq(signingPolicyInfo[2], signPolicyStartTs + 100);
+        assertEq(signingPolicyInfo[3], signPolicyStartBlock + 100);
 
         // new signing policy already signed -> should revert
         vm.expectRevert("new signing policy already signed");
         flareSystemManager.signNewSigningPolicy(1, newSigningPolicyHash, signature);
+
+
+        //// sign signing policy for epoch 2
+        _mockRegisteredAddresses(1);
+
+        // start new reward epoch - epoch 1
+        vm.warp(block.timestamp + 5400 - 100); // after end of reward epoch
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        _initializeSigningPolicy(2);
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
+            abi.encode(newSigningPolicyHash)
+        );
+
+        // voter0 signs
+        vm.expectEmit();
+        emit SigningPolicySigned(2, signingAddresses[0], voters[0], uint64(block.timestamp), false);
+        flareSystemManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
+        (signTs, signBlock) = flareSystemManager.getVoterSigningPolicySignInfo(2, voters[0]);
+        assertEq(signTs, uint64(block.timestamp));
+        assertEq(signBlock, uint64(block.number));
+
+        // voter1 signs; threshold (500) is reached
+        signPolicyStartTs = uint64(block.timestamp);
+        signPolicyStartBlock = uint64(block.number);
+        vm.warp(signPolicyStartTs + 12);
+        vm.roll(signPolicyStartBlock + 13);
+        (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
+        signature = FlareSystemManager.Signature(v, r, s);
+        vm.expectEmit();
+        emit SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
+        flareSystemManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
+
+        (signTs, signBlock) = flareSystemManager.getVoterSigningPolicySignInfo(2, voters[1]);
+        assertEq(signTs, uint64(block.timestamp));
+        assertEq(signBlock, uint64(block.number));
+
+        (signingPolicyInfo[0], signingPolicyInfo[1], signingPolicyInfo[2], signingPolicyInfo[3]) =
+            flareSystemManager.getSigningPolicySignInfo(2);
+        assertEq(signingPolicyInfo[0], signPolicyStartTs);
+        assertEq(signingPolicyInfo[1], signPolicyStartBlock);
+        assertEq(signingPolicyInfo[2], uint64(block.timestamp));
+        assertEq(signingPolicyInfo[3], uint64(block.number));
     }
 
     function testRevertSignNewSigningPolicyTwice() public {
@@ -578,6 +710,17 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.signUptimeVote(0, uptimeHash, signature);
     }
 
+    function testRevertSignUptimeVoteHashZero() public {
+        bytes32 messageHash = keccak256(abi.encode(0, bytes32(0)));
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
+        FlareSystemManager.Signature memory signature = FlareSystemManager.Signature(v, r, s);
+
+        vm.expectRevert("uptime vote hash zero");
+        flareSystemManager.signUptimeVote(0, bytes32(0), signature);
+    }
+
     function testSignUptimeVote() public {
         _initializeSigningPolicy(1);
         vm.mockCall(
@@ -636,6 +779,10 @@ contract FlareSystemManagerTest is Test {
         vm.expectEmit();
         emit UptimeVoteSigned(1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
         flareSystemManager.signUptimeVote(1, uptimeHash, signature);
+
+        (uint64 signTs, uint64 signBlock) = flareSystemManager.getVoterUptimeVoteSignInfo(1, voters[1]);
+        assertEq(signTs, uint64(block.timestamp));
+        assertEq(signBlock, uint64(block.number));
 
         // new signing policy already signed -> should revert
         vm.expectRevert("uptime vote hash already signed");
@@ -725,6 +872,18 @@ contract FlareSystemManagerTest is Test {
     }
 
     // sign rewards tests
+    function testRevertSignRewardsHashZero() public {
+        uint64 noOfWeightBasedClaims = 3;
+        bytes32 messageHash = keccak256(abi.encode(0, noOfWeightBasedClaims, bytes32(0)));
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
+        FlareSystemManager.Signature memory signature = FlareSystemManager.Signature(v, r, s);
+
+        vm.expectRevert("rewards hash zero");
+        flareSystemManager.signRewards(1, noOfWeightBasedClaims, bytes32(0), signature);
+    }
+
     function testRevertSignRewardsEpochNotEnded() public {
         bytes32 rewardsHash = keccak256("rewards hash");
         uint64 noOfWeightBasedClaims = 3;
@@ -955,6 +1114,10 @@ contract FlareSystemManagerTest is Test {
         emit UptimeVoteSigned(1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
         flareSystemManager.signUptimeVote(1, uptimeHash, signature);
 
+        // uint64[] memory rewardsSignStart = new uint64[](2);
+        // rewardsSignStart[0] = uint64(block.timestamp);
+        // rewardsSignStart[1] = uint64(block.number);
+
         // sign rewards
         bytes32 rewardsHash = keccak256("rewards hash");
         uint64 noOfWeightBasedClaims = 3;
@@ -969,6 +1132,8 @@ contract FlareSystemManagerTest is Test {
             rewardsHash, noOfWeightBasedClaims, uint64(block.timestamp), false);
         flareSystemManager.signRewards(1, noOfWeightBasedClaims, rewardsHash, signature);
 
+        vm.warp(block.timestamp + 123);
+        vm.roll(block.number + 321);
         // voter1 signs
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
         signature = FlareSystemManager.Signature(v, r, s);
@@ -976,6 +1141,19 @@ contract FlareSystemManagerTest is Test {
         emit RewardsSigned(1, signingAddresses[1], voters[1],
             rewardsHash, noOfWeightBasedClaims, uint64(block.timestamp), true);
         flareSystemManager.signRewards(1, noOfWeightBasedClaims, rewardsHash, signature);
+
+        (uint64 signTs, uint64 signBlock) = flareSystemManager.getVoterRewardsSignInfo(1, voters[1]);
+        assertEq(signTs, uint64(block.timestamp));
+        assertEq(signBlock, uint64(block.number));
+
+        uint64[] memory rewardsSignInfo = new uint64[](4);
+        (rewardsSignInfo[0], rewardsSignInfo[1], rewardsSignInfo[2], rewardsSignInfo[3]) =
+            flareSystemManager.getRewardsSignInfo(1);
+        assertEq(rewardsSignInfo[0], uint64(block.timestamp - 123));
+        assertEq(rewardsSignInfo[1], uint64(block.number - 321));
+        assertEq(rewardsSignInfo[2], uint64(block.timestamp));
+        assertEq(rewardsSignInfo[3], uint64(block.number));
+
 
         // new signing policy already signed -> should revert
         vm.expectRevert("rewards hash already signed");
@@ -1307,6 +1485,19 @@ contract FlareSystemManagerTest is Test {
             abi.encodeWithSelector(bytes4(keccak256("cleanupBlockNumber()"))),
             abi.encode(_cleanupBlock)
         );
+    }
+
+    function _initializedSigningPolicyAndMoveToNewEpoch(uint256 _nextEpochId) private {
+        _initializeSigningPolicy(_nextEpochId);
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, _nextEpochId),
+            abi.encode(bytes32("signing policy1"))
+        ); // define new signing policy
+        _mockRegisteredAddresses(_nextEpochId);
+        vm.warp(block.timestamp + 5400); // after end of current reward epoch (_nextEpochId - 1)
+        // vm.prank(flareDaemon);
+        // flareSystemManager.daemonize(); // start new reward epoch (_nextEpochId)
     }
 
     function _keccak256AbiEncode(string memory _value) internal pure returns(bytes32) {
