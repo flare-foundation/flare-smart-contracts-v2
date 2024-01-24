@@ -8,7 +8,7 @@
     "url": "git+https://gitlab.com/flarenetwork/flare-smart-contracts-v2.git"
   },
   "engines": {
-    "node": ">=18 <=20"
+    "node": ">=18 <20"
   },
   "author": "Flare SC team",
   "license": "MIT",
