@@ -3,12 +3,6 @@ pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
 import "../../../contracts/protocol/implementation/FlareSystemManager.sol";
-import "../../../contracts/protocol/implementation/Relay.sol";
-import "../../../contracts/protocol/implementation/VoterRegistry.sol";
-import "../../../contracts/protocol/implementation/EntityManager.sol";
-
-import "forge-std/console2.sol";
-
 
 contract FlareSystemManagerTest is Test {
 
@@ -21,6 +15,8 @@ contract FlareSystemManagerTest is Test {
     EntityManager private entityManager;
     address private mockVoterRegistry;
     Relay private relay;
+    address private mockRewardManager;
+    address private mockCleanupBlockNumberManager;
 
     FlareSystemManager.Settings private settings;
     FlareSystemManager.InitialSettings private initialSettings;
@@ -134,8 +130,6 @@ contract FlareSystemManagerTest is Test {
             initialSettings
         );
 
-        mockVoterRegistry = makeAddr("voterRegistry");
-
         // submission contract
         submission = new Submission(
             IGovernanceSettings(makeAddr("governanceSettings")),
@@ -143,14 +137,17 @@ contract FlareSystemManagerTest is Test {
             addressUpdater,
             false
         );
-
         // entity manager contract
         entityManager = new EntityManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             4
         );
+
         mockRelay = makeAddr("relay");
+        mockRewardManager = makeAddr("rewardManager");
+        mockVoterRegistry = makeAddr("voterRegistry");
+        mockCleanupBlockNumberManager = makeAddr("cleanupBlockNumberManager");
 
         //// update contract addresses
         vm.startPrank(addressUpdater);
@@ -166,8 +163,8 @@ contract FlareSystemManagerTest is Test {
         contractAddresses[1] = mockVoterRegistry;
         contractAddresses[2] = address(submission);
         contractAddresses[3] = mockRelay;
-        contractAddresses[4] = makeAddr("rewardManager");
-        contractAddresses[5] = makeAddr("cleanupBlockNumberManager");
+        contractAddresses[4] = mockRewardManager;
+        contractAddresses[5] = mockCleanupBlockNumberManager;
         flareSystemManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
         contractNameHashes = new bytes32[](3);
@@ -186,6 +183,9 @@ contract FlareSystemManagerTest is Test {
         _mockRegisteredAddresses(0);
 
         _createSigningAddressesAndPk(3);
+
+        // don't cleanup anything yet
+        // _mockCleanupBlockNumber(1000);
     }
 
     // constructor tests
@@ -501,6 +501,12 @@ contract FlareSystemManagerTest is Test {
     }
 
     function testRevertNewSigningPolicyInvalidSignature() public {
+        vm.mockCall(
+            mockRewardManager,
+            abi.encodeWithSelector(bytes4(keccak256("cleanupBlockNumber()"))),
+            abi.encode(200)
+        );
+        //  _mockCleanupBlockNumber(1000);
          _initializeSigningPolicy(1);
 
         bytes32 newSigningPolicyHash = keccak256("new signing policy hash");
@@ -1256,6 +1262,14 @@ contract FlareSystemManagerTest is Test {
         ); // 3 registered voters
         flareSystemManager.daemonize();
         vm.stopPrank();
+    }
+
+    function _mockCleanupBlockNumber(uint256 _cleanupBlock) internal {
+        vm.mockCall(
+            mockRewardManager,
+            abi.encodeWithSelector(bytes4(keccak256("cleanupBlockNumber()"))),
+            abi.encode(_cleanupBlock)
+        );
     }
 
     function _keccak256AbiEncode(string memory _value) internal pure returns(bytes32) {
