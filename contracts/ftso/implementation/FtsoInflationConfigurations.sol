@@ -84,7 +84,7 @@ contract FtsoInflationConfigurations is Governed, IFtsoInflationConfigurations {
      * @param _configuration The FTSO configuration.
      */
     function _checkFtsoConfiguration(FtsoConfiguration calldata _configuration) internal pure {
-        require(_configuration.minimalThresholdBIPS <= MAX_BIPS, "invalid minimalThresholdBIPS value");
+        require(_configuration.minRewardedTurnoutBIPS <= MAX_BIPS, "invalid minRewardedTurnoutBIPS value");
         require(_configuration.primaryBandRewardSharePPM <= PPM_MAX, "invalid primaryBandRewardSharePPM value");
         //slither-disable-next-line weak-prng
         require(_configuration.feedNames.length % 8 == 0, "invalid feedNames length");

@@ -481,6 +481,44 @@ contract EntityManager is Governed {
     }
 
     /**
+     * Gets voters' public keys at a specific block number.
+     * @param _voters Voters' addresses.
+     * @param _blockNumber Block number.
+     * @return _parts1 Parts 1 of the public keys.
+     * @return _parts2 Parts 2 of the public keys.
+     */
+    function getPublicKeys(address[] memory _voters, uint256 _blockNumber)
+        external view
+        returns (bytes32[] memory _parts1, bytes32[] memory _parts2)
+    {
+        uint256 length = _voters.length;
+        _parts1 = new bytes32[](length);
+        _parts2 = new bytes32[](length);
+        for (uint256 i = 0; i < length; i++) {
+            (bytes32 part1, bytes32 part2) = register[_voters[i]].publicKey.publicKeyAt(_blockNumber);
+            _parts1[i] = part1;
+            _parts2[i] = part2;
+        }
+    }
+
+    /**
+     * Gets voters' node ids at a specific block number.
+     * @param _voters Voters' addresses.
+     * @param _blockNumber Block number.
+     * @return _nodeIds Node ids.
+     */
+    function getNodeIds(address[] memory _voters, uint256 _blockNumber)
+        external view
+        returns (bytes20[][] memory _nodeIds)
+    {
+        uint256 length = _voters.length;
+        _nodeIds = new bytes20[][](length);
+        for (uint256 i = 0; i < length; i++) {
+            _nodeIds[i] = register[_voters[i]].nodeIds.nodeIdsAt(_blockNumber);
+        }
+    }
+
+    /**
      * Gets voter's address for a node id at a specific block number.
      * @param _nodeId Node id.
      * @param _blockNumber Block number.

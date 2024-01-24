@@ -10,8 +10,8 @@ interface IFtsoInflationConfigurations {
         bytes feedNames;
         // inflation share for this configuration group
         uint24 inflationShare;
-        // minimal reward eligibility threshold in BIPS (basis points)
-        uint16 minimalThresholdBIPS;
+        // minimal reward eligibility turnout threshold in BIPS (basis points)
+        uint16 minRewardedTurnoutBIPS;
         // primary band reward share in PPM (parts per million)
         uint24 primaryBandRewardSharePPM;
         // secondary band width in PPM (parts per million) in relation to the median - multiple of 3 (uint24)

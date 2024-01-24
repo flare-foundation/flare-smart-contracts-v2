@@ -276,7 +276,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         rewardEpochDurationSeconds = uint64(_rewardEpochDurationInVotingEpochs) * _votingEpochDurationSeconds;
         initialRandomVotePowerBlockSelectionSize = _initialSettings.initialRandomVotePowerBlockSelectionSize;
 
-        rewardEpochIdToExpireNext = _initialSettings.initialRewardEpochId;
+        rewardEpochIdToExpireNext = _initialSettings.initialRewardEpochId + 1; // no vote power block in initial epoch
         currentRewardEpochExpectedEndTs = firstRewardEpochStartTs +
             (_initialSettings.initialRewardEpochId + 1) * rewardEpochDurationSeconds;
         rewardEpochState[_initialSettings.initialRewardEpochId].threshold =
@@ -977,7 +977,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     }
 
     /**
-     * Triggers voter registration immediately after random vote power block is selected
+     * Triggers voter registration immediately after random vote power block is selected.
      */
     function _triggerVoterRegistration(uint24 _nextRewardEpochId) internal {
         try voterRegistrationTriggerContract.triggerVoterRegistration(_nextRewardEpochId) {
@@ -987,7 +987,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     }
 
     /**
-     * Closes expired reward epochs
+     * Closes expired reward epochs.
      */
     function _closeExpiredRewardEpochs(uint24 _currentRewardEpochId) internal {
         uint256 expiryThreshold = block.timestamp - rewardExpiryOffsetSeconds;
@@ -1011,17 +1011,19 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     }
 
     /**
-     * Performs any cleanup needed immediately after a reward epoch is finalized
+     * Performs any cleanup needed immediately after a reward epoch is finalized.
      */
     function _cleanupOnRewardEpochFinalization() internal {
         uint64 cleanupBlock = rewardEpochState[rewardEpochIdToExpireNext].votePowerBlock;
-
         try cleanupBlockNumberManager.setCleanUpBlockNumber(cleanupBlock) {
         } catch {
             emit SettingCleanUpBlockNumberFailed(cleanupBlock);
         }
     }
 
+    /**
+     * Triggers reward epoch switchover.
+     */
     function _triggerRewardEpochSwitchover(uint24 rewardEpochId, uint64 rewardEpochExpectedEndTs) internal {
         for (uint256 i = 0; i < rewardEpochSwitchoverTriggerContracts.length; i++) {
             rewardEpochSwitchoverTriggerContracts[i].triggerRewardEpochSwitchover(

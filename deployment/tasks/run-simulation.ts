@@ -44,7 +44,7 @@ const OFFERS = [
     feedName: FtsoConfigurations.encodeFeedNames(["BTC"]),
     primaryBandRewardSharePPM: 450000,
     secondaryBandWidthPPM: 50000,
-    minimalThresholdBIPS: 5000,
+    minRewardedTurnoutBIPS: 5000,
     claimBackAddress: "0x0000000000000000000000000000000000000000"
   },
   {
@@ -52,7 +52,7 @@ const OFFERS = [
     feedName: FtsoConfigurations.encodeFeedNames(["XRP"]),
     primaryBandRewardSharePPM: 650000,
     secondaryBandWidthPPM: 20000,
-    minimalThresholdBIPS: 5000,
+    minRewardedTurnoutBIPS: 5000,
     claimBackAddress: "0x0000000000000000000000000000000000000000"
   }
 ]
