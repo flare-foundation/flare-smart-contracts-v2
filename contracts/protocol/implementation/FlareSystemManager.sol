@@ -415,7 +415,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
     {
         require(_newSigningPolicyHash != bytes32(0) && _getSigningPolicyHash(_rewardEpochId) == _newSigningPolicyHash,
             "new signing policy hash invalid");
-        RewardEpochState storage state = rewardEpochState[_rewardEpochId - 1];
+        RewardEpochState storage state = rewardEpochState[_rewardEpochId];
         require(state.signingPolicySignEndTs == 0, "new signing policy already signed");
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(_newSigningPolicyHash);
         address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
@@ -425,8 +425,9 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         require(state.signingPolicyVotes.voters[voter].signTs == 0, "signing address already signed");
         // save signing address timestamp and block number
         state.signingPolicyVotes.voters[voter] = VoterData(block.timestamp.toUint64(), block.number.toUint64());
-        // check if signing threshold is reached
-        bool thresholdReached = state.signingPolicyVotes.accumulatedWeight + weight > state.threshold;
+        // check if signing threshold is reached (use previous epoch threshold)
+        bool thresholdReached =
+            state.signingPolicyVotes.accumulatedWeight + weight > rewardEpochState[_rewardEpochId - 1].threshold;
         if (thresholdReached) {
             // save timestamp and block number (this enables rewards signing)
             state.signingPolicySignEndTs = block.timestamp.toUint64();
@@ -512,7 +513,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         require(_rewardsHash != bytes32(0), "rewards hash zero");
         RewardEpochState storage state = rewardEpochState[_rewardEpochId];
         require(_rewardEpochId < getCurrentRewardEpochId(), "epoch not ended yet");
-        require(state.signingPolicySignEndTs != 0, "new signing policy not signed yet");
+        require(rewardEpochState[_rewardEpochId + 1].signingPolicySignEndTs != 0, "new signing policy not signed yet");
         require(uptimeVoteHash[_rewardEpochId] != bytes32(0), "uptime vote hash not signed yet");
         require(rewardsHash[_rewardEpochId] == bytes32(0), "rewards hash already signed");
         bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _noOfWeightBasedClaims, _rewardsHash));

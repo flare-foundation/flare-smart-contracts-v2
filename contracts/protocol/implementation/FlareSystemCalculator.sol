@@ -161,7 +161,7 @@ contract FlareSystemCalculator is Governed, AddressUpdatable {
      */
     function calculateBurnFactorPPM(uint24 _rewardEpochId, address _voter) external view returns(uint256) {
         (uint64 startTs, uint64 startBlock, uint64 endTs, uint64 endBlock) =
-            flareSystemManager.getSigningPolicySignInfo(_rewardEpochId);
+            flareSystemManager.getSigningPolicySignInfo(_rewardEpochId + 1);
         require(endTs != 0, "signing policy not signed yet");
         if (endTs - startTs <= signingPolicySignNonPunishableDurationSeconds) {
             return 0; // signing policy was signed on time secondwise
@@ -171,7 +171,7 @@ contract FlareSystemCalculator is Governed, AddressUpdatable {
             return 0; // signing policy was signed on time blockwise
         }
         // signing policy not signed on time, check when/if voter signed
-        (, uint64 signBlock) = flareSystemManager.getVoterSigningPolicySignInfo(_rewardEpochId, _voter);
+        (, uint64 signBlock) = flareSystemManager.getVoterSigningPolicySignInfo(_rewardEpochId + 1, _voter);
         if (signBlock == 0) {
             signBlock = endBlock; // voter did not sign
         }
