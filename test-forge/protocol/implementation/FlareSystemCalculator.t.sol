@@ -188,7 +188,7 @@ contract FlareSystemCalculatorTest is Test {
       abi.encode(signTs, signBlock)
     );
 
-    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId, voter);
+    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId - 1, voter);
     assertEq(burnFactor, 0);
   }
 
@@ -216,7 +216,7 @@ contract FlareSystemCalculatorTest is Test {
       abi.encode(signTs, signBlock)
     );
 
-    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId, voter);
+    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId - 1, voter);
     assertEq(burnFactor, 0);
   }
 
@@ -244,7 +244,7 @@ contract FlareSystemCalculatorTest is Test {
       abi.encode(signTs, signBlock)
     );
 
-    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId, voter);
+    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId - 1, voter);
     assertEq(burnFactor, 0);
   }
 
@@ -272,7 +272,7 @@ contract FlareSystemCalculatorTest is Test {
       abi.encode(signTs, signBlock)
     );
 
-    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId, voter);
+    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId - 1, voter);
     assertEq(burnFactor > 0, true);
     assertEq(burnFactor < 1e6, true);
   }
@@ -301,7 +301,7 @@ contract FlareSystemCalculatorTest is Test {
       abi.encode(signTs, signBlock)
     );
 
-    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId, voter);
+    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId - 1, voter);
     assertEq(burnFactor, 1e6);
   }
 
@@ -330,6 +330,6 @@ contract FlareSystemCalculatorTest is Test {
     );
 
     vm.expectRevert("signing policy not signed yet");
-    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId, voter);
+    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId - 1, voter);
   }
 }

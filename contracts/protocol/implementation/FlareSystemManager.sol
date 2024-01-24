@@ -158,19 +158,14 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
 
     /// The VoterRegistry contract.
     VoterRegistry public voterRegistry;
-
     /// The Submission contract.
     Submission public submission;
-
     /// The Relay contract.
     Relay public relay;
-
     /// The RewardManager contract.
     RewardManager public rewardManager;
-
     /// The CleanupBlockNumberManager contract.
     ICleanupBlockNumberManager public cleanupBlockNumberManager;
-
     /// The VoterRegistrationTrigger contract.
     IVoterRegistrationTrigger public voterRegistrationTriggerContract;
     /// Reward epoch switchover trigger contracts.
@@ -245,6 +240,19 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
         _;
     }
 
+    /**
+     * @dev Constructor.
+     * @param _governanceSettings Governance settings contract.
+     * @param _initialGovernance Initial governance address.
+     * @param _addressUpdater Address updater contract.
+     * @param _flareDaemon FlareDaemon contract address.
+     * @param _settings Updatable settings.
+     * @param _firstVotingRoundStartTs Timestamp when the first voting round started, in seconds since UNIX epoch.
+     * @param _votingEpochDurationSeconds Duration of voting epochs, in seconds.
+     * @param _firstRewardEpochStartVotingRoundId First voting round id of the first reward epoch.
+     * @param _rewardEpochDurationInVotingEpochs Duration of reward epochs, in voting epochs.
+     * @param _initialSettings Initial settings.
+     */
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
@@ -555,13 +563,14 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IRan
      * @param _rewardEpochId Reward epoch id of the rewards.
      * @param _noOfWeightBasedClaims Number of weight based claims.
      * @param _rewardsHash Rewards hash.
+     * @dev Only governance can call this method.
      */
     function setRewardsData(
         uint24 _rewardEpochId,
         uint64 _noOfWeightBasedClaims,
         bytes32 _rewardsHash
     )
-        external onlyGovernance
+        external onlyImmediateGovernance
     {
         require(_rewardEpochId < getCurrentRewardEpochId(), "epoch not ended yet");
         rewardsHash[_rewardEpochId] = _rewardsHash;

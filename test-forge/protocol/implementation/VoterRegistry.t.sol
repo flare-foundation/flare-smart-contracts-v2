@@ -27,13 +27,16 @@ contract VoterRegistryTest is Test {
     address[] private initialSubmitAddresses;
     address[] private initialSubmitSignaturesAddresses;
     address[] private initialSigningPolicyAddresses;
+    bytes32[] private initialPublicKeyParts1;
+    bytes32[] private initialPublicKeyParts2;
+    bytes20[][] private initialNodeIds;
     EntityManager.VoterAddresses[] private initialVotersRegisteredAddresses;
     uint256[] private initialVotersWeights;
     uint256 private pChainTotalVP;
     uint256 private cChainTotalVP;
     uint256 private wNatTotalVP;
 
-    uint16 private constant UINT16_MAX = type(uint16).max;
+    uint256 private constant UINT16_MAX = type(uint16).max;
 
     event VoterChilled(address voter, uint256 untilRewardEpochId);
     event VoterRemoved(address voter, uint256 rewardEpochId);
@@ -167,6 +170,12 @@ contract VoterRegistryTest is Test {
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialSigningPolicyAddresses)
         );
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(EntityManager.getPublicKeys.selector,
+                initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
+            abi.encode(initialPublicKeyParts1, initialPublicKeyParts2)
+        );
         vm.prank(mockFlareSystemManager);
         (address[] memory signPolAddresses, uint16[] memory normWeights, uint16 normWeightsSum) =
             voterRegistry.createSigningPolicySnapshot(0);
@@ -202,6 +211,11 @@ contract VoterRegistryTest is Test {
         }
     }
 
+    function testRevertGetRegisteredSubmitAddresses() public {
+        vm.expectRevert("reward epoch id not supported");
+        voterRegistry.getRegisteredSubmitAddresses(1);
+    }
+
     function testGetRegisteredSubmitSignaturesAddresses() public {
         vm.mockCall(
             mockEntityManager,
@@ -214,6 +228,11 @@ contract VoterRegistryTest is Test {
         for (uint256 i = 0; i < initialSubmitSignaturesAddresses.length; i++) {
             assertEq(submitSignaturesAddresses[i], initialSubmitSignaturesAddresses[i]);
         }
+    }
+
+    function testRevertGetRegisteredSubmitSignaturesAddresses() public {
+        vm.expectRevert("reward epoch id not supported");
+        voterRegistry.getRegisteredSubmitSignaturesAddresses(1);
     }
 
     function testGetRegisteredDelegationAddresses() public {
@@ -230,6 +249,11 @@ contract VoterRegistryTest is Test {
         }
     }
 
+    function testRevertGetRegisteredDelegationAddresses() public {
+        vm.expectRevert("reward epoch id not supported");
+        voterRegistry.getRegisteredDelegationAddresses(1);
+    }
+
     function testGetRegisteredSigningPolicyAddresses() public {
         vm.mockCall(
             mockEntityManager,
@@ -242,6 +266,56 @@ contract VoterRegistryTest is Test {
         for (uint256 i = 0; i < initialSigningPolicyAddresses.length; i++) {
             assertEq(signingPolicyAddresses[i], initialSigningPolicyAddresses[i]);
         }
+    }
+
+    function testRevertGetRegisteredSigningPolicyAddresses() public {
+        vm.expectRevert("reward epoch id not supported");
+        voterRegistry.getRegisteredSigningPolicyAddresses(1);
+    }
+
+    function testGetRegisteredPublicKeys() public {
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(EntityManager.getPublicKeys.selector,
+                initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
+            abi.encode(initialPublicKeyParts1, initialPublicKeyParts2)
+        );
+        (bytes32[] memory parts1, bytes32[] memory parts2) = voterRegistry.getRegisteredPublicKeys(0);
+        assertEq(parts1.length, initialPublicKeyParts1.length);
+        assertEq(parts2.length, initialPublicKeyParts2.length);
+        for (uint256 i = 0; i < initialPublicKeyParts1.length; i++) {
+            assertEq(parts1[i], initialPublicKeyParts1[i]);
+        }
+        for (uint256 i = 0; i < initialPublicKeyParts2.length; i++) {
+            assertEq(parts2[i], initialPublicKeyParts2[i]);
+        }
+    }
+
+    function testRevertGetRegisteredPublicKeys() public {
+        vm.expectRevert("reward epoch id not supported");
+        voterRegistry.getRegisteredPublicKeys(1);
+    }
+
+    function testGetRegisteredNodeIds() public {
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(EntityManager.getNodeIds.selector,
+                initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
+            abi.encode(initialNodeIds)
+        );
+        bytes20[][] memory nodeIds = voterRegistry.getRegisteredNodeIds(0);
+        assertEq(nodeIds.length, initialNodeIds.length);
+        for (uint256 i = 0; i < initialNodeIds.length; i++) {
+            assertEq(nodeIds[i].length, initialNodeIds[i].length);
+            for (uint256 j = 0; j < initialNodeIds[i].length; j++) {
+                assertEq(nodeIds[i][j], initialNodeIds[i][j]);
+            }
+        }
+    }
+
+    function testRevertGetRegisteredNodeIds() public {
+        vm.expectRevert("reward epoch id not supported");
+        voterRegistry.getRegisteredNodeIds(1);
     }
 
     function testGetNumberOfRegisteredVoters() public {
@@ -393,6 +467,12 @@ contract VoterRegistryTest is Test {
             abi.encodeWithSelector(EntityManager.getSigningPolicyAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
             abi.encode(initialSigningPolicyAddresses)
+        );
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(EntityManager.getPublicKeys.selector,
+                initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
+            abi.encode(initialPublicKeyParts1, initialPublicKeyParts2)
         );
         vm.prank(mockFlareSystemManager);
         (address[] memory signPolAddresses, uint16[] memory normWeights, uint16 normWeightsSum) =
@@ -553,8 +633,8 @@ contract VoterRegistryTest is Test {
         vm.expectRevert("voter not registered");
         voterRegistry.getPublicKeyAndNormalisedWeight(1, notRegisteredSignPolicyAddr);
 
-        bytes32 publicKey1 = keccak256(abi.encode("publicKey1"));
-        bytes32 publicKey2 = keccak256(abi.encode("publicKey2"));
+        bytes32 publicKey1 = initialPublicKeyParts1[0];
+        bytes32 publicKey2 = initialPublicKeyParts2[0];
         vm.mockCall(
             mockEntityManager,
             abi.encodeWithSelector(EntityManager.getPublicKeyOfAt.selector,
@@ -569,6 +649,7 @@ contract VoterRegistryTest is Test {
         assertEq(key1, publicKey1);
         assertEq(key2, publicKey2);
         assertEq(normWeight, uint16(initialVotersWeights[0] * UINT16_MAX / sum));
+        assertEq(normWeightSum, uint16(initialVotersWeights[0] * UINT16_MAX / sum));
     }
 
     function testSystemRegistration() public {
@@ -636,6 +717,20 @@ contract VoterRegistryTest is Test {
 
             // weights
             initialVotersWeights.push(100 * (i + 1));
+
+            // public keys
+            if (i == 0) {
+                initialPublicKeyParts1.push(keccak256(abi.encode("publicKey1")));
+                initialPublicKeyParts2.push(keccak256(abi.encode("publicKey2")));
+            } else {
+                initialPublicKeyParts1.push(bytes32(0));
+                initialPublicKeyParts2.push(bytes32(0));
+            }
+
+            initialNodeIds.push(new bytes20[](i));
+            for (uint256 j = 0; j < i; j++) {
+                initialNodeIds[i][j] = bytes20(bytes(string.concat("nodeId", vm.toString(i), vm.toString(j))));
+            }
         }
     }
 

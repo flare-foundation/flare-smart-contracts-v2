@@ -123,7 +123,6 @@ test-unit:
     matrix:
     - TEST_PATH:
       - ./test/unit/protocol
-      - ./test/unit/mock
   script:
     - yarn hardhat test --network hardhat ${TEST_ARG}
 
@@ -162,7 +161,6 @@ test-unit-forge:
     matrix:
     - TEST_ARG:
       - ./test-forge/protocol/implementation/EntityManager.t.sol
-      - ./test-forge/mock/CustomErrorRevert.t.sol
   script:
     - forge test --match-path ${TEST_ARG} -vvv
 

@@ -2,6 +2,7 @@ import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-truffle5";
 import "@nomiclabs/hardhat-web3";
 import "@nomicfoundation/hardhat-chai-matchers";
+import 'solidity-coverage';
 
 import { HardhatUserConfig, task } from "hardhat/config";
 import * as dotenv from "dotenv";
