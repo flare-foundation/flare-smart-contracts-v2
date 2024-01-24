@@ -12,7 +12,9 @@ artifacts-forge/
 
 # coverage files
 coverage/
+coverage-forge/
 lcov.info
+coverage.json
 
 # Hardhat files
 cache
