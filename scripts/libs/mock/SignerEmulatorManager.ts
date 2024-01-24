@@ -33,7 +33,7 @@ export class SignerEmulatorManager {
         messageToSign: {
           protocolId: subprotocolId + 1,
           votingRoundId,
-          isGoodRandom: false,
+          isSecureRandom: false,
           merkleRoot: merkleRoots[subprotocolId]
         } as IProtocolMessageMerkleRoot,
         unsignedMessage: this.web3.utils.randomHex(32)

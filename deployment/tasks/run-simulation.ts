@@ -521,7 +521,7 @@ async function runVotingRound(
   const messageData: IProtocolMessageMerkleRoot = {
     protocolId: FTSO_PROTOCOL_ID,
     votingRoundId: votingRoundId,
-    isGoodRandom: true,
+    isSecureRandom: true,
     merkleRoot: fakeMerkleRoot,
   };
 

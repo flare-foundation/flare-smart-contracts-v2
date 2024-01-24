@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 export interface IProtocolMessageMerkleRoot {
   protocolId: number;
   votingRoundId: number;
-  isGoodRandom: boolean;
+  isSecureRandom: boolean;
   merkleRoot: string;
   encodedLength?: number;  // used only as a parsing result when parsing signing policy encoded into Relay message
 }
@@ -14,7 +14,7 @@ export namespace ProtocolMessageMerkleRoot {
   // Protocol message merkle root structure
   // 1 byte - protocolId
   // 4 bytes - votingRoundId
-  // 1 byte - isGoodRandom
+  // 1 byte - isSecureRandom
   // 32 bytes - merkleRoot
   // Total 38 bytes
   //////////////////////////////////////////////////////////////////////////////
@@ -43,7 +43,7 @@ export namespace ProtocolMessageMerkleRoot {
       "0x" +
       message.protocolId.toString(16).padStart(2, "0") +
       message.votingRoundId.toString(16).padStart(8, "0") +
-      (message.isGoodRandom ? 1 : 0).toString(16).padStart(2, "0") +
+      (message.isSecureRandom ? 1 : 0).toString(16).padStart(2, "0") +
       message.merkleRoot.slice(2)
     ).toLowerCase();
   }
@@ -72,11 +72,11 @@ export namespace ProtocolMessageMerkleRoot {
     const protocolId = parseInt(encodedMessageInternal.slice(0, 2), 16);
     const votingRoundId = parseInt(encodedMessageInternal.slice(2, 10), 16);
     const encodedRandomQualityScore = encodedMessageInternal.slice(10, 12);
-    let isGoodRandom = false;
+    let isSecureRandom = false;
     if (encodedRandomQualityScore === "00") {
-      isGoodRandom = false;
+      isSecureRandom = false;
     } else if (encodedRandomQualityScore === "01") {
-      isGoodRandom = true;
+      isSecureRandom = true;
     } else {
       throw Error("Invalid random quality score");
     }
@@ -84,7 +84,7 @@ export namespace ProtocolMessageMerkleRoot {
     return {
       protocolId,
       votingRoundId,
-      isGoodRandom,
+      isSecureRandom,
       merkleRoot,
       ...encodedLengthEntry
     };
@@ -100,7 +100,7 @@ export namespace ProtocolMessageMerkleRoot {
     return (
       a.protocolId === b.protocolId &&
       a.votingRoundId === b.votingRoundId &&
-      a.isGoodRandom === b.isGoodRandom &&
+      a.isSecureRandom === b.isSecureRandom &&
       a.merkleRoot === b.merkleRoot
     );
   }
@@ -116,6 +116,6 @@ export namespace ProtocolMessageMerkleRoot {
    * @returns 
    */
   export function print(message: IProtocolMessageMerkleRoot) {
-    return `(${message.protocolId}, ${message.votingRoundId}, ${message.isGoodRandom}, ${message.merkleRoot})`
+    return `(${message.protocolId}, ${message.votingRoundId}, ${message.isSecureRandom}, ${message.merkleRoot})`
   }
 }
