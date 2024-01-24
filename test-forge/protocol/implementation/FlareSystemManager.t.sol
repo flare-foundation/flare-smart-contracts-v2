@@ -389,6 +389,9 @@ contract FlareSystemManagerTest is Test {
         vm.startPrank(flareDaemon);
         flareSystemManager.daemonize();
 
+        vm.expectRevert("seed not initialized yet");
+        flareSystemManager.getSeed(1);
+
         vm.roll(234);
         vm.warp(currentTime + uint64(11));
         // select vote power block
@@ -405,6 +408,8 @@ contract FlareSystemManagerTest is Test {
         emit VotePowerBlockSelected(1, 196, uint64(block.timestamp));
         assertEq(flareSystemManager.isVoterRegistrationEnabled(), false);
         flareSystemManager.daemonize();
+        assertEq(flareSystemManager.getSeed(1), 123);
+
         // voter registration started
         assertEq(flareSystemManager.isVoterRegistrationEnabled(), true);
         // endBlock = 199, _initialRandomVotePowerBlockSelectionSize = 5
@@ -520,6 +525,21 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.daemonize();
     }
 
+    function testSwitchoverTriggerContractsRevertDuplicated() public {
+        switchoverContracts = new IRewardEpochSwitchoverTrigger[](2);
+        address mockSwitchover = makeAddr("switchover");
+        switchoverContracts[0] = IRewardEpochSwitchoverTrigger(mockSwitchover);
+        switchoverContracts[1] = IRewardEpochSwitchoverTrigger(mockSwitchover);
+
+        vm.startPrank(governance);
+        vm.expectRevert("duplicated contracts");
+        flareSystemManager.setRewardEpochSwitchoverTriggerContracts(switchoverContracts);
+
+        switchoverContracts[1] = IRewardEpochSwitchoverTrigger(makeAddr("switchover2"));
+        flareSystemManager.setRewardEpochSwitchoverTriggerContracts(switchoverContracts);
+        vm.stopPrank();
+    }
+
     function testTriggerVoterRegistration() public {
         // set voter register trigger contract
         address voterRegTrigger = makeAddr("voterRegTrigger");
@@ -559,17 +579,16 @@ contract FlareSystemManagerTest is Test {
 
 
     function testTriggerVoterRegistrationFailed() public {
-        // TODO: why is that not working?
-        // vm.mockCallRevert(
-        //     voterRegTrigger,
-        //     abi.encodeWithSelector(IVoterRegistrationTrigger.triggerVoterRegistration.selector, 1),
-        //     abi.encode()
-        // );
         // address voterRegTrigger = makeAddr("voterRegTrigger");
         // vm.prank(governance);
         // flareSystemManager.setVoterRegistrationTriggerContract(IVoterRegistrationTrigger(voterRegTrigger));
         // assertEq(address(flareSystemManager.voterRegistrationTriggerContract()), voterRegTrigger);
-
+        // // TODO: why is that not working?
+        // vm.mockCallRevert(
+        //     voterRegTrigger,
+        //     abi.encodeWithSelector(IVoterRegistrationTrigger.triggerVoterRegistration.selector, 1),
+        //     abi.encode("err123")
+        // );
 
         // set voter register trigger contract
         MockVoterRegistrationTrigger voterRegTrigger = new MockVoterRegistrationTrigger();
@@ -601,6 +620,128 @@ contract FlareSystemManagerTest is Test {
         vm.expectEmit();
         emit TriggeringVoterRegistrationFailed(1);
         flareSystemManager.daemonize();
+    }
+
+    function testTriggerCloseExpiredEpochs() public {
+        _initializedSigningPolicyAndMoveToNewEpoch(1);
+        vm.warp(block.timestamp + 5400);
+        vm.startPrank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // start reward epoch 2
+        _initializedSigningPolicyAndMoveToNewEpoch(2);
+        vm.warp(block.timestamp + 5400);
+        vm.startPrank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // set cleanupBlockNumber to 200; vp block for epoch 1 is 1
+        _mockCleanupBlockNumber(9);
+
+        vm.mockCall(
+            mockRewardManager,
+            abi.encodeWithSelector(RewardManager.closeExpiredRewardEpoch.selector),
+            abi.encode()
+        );
+        // it should trigger closeExpiredRewardEpoch once and set rewardEpochIdToExpireNext to 2
+        assertEq(flareSystemManager.rewardEpochIdToExpireNext(), 1);
+        flareSystemManager.daemonize();
+        assertEq(flareSystemManager.rewardEpochIdToExpireNext(), 2);
+
+        // start reward epoch 3
+        _initializedSigningPolicyAndMoveToNewEpoch(3);
+        vm.warp(block.timestamp + 5400);
+        vm.startPrank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // vp block for epoch 2 is 10 -> it should not yet trigger closeExpiredRewardEpoch for epoch 2
+        flareSystemManager.daemonize();
+        assertEq(flareSystemManager.rewardEpochIdToExpireNext(), 2);
+
+        // close epoch 2
+        _mockCleanupBlockNumber(11);
+        flareSystemManager.daemonize();
+        assertEq(flareSystemManager.rewardEpochIdToExpireNext(), 3);
+    }
+
+    function testTriggerCloseExpiredEpochsFailed() public {
+        _initializedSigningPolicyAndMoveToNewEpoch(1);
+        vm.warp(block.timestamp + 5400);
+        vm.startPrank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // start reward epoch 2
+        _initializedSigningPolicyAndMoveToNewEpoch(2);
+        vm.warp(block.timestamp + 5400);
+        vm.startPrank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // set cleanupBlockNumber to 9; vp block for epoch 1 is 1
+        _mockCleanupBlockNumber(9);
+        vm.mockCallRevert(
+            mockRewardManager,
+            abi.encodeWithSelector(RewardManager.closeExpiredRewardEpoch.selector),
+            abi.encode("err123")
+        );
+
+        vm.expectEmit();
+        emit ClosingExpiredRewardEpochFailed(1);
+        flareSystemManager.daemonize();
+    }
+
+    // TODO ???
+    function testGetStartVotingRoundId() public {
+        vm.expectRevert("reward epoch not initialized yet");
+        flareSystemManager.getStartVotingRoundId(1);
+        _initializedSigningPolicyAndMoveToNewEpoch(1);
+        vm.warp(block.timestamp + 5400);
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+        assertEq(flareSystemManager.getStartVotingRoundId(1), 3360);
+
+        _initializedSigningPolicyAndMoveToNewEpoch(2);
+        vm.warp(block.timestamp + 5400);
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+        assertEq(flareSystemManager.getStartVotingRoundId(2), 2 * 3360);
+        vm.stopPrank();
+    }
+
+    function testGetThreshold() public {
+        _initializedSigningPolicyAndMoveToNewEpoch(1);
+        assertEq(flareSystemManager.getThreshold(1), 500);
+
+        vm.warp(block.timestamp + 5400);
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        _initializedSigningPolicyAndMoveToNewEpoch(2);
+        assertEq(flareSystemManager.getThreshold(2), 500);
+    }
+
+    function testUpdateSettings() public {
+        settings = FlareSystemManager.Settings(
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+        );
+
+        vm.prank(governance);
+        flareSystemManager.updateSettings(settings);
+        assertEq(flareSystemManager.randomAcquisitionMaxDurationSeconds(), 1);
+        assertEq(flareSystemManager.randomAcquisitionMaxDurationBlocks(), 2);
+        assertEq(flareSystemManager.newSigningPolicyInitializationStartSeconds(), 3);
+        assertEq(flareSystemManager.newSigningPolicyMinNumberOfVotingRoundsDelay(), 4);
+        assertEq(flareSystemManager.voterRegistrationMinDurationSeconds(), 5);
+        assertEq(flareSystemManager.voterRegistrationMinDurationBlocks(), 6);
+        assertEq(flareSystemManager.signingPolicyThresholdPPM(), 7);
+        assertEq(flareSystemManager.signingPolicyMinNumberOfVoters(), 8);
+        assertEq(flareSystemManager.rewardExpiryOffsetSeconds(), 9);
     }
 
     //// sign signing policy tests
@@ -1524,7 +1665,8 @@ contract FlareSystemManagerTest is Test {
         vm.mockCall(
             mockRelay,
             abi.encodeWithSelector(Relay.setSigningPolicy.selector),
-            abi.encode(bytes32(0)));
+            abi.encode(bytes32(0))
+        );
 
         uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
