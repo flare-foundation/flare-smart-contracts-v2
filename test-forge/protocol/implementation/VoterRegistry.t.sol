@@ -490,6 +490,58 @@ contract VoterRegistryTest is Test {
             sum += normVoterWeight;
         }
         assertEq(sum, normWeightsSum);
+
+        (uint128 _sum, uint16 _normSum, uint16 _normSumPub) = voterRegistry.getWeightsSums(1);
+        assertEq(_sum, weightsSum);
+        assertEq(_normSum, normWeightsSum);
+        // only voter0 registered public key
+        assertEq(_normSumPub, uint16(initialVotersWeights[0] * UINT16_MAX / weightsSum));
+    }
+
+    function testGetWeightsSum() public {
+        VoterRegistry.Signature memory signature;
+
+        _mockGetCurrentEpochId(0);
+        _mockGetVoterAddresses();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVoterWeights();
+        vm.prank(mockFlareSystemManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
+
+        uint256 weightsSum = 0;
+        for (uint256 i = 0; i < initialVoters.length ; i++) {
+            signature = _createSigningPolicyAddressSignature(i, 1);
+            voterRegistry.registerVoter(initialVoters[i], signature);
+            weightsSum += initialVotersWeights[i];
+        }
+
+        // create signing policy snapshot
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(EntityManager.getSigningPolicyAddresses.selector,
+                initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
+            abi.encode(initialSigningPolicyAddresses)
+        );
+        initialPublicKeyParts1[0] = bytes32(0);
+        initialPublicKeyParts2[0] = bytes32(0);
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(EntityManager.getPublicKeys.selector,
+                initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
+            abi.encode(initialPublicKeyParts1, initialPublicKeyParts2)
+        );
+        vm.prank(mockFlareSystemManager);
+        (, , uint16 normWeightsSum) =
+            voterRegistry.createSigningPolicySnapshot(1);
+
+        (uint128 _sum, uint16 _normSum, uint16 _normSumPub) = voterRegistry.getWeightsSums(1);
+        assertEq(_sum, weightsSum);
+        assertEq(_normSum, normWeightsSum);
+        // no one registered public key
+        assertEq(_normSumPub, 0);
+
+        vm.expectRevert("reward epoch id not supported");
+        voterRegistry.getWeightsSums(2);
     }
 
     function testRemoveVoter() public {

@@ -83,6 +83,46 @@ contract EntityManagerTest is Test {
         entityManager.registerNodeId(nodeId1);
     }
 
+    function testGetNodeIds() public {
+        vm.startPrank(user1);
+        entityManager.registerNodeId(nodeId1);
+        entityManager.registerNodeId(nodeId2);
+        vm.stopPrank();
+
+        vm.prank(user2);
+        entityManager.registerNodeId(nodeId3);
+
+        address[] memory voters = new address[](2);
+        voters[0] = user1;
+        voters[1] = user2;
+        bytes20[][] memory nodeIds = entityManager.getNodeIds(voters, block.number);
+        assertEq(nodeIds.length, 2);
+        assertEq(nodeIds[0].length, 2);
+        assertEq(nodeIds[0][0], nodeId1);
+        assertEq(nodeIds[0][1], nodeId2);
+        assertEq(nodeIds[1].length, 1);
+        assertEq(nodeIds[1][0], nodeId3);
+    }
+
+    function testGetPublicKeys() public {
+        vm.prank(user1);
+        entityManager.registerPublicKey(bytes32("publicKey11"), bytes32("publicKey12"));
+        vm.prank(user2);
+        entityManager.registerPublicKey(bytes32("publicKey21"), bytes32("publicKey22"));
+
+        address[] memory voters = new address[](2);
+        voters[0] = user1;
+        voters[1] = user2;
+
+        (bytes32[] memory publicKey1, bytes32[] memory publicKey2) = entityManager.getPublicKeys(voters, block.number);
+        assertEq(publicKey1.length, 2);
+        assertEq(publicKey1[0], bytes32("publicKey11"));
+        assertEq(publicKey1[1], bytes32("publicKey21"));
+        assertEq(publicKey2.length, 2);
+        assertEq(publicKey2[0], bytes32("publicKey12"));
+        assertEq(publicKey2[1], bytes32("publicKey22"));
+    }
+
     function testRevertSettingTooManyNodesPerEntity() public {
         bytes20 nodeId4 = bytes20(keccak256("nodeId4"));
         bytes20 nodeId5 = bytes20(keccak256("nodeId5"));
