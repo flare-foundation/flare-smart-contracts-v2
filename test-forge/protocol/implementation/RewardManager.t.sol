@@ -43,6 +43,10 @@ contract RewardManagerTest is Test {
         uint120 amount
     );
 
+    event RewardClaimsExpired(
+        uint256 rewardEpochId
+    );
+
     function setUp() public {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
@@ -134,6 +138,24 @@ contract RewardManagerTest is Test {
         emit RewardClaimed(voter1, voter1, voter1, rewardEpochData.id, body.claimType, body.amount);
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
         assertEq(voter1.balance, body.amount);
+    }
+
+    function testClaimDirectRevertRewardsHashZero() public {
+        RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
+
+        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+
+        _mockGetCurrentEpochId(0);
+        _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
+        _mockRewardsHash(rewardEpochData.id, bytes32(0));
+
+        _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
+
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 0); // only DIRECT claim
+
+        vm.prank(voter1);
+        vm.expectRevert("rewards hash zero");
+        rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
     }
 
     // claim DIRECT and weight based (WNAT)
@@ -565,6 +587,56 @@ contract RewardManagerTest is Test {
         vm.prank(delegator2);
         rewardManager.claim(delegator2, payable(delegator2), 0, false, proofs);
         assertEq(delegator2.balance, 0);
+    }
+
+    function testInitializeWeightBasedAndAfterClaim() public {
+        RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
+        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        bytes32[] memory merkleProof1 = new bytes32[](0);
+
+        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+
+        bytes32 merkleRoot = keccak256(abi.encode(body1));
+
+        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+
+        // contract needs some funds for rewarding
+        _fundRewardContract(1000, rewardEpochData.id);
+
+        _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
+        _mockRewardsHash(rewardEpochData.id, merkleRoot);
+
+        _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
+
+        // _claimWeightBasedRewards
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1);
+        // voter1 balance = 250; vp = 300; he is delegating 100% to himself
+        _setWNatData(rewardEpochData.vpBlock);
+        _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
+
+        RewardManager.UnclaimedRewardState memory state =
+            rewardManager.getUnclaimedRewardState(voter1, rewardEpochData.id, IRewardManager.ClaimType.WNAT);
+        assertEq(state.initialised, false);
+        assertEq(state.amount, 0);
+        assertEq(state.weight, 0);
+
+        rewardManager.initialiseWeightBasedClaims(proofs);
+        state = rewardManager.getUnclaimedRewardState(voter1, rewardEpochData.id, IRewardManager.ClaimType.WNAT);
+        assertEq(state.initialised, true);
+        assertEq(state.amount, 200);
+        assertEq(state.weight, 300);
+
+        vm.prank(voter1);
+        // WNAT rewards; should receive floor(200 * 250 / 300) = 166
+        vm.expectEmit();
+        emit RewardClaimed(voter1, voter1, voter1, rewardEpochData.id, body1.claimType, 166);
+        rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
+        assertEq(voter1.balance, 166);
+
+        state = rewardManager.getUnclaimedRewardState(voter1, rewardEpochData.id, IRewardManager.ClaimType.WNAT);
+        assertEq(state.amount, 200 - 166);
+        assertEq(state.weight, 300 - 250);
     }
 
     // weight based reward are already initialized; two delegators claim
@@ -1475,9 +1547,17 @@ contract RewardManagerTest is Test {
         assertEq(endId, 13 - 1);
     }
 
+    function testGetCleanupBlockNumber() public {
+        vm.mockCall(
+            mockWNat,
+            abi.encodeWithSelector(bytes4(keccak256("cleanupBlockNumber()"))),
+            abi.encode(1234)
+        );
+        assertEq(rewardManager.cleanupBlockNumber(), 1234);
+    }
+
     // TODO test new, old reward manager, expire epoch, setInitialRewardData;
     // TODO test claim more than one delegator, nodeId
-    // TODO only initialized and doesn't claim anything
     function testSetNewRewardManagerRevert() public {
         vm.startPrank(governance);
         vm.expectRevert("address zero");
@@ -1504,8 +1584,98 @@ contract RewardManagerTest is Test {
         vm.stopPrank();
     }
 
+    function testSetInitialRewardDataRevert() public {
+        vm.startPrank(governance);
+        _mockGetCurrentEpochId(100);
+        _mockRewardEpochIdToExpireNext(90);
+        rewardManager.setInitialRewardData();
+        assertEq(rewardManager.getInitialRewardEpochId(), 100);
+        assertEq(rewardManager.getRewardEpochIdToExpireNext(), 90);
 
+        vm.expectRevert("not initial state");
+        rewardManager.setInitialRewardData();
+        vm.stopPrank();
+    }
 
+    function testCloseExpiredRewardEpoch() public {
+        RewardManager newRewardManager = new RewardManager(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater
+        );
+
+        _mockGetCurrentEpochId(100);
+        _mockRewardEpochIdToExpireNext(90);
+
+        vm.startPrank(governance);
+        rewardManager.setInitialRewardData();
+        rewardManager.setNewRewardManager(address(newRewardManager));
+        vm.stopPrank();
+
+        // try to close expired epoch - revert wrong address
+        vm.expectRevert("only managers");
+        rewardManager.closeExpiredRewardEpoch(91);
+
+        vm.prank(address(newRewardManager));
+        // try to close expired epoch - revert epoch id != next to expire
+        vm.expectRevert("wrong epoch id");
+        rewardManager.closeExpiredRewardEpoch(91);
+
+        // close expired epoch and burn everything that was not spent on rewards which is whole 1000
+        _fundRewardContract(1000, 90);
+        vm.startPrank(address(newRewardManager));
+        vm.expectEmit();
+        emit RewardClaimsExpired(90);
+        rewardManager.closeExpiredRewardEpoch(90);
+        assertEq(BURN_ADDRESS.balance, 1000);
+        assertEq(rewardManager.getRewardEpochIdToExpireNext(), 91);
+
+        // close epoch 91; no reward for that epoch -> nothing to burn
+        vm.expectEmit();
+        emit RewardClaimsExpired(91);
+        rewardManager.closeExpiredRewardEpoch(91);
+        assertEq(BURN_ADDRESS.balance, 1000);
+
+        vm.stopPrank();
+
+        // set old reward manager
+        RewardManager oldRewardManager = new RewardManager(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater
+        );
+        vm.prank(addressUpdater);
+        oldRewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
+        vm.startPrank(governance);
+        rewardManager.setOldRewardManager(address(oldRewardManager));
+        oldRewardManager.setNewRewardManager(address(rewardManager));
+        _mockRewardEpochIdToExpireNext(92);
+        oldRewardManager.setInitialRewardData();
+        vm.stopPrank();
+
+        // fund old contract for epoch 92
+        vm.prank(governance);
+        rewardOffersManagers = new address[](1);
+        rewardOffersManagers[0] = makeAddr("rewardOffersManager");
+        oldRewardManager.setRewardOffersManagerList(rewardOffersManagers);
+        vm.deal(rewardOffersManagers[0], 1 ether);
+        vm.prank(rewardOffersManagers[0]);
+        oldRewardManager.receiveRewards{value: 300} (92, false);
+
+        // fund current contract for epoch 92
+        _fundRewardContract(500, 92);
+
+        // close epoch 92 on current and old reward managers
+        vm.prank(address(newRewardManager));
+        vm.expectEmit();
+        emit RewardClaimsExpired(92);
+        vm.expectEmit();
+        emit RewardClaimsExpired(92);
+        rewardManager.closeExpiredRewardEpoch(92);
+        assertEq(BURN_ADDRESS.balance, 1000 + 500 + 300);
+        assertEq(rewardManager.getRewardEpochIdToExpireNext(), 93);
+        assertEq(oldRewardManager.getRewardEpochIdToExpireNext(), 93);
+    }
 
 
 
@@ -1762,5 +1932,13 @@ contract RewardManagerTest is Test {
         rewardManager.enablePChainStakeMirror();
         vm.prank(addressUpdater);
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
+    }
+
+    function _mockRewardEpochIdToExpireNext(uint256 _epochId) private {
+        vm.mockCall(
+            mockFlareSystemManager,
+            abi.encodeWithSelector(bytes4(keccak256("rewardEpochIdToExpireNext()"))),
+            abi.encode(_epochId)
+        );
     }
 }

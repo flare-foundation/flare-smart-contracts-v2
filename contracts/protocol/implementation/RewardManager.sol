@@ -506,7 +506,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         uint256 index = 0;
         // WNAT claims
         if (tmp.undelegatedVotePower > 0) { // _rewardOwner had some undelegated vote power at votePowerBlock
-            _rewardStates[index++] = _getRewardSate(
+            _rewardStates[index++] = _getRewardState(
                     _rewardEpochId,
                     ClaimType.WNAT,
                     _rewardOwner,
@@ -514,7 +514,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                     allClaimsInitialised);
         }
         for (uint256 i = 0; i < tmp.delegates.length; i++) {
-            _rewardStates[index++] = _getRewardSate(
+            _rewardStates[index++] = _getRewardState(
                 _rewardEpochId,
                 ClaimType.WNAT,
                 tmp.delegates[i],
@@ -524,7 +524,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
         // MIRROR claims
         for (uint256 i = 0; i < tmp.nodeIds.length; i++) {
-            _rewardStates[index++] = _getRewardSate(
+            _rewardStates[index++] = _getRewardState(
                     _rewardEpochId,
                     ClaimType.MIRROR,
                     address(tmp.nodeIds[i]),
@@ -534,7 +534,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
         // CCHAIN claims
         for (uint256 i = 0; i < tmp.cChainAddresses.length; i++) {
-            _rewardStates[index++] = _getRewardSate(
+            _rewardStates[index++] = _getRewardState(
                     _rewardEpochId,
                     ClaimType.CCHAIN,
                     address(tmp.cChainAddresses[i]),
@@ -1166,7 +1166,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @param _amount Reward amount.
      * @param _allClaimsInitialised Indicates if all claims were already initialised.
      */
-    function _getRewardSate(
+    function _getRewardState(
         uint24 _rewardEpochId,
         ClaimType _claimType,
         address _provider,
