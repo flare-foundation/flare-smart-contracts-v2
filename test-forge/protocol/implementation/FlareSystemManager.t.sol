@@ -155,8 +155,18 @@ contract FlareSystemManagerTest is Test {
         mockVoterRegistry = makeAddr("voterRegistry");
         mockCleanupBlockNumberManager = makeAddr("cleanupBlockNumberManager");
 
-        //// update contract addresses
         vm.startPrank(addressUpdater);
+        contractNameHashes = new bytes32[](3);
+        contractAddresses = new address[](3);
+        contractNameHashes[0] = _keccak256AbiEncode("AddressUpdater");
+        contractNameHashes[1] = _keccak256AbiEncode("FlareSystemManager");
+        contractNameHashes[2] = _keccak256AbiEncode("Relay");
+        contractAddresses[0] = addressUpdater;
+        contractAddresses[1] = address(flareSystemManager);
+        contractAddresses[2] = mockRelay;
+        submission.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        //// update contract addresses
         contractNameHashes = new bytes32[](6);
         contractAddresses = new address[](6);
         contractNameHashes[0] = _keccak256AbiEncode("AddressUpdater");
@@ -172,17 +182,6 @@ contract FlareSystemManagerTest is Test {
         contractAddresses[4] = mockRewardManager;
         contractAddresses[5] = mockCleanupBlockNumberManager;
         flareSystemManager.updateContractAddresses(contractNameHashes, contractAddresses);
-
-        contractNameHashes = new bytes32[](3);
-        contractAddresses = new address[](3);
-        contractNameHashes[0] = _keccak256AbiEncode("AddressUpdater");
-        contractNameHashes[1] = _keccak256AbiEncode("FlareSystemManager");
-        contractNameHashes[2] = _keccak256AbiEncode("Relay");
-        contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = address(flareSystemManager);
-        contractAddresses[2] = mockRelay;
-        submission.updateContractAddresses(contractNameHashes, contractAddresses);
-
         vm.stopPrank();
 
         // mock registered addresses
@@ -246,36 +245,16 @@ contract FlareSystemManagerTest is Test {
 
     function testRevertThresholdTooHigh() public {
         settings.signingPolicyThresholdPPM = PPM_MAX + 1;
+        vm.prank(governance);
         vm.expectRevert("threshold too high");
-        new FlareSystemManager(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
-            addressUpdater,
-            flareDaemon,
-            settings,
-            uint32(block.timestamp),
-            VOTING_EPOCH_DURATION_SEC,
-            0,
-            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            initialSettings
-        );
+        flareSystemManager.updateSettings(settings);
     }
 
     function testRevertZeroVoters() public {
         settings.signingPolicyMinNumberOfVoters = 0;
+        vm.prank(governance);
         vm.expectRevert("zero voters");
-        new FlareSystemManager(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
-            addressUpdater,
-            flareDaemon,
-            settings,
-            uint32(block.timestamp),
-            VOTING_EPOCH_DURATION_SEC,
-            0,
-            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            initialSettings
-        );
+        flareSystemManager.updateSettings(settings);
     }
 
     function testRevertZeroRandomAcqBlocks() public {
@@ -462,7 +441,7 @@ contract FlareSystemManagerTest is Test {
     }
 
     function testSelectVotePowerBlockCurrentBlock() public {
-        _initializedSigningPolicyAndMoveToNewEpoch(1);
+        _initializeSigningPolicyAndMoveToNewEpoch(1);
         // start new epoch
         vm.prank(flareDaemon);
         flareSystemManager.daemonize();
@@ -512,7 +491,7 @@ contract FlareSystemManagerTest is Test {
         assertEq(getContracts.length, 1);
         assertEq(address(getContracts[0]), mockSwitchover);
 
-        _initializedSigningPolicyAndMoveToNewEpoch(1);
+        _initializeSigningPolicyAndMoveToNewEpoch(1);
 
         vm.mockCall(
             mockSwitchover,
@@ -623,14 +602,12 @@ contract FlareSystemManagerTest is Test {
     }
 
     function testTriggerCloseExpiredEpochs() public {
-        _initializedSigningPolicyAndMoveToNewEpoch(1);
-        vm.warp(block.timestamp + 5400);
+        _initializeSigningPolicyAndMoveToNewEpoch(1);
         vm.startPrank(flareDaemon);
         flareSystemManager.daemonize();
 
         // start reward epoch 2
-        _initializedSigningPolicyAndMoveToNewEpoch(2);
-        vm.warp(block.timestamp + 5400);
+        _initializeSigningPolicyAndMoveToNewEpoch(2);
         vm.startPrank(flareDaemon);
         flareSystemManager.daemonize();
 
@@ -648,8 +625,7 @@ contract FlareSystemManagerTest is Test {
         assertEq(flareSystemManager.rewardEpochIdToExpireNext(), 2);
 
         // start reward epoch 3
-        _initializedSigningPolicyAndMoveToNewEpoch(3);
-        vm.warp(block.timestamp + 5400);
+        _initializeSigningPolicyAndMoveToNewEpoch(3);
         vm.startPrank(flareDaemon);
         flareSystemManager.daemonize();
 
@@ -663,15 +639,127 @@ contract FlareSystemManagerTest is Test {
         assertEq(flareSystemManager.rewardEpochIdToExpireNext(), 3);
     }
 
-    function testTriggerCloseExpiredEpochsFailed() public {
-        _initializedSigningPolicyAndMoveToNewEpoch(1);
-        vm.warp(block.timestamp + 5400);
+    function testCloseExpiredEpochs() public {
+        vm.mockCall(
+            mockRewardManager,
+            abi.encodeWithSelector(RewardManager.closeExpiredRewardEpoch.selector),
+            abi.encode()
+        );
+
+        vm.mockCall(
+            mockCleanupBlockNumberManager,
+            abi.encodeWithSelector(ICleanupBlockNumberManager.setCleanUpBlockNumber.selector),
+            abi.encode()
+        );
+
+        vm.prank(governance);
+        flareSystemManager.setTriggerExpirationAndCleanup(true);
+        assertEq(flareSystemManager.triggerExpirationAndCleanup(), true);
+
+        _initializeSigningPolicyAndMoveToNewEpoch(1);
         vm.startPrank(flareDaemon);
         flareSystemManager.daemonize();
 
         // start reward epoch 2
-        _initializedSigningPolicyAndMoveToNewEpoch(2);
-        vm.warp(block.timestamp + 5400);
+        _initializeSigningPolicyAndMoveToNewEpoch(2);
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // start reward epoch 3 and close epoch 1
+        assertEq(flareSystemManager.rewardEpochIdToExpireNext(), 1);
+        _initializeSigningPolicyAndMoveToNewEpoch(3);
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+        assertEq(flareSystemManager.rewardEpochIdToExpireNext(), 2);
+
+        // start reward epoch 4 and close epoch 2
+        _initializeSigningPolicyAndMoveToNewEpoch(4);
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+        assertEq(flareSystemManager.rewardEpochIdToExpireNext(), 3);
+
+        // move to epoch 10 and do not close expired epoch
+        vm.prank(governance);
+        flareSystemManager.setTriggerExpirationAndCleanup(false);
+        for (uint256 i = 5; i < 11; i++) {
+            _initializeSigningPolicyAndMoveToNewEpoch(i);
+            vm.prank(flareDaemon);
+            flareSystemManager.daemonize();
+        }
+        vm.prank(governance);
+        flareSystemManager.setTriggerExpirationAndCleanup(true);
+
+        // move to epoch 11 and close epochs 3-9
+        _initializeSigningPolicyAndMoveToNewEpoch(11);
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+        assertEq(flareSystemManager.rewardEpochIdToExpireNext(), 10);
+    }
+
+    function testCloseExpiredEpochsFailed() public {
+        vm.mockCallRevert(
+            mockRewardManager,
+            abi.encodeWithSelector(RewardManager.closeExpiredRewardEpoch.selector),
+            abi.encode()
+        );
+
+        vm.mockCall(
+            mockCleanupBlockNumberManager,
+            abi.encodeWithSelector(ICleanupBlockNumberManager.setCleanUpBlockNumber.selector),
+            abi.encode()
+        );
+
+        vm.prank(governance);
+        flareSystemManager.setTriggerExpirationAndCleanup(true);
+
+        _initializeSigningPolicyAndMoveToNewEpoch(1);
+        vm.startPrank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // start reward epoch 2
+        _initializeSigningPolicyAndMoveToNewEpoch(2);
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // start reward epoch 3 and try to close epoch 1
+        _initializeSigningPolicyAndMoveToNewEpoch(3);
+        vm.prank(flareDaemon);
+        vm.expectEmit();
+        emit ClosingExpiredRewardEpochFailed(1);
+        flareSystemManager.daemonize();
+    }
+
+    function testSetCleanupBlockNumberFailed() public {
+        // TODO why is that not working?
+        // vm.mockCallRevert(
+        //     mockCleanupBlockNumberManager,
+        //     abi.encodeWithSelector(ICleanupBlockNumberManager.setCleanUpBlockNumber.selector, 1),
+        //     abi.encode()
+        // );
+
+        MockCleanupBlockNumberManager cleanupManager = new MockCleanupBlockNumberManager();
+        vm.prank(addressUpdater);
+        // contractNameHashes[5] = _keccak256AbiEncode("CleanupBlockNumberManager");
+        contractAddresses[5] = address(cleanupManager);
+        flareSystemManager.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        vm.prank(governance);
+        flareSystemManager.setTriggerExpirationAndCleanup(true);
+
+        _initializeSigningPolicyAndMoveToNewEpoch(1);
+        vm.startPrank(flareDaemon);
+        vm.expectEmit();
+        emit SettingCleanUpBlockNumberFailed(1);
+        flareSystemManager.daemonize();
+    }
+
+    function testTriggerCloseExpiredEpochsFailed() public {
+        _initializeSigningPolicyAndMoveToNewEpoch(1);
+        vm.startPrank(flareDaemon);
+        flareSystemManager.daemonize();
+
+        // start reward epoch 2
+        _initializeSigningPolicyAndMoveToNewEpoch(2);
         vm.startPrank(flareDaemon);
         flareSystemManager.daemonize();
 
@@ -688,33 +776,38 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.daemonize();
     }
 
-    // TODO ???
     function testGetStartVotingRoundId() public {
         vm.expectRevert("reward epoch not initialized yet");
         flareSystemManager.getStartVotingRoundId(1);
-        _initializedSigningPolicyAndMoveToNewEpoch(1);
-        vm.warp(block.timestamp + 5400);
+        _initializeSigningPolicyAndMoveToNewEpoch(1);
         vm.prank(flareDaemon);
         flareSystemManager.daemonize();
         assertEq(flareSystemManager.getStartVotingRoundId(1), 3360);
 
-        _initializedSigningPolicyAndMoveToNewEpoch(2);
-        vm.warp(block.timestamp + 5400);
+        _initializeSigningPolicyAndMoveToNewEpoch(2);
         vm.prank(flareDaemon);
         flareSystemManager.daemonize();
         assertEq(flareSystemManager.getStartVotingRoundId(2), 2 * 3360);
         vm.stopPrank();
+
+        vm.warp(block.timestamp + 5400 + 500);
+        // voting round duration is 90 seconds
+        // new signing policy was initialized 5 voting rounds after supposed start voting round
+        // -> start voting round id should be  _getCurrentVotingEpochId() + delay) + 1
+        _initializeSigningPolicyAndMoveToNewEpoch(3);
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize();
+        assertEq(flareSystemManager.getStartVotingRoundId(3), 3 * 3360 + 5 + 1);
     }
 
     function testGetThreshold() public {
-        _initializedSigningPolicyAndMoveToNewEpoch(1);
+        _initializeSigningPolicyAndMoveToNewEpoch(1);
         assertEq(flareSystemManager.getThreshold(1), 500);
 
-        vm.warp(block.timestamp + 5400);
         vm.prank(flareDaemon);
         flareSystemManager.daemonize();
 
-        _initializedSigningPolicyAndMoveToNewEpoch(2);
+        _initializeSigningPolicyAndMoveToNewEpoch(2);
         assertEq(flareSystemManager.getThreshold(2), 500);
     }
 
@@ -1715,7 +1808,7 @@ contract FlareSystemManagerTest is Test {
         );
     }
 
-    function _initializedSigningPolicyAndMoveToNewEpoch(uint256 _nextEpochId) private {
+    function _initializeSigningPolicyAndMoveToNewEpoch(uint256 _nextEpochId) private {
         _initializeSigningPolicy(_nextEpochId);
         vm.mockCall(
             mockRelay,
@@ -1735,9 +1828,15 @@ contract FlareSystemManagerTest is Test {
 }
 
 contract MockVoterRegistrationTrigger is IVoterRegistrationTrigger {
-        uint24 public _rewardEpochId;
+    //solhint-disable-next-line no-unused-vars
         function triggerVoterRegistration(uint24 _rewardEpochId) external {
-            _rewardEpochId = _rewardEpochId;
-            revert("testError");
+            revert("error456");
+        }
+}
+
+contract MockCleanupBlockNumberManager is ICleanupBlockNumberManager {
+    //solhint-disable-next-line no-unused-vars
+        function setCleanUpBlockNumber(uint256 _cleanupBlock) external {
+            revert("error123");
         }
 }
