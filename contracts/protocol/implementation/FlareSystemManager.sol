@@ -686,7 +686,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     /**
      * @inheritdoc IIFlareSystemManager
      */
-    function getRewarEpochStartInfo(uint24 _rewardEpochId)
+    function getRewardEpochStartInfo(uint24 _rewardEpochId)
         external view
         returns(
             uint64 _rewardEpochStartTs,

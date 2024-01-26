@@ -5,28 +5,33 @@ import "forge-std/Test.sol";
 import "../../../contracts/protocol/implementation/FlareSystemCalculator.sol";
 
 contract FlareSystemCalculatorTest is Test {
-  FlareSystemCalculator calculator;
+  FlareSystemCalculator private calculator;
 
-  IGovernanceSettings govSetting;
-  address governance;
+  IGovernanceSettings private govSetting;
+  address private governance;
+  address private addressUpdater;
 
-  uint256 internal constant max = 2 ** 128;
+  bytes32[] private contractNameHashes;
+  address[] private contractAddresses;
+
+  uint256 internal constant MAX = 2 ** 128;
 
   function setUp() public {
     govSetting = IGovernanceSettings(makeAddr("govSetting"));
     governance = makeAddr("initialGovernence");
+    addressUpdater = makeAddr("AddressUpdater");
 
     calculator = new FlareSystemCalculator(
       govSetting,
       governance,
-      makeAddr("AddressUpdater"),
+      addressUpdater,
       200000,
       20 * 60,
       600,
       600
     );
 
-    bytes32[] memory contractNameHashes = new bytes32[](7);
+    contractNameHashes = new bytes32[](7);
     contractNameHashes[0] = keccak256(abi.encode("EntityManager"));
     contractNameHashes[1] = keccak256(abi.encode("WNatDelegationFee"));
     contractNameHashes[2] = keccak256(abi.encode("VoterRegistry"));
@@ -35,55 +40,52 @@ contract FlareSystemCalculatorTest is Test {
     contractNameHashes[5] = keccak256(abi.encode("AddressUpdater"));
     contractNameHashes[6] = keccak256(abi.encode("FlareSystemManager"));
 
-    address[] memory contractAddresses = new address[](7);
+    contractAddresses = new address[](7);
     contractAddresses[0] = makeAddr("EntityManager");
     contractAddresses[1] = makeAddr("WNatDelegationFee");
     contractAddresses[2] = makeAddr("VoterRegistry");
     contractAddresses[3] = makeAddr("PChainStakeMirror");
     contractAddresses[4] = makeAddr("WNat");
-    contractAddresses[5] = makeAddr("AddressUpdater");
+    contractAddresses[5] = addressUpdater;
     contractAddresses[6] = makeAddr("FlareSystemManager");
 
-    vm.prank(governance);
-    calculator.enablePChainStakeMirror();
-
-    vm.prank(calculator.getAddressUpdater());
+    vm.prank(addressUpdater);
     calculator.updateContractAddresses(contractNameHashes, contractAddresses);
   }
 
-  function testFuzz_perfectSquare(uint256 n) public {
-    vm.assume(n < max);
+  function testFuzzPerfectSquare(uint256 n) public {
+    vm.assume(n < MAX);
     uint128 root = calculator.sqrt(n * n);
     assertEq(root, n);
   }
 
-  function testFuzz_perfectSquareMinusOne(uint256 n) public {
-    vm.assume(n < max);
+  function testFuzzPerfectSquareMinusOne(uint256 n) public {
+    vm.assume(n < MAX);
     vm.assume(0 < n);
     uint128 root = calculator.sqrt((n * n) - 1);
     assertEq(root, n - 1);
   }
 
-  function testFuzz_perfectSquarePlusN(uint256 n) public {
-    vm.assume(n < max);
+  function testFuzzPerfectSquarePlusN(uint256 n) public {
+    vm.assume(n < MAX);
     uint128 root = calculator.sqrt(n * (n + 1));
     assertEq(root, n);
   }
 
-  function testFuzz_perfectSquareMinusN(uint256 n) public {
-    vm.assume(n < max);
+  function testFuzzPerfectSquareMinusN(uint256 n) public {
+    vm.assume(n < MAX);
     vm.assume(0 < n);
 
     uint128 root = calculator.sqrt(n * (n - 1));
     assertEq(root, n - 1);
   }
 
-  function test_setWNatCapFail1() public {
+  function testWNatCapFail1() public {
     vm.expectRevert("only governance");
     calculator.setWNatCapPPM(1000);
   }
 
-  function test_setWNatCapFail2() public {
+  function testWNatCapFail2() public {
     vm.expectRevert("_wNatCapPPM too high");
 
     vm.prank(makeAddr("initialGovernence"));
@@ -91,7 +93,7 @@ contract FlareSystemCalculatorTest is Test {
     calculator.setWNatCapPPM(1000001);
   }
 
-  function test_setWNatCap() public {
+  function testSetWNatCap() public {
     vm.prank(makeAddr("initialGovernence"));
 
     calculator.setWNatCapPPM(30000);
@@ -99,7 +101,13 @@ contract FlareSystemCalculatorTest is Test {
     assertEq(calculator.wNatCapPPM(), uint24(30000));
   }
 
-  function test_calculateRegistrationWeight() public {
+  function testCalculateRegistrationWeight() public {
+    vm.prank(governance);
+    calculator.enablePChainStakeMirror();
+
+    vm.prank(addressUpdater);
+    calculator.updateContractAddresses(contractNameHashes, contractAddresses);
+
     bytes20[] memory nodeIds = new bytes20[](3);
     nodeIds[0] = bytes20(makeAddr("1"));
     nodeIds[1] = bytes20(makeAddr("2"));
@@ -114,7 +122,7 @@ contract FlareSystemCalculatorTest is Test {
     uint256 wNatWeight = 1e5;
     uint16 delegationFeeBIPS = 15;
     address voter = makeAddr("voter");
-    address delegationAddress = makeAddr("delagation");
+    address delegationAddress = makeAddr("delegation");
     uint24 rewardEpochId = 12345;
     uint256 votePowerBlockNumber = 1234567;
 
@@ -126,7 +134,8 @@ contract FlareSystemCalculatorTest is Test {
 
     vm.mockCall(
       address(calculator.pChainStakeMirror()),
-      abi.encodeWithSelector(bytes4(keccak256("batchVotePowerOfAt(bytes20[],uint256)")), nodeIds, votePowerBlockNumber),
+      abi.encodeWithSelector(bytes4(keccak256("batchVotePowerOfAt(bytes20[],uint256)")),
+        nodeIds, votePowerBlockNumber),
       abi.encode(nodeWeights)
     );
 
@@ -153,18 +162,68 @@ contract FlareSystemCalculatorTest is Test {
     );
 
     vm.prank(makeAddr("VoterRegistry"));
-
     uint256 registrationWeight = calculator.calculateRegistrationWeight(
       voter,
       delegationAddress,
       rewardEpochId,
       votePowerBlockNumber
     );
-
     assertEq(registrationWeight < 9809897, true);
   }
 
-  function test_calculateBurnFactorPPMSignedInTime() public {
+  function testCalculateRegistrationWeightWithoutMirroring() public {
+    bytes20[] memory nodeIds = new bytes20[](3);
+    nodeIds[0] = bytes20(makeAddr("1"));
+    nodeIds[1] = bytes20(makeAddr("2"));
+    nodeIds[2] = bytes20(makeAddr("3"));
+
+    uint256 totalWNatVotePower = 1e7;
+    uint256 wNatWeight = 10000;
+    uint16 delegationFeeBIPS = 15;
+    address voter = makeAddr("voter");
+    address delegationAddress = makeAddr("delegation");
+    uint24 rewardEpochId = 12345;
+    uint256 votePowerBlockNumber = 1234567;
+
+    vm.mockCall(
+      address(calculator.entityManager()),
+      abi.encodeWithSelector(IEntityManager.getNodeIdsOfAt.selector, voter, votePowerBlockNumber),
+      abi.encode(nodeIds)
+    );
+
+    vm.mockCall(
+      address(calculator.wNat()),
+      abi.encodeWithSelector(bytes4(keccak256("totalVotePowerAt(uint256)")), votePowerBlockNumber),
+      abi.encode(totalWNatVotePower)
+    );
+
+    vm.mockCall(
+      address(calculator.wNatDelegationFee()),
+      abi.encodeWithSelector(IWNatDelegationFee.getVoterFeePercentage.selector, voter, rewardEpochId),
+      abi.encode(delegationFeeBIPS)
+    );
+
+     vm.mockCall(
+      address(calculator.wNat()),
+      abi.encodeWithSelector(
+        bytes4(keccak256("votePowerOfAt(address,uint256)")),
+        delegationAddress,
+        votePowerBlockNumber
+      ),
+      abi.encode(wNatWeight)
+    );
+
+    vm.prank(makeAddr("VoterRegistry"));
+    uint256 registrationWeight = calculator.calculateRegistrationWeight(
+      voter,
+      delegationAddress,
+      rewardEpochId,
+      votePowerBlockNumber
+    );
+    assertEq(registrationWeight, 1000);
+  }
+
+  function testCalculateBurnFactorPPMSignedInTime() public {
     address voter = makeAddr("voter");
     uint24 rewardEpochId = 10000;
 
@@ -192,7 +251,7 @@ contract FlareSystemCalculatorTest is Test {
     assertEq(burnFactor, 0);
   }
 
-  function test_calculateBurnFactorPPMSignedInTimeBlock() public {
+  function testCalculateBurnFactorPPMSignedInTimeBlock() public {
     address voter = makeAddr("voter");
     uint24 rewardEpochId = 10000;
 
@@ -220,7 +279,7 @@ contract FlareSystemCalculatorTest is Test {
     assertEq(burnFactor, 0);
   }
 
-  function test_calculateBurnFactorPPMSignedLateVoterOnTime() public {
+  function testCalculateBurnFactorPPMSignedLateVoterOnTime() public {
     address voter = makeAddr("voter");
     uint24 rewardEpochId = 10000;
 
@@ -248,7 +307,7 @@ contract FlareSystemCalculatorTest is Test {
     assertEq(burnFactor, 0);
   }
 
-  function test_calculateBurnFactorPPMSignedLateVoterDidNotSign() public {
+  function testCalculateBurnFactorPPMSignedLateVoterDidNotSign() public {
     address voter = makeAddr("voter");
     uint24 rewardEpochId = 10000;
 
@@ -277,7 +336,7 @@ contract FlareSystemCalculatorTest is Test {
     assertEq(burnFactor < 1e6, true);
   }
 
-  function test_calculateBurnFactorPPMSignedVeryLateVoterDidNotSign() public {
+  function testCalculateBurnFactorPPMSignedVeryLateVoterDidNotSign() public {
     address voter = makeAddr("voter");
     uint24 rewardEpochId = 10000;
 
@@ -305,7 +364,7 @@ contract FlareSystemCalculatorTest is Test {
     assertEq(burnFactor, 1e6);
   }
 
-  function test_calculateBurnFactorPPMPolicyNotSigned() public {
+  function testCalculateBurnFactorPPMPolicyNotSigned() public {
     address voter = makeAddr("voter");
     uint24 rewardEpochId = 10000;
 
@@ -330,6 +389,6 @@ contract FlareSystemCalculatorTest is Test {
     );
 
     vm.expectRevert("signing policy not signed yet");
-    uint256 burnFactor = calculator.calculateBurnFactorPPM(rewardEpochId - 1, voter);
+    calculator.calculateBurnFactorPPM(rewardEpochId - 1, voter);
   }
 }

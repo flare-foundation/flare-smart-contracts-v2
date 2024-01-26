@@ -46,13 +46,13 @@ contract SubmissionTest is Test {
         addresses.push(makeAddr("randomAddresic"));
     }
 
-    function test_initNewVotingRoundNonFinalisation() public {
+    function testInitNewVotingRoundNonFinalisation() public {
         vm.expectRevert("only flare system manager");
 
         submission.initNewVotingRound(users, users, users, users);
     }
 
-    function testFuzz_initNewVotingRoundFinalisation(
+    function testFuzzInitNewVotingRoundFinalisation(
         address[] calldata usersGen
     ) public {
         vm.assume(usersGen.length > 0);
@@ -78,7 +78,7 @@ contract SubmissionTest is Test {
         assertEq(secondCallSub, false, "5");
     }
 
-    function test_initNewVotingRoundFinalisationEmpty() public {
+    function testInitNewVotingRoundFinalisationEmpty() public {
         vm.prank(address(submission.flareSystemManager()));
         submission.initNewVotingRound(
             emptyAddresses,
@@ -96,25 +96,25 @@ contract SubmissionTest is Test {
         assertEq(radnomCallSub, false, "6");
     }
 
-    function test_getUpdater() public {
+    function testGetUpdater() public {
         //  vm.expectRevert("only address updater");
         address updater = submission.getAddressUpdater();
         assertEq(updater, makeAddr("updater"));
     }
 
-    function test_updateContractAddressFail1() public {
+    function testUpdateContractAddressFail1() public {
         vm.expectRevert("only address updater");
         // vm.prank(makeAddr("updater"));
         submission.updateContractAddresses(nameHashes, addresses);
     }
 
-    function test_updateContractAddressFail2() public {
+    function testUpdateContractAddressFail2() public {
         vm.expectRevert("address zero");
         vm.prank(makeAddr("updater"));
         submission.updateContractAddresses(nameHashes, addresses);
     }
 
-    function test_updateContractAddress() public {
+    function testUpdateContractAddress() public {
         nameHashes.push(keccak256(abi.encode("AddressUpdater")));
         addresses.push(makeAddr("AddressUpdater"));
         nameHashes.push(keccak256(abi.encode("FlareSystemManager")));
@@ -130,20 +130,20 @@ contract SubmissionTest is Test {
         );
     }
 
-    function test_setSubmitRev() public {
+    function testSetSubmitRev() public {
         vm.expectRevert("only governance");
         submission.setSubmit3MethodEnabled(true);
 
         vm.prank(address(submission.flareSystemManager()));
     }
 
-    function test_setSubmit() public {
+    function testSetSubmit() public {
         vm.prank(makeAddr("governance"));
         submission.setSubmit3MethodEnabled(true);
         assertEq(submission.submit3MethodEnabled(), true);
     }
 
-    function testFuzz_initNewVotingRoundFinalisationAfterSubmitEn(
+    function testFuzzInitNewVotingRoundFinalisationAfterSubmitEn(
         address[] calldata usersGen
     ) public {
         vm.prank(makeAddr("governance"));
@@ -199,7 +199,6 @@ contract SubmissionTest is Test {
         submission.submitAndPass(data);
     }
 
-    error CustomError(string message, uint256 value);
     function testSubmitAndPassRevert2() public {
         address passContract = makeAddr("passContract");
         vm.prank(makeAddr("governance"));

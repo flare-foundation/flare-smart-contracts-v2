@@ -96,7 +96,7 @@ interface IIFlareSystemManager is IFlareSystemManager {
      * @return _rewardEpochStartTs Reward epoch start timestamp (0 if not started yet).
      * @return _rewardEpochStartBlock Reward epoch start block number (0 if not started yet).
      */
-    function getRewarEpochStartInfo(uint24 _rewardEpochId)
+    function getRewardEpochStartInfo(uint24 _rewardEpochId)
         external view
         returns(
             uint64 _rewardEpochStartTs,
