@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-// import "hardhat/console.sol";
+import "../interface/IIRelay.sol";
 
-contract Relay {
+contract Relay is IIRelay {
     // IMPORTANT: if you change this, you have to adapt the assembly writing into this in the relay() function
     struct StateData {
         uint8 randomNumberProtocolId;
@@ -13,55 +13,24 @@ contract Relay {
         uint16 rewardEpochDurationInVotingEpochs;
         uint16 thresholdIncreaseBIPS;
         uint32 randomVotingRoundId;
-        bool randomNumberQualityScore;
+        bool isSecureRandom;
         uint32 lastInitializedRewardEpoch;
         bool noSigningPolicyRelay;
     }
 
-    struct SigningPolicy {
-        uint24 rewardEpochId;       // Reward epoch id.
-        uint32 startVotingRoundId;  // First voting round id of validity.
-                                    // Usually it is the first voting round of reward epoch rID.
-                                    // It can be later,
-                                    // if the confirmation of the signing policy on Flare blockchain gets delayed.
-        uint16 threshold;           // Confirmation threshold (absolute value of noramalised weights).
-        uint256 seed;               // Random seed.
-        address[] voters;           // The list of eligible voters in the canonical order.
-        uint16[] weights;           // The corresponding list of normalised signing weights of eligible voters.
-                                    // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
-                                    // while approximately keeping the weight relations.
+    // Auxilary struct for memory variables
+    struct Counters {
+        uint256 weightIndex;
+        uint256 weightPos;
+        uint256 voterIndex;
+        uint256 voterPos;
+        uint256 count;
+        uint256 bytesToTake;
+        bytes32 nextSlot;
+        uint256 pos;
+        uint256 hashCount;
+        uint256 signingPolicyPos;
     }
-
-    event SigningPolicyInitialized(
-        uint24 rewardEpochId,       // Reward epoch id
-        uint32 startVotingRoundId,  // First voting round id of validity.
-                                    // Usually it is the first voting round of reward epoch rewardEpochId.
-                                    // It can be later,
-                                    // if the confirmation of the signing policy on Flare blockchain gets delayed.
-        uint16 threshold,           // Confirmation threshold (absolute value of noramalised weights).
-        uint256 seed,               // Random seed.
-        address[] voters,           // The list of eligible voters in the canonical order.
-        uint16[] weights,           // The corresponding list of normalised signing weights of eligible voters.
-                                    // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
-                                    // while approximately keeping the weight relations.
-        bytes signingPolicyBytes,   // The full signing policy byte encoded.
-        uint64 timestamp            // Timestamp when this happened
-    );
-
-    // Event is emitted when a signing policy is relayed.
-    // It contains minimalistic data in order to save gas. Data about the signing policy are
-    // extractable from the calldata, assuming prefered usage of direct top-level call to relay().
-    event SigningPolicyRelayed(
-        uint256 indexed rewardEpochId        // Reward epoch id
-    );
-
-    // Event is emitted when a protocol message is relayed.
-    event ProtocolMessageRelayed(
-        uint8 indexed protocolId,           // Protocol id
-        uint32 indexed votingRoundId,       // Voting round id
-        bool randomQualityScore,   // Random quality score
-        bytes32 merkleRoot          // Merkle root of the protocol message
-    );
 
     uint256 private constant THRESHOLD_BIPS = 10000;
     uint256 private constant SELECTOR_BYTES = 4;
@@ -135,8 +104,8 @@ contract Relay {
     uint256 private constant SD_BOFF_thresholdIncreaseBIPS = 96;
     uint256 private constant SD_MASK_randomVotingRoundId = 0xffffffff;
     uint256 private constant SD_BOFF_randomVotingRoundId = 112;
-    uint256 private constant SD_MASK_randomNumberQualityScore = 0xff;
-    uint256 private constant SD_BOFF_randomNumberQualityScore = 144;
+    uint256 private constant SD_MASK_isSecureRandom = 0xff;
+    uint256 private constant SD_BOFF_isSecureRandom = 144;
     uint256 private constant SD_MASK_lastInitializedRewardEpoch = 0xffffffff;
     uint256 private constant SD_BOFF_lastInitializedRewardEpoch = 152;
     uint256 private constant SD_MASK_noSigningPolicyRelay = 0xff;
@@ -196,7 +165,7 @@ contract Relay {
         uint32 _initialRewardEpochId,
         uint32 _startingVotingRoundIdForInitialRewardEpochId,
         bytes32 _initialSigningPolicyHash,
-        uint8 _randomNumberProtocolId, // TODO - we may want to be able to change this through governance
+        uint8 _randomNumberProtocolId,
         uint32 _firstVotingRoundStartTs,
         uint8 _votingEpochDurationSeconds,
         uint32 _firstRewardEpochStartVotingRoundId,
@@ -223,20 +192,10 @@ contract Relay {
             stateData.noSigningPolicyRelay = true;
         }
     }
-    // Auxilary struct for memory variables
-    struct Counters {
-        uint256 weightIndex;
-        uint256 weightPos;
-        uint256 voterIndex;
-        uint256 voterPos;
-        uint256 count;
-        uint256 bytesToTake;
-        bytes32 nextSlot;
-        uint256 pos;
-        uint256 hashCount;
-        uint256 signingPolicyPos;
-    }
 
+    /**
+     * @inheritdoc IIRelay
+     */
     function setSigningPolicy(
         // using memory instead of calldata as called from another contract where signing policy is already in memory
         SigningPolicy memory _signingPolicy
@@ -354,19 +313,7 @@ contract Relay {
     }
 
     /**
-     * Finalization function for new signing policies and protocol messages.
-     * It can be used as finalization contract on Flare chain or as relay contract on other EVM chain.
-     * Can be called in two modes. It expects calldata that is parsed in a custom manner.
-     * Hence the transaction calls should assemble relevant calldata in the 'data' field.
-     * Depending on the data provided, the contract operations in essentially two modes:
-     * (1) Relaying signing policy. The structure of the calldata is:
-     *        function signature (4 bytes) + active signing policy (2209 bytes)
-     *             + 0 (1 byte) + new signing policy (2209 bytes),
-     *     total of exactly 4423 bytes.
-     * (2) Relaying signed message. The structure of the calldata is:
-     *        function signature (4 bytes) + signing policy (2209 bytes)
-     *           + signed message (38 bytes) + ECDSA signatures with indices (66 bytes each),
-     *     total of 2251 + 66 * N bytes, where N is the number of signatures.
+     * @inheritdoc IRelay
      */
     function relay() external returns (uint256 _result) {
         // 0 - not relayed
@@ -1054,7 +1001,7 @@ contract Relay {
                                 )
                             )
 
-                            // stateData.randomNumberQualityScore = message.randomQualityScore
+                            // stateData.isSecureRandom = message.randomQualityScore
                             calldatacopy(
                                 memPtrFor,
                                 add(SELECTOR_BYTES, signingPolicyLength),
@@ -1072,8 +1019,8 @@ contract Relay {
                                 add(memPtrFor, M_5_stateData),
                                 assignStruct(
                                     mload(add(memPtrFor, M_5_stateData)),
-                                    SD_BOFF_randomNumberQualityScore,
-                                    SD_MASK_randomNumberQualityScore,
+                                    SD_BOFF_isSecureRandom,
+                                    SD_MASK_isSecureRandom,
                                     structValue(
                                         mload(memPtrFor),
                                         MSG_NMR_BOFF_randomQualityScore,
@@ -1093,8 +1040,8 @@ contract Relay {
                                 add(memPtrFor, M_5_randomQualityScore),
                                 structValue(
                                     mload(add(memPtrFor, M_5_randomQualityScore)),
-                                    SD_BOFF_randomNumberQualityScore,
-                                    SD_MASK_randomNumberQualityScore
+                                    SD_BOFF_isSecureRandom,
+                                    SD_MASK_isSecureRandom
                                 )
                             )
                             // Use M_3 and M4 to store event signature
@@ -1122,12 +1069,15 @@ contract Relay {
         // _result is 1
     }
 
+    /**
+     * @inheritdoc IRelay
+     */
     function getRandomNumber()
         external
         view
         returns (
             uint256 _randomNumber,
-            bool _randomNumberQualityScore,
+            bool _isSecureRandom,
             uint32 _randomTimestamp
         )
     {
@@ -1136,13 +1086,16 @@ contract Relay {
                 stateData.randomVotingRoundId
             ]
         );
-        _randomNumberQualityScore = stateData.randomNumberQualityScore;
+        _isSecureRandom = stateData.isSecureRandom;
         _randomTimestamp =
             stateData.firstVotingRoundStartTs +
             (stateData.randomVotingRoundId + 1) *
             stateData.votingEpochDurationSeconds;
     }
 
+    /**
+     * @inheritdoc IRelay
+     */
     function getVotingRoundId(
         uint256 _timestamp
     ) external view returns (uint256) {
@@ -1155,6 +1108,9 @@ contract Relay {
             stateData.votingEpochDurationSeconds;
     }
 
+    /**
+     * @inheritdoc IRelay
+     */
     function getConfirmedMerkleRoot(uint256 _protocolId, uint256 _votingRoundId)
         external
         view
@@ -1166,12 +1122,15 @@ contract Relay {
         return merkleRoots[_protocolId][_votingRoundId];
     }
 
+    /**
+     * @inheritdoc IRelay
+     */
     function lastInitializedRewardEpochData() external view returns (
-        uint32 lastInitializedRewardEpoch,
-        uint32 startingVotingRoundIdForLastInitializedRewardEpoch
+        uint32 _lastInitializedRewardEpoch,
+        uint32 _startingVotingRoundIdForLastInitializedRewardEpoch
     ) {
-        lastInitializedRewardEpoch = stateData.lastInitializedRewardEpoch;
-        startingVotingRoundIdForLastInitializedRewardEpoch =
-            uint32(startingVotingRoundIds[lastInitializedRewardEpoch]);
+        _lastInitializedRewardEpoch = stateData.lastInitializedRewardEpoch;
+        _startingVotingRoundIdForLastInitializedRewardEpoch =
+            uint32(startingVotingRoundIds[_lastInitializedRewardEpoch]);
     }
 }

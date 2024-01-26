@@ -2,7 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 
-interface IRewardEpochSwitchoverTrigger {
+interface IIRewardEpochSwitchoverTrigger {
 
     function triggerRewardEpochSwitchover(
         uint24 _currentRewardEpochId,

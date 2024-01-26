@@ -2,10 +2,11 @@
 pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../protocol/implementation/FlareSystemManager.sol";
+import "../../userInterfaces/IWNatDelegationFee.sol";
+import "../../userInterfaces/IFlareSystemManager.sol";
 
 
-contract WNatDelegationFee is AddressUpdatable {
+contract WNatDelegationFee is AddressUpdatable, IWNatDelegationFee {
 
     /// Used for storing voter fee percentage settings.
     struct FeePercentage {
@@ -23,14 +24,7 @@ contract WNatDelegationFee is AddressUpdatable {
     mapping(address => FeePercentage[]) internal voterFeePercentages;
 
     /// The FlareSystemManager contract.
-    FlareSystemManager public flareSystemManager;
-
-    /// Event emitted when a voter fee percentage value is changed.
-    event FeePercentageChanged(
-        address indexed voter,
-        uint16 value,
-        uint24 validFromEpochId
-    );
+    IFlareSystemManager public flareSystemManager;
 
     /**
      * Constructor.
@@ -51,9 +45,7 @@ contract WNatDelegationFee is AddressUpdatable {
     }
 
     /**
-     * Allows voter to set (or update last) fee percentage.
-     * @param _feePercentageBIPS Number representing fee percentage in BIPS.
-     * @return Returns the reward epoch number when the value becomes effective.
+     * @inheritdoc IWNatDelegationFee
      */
     function setVoterFeePercentage(uint16 _feePercentageBIPS) external returns (uint256) {
         require(_feePercentageBIPS <= MAX_BIPS, "fee percentage invalid");
@@ -85,20 +77,15 @@ contract WNatDelegationFee is AddressUpdatable {
         return rewardEpochId;
     }
 
-
     /**
-     * Returns the current fee percentage of `_voter`.
-     * @param _voter Voter address.
+     * @inheritdoc IWNatDelegationFee
      */
     function getVoterCurrentFeePercentage(address _voter) external view returns (uint16) {
         return _getVoterFeePercentage(_voter, _getCurrentRewardEpochId());
     }
 
     /**
-     * Returns the fee percentage of `_voter` for given reward epoch id.
-     * @param _voter Voter address.
-     * @param _rewardEpochId Reward epoch id.
-     * **NOTE:** fee percentage might still change for the `current + feePercentageUpdateOffset` reward epoch id
+     * @inheritdoc IWNatDelegationFee
      */
     function getVoterFeePercentage(
         address _voter,
@@ -112,11 +99,7 @@ contract WNatDelegationFee is AddressUpdatable {
     }
 
     /**
-     * Returns the scheduled fee percentage changes of `_voter`.
-     * @param _voter Voter address.
-     * @return _feePercentageBIPS Positional array of fee percentages in BIPS.
-     * @return _validFromEpochId Positional array of reward epoch ids the fee setings are effective from.
-     * @return _fixed Positional array of boolean values indicating if settings are subjected to change.
+     * @inheritdoc IWNatDelegationFee
      */
     function getVoterScheduledFeePercentageChanges(
         address _voter
@@ -158,7 +141,7 @@ contract WNatDelegationFee is AddressUpdatable {
     )
         internal override
     {
-        flareSystemManager = FlareSystemManager(
+        flareSystemManager = IFlareSystemManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
     }
 

@@ -2,6 +2,9 @@
 pragma solidity >=0.7.6 <0.9;
 
 
+/**
+ * FtsoInflationConfigurations interface.
+ */
 interface IFtsoInflationConfigurations {
 
     /// The FTSO configuration struct.
@@ -19,6 +22,12 @@ interface IFtsoInflationConfigurations {
         // rewards split mode (0 means equally, 1 means random,...)
         uint16 mode;
     }
+
+    /**
+     * Returns the FTSO configuration at `_index`.
+     * @param _index The index of the FTSO configuration.
+     */
+    function getFtsoConfiguration(uint256 _index) external view returns(FtsoConfiguration memory);
 
     /**
      * Returns the FTSO configurations.
