@@ -37,6 +37,7 @@ export const DEPLOY_ADDRESSES_FILE = "./db/deployed-addresses.json";
 
 const SKIP_VOTER_REGISTRATION_SET = new Set<string>();
 const SKIP_SIGNING_POLICY_SIGNING_SET = new Set<string>();
+let SKIP_VOTING_EPOCH_ACTIONS = false;
 
 const OFFERS = [
   {
@@ -71,6 +72,11 @@ if (process.env.SKIP_SIGNING_POLICY_SIGNING_SET) {
       SKIP_SIGNING_POLICY_SIGNING_SET.add(x.trim().toLowerCase())
     }
   });
+}
+
+if(process.env.SKIP_VOTING_EPOCH_ACTIONS == "true") {
+  console.log("Skipping voting epoch actions")
+  SKIP_VOTING_EPOCH_ACTIONS = true;
 }
 
 export const systemSettings = function (now: number) {
@@ -227,7 +233,9 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   }, timeUntilSigningPolicyProtocolStart);
 
   scheduleOfferRewardsActions();
-  scheduleVotingEpochActions();
+  if(!SKIP_VOTING_EPOCH_ACTIONS){
+    scheduleVotingEpochActions();
+  }
 
   // Hardhat set interval mining to auto-mine blocks every second
   await hre.network.provider.send("evm_setIntervalMining", [1000]);
@@ -339,6 +347,11 @@ async function registerAccounts(
     const [x, y] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
     const pubKey = "0x" + util.encodePublicKey(x, y, false).toString("hex");
     const pAddr = "0x" + util.publicKeyToAvalancheAddress(x, y).toString("hex");
+
+    console.log("  ")
+    console.log(`Registering account ${i} with address ${identityAccount.address} and nodeId ${nodeId}`);
+    console.log(`PK: ${prvKey}`)
+
     await c.addressBinder.registerAddresses(pubKey, pAddr, identityAccount.address);
 
     const data = await setMockStakingData(
