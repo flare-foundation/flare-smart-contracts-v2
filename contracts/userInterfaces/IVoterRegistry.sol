@@ -14,16 +14,16 @@ interface IVoterRegistry {
     }
 
     /// Event emitted when a voter is chilled.
-    event VoterChilled(address voter, uint256 untilRewardEpochId);
+    event VoterChilled(address indexed voter, uint256 untilRewardEpochId);
 
     /// Event emitted when a voter is removed.
-    event VoterRemoved(address voter, uint256 rewardEpochId);
+    event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId);
 
     /// Event emitted when a voter is registered.
     event VoterRegistered(
-        address voter,
-        uint24 rewardEpochId,
-        address signingPolicyAddress,
+        address indexed voter,
+        uint24 indexed rewardEpochId,
+        address indexed signingPolicyAddress,
         address delegationAddress,
         address submitAddress,
         address submitSignaturesAddress,

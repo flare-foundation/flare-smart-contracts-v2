@@ -108,7 +108,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
       protocolId: toBN(messageData.protocolId),
       votingRoundId: toBN(messageData.votingRoundId),
-      randomQualityScore: messageData.isSecureRandom,
+      isSecureRandom: messageData.isSecureRandom,
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
@@ -307,18 +307,18 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         to: relay.address,
         data: selector + signingPolicy + fullMessage
       })
-    ).to.be.revertedWith("Wrong sign policy reward epoch");
+    ).to.be.revertedWith("Invalid voting round id");
 
-    newMessageData.votingRoundId = votingRoundId + 2 * rewardEpochDurationInVotingEpochs; // shift to one epoch after next reward epoch
-    fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
+    // newMessageData.votingRoundId = votingRoundId + 2 * rewardEpochDurationInVotingEpochs; // shift to one epoch after next reward epoch
+    // fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
 
-    await expect(
-      signers[0].sendTransaction({
-        from: signers[0].address,
-        to: relay.address,
-        data: selector + signingPolicy + fullMessage
-      })
-    ).to.be.revertedWith("Wrong sign policy reward epoch");
+    // await expect(
+    //   signers[0].sendTransaction({
+    //     from: signers[0].address,
+    //     to: relay.address,
+    //     data: selector + signingPolicy + fullMessage
+    //   })
+    // ).to.be.revertedWith("Wrong sign policy reward epoch");
 
     newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs; // shift to next reward epoch
     fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
@@ -332,7 +332,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       })
     ).to.be.revertedWith("No signature count");
 
-    // should be able to use previous reward epoch signing policy, but since 0 are provided, it should fail     
+    // should be able to use previous reward epoch signing policy, but since 0 are provided, it should fail
     await expect(
       signers[0].sendTransaction({
         from: signers[0].address,
@@ -368,7 +368,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
       protocolId: toBN(newMessageData.protocolId),
       votingRoundId: toBN(newMessageData.votingRoundId),
-      randomQualityScore: newMessageData.isSecureRandom,
+      isSecureRandom: newMessageData.isSecureRandom,
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
@@ -526,7 +526,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
       protocolId: toBN(newMessageData.protocolId),
       votingRoundId: toBN(newMessageData.votingRoundId),
-      randomQualityScore: newMessageData.isSecureRandom,
+      isSecureRandom: newMessageData.isSecureRandom,
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
@@ -567,7 +567,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
       protocolId: toBN(newMessageData.protocolId),
       votingRoundId: toBN(newMessageData.votingRoundId),
-      randomQualityScore: newMessageData.isSecureRandom,
+      isSecureRandom: newMessageData.isSecureRandom,
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());

@@ -9,8 +9,8 @@ interface IFlareSystemCalculator {
 
     /// Event emitted when the registration weight of a voter is calculated.
     event VoterRegistrationInfo(
-        address voter,
-        uint24 rewardEpochId,
+        address indexed voter,
+        uint24 indexed rewardEpochId,
         uint256 wNatWeight,
         uint256 wNatCappedWeight,
         bytes20[] nodeIds,

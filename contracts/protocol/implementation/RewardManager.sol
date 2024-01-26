@@ -611,10 +611,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         )
     {
         for (uint256 i = 0; i < _proofs.length; i++) {
+            require(_proofs[i].body.rewardEpochId >= _minClaimableEpochId, "reward epoch expired");
             ClaimType claimType = _proofs[i].body.claimType;
-            if (_proofs[i].body.rewardEpochId < _minClaimableEpochId) {
-                continue;
-            }
             if (claimType == ClaimType.DIRECT || claimType == ClaimType.FEE) {
                 if (_rewardOwner != address(0)) {
                     (uint120 rewardAmountWei, uint120 burnAmountWei) =

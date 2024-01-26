@@ -7,7 +7,7 @@ pragma solidity >=0.7.6 <0.9;
 interface IFtsoFeedDecimals {
 
     /// Event emitted when a feed decimals value is changed.
-    event DecimalsChanged(bytes8 feedName, int8 decimals, uint24 rewardEpochId);
+    event DecimalsChanged(bytes8 indexed feedName, int8 decimals, uint24 rewardEpochId);
 
     /// The offset in reward epochs for the decimals value to become effective.
     function decimalsUpdateOffset() external view returns (uint24);

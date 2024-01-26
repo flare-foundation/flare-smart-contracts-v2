@@ -28,9 +28,6 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
     /// The address of the feeds publisher contract.
     address public feedsPublisher;
 
-    /// Event emitted when a new feed is published.
-    event FtsoFeedPublished(Feed feed);
-
     /// Only feeds publisher can call this method.
     modifier onlyFeedsPublisher {
         require(msg.sender == feedsPublisher, "only feeds publisher");

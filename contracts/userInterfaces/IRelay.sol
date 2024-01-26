@@ -8,19 +8,19 @@ interface IRelay {
 
     // Event is emitted when a new signing policy is initialized by the signing policy setter.
     event SigningPolicyInitialized(
-        uint24 rewardEpochId,       // Reward epoch id
-        uint32 startVotingRoundId,  // First voting round id of validity.
-                                    // Usually it is the first voting round of reward epoch rewardEpochId.
-                                    // It can be later,
-                                    // if the confirmation of the signing policy on Flare blockchain gets delayed.
-        uint16 threshold,           // Confirmation threshold (absolute value of noramalised weights).
-        uint256 seed,               // Random seed.
-        address[] voters,           // The list of eligible voters in the canonical order.
-        uint16[] weights,           // The corresponding list of normalised signing weights of eligible voters.
-                                    // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
-                                    // while approximately keeping the weight relations.
-        bytes signingPolicyBytes,   // The full signing policy byte encoded.
-        uint64 timestamp            // Timestamp when this happened
+        uint24 indexed rewardEpochId,   // Reward epoch id
+        uint32 startVotingRoundId,      // First voting round id of validity.
+                                        // Usually it is the first voting round of reward epoch rewardEpochId.
+                                        // It can be later,
+                                        // if the confirmation of the signing policy on Flare blockchain gets delayed.
+        uint16 threshold,               // Confirmation threshold (absolute value of noramalised weights).
+        uint256 seed,                   // Random seed.
+        address[] voters,               // The list of eligible voters in the canonical order.
+        uint16[] weights,               // The corresponding list of normalised signing weights of eligible voters.
+                                        // Normalisation is done by compressing the weights from 32-byte values to
+                                        // 2 bytes, while approximately keeping the weight relations.
+        bytes signingPolicyBytes,       // The full signing policy byte encoded.
+        uint64 timestamp                // Timestamp when this happened
     );
 
     // Event is emitted when a signing policy is relayed.
@@ -34,8 +34,8 @@ interface IRelay {
     event ProtocolMessageRelayed(
         uint8 indexed protocolId,           // Protocol id
         uint32 indexed votingRoundId,       // Voting round id
-        bool randomQualityScore,   // Random quality score
-        bytes32 merkleRoot          // Merkle root of the protocol message
+        bool isSecureRandom,                // Secure random flag
+        bytes32 merkleRoot                  // Merkle root of the protocol message
     );
 
     /**
@@ -45,15 +45,15 @@ interface IRelay {
      * Hence the transaction calls should assemble relevant calldata in the 'data' field.
      * Depending on the data provided, the contract operations in essentially two modes:
      * (1) Relaying signing policy. The structure of the calldata is:
-     *        function signature (4 bytes) + active signing policy (2209 bytes)
-     *             + 0 (1 byte) + new signing policy (2209 bytes),
+     *        function signature (4 bytes) + active signing policy
+     *             + 0 (1 byte) + new signing policy,
      *     total of exactly 4423 bytes.
      * (2) Relaying signed message. The structure of the calldata is:
-     *        function signature (4 bytes) + signing policy (2209 bytes)
-     *           + signed message (38 bytes) + ECDSA signatures with indices (66 bytes each),
-     *     total of 2251 + 66 * N bytes, where N is the number of signatures.
+     *        function signature (4 bytes) + signing policy
+     *           + signed message (38 bytes) + ECDSA signatures with indices (67 bytes each)
+     * Reverts if relaying is not successful.
      */
-    function relay() external returns (uint256 _result);
+    function relay() external;
 
     /**
      * Returns the signing policy hash for given reward epoch id.

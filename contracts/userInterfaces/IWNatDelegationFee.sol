@@ -7,11 +7,7 @@ pragma solidity >=0.7.6 <0.9;
 interface IWNatDelegationFee {
 
     /// Event emitted when a voter fee percentage value is changed.
-    event FeePercentageChanged(
-        address indexed voter,
-        uint16 value,
-        uint24 validFromEpochId
-    );
+    event FeePercentageChanged(address indexed voter, uint16 value, uint24 validFromEpochId);
 
     /**
      * Allows voter to set (or update last) fee percentage.

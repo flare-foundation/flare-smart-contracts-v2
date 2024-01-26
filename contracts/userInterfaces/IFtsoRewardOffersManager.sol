@@ -30,7 +30,7 @@ interface IFtsoRewardOffersManager {
     /// Event emitted when a reward offer is received.
     event RewardsOffered(
         // reward epoch id
-        uint24 rewardEpochId,
+        uint24 indexed rewardEpochId,
         // feed name - i.e. base/quote symbol
         bytes8 feedName,
         // number of decimals (negative exponent)
@@ -50,7 +50,7 @@ interface IFtsoRewardOffersManager {
     /// Event emitted when inflation rewards are offered.
     event InflationRewardsOffered(
         // reward epoch id
-        uint24 rewardEpochId,
+        uint24 indexed rewardEpochId,
         // feed names - i.e. base/quote symbols - multiple of 8 (one feedName is bytes8)
         bytes feedNames,
         // decimals encoded to - multiple of 1 (int8)

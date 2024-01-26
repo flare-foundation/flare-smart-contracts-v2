@@ -17,52 +17,52 @@ interface IFlareSystemManager is IRandomProvider {
 
     /// Event emitted when random acquisition phase starts.
     event RandomAcquisitionStarted(
-        uint24 rewardEpochId,       // Reward epoch id
-        uint64 timestamp            // Timestamp when this happened
+        uint24 indexed rewardEpochId,   // Reward epoch id
+        uint64 timestamp                // Timestamp when this happened
     );
 
     /// Event emitted when vote power block is selected.
     event VotePowerBlockSelected(
-        uint24 rewardEpochId,       // Reward epoch id
-        uint64 votePowerBlock,      // Vote power block for given reward epoch
-        uint64 timestamp            // Timestamp when this happened
+        uint24 indexed rewardEpochId,   // Reward epoch id
+        uint64 votePowerBlock,          // Vote power block for given reward epoch
+        uint64 timestamp                // Timestamp when this happened
     );
 
     /// Event emitted when signing policy is signed.
     event SigningPolicySigned(
-        uint24 rewardEpochId,           // Reward epoch id
-        address signingPolicyAddress,   // Address which signed this
-        address voter,                  // Voter (entity)
-        uint64 timestamp,               // Timestamp when this happened
-        bool thresholdReached           // Indicates if signing threshold was reached
+        uint24 indexed rewardEpochId,           // Reward epoch id
+        address indexed signingPolicyAddress,   // Address which signed this
+        address indexed voter,                  // Voter (entity)
+        uint64 timestamp,                       // Timestamp when this happened
+        bool thresholdReached                   // Indicates if signing threshold was reached
     );
 
     /// Event emitted when reward epoch starts.
     event RewardEpochStarted(
-        uint24 rewardEpochId,           // Reward epoch id
+        uint24 indexed rewardEpochId,   // Reward epoch id
         uint32 startVotingRoundId,      // First voting round id of validity
         uint64 timestamp                // Timestamp when this happened
     );
 
     /// Event emitted when uptime vote is signed.
     event UptimeVoteSigned(
-        uint24 rewardEpochId,           // Reward epoch id
-        address signingPolicyAddress,   // Address which signed this
-        address voter,                  // Voter (entity)
-        bytes32 uptimeVoteHash,         // Uptime vote hash
-        uint64 timestamp,               // Timestamp when this happened
-        bool thresholdReached           // Indicates if signing threshold was reached
+        uint24 indexed rewardEpochId,           // Reward epoch id
+        address indexed signingPolicyAddress,   // Address which signed this
+        address indexed voter,                  // Voter (entity)
+        bytes32 uptimeVoteHash,                 // Uptime vote hash
+        uint64 timestamp,                       // Timestamp when this happened
+        bool thresholdReached                   // Indicates if signing threshold was reached
     );
 
     /// Event emitted when rewards are signed.
     event RewardsSigned(
-        uint24 rewardEpochId,           // Reward epoch id
-        address signingPolicyAddress,   // Address which signed this
-        address voter,                  // Voter (entity)
-        bytes32 rewardsHash,            // Rewards hash
-        uint256 noOfWeightBasedClaims,  // Number of weight based claims
-        uint64 timestamp,               // Timestamp when this happened
-        bool thresholdReached           // Indicates if signing threshold was reached
+        uint24 indexed rewardEpochId,           // Reward epoch id
+        address indexed signingPolicyAddress,   // Address which signed this
+        address indexed voter,                  // Voter (entity)
+        bytes32 rewardsHash,                    // Rewards hash
+        uint256 noOfWeightBasedClaims,          // Number of weight based claims
+        uint64 timestamp,                       // Timestamp when this happened
+        bool thresholdReached                   // Indicates if signing threshold was reached
     );
 
     /**

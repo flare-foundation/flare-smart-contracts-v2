@@ -63,17 +63,13 @@ interface IRewardManager {
      * `getUnclaimedRewardState()` can be used to retrieve more information.
      * @param rewardEpochId Id of the reward epoch that has just expired.
      */
-    event RewardClaimsExpired(
-        uint256 rewardEpochId
-    );
+    event RewardClaimsExpired(uint256 indexed rewardEpochId);
 
     /**
      * Emitted when reward claims have been enabled.
      * @param rewardEpochId First claimable reward epoch.
      */
-    event RewardClaimsEnabled(
-        uint256 rewardEpochId
-    );
+    event RewardClaimsEnabled(uint256 indexed rewardEpochId);
 
     /**
      * Claim rewards for `_rewardOwner` and transfer them to `_recipient`.

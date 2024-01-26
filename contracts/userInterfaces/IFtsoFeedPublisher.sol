@@ -28,6 +28,9 @@ interface IFtsoFeedPublisher {
         Feed body;
     }
 
+    /// Event emitted when a new feed is published.
+    event FtsoFeedPublished(Feed feed);
+
     /**
      * Publishes feeds.
      * @param _proofs The FTSO feeds with proofs to publish.
