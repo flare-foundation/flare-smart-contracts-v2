@@ -14,6 +14,7 @@ export interface ISignaturePayload {
   signer?: string;
   index?: number;
   messageHash?: string;
+  weight?: number;
 }
 
 export interface DepositSignatureData {

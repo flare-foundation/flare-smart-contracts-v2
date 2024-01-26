@@ -29,7 +29,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   const votingRoundDurationSec = 90;
   const firstRewardEpochVotingRoundId = 1000;
   const rewardEpochDurationInVotingEpochs = 3360; // 3.5 days
-  const votingRoundId = 4111;
+  const votingRoundId = 4411;
   const rewardEpochId = Math.floor((votingRoundId - firstRewardEpochVotingRoundId) / rewardEpochDurationInVotingEpochs);
   let signingPolicyData: ISigningPolicy;
   const randomNumberProtocolId = 15;
@@ -46,6 +46,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       singleWeight
     );
     signingPolicyData.rewardEpochId = rewardEpochId;
+    signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
     const signingPolicy = SigningPolicy.encode(signingPolicyData);
     const localHash = SigningPolicy.hashEncoded(signingPolicy);
     relay = await Relay.new(
@@ -296,9 +297,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
   it("Should fail to relay a message due to wrong signing policy reward epoch id", async () => {
     const newMessageData = { ...messageData };
-    newMessageData.votingRoundId = votingRoundId - rewardEpochDurationInVotingEpochs; // shift to previous reward epoch
+    // newMessageData.votingRoundId = votingRoundId - rewardEpochDurationInVotingEpochs; // shift to previous reward epoch
+    newMessageData.votingRoundId = 1; // shift to previous reward epoch
     let fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
-
     const signingPolicy = SigningPolicy.encode(signingPolicyData).slice(2);
 
     await expect(
@@ -309,16 +310,28 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       })
     ).to.be.revertedWith("Invalid voting round id");
 
-    // newMessageData.votingRoundId = votingRoundId + 2 * rewardEpochDurationInVotingEpochs; // shift to one epoch after next reward epoch
-    // fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
+    newMessageData.votingRoundId = votingRoundId - rewardEpochDurationInVotingEpochs; // shift to one epoch after next reward epoch
+    fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
 
-    // await expect(
-    //   signers[0].sendTransaction({
-    //     from: signers[0].address,
-    //     to: relay.address,
-    //     data: selector + signingPolicy + fullMessage
-    //   })
-    // ).to.be.revertedWith("Wrong sign policy reward epoch");
+    await expect(
+      signers[0].sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + signingPolicy + fullMessage
+      })
+    ).to.be.revertedWith("Wrong sign policy reward epoch");
+
+
+    newMessageData.votingRoundId = votingRoundId + 2 * rewardEpochDurationInVotingEpochs; // shift to one epoch after next reward epoch
+    fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
+
+    await expect(
+      signers[0].sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + signingPolicy + fullMessage + "0000"
+      })
+    ).to.be.revertedWith("Not enough weight");
 
     newMessageData.votingRoundId = votingRoundId + rewardEpochDurationInVotingEpochs; // shift to next reward epoch
     fullMessage = ProtocolMessageMerkleRoot.encode(newMessageData).slice(2);
