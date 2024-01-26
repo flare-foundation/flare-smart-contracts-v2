@@ -1599,7 +1599,6 @@ contract RewardManagerTest is Test {
         assertEq(rewardManager.cleanupBlockNumber(), 1234);
     }
 
-    // TODO test claim more than one delegator, nodeId
     function testSetNewRewardManagerRevert() public {
         vm.startPrank(governance);
         vm.expectRevert("address zero");
