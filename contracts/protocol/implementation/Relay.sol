@@ -853,7 +853,7 @@ contract Relay is IIRelay {
                 )
 
                 // Index sanity checks in regard to signing policy
-                if gt(index, sub(numberOfVoters, 1)) {
+                if gt(add(index, 1), numberOfVoters) {
                     revertWithMessage(memPtrFor, "Index out of range", 18)
                 }
 
