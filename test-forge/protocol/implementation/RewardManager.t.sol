@@ -50,7 +50,7 @@ contract RewardManagerTest is Test {
     );
 
     event RewardClaimsExpired(
-        uint256 rewardEpochId
+        uint256 indexed rewardEpochId
     );
 
     function setUp() public {

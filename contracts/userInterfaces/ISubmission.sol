@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
+import "./IRandomProvider.sol";
+
 /**
  * Submission interface.
  */
-interface ISubmission {
+interface ISubmission is IRandomProvider {
 
     /// Event emitted when a new voting round is initiated.
     event NewVotingRoundInitiated();

@@ -32,6 +32,10 @@ contract EntityManager is Governed, IIEntityManager {
         bytes20[] nodeIds;
     }
 
+    /// The public key verification contract used in `registerPublicKey` call.
+    address public publicKeyVerificationContract;
+    /// The selector to use when `registerPublicKey` is called.
+    bytes4 public publicKeyVerificationSelector;
     /// Maximum number of node ids per entity.
     uint32 public maxNodeIdsPerEntity;
 
@@ -89,8 +93,16 @@ contract EntityManager is Governed, IIEntityManager {
     /**
      * @inheritdoc IEntityManager
      */
-    function registerPublicKey(bytes32 _part1, bytes32 _part2) external {
+    function registerPublicKey(bytes32 _part1, bytes32 _part2, bytes calldata _data) external {
         require(_part1 != bytes32(0) || _part2 != bytes32(0), "public key invalid");
+        require(publicKeyVerificationContract != address(0) && publicKeyVerificationSelector != bytes4(0),
+            "public key registration not enabled");
+        /* solhint-disable avoid-low-level-calls */
+        //slither-disable-next-line arbitrary-send-eth
+        (bool success, bytes memory e) =
+            publicKeyVerificationContract.call(bytes.concat(publicKeyVerificationSelector, _part1, _part2, _data));
+        /* solhint-enable avoid-low-level-calls */
+        require(success, _getRevertMsg(e));
         bytes32 publicKeyHash = keccak256(abi.encode(_part1, _part2));
         require(publicKeyRegistered[publicKeyHash].addressAtNow() == address(0), "public key already registered");
         (bytes32 oldPart1, bytes32 oldPart2) = register[msg.sender].publicKey.publicKeyAtNow();
@@ -240,6 +252,22 @@ contract EntityManager is Governed, IIEntityManager {
         require(_newMaxNodeIdsPerEntity > maxNodeIdsPerEntity, "can increase only");
         maxNodeIdsPerEntity = _newMaxNodeIdsPerEntity;
         emit MaxNodeIdsPerEntitySet(_newMaxNodeIdsPerEntity);
+    }
+
+    /**
+     * Sets the public key verification contract and selector.
+     * @param _publicKeyVerificationContract The public key verification contract used in `registerPublicKey` call.
+     * @param _publicKeyVerificationSelector The selector to use when `registerPublicKey` is called.
+     * @dev Only governance can call this method.
+     */
+    function setPublicKeyVerificationData(
+        address _publicKeyVerificationContract,
+        bytes4 _publicKeyVerificationSelector
+    )
+        external onlyGovernance
+    {
+        publicKeyVerificationContract = _publicKeyVerificationContract;
+        publicKeyVerificationSelector = _publicKeyVerificationSelector;
     }
 
     /**
@@ -499,5 +527,23 @@ contract EntityManager is Governed, IIEntityManager {
         if (_voter == address(0)) {
             _voter = _signingPolicyAddress;
         }
+    }
+
+    /**
+     * @dev Returns the revert message from the returned bytes.
+     * @param _returnData The returned bytes.
+     * @return The revert message.
+     */
+    function _getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {
+        // If the _res length is less than 68, then the transaction failed silently (without a revert message)
+        uint256 length = _returnData.length;
+        if (length < 68) return "Transaction reverted silently";
+
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            _returnData := add(_returnData, 0x04) // Slice the signature hash
+            mstore(_returnData, sub(length, 0x04)) // Set proper length
+        }
+        return abi.decode(_returnData, (string)); // All that remains is the revert string
     }
 }

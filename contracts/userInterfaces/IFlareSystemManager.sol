@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./IRandomProvider.sol";
 
 /**
  * FlareSystemManager interface.
  */
-interface IFlareSystemManager is IRandomProvider {
+interface IFlareSystemManager {
 
     /// Signature structure
     struct Signature {

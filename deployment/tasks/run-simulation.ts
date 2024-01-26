@@ -397,7 +397,7 @@ async function defineNextSigningPolicy(
     await sleep(500);
   }
 
-  if (!(await c.flareSystemManager.getCurrentRandomWithQuality())[1]) throw new Error("No good random");
+  if (!(await c.submission.getCurrentRandomWithQuality())[1]) throw new Error("No good random");
 
   logger.info("Awaiting voting power block selection");
   while (!rewardEvents.get(rewardEpochId)?.includes("VotePowerBlockSelected")) {

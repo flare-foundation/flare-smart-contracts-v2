@@ -1032,7 +1032,7 @@ contract Relay is IIRelay {
         returns (
             uint256 _randomNumber,
             bool _isSecureRandom,
-            uint32 _randomTimestamp
+            uint256 _randomTimestamp
         )
     {
         _randomNumber = uint256(
@@ -1043,7 +1043,7 @@ contract Relay is IIRelay {
         _isSecureRandom = stateData.isSecureRandom;
         _randomTimestamp =
             stateData.firstVotingRoundStartTs +
-            (stateData.randomVotingRoundId + 1) *
+            uint256(stateData.randomVotingRoundId + 1) *
             stateData.votingEpochDurationSeconds;
     }
 

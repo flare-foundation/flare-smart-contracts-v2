@@ -70,8 +70,9 @@ interface IEntityManager {
      * Registers a public key.
      * @param _part1 First part of the public key.
      * @param _part2 Second part of the public key.
+     * @param _data Additional data used to validate the public key.
      */
-    function registerPublicKey(bytes32 _part1, bytes32 _part2) external;
+    function registerPublicKey(bytes32 _part1, bytes32 _part2, bytes calldata _data) external;
 
     /**
      * Unregisters a public key.

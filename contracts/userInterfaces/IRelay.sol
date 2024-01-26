@@ -88,7 +88,7 @@ interface IRelay {
         returns (
             uint256 _randomNumber,
             bool _isSecureRandom,
-            uint32 _randomTimestamp
+            uint256 _randomTimestamp
         );
 
     /**

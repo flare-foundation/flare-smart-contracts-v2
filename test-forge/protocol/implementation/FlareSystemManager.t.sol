@@ -37,62 +37,54 @@ contract FlareSystemManagerTest is Test {
     uint24 private constant PPM_MAX = 1e6;
 
     //// events
-    event SigningPolicyInitialized(
-        uint24 rewardEpochId,       // Reward epoch id
-        uint32 startVotingRoundId,  // First voting round id of validity.
-                                    // Usually it is the first voting round of reward epoch rewardEpochId.
-                                    // It can be later,
-                                    // if the confirmation of the signing policy on Flare blockchain gets delayed.
-        uint16 threshold,           // Confirmation threshold (absolute value of noramalised weights).
-        uint256 seed,               // Random seed.
-        address[] voters,           // The list of eligible voters in the canonical order.
-        uint16[] weights            // The corresponding list of normalised signing weights of eligible voters.
-                                    // Normalisation is done by compressing the weights from 32-byte values to 2 bytes,
-                                    // while approximately keeping the weight relations.
-    );
-
+    /// Event emitted when random acquisition phase starts.
     event RandomAcquisitionStarted(
-        uint24 rewardEpochId,       // Reward epoch id
-        uint64 timestamp            // Timestamp when this happened
+        uint24 indexed rewardEpochId,   // Reward epoch id
+        uint64 timestamp                // Timestamp when this happened
     );
 
+    /// Event emitted when vote power block is selected.
     event VotePowerBlockSelected(
-        uint24 rewardEpochId,       // Reward epoch id
-        uint64 votePowerBlock,      // Vote power block for given reward epoch
-        uint64 timestamp            // Timestamp when this happened
+        uint24 indexed rewardEpochId,   // Reward epoch id
+        uint64 votePowerBlock,          // Vote power block for given reward epoch
+        uint64 timestamp                // Timestamp when this happened
     );
 
+    /// Event emitted when signing policy is signed.
     event SigningPolicySigned(
-        uint24 rewardEpochId,       // Reward epoch id
-        address signingAddress,     // Address which signed this
-        address voter,              // Voter (entity)
-        uint64 timestamp,           // Timestamp when this happened
-        bool thresholdReached       // Indicates if signing threshold was reached
+        uint24 indexed rewardEpochId,           // Reward epoch id
+        address indexed signingPolicyAddress,   // Address which signed this
+        address indexed voter,                  // Voter (entity)
+        uint64 timestamp,                       // Timestamp when this happened
+        bool thresholdReached                   // Indicates if signing threshold was reached
     );
 
-    event UptimeVoteSigned(
-        uint24 rewardEpochId,       // Reward epoch id
-        address signingAddress,     // Address which signed this
-        address voter,              // Voter (entity)
-        bytes32 uptimeVoteHash,     // Uptime vote hash
-        uint64 timestamp,           // Timestamp when this happened
-        bool thresholdReached       // Indicates if signing threshold was reached
-    );
-
-    event RewardsSigned(
-        uint24 rewardEpochId,           // Reward epoch id
-        address signingAddress,         // Address which signed this
-        address voter,                  // Voter (entity)
-        bytes32 rewardsHash,            // Rewards hash
-        uint256 noOfWeightBasedClaims,  // Number of weight based claims
-        uint64 timestamp,               // Timestamp when this happened
-        bool thresholdReached           // Indicates if signing threshold was reached
-    );
-
+    /// Event emitted when reward epoch starts.
     event RewardEpochStarted(
-        uint24 rewardEpochId,           // Reward epoch id
+        uint24 indexed rewardEpochId,   // Reward epoch id
         uint32 startVotingRoundId,      // First voting round id of validity
         uint64 timestamp                // Timestamp when this happened
+    );
+
+    /// Event emitted when uptime vote is signed.
+    event UptimeVoteSigned(
+        uint24 indexed rewardEpochId,           // Reward epoch id
+        address indexed signingPolicyAddress,   // Address which signed this
+        address indexed voter,                  // Voter (entity)
+        bytes32 uptimeVoteHash,                 // Uptime vote hash
+        uint64 timestamp,                       // Timestamp when this happened
+        bool thresholdReached                   // Indicates if signing threshold was reached
+    );
+
+    /// Event emitted when rewards are signed.
+    event RewardsSigned(
+        uint24 indexed rewardEpochId,           // Reward epoch id
+        address indexed signingPolicyAddress,   // Address which signed this
+        address indexed voter,                  // Voter (entity)
+        bytes32 rewardsHash,                    // Rewards hash
+        uint256 noOfWeightBasedClaims,          // Number of weight based claims
+        uint64 timestamp,                       // Timestamp when this happened
+        bool thresholdReached                   // Indicates if signing threshold was reached
     );
 
     event TriggeringVoterRegistrationFailed(uint24 rewardEpochId);
@@ -353,10 +345,6 @@ contract FlareSystemManagerTest is Test {
             abi.encodeWithSelector(IRelay.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
-        assertEq(flareSystemManager.getCurrentRandom(), 123);
-        (uint256 currentRandom, bool quality) = flareSystemManager.getCurrentRandomWithQuality();
-        assertEq(currentRandom, 123);
-        assertEq(quality, true);
         vm.expectEmit();
         emit VotePowerBlockSelected(1, 196, uint64(block.timestamp));
         assertEq(flareSystemManager.isVoterRegistrationEnabled(), false);
@@ -1003,11 +991,12 @@ contract FlareSystemManagerTest is Test {
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         // reward epoch 1 is already finished.
         // First transaction in the block (daemonize() call will change `currentRewardEpochExpectedEndTs` value)
-        assertEq(flareSystemManager.getCurrentRewardEpochId(), 2);
+        assertEq(flareSystemManager.getCurrentRewardEpochId(), 1);
         vm.prank(flareDaemon);
         vm.expectEmit();
         emit RewardEpochStarted(2, 2 * 3360, uint64(block.timestamp));
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
+        assertEq(flareSystemManager.getCurrentRewardEpochId(), 2);
         (uint64 startTs, uint64 startBlock) = flareSystemManager.getRewardEpochStartInfo(2);
         assertEq(startTs, uint64(block.timestamp));
         assertEq(startBlock, uint64(block.number));

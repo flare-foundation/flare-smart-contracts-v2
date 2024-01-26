@@ -106,9 +106,9 @@ contract EntityManagerTest is Test {
 
     function testGetPublicKeys() public {
         vm.prank(user1);
-        entityManager.registerPublicKey(bytes32("publicKey11"), bytes32("publicKey12"));
+        entityManager.registerPublicKey(bytes32("publicKey11"), bytes32("publicKey12"), "");
         vm.prank(user2);
-        entityManager.registerPublicKey(bytes32("publicKey21"), bytes32("publicKey22"));
+        entityManager.registerPublicKey(bytes32("publicKey21"), bytes32("publicKey22"), "");
 
         address[] memory voters = new address[](2);
         voters[0] = user1;
@@ -530,7 +530,7 @@ contract EntityManagerTest is Test {
         bytes32 publicKey1 = bytes32(0);
         bytes32 publicKey2 = bytes32(0);
         vm.expectRevert("public key invalid");
-        entityManager.registerPublicKey(publicKey1, publicKey2);
+        entityManager.registerPublicKey(publicKey1, publicKey2, "");
     }
 
     function testRegisterPublicKey() public {
@@ -540,7 +540,7 @@ contract EntityManagerTest is Test {
         vm.prank(user1);
         vm.expectEmit();
         emit PublicKeyRegistered(user1, publicKey1, publicKey2);
-        entityManager.registerPublicKey(publicKey1, publicKey2);
+        entityManager.registerPublicKey(publicKey1, publicKey2, "");
         (bytes32 publicKey1_, bytes32 publicKey2_) = entityManager.getPublicKeyOf(user1);
         assertEq(publicKey1_, publicKey1);
         assertEq(publicKey2_, publicKey2);
@@ -557,19 +557,19 @@ contract EntityManagerTest is Test {
         bytes32 publicKey2 = bytes32("publicKey2");
 
         vm.prank(user1);
-        entityManager.registerPublicKey(publicKey1, publicKey2);
+        entityManager.registerPublicKey(publicKey1, publicKey2, "");
 
         // can't register the same key twice
         vm.prank(makeAddr("user2"));
         vm.expectRevert("public key already registered");
-        entityManager.registerPublicKey(publicKey1, publicKey2);
+        entityManager.registerPublicKey(publicKey1, publicKey2, "");
     }
 
     function testReplacePublicKey() public {
         bytes32 publicKey11 = bytes32("publicKey11");
         bytes32 publicKey12 = bytes32("publicKey12");
         vm.prank(user1);
-        entityManager.registerPublicKey(publicKey11, publicKey12);
+        entityManager.registerPublicKey(publicKey11, publicKey12, "");
         (bytes32 pk1, bytes32 pk2) = entityManager.getPublicKeyOf(user1);
         assertEq(pk1, publicKey11);
         assertEq(pk2, publicKey12);
@@ -580,7 +580,7 @@ contract EntityManagerTest is Test {
         vm.expectEmit();
         emit PublicKeyUnregistered(user1, publicKey11, publicKey12);
         emit PublicKeyRegistered(user1, publicKey21, publicKey22);
-        entityManager.registerPublicKey(publicKey21, publicKey22);
+        entityManager.registerPublicKey(publicKey21, publicKey22, "");
         (pk1, pk2) = entityManager.getPublicKeyOf(user1);
         assertEq(pk1, publicKey21);
         assertEq(pk2, publicKey22);
@@ -596,7 +596,7 @@ contract EntityManagerTest is Test {
         // nothing to unregister yet -> no event emitted
         assertEq(entries.length, 0);
 
-        entityManager.registerPublicKey(publicKey1, publicKey2);
+        entityManager.registerPublicKey(publicKey1, publicKey2, "");
 
         vm.expectEmit();
         emit PublicKeyUnregistered(user1, publicKey1, publicKey2);

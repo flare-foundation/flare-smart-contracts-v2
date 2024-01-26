@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../interface/IISubmission.sol";
+import "../../userInterfaces/IRelay.sol";
 
 /**
  * Submission contract.
@@ -14,6 +15,8 @@ contract Submission is Governed, AddressUpdatable, IISubmission {
 
     /// The FlareSystemManager contract.
     address public flareSystemManager;
+    /// The Relay contract.
+    IRelay public relay;
     /// Indicates if the submit3 method is enabled.
     bool public submit3MethodEnabled;
     /// The contract address to call when submitAndPass is called.
@@ -167,6 +170,33 @@ contract Submission is Governed, AddressUpdatable, IISubmission {
     }
 
     /**
+     * @inheritdoc IRandomProvider
+     */
+    function getCurrentRandom() external view returns(uint256 _currentRandom) {
+        (_currentRandom, , ) = relay.getRandomNumber();
+    }
+
+    /**
+     * @inheritdoc IRandomProvider
+     */
+    function getCurrentRandomWithQuality()
+        external view
+        returns(uint256 _currentRandom, bool _isSecureRandom)
+    {
+        (_currentRandom, _isSecureRandom, ) = relay.getRandomNumber();
+    }
+
+    /**
+     * @inheritdoc IRandomProvider
+     */
+    function getCurrentRandomWithQualityAndTimestamp()
+        external view
+        returns(uint256 _currentRandom, bool _isSecureRandom, uint256 _randomTimestamp)
+    {
+        (_currentRandom, _isSecureRandom, _randomTimestamp) = relay.getRandomNumber();
+    }
+
+    /**
      * @inheritdoc AddressUpdatable
      */
     function _updateContractAddresses(
@@ -176,6 +206,7 @@ contract Submission is Governed, AddressUpdatable, IISubmission {
         internal override
     {
         flareSystemManager = _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager");
+        relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
     /**

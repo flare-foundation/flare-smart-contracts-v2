@@ -34,12 +34,12 @@ contract VoterRegistryTest is Test {
 
     uint256 private constant UINT16_MAX = type(uint16).max;
 
-    event VoterChilled(address voter, uint256 untilRewardEpochId);
-    event VoterRemoved(address voter, uint256 rewardEpochId);
+    event VoterChilled(address indexed voter, uint256 untilRewardEpochId);
+    event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId);
     event VoterRegistered(
-        address voter,
-        uint24 rewardEpochId,
-        address signingPolicyAddress,
+        address indexed voter,
+        uint24 indexed rewardEpochId,
+        address indexed signingPolicyAddress,
         address delegationAddress,
         address submitAddress,
         address submitSignaturesAddress,

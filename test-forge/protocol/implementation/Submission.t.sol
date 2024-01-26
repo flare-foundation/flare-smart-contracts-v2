@@ -119,14 +119,21 @@ contract SubmissionTest is Test {
         addresses.push(makeAddr("AddressUpdater"));
         nameHashes.push(keccak256(abi.encode("FlareSystemManager")));
         addresses.push(makeAddr("FlareSystemManager"));
+        nameHashes.push(keccak256(abi.encode("Relay")));
+        addresses.push(makeAddr("Relay"));
 
         vm.startPrank(makeAddr("updater"));
         submission.updateContractAddresses(nameHashes, addresses);
         vm.stopPrank();
 
         assertEq(
-            address(submission.flareSystemManager()),
+            submission.flareSystemManager(),
             makeAddr("FlareSystemManager")
+        );
+
+        assertEq(
+            address(submission.relay()),
+            makeAddr("Relay")
         );
     }
 

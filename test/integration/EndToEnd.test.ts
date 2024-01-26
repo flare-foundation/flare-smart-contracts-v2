@@ -444,7 +444,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             data: RELAY_SELECTOR + fullData.slice(2),
         });
         console.log(tx.gasUsed);
-        expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
+        expect((await submission.getCurrentRandomWithQuality())[1]).to.be.true;
     });
 
     it("Should select vote power block", async () => {
@@ -592,8 +592,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             data: RELAY_SELECTOR + fullData.slice(2),
         });
         expect(await relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
-        expect((await flareSystemManager.getCurrentRandom()).eq(toBN(root))).to.be.true;
-        expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
+        expect((await submission.getCurrentRandom()).eq(toBN(root))).to.be.true;
+        expect((await submission.getCurrentRandomWithQuality())[1]).to.be.true;
 
         await web3.eth.sendTransaction({
             from: accounts[0],
@@ -637,7 +637,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             to: relay.address,
             data: RELAY_SELECTOR + fullData.slice(2),
         });
-        expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
+        expect((await submission.getCurrentRandomWithQuality())[1]).to.be.true;
     });
 
     it("Should select vote power block for reward epoch 2", async () => {
