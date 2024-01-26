@@ -75,7 +75,6 @@ if (process.env.SKIP_SIGNING_POLICY_SIGNING_SET) {
 }
 
 if(process.env.SKIP_VOTING_EPOCH_ACTIONS == "true") {
-  console.log("Skipping voting epoch actions")
   SKIP_VOTING_EPOCH_ACTIONS = true;
 }
 
@@ -153,9 +152,12 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     submit1: Web3.utils.sha3("submit1()")!.slice(2, 10),
     submit2: Web3.utils.sha3("submit2()")!.slice(2, 10),
     submitSignatures: Web3.utils.sha3("submitSignatures()")!.slice(2, 10),
+    relay: Web3.utils.sha3("relay()")!.slice(2, 10),
   };
 
   logger.info(`Function selectors:\n${JSON.stringify(submissionSelectors, null, 2)}`);
+
+  // logger.info(`Deployed contracts:\n${JSON.stringify(c, null, 2)}`);
 
   const indexer = new MockDBIndexer(hre.web3, {
     submission: c.submission.address,
@@ -233,6 +235,10 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   }, timeUntilSigningPolicyProtocolStart);
 
   scheduleOfferRewardsActions();
+  logger.info(`Skipping voting epoch actions: ${SKIP_VOTING_EPOCH_ACTIONS}`)
+  const nowtime = Date.now();
+  const nextEpochStartMs = epochSettings.nextVotingEpochStartMs(nowtime);
+  logger.info(`Next voting epoch starts at ${new Date(nextEpochStartMs).toISOString()} | ${nextEpochStartMs}`)
   if(!SKIP_VOTING_EPOCH_ACTIONS){
     scheduleVotingEpochActions();
   }
@@ -333,6 +339,8 @@ async function registerAccounts(
   const weightGwei = 1000;
   let accountOffset = 10;
 
+  const logger = getLogger("");
+
   for (let i = 0; i < voterCount; i++) {
     const nodeId = "0x012345678901234567890123456789012345678" + i;
     const stakeId = web3.utils.keccak256("stake" + i);
@@ -348,9 +356,13 @@ async function registerAccounts(
     const pubKey = "0x" + util.encodePublicKey(x, y, false).toString("hex");
     const pAddr = "0x" + util.publicKeyToAvalancheAddress(x, y).toString("hex");
 
-    console.log("  ")
-    console.log(`Registering account ${i} with address ${identityAccount.address} and nodeId ${nodeId}`);
-    console.log(`PK: ${prvKey}`)
+    logger.info("  ")
+    logger.info(`Registering account ${i} with address ${identityAccount.address} and nodeId ${nodeId}`);
+    logger.info(`Identity address: ${identityAccount.address} | Private key: ${identityAccount.privateKey}`)
+    logger.info(`Submit address: ${submitAccount.address} | Private key: ${submitAccount.privateKey}`)
+    logger.info(`Submit signatures address: ${signingAccount.address} | Private key: ${signingAccount.privateKey}`)
+    logger.info(`Signing policy address: ${policySigningAccount.address} | Private key: ${policySigningAccount.privateKey}`)
+    logger.info("  ")
 
     await c.addressBinder.registerAddresses(pubKey, pAddr, identityAccount.address);
 
