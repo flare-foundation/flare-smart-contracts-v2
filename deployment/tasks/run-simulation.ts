@@ -25,7 +25,11 @@ import { sqliteDatabase } from "../utils/indexer/data-source";
 import { getLogger } from "../utils/logger";
 
 // Simulation config
-const SETTINGS_FILE_LOCATION = "/tmp/epoch-settings.json";
+export const SIMULATION_DUMP_FOLDER = "./sim";
+export const SETTINGS_FILE_LOCATION = `${SIMULATION_DUMP_FOLDER}/epoch-settings.json`;
+export const DEPLOY_ADDRESSES_FILE = `${SIMULATION_DUMP_FOLDER}/deployed-addresses.json`;
+export const SIMULATION_ACCOUNTS_FILE = `${SIMULATION_DUMP_FOLDER}/simulation-accounts.json`;
+
 export const TIMELOCK_SEC = 3600;
 const REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 5;
 const VOTING_EPOCH_DURATION_SEC = 20;
@@ -33,7 +37,6 @@ export const REWARD_EPOCH_DURATION_IN_SEC = REWARD_EPOCH_DURATION_IN_VOTING_EPOC
 
 export const FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
 const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
-export const DEPLOY_ADDRESSES_FILE = "./db/deployed-addresses.json";
 
 const OFFERS = [
   {
@@ -42,7 +45,7 @@ const OFFERS = [
     primaryBandRewardSharePPM: 450000,
     secondaryBandWidthPPM: 50000,
     minRewardedTurnoutBIPS: 5000,
-    claimBackAddress: "0x0000000000000000000000000000000000000000"
+    claimBackAddress: "0x0000000000000000000000000000000000000000",
   },
   {
     amount: 50000000,
@@ -50,21 +53,21 @@ const OFFERS = [
     primaryBandRewardSharePPM: 650000,
     secondaryBandWidthPPM: 20000,
     rewardEligibilityPPM: 0,
-    claimBackAddress: "0x0000000000000000000000000000000000000000"
-  }
-]
+    claimBackAddress: "0x0000000000000000000000000000000000000000",
+  },
+];
 
 function processEnv() {
   const SKIP_VOTER_REGISTRATION_SET = new Set<string>();
   const SKIP_SIGNING_POLICY_SIGNING_SET = new Set<string>();
   let SKIP_VOTING_EPOCH_ACTIONS = false;
-if (process.env.SKIP_VOTER_REGISTRATION_SET) {
-  process.env.SKIP_VOTER_REGISTRATION_SET.split(",").forEach(x => {
-    if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
-      SKIP_VOTER_REGISTRATION_SET.add(x.trim().toLowerCase())
-    }
-  });
-}
+  if (process.env.SKIP_VOTER_REGISTRATION_SET) {
+    process.env.SKIP_VOTER_REGISTRATION_SET.split(",").forEach(x => {
+      if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
+        SKIP_VOTER_REGISTRATION_SET.add(x.trim().toLowerCase());
+      }
+    });
+  }
 
   if (process.env.SKIP_SIGNING_POLICY_SIGNING_SET) {
     process.env.SKIP_SIGNING_POLICY_SIGNING_SET.split(",").forEach(x => {
@@ -85,10 +88,6 @@ if (process.env.SKIP_VOTER_REGISTRATION_SET) {
     SKIP_VOTING_EPOCH_ACTIONS,
   };
 }
-
-// const SKIP_VOTER_REGISTRATION_SET = new Set<string>();
-// const SKIP_SIGNING_POLICY_SIGNING_SET = new Set<string>();
-// let SKIP_VOTING_EPOCH_ACTIONS = false;
 
 const { SKIP_VOTER_REGISTRATION_SET, SKIP_SIGNING_POLICY_SIGNING_SET, SKIP_VOTING_EPOCH_ACTIONS } = processEnv();
 
@@ -154,13 +153,17 @@ class EventStore {
  * Note: This is still a work in progress and might be buggy.
  */
 export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys: any[], voterCount: number) {
+  if (!fs.existsSync(SIMULATION_DUMP_FOLDER)) {
+    fs.mkdirSync(SIMULATION_DUMP_FOLDER);
+  }
   const logger = getLogger("");
 
   const { SKIP_VOTER_REGISTRATION_SET, SKIP_SIGNING_POLICY_SIGNING_SET, SKIP_VOTING_EPOCH_ACTIONS } = processEnv();
 
-  logger.info(`SKIP_VOTER_REGISTRATION_SET: ${new Array(...SKIP_VOTER_REGISTRATION_SET).join(' ')}`);
-  logger.info(`SKIP_SIGNING_POLICY_SIGNING_SET:  ${new Array(...SKIP_SIGNING_POLICY_SIGNING_SET).join(' ')}`);
+  logger.info(`SKIP_VOTER_REGISTRATION_SET: ${new Array(...SKIP_VOTER_REGISTRATION_SET).join(" ")}`);
+  logger.info(`SKIP_SIGNING_POLICY_SIGNING_SET:  ${new Array(...SKIP_SIGNING_POLICY_SIGNING_SET).join(" ")}`);
   logger.info(`SKIP_VOTING_EPOCH_ACTIONS: ${SKIP_VOTING_EPOCH_ACTIONS}`);
+  logger.info(`Simulation specific files generated in ${SIMULATION_DUMP_FOLDER}`);
 
   // Account 0 is reserved for governance, 1-5 for contract address use, 10+ for voters.
   const accounts = privateKeys.map(x => hre.web3.eth.accounts.privateKeyToAccount(x.privateKey));
@@ -177,8 +180,6 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
 
   logger.info(`Function selectors:\n${JSON.stringify(submissionSelectors, null, 2)}`);
 
-  // logger.info(`Deployed contracts:\n${JSON.stringify(c, null, 2)}`);
-
   const indexer = new MockDBIndexer(hre.web3, {
     submission: c.submission.address,
     flareSystemManager: c.flareSystemManager.address,
@@ -192,8 +193,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   });
 
   const registeredAccounts: RegisteredAccount[] = await registerAccounts(voterCount, accounts, c, rewardEpochStart);
-  fs.writeFileSync("simulation-accounts.json", JSON.stringify(registeredAccounts, null, 2));
-  logger.info("Registered account keys written to ./simulation-accounts.json");
+  fs.writeFileSync(SIMULATION_ACCOUNTS_FILE, JSON.stringify(registeredAccounts, null, 2));
+  logger.info("Registered account keys written to " + SIMULATION_ACCOUNTS_FILE);
 
   const epochSettings = new EpochSettings(
     (await c.flareSystemManager.firstRewardEpochStartTs()).toNumber(),
@@ -375,16 +376,6 @@ async function registerAccounts(
     const [x, y] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
     const pubKey = "0x" + util.encodePublicKey(x, y, false).toString("hex");
     const pAddr = "0x" + util.publicKeyToAvalancheAddress(x, y).toString("hex");
-
-    logger.info("  ");
-    logger.info(`Registering account ${i} with address ${identityAccount.address} and nodeId ${nodeId}`);
-    logger.info(`Identity address: ${identityAccount.address} | Private key: ${identityAccount.privateKey}`);
-    logger.info(`Submit address: ${submitAccount.address} | Private key: ${submitAccount.privateKey}`);
-    logger.info(`Submit signatures address: ${signingAccount.address} | Private key: ${signingAccount.privateKey}`);
-    logger.info(
-      `Signing policy address: ${policySigningAccount.address} | Private key: ${policySigningAccount.privateKey}`
-    );
-    logger.info("  ");
 
     await c.addressBinder.registerAddresses(pubKey, pAddr, identityAccount.address);
 
@@ -582,11 +573,7 @@ async function runVotingRound(
     }
   }
   const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
-  const signatures = await generateSignatures(
-    privateKeysInOrder,
-    messageHash,
-    privateKeysInOrder.length
-  );
+  const signatures = await generateSignatures(privateKeysInOrder, messageHash, privateKeysInOrder.length);
 
   const relayMessage = {
     signingPolicy: signingPolicy,
