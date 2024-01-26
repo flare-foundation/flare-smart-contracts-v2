@@ -34,6 +34,11 @@ contract RewardManagerTest is Test {
     address private delegator;
     address private recipient;
 
+    bytes32[] private merkleProof1;
+    bytes32[] private merkleProof2;
+    bytes32[] private merkleProof3;
+    bytes32[] private merkleProof4;
+
     event RewardClaimed(
         address indexed voter,
         address indexed whoClaimed,
@@ -138,6 +143,23 @@ contract RewardManagerTest is Test {
         emit RewardClaimed(voter1, voter1, voter1, rewardEpochData.id, body.claimType, body.amount);
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
         assertEq(voter1.balance, body.amount);
+
+        vm.expectRevert("already claimed");
+        rewardManager.getStateOfRewards(voter1, rewardEpochData.id);
+    }
+
+    // user has nothing to claim (no delegations, p-chain and c-chain not enabled)
+    function testGetStateOfRewards1() public {
+        RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
+        _mockGetVpBlock(0, rewardEpochData.vpBlock);
+        _mockWNatBalance(voter1, rewardEpochData.vpBlock, rewardEpochData.id);
+        _mockGetCurrentEpochId(0);
+        _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 0);
+        _mockRewardsHash(rewardEpochData.id, bytes32("root"));
+
+        RewardManager.RewardState[] memory rewardStates = rewardManager.getStateOfRewards(voter1, rewardEpochData.id);
+        assertEq(rewardStates.length, 0);
     }
 
     function testClaimDirectRevertRewardsHashZero() public {
@@ -156,6 +178,9 @@ contract RewardManagerTest is Test {
         vm.prank(voter1);
         vm.expectRevert("rewards hash zero");
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
+
+        vm.expectRevert("rewards hash zero");
+        rewardManager.getStateOfRewards(voter1, rewardEpochData.id);
     }
 
     // claim DIRECT and weight based (WNAT)
@@ -163,8 +188,8 @@ contract RewardManagerTest is Test {
         _enablePChainStakeMirror();
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](2);
-        bytes32[] memory merkleProof1 = new bytes32[](1);
-        bytes32[] memory merkleProof2 = new bytes32[](1);
+        merkleProof1 = new bytes32[](1);
+        merkleProof2 = new bytes32[](1);
 
         IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
             rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
@@ -236,10 +261,13 @@ contract RewardManagerTest is Test {
         vm.expectRevert("not initialised");
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
 
+        RewardManager.RewardState[] memory rewardStates = rewardManager.getStateOfRewards(voter1, rewardEpochData.id);
+        assertEq(rewardStates.length, 2); // WNAT (undelegated VP) and MIRROR
+
         // set proofs and initialised claims
         proofs = new IRewardManager.RewardClaimWithProof[](2);
-        bytes32[] memory merkleProof1 = new bytes32[](1);
-        bytes32[] memory merkleProof2 = new bytes32[](1);
+        merkleProof1 = new bytes32[](1);
+        merkleProof2 = new bytes32[](1);
 
         IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
             rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
@@ -284,10 +312,10 @@ contract RewardManagerTest is Test {
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](4);
-        bytes32[] memory merkleProof1 = new bytes32[](2);
-        bytes32[] memory merkleProof2 = new bytes32[](2);
-        bytes32[] memory merkleProof3 = new bytes32[](2);
-        bytes32[] memory merkleProof4 = new bytes32[](2);
+        merkleProof1 = new bytes32[](2);
+        merkleProof2 = new bytes32[](2);
+        merkleProof3 = new bytes32[](2);
+        merkleProof4 = new bytes32[](2);
 
         IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
             rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
@@ -343,6 +371,19 @@ contract RewardManagerTest is Test {
         // voter1 has 450 weight on account1, which has 500 vp
         _setCChainData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
+
+        // get state of rewards - all amounts zero because not yet initialized
+        RewardManager.RewardState[] memory rewardStates = rewardManager.getStateOfRewards(voter1, rewardEpochData.id);
+        assertEq(rewardStates.length, 3);
+        assertEq(address(rewardStates[0].provider), voter1);
+        assertEq(rewardStates[0].amount, 0);
+        assertEq(rewardStates[0].initialised, false);
+        assertEq(address(rewardStates[1].provider), address(nodeId1));
+        assertEq(rewardStates[1].amount, 0);
+        assertEq(rewardStates[1].initialised, false);
+        assertEq(address(rewardStates[2].provider), account1);
+        assertEq(rewardStates[2].amount, 0);
+        assertEq(rewardStates[2].initialised, false);
 
         // uint256 balanceBefore = voter1.balance;
         vm.prank(voter1);
@@ -368,19 +409,14 @@ contract RewardManagerTest is Test {
     function testClaimDirectAndWeightBased3() public {
         _enablePChainStakeMirror();
         // enable cChain stake
-        vm.prank(governance);
-        rewardManager.enableCChainStake();
-        assertEq(address(rewardManager.cChainStake()), address(0));
-        vm.prank(addressUpdater);
-        rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
-        assertEq(address(rewardManager.cChainStake()), mockCChainStake);
+       _enableCChainStake();
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](4);
-        bytes32[] memory merkleProof1 = new bytes32[](2);
-        bytes32[] memory merkleProof2 = new bytes32[](2);
-        bytes32[] memory merkleProof3 = new bytes32[](2);
-        bytes32[] memory merkleProof4 = new bytes32[](2);
+        merkleProof1 = new bytes32[](2);
+        merkleProof2 = new bytes32[](2);
+        merkleProof3 = new bytes32[](2);
+        merkleProof4 = new bytes32[](2);
 
         IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
             rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
@@ -437,7 +473,6 @@ contract RewardManagerTest is Test {
         _setCChainData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
-        // uint256 balanceBefore = voter1.balance;
         vm.prank(voter1);
         // DIRECT rewards
         vm.expectEmit();
@@ -452,7 +487,6 @@ contract RewardManagerTest is Test {
         vm.expectEmit();
         emit RewardClaimed(account1, voter1, voter1, rewardEpochData.id, body4.claimType, 360);
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
-        // uint256 balanceAfter = voter1.balance;
         assertEq(voter1.balance, body1.amount + 166 + 262 + 360);
 
         // claim for next epoch (1)
@@ -564,6 +598,20 @@ contract RewardManagerTest is Test {
 
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
 
+        // get state of rewards for delegator
+        RewardManager.RewardState[] memory rewardStates = rewardManager.getStateOfRewards(delegator, 0);
+        assertEq(rewardStates.length, 3);
+        assertEq(address(rewardStates[0].provider), voter1);
+        assertEq(rewardStates[0].amount, 34);
+        assertEq(rewardStates[0].initialised, true);
+        assertEq(address(rewardStates[1].provider), address(nodeId1));
+        assertEq(rewardStates[1].amount, 38);
+        assertEq(rewardStates[1].initialised, true);
+        assertEq(address(rewardStates[2].provider), account1);
+        assertEq(rewardStates[2].amount, 40);
+        assertEq(rewardStates[2].initialised, true);
+
+
         vm.prank(delegator);
         // WNAT rewards; should receive everything that is left (ceil(200 * 50/300) = 34)
         vm.expectEmit();
@@ -592,7 +640,7 @@ contract RewardManagerTest is Test {
     function testInitializeWeightBasedAndAfterClaim() public {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        bytes32[] memory merkleProof1 = new bytes32[](0);
+        merkleProof1 = new bytes32[](0);
 
         IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
             rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
@@ -727,14 +775,13 @@ contract RewardManagerTest is Test {
     }
 
     function testClaimRevertNotInitialised() public {
+        _enablePChainStakeMirror();
+        _enableCChainStake();
         _fundRewardContract(1000, 0);
         vm.startPrank(governance);
         rewardManager.enableClaims();
         rewardManager.activate();
-        rewardManager.enableCChainStake();
         vm.stopPrank();
-        vm.prank(addressUpdater);
-        rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
         _mockGetCurrentEpochId(1);
         _mockGetVpBlock(1, 20);
         _mockNoOfWeightBasedClaims(0, 3);
@@ -1003,6 +1050,9 @@ contract RewardManagerTest is Test {
         vm.expectRevert("not claimable");
         // epoch > current epoch
         rewardManager.claim(voter1, payable(voter1), 3, false, proofs);
+
+        vm.expectRevert("not claimable");
+        rewardManager.getStateOfRewards(voter1, 3);
     }
 
     function testClaimRevertZeroRecipient() public {
@@ -1064,8 +1114,8 @@ contract RewardManagerTest is Test {
     function testClaimWNatTwoDelegations() public {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](2);
-        bytes32[] memory merkleProof1 = new bytes32[](1);
-        bytes32[] memory merkleProof2 = new bytes32[](1);
+        merkleProof1 = new bytes32[](1);
+        merkleProof2 = new bytes32[](1);
 
         IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
             rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.WNAT);
@@ -1138,24 +1188,20 @@ contract RewardManagerTest is Test {
     // no PDA;
     function testAutoClaim() public {
         _enablePChainStakeMirror();
+        _enableCChainStake();
+
         rewardOwners = new address[](2);
         rewardOwners[0] = makeAddr("rewardOwner1");
         rewardOwners[1] = makeAddr("rewardOwner2");
         uint256 executorFee = 1; // 1wei
         _mockGetAutoClaimAddressesAndExecutorFee(voter1, rewardOwners, rewardOwners, executorFee);
 
-        // enable cChain stake
-        vm.prank(governance);
-        rewardManager.enableCChainStake();
-        vm.prank(addressUpdater);
-        rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
-
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](4);
-        bytes32[] memory merkleProof1 = new bytes32[](2);
-        bytes32[] memory merkleProof2 = new bytes32[](2);
-        bytes32[] memory merkleProof3 = new bytes32[](2);
-        bytes32[] memory merkleProof4 = new bytes32[](2);
+        merkleProof1 = new bytes32[](2);
+        merkleProof2 = new bytes32[](2);
+        merkleProof3 = new bytes32[](2);
+        merkleProof4 = new bytes32[](2);
 
         IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
             rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
@@ -1248,6 +1294,8 @@ contract RewardManagerTest is Test {
 
     function testAutoClaimPDA() public {
         _enablePChainStakeMirror();
+        _enableCChainStake();
+
         rewardOwners = new address[](2);
         rewardOwners[0] = makeAddr("rewardOwner1");
         rewardOwners[1] = makeAddr("rewardOwner2");
@@ -1258,18 +1306,12 @@ contract RewardManagerTest is Test {
         uint256 executorFee = 1; // 1wei
         _mockGetAutoClaimAddressesAndExecutorFee(voter1, rewardOwners, pdas, executorFee);
 
-        // enable cChain stake
-        vm.prank(governance);
-        rewardManager.enableCChainStake();
-        vm.prank(addressUpdater);
-        rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
-
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](4);
-        bytes32[] memory merkleProof1 = new bytes32[](2);
-        bytes32[] memory merkleProof2 = new bytes32[](2);
-        bytes32[] memory merkleProof3 = new bytes32[](2);
-        bytes32[] memory merkleProof4 = new bytes32[](2);
+        merkleProof1 = new bytes32[](2);
+        merkleProof2 = new bytes32[](2);
+        merkleProof3 = new bytes32[](2);
+        merkleProof4 = new bytes32[](2);
 
         IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
             rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
@@ -1556,7 +1598,6 @@ contract RewardManagerTest is Test {
         assertEq(rewardManager.cleanupBlockNumber(), 1234);
     }
 
-    // TODO test new, old reward manager, expire epoch, setInitialRewardData;
     // TODO test claim more than one delegator, nodeId
     function testSetNewRewardManagerRevert() public {
         vm.startPrank(governance);
@@ -1930,6 +1971,13 @@ contract RewardManagerTest is Test {
     function _enablePChainStakeMirror() private {
         vm.prank(governance);
         rewardManager.enablePChainStakeMirror();
+        vm.prank(addressUpdater);
+        rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
+    }
+
+    function _enableCChainStake() private {
+        vm.prank(governance);
+        rewardManager.enableCChainStake();
         vm.prank(addressUpdater);
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
     }
