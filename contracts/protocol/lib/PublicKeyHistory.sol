@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
  * A contract to manage checkpoints as of a given block.
  * @dev Store value history by block number with detachable state.
  **/
-library internalKeyHistory {
+library PublicKeyHistory {
     /**
      * @dev `CheckPoint` is the structure that attaches a block number to a
      *  given address; the block number attached is the one that last changed the
