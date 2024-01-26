@@ -59,12 +59,14 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     // Reward epoch id when setInitialRewardData is called (set to +1) - used for forwarding closeExpiredRewardEpoch
     uint24 private initialRewardEpochId;
 
-    mapping(uint256 => mapping(ClaimType =>
-        mapping(address => UnclaimedRewardState))) internal epochTypeProviderUnclaimedReward;
+    // per reward epoch mark weight based claims that were already initialised
+    // remaining weights and amounts are updated when claiming
+    mapping(uint256 rewardEpochId => mapping(ClaimType  claimType =>
+        mapping(address provider => UnclaimedRewardState))) internal epochTypeProviderUnclaimedReward;
     // per reward epoch mark direct and fee claims (not weight based) that were already processed (paid out)
-    mapping(uint256 => mapping(bytes32 => bool)) internal epochProcessedRewardClaims;
+    mapping(uint256 rewardEpochId => mapping(bytes32 claimHash => bool)) internal epochProcessedRewardClaims;
     // number of initialised weight based claims per reward epoch
-    mapping(uint256 => uint256) internal epochNoOfInitialisedWeightBasedClaims;
+    mapping(uint256 rewardEpochId => uint256) internal epochNoOfInitialisedWeightBasedClaims;
 
     // Totals
     uint256 private totalClaimedWei;     // rewards that were claimed in time
@@ -463,7 +465,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             _rewardStates[index++] = _getRewardState(
                     _rewardEpochId,
                     ClaimType.CCHAIN,
-                    address(tmp.cChainAddresses[i]),
+                    tmp.cChainAddresses[i],
                     tmp.cChainWeights[i],
                     allClaimsInitialised);
         }
@@ -474,7 +476,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @inheritdoc IRewardManager
      */
     function getUnclaimedRewardState(
-        address _rewardOwner,
+        address _provider,
         uint24 _rewardEpochId,
         ClaimType _claimType
     )
@@ -483,7 +485,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             UnclaimedRewardState memory _state
         )
     {
-        return epochTypeProviderUnclaimedReward[_rewardEpochId][_claimType][_rewardOwner];
+        return epochTypeProviderUnclaimedReward[_rewardEpochId][_claimType][_provider];
     }
 
     /**
@@ -610,6 +612,9 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     {
         for (uint256 i = 0; i < _proofs.length; i++) {
             ClaimType claimType = _proofs[i].body.claimType;
+            if (_proofs[i].body.rewardEpochId < _minClaimableEpochId) {
+                continue;
+            }
             if (claimType == ClaimType.DIRECT || claimType == ClaimType.FEE) {
                 if (_rewardOwner != address(0)) {
                     (uint120 rewardAmountWei, uint120 burnAmountWei) =
@@ -617,7 +622,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                     _rewardAmountWei += rewardAmountWei;
                     _burnAmountWei += burnAmountWei;
                 }
-            } else if (_proofs[i].body.rewardEpochId >= _minClaimableEpochId) {
+            } else {
                 _initialiseWeightBasedClaim(_proofs[i]);
             }
         }
@@ -1066,7 +1071,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         if (unclaimedRewardAmount == 0) {
             return 0;
         }
-        uint128 unclaimedRewardWeight = _state.weight;
+        uint256 unclaimedRewardWeight = _state.weight;
         if (_rewardWeight == unclaimedRewardWeight) {
             return unclaimedRewardAmount;
         }

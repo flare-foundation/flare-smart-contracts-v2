@@ -397,21 +397,21 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should register and confirm data provider addresses", async () => {
         for (let i = 0; i < 4; i++) {
-            await entityManager.registerSubmitAddress(accounts[10 + i], { from: registeredCAddresses[i] });
+            await entityManager.proposeSubmitAddress(accounts[10 + i], { from: registeredCAddresses[i] });
             await entityManager.confirmSubmitAddressRegistration(registeredCAddresses[i], { from: accounts[10 + i] });
         }
     });
 
     it("Should register and confirm deposit signatures addresses", async () => {
         for (let i = 0; i < 4; i++) {
-            await entityManager.registerSubmitSignaturesAddress(accounts[20 + i], { from: registeredCAddresses[i] });
+            await entityManager.proposeSubmitSignaturesAddress(accounts[20 + i], { from: registeredCAddresses[i] });
             await entityManager.confirmSubmitSignaturesAddressRegistration(registeredCAddresses[i], { from: accounts[20 + i] });
         }
     });
 
     it("Should register and confirm signing policy addresses", async () => {
         for (let i = 0; i < 4; i++) {
-            await entityManager.registerSigningPolicyAddress(accounts[30 + i], { from: registeredCAddresses[i] });
+            await entityManager.proposeSigningPolicyAddress(accounts[30 + i], { from: registeredCAddresses[i] });
             await entityManager.confirmSigningPolicyAddressRegistration(registeredCAddresses[i], { from: accounts[30 + i] });
         }
     });

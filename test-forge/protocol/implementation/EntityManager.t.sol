@@ -20,18 +20,18 @@ contract EntityManagerTest is Test {
 
     event NodeIdRegistered(address indexed voter, bytes20 indexed nodeId);
     event NodeIdUnregistered(address indexed voter, bytes20 indexed nodeId);
-    event SubmitAddressRegistered(address indexed voter, address indexed submitAddress);
+    event SubmitAddressProposed(address indexed voter, address indexed submitAddress);
     event SubmitAddressRegistrationConfirmed(address indexed voter, address indexed signingAddress);
     event MaxNodeIdsPerEntitySet(uint256 maxNodeIdsPerEntity);
-    event SubmitSignaturesAddressRegistered(
+    event SubmitSignaturesAddressProposed(
         address indexed voter, address indexed submitSignaturesAddress);
     event SubmitSignaturesAddressRegistrationConfirmed(
         address indexed voter, address indexed submitSignaturesAddress);
-    event SigningPolicyAddressRegistered(
+    event SigningPolicyAddressProposed(
         address indexed voter, address indexed signingPolicyAddress);
     event SigningPolicyAddressRegistrationConfirmed(
         address indexed voter, address indexed signingPolicyAddress);
-    event DelegationAddressRegistered(
+    event DelegationAddressProposed(
         address indexed voter, address indexed delegationAddress);
     event DelegationAddressRegistrationConfirmed(
         address indexed voter, address indexed delegationAddress);
@@ -178,12 +178,12 @@ contract EntityManagerTest is Test {
         assertEq(nodeIds.length, 0);
     }
 
-    function testRegisterSubmitAddress() public {
+    function testProposeSubmitAddress() public {
         address dataProvider1 = makeAddr("dataProvider1");
         vm.prank(user1);
         vm.expectEmit();
-        emit SubmitAddressRegistered(user1, dataProvider1);
-        entityManager.registerSubmitAddress(dataProvider1);
+        emit SubmitAddressProposed(user1, dataProvider1);
+        entityManager.proposeSubmitAddress(dataProvider1);
     }
 
     function testConfirmSubmitAddressRegistration() public {
@@ -200,7 +200,7 @@ contract EntityManagerTest is Test {
 
         // register submit address
         vm.prank(user1);
-        entityManager.registerSubmitAddress(dataProvider1);
+        entityManager.proposeSubmitAddress(dataProvider1);
 
         // confirm registration
         assertEq(entityManager.getSubmitAddresses(voters, 100)[0], user1);
@@ -214,7 +214,7 @@ contract EntityManagerTest is Test {
         // should not register if already registered
         vm.prank(user1);
         vm.expectRevert("submit address already registered");
-        entityManager.registerSubmitAddress(dataProvider1);
+        entityManager.proposeSubmitAddress(dataProvider1);
 
         // should not confirm if already registered
         vm.prank(dataProvider1);
@@ -231,7 +231,7 @@ contract EntityManagerTest is Test {
 
         // register data provider
         vm.prank(user1);
-        entityManager.registerSubmitAddress(dataProvider1);
+        entityManager.proposeSubmitAddress(dataProvider1);
         assertEq(entityManager.getSubmitAddresses(voters, 100)[0], user1);
         assertEq(entityManager.getVoterForSubmitAddress(dataProvider1, 100), dataProvider1);
 
@@ -243,7 +243,7 @@ contract EntityManagerTest is Test {
 
         // register another data provider
         vm.prank(user1);
-        entityManager.registerSubmitAddress(dataProvider2);
+        entityManager.proposeSubmitAddress(dataProvider2);
         assertEq(entityManager.getSubmitAddresses(voters, 100)[0], dataProvider1);
 
         // confirm registration and replace first data provider
@@ -254,12 +254,12 @@ contract EntityManagerTest is Test {
         assertEq(entityManager.getSubmitAddresses(voters, 200)[0], dataProvider2);
     }
 
-    function testRegisterSubmitSignaturesAddress() public {
+    function testProposeSubmitSignaturesAddress() public {
         address submitSignaturesAddr1 = makeAddr("submitSignaturesAddr1");
         vm.prank(user1);
         vm.expectEmit();
-        emit SubmitSignaturesAddressRegistered(user1, submitSignaturesAddr1);
-        entityManager.registerSubmitSignaturesAddress(submitSignaturesAddr1);
+        emit SubmitSignaturesAddressProposed(user1, submitSignaturesAddr1);
+        entityManager.proposeSubmitSignaturesAddress(submitSignaturesAddr1);
     }
 
     function testConfirmSubmitSignaturesAddressRegistration() public {
@@ -277,7 +277,7 @@ contract EntityManagerTest is Test {
 
         // register submit signatures address
         vm.prank(user1);
-        entityManager.registerSubmitSignaturesAddress(submitSignaturesAddr1);
+        entityManager.proposeSubmitSignaturesAddress(submitSignaturesAddr1);
 
         // confirm registration
         assertEq(entityManager.getSubmitSignaturesAddresses(voters, 100)[0], user1);
@@ -291,7 +291,7 @@ contract EntityManagerTest is Test {
         // should not register if already registered
         vm.prank(user1);
         vm.expectRevert("submit signatures address already registered");
-        entityManager.registerSubmitSignaturesAddress(submitSignaturesAddr1);
+        entityManager.proposeSubmitSignaturesAddress(submitSignaturesAddr1);
 
         // should not confirm if already registered
         vm.prank(submitSignaturesAddr1);
@@ -308,7 +308,7 @@ contract EntityManagerTest is Test {
 
         // register data provider
         vm.prank(user1);
-        entityManager.registerSubmitSignaturesAddress(submitSignaturesAddr1);
+        entityManager.proposeSubmitSignaturesAddress(submitSignaturesAddr1);
         assertEq(entityManager.getSubmitSignaturesAddresses(voters, 100)[0], user1);
         assertEq(entityManager.getVoterForSubmitSignaturesAddress(
             submitSignaturesAddr1, 100), submitSignaturesAddr1);
@@ -321,7 +321,7 @@ contract EntityManagerTest is Test {
 
         // register another data provider
         vm.prank(user1);
-        entityManager.registerSubmitSignaturesAddress(submitSignaturesAddr2);
+        entityManager.proposeSubmitSignaturesAddress(submitSignaturesAddr2);
         assertEq(entityManager.getSubmitSignaturesAddresses(voters, 100)[0], submitSignaturesAddr1);
 
         // confirm registration and replace first data provider
@@ -332,12 +332,12 @@ contract EntityManagerTest is Test {
         assertEq(entityManager.getSubmitSignaturesAddresses(voters, 200)[0], submitSignaturesAddr2);
     }
 
-    function testRegisterSigningPolicyAddress() public {
+    function testProposeSigningPolicyAddress() public {
         address signingPolicyAddr1 = makeAddr("signingPolicyAddr1");
         vm.prank(user1);
         vm.expectEmit();
-        emit SigningPolicyAddressRegistered(user1, signingPolicyAddr1);
-        entityManager.registerSigningPolicyAddress(signingPolicyAddr1);
+        emit SigningPolicyAddressProposed(user1, signingPolicyAddr1);
+        entityManager.proposeSigningPolicyAddress(signingPolicyAddr1);
     }
 
     function testConfirmSigningPolicyAddressRegistration() public {
@@ -354,7 +354,7 @@ contract EntityManagerTest is Test {
 
         // register data provider
         vm.prank(user1);
-        entityManager.registerSigningPolicyAddress(signingPolicyAddr1);
+        entityManager.proposeSigningPolicyAddress(signingPolicyAddr1);
 
         // confirm registration
         assertEq(entityManager.getSigningPolicyAddresses(voters, 100)[0], user1);
@@ -368,7 +368,7 @@ contract EntityManagerTest is Test {
         // should not register if already registered
         vm.prank(user1);
         vm.expectRevert("signing policy address already registered");
-        entityManager.registerSigningPolicyAddress(signingPolicyAddr1);
+        entityManager.proposeSigningPolicyAddress(signingPolicyAddr1);
 
         // should not confirm if already registered
         vm.prank(signingPolicyAddr1);
@@ -385,7 +385,7 @@ contract EntityManagerTest is Test {
 
         // register data provider
         vm.prank(user1);
-        entityManager.registerSigningPolicyAddress(signingPolicyAddr1);
+        entityManager.proposeSigningPolicyAddress(signingPolicyAddr1);
         assertEq(entityManager.getSigningPolicyAddresses(voters, 100)[0], user1);
         assertEq(entityManager.getVoterForSigningPolicyAddress(signingPolicyAddr1, 100), signingPolicyAddr1);
 
@@ -397,7 +397,7 @@ contract EntityManagerTest is Test {
 
         // register another data provider
         vm.prank(user1);
-        entityManager.registerSigningPolicyAddress(signingPolicyAddr2);
+        entityManager.proposeSigningPolicyAddress(signingPolicyAddr2);
         assertEq(entityManager.getSigningPolicyAddresses(voters, 100)[0], signingPolicyAddr1);
 
         // confirm registration and replace first data provider
@@ -408,11 +408,11 @@ contract EntityManagerTest is Test {
         assertEq(entityManager.getSigningPolicyAddresses(voters, 200)[0], signingPolicyAddr2);
     }
 
-    function testRegisterDelegationAddress() public {
+    function testProposeDelegationAddress() public {
         vm.prank(user1);
         vm.expectEmit();
-        emit DelegationAddressRegistered(user1, delegationAddr1);
-        entityManager.registerDelegationAddress(delegationAddr1);
+        emit DelegationAddressProposed(user1, delegationAddr1);
+        entityManager.proposeDelegationAddress(delegationAddr1);
     }
 
     function testConfirmDelegationAddressRegistration() public {
@@ -428,7 +428,7 @@ contract EntityManagerTest is Test {
 
         // register data provider
         vm.prank(user1);
-        entityManager.registerDelegationAddress(delegationAddr1);
+        entityManager.proposeDelegationAddress(delegationAddr1);
 
         // confirm registration
         assertEq(entityManager.getDelegationAddresses(voters, 100)[0], user1);
@@ -442,7 +442,7 @@ contract EntityManagerTest is Test {
         // should not register if already registered
         vm.prank(user1);
         vm.expectRevert("delegation address already registered");
-        entityManager.registerDelegationAddress(delegationAddr1);
+        entityManager.proposeDelegationAddress(delegationAddr1);
 
         // should not confirm if already registered
         vm.prank(delegationAddr1);
@@ -457,7 +457,7 @@ contract EntityManagerTest is Test {
 
         // register data provider
         vm.prank(user1);
-        entityManager.registerDelegationAddress(delegationAddr1);
+        entityManager.proposeDelegationAddress(delegationAddr1);
         assertEq(entityManager.getDelegationAddresses(voters, 100)[0], user1);
         assertEq(entityManager.getVoterForDelegationAddress(delegationAddr1, 100), delegationAddr1);
 
@@ -469,7 +469,7 @@ contract EntityManagerTest is Test {
 
         // register another data provider
         vm.prank(user1);
-        entityManager.registerDelegationAddress(delegationAddr2);
+        entityManager.proposeDelegationAddress(delegationAddr2);
         assertEq(entityManager.getDelegationAddresses(voters, 100)[0], delegationAddr1);
 
         // confirm registration and replace first data provider
@@ -494,10 +494,10 @@ contract EntityManagerTest is Test {
 
         // register addresses
         vm.startPrank(user1);
-        entityManager.registerSubmitAddress(dataProvider1);
-        entityManager.registerSubmitSignaturesAddress(submitSignaturesAddr1);
-        entityManager.registerSigningPolicyAddress(signingPolicyAddr1);
-        entityManager.registerDelegationAddress(delegationAddr1);
+        entityManager.proposeSubmitAddress(dataProvider1);
+        entityManager.proposeSubmitSignaturesAddress(submitSignaturesAddr1);
+        entityManager.proposeSigningPolicyAddress(signingPolicyAddr1);
+        entityManager.proposeDelegationAddress(delegationAddr1);
         vm.stopPrank();
 
         // confirm registrations
@@ -677,13 +677,13 @@ contract EntityManagerTest is Test {
 
         vm.prank(governance);
         vm.expectEmit();
-        emit DelegationAddressRegistered(user1, delegationAddr1);
+        emit DelegationAddressProposed(user1, delegationAddr1);
         vm.expectEmit();
         emit DelegationAddressRegistrationConfirmed(user1, delegationAddr1);
         vm.expectEmit();
         emit NodeIdRegistered(user1, initialVotersData[0].nodeIds[0]);
         vm.expectEmit();
-        emit DelegationAddressRegistered(user2, delegationAddr2);
+        emit DelegationAddressProposed(user2, delegationAddr2);
         vm.expectEmit();
         emit DelegationAddressRegistrationConfirmed(user2, delegationAddr2);
         vm.expectEmit();

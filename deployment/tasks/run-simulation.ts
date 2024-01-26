@@ -355,16 +355,16 @@ async function registerAccounts(
     await c.wNat.deposit({ value: weightGwei * GWEI, from: identityAccount.address });
 
     await c.entityManager.registerNodeId(nodeId, { from: identityAccount.address });
-    await c.entityManager.registerSubmitAddress(submitAccount.address, { from: identityAccount.address });
+    await c.entityManager.proposeSubmitAddress(submitAccount.address, { from: identityAccount.address });
     await c.entityManager.confirmSubmitAddressRegistration(identityAccount.address, {
       from: submitAccount.address,
     });
-    await c.entityManager.registerSubmitSignaturesAddress(signingAccount.address, { from: identityAccount.address });
+    await c.entityManager.proposeSubmitSignaturesAddress(signingAccount.address, { from: identityAccount.address });
     await c.entityManager.confirmSubmitSignaturesAddressRegistration(identityAccount.address, {
       from: signingAccount.address,
     });
 
-    await c.entityManager.registerSigningPolicyAddress(policySigningAccount.address, { from: identityAccount.address });
+    await c.entityManager.proposeSigningPolicyAddress(policySigningAccount.address, { from: identityAccount.address });
     await c.entityManager.confirmSigningPolicyAddressRegistration(identityAccount.address, {
       from: policySigningAccount.address,
     });

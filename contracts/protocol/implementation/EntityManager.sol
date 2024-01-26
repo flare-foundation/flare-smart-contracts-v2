@@ -121,11 +121,11 @@ contract EntityManager is Governed, IIEntityManager {
     /**
      * @inheritdoc IEntityManager
      */
-    function registerDelegationAddress(address _delegationAddress) external {
+    function proposeDelegationAddress(address _delegationAddress) external {
         require(delegationAddressRegistered[_delegationAddress].addressAtNow() == address(0),
             "delegation address already registered");
         delegationAddressRegistrationQueue[msg.sender] = _delegationAddress;
-        emit DelegationAddressRegistered(msg.sender, _delegationAddress);
+        emit DelegationAddressProposed(msg.sender, _delegationAddress);
     }
 
     /**
@@ -149,11 +149,11 @@ contract EntityManager is Governed, IIEntityManager {
     /**
      * @inheritdoc IEntityManager
      */
-    function registerSubmitAddress(address _submitAddress) external {
+    function proposeSubmitAddress(address _submitAddress) external {
         require(submitAddressRegistered[_submitAddress].addressAtNow() == address(0),
             "submit address already registered");
         submitAddressRegistrationQueue[msg.sender] = _submitAddress;
-        emit SubmitAddressRegistered(msg.sender, _submitAddress);
+        emit SubmitAddressProposed(msg.sender, _submitAddress);
     }
 
     /**
@@ -177,11 +177,11 @@ contract EntityManager is Governed, IIEntityManager {
     /**
      * @inheritdoc IEntityManager
      */
-    function registerSubmitSignaturesAddress(address _submitSignaturesAddress) external {
+    function proposeSubmitSignaturesAddress(address _submitSignaturesAddress) external {
         require(submitSignaturesAddressRegistered[_submitSignaturesAddress].addressAtNow() == address(0),
             "submit signatures address already registered");
         submitSignaturesAddressRegistrationQueue[msg.sender] = _submitSignaturesAddress;
-        emit SubmitSignaturesAddressRegistered(msg.sender, _submitSignaturesAddress);
+        emit SubmitSignaturesAddressProposed(msg.sender, _submitSignaturesAddress);
     }
 
     /**
@@ -205,11 +205,11 @@ contract EntityManager is Governed, IIEntityManager {
     /**
      * @inheritdoc IEntityManager
      */
-    function registerSigningPolicyAddress(address _signingPolicyAddress) external {
+    function proposeSigningPolicyAddress(address _signingPolicyAddress) external {
         require(signingPolicyAddressRegistered[_signingPolicyAddress].addressAtNow() == address(0),
             "signing policy address already registered");
         signingPolicyAddressRegistrationQueue[msg.sender] = _signingPolicyAddress;
-        emit SigningPolicyAddressRegistered(msg.sender, _signingPolicyAddress);
+        emit SigningPolicyAddressProposed(msg.sender, _signingPolicyAddress);
     }
 
     /**
@@ -260,7 +260,7 @@ contract EntityManager is Governed, IIEntityManager {
                     "delegation address already registered");
                 entity.delegationAddress.setAddress(voterData.delegationAddress);
                 delegationAddressRegistered[voterData.delegationAddress].setAddress(voterData.voter);
-                emit DelegationAddressRegistered(voterData.voter, voterData.delegationAddress);
+                emit DelegationAddressProposed(voterData.voter, voterData.delegationAddress);
                 emit DelegationAddressRegistrationConfirmed(voterData.voter, voterData.delegationAddress);
             }
             for (uint256 j = 0; j < voterData.nodeIds.length; j++) {

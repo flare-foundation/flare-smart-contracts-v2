@@ -144,14 +144,14 @@ interface IRewardManager {
         );
 
     /**
-     * Gets the unclaimed reward state for a reward owner, reward epoch id and claim type.
-     * @param _rewardOwner Address of the reward owner to query.
+     * Gets the unclaimed reward state for a provider, reward epoch id and claim type.
+     * @param _provider Address of the provider to query.
      * @param _rewardEpochId Id of the reward epoch to query.
      * @param _claimType Claim type to query.
      * @return _state Unclaimed reward state.
      */
     function getUnclaimedRewardState(
-        address _rewardOwner,
+        address _provider,
         uint24 _rewardEpochId,
         ClaimType _claimType
     )

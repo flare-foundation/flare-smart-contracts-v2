@@ -138,6 +138,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     uint24 public signingPolicyThresholdPPM;
     /// Minimum number of voters for signing policy.
     uint16 public signingPolicyMinNumberOfVoters;
+    bool public submit3Alligned; ///TODO
     /// Indicates if rewards epoch expiration and vote power block cleanup should be triggered after each epoch.
     bool public triggerExpirationAndCleanup = false;
 
@@ -326,7 +327,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
             submission.initNewVotingRound(
                 submit1Addresses,
                 submit2Addresses,
-                submit1Addresses,
+                submit3Alligned ? submit1Addresses : submit2Addresses,
                 submitSignaturesAddresses
             );
         }

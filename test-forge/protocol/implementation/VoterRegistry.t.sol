@@ -125,7 +125,7 @@ contract VoterRegistryTest is Test {
         vm.prank(governance);
         _mockGetCurrentEpochId(1);
         vm.expectEmit();
-        emit VoterChilled(initialVoters[0], 3);
+        emit VoterChilled(initialVoters[0], 4);
         voterRegistry.chillVoter(initialVoters[0], 2);
     }
 

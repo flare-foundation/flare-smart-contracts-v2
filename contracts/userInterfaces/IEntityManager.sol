@@ -26,26 +26,26 @@ interface IEntityManager {
     /// Event emitted when a public key is unregistered.
     event PublicKeyUnregistered(
         address indexed voter, bytes32 indexed part1, bytes32 indexed part2);
-    /// Event emitted when a delegation address is registered.
-    event DelegationAddressRegistered(
+    /// Event emitted when a delegation address is proposed.
+    event DelegationAddressProposed(
         address indexed voter, address indexed delegationAddress);
     /// Event emitted when a delegation address registration is confirmed.
     event DelegationAddressRegistrationConfirmed(
         address indexed voter, address indexed delegationAddress);
-    /// Event emitted when a submit address is registered.
-    event SubmitAddressRegistered(
+    /// Event emitted when a submit address is proposed.
+    event SubmitAddressProposed(
         address indexed voter, address indexed submitAddress);
     /// Event emitted when a submit address registration is confirmed.
     event SubmitAddressRegistrationConfirmed(
         address indexed voter, address indexed submitAddress);
-    /// Event emitted when a submit signatures address is registered.
-    event SubmitSignaturesAddressRegistered(
+    /// Event emitted when a submit signatures address is proposed.
+    event SubmitSignaturesAddressProposed(
         address indexed voter, address indexed submitSignaturesAddress);
     /// Event emitted when a submit signatures address registration is confirmed.
     event SubmitSignaturesAddressRegistrationConfirmed(
         address indexed voter, address indexed submitSignaturesAddress);
-    /// Event emitted when a signing policy address is registered.
-    event SigningPolicyAddressRegistered(
+    /// Event emitted when a signing policy address is proposed.
+    event SigningPolicyAddressProposed(
         address indexed voter, address indexed signingPolicyAddress);
     /// Event emitted when a signing policy address registration is confirmed.
     event SigningPolicyAddressRegistrationConfirmed(
@@ -79,10 +79,10 @@ interface IEntityManager {
     function unregisterPublicKey() external;
 
     /**
-     * Registers a delegation address (called by the voter).
+     * Proposes a delegation address (called by the voter).
      * @param _delegationAddress Delegation address.
      */
-    function registerDelegationAddress(address _delegationAddress) external;
+    function proposeDelegationAddress(address _delegationAddress) external;
 
     /**
      * Confirms a delegation address registration (called by the delegation address).
@@ -91,10 +91,10 @@ interface IEntityManager {
     function confirmDelegationAddressRegistration(address _voter) external;
 
     /**
-     * Registers a submit address (called by the voter).
+     * Proposes a submit address (called by the voter).
      * @param _submitAddress Submit address.
      */
-    function registerSubmitAddress(address _submitAddress) external;
+    function proposeSubmitAddress(address _submitAddress) external;
 
     /**
      * Confirms a submit address registration (called by the submit address).
@@ -103,10 +103,10 @@ interface IEntityManager {
     function confirmSubmitAddressRegistration(address _voter) external;
 
     /**
-     * Registers a submit signatures address (called by the voter).
+     * Proposes a submit signatures address (called by the voter).
      * @param _submitSignaturesAddress Submit signatures address.
      */
-    function registerSubmitSignaturesAddress(address _submitSignaturesAddress) external;
+    function proposeSubmitSignaturesAddress(address _submitSignaturesAddress) external;
 
     /**
      * Confirms a submit signatures address registration (called by the submit signatures address).
@@ -115,10 +115,10 @@ interface IEntityManager {
     function confirmSubmitSignaturesAddressRegistration(address _voter) external;
 
     /**
-     * Registers a signing policy address (called by the voter).
+     * Proposes a signing policy address (called by the voter).
      * @param _signingPolicyAddress Signing policy address.
      */
-    function registerSigningPolicyAddress(address _signingPolicyAddress) external;
+    function proposeSigningPolicyAddress(address _signingPolicyAddress) external;
 
     /**
      * Confirms a signing policy address registration (called by the signing policy address).

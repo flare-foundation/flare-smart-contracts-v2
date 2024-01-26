@@ -749,7 +749,6 @@ contract FlareSystemManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemManager.daemonize();
         assertEq(flareSystemManager.getStartVotingRoundId(2), 2 * 3360);
-        vm.stopPrank();
 
         vm.warp(block.timestamp + 5400 + 500);
         // voting round duration is 90 seconds

@@ -143,7 +143,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         )
     {
         uint256 currentRewardEpochId = flareSystemManager.getCurrentRewardEpochId();
-        _untilRewardEpochId = currentRewardEpochId + _noOfRewardEpochs;
+        _untilRewardEpochId = currentRewardEpochId + _noOfRewardEpochs + 1;
         chilledUntilRewardEpochId[_voter] = _untilRewardEpochId;
         emit VoterChilled(_voter, _untilRewardEpochId);
     }
@@ -498,7 +498,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     {
         _rewardEpochId = flareSystemManager.getCurrentRewardEpochId() + 1;
         uint256 untilRewardEpochId = chilledUntilRewardEpochId[_voter];
-        require(untilRewardEpochId == 0 || untilRewardEpochId <= _rewardEpochId, "voter chilled");
+        require(untilRewardEpochId <= _rewardEpochId, "voter chilled");
         uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[_rewardEpochId];
         require(initBlock != 0, "registration not available yet");
         _voterAddresses = entityManager.getVoterAddresses(_voter, initBlock);
