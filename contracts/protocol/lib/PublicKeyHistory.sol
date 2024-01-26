@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
- * @title internalKeyHistory library
+ * @title PublicKeyHistory library
  * A contract to manage checkpoints as of a given block.
  * @dev Store value history by block number with detachable state.
  **/
@@ -16,9 +16,9 @@ library PublicKeyHistory {
      *  address
      **/
     struct CheckPoint {
-        // the first part of internal key
+        // the first part of public key
         bytes32 part1;
-        // the second part of internal key
+        // the second part of public key
         bytes32 part2;
         // `fromBlock` is the block number that the address was set from
         uint64 fromBlock;
@@ -36,12 +36,12 @@ library PublicKeyHistory {
     }
 
     /**
-     * Changes the internal key at the current block.
+     * Changes the public key at the current block.
      * @param _self A CheckPointHistoryState instance to manage.
-     * @param _part1 first part of internal key
-     * @param _part2 second part of internal key
+     * @param _part1 first part of public key
+     * @param _part2 second part of public key
      **/
-    function setinternalKey(
+    function setPublicKey(
         CheckPointHistoryState storage _self,
         bytes32 _part1,
         bytes32 _part2
@@ -86,7 +86,7 @@ library PublicKeyHistory {
      * Delete at most `_count` of the oldest checkpoints.
      * At least one checkpoint at or before `_cleanupBlockNumber` will remain
      * (unless the history was empty to start with).
-     * @return New endIndex of _self
+     * @return New endIndex
      */
     function cleanupOldCheckpoints(
         CheckPointHistoryState storage _self,
@@ -116,12 +116,12 @@ library PublicKeyHistory {
     }
 
     /**
-     * Get internal key at a time.
+     * Get public key at a time.
      * @param _self A CheckPointHistoryState instance to manage.
      * @param _blockNumber The block number to query.
-     * @return First and second part of internal key.
+     * @return First and second part of public key.
      **/
-    function internalKeyAt(
+    function publicKeyAt(
         CheckPointHistoryState storage _self,
         uint256 _blockNumber
     ) internal view returns (bytes32, bytes32) {
@@ -148,7 +148,7 @@ library PublicKeyHistory {
             // reading data before `startIndex` is only safe before first cleanup
             require(
                 startIndex == 0,
-                "internalKeyHistory: reading from cleaned-up block"
+                "PublicKeyHistory: reading from cleaned-up block"
             );
             return (bytes32(0), bytes32(0));
         }
@@ -165,11 +165,11 @@ library PublicKeyHistory {
     }
 
     /**
-     * Get current internal key.
+     * Get current public key.
      * @param _self A CheckPointHistoryState instance to manage.
-     * @return First and second part of internal key.
+     * @return First and second part of public key.
      **/
-    function internalKeyAtNow(
+    function publicKeyAtNow(
         CheckPointHistoryState storage _self
     ) internal view returns (bytes32, bytes32) {
         uint256 historyCount = _self.endIndex;
