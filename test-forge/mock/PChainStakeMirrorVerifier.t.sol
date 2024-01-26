@@ -3,19 +3,18 @@ pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
 import "../../../contracts/mock/PChainStakeMirrorVerifier.sol";
-import "../../../contracts/protocol/implementation/Relay.sol";
 
 contract PChainStakeMirrorVerifierTest is Test {
-  PChainStakeMirrorVerifier verifier;
+  PChainStakeMirrorVerifier private verifier;
+  address private mockRelay;
 
   function setUp() public {
-    Relay relay = Relay(makeAddr("relay"));
+    mockRelay = makeAddr("relay");
     IPChainStakeMirrorMultiSigVoting pChainStakeMirrorVoting = IPChainStakeMirrorMultiSigVoting(makeAddr("voting"));
-
-    verifier = new PChainStakeMirrorVerifier(pChainStakeMirrorVoting, relay, 60, 2678400, 10, 1e8);
+    verifier = new PChainStakeMirrorVerifier(pChainStakeMirrorVoting, IRelay(mockRelay), 60, 2678400, 10, 1e8);
   }
 
-  function test_verifyStake() public {
+  function testVerifyStake() public {
     uint64 startTime = 15;
 
     (
@@ -25,13 +24,13 @@ contract PChainStakeMirrorVerifierTest is Test {
     ) = constructMerkleProof(startTime, 15000, 1e4, 3);
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("getVotingRoundId(uint256)")), startTime),
       abi.encode(3)
     );
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), 1, 3),
       abi.encode(merkleRoot)
     );
@@ -41,7 +40,7 @@ contract PChainStakeMirrorVerifierTest is Test {
     assertEq(verify, true);
   }
 
-  function test_verifyStakeNoRelay() public {
+  function testVerifyStakeNoRelay() public {
     uint64 startTime = 15;
 
     (
@@ -51,13 +50,13 @@ contract PChainStakeMirrorVerifierTest is Test {
     ) = constructMerkleProof(startTime, 15000, 1e4, 3);
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("getVotingRoundId(uint256)")), startTime),
       abi.encode(3)
     );
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), 1, 3),
       abi.encode(bytes32(0))
     );
@@ -79,7 +78,7 @@ contract PChainStakeMirrorVerifierTest is Test {
     assertEq(verify, true);
   }
 
-  function test_verifyStakeFailStartTime1() public {
+  function testVerifyStakeFailStartTime1() public {
     uint64 startTime = 150000;
 
     (
@@ -89,13 +88,13 @@ contract PChainStakeMirrorVerifierTest is Test {
     ) = constructMerkleProof(startTime, 15000, 1e4, 3);
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("getVotingRoundId(uint256)")), startTime),
       abi.encode(3)
     );
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), 1, 3),
       abi.encode(merkleRoot)
     );
@@ -105,7 +104,7 @@ contract PChainStakeMirrorVerifierTest is Test {
     assertEq(verify, false);
   }
 
-  function test_verifyStakeFailStartTime2() public {
+  function testVerifyStakeFailStartTime2() public {
     uint64 startTime = 15003;
 
     (
@@ -115,13 +114,13 @@ contract PChainStakeMirrorVerifierTest is Test {
     ) = constructMerkleProof(startTime, 15000, 1e4, 3);
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("getVotingRoundId(uint256)")), startTime),
       abi.encode(3)
     );
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), 1, 3),
       abi.encode(merkleRoot)
     );
@@ -131,7 +130,7 @@ contract PChainStakeMirrorVerifierTest is Test {
     assertEq(verify, false);
   }
 
-  function test_verifyStakeFailStartTime3() public {
+  function testVerifyStakeFailStartTime3() public {
     uint64 startTime = 15000;
 
     (
@@ -141,13 +140,13 @@ contract PChainStakeMirrorVerifierTest is Test {
     ) = constructMerkleProof(startTime, 1500000000, 1e4, 3);
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("getVotingRoundId(uint256)")), startTime),
       abi.encode(3)
     );
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), 1, 3),
       abi.encode(merkleRoot)
     );
@@ -157,7 +156,7 @@ contract PChainStakeMirrorVerifierTest is Test {
     assertEq(verify, false);
   }
 
-  function test_verifyStakeFailWeight1() public {
+  function testVerifyStakeFailWeight1() public {
     uint64 startTime = 15000;
 
     (
@@ -167,13 +166,13 @@ contract PChainStakeMirrorVerifierTest is Test {
     ) = constructMerkleProof(startTime, 15100, 1e9, 3);
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("getVotingRoundId(uint256)")), startTime),
       abi.encode(3)
     );
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), 1, 3),
       abi.encode(merkleRoot)
     );
@@ -183,7 +182,7 @@ contract PChainStakeMirrorVerifierTest is Test {
     assertEq(verify, false);
   }
 
-  function test_verifyStakeFailWeight2() public {
+  function testVerifyStakeFailWeight2() public {
     uint64 startTime = 15000;
 
     (
@@ -193,13 +192,13 @@ contract PChainStakeMirrorVerifierTest is Test {
     ) = constructMerkleProof(startTime, 15100, 1, 3);
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("getVotingRoundId(uint256)")), startTime),
       abi.encode(3)
     );
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), 1, 3),
       abi.encode(merkleRoot)
     );
@@ -209,7 +208,7 @@ contract PChainStakeMirrorVerifierTest is Test {
     assertEq(verify, false);
   }
 
-  function test_verifyStakeFailRoot() public {
+  function testVerifyStakeFailRoot() public {
     uint64 startTime = 15000;
 
     (IPChainStakeMirrorVerifier.PChainStake memory stakeData, bytes32[] memory merkleProof, ) = constructMerkleProof(
@@ -220,13 +219,13 @@ contract PChainStakeMirrorVerifierTest is Test {
     );
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("getVotingRoundId(uint256)")), startTime),
       abi.encode(3)
     );
 
     vm.mockCall(
-      makeAddr("relay"),
+      mockRelay,
       abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), 1, 3),
       abi.encode(keccak256("neki"))
     );

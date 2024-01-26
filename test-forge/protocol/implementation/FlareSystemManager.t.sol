@@ -12,7 +12,6 @@ contract FlareSystemManagerTest is Test {
     address private addressUpdater;
     address private mockRelay;
     address private mockVoterRegistry;
-    IIRelay private relay;
     address private mockRewardManager;
     address private mockCleanupBlockNumberManager;
     address private mockSubmission;
@@ -156,8 +155,8 @@ contract FlareSystemManagerTest is Test {
         contractAddresses[3] = mockRelay;
         contractAddresses[4] = mockRewardManager;
         contractAddresses[5] = mockCleanupBlockNumberManager;
+        vm.prank(addressUpdater);
         flareSystemManager.updateContractAddresses(contractNameHashes, contractAddresses);
-        vm.stopPrank();
 
         // mock registered addresses
         _mockRegisteredAddresses(0);
@@ -314,11 +313,8 @@ contract FlareSystemManagerTest is Test {
         uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
 
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32(0))
-        );
+        _mockToSigningPolicyHash(1, bytes32(0));
+
 
         vm.mockCall(
             mockVoterRegistry,
@@ -338,11 +334,8 @@ contract FlareSystemManagerTest is Test {
 
         uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32(0))
-        );
+
+        _mockToSigningPolicyHash(1, bytes32(0));
 
         // start random acquisition
         vm.roll(199);
@@ -357,7 +350,7 @@ contract FlareSystemManagerTest is Test {
         // select vote power block
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(relay.getRandomNumber.selector),
+            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
         assertEq(flareSystemManager.getCurrentRandom(), 123);
@@ -391,11 +384,8 @@ contract FlareSystemManagerTest is Test {
     function testSelectVotePowerBlockUnsecureRandom() public {
         uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32(0))
-        );
+
+        _mockToSigningPolicyHash(1, bytes32(0));
 
         // start random acquisition
         vm.roll(199);
@@ -408,7 +398,7 @@ contract FlareSystemManagerTest is Test {
         vm.warp(block.timestamp + uint64(8 * 60 * 60 + 1));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(relay.getRandomNumber.selector),
+            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
             abi.encode(123, false, currentTime + 1)
         );
 
@@ -429,11 +419,7 @@ contract FlareSystemManagerTest is Test {
 
         uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(bytes32(0))
-        );
+        _mockToSigningPolicyHash(2, bytes32(0));
 
         // start random acquisition
         // vm.roll(199);
@@ -449,7 +435,7 @@ contract FlareSystemManagerTest is Test {
         vm.warp(block.timestamp + uint64(8 * 60 * 60 + 1));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(relay.getRandomNumber.selector),
+            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
             abi.encode(123, false, currentTime + 1)
         );
 
@@ -509,11 +495,8 @@ contract FlareSystemManagerTest is Test {
 
         uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32(0))
-        );
+
+        _mockToSigningPolicyHash(1, bytes32(0));
 
         // start random acquisition
         vm.startPrank(flareDaemon);
@@ -524,7 +507,7 @@ contract FlareSystemManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(relay.getRandomNumber.selector),
+            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
 
@@ -559,11 +542,8 @@ contract FlareSystemManagerTest is Test {
 
         uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32(0))
-        );
+
+        _mockToSigningPolicyHash(1, bytes32(0));
 
         // start random acquisition
         vm.startPrank(flareDaemon);
@@ -574,7 +554,7 @@ contract FlareSystemManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(relay.getRandomNumber.selector),
+            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
         vm.expectEmit();
@@ -820,11 +800,7 @@ contract FlareSystemManagerTest is Test {
 
     //// sign signing policy tests
     function testRevertInvalidNewSigningPolicyHash() public {
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32(0))
-        );
+        _mockToSigningPolicyHash(1, bytes32(0));
 
         bytes32 newSigningPolicyHash = keccak256("new signing policy hash");
         bytes32 messageHash = newSigningPolicyHash;
@@ -844,11 +820,7 @@ contract FlareSystemManagerTest is Test {
         assertEq(flareSystemManager.isVoterRegistrationEnabled(), false);
 
         bytes32 newSigningPolicyHash = keccak256("new signing policy hash");
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(newSigningPolicyHash)
-        );
+        _mockToSigningPolicyHash(1, newSigningPolicyHash);
 
         vm.mockCall(
             mockVoterRegistry,
@@ -908,11 +880,7 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.daemonize();
 
         _initializeSigningPolicy(2);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(newSigningPolicyHash)
-        );
+        _mockToSigningPolicyHash(2, newSigningPolicyHash);
 
         // voter0 signs
         vm.expectEmit();
@@ -949,11 +917,8 @@ contract FlareSystemManagerTest is Test {
         _initializeSigningPolicy(1);
 
         bytes32 newSigningPolicyHash = keccak256("new signing policy hash");
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(newSigningPolicyHash)
-        );
+
+        _mockToSigningPolicyHash(2, newSigningPolicyHash);
 
         bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
@@ -977,11 +942,8 @@ contract FlareSystemManagerTest is Test {
          _initializeSigningPolicy(1);
 
         bytes32 newSigningPolicyHash = keccak256("new signing policy hash");
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(newSigningPolicyHash)
-        );
+
+        _mockToSigningPolicyHash(2, newSigningPolicyHash);
 
         bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
@@ -1024,22 +986,20 @@ contract FlareSystemManagerTest is Test {
 
     function testSignUptimeVote() public {
         _initializeSigningPolicy(1);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32("signing policy1"))
-        ); // define new signing policy
+
+        // define new signing policy
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
         _mockRegisteredAddresses(1);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch
 
         _initializeSigningPolicy(2);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(bytes32("signing policy2"))
-        ); // define new signing policy
+
+        // define new signing policy
+        _mockToSigningPolicyHash(2, bytes32("signing policy2"));
+
         _mockRegisteredAddresses(2);
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         // reward epoch 1 is already finished.
@@ -1092,22 +1052,18 @@ contract FlareSystemManagerTest is Test {
 
     function testRevertSignUptimeVotesTwice() public {
         _initializeSigningPolicy(1);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32("signing policy1"))
-        ); // define new signing policy
+
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
         _mockRegisteredAddresses(1);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch
 
         _initializeSigningPolicy(2);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(bytes32("signing policy2"))
-        ); // define new signing policy
+
+        _mockToSigningPolicyHash(2, bytes32("signing policy2"));
+
         _mockRegisteredAddresses(2);
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         vm.prank(flareDaemon);
@@ -1134,22 +1090,18 @@ contract FlareSystemManagerTest is Test {
 
     function testRevertSignUptimeVoteInvalidSignature() public {
         _initializeSigningPolicy(1);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32("signing policy1"))
-        ); // define new signing policy
+
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
         _mockRegisteredAddresses(1);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch
 
         _initializeSigningPolicy(2);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(bytes32("signing policy2"))
-        ); // define new signing policy
+
+        _mockToSigningPolicyHash(2, bytes32("signing policy2"));
+
         _mockRegisteredAddresses(2);
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         vm.prank(flareDaemon);
@@ -1202,11 +1154,8 @@ contract FlareSystemManagerTest is Test {
         _initializeSigningPolicy(1);
 
         bytes32 newSigningPolicyHash = keccak256("signing policy2");
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(newSigningPolicyHash)
-        );
+        _mockToSigningPolicyHash(2, newSigningPolicyHash);
+
 
         bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
@@ -1233,11 +1182,8 @@ contract FlareSystemManagerTest is Test {
         emit SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32("signing policy1"))
-        ); // define new signing policy
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
         _mockRegisteredAddresses(1);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
@@ -1245,11 +1191,9 @@ contract FlareSystemManagerTest is Test {
 
         // initialize another reward epoch
         _initializeSigningPolicy(2);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(keccak256("signing policy2"))
-        ); // define new signing policy
+
+        _mockToSigningPolicyHash(2, bytes32("signing policy2"));
+
         _mockRegisteredAddresses(2);
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         vm.prank(flareDaemon);
@@ -1270,11 +1214,7 @@ contract FlareSystemManagerTest is Test {
         _initializeSigningPolicy(1);
 
         bytes32 newSigningPolicyHash = keccak256("signing policy2");
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(newSigningPolicyHash)
-        );
+        _mockToSigningPolicyHash(2, newSigningPolicyHash);
 
         bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
@@ -1301,11 +1241,8 @@ contract FlareSystemManagerTest is Test {
         emit SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32("signing policy1"))
-        ); // define new signing policy
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
         _mockRegisteredAddresses(1);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
@@ -1313,11 +1250,9 @@ contract FlareSystemManagerTest is Test {
 
         // initialize another reward epoch
         _initializeSigningPolicy(2);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(keccak256("signing policy2"))
-        ); // define new signing policy
+
+        _mockToSigningPolicyHash(2, bytes32("signing policy2"));
+
         _mockRegisteredAddresses(2);
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         vm.prank(flareDaemon);
@@ -1336,22 +1271,16 @@ contract FlareSystemManagerTest is Test {
 
     function testSignRewards() public {
          _initializeSigningPolicy(1);
-         vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32("signing policy1"))
-        ); // define new signing policy
+
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
         _mockRegisteredAddresses(1);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch
 
         bytes32 newSigningPolicyHash = keccak256("signing policy2");
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(newSigningPolicyHash)
-        );
+        _mockToSigningPolicyHash(2, newSigningPolicyHash);
 
         bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
@@ -1378,11 +1307,8 @@ contract FlareSystemManagerTest is Test {
         emit SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32("signing policy1"))
-        ); // define new signing policy
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
         _mockRegisteredAddresses(1);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
@@ -1390,11 +1316,9 @@ contract FlareSystemManagerTest is Test {
 
         // initialize another reward epoch
         _initializeSigningPolicy(2);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(newSigningPolicyHash)
-        ); // define new signing policy
+
+        _mockToSigningPolicyHash(2, bytes32("signing policy2"));
+
         _mockRegisteredAddresses(2);
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         vm.prank(flareDaemon);
@@ -1463,22 +1387,16 @@ contract FlareSystemManagerTest is Test {
 
     function testRevertSignRewardsTwice() public {
          _initializeSigningPolicy(1);
-         vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32("signing policy1"))
-        ); // define new signing policy
+
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
         _mockRegisteredAddresses(1);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch
 
         bytes32 newSigningPolicyHash = keccak256("signing policy2");
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(newSigningPolicyHash)
-        );
+        _mockToSigningPolicyHash(2, newSigningPolicyHash);
 
         bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
@@ -1505,11 +1423,8 @@ contract FlareSystemManagerTest is Test {
         emit SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32("signing policy1"))
-        ); // define new signing policy
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
         _mockRegisteredAddresses(1);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
@@ -1517,11 +1432,9 @@ contract FlareSystemManagerTest is Test {
 
         // initialize another reward epoch
         _initializeSigningPolicy(2);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(newSigningPolicyHash)
-        ); // define new signing policy
+
+        _mockToSigningPolicyHash(2, newSigningPolicyHash);
+
         _mockRegisteredAddresses(2);
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         vm.prank(flareDaemon);
@@ -1559,23 +1472,17 @@ contract FlareSystemManagerTest is Test {
     }
 
     function testRevertSignRewardsInvalidSignature() public {
-         _initializeSigningPolicy(1);
-         vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32("signing policy1"))
-        ); // define new signing policy
+        _initializeSigningPolicy(1);
+
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
         _mockRegisteredAddresses(1);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch
 
         bytes32 newSigningPolicyHash = keccak256("signing policy2");
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(newSigningPolicyHash)
-        );
+        _mockToSigningPolicyHash(2, newSigningPolicyHash);
 
         bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
@@ -1602,11 +1509,8 @@ contract FlareSystemManagerTest is Test {
         emit SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32("signing policy1"))
-        ); // define new signing policy
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
         _mockRegisteredAddresses(1);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
@@ -1614,11 +1518,9 @@ contract FlareSystemManagerTest is Test {
 
         // initialize another reward epoch
         _initializeSigningPolicy(2);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 2),
-            abi.encode(newSigningPolicyHash)
-        ); // define new signing policy
+
+        _mockToSigningPolicyHash(2, newSigningPolicyHash);
+
         _mockRegisteredAddresses(2);
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         vm.prank(flareDaemon);
@@ -1677,11 +1579,9 @@ contract FlareSystemManagerTest is Test {
     function testSetRewardsData() public {
         // end reward epoch 0
         _initializeSigningPolicy(1);
-        vm.mockCall(
-            mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, 1),
-            abi.encode(bytes32("signing policy1"))
-        ); // define new signing policy
+
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
         _mockRegisteredAddresses(1);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
@@ -1746,7 +1646,7 @@ contract FlareSystemManagerTest is Test {
         vm.warp(currentTime);
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, _nextEpochId),
+            abi.encodeWithSelector(IRelay.toSigningPolicyHash.selector, _nextEpochId),
             abi.encode(bytes32(0))
         );
 
@@ -1764,7 +1664,7 @@ contract FlareSystemManagerTest is Test {
         vm.roll(block.number + 1);
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(relay.getRandomNumber.selector),
+            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
         flareSystemManager.daemonize();
@@ -1793,13 +1693,21 @@ contract FlareSystemManagerTest is Test {
         _initializeSigningPolicy(_nextEpochId);
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(relay.toSigningPolicyHash.selector, _nextEpochId),
+            abi.encodeWithSelector(IRelay.toSigningPolicyHash.selector, _nextEpochId),
             abi.encode(bytes32("signing policy1"))
         ); // define new signing policy
         _mockRegisteredAddresses(_nextEpochId);
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (_nextEpochId - 1)
         // vm.prank(flareDaemon);
         // flareSystemManager.daemonize(); // start new reward epoch (_nextEpochId)
+    }
+
+    function _mockToSigningPolicyHash(uint256 _epochId, bytes32 _hash) private {
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IRelay.toSigningPolicyHash.selector, _epochId),
+            abi.encode(_hash)
+        );
     }
 
     function _keccak256AbiEncode(string memory _value) internal pure returns(bytes32) {

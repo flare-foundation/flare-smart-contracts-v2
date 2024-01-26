@@ -552,10 +552,11 @@ contract FtsoRewardOffersManagerTest is Test {
         );
     }
 
+    //solhint-disable-next-line no-unused-vars
     function _mockGetDecimalsBulk(bytes memory _feedNames, bytes memory _decimals) internal {
         vm.mockCall(
             mockFtsoFeedDecimals,
-            // TODO: figure out why it does work if mocking with parameter (_feedNames)
+            // TODO: why it does not work if mocking with parameter (_feedNames)
             abi.encodeWithSelector(IFtsoFeedDecimals.getDecimalsBulk.selector),
             abi.encode(_decimals)
         );

@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import "../../../contracts/protocol/implementation/RewardManager.sol";
 
+// solhint-disable-next-line max-states-count
 contract RewardManagerTest is Test {
 
     struct RewardEpochData {
