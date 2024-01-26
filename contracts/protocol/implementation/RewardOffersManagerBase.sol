@@ -3,8 +3,8 @@ pragma solidity 0.8.20;
 
 import "../../governance/implementation/Governed.sol";
 import "../../inflation/implementation/InflationReceiver.sol";
-import "../../protocol/implementation/FlareSystemManager.sol";
-import "../interface/IRewardEpochSwitchoverTrigger.sol";
+import "../interface/IIFlareSystemManager.sol";
+import "../interface/IIRewardEpochSwitchoverTrigger.sol";
 
 /**
  * RewardOffersManagerBase contrat.
@@ -12,12 +12,12 @@ import "../interface/IRewardEpochSwitchoverTrigger.sol";
  * This contract is used to manage the reward offers and receive the inflation.
  * It is used by the Flare system to trigger the reward offers.
  */
-abstract contract RewardOffersManagerBase is Governed, InflationReceiver, IRewardEpochSwitchoverTrigger {
+abstract contract RewardOffersManagerBase is Governed, InflationReceiver, IIRewardEpochSwitchoverTrigger {
 
     uint256 internal constant INFLATION_TIME_FRAME_SEC = 1 days;
 
     /// The FlareSystemManager contract.
-    FlareSystemManager public flareSystemManager;
+    IIFlareSystemManager public flareSystemManager;
 
     /// Only FlareSystemManager contract can call this method.
     modifier onlyFlareSystemManager {
@@ -40,14 +40,14 @@ abstract contract RewardOffersManagerBase is Governed, InflationReceiver, IRewar
     { }
 
     /**
-     * @inheritdoc IRewardEpochSwitchoverTrigger
+     * @inheritdoc IIRewardEpochSwitchoverTrigger
      */
     function triggerRewardEpochSwitchover(
         uint24 _currentRewardEpochId,
         uint64 _currentRewardEpochExpectedEndTs,
         uint64 _rewardEpochDurationSeconds
     )
-        external override
+        external
         onlyFlareSystemManager
     {
         _triggerInflationOffers(_currentRewardEpochId, _currentRewardEpochExpectedEndTs, _rewardEpochDurationSeconds);
@@ -63,7 +63,7 @@ abstract contract RewardOffersManagerBase is Governed, InflationReceiver, IRewar
         internal virtual override
     {
         super._updateContractAddresses(_contractNameHashes, _contractAddresses);
-        flareSystemManager = FlareSystemManager(
+        flareSystemManager = IIFlareSystemManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
     }
 

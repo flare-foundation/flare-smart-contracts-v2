@@ -123,26 +123,6 @@ library NodesHistory {
     }
 
     /**
-     * Get the number of nodeIds.
-     * @param _self A CheckPointHistoryState instance to query.
-     * @param _blockNumber The block number to query.
-     * @return _count Count of nodeIds at the time.
-     **/
-    function countAt(
-        CheckPointHistoryState storage _self,
-        uint256 _blockNumber
-    )
-        internal view
-        returns (uint256 _count)
-    {
-        (bool found, uint256 index) = _findGreatestBlockLessThan(_self, _blockNumber);
-        if (!found) {
-            return 0;
-        }
-        return _self.checkpoints[index].nodeIds[0].length;
-    }
-
-    /**
      * Get all node ids at a time.
      * @param _self A CheckPointHistoryState instance to manage.
      * @param _blockNumber The block number to query.
@@ -162,7 +142,7 @@ library NodesHistory {
             return new bytes20[](0);
         }
 
-        // copy nodeIds and values to memory arrays
+        // copy nodeIds to memory arrays
         // (to prevent caller updating the stored value)
         CheckPoint storage cp = _self.checkpoints[index];
         uint256 length = cp.nodeIds[0].length;
@@ -171,43 +151,6 @@ library NodesHistory {
             Node storage dlg = cp.nodeIds[i];
             _nodeIds[i] = dlg.nodeId;
         }
-    }
-
-    /**
-     * Get all nodeIds active now.
-     * @param _self A CheckPointHistoryState instance to manage.
-     * @return _nodeIds The active nodeIds.
-     **/
-    function nodeIdsAtNow(
-        CheckPointHistoryState storage _self
-    )
-        internal view
-        returns (bytes20[] memory _nodeIds)
-    {
-        return nodeIdsAt(_self, block.number);
-    }
-
-    /**
-     * Get all nodeIds active now.
-     * @param _self A CheckPointHistoryState instance to manage.
-     * @return _length The number of nodeIds.
-     * @return _nodeIds The active nodeIds.
-     **/
-    function nodeIdsAtNowRaw(
-        CheckPointHistoryState storage _self
-    )
-        internal view
-        returns (
-            uint256 _length,
-            mapping(uint256 => Node) storage _nodeIds
-        )
-    {
-        uint256 length = _self.length;
-        if (length == 0) {
-            return (0, _self.checkpoints[0].nodeIds);
-        }
-        CheckPoint storage cp = _self.checkpoints[length - 1];
-        return (cp.nodeIds[0].length, cp.nodeIds);
     }
 
     /////////////////////////////////////////////////////////////////////////////////

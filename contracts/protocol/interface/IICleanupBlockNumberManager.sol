@@ -7,7 +7,7 @@ pragma solidity >=0.7.6 <0.9;
  *
  * Maintains the list of cleanable tokens for which history cleanup can be collectively executed.
  */
-interface ICleanupBlockNumberManager {
+interface IICleanupBlockNumberManager {
 
     /**
      * Sets clean up block number on managed cleanable tokens.

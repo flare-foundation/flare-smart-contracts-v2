@@ -5,7 +5,7 @@ pragma abicoder v2;
 import { IICleanable, GovernedAndFlareDaemonized, FlareDaemon, IFlareDaemonize, ReentrancyGuard,
          IIGovernanceVotePower, AddressUpdatable, SafePct, SafeMath, SafeCast }
     from "../../flattened/FlareSmartContracts.sol";
-import "../protocol/interface/ICChainStake.sol";
+import "../userInterfaces/ICChainStake.sol";
 import "./CChainStakeBase.sol";
 
 

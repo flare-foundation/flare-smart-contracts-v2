@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../interface/IFtsoInflationConfigurations.sol";
+import "../../userInterfaces/IFtsoInflationConfigurations.sol";
 import "../../governance/implementation/Governed.sol";
 
 /**
@@ -64,8 +64,7 @@ contract FtsoInflationConfigurations is Governed, IFtsoInflationConfigurations {
     }
 
     /**
-     * Returns the FTSO configuration at `_index`.
-     * @param _index The index of the FTSO configuration.
+     * @inheritdoc IFtsoInflationConfigurations
      */
     function getFtsoConfiguration(uint256 _index) external view returns(FtsoConfiguration memory) {
         require(ftsoConfigurations.length > _index, "invalid index");
@@ -73,9 +72,9 @@ contract FtsoInflationConfigurations is Governed, IFtsoInflationConfigurations {
     }
 
     /**
-     * Returns all FTSO configurations.
+     * @inheritdoc IFtsoInflationConfigurations
      */
-    function getFtsoConfigurations() external view override returns(FtsoConfiguration[] memory) {
+    function getFtsoConfigurations() external view returns(FtsoConfiguration[] memory) {
         return ftsoConfigurations;
     }
 

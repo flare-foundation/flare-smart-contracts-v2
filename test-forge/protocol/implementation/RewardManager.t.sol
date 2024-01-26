@@ -136,7 +136,7 @@ contract RewardManagerTest is Test {
         vm.mockCall(
             mockClaimSetupManager,
             abi.encodeWithSelector(
-                IClaimSetupManager.checkExecutorAndAllowedRecipient.selector, executor, voter1, voter1),
+                IIClaimSetupManager.checkExecutorAndAllowedRecipient.selector, executor, voter1, voter1),
             abi.encode()
         );
         vm.expectEmit();
@@ -1724,7 +1724,7 @@ contract RewardManagerTest is Test {
     function _mockGetCurrentEpochId(uint256 _epochId) private {
         vm.mockCall(
             mockFlareSystemManager,
-            abi.encodeWithSelector(FlareSystemManager.getCurrentRewardEpochId.selector),
+            abi.encodeWithSelector(IFlareSystemManager.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }
@@ -1732,7 +1732,7 @@ contract RewardManagerTest is Test {
     function _mockGetVpBlock(uint256 _epochId, uint256 _vpBlock) private {
         vm.mockCall(
             mockFlareSystemManager,
-            abi.encodeWithSelector(FlareSystemManager.getVotePowerBlock.selector, _epochId),
+            abi.encodeWithSelector(IFlareSystemManager.getVotePowerBlock.selector, _epochId),
             abi.encode(_vpBlock)
         );
     }
@@ -1748,7 +1748,7 @@ contract RewardManagerTest is Test {
     function _mockCalculateBurnFactor(uint256 _epochId, address _user, uint256 _burnFactor) private {
         vm.mockCall(
             mockFlareSystemCalculator,
-            abi.encodeWithSelector(FlareSystemCalculator.calculateBurnFactorPPM.selector, _epochId, _user),
+            abi.encodeWithSelector(IIFlareSystemCalculator.calculateBurnFactorPPM.selector, _epochId, _user),
             abi.encode(_burnFactor)
         );
     }
@@ -1849,7 +1849,7 @@ contract RewardManagerTest is Test {
         vm.mockCall(
             mockClaimSetupManager,
             abi.encodeWithSelector(
-                IClaimSetupManager.getAutoClaimAddressesAndExecutorFee.selector, _executor, _rewardOwners),
+                IIClaimSetupManager.getAutoClaimAddressesAndExecutorFee.selector, _executor, _rewardOwners),
             abi.encode(_claimAddresses, _fee)
         );
     }

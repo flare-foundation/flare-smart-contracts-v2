@@ -27,7 +27,7 @@ abstract contract AddressUpdatable is IIAddressUpdatable {
         bytes32[] memory _contractNameHashes,
         address[] memory _contractAddresses
     )
-        external override
+        external
         onlyAddressUpdater
     {
         // update addressUpdater address
