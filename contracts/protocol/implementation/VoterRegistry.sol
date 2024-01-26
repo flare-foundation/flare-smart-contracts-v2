@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "./EntityManager.sol";
-import "./FlareSystemManager.sol";
-import "./FlareSystemCalculator.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
+import "../interface/IIEntityManager.sol";
+import "../interface/IIFlareSystemCalculator.sol";
+import "../interface/IIVoterRegistry.sol";
+import "../../userInterfaces/IFlareSystemManager.sol";
 import "../../governance/implementation/Governed.sol";
+import "../../utils/implementation/AddressUpdatable.sol";
 import "../../utils/lib/SafePct.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -14,7 +15,7 @@ import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
  * VoterRegistry contract.
  * Only addresses registered in this contract can vote.
  */
-contract VoterRegistry is Governed, AddressUpdatable {
+contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     using SafePct for uint256;
 
     /// Voter registration data.
@@ -24,13 +25,6 @@ contract VoterRegistry is Governed, AddressUpdatable {
         uint128 weightsSum;
         uint16 normalisedWeightsSum;
         uint16 normalisedWeightsSumOfVotersWithPublicKeys;
-    }
-
-    /// Signature data.
-    struct Signature {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
     }
 
     uint256 internal constant UINT16_MAX = type(uint16).max;
@@ -52,28 +46,13 @@ contract VoterRegistry is Governed, AddressUpdatable {
 
     // Addresses of the external contracts.
     /// The FlareSystemManager contract.
-    FlareSystemManager public flareSystemManager;
+    IFlareSystemManager public flareSystemManager;
     /// The EntityManager contract.
-    EntityManager public entityManager;
+    IIEntityManager public entityManager;
     /// The FlareSystemCalculator contract.
-    FlareSystemCalculator public flareSystemCalculator;
+    IIFlareSystemCalculator public flareSystemCalculator;
 
     address public systemRegistrationContractAddress;
-
-    /// Event emitted when a voter is chilled.
-    event VoterChilled(address voter, uint256 untilRewardEpochId);
-    /// Event emitted when a voter is removed.
-    event VoterRemoved(address voter, uint256 rewardEpochId);
-    /// Event emitted when a voter is registered.
-    event VoterRegistered(
-        address voter,
-        uint24 rewardEpochId,
-        address signingPolicyAddress,
-        address delegationAddress,
-        address submitAddress,
-        address submitSignaturesAddress,
-        uint256 registrationWeight
-    );
 
     /// Only FlareSystemManager contract can call this method.
     modifier onlyFlareSystemManager {
@@ -126,12 +105,10 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Registers a voter if the weight is high enough.
-     * @param _voter The voter address.
-     * @param _signature The signature.
+     * @inheritdoc IVoterRegistry
      */
     function registerVoter(address _voter, Signature calldata _signature) external {
-        (uint24 rewardEpochId, EntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
+        (uint24 rewardEpochId, IIEntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
         // check signature
         bytes32 messageHash = keccak256(abi.encode(rewardEpochId, _voter));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
@@ -142,12 +119,10 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Enables automatic voter registration triggered by system registration contract.
-     * @param _voter The voter address.
-     * @dev Only system registration contract can call this method.
+     * @inheritdoc IIVoterRegistry
      */
     function systemRegistration(address _voter) external onlySystemRegistrationContract {
-        (uint24 rewardEpochId, EntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
+        (uint24 rewardEpochId, IIEntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
         // register voter
         _registerVoter(_voter, rewardEpochId, voterAddresses);
     }
@@ -191,9 +166,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Sets new signing policy initialisation start block number for a given reward epoch id.
-     * @param _rewardEpochId The reward epoch id.
-     * @dev Only FlareSystemManager contract can call this method.
+     * @inheritdoc IIVoterRegistry
      */
     function setNewSigningPolicyInitializationStartBlockNumber(uint256 _rewardEpochId)
         external onlyFlareSystemManager
@@ -204,10 +177,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Creates signing policy snapshot and returns the list of registered signing policy addresses
-     * and normalised weights for a given reward epoch.
-     * @param _rewardEpochId The reward epoch id.
-     * @dev Only FlareSystemManager contract can call this method.
+     * @inheritdoc IIVoterRegistry
      */
     function createSigningPolicySnapshot(uint256 _rewardEpochId)
         external onlyFlareSystemManager
@@ -254,28 +224,21 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the list of registered voters for a given reward epoch.
-     * List can be empty if the reward epoch is not supported (before initial reward epoch or future reward epoch).
-     * List for the next reward epoch can still change until the signing policy snapshot is created.
-     * @param _rewardEpochId The reward epoch id.
+     * @inheritdoc IVoterRegistry
      */
     function getRegisteredVoters(uint256 _rewardEpochId) external view returns (address[] memory) {
         return register[_rewardEpochId].voters;
     }
 
     /**
-     * Returns the number of registered voters for a given reward epoch.
-     * Size can be zero if the reward epoch is not supported (before initial reward epoch or future reward epoch).
-     * Size for the next reward epoch can still change until the signing policy snapshot is created.
-     * @param _rewardEpochId The reward epoch id.
+     * @inheritdoc IVoterRegistry
      */
     function getNumberOfRegisteredVoters(uint256 _rewardEpochId) external view returns (uint256) {
         return register[_rewardEpochId].voters.length;
     }
 
     /**
-     * Returns the list of registered voters' delegation addresses for a given reward epoch.
-     * @param _rewardEpochId The reward epoch id.
+     * @inheritdoc IIVoterRegistry
      */
     function getRegisteredDelegationAddresses(
         uint256 _rewardEpochId
@@ -289,8 +252,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the list of registered voters' data provider addresses for a given reward epoch.
-     * @param _rewardEpochId The reward epoch id.
+     * @inheritdoc IIVoterRegistry
      */
     function getRegisteredSubmitAddresses(
         uint256 _rewardEpochId
@@ -304,8 +266,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the list of registered voters' deposit signatures addresses for a given reward epoch.
-     * @param _rewardEpochId The reward epoch id.
+     * @inheritdoc IIVoterRegistry
      */
     function getRegisteredSubmitSignaturesAddresses(
         uint256 _rewardEpochId
@@ -319,8 +280,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the list of registered voters' signing policy addresses for a given reward epoch.
-     * @param _rewardEpochId The reward epoch id.
+     * @inheritdoc IIVoterRegistry
      */
     function getRegisteredSigningPolicyAddresses(
         uint256 _rewardEpochId
@@ -334,8 +294,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the list of registered voters' public keys (parts1 and parts2) for a given reward epoch.
-     * @param _rewardEpochId The reward epoch id.
+     * @inheritdoc IIVoterRegistry
      */
     function getRegisteredPublicKeys(
         uint256 _rewardEpochId
@@ -349,8 +308,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the list of registered voters' node ids for a given reward epoch.
-     * @param _rewardEpochId The reward epoch id.
+     * @inheritdoc IIVoterRegistry
      */
     function getRegisteredNodeIds(
         uint256 _rewardEpochId
@@ -364,11 +322,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns voter's address and normalised weight for a given reward epoch and signing policy address.
-     * @param _rewardEpochId The reward epoch id.
-     * @param _signingPolicyAddress The signing policy address of the voter.
-     * @return _voter The voter address.
-     * @return _normalisedWeight The normalised weight of the voter.
+     * @inheritdoc IIVoterRegistry
      */
     function getVoterWithNormalisedWeight(
         uint256 _rewardEpochId,
@@ -391,13 +345,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns voter's public key and normalised weight for a given reward epoch and signing policy address.
-     * @param _rewardEpochId The reward epoch id.
-     * @param _signingPolicyAddress The signing policy address.
-     * @return _publicKeyPart1 The first part of the public key.
-     * @return _publicKeyPart2 The second part of the public key.
-     * @return _normalisedWeight The normalised weight of the voter.
-     * @return _normalisedWeightsSumOfVotersWithPublicKeys The normalised weights sum of voters with public keys.
+     * @inheritdoc IIVoterRegistry
      */
     function getPublicKeyAndNormalisedWeight(
         uint256 _rewardEpochId,
@@ -424,11 +372,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns weights sums for a given reward epoch id.
-     * @param _rewardEpochId The reward epoch id.
-     * @return _weightsSum The weights sum.
-     * @return _normalisedWeightsSum The normalised weights sum.
-     * @return _normalisedWeightsSumOfVotersWithPublicKeys The normalised weights sum of voters with public keys.
+     * @inheritdoc IIVoterRegistry
      */
     function getWeightsSums(uint256 _rewardEpochId)
         external view
@@ -446,9 +390,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns true if a voter was (is currently) registered in a given reward epoch.
-     * @param _voter The voter address.
-     * @param _rewardEpochId The reward epoch id.
+     * @inheritdoc IVoterRegistry
      */
     function isVoterRegistered(address _voter, uint256 _rewardEpochId) external view returns(bool) {
         return register[_rewardEpochId].weights[_voter] > 0;
@@ -463,10 +405,10 @@ contract VoterRegistry is Governed, AddressUpdatable {
     )
         internal override
     {
-        flareSystemManager = FlareSystemManager(
+        flareSystemManager = IFlareSystemManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
-        entityManager = EntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
-        flareSystemCalculator = FlareSystemCalculator(
+        entityManager = IIEntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
+        flareSystemCalculator = IIFlareSystemCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemCalculator"));
     }
 
@@ -479,7 +421,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
     function _registerVoter(
         address _voter,
         uint24 _rewardEpochId,
-        EntityManager.VoterAddresses memory _voterAddresses
+        IIEntityManager.VoterAddresses memory _voterAddresses
     )
         internal
     {
@@ -551,7 +493,7 @@ contract VoterRegistry is Governed, AddressUpdatable {
         internal view
         returns(
             uint24 _rewardEpochId,
-            EntityManager.VoterAddresses memory _voterAddresses
+            IIEntityManager.VoterAddresses memory _voterAddresses
         )
     {
         _rewardEpochId = flareSystemManager.getCurrentRewardEpochId() + 1;

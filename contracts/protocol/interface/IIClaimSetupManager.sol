@@ -5,7 +5,7 @@ pragma solidity >=0.7.6 <0.9;
 /**
  * Internal interface for the `ClaimSetupManager contract.
  */
-interface IClaimSetupManager {
+interface IIClaimSetupManager {
 
     /**
      * Gets the [Personal Delegation Account](https://docs.flare.network/tech/personal-delegation-account) (PDA) for

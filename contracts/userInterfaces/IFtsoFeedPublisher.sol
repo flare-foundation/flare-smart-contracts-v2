@@ -1,9 +1,8 @@
-
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
 /**
- * IFtsoFeedPublisher interface.
+ * FtsoFeedPublisher interface.
  */
 interface IFtsoFeedPublisher {
 
@@ -34,4 +33,27 @@ interface IFtsoFeedPublisher {
      * @param _proofs The FTSO feeds with proofs to publish.
      */
     function publish(FeedWithProof[] calldata _proofs) external;
+
+    /**
+     *The FTSO protocol id.
+     */
+    function ftsoProtocolId() external view returns(uint8);
+
+    /**
+     * The size of the feeds history.
+     */
+    function feedsHistorySize() external view returns(uint256);
+
+    /**
+     * Returns the current feed.
+     * @param _feedName Feed name.
+     */
+    function getCurrentFeed(bytes8 _feedName) external view returns(Feed memory);
+
+    /**
+     * Returns the feed for given voting round id.
+     * @param _feedName Feed name.
+     * @param _votingRoundId Voting round id.
+     */
+    function getFeed(bytes8 _feedName, uint256 _votingRoundId) external view returns(Feed memory _feed);
 }

@@ -3,10 +3,11 @@ pragma solidity 0.8.20;
 
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../protocol/implementation/FlareSystemManager.sol";
+import "../../userInterfaces/IFlareSystemManager.sol";
+import "../../userInterfaces/IFtsoFeedDecimals.sol";
 
 
-contract FtsoFeedDecimals is Governed, AddressUpdatable {
+contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
 
     /// Used for storing feed decimals settings.
     struct Decimals {
@@ -22,10 +23,7 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable {
     mapping(bytes8 => Decimals[]) internal decimals;
 
     /// The FlareSystemManager contract.
-    FlareSystemManager public flareSystemManager;
-
-    /// Event emitted when a feed decimals value is changed.
-    event DecimalsChanged(bytes8 feedName, int8 decimals, uint24 rewardEpochId);
+    IFlareSystemManager public flareSystemManager;
 
     /**
      * Constructor.
@@ -83,18 +81,14 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns current decimals set for `_feedName`.
-     * @param _feedName Feed name.
+     * @inheritdoc IFtsoFeedDecimals
      */
     function getCurrentDecimals(bytes8 _feedName) external view returns (int8) {
         return _getDecimals(_feedName, _getCurrentRewardEpochId());
     }
 
     /**
-     * Returns the decimals of `_feedName` for given reward epoch id.
-     * @param _feedName Feed name.
-     * @param _rewardEpochId Reward epoch id.
-     * **NOTE:** decimals might still change for the `current + decimalsUpdateOffset` reward epoch id.
+     * @inheritdoc IFtsoFeedDecimals
      */
     function getDecimals(
         bytes8 _feedName,
@@ -108,11 +102,7 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the scheduled decimals changes of `_feedName`.
-     * @param _feedName Feed name.
-     * @return _decimals Positional array of decimals.
-     * @return _validFromEpochId Positional array of reward epoch ids the decimals setings are effective from.
-     * @return _fixed Positional array of boolean values indicating if settings are subjected to change.
+     * @inheritdoc IFtsoFeedDecimals
      */
     function getScheduledDecimalsChanges(
         bytes8 _feedName
@@ -146,9 +136,7 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns current decimals setting for `_feedNames`.
-     * @param _feedNames Concatenated feed names (each feedName bytes8).
-     * @return _decimals Concatenated corresponding decimals (each as bytes1(uint8(int8))).
+     * @inheritdoc IFtsoFeedDecimals
      */
     function getCurrentDecimalsBulk(
         bytes memory _feedNames
@@ -160,11 +148,7 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable {
     }
 
     /**
-     * Returns decimals setting for `_feedNames` at `_rewardEpochId`.
-     * @param _feedNames Concatenated feed names (each feedName bytes8).
-     * @param _rewardEpochId Reward epoch id.
-     * @return _decimals Concatenated corresponding decimals (each as bytes1(uint8(int8))).
-     * **NOTE:** decimals might still change for the `current + decimalsUpdateOffset` reward epoch id.
+     * @inheritdoc IFtsoFeedDecimals
      */
     function getDecimalsBulk(
         bytes memory _feedNames,
@@ -186,7 +170,7 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable {
     )
         internal override
     {
-        flareSystemManager = FlareSystemManager(
+        flareSystemManager = IFlareSystemManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
     }
 

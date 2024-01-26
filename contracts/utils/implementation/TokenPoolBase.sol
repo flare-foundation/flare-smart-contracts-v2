@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../utils/implementation/AddressUpdatable.sol";
-
-
 abstract contract TokenPoolBase {
 
     address payable constant internal BURN_ADDRESS = payable(0x000000000000000000000000000000000000dEaD);

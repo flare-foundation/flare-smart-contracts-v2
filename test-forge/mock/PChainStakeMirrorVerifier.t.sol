@@ -2,7 +2,7 @@
 pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
-import "../../../contracts/staking/implementation/PChainStakeMirrorVerifier.sol";
+import "../../../contracts/mock/PChainStakeMirrorVerifier.sol";
 import "../../../contracts/protocol/implementation/Relay.sol";
 
 contract PChainStakeMirrorVerifierTest is Test {

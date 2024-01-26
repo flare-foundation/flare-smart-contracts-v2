@@ -43,7 +43,7 @@ abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, Addre
      * Notify the receiver that it is entitled to receive `_toAuthorizeWei` inflation amount.
      * @param _toAuthorizeWei the amount of inflation that can be awarded in the coming day
      */
-    function setDailyAuthorizedInflation(uint256 _toAuthorizeWei) external override onlyInflation {
+    function setDailyAuthorizedInflation(uint256 _toAuthorizeWei) external onlyInflation {
         dailyAuthorizedInflation = _toAuthorizeWei;
         totalInflationAuthorizedWei = totalInflationAuthorizedWei + _toAuthorizeWei;
         lastInflationAuthorizationReceivedTs = block.timestamp;
@@ -56,7 +56,7 @@ abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, Addre
     /**
      * Receive native tokens from inflation.
      */
-    function receiveInflation() external payable override mustBalance onlyInflation {
+    function receiveInflation() external payable mustBalance onlyInflation {
         totalInflationReceivedWei = totalInflationReceivedWei + msg.value;
         lastInflationReceivedTs = block.timestamp;
 
@@ -68,14 +68,14 @@ abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, Addre
     /**
      * Inflation receivers have a reference to the inflation contract.
      */
-    function getInflationAddress() external view override returns(address) {
+    function getInflationAddress() external view returns(address) {
         return inflation;
     }
 
     /**
      * Return expected balance of reward manager ignoring sent self-destruct funds.
      */
-    function getExpectedBalance() external view override returns(uint256) {
+    function getExpectedBalance() external view returns(uint256) {
         return _getExpectedBalance();
     }
 
