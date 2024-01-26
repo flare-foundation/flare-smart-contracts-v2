@@ -50,7 +50,6 @@ const OFFERS = [
     primaryBandRewardSharePPM: 650000,
     secondaryBandWidthPPM: 20000,
     rewardEligibilityPPM: 0,
-    leadProviders: [],
     claimBackAddress: "0x0000000000000000000000000000000000000000"
   }
 ]
