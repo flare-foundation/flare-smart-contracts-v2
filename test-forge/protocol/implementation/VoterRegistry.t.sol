@@ -161,13 +161,13 @@ contract VoterRegistryTest is Test {
     function testCreateSigningPolicySnapshot() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getSigningPolicyAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getSigningPolicyAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialSigningPolicyAddresses)
         );
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getPublicKeys.selector,
+            abi.encodeWithSelector(IIEntityManager.getPublicKeys.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialPublicKeyParts1, initialPublicKeyParts2)
         );
@@ -195,7 +195,7 @@ contract VoterRegistryTest is Test {
     function testGetRegisteredSubmitAddresses() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getSubmitAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getSubmitAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialSubmitAddresses)
         );
@@ -214,7 +214,7 @@ contract VoterRegistryTest is Test {
     function testGetRegisteredSubmitSignaturesAddresses() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getSubmitSignaturesAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getSubmitSignaturesAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialSubmitSignaturesAddresses)
         );
@@ -233,7 +233,7 @@ contract VoterRegistryTest is Test {
     function testGetRegisteredDelegationAddresses() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getDelegationAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getDelegationAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialDelegationAddresses)
         );
@@ -252,7 +252,7 @@ contract VoterRegistryTest is Test {
     function testGetRegisteredSigningPolicyAddresses() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getSigningPolicyAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getSigningPolicyAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialSigningPolicyAddresses)
         );
@@ -271,7 +271,7 @@ contract VoterRegistryTest is Test {
     function testGetRegisteredPublicKeys() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getPublicKeys.selector,
+            abi.encodeWithSelector(IIEntityManager.getPublicKeys.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialPublicKeyParts1, initialPublicKeyParts2)
         );
@@ -294,7 +294,7 @@ contract VoterRegistryTest is Test {
     function testGetRegisteredNodeIds() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getNodeIds.selector,
+            abi.encodeWithSelector(IIEntityManager.getNodeIds.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialNodeIds)
         );
@@ -321,7 +321,7 @@ contract VoterRegistryTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             vm.mockCall(
                 mockEntityManager,
-                abi.encodeWithSelector(EntityManager.getVoterForSigningPolicyAddress.selector,
+                abi.encodeWithSelector(IEntityManager.getVoterForSigningPolicyAddress.selector,
                     initialSigningPolicyAddresses[i], voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
                 abi.encode(initialVoters[i])
             );
@@ -334,7 +334,7 @@ contract VoterRegistryTest is Test {
         address notRegisteredSignPolicyAddr = makeAddr("notRegisteredVoterSigningPolicyAddress");
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getVoterForSigningPolicyAddress.selector,
+            abi.encodeWithSelector(IEntityManager.getVoterForSigningPolicyAddress.selector,
                 notRegisteredSignPolicyAddr, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(notRegistered)
         );
@@ -459,13 +459,13 @@ contract VoterRegistryTest is Test {
         // create signing policy snapshot
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getSigningPolicyAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getSigningPolicyAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
             abi.encode(initialSigningPolicyAddresses)
         );
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getPublicKeys.selector,
+            abi.encodeWithSelector(IIEntityManager.getPublicKeys.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
             abi.encode(initialPublicKeyParts1, initialPublicKeyParts2)
         );
@@ -513,7 +513,7 @@ contract VoterRegistryTest is Test {
         // create signing policy snapshot
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getSigningPolicyAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getSigningPolicyAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
             abi.encode(initialSigningPolicyAddresses)
         );
@@ -521,7 +521,7 @@ contract VoterRegistryTest is Test {
         initialPublicKeyParts2[0] = bytes32(0);
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getPublicKeys.selector,
+            abi.encodeWithSelector(IIEntityManager.getPublicKeys.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
             abi.encode(initialPublicKeyParts1, initialPublicKeyParts2)
         );
@@ -663,7 +663,7 @@ contract VoterRegistryTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             vm.mockCall(
                 mockEntityManager,
-                abi.encodeWithSelector(EntityManager.getVoterForSigningPolicyAddress.selector,
+                abi.encodeWithSelector(IEntityManager.getVoterForSigningPolicyAddress.selector,
                     initialSigningPolicyAddresses[i], voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
                 abi.encode(initialVoters[i])
             );
@@ -672,7 +672,7 @@ contract VoterRegistryTest is Test {
         address notRegisteredSignPolicyAddr = makeAddr("notRegisteredVoterSigningPolicyAddress");
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getVoterForSigningPolicyAddress.selector,
+            abi.encodeWithSelector(IEntityManager.getVoterForSigningPolicyAddress.selector,
                 notRegisteredSignPolicyAddr, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
             abi.encode(notRegistered)
         );
@@ -684,7 +684,7 @@ contract VoterRegistryTest is Test {
         bytes32 publicKey2 = initialPublicKeyParts2[0];
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getPublicKeyOfAt.selector,
+            abi.encodeWithSelector(IEntityManager.getPublicKeyOfAt.selector,
                 initialVoters[0], voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
             abi.encode(publicKey1, publicKey2)
         );
@@ -785,7 +785,7 @@ contract VoterRegistryTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             vm.mockCall(
                 mockEntityManager,
-                abi.encodeWithSelector(EntityManager.getVoterAddresses.selector, initialVoters[i]),
+                abi.encodeWithSelector(IEntityManager.getVoterAddresses.selector, initialVoters[i]),
                 abi.encode(initialVotersRegisteredAddresses[i])
             );
         }

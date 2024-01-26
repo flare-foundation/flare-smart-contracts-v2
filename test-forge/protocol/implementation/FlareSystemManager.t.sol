@@ -10,12 +10,12 @@ contract FlareSystemManagerTest is Test {
     address private flareDaemon;
     address private governance;
     address private addressUpdater;
-    IISubmission private submission;
     address private mockRelay;
     address private mockVoterRegistry;
     IIRelay private relay;
     address private mockRewardManager;
     address private mockCleanupBlockNumberManager;
+    address private mockSubmission;
 
     FlareSystemManager.Settings private settings;
     FlareSystemManager.InitialSettings private initialSettings;
@@ -135,29 +135,11 @@ contract FlareSystemManagerTest is Test {
             initialSettings
         );
 
-        // submission contract
-        submission = new IISubmission(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
-            addressUpdater,
-            false
-        );
-
+        mockSubmission = makeAddr("submission");
         mockRelay = makeAddr("relay");
         mockRewardManager = makeAddr("rewardManager");
         mockVoterRegistry = makeAddr("voterRegistry");
         mockCleanupBlockNumberManager = makeAddr("cleanupBlockNumberManager");
-
-        vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](3);
-        contractAddresses = new address[](3);
-        contractNameHashes[0] = _keccak256AbiEncode("AddressUpdater");
-        contractNameHashes[1] = _keccak256AbiEncode("FlareSystemManager");
-        contractNameHashes[2] = _keccak256AbiEncode("Relay");
-        contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = address(flareSystemManager);
-        contractAddresses[2] = mockRelay;
-        submission.updateContractAddresses(contractNameHashes, contractAddresses);
 
         //// update contract addresses
         contractNameHashes = new bytes32[](6);
@@ -170,7 +152,7 @@ contract FlareSystemManagerTest is Test {
         contractNameHashes[5] = _keccak256AbiEncode("CleanupBlockNumberManager");
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockVoterRegistry;
-        contractAddresses[2] = address(submission);
+        contractAddresses[2] = mockSubmission;
         contractAddresses[3] = mockRelay;
         contractAddresses[4] = mockRewardManager;
         contractAddresses[5] = mockCleanupBlockNumberManager;
@@ -184,6 +166,12 @@ contract FlareSystemManagerTest is Test {
 
         // don't cleanup anything yet
         _mockCleanupBlockNumber(0);
+
+        vm.mockCall(
+            mockSubmission,
+            abi.encodeWithSelector(IISubmission.initNewVotingRound.selector),
+            abi.encode()
+        );
     }
 
     // constructor tests
@@ -315,7 +303,7 @@ contract FlareSystemManagerTest is Test {
 
     function testGetContrastAddresses() public {
         assertEq(address(flareSystemManager.voterRegistry()), mockVoterRegistry);
-        assertEq(address(flareSystemManager.submission()), address(submission));
+        assertEq(address(flareSystemManager.submission()), mockSubmission);
         assertEq(address(flareSystemManager.relay()), mockRelay);
     }
 
@@ -369,7 +357,7 @@ contract FlareSystemManagerTest is Test {
         // select vote power block
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IIRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(relay.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
         assertEq(flareSystemManager.getCurrentRandom(), 123);
@@ -420,7 +408,7 @@ contract FlareSystemManagerTest is Test {
         vm.warp(block.timestamp + uint64(8 * 60 * 60 + 1));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IIRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(relay.getRandomNumber.selector),
             abi.encode(123, false, currentTime + 1)
         );
 
@@ -461,7 +449,7 @@ contract FlareSystemManagerTest is Test {
         vm.warp(block.timestamp + uint64(8 * 60 * 60 + 1));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IIRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(relay.getRandomNumber.selector),
             abi.encode(123, false, currentTime + 1)
         );
 
@@ -516,7 +504,7 @@ contract FlareSystemManagerTest is Test {
         // set voter register trigger contract
         address voterRegTrigger = makeAddr("voterRegTrigger");
         vm.prank(governance);
-        flareSystemManager.setVoterRegistrationTriggerContract(IVoterRegistrationTrigger(voterRegTrigger));
+        flareSystemManager.setVoterRegistrationTriggerContract(IIVoterRegistrationTrigger(voterRegTrigger));
         assertEq(address(flareSystemManager.voterRegistrationTriggerContract()), voterRegTrigger);
 
         uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
@@ -536,13 +524,13 @@ contract FlareSystemManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IIRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(relay.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
 
         vm.mockCall(
             voterRegTrigger,
-            abi.encodeWithSelector(IVoterRegistrationTrigger.triggerVoterRegistration.selector, 1),
+            abi.encodeWithSelector(IIVoterRegistrationTrigger.triggerVoterRegistration.selector, 1),
             abi.encode()
         );
 
@@ -553,19 +541,19 @@ contract FlareSystemManagerTest is Test {
     function testTriggerVoterRegistrationFailed() public {
         // address voterRegTrigger = makeAddr("voterRegTrigger");
         // vm.prank(governance);
-        // flareSystemManager.setVoterRegistrationTriggerContract(IVoterRegistrationTrigger(voterRegTrigger));
+        // flareSystemManager.setVoterRegistrationTriggerContract(IIVoterRegistrationTrigger(voterRegTrigger));
         // assertEq(address(flareSystemManager.voterRegistrationTriggerContract()), voterRegTrigger);
         // // TODO: why is that not working?
         // vm.mockCallRevert(
         //     voterRegTrigger,
-        //     abi.encodeWithSelector(IVoterRegistrationTrigger.triggerVoterRegistration.selector, 1),
+        //     abi.encodeWithSelector(IIVoterRegistrationTrigger.triggerVoterRegistration.selector, 1),
         //     abi.encode("err123")
         // );
 
         // set voter register trigger contract
         MockVoterRegistrationTrigger voterRegTrigger = new MockVoterRegistrationTrigger();
         vm.prank(governance);
-        flareSystemManager.setVoterRegistrationTriggerContract(IVoterRegistrationTrigger(voterRegTrigger));
+        flareSystemManager.setVoterRegistrationTriggerContract(IIVoterRegistrationTrigger(voterRegTrigger));
         assertEq(address(flareSystemManager.voterRegistrationTriggerContract()), address(voterRegTrigger));
 
 
@@ -586,7 +574,7 @@ contract FlareSystemManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IIRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(relay.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
         vm.expectEmit();
@@ -609,7 +597,7 @@ contract FlareSystemManagerTest is Test {
 
         vm.mockCall(
             mockRewardManager,
-            abi.encodeWithSelector(IIRewardManager,closeExpiredRewardEpoch.selector),
+            abi.encodeWithSelector(IIRewardManager.closeExpiredRewardEpoch.selector),
             abi.encode()
         );
         // it should trigger closeExpiredRewardEpoch once and set rewardEpochIdToExpireNext to 2
@@ -635,13 +623,13 @@ contract FlareSystemManagerTest is Test {
     function testCloseExpiredEpochs() public {
         vm.mockCall(
             mockRewardManager,
-            abi.encodeWithSelector(IIRewardManager,closeExpiredRewardEpoch.selector),
+            abi.encodeWithSelector(IIRewardManager.closeExpiredRewardEpoch.selector),
             abi.encode()
         );
 
         vm.mockCall(
             mockCleanupBlockNumberManager,
-            abi.encodeWithSelector(ICleanupBlockNumberManager.setCleanUpBlockNumber.selector),
+            abi.encodeWithSelector(IICleanupBlockNumberManager.setCleanUpBlockNumber.selector),
             abi.encode()
         );
 
@@ -692,13 +680,13 @@ contract FlareSystemManagerTest is Test {
     function testCloseExpiredEpochsFailed() public {
         vm.mockCallRevert(
             mockRewardManager,
-            abi.encodeWithSelector(IIRewardManager,closeExpiredRewardEpoch.selector),
+            abi.encodeWithSelector(IIRewardManager.closeExpiredRewardEpoch.selector),
             abi.encode()
         );
 
         vm.mockCall(
             mockCleanupBlockNumberManager,
-            abi.encodeWithSelector(ICleanupBlockNumberManager.setCleanUpBlockNumber.selector),
+            abi.encodeWithSelector(IICleanupBlockNumberManager.setCleanUpBlockNumber.selector),
             abi.encode()
         );
 
@@ -726,7 +714,7 @@ contract FlareSystemManagerTest is Test {
         // TODO why is that not working?
         // vm.mockCallRevert(
         //     mockCleanupBlockNumberManager,
-        //     abi.encodeWithSelector(ICleanupBlockNumberManager.setCleanUpBlockNumber.selector, 1),
+        //     abi.encodeWithSelector(IICleanupBlockNumberManager.setCleanUpBlockNumber.selector, 1),
         //     abi.encode()
         // );
 
@@ -760,7 +748,7 @@ contract FlareSystemManagerTest is Test {
         _mockCleanupBlockNumber(9);
         vm.mockCallRevert(
             mockRewardManager,
-            abi.encodeWithSelector(IIRewardManager,closeExpiredRewardEpoch.selector),
+            abi.encodeWithSelector(IIRewardManager.closeExpiredRewardEpoch.selector),
             abi.encode("err123")
         );
 
@@ -881,7 +869,7 @@ contract FlareSystemManagerTest is Test {
         bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        FlareSystemManager.Signature memory signature = FlareSystemManager.Signature(v, r, s);
+        IFlareSystemManager.Signature memory signature = IFlareSystemManager.Signature(v, r, s);
 
 
         // move in time and voter0 signs
@@ -940,7 +928,7 @@ contract FlareSystemManagerTest is Test {
         vm.warp(signPolicyStartTs + 12);
         vm.roll(signPolicyStartBlock + 13);
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = FlareSystemManager.Signature(v, r, s);
+        signature = IFlareSystemManager.Signature(v, r, s);
         vm.expectEmit();
         emit SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
@@ -1028,7 +1016,7 @@ contract FlareSystemManagerTest is Test {
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        FlareSystemManager.Signature memory signature = FlareSystemManager.Signature(v, r, s);
+        IFlareSystemManager.Signature memory signature = IFlareSystemManager.Signature(v, r, s);
 
         vm.expectRevert("uptime vote hash zero");
         flareSystemManager.signUptimeVote(0, bytes32(0), signature);
@@ -1191,7 +1179,7 @@ contract FlareSystemManagerTest is Test {
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        FlareSystemManager.Signature memory signature = FlareSystemManager.Signature(v, r, s);
+        IFlareSystemManager.Signature memory signature = IFlareSystemManager.Signature(v, r, s);
 
         vm.expectRevert("rewards hash zero");
         flareSystemManager.signRewards(1, noOfWeightBasedClaims, bytes32(0), signature);
@@ -1776,7 +1764,7 @@ contract FlareSystemManagerTest is Test {
         vm.roll(block.number + 1);
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IIRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(relay.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
         flareSystemManager.daemonize();
@@ -1786,7 +1774,7 @@ contract FlareSystemManagerTest is Test {
         vm.roll(block.number + 21); // after 20 blocks
         vm.mockCall(
             mockVoterRegistry,
-            abi.encodeWithSelector(IIVoterRegistry.getNumberOfRegisteredVoters.selector, _nextEpochId),
+            abi.encodeWithSelector(IVoterRegistry.getNumberOfRegisteredVoters.selector, _nextEpochId),
             abi.encode(3)
         ); // 3 registered voters
         flareSystemManager.daemonize();
@@ -1820,14 +1808,14 @@ contract FlareSystemManagerTest is Test {
 
 }
 
-contract MockVoterRegistrationTrigger is IVoterRegistrationTrigger {
+contract MockVoterRegistrationTrigger is IIVoterRegistrationTrigger {
     //solhint-disable-next-line no-unused-vars
         function triggerVoterRegistration(uint24 _rewardEpochId) external {
             revert("error456");
         }
 }
 
-contract MockCleanupBlockNumberManager is ICleanupBlockNumberManager {
+contract MockCleanupBlockNumberManager is IICleanupBlockNumberManager {
     //solhint-disable-next-line no-unused-vars
         function setCleanUpBlockNumber(uint256 _cleanupBlock) external {
             revert("error123");
