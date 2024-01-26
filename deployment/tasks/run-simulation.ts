@@ -202,6 +202,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     while (Date.now() < firstEpochStartMs) await sleep(500);
   }
 
+  await c.flareSystemManager.daemonize();
+
   const currentRewardEpochId = (await c.flareSystemManager.getCurrentRewardEpochId()).toNumber();
   if (currentRewardEpochId != 1) {
     throw new Error("Reward epoch after setup expected to be 1");
