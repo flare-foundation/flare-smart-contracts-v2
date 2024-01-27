@@ -209,6 +209,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   logger.info(`EpochSettings:\n${JSON.stringify(epochSettings, null, 2)}`);
   fs.writeFileSync(SETTINGS_FILE_LOCATION, JSON.stringify({
     firstRewardEpochStartVotingId: (epochSettings.rewardEpochStartSec - epochSettings.firstVotingEpochStartSec) / epochSettings.votingEpochDurationSec,
+    rewardEpochDurationInVotingEpochs: epochSettings.rewardEpochDurationSec / epochSettings.votingEpochDurationSec,
     ...epochSettings}, null, 2));
   logger.info(`Epoch settings written to ${SETTINGS_FILE_LOCATION}`);
 
