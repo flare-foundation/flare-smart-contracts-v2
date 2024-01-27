@@ -449,12 +449,9 @@ async function defineNextSigningPolicy(
   }
 }
 
-async function runOfferRewards(
-  c: DeployedContracts,
-  epochSettings: EpochSettings,
-) {
+async function runOfferRewards(c: DeployedContracts, epochSettings: EpochSettings, forceEpoch?: number) {
   const logger = getLogger("offerRewards");
-  const nextRewardEpochId = epochSettings.rewardEpochForTime(Date.now()) + 1;
+  const nextRewardEpochId = forceEpoch ?? epochSettings.rewardEpochForTime(Date.now()) + 1;
   let rewards = 0;
   for (const offer of OFFERS) {
     rewards += offer.amount;
@@ -576,6 +573,9 @@ async function defineInitialSigningPolicy(
   web3: Web3,
   governanceAccount: Account
 ) {
+
+  await runOfferRewards(c, epochSettings, 1);
+
   await time.increaseTo(
     rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds)
   );
