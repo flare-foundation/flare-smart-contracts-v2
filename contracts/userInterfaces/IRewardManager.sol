@@ -25,7 +25,7 @@ interface IRewardManager {
 
     /// Struct used for returning state of rewards.
     struct RewardState {
-        bytes20 provider; // c-chain address or node id (bytes20) in case of type MIRROR
+        bytes20 beneficiary; // c-chain address or node id (bytes20) in case of type MIRROR
         uint120 amount; // in wei
         ClaimType claimType;
         bool initialised;
@@ -40,18 +40,18 @@ interface IRewardManager {
     }
 
     /**
-     * Emitted when a data provider claims its FTSO rewards.
-     * @param voter Address of the voter (or node id) that accrued the reward.
-     * @param whoClaimed Address that actually performed the claim.
-     * @param sentTo Address that received the reward.
+     * Emitted when rewards are claimed.
+     * @param beneficiary Address of the beneficiary (voter or node id) that accrued the reward.
+     * @param rewardOwner Address that was eligible for the rewards.
+     * @param recipient Address that received the reward.
      * @param rewardEpochId Id of the reward epoch where the reward was accrued.
      * @param claimType Claim type
      * @param amount Amount of rewarded native tokens (wei).
      */
     event RewardClaimed(
-        address indexed voter,
-        address indexed whoClaimed,
-        address indexed sentTo,
+        address indexed beneficiary,
+        address indexed rewardOwner,
+        address indexed recipient,
         uint24 rewardEpochId,
         ClaimType claimType,
         uint120 amount
@@ -140,14 +140,14 @@ interface IRewardManager {
         );
 
     /**
-     * Gets the unclaimed reward state for a provider, reward epoch id and claim type.
-     * @param _provider Address of the provider to query.
+     * Gets the unclaimed reward state for a beneficiary, reward epoch id and claim type.
+     * @param _beneficiary Address of the beneficiary to query.
      * @param _rewardEpochId Id of the reward epoch to query.
      * @param _claimType Claim type to query.
      * @return _state Unclaimed reward state.
      */
     function getUnclaimedRewardState(
-        address _provider,
+        address _beneficiary,
         uint24 _rewardEpochId,
         ClaimType _claimType
     )

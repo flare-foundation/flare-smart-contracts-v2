@@ -138,8 +138,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     uint24 public signingPolicyThresholdPPM;
     /// Minimum number of voters for signing policy.
     uint16 public signingPolicyMinNumberOfVoters;
-    /// Indicates if submit3 method is alligned with current reward epoch submit addresses.
-    bool public submit3Alligned = true;
+    /// Indicates if submit3 method is aligned with current reward epoch submit addresses.
+    bool public submit3Aligned = true;
     /// Indicates if rewards epoch expiration and vote power block cleanup should be triggered after each epoch.
     bool public triggerExpirationAndCleanup = false;
 
@@ -328,7 +328,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
             submission.initNewVotingRound(
                 submit1Addresses,
                 submit2Addresses,
-                submit3Alligned ? submit1Addresses : submit2Addresses,
+                submit3Aligned ? submit1Addresses : submit2Addresses,
                 submitSignaturesAddresses
             );
         }
@@ -529,11 +529,11 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * Sets whether submit3 method is alligned with current reward epoch submit addresses.
+     * Sets whether submit3 method is aligned with current reward epoch submit addresses.
      * @dev Only governance can call this method.
      */
-    function setSubmit3Alligned(bool _submit3Alligned) external onlyGovernance {
-        submit3Alligned = _submit3Alligned;
+    function setSubmit3Aligned(bool _submit3Aligned) external onlyGovernance {
+        submit3Aligned = _submit3Aligned;
     }
 
     /**
@@ -808,7 +808,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     /**
      * @inheritdoc IFlareDaemonize
      */
-    function switchToFallbackMode() external pure returns (bool) {
+    function switchToFallbackMode() external view onlyFlareDaemon returns (bool) {
         // do nothing - there is no fallback mode in FlareSystemManager contract
         return false;
     }

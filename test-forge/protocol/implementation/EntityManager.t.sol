@@ -17,6 +17,8 @@ contract EntityManagerTest is Test {
     address private delegationAddr2;
     address private governance;
     address private governanceSettings;
+    MockPublicKeyVerification private mockPublicKeyVerification;
+    bytes private validPublicKeyData = abi.encode(keccak256("test"), 1, 2, 3);
 
     event NodeIdRegistered(address indexed voter, bytes20 indexed nodeId);
     event NodeIdUnregistered(address indexed voter, bytes20 indexed nodeId);
@@ -44,6 +46,12 @@ contract EntityManagerTest is Test {
         governance = makeAddr("governance");
         governanceSettings = makeAddr("governanceSettings");
         entityManager = new EntityManager(IGovernanceSettings(governanceSettings), governance, 4);
+        mockPublicKeyVerification = new MockPublicKeyVerification();
+        vm.prank(governance);
+        entityManager.setPublicKeyVerificationData(
+            address(mockPublicKeyVerification),
+            MockPublicKeyVerification.verifyPublicKey.selector
+        );
 
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
@@ -106,9 +114,9 @@ contract EntityManagerTest is Test {
 
     function testGetPublicKeys() public {
         vm.prank(user1);
-        entityManager.registerPublicKey(bytes32("publicKey11"), bytes32("publicKey12"), "");
+        entityManager.registerPublicKey(bytes32("publicKey11"), bytes32("publicKey12"), validPublicKeyData);
         vm.prank(user2);
-        entityManager.registerPublicKey(bytes32("publicKey21"), bytes32("publicKey22"), "");
+        entityManager.registerPublicKey(bytes32("publicKey21"), bytes32("publicKey22"), validPublicKeyData);
 
         address[] memory voters = new address[](2);
         voters[0] = user1;
@@ -526,11 +534,40 @@ contract EntityManagerTest is Test {
     }
 
     // public key tests
-    function testRegisterPublicKeyRevertKeyInvalid() public {
+    function testRegisterPublicKeyRevertPublicKeyInvalid() public {
         bytes32 publicKey1 = bytes32(0);
         bytes32 publicKey2 = bytes32(0);
         vm.expectRevert("public key invalid");
-        entityManager.registerPublicKey(publicKey1, publicKey2, "");
+        entityManager.registerPublicKey(publicKey1, publicKey2, validPublicKeyData);
+    }
+
+    function testRegisterPublicKeyRevertVerificationFailed() public {
+        bytes32 publicKey1 = bytes32("publicKey1");
+        bytes32 publicKey2 = bytes32("publicKey2");
+        vm.expectRevert("Transaction reverted silently");
+        entityManager.registerPublicKey(publicKey1, publicKey2, "test");
+    }
+
+    function testRegisterPublicKeyRevertVerificationFailed2() public {
+        bytes32 publicKey1 = bytes32("publicKey1");
+        bytes32 publicKey2 = bytes32("publicKey2");
+        vm.expectRevert("public key verification failed");
+        entityManager.registerPublicKey(publicKey1, publicKey2, abi.encode(keccak256("error"), 1, 2, 3));
+    }
+
+    function testRegisterPublicKeyRevertPublicKeyRegistrationNotEnabled() public {
+        assertEq(entityManager.publicKeyVerificationContract(), address(mockPublicKeyVerification));
+        assertEq(entityManager.publicKeyVerificationSelector(), MockPublicKeyVerification.verifyPublicKey.selector);
+
+        vm.prank(governance);
+        entityManager.setPublicKeyVerificationData(address(0), bytes4(0));
+        assertEq(entityManager.publicKeyVerificationContract(), address(0));
+        assertEq(entityManager.publicKeyVerificationSelector(), bytes4(0));
+
+        bytes32 publicKey1 = bytes32("publicKey1");
+        bytes32 publicKey2 = bytes32("publicKey2");
+        vm.expectRevert("public key registration not enabled");
+        entityManager.registerPublicKey(publicKey1, publicKey2, validPublicKeyData);
     }
 
     function testRegisterPublicKey() public {
@@ -540,7 +577,7 @@ contract EntityManagerTest is Test {
         vm.prank(user1);
         vm.expectEmit();
         emit PublicKeyRegistered(user1, publicKey1, publicKey2);
-        entityManager.registerPublicKey(publicKey1, publicKey2, "");
+        entityManager.registerPublicKey(publicKey1, publicKey2, validPublicKeyData);
         (bytes32 publicKey1_, bytes32 publicKey2_) = entityManager.getPublicKeyOf(user1);
         assertEq(publicKey1_, publicKey1);
         assertEq(publicKey2_, publicKey2);
@@ -557,19 +594,19 @@ contract EntityManagerTest is Test {
         bytes32 publicKey2 = bytes32("publicKey2");
 
         vm.prank(user1);
-        entityManager.registerPublicKey(publicKey1, publicKey2, "");
+        entityManager.registerPublicKey(publicKey1, publicKey2, validPublicKeyData);
 
         // can't register the same key twice
         vm.prank(makeAddr("user2"));
         vm.expectRevert("public key already registered");
-        entityManager.registerPublicKey(publicKey1, publicKey2, "");
+        entityManager.registerPublicKey(publicKey1, publicKey2, validPublicKeyData);
     }
 
     function testReplacePublicKey() public {
         bytes32 publicKey11 = bytes32("publicKey11");
         bytes32 publicKey12 = bytes32("publicKey12");
         vm.prank(user1);
-        entityManager.registerPublicKey(publicKey11, publicKey12, "");
+        entityManager.registerPublicKey(publicKey11, publicKey12, validPublicKeyData);
         (bytes32 pk1, bytes32 pk2) = entityManager.getPublicKeyOf(user1);
         assertEq(pk1, publicKey11);
         assertEq(pk2, publicKey12);
@@ -580,7 +617,7 @@ contract EntityManagerTest is Test {
         vm.expectEmit();
         emit PublicKeyUnregistered(user1, publicKey11, publicKey12);
         emit PublicKeyRegistered(user1, publicKey21, publicKey22);
-        entityManager.registerPublicKey(publicKey21, publicKey22, "");
+        entityManager.registerPublicKey(publicKey21, publicKey22, validPublicKeyData);
         (pk1, pk2) = entityManager.getPublicKeyOf(user1);
         assertEq(pk1, publicKey21);
         assertEq(pk2, publicKey22);
@@ -596,7 +633,7 @@ contract EntityManagerTest is Test {
         // nothing to unregister yet -> no event emitted
         assertEq(entries.length, 0);
 
-        entityManager.registerPublicKey(publicKey1, publicKey2, "");
+        entityManager.registerPublicKey(publicKey1, publicKey2, validPublicKeyData);
 
         vm.expectEmit();
         emit PublicKeyUnregistered(user1, publicKey1, publicKey2);
@@ -733,5 +770,23 @@ contract EntityManagerTest is Test {
 
         return initialVotersData;
     }
+}
 
+contract MockPublicKeyVerification {
+
+    function verifyPublicKey(
+        bytes32 _part1,
+        bytes32 _part2,
+        bytes32 _message,
+        uint256 signature,
+        uint256 x,
+        uint256 y
+    )
+        external view
+    {
+        require(
+            _part1 != bytes32(0) &&_part2 != bytes32(0) &&
+            _message == keccak256("test") && signature == 1 && x == 2 && y == 3,
+            "public key verification failed");
+    }
 }

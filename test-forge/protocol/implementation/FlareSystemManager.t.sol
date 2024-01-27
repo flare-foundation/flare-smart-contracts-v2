@@ -289,7 +289,11 @@ contract FlareSystemManagerTest is Test {
     }
 
     function testSwitchToFallbackMode() public {
+        vm.prank(flareDaemon);
         assertEq(flareSystemManager.switchToFallbackMode(), false);
+
+        vm.expectRevert("only flare daemon");
+        flareSystemManager.switchToFallbackMode();
     }
 
     function testGetContrastAddresses() public {
@@ -586,6 +590,32 @@ contract FlareSystemManagerTest is Test {
         _mockCleanupBlockNumber(11);
         flareSystemManager.daemonize();
         assertEq(flareSystemManager.rewardEpochIdToExpireNext(), 3);
+    }
+
+    function testSetTriggerExpirationAndCleanup() public {
+        assertEq(flareSystemManager.triggerExpirationAndCleanup(), false);
+        vm.prank(governance);
+        flareSystemManager.setTriggerExpirationAndCleanup(true);
+        assertEq(flareSystemManager.triggerExpirationAndCleanup(), true);
+        vm.prank(governance);
+        flareSystemManager.setTriggerExpirationAndCleanup(false);
+        assertEq(flareSystemManager.triggerExpirationAndCleanup(), false);
+
+        vm.expectRevert("only governance");
+        flareSystemManager.setTriggerExpirationAndCleanup(true);
+    }
+
+    function testSetSubmit3Aligned() public {
+        assertEq(flareSystemManager.submit3Aligned(), true);
+        vm.prank(governance);
+        flareSystemManager.setSubmit3Aligned(false);
+        assertEq(flareSystemManager.submit3Aligned(), false);
+        vm.prank(governance);
+        flareSystemManager.setSubmit3Aligned(true);
+        assertEq(flareSystemManager.submit3Aligned(), true);
+
+        vm.expectRevert("only governance");
+        flareSystemManager.setSubmit3Aligned(true);
     }
 
     function testCloseExpiredEpochs() public {

@@ -358,7 +358,7 @@ contract Relay is IIRelay {
                 )
             }
 
-            // Helper function to assign value to right alligned byte encoded struct like object
+            // Helper function to assign value to right aligned byte encoded struct like object
             function structValue(_structObj, _valOffset, _valMask) -> _val {
                 _val := and(shr(_valOffset, _structObj), _valMask)
             }

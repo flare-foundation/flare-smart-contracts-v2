@@ -535,11 +535,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should start new reward epoch and initiate new voting round", async () => {
         await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC));
-        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
+        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(0);
         const tx = await flareSystemManager.daemonize();
         expectEvent(tx, "RewardEpochStarted");
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
         await expectEvent.inTransaction(tx.tx, ftsoRewardOffersManager, "InflationRewardsOffered");
+        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
     });
 
     it("Should commit", async () => {
@@ -688,9 +689,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should start new reward epoch (2) and initiate new voting round", async () => {
         await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC));
-        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(2);
+        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
         const tx = await flareSystemManager.daemonize();
+        expectEvent(tx, "RewardEpochStarted");
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
+        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(2);
     });
 
     it("Should sign uptime vote for reward epoch 1", async () => {

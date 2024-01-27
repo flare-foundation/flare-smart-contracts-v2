@@ -62,7 +62,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     // per reward epoch mark weight based claims that were already initialised
     // remaining weights and amounts are updated when claiming
     mapping(uint256 rewardEpochId => mapping(ClaimType  claimType =>
-        mapping(address provider => UnclaimedRewardState))) internal epochTypeProviderUnclaimedReward;
+        mapping(address beneficiary => UnclaimedRewardState))) internal epochTypeBeneficiaryUnclaimedReward;
     // per reward epoch mark direct and fee claims (not weight based) that were already processed (paid out)
     mapping(uint256 rewardEpochId => mapping(bytes32 claimHash => bool)) internal epochProcessedRewardClaims;
     // number of initialised weight based claims per reward epoch
@@ -293,7 +293,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         epochTotalRewards[_rewardEpochId] += msg.value.toUint120();
         totalFundsReceivedWei += msg.value;
         if (_inflation) {
-            totalInflationReceivedWei = totalInflationReceivedWei + msg.value;
+            totalInflationReceivedWei += msg.value;
         }
     }
 
@@ -342,9 +342,12 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
         nextRewardEpochIdToExpire = (_rewardEpochId + 1).toUint24();
         emit RewardClaimsExpired(_rewardEpochId);
-        uint256 burnAmountWei = epochTotalRewards[_rewardEpochId] - epochClaimedRewards[_rewardEpochId];
+        // burn unclaimed rewards - note that some rewards may be already burned (part of FEE claims)
+        uint120 burnAmountWei = epochTotalRewards[_rewardEpochId] -
+            (epochClaimedRewards[_rewardEpochId] + epochBurnedRewards[_rewardEpochId]);
         if (burnAmountWei > 0) {
             totalBurnedWei += burnAmountWei;
+            epochBurnedRewards[_rewardEpochId] += burnAmountWei;
             //slither-disable-next-line arbitrary-send-eth
             BURN_ADDRESS.transfer(burnAmountWei);
         }
@@ -476,7 +479,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @inheritdoc IRewardManager
      */
     function getUnclaimedRewardState(
-        address _provider,
+        address _beneficiary,
         uint24 _rewardEpochId,
         ClaimType _claimType
     )
@@ -485,7 +488,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             UnclaimedRewardState memory _state
         )
     {
-        return epochTypeProviderUnclaimedReward[_rewardEpochId][_claimType][_provider];
+        return epochTypeBeneficiaryUnclaimedReward[_rewardEpochId][_claimType][_beneficiary];
     }
 
     /**
@@ -698,7 +701,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      */
     function _initialiseWeightBasedClaim(RewardClaimWithProof calldata _proof) internal {
         RewardClaim calldata rewardClaim = _proof.body;
-        UnclaimedRewardState storage state = epochTypeProviderUnclaimedReward
+        UnclaimedRewardState storage state = epochTypeBeneficiaryUnclaimedReward
             [rewardClaim.rewardEpochId][rewardClaim.claimType][address(rewardClaim.beneficiary)];
         if (!state.initialised) {
             // not initialised yet - check if valid merkle proof
@@ -821,7 +824,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             if (delegates.length > 0) { // _rewardOwner had some delegations at _votePowerBlock
                 for (uint256 i = 0; i < delegates.length; i++) {
                     UnclaimedRewardState storage state =
-                        epochTypeProviderUnclaimedReward[_epoch][ClaimType.WNAT][delegates[i]];
+                        epochTypeBeneficiaryUnclaimedReward[_epoch][ClaimType.WNAT][delegates[i]];
                     // check if reward state is already initialised
                     require(_allClaimsInitialised || state.initialised, "not initialised");
                     // calculate weight that corresponds to the delegate at index `i`
@@ -850,7 +853,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                 uint256 undelegatedVotePower = wNat.undelegatedVotePowerOfAt(_rewardOwner, _votePowerBlock);
                 if (undelegatedVotePower > 0) {
                     UnclaimedRewardState storage state =
-                        epochTypeProviderUnclaimedReward[_epoch][ClaimType.WNAT][_rewardOwner];
+                        epochTypeBeneficiaryUnclaimedReward[_epoch][ClaimType.WNAT][_rewardOwner];
                     // check if reward state is already initialised
                     require(_allClaimsInitialised || state.initialised, "not initialised");
                     // reduce remaining amount and weight
@@ -893,7 +896,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             _rewardOwner, _votePowerBlock);
         for (uint256 i = 0; i < nodeIds.length; i++) { // _rewardOwner had some stakes at _votePowerBlock
             UnclaimedRewardState storage state =
-                epochTypeProviderUnclaimedReward[_epoch][ClaimType.MIRROR][address(nodeIds[i])];
+                epochTypeBeneficiaryUnclaimedReward[_epoch][ClaimType.MIRROR][address(nodeIds[i])];
             // check if reward state is already initialised
             require(_allClaimsInitialised || state.initialised, "not initialised");
             // reduce remaining amount and weight
@@ -934,7 +937,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             _rewardOwner, _votePowerBlock);
         for (uint256 i = 0; i < accounts.length; i++) { // _rewardOwner had some stakes at _votePowerBlock
             UnclaimedRewardState storage state =
-                epochTypeProviderUnclaimedReward[_epoch][ClaimType.CCHAIN][accounts[i]];
+                epochTypeBeneficiaryUnclaimedReward[_epoch][ClaimType.CCHAIN][accounts[i]];
             // check if reward state is already initialised
             require(_allClaimsInitialised || state.initialised, "not initialised");
             // reduce remaining amount and weight
@@ -1081,14 +1084,14 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * Returns reward state.
      * @param _rewardEpochId Reward epoch id.
      * @param _claimType Claim type.
-     * @param _provider Address of the reward provider.
+     * @param _beneficiary Address of the reward beneficiary.
      * @param _amount Reward amount.
      * @param _allClaimsInitialised Indicates if all claims were already initialised.
      */
     function _getRewardState(
         uint24 _rewardEpochId,
         ClaimType _claimType,
-        address _provider,
+        address _beneficiary,
         uint256 _amount,
         bool _allClaimsInitialised
     )
@@ -1097,10 +1100,10 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             RewardState memory _rewardState
         )
     {
-        _rewardState.provider = bytes20(_provider);
+        _rewardState.beneficiary = bytes20(_beneficiary);
         _rewardState.claimType = _claimType;
         UnclaimedRewardState storage state =
-            epochTypeProviderUnclaimedReward[_rewardEpochId][_claimType][_provider];
+            epochTypeBeneficiaryUnclaimedReward[_rewardEpochId][_claimType][_beneficiary];
         _rewardState.initialised = _allClaimsInitialised || state.initialised;
         if (_rewardState.initialised) {
             _rewardState.amount = _calculateRewardAmount(state, _amount);

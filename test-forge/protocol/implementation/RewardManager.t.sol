@@ -41,9 +41,9 @@ contract RewardManagerTest is Test {
     bytes32[] private merkleProof4;
 
     event RewardClaimed(
-        address indexed voter,
-        address indexed whoClaimed,
-        address indexed sentTo,
+        address indexed beneficiary,
+        address indexed rewardOwner,
+        address indexed recipient,
         uint24 rewardEpochId,
         RewardManager.ClaimType claimType,
         uint120 amount
@@ -376,13 +376,13 @@ contract RewardManagerTest is Test {
         // get state of rewards - all amounts zero because not yet initialized
         RewardManager.RewardState[] memory rewardStates = rewardManager.getStateOfRewards(voter1, rewardEpochData.id);
         assertEq(rewardStates.length, 3);
-        assertEq(address(rewardStates[0].provider), voter1);
+        assertEq(address(rewardStates[0].beneficiary), voter1);
         assertEq(rewardStates[0].amount, 0);
         assertEq(rewardStates[0].initialised, false);
-        assertEq(address(rewardStates[1].provider), address(nodeId1));
+        assertEq(address(rewardStates[1].beneficiary), address(nodeId1));
         assertEq(rewardStates[1].amount, 0);
         assertEq(rewardStates[1].initialised, false);
-        assertEq(address(rewardStates[2].provider), account1);
+        assertEq(address(rewardStates[2].beneficiary), account1);
         assertEq(rewardStates[2].amount, 0);
         assertEq(rewardStates[2].initialised, false);
 
@@ -602,13 +602,13 @@ contract RewardManagerTest is Test {
         // get state of rewards for delegator
         RewardManager.RewardState[] memory rewardStates = rewardManager.getStateOfRewards(delegator, 0);
         assertEq(rewardStates.length, 3);
-        assertEq(address(rewardStates[0].provider), voter1);
+        assertEq(address(rewardStates[0].beneficiary), voter1);
         assertEq(rewardStates[0].amount, 34);
         assertEq(rewardStates[0].initialised, true);
-        assertEq(address(rewardStates[1].provider), address(nodeId1));
+        assertEq(address(rewardStates[1].beneficiary), address(nodeId1));
         assertEq(rewardStates[1].amount, 38);
         assertEq(rewardStates[1].initialised, true);
-        assertEq(address(rewardStates[2].provider), account1);
+        assertEq(address(rewardStates[2].beneficiary), account1);
         assertEq(rewardStates[2].amount, 40);
         assertEq(rewardStates[2].initialised, true);
 
