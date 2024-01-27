@@ -21,7 +21,6 @@ import { DeployedContracts, deployContracts, serializeDeployedContractsAddresses
 import { errorString } from "../utils/error";
 import { decodeLogs as decodeRawLogs } from "../utils/events";
 import { MockDBIndexer } from "../utils/indexer/MockDBIndexer";
-import { sqliteDatabase } from "../utils/indexer/data-source";
 import { getLogger } from "../utils/logger";
 
 // Simulation config
@@ -29,6 +28,7 @@ export const SIMULATION_DUMP_FOLDER = "./sim";
 export const SETTINGS_FILE_LOCATION = `${SIMULATION_DUMP_FOLDER}/epoch-settings.json`;
 export const DEPLOY_ADDRESSES_FILE = `${SIMULATION_DUMP_FOLDER}/deployed-addresses.json`;
 export const SIMULATION_ACCOUNTS_FILE = `${SIMULATION_DUMP_FOLDER}/simulation-accounts.json`;
+export const MEMORY_DATABASE_FILE = `${SIMULATION_DUMP_FOLDER}/indexer.db`;
 
 export const TIMELOCK_SEC = 3600;
 const REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 5;
@@ -187,7 +187,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     ftsoRewardOffersManager: c.ftsoRewardOffersManager.address,
   });
 
-  logger.info(`Starting a mock c-chain indexer, data is recorded to SQLite database at ${sqliteDatabase}`);
+  logger.info(`Starting a mock c-chain indexer, data is recorded to SQLite database at ${MEMORY_DATABASE_FILE}`);
   indexer.run().catch(e => {
     logger.error(`Indexer failed: ${errorString(e)}`);
   });
