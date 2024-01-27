@@ -207,7 +207,9 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     (await c.flareSystemManager.voterRegistrationMinDurationBlocks()).toNumber()
   );
   logger.info(`EpochSettings:\n${JSON.stringify(epochSettings, null, 2)}`);
-  fs.writeFileSync(SETTINGS_FILE_LOCATION, JSON.stringify(epochSettings, null, 2));
+  fs.writeFileSync(SETTINGS_FILE_LOCATION, JSON.stringify({
+    firstRewardEpochStartVotingId: (epochSettings.rewardEpochStartSec - epochSettings.firstVotingEpochStartSec) / epochSettings.votingEpochDurationSec,
+    ...epochSettings}, null, 2));
   logger.info(`Epoch settings written to ${SETTINGS_FILE_LOCATION}`);
 
   const signingPolicies = new Map<number, ISigningPolicy>();
