@@ -3,8 +3,7 @@ import { TLPEvents } from "../../../deployment/utils/indexer/Entity";
 import { FlareSystemManagerContract, FlareSystemManagerInstance } from "../../../typechain-truffle";
 import { EpochSettings } from "../../../deployment/utils/EpochSettings";
 import { ISigningPolicy } from "../protocol/SigningPolicy";
-
-export const DEPLOY_ADDRESSES_FILE = "./db/deployed-addresses.json";
+import { DEPLOY_ADDRESSES_FILE } from "../../../deployment/tasks/run-simulation";
 
 export const SUBMIT_SIGNATURES_SELECTOR = web3.utils.sha3("submitSignatures()")!.slice(0, 10);
 export const RELAY_SELECTOR = web3.utils.sha3("relay()")!.slice(0, 10);
