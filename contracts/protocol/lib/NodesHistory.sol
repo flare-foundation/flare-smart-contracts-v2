@@ -51,7 +51,7 @@ library NodesHistory {
         bytes20 _nodeId,
         bool _add,
         uint32 _maxNodeIds
-    ) public {
+    ) internal {
         uint256 historyCount = _self.endIndex;
         if (historyCount == 0) {
             // checkpoints array empty, push new CheckPoint
@@ -101,7 +101,7 @@ library NodesHistory {
         CheckPointHistoryState storage _self,
         uint256 _count,
         uint256 _cleanupBlockNumber
-    ) public returns (uint256) {
+    ) internal returns (uint256) {
         if (_cleanupBlockNumber == 0) return 0; // optimization for when cleaning is not enabled
         uint256 length = _self.endIndex;
         if (length == 0) return 0;
@@ -138,7 +138,7 @@ library NodesHistory {
     function countAt(
         CheckPointHistoryState storage _self,
         uint256 _blockNumber
-    ) public view returns (uint256 _count) {
+    ) internal view returns (uint256 _count) {
         (bool found, uint256 index) = _findGreatestBlockLessThan(
             _self,
             _blockNumber
@@ -158,7 +158,7 @@ library NodesHistory {
     function nodeIdsAt(
         CheckPointHistoryState storage _self,
         uint256 _blockNumber
-    ) public view returns (bytes20[] memory _nodeIds) {
+    ) internal view returns (bytes20[] memory _nodeIds) {
         (bool found, uint256 index) = _findGreatestBlockLessThan(
             _self,
             _blockNumber
@@ -185,7 +185,7 @@ library NodesHistory {
      **/
     function nodeIdsAtNow(
         CheckPointHistoryState storage _self
-    ) public view returns (bytes20[] memory _nodeIds) {
+    ) internal view returns (bytes20[] memory _nodeIds) {
         return nodeIdsAt(_self, block.number);
     }
 
@@ -198,7 +198,7 @@ library NodesHistory {
     function nodeIdsAtNowRaw(
         CheckPointHistoryState storage _self
     )
-        public
+        internal
         view
         returns (uint256 _length, mapping(uint256 => Node) storage _nodeIds)
     {
