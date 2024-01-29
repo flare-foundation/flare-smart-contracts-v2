@@ -145,7 +145,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 0);
     }
 
-    function test_cleanAndAddressAt() public {
+    function test_cleanAndPublicKeyAt() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(11, 10);
@@ -156,7 +156,7 @@ contract PublicKeyHistoryTest is Test {
         checkPointHistoryState.publicKeyAt(3);
     }
 
-    function test_cleanAndAddressAt2() public {
+    function test_cleanAndPublicKeyAt2() public {
         vm.roll(120);
 
         checkPointHistoryState.cleanupOldCheckpoints(11, 10);
