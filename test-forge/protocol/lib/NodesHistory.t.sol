@@ -53,42 +53,24 @@ contract NodesHistoryTest is Test {
     function test_nodeIdsAtEmpty() public {
         vm.roll(990);
 
-        bytes20[] memory nodesAt = emptyState.nodeIdsAtNow();
+        bytes20[] memory nodesAt = emptyState.nodeIdsAt(block.number);
         bytes20[] memory nodesAt70 = emptyState.nodeIdsAt(70);
-
-        (uint256 length, ) = emptyState.nodeIdsAtNowRaw();
-
-        uint256 count = emptyState.countAt(100);
 
         assertEq(nodesAt.length, 0);
         assertEq(nodesAt70.length, 0);
-        assertEq(count, 0);
-
-        assertEq(length, 0);
     }
 
     function test_NodeIdsAt() public {
         vm.roll(500);
 
-        bytes20[] memory nodesAtNow = checkPointHistoryState.nodeIdsAtNow();
+        bytes20[] memory nodesAtNow = checkPointHistoryState.nodeIdsAt(block.number);
         bytes20[] memory nodesAt101 = checkPointHistoryState.nodeIdsAt(101);
-
-        uint256 count = checkPointHistoryState.countAt(202);
-
-        (
-            uint256 length,
-            mapping(uint256 => NodesHistory.Node) storage nodeIds
-        ) = checkPointHistoryState.nodeIdsAtNowRaw();
 
         assertEq(nodesAtNow.length, 3);
         assertEq(nodesAt101.length, 1);
 
         assertEq(nodesAtNow[0], bytes20(keccak256(abi.encode(1))));
         assertEq(nodesAtNow[2], bytes20(keccak256(abi.encode(4))));
-        assertEq(count, 2);
-
-        assertEq(length, 3);
-        assertEq(nodeIds[0].nodeId, bytes20(keccak256(abi.encode(1))));
     }
 
     function test_cleanEmpty() public {

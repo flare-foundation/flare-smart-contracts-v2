@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
  * @dev Store value history by block number with detachable state.
  **/
 library PublicKeyHistory {
+
     /**
      * @dev `CheckPoint` is the structure that attaches a block number to a
      *  given address; the block number attached is the one that last changed the
@@ -45,23 +46,19 @@ library PublicKeyHistory {
         CheckPointHistoryState storage _self,
         bytes32 _part1,
         bytes32 _part2
-    ) internal {
+    )
+        internal
+    {
         uint256 historyCount = _self.endIndex;
         if (historyCount == 0) {
             // checkpoints array empty, push new CheckPoint
             if (_part1 != bytes32(0) && _part2 != bytes32(0)) {
-                _self.checkpoints[0] = CheckPoint(
-                    _part1,
-                    _part2,
-                    SafeCast.toUint64(block.number)
-                );
+                _self.checkpoints[0] = CheckPoint(_part1, _part2, SafeCast.toUint64(block.number));
                 _self.endIndex = 1;
             }
         } else {
             // historyCount - 1 is safe, since historyCount != 0
-            CheckPoint storage lastCheckpoint = _self.checkpoints[
-                historyCount - 1
-            ];
+            CheckPoint storage lastCheckpoint = _self.checkpoints[historyCount - 1];
             uint256 lastBlock = lastCheckpoint.fromBlock;
             // slither-disable-next-line incorrect-equality
             if (block.number == lastBlock) {
@@ -72,12 +69,8 @@ library PublicKeyHistory {
                 // we should never have future blocks in history
                 assert(block.number > lastBlock);
                 // last check point block is before, push new CheckPoint
-                _self.checkpoints[historyCount] = CheckPoint(
-                    _part1,
-                    _part2,
-                    SafeCast.toUint64(block.number)
-                );
-                _self.endIndex = SafeCast.toUint64(historyCount + 1); // historyCount <= block.number
+                _self.checkpoints[historyCount] = CheckPoint(_part1, _part2, SafeCast.toUint64(block.number));
+                _self.endIndex = SafeCast.toUint64(historyCount + 1);  // historyCount <= block.number
             }
         }
     }
@@ -86,33 +79,31 @@ library PublicKeyHistory {
      * Delete at most `_count` of the oldest checkpoints.
      * At least one checkpoint at or before `_cleanupBlockNumber` will remain
      * (unless the history was empty to start with).
-     * @return New endIndex
      */
     function cleanupOldCheckpoints(
         CheckPointHistoryState storage _self,
         uint256 _count,
         uint256 _cleanupBlockNumber
-    ) internal returns (uint256) {
-        if (_cleanupBlockNumber == 0) return 0; // optimization for when cleaning is not enabled
+    )
+        internal
+        returns (uint256)
+    {
+        if (_cleanupBlockNumber == 0) return 0;   // optimization for when cleaning is not enabled
         uint256 length = _self.endIndex;
         if (length == 0) return 0;
         uint256 startIndex = _self.startIndex;
         // length - 1 is safe, since length != 0 (check above)
-        uint256 endIndex = Math.min(startIndex + _count, length - 1); // last element can never be deleted
+        uint256 endIndex = Math.min(startIndex + _count, length - 1);    // last element can never be deleted
         uint256 index = startIndex;
         // we can delete `checkpoint[index]` while the next checkpoint is at `_cleanupBlockNumber` or before
-        while (
-            index < endIndex &&
-            _self.checkpoints[index + 1].fromBlock <= _cleanupBlockNumber
-        ) {
+        while (index < endIndex && _self.checkpoints[index + 1].fromBlock <= _cleanupBlockNumber) {
             delete _self.checkpoints[index];
             index++;
         }
-        if (index > startIndex) {
-            // index is the first not deleted index
+        if (index > startIndex) {   // index is the first not deleted index
             _self.startIndex = SafeCast.toUint64(index);
         }
-        return index - startIndex; // safe: index = startIndex at start and increases in loop
+        return index - startIndex;  // safe: index = startIndex at start and increases in loop
     }
 
     /**
@@ -124,7 +115,13 @@ library PublicKeyHistory {
     function publicKeyAt(
         CheckPointHistoryState storage _self,
         uint256 _blockNumber
-    ) internal view returns (bytes32, bytes32) {
+    )
+        internal view
+        returns (
+            bytes32,
+            bytes32
+        )
+    {
         uint256 historyCount = _self.endIndex;
 
         // No _checkpoints, return (bytes32(0), bytes32(0))
@@ -132,34 +129,20 @@ library PublicKeyHistory {
 
         // Shortcut for the actual account (extra optimized for current block, to save one storage read)
         // historyCount - 1 is safe, since historyCount != 0
-        if (
-            _blockNumber >= block.number ||
-            _blockNumber >= _self.checkpoints[historyCount - 1].fromBlock
-        ) {
-            return (
-                _self.checkpoints[historyCount - 1].part1,
-                _self.checkpoints[historyCount - 1].part2
-            );
+        if (_blockNumber >= block.number || _blockNumber >= _self.checkpoints[historyCount - 1].fromBlock) {
+            return (_self.checkpoints[historyCount - 1].part1, _self.checkpoints[historyCount - 1].part2);
         }
 
         // guard values at start
         uint256 startIndex = _self.startIndex;
         if (_blockNumber < _self.checkpoints[startIndex].fromBlock) {
             // reading data before `startIndex` is only safe before first cleanup
-            require(
-                startIndex == 0,
-                "PublicKeyHistory: reading from cleaned-up block"
-            );
+            require(startIndex == 0, "PublicKeyHistory: reading from cleaned-up block");
             return (bytes32(0), bytes32(0));
         }
 
         // Find the block with number less than or equal to block given
-        uint256 index = _indexOfGreatestBlockLessThan(
-            _self.checkpoints,
-            startIndex,
-            _self.endIndex,
-            _blockNumber
-        );
+        uint256 index = _indexOfGreatestBlockLessThan(_self.checkpoints, startIndex, _self.endIndex, _blockNumber);
 
         return (_self.checkpoints[index].part1, _self.checkpoints[index].part2);
     }
@@ -171,15 +154,18 @@ library PublicKeyHistory {
      **/
     function publicKeyAtNow(
         CheckPointHistoryState storage _self
-    ) internal view returns (bytes32, bytes32) {
+    )
+        internal view
+        returns (
+            bytes32,
+            bytes32
+        )
+    {
         uint256 historyCount = _self.endIndex;
         // No _checkpoints, return address(0)
         if (historyCount == 0) return (bytes32(0), bytes32(0));
         // Return last value
-        return (
-            _self.checkpoints[historyCount - 1].part1,
-            _self.checkpoints[historyCount - 1].part2
-        );
+        return (_self.checkpoints[historyCount - 1].part1, _self.checkpoints[historyCount - 1].part2);
     }
 
     /**
@@ -193,7 +179,10 @@ library PublicKeyHistory {
         uint256 _startIndex,
         uint256 _endIndex,
         uint256 _blockNumber
-    ) private view returns (uint256 index) {
+    )
+        private view
+        returns (uint256 index)
+    {
         // Binary search of the value by given block number in the array
         uint256 min = _startIndex;
         uint256 max = _endIndex - 1;
