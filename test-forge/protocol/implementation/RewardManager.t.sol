@@ -972,6 +972,41 @@ contract RewardManagerTest is Test {
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
     }
 
+    function testClaimWeightRevertEpochExpired() public {
+        vm.prank(governance);
+        _mockGetCurrentEpochId(10);
+        _mockRewardEpochIdToExpireNext(15);
+        rewardManager.setInitialRewardData();
+        RewardEpochData memory rewardEpochData = RewardEpochData(16, 10);
+
+        bytes32[] memory merkleProof = new bytes32[](0);
+        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        // epoch 13 is expired
+        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
+            13, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
+        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+            merkleProof, body);
+        proofs[0] = proof;
+        bytes32 leaf1 = keccak256(abi.encode(body));
+        bytes32 merkleRoot = leaf1;
+
+        _fundRewardContract(1000, rewardEpochData.id);
+
+        _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
+        _mockRewardsHash(rewardEpochData.id, merkleRoot);
+
+        _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
+
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 0);
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
+        _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
+
+        vm.prank(voter1);
+        vm.expectRevert("reward epoch expired");
+        rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
+    }
+
     function testClaimRevertWrongBeneficiary() public {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
@@ -1716,6 +1751,62 @@ contract RewardManagerTest is Test {
         assertEq(BURN_ADDRESS.balance, 1000 + 500 + 300);
         assertEq(rewardManager.getRewardEpochIdToExpireNext(), 93);
         assertEq(oldRewardManager.getRewardEpochIdToExpireNext(), 93);
+    }
+
+    function testClaimBurnAndClose() public {
+        RewardManager newRewardManager = new RewardManager(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater
+        );
+
+        _mockGetCurrentEpochId(89);
+        _mockRewardEpochIdToExpireNext(90);
+
+        vm.startPrank(governance);
+        rewardManager.setInitialRewardData();
+        rewardManager.setNewRewardManager(address(newRewardManager));
+        vm.stopPrank();
+
+        RewardEpochData memory rewardEpochData = RewardEpochData(90, 10);
+
+        bytes32[] memory merkleProof = new bytes32[](0);
+        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.FEE);
+        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+            merkleProof, body);
+        proofs[0] = proof;
+        bytes32 leaf1 = keccak256(abi.encode(body));
+        bytes32 merkleRoot = leaf1;
+
+        // contract needs some funds for rewarding
+        _fundRewardContract(1000, rewardEpochData.id);
+
+        _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
+        _mockRewardsHash(rewardEpochData.id, merkleRoot);
+
+        _mockCalculateBurnFactor(rewardEpochData.id, voter1, 100000); // 100k PPM = 10 %
+
+        // _claimWeightBasedRewards
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 0); // only FEE claim
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
+        _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
+
+        vm.prank(voter1);
+        // 10 % * 100 should be burned
+        rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
+        assertEq(voter1.balance, 90);
+        assertEq(BURN_ADDRESS.balance, 10);
+
+
+        // close epoch 90; should burn 1000 - 90 - 10 = 900
+        vm.prank(address(newRewardManager));
+        vm.expectEmit();
+        emit RewardClaimsExpired(90);
+        rewardManager.closeExpiredRewardEpoch(90);
+        assertEq(BURN_ADDRESS.balance, 900 + 10);
     }
 
 
