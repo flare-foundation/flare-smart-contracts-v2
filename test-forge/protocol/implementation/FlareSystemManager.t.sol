@@ -1029,6 +1029,7 @@ contract FlareSystemManagerTest is Test {
         // define new signing policy
         _mockToSigningPolicyHash(2, bytes32("signing policy2"));
 
+        // initialize signing policy and move to epoch 2
         _mockRegisteredAddresses(2);
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         // reward epoch 1 is already finished.
@@ -1042,6 +1043,12 @@ contract FlareSystemManagerTest is Test {
         (uint64 startTs, uint64 startBlock) = flareSystemManager.getRewardEpochStartInfo(2);
         assertEq(startTs, uint64(block.timestamp));
         assertEq(startBlock, uint64(block.number));
+
+        // move to submit uptime phase
+        vm.prank(flareDaemon);
+        vm.warp(block.timestamp + 10 + 1);
+        vm.roll(block.number + 2 + 1);
+        flareSystemManager.daemonize();
 
         bytes32 uptimeHash = keccak256("uptime vote hash");
         bytes32 messageHash = keccak256(abi.encode(1, uptimeHash));
@@ -1099,6 +1106,8 @@ contract FlareSystemManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
 
+        _moveToSubmitUptime();
+
         bytes32 uptimeHash = keccak256("uptime vote hash");
         bytes32 messageHash = keccak256(abi.encode(1, uptimeHash));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
@@ -1137,6 +1146,8 @@ contract FlareSystemManagerTest is Test {
         vm.prank(flareDaemon);
 
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
+
+        _moveToSubmitUptime();
 
         bytes32 uptimeHash = keccak256("uptime vote hash");
         bytes32 messageHash = keccak256(abi.encode(1, uptimeHash));
@@ -1300,7 +1311,7 @@ contract FlareSystemManagerTest is Test {
     }
 
     function testSignRewards() public {
-         _initializeSigningPolicy(1);
+        _initializeSigningPolicy(1);
 
         _mockToSigningPolicyHash(1, bytes32("signing policy1"));
 
@@ -1353,6 +1364,8 @@ contract FlareSystemManagerTest is Test {
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
+
+        _moveToSubmitUptime();
 
         // sign uptime vote
         bytes32 uptimeHash = keccak256("uptime vote hash");
@@ -1416,7 +1429,7 @@ contract FlareSystemManagerTest is Test {
     }
 
     function testRevertSignRewardsTwice() public {
-         _initializeSigningPolicy(1);
+        _initializeSigningPolicy(1);
 
         _mockToSigningPolicyHash(1, bytes32("signing policy1"));
 
@@ -1424,6 +1437,8 @@ contract FlareSystemManagerTest is Test {
         vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch
+
+        _moveToSubmitUptime();
 
         bytes32 newSigningPolicyHash = keccak256("signing policy2");
         _mockToSigningPolicyHash(2, newSigningPolicyHash);
@@ -1469,6 +1484,8 @@ contract FlareSystemManagerTest is Test {
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
+
+        _moveToSubmitUptime();
 
         // sign uptime vote
         bytes32 uptimeHash = keccak256("uptime vote hash");
@@ -1546,6 +1563,8 @@ contract FlareSystemManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch
 
+        _moveToSubmitUptime();
+
         // initialize another reward epoch
         _initializeSigningPolicy(2);
 
@@ -1555,6 +1574,8 @@ contract FlareSystemManagerTest is Test {
         vm.warp(block.timestamp + 5400); // after end of reward epoch 1
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
+
+        _moveToSubmitUptime();
 
         // sign uptime vote
         bytes32 uptimeHash = keccak256("uptime vote hash");
@@ -1742,6 +1763,13 @@ contract FlareSystemManagerTest is Test {
 
     function _keccak256AbiEncode(string memory _value) internal pure returns(bytes32) {
         return keccak256(abi.encode(_value));
+    }
+
+    function _moveToSubmitUptime() internal {
+        vm.prank(flareDaemon);
+        vm.warp(block.timestamp + 10 + 1);
+        vm.roll(block.number + 2 + 1);
+        flareSystemManager.daemonize();
     }
 
 }
