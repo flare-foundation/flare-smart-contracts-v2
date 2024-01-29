@@ -97,6 +97,14 @@ contract FlareSystemManagerTest is Test {
     event ClosingExpiredRewardEpochFailed(uint24 rewardEpochId);
     event SettingCleanUpBlockNumberFailed(uint64 blockNumber);
 
+    event UptimeVoteSubmitted(
+        uint24 indexed rewardEpochId,           // Reward epoch id
+        address indexed signingPolicyAddress,   // Address which signed this
+        address indexed voter,                  // Voter (entity)
+        bytes20[] nodeIds,                      // Node ids with high enough uptime
+        uint64 timestamp                        // Timestamp when this happened
+    );
+
     function setUp() public {
         flareDaemon = makeAddr("flareDaemon");
         governance = makeAddr("governance");
@@ -989,7 +997,165 @@ contract FlareSystemManagerTest is Test {
         flareSystemManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
     }
 
-     //// sign uptime vote tests
+    //// submit uptime tests
+    function testSubmitUptimeVote() public {
+        _initializeSigningPolicy(1);
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
+        _mockRegisteredAddresses(1);
+        vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize(); // start new reward epoch
+
+        _initializeSigningPolicy(2);
+        _mockToSigningPolicyHash(2, bytes32("signing policy2"));
+
+        // initialize signing policy and move to epoch 2
+        _mockRegisteredAddresses(2);
+        vm.warp(block.timestamp + 5400); // after end of reward epoch 1
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
+
+        bytes20[] memory nodeIds = new bytes20[](2);
+        nodeIds[0] = bytes20("node1");
+        nodeIds[1] = bytes20("node2");
+
+        bytes32 messageHash = keccak256(abi.encode(1, nodeIds));
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
+        IFlareSystemManager.Signature memory signature = IFlareSystemManager.Signature(v, r, s);
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
+            abi.encode(voters[0], votersWeight[0])
+        );
+
+        vm.expectEmit();
+        emit UptimeVoteSubmitted(1, signingAddresses[0], voters[0], nodeIds, uint64(block.timestamp));
+        flareSystemManager.submitUptimeVote(1, nodeIds, signature);
+
+        (uint64 submitTs, uint64 submitBlock) = flareSystemManager.getVoterUptimeVoteSubmitInfo(1, voters[0]);
+        assertEq(submitTs, uint64(block.timestamp));
+        assertEq(submitBlock, uint64(block.number));
+        uint256 submitTime1 = block.timestamp;
+        uint256 submitBlock1 = block.number;
+
+        nodeIds = new bytes20[](3);
+        nodeIds[0] = bytes20("node1");
+        nodeIds[1] = bytes20("node2");
+        nodeIds[2] = bytes20("node2");
+
+        messageHash = keccak256(abi.encode(1, nodeIds));
+        signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+
+        (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
+        signature = IFlareSystemManager.Signature(v, r, s);
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
+            abi.encode(voters[1], votersWeight[1])
+        );
+
+        vm.warp(block.timestamp + 10);
+        vm.roll(block.number + 20);
+        vm.expectEmit();
+        emit UptimeVoteSubmitted(1, signingAddresses[1], voters[1], nodeIds, uint64(block.timestamp));
+        flareSystemManager.submitUptimeVote(1, nodeIds, signature);
+        (submitTs, submitBlock) = flareSystemManager.getVoterUptimeVoteSubmitInfo(1, voters[1]);
+        assertEq(submitTs, uint64(submitTime1 + 10));
+        assertEq(submitBlock, uint64(submitBlock1 + 20));
+    }
+
+    function testSubmitUptimeVoteRevertEpochNotEnded() public {
+        bytes20[] memory nodeIds = new bytes20[](2);
+        nodeIds[0] = bytes20("node1");
+        nodeIds[1] = bytes20("node2");
+
+        bytes32 messageHash = keccak256(abi.encode(1, nodeIds));
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
+        IFlareSystemManager.Signature memory signature = IFlareSystemManager.Signature(v, r, s);
+
+        vm.expectRevert("epoch not ended yet");
+        flareSystemManager.submitUptimeVote(1, nodeIds, signature);
+    }
+
+    function testSubmitUptimeVoteRevertSubmitVoteFinished() public {
+        _initializeSigningPolicy(1);
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
+        _mockRegisteredAddresses(1);
+        vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize(); // start new reward epoch
+
+        _moveToSignUptimeStart();
+
+        _initializeSigningPolicy(2);
+        _mockToSigningPolicyHash(2, bytes32("signing policy2"));
+
+        // initialize signing policy and move to epoch 2
+        _mockRegisteredAddresses(2);
+        vm.warp(block.timestamp + 5400); // after end of reward epoch 1
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
+        _moveToSignUptimeStart();
+
+        bytes20[] memory nodeIds = new bytes20[](2);
+        nodeIds[0] = bytes20("node1");
+        nodeIds[1] = bytes20("node2");
+
+        bytes32 messageHash = keccak256(abi.encode(1, nodeIds));
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
+        IFlareSystemManager.Signature memory signature = IFlareSystemManager.Signature(v, r, s);
+
+        vm.expectRevert("submit uptime vote already finished");
+        flareSystemManager.submitUptimeVote(1, nodeIds, signature);
+    }
+
+    function testSubmitUptimeVoteRevertInvalidSignature() public {
+        _initializeSigningPolicy(1);
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
+        _mockRegisteredAddresses(1);
+        vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize(); // start new reward epoch
+
+        _initializeSigningPolicy(2);
+        _mockToSigningPolicyHash(2, bytes32("signing policy2"));
+
+        // initialize signing policy and move to epoch 2
+        _mockRegisteredAddresses(2);
+        vm.warp(block.timestamp + 5400); // after end of reward epoch 1
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
+
+        bytes20[] memory nodeIds = new bytes20[](2);
+        nodeIds[0] = bytes20("node1");
+        nodeIds[1] = bytes20("node2");
+
+        bytes32 messageHash = keccak256(abi.encode(2, nodeIds));
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
+        IFlareSystemManager.Signature memory signature = IFlareSystemManager.Signature(v, r, s);
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1),
+            abi.encode(address(0), votersWeight[0])
+        );
+
+        vm.expectRevert("signature invalid");
+        flareSystemManager.submitUptimeVote(1, nodeIds, signature);
+    }
+
+
+    //// sign uptime vote tests
     function testRevertSignUptimeVoteEpochNotEnded() public {
         bytes32 uptimeHash = keccak256("uptime vote hash");
         bytes32 messageHash = keccak256(abi.encode(0, uptimeHash));
@@ -1011,6 +1177,44 @@ contract FlareSystemManagerTest is Test {
 
         vm.expectRevert("uptime vote hash zero");
         flareSystemManager.signUptimeVote(0, bytes32(0), signature);
+    }
+
+    function testSignUptimeVoteRevertNotStartedYet() public {
+        _initializeSigningPolicy(1);
+
+        // define new signing policy
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
+        _mockRegisteredAddresses(1);
+        vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize(); // start new reward epoch
+
+        _initializeSigningPolicy(2);
+
+        // define new signing policy
+        _mockToSigningPolicyHash(2, bytes32("signing policy2"));
+
+        // initialize signing policy and move to epoch 2
+        _mockRegisteredAddresses(2);
+        vm.warp(block.timestamp + 5400); // after end of reward epoch 1
+        vm.prank(flareDaemon);
+        flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
+
+        bytes32 uptimeHash = keccak256("uptime vote hash");
+        bytes32 messageHash = keccak256(abi.encode(1, uptimeHash));
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+
+        // voter0 signs
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
+        IFlareSystemManager.Signature memory signature = IFlareSystemManager.Signature(v, r, s);
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
+            abi.encode(voters[0], votersWeight[0])
+        );
+        vm.expectRevert("sign uptime vote not started yet");
+        flareSystemManager.signUptimeVote(1, uptimeHash, signature);
     }
 
     function testSignUptimeVote() public {
@@ -1044,11 +1248,11 @@ contract FlareSystemManagerTest is Test {
         assertEq(startTs, uint64(block.timestamp));
         assertEq(startBlock, uint64(block.number));
 
-        // move to submit uptime phase
-        vm.prank(flareDaemon);
-        vm.warp(block.timestamp + 10 + 1);
-        vm.roll(block.number + 2 + 1);
-        flareSystemManager.daemonize();
+        // move to sign uptime phase
+        _moveToSignUptimeStart();
+        (uint64 signUptimeStartTs, uint64 signUptimeStartBlock) = flareSystemManager.getUptimeVoteSignStartInfo(1);
+        assertEq(signUptimeStartTs, uint64(block.timestamp));
+        assertEq(signUptimeStartBlock, uint64(block.number));
 
         bytes32 uptimeHash = keccak256("uptime vote hash");
         bytes32 messageHash = keccak256(abi.encode(1, uptimeHash));
@@ -1106,7 +1310,7 @@ contract FlareSystemManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
 
-        _moveToSubmitUptime();
+        _moveToSignUptimeStart();
 
         bytes32 uptimeHash = keccak256("uptime vote hash");
         bytes32 messageHash = keccak256(abi.encode(1, uptimeHash));
@@ -1147,7 +1351,7 @@ contract FlareSystemManagerTest is Test {
 
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
 
-        _moveToSubmitUptime();
+        _moveToSignUptimeStart();
 
         bytes32 uptimeHash = keccak256("uptime vote hash");
         bytes32 messageHash = keccak256(abi.encode(1, uptimeHash));
@@ -1365,7 +1569,7 @@ contract FlareSystemManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
 
-        _moveToSubmitUptime();
+        _moveToSignUptimeStart();
 
         // sign uptime vote
         bytes32 uptimeHash = keccak256("uptime vote hash");
@@ -1438,7 +1642,7 @@ contract FlareSystemManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch
 
-        _moveToSubmitUptime();
+        _moveToSignUptimeStart();
 
         bytes32 newSigningPolicyHash = keccak256("signing policy2");
         _mockToSigningPolicyHash(2, newSigningPolicyHash);
@@ -1485,7 +1689,7 @@ contract FlareSystemManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
 
-        _moveToSubmitUptime();
+        _moveToSignUptimeStart();
 
         // sign uptime vote
         bytes32 uptimeHash = keccak256("uptime vote hash");
@@ -1563,7 +1767,7 @@ contract FlareSystemManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch
 
-        _moveToSubmitUptime();
+        _moveToSignUptimeStart();
 
         // initialize another reward epoch
         _initializeSigningPolicy(2);
@@ -1575,7 +1779,7 @@ contract FlareSystemManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemManager.daemonize(); // start new reward epoch (epoch 2)
 
-        _moveToSubmitUptime();
+        _moveToSignUptimeStart();
 
         // sign uptime vote
         bytes32 uptimeHash = keccak256("uptime vote hash");
@@ -1765,7 +1969,7 @@ contract FlareSystemManagerTest is Test {
         return keccak256(abi.encode(_value));
     }
 
-    function _moveToSubmitUptime() internal {
+    function _moveToSignUptimeStart() internal {
         vm.prank(flareDaemon);
         vm.warp(block.timestamp + 10 + 1);
         vm.roll(block.number + 2 + 1);
