@@ -32,6 +32,9 @@ contract SubmissionTest is Test {
 
     address[] private emptyAddresses;
 
+    address private mockRelay;
+
+
     function setUp() public {
         submission = new Submission(
             IGovernanceSettings(makeAddr("contract")),
@@ -44,6 +47,8 @@ contract SubmissionTest is Test {
 
         nameHashes.push(keccak256("123"));
         addresses.push(makeAddr("randomAddresic"));
+
+        mockRelay = makeAddr("relay");
     }
 
     function testInitNewVotingRoundNonFinalisation() public {
@@ -226,5 +231,38 @@ contract SubmissionTest is Test {
         bytes memory data = abi.encode(makeAddr("test123"), 16);
         vm.expectRevert("submitAndPass disabled");
         submission.submitAndPass(data);
+    }
+
+    function testGetCurrentRandom() public {
+        _setContractAddresses();
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encode(123, true, 5)
+        );
+        assertEq(submission.getCurrentRandom(), 123);
+
+        (uint256 currentRandom, bool quality) = submission.getCurrentRandomWithQuality();
+        assertEq(currentRandom, 123);
+        assertEq(quality, true);
+
+        uint256 randomTimestamp;
+        (currentRandom, quality, randomTimestamp) =
+            submission.getCurrentRandomWithQualityAndTimestamp();
+        assertEq(currentRandom, 123);
+        assertEq(quality, true);
+        assertEq(randomTimestamp, 5);
+    }
+
+    function _setContractAddresses() private {
+        nameHashes.push(keccak256(abi.encode("AddressUpdater")));
+        addresses.push(makeAddr("AddressUpdater"));
+        nameHashes.push(keccak256(abi.encode("FlareSystemManager")));
+        addresses.push(makeAddr("FlareSystemManager"));
+        nameHashes.push(keccak256(abi.encode("Relay")));
+        addresses.push(mockRelay);
+
+        vm.prank(makeAddr("updater"));
+        submission.updateContractAddresses(nameHashes, addresses);
     }
 }

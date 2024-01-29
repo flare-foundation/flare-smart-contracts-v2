@@ -2,10 +2,10 @@ import { DataSource } from "typeorm";
 import { retry } from "../retry";
 import { TLPEvents, TLPState, TLPTransaction } from "./Entity";
 import fs from "fs";
-
-export const sqliteDatabase = `./db/indexer.db`;
+import { MEMORY_DATABASE_FILE } from "../../tasks/run-simulation";
 
 export async function getDataSource(readOnly = false) {
+  const sqliteDatabase = MEMORY_DATABASE_FILE
   if (!readOnly && fs.existsSync(sqliteDatabase)) {
     fs.unlinkSync(sqliteDatabase);
   }
