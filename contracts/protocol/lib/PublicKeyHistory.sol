@@ -137,7 +137,7 @@ library PublicKeyHistory {
         uint256 startIndex = _self.startIndex;
         if (_blockNumber < _self.checkpoints[startIndex].fromBlock) {
             // reading data before `startIndex` is only safe before first cleanup
-            require(startIndex == 0, "AddressHistory: reading from cleaned-up block");
+            require(startIndex == 0, "PublicKeyHistory: reading from cleaned-up block");
             return (bytes32(0), bytes32(0));
         }
 

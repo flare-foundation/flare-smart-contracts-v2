@@ -122,6 +122,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let nodeIds: string[] = [];
     let weightsGwei: number[] = [];
     let stakeIds: string[] = [];
+    let rewardClaim: any;
 
     const RANDOM_ROOT = web3.utils.keccak256("root");
     const RANDOM_ROOT2 = web3.utils.keccak256("root2");
@@ -359,9 +360,26 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             }
         );
 
+        // offer some rewards
+        await ftsoRewardOffersManager.offerRewards(1, [
+            {
+                amount: 25000000,
+                feedName: FtsoConfigurations.encodeFeedNames(["BTC"]),
+                minRewardedTurnoutBIPS: 5000,
+                primaryBandRewardSharePPM: 450000,
+                secondaryBandWidthPPM: 50000,
+                claimBackAddress: "0x0000000000000000000000000000000000000000"
+            }],
+            { value: "25000000" }
+        );
+
+        // enable claims
+        await rewardManager.enableClaims();
+
         // activate contracts
         await pChainStakeMirror.activate();
         await cChainStake.activate();
+        await rewardManager.activate();
     });
 
     it("Should register addresses", async () => {
@@ -535,13 +553,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         expect(hashAfter).to.equal(newSigningPolicyHash);
     });
 
-    it("Should start new reward epoch and initiate new voting round", async () => {
+    it("Should start new reward epoch, initiate new voting round and offer rewards for the next reward epoch", async () => {
         await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC));
         expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(0);
         const tx = await flareSystemManager.daemonize();
         expectEvent(tx, "RewardEpochStarted");
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
-        await expectEvent.inTransaction(tx.tx, ftsoRewardOffersManager, "InflationRewardsOffered");
+        await expectEvent.inTransaction(tx.tx, ftsoRewardOffersManager, "InflationRewardsOffered", { rewardEpochId: toBN(2), amount: toBN("133333333333333333333333") });
         expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
     });
 
@@ -737,8 +755,18 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should sign rewards for reward epoch 1", async () => {
         const rewardEpochId = 1;
-        const noOfWeightBasedClaims = 5;
-        const rewardsVoteHash = web3.utils.keccak256("rewards");
+        const noOfWeightBasedClaims = 1;
+
+        rewardClaim = {
+            rewardEpochId: 1,
+            beneficiary: registeredCAddresses[0],
+            amount: 500,
+            claimType: 2 //IRewardManager.ClaimType.WNAT
+        }
+
+        const rewardsVoteHash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+            ["uint24", "bytes20", "uint120", "uint8"],
+            [rewardClaim.rewardEpochId, rewardClaim.beneficiary, rewardClaim.amount, rewardClaim.claimType]));
         const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
             ["uint24", "uint64", "bytes32"],
             [rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash]));
@@ -753,5 +781,20 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await expectRevert(flareSystemManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature3), "rewards hash already signed");
         expect(await flareSystemManager.rewardsHash(rewardEpochId)).to.be.equal(rewardsVoteHash);
         expect((await flareSystemManager.noOfWeightBasedClaims(rewardEpochId)).toNumber()).to.be.equal(noOfWeightBasedClaims);
+    });
+
+    it("Should claim the reward for reward epoch 1", async () => {
+        const balanceBefore = await wNat.balanceOf(accounts[200]);
+        const tx = await rewardManager.claim(registeredCAddresses[0],
+            accounts[200],
+            1,
+            true,
+            [{body: rewardClaim, merkleProof: []}],
+            { from: registeredCAddresses[0] }
+        );
+        const balanceAfter = await wNat.balanceOf(accounts[200]);
+
+        expectEvent(tx, "RewardClaimed", { beneficiary: registeredCAddresses[0], rewardOwner:registeredCAddresses[0], recipient: accounts[200], rewardEpochId: toBN(1), claimType: toBN(2), amount: toBN(500)});
+        expect(balanceAfter.sub(balanceBefore).toNumber()).to.be.equal(500);
     });
 });

@@ -45,7 +45,6 @@ const OFFERS = [
     minRewardedTurnoutBIPS: 5000,
     primaryBandRewardSharePPM: 450000,
     secondaryBandWidthPPM: 50000,
-    
     claimBackAddress: "0x0000000000000000000000000000000000000000",
   },
   {

@@ -36,7 +36,8 @@ library NodesHistory {
         // `checkpoints` before `startIndex` have been deleted
         // INVARIANT: checkpoints.length == 0 || startIndex < checkpoints.length      (strict!)
         uint64 startIndex;
-        uint64 length;
+        // the index AFTER last
+        uint64 endIndex;
     }
 
     string private constant MAX_NODES_MSG = "Max nodes exceeded";
@@ -55,12 +56,12 @@ library NodesHistory {
     )
         internal
     {
-        uint256 historyCount = _self.length;
+        uint256 historyCount = _self.endIndex;
         if (historyCount == 0) {
             // checkpoints array empty, push new CheckPoint
             if (_add) {
                 CheckPoint storage cp = _self.checkpoints[historyCount];
-                _self.length = SafeCast.toUint64(historyCount + 1);
+                _self.endIndex = SafeCast.toUint64(historyCount + 1);
                 cp.nodeIds[0] = Node({
                     nodeId: _nodeId,
                     fromBlock:  SafeCast.toUint64(block.number),
@@ -80,7 +81,7 @@ library NodesHistory {
                 assert(block.number > lastBlock);
                 // last check point block is before
                 CheckPoint storage cp = _self.checkpoints[historyCount];
-                _self.length = SafeCast.toUint64(historyCount + 1);
+                _self.endIndex = SafeCast.toUint64(historyCount + 1);
                 _copyAndUpdateNodeIds(cp, lastCheckpoint, _nodeId, _add, _maxNodeIds);
                 cp.nodeIds[0].fromBlock = SafeCast.toUint64(block.number);
             }
@@ -101,7 +102,7 @@ library NodesHistory {
         returns (uint256)
     {
         if (_cleanupBlockNumber == 0) return 0;   // optimization for when cleaning is not enabled
-        uint256 length = _self.length;
+        uint256 length = _self.endIndex;
         if (length == 0) return 0;
         uint256 startIndex = _self.startIndex;
         // length - 1 is safe, since length != 0 (check above)
@@ -268,7 +269,7 @@ library NodesHistory {
             uint256 _index
         )
     {
-        uint256 historyCount = _self.length;
+        uint256 historyCount = _self.endIndex;
         // No _checkpoints, return (false, 0)
         if (historyCount == 0) {
             return (false, 0);
