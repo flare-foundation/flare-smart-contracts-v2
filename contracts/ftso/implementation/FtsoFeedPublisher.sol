@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../interface/IFtsoFeedPublisher.sol";
-import "../../protocol/implementation/Relay.sol";
+import "../interface/IIFtsoFeedPublisher.sol";
+import "../../userInterfaces/IRelay.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
@@ -13,23 +13,20 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
  *
  * This contract is used to publish the FTSO feeds.
  */
-contract FtsoFeedPublisher is Governed, AddressUpdatable, IFtsoFeedPublisher {
+contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
     using MerkleProof for bytes32[];
 
     mapping(bytes8 => Feed) internal lastFeeds;
     mapping(bytes8 => mapping(uint256 => Feed)) internal publishedFeeds;
 
     /// The Relay contract.
-    Relay public relay;
+    IRelay public relay;
     /// The FTSO protocol id.
     uint8 public immutable ftsoProtocolId;
     /// The size of the feeds history.
     uint256 public immutable feedsHistorySize;
     /// The address of the feeds publisher contract.
     address public feedsPublisher;
-
-    /// Event emitted when a new feed is published.
-    event FtsoFeedPublished(Feed feed);
 
     /// Only feeds publisher can call this method.
     modifier onlyFeedsPublisher {
@@ -63,7 +60,7 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IFtsoFeedPublisher {
     /**
      * @inheritdoc IFtsoFeedPublisher
      */
-    function publish(FeedWithProof[] calldata _proofs) external override {
+    function publish(FeedWithProof[] calldata _proofs) external {
         uint256 minVotingRoundId = _getMinVotingRoundId();
         uint256 length = _proofs.length;
         for (uint i = 0; i < length; i++) {
@@ -90,9 +87,7 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IFtsoFeedPublisher {
     }
 
     /**
-     * Publishes feeds.
-     * @param _feeds The feeds to publish.
-     * @dev This method can only be called by the feeds publisher contract.
+     * @inheritdoc IIFtsoFeedPublisher
      */
     function publishFeeds(Feed[] memory _feeds) external onlyFeedsPublisher {
         uint256 minVotingRoundId = _getMinVotingRoundId();
@@ -126,17 +121,14 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IFtsoFeedPublisher {
     }
 
     /**
-     * Returns the current feed.
-     * @param _feedName Feed name.
+     * @inheritdoc IFtsoFeedPublisher
      */
     function getCurrentFeed(bytes8 _feedName) external view returns(Feed memory) {
         return lastFeeds[_feedName];
     }
 
     /**
-     * Returns the feed for given voting round id.
-     * @param _feedName Feed name.
-     * @param _votingRoundId Voting round id.
+     * @inheritdoc IFtsoFeedPublisher
      */
     function getFeed(bytes8 _feedName, uint256 _votingRoundId) external view returns(Feed memory _feed) {
         require(_getMinVotingRoundId() <= _votingRoundId, "too old voting round id");
@@ -154,7 +146,7 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IFtsoFeedPublisher {
     )
         internal override
     {
-        relay = Relay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
+        relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
     /**

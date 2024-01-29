@@ -71,11 +71,11 @@ export namespace ProtocolMessageMerkleRoot {
     }
     const protocolId = parseInt(encodedMessageInternal.slice(0, 2), 16);
     const votingRoundId = parseInt(encodedMessageInternal.slice(2, 10), 16);
-    const encodedRandomQualityScore = encodedMessageInternal.slice(10, 12);
+    const encodedIsSecureRandom = encodedMessageInternal.slice(10, 12);
     let isSecureRandom = false;
-    if (encodedRandomQualityScore === "00") {
+    if (encodedIsSecureRandom === "00") {
       isSecureRandom = false;
-    } else if (encodedRandomQualityScore === "01") {
+    } else if (encodedIsSecureRandom === "01") {
       isSecureRandom = true;
     } else {
       throw Error("Invalid random quality score");

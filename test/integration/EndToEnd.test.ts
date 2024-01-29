@@ -203,6 +203,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             newSigningPolicyMinNumberOfVotingRoundsDelay: 1,
             voterRegistrationMinDurationSeconds: 30 * 60,
             voterRegistrationMinDurationBlocks: 20, // default 900,
+            submitUptimeVoteMinDurationSeconds: 10 * 60,
+            submitUptimeVoteMinDurationBlocks: 20, // default 300,
             signingPolicyThresholdPPM: 500000,
             signingPolicyMinNumberOfVoters: 2,
             rewardExpiryOffsetSeconds: 90 * 24 * 3600
@@ -397,21 +399,21 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should register and confirm data provider addresses", async () => {
         for (let i = 0; i < 4; i++) {
-            await entityManager.registerSubmitAddress(accounts[10 + i], { from: registeredCAddresses[i] });
+            await entityManager.proposeSubmitAddress(accounts[10 + i], { from: registeredCAddresses[i] });
             await entityManager.confirmSubmitAddressRegistration(registeredCAddresses[i], { from: accounts[10 + i] });
         }
     });
 
     it("Should register and confirm deposit signatures addresses", async () => {
         for (let i = 0; i < 4; i++) {
-            await entityManager.registerSubmitSignaturesAddress(accounts[20 + i], { from: registeredCAddresses[i] });
+            await entityManager.proposeSubmitSignaturesAddress(accounts[20 + i], { from: registeredCAddresses[i] });
             await entityManager.confirmSubmitSignaturesAddressRegistration(registeredCAddresses[i], { from: accounts[20 + i] });
         }
     });
 
     it("Should register and confirm signing policy addresses", async () => {
         for (let i = 0; i < 4; i++) {
-            await entityManager.registerSigningPolicyAddress(accounts[30 + i], { from: registeredCAddresses[i] });
+            await entityManager.proposeSigningPolicyAddress(accounts[30 + i], { from: registeredCAddresses[i] });
             await entityManager.confirmSigningPolicyAddressRegistration(registeredCAddresses[i], { from: accounts[30 + i] });
         }
     });
@@ -444,7 +446,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             data: RELAY_SELECTOR + fullData.slice(2),
         });
         console.log(tx.gasUsed);
-        expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
+        expect((await submission.getCurrentRandomWithQuality())[1]).to.be.true;
     });
 
     it("Should select vote power block", async () => {
@@ -535,11 +537,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should start new reward epoch and initiate new voting round", async () => {
         await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC));
-        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
+        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(0);
         const tx = await flareSystemManager.daemonize();
         expectEvent(tx, "RewardEpochStarted");
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
         await expectEvent.inTransaction(tx.tx, ftsoRewardOffersManager, "InflationRewardsOffered");
+        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
     });
 
     it("Should commit", async () => {
@@ -592,8 +595,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             data: RELAY_SELECTOR + fullData.slice(2),
         });
         expect(await relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
-        expect((await flareSystemManager.getCurrentRandom()).eq(toBN(root))).to.be.true;
-        expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
+        expect((await submission.getCurrentRandom()).eq(toBN(root))).to.be.true;
+        expect((await submission.getCurrentRandomWithQuality())[1]).to.be.true;
 
         await web3.eth.sendTransaction({
             from: accounts[0],
@@ -637,7 +640,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             to: relay.address,
             data: RELAY_SELECTOR + fullData.slice(2),
         });
-        expect((await flareSystemManager.getCurrentRandomWithQuality())[1]).to.be.true;
+        expect((await submission.getCurrentRandomWithQuality())[1]).to.be.true;
     });
 
     it("Should select vote power block for reward epoch 2", async () => {
@@ -688,12 +691,33 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should start new reward epoch (2) and initiate new voting round", async () => {
         await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC));
-        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(2);
+        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
         const tx = await flareSystemManager.daemonize();
+        expectEvent(tx, "RewardEpochStarted");
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
+        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(2);
+    });
+
+    it("Should submit some uptime votes for reward epoch 1", async () => {
+        const rewardEpochId = 1;
+        for (let i = 0; i < 4; i++) {
+            const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+                ["uint24", "bytes20[]"],
+                [rewardEpochId, nodeIds]));
+
+            const signature = web3.eth.accounts.sign(hash, privateKeys[30 + i].privateKey);
+            expectEvent(await flareSystemManager.submitUptimeVote(rewardEpochId, nodeIds, signature),
+                "UptimeVoteSubmitted", { voter: registeredCAddresses[i], rewardEpochId: toBN(1), signingPolicyAddress: accounts[30 + i], nodeIds: nodeIds });
+        }
     });
 
     it("Should sign uptime vote for reward epoch 1", async () => {
+        for (let i = 0; i < 20; i++) {
+            await time.advanceBlock(); // create required number of blocks to proceed
+        }
+        await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC + 3600)); // at least 10 minutes from the new reward epoch start
+        const tx = await flareSystemManager.daemonize();
+        expectEvent(tx, "SingUptimeVoteEnabled", { rewardEpochId: toBN(1) });
         const rewardEpochId = 1;
         const uptimeVoteHash = web3.utils.keccak256("uptime");
         const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(

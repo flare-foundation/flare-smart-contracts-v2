@@ -3,6 +3,7 @@ pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
 import "../../../contracts/ftso/implementation/FtsoRewardOffersManager.sol";
+import "../../../contracts/protocol/implementation/RewardManager.sol";
 
 contract FtsoRewardOffersManagerTest is Test {
 
@@ -33,7 +34,7 @@ contract FtsoRewardOffersManagerTest is Test {
 
     event RewardsOffered(
         // reward epoch id
-        uint24 rewardEpochId,
+        uint24 indexed rewardEpochId,
         // feed name - i.e. base/quote symbol
         bytes8 feedName,
         // number of decimals (negative exponent)
@@ -52,7 +53,7 @@ contract FtsoRewardOffersManagerTest is Test {
 
     event InflationRewardsOffered(
         // reward epoch id
-        uint24 rewardEpochId,
+        uint24 indexed rewardEpochId,
         // feed names - i.e. base/quote symbols - multiple of 8 (one feedName is bytes8)
         bytes feedNames,
         // decimals encoded to - multiple of 1 (int8)
@@ -152,8 +153,8 @@ contract FtsoRewardOffersManagerTest is Test {
     // offerRewards tests
     function testOfferRewardsRevertNotNextEpoch() public {
         _mockGetCurrentEpochId(1);
-        FtsoRewardOffersManager.Offer[] memory offers;
-        offers = new FtsoRewardOffersManager.Offer[](0);
+        IFtsoRewardOffersManager.Offer[] memory offers;
+        offers = new IFtsoRewardOffersManager.Offer[](0);
 
         vm.expectRevert("not next reward epoch id");
         ftsoRewardOffersManager.offerRewards(4, offers);
@@ -164,8 +165,8 @@ contract FtsoRewardOffersManagerTest is Test {
         vm.warp(100); // block.timestamp = 100
         _mockCurrentRewardEpochExpectedEndTs(110);
         _mockNewSigningPolicyInitializationStartSeconds(20);
-        FtsoRewardOffersManager.Offer[] memory offers;
-        offers = new FtsoRewardOffersManager.Offer[](0);
+        IFtsoRewardOffersManager.Offer[] memory offers;
+        offers = new IFtsoRewardOffersManager.Offer[](0);
 
         vm.expectRevert("too late for next reward epoch");
         ftsoRewardOffersManager.offerRewards(2 + 1, offers);
@@ -173,9 +174,9 @@ contract FtsoRewardOffersManagerTest is Test {
 
     function testOfferRewardsRevertInvalidThresholdValue() public {
         _setTimes();
-        FtsoRewardOffersManager.Offer[] memory offers;
-        offers = new FtsoRewardOffersManager.Offer[](1);
-        offers[0] = FtsoRewardOffersManager.Offer(
+        IFtsoRewardOffersManager.Offer[] memory offers;
+        offers = new IFtsoRewardOffersManager.Offer[](1);
+        offers[0] = IFtsoRewardOffersManager.Offer(
             uint120(1000),
             feedName1,
             MAX_BIPS + 1,
@@ -189,9 +190,9 @@ contract FtsoRewardOffersManagerTest is Test {
 
     function testOfferRewardsRevertInvalidPrimaryBand() public {
         _setTimes();
-        FtsoRewardOffersManager.Offer[] memory offers;
-        offers = new FtsoRewardOffersManager.Offer[](1);
-        offers[0] = FtsoRewardOffersManager.Offer(
+        IFtsoRewardOffersManager.Offer[] memory offers;
+        offers = new IFtsoRewardOffersManager.Offer[](1);
+        offers[0] = IFtsoRewardOffersManager.Offer(
             uint120(1000),
             feedName1,
             5000,
@@ -205,9 +206,9 @@ contract FtsoRewardOffersManagerTest is Test {
 
     function testOfferRewardsRevertInvalidSecondaryBand() public {
         _setTimes();
-        FtsoRewardOffersManager.Offer[] memory offers;
-        offers = new FtsoRewardOffersManager.Offer[](1);
-        offers[0] = FtsoRewardOffersManager.Offer(
+        IFtsoRewardOffersManager.Offer[] memory offers;
+        offers = new IFtsoRewardOffersManager.Offer[](1);
+        offers[0] = IFtsoRewardOffersManager.Offer(
             uint120(1000),
             feedName1,
             5000,
@@ -221,9 +222,9 @@ contract FtsoRewardOffersManagerTest is Test {
 
     function testOfferRewardsRevertOfferTooSmall() public {
         _setTimes();
-        FtsoRewardOffersManager.Offer[] memory offers;
-        offers = new FtsoRewardOffersManager.Offer[](1);
-        offers[0] = FtsoRewardOffersManager.Offer(
+        IFtsoRewardOffersManager.Offer[] memory offers;
+        offers = new IFtsoRewardOffersManager.Offer[](1);
+        offers[0] = IFtsoRewardOffersManager.Offer(
             uint120(90),
             feedName1,
             5000,
@@ -237,9 +238,9 @@ contract FtsoRewardOffersManagerTest is Test {
 
     function testOfferRewards() public {
         _setTimes();
-        FtsoRewardOffersManager.Offer[] memory offers;
-        offers = new FtsoRewardOffersManager.Offer[](2);
-        offers[0] = FtsoRewardOffersManager.Offer(
+        IFtsoRewardOffersManager.Offer[] memory offers;
+        offers = new IFtsoRewardOffersManager.Offer[](2);
+        offers[0] = IFtsoRewardOffersManager.Offer(
             uint120(1000),
             feedName1,
             5000,
@@ -247,7 +248,7 @@ contract FtsoRewardOffersManagerTest is Test {
             20000,
             claimBackAddr
         );
-        offers[1] = FtsoRewardOffersManager.Offer(
+        offers[1] = IFtsoRewardOffersManager.Offer(
             uint120(2000),
             feedName2,
             6000,
@@ -522,7 +523,7 @@ contract FtsoRewardOffersManagerTest is Test {
     function _mockGetCurrentEpochId(uint256 _epochId) internal {
         vm.mockCall(
             mockFlareSystemManager,
-            abi.encodeWithSelector(FlareSystemManager.getCurrentRewardEpochId.selector),
+            abi.encodeWithSelector(IFlareSystemManager.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }
@@ -546,16 +547,17 @@ contract FtsoRewardOffersManagerTest is Test {
     function _mockGetDecimals(bytes8 _feedName, int8 _decimals) internal {
         vm.mockCall(
             mockFtsoFeedDecimals,
-            abi.encodeWithSelector(FtsoFeedDecimals.getDecimals.selector, _feedName),
+            abi.encodeWithSelector(IFtsoFeedDecimals.getDecimals.selector, _feedName),
             abi.encode(_decimals)
         );
     }
 
+    //solhint-disable-next-line no-unused-vars
     function _mockGetDecimalsBulk(bytes memory _feedNames, bytes memory _decimals) internal {
         vm.mockCall(
             mockFtsoFeedDecimals,
-            // TODO: figure out why it does work if mocking with parameter (_feedNames)
-            abi.encodeWithSelector(FtsoFeedDecimals.getDecimalsBulk.selector),
+            // TODO: why it does not work if mocking with parameter (_feedNames)
+            abi.encodeWithSelector(IFtsoFeedDecimals.getDecimalsBulk.selector),
             abi.encode(_decimals)
         );
     }

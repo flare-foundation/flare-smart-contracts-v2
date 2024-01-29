@@ -120,7 +120,7 @@ contract FlareSystemCalculatorTest is Test {
 
         vm.mockCall(
             address(calculator.entityManager()),
-            abi.encodeWithSelector(EntityManager.getNodeIdsOfAt.selector, voter, votePowerBlockNumber),
+            abi.encodeWithSelector(IEntityManager.getNodeIdsOfAt.selector, voter, votePowerBlockNumber),
             abi.encode(nodeIds)
         );
 
@@ -148,7 +148,7 @@ contract FlareSystemCalculatorTest is Test {
 
         vm.mockCall(
             address(calculator.wNatDelegationFee()),
-            abi.encodeWithSelector(WNatDelegationFee.getVoterFeePercentage.selector, voter, rewardEpochId),
+            abi.encodeWithSelector(IWNatDelegationFee.getVoterFeePercentage.selector, voter, rewardEpochId),
             abi.encode(delegationFeeBIPS)
         );
 
@@ -182,7 +182,7 @@ contract FlareSystemCalculatorTest is Test {
 
         vm.mockCall(
             address(calculatorNoMirroring.entityManager()),
-            abi.encodeWithSelector(EntityManager.getNodeIdsOfAt.selector, voter, votePowerBlockNumber),
+            abi.encodeWithSelector(IEntityManager.getNodeIdsOfAt.selector, voter, votePowerBlockNumber),
             abi.encode(nodeIds)
         );
 
@@ -210,7 +210,7 @@ contract FlareSystemCalculatorTest is Test {
 
         vm.mockCall(
             address(calculatorNoMirroring.wNatDelegationFee()),
-            abi.encodeWithSelector(WNatDelegationFee.getVoterFeePercentage.selector, voter, rewardEpochId),
+            abi.encodeWithSelector(IWNatDelegationFee.getVoterFeePercentage.selector, voter, rewardEpochId),
             abi.encode(delegationFeeBIPS)
         );
 
@@ -236,13 +236,13 @@ contract FlareSystemCalculatorTest is Test {
 
         vm.mockCall(
             address(calculator.flareSystemManager()),
-            abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
+            abi.encodeWithSelector(IIFlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
             abi.encode(startTs, startBlock, endTs, endBlock)
         );
 
         vm.mockCall(
             address(calculator.flareSystemManager()),
-            abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
+            abi.encodeWithSelector(IIFlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
             abi.encode(signTs, signBlock)
         );
 
@@ -264,13 +264,13 @@ contract FlareSystemCalculatorTest is Test {
 
         vm.mockCall(
             address(calculator.flareSystemManager()),
-            abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
+            abi.encodeWithSelector(IIFlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
             abi.encode(startTs, startBlock, endTs, endBlock)
         );
 
         vm.mockCall(
             address(calculator.flareSystemManager()),
-            abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
+            abi.encodeWithSelector(IIFlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
             abi.encode(signTs, signBlock)
         );
 
@@ -292,13 +292,13 @@ contract FlareSystemCalculatorTest is Test {
 
         vm.mockCall(
             address(calculator.flareSystemManager()),
-            abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
+            abi.encodeWithSelector(IIFlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
             abi.encode(startTs, startBlock, endTs, endBlock)
         );
 
         vm.mockCall(
             address(calculator.flareSystemManager()),
-            abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
+            abi.encodeWithSelector(IIFlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
             abi.encode(signTs, signBlock)
         );
 
@@ -320,13 +320,13 @@ contract FlareSystemCalculatorTest is Test {
 
         vm.mockCall(
             address(calculator.flareSystemManager()),
-            abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
+            abi.encodeWithSelector(IIFlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
             abi.encode(startTs, startBlock, endTs, endBlock)
         );
 
         vm.mockCall(
             address(calculator.flareSystemManager()),
-            abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
+            abi.encodeWithSelector(IIFlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
             abi.encode(signTs, signBlock)
         );
 
@@ -349,13 +349,13 @@ contract FlareSystemCalculatorTest is Test {
 
         vm.mockCall(
             address(calculator.flareSystemManager()),
-            abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
+            abi.encodeWithSelector(IIFlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
             abi.encode(startTs, startBlock, endTs, endBlock)
         );
 
         vm.mockCall(
             address(calculator.flareSystemManager()),
-            abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
+            abi.encodeWithSelector(IIFlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
             abi.encode(signTs, signBlock)
         );
 
@@ -377,13 +377,13 @@ contract FlareSystemCalculatorTest is Test {
 
         vm.mockCall(
             address(calculator.flareSystemManager()),
-            abi.encodeWithSelector(FlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
+            abi.encodeWithSelector(IIFlareSystemManager.getSigningPolicySignInfo.selector, rewardEpochId),
             abi.encode(startTs, startBlock, endTs, endBlock)
         );
 
         vm.mockCall(
             address(calculator.flareSystemManager()),
-            abi.encodeWithSelector(FlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
+            abi.encodeWithSelector(IIFlareSystemManager.getVoterSigningPolicySignInfo.selector, rewardEpochId, voter),
             abi.encode(signTs, signBlock)
         );
 

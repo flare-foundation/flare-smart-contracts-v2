@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "./FlareSystemManager.sol";
-import "./Relay.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
+import "../interface/IISubmission.sol";
+import "../../userInterfaces/IRelay.sol";
 
 /**
  * Submission contract.
  *
  * This contract is used to manage the submissions - prioritized transactions.
  */
-contract Submission is Governed, AddressUpdatable {
+contract Submission is Governed, AddressUpdatable, IISubmission {
 
     /// The FlareSystemManager contract.
-    FlareSystemManager public flareSystemManager;
+    address public flareSystemManager;
+    /// The Relay contract.
+    IRelay public relay;
     /// Indicates if the submit3 method is enabled.
     bool public submit3MethodEnabled;
     /// The contract address to call when submitAndPass is called.
@@ -27,12 +29,9 @@ contract Submission is Governed, AddressUpdatable {
     mapping(address => bool) private submit3Addresses;
     mapping(address => bool) private submitSignaturesAddresses;
 
-    /// Event emitted when a new voting round is initiated.
-    event NewVotingRoundInitiated();
-
     /// Only FlareSystemManager contract can call this method.
     modifier onlyFlareSystemManager {
-        require(msg.sender == address(flareSystemManager), "only flare system manager");
+        require(msg.sender == flareSystemManager, "only flare system manager");
         _;
     }
 
@@ -55,12 +54,7 @@ contract Submission is Governed, AddressUpdatable {
     }
 
     /**
-     * Initiates a new voting round.
-     * @param _submit1Addresses The addresses that can call submit1.
-     * @param _submit2Addresses The addresses that can call submit2.
-     * @param _submit3Addresses The addresses that can call submit3.
-     * @param _submitSignaturesAddresses The addresses that can call submitSignatures.
-     * @dev This method can only be called by the FlareSystemManager contract.
+     * @inheritdoc IISubmission
      */
     function initNewVotingRound(
         address[] memory _submit1Addresses,
@@ -93,7 +87,7 @@ contract Submission is Governed, AddressUpdatable {
     }
 
     /**
-     * Submit1 method. Used in multiple protocols (i.e. as FTSO commit method).
+     * @inheritdoc ISubmission
      */
     function submit1() external returns (bool) {
         if (submit1Addresses[msg.sender]) {
@@ -104,7 +98,7 @@ contract Submission is Governed, AddressUpdatable {
     }
 
     /**
-     * Submit2 method. Used in multiple protocols (i.e. as FTSO reveal method).
+     * @inheritdoc ISubmission
      */
     function submit2() external returns (bool) {
         if (submit2Addresses[msg.sender]) {
@@ -115,7 +109,7 @@ contract Submission is Governed, AddressUpdatable {
     }
 
     /**
-     * Submit3 method. Future usage.
+     * @inheritdoc ISubmission
      */
     function submit3() external returns (bool) {
         if (submit3Addresses[msg.sender]) {
@@ -126,7 +120,7 @@ contract Submission is Governed, AddressUpdatable {
     }
 
     /**
-     * SubmitSignatures method. Used in multiple protocols (i.e. as FTSO submit signature method).
+     * @inheritdoc ISubmission
      */
     function submitSignatures() external returns (bool) {
         if (submitSignaturesAddresses[msg.sender]) {
@@ -137,8 +131,7 @@ contract Submission is Governed, AddressUpdatable {
     }
 
     /**
-     * SubmitAndPass method. Future usage.
-     * @param _data The data to pass to the submitAndPassContract.
+     * @inheritdoc ISubmission
      */
     function submitAndPass(bytes calldata _data) external returns (bool) {
         require(submitAndPassContract != address(0) && submitAndPassSelector != bytes4(0), "submitAndPass disabled");
@@ -177,6 +170,33 @@ contract Submission is Governed, AddressUpdatable {
     }
 
     /**
+     * @inheritdoc IRandomProvider
+     */
+    function getCurrentRandom() external view returns(uint256 _currentRandom) {
+        (_currentRandom, , ) = relay.getRandomNumber();
+    }
+
+    /**
+     * @inheritdoc IRandomProvider
+     */
+    function getCurrentRandomWithQuality()
+        external view
+        returns(uint256 _currentRandom, bool _isSecureRandom)
+    {
+        (_currentRandom, _isSecureRandom, ) = relay.getRandomNumber();
+    }
+
+    /**
+     * @inheritdoc IRandomProvider
+     */
+    function getCurrentRandomWithQualityAndTimestamp()
+        external view
+        returns(uint256 _currentRandom, bool _isSecureRandom, uint256 _randomTimestamp)
+    {
+        (_currentRandom, _isSecureRandom, _randomTimestamp) = relay.getRandomNumber();
+    }
+
+    /**
      * @inheritdoc AddressUpdatable
      */
     function _updateContractAddresses(
@@ -185,8 +205,8 @@ contract Submission is Governed, AddressUpdatable {
     )
         internal override
     {
-        flareSystemManager = FlareSystemManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
+        flareSystemManager = _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager");
+        relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
     /**

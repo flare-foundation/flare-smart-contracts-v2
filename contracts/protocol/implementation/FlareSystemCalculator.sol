@@ -2,29 +2,30 @@
 pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
-import "../interface/IWNat.sol";
-import "./EntityManager.sol";
-import "./WNatDelegationFee.sol";
-import "./VoterRegistry.sol";
-import "./FlareSystemManager.sol";
+import "../interface/IIEntityManager.sol";
+import "../interface/IIFlareSystemCalculator.sol";
+import "../interface/IIFlareSystemManager.sol";
+import "../../userInterfaces/IWNat.sol";
+import "../../userInterfaces/IWNatDelegationFee.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * FlareSystemCalculator is used to calculate the registration weight of a voter and the burn factor.
  */
-contract FlareSystemCalculator is Governed, AddressUpdatable {
+contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalculator {
 
     uint256 internal constant PPM_MAX = 1e6;
 
     /// The FlareSystemManager contract.
-    FlareSystemManager public flareSystemManager;
+    IIFlareSystemManager public flareSystemManager;
     /// The EntityManager contract.
-    EntityManager public entityManager;
+    IIEntityManager public entityManager;
     /// The WNatDelegationFee contract.
-    WNatDelegationFee public wNatDelegationFee;
+    IWNatDelegationFee public wNatDelegationFee;
     /// The VoterRegistry contract.
-    VoterRegistry public voterRegistry;
+    address public voterRegistry;
     /// The PChainStakeMirror contract.
     IPChainStakeMirror public pChainStakeMirror;
     /// Indicates if PChainStakeMirror contract is enabled.
@@ -41,20 +42,10 @@ contract FlareSystemCalculator is Governed, AddressUpdatable {
     /// Number of blocks (in addition to non-punishable blocks) after which all rewards are burned.
     uint64 public signingPolicySignNoRewardsDurationBlocks; // 600
 
-    /// Event emitted when the registration weight of a voter is calculated.
-    event VoterRegistrationInfo(
-        address voter,
-        uint24 rewardEpochId,
-        uint256 wNatWeight,
-        uint256 wNatCappedWeight,
-        bytes20[] nodeIds,
-        uint256[] nodeWeights,
-        uint16 delegationFeeBIPS
-    );
 
     /// Only VoterRegistry contract can call methods with this modifier.
     modifier onlyVoterRegistry {
-        require(msg.sender == address(voterRegistry), "only voter registry");
+        require(msg.sender == voterRegistry, "only voter registry");
         _;
     }
 
@@ -207,12 +198,12 @@ contract FlareSystemCalculator is Governed, AddressUpdatable {
     )
         internal override
     {
-        flareSystemManager = FlareSystemManager(
+        flareSystemManager = IIFlareSystemManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
-        entityManager = EntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
-        wNatDelegationFee = WNatDelegationFee(
+        entityManager = IIEntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
+        wNatDelegationFee = IWNatDelegationFee(
             _getContractAddress(_contractNameHashes, _contractAddresses, "WNatDelegationFee"));
-        voterRegistry = VoterRegistry(_getContractAddress(_contractNameHashes, _contractAddresses, "VoterRegistry"));
+        voterRegistry = _getContractAddress(_contractNameHashes, _contractAddresses, "VoterRegistry");
         if (pChainStakeMirrorEnabled) {
             pChainStakeMirror = IPChainStakeMirror(
                 _getContractAddress(_contractNameHashes, _contractAddresses, "PChainStakeMirror"));

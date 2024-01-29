@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../protocol/implementation/RewardManager.sol";
+import "../../protocol/interface/IIRewardManager.sol";
 import "../../protocol/implementation/RewardOffersManagerBase.sol";
-import "../interface/IFtsoInflationConfigurations.sol";
-import "./FtsoFeedDecimals.sol";
+import "../../userInterfaces/IFtsoInflationConfigurations.sol";
+import "../../userInterfaces/IFtsoRewardOffersManager.sol";
+import "../../userInterfaces/IFtsoFeedDecimals.sol";
 import "../../utils/lib/SafePct.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * FtsoRewardOffersManager contract.
@@ -13,26 +15,8 @@ import "../../utils/lib/SafePct.sol";
  * This contract is used to manage the FTSO reward offers and receive the inflation.
  * It is used by the Flare system to trigger the reward offers.
  */
-contract FtsoRewardOffersManager is RewardOffersManagerBase {
+contract FtsoRewardOffersManager is RewardOffersManagerBase, IFtsoRewardOffersManager {
     using SafePct for uint256;
-
-    /**
-    * Defines a reward offer.
-    */
-    struct Offer {
-        // amount (in wei) of reward in native coin
-        uint120 amount;
-        // feed name - i.e. base/quote symbol
-        bytes8 feedName;
-        // minimal reward eligibility turnout threshold in BIPS (basis points)
-        uint16 minRewardedTurnoutBIPS;
-        // primary band reward share in PPM (parts per million)
-        uint24 primaryBandRewardSharePPM;
-        // secondary band width in PPM (parts per million) in relation to the median
-        uint24 secondaryBandWidthPPM;
-        // address that can claim undistributed part of the reward (or burn address)
-        address claimBackAddress;
-    }
 
     uint256 internal constant MAX_BIPS = 1e4;
     uint256 internal constant PPM_MAX = 1e6;
@@ -43,54 +27,11 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
     uint256 public minimalRewardsOfferValueWei;
 
     /// The RewardManager contract.
-    RewardManager public rewardManager;
+    IIRewardManager public rewardManager;
     /// The FtsoInflationConfigurations contract.
     IFtsoInflationConfigurations public ftsoInflationConfigurations;
     /// The FtsoFeedDecimals contract.
-    FtsoFeedDecimals public ftsoFeedDecimals;
-
-    /// Event emitted when the minimal rewards offer value is set.
-    event MinimalRewardsOfferValueSet(uint256 valueWei);
-
-    /// Event emitted when a reward offer is received.
-    event RewardsOffered(
-        // reward epoch id
-        uint24 rewardEpochId,
-        // feed name - i.e. base/quote symbol
-        bytes8 feedName,
-        // number of decimals (negative exponent)
-        int8 decimals,
-        // amount (in wei) of reward in native coin
-        uint256 amount,
-        // minimal reward eligibility turnout threshold in BIPS (basis points)
-        uint16 minRewardedTurnoutBIPS,
-        // primary band reward share in PPM (parts per million)
-        uint24 primaryBandRewardSharePPM,
-        // secondary band width in PPM (parts per million) in relation to the median
-        uint24 secondaryBandWidthPPM,
-        // address that can claim undistributed part of the reward (or burn address)
-        address claimBackAddress
-    );
-
-    /// Event emitted when inflation rewards are offered.
-    event InflationRewardsOffered(
-        // reward epoch id
-        uint24 rewardEpochId,
-        // feed names - i.e. base/quote symbols - multiple of 8 (one feedName is bytes8)
-        bytes feedNames,
-        // decimals encoded to - multiple of 1 (int8)
-        bytes decimals,
-        // amount (in wei) of reward in native coin
-        uint256 amount,
-        // minimal reward eligibility turnout threshold in BIPS (basis points)
-        uint16 minRewardedTurnoutBIPS,
-        // primary band reward share in PPM (parts per million)
-        uint24 primaryBandRewardSharePPM,
-        // secondary band width in PPM (parts per million) in relation to the median - multiple of 3 (uint24)
-        bytes secondaryBandWidthPPMs,
-        // rewards split mode (0 means equally, 1 means random,...)
-        uint16 mode
-    );
+    IFtsoFeedDecimals public ftsoFeedDecimals;
 
     /**
      * Constructor.
@@ -112,14 +53,14 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
     }
 
     /**
-     * Allows community to offer rewards.
-     * @param _nextRewardEpochId The next reward epoch id.
-     * @param _offers The list of offers.
+     * @inheritdoc IFtsoRewardOffersManager
      */
     function offerRewards(
         uint24 _nextRewardEpochId,
         Offer[] calldata _offers
-    ) external payable mustBalance {
+    )
+        external payable mustBalance
+    {
         uint24 currentRewardEpochId = flareSystemManager.getCurrentRewardEpochId();
         require(_nextRewardEpochId == currentRewardEpochId + 1, "not next reward epoch id");
         require(flareSystemManager.currentRewardEpochExpectedEndTs() >
@@ -166,7 +107,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
      * Implement this function to allow updating inflation receiver contracts through `AddressUpdater`.
      * @return Contract name.
      */
-    function getContractName() external pure override returns (string memory) {
+    function getContractName() external pure returns (string memory) {
         return "FtsoRewardOffersManager";
     }
 
@@ -180,10 +121,10 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
         internal override
     {
         super._updateContractAddresses(_contractNameHashes, _contractAddresses);
-        rewardManager = RewardManager(_getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
+        rewardManager = IIRewardManager(_getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
         ftsoInflationConfigurations = IFtsoInflationConfigurations(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoInflationConfigurations"));
-        ftsoFeedDecimals = FtsoFeedDecimals(
+        ftsoFeedDecimals = IFtsoFeedDecimals(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoFeedDecimals"));
     }
 
@@ -249,8 +190,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase {
     }
 
     /**
-     * @dev Method that is used in `mustBalance` modifier. It should return expected balance after
-     *      triggered function completes (receiving offers, receiving inflation,...).
+     * @inheritdoc TokenPoolBase
      */
     function _getExpectedBalance() internal view override returns(uint256 _balanceExpectedWei) {
         return totalInflationReceivedWei - totalInflationRewardsOfferedWei;

@@ -19,13 +19,13 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, async accounts => {
   beforeEach(async () => {
     submission = await Submission.new(accounts[0], accounts[0], ADDRESS_UPDATER, false);
     await submission.updateContractAddresses(
-      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
-      [ADDRESS_UPDATER, accounts[2]], { from: ADDRESS_UPDATER });
+      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.RELAY]),
+      [ADDRESS_UPDATER, accounts[2], accounts[3]], { from: ADDRESS_UPDATER });
 
   });
 
   it("Should revert 1", async () => {
-    const relay = await Relay.new(accounts[1], 0, 0, web3.utils.keccak256("test"), 1, 242, 90, 3, 23, 12000);
+    const relay = await Relay.new(accounts[1], 0, 0, web3.utils.keccak256("test"), 1, 242, 90, 0, 23, 12000);
     await submission.setSubmitAndPassData(relay.address, web3.utils.keccak256("relay()").slice(0, 10)); // first 4 bytes is function selector
     let startBalance = BigInt(await web3.eth.getBalance(accounts[0]));
     await expectRevert(submission.submitAndPass(web3.utils.keccak256("some data")), "Invalid sign policy length");

@@ -3,12 +3,8 @@ pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
 import "../../../contracts/protocol/implementation/VoterRegistry.sol";
-import "../../../contracts/protocol/implementation/FlareSystemManager.sol";
-import "../../../contracts/protocol/implementation/EntityManager.sol";
-import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
-import "../../../contracts/protocol/interface/IWNat.sol";
-import "../../../contracts/protocol/interface/ICChainStake.sol";
 
+// solhint-disable-next-line max-states-count
 contract VoterRegistryTest is Test {
 
     VoterRegistry private voterRegistry;
@@ -30,7 +26,7 @@ contract VoterRegistryTest is Test {
     bytes32[] private initialPublicKeyParts1;
     bytes32[] private initialPublicKeyParts2;
     bytes20[][] private initialNodeIds;
-    EntityManager.VoterAddresses[] private initialVotersRegisteredAddresses;
+    IEntityManager.VoterAddresses[] private initialVotersRegisteredAddresses;
     uint256[] private initialVotersWeights;
     uint256 private pChainTotalVP;
     uint256 private cChainTotalVP;
@@ -38,12 +34,12 @@ contract VoterRegistryTest is Test {
 
     uint256 private constant UINT16_MAX = type(uint16).max;
 
-    event VoterChilled(address voter, uint256 untilRewardEpochId);
-    event VoterRemoved(address voter, uint256 rewardEpochId);
+    event VoterChilled(address indexed voter, uint256 untilRewardEpochId);
+    event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId);
     event VoterRegistered(
-        address voter,
-        uint24 rewardEpochId,
-        address signingPolicyAddress,
+        address indexed voter,
+        uint24 indexed rewardEpochId,
+        address indexed signingPolicyAddress,
         address delegationAddress,
         address submitAddress,
         address submitSignaturesAddress,
@@ -129,7 +125,7 @@ contract VoterRegistryTest is Test {
         vm.prank(governance);
         _mockGetCurrentEpochId(1);
         vm.expectEmit();
-        emit VoterChilled(initialVoters[0], 3);
+        emit VoterChilled(initialVoters[0], 4);
         voterRegistry.chillVoter(initialVoters[0], 2);
     }
 
@@ -166,13 +162,13 @@ contract VoterRegistryTest is Test {
     function testCreateSigningPolicySnapshot() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getSigningPolicyAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getSigningPolicyAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialSigningPolicyAddresses)
         );
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getPublicKeys.selector,
+            abi.encodeWithSelector(IIEntityManager.getPublicKeys.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialPublicKeyParts1, initialPublicKeyParts2)
         );
@@ -200,7 +196,7 @@ contract VoterRegistryTest is Test {
     function testGetRegisteredSubmitAddresses() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getSubmitAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getSubmitAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialSubmitAddresses)
         );
@@ -219,7 +215,7 @@ contract VoterRegistryTest is Test {
     function testGetRegisteredSubmitSignaturesAddresses() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getSubmitSignaturesAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getSubmitSignaturesAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialSubmitSignaturesAddresses)
         );
@@ -238,7 +234,7 @@ contract VoterRegistryTest is Test {
     function testGetRegisteredDelegationAddresses() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getDelegationAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getDelegationAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialDelegationAddresses)
         );
@@ -257,7 +253,7 @@ contract VoterRegistryTest is Test {
     function testGetRegisteredSigningPolicyAddresses() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getSigningPolicyAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getSigningPolicyAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialSigningPolicyAddresses)
         );
@@ -276,7 +272,7 @@ contract VoterRegistryTest is Test {
     function testGetRegisteredPublicKeys() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getPublicKeys.selector,
+            abi.encodeWithSelector(IIEntityManager.getPublicKeys.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialPublicKeyParts1, initialPublicKeyParts2)
         );
@@ -299,7 +295,7 @@ contract VoterRegistryTest is Test {
     function testGetRegisteredNodeIds() public {
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getNodeIds.selector,
+            abi.encodeWithSelector(IIEntityManager.getNodeIds.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(initialNodeIds)
         );
@@ -326,7 +322,7 @@ contract VoterRegistryTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             vm.mockCall(
                 mockEntityManager,
-                abi.encodeWithSelector(EntityManager.getVoterForSigningPolicyAddress.selector,
+                abi.encodeWithSelector(IEntityManager.getVoterForSigningPolicyAddress.selector,
                     initialSigningPolicyAddresses[i], voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
                 abi.encode(initialVoters[i])
             );
@@ -339,7 +335,7 @@ contract VoterRegistryTest is Test {
         address notRegisteredSignPolicyAddr = makeAddr("notRegisteredVoterSigningPolicyAddress");
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getVoterForSigningPolicyAddress.selector,
+            abi.encodeWithSelector(IEntityManager.getVoterForSigningPolicyAddress.selector,
                 notRegisteredSignPolicyAddr, voterRegistry.newSigningPolicyInitializationStartBlockNumber(0)),
             abi.encode(notRegistered)
         );
@@ -362,7 +358,7 @@ contract VoterRegistryTest is Test {
     //// register voter tests
     function testRegisterVoterRevertVoterChilled() public {
         _mockGetCurrentEpochId(0);
-        VoterRegistry.Signature memory signature =
+        IVoterRegistry.Signature memory signature =
             _createSigningPolicyAddressSignature(0, 1);
 
         // chill voter
@@ -377,7 +373,7 @@ contract VoterRegistryTest is Test {
     function testRegisterVoterRevertInvalidSignature() public {
         _mockGetCurrentEpochId(0);
         // wrong epoch id -> signature is invalid
-        VoterRegistry.Signature memory signature =
+        IVoterRegistry.Signature memory signature =
             _createSigningPolicyAddressSignature(0, 4);
 
         vm.prank(mockFlareSystemManager);
@@ -391,7 +387,7 @@ contract VoterRegistryTest is Test {
 
     function testRegisterVoterRevertVpBlockZero() public {
         _mockGetCurrentEpochId(0);
-        VoterRegistry.Signature memory signature =
+        IVoterRegistry.Signature memory signature =
             _createSigningPolicyAddressSignature(0, 1);
         _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(0, true);
@@ -404,7 +400,7 @@ contract VoterRegistryTest is Test {
 
     function testRegisterVoterRevertRegistrationEnded() public {
         _mockGetCurrentEpochId(0);
-        VoterRegistry.Signature memory signature =
+        IVoterRegistry.Signature memory signature =
             _createSigningPolicyAddressSignature(0, 1);
         _mockGetVoterAddresses();
         _mockGetVoterRegistrationData(1, false);
@@ -417,7 +413,7 @@ contract VoterRegistryTest is Test {
 
     // register 3 voters (max voters == 3)
     function testRegisterVoters() public {
-        VoterRegistry.Signature memory signature;
+        IVoterRegistry.Signature memory signature;
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddresses();
@@ -445,7 +441,7 @@ contract VoterRegistryTest is Test {
     }
 
     function testRegisterVotersAndCreateSigningPolicySnapshot() public {
-        VoterRegistry.Signature memory signature;
+        IVoterRegistry.Signature memory signature;
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddresses();
@@ -464,13 +460,13 @@ contract VoterRegistryTest is Test {
         // create signing policy snapshot
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getSigningPolicyAddresses.selector,
+            abi.encodeWithSelector(IIEntityManager.getSigningPolicyAddresses.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
             abi.encode(initialSigningPolicyAddresses)
         );
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getPublicKeys.selector,
+            abi.encodeWithSelector(IIEntityManager.getPublicKeys.selector,
                 initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
             abi.encode(initialPublicKeyParts1, initialPublicKeyParts2)
         );
@@ -490,6 +486,58 @@ contract VoterRegistryTest is Test {
             sum += normVoterWeight;
         }
         assertEq(sum, normWeightsSum);
+
+        (uint128 _sum, uint16 _normSum, uint16 _normSumPub) = voterRegistry.getWeightsSums(1);
+        assertEq(_sum, weightsSum);
+        assertEq(_normSum, normWeightsSum);
+        // only voter0 registered public key
+        assertEq(_normSumPub, uint16(initialVotersWeights[0] * UINT16_MAX / weightsSum));
+    }
+
+    function testGetWeightsSum() public {
+        VoterRegistry.Signature memory signature;
+
+        _mockGetCurrentEpochId(0);
+        _mockGetVoterAddresses();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVoterWeights();
+        vm.prank(mockFlareSystemManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
+
+        uint256 weightsSum = 0;
+        for (uint256 i = 0; i < initialVoters.length ; i++) {
+            signature = _createSigningPolicyAddressSignature(i, 1);
+            voterRegistry.registerVoter(initialVoters[i], signature);
+            weightsSum += initialVotersWeights[i];
+        }
+
+        // create signing policy snapshot
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(IIEntityManager.getSigningPolicyAddresses.selector,
+                initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
+            abi.encode(initialSigningPolicyAddresses)
+        );
+        initialPublicKeyParts1[0] = bytes32(0);
+        initialPublicKeyParts2[0] = bytes32(0);
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(IIEntityManager.getPublicKeys.selector,
+                initialVoters, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
+            abi.encode(initialPublicKeyParts1, initialPublicKeyParts2)
+        );
+        vm.prank(mockFlareSystemManager);
+        (, , uint16 normWeightsSum) =
+            voterRegistry.createSigningPolicySnapshot(1);
+
+        (uint128 _sum, uint16 _normSum, uint16 _normSumPub) = voterRegistry.getWeightsSums(1);
+        assertEq(_sum, weightsSum);
+        assertEq(_normSum, normWeightsSum);
+        // no one registered public key
+        assertEq(_normSumPub, 0);
+
+        vm.expectRevert("reward epoch id not supported");
+        voterRegistry.getWeightsSums(2);
     }
 
     function testRemoveVoter() public {
@@ -497,7 +545,7 @@ contract VoterRegistryTest is Test {
         testRegisterVoters();
 
         // add new voter and remove one with lowest weight (initialVoters[0])
-        VoterRegistry.Signature memory signature = _createSigningPolicyAddressSignature(3, 1);
+        IVoterRegistry.Signature memory signature = _createSigningPolicyAddressSignature(3, 1);
 
         vm.expectEmit();
         emit VoterRemoved(initialVoters[0], 1);
@@ -517,7 +565,7 @@ contract VoterRegistryTest is Test {
     // max voters = 1
     // register voter[1], try to register voter[0] -> not possible because voter[1] has higher vote power
     function testRegisterVoterRevertWeightTooLow() public {
-        VoterRegistry.Signature memory signature;
+        IVoterRegistry.Signature memory signature;
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddresses();
@@ -538,7 +586,7 @@ contract VoterRegistryTest is Test {
 
     // try to register voter twice
     function testRegisterVoterTwice() public {
-        VoterRegistry.Signature memory signature;
+        IVoterRegistry.Signature memory signature;
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddresses();
@@ -571,7 +619,7 @@ contract VoterRegistryTest is Test {
     }
 
     function testRegisterVoterRevertWeightZero() public {
-        VoterRegistry.Signature memory signature;
+        IVoterRegistry.Signature memory signature;
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddresses();
@@ -582,7 +630,7 @@ contract VoterRegistryTest is Test {
 
         vm.mockCall(
             mockFlareSystemCalculator,
-            abi.encodeWithSelector(FlareSystemCalculator.calculateRegistrationWeight.selector,
+            abi.encodeWithSelector(IIFlareSystemCalculator.calculateRegistrationWeight.selector,
                 initialVoters[0], initialDelegationAddresses[0], 1, 10),
             abi.encode(0)
         );
@@ -593,7 +641,7 @@ contract VoterRegistryTest is Test {
     }
 
     function testRegisterVoterRevertRegistrationNotAvailable() public {
-        VoterRegistry.Signature memory signature;
+        IVoterRegistry.Signature memory signature;
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddresses();
@@ -616,7 +664,7 @@ contract VoterRegistryTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             vm.mockCall(
                 mockEntityManager,
-                abi.encodeWithSelector(EntityManager.getVoterForSigningPolicyAddress.selector,
+                abi.encodeWithSelector(IEntityManager.getVoterForSigningPolicyAddress.selector,
                     initialSigningPolicyAddresses[i], voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
                 abi.encode(initialVoters[i])
             );
@@ -625,7 +673,7 @@ contract VoterRegistryTest is Test {
         address notRegisteredSignPolicyAddr = makeAddr("notRegisteredVoterSigningPolicyAddress");
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getVoterForSigningPolicyAddress.selector,
+            abi.encodeWithSelector(IEntityManager.getVoterForSigningPolicyAddress.selector,
                 notRegisteredSignPolicyAddr, voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
             abi.encode(notRegistered)
         );
@@ -637,7 +685,7 @@ contract VoterRegistryTest is Test {
         bytes32 publicKey2 = initialPublicKeyParts2[0];
         vm.mockCall(
             mockEntityManager,
-            abi.encodeWithSelector(EntityManager.getPublicKeyOfAt.selector,
+            abi.encodeWithSelector(IEntityManager.getPublicKeyOfAt.selector,
                 initialVoters[0], voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
             abi.encode(publicKey1, publicKey2)
         );
@@ -708,7 +756,7 @@ contract VoterRegistryTest is Test {
             initialVotersSigningPolicyPk.push(pk);
 
             // registered addresses
-            initialVotersRegisteredAddresses.push(EntityManager.VoterAddresses(
+            initialVotersRegisteredAddresses.push(IEntityManager.VoterAddresses(
                 initialDelegationAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
@@ -738,7 +786,7 @@ contract VoterRegistryTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             vm.mockCall(
                 mockEntityManager,
-                abi.encodeWithSelector(EntityManager.getVoterAddresses.selector, initialVoters[i]),
+                abi.encodeWithSelector(IEntityManager.getVoterAddresses.selector, initialVoters[i]),
                 abi.encode(initialVotersRegisteredAddresses[i])
             );
         }
@@ -747,7 +795,7 @@ contract VoterRegistryTest is Test {
     function _mockGetCurrentEpochId(uint256 _epochId) internal {
         vm.mockCall(
             mockFlareSystemManager,
-            abi.encodeWithSelector(FlareSystemManager.getCurrentRewardEpochId.selector),
+            abi.encodeWithSelector(IFlareSystemManager.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }
@@ -758,19 +806,19 @@ contract VoterRegistryTest is Test {
     )
         internal
         returns (
-            VoterRegistry.Signature memory _signature
+            IVoterRegistry.Signature memory _signature
         )
     {
         bytes32 messageHash = keccak256(abi.encode(_nextRewardEpochId, initialVoters[_voterIndex]));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(initialVotersSigningPolicyPk[_voterIndex], signedMessageHash);
-        _signature = VoterRegistry.Signature(v, r, s);
+        _signature = IVoterRegistry.Signature(v, r, s);
     }
 
     function _mockGetVoterRegistrationData(uint256 _vpBlock, bool _enabled) internal {
         vm.mockCall(
             mockFlareSystemManager,
-            abi.encodeWithSelector(FlareSystemManager.getVoterRegistrationData.selector),
+            abi.encodeWithSelector(IFlareSystemManager.getVoterRegistrationData.selector),
             abi.encode(_vpBlock, _enabled)
         );
     }
@@ -780,7 +828,7 @@ contract VoterRegistryTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             vm.mockCall(
                 mockFlareSystemCalculator,
-                abi.encodeWithSelector(FlareSystemCalculator.calculateRegistrationWeight.selector,
+                abi.encodeWithSelector(IIFlareSystemCalculator.calculateRegistrationWeight.selector,
                     initialVoters[i], initialDelegationAddresses[i]),
                 abi.encode(initialVotersWeights[i])
             );

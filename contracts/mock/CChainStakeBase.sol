@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
-import "../protocol/interface/ICChainVotePower.sol";
+import "../userInterfaces/ICChainVotePower.sol";
 import "./CChainStakeHistory.sol";
 import { CheckPointable, VotePower, VotePowerCache, SafePct, SafeMath } from "../../flattened/FlareSmartContracts.sol";
 

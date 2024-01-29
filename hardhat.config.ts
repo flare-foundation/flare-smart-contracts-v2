@@ -48,7 +48,7 @@ let accounts = [
 // Tasks
 
 task("run-simulation", `Runs local simulation.`) // prettier-ignore
-  .addPositionalParam("voters", "Number of voters to simulate", "4")
+  .addOptionalParam("voters", "Number of voters to simulate", "4")
   .setAction(async (args, hre, _runSuper) => {
     await runSimulation(hre, accounts, +args.voters);
   });

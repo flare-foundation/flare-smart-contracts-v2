@@ -122,7 +122,7 @@ contract FtsoFeedDecimalsTest is Test {
     function _mockGetCurrentEpochId(uint256 _epochId) private {
         vm.mockCall(
             mockFlareSystemManager,
-            abi.encodeWithSelector(FlareSystemManager.getCurrentRewardEpochId.selector),
+            abi.encodeWithSelector(IFlareSystemManager.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }

@@ -33,3 +33,6 @@ simulation-accounts.json
 
 # slither
 slither.json
+
+# simulation folder
+sim/

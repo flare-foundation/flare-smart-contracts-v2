@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/staking/interface/IIPChainStakeMirrorVerifier.sol";
 import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirrorMultiSigVoting.sol";
-import "../../protocol/implementation/Relay.sol";
+import "../userInterfaces/IRelay.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
@@ -15,7 +15,7 @@ contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
     uint256 public constant P_CHAIN_STAKE_MIRROR_PROTOCOL_ID = 1;
 
     /// Relay contract with voted Merkle roots.
-    Relay public immutable relay;
+    IRelay public immutable relay;
     /// P-chain stake mirror voting contract with voted Merkle roots.
     IPChainStakeMirrorMultiSigVoting public immutable pChainStakeMirrorVoting;
 
@@ -38,7 +38,7 @@ contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
      */
     constructor(
         IPChainStakeMirrorMultiSigVoting _pChainStakeMirrorVoting,
-        Relay _relay,
+        IRelay _relay,
         uint256 _minStakeDurationSeconds,
         uint256 _maxStakeDurationSeconds,
         uint256 _minStakeAmountGwei,
@@ -61,7 +61,7 @@ contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
         PChainStake calldata _stakeData,
         bytes32[] calldata _merkleProof
     )
-        external view override
+        external view
         returns (bool)
     {
         if (_stakeData.endTime < _stakeData.startTime) {

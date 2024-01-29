@@ -10,7 +10,6 @@ contract FtsoFeedPublisherTest is Test {
     address private addressUpdater;
     address private mockRelay;
     address private governance;
-    Relay private relay;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -235,7 +234,7 @@ contract FtsoFeedPublisherTest is Test {
     function _mockGetVotingRoundId(uint256 _blockTs, uint256 _roundId) private {
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(relay.getVotingRoundId.selector, _blockTs),
+            abi.encodeWithSelector(IRelay.getVotingRoundId.selector, _blockTs),
             abi.encode(_roundId)
         );
     }
@@ -243,7 +242,7 @@ contract FtsoFeedPublisherTest is Test {
     function _mockGetMerkleRoot(uint256 _protocolId, uint256 _votingRoundId, bytes32 _root) private {
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(relay.merkleRoots.selector, _protocolId, _votingRoundId),
+            abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), _protocolId, _votingRoundId),
             abi.encode(_root)
         );
     }

@@ -21,11 +21,15 @@ import { DeployedContracts, deployContracts, serializeDeployedContractsAddresses
 import { errorString } from "../utils/error";
 import { decodeLogs as decodeRawLogs } from "../utils/events";
 import { MockDBIndexer } from "../utils/indexer/MockDBIndexer";
-import { sqliteDatabase } from "../utils/indexer/data-source";
 import { getLogger } from "../utils/logger";
 
 // Simulation config
-const SETTINGS_FILE_LOCATION = "/tmp/epoch-settings.json";
+export const SIMULATION_DUMP_FOLDER = "./sim";
+export const SETTINGS_FILE_LOCATION = `${SIMULATION_DUMP_FOLDER}/epoch-settings.json`;
+export const DEPLOY_ADDRESSES_FILE = `${SIMULATION_DUMP_FOLDER}/deployed-addresses.json`;
+export const SIMULATION_ACCOUNTS_FILE = `${SIMULATION_DUMP_FOLDER}/simulation-accounts.json`;
+export const MEMORY_DATABASE_FILE = `${SIMULATION_DUMP_FOLDER}/indexer.db`;
+
 export const TIMELOCK_SEC = 3600;
 const REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 5;
 const VOTING_EPOCH_DURATION_SEC = 20;
@@ -33,45 +37,60 @@ export const REWARD_EPOCH_DURATION_IN_SEC = REWARD_EPOCH_DURATION_IN_VOTING_EPOC
 
 export const FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
 const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
-export const DEPLOY_ADDRESSES_FILE = "./db/deployed-addresses.json";
-
-const SKIP_VOTER_REGISTRATION_SET = new Set<string>();
-const SKIP_SIGNING_POLICY_SIGNING_SET = new Set<string>();
 
 const OFFERS = [
   {
     amount: 25000000,
     feedName: FtsoConfigurations.encodeFeedNames(["BTC"]),
+    minRewardedTurnoutBIPS: 5000,
     primaryBandRewardSharePPM: 450000,
     secondaryBandWidthPPM: 50000,
-    minRewardedTurnoutBIPS: 5000,
-    claimBackAddress: "0x0000000000000000000000000000000000000000"
+    
+    claimBackAddress: "0x0000000000000000000000000000000000000000",
   },
   {
     amount: 50000000,
     feedName: FtsoConfigurations.encodeFeedNames(["XRP"]),
+    minRewardedTurnoutBIPS: 5000,
     primaryBandRewardSharePPM: 650000,
     secondaryBandWidthPPM: 20000,
-    minRewardedTurnoutBIPS: 5000,
-    claimBackAddress: "0x0000000000000000000000000000000000000000"
+    claimBackAddress: "0x0000000000000000000000000000000000000000",
+  },
+];
+
+function processEnv() {
+  const SKIP_VOTER_REGISTRATION_SET = new Set<string>();
+  const SKIP_SIGNING_POLICY_SIGNING_SET = new Set<string>();
+  let SKIP_VOTING_EPOCH_ACTIONS = false;
+  if (process.env.SKIP_VOTER_REGISTRATION_SET) {
+    process.env.SKIP_VOTER_REGISTRATION_SET.split(",").forEach(x => {
+      if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
+        SKIP_VOTER_REGISTRATION_SET.add(x.trim().toLowerCase());
+      }
+    });
   }
-]
 
-if (process.env.SKIP_VOTER_REGISTRATION_SET) {
-  process.env.SKIP_VOTER_REGISTRATION_SET.split(",").forEach(x => {
-    if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
-      SKIP_VOTER_REGISTRATION_SET.add(x.trim().toLowerCase())
-    }
-  });
+  if (process.env.SKIP_SIGNING_POLICY_SIGNING_SET) {
+    process.env.SKIP_SIGNING_POLICY_SIGNING_SET.split(",").forEach(x => {
+      if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
+        SKIP_SIGNING_POLICY_SIGNING_SET.add(x.trim().toLowerCase());
+      }
+    });
+  }
+
+  console.log(process.env.SKIP_VOTING_EPOCH_ACTIONS);
+  if (process.env.SKIP_VOTING_EPOCH_ACTIONS) {
+    console.log("Skipping voting epoch actions");
+    SKIP_VOTING_EPOCH_ACTIONS = true;
+  }
+  return {
+    SKIP_VOTER_REGISTRATION_SET,
+    SKIP_SIGNING_POLICY_SIGNING_SET,
+    SKIP_VOTING_EPOCH_ACTIONS,
+  };
 }
 
-if (process.env.SKIP_SIGNING_POLICY_SIGNING_SET) {
-  process.env.SKIP_SIGNING_POLICY_SIGNING_SET.split(",").forEach(x => {
-    if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
-      SKIP_SIGNING_POLICY_SIGNING_SET.add(x.trim().toLowerCase())
-    }
-  });
-}
+const { SKIP_VOTER_REGISTRATION_SET, SKIP_SIGNING_POLICY_SIGNING_SET, SKIP_VOTING_EPOCH_ACTIONS } = processEnv();
 
 export const systemSettings = function (now: number) {
   return {
@@ -86,10 +105,12 @@ export const systemSettings = function (now: number) {
       newSigningPolicyMinNumberOfVotingRoundsDelay: 0,
       voterRegistrationMinDurationSeconds: 10,
       voterRegistrationMinDurationBlocks: 1,
+      submitUptimeVoteMinDurationSeconds: 10,
+      submitUptimeVoteMinDurationBlocks: 1,
       signingPolicyThresholdPPM: 500000,
       signingPolicyMinNumberOfVoters: 2,
-      rewardExpiryOffsetSeconds: 1000
-    }
+      rewardExpiryOffsetSeconds: 1000,
+    },
   };
 };
 
@@ -135,7 +156,17 @@ class EventStore {
  * Note: This is still a work in progress and might be buggy.
  */
 export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys: any[], voterCount: number) {
+  if (!fs.existsSync(SIMULATION_DUMP_FOLDER)) {
+    fs.mkdirSync(SIMULATION_DUMP_FOLDER);
+  }
   const logger = getLogger("");
+
+  const { SKIP_VOTER_REGISTRATION_SET, SKIP_SIGNING_POLICY_SIGNING_SET, SKIP_VOTING_EPOCH_ACTIONS } = processEnv();
+
+  logger.info(`SKIP_VOTER_REGISTRATION_SET: ${new Array(...SKIP_VOTER_REGISTRATION_SET).join(" ")}`);
+  logger.info(`SKIP_SIGNING_POLICY_SIGNING_SET:  ${new Array(...SKIP_SIGNING_POLICY_SIGNING_SET).join(" ")}`);
+  logger.info(`SKIP_VOTING_EPOCH_ACTIONS: ${SKIP_VOTING_EPOCH_ACTIONS}`);
+  logger.info(`Simulation specific files generated in ${SIMULATION_DUMP_FOLDER}`);
 
   // Account 0 is reserved for governance, 1-5 for contract address use, 10+ for voters.
   const accounts = privateKeys.map(x => hre.web3.eth.accounts.privateKeyToAccount(x.privateKey));
@@ -147,6 +178,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     submit1: Web3.utils.sha3("submit1()")!.slice(2, 10),
     submit2: Web3.utils.sha3("submit2()")!.slice(2, 10),
     submitSignatures: Web3.utils.sha3("submitSignatures()")!.slice(2, 10),
+    relay: Web3.utils.sha3("relay()")!.slice(2, 10),
   };
 
   logger.info(`Function selectors:\n${JSON.stringify(submissionSelectors, null, 2)}`);
@@ -158,14 +190,14 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     ftsoRewardOffersManager: c.ftsoRewardOffersManager.address,
   });
 
-  logger.info(`Starting a mock c-chain indexer, data is recorded to SQLite database at ${sqliteDatabase}`);
+  logger.info(`Starting a mock c-chain indexer, data is recorded to SQLite database at ${MEMORY_DATABASE_FILE}`);
   indexer.run().catch(e => {
     logger.error(`Indexer failed: ${errorString(e)}`);
   });
 
   const registeredAccounts: RegisteredAccount[] = await registerAccounts(voterCount, accounts, c, rewardEpochStart);
-  fs.writeFileSync("simulation-accounts.json", JSON.stringify(registeredAccounts, null, 2));
-  logger.info("Registered account keys written to ./simulation-accounts.json");
+  fs.writeFileSync(SIMULATION_ACCOUNTS_FILE, JSON.stringify(registeredAccounts, null, 2));
+  logger.info("Registered account keys written to " + SIMULATION_ACCOUNTS_FILE);
 
   const epochSettings = new EpochSettings(
     (await c.flareSystemManager.firstRewardEpochStartTs()).toNumber(),
@@ -177,7 +209,10 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     (await c.flareSystemManager.voterRegistrationMinDurationBlocks()).toNumber()
   );
   logger.info(`EpochSettings:\n${JSON.stringify(epochSettings, null, 2)}`);
-  fs.writeFileSync(SETTINGS_FILE_LOCATION, JSON.stringify(epochSettings, null, 2));
+  fs.writeFileSync(SETTINGS_FILE_LOCATION, JSON.stringify({
+    firstRewardEpochStartVotingId: (epochSettings.rewardEpochStartSec - epochSettings.firstVotingEpochStartSec) / epochSettings.votingEpochDurationSec,
+    rewardEpochDurationInVotingEpochs: epochSettings.rewardEpochDurationSec / epochSettings.votingEpochDurationSec,
+    ...epochSettings}, null, 2));
   logger.info(`Epoch settings written to ${SETTINGS_FILE_LOCATION}`);
 
   const signingPolicies = new Map<number, ISigningPolicy>();
@@ -202,6 +237,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     while (Date.now() < firstEpochStartMs) await sleep(500);
   }
 
+  await c.flareSystemManager.daemonize();
+
   const currentRewardEpochId = (await c.flareSystemManager.getCurrentRewardEpochId()).toNumber();
   if (currentRewardEpochId != 1) {
     throw new Error("Reward epoch after setup expected to be 1");
@@ -225,7 +262,13 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   }, timeUntilSigningPolicyProtocolStart);
 
   scheduleOfferRewardsActions();
-  scheduleVotingEpochActions();
+  logger.info(`Skipping voting epoch actions: ${SKIP_VOTING_EPOCH_ACTIONS}`);
+  const nowtime = Date.now();
+  const nextEpochStartMs = epochSettings.nextVotingEpochStartMs(nowtime);
+  logger.info(`Next voting epoch starts at ${new Date(nextEpochStartMs).toISOString()} | ${nextEpochStartMs}`);
+  if (!SKIP_VOTING_EPOCH_ACTIONS) {
+    scheduleVotingEpochActions();
+  }
 
   // Hardhat set interval mining to auto-mine blocks every second
   await hre.network.provider.send("evm_setIntervalMining", [1000]);
@@ -323,6 +366,8 @@ async function registerAccounts(
   const weightGwei = 1000;
   let accountOffset = 10;
 
+  const logger = getLogger("");
+
   for (let i = 0; i < voterCount; i++) {
     const nodeId = "0x012345678901234567890123456789012345678" + i;
     const stakeId = web3.utils.keccak256("stake" + i);
@@ -337,6 +382,7 @@ async function registerAccounts(
     const [x, y] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
     const pubKey = "0x" + util.encodePublicKey(x, y, false).toString("hex");
     const pAddr = "0x" + util.publicKeyToAvalancheAddress(x, y).toString("hex");
+
     await c.addressBinder.registerAddresses(pubKey, pAddr, identityAccount.address);
 
     const data = await setMockStakingData(
@@ -355,16 +401,16 @@ async function registerAccounts(
     await c.wNat.deposit({ value: weightGwei * GWEI, from: identityAccount.address });
 
     await c.entityManager.registerNodeId(nodeId, { from: identityAccount.address });
-    await c.entityManager.registerSubmitAddress(submitAccount.address, { from: identityAccount.address });
+    await c.entityManager.proposeSubmitAddress(submitAccount.address, { from: identityAccount.address });
     await c.entityManager.confirmSubmitAddressRegistration(identityAccount.address, {
       from: submitAccount.address,
     });
-    await c.entityManager.registerSubmitSignaturesAddress(signingAccount.address, { from: identityAccount.address });
+    await c.entityManager.proposeSubmitSignaturesAddress(signingAccount.address, { from: identityAccount.address });
     await c.entityManager.confirmSubmitSignaturesAddressRegistration(identityAccount.address, {
       from: signingAccount.address,
     });
 
-    await c.entityManager.registerSigningPolicyAddress(policySigningAccount.address, { from: identityAccount.address });
+    await c.entityManager.proposeSigningPolicyAddress(policySigningAccount.address, { from: identityAccount.address });
     await c.entityManager.confirmSigningPolicyAddressRegistration(identityAccount.address, {
       from: policySigningAccount.address,
     });
@@ -397,7 +443,7 @@ async function defineNextSigningPolicy(
     await sleep(500);
   }
 
-  if (!(await c.flareSystemManager.getCurrentRandomWithQuality())[1]) throw new Error("No good random");
+  if (!(await c.submission.getCurrentRandomWithQuality())[1]) throw new Error("No good random");
 
   logger.info("Awaiting voting power block selection");
   while (!rewardEvents.get(rewardEpochId)?.includes("VotePowerBlockSelected")) {
@@ -447,12 +493,9 @@ async function defineNextSigningPolicy(
   }
 }
 
-async function runOfferRewards(
-  c: DeployedContracts,
-  epochSettings: EpochSettings,
-) {
+async function runOfferRewards(c: DeployedContracts, epochSettings: EpochSettings, forceEpoch?: number) {
   const logger = getLogger("offerRewards");
-  const nextRewardEpochId = epochSettings.rewardEpochForTime(Date.now()) + 1;
+  const nextRewardEpochId = forceEpoch ?? epochSettings.rewardEpochForTime(Date.now()) + 1;
   let rewards = 0;
   for (const offer of OFFERS) {
     rewards += offer.amount;
@@ -532,15 +575,11 @@ async function runVotingRound(
     if (acc) {
       privateKeysInOrder.push(acc.signingPolicy.privateKey);
     } else {
-      logger.info(`Voter not among registered accounts: ${voter}`)
+      logger.info(`Voter not among registered accounts: ${voter}`);
     }
   }
   const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
-  const signatures = await generateSignatures(
-    privateKeysInOrder,
-    messageHash,
-    privateKeysInOrder.length
-  );
+  const signatures = await generateSignatures(privateKeysInOrder, messageHash, privateKeysInOrder.length);
 
   const relayMessage = {
     signingPolicy: signingPolicy,
@@ -574,6 +613,9 @@ async function defineInitialSigningPolicy(
   web3: Web3,
   governanceAccount: Account
 ) {
+
+  await runOfferRewards(c, epochSettings, 1);
+
   await time.increaseTo(
     rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds)
   );
@@ -590,7 +632,7 @@ async function defineInitialSigningPolicy(
     signingPolicy: governanceAccount,
   };
 
-  await runVotingRound(c, signingPolicies, [governance], epochSettings, events, web3, await time.latest() * 1000);
+  await runVotingRound(c, signingPolicies, [governance], epochSettings, events, web3, (await time.latest()) * 1000);
 
   await time.increaseTo(
     rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds / 2)
@@ -610,7 +652,11 @@ async function defineInitialSigningPolicy(
   }
 
   await time.increaseTo(
-    rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds / 2 + epochSettings.voterRegistrationMinDurationSeconds + 5)
+    rewardEpochStart +
+      (REWARD_EPOCH_DURATION_IN_SEC -
+        epochSettings.newSigningPolicyInitializationStartSeconds / 2 +
+        epochSettings.voterRegistrationMinDurationSeconds +
+        5)
   );
 
   const resp3 = await c.flareSystemManager.daemonize();
