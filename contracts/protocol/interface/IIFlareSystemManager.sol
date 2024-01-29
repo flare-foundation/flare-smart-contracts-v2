@@ -66,6 +66,16 @@ interface IIFlareSystemManager is IFlareSystemManager {
     function voterRegistrationMinDurationBlocks() external view returns (uint64);
 
     /**
+     * Minimum duration of submit uptime vote phase, in seconds.
+     */
+    function submitUptimeVoteMinDurationSeconds() external view returns (uint64);
+
+    /**
+     * Minimum duration of submit uptime vote phase, in blocks.
+     */
+    function submitUptimeVoteMinDurationBlocks() external view returns (uint64);
+
+    /**
      * Signing policy threshold, in parts per million.
      */
     function signingPolicyThresholdPPM() external view returns (uint24);
@@ -152,6 +162,20 @@ interface IIFlareSystemManager is IFlareSystemManager {
         );
 
     /**
+     * Returns voter's submit uptime vote info.
+     * @param _rewardEpochId Reward epoch id.
+     * @param _voter Voter address.
+     * @return _uptimeVoteSubmitTs Timestamp when voter submitted the uptime vote (0 if not submitted).
+     * @return _uptimeVoteSubmitBlock Block number when voter submitted the uptime vote (0 if not submitted).
+     */
+    function getVoterUptimeVoteSubmitInfo(uint24 _rewardEpochId, address _voter)
+        external view
+        returns(
+            uint64 _uptimeVoteSubmitTs,
+            uint64 _uptimeVoteSubmitBlock
+        );
+
+    /**
      * Returns uptime vote sign info for voter.
      * @param _rewardEpochId Reward epoch id.
      * @param _voter Voter address.
@@ -163,6 +187,19 @@ interface IIFlareSystemManager is IFlareSystemManager {
         returns(
             uint64 _uptimeVoteSignTs,
             uint64 _uptimeVoteSignBlock
+        );
+
+    /**
+     * Returns uptime vote sign start info.
+     * @param _rewardEpochId Reward epoch id.
+     * @return _uptimeVoteSignStartTs Uptime vote sign start timestamp (0 if not started yet).
+     * @return _uptimeVoteSignStartBlock Uptime vote sign start block number (0 if not started yet).
+     */
+    function getUptimeVoteSignStartInfo(uint24 _rewardEpochId)
+        external view
+        returns(
+            uint64 _uptimeVoteSignStartTs,
+            uint64 _uptimeVoteSignStartBlock
         );
 
     /**

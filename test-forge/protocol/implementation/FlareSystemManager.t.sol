@@ -66,6 +66,12 @@ contract FlareSystemManagerTest is Test {
         uint64 timestamp                // Timestamp when this happened
     );
 
+    /// Event emitted when it is time to sign uptime vote.
+    event SingUptimeVoteEnabled(
+        uint24 indexed rewardEpochId,   // Reward epoch id
+        uint64 timestamp                // Timestamp when this happened
+    );
+
     /// Event emitted when uptime vote is signed.
     event UptimeVoteSigned(
         uint24 indexed rewardEpochId,           // Reward epoch id
@@ -102,6 +108,8 @@ contract FlareSystemManagerTest is Test {
             0,
             30 * 60,
             20,
+            10,
+            2,
             500000,
             2,
             1000
@@ -799,7 +807,9 @@ contract FlareSystemManagerTest is Test {
             6,
             7,
             8,
-            9
+            9,
+            10,
+            11
         );
 
         vm.prank(governance);
@@ -810,9 +820,11 @@ contract FlareSystemManagerTest is Test {
         assertEq(flareSystemManager.newSigningPolicyMinNumberOfVotingRoundsDelay(), 4);
         assertEq(flareSystemManager.voterRegistrationMinDurationSeconds(), 5);
         assertEq(flareSystemManager.voterRegistrationMinDurationBlocks(), 6);
-        assertEq(flareSystemManager.signingPolicyThresholdPPM(), 7);
-        assertEq(flareSystemManager.signingPolicyMinNumberOfVoters(), 8);
-        assertEq(flareSystemManager.rewardExpiryOffsetSeconds(), 9);
+        assertEq(flareSystemManager.submitUptimeVoteMinDurationSeconds(), 7);
+        assertEq(flareSystemManager.submitUptimeVoteMinDurationBlocks(), 8);
+        assertEq(flareSystemManager.signingPolicyThresholdPPM(), 9);
+        assertEq(flareSystemManager.signingPolicyMinNumberOfVoters(), 10);
+        assertEq(flareSystemManager.rewardExpiryOffsetSeconds(), 11);
     }
 
     //// sign signing policy tests

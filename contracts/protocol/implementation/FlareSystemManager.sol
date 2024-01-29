@@ -35,6 +35,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
         uint8 newSigningPolicyMinNumberOfVotingRoundsDelay;
         uint16 voterRegistrationMinDurationSeconds;
         uint16 voterRegistrationMinDurationBlocks;
+        uint16 submitUptimeVoteMinDurationSeconds;
+        uint16 submitUptimeVoteMinDurationBlocks;
         uint24 signingPolicyThresholdPPM;
         uint16 signingPolicyMinNumberOfVoters;
         uint32 rewardExpiryOffsetSeconds;
@@ -76,15 +78,19 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
         uint64 rewardsSignEndTs;
         uint64 rewardsSignEndBlock;
 
+        uint64 rewardEpochStartTs;
+        uint64 rewardEpochStartBlock;
+
+        uint64 uptimeVoteSignStartTs; // uptime vote submit end
+        uint64 uptimeVoteSignStartBlock;
+
         uint256 seed; // secure random number
         uint64 votePowerBlock;
         uint32 startVotingRoundId;
         uint16 threshold; // absolute value in normalised weight
 
-        uint64 rewardEpochStartTs;
-        uint64 rewardEpochStartBlock;
-
         Votes signingPolicyVotes;
+        Votes submitUptimeVoteVotes;
         mapping(bytes32 => Votes) uptimeVoteVotes;
         mapping(bytes32 => Votes) rewardVotes;
     }
@@ -134,6 +140,10 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     uint64 public voterRegistrationMinDurationSeconds; // 30 minutes
     /// Minimum duration of voter registration phase, in blocks.
     uint64 public voterRegistrationMinDurationBlocks; // 900
+    /// Minimum duration of submit uptime vote phase, in seconds.
+    uint64 public submitUptimeVoteMinDurationSeconds; // 10 minutes
+    /// Minimum duration of submit uptime vote phase, in blocks.
+    uint64 public submitUptimeVoteMinDurationBlocks; // 300 blocks
     /// Signing policy threshold, in parts per million.
     uint24 public signingPolicyThresholdPPM;
     /// Minimum number of voters for signing policy.
@@ -151,6 +161,9 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
 
     /// The reward epoch id that will expire next.
     uint24 public rewardEpochIdToExpireNext;
+
+    /// The last reward epoch id with sign uptime vote enabled.
+    uint24 internal lastRewardEpochIdWithSignUptimeVoteEnabled;
 
     /// The VoterRegistry contract.
     IIVoterRegistry public voterRegistry;
@@ -224,6 +237,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
         initialRandomVotePowerBlockSelectionSize = _initialSettings.initialRandomVotePowerBlockSelectionSize;
 
         rewardEpochIdToExpireNext = _initialSettings.initialRewardEpochId + 1; // no vote power block in initial epoch
+        lastRewardEpochIdWithSignUptimeVoteEnabled = _initialSettings.initialRewardEpochId;
         currentRewardEpochExpectedEndTs = firstRewardEpochStartTs +
             (_initialSettings.initialRewardEpochId + 1) * rewardEpochDurationSeconds;
         rewardEpochState[_initialSettings.initialRewardEpochId].threshold =
@@ -333,6 +347,23 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
             );
         }
 
+        // is it time to enable sign uptime vote
+        uint24 signUptimeVoteRewardEpochId = lastRewardEpochIdWithSignUptimeVoteEnabled + 1;
+        if (currentRewardEpochId > signUptimeVoteRewardEpochId &&
+            rewardEpochState[signUptimeVoteRewardEpochId].uptimeVoteSignStartTs == 0)
+        {
+            // signUptimeVoteRewardEpochId + 1 <= currentRewardEpochId -> rewardEpochStartTs/Block != 0
+            RewardEpochState storage nextState = rewardEpochState[signUptimeVoteRewardEpochId + 1];
+            if (nextState.rewardEpochStartTs + submitUptimeVoteMinDurationSeconds < block.timestamp &&
+                nextState.rewardEpochStartBlock + submitUptimeVoteMinDurationBlocks < block.number)
+            {
+                lastRewardEpochIdWithSignUptimeVoteEnabled = signUptimeVoteRewardEpochId;
+                rewardEpochState[signUptimeVoteRewardEpochId].uptimeVoteSignStartTs = block.timestamp.toUint64();
+                rewardEpochState[signUptimeVoteRewardEpochId].uptimeVoteSignStartBlock = block.number.toUint64();
+                emit SingUptimeVoteEnabled(signUptimeVoteRewardEpochId, block.timestamp.toUint64());
+            }
+        }
+
         // if cleanup is triggered elsewhere, check if it is time to close some reward epochs with cleaned up block
         if (!triggerExpirationAndCleanup) {
             uint256 cleanupBlockNumber = rewardManager.cleanupBlockNumber();
@@ -372,7 +403,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
             _rewardEpochId - 1, signingPolicyAddress);
         require(voter != address(0), "signature invalid");
         require(state.signingPolicyVotes.voters[voter].signTs == 0, "signing address already signed");
-        // save signing address timestamp and block number
+        // save voter's timestamp and block number
         state.signingPolicyVotes.voters[voter] = VoterData(block.timestamp.toUint64(), block.number.toUint64());
         // check if signing threshold is reached (use previous epoch threshold)
         bool thresholdReached =
@@ -398,6 +429,36 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     /**
      * @inheritdoc IFlareSystemManager
      */
+    function submitUptimeVote(
+        uint24 _rewardEpochId,
+        bytes20[] calldata _nodeIds,
+        Signature calldata _signature
+    )
+        external
+    {
+        require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
+        RewardEpochState storage state = rewardEpochState[_rewardEpochId];
+        require(state.uptimeVoteSignStartTs == 0, "submit uptime vote already finished");
+        bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _nodeIds));
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+        address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
+        (address voter, ) = voterRegistry.getVoterWithNormalisedWeight(
+            _rewardEpochId, signingPolicyAddress);
+        require(voter != address(0), "signature invalid");
+        // save voter's timestamp and block number (overrides previous submit)
+        state.submitUptimeVoteVotes.voters[voter] = VoterData(block.timestamp.toUint64(), block.number.toUint64());
+        emit UptimeVoteSubmitted(
+            _rewardEpochId,
+            signingPolicyAddress,
+            voter,
+            _nodeIds,
+            block.timestamp.toUint64()
+        );
+    }
+
+    /**
+     * @inheritdoc IFlareSystemManager
+     */
     function signUptimeVote(
         uint24 _rewardEpochId,
         bytes32 _uptimeVoteHash,
@@ -408,6 +469,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
         require(_uptimeVoteHash != bytes32(0), "uptime vote hash zero");
         RewardEpochState storage state = rewardEpochState[_rewardEpochId];
         require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
+        require(state.uptimeVoteSignStartTs != 0, "sign uptime vote not started yet");
         require(uptimeVoteHash[_rewardEpochId] == bytes32(0), "uptime vote hash already signed");
         bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _uptimeVoteHash));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
@@ -416,7 +478,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
             _rewardEpochId, signingPolicyAddress);
         require(voter != address(0), "signature invalid");
         require(state.uptimeVoteVotes[_uptimeVoteHash].voters[voter].signTs == 0, "voter already signed");
-        // save signing address timestamp and block number
+        // save voter's timestamp and block number
         state.uptimeVoteVotes[_uptimeVoteHash].voters[voter] =
             VoterData(block.timestamp.toUint64(), block.number.toUint64());
         // check if signing threshold is reached
@@ -465,7 +527,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
             voterRegistry.getVoterWithNormalisedWeight(_rewardEpochId, signingPolicyAddress);
         require(voter != address(0), "signature invalid");
         require(state.rewardVotes[messageHash].voters[voter].signTs == 0, "voter already signed");
-        // save signing address timestamp and block number
+        // save voter's timestamp and block number
         state.rewardVotes[messageHash].voters[voter] =
             VoterData(block.timestamp.toUint64(), block.number.toUint64());
         // check if signing threshold is reached
@@ -748,6 +810,22 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     /**
      * @inheritdoc IIFlareSystemManager
      */
+    function getVoterUptimeVoteSubmitInfo(uint24 _rewardEpochId, address _voter)
+        external view
+        returns(
+            uint64 _uptimeVoteSubmitTs,
+            uint64 _uptimeVoteSubmitBlock
+        )
+    {
+        RewardEpochState storage state = rewardEpochState[_rewardEpochId];
+        VoterData storage data = state.submitUptimeVoteVotes.voters[_voter];
+        _uptimeVoteSubmitTs = data.signTs;
+        _uptimeVoteSubmitBlock = data.signBlock;
+    }
+
+    /**
+     * @inheritdoc IIFlareSystemManager
+     */
     function getVoterUptimeVoteSignInfo(uint24 _rewardEpochId, address _voter)
         external view
         returns(
@@ -759,6 +837,21 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
         VoterData storage data = state.uptimeVoteVotes[uptimeVoteHash[_rewardEpochId]].voters[_voter];
         _uptimeVoteSignTs = data.signTs;
         _uptimeVoteSignBlock = data.signBlock;
+    }
+
+    /**
+     * @inheritdoc IIFlareSystemManager
+     */
+    function getUptimeVoteSignStartInfo(uint24 _rewardEpochId)
+        external view
+        returns(
+            uint64 _uptimeVoteSignStartTs,
+            uint64 _uptimeVoteSignStartBlock
+        )
+    {
+        RewardEpochState storage state = rewardEpochState[_rewardEpochId];
+        _uptimeVoteSignStartTs = state.uptimeVoteSignStartTs;
+        _uptimeVoteSignStartBlock = state.uptimeVoteSignStartBlock;
     }
 
     /**
@@ -873,6 +966,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
         rewardExpiryOffsetSeconds = _settings.rewardExpiryOffsetSeconds;
         voterRegistrationMinDurationSeconds = _settings.voterRegistrationMinDurationSeconds;
         voterRegistrationMinDurationBlocks = _settings.voterRegistrationMinDurationBlocks;
+        submitUptimeVoteMinDurationSeconds = _settings.submitUptimeVoteMinDurationSeconds;
+        submitUptimeVoteMinDurationBlocks = _settings.submitUptimeVoteMinDurationBlocks;
         signingPolicyThresholdPPM = _settings.signingPolicyThresholdPPM;
         signingPolicyMinNumberOfVoters = _settings.signingPolicyMinNumberOfVoters;
     }

@@ -203,6 +203,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             newSigningPolicyMinNumberOfVotingRoundsDelay: 1,
             voterRegistrationMinDurationSeconds: 30 * 60,
             voterRegistrationMinDurationBlocks: 20, // default 900,
+            submitUptimeVoteMinDurationSeconds: 10 * 60,
+            submitUptimeVoteMinDurationBlocks: 20, // default 300,
             signingPolicyThresholdPPM: 500000,
             signingPolicyMinNumberOfVoters: 2,
             rewardExpiryOffsetSeconds: 90 * 24 * 3600
@@ -696,7 +698,26 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(2);
     });
 
+    it("Should submit some uptime votes for reward epoch 1", async () => {
+        const rewardEpochId = 1;
+        for (let i = 0; i < 4; i++) {
+            const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+                ["uint24", "bytes20[]"],
+                [rewardEpochId, nodeIds]));
+
+            const signature = web3.eth.accounts.sign(hash, privateKeys[30 + i].privateKey);
+            expectEvent(await flareSystemManager.submitUptimeVote(rewardEpochId, nodeIds, signature),
+                "UptimeVoteSubmitted", { voter: registeredCAddresses[i], rewardEpochId: toBN(1), signingPolicyAddress: accounts[30 + i], nodeIds: nodeIds });
+        }
+    });
+
     it("Should sign uptime vote for reward epoch 1", async () => {
+        for (let i = 0; i < 20; i++) {
+            await time.advanceBlock(); // create required number of blocks to proceed
+        }
+        await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC + 3600)); // at least 10 minutes from the new reward epoch start
+        const tx = await flareSystemManager.daemonize();
+        expectEvent(tx, "SingUptimeVoteEnabled", { rewardEpochId: toBN(1) });
         const rewardEpochId = 1;
         const uptimeVoteHash = web3.utils.keccak256("uptime");
         const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(

@@ -43,6 +43,21 @@ interface IFlareSystemManager {
         uint64 timestamp                // Timestamp when this happened
     );
 
+    /// Event emitted when it is time to sign uptime vote.
+    event SingUptimeVoteEnabled(
+        uint24 indexed rewardEpochId,   // Reward epoch id
+        uint64 timestamp                // Timestamp when this happened
+    );
+
+    /// Event emitted when uptime vote is submitted.
+    event UptimeVoteSubmitted(
+        uint24 indexed rewardEpochId,           // Reward epoch id
+        address indexed signingPolicyAddress,   // Address which signed this
+        address indexed voter,                  // Voter (entity)
+        bytes20[] nodeIds,                      // Node ids with high enough uptime
+        uint64 timestamp                        // Timestamp when this happened
+    );
+
     /// Event emitted when uptime vote is signed.
     event UptimeVoteSigned(
         uint24 indexed rewardEpochId,           // Reward epoch id
@@ -73,6 +88,19 @@ interface IFlareSystemManager {
     function signNewSigningPolicy(
         uint24 _rewardEpochId,
         bytes32 _newSigningPolicyHash,
+        Signature calldata _signature
+    )
+        external;
+
+    /**
+     * Method for submitting node ids with high enough uptime.
+     * @param _rewardEpochId Reward epoch id of the uptime vote.
+     * @param _nodeIds Node ids with high enough uptime.
+     * @param _signature Signature.
+     */
+    function submitUptimeVote(
+        uint24 _rewardEpochId,
+        bytes20[] calldata _nodeIds,
         Signature calldata _signature
     )
         external;

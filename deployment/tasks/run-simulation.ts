@@ -86,6 +86,8 @@ export const systemSettings = function (now: number) {
       newSigningPolicyMinNumberOfVotingRoundsDelay: 0,
       voterRegistrationMinDurationSeconds: 10,
       voterRegistrationMinDurationBlocks: 1,
+      submitUptimeVoteMinDurationSeconds: 10,
+      submitUptimeVoteMinDurationBlocks: 1,
       signingPolicyThresholdPPM: 500000,
       signingPolicyMinNumberOfVoters: 2,
       rewardExpiryOffsetSeconds: 1000
