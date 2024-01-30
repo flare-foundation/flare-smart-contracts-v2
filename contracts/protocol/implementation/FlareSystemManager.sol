@@ -360,7 +360,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
                 lastRewardEpochIdWithSignUptimeVoteEnabled = signUptimeVoteRewardEpochId;
                 rewardEpochState[signUptimeVoteRewardEpochId].uptimeVoteSignStartTs = block.timestamp.toUint64();
                 rewardEpochState[signUptimeVoteRewardEpochId].uptimeVoteSignStartBlock = block.number.toUint64();
-                emit SingUptimeVoteEnabled(signUptimeVoteRewardEpochId, block.timestamp.toUint64());
+                emit SignUptimeVoteEnabled(signUptimeVoteRewardEpochId, block.timestamp.toUint64());
             }
         }
 

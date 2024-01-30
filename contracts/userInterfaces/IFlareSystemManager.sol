@@ -44,7 +44,7 @@ interface IFlareSystemManager {
     );
 
     /// Event emitted when it is time to sign uptime vote.
-    event SingUptimeVoteEnabled(
+    event SignUptimeVoteEnabled(
         uint24 indexed rewardEpochId,   // Reward epoch id
         uint64 timestamp                // Timestamp when this happened
     );

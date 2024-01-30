@@ -735,7 +735,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         }
         await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC + 3600)); // at least 10 minutes from the new reward epoch start
         const tx = await flareSystemManager.daemonize();
-        expectEvent(tx, "SingUptimeVoteEnabled", { rewardEpochId: toBN(1) });
+        expectEvent(tx, "SignUptimeVoteEnabled", { rewardEpochId: toBN(1) });
         const rewardEpochId = 1;
         const uptimeVoteHash = web3.utils.keccak256("uptime");
         const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
