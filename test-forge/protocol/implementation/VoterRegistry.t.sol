@@ -132,6 +132,22 @@ contract VoterRegistryTest is Test {
         voterRegistry.chill(voters, 2);
     }
 
+    function testChillBeneficiaries() public {
+        vm.prank(governance);
+        _mockGetCurrentEpochId(1);
+
+        bytes20[] memory beneficiaryList = new bytes20[](2);
+        beneficiaryList[0] = bytes20(initialVoters[0]);
+        bytes20 nodeId = bytes20("node1");
+        beneficiaryList[1] = nodeId;
+
+        vm.expectEmit();
+        emit BeneficiaryChilled(bytes20(initialVoters[0]), 4);
+        vm.expectEmit();
+        emit BeneficiaryChilled(nodeId, 4);
+        voterRegistry.chill(beneficiaryList, 2);
+    }
+
     function testSetMaxVoters() public {
         vm.startPrank(governance);
         vm.expectRevert("_maxVoters too high");
