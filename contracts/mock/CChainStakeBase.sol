@@ -20,7 +20,7 @@ contract CChainStakeBase is ICChainVotePower, CheckPointable {
     // It is more than 1 to make as certain as possible that all history gets cleaned eventually.
     uint256 private constant CHECKPOINTS_CLEANUP_COUNT = 2;
 
-    mapping(address stakeOwner => CChainStakeHistory.CheckPointHistoryState) private stakes;
+    mapping(address => CChainStakeHistory.CheckPointHistoryState) private stakes;
 
     // `votePower` tracks all vote power balances
     VotePower.VotePowerState private votePower;

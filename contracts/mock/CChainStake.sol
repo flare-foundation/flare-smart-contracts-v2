@@ -42,7 +42,7 @@ contract CChainStake is ICChainStake, CChainStakeBase, GovernedAndFlareDaemonize
     uint256 public nextTimestampToTrigger;
 
     /// Mapping from stake end time to the list of staking data
-    mapping(uint256 endTime => CChainStakingData[]) public endTimeToStakingDataList;
+    mapping(uint256 => CChainStakingData[]) public endTimeToStakingDataList;
 
     /// mapping from address to the claimable/restakable amount (sum of expired stakes)
     mapping(address => uint256) public totalExpiredStakeWei;
