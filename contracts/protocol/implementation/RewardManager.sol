@@ -45,12 +45,12 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     uint256 constant internal PPM_MAX = 1e6;
     uint24 constant internal FIRST_CLAIMABLE_EPOCH = type(uint24).max;
 
-    mapping(address => uint24) private rewardOwnerNextClaimableEpochId;
-    mapping(uint256 => uint256) private epochVotePowerBlock;
-    mapping(uint256 => uint120) private epochTotalRewards;
-    mapping(uint256 => uint120) private epochInitialisedRewards;
-    mapping(uint256 => uint120) private epochClaimedRewards;
-    mapping(uint256 => uint120) private epochBurnedRewards;
+    mapping(address rewardOwner => uint24) private rewardOwnerNextClaimableEpochId;
+    mapping(uint256 rewardEpochId => uint256) private epochVotePowerBlock;
+    mapping(uint256 rewardEpochId => uint120) private epochTotalRewards;
+    mapping(uint256 rewardEpochId => uint120) private epochInitialisedRewards;
+    mapping(uint256 rewardEpochId => uint120) private epochClaimedRewards;
+    mapping(uint256 rewardEpochId => uint120) private epochBurnedRewards;
 
     /// The first reward epoch id that was claimable.
     uint24 public firstClaimableRewardEpochId;

@@ -16,8 +16,8 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
     using MerkleProof for bytes32[];
 
-    mapping(bytes8 => Feed) internal lastFeeds;
-    mapping(bytes8 => mapping(uint256 => Feed)) internal publishedFeeds;
+    mapping(bytes8 feedName => Feed) internal lastFeeds;
+    mapping(bytes8 feedName => mapping(uint256 feedHistoryPosition => Feed)) internal publishedFeeds;
 
     /// The Relay contract.
     IRelay public relay;

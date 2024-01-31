@@ -21,7 +21,7 @@ contract WNatDelegationFee is AddressUpdatable, IWNatDelegationFee {
     /// The default fee percentage value.
     uint16 public immutable defaultFeePercentageBIPS;
     //slither-disable-next-line uninitialized-state
-    mapping(address => FeePercentage[]) internal voterFeePercentages;
+    mapping(address voter => FeePercentage[]) internal voterFeePercentages;
 
     /// The FlareSystemsManager contract.
     IFlareSystemsManager public flareSystemsManager;

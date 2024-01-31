@@ -91,8 +91,8 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
 
         Votes signingPolicyVotes;
         Votes submitUptimeVoteVotes;
-        mapping(bytes32 => Votes) uptimeVoteVotes;
-        mapping(bytes32 => Votes) rewardVotes;
+        mapping(bytes32 uptimeVoteHash => Votes) uptimeVoteVotes;
+        mapping(bytes32 rewardsVoteHash => Votes) rewardVotes;
     }
 
 
@@ -116,14 +116,16 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     uint64 public immutable initialRandomVotePowerBlockSelectionSize;
 
     /// Reward epoch state for given reward epoch
-    mapping(uint256 => RewardEpochState) internal rewardEpochState; // mapping: reward epoch id => reward epoch state
+    mapping(uint256 rewardEpochId => RewardEpochState) internal rewardEpochState;
 
     /// Uptime vote hash for given reward epoch id
-    mapping(uint256 => bytes32) public uptimeVoteHash; // mapping: reward epoch id => uptime vote hash
+    mapping(uint256 rewardEpochId => bytes32) public uptimeVoteHash;
+
     /// Rewards hash for given reward epoch id
-    mapping(uint256 => bytes32) public rewardsHash; // mapping: reward epoch id => rewards hash
+    mapping(uint256 rewardEpochId => bytes32) public rewardsHash;
+
     /// Number of weight based claims for given reward epoch id
-    mapping(uint256 => uint256) public noOfWeightBasedClaims; // mapping: reward epoch id => no. of weight based claims
+    mapping(uint256 rewardEpochId => uint256) public noOfWeightBasedClaims;
 
     // Signing policy settings
     /// Maximum duration of random acquisition phase, in seconds.

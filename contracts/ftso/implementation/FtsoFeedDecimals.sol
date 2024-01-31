@@ -20,7 +20,7 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
     /// The default decimals value.
     int8 public immutable defaultDecimals;
     //slither-disable-next-line uninitialized-state
-    mapping(bytes8 => Decimals[]) internal decimals;
+    mapping(bytes8 feedName => Decimals[]) internal decimals;
 
     /// The FlareSystemsManager contract.
     IFlareSystemsManager public flareSystemsManager;

@@ -39,17 +39,19 @@ contract EntityManager is Governed, IIEntityManager {
     /// Maximum number of node ids per entity.
     uint32 public maxNodeIdsPerEntity;
 
-    mapping(address => Entity) internal register; // voter to entity data
-    mapping(bytes20 => AddressHistory.CheckPointHistoryState) internal nodeIdRegistered;
-    mapping(bytes32 => AddressHistory.CheckPointHistoryState) internal publicKeyRegistered;
-    mapping(address => AddressHistory.CheckPointHistoryState) internal delegationAddressRegistered;
-    mapping(address => address) internal delegationAddressRegistrationQueue;
-    mapping(address => AddressHistory.CheckPointHistoryState) internal submitAddressRegistered;
-    mapping(address => address) internal submitAddressRegistrationQueue;
-    mapping(address => AddressHistory.CheckPointHistoryState) internal submitSignaturesAddressRegistered;
-    mapping(address => address) internal submitSignaturesAddressRegistrationQueue;
-    mapping(address => AddressHistory.CheckPointHistoryState) internal signingPolicyAddressRegistered;
-    mapping(address => address) internal signingPolicyAddressRegistrationQueue;
+    mapping(address voter => Entity) internal register; // voter to entity data
+    mapping(bytes20 nodeId => AddressHistory.CheckPointHistoryState) internal nodeIdRegistered;
+    mapping(bytes32 publicKey => AddressHistory.CheckPointHistoryState) internal publicKeyRegistered;
+    mapping(address delegationAddress => AddressHistory.CheckPointHistoryState) internal delegationAddressRegistered;
+    mapping(address voter => address delegationAddress) internal delegationAddressRegistrationQueue;
+    mapping(address submitAddress => AddressHistory.CheckPointHistoryState) internal submitAddressRegistered;
+    mapping(address voter => address submitAddress) internal submitAddressRegistrationQueue;
+    mapping(address submitSignaturesAddress =>
+        AddressHistory.CheckPointHistoryState) internal submitSignaturesAddressRegistered;
+    mapping(address voter => address submitSignaturesAddress) internal submitSignaturesAddressRegistrationQueue;
+    mapping(address signingPolicyAddress =>
+        AddressHistory.CheckPointHistoryState) internal signingPolicyAddressRegistered;
+    mapping(address voter => address signingPolicyAddress) internal signingPolicyAddressRegistrationQueue;
 
 
     /**

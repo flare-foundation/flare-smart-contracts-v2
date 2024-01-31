@@ -21,7 +21,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     /// Voter registration data.
     struct VotersAndWeights {
         address[] voters;
-        mapping (address => uint256) weights;
+        mapping (address voter => uint256) weights;
         uint128 weightsSum;
         uint16 normalisedWeightsSum;
         uint16 normalisedWeightsSumOfVotersWithPublicKeys;
