@@ -466,35 +466,47 @@ contract EntityManagerTest is Test {
         // register data provider
         vm.prank(user1);
         entityManager.proposeDelegationAddress(delegationAddr1);
+        assertEq(entityManager.getDelegationAddressOfAt(user1, 100), user1);
+        assertEq(entityManager.getDelegationAddressOf(user1), user1);
         assertEq(entityManager.getDelegationAddresses(voters, 100)[0], user1);
         assertEq(entityManager.getVoterForDelegationAddress(delegationAddr1, 100), delegationAddr1);
 
         // confirm registration
         vm.prank(delegationAddr1);
         entityManager.confirmDelegationAddressRegistration(user1);
+        assertEq(entityManager.getDelegationAddressOfAt(user1, 100), delegationAddr1);
+        assertEq(entityManager.getDelegationAddressOf(user1), delegationAddr1);
         assertEq(entityManager.getDelegationAddresses(voters, 100)[0], delegationAddr1);
         assertEq(entityManager.getVoterForDelegationAddress(delegationAddr1, 100), user1);
 
         // register another data provider
         vm.prank(user1);
         entityManager.proposeDelegationAddress(delegationAddr2);
+        assertEq(entityManager.getDelegationAddressOfAt(user1, 100), delegationAddr1);
+        assertEq(entityManager.getDelegationAddressOf(user1), delegationAddr1);
         assertEq(entityManager.getDelegationAddresses(voters, 100)[0], delegationAddr1);
 
         // confirm registration and replace first data provider
         vm.roll(200);
         vm.prank(delegationAddr2);
         entityManager.confirmDelegationAddressRegistration(user1);
+        assertEq(entityManager.getDelegationAddressOfAt(user1, 100), delegationAddr1);
         assertEq(entityManager.getDelegationAddresses(voters, 100)[0], delegationAddr1);
+        assertEq(entityManager.getDelegationAddressOfAt(user1, 200), delegationAddr2);
+        assertEq(entityManager.getDelegationAddressOf(user1), delegationAddr2);
         assertEq(entityManager.getDelegationAddresses(voters, 200)[0], delegationAddr2);
     }
 
     function testGetVoterAddresses() public {
         vm.roll(100);
-        EntityManager.VoterAddresses memory voterAddresses = entityManager.getVoterAddresses(user1, block.number);
+        EntityManager.VoterAddresses memory voterAddresses = entityManager.getVoterAddresses(user1);
+        EntityManager.VoterAddresses memory voterAddressesAt = entityManager.getVoterAddressesAt(user1, block.number);
         assertEq(voterAddresses.submitAddress, user1);
         assertEq(voterAddresses.submitSignaturesAddress, user1);
         assertEq(voterAddresses.signingPolicyAddress, user1);
-        assertEq(voterAddresses.delegationAddress, user1);
+        assertEq(voterAddressesAt.submitAddress, user1);
+        assertEq(voterAddressesAt.submitSignaturesAddress, user1);
+        assertEq(voterAddressesAt.signingPolicyAddress, user1);
 
         address dataProvider1 = makeAddr("dataProvider1");
         address submitSignaturesAddr1 = makeAddr("submitSignaturesAddr1");
@@ -519,18 +531,20 @@ contract EntityManagerTest is Test {
         vm.prank(delegationAddr1);
         entityManager.confirmDelegationAddressRegistration(user1);
 
-        EntityManager.VoterAddresses memory voterAddressesAtBlock100 = entityManager.getVoterAddresses(user1, 100);
+        EntityManager.VoterAddresses memory voterAddressesAtBlock100 = entityManager.getVoterAddressesAt(user1, 100);
         assertEq(voterAddressesAtBlock100.submitAddress, user1);
         assertEq(voterAddressesAtBlock100.submitSignaturesAddress, user1);
         assertEq(voterAddressesAtBlock100.signingPolicyAddress, user1);
-        assertEq(voterAddressesAtBlock100.delegationAddress, user1);
 
-        EntityManager.VoterAddresses memory voterAddressesAtBlock200 = entityManager.getVoterAddresses(
+        EntityManager.VoterAddresses memory voterAddressesAtNow = entityManager.getVoterAddresses(user1);
+        EntityManager.VoterAddresses memory voterAddressesAtBlock200 = entityManager.getVoterAddressesAt(
             user1, block.number);
+        assertEq(voterAddressesAtNow.submitAddress, dataProvider1);
+        assertEq(voterAddressesAtNow.submitSignaturesAddress, submitSignaturesAddr1);
+        assertEq(voterAddressesAtNow.signingPolicyAddress, signingPolicyAddr1);
         assertEq(voterAddressesAtBlock200.submitAddress, dataProvider1);
         assertEq(voterAddressesAtBlock200.submitSignaturesAddress, submitSignaturesAddr1);
         assertEq(voterAddressesAtBlock200.signingPolicyAddress, signingPolicyAddr1);
-        assertEq(voterAddressesAtBlock200.delegationAddress, delegationAddr1);
     }
 
     // public key tests

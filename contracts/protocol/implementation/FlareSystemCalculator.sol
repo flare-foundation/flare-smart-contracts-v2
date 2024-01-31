@@ -84,7 +84,6 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
      * It is approximation of the staking weight and capped WNat weight to the power of 0.75.
      * If some node id or delegation address is chilled, the weight for its part is zero.
      * @param _voter The address of the voter.
-     * @param _delegationAddress The voter's delegation address.
      * @param _rewardEpochId The reward epoch id.
      * @param _votePowerBlockNumber The block number at which the vote power is calculated.
      * @return _registrationWeight The registration weight of the voter.
@@ -92,7 +91,6 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
      */
     function calculateRegistrationWeight(
         address _voter,
-        address _delegationAddress,
         uint24 _rewardEpochId,
         uint256 _votePowerBlockNumber
     )
@@ -116,10 +114,11 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
 
         uint256 wNatWeight = 0;
         uint256 wNatCappedWeight = 0;
-        if (_rewardEpochId >= voterRegistry.chilledUntilRewardEpochId(bytes20(_delegationAddress))) {
+        address delegationAddress = entityManager.getDelegationAddressOfAt(_voter, _votePowerBlockNumber);
+        if (_rewardEpochId >= voterRegistry.chilledUntilRewardEpochId(bytes20(delegationAddress))) {
             uint256 totalWNatVotePower = wNat.totalVotePowerAt(_votePowerBlockNumber);
             uint256 wNatWeightCap = (totalWNatVotePower * wNatCapPPM) / PPM_MAX; // no overflow possible
-            wNatWeight = wNat.votePowerOfAt(_delegationAddress, _votePowerBlockNumber);
+            wNatWeight = wNat.votePowerOfAt(delegationAddress, _votePowerBlockNumber);
             wNatCappedWeight = Math.min(wNatWeightCap, wNatWeight);
             _registrationWeight += wNatCappedWeight;
         }
@@ -131,11 +130,12 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
         emit VoterRegistrationInfo(
             _voter,
             _rewardEpochId,
+            delegationAddress,
+            delegationFeeBIPS,
             wNatWeight,
             wNatCappedWeight,
             nodeIds,
-            nodeWeights,
-            delegationFeeBIPS
+            nodeWeights
         );
     }
 

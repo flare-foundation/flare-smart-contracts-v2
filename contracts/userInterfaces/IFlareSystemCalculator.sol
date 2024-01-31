@@ -11,11 +11,12 @@ interface IFlareSystemCalculator {
     event VoterRegistrationInfo(
         address indexed voter,
         uint24 indexed rewardEpochId,
+        address delegationAddress,
+        uint16 delegationFeeBIPS,
         uint256 wNatWeight,
         uint256 wNatCappedWeight,
         bytes20[] nodeIds,
-        uint256[] nodeWeights,
-        uint16 delegationFeeBIPS
+        uint256[] nodeWeights
     );
 
     /// WNat cap used in signing policy weight.

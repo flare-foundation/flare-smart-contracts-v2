@@ -12,7 +12,6 @@ interface IIFlareSystemCalculator is IFlareSystemCalculator {
      * Calculates the registration weight of a voter.
      * It is approximation of the staking weight and capped WNat weight to the power of 0.75.
      * @param _voter The address of the voter.
-     * @param _delegationAddress The voter's delegation address.
      * @param _rewardEpochId The reward epoch id.
      * @param _votePowerBlockNumber The block number at which the vote power is calculated.
      * @return _registrationWeight The registration weight of the voter.
@@ -20,7 +19,6 @@ interface IIFlareSystemCalculator is IFlareSystemCalculator {
      */
     function calculateRegistrationWeight(
         address _voter,
-        address _delegationAddress,
         uint24 _rewardEpochId,
         uint256 _votePowerBlockNumber
     )

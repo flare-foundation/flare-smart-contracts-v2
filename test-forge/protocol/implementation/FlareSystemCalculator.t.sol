@@ -5,23 +5,38 @@ import "forge-std/Test.sol";
 import "../../../contracts/protocol/implementation/FlareSystemCalculator.sol";
 
 contract FlareSystemCalculatorTest is Test {
-    FlareSystemCalculator calculator;
-    FlareSystemCalculator calculatorNoMirroring;
+    FlareSystemCalculator internal calculator;
+    FlareSystemCalculator internal calculatorNoMirroring;
 
-    IGovernanceSettings govSetting;
-    address governance;
+    IGovernanceSettings internal govSetting;
+    address internal governance;
 
-    uint256 internal constant max = 2 ** 128;
+    uint256 internal constant MAX = 2 ** 128;
+    uint24 internal constant WNAT_CAP = 10000;
+    uint256 internal constant TOTAL_WNAT_VOTE_POWER = 1e7;
+    uint256 internal constant WNAT_WEIGHT = 2e5;
+    uint16 internal constant DELEGATION_FEE_BIPS = 15;
+
+    event VoterRegistrationInfo(
+        address indexed voter,
+        uint24 indexed rewardEpochId,
+        address delegationAddress,
+        uint16 delegationFeeBIPS,
+        uint256 wNatWeight,
+        uint256 wNatCappedWeight,
+        bytes20[] nodeIds,
+        uint256[] nodeWeights
+    );
 
     function setUp() public {
         govSetting = IGovernanceSettings(makeAddr("govSetting"));
         governance = makeAddr("initialGovernence");
 
         calculator =
-            new FlareSystemCalculator(govSetting, governance, makeAddr("AddressUpdater"), 200000, 20 * 60, 600, 600);
+            new FlareSystemCalculator(govSetting, governance, makeAddr("AddressUpdater"), WNAT_CAP, 20 * 60, 600, 600);
 
         calculatorNoMirroring =
-            new FlareSystemCalculator(govSetting, governance, makeAddr("AddressUpdater"), 200000, 20 * 60, 600, 600);
+            new FlareSystemCalculator(govSetting, governance, makeAddr("AddressUpdater"), WNAT_CAP, 20 * 60, 600, 600);
 
         bytes32[] memory contractNameHashes = new bytes32[](7);
         contractNameHashes[0] = keccak256(abi.encode("EntityManager"));
@@ -52,26 +67,26 @@ contract FlareSystemCalculatorTest is Test {
     }
 
     function testFuzz_perfectSquare(uint256 n) public {
-        vm.assume(n < max);
+        vm.assume(n < MAX);
         uint128 root = calculator.sqrt(n * n);
         assertEq(root, n);
     }
 
     function testFuzz_perfectSquareMinusOne(uint256 n) public {
-        vm.assume(n < max);
+        vm.assume(n < MAX);
         vm.assume(0 < n);
         uint128 root = calculator.sqrt((n * n) - 1);
         assertEq(root, n - 1);
     }
 
     function testFuzz_perfectSquarePlusN(uint256 n) public {
-        vm.assume(n < max);
+        vm.assume(n < MAX);
         uint128 root = calculator.sqrt(n * (n + 1));
         assertEq(root, n);
     }
 
     function testFuzz_perfectSquareMinusN(uint256 n) public {
-        vm.assume(n < max);
+        vm.assume(n < MAX);
         vm.assume(0 < n);
 
         uint128 root = calculator.sqrt(n * (n - 1));
@@ -110,9 +125,6 @@ contract FlareSystemCalculatorTest is Test {
         nodeWeights[1] = 1e8;
         nodeWeights[2] = 1e9;
 
-        uint256 totalWNatVotePower = 1e7;
-        uint256 wNatWeight = 1e5;
-        uint16 delegationFeeBIPS = 15;
         address voter = makeAddr("voter");
         address delegationAddress = makeAddr("delagation");
         uint24 rewardEpochId = 12345;
@@ -146,9 +158,15 @@ contract FlareSystemCalculatorTest is Test {
         );
 
         vm.mockCall(
+            address(calculator.entityManager()),
+            abi.encodeWithSelector(IEntityManager.getDelegationAddressOfAt.selector, voter, votePowerBlockNumber),
+            abi.encode(delegationAddress)
+        );
+
+        vm.mockCall(
             address(calculator.wNat()),
             abi.encodeWithSelector(bytes4(keccak256("totalVotePowerAt(uint256)")), votePowerBlockNumber),
-            abi.encode(totalWNatVotePower)
+            abi.encode(TOTAL_WNAT_VOTE_POWER)
         );
 
         vm.mockCall(
@@ -156,22 +174,34 @@ contract FlareSystemCalculatorTest is Test {
             abi.encodeWithSelector(
                 bytes4(keccak256("votePowerOfAt(address,uint256)")), delegationAddress, votePowerBlockNumber
             ),
-            abi.encode(wNatWeight)
+            abi.encode(WNAT_WEIGHT)
         );
 
         vm.mockCall(
             address(calculator.wNatDelegationFee()),
             abi.encodeWithSelector(IWNatDelegationFee.getVoterFeePercentage.selector, voter, rewardEpochId),
-            abi.encode(delegationFeeBIPS)
+            abi.encode(DELEGATION_FEE_BIPS)
         );
 
+        vm.expectEmit();
+        emit VoterRegistrationInfo(
+            voter,
+            rewardEpochId,
+            delegationAddress,
+            DELEGATION_FEE_BIPS,
+            WNAT_WEIGHT,
+            Math.min(WNAT_WEIGHT, TOTAL_WNAT_VOTE_POWER * WNAT_CAP / 1e6), // 1e5
+            nodeIds,
+            nodeWeights
+        );
         vm.prank(address(calculatorNoMirroring.voterRegistry()));
-
         uint256 registrationWeight =
-            calculator.calculateRegistrationWeight(voter, delegationAddress, rewardEpochId, votePowerBlockNumber);
+            calculator.calculateRegistrationWeight(voter, rewardEpochId, votePowerBlockNumber);
 
-        assertEq(registrationWeight < 9809897, true);
-        assertEq(registrationWeight > 5623, true);
+        // sum of weights = 2100100000
+        // sqrt(2100100000) = 45826
+        // sqrt(45826) = 214
+        assertEq(registrationWeight, 45826 * 214);
     }
 
     function test_calculateRegistrationWeightNoMirroring() public {
@@ -185,9 +215,6 @@ contract FlareSystemCalculatorTest is Test {
         nodeWeights[1] = 1e8;
         nodeWeights[2] = 1e9;
 
-        uint256 totalWNatVotePower = 1e7;
-        uint256 wNatWeight = 1e5;
-        uint16 delegationFeeBIPS = 15;
         address voter = makeAddr("voter");
         address delegationAddress = makeAddr("delagation");
         uint24 rewardEpochId = 12345;
@@ -221,9 +248,15 @@ contract FlareSystemCalculatorTest is Test {
         );
 
         vm.mockCall(
+            address(calculator.entityManager()),
+            abi.encodeWithSelector(IEntityManager.getDelegationAddressOfAt.selector, voter, votePowerBlockNumber),
+            abi.encode(delegationAddress)
+        );
+
+        vm.mockCall(
             address(calculatorNoMirroring.wNat()),
             abi.encodeWithSelector(bytes4(keccak256("totalVotePowerAt(uint256)")), votePowerBlockNumber),
-            abi.encode(totalWNatVotePower)
+            abi.encode(TOTAL_WNAT_VOTE_POWER)
         );
 
         vm.mockCall(
@@ -231,21 +264,39 @@ contract FlareSystemCalculatorTest is Test {
             abi.encodeWithSelector(
                 bytes4(keccak256("votePowerOfAt(address,uint256)")), delegationAddress, votePowerBlockNumber
             ),
-            abi.encode(wNatWeight)
+            abi.encode(WNAT_WEIGHT)
         );
 
         vm.mockCall(
             address(calculatorNoMirroring.wNatDelegationFee()),
             abi.encodeWithSelector(IWNatDelegationFee.getVoterFeePercentage.selector, voter, rewardEpochId),
-            abi.encode(delegationFeeBIPS)
+            abi.encode(DELEGATION_FEE_BIPS)
         );
 
+        // no mirroring
+        nodeWeights[0] = 0;
+        nodeWeights[1] = 0;
+        nodeWeights[2] = 0;
+        vm.expectEmit();
+        emit VoterRegistrationInfo(
+            voter,
+            rewardEpochId,
+            delegationAddress,
+            DELEGATION_FEE_BIPS,
+            WNAT_WEIGHT,
+            Math.min(WNAT_WEIGHT, TOTAL_WNAT_VOTE_POWER * WNAT_CAP / 1e6), // 1e5
+            nodeIds,
+            nodeWeights
+        );
         vm.prank(address(calculatorNoMirroring.voterRegistry()));
         uint256 registrationWeight = calculatorNoMirroring.calculateRegistrationWeight(
-            voter, delegationAddress, rewardEpochId, votePowerBlockNumber
+            voter, rewardEpochId, votePowerBlockNumber
         );
 
-        assertEq(registrationWeight < 5623, true);
+        // sum of weights = 100000
+        // sqrt(100000) = 316
+        // sqrt(316) = 17
+        assertEq(registrationWeight, 316 * 17);
     }
 
     function test_calculateBurnFactorPPMSignedInTime() public {

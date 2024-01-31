@@ -304,6 +304,32 @@ contract EntityManager is Governed, IIEntityManager {
     /**
      * @inheritdoc IEntityManager
      */
+    function getDelegationAddressOfAt(
+        address _voter,
+        uint256 _blockNumber
+    )
+        external view
+        returns(address _delegationAddress)
+    {
+        _delegationAddress = register[_voter].delegationAddress.addressAt(_blockNumber);
+        if (_delegationAddress == address(0)) {
+            _delegationAddress = _voter;
+        }
+    }
+
+    /**
+     * @inheritdoc IEntityManager
+     */
+    function getDelegationAddressOf(address _voter) external view returns(address _delegationAddress) {
+        _delegationAddress = register[_voter].delegationAddress.addressAtNow();
+        if (_delegationAddress == address(0)) {
+            _delegationAddress = _voter;
+        }
+    }
+
+    /**
+     * @inheritdoc IEntityManager
+     */
     function getNodeIdsOfAt(address _voter, uint256 _blockNumber) external view returns (bytes20[] memory) {
         return register[_voter].nodeIds.nodeIdsAt(_blockNumber);
     }
@@ -332,15 +358,10 @@ contract EntityManager is Governed, IIEntityManager {
     /**
      * @inheritdoc IEntityManager
      */
-    function getVoterAddresses(address _voter, uint256 _blockNumber)
+    function getVoterAddressesAt(address _voter, uint256 _blockNumber)
         external view
         returns (VoterAddresses memory _addresses)
     {
-        _addresses.delegationAddress = register[_voter].delegationAddress.addressAt(_blockNumber);
-        if (_addresses.delegationAddress == address(0)) {
-            _addresses.delegationAddress = _voter;
-        }
-
         _addresses.submitAddress = register[_voter].submitAddress.addressAt(_blockNumber);
         if (_addresses.submitAddress == address(0)) {
             _addresses.submitAddress = _voter;
@@ -352,6 +373,29 @@ contract EntityManager is Governed, IIEntityManager {
         }
 
         _addresses.signingPolicyAddress = register[_voter].signingPolicyAddress.addressAt(_blockNumber);
+        if (_addresses.signingPolicyAddress == address(0)) {
+            _addresses.signingPolicyAddress = _voter;
+        }
+    }
+
+    /**
+     * @inheritdoc IEntityManager
+     */
+    function getVoterAddresses(address _voter)
+        external view
+        returns (VoterAddresses memory _addresses)
+    {
+        _addresses.submitAddress = register[_voter].submitAddress.addressAtNow();
+        if (_addresses.submitAddress == address(0)) {
+            _addresses.submitAddress = _voter;
+        }
+
+        _addresses.submitSignaturesAddress = register[_voter].submitSignaturesAddress.addressAtNow();
+        if (_addresses.submitSignaturesAddress == address(0)) {
+            _addresses.submitSignaturesAddress = _voter;
+        }
+
+        _addresses.signingPolicyAddress = register[_voter].signingPolicyAddress.addressAtNow();
         if (_addresses.signingPolicyAddress == address(0)) {
             _addresses.signingPolicyAddress = _voter;
         }

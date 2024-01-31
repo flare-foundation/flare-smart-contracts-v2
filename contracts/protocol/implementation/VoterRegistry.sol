@@ -250,7 +250,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     {
         require(register[_rewardEpochId].weightsSum > 0, "reward epoch id not supported");
         return entityManager.getDelegationAddresses(register[_rewardEpochId].voters,
-            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+            flareSystemManager.getVotePowerBlock(_rewardEpochId));
     }
 
     /**
@@ -320,7 +320,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     {
         require(register[_rewardEpochId].weightsSum > 0, "reward epoch id not supported");
         return entityManager.getNodeIds(register[_rewardEpochId].voters,
-            newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+            flareSystemManager.getVotePowerBlock(_rewardEpochId));
     }
 
     /**
@@ -430,8 +430,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         (uint256 votePowerBlock, bool enabled) = flareSystemManager.getVoterRegistrationData(_rewardEpochId);
         require(votePowerBlock != 0, "vote power block zero");
         require(enabled, "voter registration not enabled");
-        uint256 weight = flareSystemCalculator
-            .calculateRegistrationWeight(_voter, _voterAddresses.delegationAddress, _rewardEpochId, votePowerBlock);
+        uint256 weight = flareSystemCalculator.calculateRegistrationWeight(_voter, _rewardEpochId, votePowerBlock);
         require(weight > 0, "voter weight zero");
 
         VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
@@ -474,13 +473,17 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
             emit VoterRemoved(removedVoter, _rewardEpochId);
         }
 
+        (bytes32 publicKeyPart1, bytes32 publicKeyPart2) =
+            entityManager.getPublicKeyOfAt(_voter, newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+
         emit VoterRegistered(
             _voter,
             _rewardEpochId,
             _voterAddresses.signingPolicyAddress,
-            _voterAddresses.delegationAddress,
             _voterAddresses.submitAddress,
             _voterAddresses.submitSignaturesAddress,
+            publicKeyPart1,
+            publicKeyPart2,
             weight
         );
     }
@@ -501,6 +504,6 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         _rewardEpochId = flareSystemManager.getCurrentRewardEpochId() + 1;
         uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[_rewardEpochId];
         require(initBlock != 0, "registration not available yet");
-        _voterAddresses = entityManager.getVoterAddresses(_voter, initBlock);
+        _voterAddresses = entityManager.getVoterAddressesAt(_voter, initBlock);
     }
 }

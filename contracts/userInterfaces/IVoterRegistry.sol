@@ -24,9 +24,10 @@ interface IVoterRegistry {
         address indexed voter,
         uint24 indexed rewardEpochId,
         address indexed signingPolicyAddress,
-        address delegationAddress,
         address submitAddress,
         address submitSignaturesAddress,
+        bytes32 publicKeyPart1,
+        bytes32 publicKeyPart2,
         uint256 registrationWeight
     );
 
