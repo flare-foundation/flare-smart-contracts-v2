@@ -104,10 +104,16 @@ contract FtsoFeedDecimalsTest is Test {
         vm.stopPrank();
     }
 
-    function testGetVoterFeePercentageRevert() public {
+    function testGetBulkDecimalsRevert() public {
         _mockGetCurrentEpochId(1);
         vm.expectRevert("invalid reward epoch id");
         ftsoFeedDecimals.getDecimalsBulk(feedNames, 6);
+    }
+
+    function testGetDecimalsRevert() public {
+        _mockGetCurrentEpochId(1);
+        vm.expectRevert("invalid reward epoch id");
+        ftsoFeedDecimals.getDecimals(feedName1, 6);
     }
 
     function testGetDecimalsRevertWrongFeedsLength() public {

@@ -26,6 +26,7 @@
     "typechain-truffle-v5": "yarn typechain --target=truffle-v5 --out-dir typechain-truffle \"artifacts/!(build-info)/**/+([a-zA-Z0-9_]).json\" 1> nul",
     "typechain-web3-v1": "yarn typechain --target=web3-v1 --out-dir typechain-web3 \"artifacts/!(build-info)/**/+([a-zA-Z0-9_]).json\" 1> nul",
     "lint": "yarn solhint \"contracts/**/*.sol\"",
+    "lint-forge": "yarn solhint \"test-forge/**/*.sol\"",
     "typechain-prepare": "env bash scripts/remove-flattened-duplicates.sh",
     "flatten-flare-sc": "yarn flatten-dependencies node_modules/flare-smart-contracts scripts/flatten-files.txt flattened/FlareSmartContracts.sol scripts/flatten-extra-imports.txt",
     "flatten-dependencies": "env bash scripts/flatten-dependencies.sh",
