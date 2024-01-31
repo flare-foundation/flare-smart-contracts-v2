@@ -5,6 +5,7 @@ import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
 import "../interface/IIEntityManager.sol";
 import "../interface/IIFlareSystemCalculator.sol";
 import "../interface/IIFlareSystemManager.sol";
+import "../../userInterfaces/IVoterRegistry.sol";
 import "../../userInterfaces/IWNat.sol";
 import "../../userInterfaces/IWNatDelegationFee.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
@@ -25,7 +26,7 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
     /// The WNatDelegationFee contract.
     IWNatDelegationFee public wNatDelegationFee;
     /// The VoterRegistry contract.
-    address public voterRegistry;
+    IVoterRegistry public voterRegistry;
     /// The PChainStakeMirror contract.
     IPChainStakeMirror public pChainStakeMirror;
     /// Indicates if PChainStakeMirror contract is enabled.
@@ -45,7 +46,7 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
 
     /// Only VoterRegistry contract can call methods with this modifier.
     modifier onlyVoterRegistry {
-        require(msg.sender == voterRegistry, "only voter registry");
+        require(msg.sender == address(voterRegistry), "only voter registry");
         _;
     }
 
@@ -81,6 +82,7 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
     /**
      * Calculates the registration weight of a voter.
      * It is approximation of the staking weight and capped WNat weight to the power of 0.75.
+     * If some node id or delegation address is chilled, the weight for its part is zero.
      * @param _voter The address of the voter.
      * @param _delegationAddress The voter's delegation address.
      * @param _rewardEpochId The reward epoch id.
@@ -102,19 +104,28 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
         if (address(pChainStakeMirror) != address(0)) {
             nodeWeights = pChainStakeMirror.batchVotePowerOfAt(nodeIds, _votePowerBlockNumber);
             for (uint256 i = 0; i < nodeWeights.length; i++) {
-                _registrationWeight += nodeWeights[i];
+                if (_rewardEpochId >= voterRegistry.chilledUntilRewardEpochId(nodeIds[i])) {
+                    _registrationWeight += nodeWeights[i];
+                } else {
+                    nodeWeights[i] = 0;
+                }
             }
         } else {
             nodeWeights = new uint256[](nodeIds.length);
         }
 
-        uint256 totalWNatVotePower = wNat.totalVotePowerAt(_votePowerBlockNumber);
-        uint256 wNatWeightCap = (totalWNatVotePower * wNatCapPPM) / PPM_MAX; // no overflow possible
-        uint256 wNatWeight = wNat.votePowerOfAt(_delegationAddress, _votePowerBlockNumber);
-        uint256 wNatCappedWeight = Math.min(wNatWeightCap, wNatWeight);
+        uint256 wNatWeight = 0;
+        uint256 wNatCappedWeight = 0;
+        if (_rewardEpochId >= voterRegistry.chilledUntilRewardEpochId(bytes20(_delegationAddress))) {
+            uint256 totalWNatVotePower = wNat.totalVotePowerAt(_votePowerBlockNumber);
+            uint256 wNatWeightCap = (totalWNatVotePower * wNatCapPPM) / PPM_MAX; // no overflow possible
+            wNatWeight = wNat.votePowerOfAt(_delegationAddress, _votePowerBlockNumber);
+            wNatCappedWeight = Math.min(wNatWeightCap, wNatWeight);
+            _registrationWeight += wNatCappedWeight;
+        }
         uint16 delegationFeeBIPS = wNatDelegationFee.getVoterFeePercentage(_voter, _rewardEpochId);
 
-        _registrationWeight = _sqrt(_registrationWeight + wNatCappedWeight);
+        _registrationWeight = _sqrt(_registrationWeight);
         _registrationWeight *= _sqrt(_registrationWeight);
 
         emit VoterRegistrationInfo(
@@ -203,7 +214,7 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
         entityManager = IIEntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
         wNatDelegationFee = IWNatDelegationFee(
             _getContractAddress(_contractNameHashes, _contractAddresses, "WNatDelegationFee"));
-        voterRegistry = _getContractAddress(_contractNameHashes, _contractAddresses, "VoterRegistry");
+        voterRegistry = IVoterRegistry(_getContractAddress(_contractNameHashes, _contractAddresses, "VoterRegistry"));
         if (pChainStakeMirrorEnabled) {
             pChainStakeMirror = IPChainStakeMirror(
                 _getContractAddress(_contractNameHashes, _contractAddresses, "PChainStakeMirror"));

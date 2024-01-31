@@ -34,7 +34,7 @@ contract VoterRegistryTest is Test {
 
     uint256 private constant UINT16_MAX = type(uint16).max;
 
-    event VoterChilled(address indexed voter, uint256 untilRewardEpochId);
+    event BeneficiaryChilled(bytes20 indexed beneficiary, uint256 untilRewardEpochId);
     event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId);
     event VoterRegistered(
         address indexed voter,
@@ -125,8 +125,10 @@ contract VoterRegistryTest is Test {
         vm.prank(governance);
         _mockGetCurrentEpochId(1);
         vm.expectEmit();
-        emit VoterChilled(initialVoters[0], 4);
-        voterRegistry.chillVoter(initialVoters[0], 2);
+        emit BeneficiaryChilled(bytes20(initialVoters[0]), 4);
+        bytes20[] memory voters = new bytes20[](1);
+        voters[0] = bytes20(initialVoters[0]);
+        voterRegistry.chill(voters, 2);
     }
 
     function testSetMaxVoters() public {
@@ -356,17 +358,34 @@ contract VoterRegistryTest is Test {
     }
 
     //// register voter tests
-    function testRegisterVoterRevertVoterChilled() public {
+    function testRegisterVoterEvenIfVoterChilled() public {
         _mockGetCurrentEpochId(0);
+
+        _mockGetVoterAddresses();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVoterWeights();
+        vm.prank(mockFlareSystemManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
+
         IVoterRegistry.Signature memory signature =
             _createSigningPolicyAddressSignature(0, 1);
 
         // chill voter
         vm.prank(governance);
-        voterRegistry.chillVoter(initialVoters[0], 2);
+        bytes20[] memory voters = new bytes20[](1);
+        voters[0] = bytes20(initialVoters[0]);
+        voterRegistry.chill(voters, 2);
 
-        // try to register
-        vm.expectRevert("voter chilled");
+        vm.expectEmit();
+        emit VoterRegistered(
+            initialVoters[0],
+            uint24(1),
+            initialSigningPolicyAddresses[0],
+            initialDelegationAddresses[0],
+            initialSubmitAddresses[0],
+            initialSubmitSignaturesAddresses[0],
+            initialVotersWeights[0]
+        );
         voterRegistry.registerVoter(initialVoters[0], signature);
     }
 

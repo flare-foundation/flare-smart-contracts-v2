@@ -119,6 +119,19 @@ contract FlareSystemCalculatorTest is Test {
         uint256 votePowerBlockNumber = 1234567;
 
         vm.mockCall(
+            address(calculator.voterRegistry()),
+            abi.encodeWithSelector(IVoterRegistry.chilledUntilRewardEpochId.selector, bytes20(delegationAddress)),
+            abi.encode(0)
+        );
+        for (uint256 i = 0; i < nodeIds.length; i++) {
+            vm.mockCall(
+                address(calculator.voterRegistry()),
+                abi.encodeWithSelector(IVoterRegistry.chilledUntilRewardEpochId.selector, nodeIds[i]),
+                abi.encode(0)
+            );
+        }
+
+        vm.mockCall(
             address(calculator.entityManager()),
             abi.encodeWithSelector(IEntityManager.getNodeIdsOfAt.selector, voter, votePowerBlockNumber),
             abi.encode(nodeIds)
@@ -179,6 +192,19 @@ contract FlareSystemCalculatorTest is Test {
         address delegationAddress = makeAddr("delagation");
         uint24 rewardEpochId = 12345;
         uint256 votePowerBlockNumber = 1234567;
+
+        vm.mockCall(
+            address(calculator.voterRegistry()),
+            abi.encodeWithSelector(IVoterRegistry.chilledUntilRewardEpochId.selector, bytes20(delegationAddress)),
+            abi.encode(0)
+        );
+        for (uint256 i = 0; i < nodeIds.length; i++) {
+            vm.mockCall(
+                address(calculator.voterRegistry()),
+                abi.encodeWithSelector(IVoterRegistry.chilledUntilRewardEpochId.selector, nodeIds[i]),
+                abi.encode(0)
+            );
+        }
 
         vm.mockCall(
             address(calculatorNoMirroring.entityManager()),

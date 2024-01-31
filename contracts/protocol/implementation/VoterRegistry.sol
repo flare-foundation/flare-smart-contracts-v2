@@ -33,16 +33,16 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     /// Maximum number of voters in one reward epoch.
     uint256 public maxVoters;
 
-    /// In case of providing bad votes (e.g. ftso collusion), the voter can be chilled for a few reward epochs.
-    /// A voter can register again from a returned reward epoch onwards.
-    mapping(address => uint256) public chilledUntilRewardEpochId;
+    /// In case of providing bad votes (e.g. ftso collusion), the beneficiary can be chilled for a few reward epochs.
+    /// If beneficiary is chilled, the vote power assigned to it is zero.
+    mapping(bytes20 beneficiary => uint256) public chilledUntilRewardEpochId;
 
     // mapping: rewardEpochId => list of registered voters and their weights
-    mapping(uint256 => VotersAndWeights) internal register;
+    mapping(uint256 rewardEpochId => VotersAndWeights) internal register;
 
     // mapping: rewardEpochId => block number of new signing policy initialisation start
     /// Snapshot of the voters' addresses for a given reward epoch.
-    mapping(uint256 => uint256) public newSigningPolicyInitializationStartBlockNumber;
+    mapping(uint256 rewardEpochId => uint256) public newSigningPolicyInitializationStartBlockNumber;
 
     // Addresses of the external contracts.
     /// The FlareSystemManager contract.
@@ -128,13 +128,13 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     }
 
     /**
-     * Chills voter for a given number of reward epochs.
-     * @param _voter The voter address.
+     * Chills beneficiaries for a given number of reward epochs.
+     * @param _beneficiaryList The list of beneficiaries to chill.
      * @param _noOfRewardEpochs The number of reward epochs to chill the voter for.
      * @dev Only governance can call this method.
      */
-    function chillVoter(
-        address _voter,
+    function chill(
+        bytes20[] calldata _beneficiaryList,
         uint256 _noOfRewardEpochs
     )
         external onlyGovernance
@@ -144,8 +144,10 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     {
         uint256 currentRewardEpochId = flareSystemManager.getCurrentRewardEpochId();
         _untilRewardEpochId = currentRewardEpochId + _noOfRewardEpochs + 1;
-        chilledUntilRewardEpochId[_voter] = _untilRewardEpochId;
-        emit VoterChilled(_voter, _untilRewardEpochId);
+        for(uint256 i = 0; i < _beneficiaryList.length; i++) {
+            chilledUntilRewardEpochId[_beneficiaryList[i]] = _untilRewardEpochId;
+            emit BeneficiaryChilled(_beneficiaryList[i], _untilRewardEpochId);
+        }
     }
 
     /**
@@ -497,8 +499,6 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         )
     {
         _rewardEpochId = flareSystemManager.getCurrentRewardEpochId() + 1;
-        uint256 untilRewardEpochId = chilledUntilRewardEpochId[_voter];
-        require(untilRewardEpochId <= _rewardEpochId, "voter chilled");
         uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[_rewardEpochId];
         require(initBlock != 0, "registration not available yet");
         _voterAddresses = entityManager.getVoterAddresses(_voter, initBlock);

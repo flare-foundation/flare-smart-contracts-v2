@@ -37,7 +37,7 @@ interface IIVoterRegistry is IVoterRegistry {
         );
 
 /**
-     * Returns the list of registered voters' delegation addresses for a given reward epoch.
+     * Returns the list of registered voters' delegation addresses for a given reward epoch (vote power block).
      * @param _rewardEpochId The reward epoch id.
      */
     function getRegisteredDelegationAddresses(
@@ -47,7 +47,7 @@ interface IIVoterRegistry is IVoterRegistry {
         returns (address[] memory _delegationAddresses);
 
     /**
-     * Returns the list of registered voters' data provider addresses for a given reward epoch.
+     * Returns the list of registered voters' data provider addresses for a given reward epoch (snapshot block).
      * @param _rewardEpochId The reward epoch id.
      */
     function getRegisteredSubmitAddresses(
@@ -57,7 +57,7 @@ interface IIVoterRegistry is IVoterRegistry {
         returns (address[] memory);
 
     /**
-     * Returns the list of registered voters' deposit signatures addresses for a given reward epoch.
+     * Returns the list of registered voters' deposit signatures addresses for a given reward epoch (snapshot block).
      * @param _rewardEpochId The reward epoch id.
      */
     function getRegisteredSubmitSignaturesAddresses(
@@ -67,7 +67,7 @@ interface IIVoterRegistry is IVoterRegistry {
         returns (address[] memory _signingPolicyAddresses);
 
     /**
-     * Returns the list of registered voters' signing policy addresses for a given reward epoch.
+     * Returns the list of registered voters' signing policy addresses for a given reward epoch (snapshot block).
      * @param _rewardEpochId The reward epoch id.
      */
     function getRegisteredSigningPolicyAddresses(
@@ -77,8 +77,11 @@ interface IIVoterRegistry is IVoterRegistry {
         returns (address[] memory _signingPolicyAddresses);
 
     /**
-     * Returns the list of registered voters' public keys (parts1 and parts2) for a given reward epoch.
+     * Returns the list of registered voters' public keys (parts1 and parts2)
+     * for a given reward epoch (snapshot block).
      * @param _rewardEpochId The reward epoch id.
+     * @return _parts1 The first parts of the public keys.
+     * @return _parts2 The second parts of the public keys.
      */
     function getRegisteredPublicKeys(
         uint256 _rewardEpochId
@@ -87,7 +90,7 @@ interface IIVoterRegistry is IVoterRegistry {
         returns (bytes32[] memory _parts1, bytes32[] memory _parts2);
 
     /**
-     * Returns the list of registered voters' node ids for a given reward epoch.
+     * Returns the list of registered voters' node ids for a given reward epoch (vote power block).
      * @param _rewardEpochId The reward epoch id.
      */
     function getRegisteredNodeIds(
