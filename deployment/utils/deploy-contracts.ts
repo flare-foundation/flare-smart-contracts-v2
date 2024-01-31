@@ -10,10 +10,10 @@ import {
   CleanupBlockNumberManagerInstance,
   EntityManagerContract,
   EntityManagerInstance,
-  FlareSystemCalculatorContract,
-  FlareSystemCalculatorInstance,
-  FlareSystemManagerContract,
-  FlareSystemManagerInstance,
+  FlareSystemsCalculatorContract,
+  FlareSystemsCalculatorInstance,
+  FlareSystemsManagerContract,
+  FlareSystemsManagerInstance,
   FtsoFeedDecimalsContract,
   FtsoFeedDecimalsInstance,
   FtsoInflationConfigurationsContract,
@@ -71,8 +71,8 @@ export interface DeployedContracts {
   readonly verifierMock: MockContractInstance;
   readonly entityManager: EntityManagerInstance;
   readonly voterRegistry: VoterRegistryInstance;
-  readonly flareSystemCalculator: FlareSystemCalculatorInstance;
-  readonly flareSystemManager: FlareSystemManagerInstance;
+  readonly flareSystemsCalculator: FlareSystemsCalculatorInstance;
+  readonly flareSystemsManager: FlareSystemsManagerInstance;
   readonly rewardManager: RewardManagerInstance;
   readonly submission: SubmissionInstance;
   readonly relay: RelayInstance;
@@ -108,8 +108,8 @@ export async function deployContracts(
   const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = artifacts.require("PChainStakeMirrorVerifier");
   const EntityManager: EntityManagerContract = hre.artifacts.require("EntityManager");
   const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
-  const FlareSystemCalculator: FlareSystemCalculatorContract = artifacts.require("FlareSystemCalculator");
-  const FlareSystemManager: FlareSystemManagerContract = artifacts.require("FlareSystemManager");
+  const FlareSystemsCalculator: FlareSystemsCalculatorContract = artifacts.require("FlareSystemsCalculator");
+  const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
   const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
   const Submission: SubmissionContract = hre.artifacts.require("Submission");
   const CChainStake: CChainStakeContract = artifacts.require("CChainStake");
@@ -218,7 +218,7 @@ export async function deployContracts(
     initialWeights
   );
 
-  const flareSystemCalculator = await FlareSystemCalculator.new(
+  const flareSystemsCalculator = await FlareSystemsCalculator.new(
     governanceSettings.address,
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
@@ -244,7 +244,7 @@ export async function deployContracts(
 }
 
   const settings = systemSettings(rewardEpochStart);
-  const flareSystemManager: FlareSystemManagerInstance = await FlareSystemManager.new(
+  const flareSystemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.new(
     governanceSettings.address,
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
@@ -264,7 +264,7 @@ export async function deployContracts(
   );
 
   const relay = await Relay.new(
-    flareSystemManager.address,
+    flareSystemsManager.address,
     initialSigningPolicy.rewardEpochId,
     initialSigningPolicy.startVotingRoundId,
     getSigningPolicyHash(initialSigningPolicy),
@@ -313,10 +313,10 @@ export async function deployContracts(
   const cleanupBlockNumberManager = await CleanupBlockNumberManager.new(
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
-    "FlareSystemManager"
+    "FlareSystemsManager"
   );
 
-  await flareSystemCalculator.enablePChainStakeMirror({ from: governanceAccount.address });
+  await flareSystemsCalculator.enablePChainStakeMirror({ from: governanceAccount.address });
   await rewardManager.enablePChainStakeMirror({ from: governanceAccount.address });
 
   await pChainStakeMirror.updateContractAddresses(
@@ -354,11 +354,11 @@ export async function deployContracts(
       Contracts.ENTITY_MANAGER,
       Contracts.FLARE_SYSTEM_CALCULATOR,
     ]),
-    [ADDRESS_UPDATER_ADDR, flareSystemManager.address, entityManager.address, flareSystemCalculator.address],
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, entityManager.address, flareSystemsCalculator.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
-  await flareSystemCalculator.updateContractAddresses(
+  await flareSystemsCalculator.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
       Contracts.FLARE_SYSTEM_MANAGER,
@@ -367,11 +367,11 @@ export async function deployContracts(
       Contracts.VOTER_REGISTRY,
       Contracts.P_CHAIN_STAKE_MIRROR,
       Contracts.WNAT]),
-    [ADDRESS_UPDATER_ADDR, flareSystemManager.address, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address],
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
-  await flareSystemManager.updateContractAddresses(
+  await flareSystemsManager.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
       Contracts.VOTER_REGISTRY,
@@ -393,7 +393,7 @@ export async function deployContracts(
       Contracts.FLARE_SYSTEM_CALCULATOR,
       Contracts.P_CHAIN_STAKE_MIRROR,
       Contracts.WNAT]),
-    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemManager.address, flareSystemCalculator.address, pChainStakeMirror.address, wNat.address],
+    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -402,7 +402,7 @@ export async function deployContracts(
       Contracts.ADDRESS_UPDATER,
       Contracts.FLARE_SYSTEM_MANAGER,
       Contracts.RELAY]),
-    [ADDRESS_UPDATER_ADDR, flareSystemManager.address, relay.address],
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, relay.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -410,7 +410,7 @@ export async function deployContracts(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
       Contracts.FLARE_SYSTEM_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, flareSystemManager.address], { from: ADDRESS_UPDATER_ADDR });
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
 
   await ftsoRewardOffersManager.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -420,19 +420,19 @@ export async function deployContracts(
       Contracts.FTSO_INFLATION_CONFIGURATIONS,
       Contracts.FTSO_FEED_DECIMALS,
       Contracts.INFLATION]),
-    [ADDRESS_UPDATER_ADDR, flareSystemManager.address, rewardManager.address, ftsoInflationConfigurations.address, ftsoFeedDecimals.address, INFLATION_ADDR], { from: ADDRESS_UPDATER_ADDR });
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, rewardManager.address, ftsoInflationConfigurations.address, ftsoFeedDecimals.address, INFLATION_ADDR], { from: ADDRESS_UPDATER_ADDR });
 
   await ftsoFeedDecimals.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
       Contracts.FLARE_SYSTEM_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, flareSystemManager.address], { from: ADDRESS_UPDATER_ADDR });
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
 
   await cleanupBlockNumberManager.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
       Contracts.FLARE_SYSTEM_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, flareSystemManager.address], { from: ADDRESS_UPDATER_ADDR });
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
 
   // set reward offers manager list
   await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address]);
@@ -446,7 +446,7 @@ export async function deployContracts(
   await ftsoRewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION_ADDR });
 
   // set rewards offer switchover trigger contracts
-  await flareSystemManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address], { from: governanceAccount.address });
+  await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address], { from: governanceAccount.address });
 
   // set ftso configurations
   await ftsoInflationConfigurations.addFtsoConfiguration(
@@ -477,7 +477,7 @@ export async function deployContracts(
   await cChainStake.activate({ from: governanceAccount.address });
 
   logger.info(
-    `Finished deploying contracts:\n  FlareSystemManager: ${flareSystemManager.address},\n  Submission: ${submission.address},\n  Relay: ${relay.address}`
+    `Finished deploying contracts:\n  FlareSystemsManager: ${flareSystemsManager.address},\n  Submission: ${submission.address},\n  Relay: ${relay.address}`
   );
 
   logger.info(`Current network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
@@ -493,8 +493,8 @@ export async function deployContracts(
     verifierMock,
     entityManager,
     voterRegistry,
-    flareSystemCalculator,
-    flareSystemManager,
+    flareSystemsCalculator,
+    flareSystemsManager,
     rewardManager,
     submission,
     relay,

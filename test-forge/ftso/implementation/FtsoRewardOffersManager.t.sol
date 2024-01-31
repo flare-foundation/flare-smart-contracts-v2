@@ -14,7 +14,7 @@ contract FtsoRewardOffersManagerTest is Test {
     address private mockFtsoInflationConfigurations;
     address private mockFtsoFeedDecimals;
     address private mockRewardManager;
-    address private mockFlareSystemManager;
+    address private mockFlareSystemsManager;
     address private mockInflation;
     RewardManager private rewardManager;
 
@@ -84,7 +84,7 @@ contract FtsoRewardOffersManagerTest is Test {
         mockRewardManager = makeAddr("rewardManager");
         mockFtsoInflationConfigurations = makeAddr("ftsoInflationConfigurations");
         mockFtsoFeedDecimals = makeAddr("ftsoFeedDecimals");
-        mockFlareSystemManager = makeAddr("flareSystemManager");
+        mockFlareSystemsManager = makeAddr("flareSystemsManager");
         mockInflation = makeAddr("inflation");
 
         rewardManager = new RewardManager(
@@ -100,14 +100,14 @@ contract FtsoRewardOffersManagerTest is Test {
         contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
         contractNameHashes[2] = keccak256(abi.encode("FtsoInflationConfigurations"));
         contractNameHashes[3] = keccak256(abi.encode("FtsoFeedDecimals"));
-        contractNameHashes[4] = keccak256(abi.encode("FlareSystemManager"));
+        contractNameHashes[4] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[5] = keccak256(abi.encode("Inflation"));
         contractAddresses[0] = addressUpdater;
         // contractAddresses[1] = mockRewardManager;
         contractAddresses[1] = address(rewardManager);
         contractAddresses[2] = mockFtsoInflationConfigurations;
         contractAddresses[3] = mockFtsoFeedDecimals;
-        contractAddresses[4] = mockFlareSystemManager;
+        contractAddresses[4] = mockFlareSystemsManager;
         contractAddresses[5] = mockInflation;
         ftsoRewardOffersManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
@@ -117,15 +117,15 @@ contract FtsoRewardOffersManagerTest is Test {
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("VoterRegistry"));
         contractNameHashes[2] = keccak256(abi.encode("ClaimSetupManager"));
-        contractNameHashes[3] = keccak256(abi.encode("FlareSystemManager"));
-        contractNameHashes[4] = keccak256(abi.encode("FlareSystemCalculator"));
+        contractNameHashes[3] = keccak256(abi.encode("FlareSystemsManager"));
+        contractNameHashes[4] = keccak256(abi.encode("FlareSystemsCalculator"));
         contractNameHashes[5] = keccak256(abi.encode("PChainStakeMirror"));
         contractNameHashes[6] = keccak256(abi.encode("WNat"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = makeAddr("voterRegistry");
         contractAddresses[2] = makeAddr("claimSetupManager");
-        contractAddresses[3] = mockFlareSystemManager;
-        contractAddresses[4] = makeAddr("flareSystemCalculator");
+        contractAddresses[3] = mockFlareSystemsManager;
+        contractAddresses[4] = makeAddr("flareSystemsCalculator");
         contractAddresses[5] = makeAddr("pChainStakeMirror");
         contractAddresses[6] = makeAddr("wNat");
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
@@ -353,7 +353,7 @@ contract FtsoRewardOffersManagerTest is Test {
         // interval start = 3*DAY - 2*DAY = DAY
         // interval end = max(200 + DAY, 3*DAY - DAY) = 2*DAY
         // totalRewardAmount = 5000 * DAY / (2*DAY - DAY) = 5000
-        vm.prank(mockFlareSystemManager);
+        vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
         emit InflationRewardsOffered(
             2 + 1,
@@ -379,7 +379,7 @@ contract FtsoRewardOffersManagerTest is Test {
         ftsoRewardOffersManager.triggerRewardEpochSwitchover(2, 3 * DAY, DAY);
 
         // totalInflationReceivedWei == totalInflationRewardsOfferedWei -> amounts should be zero
-        vm.prank(mockFlareSystemManager);
+        vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
         emit InflationRewardsOffered(
             2 + 1,
@@ -473,7 +473,7 @@ contract FtsoRewardOffersManagerTest is Test {
             ftsoConfigs[1].mode
         );
         assertEq(ftsoRewardOffersManager.getExpectedBalance(), 5000);
-        vm.prank(mockFlareSystemManager);
+        vm.prank(mockFlareSystemsManager);
         ftsoRewardOffersManager.triggerRewardEpochSwitchover(2, 3 * DAY, DAY);
         assertEq(ftsoRewardOffersManager.getExpectedBalance(), 0);
     }
@@ -503,7 +503,7 @@ contract FtsoRewardOffersManagerTest is Test {
         _mockGetCurrentEpochId(2);
 
         vm.recordLogs();
-        vm.prank(mockFlareSystemManager);
+        vm.prank(mockFlareSystemsManager);
         ftsoRewardOffersManager.triggerRewardEpochSwitchover(2, 3 * DAY, DAY);
         Vm.Log[] memory entries = vm.getRecordedLogs();
         // there were no logs emitted -> no offers were made
@@ -522,15 +522,15 @@ contract FtsoRewardOffersManagerTest is Test {
     //// helper functions
     function _mockGetCurrentEpochId(uint256 _epochId) internal {
         vm.mockCall(
-            mockFlareSystemManager,
-            abi.encodeWithSelector(IFlareSystemManager.getCurrentRewardEpochId.selector),
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IFlareSystemsManager.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }
 
     function _mockCurrentRewardEpochExpectedEndTs(uint256 _endTs) internal {
         vm.mockCall(
-            mockFlareSystemManager,
+            mockFlareSystemsManager,
             abi.encodeWithSelector(bytes4(keccak256("currentRewardEpochExpectedEndTs()"))),
             abi.encode(_endTs)
         );
@@ -538,7 +538,7 @@ contract FtsoRewardOffersManagerTest is Test {
 
     function _mockNewSigningPolicyInitializationStartSeconds(uint256 _startSeconds) internal {
         vm.mockCall(
-            mockFlareSystemManager,
+            mockFlareSystemsManager,
             abi.encodeWithSelector(bytes4(keccak256("newSigningPolicyInitializationStartSeconds()"))),
             abi.encode(_startSeconds)
         );

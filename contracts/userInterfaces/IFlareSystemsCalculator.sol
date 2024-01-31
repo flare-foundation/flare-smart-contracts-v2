@@ -3,9 +3,9 @@ pragma solidity >=0.7.6 <0.9;
 
 
 /**
- * FlareSystemCalculator interface.
+ * FlareSystemsCalculator interface.
  */
-interface IFlareSystemCalculator {
+interface IFlareSystemsCalculator {
 
     /// Event emitted when the registration weight of a voter is calculated.
     event VoterRegistrationInfo(

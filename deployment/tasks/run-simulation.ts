@@ -127,7 +127,7 @@ interface RegisteredAccount {
 
 class EventStore {
   initializedVotingRound = 0;
-  /* Keeps track of events emitted by FlareSystemManager for each reward epoch. */
+  /* Keeps track of events emitted by FlareSystemsManager for each reward epoch. */
   readonly rewardEpochEvents = new Map<number, string[]>();
 }
 
@@ -184,7 +184,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
 
   const indexer = new MockDBIndexer(hre.web3, {
     submission: c.submission.address,
-    flareSystemManager: c.flareSystemManager.address,
+    flareSystemsManager: c.flareSystemsManager.address,
     voterRegistry: c.voterRegistry.address,
     ftsoRewardOffersManager: c.ftsoRewardOffersManager.address,
   });
@@ -199,13 +199,13 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   logger.info("Registered account keys written to " + SIMULATION_ACCOUNTS_FILE);
 
   const epochSettings = new EpochSettings(
-    (await c.flareSystemManager.firstRewardEpochStartTs()).toNumber(),
-    (await c.flareSystemManager.rewardEpochDurationSeconds()).toNumber(),
-    (await c.flareSystemManager.firstVotingRoundStartTs()).toNumber(),
-    (await c.flareSystemManager.votingEpochDurationSeconds()).toNumber(),
-    (await c.flareSystemManager.newSigningPolicyInitializationStartSeconds()).toNumber(),
-    (await c.flareSystemManager.voterRegistrationMinDurationSeconds()).toNumber(),
-    (await c.flareSystemManager.voterRegistrationMinDurationBlocks()).toNumber()
+    (await c.flareSystemsManager.firstRewardEpochStartTs()).toNumber(),
+    (await c.flareSystemsManager.rewardEpochDurationSeconds()).toNumber(),
+    (await c.flareSystemsManager.firstVotingRoundStartTs()).toNumber(),
+    (await c.flareSystemsManager.votingEpochDurationSeconds()).toNumber(),
+    (await c.flareSystemsManager.newSigningPolicyInitializationStartSeconds()).toNumber(),
+    (await c.flareSystemsManager.voterRegistrationMinDurationSeconds()).toNumber(),
+    (await c.flareSystemsManager.voterRegistrationMinDurationBlocks()).toNumber()
   );
   logger.info(`EpochSettings:\n${JSON.stringify(epochSettings, null, 2)}`);
   fs.writeFileSync(SETTINGS_FILE_LOCATION, JSON.stringify({
@@ -236,9 +236,9 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     while (Date.now() < firstEpochStartMs) await sleep(500);
   }
 
-  await c.flareSystemManager.daemonize();
+  await c.flareSystemsManager.daemonize();
 
-  const currentRewardEpochId = (await c.flareSystemManager.getCurrentRewardEpochId()).toNumber();
+  const currentRewardEpochId = (await c.flareSystemsManager.getCurrentRewardEpochId()).toNumber();
   if (currentRewardEpochId != 1) {
     throw new Error("Reward epoch after setup expected to be 1");
   }
@@ -273,11 +273,11 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   await hre.network.provider.send("evm_setIntervalMining", [1000]);
 
   while (true) {
-    const response = await c.flareSystemManager.daemonize({ gas: 10000000 });
+    const response = await c.flareSystemsManager.daemonize({ gas: 10000000 });
     const blockTimestamp = +(await hre.web3.eth.getBlock(response.receipt.blockNumber)).timestamp;
 
     if (response.logs.length > 0) {
-      // For events emitted by the FlareSystemManager.
+      // For events emitted by the FlareSystemsManager.
       for (const log of response.logs) {
         await processLog(log, blockTimestamp, events);
       }
@@ -432,7 +432,7 @@ async function defineNextSigningPolicy(
 ) {
   const logger = getLogger("signingPolicy");
 
-  const rewardEpochId = (await c.flareSystemManager.getCurrentRewardEpochId()).toNumber();
+  const rewardEpochId = (await c.flareSystemsManager.getCurrentRewardEpochId()).toNumber();
   const nextRewardEpochId = rewardEpochId + 1;
   logger.info(`Running signing policy definition protocol, current reward epoch: ${rewardEpochId}`);
 
@@ -472,7 +472,7 @@ async function defineNextSigningPolicy(
     }
     const signature = web3.eth.accounts.sign(newSigningPolicyHash, acc.signingPolicy.privateKey);
 
-    const signResponse = await c.flareSystemManager.signNewSigningPolicy(
+    const signResponse = await c.flareSystemsManager.signNewSigningPolicy(
       nextRewardEpochId,
       newSigningPolicyHash,
       signature,
@@ -619,7 +619,7 @@ async function defineInitialSigningPolicy(
     rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds)
   );
 
-  const resp = await c.flareSystemManager.daemonize();
+  const resp = await c.flareSystemsManager.daemonize();
   if (resp.logs[0]?.event != "RandomAcquisitionStarted") {
     throw new Error("Expected random acquisition to start");
   }
@@ -637,7 +637,7 @@ async function defineInitialSigningPolicy(
     rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds / 2)
   );
 
-  const resp2 = await c.flareSystemManager.daemonize();
+  const resp2 = await c.flareSystemsManager.daemonize();
   if (resp2.logs[0]?.event != "VotePowerBlockSelected") {
     throw new Error("Expected vote power block to be selected");
   }
@@ -658,7 +658,7 @@ async function defineInitialSigningPolicy(
         5)
   );
 
-  const resp3 = await c.flareSystemManager.daemonize();
+  const resp3 = await c.flareSystemsManager.daemonize();
   const eventLog = decodeRawLogs(resp3, c.relay, "SigningPolicyInitialized")[0];
 
   if (eventLog.event != "SigningPolicyInitialized") {
@@ -671,7 +671,7 @@ async function defineInitialSigningPolicy(
   const newSigningPolicyHash = await c.relay.toSigningPolicyHash(rewardEpochId);
 
   const signature = web3.eth.accounts.sign(newSigningPolicyHash, governanceAccount.privateKey);
-  const resp4 = await c.flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature, {
+  const resp4 = await c.flareSystemsManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature, {
     from: governanceAccount.address,
   });
 

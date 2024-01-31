@@ -9,7 +9,7 @@ import { FIRST_DATABASE_INDEX_STATE, LAST_CHAIN_INDEX_STATE, LAST_DATABASE_INDEX
 
 export interface ContractAddresses {
   submission: string;
-  flareSystemManager: string;
+  flareSystemsManager: string;
   voterRegistry: string;
   ftsoRewardOffersManager: string;
 }
@@ -75,7 +75,7 @@ export class MockDBIndexer {
           async () => {
             return await getFilteredBlock(this.web3, this.lastProcessedBlockNumber + 1, [
               this.contractAddresses.submission,
-              this.contractAddresses.flareSystemManager,
+              this.contractAddresses.flareSystemsManager,
               this.contractAddresses.voterRegistry,
               this.contractAddresses.ftsoRewardOffersManager,
             ]);

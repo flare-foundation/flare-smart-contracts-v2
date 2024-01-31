@@ -16,12 +16,12 @@ contract RewardManagerTest is Test {
     address private addressUpdater;
     address private governance;
     address private mockClaimSetupManager;
-    address private mockFlareSystemManager;
+    address private mockFlareSystemsManager;
     address private mockPChainStakeMirror;
     address private mockCChainStake;
     address private mockWNat;
     address[] private rewardOffersManagers;
-    address private mockFlareSystemCalculator;
+    address private mockFlareSystemsCalculator;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -64,29 +64,29 @@ contract RewardManagerTest is Test {
         );
 
         mockClaimSetupManager = makeAddr("mockClaimSetupManager");
-        mockFlareSystemManager = makeAddr("mockFlareSystemManager");
+        mockFlareSystemsManager = makeAddr("mockFlareSystemsManager");
         mockPChainStakeMirror = makeAddr("mockPChainStakeMirror");
         mockCChainStake = makeAddr("mockCChainStake");
         mockWNat = makeAddr("mockWNat");
-        mockFlareSystemCalculator = makeAddr("mockFlareSystemCalculator");
+        mockFlareSystemsCalculator = makeAddr("mockFlareSystemsCalculator");
 
         vm.startPrank(addressUpdater);
         contractNameHashes = new bytes32[](7);
         contractAddresses = new address[](7);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("ClaimSetupManager"));
-        contractNameHashes[2] = keccak256(abi.encode("FlareSystemManager"));
+        contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("PChainStakeMirror"));
         contractNameHashes[4] = keccak256(abi.encode("CChainStake"));
         contractNameHashes[5] = keccak256(abi.encode("WNat"));
-        contractNameHashes[6] = keccak256(abi.encode("FlareSystemCalculator"));
+        contractNameHashes[6] = keccak256(abi.encode("FlareSystemsCalculator"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockClaimSetupManager;
-        contractAddresses[2] = mockFlareSystemManager;
+        contractAddresses[2] = mockFlareSystemsManager;
         contractAddresses[3] = mockPChainStakeMirror;
         contractAddresses[4] = mockCChainStake;
         contractAddresses[5] = mockWNat;
-        contractAddresses[6] = mockFlareSystemCalculator;
+        contractAddresses[6] = mockFlareSystemsCalculator;
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
@@ -1814,23 +1814,23 @@ contract RewardManagerTest is Test {
     //// helper functions
     function _mockGetCurrentEpochId(uint256 _epochId) private {
         vm.mockCall(
-            mockFlareSystemManager,
-            abi.encodeWithSelector(IFlareSystemManager.getCurrentRewardEpochId.selector),
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IFlareSystemsManager.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }
 
     function _mockGetVpBlock(uint256 _epochId, uint256 _vpBlock) private {
         vm.mockCall(
-            mockFlareSystemManager,
-            abi.encodeWithSelector(IFlareSystemManager.getVotePowerBlock.selector, _epochId),
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IFlareSystemsManager.getVotePowerBlock.selector, _epochId),
             abi.encode(_vpBlock)
         );
     }
 
     function _mockRewardsHash(uint256 _epochId, bytes32 _hash) private {
         vm.mockCall(
-            mockFlareSystemManager,
+            mockFlareSystemsManager,
             abi.encodeWithSelector(bytes4(keccak256("rewardsHash(uint256)")), _epochId),
             abi.encode(_hash)
         );
@@ -1838,15 +1838,15 @@ contract RewardManagerTest is Test {
 
     function _mockCalculateBurnFactor(uint256 _epochId, address _user, uint256 _burnFactor) private {
         vm.mockCall(
-            mockFlareSystemCalculator,
-            abi.encodeWithSelector(IIFlareSystemCalculator.calculateBurnFactorPPM.selector, _epochId, _user),
+            mockFlareSystemsCalculator,
+            abi.encodeWithSelector(IIFlareSystemsCalculator.calculateBurnFactorPPM.selector, _epochId, _user),
             abi.encode(_burnFactor)
         );
     }
 
     function _mockNoOfWeightBasedClaims(uint256 _epoch, uint256 _noOfClaims) private {
         vm.mockCall(
-            mockFlareSystemManager,
+            mockFlareSystemsManager,
             abi.encodeWithSelector(bytes4(keccak256("noOfWeightBasedClaims(uint256)")), _epoch),
             abi.encode(_noOfClaims)
         );
@@ -2075,7 +2075,7 @@ contract RewardManagerTest is Test {
 
     function _mockRewardEpochIdToExpireNext(uint256 _epochId) private {
         vm.mockCall(
-            mockFlareSystemManager,
+            mockFlareSystemsManager,
             abi.encodeWithSelector(bytes4(keccak256("rewardEpochIdToExpireNext()"))),
             abi.encode(_epochId)
         );

@@ -61,10 +61,10 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase, IFtsoRewardOffersMa
     )
         external payable mustBalance
     {
-        uint24 currentRewardEpochId = flareSystemManager.getCurrentRewardEpochId();
+        uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         require(_nextRewardEpochId == currentRewardEpochId + 1, "not next reward epoch id");
-        require(flareSystemManager.currentRewardEpochExpectedEndTs() >
-            block.timestamp + flareSystemManager.newSigningPolicyInitializationStartSeconds(),
+        require(flareSystemsManager.currentRewardEpochExpectedEndTs() >
+            block.timestamp + flareSystemsManager.newSigningPolicyInitializationStartSeconds(),
             "too late for next reward epoch");
         uint256 sumRewardsOfferValues = 0;
         for (uint i = 0; i < _offers.length; ++i) {

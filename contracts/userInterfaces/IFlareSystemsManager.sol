@@ -3,9 +3,9 @@ pragma solidity >=0.7.6 <0.9;
 
 
 /**
- * FlareSystemManager interface.
+ * FlareSystemsManager interface.
  */
-interface IFlareSystemManager {
+interface IFlareSystemsManager {
 
     /// Signature structure
     struct Signature {

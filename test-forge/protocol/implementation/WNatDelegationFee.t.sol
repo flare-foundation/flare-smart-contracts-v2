@@ -8,7 +8,7 @@ contract WNatDelegationFeeTest is Test {
 
     WNatDelegationFee private feeManager;
     address private addressUpdater;
-    address private mockFlareSystemManager;
+    address private mockFlareSystemsManager;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -20,13 +20,13 @@ contract WNatDelegationFeeTest is Test {
         feeManager = new WNatDelegationFee(addressUpdater, 2, 2000);
 
         vm.prank(addressUpdater);
-        mockFlareSystemManager = makeAddr("mockFlareSystemManager");
+        mockFlareSystemsManager = makeAddr("mockFlareSystemsManager");
         contractNameHashes = new bytes32[](2);
         contractAddresses = new address[](2);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("FlareSystemManager"));
+        contractNameHashes[1] = keccak256(abi.encode("FlareSystemsManager"));
         contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = mockFlareSystemManager;
+        contractAddresses[1] = mockFlareSystemsManager;
         feeManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
         voter = makeAddr("voter");
@@ -97,8 +97,8 @@ contract WNatDelegationFeeTest is Test {
     //// helper functions
     function _mockGetCurrentEpochId(uint256 _epochId) private {
         vm.mockCall(
-            mockFlareSystemManager,
-            abi.encodeWithSelector(IFlareSystemManager.getCurrentRewardEpochId.selector),
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IFlareSystemsManager.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }

@@ -8,7 +8,7 @@ import "../../utils/lib/SafePct.sol";
 import "../interface/IIRewardEpochSwitchoverTrigger.sol";
 import "../interface/IIVoterRegistrationTrigger.sol";
 import "../interface/IICleanupBlockNumberManager.sol";
-import "../interface/IIFlareSystemManager.sol";
+import "../interface/IIFlareSystemsManager.sol";
 import "../interface/IIVoterRegistry.sol";
 import "../interface/IIRewardManager.sol";
 import "../interface/IIRelay.sol";
@@ -19,11 +19,11 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
- * FlareSystemManager is responsible for initialization of reward epochs and voting rounds using FlareDaemon calls.
+ * FlareSystemsManager is responsible for initialization of reward epochs and voting rounds using FlareDaemon calls.
  * This contract is also used for managing signing policies, uptime votes and rewards.
  */
 //solhint-disable-next-line max-states-count
-contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFlareSystemManager {
+contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIFlareSystemsManager {
     using SafeCast for uint256;
     using SafePct for uint256;
 
@@ -384,7 +384,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function signNewSigningPolicy(
         uint24 _rewardEpochId,
@@ -427,7 +427,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function submitUptimeVote(
         uint24 _rewardEpochId,
@@ -457,7 +457,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function signUptimeVote(
         uint24 _rewardEpochId,
@@ -504,7 +504,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function signRewards(
         uint24 _rewardEpochId,
@@ -670,7 +670,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function getVotePowerBlock(uint256 _rewardEpochId)
         external view
@@ -681,7 +681,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function getSeed(uint256 _rewardEpochId)
         external view
@@ -693,7 +693,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function getStartVotingRoundId(uint256 _rewardEpochId)
         external view
@@ -704,7 +704,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function getThreshold(uint256 _rewardEpochId)
         external view
@@ -715,7 +715,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function getVoterRegistrationData(
         uint256 _rewardEpochId
@@ -731,7 +731,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function isVoterRegistrationEnabled() external view returns (bool) {
         uint256 nextRewardEpochId = _getCurrentRewardEpochId() + 1;
@@ -739,7 +739,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getRewardEpochStartInfo(uint24 _rewardEpochId)
         external view
@@ -754,7 +754,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getRandomAcquisitionInfo(uint24 _rewardEpochId)
         external view
@@ -773,7 +773,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getVoterSigningPolicySignInfo(uint24 _rewardEpochId, address _voter)
         external view
@@ -789,7 +789,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getSigningPolicySignInfo(uint24 _rewardEpochId)
         external view
@@ -808,7 +808,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getVoterUptimeVoteSubmitInfo(uint24 _rewardEpochId, address _voter)
         external view
@@ -824,7 +824,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getVoterUptimeVoteSignInfo(uint24 _rewardEpochId, address _voter)
         external view
@@ -840,7 +840,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getUptimeVoteSignStartInfo(uint24 _rewardEpochId)
         external view
@@ -855,7 +855,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getVoterRewardsSignInfo(uint24 _rewardEpochId, address _voter)
         external view
@@ -873,7 +873,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getRewardsSignInfo(uint24 _rewardEpochId)
         external view
@@ -892,7 +892,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function getCurrentRewardEpochId() external view returns(uint24) {
         return _getCurrentRewardEpochId();
@@ -902,7 +902,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
      * @inheritdoc IFlareDaemonize
      */
     function switchToFallbackMode() external view onlyFlareDaemon returns (bool) {
-        // do nothing - there is no fallback mode in FlareSystemManager contract
+        // do nothing - there is no fallback mode in FlareSystemsManager contract
         return false;
     }
 
@@ -910,7 +910,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
      * @inheritdoc IFlareDaemonize
      */
     function getContractName() external pure returns (string memory) {
-        return "FlareSystemManager";
+        return "FlareSystemsManager";
     }
 
     /**

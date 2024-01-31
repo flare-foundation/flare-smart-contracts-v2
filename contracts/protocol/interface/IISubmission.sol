@@ -15,7 +15,7 @@ interface IISubmission is ISubmission {
      * @param _submit2Addresses The addresses that can call submit2.
      * @param _submit3Addresses The addresses that can call submit3.
      * @param _submitSignaturesAddresses The addresses that can call submitSignatures.
-     * @dev This method can only be called by the FlareSystemManager contract.
+     * @dev This method can only be called by the FlareSystemsManager contract.
      */
     function initNewVotingRound(
         address[] memory _submit1Addresses,

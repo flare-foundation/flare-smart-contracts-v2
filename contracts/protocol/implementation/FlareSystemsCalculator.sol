@@ -3,8 +3,8 @@ pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
 import "../interface/IIEntityManager.sol";
-import "../interface/IIFlareSystemCalculator.sol";
-import "../interface/IIFlareSystemManager.sol";
+import "../interface/IIFlareSystemsCalculator.sol";
+import "../interface/IIFlareSystemsManager.sol";
 import "../../userInterfaces/IVoterRegistry.sol";
 import "../../userInterfaces/IWNat.sol";
 import "../../userInterfaces/IWNatDelegationFee.sol";
@@ -13,14 +13,14 @@ import "../../governance/implementation/Governed.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
- * FlareSystemCalculator is used to calculate the registration weight of a voter and the burn factor.
+ * FlareSystemsCalculator is used to calculate the registration weight of a voter and the burn factor.
  */
-contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalculator {
+contract FlareSystemsCalculator is Governed, AddressUpdatable, IIFlareSystemsCalculator {
 
     uint256 internal constant PPM_MAX = 1e6;
 
-    /// The FlareSystemManager contract.
-    IIFlareSystemManager public flareSystemManager;
+    /// The FlareSystemsManager contract.
+    IIFlareSystemsManager public flareSystemsManager;
     /// The EntityManager contract.
     IIEntityManager public entityManager;
     /// The WNatDelegationFee contract.
@@ -163,7 +163,7 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
      */
     function calculateBurnFactorPPM(uint24 _rewardEpochId, address _voter) external view returns(uint256) {
         (uint64 startTs, uint64 startBlock, uint64 endTs, uint64 endBlock) =
-            flareSystemManager.getSigningPolicySignInfo(_rewardEpochId + 1);
+            flareSystemsManager.getSigningPolicySignInfo(_rewardEpochId + 1);
         require(endTs != 0, "signing policy not signed yet");
         if (endTs - startTs <= signingPolicySignNonPunishableDurationSeconds) {
             return 0; // signing policy was signed on time secondwise
@@ -173,7 +173,7 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
             return 0; // signing policy was signed on time blockwise
         }
         // signing policy not signed on time, check when/if voter signed
-        (, uint64 signBlock) = flareSystemManager.getVoterSigningPolicySignInfo(_rewardEpochId + 1, _voter);
+        (, uint64 signBlock) = flareSystemsManager.getVoterSigningPolicySignInfo(_rewardEpochId + 1, _voter);
         if (signBlock == 0) {
             signBlock = endBlock; // voter did not sign
         }
@@ -209,8 +209,8 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
     )
         internal override
     {
-        flareSystemManager = IIFlareSystemManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
+        flareSystemsManager = IIFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         entityManager = IIEntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
         wNatDelegationFee = IWNatDelegationFee(
             _getContractAddress(_contractNameHashes, _contractAddresses, "WNatDelegationFee"));

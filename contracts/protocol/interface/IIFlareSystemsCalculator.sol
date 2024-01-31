@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/IFlareSystemCalculator.sol";
+import "../../userInterfaces/IFlareSystemsCalculator.sol";
 
 /**
- * FlareSystemCalculator internal interface.
+ * FlareSystemsCalculator internal interface.
  */
-interface IIFlareSystemCalculator is IFlareSystemCalculator {
+interface IIFlareSystemsCalculator is IFlareSystemsCalculator {
 
     /**
      * Calculates the registration weight of a voter.

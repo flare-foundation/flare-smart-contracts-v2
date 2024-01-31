@@ -8,7 +8,7 @@ contract FtsoFeedDecimalsTest is Test {
 
     FtsoFeedDecimals private ftsoFeedDecimals;
     address private addressUpdater;
-    address private mockFlareSystemManager;
+    address private mockFlareSystemsManager;
     address private governance;
 
     bytes32[] private contractNameHashes;
@@ -31,13 +31,13 @@ contract FtsoFeedDecimalsTest is Test {
         );
 
         vm.prank(addressUpdater);
-        mockFlareSystemManager = makeAddr("mockFlareSystemManager");
+        mockFlareSystemsManager = makeAddr("mockFlareSystemsManager");
         contractNameHashes = new bytes32[](2);
         contractAddresses = new address[](2);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("FlareSystemManager"));
+        contractNameHashes[1] = keccak256(abi.encode("FlareSystemsManager"));
         contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = mockFlareSystemManager;
+        contractAddresses[1] = mockFlareSystemsManager;
         ftsoFeedDecimals.updateContractAddresses(contractNameHashes, contractAddresses);
 
         feedName1 = bytes8("feed1");
@@ -127,8 +127,8 @@ contract FtsoFeedDecimalsTest is Test {
     //// helper functions
     function _mockGetCurrentEpochId(uint256 _epochId) private {
         vm.mockCall(
-            mockFlareSystemManager,
-            abi.encodeWithSelector(IFlareSystemManager.getCurrentRewardEpochId.selector),
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IFlareSystemsManager.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }

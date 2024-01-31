@@ -5,8 +5,8 @@ import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
 import "flare-smart-contracts/contracts/tokenPools/interface/IITokenPool.sol";
 import "../interface/IIRewardManager.sol";
 import "../interface/IIClaimSetupManager.sol";
-import "../interface/IIFlareSystemCalculator.sol";
-import "../interface/IIFlareSystemManager.sol";
+import "../interface/IIFlareSystemsCalculator.sol";
+import "../interface/IIFlareSystemsManager.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/ICChainStake.sol";
 import "../../userInterfaces/IWNat.sol";
@@ -77,10 +77,10 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
     /// The ClaimSetupManager contract.
     IIClaimSetupManager public claimSetupManager;
-    /// The FlareSystemManager contract.
-    IIFlareSystemManager public flareSystemManager;
-    /// The FlareSystemCalculator contract.
-    IIFlareSystemCalculator public flareSystemCalculator;
+    /// The FlareSystemsManager contract.
+    IIFlareSystemsManager public flareSystemsManager;
+    /// The FlareSystemsCalculator contract.
+    IIFlareSystemsCalculator public flareSystemsCalculator;
     /// The PChainStakeMirror contract.
     IPChainStakeMirror public pChainStakeMirror;
     /// Indicates if P-Chain stakes mirror is enabled.
@@ -309,14 +309,14 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
-     * Copy initial reward data from `flareSystemManager` before starting up this new reward manager.
+     * Copy initial reward data from `flareSystemsManager` before starting up this new reward manager.
      * Should be called at the time of switching to the new reward manager, can be called only once.
      * @dev Only governance can call this method.
      */
     function setInitialRewardData() external onlyGovernance {
         require(!active && initialRewardEpochId == 0 && nextRewardEpochIdToExpire == 0, "not initial state");
         initialRewardEpochId = _getCurrentRewardEpochId() + 1; // in order to distinguish from 0
-        nextRewardEpochIdToExpire = flareSystemManager.rewardEpochIdToExpireNext();
+        nextRewardEpochIdToExpire = flareSystemsManager.rewardEpochIdToExpireNext();
     }
 
     /**
@@ -334,7 +334,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @inheritdoc IIRewardManager
      */
     function closeExpiredRewardEpoch(uint256 _rewardEpochId) external {
-        require(msg.sender == address(flareSystemManager) || msg.sender == newRewardManager, "only managers");
+        require(msg.sender == address(flareSystemsManager) || msg.sender == newRewardManager, "only managers");
         require(nextRewardEpochIdToExpire == _rewardEpochId, "wrong epoch id");
         if (oldRewardManager != address(0) && _rewardEpochId < initialRewardEpochId + 50) {
             RewardManager(oldRewardManager).closeExpiredRewardEpoch(_rewardEpochId);
@@ -393,9 +393,9 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         require(_rewardEpochId >= _nextClaimableEpochId(_rewardOwner, _minClaimableRewardEpochId()),
             "already claimed");
 
-        uint256 noOfWeightBasedClaims = flareSystemManager.noOfWeightBasedClaims(_rewardEpochId);
+        uint256 noOfWeightBasedClaims = flareSystemsManager.noOfWeightBasedClaims(_rewardEpochId);
         if (noOfWeightBasedClaims == 0) {
-            require(flareSystemManager.rewardsHash(_rewardEpochId) != bytes32(0), "rewards hash zero");
+            require(flareSystemsManager.rewardsHash(_rewardEpochId) != bytes32(0), "rewards hash zero");
         }
         uint256 votePowerBlock = _getVotePowerBlock(_rewardEpochId);
 
@@ -653,12 +653,12 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         bytes32 claimHash = keccak256(abi.encode(rewardClaim));
         if (!epochProcessedRewardClaims[rewardClaim.rewardEpochId][claimHash]) {
             // not claimed yet - check if valid merkle proof
-            bytes32 rewardsHash = flareSystemManager.rewardsHash(rewardClaim.rewardEpochId);
+            bytes32 rewardsHash = flareSystemsManager.rewardsHash(rewardClaim.rewardEpochId);
             require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
             // initialise reward amount
             _rewardAmountWei = _initRewardAmount(rewardClaim.rewardEpochId, rewardClaim.amount);
             if (rewardClaim.claimType == ClaimType.FEE) {
-                uint256 burnFactor = flareSystemCalculator
+                uint256 burnFactor = flareSystemsCalculator
                     .calculateBurnFactorPPM(rewardClaim.rewardEpochId, _rewardOwner);
                 if (burnFactor > 0) {
                     // calculate burn amount
@@ -705,7 +705,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             [rewardClaim.rewardEpochId][rewardClaim.claimType][address(rewardClaim.beneficiary)];
         if (!state.initialised) {
             // not initialised yet - check if valid merkle proof
-            bytes32 rewardsHash = flareSystemManager.rewardsHash(rewardClaim.rewardEpochId);
+            bytes32 rewardsHash = flareSystemsManager.rewardsHash(rewardClaim.rewardEpochId);
             bytes32 claimHash = keccak256(abi.encode(rewardClaim));
             require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
             // mark as initialised
@@ -762,9 +762,9 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         for (uint24 epoch = nextClaimableEpochId; epoch <= _rewardEpochId; epoch++) {
             // check if all weight based claims were already initialised
             // (in this case zero unclaimed rewards are actually zeros)
-            uint256 noOfWeightBasedClaims = flareSystemManager.noOfWeightBasedClaims(epoch);
+            uint256 noOfWeightBasedClaims = flareSystemsManager.noOfWeightBasedClaims(epoch);
             if (noOfWeightBasedClaims == 0) {
-                require(flareSystemManager.rewardsHash(epoch) != bytes32(0), "rewards hash zero");
+                require(flareSystemsManager.rewardsHash(epoch) != bytes32(0), "rewards hash zero");
             }
             bool allClaimsInitialised = epochNoOfInitialisedWeightBasedClaims[epoch] >= noOfWeightBasedClaims;
             uint256 votePowerBlock = _getVotePowerBlock(epoch);
@@ -1009,10 +1009,10 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     {
         claimSetupManager = IIClaimSetupManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "ClaimSetupManager"));
-        flareSystemManager = IIFlareSystemManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
-        flareSystemCalculator = IIFlareSystemCalculator(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemCalculator"));
+        flareSystemsManager = IIFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
+        flareSystemsCalculator = IIFlareSystemsCalculator(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsCalculator"));
         if (pChainStakeMirrorEnabled) {
             pChainStakeMirror = IPChainStakeMirror(
                 _getContractAddress(_contractNameHashes, _contractAddresses, "PChainStakeMirror"));
@@ -1039,7 +1039,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     {
         uint256 votePowerBlock = epochVotePowerBlock[_rewardEpochId];
         if (votePowerBlock == 0) {
-            votePowerBlock = flareSystemManager.getVotePowerBlock(_rewardEpochId);
+            votePowerBlock = flareSystemsManager.getVotePowerBlock(_rewardEpochId);
             epochVotePowerBlock[_rewardEpochId] = votePowerBlock;
         }
         if (_claimType == ClaimType.WNAT) {
@@ -1117,7 +1117,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     function _getVotePowerBlock(uint24 _rewardEpochId) internal view returns (uint256 _votePowerBlock) {
         _votePowerBlock = epochVotePowerBlock[_rewardEpochId];
         if (_votePowerBlock == 0) {
-            _votePowerBlock = flareSystemManager.getVotePowerBlock(_rewardEpochId);
+            _votePowerBlock = flareSystemsManager.getVotePowerBlock(_rewardEpochId);
         }
     }
 
@@ -1161,7 +1161,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * Returns current reward epoch id.
      */
     function _getCurrentRewardEpochId() internal view returns (uint24) {
-        return flareSystemManager.getCurrentRewardEpochId();
+        return flareSystemsManager.getCurrentRewardEpochId();
     }
 
     /**

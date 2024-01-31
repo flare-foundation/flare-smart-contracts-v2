@@ -18,7 +18,7 @@ interface IIVoterRegistry is IVoterRegistry {
     /**
      * Sets new signing policy initialisation start block number for a given reward epoch id.
      * @param _rewardEpochId The reward epoch id.
-     * @dev Only FlareSystemManager contract can call this method.
+     * @dev Only FlareSystemsManager contract can call this method.
      */
     function setNewSigningPolicyInitializationStartBlockNumber(uint256 _rewardEpochId) external;
 
@@ -26,7 +26,7 @@ interface IIVoterRegistry is IVoterRegistry {
      * Creates signing policy snapshot and returns the list of registered signing policy addresses
      * and normalised weights for a given reward epoch.
      * @param _rewardEpochId The reward epoch id.
-     * @dev Only FlareSystemManager contract can call this method.
+     * @dev Only FlareSystemsManager contract can call this method.
      */
     function createSigningPolicySnapshot(uint256 _rewardEpochId)
         external

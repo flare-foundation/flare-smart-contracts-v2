@@ -2,9 +2,9 @@
 pragma solidity 0.8.20;
 
 import "../interface/IIEntityManager.sol";
-import "../interface/IIFlareSystemCalculator.sol";
+import "../interface/IIFlareSystemsCalculator.sol";
 import "../interface/IIVoterRegistry.sol";
-import "../../userInterfaces/IFlareSystemManager.sol";
+import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../utils/lib/SafePct.sol";
@@ -45,18 +45,18 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     mapping(uint256 rewardEpochId => uint256) public newSigningPolicyInitializationStartBlockNumber;
 
     // Addresses of the external contracts.
-    /// The FlareSystemManager contract.
-    IFlareSystemManager public flareSystemManager;
+    /// The FlareSystemsManager contract.
+    IFlareSystemsManager public flareSystemsManager;
     /// The EntityManager contract.
     IIEntityManager public entityManager;
-    /// The FlareSystemCalculator contract.
-    IIFlareSystemCalculator public flareSystemCalculator;
+    /// The FlareSystemsCalculator contract.
+    IIFlareSystemsCalculator public flareSystemsCalculator;
 
     address public systemRegistrationContractAddress;
 
-    /// Only FlareSystemManager contract can call this method.
-    modifier onlyFlareSystemManager {
-        require(msg.sender == address(flareSystemManager), "only flare system manager");
+    /// Only FlareSystemsManager contract can call this method.
+    modifier onlyFlareSystemsManager {
+        require(msg.sender == address(flareSystemsManager), "only flare system manager");
         _;
     }
 
@@ -142,7 +142,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
             uint256 _untilRewardEpochId
         )
     {
-        uint256 currentRewardEpochId = flareSystemManager.getCurrentRewardEpochId();
+        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         _untilRewardEpochId = currentRewardEpochId + _noOfRewardEpochs + 1;
         for(uint256 i = 0; i < _beneficiaryList.length; i++) {
             chilledUntilRewardEpochId[_beneficiaryList[i]] = _untilRewardEpochId;
@@ -171,9 +171,9 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      * @inheritdoc IIVoterRegistry
      */
     function setNewSigningPolicyInitializationStartBlockNumber(uint256 _rewardEpochId)
-        external onlyFlareSystemManager
+        external onlyFlareSystemsManager
     {
-        // this is only called once from FlareSystemManager
+        // this is only called once from FlareSystemsManager
         assert(newSigningPolicyInitializationStartBlockNumber[_rewardEpochId] == 0);
         newSigningPolicyInitializationStartBlockNumber[_rewardEpochId] = block.number;
     }
@@ -182,7 +182,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      * @inheritdoc IIVoterRegistry
      */
     function createSigningPolicySnapshot(uint256 _rewardEpochId)
-        external onlyFlareSystemManager
+        external onlyFlareSystemsManager
         returns (
             address[] memory _signingPolicyAddresses,
             uint16[] memory _normalisedWeights,
@@ -250,7 +250,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     {
         require(register[_rewardEpochId].weightsSum > 0, "reward epoch id not supported");
         return entityManager.getDelegationAddresses(register[_rewardEpochId].voters,
-            flareSystemManager.getVotePowerBlock(_rewardEpochId));
+            flareSystemsManager.getVotePowerBlock(_rewardEpochId));
     }
 
     /**
@@ -320,7 +320,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     {
         require(register[_rewardEpochId].weightsSum > 0, "reward epoch id not supported");
         return entityManager.getNodeIds(register[_rewardEpochId].voters,
-            flareSystemManager.getVotePowerBlock(_rewardEpochId));
+            flareSystemsManager.getVotePowerBlock(_rewardEpochId));
     }
 
     /**
@@ -407,11 +407,11 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     )
         internal override
     {
-        flareSystemManager = IFlareSystemManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
+        flareSystemsManager = IFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         entityManager = IIEntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
-        flareSystemCalculator = IIFlareSystemCalculator(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemCalculator"));
+        flareSystemsCalculator = IIFlareSystemsCalculator(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsCalculator"));
     }
 
     /**
@@ -427,10 +427,10 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     )
         internal
     {
-        (uint256 votePowerBlock, bool enabled) = flareSystemManager.getVoterRegistrationData(_rewardEpochId);
+        (uint256 votePowerBlock, bool enabled) = flareSystemsManager.getVoterRegistrationData(_rewardEpochId);
         require(votePowerBlock != 0, "vote power block zero");
         require(enabled, "voter registration not enabled");
-        uint256 weight = flareSystemCalculator.calculateRegistrationWeight(_voter, _rewardEpochId, votePowerBlock);
+        uint256 weight = flareSystemsCalculator.calculateRegistrationWeight(_voter, _rewardEpochId, votePowerBlock);
         require(weight > 0, "voter weight zero");
 
         VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
@@ -501,7 +501,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
             IIEntityManager.VoterAddresses memory _voterAddresses
         )
     {
-        _rewardEpochId = flareSystemManager.getCurrentRewardEpochId() + 1;
+        _rewardEpochId = flareSystemsManager.getCurrentRewardEpochId() + 1;
         uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[_rewardEpochId];
         require(initBlock != 0, "registration not available yet");
         _voterAddresses = entityManager.getVoterAddressesAt(_voter, initBlock);

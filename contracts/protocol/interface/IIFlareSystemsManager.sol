@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/IFlareSystemManager.sol";
+import "../../userInterfaces/IFlareSystemsManager.sol";
 
 /**
- * FlareSystemManager internal interface.
+ * FlareSystemsManager internal interface.
  */
-interface IIFlareSystemManager is IFlareSystemManager {
+interface IIFlareSystemsManager is IFlareSystemsManager {
 
     /// Event emitted when triggering voter registration fails.
     event TriggeringVoterRegistrationFailed(uint24 rewardEpochId);

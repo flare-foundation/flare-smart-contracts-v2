@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import "../../governance/implementation/Governed.sol";
 import "../../inflation/implementation/InflationReceiver.sol";
-import "../interface/IIFlareSystemManager.sol";
+import "../interface/IIFlareSystemsManager.sol";
 import "../interface/IIRewardEpochSwitchoverTrigger.sol";
 
 /**
@@ -16,12 +16,12 @@ abstract contract RewardOffersManagerBase is Governed, InflationReceiver, IIRewa
 
     uint256 internal constant INFLATION_TIME_FRAME_SEC = 1 days;
 
-    /// The FlareSystemManager contract.
-    IIFlareSystemManager public flareSystemManager;
+    /// The FlareSystemsManager contract.
+    IIFlareSystemsManager public flareSystemsManager;
 
-    /// Only FlareSystemManager contract can call this method.
-    modifier onlyFlareSystemManager {
-        require(msg.sender == address(flareSystemManager), "only flare system manager");
+    /// Only FlareSystemsManager contract can call this method.
+    modifier onlyFlareSystemsManager {
+        require(msg.sender == address(flareSystemsManager), "only flare system manager");
         _;
     }
 
@@ -48,7 +48,7 @@ abstract contract RewardOffersManagerBase is Governed, InflationReceiver, IIRewa
         uint64 _rewardEpochDurationSeconds
     )
         external
-        onlyFlareSystemManager
+        onlyFlareSystemsManager
     {
         _triggerInflationOffers(_currentRewardEpochId, _currentRewardEpochExpectedEndTs, _rewardEpochDurationSeconds);
     }
@@ -63,8 +63,8 @@ abstract contract RewardOffersManagerBase is Governed, InflationReceiver, IIRewa
         internal virtual override
     {
         super._updateContractAddresses(_contractNameHashes, _contractAddresses);
-        flareSystemManager = IIFlareSystemManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
+        flareSystemsManager = IIFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 
     /**

@@ -31,7 +31,7 @@ export class MockFinalizer {
     public web3: Web3,
     public submissionContractAddress: string,
     public relayContractAddress: string,
-    public flareSystemManagerAddress: string,
+    public flareSystemsManagerAddress: string,
     public historySec = 60 * 5, // 5 minutes
     public indexerRefreshWindowSec = 3, // 3 seconds
   ) {
@@ -288,7 +288,7 @@ export class MockFinalizer {
 
   public async run() {
     this.dataSource = await getDataSource(true);
-    this.epochSettings = await extractEpochSettings(this.flareSystemManagerAddress);
+    this.epochSettings = await extractEpochSettings(this.flareSystemsManagerAddress);
     let endTimeSec = Math.floor(Date.now() / 1000);
     let startTimeSec = endTimeSec - this.historySec;  // start one minute ago
     let newSigningPolicies = await this.querySigningPolicies(startTimeSec, endTimeSec);

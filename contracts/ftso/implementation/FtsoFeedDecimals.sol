@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/IFlareSystemManager.sol";
+import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/IFtsoFeedDecimals.sol";
 
 
@@ -22,8 +22,8 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
     //slither-disable-next-line uninitialized-state
     mapping(bytes8 => Decimals[]) internal decimals;
 
-    /// The FlareSystemManager contract.
-    IFlareSystemManager public flareSystemManager;
+    /// The FlareSystemsManager contract.
+    IFlareSystemsManager public flareSystemsManager;
 
     /**
      * Constructor.
@@ -170,8 +170,8 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
     )
         internal override
     {
-        flareSystemManager = IFlareSystemManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
+        flareSystemsManager = IFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 
     /**
@@ -227,6 +227,6 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
      * Returns the current reward epoch id.
      */
     function _getCurrentRewardEpochId() internal view returns(uint24) {
-        return flareSystemManager.getCurrentRewardEpochId();
+        return flareSystemsManager.getCurrentRewardEpochId();
     }
 }

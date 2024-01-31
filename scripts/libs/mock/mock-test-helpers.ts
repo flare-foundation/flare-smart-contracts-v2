@@ -1,6 +1,6 @@
 import fs from "fs";
 import { TLPEvents } from "../../../deployment/utils/indexer/Entity";
-import { FlareSystemManagerContract, FlareSystemManagerInstance } from "../../../typechain-truffle";
+import { FlareSystemsManagerContract, FlareSystemsManagerInstance } from "../../../typechain-truffle";
 import { EpochSettings } from "../../../deployment/utils/EpochSettings";
 import { ISigningPolicy } from "../protocol/SigningPolicy";
 import { DEPLOY_ADDRESSES_FILE } from "../../../deployment/tasks/run-simulation";
@@ -33,18 +33,18 @@ export function contractAddress(contractName: string): string {
   return addresses[contractName];
 }
 
-const FlareSystemManager: FlareSystemManagerContract = artifacts.require("FlareSystemManager");
+const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
 
-export async function extractEpochSettings(flareSystemManagerAddress: string): Promise<EpochSettings> {
-  const flareSystemManager: FlareSystemManagerInstance = await FlareSystemManager.at(flareSystemManagerAddress);
+export async function extractEpochSettings(flareSystemsManagerAddress: string): Promise<EpochSettings> {
+  const flareSystemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.at(flareSystemsManagerAddress);
   return new EpochSettings(
-    (await flareSystemManager.firstRewardEpochStartTs()).toNumber(),
-    (await flareSystemManager.rewardEpochDurationSeconds()).toNumber(),
-    (await flareSystemManager.firstVotingRoundStartTs()).toNumber(),
-    (await flareSystemManager.votingEpochDurationSeconds()).toNumber(),
-    (await flareSystemManager.newSigningPolicyInitializationStartSeconds()).toNumber(),
-    (await flareSystemManager.voterRegistrationMinDurationSeconds()).toNumber(),
-    (await flareSystemManager.voterRegistrationMinDurationBlocks()).toNumber()
+    (await flareSystemsManager.firstRewardEpochStartTs()).toNumber(),
+    (await flareSystemsManager.rewardEpochDurationSeconds()).toNumber(),
+    (await flareSystemsManager.firstVotingRoundStartTs()).toNumber(),
+    (await flareSystemsManager.votingEpochDurationSeconds()).toNumber(),
+    (await flareSystemsManager.newSigningPolicyInitializationStartSeconds()).toNumber(),
+    (await flareSystemsManager.voterRegistrationMinDurationSeconds()).toNumber(),
+    (await flareSystemsManager.voterRegistrationMinDurationBlocks()).toNumber()
   );
 }
 
