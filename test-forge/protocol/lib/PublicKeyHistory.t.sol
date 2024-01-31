@@ -7,11 +7,11 @@ import "../../../contracts/protocol/lib/PublicKeyHistory.sol";
 contract PublicKeyHistoryTest is Test {
     using PublicKeyHistory for PublicKeyHistory.CheckPointHistoryState;
 
-    PublicKeyHistory.CheckPointHistoryState checkPointHistoryState;
+    PublicKeyHistory.CheckPointHistoryState private checkPointHistoryState;
 
-    PublicKeyHistory.CheckPointHistoryState emptyState;
+    PublicKeyHistory.CheckPointHistoryState private emptyState;
 
-    PublicKeyHistory.CheckPointHistoryState emptyState2;
+    PublicKeyHistory.CheckPointHistoryState private emptyState2;
 
     function setUp() public {
         for (uint256 j = 1; j < 100; j++) {
@@ -24,7 +24,7 @@ contract PublicKeyHistoryTest is Test {
         }
     }
 
-    function test_setPublicKeyInPastFail() public {
+    function testSetPublicKeyInPastFail() public {
         vm.expectRevert();
 
         vm.roll(10);
@@ -34,7 +34,7 @@ contract PublicKeyHistoryTest is Test {
         );
     }
 
-    function test_publicKeyAtEmpty() public {
+    function testPublicKeyAtEmpty() public {
         vm.roll(99);
 
         (bytes32 atNow1, bytes32 atNow2) = emptyState.publicKeyAtNow();
@@ -46,7 +46,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(atNow2, bytes32(0));
     }
 
-    function test_publicKeyAt() public {
+    function testPublicKeyAt() public {
         vm.roll(99);
 
         (bytes32 at1, bytes32 at2) = checkPointHistoryState.publicKeyAt(30);
@@ -59,7 +59,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(atNow2, keccak256(abi.encode(198)));
     }
 
-    function test_cleanEmpty() public {
+    function testCleanEmpty() public {
         vm.roll(99);
 
         uint256 cleaned = emptyState.cleanupOldCheckpoints(3, 3);
@@ -70,7 +70,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(cleaned, 0);
     }
 
-    function test_setAddressEmpty() public {
+    function testSetAddressEmpty() public {
         vm.roll(99);
 
         emptyState2.setPublicKey(
@@ -82,7 +82,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(emptyState2.endIndex, 1);
     }
 
-    function test_resetPublicKey() public {
+    function testResetPublicKey() public {
         vm.roll(99);
 
         uint64 endIndex = checkPointHistoryState.endIndex;
@@ -98,7 +98,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(endIndex, checkPointHistoryState.endIndex);
     }
 
-    function test_setPublicKey() public {
+    function testSetPublicKey() public {
         vm.roll(120);
 
         uint64 endIndex = checkPointHistoryState.endIndex;
@@ -113,7 +113,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(endIndex + 1, checkPointHistoryState.endIndex);
     }
 
-    function test_clean() public {
+    function testClean() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(3, 50);
@@ -121,7 +121,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 3);
     }
 
-    function test_clean2() public {
+    function testClean2() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(11, 10);
@@ -129,7 +129,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 9);
     }
 
-    function test_clean3() public {
+    function testClean3() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(0, 10);
@@ -137,7 +137,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 0);
     }
 
-    function test_clean4() public {
+    function testClean4() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(10, 0);
@@ -145,7 +145,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 0);
     }
 
-    function test_cleanAndPublicKeyAt() public {
+    function testCleanAndPublicKeyAt() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(11, 10);
@@ -156,7 +156,7 @@ contract PublicKeyHistoryTest is Test {
         checkPointHistoryState.publicKeyAt(3);
     }
 
-    function test_cleanAndPublicKeyAt2() public {
+    function testCleanAndPublicKeyAt2() public {
         vm.roll(120);
 
         checkPointHistoryState.cleanupOldCheckpoints(11, 10);
@@ -166,7 +166,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(at2, keccak256(abi.encode(20)));
     }
 
-    function test_addressAtBeforeFirstSet() public {
+    function testAddressAtBeforeFirstSet() public {
         vm.roll(120);
 
         emptyState.setPublicKey(
