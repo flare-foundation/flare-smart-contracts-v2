@@ -16,6 +16,8 @@ import {
   FlareSystemsManagerInstance,
   FtsoFeedDecimalsContract,
   FtsoFeedDecimalsInstance,
+  FtsoFeedPublisherContract,
+  FtsoFeedPublisherInstance,
   FtsoInflationConfigurationsContract,
   FtsoInflationConfigurationsInstance,
   FtsoRewardOffersManagerContract,
@@ -80,6 +82,7 @@ export interface DeployedContracts {
   readonly ftsoInflationConfigurations: FtsoInflationConfigurationsInstance;
   readonly ftsoRewardOffersManager: FtsoRewardOffersManagerInstance;
   readonly ftsoFeedDecimals: FtsoFeedDecimalsInstance;
+  readonly ftsoFeedPublisher: FtsoFeedPublisherInstance;
   readonly cleanupBlockNumberManager: CleanupBlockNumberManagerInstance;
 }
 
@@ -105,19 +108,20 @@ export async function deployContracts(
   const PChainStakeMirror: PChainStakeMirrorContract = hre.artifacts.require("PChainStakeMirror");
   const GovernanceVotePower: GovernanceVotePowerContract = hre.artifacts.require("GovernanceVotePower" as any);
   const AddressBinder: AddressBinderContract = hre.artifacts.require("AddressBinder");
-  const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = artifacts.require("PChainStakeMirrorVerifier");
+  const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = hre.artifacts.require("PChainStakeMirrorVerifier");
   const EntityManager: EntityManagerContract = hre.artifacts.require("EntityManager");
-  const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
-  const FlareSystemsCalculator: FlareSystemsCalculatorContract = artifacts.require("FlareSystemsCalculator");
-  const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
-  const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
+  const VoterRegistry: VoterRegistryContract = hre.artifacts.require("VoterRegistry");
+  const FlareSystemsCalculator: FlareSystemsCalculatorContract = hre.artifacts.require("FlareSystemsCalculator");
+  const FlareSystemsManager: FlareSystemsManagerContract = hre.artifacts.require("FlareSystemsManager");
+  const RewardManager: RewardManagerContract = hre.artifacts.require("RewardManager");
   const Submission: SubmissionContract = hre.artifacts.require("Submission");
-  const CChainStake: CChainStakeContract = artifacts.require("CChainStake");
-  const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDelegationFee");
-  const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifacts.require("FtsoInflationConfigurations");
-  const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
-  const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
-  const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
+  const CChainStake: CChainStakeContract = hre.artifacts.require("CChainStake");
+  const WNatDelegationFee: WNatDelegationFeeContract = hre.artifacts.require("WNatDelegationFee");
+  const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = hre.artifacts.require("FtsoInflationConfigurations");
+  const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = hre.artifacts.require("FtsoRewardOffersManager");
+  const FtsoFeedDecimals: FtsoFeedDecimalsContract = hre.artifacts.require("FtsoFeedDecimals");
+  const FtsoFeedPublisher: FtsoFeedPublisherContract = hre.artifacts.require("FtsoFeedPublisher");
+  const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = hre.artifacts.require("CleanupBlockNumberManager");
   const Relay: RelayContract = hre.artifacts.require("Relay");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
@@ -306,9 +310,21 @@ export async function deployContracts(
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
     2,
-    5
+    5,
+    0,
+    [
+      { feedName: FtsoConfigurations.encodeFeedName("BTC"), decimals: 2 },
+      { feedName: FtsoConfigurations.encodeFeedName("ETH"), decimals: 3 }
+    ]
   );
 
+  const ftsoFeedPublisher = await FtsoFeedPublisher.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    FTSO_PROTOCOL_ID,
+    200
+  );
 
   const cleanupBlockNumberManager = await CleanupBlockNumberManager.new(
     governanceAccount.address,
@@ -428,6 +444,12 @@ export async function deployContracts(
       Contracts.FLARE_SYSTEM_MANAGER]),
     [ADDRESS_UPDATER_ADDR, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
 
+  await ftsoFeedPublisher.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.RELAY]),
+    [ADDRESS_UPDATER_ADDR, relay.address], { from: ADDRESS_UPDATER_ADDR });
+
   await cleanupBlockNumberManager.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
@@ -502,6 +524,7 @@ export async function deployContracts(
     ftsoInflationConfigurations,
     ftsoRewardOffersManager,
     ftsoFeedDecimals,
+    ftsoFeedPublisher,
     cleanupBlockNumberManager
   };
 

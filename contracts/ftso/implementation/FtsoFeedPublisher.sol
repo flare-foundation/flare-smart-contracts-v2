@@ -81,7 +81,7 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
                 if (addHistoryFeed) {
                     publishedFeeds[feed.name][feedHistoryPosition] = feed;
                 }
-                emit FtsoFeedPublished(feed);
+                emit FtsoFeedPublished(feed.votingRoundId, feed.name, feed.value, feed.turnoutBIPS, feed.decimals);
             }
         }
     }
@@ -106,7 +106,7 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
                 if (addHistoryFeed) {
                     publishedFeeds[feed.name][feedHistoryPosition] = feed;
                 }
-                emit FtsoFeedPublished(feed);
+                emit FtsoFeedPublished(feed.votingRoundId, feed.name, feed.value, feed.turnoutBIPS, feed.decimals);
             }
         }
     }

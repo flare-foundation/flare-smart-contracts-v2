@@ -27,7 +27,9 @@ contract FtsoFeedDecimalsTest is Test {
             governance,
             addressUpdater,
             2,
-            6
+            6,
+            0,
+            new FtsoFeedDecimals.InitialFeedDecimals[](0)
         );
 
         vm.prank(addressUpdater);
@@ -44,7 +46,6 @@ contract FtsoFeedDecimalsTest is Test {
         feedName2 = bytes8("feed2");
     }
 
-
     function testConstructorOffsetTooSmall() public {
         vm.expectRevert("offset too small");
         new FtsoFeedDecimals(
@@ -52,8 +53,40 @@ contract FtsoFeedDecimalsTest is Test {
             governance,
             addressUpdater,
             1,
-            6
+            6,
+            0,
+            new FtsoFeedDecimals.InitialFeedDecimals[](0)
         );
+    }
+
+    function testConstructorInitialFeedDecimals() public {
+        FtsoFeedDecimals.InitialFeedDecimals[] memory initialFeedDecimals =
+            new FtsoFeedDecimals.InitialFeedDecimals[](2);
+        initialFeedDecimals[0] = FtsoFeedDecimals.InitialFeedDecimals(feedName1, 9);
+        initialFeedDecimals[1] = FtsoFeedDecimals.InitialFeedDecimals(feedName2, 3);
+
+        ftsoFeedDecimals = new FtsoFeedDecimals(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            2,
+            6,
+            1,
+            initialFeedDecimals
+        );
+        vm.prank(addressUpdater);
+        ftsoFeedDecimals.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        _mockGetCurrentEpochId(1);
+        assertEq(ftsoFeedDecimals.getCurrentDecimals(feedName1), 9);
+        assertEq(ftsoFeedDecimals.getDecimals(feedName1, 0), 6);
+        assertEq(ftsoFeedDecimals.getDecimals(feedName1, 1), 9);
+        assertEq(ftsoFeedDecimals.getCurrentDecimals(feedName2), 3);
+        assertEq(ftsoFeedDecimals.getDecimals(feedName2, 0), 6);
+        assertEq(ftsoFeedDecimals.getDecimals(feedName2, 1), 3);
+        vm.startPrank(governance);
+        ftsoFeedDecimals.setDecimals(feedName1, 8);
+        assertEq(ftsoFeedDecimals.getDecimals(feedName1, 1 + 2), 8);
     }
 
     function testSetDecimals() public {

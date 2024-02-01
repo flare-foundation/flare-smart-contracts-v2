@@ -31,6 +31,7 @@
     "flatten-flare-sc": "yarn flatten-dependencies node_modules/flare-smart-contracts scripts/flatten-files.txt flattened/FlareSmartContracts.sol scripts/flatten-extra-imports.txt",
     "flatten-dependencies": "env bash scripts/flatten-dependencies.sh",
     "slither": "pip3 install slither-analyzer && rm -f ./slither.json && rm -f ./slither_badge.json 2> /dev/null; slither . --compile-force-framework hardhat --json=./slither.json 2> /dev/null || true; node scripts/slither-parse.js ./slither.json",
+    "generate-parameter-schema": "typescript-json-schema deployment/chain-config/chain-parameters.ts ChainParameters -o deployment/chain-config/chain-parameters.json --noExtraProps --required --strictNullChecks",
     "---------SIMULATION---SCRIPTS": "",
     "sim-node": "yarn hardhat node",
     "sim-run": "yarn hardhat run-simulation --network local",
@@ -67,12 +68,14 @@
     "@types/mocha": "^10.0.6",
     "@types/node": "20.10.3",
     "elliptic": "6.5.4",
+    "pascal-case": "3.1.2",
     "sqlite3": "^5.1.6",
     "solidity-coverage": "^0.8.5",
     "ts-node": "^10.9.1",
     "typechain": "^8.3.2",
     "typeorm": "^0.3.17",
     "typescript": "^5.3.2",
+    "typescript-json-schema": "0.62.0",
     "winston": "^3.10.0"
   },
   "prettier": {

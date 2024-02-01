@@ -1,5 +1,14 @@
 export namespace FtsoConfigurations {
   /**
+   * Encodes feed name into byte encoding, represented by 0x-prefixed hex string
+   * @param feedName
+   * @returns
+   */
+  export function encodeFeedName(feedName: string): string {
+    return encodeFeedNames([feedName]);
+  }
+
+  /**
    * Encodes feed names into byte encoding, represented by 0x-prefixed hex string
    * @param feedNames
    * @returns

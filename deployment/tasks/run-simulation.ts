@@ -41,7 +41,7 @@ const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
 const OFFERS = [
   {
     amount: 25000000,
-    feedName: FtsoConfigurations.encodeFeedNames(["BTC"]),
+    feedName: FtsoConfigurations.encodeFeedName("BTC"),
     minRewardedTurnoutBIPS: 5000,
     primaryBandRewardSharePPM: 450000,
     secondaryBandWidthPPM: 50000,
@@ -49,7 +49,7 @@ const OFFERS = [
   },
   {
     amount: 50000000,
-    feedName: FtsoConfigurations.encodeFeedNames(["XRP"]),
+    feedName: FtsoConfigurations.encodeFeedName("XRP"),
     minRewardedTurnoutBIPS: 5000,
     primaryBandRewardSharePPM: 650000,
     secondaryBandWidthPPM: 20000,

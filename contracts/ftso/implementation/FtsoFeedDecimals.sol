@@ -15,6 +15,12 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
         uint24 validFromEpochId;    // id of the reward epoch from which the value is valid
     }
 
+    /// Used for setting initial feed decimals.
+    struct InitialFeedDecimals {
+        bytes8 feedName;
+        int8 decimals;
+    }
+
     /// The offset in reward epochs for the decimals value to become effective.
     uint24 public immutable decimalsUpdateOffset;
     /// The default decimals value.
@@ -38,13 +44,20 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
         address _initialGovernance,
         address _addressUpdater,
         uint24 _decimalsUpdateOffset,
-        int8 _defaultDecimals
+        int8 _defaultDecimals,
+        uint24 _initialRewardEpochId,
+        InitialFeedDecimals[] memory _initialFeedDecimals
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
         require(_decimalsUpdateOffset > 1, "offset too small");
         decimalsUpdateOffset = _decimalsUpdateOffset;
         defaultDecimals = _defaultDecimals;
+        for (uint256 i = 0; i < _initialFeedDecimals.length; i++) {
+            InitialFeedDecimals memory ifds = _initialFeedDecimals[i];
+            decimals[ifds.feedName].push(Decimals(ifds.decimals, _initialRewardEpochId));
+            emit DecimalsChanged(ifds.feedName, ifds.decimals, _initialRewardEpochId);
+        }
     }
 
     /**

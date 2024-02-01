@@ -6,7 +6,7 @@ import privateKeys from "../../deployment/test-1020-accounts.json";
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { ECDSASignatureWithIndex } from "../../scripts/libs/protocol/ECDSASignatureWithIndex";
 import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
-import { AddressBinderInstance, EntityManagerInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance } from '../../typechain-truffle';
+import { AddressBinderInstance, EntityManagerInstance, FtsoFeedPublisherContract, FtsoFeedPublisherInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance } from '../../typechain-truffle';
 import { MockContractContract } from '../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract';
 import { CChainStakeContract, CChainStakeInstance } from '../../typechain-truffle/contracts/mock/CChainStake';
 import { GovernanceVotePowerContract } from '../../typechain-truffle/contracts/mock/GovernanceVotePower';
@@ -54,6 +54,7 @@ const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDele
 const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifacts.require("FtsoInflationConfigurations");
 const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
 const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
+const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
 const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
 
 type PChainStake = {
@@ -111,6 +112,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let ftsoInflationConfigurations: FtsoInflationConfigurationsInstance;
     let ftsoRewardOffersManager: FtsoRewardOffersManagerInstance;
     let ftsoFeedDecimals: FtsoFeedDecimalsInstance;
+    let ftsoFeedPublisher: FtsoFeedPublisherInstance;
     let cleanupBlockNumberManager: CleanupBlockNumberManagerInstance;
 
     let initialSigningPolicy: ISigningPolicy;
@@ -123,6 +125,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let weightsGwei: number[] = [];
     let stakeIds: string[] = [];
     let rewardClaim: any;
+    let feed: any;
 
     const RANDOM_ROOT = web3.utils.keccak256("root");
     const RANDOM_ROOT2 = web3.utils.keccak256("root2");
@@ -272,7 +275,25 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         ftsoRewardOffersManager = await FtsoRewardOffersManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100);
 
-        ftsoFeedDecimals = await FtsoFeedDecimals.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2, 5);
+        ftsoFeedDecimals = await FtsoFeedDecimals.new(
+            governanceSettings.address,
+            accounts[0],
+            ADDRESS_UPDATER,
+            2,
+            5,
+            0,
+            [
+              { feedName: FtsoConfigurations.encodeFeedName("BTC"), decimals: 2 },
+              { feedName: FtsoConfigurations.encodeFeedName("ETH"), decimals: 3 }
+            ]);
+
+        ftsoFeedPublisher = await FtsoFeedPublisher.new(
+            governanceSettings.address,
+            accounts[0],
+            ADDRESS_UPDATER,
+            FTSO_PROTOCOL_ID,
+            200
+        );
 
         cleanupBlockNumberManager = await CleanupBlockNumberManager.new(accounts[0], ADDRESS_UPDATER, "FlareSystemsManager");
 
@@ -320,6 +341,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
             [ADDRESS_UPDATER, flareSystemsManager.address], { from: ADDRESS_UPDATER });
 
+        await ftsoFeedPublisher.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
+            [ADDRESS_UPDATER, relay.address], { from: ADDRESS_UPDATER });
+
         await cleanupBlockNumberManager.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
             [ADDRESS_UPDATER, flareSystemsManager.address], { from: ADDRESS_UPDATER });
@@ -364,7 +389,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await ftsoRewardOffersManager.offerRewards(1, [
             {
                 amount: 25000000,
-                feedName: FtsoConfigurations.encodeFeedNames(["BTC"]),
+                feedName: FtsoConfigurations.encodeFeedName("BTC"),
                 minRewardedTurnoutBIPS: 5000,
                 primaryBandRewardSharePPM: 450000,
                 secondaryBandWidthPPM: 50000,
@@ -592,7 +617,18 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     it("Should finalise and relay", async () => {
         const votingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
         const quality = true;
-        const root = web3.utils.keccak256("root1");
+
+        feed = {
+            votingRoundId: votingRoundId,
+            name: FtsoConfigurations.encodeFeedName("BTC"),
+            value: 12345,
+            turnoutBIPS: 6500,
+            decimals: 1
+        };
+
+        const root = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+            ["uint32", "bytes8", "int32", "uint16", "int8"],
+            [feed.votingRoundId, feed.name, feed.value, feed.turnoutBIPS, feed.decimals]));
 
         const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isSecureRandom: quality, merkleRoot: root };
         const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
@@ -622,6 +658,18 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             data: RELAY_SELECTOR + fullData.slice(2),
         });
         expect(await relay2.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
+    });
+
+    it("Should publish ftso feed", async () => {
+        const feedWithProof = { body: feed, merkleProof: [] };
+        const tx = await ftsoFeedPublisher.publish([feedWithProof]);
+        expectEvent(tx, "FtsoFeedPublished", { votingRoundId: toBN(feed.votingRoundId), name: feed.name.padEnd(66, "0"), value: toBN(feed.value), turnoutBIPS: toBN(feed.turnoutBIPS), decimals: toBN(feed.decimals) });
+        const feedReturn = await ftsoFeedPublisher.getCurrentFeed(feed.name);
+        expect(feedReturn.votingRoundId).to.be.equal(feed.votingRoundId.toString());
+        expect(feedReturn.name).to.be.equal(feed.name);
+        expect(feedReturn.value).to.be.equal(feed.value.toString());
+        expect(feedReturn.turnoutBIPS).to.be.equal(feed.turnoutBIPS.toString());
+        expect(feedReturn.decimals).to.be.equal(feed.decimals.toString());
     });
 
     it("Should commit 2", async () => {

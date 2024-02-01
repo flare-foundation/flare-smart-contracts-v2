@@ -18,7 +18,13 @@ contract FtsoFeedPublisherTest is Test {
     bytes8 private feedName2;
     address private feedsPublisher;
 
-    event FtsoFeedPublished(IFtsoFeedPublisher.Feed feed);
+    event FtsoFeedPublished(
+        uint32 indexed votingRoundId,
+        bytes8 indexed name,
+        int32 value,
+        uint16 turnoutBIPS,
+        int8 decimals
+    );
 
     function setUp() public {
         addressUpdater = makeAddr("addressUpdater");
@@ -95,9 +101,9 @@ contract FtsoFeedPublisherTest is Test {
         _mockGetMerkleRoot(1, roundId, merkleRoot);
 
         vm.expectEmit();
-        emit FtsoFeedPublished(body1);
+        emit FtsoFeedPublished(body1.votingRoundId, body1.name, body1.value, body1.turnoutBIPS, body1.decimals);
         vm.expectEmit();
-        emit FtsoFeedPublished(body2);
+        emit FtsoFeedPublished(body2.votingRoundId, body2.name, body2.value, body2.turnoutBIPS, body2.decimals);
         ftsoFeedPublisher.publish(proofs);
 
         IFtsoFeedPublisher.Feed memory getFeed = ftsoFeedPublisher.getCurrentFeed(feedName1);
@@ -175,9 +181,9 @@ contract FtsoFeedPublisherTest is Test {
         feeds[1] = feed2;
 
         vm.expectEmit();
-        emit FtsoFeedPublished(feed1);
+        emit FtsoFeedPublished(feed1.votingRoundId, feed1.name, feed1.value, feed1.turnoutBIPS, feed1.decimals);
         vm.expectEmit();
-        emit FtsoFeedPublished(feed2);
+        emit FtsoFeedPublished(feed2.votingRoundId, feed2.name, feed2.value, feed2.turnoutBIPS, feed2.decimals);
         vm.prank(feedsPublisher);
         ftsoFeedPublisher.publishFeeds(feeds);
 
