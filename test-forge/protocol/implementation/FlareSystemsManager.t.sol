@@ -1815,20 +1815,86 @@ contract FlareSystemsManagerTest is Test {
     }
 
     // set rewards hash tests
+
+    function testRevertSetRewardsDataRewardsHashZero() public {
+        vm.prank(governance);
+        vm.expectRevert("rewards hash zero");
+        flareSystemsManager.setRewardsData(1, 2, bytes32(0));
+    }
+
     function testRevertSetRewardsDataEpochNotEnded() public {
         vm.prank(governance);
         vm.expectRevert("epoch not ended yet");
         flareSystemsManager.setRewardsData(1, 2, keccak256("rewards hash"));
     }
 
+    function testRevertSetRewardsDataSigningPolicyNotSigned() public {
+        _initializeSigningPolicy(1);
+
+        bytes32 newSigningPolicyHash = keccak256("signing policy2");
+        _mockToSigningPolicyHash(2, newSigningPolicyHash);
+
+
+        bytes32 messageHash = newSigningPolicyHash;
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+
+        // voter0 signs
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
+        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
+            abi.encode(voters[0], votersWeight[0])
+        );
+        flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
+
+        // voter1 signs; threshold (500) is reached
+        (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
+        signature = IFlareSystemsManager.Signature(v, r, s);
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
+            abi.encode(voters[1], votersWeight[1])
+        );
+        vm.expectEmit();
+        emit SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
+        flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
+
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
+        _mockRegisteredAddresses(1);
+        vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
+        vm.prank(flareDaemon);
+        flareSystemsManager.daemonize(); // start new reward epoch
+
+        // initialize another reward epoch
+        _initializeSigningPolicy(2);
+
+        _mockToSigningPolicyHash(2, bytes32("signing policy2"));
+
+        _mockRegisteredAddresses(2);
+        vm.warp(block.timestamp + 5400); // after end of reward epoch 1
+        vm.prank(flareDaemon);
+        flareSystemsManager.daemonize(); // start new reward epoch (epoch 2)
+
+        vm.expectRevert("new signing policy not signed yet");
+        vm.prank(governance);
+        flareSystemsManager.setRewardsData(0, 2, keccak256("rewards hash"));
+    }
+
     function testUpdateRewardsData() public {
         testSignRewards();
         uint64 noOfWeightBasedClaims = 1;
+        bytes32 rewardsHash = keccak256("rewards hash 2");
+        assertNotEq(flareSystemsManager.rewardsHash(1), rewardsHash);
+        assertNotEq(flareSystemsManager.noOfWeightBasedClaims(1), noOfWeightBasedClaims);
         vm.prank(governance);
         vm.expectEmit();
         emit RewardsSigned(1, governance, governance,
-            keccak256("rewards hash2"), noOfWeightBasedClaims, uint64(block.timestamp), true);
-        flareSystemsManager.setRewardsData(1, noOfWeightBasedClaims, keccak256("rewards hash2"));
+            rewardsHash, noOfWeightBasedClaims, uint64(block.timestamp), true);
+        flareSystemsManager.setRewardsData(1, noOfWeightBasedClaims, rewardsHash);
+        assertEq(flareSystemsManager.rewardsHash(1), rewardsHash);
+        assertEq(flareSystemsManager.noOfWeightBasedClaims(1), noOfWeightBasedClaims);
     }
 
     function testSetRewardsData() public {
@@ -1842,12 +1908,60 @@ contract FlareSystemsManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize(); // start new reward epoch
 
+        bytes32 newSigningPolicyHash = keccak256("signing policy2");
+        _mockToSigningPolicyHash(2, newSigningPolicyHash);
+
+        bytes32 messageHash = newSigningPolicyHash;
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+
+        // voter0 signs
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
+        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
+            abi.encode(voters[0], votersWeight[0])
+        );
+        flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
+
+        // voter1 signs; threshold (500) is reached
+        (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
+        signature = IFlareSystemsManager.Signature(v, r, s);
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
+            abi.encode(voters[1], votersWeight[1])
+        );
+        vm.expectEmit();
+        emit SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
+        flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
+
+        _mockToSigningPolicyHash(1, bytes32("signing policy1"));
+
+        _mockRegisteredAddresses(1);
+        vm.warp(block.timestamp + 5400); // after end of current reward epoch (0)
+        vm.prank(flareDaemon);
+        flareSystemsManager.daemonize(); // start new reward epoch
+
+        // initialize another reward epoch
+        _initializeSigningPolicy(2);
+
+        _mockToSigningPolicyHash(2, bytes32("signing policy2"));
+
+        _mockRegisteredAddresses(2);
+        vm.warp(block.timestamp + 5400); // after end of reward epoch 1
+        vm.prank(flareDaemon);
+        flareSystemsManager.daemonize(); // start new reward epoch (epoch 2)
+
         uint64 noOfWeightBasedClaims = 3;
+        bytes32 rewardsHash = keccak256("rewards hash");
         vm.prank(governance);
         vm.expectEmit();
-        emit RewardsSigned(0, governance, governance,
-            keccak256("rewards hash"), noOfWeightBasedClaims, uint64(block.timestamp), true);
-        flareSystemsManager.setRewardsData(0, noOfWeightBasedClaims, keccak256("rewards hash"));
+        emit RewardsSigned(1, governance, governance,
+            rewardsHash, noOfWeightBasedClaims, uint64(block.timestamp), true);
+        flareSystemsManager.setRewardsData(1, noOfWeightBasedClaims, rewardsHash);
+        assertEq(flareSystemsManager.rewardsHash(1), rewardsHash);
+        assertEq(flareSystemsManager.noOfWeightBasedClaims(1), noOfWeightBasedClaims);
     }
 
 

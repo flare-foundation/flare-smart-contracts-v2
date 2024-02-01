@@ -517,9 +517,8 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
         external
     {
         require(_rewardsHash != bytes32(0), "rewards hash zero");
+        _checkIsTimeToSignRewards(_rewardEpochId);
         RewardEpochState storage state = rewardEpochState[_rewardEpochId];
-        require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
-        require(rewardEpochState[_rewardEpochId + 1].signingPolicySignEndTs != 0, "new signing policy not signed yet");
         require(uptimeVoteHash[_rewardEpochId] != bytes32(0), "uptime vote hash not signed yet");
         require(rewardsHash[_rewardEpochId] == bytes32(0), "rewards hash already signed");
         bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _noOfWeightBasedClaims, _rewardsHash));
@@ -570,7 +569,8 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     )
         external onlyImmediateGovernance
     {
-        require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
+        require(_rewardsHash != bytes32(0), "rewards hash zero");
+        _checkIsTimeToSignRewards(_rewardEpochId);
         rewardsHash[_rewardEpochId] = _rewardsHash;
         noOfWeightBasedClaims[_rewardEpochId] = _noOfWeightBasedClaims;
         emit RewardsSigned(
@@ -1116,5 +1116,13 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
         if (_startVotingRoundId < minStartVotingRoundId) {
             _startVotingRoundId = minStartVotingRoundId;
         }
+    }
+
+    /**
+     * Checks if it is time to sign rewards.
+     */
+    function _checkIsTimeToSignRewards(uint24 _rewardEpochId) internal view {
+        require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
+        require(rewardEpochState[_rewardEpochId + 1].signingPolicySignEndTs != 0, "new signing policy not signed yet");
     }
 }

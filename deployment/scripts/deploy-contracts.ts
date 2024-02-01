@@ -1,5 +1,5 @@
 /**
- * This script will deploy PollingFoundation contract.
+ * This script will deploy Flare systems protocol and FTSO scaling contracts.
  * It will output, on stdout, a json encoded list of contracts
  * that were deployed. It will write out to stderr, status info
  * as it executes.
