@@ -59,6 +59,11 @@ interface IVoterRegistry {
     function newSigningPolicyInitializationStartBlockNumber(uint256 _rewardEpochId) external view returns (uint256);
 
     /**
+     * Indicates if the voter must have the public key set when registering.
+     */
+    function publicKeyRequired() external view returns (bool);
+
+    /**
      * Returns the list of registered voters for a given reward epoch.
      * List can be empty if the reward epoch is not supported (before initial reward epoch or future reward epoch).
      * List for the next reward epoch can still change until the signing policy snapshot is created.

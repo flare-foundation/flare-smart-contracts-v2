@@ -16,7 +16,7 @@ interface IIVoterRegistry is IVoterRegistry {
     function systemRegistration(address _voter) external;
 
     /**
-     * Sets new signing policy initialisation start block number for a given reward epoch id.
+     * Sets new signing policy initialisation start block number for a given reward epoch.
      * @param _rewardEpochId The reward epoch id.
      * @dev Only FlareSystemsManager contract can call this method.
      */
@@ -138,7 +138,20 @@ interface IIVoterRegistry is IVoterRegistry {
         );
 
     /**
-     * Returns weights sums for a given reward epoch id.
+     * Returns registration weight for a given reward epoch and voter address.
+     * It reverts if the voter is not registered.
+     * @param _voter The voter address.
+     * @param _rewardEpochId The reward epoch id.
+     * @return _registrationWeight The registration weight.
+     */
+    function getVoterRegistrationWeight(
+        address _voter,
+        uint256 _rewardEpochId
+    )
+        external view returns (uint256 _registrationWeight);
+
+    /**
+     * Returns weights sums for a given reward epoch.
      * @param _rewardEpochId The reward epoch id.
      * @return _weightsSum The weights sum.
      * @return _normalisedWeightsSum The normalised weights sum.

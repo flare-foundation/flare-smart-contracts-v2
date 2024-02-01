@@ -52,7 +52,10 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     /// The FlareSystemsCalculator contract.
     IIFlareSystemsCalculator public flareSystemsCalculator;
 
+    /// The address of the system registration contract.
     address public systemRegistrationContractAddress;
+    /// Indicates if the voter must have the public key set when registering.
+    bool public publicKeyRequired;
 
     /// Only FlareSystemsManager contract can call this method.
     modifier onlyFlareSystemsManager {
@@ -165,6 +168,14 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      */
     function setSystemRegistrationContractAddress(address _systemRegistrationContractAddress) external onlyGovernance {
         systemRegistrationContractAddress = _systemRegistrationContractAddress;
+    }
+
+    /**
+     * Sets if the voter must have the public key set when registering.
+     * @dev Only governance can call this method.
+     */
+    function setPublicKeyRequired(bool _publicKeyRequired) external onlyGovernance {
+        publicKeyRequired = _publicKeyRequired;
     }
 
     /**
@@ -376,6 +387,19 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     /**
      * @inheritdoc IIVoterRegistry
      */
+    function getVoterRegistrationWeight(
+        address _voter,
+        uint256 _rewardEpochId
+    )
+        external view returns (uint256 _registrationWeight)
+    {
+        _registrationWeight = register[_rewardEpochId].weights[_voter];
+        require(_registrationWeight > 0, "voter not registered");
+    }
+
+    /**
+     * @inheritdoc IIVoterRegistry
+     */
     function getWeightsSums(uint256 _rewardEpochId)
         external view
         returns (
@@ -433,6 +457,12 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         uint256 weight = flareSystemsCalculator.calculateRegistrationWeight(_voter, _rewardEpochId, votePowerBlock);
         require(weight > 0, "voter weight zero");
 
+        (bytes32 publicKeyPart1, bytes32 publicKeyPart2) =
+            entityManager.getPublicKeyOfAt(_voter, newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+        if (publicKeyRequired && publicKeyPart1 == bytes32(0) && publicKeyPart2 == bytes32(0)) {
+            revert("public key required");
+        }
+
         VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
 
         // check if _voter already registered
@@ -472,9 +502,6 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
             votersAndWeights.weights[_voter] = weight;
             emit VoterRemoved(removedVoter, _rewardEpochId);
         }
-
-        (bytes32 publicKeyPart1, bytes32 publicKeyPart2) =
-            entityManager.getPublicKeyOfAt(_voter, newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
 
         emit VoterRegistered(
             _voter,
