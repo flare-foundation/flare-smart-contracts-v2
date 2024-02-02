@@ -967,7 +967,8 @@ contract VoterRegistryTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             vm.mockCall(
                 mockFlareSystemsCalculator,
-                abi.encodeWithSelector(IIFlareSystemsCalculator.calculateRegistrationWeight.selector, initialVoters[i]),
+                abi.encodeWithSelector(
+                    IIFlareSystemsCalculator.calculateRegistrationWeight.selector,initialVoters[i]),
                 abi.encode(initialVotersWeights[i])
             );
         }
