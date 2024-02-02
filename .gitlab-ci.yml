@@ -137,6 +137,11 @@ test-linter:
   script:
     - yarn lint
 
+test-linter-forge:
+  extends: .test-node-sc
+  script:
+    - yarn lint-forge
+
 test-slither-check:
   extends: .test-node-sc
   variables:

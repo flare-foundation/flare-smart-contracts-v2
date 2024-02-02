@@ -493,6 +493,66 @@ contract VoterRegistryTest is Test {
         }
     }
 
+    function testRegisterVotersPublicKeyRequired() public {
+        IVoterRegistry.Signature memory signature;
+
+        _mockGetCurrentEpochId(0);
+        _mockGetVoterAddressesAt();
+        _mockGetPublicKeyOfAt();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVoterWeights();
+        vm.prank(governance);
+        voterRegistry.setMaxVoters(2);
+        vm.prank(mockFlareSystemsManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
+
+        // voter must have the public key set when registering
+        assertEq(voterRegistry.publicKeyRequired(), false);
+        vm.prank(governance);
+        voterRegistry.setPublicKeyRequired(true);
+        assertEq(voterRegistry.publicKeyRequired(), true);
+
+        // voter 1 has non-zero public key
+        signature = _createSigningPolicyAddressSignature(0, 1);
+        vm.expectEmit();
+        emit VoterRegistered(
+            initialVoters[0],
+            uint24(1),
+            initialSigningPolicyAddresses[0],
+            initialSubmitAddresses[0],
+            initialSubmitSignaturesAddresses[0],
+            initialPublicKeyParts1[0],
+            initialPublicKeyParts2[0],
+            initialVotersWeights[0]
+        );
+        voterRegistry.registerVoter(initialVoters[0], signature);
+
+        // voter 2 has zero public key
+        signature = _createSigningPolicyAddressSignature(1, 1);
+        vm.expectRevert("public key required");
+        voterRegistry.registerVoter(initialVoters[1], signature);
+
+        // voter 3 has zero part 1 of public key but non-zero part 2
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(IEntityManager.getPublicKeyOfAt.selector, initialVoters[2]),
+            abi.encode(bytes32("123"), bytes32(0))
+        );
+        signature = _createSigningPolicyAddressSignature(2, 1);
+        vm.expectEmit();
+        emit VoterRegistered(
+            initialVoters[2],
+            uint24(1),
+            initialSigningPolicyAddresses[2],
+            initialSubmitAddresses[2],
+            initialSubmitSignaturesAddresses[2],
+            bytes32("123"),
+            bytes32(0),
+            initialVotersWeights[2]
+        );
+        voterRegistry.registerVoter(initialVoters[2], signature);
+    }
+
     function testRegisterVotersAndCreateSigningPolicySnapshot() public {
         IVoterRegistry.Signature memory signature;
 
@@ -797,8 +857,15 @@ contract VoterRegistryTest is Test {
         vm.stopPrank();
     }
 
-    // TODO test with more than one node id for one of the voters
+    function testGetVoterRegistrationWeight() public {
+        testRegisterVotersPublicKeyRequired();
 
+        assertEq(voterRegistry.getVoterRegistrationWeight(initialVoters[0], 1), initialVotersWeights[0]);
+        assertEq(voterRegistry.getVoterRegistrationWeight(initialVoters[2], 1), initialVotersWeights[2]);
+
+        vm.expectRevert("voter not registered");
+        voterRegistry.getVoterRegistrationWeight(initialVoters[1], 1);
+    }
 
     ///// helper functions
     function _createInitialVoters(uint256 _num) internal {
