@@ -238,7 +238,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         rewardManager = await RewardManager.new(
             governanceSettings.address,
             accounts[0],
-            ADDRESS_UPDATER
+            ADDRESS_UPDATER,
+            "0x0000000000000000000000000000000000000000"
         );
 
         relay = await Relay.new(

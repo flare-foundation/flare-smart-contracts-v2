@@ -90,7 +90,8 @@ contract FtsoRewardOffersManagerTest is Test {
         rewardManager = new RewardManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
-            addressUpdater
+            addressUpdater,
+            address(0)
         );
 
         vm.startPrank(addressUpdater);

@@ -130,7 +130,8 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const rewardManager = await RewardManager.new(
     governanceSettings,
     deployerAccount.address,
-    deployerAccount.address // tmp address updater
+    deployerAccount.address, // tmp address updater
+    "0x0000000000000000000000000000000000000000"
   );
   spewNewContractInfo(contracts, null, RewardManager.contractName, `RewardManager.sol`, rewardManager.address, quiet);
 

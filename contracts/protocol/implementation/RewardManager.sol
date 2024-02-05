@@ -95,7 +95,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     bool public active;
 
     /// Address of the old `RewardManager`, replaced by this one.
-    address public oldRewardManager;
+    address public immutable oldRewardManager;
     /// Address of the new `RewardManager` that replaced this one.
     address public newRewardManager;
 
@@ -127,15 +127,18 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @param _governanceSettings Address of the GovernanceSettings contract.
      * @param _initialGovernance The initial governance address.
      * @param _addressUpdater Address of the AddressUpdater contract.
+     * @param _oldRewardManager Address of the old `RewardManager`.
      */
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
-        address _addressUpdater
+        address _addressUpdater,
+        address _oldRewardManager
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
         firstClaimableRewardEpochId = FIRST_CLAIMABLE_EPOCH;
+        oldRewardManager = _oldRewardManager;
     }
 
     /**
@@ -156,9 +159,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         returns (uint256 _rewardAmountWei)
     {
         _checkNonzeroRecipient(_recipient);
-
-        uint24 currentRewardEpochId = _getCurrentRewardEpochId();
-        require(_isRewardClaimable(_rewardEpochId, currentRewardEpochId), "not claimable");
+        _checkIsPastRewardEpoch(_rewardEpochId);
 
         uint24 minClaimableEpochId = _minClaimableRewardEpochId();
         uint120 burnAmountWei;
@@ -198,8 +199,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             _checkNonzeroRecipient(_rewardOwners[i]);
         }
 
-        uint24 currentRewardEpochId = _getCurrentRewardEpochId();
-        require(_isRewardClaimable(_rewardEpochId, currentRewardEpochId), "not claimable");
+        _checkIsPastRewardEpoch(_rewardEpochId);
 
         (address[] memory claimAddresses, uint256 executorFeeValue) =
             claimSetupManager.getAutoClaimAddressesAndExecutorFee(msg.sender, _rewardOwners);
@@ -298,17 +298,6 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
-     * Sets old reward manager to which closing expired reward epochs will be forwarded.
-     * Should be called at the time of switching to this reward manager, can be called only once.
-     * @dev Only governance can call this method.
-     */
-    function setOldRewardManager(address _oldRewardManager) external onlyGovernance {
-        require(oldRewardManager == address(0), "already set");
-        require(_oldRewardManager != address(0), "address zero");
-        oldRewardManager = _oldRewardManager;
-    }
-
-    /**
      * Copy initial reward data from `flareSystemsManager` before starting up this new reward manager.
      * Should be called at the time of switching to the new reward manager, can be called only once.
      * @dev Only governance can call this method.
@@ -379,7 +368,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     /**
      * @inheritdoc IRewardManager
      */
-    function getStateOfRewards(
+    function getStateOfRewardsAt(
         address _rewardOwner,
         uint24 _rewardEpochId
     )
@@ -388,92 +377,33 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             RewardState[] memory _rewardStates
         )
     {
-        uint24 currentRewardEpochId = _getCurrentRewardEpochId();
-        require(_isRewardClaimable(_rewardEpochId, currentRewardEpochId), "not claimable");
+        _checkIsPastRewardEpoch(_rewardEpochId);
         require(_rewardEpochId >= _nextClaimableEpochId(_rewardOwner, _minClaimableRewardEpochId()),
             "already claimed");
-
-        uint256 noOfWeightBasedClaims = flareSystemsManager.noOfWeightBasedClaims(_rewardEpochId);
-        if (noOfWeightBasedClaims == 0) {
-            require(flareSystemsManager.rewardsHash(_rewardEpochId) != bytes32(0), "rewards hash zero");
-        }
-        uint256 votePowerBlock = _getVotePowerBlock(_rewardEpochId);
-
-        uint256 count = 0;
-        StateOfRewardsTmp memory tmp;
-
-        // MIRROR claims
-        if (address(pChainStakeMirror) != address(0)) {
-            (tmp.nodeIds, tmp.nodeWeights) = pChainStakeMirror.stakesOfAt(_rewardOwner, votePowerBlock);
-            count += tmp.nodeIds.length;
-        }
-        // CCHAIN claims
-        if (address(cChainStake) != address(0)) {
-            (tmp.cChainAddresses, tmp.cChainWeights) = cChainStake.stakesOfAt(_rewardOwner, votePowerBlock);
-            count += tmp.cChainAddresses.length;
-        }
-
-        // WNAT claims
-        tmp.delegatorBalance = wNat.balanceOfAt(_rewardOwner, votePowerBlock);
-        if (tmp.delegatorBalance > 0) { // _rewardOwner had some funds wrapped at votePowerBlock
-            (tmp.delegates, tmp.bips, , ) = wNat.delegatesOfAt(_rewardOwner, votePowerBlock);
-            count += tmp.delegates.length;
-            uint256 delegatedBIPS = 0;
-            for (uint256 i = 0; i < tmp.bips.length; i++) {
-                delegatedBIPS += tmp.bips[i];
-            }
-            if (delegatedBIPS < MAX_BIPS) {
-                // get undelegated vote power including revocations
-                tmp.undelegatedVotePower = wNat.undelegatedVotePowerOfAt(_rewardOwner, votePowerBlock);
-                if (tmp.undelegatedVotePower > 0) {
-                    count += 1;
-                }
-            }
-        }
-
-        bool allClaimsInitialised = epochNoOfInitialisedWeightBasedClaims[_rewardEpochId] >= noOfWeightBasedClaims;
-        _rewardStates = new RewardState[](count);
-
-        uint256 index = 0;
-        // WNAT claims
-        if (tmp.undelegatedVotePower > 0) { // _rewardOwner had some undelegated vote power at votePowerBlock
-            _rewardStates[index++] = _getRewardState(
-                    _rewardEpochId,
-                    ClaimType.WNAT,
-                    _rewardOwner,
-                    tmp.undelegatedVotePower,
-                    allClaimsInitialised);
-        }
-        for (uint256 i = 0; i < tmp.delegates.length; i++) {
-            _rewardStates[index++] = _getRewardState(
-                _rewardEpochId,
-                ClaimType.WNAT,
-                tmp.delegates[i],
-                tmp.delegatorBalance.mulDiv(tmp.bips[i], MAX_BIPS),
-                allClaimsInitialised);
-        }
-
-        // MIRROR claims
-        for (uint256 i = 0; i < tmp.nodeIds.length; i++) {
-            _rewardStates[index++] = _getRewardState(
-                    _rewardEpochId,
-                    ClaimType.MIRROR,
-                    address(tmp.nodeIds[i]),
-                    tmp.nodeWeights[i],
-                    allClaimsInitialised);
-        }
-
-        // CCHAIN claims
-        for (uint256 i = 0; i < tmp.cChainAddresses.length; i++) {
-            _rewardStates[index++] = _getRewardState(
-                    _rewardEpochId,
-                    ClaimType.CCHAIN,
-                    tmp.cChainAddresses[i],
-                    tmp.cChainWeights[i],
-                    allClaimsInitialised);
-        }
+        require(_isRewardsHashSet(_rewardEpochId), "rewards hash zero");
+        return _getStateOfRewardsAt(_rewardOwner, _rewardEpochId);
     }
 
+    /**
+     * @inheritdoc IRewardManager
+     */
+    function getStateOfRewards(
+        address _rewardOwner
+    )
+        external view
+        returns (
+            RewardState[][] memory _rewardStates
+        )
+    {
+        uint24 startEpochId = _nextClaimableEpochId(_rewardOwner, _minClaimableRewardEpochId());
+        if (_isRewardsHashSet(startEpochId)) { // if there are no claimable epochs, return empty array
+            uint24 endEpochId = _getLastClaimableRewardEpochId(startEpochId);
+            _rewardStates = new RewardState[][](endEpochId - startEpochId + 1);
+            for (uint24 epoch = startEpochId; epoch <= endEpochId; epoch++) {
+                _rewardStates[epoch - startEpochId] = _getStateOfRewardsAt(_rewardOwner, epoch);
+            }
+        }
+    }
 
     /**
      * @inheritdoc IRewardManager
@@ -529,17 +459,16 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     /**
      * @inheritdoc IRewardManager
      */
-    function getEpochIdsWithClaimableRewards()
+    function getRewardEpochIdsWithClaimableRewards()
         external view
         returns (
-            uint256 _startEpochId,
-            uint256 _endEpochId
+            uint24 _startEpochId,
+            uint24 _endEpochId
         )
     {
         _startEpochId = _minClaimableRewardEpochId();
-        uint256 currentRewardEpochId = _getCurrentRewardEpochId();
-        require(currentRewardEpochId > 0, "no epoch with claimable rewards");
-        _endEpochId = currentRewardEpochId - 1;
+        require(_isRewardsHashSet(_startEpochId), "no epoch with claimable rewards");
+        _endEpochId = _getLastClaimableRewardEpochId(_startEpochId);
     }
 
     /**
@@ -588,7 +517,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     /**
      * @inheritdoc IRewardManager
      */
-    function nextClaimableRewardEpochId(address _rewardOwner) external view returns (uint256) {
+    function getNextClaimableRewardEpochId(address _rewardOwner) external view returns (uint256) {
         return _nextClaimableEpochId(_rewardOwner, _minClaimableRewardEpochId());
     }
 
@@ -764,7 +693,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             // (in this case zero unclaimed rewards are actually zeros)
             uint256 noOfWeightBasedClaims = flareSystemsManager.noOfWeightBasedClaims(epoch);
             if (noOfWeightBasedClaims == 0) {
-                require(flareSystemsManager.rewardsHash(epoch) != bytes32(0), "rewards hash zero");
+                require(_isRewardsHashSet(epoch), "rewards hash zero");
             }
             bool allClaimsInitialised = epochNoOfInitialisedWeightBasedClaims[epoch] >= noOfWeightBasedClaims;
             uint256 votePowerBlock = _getVotePowerBlock(epoch);
@@ -1081,6 +1010,118 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
+     * Returns last claimable reward epoch id.
+     * @param _minClaimableEpochId Minimum claimable epoch id.
+     * @dev Existance of _minClaimableEpochId rewards hash has to be checked elsewhere.
+     */
+    function _getLastClaimableRewardEpochId(
+        uint24 _minClaimableEpochId
+    )
+        internal view returns (uint24 _maxClaimableEpochId)
+    {
+        uint256 currentRewardEpochId = _getCurrentRewardEpochId();
+        _maxClaimableEpochId = _minClaimableEpochId + 1;
+        while (_maxClaimableEpochId < currentRewardEpochId && _isRewardsHashSet(_maxClaimableEpochId)) {
+            _maxClaimableEpochId++;
+        }
+        _maxClaimableEpochId -= 1;
+    }
+
+    /**
+     * Returns the state of rewards for a given address at a specific reward epoch.
+     * @param _rewardOwner Address of the reward owner.
+     * @param _rewardEpochId Id of the reward epoch.
+     * @return _rewardStates Array of reward states.
+     * @dev Existance of _rewardEpochId rewards hash has to be checked elsewhere.
+     */
+    function _getStateOfRewardsAt(
+        address _rewardOwner,
+        uint24 _rewardEpochId
+    )
+        internal view
+        returns (
+            RewardState[] memory _rewardStates
+        )
+    {
+        uint256 noOfWeightBasedClaims = flareSystemsManager.noOfWeightBasedClaims(_rewardEpochId);
+        uint256 votePowerBlock = _getVotePowerBlock(_rewardEpochId);
+
+        uint256 count = 0;
+        StateOfRewardsTmp memory tmp;
+
+        // MIRROR claims
+        if (address(pChainStakeMirror) != address(0)) {
+            (tmp.nodeIds, tmp.nodeWeights) = pChainStakeMirror.stakesOfAt(_rewardOwner, votePowerBlock);
+            count += tmp.nodeIds.length;
+        }
+        // CCHAIN claims
+        if (address(cChainStake) != address(0)) {
+            (tmp.cChainAddresses, tmp.cChainWeights) = cChainStake.stakesOfAt(_rewardOwner, votePowerBlock);
+            count += tmp.cChainAddresses.length;
+        }
+
+        // WNAT claims
+        tmp.delegatorBalance = wNat.balanceOfAt(_rewardOwner, votePowerBlock);
+        if (tmp.delegatorBalance > 0) { // _rewardOwner had some funds wrapped at votePowerBlock
+            (tmp.delegates, tmp.bips, , ) = wNat.delegatesOfAt(_rewardOwner, votePowerBlock);
+            count += tmp.delegates.length;
+            uint256 delegatedBIPS = 0;
+            for (uint256 i = 0; i < tmp.bips.length; i++) {
+                delegatedBIPS += tmp.bips[i];
+            }
+            if (delegatedBIPS < MAX_BIPS) {
+                // get undelegated vote power including revocations
+                tmp.undelegatedVotePower = wNat.undelegatedVotePowerOfAt(_rewardOwner, votePowerBlock);
+                if (tmp.undelegatedVotePower > 0) {
+                    count += 1;
+                }
+            }
+        }
+
+        bool allClaimsInitialised = epochNoOfInitialisedWeightBasedClaims[_rewardEpochId] >= noOfWeightBasedClaims;
+        _rewardStates = new RewardState[](count);
+
+        uint256 index = 0;
+        // WNAT claims
+        if (tmp.undelegatedVotePower > 0) { // _rewardOwner had some undelegated vote power at votePowerBlock
+            _rewardStates[index++] = _getRewardState(
+                    _rewardEpochId,
+                    ClaimType.WNAT,
+                    _rewardOwner,
+                    tmp.undelegatedVotePower,
+                    allClaimsInitialised);
+        }
+        for (uint256 i = 0; i < tmp.delegates.length; i++) {
+            _rewardStates[index++] = _getRewardState(
+                _rewardEpochId,
+                ClaimType.WNAT,
+                tmp.delegates[i],
+                tmp.delegatorBalance.mulDiv(tmp.bips[i], MAX_BIPS),
+                allClaimsInitialised);
+        }
+
+        // MIRROR claims
+        for (uint256 i = 0; i < tmp.nodeIds.length; i++) {
+            _rewardStates[index++] = _getRewardState(
+                    _rewardEpochId,
+                    ClaimType.MIRROR,
+                    address(tmp.nodeIds[i]),
+                    tmp.nodeWeights[i],
+                    allClaimsInitialised);
+        }
+
+        // CCHAIN claims
+        for (uint256 i = 0; i < tmp.cChainAddresses.length; i++) {
+            _rewardStates[index++] = _getRewardState(
+                    _rewardEpochId,
+                    ClaimType.CCHAIN,
+                    tmp.cChainAddresses[i],
+                    tmp.cChainWeights[i],
+                    allClaimsInitialised);
+        }
+    }
+
+    /**
      * Returns reward state.
      * @param _rewardEpochId Reward epoch id.
      * @param _claimType Claim type.
@@ -1100,6 +1141,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             RewardState memory _rewardState
         )
     {
+        _rewardState.rewardEpochId = _rewardEpochId;
         _rewardState.beneficiary = bytes20(_beneficiary);
         _rewardState.claimType = _claimType;
         UnclaimedRewardState storage state =
@@ -1122,14 +1164,11 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
-     * Reports if rewards for `_rewardEpochId` are claimable.
+     * Checks if `_rewardEpochId` is in the past.
      * @param _rewardEpochId Reward epoch id.
-     * @param _currentRewardEpochId Id of the current reward epoch.
      */
-    function _isRewardClaimable(uint24 _rewardEpochId, uint24 _currentRewardEpochId) internal view returns (bool) {
-        return _rewardEpochId >= firstClaimableRewardEpochId &&
-               _rewardEpochId >= nextRewardEpochIdToExpire &&
-               _rewardEpochId < _currentRewardEpochId;
+    function _checkIsPastRewardEpoch(uint24 _rewardEpochId) internal view {
+        require(_rewardEpochId < _getCurrentRewardEpochId(), "not claimable");
     }
 
     /**
@@ -1169,6 +1208,13 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      */
     function _getExpectedBalance() internal view override returns(uint256) {
         return totalFundsReceivedWei - totalClaimedWei - totalBurnedWei;
+    }
+
+    /**
+     * Returns if the rewards hash is voted.
+     */
+    function _isRewardsHashSet(uint24 _rewardEpochId) internal view returns (bool) {
+        return flareSystemsManager.rewardsHash(_rewardEpochId) != bytes32(0);
     }
 
     /**

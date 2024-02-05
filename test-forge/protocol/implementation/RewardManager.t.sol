@@ -60,7 +60,8 @@ contract RewardManagerTest is Test {
         rewardManager = new RewardManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
-            addressUpdater
+            addressUpdater,
+            address(0)
         );
 
         mockClaimSetupManager = makeAddr("mockClaimSetupManager");
@@ -146,11 +147,11 @@ contract RewardManagerTest is Test {
         assertEq(voter1.balance, body.amount);
 
         vm.expectRevert("already claimed");
-        rewardManager.getStateOfRewards(voter1, rewardEpochData.id);
+        rewardManager.getStateOfRewardsAt(voter1, rewardEpochData.id);
     }
 
     // user has nothing to claim (no delegations, p-chain and c-chain not enabled)
-    function testGetStateOfRewards1() public {
+    function testGetStateOfRewardsAt1() public {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
         _mockGetVpBlock(0, rewardEpochData.vpBlock);
         _mockWNatBalance(voter1, rewardEpochData.vpBlock, rewardEpochData.id);
@@ -159,7 +160,8 @@ contract RewardManagerTest is Test {
         _mockNoOfWeightBasedClaims(rewardEpochData.id, 0);
         _mockRewardsHash(rewardEpochData.id, bytes32("root"));
 
-        RewardManager.RewardState[] memory rewardStates = rewardManager.getStateOfRewards(voter1, rewardEpochData.id);
+        RewardManager.RewardState[] memory rewardStates =
+            rewardManager.getStateOfRewardsAt(voter1, rewardEpochData.id);
         assertEq(rewardStates.length, 0);
     }
 
@@ -181,7 +183,7 @@ contract RewardManagerTest is Test {
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
 
         vm.expectRevert("rewards hash zero");
-        rewardManager.getStateOfRewards(voter1, rewardEpochData.id);
+        rewardManager.getStateOfRewardsAt(voter1, rewardEpochData.id);
     }
 
     // claim DIRECT and weight based (WNAT)
@@ -262,7 +264,8 @@ contract RewardManagerTest is Test {
         vm.expectRevert("not initialised");
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
 
-        RewardManager.RewardState[] memory rewardStates = rewardManager.getStateOfRewards(voter1, rewardEpochData.id);
+        RewardManager.RewardState[] memory rewardStates =
+            rewardManager.getStateOfRewardsAt(voter1, rewardEpochData.id);
         assertEq(rewardStates.length, 2); // WNAT (undelegated VP) and MIRROR
 
         // set proofs and initialised claims
@@ -374,7 +377,8 @@ contract RewardManagerTest is Test {
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         // get state of rewards - all amounts zero because not yet initialized
-        RewardManager.RewardState[] memory rewardStates = rewardManager.getStateOfRewards(voter1, rewardEpochData.id);
+        RewardManager.RewardState[] memory rewardStates =
+            rewardManager.getStateOfRewardsAt(voter1, rewardEpochData.id);
         assertEq(rewardStates.length, 3);
         assertEq(address(rewardStates[0].beneficiary), voter1);
         assertEq(rewardStates[0].amount, 0);
@@ -600,7 +604,7 @@ contract RewardManagerTest is Test {
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
 
         // get state of rewards for delegator
-        RewardManager.RewardState[] memory rewardStates = rewardManager.getStateOfRewards(delegator, 0);
+        RewardManager.RewardState[] memory rewardStates = rewardManager.getStateOfRewardsAt(delegator, 0);
         assertEq(rewardStates.length, 3);
         assertEq(address(rewardStates[0].beneficiary), voter1);
         assertEq(rewardStates[0].amount, 34);
@@ -1088,7 +1092,7 @@ contract RewardManagerTest is Test {
         rewardManager.claim(voter1, payable(voter1), 3, false, proofs);
 
         vm.expectRevert("not claimable");
-        rewardManager.getStateOfRewards(voter1, 3);
+        rewardManager.getStateOfRewardsAt(voter1, 3);
     }
 
     function testClaimRevertZeroRecipient() public {
@@ -1589,15 +1593,16 @@ contract RewardManagerTest is Test {
         _setPChainMirrorData(rewardEpochData.vpBlock);
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
-        assertEq(rewardManager.nextClaimableRewardEpochId(voter1), 0);
+        assertEq(rewardManager.getNextClaimableRewardEpochId(voter1), 0);
         vm.prank(voter1);
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
-        assertEq(rewardManager.nextClaimableRewardEpochId(voter1), 1);
+        assertEq(rewardManager.getNextClaimableRewardEpochId(voter1), 1);
 
         RewardManager rewardManager2 = new RewardManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
-            addressUpdater
+            addressUpdater,
+            address(0)
         );
 
         vm.prank(addressUpdater);
@@ -1609,18 +1614,18 @@ contract RewardManagerTest is Test {
         vm.expectRevert("already enabled");
         rewardManager2.enableClaims();
         vm.stopPrank();
-        assertEq(rewardManager2.nextClaimableRewardEpochId(voter1), 123);
+        assertEq(rewardManager2.getNextClaimableRewardEpochId(voter1), 123);
     }
 
     function testGetEpochsWithClaimableRewards() public {
         _mockGetCurrentEpochId(0);
         vm.expectRevert("no epoch with claimable rewards");
-        rewardManager.getEpochIdsWithClaimableRewards();
+        rewardManager.getRewardEpochIdsWithClaimableRewards();
 
         vm.prank(governance);
         rewardManager.enableClaims();
         _mockGetCurrentEpochId(13);
-        (uint256 startId, uint endId) = rewardManager.getEpochIdsWithClaimableRewards();
+        (uint24 startId, uint24 endId) = rewardManager.getRewardEpochIdsWithClaimableRewards();
         assertEq(startId, 0);
         assertEq(endId, 13 - 1);
     }
@@ -1647,19 +1652,6 @@ contract RewardManagerTest is Test {
         vm.stopPrank();
     }
 
-    function testSetOldRewardManagerRevert() public {
-        vm.startPrank(governance);
-        vm.expectRevert("address zero");
-        rewardManager.setOldRewardManager(address(0));
-
-        rewardManager.setOldRewardManager(makeAddr("oldRewardManager"));
-        assertEq(rewardManager.oldRewardManager(), makeAddr("oldRewardManager"));
-
-        vm.expectRevert("already set");
-        rewardManager.setOldRewardManager(makeAddr("oldRewardManager1"));
-        vm.stopPrank();
-    }
-
     function testSetInitialRewardDataRevert() public {
         vm.startPrank(governance);
         _mockGetCurrentEpochId(100);
@@ -1674,10 +1666,29 @@ contract RewardManagerTest is Test {
     }
 
     function testCloseExpiredRewardEpoch() public {
+        RewardManager oldRewardManager = new RewardManager(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            address(0)
+        );
+        vm.prank(addressUpdater);
+        oldRewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        rewardManager = new RewardManager(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            address(oldRewardManager)
+        );
+        vm.prank(addressUpdater);
+        rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
+
         RewardManager newRewardManager = new RewardManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
-            addressUpdater
+            addressUpdater,
+            address(0)
         );
 
         _mockGetCurrentEpochId(100);
@@ -1697,6 +1708,13 @@ contract RewardManagerTest is Test {
         vm.expectRevert("wrong epoch id");
         rewardManager.closeExpiredRewardEpoch(91);
 
+        // set new reward manager
+        vm.startPrank(governance);
+        oldRewardManager.setNewRewardManager(address(rewardManager));
+        _mockRewardEpochIdToExpireNext(90);
+        oldRewardManager.setInitialRewardData();
+        vm.stopPrank();
+
         // close expired epoch and burn everything that was not spent on rewards which is whole 1000
         _fundRewardContract(1000, 90);
         vm.startPrank(address(newRewardManager));
@@ -1712,21 +1730,6 @@ contract RewardManagerTest is Test {
         rewardManager.closeExpiredRewardEpoch(91);
         assertEq(BURN_ADDRESS.balance, 1000);
 
-        vm.stopPrank();
-
-        // set old reward manager
-        RewardManager oldRewardManager = new RewardManager(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
-            addressUpdater
-        );
-        vm.prank(addressUpdater);
-        oldRewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
-        vm.startPrank(governance);
-        rewardManager.setOldRewardManager(address(oldRewardManager));
-        oldRewardManager.setNewRewardManager(address(rewardManager));
-        _mockRewardEpochIdToExpireNext(92);
-        oldRewardManager.setInitialRewardData();
         vm.stopPrank();
 
         // fund old contract for epoch 92
@@ -1757,7 +1760,8 @@ contract RewardManagerTest is Test {
         RewardManager newRewardManager = new RewardManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
-            addressUpdater
+            addressUpdater,
+            address(0)
         );
 
         _mockGetCurrentEpochId(89);
