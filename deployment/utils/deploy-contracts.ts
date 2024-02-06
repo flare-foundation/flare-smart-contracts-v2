@@ -264,7 +264,8 @@ export async function deployContracts(
   const rewardManager = await RewardManager.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR
+    ADDRESS_UPDATER_ADDR,
+    "0x0000000000000000000000000000000000000000"
   );
 
   const relay = await Relay.new(
