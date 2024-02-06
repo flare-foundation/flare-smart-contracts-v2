@@ -20,6 +20,29 @@
             ],
             "type": "object"
         },
+        "FlareDaemonizedContract": {
+            "additionalProperties": false,
+            "properties": {
+                "contractName": {
+                    "description": "The daemonized contract name.",
+                    "type": "string"
+                },
+                "gasLimit": {
+                    "description": "The daemonized contract gas limit.",
+                    "type": "integer"
+                },
+                "oldContract": {
+                    "description": "Indicates whether the contract is part of old repo (flare-smart-contracts).",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "contractName",
+                "gasLimit",
+                "oldContract"
+            ],
+            "type": "object"
+        },
         "FtsoInflationConfiguration": {
             "additionalProperties": false,
             "properties": {
@@ -61,6 +84,39 @@
                 "mode",
                 "primaryBandRewardSharePPM",
                 "secondaryBandWidthPPMs"
+            ],
+            "type": "object"
+        },
+        "InflationReceiver": {
+            "additionalProperties": false,
+            "properties": {
+                "contractName": {
+                    "description": "The inflation receiver contract name.",
+                    "type": "string"
+                },
+                "oldContract": {
+                    "description": "Indicates whether the contract is part of old repo (flare-smart-contracts).",
+                    "type": "boolean"
+                },
+                "sharingBIPS": {
+                    "description": "The inflation sharing BIPS.",
+                    "type": "integer"
+                },
+                "topUpFactorx100": {
+                    "description": "The inflation top up factorx100.",
+                    "type": "integer"
+                },
+                "topUpType": {
+                    "description": "The inflation top up type.",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "contractName",
+                "oldContract",
+                "sharingBIPS",
+                "topUpFactorx100",
+                "topUpType"
             ],
             "type": "object"
         },
@@ -127,6 +183,13 @@
             "description": "Timestamp of the first voting round start (in seconds since Unix epoch).",
             "type": "integer"
         },
+        "flareDaemonizedContracts": {
+            "description": "Flare daemonized contracts. Order matters. Inflation should be first.",
+            "items": {
+                "$ref": "#/definitions/FlareDaemonizedContract"
+            },
+            "type": "array"
+        },
         "ftsoInflationConfigurations": {
             "description": "The inflation configurations for the FTSO protocol.",
             "items": {
@@ -139,7 +202,7 @@
             "type": "integer"
         },
         "genesisGovernancePrivateKey": {
-            "description": "Genesis governance private key (the key used as governance during deploy). \nOverriden if set in `.env` file as `GENESIS_GOVERNANCE_PRIVATE_KEY`.",
+            "description": "Genesis governance private key (the key used as governance during deploy).\nOverriden if set in `.env` file as `GENESIS_GOVERNANCE_PRIVATE_KEY`.",
             "type": "string"
         },
         "governanceExecutorPublicKey": {
@@ -147,16 +210,23 @@
             "type": "string"
         },
         "governancePrivateKey": {
-            "description": "Governance private key (the private part of `governancePublicKey`). \nOverriden if provided in `.env` file as `GOVERNANCE_PRIVATE_KEY`.\nNote: this is only used in test deploys. In production, governance is a multisig address and there is no private key.",
+            "description": "Governance private key (the private part of `governancePublicKey`).\nOverriden if provided in `.env` file as `GOVERNANCE_PRIVATE_KEY`.\nNote: this is only used in test deploys. In production, governance is a multisig address and there is no private key.",
             "type": "string"
         },
         "governancePublicKey": {
-            "description": "Governance public key (the key to which governance is transferred after deploy). \nOverriden if provided in `.env` file as `GOVERNANCE_PUBLIC_KEY`.",
+            "description": "Governance public key (the key to which governance is transferred after deploy).\nOverriden if provided in `.env` file as `GOVERNANCE_PUBLIC_KEY`.",
             "type": "string"
         },
         "governanceTimelock": {
             "description": "The timelock in seconds to use for all governance operations (the time that has to pass before any governance operation is executed).\nIt safeguards the system against bad governance decisions or hijacked governance.",
             "type": "integer"
+        },
+        "inflationReceivers": {
+            "description": "The inflation receivers.",
+            "items": {
+                "$ref": "#/definitions/InflationReceiver"
+            },
+            "type": "array"
         },
         "initialFeedDecimalsList": {
             "description": "The initial feed decimals used in the FTSO system.",
@@ -266,6 +336,10 @@
             "description": "The threshold for the signing policy in PPM (must be less then 100%, e.g. 50%).",
             "type": "integer"
         },
+        "submissionDeployerPrivateKey": {
+            "description": "Submission deployer private key. Overriden if provided in `.env` file as `SUBMISSION_DEPLOYER_PRIVATE_KEY`",
+            "type": "string"
+        },
         "submitUptimeVoteMinDurationBlocks": {
             "description": "The minimal duration of uptime vote submission phase in blocks (e.g. 300 blocks).",
             "type": "integer"
@@ -273,6 +347,10 @@
         "submitUptimeVoteMinDurationSeconds": {
             "description": "The minimal duration of uptime vote submission phase in seconds (e.g. 10 minutes).",
             "type": "integer"
+        },
+        "updateSubmissionDataOnDeploy": {
+            "description": "Indicates whether to update submission data on deploy.",
+            "type": "boolean"
         },
         "voterRegistrationMinDurationBlocks": {
             "description": "The minimal duration of voter registration phase in blocks (e.g. 900 blocks).",
@@ -300,6 +378,7 @@
         "feedsHistorySize",
         "firstRewardEpochStartVotingRoundId",
         "firstVotingRoundStartTs",
+        "flareDaemonizedContracts",
         "ftsoInflationConfigurations",
         "ftsoProtocolId",
         "genesisGovernancePrivateKey",
@@ -307,6 +386,7 @@
         "governancePrivateKey",
         "governancePublicKey",
         "governanceTimelock",
+        "inflationReceivers",
         "initialFeedDecimalsList",
         "initialNormalisedWeights",
         "initialRandomVotePowerBlockSelectionSize",
@@ -331,8 +411,10 @@
         "signingPolicySignNonPunishableDurationBlocks",
         "signingPolicySignNonPunishableDurationSeconds",
         "signingPolicyThresholdPPM",
+        "submissionDeployerPrivateKey",
         "submitUptimeVoteMinDurationBlocks",
         "submitUptimeVoteMinDurationSeconds",
+        "updateSubmissionDataOnDeploy",
         "voterRegistrationMinDurationBlocks",
         "voterRegistrationMinDurationSeconds",
         "votingEpochDurationSeconds",

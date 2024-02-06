@@ -19,7 +19,7 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, async accounts => {
   beforeEach(async () => {
     submission = await Submission.new(accounts[0], accounts[0], ADDRESS_UPDATER, false);
     await submission.updateContractAddresses(
-      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.RELAY]),
+      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
       [ADDRESS_UPDATER, accounts[2], accounts[3]], { from: ADDRESS_UPDATER });
 
   });

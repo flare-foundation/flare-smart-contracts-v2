@@ -1126,14 +1126,14 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @param _rewardEpochId Reward epoch id.
      * @param _claimType Claim type.
      * @param _beneficiary Address of the reward beneficiary.
-     * @param _amount Reward amount.
+     * @param _rewardWeight Reward weight.
      * @param _allClaimsInitialised Indicates if all claims were already initialised.
      */
     function _getRewardState(
         uint24 _rewardEpochId,
         ClaimType _claimType,
         address _beneficiary,
-        uint256 _amount,
+        uint256 _rewardWeight,
         bool _allClaimsInitialised
     )
         internal view
@@ -1148,7 +1148,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             epochTypeBeneficiaryUnclaimedReward[_rewardEpochId][_claimType][_beneficiary];
         _rewardState.initialised = _allClaimsInitialised || state.initialised;
         if (_rewardState.initialised) {
-            _rewardState.amount = _calculateRewardAmount(state, _amount);
+            _rewardState.amount = _calculateRewardAmount(state, _rewardWeight);
         }
     }
 

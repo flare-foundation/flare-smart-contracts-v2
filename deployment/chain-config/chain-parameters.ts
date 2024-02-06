@@ -52,24 +52,34 @@ export interface ChainParameters {
     // Governance
 
     /**
+     * Submission deployer private key. Overriden if provided in `.env` file as `SUBMISSION_DEPLOYER_PRIVATE_KEY`
+     */
+    submissionDeployerPrivateKey: string;
+
+    /**
+     * Indicates whether to update submission data on deploy.
+     */
+    updateSubmissionDataOnDeploy: boolean;
+
+    /**
      * Deployer private key. Overriden if provided in `.env` file as `DEPLOYER_PRIVATE_KEY`
      */
     deployerPrivateKey: string;
 
     /**
-     * Genesis governance private key (the key used as governance during deploy). 
-     * Overriden if set in `.env` file as `GENESIS_GOVERNANCE_PRIVATE_KEY`. 
+     * Genesis governance private key (the key used as governance during deploy).
+     * Overriden if set in `.env` file as `GENESIS_GOVERNANCE_PRIVATE_KEY`.
      */
     genesisGovernancePrivateKey: string;
 
     /**
-     * Governance public key (the key to which governance is transferred after deploy). 
+     * Governance public key (the key to which governance is transferred after deploy).
      * Overriden if provided in `.env` file as `GOVERNANCE_PUBLIC_KEY`.
      */
     governancePublicKey: string;
 
     /**
-     * Governance private key (the private part of `governancePublicKey`). 
+     * Governance private key (the private part of `governancePublicKey`).
      * Overriden if provided in `.env` file as `GOVERNANCE_PRIVATE_KEY`.
      * Note: this is only used in test deploys. In production, governance is a multisig address and there is no private key.
      */
@@ -247,6 +257,18 @@ export interface ChainParameters {
      * The inflation configurations for the FTSO protocol.
      */
     ftsoInflationConfigurations: FtsoInflationConfiguration[];
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // General settings
+    /**
+     * The inflation receivers.
+     */
+    inflationReceivers: InflationReceiver[];
+
+    /**
+     * Flare daemonized contracts. Order matters. Inflation should be first.
+     */
+    flareDaemonizedContracts: FlareDaemonizedContract[];
 }
 
 export interface FtsoInflationConfiguration {
@@ -308,4 +330,50 @@ export interface FeedDecimals {
      * The feed decimals.
      */
     decimals: integer;
+}
+
+export interface InflationReceiver {
+
+    /**
+     * Indicates whether the contract is part of old repo (flare-smart-contracts).
+     */
+    oldContract: boolean;
+
+    /**
+     * The inflation receiver contract name.
+     */
+    contractName: string;
+
+    /**
+     * The inflation sharing BIPS.
+     */
+    sharingBIPS: integer;
+
+    /**
+     * The inflation top up type.
+     */
+    topUpType: integer;
+
+    /**
+     * The inflation top up factorx100.
+     */
+    topUpFactorx100: integer;
+}
+
+export interface FlareDaemonizedContract {
+
+    /**
+     * Indicates whether the contract is part of old repo (flare-smart-contracts).
+     */
+    oldContract: boolean;
+
+    /**
+     * The daemonized contract name.
+     */
+    contractName: string;
+
+    /**
+     * The daemonized contract gas limit.
+     */
+    gasLimit: integer;
 }

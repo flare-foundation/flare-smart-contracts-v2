@@ -367,9 +367,9 @@ export async function deployContracts(
   await voterRegistry.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEM_MANAGER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
       Contracts.ENTITY_MANAGER,
-      Contracts.FLARE_SYSTEM_CALCULATOR,
+      Contracts.FLARE_SYSTEMS_CALCULATOR,
     ]),
     [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, entityManager.address, flareSystemsCalculator.address],
     { from: ADDRESS_UPDATER_ADDR }
@@ -378,7 +378,7 @@ export async function deployContracts(
   await flareSystemsCalculator.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEM_MANAGER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
       Contracts.ENTITY_MANAGER,
       Contracts.WNAT_DELEGATION_FEE,
       Contracts.VOTER_REGISTRY,
@@ -406,8 +406,8 @@ export async function deployContracts(
       Contracts.ADDRESS_UPDATER,
       Contracts.VOTER_REGISTRY,
       Contracts.CLAIM_SETUP_MANAGER,
-      Contracts.FLARE_SYSTEM_MANAGER,
-      Contracts.FLARE_SYSTEM_CALCULATOR,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.FLARE_SYSTEMS_CALCULATOR,
       Contracts.P_CHAIN_STAKE_MIRROR,
       Contracts.WNAT]),
     [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address],
@@ -417,7 +417,7 @@ export async function deployContracts(
   await submission.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEM_MANAGER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
       Contracts.RELAY]),
     [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, relay.address],
     { from: ADDRESS_UPDATER_ADDR }
@@ -426,13 +426,13 @@ export async function deployContracts(
   await wNatDelegationFee.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEM_MANAGER]),
+      Contracts.FLARE_SYSTEMS_MANAGER]),
     [ADDRESS_UPDATER_ADDR, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
 
   await ftsoRewardOffersManager.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEM_MANAGER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
       Contracts.REWARD_MANAGER,
       Contracts.FTSO_INFLATION_CONFIGURATIONS,
       Contracts.FTSO_FEED_DECIMALS,
@@ -442,7 +442,7 @@ export async function deployContracts(
   await ftsoFeedDecimals.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEM_MANAGER]),
+      Contracts.FLARE_SYSTEMS_MANAGER]),
     [ADDRESS_UPDATER_ADDR, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
 
   await ftsoFeedPublisher.updateContractAddresses(
@@ -454,7 +454,7 @@ export async function deployContracts(
   await cleanupBlockNumberManager.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEM_MANAGER]),
+      Contracts.FLARE_SYSTEMS_MANAGER]),
     [ADDRESS_UPDATER_ADDR, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
 
   // set reward offers manager list

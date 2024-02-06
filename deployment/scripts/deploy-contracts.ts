@@ -11,11 +11,11 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
-import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, RelayContract, RewardManagerContract, SubmissionContract, VoterRegistryContract, WNatDelegationFeeContract } from '../../typechain-truffle';
+import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoFeedPublisherContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, RelayContract, RewardManagerContract, SubmissionContract, VoterRegistryContract, WNatDelegationFeeContract } from '../../typechain-truffle';
 import { ISigningPolicy, SigningPolicy } from '../../scripts/libs/protocol/SigningPolicy';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 
-export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContracts: Contracts, parameters: ChainParameters, quiet: boolean = false) {
+export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContracts: Contracts, contracts: Contracts, parameters: ChainParameters, quiet: boolean = false) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
   const BN = web3.utils.toBN;
@@ -30,14 +30,12 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifacts.require("FtsoInflationConfigurations");
   const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
   const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
-  const FtsoFeedPublisher: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedPublisher");
+  const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
   const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
   const Relay: RelayContract = artifacts.require("Relay");
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
-  // Define repository for created contracts
-  const contracts = new Contracts();
 
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);
@@ -149,13 +147,8 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   );
   spewNewContractInfo(contracts, null, Relay.contractName, `Relay.sol`, relay.address, quiet);
 
-  const submission = await Submission.new(
-    governanceSettings,
-    deployerAccount.address,
-    deployerAccount.address, // tmp address updater
-    false
-  );
-  spewNewContractInfo(contracts, null, Submission.contractName, `Submission.sol`, submission.address, quiet);
+  // get the submission contract
+  const submission = await Submission.at(contracts.getContractAddress(Contracts.SUBMISSION));
 
   const wNatDelegationFee = await WNatDelegationFee.new(
     deployerAccount.address, // tmp address updater
@@ -216,12 +209,12 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   }
 
   await voterRegistry.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.ENTITY_MANAGER, Contracts.FLARE_SYSTEM_CALCULATOR]),
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.ENTITY_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR]),
     [addressUpdater, flareSystemsManager.address, entityManager.address, flareSystemsCalculator.address]
   );
 
   await flareSystemsCalculator.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.ENTITY_MANAGER, Contracts.WNAT_DELEGATION_FEE, Contracts.VOTER_REGISTRY, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.ENTITY_MANAGER, Contracts.WNAT_DELEGATION_FEE, Contracts.VOTER_REGISTRY, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
     [addressUpdater, flareSystemsManager.address, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror, wNat]
   );
 
@@ -231,27 +224,30 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   );
 
   await rewardManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.FLARE_SYSTEM_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
     [addressUpdater, voterRegistry.address, claimSetupManager, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror, wNat]
   );
 
-  await submission.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.RELAY]),
-    [addressUpdater, flareSystemsManager.address, relay.address]
-  );
+  if (parameters.updateSubmissionDataOnDeploy) {
+    await submission.updateContractAddresses(
+      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+      [addressUpdater, flareSystemsManager.address, relay.address],
+      { from: parameters.governancePublicKey }
+    );
+  }
 
   await wNatDelegationFee.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
     [addressUpdater, flareSystemsManager.address]
   );
 
   await ftsoRewardOffersManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.REWARD_MANAGER, Contracts.FTSO_INFLATION_CONFIGURATIONS, Contracts.FTSO_FEED_DECIMALS, Contracts.INFLATION]),
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.FTSO_INFLATION_CONFIGURATIONS, Contracts.FTSO_FEED_DECIMALS, Contracts.INFLATION]),
     [addressUpdater, flareSystemsManager.address, rewardManager.address, ftsoInflationConfigurations.address, ftsoFeedDecimals.address, inflation]
   );
 
   await ftsoFeedDecimals.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
     [addressUpdater, flareSystemsManager.address]
   );
 
@@ -261,7 +257,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   );
 
   await cleanupBlockNumberManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
     [addressUpdater, flareSystemsManager.address]
   );
 
@@ -299,7 +295,9 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   await flareSystemsCalculator.switchToProductionMode();
   await flareSystemsManager.switchToProductionMode();
   await rewardManager.switchToProductionMode();
-  await submission.switchToProductionMode();
+  if (parameters.updateSubmissionDataOnDeploy) {
+    await submission.switchToProductionMode({ from: parameters.governancePublicKey });
+  }
   await ftsoInflationConfigurations.switchToProductionMode();
   await ftsoRewardOffersManager.switchToProductionMode();
   await ftsoFeedDecimals.switchToProductionMode();
