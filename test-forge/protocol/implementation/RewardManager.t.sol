@@ -359,7 +359,51 @@ contract RewardManagerTest is Test {
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
         assertEq(voter1.balance, body1.amount + 166);
     }
-    // TODO: test claim WNAT - user is delegating but not 100%
+
+    // delegator claims, he is not delegating 100 %
+    function testClaimWeightBased3() public {
+        testClaimDirectAndWeightBased2();
+
+        // set data for delegator
+        address[] memory delegates = new address[](1);
+        delegates[0] = voter1;
+        uint256[] memory bips = new uint256[](1);
+        bips[0] = 2000;
+        _mockWNatDelegations(delegator, 10, delegates, bips);
+        _mockWNatBalance(delegator, 10, 80);
+
+        bytes20[] memory nodeIds = new bytes20[](1);
+        uint256[] memory weights = new uint256[](1);
+        nodeIds[0] = nodeId1;
+        weights[0] = 30;
+        _mockStakes(delegator, 10, nodeIds, weights);
+
+        address[] memory accounts = new address[](1);
+        accounts[0] = account1;
+        weights[0] = 40;
+        _mockCChainStakes(delegator, 10, accounts, weights);
+
+        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+
+        _mockUndelegatedVotePowerOfAt(delegator, 10, 64);
+
+        vm.prank(delegator);
+        // WNAT rewards; should receive floor(200 * 250 / 300) = 166
+        // WNAT rewards; should receive floor[(200 - 166) * 80 * 0.2 / (300 - 250)] = 10
+        vm.expectEmit();
+        emit RewardClaimed(voter1, delegator, delegator, 0, IRewardManager.ClaimType.WNAT, 10);
+        // undelegated voter power
+        vm.expectEmit();
+        emit RewardClaimed(delegator, delegator, delegator, 0, IRewardManager.ClaimType.WNAT, 0);
+        // MIRROR rewards; should receive ceil(300 * 30/400) = 22
+        vm.expectEmit();
+        emit RewardClaimed(address(nodeId1), delegator, delegator, 0, IRewardManager.ClaimType.MIRROR, 22);
+        // CCHAIN rewards; should receive ceil(400 * 40/500) = 400 - 360 = 32
+        vm.expectEmit();
+        emit RewardClaimed(account1, delegator, delegator, 0, IRewardManager.ClaimType.CCHAIN, 32);
+        rewardManager.claim(delegator, payable(delegator), 0, false, proofs);
+        // assertEq(delegator.balance, 17 + 38 + 40);
+    }
 
     // claim DIRECT and weight based (WNAT, MIRROR & CCHAIN)
     function testClaimDirectAndWeightBased2() public {
@@ -1355,7 +1399,6 @@ contract RewardManagerTest is Test {
     }
 
     function testClaimAndWrap() public {
-        // TODO deploy WNAT contract, set balance and voter power
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
@@ -1387,7 +1430,7 @@ contract RewardManagerTest is Test {
         emit RewardClaimed(voter1, voter1, voter1, rewardEpochData.id, body.claimType, body.amount);
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, true, proofs);
         assertEq(voter1.balance, 0);
-        // assertEq(mockWNat.balanceOf(voter1), body.amount);
+        assertEq(mockWNat.balance, body.amount);
     }
 
     function testClaimRevertNotClaimable() public {
