@@ -273,7 +273,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   await hre.network.provider.send("evm_setIntervalMining", [1000]);
 
   while (true) {
-    const response = await c.flareSystemsManager.daemonize({ gas: 10000000 });
+    const response = await c.flareSystemsManager.daemonize({ gas: 20000000 });
+    // if (response.receipt.gasUsed > 100000) console.log("Gas used:", response.receipt.gasUsed);
     const blockTimestamp = +(await hre.web3.eth.getBlock(response.receipt.blockNumber)).timestamp;
 
     if (response.logs.length > 0) {
@@ -368,7 +369,7 @@ async function registerAccounts(
   const logger = getLogger("");
 
   for (let i = 0; i < voterCount; i++) {
-    const nodeId = "0x012345678901234567890123456789012345678" + i;
+    const nodeId = "0x0123456789012345678901234567890123456" + i.toString().padStart(3, "0");
     const stakeId = web3.utils.keccak256("stake" + i);
 
     const identityAccount = accounts[accountOffset++];
