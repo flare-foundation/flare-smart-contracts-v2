@@ -96,12 +96,14 @@ task("run-simulation", `Runs local simulation.`) // prettier-ignore
 
 task("deploy-submission-contract", "Deploy submission contract")
 .addFlag("quiet", "Suppress console output")
-.addParam("oldContractsPath", "Path to flare-smart-contracts json file with contracts addresses")
 .setAction(async (args, hre, runSuper) => {
+  if (!process.env.OLD_CONTRACTS_PATH) {
+    throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+  }
   const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
   if (parameters) {
     const network = process.env.CHAIN_CONFIG!;
-    const oldContracts = readContracts(network, args.oldContractsPath);
+    const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
     await deploySubmissionContract(hre, oldContracts, parameters, args.quiet);
   } else {
     throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
@@ -110,12 +112,14 @@ task("deploy-submission-contract", "Deploy submission contract")
 
 task("deploy-contracts", "Deploy contracts")
   .addFlag("quiet", "Suppress console output")
-  .addParam("oldContractsPath", "Path to flare-smart-contracts json file with contracts addresses")
   .setAction(async (args, hre, runSuper) => {
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+    }
     const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
     if (parameters) {
       const network = process.env.CHAIN_CONFIG!;
-      const oldContracts = readContracts(network, args.oldContractsPath);
+      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
       const contracts = readContracts(network);
       await deployContracts(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
@@ -125,12 +129,14 @@ task("deploy-contracts", "Deploy contracts")
 
 task("set-inflation-receivers", "Set inflation receivers")
   .addFlag("quiet", "Suppress console output")
-  .addParam("oldContractsPath", "Path to flare-smart-contracts json file with contracts addresses")
   .setAction(async (args, hre, runSuper) => {
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+    }
     const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
     if (parameters) {
       const network = process.env.CHAIN_CONFIG!;
-      const oldContracts = readContracts(network, args.oldContractsPath);
+      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
       const contracts = readContracts(network);
       await setInflationReceivers(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
@@ -140,12 +146,14 @@ task("set-inflation-receivers", "Set inflation receivers")
 
 task("daemonize-contracts", "Daemonize contracts")
   .addFlag("quiet", "Suppress console output")
-  .addParam("oldContractsPath", "Path to flare-smart-contracts json file with contracts addresses")
   .setAction(async (args, hre, runSuper) => {
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+    }
     const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
     if (parameters) {
       const network = process.env.CHAIN_CONFIG!;
-      const oldContracts = readContracts(network, args.oldContractsPath);
+      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
       const contracts = readContracts(network);
       await daemonizeContracts(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
@@ -211,6 +219,7 @@ const config: HardhatUserConfig = {
   networks: {
     scdev: {
       url: "http://127.0.0.1:9650/ext/bc/C/rpc",
+      gas: 8000000,
       timeout: 40000,
       accounts: accounts.map((x: any) => x.privateKey),
     },

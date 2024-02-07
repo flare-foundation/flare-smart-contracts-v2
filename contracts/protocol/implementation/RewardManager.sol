@@ -66,7 +66,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     // per reward epoch mark direct and fee claims (not weight based) that were already processed (paid out)
     mapping(uint256 rewardEpochId => mapping(bytes32 claimHash => bool)) internal epochProcessedRewardClaims;
     // number of initialised weight based claims per reward epoch
-    mapping(uint256 rewardEpochId => uint256) internal epochNoOfInitialisedWeightBasedClaims;
+    mapping(uint256 rewardEpochId => uint256) public noOfInitialisedWeightBasedClaims;
 
     // Totals
     uint256 private totalClaimedWei;     // rewards that were claimed in time
@@ -644,7 +644,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             // initialise weight
             state.weight = _initVotePower(rewardClaim.rewardEpochId, rewardClaim.beneficiary, rewardClaim.claimType);
             // increase the number of initialised weight based claims
-            epochNoOfInitialisedWeightBasedClaims[rewardClaim.rewardEpochId] += 1;
+            noOfInitialisedWeightBasedClaims[rewardClaim.rewardEpochId] += 1;
         }
     }
 
@@ -695,7 +695,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             if (noOfWeightBasedClaims == 0) {
                 require(_isRewardsHashSet(epoch), "rewards hash zero");
             }
-            bool allClaimsInitialised = epochNoOfInitialisedWeightBasedClaims[epoch] >= noOfWeightBasedClaims;
+            bool allClaimsInitialised = noOfInitialisedWeightBasedClaims[epoch] >= noOfWeightBasedClaims;
             uint256 votePowerBlock = _getVotePowerBlock(epoch);
             uint120 rewardAmount = 0;
 
@@ -1078,7 +1078,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             }
         }
 
-        bool allClaimsInitialised = epochNoOfInitialisedWeightBasedClaims[_rewardEpochId] >= noOfWeightBasedClaims;
+        bool allClaimsInitialised = noOfInitialisedWeightBasedClaims[_rewardEpochId] >= noOfWeightBasedClaims;
         _rewardStates = new RewardState[](count);
 
         uint256 index = 0;

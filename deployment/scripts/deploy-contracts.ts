@@ -60,6 +60,21 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   );
   spewNewContractInfo(contracts, null, EntityManager.contractName, `EntityManager.sol`, entityManager.address, quiet);
 
+
+  let firstVotingRoundStartTs = BN(parameters.firstVotingRoundStartTs);
+  if (firstVotingRoundStartTs.eqn(0)) {
+    // Get the timestamp for the just mined block
+    let currentBlock = await web3.eth.getBlock(await web3.eth.getBlockNumber());
+    firstVotingRoundStartTs = BN(currentBlock.timestamp);
+    if (!quiet) {
+      console.error(`Using current block timestamp ${currentBlock.timestamp} as first voting round  start timestamp.`);
+    }
+  } else {
+    if (!quiet) {
+      console.error(`Using firstVotingRoundStartTs parameter ${parameters.firstVotingRoundStartTs} as first voting round start timestamp.`);
+    }
+  }
+
   const voterRegistry = await VoterRegistry.new(
     governanceSettings,
     deployerAccount.address,
@@ -117,7 +132,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     deployerAccount.address, // tmp address updater
     oldContracts.getContractAddress(Contracts.FLARE_DAEMON),
     updatableSettings,
-    parameters.firstVotingRoundStartTs,
+    firstVotingRoundStartTs,
     parameters.votingEpochDurationSeconds,
     parameters.firstRewardEpochStartVotingRoundId,
     parameters.rewardEpochDurationInVotingEpochs,
@@ -139,7 +154,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     initialSigningPolicy.startVotingRoundId,
     SigningPolicy.hash(initialSigningPolicy),
     parameters.ftsoProtocolId,
-    parameters.firstVotingRoundStartTs,
+    firstVotingRoundStartTs,
     parameters.votingEpochDurationSeconds,
     parameters.firstRewardEpochStartVotingRoundId,
     parameters.rewardEpochDurationInVotingEpochs,
@@ -288,21 +303,6 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
 
   // activate reward manager
   await rewardManager.activate();
-
-  // switch to production mode
-  await entityManager.switchToProductionMode();
-  await voterRegistry.switchToProductionMode();
-  await flareSystemsCalculator.switchToProductionMode();
-  await flareSystemsManager.switchToProductionMode();
-  await rewardManager.switchToProductionMode();
-  if (parameters.updateSubmissionDataOnDeploy) {
-    await submission.switchToProductionMode({ from: parameters.governancePublicKey });
-  }
-  await ftsoInflationConfigurations.switchToProductionMode();
-  await ftsoRewardOffersManager.switchToProductionMode();
-  await ftsoFeedDecimals.switchToProductionMode();
-  await ftsoFeedPublisher.switchToProductionMode();
-  await cleanupBlockNumberManager.switchToProductionMode();
 
 
   if (!quiet) {

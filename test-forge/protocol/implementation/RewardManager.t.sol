@@ -1025,12 +1025,14 @@ contract RewardManagerTest is Test {
 
         RewardManager.UnclaimedRewardState memory state =
             rewardManager.getUnclaimedRewardState(voter1, rewardEpochData.id, IRewardManager.ClaimType.WNAT);
+        assertEq(rewardManager.noOfInitialisedWeightBasedClaims(rewardEpochData.id), 0);
         assertEq(state.initialised, false);
         assertEq(state.amount, 0);
         assertEq(state.weight, 0);
 
         rewardManager.initialiseWeightBasedClaims(proofs);
         state = rewardManager.getUnclaimedRewardState(voter1, rewardEpochData.id, IRewardManager.ClaimType.WNAT);
+        assertEq(rewardManager.noOfInitialisedWeightBasedClaims(rewardEpochData.id), 1);
         assertEq(state.initialised, true);
         assertEq(state.amount, 200);
         assertEq(state.weight, 300);
@@ -1561,6 +1563,7 @@ contract RewardManagerTest is Test {
         emit RewardClaimed(voter2, delegator, recipient, rewardEpochData.id, body2.claimType, 37);
         rewardManager.claim(delegator, payable(recipient), rewardEpochData.id, false, proofs);
         assertEq(recipient.balance, 58 + 37);
+        assertEq(rewardManager.noOfInitialisedWeightBasedClaims(rewardEpochData.id), 2);
     }
 
     //// auto claim tests

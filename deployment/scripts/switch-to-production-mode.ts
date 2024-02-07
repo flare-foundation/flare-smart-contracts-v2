@@ -25,8 +25,7 @@ export async function switchToProductionMode(hre: HardhatRuntimeEnvironment, con
   }
 
   if (!quiet) {
-    console.error(`Switching to production from deployer address ${deployerAccount.address} and genesis governance address ${parameters.governancePublicKey}`);
-    console.error(`Using governance settings at ${contracts.getContractAddress(Contracts.GOVERNANCE_SETTINGS)}`);
+    console.error(`Switching to production from deployer address ${deployerAccount.address}`);
   }
 
   // Wire up the default account that will do the deployment

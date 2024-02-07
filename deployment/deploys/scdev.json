@@ -1,0 +1,67 @@
+[
+  {
+    "name": "Submission",
+    "contractName": "Submission.sol",
+    "address": "0x850Fae11E1313e6C23Db7c2410Ec0985d9Ea325A"
+  },
+  {
+    "name": "EntityManager",
+    "contractName": "EntityManager.sol",
+    "address": "0x22058276Dd278bD037591805E62E797012d666f6"
+  },
+  {
+    "name": "VoterRegistry",
+    "contractName": "VoterRegistry.sol",
+    "address": "0x6D3540a9F1a769bfd91A4A33169a8361aa82dC0F"
+  },
+  {
+    "name": "FlareSystemsCalculator",
+    "contractName": "FlareSystemsCalculator.sol",
+    "address": "0x2ff3F0e437D7843a8100ac876A766081F4c4649D"
+  },
+  {
+    "name": "FlareSystemsManager",
+    "contractName": "FlareSystemsManager.sol",
+    "address": "0xccdf1DECe9c9631081b952Cd51A579E75c33C565"
+  },
+  {
+    "name": "RewardManager",
+    "contractName": "RewardManager.sol",
+    "address": "0xF5E6E6B10E4F2f27DaC1fFdDE83367dE9525552a"
+  },
+  {
+    "name": "Relay",
+    "contractName": "Relay.sol",
+    "address": "0x7f23223A2FAf869962B38f5eC4aAB7f37454A45e"
+  },
+  {
+    "name": "WNatDelegationFee",
+    "contractName": "WNatDelegationFee.sol",
+    "address": "0x1203D1b97BF6E546c00C45Cda035D3010ACe1180"
+  },
+  {
+    "name": "FtsoInflationConfigurations",
+    "contractName": "FtsoInflationConfigurations.sol",
+    "address": "0x8733AfE8174BA7c04c6CD694bD673294079b7E10"
+  },
+  {
+    "name": "FtsoRewardOffersManager",
+    "contractName": "FtsoRewardOffersManager.sol",
+    "address": "0xA8083d78B6ABC328b4d3B714F76F384eCC7147e1"
+  },
+  {
+    "name": "FtsoFeedDecimals",
+    "contractName": "FtsoFeedDecimals.sol",
+    "address": "0xa497f1Ed4edeA8151fECe457aa26e1D6A4318B6A"
+  },
+  {
+    "name": "FtsoFeedPublisher",
+    "contractName": "FtsoFeedPublisher.sol",
+    "address": "0xB7b9568073C9e745acD84eEb30F1c32F74Ba4946"
+  },
+  {
+    "name": "CleanupBlockNumberManager",
+    "contractName": "CleanupBlockNumberManager.sol",
+    "address": "0x501A498e8FDA589038d6526C2153a9fdc9d8eDD2"
+  }
+]

@@ -40,7 +40,7 @@ export async function daemonizeContracts(
   }
 
   if (!quiet) {
-    console.error(`Deploying with address ${deployerAccount.address}`)
+    console.error(`Set daemonized contracts with address ${deployerAccount.address}`)
   }
 
   // Wire up the default account that will do the deployment

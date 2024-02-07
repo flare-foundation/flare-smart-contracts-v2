@@ -115,6 +115,12 @@ interface IRewardManager {
     function initialiseWeightBasedClaims(RewardClaimWithProof[] calldata _proofs) external;
 
     /**
+     * Returns the number of weight based claims that have been initialised.
+     * @param _rewardEpochId Reward epoch id.
+     */
+    function noOfInitialisedWeightBasedClaims(uint256 _rewardEpochId) external view returns (uint256);
+
+    /**
         * Indicates if the contract is active - claims are enabled.
         */
     function active() external view returns (bool);
@@ -128,7 +134,7 @@ interface IRewardManager {
     /**
      * Returns the state of rewards for a given address at a specific reward epoch.
      * @param _rewardOwner Address of the reward owner.
-     * @param _rewardEpochId Id of the reward epoch.
+     * @param _rewardEpochId Reward epoch id.
      * @return _rewardStates Array of reward states.
      */
     function getStateOfRewardsAt(

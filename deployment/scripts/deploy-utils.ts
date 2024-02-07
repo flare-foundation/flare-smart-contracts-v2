@@ -36,7 +36,25 @@ export function validateParameters(parameters: any): ChainParameters {
 
 // Here we should add certain verifications of parameters
 export function verifyParameters(parameters: ChainParameters) {
-  // TODO add more checks
+  if (parameters.initialVoters.length !== parameters.initialNormalisedWeights.length) {
+    throw new Error(`Mismatch between initialVoters and initialNormalisedWeights`);
+  }
+  let totalInitialNormalisedWeight = 0;
+  for (const initialNormalisedWeight of parameters.initialNormalisedWeights) {
+    if (initialNormalisedWeight <= 0 || initialNormalisedWeight >= 2**16) {
+      throw new Error(`Invalid initialNormalisedWeight: ${initialNormalisedWeight}`);
+    }
+    totalInitialNormalisedWeight += initialNormalisedWeight;
+  }
+  if (totalInitialNormalisedWeight === 0) {
+    throw new Error(`Total initialNormalisedWeight is zero`);
+  }
+  if (totalInitialNormalisedWeight >= 2**16) {
+    throw new Error(`Total initialNormalisedWeight is too large`);
+  }
+  if (totalInitialNormalisedWeight <= parameters.initialThreshold) {
+    throw new Error(`Total initialThreshold is too large`);
+  }
 }
 
 export function spewNewContractInfo(contracts: Contracts, addressUpdaterContracts: string[] | null, name: string, contractName: string, address: string, quiet = false, pascal = true) {

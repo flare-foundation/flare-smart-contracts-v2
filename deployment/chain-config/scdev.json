@@ -1,0 +1,135 @@
+{
+    "submissionDeployerPrivateKey": "<use .env: SUBMISSION_DEPLOYER_PRIVATE_KEY>",
+    "updateSubmissionDataOnDeploy": true,
+    "deployerPrivateKey": "<use .env: DEPLOYER_PRIVATE_KEY>",
+    "genesisGovernancePrivateKey": "<use .env: GENESIS_GOVERNANCE_PRIVATE_KEY>",
+    "governancePublicKey": "<use .env: GOVERNANCE_PUBLIC_KEY>",
+    "governancePrivateKey": "<use .env: GOVERNANCE_PRIVATE_KEY>",
+    "governanceTimelock": 1,
+    "governanceExecutorPublicKey": "<use .env: GOVERNANCE_EXECUTOR_PUBLIC_KEY>",
+
+    "initialRewardEpochId": 5,
+    "initialRandomVotePowerBlockSelectionSize": 1,
+    "initialRewardEpochStartVotingRoundId": 25,
+    "initialVoters": ["0xc783df8a850f42e7f7e57013759c285caa701eb6"],
+    "initialNormalisedWeights": [65535],
+    "initialThreshold": 32768,
+    "initialVoterData": [],
+    "initialFeedDecimalsList": [
+        {
+            "feedName": "BTC",
+            "decimals": 2
+        },
+        {
+            "feedName": "ETH",
+            "decimals": 3
+        }
+    ],
+
+    "firstVotingRoundStartTs": 0,
+    "votingEpochDurationSeconds": 20,
+    "firstRewardEpochStartVotingRoundId": 0,
+    "rewardEpochDurationInVotingEpochs": 5,
+    "relayThresholdIncreaseBIPS": 12000,
+    "newSigningPolicyInitializationStartSeconds": 40,
+    "randomAcquisitionMaxDurationSeconds": 80,
+    "randomAcquisitionMaxDurationBlocks": 1000,
+    "newSigningPolicyMinNumberOfVotingRoundsDelay": 0,
+    "voterRegistrationMinDurationSeconds": 10,
+    "voterRegistrationMinDurationBlocks": 1,
+    "submitUptimeVoteMinDurationSeconds": 10,
+    "submitUptimeVoteMinDurationBlocks": 1,
+    "signingPolicyThresholdPPM": 500000,
+    "signingPolicyMinNumberOfVoters": 2,
+    "rewardExpiryOffsetSeconds": 1000,
+    "maxNodeIdsPerEntity": 4,
+    "maxVotersPerRewardEpoch": 100,
+    "wNatCapPPM": 2500,
+    "signingPolicySignNonPunishableDurationSeconds": 200,
+    "signingPolicySignNonPunishableDurationBlocks": 100,
+    "signingPolicySignNoRewardsDurationBlocks": 100,
+    "feePercentageUpdateOffset": 2,
+    "defaultFeePercentageBIPS": 2000,
+    "pChainStakeEnabled": true,
+
+    "ftsoProtocolId": 100,
+    "minimalRewardsOfferValueNAT": 1000,
+    "decimalsUpdateOffset": 2,
+    "defaultDecimals": 5,
+    "feedsHistorySize": 200,
+    "ftsoInflationConfigurations": [
+        {
+            "feedNames": ["BTC", "XRP", "FLR", "ETH"],
+            "inflationShareBIPS": 200,
+            "minRewardedTurnoutBIPS": 5000,
+            "mode": 0,
+            "primaryBandRewardSharePPM": 700000,
+            "secondaryBandWidthPPMs": [400, 800, 100, 250]
+        },
+        {
+            "feedNames": ["BTC", "LTC"],
+            "inflationShareBIPS": 100,
+            "minRewardedTurnoutBIPS": 5000,
+            "mode": 0,
+            "primaryBandRewardSharePPM": 600000,
+            "secondaryBandWidthPPMs": [200, 1000]
+        }
+    ],
+
+    "inflationReceivers": [
+        {
+            "oldContract": false,
+            "contractName": "RewardManager",
+            "sharingBIPS": 3500,
+            "topUpType": 1,
+            "topUpFactorx100": 0
+        },
+        {
+            "oldContract": true,
+            "contractName": "FtsoRewardManager",
+            "sharingBIPS": 3500,
+            "topUpType": 0,
+            "topUpFactorx100": 400
+        },
+        {
+            "oldContract": true,
+            "contractName": "ValidatorRewardManager",
+            "sharingBIPS": 3000,
+            "topUpType": 1,
+            "topUpFactorx100": 0
+        }
+    ],
+
+    "flareDaemonizedContracts": [
+        {
+            "oldContract": true,
+            "contractName": "Inflation",
+            "gasLimit": 3000000
+        },
+        {
+            "oldContract": true,
+            "contractName": "FtsoManager",
+            "gasLimit": 40000000
+        },
+        {
+            "oldContract": true,
+            "contractName": "PChainStakeMirror",
+            "gasLimit": 15000000
+        },
+        {
+            "oldContract": true,
+            "contractName": "IncentivePool",
+            "gasLimit": 3000000
+        },
+        {
+            "oldContract": true,
+            "contractName": "DistributionToDelegators",
+            "gasLimit": 25000000
+        },
+        {
+            "oldContract": false,
+            "contractName": "FlareSystemsManager",
+            "gasLimit": 40000000
+        }
+    ]
+}

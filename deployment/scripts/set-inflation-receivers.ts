@@ -40,7 +40,7 @@ export async function setInflationReceivers(
   }
 
   if (!quiet) {
-    console.error(`Deploying with address ${deployerAccount.address}`)
+    console.error(`Setting inflation receivers with address ${deployerAccount.address}`)
   }
 
   // Wire up the default account that will do the deployment
