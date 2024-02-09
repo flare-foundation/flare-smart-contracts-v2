@@ -2,66 +2,66 @@
   {
     "name": "Submission",
     "contractName": "Submission.sol",
-    "address": "0x850Fae11E1313e6C23Db7c2410Ec0985d9Ea325A"
+    "address": "0x8a891bc2B226aB71A468D2958Bc62fCe3728C850"
   },
   {
     "name": "EntityManager",
     "contractName": "EntityManager.sol",
-    "address": "0x22058276Dd278bD037591805E62E797012d666f6"
+    "address": "0x73DE1e0ab6A5C221258703bc546E0CAAcCc6EC87"
   },
   {
     "name": "VoterRegistry",
     "contractName": "VoterRegistry.sol",
-    "address": "0x6D3540a9F1a769bfd91A4A33169a8361aa82dC0F"
+    "address": "0x0Aac5442574A9b15d65fc3DCF536C43a1bB4e512"
   },
   {
     "name": "FlareSystemsCalculator",
     "contractName": "FlareSystemsCalculator.sol",
-    "address": "0x2ff3F0e437D7843a8100ac876A766081F4c4649D"
+    "address": "0xC5539F58a2b5e59dB45f534ABb2F39669311fe9c"
   },
   {
     "name": "FlareSystemsManager",
     "contractName": "FlareSystemsManager.sol",
-    "address": "0xccdf1DECe9c9631081b952Cd51A579E75c33C565"
+    "address": "0xE0fC5Da76E489677078d00d3f321e9777c76381B"
   },
   {
     "name": "RewardManager",
     "contractName": "RewardManager.sol",
-    "address": "0xF5E6E6B10E4F2f27DaC1fFdDE83367dE9525552a"
+    "address": "0xE91FDEc21F995c574F6d32E3CD45b1A3e142da28"
   },
   {
     "name": "Relay",
     "contractName": "Relay.sol",
-    "address": "0x7f23223A2FAf869962B38f5eC4aAB7f37454A45e"
+    "address": "0xD2720591186c6DCf1DaCE6FAF262f3eB595317C5"
   },
   {
     "name": "WNatDelegationFee",
     "contractName": "WNatDelegationFee.sol",
-    "address": "0x1203D1b97BF6E546c00C45Cda035D3010ACe1180"
+    "address": "0x26B7842A483EF4781518Bcd7A0D8Bad6cCb1272B"
   },
   {
     "name": "FtsoInflationConfigurations",
     "contractName": "FtsoInflationConfigurations.sol",
-    "address": "0x8733AfE8174BA7c04c6CD694bD673294079b7E10"
+    "address": "0xF852C508661a446832814bbEa7C5A864076690e0"
   },
   {
     "name": "FtsoRewardOffersManager",
     "contractName": "FtsoRewardOffersManager.sol",
-    "address": "0xA8083d78B6ABC328b4d3B714F76F384eCC7147e1"
+    "address": "0x13F7074350011f558d78345DaC280BD09d79EB0B"
   },
   {
     "name": "FtsoFeedDecimals",
     "contractName": "FtsoFeedDecimals.sol",
-    "address": "0xa497f1Ed4edeA8151fECe457aa26e1D6A4318B6A"
+    "address": "0x3c47025184dd61BB6F2fC5010B8A0EB853aF2A49"
   },
   {
     "name": "FtsoFeedPublisher",
     "contractName": "FtsoFeedPublisher.sol",
-    "address": "0xB7b9568073C9e745acD84eEb30F1c32F74Ba4946"
+    "address": "0xa7a62540B8F2a0C1e091e734E261d13fd9a2B226"
   },
   {
     "name": "CleanupBlockNumberManager",
     "contractName": "CleanupBlockNumberManager.sol",
-    "address": "0x501A498e8FDA589038d6526C2153a9fdc9d8eDD2"
+    "address": "0x11589306922Db23cB5Ece2c02959d79E97f78f72"
   }
 ]

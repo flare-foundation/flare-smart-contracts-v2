@@ -33,6 +33,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
   const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
   const Relay: RelayContract = artifacts.require("Relay");
+  const Supply = artifacts.require("IISupply");
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
@@ -60,19 +61,30 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   );
   spewNewContractInfo(contracts, null, EntityManager.contractName, `EntityManager.sol`, entityManager.address, quiet);
 
+  const currentBlock = await web3.eth.getBlock(await web3.eth.getBlockNumber());
+  const currentBlockTs = BN(currentBlock.timestamp);
+  if (!quiet) {
+    console.error(`Current network time is ${new Date(currentBlockTs.toNumber() * 1000).toISOString()}.`);
+  }
 
   let firstVotingRoundStartTs = BN(parameters.firstVotingRoundStartTs);
   if (firstVotingRoundStartTs.eqn(0)) {
     // Get the timestamp for the just mined block
-    let currentBlock = await web3.eth.getBlock(await web3.eth.getBlockNumber());
-    firstVotingRoundStartTs = BN(currentBlock.timestamp);
+    firstVotingRoundStartTs = currentBlockTs;
     if (!quiet) {
-      console.error(`Using current block timestamp ${currentBlock.timestamp} as first voting round  start timestamp.`);
+      console.error(`Using current block timestamp ${currentBlockTs} as first voting round start timestamp.`);
     }
   } else {
     if (!quiet) {
       console.error(`Using firstVotingRoundStartTs parameter ${parameters.firstVotingRoundStartTs} as first voting round start timestamp.`);
     }
+  }
+  const initialRewardEpochId = currentBlockTs.sub(firstVotingRoundStartTs).addn(parameters.firstRewardEpochStartVotingRoundId * parameters.votingEpochDurationSeconds)
+    .divn(parameters.votingEpochDurationSeconds * parameters.rewardEpochDurationInVotingEpochs).addn(parameters.initialRewardEpochOffset).toNumber();
+  const initialRewardEpochStartVotingRoundId = initialRewardEpochId * parameters.rewardEpochDurationInVotingEpochs + parameters.firstRewardEpochStartVotingRoundId;
+
+  if (!quiet) {
+    console.error(`Initial reward epoch id: ${initialRewardEpochId}. Start voting round id: ${initialRewardEpochStartVotingRoundId}.`);
   }
 
   const voterRegistry = await VoterRegistry.new(
@@ -80,7 +92,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     deployerAccount.address,
     deployerAccount.address, // tmp address updater
     parameters.maxVotersPerRewardEpoch,
-    parameters.initialRewardEpochId,
+    initialRewardEpochId,
     parameters.initialVoters,
     parameters.initialNormalisedWeights
   );
@@ -98,8 +110,8 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   spewNewContractInfo(contracts, null, FlareSystemsCalculator.contractName, `FlareSystemsCalculator.sol`, flareSystemsCalculator.address, quiet);
 
   const initialSigningPolicy: ISigningPolicy = {
-    rewardEpochId: parameters.initialRewardEpochId,
-    startVotingRoundId: parameters.initialRewardEpochStartVotingRoundId,
+    rewardEpochId: initialRewardEpochId,
+    startVotingRoundId: initialRewardEpochStartVotingRoundId,
     threshold: parameters.initialThreshold,
     seed: web3.utils.keccak256("123"),
     voters: parameters.initialVoters,
@@ -108,7 +120,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
 
   const initialSettings = {
     initialRandomVotePowerBlockSelectionSize: parameters.initialRandomVotePowerBlockSelectionSize,
-    initialRewardEpochId: parameters.initialRewardEpochId,
+    initialRewardEpochId: initialRewardEpochId,
     initialRewardEpochThreshold: parameters.initialThreshold
   }
 
@@ -192,7 +204,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     deployerAccount.address, // tmp address updater
     parameters.decimalsUpdateOffset,
     parameters.defaultDecimals,
-    parameters.initialRewardEpochId,
+    initialRewardEpochId,
     parameters.initialFeedDecimalsList.map(fd => {
       return {
         feedName: FtsoConfigurations.encodeFeedName(fd.feedName),
@@ -243,7 +255,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     [addressUpdater, voterRegistry.address, claimSetupManager, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror, wNat]
   );
 
-  if (parameters.updateSubmissionDataOnDeploy) {
+  if (parameters.testDeployment) {
     await submission.updateContractAddresses(
       encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
       [addressUpdater, flareSystemsManager.address, relay.address],
@@ -304,6 +316,11 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   // activate reward manager
   await rewardManager.activate();
 
+  if (parameters.testDeployment) {
+    await rewardManager.enableClaims();
+    const supply = await Supply.at(oldContracts.getContractAddress(Contracts.SUPPLY));
+    await supply.addTokenPool(rewardManager.address, 0);
+  }
 
   if (!quiet) {
     console.error("Contracts in JSON:");

@@ -64,7 +64,7 @@ export async function switchToProductionMode(hre: HardhatRuntimeEnvironment, con
   await flareSystemsCalculator.switchToProductionMode();
   await flareSystemsManager.switchToProductionMode();
   await rewardManager.switchToProductionMode();
-  if (parameters.updateSubmissionDataOnDeploy) {
+  if (parameters.testDeployment) {
     await submission.switchToProductionMode({ from: parameters.governancePublicKey });
   }
   await ftsoInflationConfigurations.switchToProductionMode();

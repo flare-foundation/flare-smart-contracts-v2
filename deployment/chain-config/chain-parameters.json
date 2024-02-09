@@ -246,12 +246,8 @@
             "description": "The initial random vote power block selection size in blocks (e.g. 1000).",
             "type": "integer"
         },
-        "initialRewardEpochId": {
-            "description": "The initial reward epoch id.",
-            "type": "integer"
-        },
-        "initialRewardEpochStartVotingRoundId": {
-            "description": "The initial reward epoch start voting round id.",
+        "initialRewardEpochOffset": {
+            "description": "The initial offset in reward epochs.",
             "type": "integer"
         },
         "initialThreshold": {
@@ -348,8 +344,8 @@
             "description": "The minimal duration of uptime vote submission phase in seconds (e.g. 10 minutes).",
             "type": "integer"
         },
-        "updateSubmissionDataOnDeploy": {
-            "description": "Indicates whether to update submission data on deploy.",
+        "testDeployment": {
+            "description": "Indicates whether this is a test deployment (local, scdev, etc.)",
             "type": "boolean"
         },
         "voterRegistrationMinDurationBlocks": {
@@ -390,8 +386,7 @@
         "initialFeedDecimalsList",
         "initialNormalisedWeights",
         "initialRandomVotePowerBlockSelectionSize",
-        "initialRewardEpochId",
-        "initialRewardEpochStartVotingRoundId",
+        "initialRewardEpochOffset",
         "initialThreshold",
         "initialVoterData",
         "initialVoters",
@@ -414,7 +409,7 @@
         "submissionDeployerPrivateKey",
         "submitUptimeVoteMinDurationBlocks",
         "submitUptimeVoteMinDurationSeconds",
-        "updateSubmissionDataOnDeploy",
+        "testDeployment",
         "voterRegistrationMinDurationBlocks",
         "voterRegistrationMinDurationSeconds",
         "votingEpochDurationSeconds",

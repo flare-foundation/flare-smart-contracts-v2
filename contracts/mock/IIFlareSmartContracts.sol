@@ -31,3 +31,12 @@ interface IIFlareDaemon {
 
     function registerToDaemonize(Registration[] memory _registrations) external;
 }
+
+interface IISupply {
+
+    function addTokenPool(
+        address _tokenPool,
+        uint256 _increaseDistributedSupplyByAmountWei
+    )
+        external;
+}

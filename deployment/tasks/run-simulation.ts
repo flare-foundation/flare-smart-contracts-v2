@@ -77,7 +77,6 @@ function processEnv() {
     });
   }
 
-  console.log(process.env.SKIP_VOTING_EPOCH_ACTIONS);
   if (process.env.SKIP_VOTING_EPOCH_ACTIONS) {
     console.log("Skipping voting epoch actions");
     SKIP_VOTING_EPOCH_ACTIONS = true;

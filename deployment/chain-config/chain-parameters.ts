@@ -9,19 +9,14 @@ export interface ChainParameters {
     // Initial settings
 
     /**
-     * The initial reward epoch id.
+     * The initial offset in reward epochs.
      */
-    initialRewardEpochId: integer;
+    initialRewardEpochOffset: integer;
 
     /**
      * The initial random vote power block selection size in blocks (e.g. 1000).
      */
     initialRandomVotePowerBlockSelectionSize: integer;
-
-    /**
-     * The initial reward epoch start voting round id.
-     */
-    initialRewardEpochStartVotingRoundId: integer;
 
     /**
      * Voters used in the initial reward epoch id.
@@ -48,6 +43,11 @@ export interface ChainParameters {
      */
     initialFeedDecimalsList: FeedDecimals[];
 
+    /**
+     * Indicates whether this is a test deployment (local, scdev, etc.)
+     */
+    testDeployment: boolean;
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Governance
 
@@ -55,11 +55,6 @@ export interface ChainParameters {
      * Submission deployer private key. Overriden if provided in `.env` file as `SUBMISSION_DEPLOYER_PRIVATE_KEY`
      */
     submissionDeployerPrivateKey: string;
-
-    /**
-     * Indicates whether to update submission data on deploy.
-     */
-    updateSubmissionDataOnDeploy: boolean;
 
     /**
      * Deployer private key. Overriden if provided in `.env` file as `DEPLOYER_PRIVATE_KEY`

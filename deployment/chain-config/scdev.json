@@ -1,6 +1,6 @@
 {
+    "testDeployment": true,
     "submissionDeployerPrivateKey": "<use .env: SUBMISSION_DEPLOYER_PRIVATE_KEY>",
-    "updateSubmissionDataOnDeploy": true,
     "deployerPrivateKey": "<use .env: DEPLOYER_PRIVATE_KEY>",
     "genesisGovernancePrivateKey": "<use .env: GENESIS_GOVERNANCE_PRIVATE_KEY>",
     "governancePublicKey": "<use .env: GOVERNANCE_PUBLIC_KEY>",
@@ -8,9 +8,8 @@
     "governanceTimelock": 1,
     "governanceExecutorPublicKey": "<use .env: GOVERNANCE_EXECUTOR_PUBLIC_KEY>",
 
-    "initialRewardEpochId": 5,
+    "initialRewardEpochOffset": 2,
     "initialRandomVotePowerBlockSelectionSize": 1,
-    "initialRewardEpochStartVotingRoundId": 25,
     "initialVoters": ["0xc783df8a850f42e7f7e57013759c285caa701eb6"],
     "initialNormalisedWeights": [65535],
     "initialThreshold": 32768,
@@ -28,7 +27,7 @@
 
     "firstVotingRoundStartTs": 0,
     "votingEpochDurationSeconds": 20,
-    "firstRewardEpochStartVotingRoundId": 0,
+    "firstRewardEpochStartVotingRoundId": 2,
     "rewardEpochDurationInVotingEpochs": 5,
     "relayThresholdIncreaseBIPS": 12000,
     "newSigningPolicyInitializationStartSeconds": 40,
