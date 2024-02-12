@@ -67,7 +67,6 @@ contract EntityManager is Governed, IIEntityManager {
     )
         Governed(_governanceSettings, _governance)
     {
-        require(_maxNodeIdsPerEntity > 0, "max node ids per entity zero");
         maxNodeIdsPerEntity = _maxNodeIdsPerEntity;
         emit MaxNodeIdsPerEntitySet(_maxNodeIdsPerEntity);
     }

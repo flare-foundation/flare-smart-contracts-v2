@@ -62,11 +62,6 @@ contract EntityManagerTest is Test {
         delegationAddr2 = makeAddr("delegationAddr2");
     }
 
-    function testRevertConstructorZeroNodesPerEntity() public {
-        vm.expectRevert("max node ids per entity zero");
-        new EntityManager(IGovernanceSettings(makeAddr("contract")), makeAddr("user0"), 0);
-    }
-
     function testRegisterNodeId() public {
         vm.roll(100);
         assertEq(entityManager.getNodeIdsOfAt(user1, block.number).length, 0);
@@ -144,7 +139,7 @@ contract EntityManagerTest is Test {
         entityManager.registerNodeId(nodeId5);
     }
 
-    function testSetMaxNodePerEntity() public {
+    function testSetMaxNodeIdsPerEntity() public {
         assertEq(entityManager.maxNodeIdsPerEntity(), 4);
         // only governance
         vm.prank(governance);
@@ -152,6 +147,15 @@ contract EntityManagerTest is Test {
         emit MaxNodeIdsPerEntitySet(5);
         entityManager.setMaxNodeIdsPerEntity(5);
         assertEq(entityManager.maxNodeIdsPerEntity(), 5);
+    }
+
+    // for songbird - maxNodeIdsPerEntity is set to 0
+    function testSetMaxNodeIdsPerEntityZero() public {
+        entityManager = new EntityManager(IGovernanceSettings(governanceSettings), governance, 0);
+        assertEq(entityManager.maxNodeIdsPerEntity(), 0);
+
+        vm.expectRevert("Max nodes exceeded");
+        entityManager.registerNodeId(nodeId1);
     }
 
     function testRevertSetMaxNodePerEntityOnlyGovernance() public {
