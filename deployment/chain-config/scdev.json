@@ -130,5 +130,9 @@
             "contractName": "FlareSystemsManager",
             "gasLimit": 40000000
         }
+    ],
+    "proposers": [
+        "0xd7de703d9bbc4602242d0f3149e5ffcd30eb3adf",
+        "0x532792b73c0c6e7565912e7039c59986f7e1dd1f"
     ]
 }

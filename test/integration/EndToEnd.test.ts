@@ -34,6 +34,7 @@ import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfiguratio
 import { FlareSystemsCalculatorContract, FlareSystemsCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsCalculator';
 import { CleanupBlockNumberManagerContract, CleanupBlockNumberManagerInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/CleanupBlockNumberManager';
 import { RelayMessage } from '../../scripts/libs/protocol/RelayMessage';
+import { PollingFoundationContract, PollingFoundationInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingFoundation';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -56,6 +57,7 @@ const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.requi
 const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
 const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
 const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
+const PollingFoundation: PollingFoundationContract = artifacts.require("PollingFoundation");
 
 type PChainStake = {
     txId: string,
@@ -114,6 +116,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let ftsoFeedDecimals: FtsoFeedDecimalsInstance;
     let ftsoFeedPublisher: FtsoFeedPublisherInstance;
     let cleanupBlockNumberManager: CleanupBlockNumberManagerInstance;
+    let pollingFoundation: PollingFoundationInstance;
+    let supplyMock: MockContractInstance;
 
     let initialSigningPolicy: ISigningPolicy;
     let newSigningPolicy: ISigningPolicy;
@@ -298,6 +302,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         cleanupBlockNumberManager = await CleanupBlockNumberManager.new(accounts[0], ADDRESS_UPDATER, "FlareSystemsManager");
 
+        pollingFoundation = await PollingFoundation.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, [accounts[10], accounts[11]]);
+        supplyMock = await MockContract.new();
+
         await flareSystemsCalculator.enablePChainStakeMirror();
         await rewardManager.enablePChainStakeMirror();
 
@@ -349,6 +356,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await cleanupBlockNumberManager.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
             [ADDRESS_UPDATER, flareSystemsManager.address], { from: ADDRESS_UPDATER });
+
+        await pollingFoundation.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.SUPPLY, Contracts.SUBMISSION, Contracts.GOVERNANCE_VOTE_POWER]),
+            [ADDRESS_UPDATER, flareSystemsManager.address, supplyMock.address, submission.address, governanceVotePower.address], { from: ADDRESS_UPDATER });
 
         // set reward offers manager list
         await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address]);
@@ -846,4 +857,34 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         expectEvent(tx, "RewardClaimed", { beneficiary: registeredCAddresses[0], rewardOwner:registeredCAddresses[0], recipient: accounts[200], rewardEpochId: toBN(1), claimType: toBN(2), amount: toBN(500)});
         expect(balanceAfter.sub(balanceBefore).toNumber()).to.be.equal(500);
     });
+
+    it("Should create new PollingFoundation proposal and vote on it", async () => {
+        let tx = await pollingFoundation.methods["propose(string,(bool,uint256,uint256,uint256,uint256,uint256))"].sendTransaction("Proposal",
+        {
+            accept: false,
+            votingDelaySeconds: 3600,
+            votingPeriodSeconds: 7200,
+            vpBlockPeriodSeconds: 259200,
+            thresholdConditionBIPS: 7500,
+            majorityConditionBIPS: 5000
+        }, { from: accounts[10] }) as any;
+
+        let proposalId = tx.logs[0].args.proposalId.toString();
+
+        // advance one hour to the voting period
+        await time.increase(3600);
+
+        // voting
+        await pollingFoundation.castVote(proposalId, 0, { from: registeredCAddresses[0] });
+        await pollingFoundation.castVote(proposalId, 1, { from: registeredCAddresses[1] });
+        await pollingFoundation.castVote(proposalId, 0, { from: registeredCAddresses[2] });
+
+        // advance to the end of the voting period
+        await time.increase(7200);
+
+        let state1 = await pollingFoundation.state(proposalId);
+        expect(state1.toString()).to.equals("2");
+
+    });
+
 });

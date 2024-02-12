@@ -292,6 +292,13 @@
             "description": "Indicates whether the P-chain stake is enabled.",
             "type": "boolean"
         },
+        "proposers": {
+            "description": "Array of proposers that can create a proposal",
+            "items": {
+                "type": "string"
+            },
+            "type": "array"
+        },
         "randomAcquisitionMaxDurationBlocks": {
             "description": "The maximal random acquisition duration in blocks (e.g. 15000 blocks).",
             "type": "integer"
@@ -396,6 +403,7 @@
         "newSigningPolicyInitializationStartSeconds",
         "newSigningPolicyMinNumberOfVotingRoundsDelay",
         "pChainStakeEnabled",
+        "proposers",
         "randomAcquisitionMaxDurationBlocks",
         "randomAcquisitionMaxDurationSeconds",
         "relayThresholdIncreaseBIPS",

@@ -264,6 +264,14 @@ export interface ChainParameters {
      * Flare daemonized contracts. Order matters. Inflation should be first.
      */
     flareDaemonizedContracts: FlareDaemonizedContract[];
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Polling Foundation
+
+    /**
+     * Array of proposers that can create a proposal
+     */
+    proposers: string[];
 }
 
 export interface FtsoInflationConfiguration {
