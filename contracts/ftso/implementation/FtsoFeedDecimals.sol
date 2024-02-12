@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/IFlareSystemManager.sol";
+import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/IFtsoFeedDecimals.sol";
 
 
@@ -15,15 +15,21 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
         uint24 validFromEpochId;    // id of the reward epoch from which the value is valid
     }
 
+    /// Used for setting initial feed decimals.
+    struct InitialFeedDecimals {
+        bytes8 feedName;
+        int8 decimals;
+    }
+
     /// The offset in reward epochs for the decimals value to become effective.
     uint24 public immutable decimalsUpdateOffset;
     /// The default decimals value.
     int8 public immutable defaultDecimals;
     //slither-disable-next-line uninitialized-state
-    mapping(bytes8 => Decimals[]) internal decimals;
+    mapping(bytes8 feedName => Decimals[]) internal decimals;
 
-    /// The FlareSystemManager contract.
-    IFlareSystemManager public flareSystemManager;
+    /// The FlareSystemsManager contract.
+    IFlareSystemsManager public flareSystemsManager;
 
     /**
      * Constructor.
@@ -38,13 +44,20 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
         address _initialGovernance,
         address _addressUpdater,
         uint24 _decimalsUpdateOffset,
-        int8 _defaultDecimals
+        int8 _defaultDecimals,
+        uint24 _initialRewardEpochId,
+        InitialFeedDecimals[] memory _initialFeedDecimals
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
         require(_decimalsUpdateOffset > 1, "offset too small");
         decimalsUpdateOffset = _decimalsUpdateOffset;
         defaultDecimals = _defaultDecimals;
+        for (uint256 i = 0; i < _initialFeedDecimals.length; i++) {
+            InitialFeedDecimals memory ifds = _initialFeedDecimals[i];
+            decimals[ifds.feedName].push(Decimals(ifds.decimals, _initialRewardEpochId));
+            emit DecimalsChanged(ifds.feedName, ifds.decimals, _initialRewardEpochId);
+        }
     }
 
     /**
@@ -170,8 +183,8 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
     )
         internal override
     {
-        flareSystemManager = IFlareSystemManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
+        flareSystemsManager = IFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 
     /**
@@ -227,6 +240,6 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
      * Returns the current reward epoch id.
      */
     function _getCurrentRewardEpochId() internal view returns(uint24) {
-        return flareSystemManager.getCurrentRewardEpochId();
+        return flareSystemsManager.getCurrentRewardEpochId();
     }
 }

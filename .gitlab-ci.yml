@@ -1,6 +1,5 @@
 stages:
   - build
-  - forge
   - test
 
 variables:
@@ -117,19 +116,31 @@ build-smart-contracts:
 
 
 ### Jobs
-test-unit:
+test-unit-hardhat:
   extends: .test-node-sc
   parallel:
     matrix:
-    - TEST_PATH:
-      - ./test/unit/protocol
+    - TEST_ARG:
+      - ./test/unit/protocol/implementation/Relay.test.ts
+      - ./test/unit/protocol/implementation/RewardManager.test.ts
+      - ./test/unit/protocol/implementation/Submission.test.ts
   script:
     - yarn hardhat test --network hardhat ${TEST_ARG}
+
+test-contract-end-to-end:
+  extends: .test-node-sc
+  script:
+    - yarn hardhat test ./test/integration/EndToEnd.test.ts
 
 test-linter:
   extends: .test-node-sc
   script:
     - yarn lint
+
+test-linter-forge:
+  extends: .test-node-sc
+  script:
+    - yarn lint-forge
 
 test-slither-check:
   extends: .test-node-sc
@@ -142,25 +153,12 @@ test-slither-check:
     - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
   script:
     - yarn slither
-  # artifacts:
-  #     when: always
-  #     name: "$CI_JOB_NAME"
-  #     paths:
-  #         - slither_badge.json
-  #     expire_in: 1 week
 
 
 test-unit-forge:
-  stage: forge
-  needs:
-    - build-smart-contracts
+  extends: .test-node-sc
   image: ghcr.io/foundry-rs/foundry
   before_script:
     - forge install
-  parallel:
-    matrix:
-    - TEST_ARG:
-      - ./test-forge/protocol/implementation/EntityManager.t.sol
   script:
-    - forge test --match-path ${TEST_ARG} -vvv
-
+    - forge test -vvv

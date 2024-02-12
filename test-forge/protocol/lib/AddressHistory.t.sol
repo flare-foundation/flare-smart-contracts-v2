@@ -7,11 +7,11 @@ import "../../../contracts/protocol/lib/AddressHistory.sol";
 contract AddressHistoryTest is Test {
     using AddressHistory for AddressHistory.CheckPointHistoryState;
 
-    AddressHistory.CheckPointHistoryState checkPointHistoryState;
+    AddressHistory.CheckPointHistoryState private checkPointHistoryState;
 
-    AddressHistory.CheckPointHistoryState emptyState;
+    AddressHistory.CheckPointHistoryState private emptyState;
 
-    AddressHistory.CheckPointHistoryState emptyState2;
+    AddressHistory.CheckPointHistoryState private emptyState2;
 
     function setUp() public {
         for (uint256 j = 1; j < 100; j++) {
@@ -21,14 +21,14 @@ contract AddressHistoryTest is Test {
         }
     }
 
-    function test_setAddressInPastFail() public {
+    function testSetAddressInPastFail() public {
         vm.expectRevert();
 
         vm.roll(10);
         checkPointHistoryState.setAddress(makeAddr("whatever"));
     }
 
-    function test_addressAtEmpty() public {
+    function testAddressAtEmpty() public {
         vm.roll(99);
 
         address atNow = emptyState.addressAtNow();
@@ -38,7 +38,7 @@ contract AddressHistoryTest is Test {
         assertEq(atNow, address(0));
     }
 
-    function test_addressAt() public {
+    function testAddressAt() public {
         vm.roll(99);
 
         address at = checkPointHistoryState.addressAt(30);
@@ -48,7 +48,7 @@ contract AddressHistoryTest is Test {
         assertEq(atNow, makeAddr(string(abi.encode(99))));
     }
 
-    function test_cleanEmpty() public {
+    function testCleanEmpty() public {
         vm.roll(99);
 
         uint256 cleaned = emptyState.cleanupOldCheckpoints(3, 3);
@@ -57,7 +57,7 @@ contract AddressHistoryTest is Test {
         assertEq(cleaned, 0);
     }
 
-    function test_setAddressEmpty() public {
+    function testSetAddressEmpty() public {
         vm.roll(99);
 
         emptyState2.setAddress(makeAddr("address"));
@@ -66,7 +66,7 @@ contract AddressHistoryTest is Test {
         assertEq(emptyState2.endIndex, 1);
     }
 
-    function test_resetAddress() public {
+    function testResetAddress() public {
         vm.roll(99);
 
         uint64 endIndex = checkPointHistoryState.endIndex;
@@ -75,7 +75,7 @@ contract AddressHistoryTest is Test {
         assertEq(endIndex, checkPointHistoryState.endIndex);
     }
 
-    function test_setAddress() public {
+    function testSetAddress() public {
         vm.roll(120);
 
         uint64 endIndex = checkPointHistoryState.endIndex;
@@ -87,7 +87,7 @@ contract AddressHistoryTest is Test {
         assertEq(endIndex + 1, checkPointHistoryState.endIndex);
     }
 
-    function test_clean() public {
+    function testClean() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(3, 50);
@@ -95,7 +95,7 @@ contract AddressHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 3);
     }
 
-    function test_clean2() public {
+    function testClean2() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(11, 10);
@@ -103,7 +103,7 @@ contract AddressHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 9);
     }
 
-    function test_clean3() public {
+    function testClean3() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(0, 10);
@@ -111,7 +111,7 @@ contract AddressHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 0);
     }
 
-    function test_clean4() public {
+    function testClean4() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(10, 0);
@@ -119,7 +119,7 @@ contract AddressHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 0);
     }
 
-    function test_cleanAndAddressAt() public {
+    function testCleanAndAddressAt() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(11, 10);
@@ -130,7 +130,7 @@ contract AddressHistoryTest is Test {
         checkPointHistoryState.addressAt(3);
     }
 
-    function test_cleanAndAddressAt2() public {
+    function testCleanAndAddressAt2() public {
         vm.roll(120);
 
         AddressHistory.cleanupOldCheckpoints(checkPointHistoryState, 11, 10);
@@ -139,7 +139,7 @@ contract AddressHistoryTest is Test {
         assertEq(addressAt10, makeAddr(string(abi.encode(10))));
     }
 
-    function test_addressAtBeforeFirstSet() public {
+    function testAddressAtBeforeFirstSet() public {
         vm.roll(120);
 
         emptyState.setAddress(makeAddr("anything"));

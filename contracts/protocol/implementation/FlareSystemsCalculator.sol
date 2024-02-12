@@ -3,8 +3,9 @@ pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
 import "../interface/IIEntityManager.sol";
-import "../interface/IIFlareSystemCalculator.sol";
-import "../interface/IIFlareSystemManager.sol";
+import "../interface/IIFlareSystemsCalculator.sol";
+import "../interface/IIFlareSystemsManager.sol";
+import "../../userInterfaces/IVoterRegistry.sol";
 import "../../userInterfaces/IWNat.sol";
 import "../../userInterfaces/IWNatDelegationFee.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
@@ -12,20 +13,20 @@ import "../../governance/implementation/Governed.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
- * FlareSystemCalculator is used to calculate the registration weight of a voter and the burn factor.
+ * FlareSystemsCalculator is used to calculate the registration weight of a voter and the burn factor.
  */
-contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalculator {
+contract FlareSystemsCalculator is Governed, AddressUpdatable, IIFlareSystemsCalculator {
 
     uint256 internal constant PPM_MAX = 1e6;
 
-    /// The FlareSystemManager contract.
-    IIFlareSystemManager public flareSystemManager;
+    /// The FlareSystemsManager contract.
+    IIFlareSystemsManager public flareSystemsManager;
     /// The EntityManager contract.
     IIEntityManager public entityManager;
     /// The WNatDelegationFee contract.
     IWNatDelegationFee public wNatDelegationFee;
     /// The VoterRegistry contract.
-    address public voterRegistry;
+    IVoterRegistry public voterRegistry;
     /// The PChainStakeMirror contract.
     IPChainStakeMirror public pChainStakeMirror;
     /// Indicates if PChainStakeMirror contract is enabled.
@@ -45,7 +46,7 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
 
     /// Only VoterRegistry contract can call methods with this modifier.
     modifier onlyVoterRegistry {
-        require(msg.sender == voterRegistry, "only voter registry");
+        require(msg.sender == address(voterRegistry), "only voter registry");
         _;
     }
 
@@ -81,8 +82,8 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
     /**
      * Calculates the registration weight of a voter.
      * It is approximation of the staking weight and capped WNat weight to the power of 0.75.
+     * If some node id or delegation address is chilled, the weight for its part is zero.
      * @param _voter The address of the voter.
-     * @param _delegationAddress The voter's delegation address.
      * @param _rewardEpochId The reward epoch id.
      * @param _votePowerBlockNumber The block number at which the vote power is calculated.
      * @return _registrationWeight The registration weight of the voter.
@@ -90,7 +91,6 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
      */
     function calculateRegistrationWeight(
         address _voter,
-        address _delegationAddress,
         uint24 _rewardEpochId,
         uint256 _votePowerBlockNumber
     )
@@ -102,29 +102,40 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
         if (address(pChainStakeMirror) != address(0)) {
             nodeWeights = pChainStakeMirror.batchVotePowerOfAt(nodeIds, _votePowerBlockNumber);
             for (uint256 i = 0; i < nodeWeights.length; i++) {
-                _registrationWeight += nodeWeights[i];
+                if (_rewardEpochId >= voterRegistry.chilledUntilRewardEpochId(nodeIds[i])) {
+                    _registrationWeight += nodeWeights[i];
+                } else {
+                    nodeWeights[i] = 0;
+                }
             }
         } else {
             nodeWeights = new uint256[](nodeIds.length);
         }
 
-        uint256 totalWNatVotePower = wNat.totalVotePowerAt(_votePowerBlockNumber);
-        uint256 wNatWeightCap = (totalWNatVotePower * wNatCapPPM) / PPM_MAX; // no overflow possible
-        uint256 wNatWeight = wNat.votePowerOfAt(_delegationAddress, _votePowerBlockNumber);
-        uint256 wNatCappedWeight = Math.min(wNatWeightCap, wNatWeight);
+        uint256 wNatWeight = 0;
+        uint256 wNatCappedWeight = 0;
+        address delegationAddress = entityManager.getDelegationAddressOfAt(_voter, _votePowerBlockNumber);
+        if (_rewardEpochId >= voterRegistry.chilledUntilRewardEpochId(bytes20(delegationAddress))) {
+            uint256 totalWNatVotePower = wNat.totalVotePowerAt(_votePowerBlockNumber);
+            uint256 wNatWeightCap = (totalWNatVotePower * wNatCapPPM) / PPM_MAX; // no overflow possible
+            wNatWeight = wNat.votePowerOfAt(delegationAddress, _votePowerBlockNumber);
+            wNatCappedWeight = Math.min(wNatWeightCap, wNatWeight);
+            _registrationWeight += wNatCappedWeight;
+        }
         uint16 delegationFeeBIPS = wNatDelegationFee.getVoterFeePercentage(_voter, _rewardEpochId);
 
-        _registrationWeight = _sqrt(_registrationWeight + wNatCappedWeight);
+        _registrationWeight = _sqrt(_registrationWeight);
         _registrationWeight *= _sqrt(_registrationWeight);
 
         emit VoterRegistrationInfo(
             _voter,
             _rewardEpochId,
+            delegationAddress,
+            delegationFeeBIPS,
             wNatWeight,
             wNatCappedWeight,
             nodeIds,
-            nodeWeights,
-            delegationFeeBIPS
+            nodeWeights
         );
     }
 
@@ -152,7 +163,7 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
      */
     function calculateBurnFactorPPM(uint24 _rewardEpochId, address _voter) external view returns(uint256) {
         (uint64 startTs, uint64 startBlock, uint64 endTs, uint64 endBlock) =
-            flareSystemManager.getSigningPolicySignInfo(_rewardEpochId + 1);
+            flareSystemsManager.getSigningPolicySignInfo(_rewardEpochId + 1);
         require(endTs != 0, "signing policy not signed yet");
         if (endTs - startTs <= signingPolicySignNonPunishableDurationSeconds) {
             return 0; // signing policy was signed on time secondwise
@@ -162,7 +173,7 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
             return 0; // signing policy was signed on time blockwise
         }
         // signing policy not signed on time, check when/if voter signed
-        (, uint64 signBlock) = flareSystemManager.getVoterSigningPolicySignInfo(_rewardEpochId + 1, _voter);
+        (, uint64 signBlock) = flareSystemsManager.getVoterSigningPolicySignInfo(_rewardEpochId + 1, _voter);
         if (signBlock == 0) {
             signBlock = endBlock; // voter did not sign
         }
@@ -198,12 +209,12 @@ contract FlareSystemCalculator is Governed, AddressUpdatable, IIFlareSystemCalcu
     )
         internal override
     {
-        flareSystemManager = IIFlareSystemManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
+        flareSystemsManager = IIFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         entityManager = IIEntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
         wNatDelegationFee = IWNatDelegationFee(
             _getContractAddress(_contractNameHashes, _contractAddresses, "WNatDelegationFee"));
-        voterRegistry = _getContractAddress(_contractNameHashes, _contractAddresses, "VoterRegistry");
+        voterRegistry = IVoterRegistry(_getContractAddress(_contractNameHashes, _contractAddresses, "VoterRegistry"));
         if (pChainStakeMirrorEnabled) {
             pChainStakeMirror = IPChainStakeMirror(
                 _getContractAddress(_contractNameHashes, _contractAddresses, "PChainStakeMirror"));

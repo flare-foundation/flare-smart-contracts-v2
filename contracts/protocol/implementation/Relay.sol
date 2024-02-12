@@ -157,12 +157,12 @@ contract Relay is IIRelay {
     /* solhint-enable const-name-snakecase */
 
     // rewardEpochId => signingPolicyHash
-    mapping(uint256 => bytes32) public toSigningPolicyHash;
+    mapping(uint256 rewardEpochId => bytes32) public toSigningPolicyHash;
     // protocolId => votingRoundId => merkleRoot
     //slither-disable-next-line uninitialized-state
-    mapping(uint256 => mapping(uint256 => bytes32)) public merkleRoots;
+    mapping(uint256 protocolId => mapping(uint256 votingRoundId => bytes32)) public merkleRoots;
     // rewardEpochId => startingVotingRoundId
-    mapping(uint256 => uint256) public startingVotingRoundIds;
+    mapping(uint256 rewardEpochId => uint256) public startingVotingRoundIds;
 
     address public signingPolicySetter;
 

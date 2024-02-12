@@ -31,10 +31,10 @@ interface IIRewardManager is IRewardManager {
     /**
      * Collects funds from expired reward epoch and calculates totals.
      *
-     * Triggered by FlareSystemManager on finalization of a reward epoch.
+     * Triggered by FlareSystemsManager on finalization of a reward epoch.
      * Operation is irreversible: when some reward epoch is closed according to current
      * settings, it cannot be reopened even if new parameters would
-     * allow it, because `nextRewardEpochIdToExpire` in FlareSystemManager never decreases.
+     * allow it, because `nextRewardEpochIdToExpire` in FlareSystemsManager never decreases.
      * @param _rewardEpochId Id of the reward epoch to close.
      */
     function closeExpiredRewardEpoch(uint256 _rewardEpochId) external;

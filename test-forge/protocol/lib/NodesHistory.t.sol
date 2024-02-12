@@ -7,13 +7,13 @@ import "../../../contracts/protocol/lib/NodesHistory.sol";
 contract NodesHistoryTest is Test {
     using NodesHistory for NodesHistory.CheckPointHistoryState;
 
-    NodesHistory.CheckPointHistoryState checkPointHistoryState;
+    NodesHistory.CheckPointHistoryState private checkPointHistoryState;
 
-    NodesHistory.CheckPointHistoryState emptyState;
+    NodesHistory.CheckPointHistoryState private emptyState;
 
-    NodesHistory.CheckPointHistoryState emptyState2;
+    NodesHistory.CheckPointHistoryState private emptyState2;
 
-    uint32 maxNodeIds = 5;
+    uint32 private maxNodeIds = 5;
 
     function setUp() public {
         for (uint256 j = 1; j < 5; j++) {
@@ -39,7 +39,7 @@ contract NodesHistoryTest is Test {
         );
     }
 
-    function test_addNodeInPastFail() public {
+    function testAddNodeInPastFail() public {
         vm.expectRevert();
 
         vm.roll(10);
@@ -50,7 +50,7 @@ contract NodesHistoryTest is Test {
         );
     }
 
-    function test_nodeIdsAtEmpty() public {
+    function testNodeIdsAtEmpty() public {
         vm.roll(990);
 
         bytes20[] memory nodesAt = emptyState.nodeIdsAt(block.number);
@@ -60,7 +60,7 @@ contract NodesHistoryTest is Test {
         assertEq(nodesAt70.length, 0);
     }
 
-    function test_NodeIdsAt() public {
+    function testNodeIdsAt() public {
         vm.roll(500);
 
         bytes20[] memory nodesAtNow = checkPointHistoryState.nodeIdsAt(block.number);
@@ -73,7 +73,7 @@ contract NodesHistoryTest is Test {
         assertEq(nodesAtNow[2], bytes20(keccak256(abi.encode(4))));
     }
 
-    function test_cleanEmpty() public {
+    function testCleanEmpty() public {
         vm.roll(99);
 
         uint256 cleaned = emptyState.cleanupOldCheckpoints(3, 3);
@@ -81,7 +81,7 @@ contract NodesHistoryTest is Test {
         assertEq(cleaned, 0);
     }
 
-    function test_addRemoveNodeIdEmptyAdd() public {
+    function testAddRemoveNodeIdEmptyAdd() public {
         vm.roll(99);
 
         emptyState2.addRemoveNodeId(
@@ -94,7 +94,7 @@ contract NodesHistoryTest is Test {
         assertEq(emptyState2.endIndex, 1);
     }
 
-    function test_addRemoveNodeIdEmptyRemove() public {
+    function testAddRemoveNodeIdEmptyRemove() public {
         vm.roll(99);
 
         emptyState2.addRemoveNodeId(
@@ -107,7 +107,7 @@ contract NodesHistoryTest is Test {
         assertEq(emptyState2.endIndex, 0);
     }
 
-    function test_addRemoveNodeIdTwice() public {
+    function testAddRemoveNodeIdTwice() public {
         vm.roll(700);
 
         uint64 length = checkPointHistoryState.endIndex;
@@ -127,7 +127,7 @@ contract NodesHistoryTest is Test {
         assertEq(length + 1, checkPointHistoryState.endIndex);
     }
 
-    function test_clean() public {
+    function testClean() public {
         vm.roll(800);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(3, 400);
@@ -135,7 +135,7 @@ contract NodesHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 3);
     }
 
-    function test_clean2() public {
+    function testClean2() public {
         vm.roll(700);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(3, 200);
@@ -143,7 +143,7 @@ contract NodesHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 1);
     }
 
-    function test_clean3() public {
+    function testClean3() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(0, 10);
@@ -151,7 +151,7 @@ contract NodesHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 0);
     }
 
-    function test_clean4() public {
+    function testClean4() public {
         vm.roll(120);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(10, 0);
@@ -159,7 +159,7 @@ contract NodesHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 0);
     }
 
-    function test_cleanAndNodeAt() public {
+    function testCleanAndNodeAt() public {
         vm.roll(300);
 
         uint256 cleaned = checkPointHistoryState.cleanupOldCheckpoints(3, 200);
@@ -170,7 +170,7 @@ contract NodesHistoryTest is Test {
         checkPointHistoryState.nodeIdsAt(102);
     }
 
-    // function test_cleanAndAddressAt2() public {
+    // function testCleanAndAddressAt2() public {
     //     vm.roll(120);
 
     //     checkPointHistoryState.cleanupOldCheckpoints(11, 10);
@@ -180,7 +180,7 @@ contract NodesHistoryTest is Test {
     //     assertEq(at2, keccak256(abi.encode(20)));
     // }
 
-    // function test_addressAtBeforeFirstSet() public {
+    // function testAddressAtBeforeFirstSet() public {
     //     vm.roll(120);
 
     //     emptyState.setPublicKey(

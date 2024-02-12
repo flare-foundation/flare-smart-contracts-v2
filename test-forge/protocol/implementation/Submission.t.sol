@@ -65,7 +65,7 @@ contract SubmissionTest is Test {
         vm.prank(makeAddr("governance"));
         submission.setSubmit3MethodEnabled(false);
 
-        vm.prank(address(submission.flareSystemManager()));
+        vm.prank(address(submission.flareSystemsManager()));
         submission.initNewVotingRound(usersGen, usersGen, usersGen, usersGen);
 
         vm.prank(usersGen[0]);
@@ -84,7 +84,7 @@ contract SubmissionTest is Test {
     }
 
     function testInitNewVotingRoundFinalisationEmpty() public {
-        vm.prank(address(submission.flareSystemManager()));
+        vm.prank(address(submission.flareSystemsManager()));
         submission.initNewVotingRound(
             emptyAddresses,
             emptyAddresses,
@@ -122,8 +122,8 @@ contract SubmissionTest is Test {
     function testUpdateContractAddress() public {
         nameHashes.push(keccak256(abi.encode("AddressUpdater")));
         addresses.push(makeAddr("AddressUpdater"));
-        nameHashes.push(keccak256(abi.encode("FlareSystemManager")));
-        addresses.push(makeAddr("FlareSystemManager"));
+        nameHashes.push(keccak256(abi.encode("FlareSystemsManager")));
+        addresses.push(makeAddr("FlareSystemsManager"));
         nameHashes.push(keccak256(abi.encode("Relay")));
         addresses.push(makeAddr("Relay"));
 
@@ -132,8 +132,8 @@ contract SubmissionTest is Test {
         vm.stopPrank();
 
         assertEq(
-            submission.flareSystemManager(),
-            makeAddr("FlareSystemManager")
+            submission.flareSystemsManager(),
+            makeAddr("FlareSystemsManager")
         );
 
         assertEq(
@@ -146,7 +146,7 @@ contract SubmissionTest is Test {
         vm.expectRevert("only governance");
         submission.setSubmit3MethodEnabled(true);
 
-        vm.prank(address(submission.flareSystemManager()));
+        vm.prank(address(submission.flareSystemsManager()));
     }
 
     function testSetSubmit() public {
@@ -163,7 +163,7 @@ contract SubmissionTest is Test {
 
         vm.assume(usersGen.length > 0);
 
-        vm.prank(address(submission.flareSystemManager()));
+        vm.prank(address(submission.flareSystemsManager()));
         submission.initNewVotingRound(usersGen, usersGen, usersGen, usersGen);
 
         vm.prank(usersGen[0]);
@@ -257,8 +257,8 @@ contract SubmissionTest is Test {
     function _setContractAddresses() private {
         nameHashes.push(keccak256(abi.encode("AddressUpdater")));
         addresses.push(makeAddr("AddressUpdater"));
-        nameHashes.push(keccak256(abi.encode("FlareSystemManager")));
-        addresses.push(makeAddr("FlareSystemManager"));
+        nameHashes.push(keccak256(abi.encode("FlareSystemsManager")));
+        addresses.push(makeAddr("FlareSystemsManager"));
         nameHashes.push(keccak256(abi.encode("Relay")));
         addresses.push(mockRelay);
 

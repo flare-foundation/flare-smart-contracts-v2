@@ -7,12 +7,17 @@ import 'solidity-coverage';
 import { HardhatUserConfig, task } from "hardhat/config";
 import * as dotenv from "dotenv";
 import { runSimulation } from "./deployment/tasks/run-simulation";
+import { loadParameters, verifyParameters } from "./deployment/scripts/deploy-utils";
+import { Contracts } from "./deployment/scripts/Contracts";
+import { deployContracts } from "./deployment/scripts/deploy-contracts";
+import { deploySubmissionContract } from "./deployment/scripts/deploy-submission-contract";
+import { setInflationReceivers } from "./deployment/scripts/set-inflation-receivers";
+import { daemonizeContracts } from "./deployment/scripts/daemonize-contracts";
+import { switchToProductionMode } from "./deployment/scripts/switch-to-production-mode";
 
 dotenv.config();
 
 let fs = require('fs');
-
-// Tasks
 
 // Config
 let accounts = [
@@ -45,12 +50,128 @@ let accounts = [
   ...(process.env.GOVERNANCE_PRIVATE_KEY ? [{ privateKey: process.env.GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
 ];
 
+function getChainConfigParameters(chainConfig: string | undefined) {
+  if (chainConfig) {
+    const parameters = loadParameters(`deployment/chain-config/${chainConfig}.json`);
+
+    // inject private keys from .env, if they exist
+    if (process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY) {
+      parameters.submissionDeployerPrivateKey = process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY
+    }
+    if (process.env.DEPLOYER_PRIVATE_KEY) {
+      parameters.deployerPrivateKey = process.env.DEPLOYER_PRIVATE_KEY
+    }
+    if (process.env.GENESIS_GOVERNANCE_PRIVATE_KEY) {
+      parameters.genesisGovernancePrivateKey = process.env.GENESIS_GOVERNANCE_PRIVATE_KEY
+    }
+    if (process.env.GOVERNANCE_PRIVATE_KEY) {
+      parameters.governancePrivateKey = process.env.GOVERNANCE_PRIVATE_KEY
+    }
+    if (process.env.GOVERNANCE_PUBLIC_KEY) {
+      parameters.governancePublicKey = process.env.GOVERNANCE_PUBLIC_KEY
+    }
+    if (process.env.GOVERNANCE_EXECUTOR_PUBLIC_KEY) {
+      parameters.governanceExecutorPublicKey = process.env.GOVERNANCE_EXECUTOR_PUBLIC_KEY
+    }
+    verifyParameters(parameters);
+    return parameters;
+  } else {
+    return undefined;
+  }
+}
+
+function readContracts(network: string, filePath?: string): Contracts {
+  const contracts = new Contracts();
+  contracts.deserializeFile(filePath || (`deployment/deploys/${network}.json`));
+  return contracts;
+}
+
 // Tasks
 
 task("run-simulation", `Runs local simulation.`) // prettier-ignore
   .addOptionalParam("voters", "Number of voters to simulate", "4")
   .setAction(async (args, hre, _runSuper) => {
     await runSimulation(hre, accounts, +args.voters);
+  });
+
+task("deploy-submission-contract", "Deploy submission contract")
+.addFlag("quiet", "Suppress console output")
+.setAction(async (args, hre, runSuper) => {
+  if (!process.env.OLD_CONTRACTS_PATH) {
+    throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+  }
+  const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+  if (parameters) {
+    const network = process.env.CHAIN_CONFIG!;
+    const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+    await deploySubmissionContract(hre, oldContracts, parameters, args.quiet);
+  } else {
+    throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
+  }
+});
+
+task("deploy-contracts", "Deploy contracts")
+  .addFlag("quiet", "Suppress console output")
+  .setAction(async (args, hre, runSuper) => {
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+    }
+    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+    if (parameters) {
+      const network = process.env.CHAIN_CONFIG!;
+      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+      const contracts = readContracts(network);
+      await deployContracts(hre, oldContracts, contracts, parameters, args.quiet);
+    } else {
+      throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
+    }
+  });
+
+task("set-inflation-receivers", "Set inflation receivers")
+  .addFlag("quiet", "Suppress console output")
+  .setAction(async (args, hre, runSuper) => {
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+    }
+    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+    if (parameters) {
+      const network = process.env.CHAIN_CONFIG!;
+      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+      const contracts = readContracts(network);
+      await setInflationReceivers(hre, oldContracts, contracts, parameters, args.quiet);
+    } else {
+      throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
+    }
+  });
+
+task("daemonize-contracts", "Daemonize contracts")
+  .addFlag("quiet", "Suppress console output")
+  .setAction(async (args, hre, runSuper) => {
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+    }
+    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+    if (parameters) {
+      const network = process.env.CHAIN_CONFIG!;
+      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+      const contracts = readContracts(network);
+      await daemonizeContracts(hre, oldContracts, contracts, parameters, args.quiet);
+    } else {
+      throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
+    }
+  });
+
+task("switch-to-production-mode", "Switch to production mode")
+  .addFlag("quiet", "Suppress console output")
+  .setAction(async (args, hre, runSuper) => {
+    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+    if (parameters) {
+      const network = process.env.CHAIN_CONFIG!;
+      const contracts = readContracts(network);
+      await switchToProductionMode(hre, contracts, parameters, args.quiet);
+    } else {
+      throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
+    }
   });
 
 const config: HardhatUserConfig = {
@@ -98,6 +219,7 @@ const config: HardhatUserConfig = {
   networks: {
     scdev: {
       url: "http://127.0.0.1:9650/ext/bc/C/rpc",
+      gas: 8000000,
       timeout: 40000,
       accounts: accounts.map((x: any) => x.privateKey),
     },

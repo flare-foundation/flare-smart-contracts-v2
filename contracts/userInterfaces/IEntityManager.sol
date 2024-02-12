@@ -8,7 +8,6 @@ interface IEntityManager {
 
     /// Voter addresses.
     struct VoterAddresses {
-        address delegationAddress;
         address submitAddress;
         address submitSignaturesAddress;
         address signingPolicyAddress;
@@ -128,6 +127,21 @@ interface IEntityManager {
     function confirmSigningPolicyAddressRegistration(address _voter) external;
 
     /**
+     * Gets the delegation address of a voter at a specific block number.
+     * @param _voter Voter address.
+     * @param _blockNumber Block number.
+     * @return Public key.
+     */
+    function getDelegationAddressOfAt(address _voter, uint256 _blockNumber) external view returns(address);
+
+    /**
+     * Gets the delegation address of a voter at the current block number.
+     * @param _voter Voter address.
+     * @return Public key.
+     */
+    function getDelegationAddressOf(address _voter) external view returns(address);
+
+    /**
      * Gets the node ids of a voter at a specific block number.
      * @param _voter Voter address.
      * @param _blockNumber Block number.
@@ -158,12 +172,21 @@ interface IEntityManager {
     function getPublicKeyOf(address _voter) external view returns(bytes32, bytes32);
 
     /**
-     * Gets voter addresses at a specific block number.
+     * Gets voter's addresses at a specific block number.
      * @param _voter Voter address.
      * @param _blockNumber Block number.
      * @return _addresses Voter addresses.
      */
-    function getVoterAddresses(address _voter, uint256 _blockNumber)
+    function getVoterAddressesAt(address _voter, uint256 _blockNumber)
+        external view
+        returns (VoterAddresses memory _addresses);
+
+    /**
+     * Gets voter's addresses at the current block number.
+     * @param _voter Voter address.
+     * @return _addresses Voter addresses.
+     */
+    function getVoterAddresses(address _voter)
         external view
         returns (VoterAddresses memory _addresses);
 

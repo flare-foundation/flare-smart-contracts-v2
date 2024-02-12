@@ -52,15 +52,18 @@ export class Contracts {
   public static readonly P_CHAIN_STAKE_MIRROR_VERIFIER = "PChainStakeMirrorVerifier";
   public static readonly P_CHAIN_STAKE_MIRROR = "PChainStakeMirror";
   public static readonly ENTITY_MANAGER = "EntityManager";
-  public static readonly FLARE_SYSTEM_MANAGER = "FlareSystemManager";
+  public static readonly FLARE_SYSTEMS_MANAGER = "FlareSystemsManager";
   public static readonly SUBMISSION = "Submission";
   public static readonly RELAY = "Relay";
   public static readonly VOTER_REGISTRY = "VoterRegistry";
   public static readonly REWARD_MANAGER = "RewardManager";
-  public static readonly FLARE_SYSTEM_CALCULATOR = "FlareSystemCalculator";
+  public static readonly FLARE_SYSTEMS_CALCULATOR = "FlareSystemsCalculator";
   public static readonly WNAT_DELEGATION_FEE = "WNatDelegationFee";
   public static readonly FTSO_INFLATION_CONFIGURATIONS = "FtsoInflationConfigurations";
   public static readonly FTSO_FEED_DECIMALS = "FtsoFeedDecimals";
+  public static readonly FTSO_FEED_PUBLISHER = "FtsoFeedPublisher";
+  public static readonly FTSO_REWARD_OFFERS_MANAGER = "FtsoRewardOffersManager";
+
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 
   constructor() {

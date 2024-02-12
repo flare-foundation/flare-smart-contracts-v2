@@ -8,7 +8,7 @@ contract FtsoFeedDecimalsTest is Test {
 
     FtsoFeedDecimals private ftsoFeedDecimals;
     address private addressUpdater;
-    address private mockFlareSystemManager;
+    address private mockFlareSystemsManager;
     address private governance;
 
     bytes32[] private contractNameHashes;
@@ -27,23 +27,24 @@ contract FtsoFeedDecimalsTest is Test {
             governance,
             addressUpdater,
             2,
-            6
+            6,
+            0,
+            new FtsoFeedDecimals.InitialFeedDecimals[](0)
         );
 
         vm.prank(addressUpdater);
-        mockFlareSystemManager = makeAddr("mockFlareSystemManager");
+        mockFlareSystemsManager = makeAddr("mockFlareSystemsManager");
         contractNameHashes = new bytes32[](2);
         contractAddresses = new address[](2);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("FlareSystemManager"));
+        contractNameHashes[1] = keccak256(abi.encode("FlareSystemsManager"));
         contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = mockFlareSystemManager;
+        contractAddresses[1] = mockFlareSystemsManager;
         ftsoFeedDecimals.updateContractAddresses(contractNameHashes, contractAddresses);
 
         feedName1 = bytes8("feed1");
         feedName2 = bytes8("feed2");
     }
-
 
     function testConstructorOffsetTooSmall() public {
         vm.expectRevert("offset too small");
@@ -52,8 +53,40 @@ contract FtsoFeedDecimalsTest is Test {
             governance,
             addressUpdater,
             1,
-            6
+            6,
+            0,
+            new FtsoFeedDecimals.InitialFeedDecimals[](0)
         );
+    }
+
+    function testConstructorInitialFeedDecimals() public {
+        FtsoFeedDecimals.InitialFeedDecimals[] memory initialFeedDecimals =
+            new FtsoFeedDecimals.InitialFeedDecimals[](2);
+        initialFeedDecimals[0] = FtsoFeedDecimals.InitialFeedDecimals(feedName1, 9);
+        initialFeedDecimals[1] = FtsoFeedDecimals.InitialFeedDecimals(feedName2, 3);
+
+        ftsoFeedDecimals = new FtsoFeedDecimals(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            2,
+            6,
+            1,
+            initialFeedDecimals
+        );
+        vm.prank(addressUpdater);
+        ftsoFeedDecimals.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        _mockGetCurrentEpochId(1);
+        assertEq(ftsoFeedDecimals.getCurrentDecimals(feedName1), 9);
+        assertEq(ftsoFeedDecimals.getDecimals(feedName1, 0), 6);
+        assertEq(ftsoFeedDecimals.getDecimals(feedName1, 1), 9);
+        assertEq(ftsoFeedDecimals.getCurrentDecimals(feedName2), 3);
+        assertEq(ftsoFeedDecimals.getDecimals(feedName2, 0), 6);
+        assertEq(ftsoFeedDecimals.getDecimals(feedName2, 1), 3);
+        vm.startPrank(governance);
+        ftsoFeedDecimals.setDecimals(feedName1, 8);
+        assertEq(ftsoFeedDecimals.getDecimals(feedName1, 1 + 2), 8);
     }
 
     function testSetDecimals() public {
@@ -104,10 +137,16 @@ contract FtsoFeedDecimalsTest is Test {
         vm.stopPrank();
     }
 
-    function testGetVoterFeePercentageRevert() public {
+    function testGetBulkDecimalsRevert() public {
         _mockGetCurrentEpochId(1);
         vm.expectRevert("invalid reward epoch id");
         ftsoFeedDecimals.getDecimalsBulk(feedNames, 6);
+    }
+
+    function testGetDecimalsRevert() public {
+        _mockGetCurrentEpochId(1);
+        vm.expectRevert("invalid reward epoch id");
+        ftsoFeedDecimals.getDecimals(feedName1, 6);
     }
 
     function testGetDecimalsRevertWrongFeedsLength() public {
@@ -121,8 +160,8 @@ contract FtsoFeedDecimalsTest is Test {
     //// helper functions
     function _mockGetCurrentEpochId(uint256 _epochId) private {
         vm.mockCall(
-            mockFlareSystemManager,
-            abi.encodeWithSelector(IFlareSystemManager.getCurrentRewardEpochId.selector),
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IFlareSystemsManager.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }

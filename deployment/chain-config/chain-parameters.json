@@ -1,0 +1,420 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "additionalProperties": false,
+    "definitions": {
+        "FeedDecimals": {
+            "additionalProperties": false,
+            "properties": {
+                "decimals": {
+                    "description": "The feed decimals.",
+                    "type": "integer"
+                },
+                "feedName": {
+                    "description": "The feed name.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "decimals",
+                "feedName"
+            ],
+            "type": "object"
+        },
+        "FlareDaemonizedContract": {
+            "additionalProperties": false,
+            "properties": {
+                "contractName": {
+                    "description": "The daemonized contract name.",
+                    "type": "string"
+                },
+                "gasLimit": {
+                    "description": "The daemonized contract gas limit.",
+                    "type": "integer"
+                },
+                "oldContract": {
+                    "description": "Indicates whether the contract is part of old repo (flare-smart-contracts).",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "contractName",
+                "gasLimit",
+                "oldContract"
+            ],
+            "type": "object"
+        },
+        "FtsoInflationConfiguration": {
+            "additionalProperties": false,
+            "properties": {
+                "feedNames": {
+                    "description": "List of feed names for this configuration.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "inflationShareBIPS": {
+                    "description": "Inflation share for this configuration in BIPS (e.g. 50%).",
+                    "type": "integer"
+                },
+                "minRewardedTurnoutBIPS": {
+                    "description": "Minimal reward eligibility turnout threshold in BIPS (e.g. 30%).",
+                    "type": "integer"
+                },
+                "mode": {
+                    "description": "Rewards split mode (0 means equally, 1 means random,...).",
+                    "type": "integer"
+                },
+                "primaryBandRewardSharePPM": {
+                    "description": "Primary band reward share in PPM (e.g 60%).",
+                    "type": "integer"
+                },
+                "secondaryBandWidthPPMs": {
+                    "description": "Secondary band width in PPM (parts per million) in relation to the median (e.g. 1%).",
+                    "items": {
+                        "type": "number"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "feedNames",
+                "inflationShareBIPS",
+                "minRewardedTurnoutBIPS",
+                "mode",
+                "primaryBandRewardSharePPM",
+                "secondaryBandWidthPPMs"
+            ],
+            "type": "object"
+        },
+        "InflationReceiver": {
+            "additionalProperties": false,
+            "properties": {
+                "contractName": {
+                    "description": "The inflation receiver contract name.",
+                    "type": "string"
+                },
+                "oldContract": {
+                    "description": "Indicates whether the contract is part of old repo (flare-smart-contracts).",
+                    "type": "boolean"
+                },
+                "sharingBIPS": {
+                    "description": "The inflation sharing BIPS.",
+                    "type": "integer"
+                },
+                "topUpFactorx100": {
+                    "description": "The inflation top up factorx100.",
+                    "type": "integer"
+                },
+                "topUpType": {
+                    "description": "The inflation top up type.",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "contractName",
+                "oldContract",
+                "sharingBIPS",
+                "topUpFactorx100",
+                "topUpType"
+            ],
+            "type": "object"
+        },
+        "InitialVoterData": {
+            "additionalProperties": false,
+            "properties": {
+                "delegationAddress": {
+                    "description": "The delegation address (ftso v1 address).",
+                    "type": "string"
+                },
+                "nodeIds": {
+                    "description": "The node ids to be associated with the voter.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "voter": {
+                    "description": "The voter address (cold wallet).",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "delegationAddress",
+                "nodeIds",
+                "voter"
+            ],
+            "type": "object"
+        }
+    },
+    "properties": {
+        "$schema": {
+            "type": "string"
+        },
+        "decimalsUpdateOffset": {
+            "description": "Feed decimals update timelock measured in reward epochs (must be more than 1, e.g. 3).",
+            "type": "integer"
+        },
+        "defaultDecimals": {
+            "description": "Default feed decimals (e.g. 5).",
+            "type": "integer"
+        },
+        "defaultFeePercentageBIPS": {
+            "description": "Default fee percentage, in BIPS (e.g. 20%).",
+            "type": "integer"
+        },
+        "deployerPrivateKey": {
+            "description": "Deployer private key. Overriden if provided in `.env` file as `DEPLOYER_PRIVATE_KEY`",
+            "type": "string"
+        },
+        "feePercentageUpdateOffset": {
+            "description": "Fee percentage update timelock measured in reward epochs (must be more than 1, e.g. 3).",
+            "type": "integer"
+        },
+        "feedsHistorySize": {
+            "description": "Feed history size (e.g. 200).",
+            "type": "integer"
+        },
+        "firstRewardEpochStartVotingRoundId": {
+            "description": "The start voting round id of the first reward epoch.",
+            "type": "integer"
+        },
+        "firstVotingRoundStartTs": {
+            "description": "Timestamp of the first voting round start (in seconds since Unix epoch).",
+            "type": "integer"
+        },
+        "flareDaemonizedContracts": {
+            "description": "Flare daemonized contracts. Order matters. Inflation should be first.",
+            "items": {
+                "$ref": "#/definitions/FlareDaemonizedContract"
+            },
+            "type": "array"
+        },
+        "ftsoInflationConfigurations": {
+            "description": "The inflation configurations for the FTSO protocol.",
+            "items": {
+                "$ref": "#/definitions/FtsoInflationConfiguration"
+            },
+            "type": "array"
+        },
+        "ftsoProtocolId": {
+            "description": "The FTSO protocol id - used for random number generation.",
+            "type": "integer"
+        },
+        "genesisGovernancePrivateKey": {
+            "description": "Genesis governance private key (the key used as governance during deploy).\nOverriden if set in `.env` file as `GENESIS_GOVERNANCE_PRIVATE_KEY`.",
+            "type": "string"
+        },
+        "governanceExecutorPublicKey": {
+            "description": "The public key of the executor (the account that is allowed to execute governance operations once the timelock expires).\nOverriden if provided in `.env` file as `GOVERNANCE_EXECUTOR_PUBLIC_KEY`.",
+            "type": "string"
+        },
+        "governancePrivateKey": {
+            "description": "Governance private key (the private part of `governancePublicKey`).\nOverriden if provided in `.env` file as `GOVERNANCE_PRIVATE_KEY`.\nNote: this is only used in test deploys. In production, governance is a multisig address and there is no private key.",
+            "type": "string"
+        },
+        "governancePublicKey": {
+            "description": "Governance public key (the key to which governance is transferred after deploy).\nOverriden if provided in `.env` file as `GOVERNANCE_PUBLIC_KEY`.",
+            "type": "string"
+        },
+        "governanceTimelock": {
+            "description": "The timelock in seconds to use for all governance operations (the time that has to pass before any governance operation is executed).\nIt safeguards the system against bad governance decisions or hijacked governance.",
+            "type": "integer"
+        },
+        "inflationReceivers": {
+            "description": "The inflation receivers.",
+            "items": {
+                "$ref": "#/definitions/InflationReceiver"
+            },
+            "type": "array"
+        },
+        "initialFeedDecimalsList": {
+            "description": "The initial feed decimals used in the FTSO system.",
+            "items": {
+                "$ref": "#/definitions/FeedDecimals"
+            },
+            "type": "array"
+        },
+        "initialNormalisedWeights": {
+            "description": "Normalised weights (sum < 2^16) of the voters used in the initial reward epoch id.",
+            "items": {
+                "type": "number"
+            },
+            "type": "array"
+        },
+        "initialRandomVotePowerBlockSelectionSize": {
+            "description": "The initial random vote power block selection size in blocks (e.g. 1000).",
+            "type": "integer"
+        },
+        "initialRewardEpochOffset": {
+            "description": "The initial offset in reward epochs.",
+            "type": "integer"
+        },
+        "initialThreshold": {
+            "description": "Threshold used in the initial reward epoch id - should be less then the sum of the normalised weights.",
+            "type": "integer"
+        },
+        "initialVoterData": {
+            "description": "The initial voter data to be set in entity manager.",
+            "items": {
+                "$ref": "#/definitions/InitialVoterData"
+            },
+            "type": "array"
+        },
+        "initialVoters": {
+            "description": "Voters used in the initial reward epoch id.",
+            "items": {
+                "type": "string"
+            },
+            "type": "array"
+        },
+        "maxNodeIdsPerEntity": {
+            "description": "Max number of nodes per entity (e.g. 4).",
+            "type": "integer"
+        },
+        "maxVotersPerRewardEpoch": {
+            "description": "Max number of voters per reward epoch (e.g. 100).",
+            "type": "integer"
+        },
+        "minimalRewardsOfferValueNAT": {
+            "description": "The minimal reward offer value in NAT (e.g. 1,000,000).",
+            "type": "integer"
+        },
+        "newSigningPolicyInitializationStartSeconds": {
+            "description": "The time in seconds before the end of the reward epoch when the new signing policy initialization starts (e.g. 2 hours).",
+            "type": "integer"
+        },
+        "newSigningPolicyMinNumberOfVotingRoundsDelay": {
+            "description": "The minimal number of voting rounds delay for switching to the new signing policy (e.g. 3).",
+            "type": "integer"
+        },
+        "pChainStakeEnabled": {
+            "description": "Indicates whether the P-chain stake is enabled.",
+            "type": "boolean"
+        },
+        "randomAcquisitionMaxDurationBlocks": {
+            "description": "The maximal random acquisition duration in blocks (e.g. 15000 blocks).",
+            "type": "integer"
+        },
+        "randomAcquisitionMaxDurationSeconds": {
+            "description": "The maximal random acquisition duration in seconds (e.g. 8 hour).",
+            "type": "integer"
+        },
+        "relayThresholdIncreaseBIPS": {
+            "description": "The increase of the threshold in BIPS for relaying the merkle root with the old signing policy (must be more than 100%).",
+            "type": "integer"
+        },
+        "rewardEpochDurationInVotingEpochs": {
+            "description": "The duration of a reward epoch in voting epochs.",
+            "type": "integer"
+        },
+        "rewardExpiryOffsetSeconds": {
+            "description": "The reward expiry offset in seconds (e.g. 90 days).",
+            "type": "integer"
+        },
+        "signingPolicyMinNumberOfVoters": {
+            "description": "The minimal number of voters for the signing policy (e.g. 10).",
+            "type": "integer"
+        },
+        "signingPolicySignNoRewardsDurationBlocks": {
+            "description": "Number of blocks for new signing policy sign phase (in addition to non-punishable blocks) after which all rewards are burned (e.g. 600 blocks).",
+            "type": "integer"
+        },
+        "signingPolicySignNonPunishableDurationBlocks": {
+            "description": "The non-punishable new signing policy sign phase duration in blocks (e.g. 600 blocks).",
+            "type": "integer"
+        },
+        "signingPolicySignNonPunishableDurationSeconds": {
+            "description": "The non-punishable new signing policy sign phase duration in seconds (e.g. 20 minutes).",
+            "type": "integer"
+        },
+        "signingPolicyThresholdPPM": {
+            "description": "The threshold for the signing policy in PPM (must be less then 100%, e.g. 50%).",
+            "type": "integer"
+        },
+        "submissionDeployerPrivateKey": {
+            "description": "Submission deployer private key. Overriden if provided in `.env` file as `SUBMISSION_DEPLOYER_PRIVATE_KEY`",
+            "type": "string"
+        },
+        "submitUptimeVoteMinDurationBlocks": {
+            "description": "The minimal duration of uptime vote submission phase in blocks (e.g. 300 blocks).",
+            "type": "integer"
+        },
+        "submitUptimeVoteMinDurationSeconds": {
+            "description": "The minimal duration of uptime vote submission phase in seconds (e.g. 10 minutes).",
+            "type": "integer"
+        },
+        "testDeployment": {
+            "description": "Indicates whether this is a test deployment (local, scdev, etc.)",
+            "type": "boolean"
+        },
+        "voterRegistrationMinDurationBlocks": {
+            "description": "The minimal duration of voter registration phase in blocks (e.g. 900 blocks).",
+            "type": "integer"
+        },
+        "voterRegistrationMinDurationSeconds": {
+            "description": "The minimal duration of voter registration phase in seconds (e.g. 30 minutes).",
+            "type": "integer"
+        },
+        "votingEpochDurationSeconds": {
+            "description": "The duration of a voting epoch in seconds.",
+            "type": "integer"
+        },
+        "wNatCapPPM": {
+            "description": "The WNat cap used in signing policy weight, in PPM (e.g. 2.5%).",
+            "type": "integer"
+        }
+    },
+    "required": [
+        "decimalsUpdateOffset",
+        "defaultDecimals",
+        "defaultFeePercentageBIPS",
+        "deployerPrivateKey",
+        "feePercentageUpdateOffset",
+        "feedsHistorySize",
+        "firstRewardEpochStartVotingRoundId",
+        "firstVotingRoundStartTs",
+        "flareDaemonizedContracts",
+        "ftsoInflationConfigurations",
+        "ftsoProtocolId",
+        "genesisGovernancePrivateKey",
+        "governanceExecutorPublicKey",
+        "governancePrivateKey",
+        "governancePublicKey",
+        "governanceTimelock",
+        "inflationReceivers",
+        "initialFeedDecimalsList",
+        "initialNormalisedWeights",
+        "initialRandomVotePowerBlockSelectionSize",
+        "initialRewardEpochOffset",
+        "initialThreshold",
+        "initialVoterData",
+        "initialVoters",
+        "maxNodeIdsPerEntity",
+        "maxVotersPerRewardEpoch",
+        "minimalRewardsOfferValueNAT",
+        "newSigningPolicyInitializationStartSeconds",
+        "newSigningPolicyMinNumberOfVotingRoundsDelay",
+        "pChainStakeEnabled",
+        "randomAcquisitionMaxDurationBlocks",
+        "randomAcquisitionMaxDurationSeconds",
+        "relayThresholdIncreaseBIPS",
+        "rewardEpochDurationInVotingEpochs",
+        "rewardExpiryOffsetSeconds",
+        "signingPolicyMinNumberOfVoters",
+        "signingPolicySignNoRewardsDurationBlocks",
+        "signingPolicySignNonPunishableDurationBlocks",
+        "signingPolicySignNonPunishableDurationSeconds",
+        "signingPolicyThresholdPPM",
+        "submissionDeployerPrivateKey",
+        "submitUptimeVoteMinDurationBlocks",
+        "submitUptimeVoteMinDurationSeconds",
+        "testDeployment",
+        "voterRegistrationMinDurationBlocks",
+        "voterRegistrationMinDurationSeconds",
+        "votingEpochDurationSeconds",
+        "wNatCapPPM"
+    ],
+    "type": "object"
+}
+

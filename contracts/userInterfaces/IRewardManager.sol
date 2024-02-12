@@ -25,6 +25,7 @@ interface IRewardManager {
 
     /// Struct used for returning state of rewards.
     struct RewardState {
+        uint24 rewardEpochId;
         bytes20 beneficiary; // c-chain address or node id (bytes20) in case of type MIRROR
         uint120 amount; // in wei
         ClaimType claimType;
@@ -114,6 +115,12 @@ interface IRewardManager {
     function initialiseWeightBasedClaims(RewardClaimWithProof[] calldata _proofs) external;
 
     /**
+     * Returns the number of weight based claims that have been initialised.
+     * @param _rewardEpochId Reward epoch id.
+     */
+    function noOfInitialisedWeightBasedClaims(uint256 _rewardEpochId) external view returns (uint256);
+
+    /**
         * Indicates if the contract is active - claims are enabled.
         */
     function active() external view returns (bool);
@@ -127,16 +134,29 @@ interface IRewardManager {
     /**
      * Returns the state of rewards for a given address at a specific reward epoch.
      * @param _rewardOwner Address of the reward owner.
-     * @param _rewardEpochId Id of the reward epoch.
+     * @param _rewardEpochId Reward epoch id.
      * @return _rewardStates Array of reward states.
      */
-    function getStateOfRewards(
+    function getStateOfRewardsAt(
         address _rewardOwner,
         uint24 _rewardEpochId
     )
         external view
         returns (
             RewardState[] memory _rewardStates
+        );
+
+    /**
+     * Returns the state of rewards for a given address for all unclaimed reward epochs with claimable rewards.
+     * @param _rewardOwner Address of the reward owner.
+     * @return _rewardStates Array of reward states.
+     */
+    function getStateOfRewards(
+        address _rewardOwner
+    )
+        external view
+        returns (
+            RewardState[][] memory _rewardStates
         );
 
     /**
@@ -158,15 +178,14 @@ interface IRewardManager {
 
     /**
      * Returns the start and the end of the reward epoch range for which the reward is claimable.
-     * **NOTE**: If rewards hash was not signed yet, some epoch might not be claimable.
      * @return _startEpochId The oldest epoch id that allows reward claiming.
      * @return _endEpochId The newest epoch id that allows reward claiming.
      */
-    function getEpochIdsWithClaimableRewards()
+    function getRewardEpochIdsWithClaimableRewards()
         external view
         returns (
-            uint256 _startEpochId,
-            uint256 _endEpochId
+            uint24 _startEpochId,
+            uint24 _endEpochId
         );
 
     /**
@@ -211,5 +230,5 @@ interface IRewardManager {
      * Returns the next claimable reward epoch for a reward owner.
      * @param _rewardOwner Address of the reward owner to query.
      */
-    function nextClaimableRewardEpochId(address _rewardOwner) external view returns (uint256);
+    function getNextClaimableRewardEpochId(address _rewardOwner) external view returns (uint256);
 }

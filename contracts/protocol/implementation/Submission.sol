@@ -13,8 +13,8 @@ import "../../userInterfaces/IRelay.sol";
  */
 contract Submission is Governed, AddressUpdatable, IISubmission {
 
-    /// The FlareSystemManager contract.
-    address public flareSystemManager;
+    /// The FlareSystemsManager contract.
+    address public flareSystemsManager;
     /// The Relay contract.
     IRelay public relay;
     /// Indicates if the submit3 method is enabled.
@@ -29,9 +29,9 @@ contract Submission is Governed, AddressUpdatable, IISubmission {
     mapping(address => bool) private submit3Addresses;
     mapping(address => bool) private submitSignaturesAddresses;
 
-    /// Only FlareSystemManager contract can call this method.
-    modifier onlyFlareSystemManager {
-        require(msg.sender == flareSystemManager, "only flare system manager");
+    /// Only FlareSystemsManager contract can call this method.
+    modifier onlyFlareSystemsManager {
+        require(msg.sender == flareSystemsManager, "only flare system manager");
         _;
     }
 
@@ -63,7 +63,7 @@ contract Submission is Governed, AddressUpdatable, IISubmission {
         address[] memory _submitSignaturesAddresses
     )
         external
-        onlyFlareSystemManager
+        onlyFlareSystemsManager
     {
         for (uint256 i = 0; i < _submit1Addresses.length; i++) {
             submit1Addresses[_submit1Addresses[i]] = true;
@@ -205,7 +205,7 @@ contract Submission is Governed, AddressUpdatable, IISubmission {
     )
         internal override
     {
-        flareSystemManager = _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager");
+        flareSystemsManager = _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager");
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 

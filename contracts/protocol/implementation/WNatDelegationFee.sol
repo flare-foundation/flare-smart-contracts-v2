@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../userInterfaces/IWNatDelegationFee.sol";
-import "../../userInterfaces/IFlareSystemManager.sol";
+import "../../userInterfaces/IFlareSystemsManager.sol";
 
 
 contract WNatDelegationFee is AddressUpdatable, IWNatDelegationFee {
@@ -21,10 +21,10 @@ contract WNatDelegationFee is AddressUpdatable, IWNatDelegationFee {
     /// The default fee percentage value.
     uint16 public immutable defaultFeePercentageBIPS;
     //slither-disable-next-line uninitialized-state
-    mapping(address => FeePercentage[]) internal voterFeePercentages;
+    mapping(address voter => FeePercentage[]) internal voterFeePercentages;
 
-    /// The FlareSystemManager contract.
-    IFlareSystemManager public flareSystemManager;
+    /// The FlareSystemsManager contract.
+    IFlareSystemsManager public flareSystemsManager;
 
     /**
      * Constructor.
@@ -141,8 +141,8 @@ contract WNatDelegationFee is AddressUpdatable, IWNatDelegationFee {
     )
         internal override
     {
-        flareSystemManager = IFlareSystemManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemManager"));
+        flareSystemsManager = IFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 
     /**
@@ -172,6 +172,6 @@ contract WNatDelegationFee is AddressUpdatable, IWNatDelegationFee {
      * Returns the current reward epoch id.
      */
     function _getCurrentRewardEpochId() internal view returns(uint24) {
-        return flareSystemManager.getCurrentRewardEpochId();
+        return flareSystemsManager.getCurrentRewardEpochId();
     }
 }

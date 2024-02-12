@@ -16,9 +16,9 @@ interface IIVoterRegistry is IVoterRegistry {
     function systemRegistration(address _voter) external;
 
     /**
-     * Sets new signing policy initialisation start block number for a given reward epoch id.
+     * Sets new signing policy initialisation start block number for a given reward epoch.
      * @param _rewardEpochId The reward epoch id.
-     * @dev Only FlareSystemManager contract can call this method.
+     * @dev Only FlareSystemsManager contract can call this method.
      */
     function setNewSigningPolicyInitializationStartBlockNumber(uint256 _rewardEpochId) external;
 
@@ -26,7 +26,7 @@ interface IIVoterRegistry is IVoterRegistry {
      * Creates signing policy snapshot and returns the list of registered signing policy addresses
      * and normalised weights for a given reward epoch.
      * @param _rewardEpochId The reward epoch id.
-     * @dev Only FlareSystemManager contract can call this method.
+     * @dev Only FlareSystemsManager contract can call this method.
      */
     function createSigningPolicySnapshot(uint256 _rewardEpochId)
         external
@@ -37,7 +37,7 @@ interface IIVoterRegistry is IVoterRegistry {
         );
 
 /**
-     * Returns the list of registered voters' delegation addresses for a given reward epoch.
+     * Returns the list of registered voters' delegation addresses for a given reward epoch (vote power block).
      * @param _rewardEpochId The reward epoch id.
      */
     function getRegisteredDelegationAddresses(
@@ -47,7 +47,7 @@ interface IIVoterRegistry is IVoterRegistry {
         returns (address[] memory _delegationAddresses);
 
     /**
-     * Returns the list of registered voters' data provider addresses for a given reward epoch.
+     * Returns the list of registered voters' data provider addresses for a given reward epoch (snapshot block).
      * @param _rewardEpochId The reward epoch id.
      */
     function getRegisteredSubmitAddresses(
@@ -57,7 +57,7 @@ interface IIVoterRegistry is IVoterRegistry {
         returns (address[] memory);
 
     /**
-     * Returns the list of registered voters' deposit signatures addresses for a given reward epoch.
+     * Returns the list of registered voters' deposit signatures addresses for a given reward epoch (snapshot block).
      * @param _rewardEpochId The reward epoch id.
      */
     function getRegisteredSubmitSignaturesAddresses(
@@ -67,7 +67,7 @@ interface IIVoterRegistry is IVoterRegistry {
         returns (address[] memory _signingPolicyAddresses);
 
     /**
-     * Returns the list of registered voters' signing policy addresses for a given reward epoch.
+     * Returns the list of registered voters' signing policy addresses for a given reward epoch (snapshot block).
      * @param _rewardEpochId The reward epoch id.
      */
     function getRegisteredSigningPolicyAddresses(
@@ -77,8 +77,11 @@ interface IIVoterRegistry is IVoterRegistry {
         returns (address[] memory _signingPolicyAddresses);
 
     /**
-     * Returns the list of registered voters' public keys (parts1 and parts2) for a given reward epoch.
+     * Returns the list of registered voters' public keys (parts1 and parts2)
+     * for a given reward epoch (snapshot block).
      * @param _rewardEpochId The reward epoch id.
+     * @return _parts1 The first parts of the public keys.
+     * @return _parts2 The second parts of the public keys.
      */
     function getRegisteredPublicKeys(
         uint256 _rewardEpochId
@@ -87,7 +90,7 @@ interface IIVoterRegistry is IVoterRegistry {
         returns (bytes32[] memory _parts1, bytes32[] memory _parts2);
 
     /**
-     * Returns the list of registered voters' node ids for a given reward epoch.
+     * Returns the list of registered voters' node ids for a given reward epoch (vote power block).
      * @param _rewardEpochId The reward epoch id.
      */
     function getRegisteredNodeIds(
@@ -135,7 +138,20 @@ interface IIVoterRegistry is IVoterRegistry {
         );
 
     /**
-     * Returns weights sums for a given reward epoch id.
+     * Returns registration weight for a given reward epoch and voter address.
+     * It reverts if the voter is not registered.
+     * @param _voter The voter address.
+     * @param _rewardEpochId The reward epoch id.
+     * @return _registrationWeight The registration weight.
+     */
+    function getVoterRegistrationWeight(
+        address _voter,
+        uint256 _rewardEpochId
+    )
+        external view returns (uint256 _registrationWeight);
+
+    /**
+     * Returns weights sums for a given reward epoch.
      * @param _rewardEpochId The reward epoch id.
      * @return _weightsSum The weights sum.
      * @return _normalisedWeightsSum The normalised weights sum.

@@ -29,7 +29,13 @@ interface IFtsoFeedPublisher {
     }
 
     /// Event emitted when a new feed is published.
-    event FtsoFeedPublished(Feed feed);
+    event FtsoFeedPublished(
+        uint32 indexed votingRoundId,
+        bytes8 indexed name,
+        int32 value,
+        uint16 turnoutBIPS,
+        int8 decimals
+    );
 
     /**
      * Publishes feeds.

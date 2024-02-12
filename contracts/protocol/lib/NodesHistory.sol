@@ -60,6 +60,7 @@ library NodesHistory {
         if (historyCount == 0) {
             // checkpoints array empty, push new CheckPoint
             if (_add) {
+                require(_maxNodeIds > 0, MAX_NODES_MSG);
                 CheckPoint storage cp = _self.checkpoints[historyCount];
                 _self.endIndex = SafeCast.toUint64(historyCount + 1);
                 cp.nodeIds[0] = Node({

@@ -3,19 +3,20 @@ pragma solidity >=0.7.6 <0.9;
 
 
 /**
- * FlareSystemCalculator interface.
+ * FlareSystemsCalculator interface.
  */
-interface IFlareSystemCalculator {
+interface IFlareSystemsCalculator {
 
     /// Event emitted when the registration weight of a voter is calculated.
     event VoterRegistrationInfo(
         address indexed voter,
         uint24 indexed rewardEpochId,
+        address delegationAddress,
+        uint16 delegationFeeBIPS,
         uint256 wNatWeight,
         uint256 wNatCappedWeight,
         bytes20[] nodeIds,
-        uint256[] nodeWeights,
-        uint16 delegationFeeBIPS
+        uint256[] nodeWeights
     );
 
     /// WNat cap used in signing policy weight.

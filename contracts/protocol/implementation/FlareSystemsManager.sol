@@ -8,7 +8,7 @@ import "../../utils/lib/SafePct.sol";
 import "../interface/IIRewardEpochSwitchoverTrigger.sol";
 import "../interface/IIVoterRegistrationTrigger.sol";
 import "../interface/IICleanupBlockNumberManager.sol";
-import "../interface/IIFlareSystemManager.sol";
+import "../interface/IIFlareSystemsManager.sol";
 import "../interface/IIVoterRegistry.sol";
 import "../interface/IIRewardManager.sol";
 import "../interface/IIRelay.sol";
@@ -19,11 +19,11 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
- * FlareSystemManager is responsible for initialization of reward epochs and voting rounds using FlareDaemon calls.
+ * FlareSystemsManager is responsible for initialization of reward epochs and voting rounds using FlareDaemon calls.
  * This contract is also used for managing signing policies, uptime votes and rewards.
  */
 //solhint-disable-next-line max-states-count
-contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFlareSystemManager {
+contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIFlareSystemsManager {
     using SafeCast for uint256;
     using SafePct for uint256;
 
@@ -91,8 +91,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
 
         Votes signingPolicyVotes;
         Votes submitUptimeVoteVotes;
-        mapping(bytes32 => Votes) uptimeVoteVotes;
-        mapping(bytes32 => Votes) rewardVotes;
+        mapping(bytes32 uptimeVoteHash => Votes) uptimeVoteVotes;
+        mapping(bytes32 rewardsVoteHash => Votes) rewardVotes;
     }
 
 
@@ -116,14 +116,16 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     uint64 public immutable initialRandomVotePowerBlockSelectionSize;
 
     /// Reward epoch state for given reward epoch
-    mapping(uint256 => RewardEpochState) internal rewardEpochState; // mapping: reward epoch id => reward epoch state
+    mapping(uint256 rewardEpochId => RewardEpochState) internal rewardEpochState;
 
     /// Uptime vote hash for given reward epoch id
-    mapping(uint256 => bytes32) public uptimeVoteHash; // mapping: reward epoch id => uptime vote hash
+    mapping(uint256 rewardEpochId => bytes32) public uptimeVoteHash;
+
     /// Rewards hash for given reward epoch id
-    mapping(uint256 => bytes32) public rewardsHash; // mapping: reward epoch id => rewards hash
+    mapping(uint256 rewardEpochId => bytes32) public rewardsHash;
+
     /// Number of weight based claims for given reward epoch id
-    mapping(uint256 => uint256) public noOfWeightBasedClaims; // mapping: reward epoch id => no. of weight based claims
+    mapping(uint256 rewardEpochId => uint256) public noOfWeightBasedClaims;
 
     // Signing policy settings
     /// Maximum duration of random acquisition phase, in seconds.
@@ -360,7 +362,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
                 lastRewardEpochIdWithSignUptimeVoteEnabled = signUptimeVoteRewardEpochId;
                 rewardEpochState[signUptimeVoteRewardEpochId].uptimeVoteSignStartTs = block.timestamp.toUint64();
                 rewardEpochState[signUptimeVoteRewardEpochId].uptimeVoteSignStartBlock = block.number.toUint64();
-                emit SingUptimeVoteEnabled(signUptimeVoteRewardEpochId, block.timestamp.toUint64());
+                emit SignUptimeVoteEnabled(signUptimeVoteRewardEpochId, block.timestamp.toUint64());
             }
         }
 
@@ -384,7 +386,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function signNewSigningPolicy(
         uint24 _rewardEpochId,
@@ -427,7 +429,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function submitUptimeVote(
         uint24 _rewardEpochId,
@@ -457,7 +459,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function signUptimeVote(
         uint24 _rewardEpochId,
@@ -504,7 +506,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function signRewards(
         uint24 _rewardEpochId,
@@ -515,9 +517,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
         external
     {
         require(_rewardsHash != bytes32(0), "rewards hash zero");
+        _checkIsTimeToSignRewards(_rewardEpochId);
         RewardEpochState storage state = rewardEpochState[_rewardEpochId];
-        require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
-        require(rewardEpochState[_rewardEpochId + 1].signingPolicySignEndTs != 0, "new signing policy not signed yet");
         require(uptimeVoteHash[_rewardEpochId] != bytes32(0), "uptime vote hash not signed yet");
         require(rewardsHash[_rewardEpochId] == bytes32(0), "rewards hash already signed");
         bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _noOfWeightBasedClaims, _rewardsHash));
@@ -568,7 +569,8 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     )
         external onlyImmediateGovernance
     {
-        require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
+        require(_rewardsHash != bytes32(0), "rewards hash zero");
+        _checkIsTimeToSignRewards(_rewardEpochId);
         rewardsHash[_rewardEpochId] = _rewardsHash;
         noOfWeightBasedClaims[_rewardEpochId] = _noOfWeightBasedClaims;
         emit RewardsSigned(
@@ -670,7 +672,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function getVotePowerBlock(uint256 _rewardEpochId)
         external view
@@ -681,7 +683,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function getSeed(uint256 _rewardEpochId)
         external view
@@ -693,7 +695,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function getStartVotingRoundId(uint256 _rewardEpochId)
         external view
@@ -704,7 +706,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function getThreshold(uint256 _rewardEpochId)
         external view
@@ -715,7 +717,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function getVoterRegistrationData(
         uint256 _rewardEpochId
@@ -731,7 +733,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function isVoterRegistrationEnabled() external view returns (bool) {
         uint256 nextRewardEpochId = _getCurrentRewardEpochId() + 1;
@@ -739,7 +741,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getRewardEpochStartInfo(uint24 _rewardEpochId)
         external view
@@ -754,7 +756,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getRandomAcquisitionInfo(uint24 _rewardEpochId)
         external view
@@ -773,7 +775,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getVoterSigningPolicySignInfo(uint24 _rewardEpochId, address _voter)
         external view
@@ -789,7 +791,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getSigningPolicySignInfo(uint24 _rewardEpochId)
         external view
@@ -808,7 +810,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getVoterUptimeVoteSubmitInfo(uint24 _rewardEpochId, address _voter)
         external view
@@ -824,7 +826,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getVoterUptimeVoteSignInfo(uint24 _rewardEpochId, address _voter)
         external view
@@ -840,7 +842,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getUptimeVoteSignStartInfo(uint24 _rewardEpochId)
         external view
@@ -855,7 +857,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getVoterRewardsSignInfo(uint24 _rewardEpochId, address _voter)
         external view
@@ -873,7 +875,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IIFlareSystemManager
+     * @inheritdoc IIFlareSystemsManager
      */
     function getRewardsSignInfo(uint24 _rewardEpochId)
         external view
@@ -892,7 +894,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
     }
 
     /**
-     * @inheritdoc IFlareSystemManager
+     * @inheritdoc IFlareSystemsManager
      */
     function getCurrentRewardEpochId() external view returns(uint24) {
         return _getCurrentRewardEpochId();
@@ -902,7 +904,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
      * @inheritdoc IFlareDaemonize
      */
     function switchToFallbackMode() external view onlyFlareDaemon returns (bool) {
-        // do nothing - there is no fallback mode in FlareSystemManager contract
+        // do nothing - there is no fallback mode in FlareSystemsManager contract
         return false;
     }
 
@@ -910,7 +912,7 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
      * @inheritdoc IFlareDaemonize
      */
     function getContractName() external pure returns (string memory) {
-        return "FlareSystemManager";
+        return "FlareSystemsManager";
     }
 
     /**
@@ -1114,5 +1116,13 @@ contract FlareSystemManager is Governed, AddressUpdatable, IFlareDaemonize, IIFl
         if (_startVotingRoundId < minStartVotingRoundId) {
             _startVotingRoundId = minStartVotingRoundId;
         }
+    }
+
+    /**
+     * Checks if it is time to sign rewards.
+     */
+    function _checkIsTimeToSignRewards(uint24 _rewardEpochId) internal view {
+        require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
+        require(rewardEpochState[_rewardEpochId + 1].signingPolicySignEndTs != 0, "new signing policy not signed yet");
     }
 }

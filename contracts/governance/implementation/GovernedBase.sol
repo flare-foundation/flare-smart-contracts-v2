@@ -29,7 +29,7 @@ abstract contract GovernedBase {
 
     address private initialGovernance;
 
-    mapping(bytes4 => TimelockedCall) public timelockedCalls;
+    mapping(bytes4 selector => TimelockedCall) public timelockedCalls;
 
     event GovernanceCallTimelocked(bytes4 selector, uint256 allowedAfterTimestamp, bytes encodedCall);
     event TimelockedGovernanceCallExecuted(bytes4 selector, uint256 timestamp);

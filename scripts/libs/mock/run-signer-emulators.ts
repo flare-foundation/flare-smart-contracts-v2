@@ -16,7 +16,7 @@ const sem = new SignerEmulatorManager(
   voterPrivateKeys,
   web3, 
   contractAddress("Submission"),
-  contractAddress("FlareSystemManager"),
+  contractAddress("FlareSystemsManager"),
   signerEmulationConfig,
   LOGGING_ENABLED
 );

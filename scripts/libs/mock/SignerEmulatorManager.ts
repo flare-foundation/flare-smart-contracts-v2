@@ -14,7 +14,7 @@ export class SignerEmulatorManager {
     public privateKeys: string[],
     public web3: Web3,
     public submissionContractAddress: string,
-    public flareSystemManagerAddress: string,
+    public flareSystemsManagerAddress: string,
     public signerEmulationConfig: SignerEmulationConfig,
     public loggingEnabled = true
   ) { }
@@ -43,7 +43,7 @@ export class SignerEmulatorManager {
 
   public async run() {
     const signerEmulators = this.privateKeys.map(privateKey => new SignerEmulator(privateKey, this.web3, this.submissionContractAddress, this.loggingEnabled));
-    const epochSettings = await extractEpochSettings(this.flareSystemManagerAddress);
+    const epochSettings = await extractEpochSettings(this.flareSystemsManagerAddress);
     while (true) {
       const signingVotingRoundId = epochSettings.votingEpochForTime(Date.now()) - 1;
       const startTime = Date.now();

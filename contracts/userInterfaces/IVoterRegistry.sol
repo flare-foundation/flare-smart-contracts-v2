@@ -13,8 +13,8 @@ interface IVoterRegistry {
         bytes32 s;
     }
 
-    /// Event emitted when a voter is chilled.
-    event VoterChilled(address indexed voter, uint256 untilRewardEpochId);
+    /// Event emitted when a beneficiary (c-chain address or node id) is chilled.
+    event BeneficiaryChilled(bytes20 indexed beneficiary, uint256 untilRewardEpochId);
 
     /// Event emitted when a voter is removed.
     event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId);
@@ -24,9 +24,10 @@ interface IVoterRegistry {
         address indexed voter,
         uint24 indexed rewardEpochId,
         address indexed signingPolicyAddress,
-        address delegationAddress,
         address submitAddress,
         address submitSignaturesAddress,
+        bytes32 publicKeyPart1,
+        bytes32 publicKeyPart2,
         uint256 registrationWeight
     );
 
@@ -43,12 +44,24 @@ interface IVoterRegistry {
     function maxVoters() external view returns (uint256);
 
     /**
-     * In case of providing bad votes (e.g. ftso collusion), the voter can be chilled for a few reward epochs.
-     * A voter can register again from a returned reward epoch onwards.
-     * @param _voter The voter address.
+     * In case of providing bad votes (e.g. ftso collusion), the beneficiary can be chilled for a few reward epochs.
+     * If beneficiary is chilled, the vote power assigned to it is zero.
+     * @param _beneficiary The beneficiary (c-chain address or node id).
      * @return _rewardEpochId The reward epoch id until which the voter is chilled.
      */
-    function chilledUntilRewardEpochId(address _voter) external view returns (uint256 _rewardEpochId);
+    function chilledUntilRewardEpochId(bytes20 _beneficiary) external view returns (uint256 _rewardEpochId);
+
+    /**
+     * Returns the block number of the start of the new signing policy initialisation for a given reward epoch.
+     * It is a snaphost block of the voters' addresses (it is zero if the reward epoch is not supported).
+     * @param _rewardEpochId The reward epoch id.
+     */
+    function newSigningPolicyInitializationStartBlockNumber(uint256 _rewardEpochId) external view returns (uint256);
+
+    /**
+     * Indicates if the voter must have the public key set when registering.
+     */
+    function publicKeyRequired() external view returns (bool);
 
     /**
      * Returns the list of registered voters for a given reward epoch.

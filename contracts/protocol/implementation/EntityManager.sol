@@ -39,17 +39,19 @@ contract EntityManager is Governed, IIEntityManager {
     /// Maximum number of node ids per entity.
     uint32 public maxNodeIdsPerEntity;
 
-    mapping(address => Entity) internal register; // voter to entity data
-    mapping(bytes20 => AddressHistory.CheckPointHistoryState) internal nodeIdRegistered;
-    mapping(bytes32 => AddressHistory.CheckPointHistoryState) internal publicKeyRegistered;
-    mapping(address => AddressHistory.CheckPointHistoryState) internal delegationAddressRegistered;
-    mapping(address => address) internal delegationAddressRegistrationQueue;
-    mapping(address => AddressHistory.CheckPointHistoryState) internal submitAddressRegistered;
-    mapping(address => address) internal submitAddressRegistrationQueue;
-    mapping(address => AddressHistory.CheckPointHistoryState) internal submitSignaturesAddressRegistered;
-    mapping(address => address) internal submitSignaturesAddressRegistrationQueue;
-    mapping(address => AddressHistory.CheckPointHistoryState) internal signingPolicyAddressRegistered;
-    mapping(address => address) internal signingPolicyAddressRegistrationQueue;
+    mapping(address voter => Entity) internal register; // voter to entity data
+    mapping(bytes20 nodeId => AddressHistory.CheckPointHistoryState) internal nodeIdRegistered;
+    mapping(bytes32 publicKey => AddressHistory.CheckPointHistoryState) internal publicKeyRegistered;
+    mapping(address delegationAddress => AddressHistory.CheckPointHistoryState) internal delegationAddressRegistered;
+    mapping(address voter => address delegationAddress) internal delegationAddressRegistrationQueue;
+    mapping(address submitAddress => AddressHistory.CheckPointHistoryState) internal submitAddressRegistered;
+    mapping(address voter => address submitAddress) internal submitAddressRegistrationQueue;
+    mapping(address submitSignaturesAddress =>
+        AddressHistory.CheckPointHistoryState) internal submitSignaturesAddressRegistered;
+    mapping(address voter => address submitSignaturesAddress) internal submitSignaturesAddressRegistrationQueue;
+    mapping(address signingPolicyAddress =>
+        AddressHistory.CheckPointHistoryState) internal signingPolicyAddressRegistered;
+    mapping(address voter => address signingPolicyAddress) internal signingPolicyAddressRegistrationQueue;
 
 
     /**
@@ -65,7 +67,6 @@ contract EntityManager is Governed, IIEntityManager {
     )
         Governed(_governanceSettings, _governance)
     {
-        require(_maxNodeIdsPerEntity > 0, "max node ids per entity zero");
         maxNodeIdsPerEntity = _maxNodeIdsPerEntity;
         emit MaxNodeIdsPerEntitySet(_maxNodeIdsPerEntity);
     }
@@ -304,6 +305,32 @@ contract EntityManager is Governed, IIEntityManager {
     /**
      * @inheritdoc IEntityManager
      */
+    function getDelegationAddressOfAt(
+        address _voter,
+        uint256 _blockNumber
+    )
+        external view
+        returns(address _delegationAddress)
+    {
+        _delegationAddress = register[_voter].delegationAddress.addressAt(_blockNumber);
+        if (_delegationAddress == address(0)) {
+            _delegationAddress = _voter;
+        }
+    }
+
+    /**
+     * @inheritdoc IEntityManager
+     */
+    function getDelegationAddressOf(address _voter) external view returns(address _delegationAddress) {
+        _delegationAddress = register[_voter].delegationAddress.addressAtNow();
+        if (_delegationAddress == address(0)) {
+            _delegationAddress = _voter;
+        }
+    }
+
+    /**
+     * @inheritdoc IEntityManager
+     */
     function getNodeIdsOfAt(address _voter, uint256 _blockNumber) external view returns (bytes20[] memory) {
         return register[_voter].nodeIds.nodeIdsAt(_blockNumber);
     }
@@ -332,15 +359,10 @@ contract EntityManager is Governed, IIEntityManager {
     /**
      * @inheritdoc IEntityManager
      */
-    function getVoterAddresses(address _voter, uint256 _blockNumber)
+    function getVoterAddressesAt(address _voter, uint256 _blockNumber)
         external view
         returns (VoterAddresses memory _addresses)
     {
-        _addresses.delegationAddress = register[_voter].delegationAddress.addressAt(_blockNumber);
-        if (_addresses.delegationAddress == address(0)) {
-            _addresses.delegationAddress = _voter;
-        }
-
         _addresses.submitAddress = register[_voter].submitAddress.addressAt(_blockNumber);
         if (_addresses.submitAddress == address(0)) {
             _addresses.submitAddress = _voter;
@@ -352,6 +374,29 @@ contract EntityManager is Governed, IIEntityManager {
         }
 
         _addresses.signingPolicyAddress = register[_voter].signingPolicyAddress.addressAt(_blockNumber);
+        if (_addresses.signingPolicyAddress == address(0)) {
+            _addresses.signingPolicyAddress = _voter;
+        }
+    }
+
+    /**
+     * @inheritdoc IEntityManager
+     */
+    function getVoterAddresses(address _voter)
+        external view
+        returns (VoterAddresses memory _addresses)
+    {
+        _addresses.submitAddress = register[_voter].submitAddress.addressAtNow();
+        if (_addresses.submitAddress == address(0)) {
+            _addresses.submitAddress = _voter;
+        }
+
+        _addresses.submitSignaturesAddress = register[_voter].submitSignaturesAddress.addressAtNow();
+        if (_addresses.submitSignaturesAddress == address(0)) {
+            _addresses.submitSignaturesAddress = _voter;
+        }
+
+        _addresses.signingPolicyAddress = register[_voter].signingPolicyAddress.addressAtNow();
         if (_addresses.signingPolicyAddress == address(0)) {
             _addresses.signingPolicyAddress = _voter;
         }

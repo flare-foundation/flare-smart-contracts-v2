@@ -3,9 +3,9 @@ pragma solidity >=0.7.6 <0.9;
 
 
 /**
- * FlareSystemManager interface.
+ * FlareSystemsManager interface.
  */
-interface IFlareSystemManager {
+interface IFlareSystemsManager {
 
     /// Signature structure
     struct Signature {
@@ -44,7 +44,7 @@ interface IFlareSystemManager {
     );
 
     /// Event emitted when it is time to sign uptime vote.
-    event SingUptimeVoteEnabled(
+    event SignUptimeVoteEnabled(
         uint24 indexed rewardEpochId,   // Reward epoch id
         uint64 timestamp                // Timestamp when this happened
     );

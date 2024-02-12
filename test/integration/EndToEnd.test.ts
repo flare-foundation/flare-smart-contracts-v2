@@ -6,13 +6,13 @@ import privateKeys from "../../deployment/test-1020-accounts.json";
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { ECDSASignatureWithIndex } from "../../scripts/libs/protocol/ECDSASignatureWithIndex";
 import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
-import { AddressBinderInstance, EntityManagerInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance } from '../../typechain-truffle';
+import { AddressBinderInstance, EntityManagerInstance, FtsoFeedPublisherContract, FtsoFeedPublisherInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance } from '../../typechain-truffle';
 import { MockContractContract } from '../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract';
 import { CChainStakeContract, CChainStakeInstance } from '../../typechain-truffle/contracts/mock/CChainStake';
 import { GovernanceVotePowerContract } from '../../typechain-truffle/contracts/mock/GovernanceVotePower';
 import { PChainStakeMirrorContract } from '../../typechain-truffle/contracts/mock/PChainStakeMirror';
 import { EntityManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/EntityManager';
-import { FlareSystemManagerContract, FlareSystemManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemManager';
+import { FlareSystemsManagerContract, FlareSystemsManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager';
 import { PChainStakeMirrorVerifierContract } from '../../typechain-truffle/contracts/protocol/implementation/PChainStakeMirrorVerifier';
 import { RelayContract, RelayInstance } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
 import { SubmissionContract, SubmissionInstance } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
@@ -31,7 +31,7 @@ import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/con
 import { FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
 import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
-import { FlareSystemCalculatorContract, FlareSystemCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemCalculator';
+import { FlareSystemsCalculatorContract, FlareSystemsCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsCalculator';
 import { CleanupBlockNumberManagerContract, CleanupBlockNumberManagerInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/CleanupBlockNumberManager';
 import { RelayMessage } from '../../scripts/libs/protocol/RelayMessage';
 
@@ -44,8 +44,8 @@ const AddressBinder: AddressBinderContract = artifacts.require("AddressBinder");
 const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = artifacts.require("PChainStakeMirrorVerifier");
 const EntityManager: EntityManagerContract = artifacts.require("EntityManager");
 const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
-const FlareSystemCalculator: FlareSystemCalculatorContract = artifacts.require("FlareSystemCalculator");
-const FlareSystemManager: FlareSystemManagerContract = artifacts.require("FlareSystemManager");
+const FlareSystemsCalculator: FlareSystemsCalculatorContract = artifacts.require("FlareSystemsCalculator");
+const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
 const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
 const Submission: SubmissionContract = artifacts.require("Submission");
 const Relay: RelayContract = artifacts.require("Relay");
@@ -54,6 +54,7 @@ const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDele
 const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifacts.require("FtsoInflationConfigurations");
 const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
 const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
+const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
 const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
 
 type PChainStake = {
@@ -100,8 +101,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let governanceSettings: GovernanceSettingsInstance;
     let entityManager: EntityManagerInstance;
     let voterRegistry: VoterRegistryInstance;
-    let flareSystemCalculator: FlareSystemCalculatorInstance;
-    let flareSystemManager: FlareSystemManagerInstance;
+    let flareSystemsCalculator: FlareSystemsCalculatorInstance;
+    let flareSystemsManager: FlareSystemsManagerInstance;
     let rewardManager: RewardManagerInstance;
     let submission: SubmissionInstance;
     let relay: RelayInstance;
@@ -111,6 +112,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let ftsoInflationConfigurations: FtsoInflationConfigurationsInstance;
     let ftsoRewardOffersManager: FtsoRewardOffersManagerInstance;
     let ftsoFeedDecimals: FtsoFeedDecimalsInstance;
+    let ftsoFeedPublisher: FtsoFeedPublisherInstance;
     let cleanupBlockNumberManager: CleanupBlockNumberManagerInstance;
 
     let initialSigningPolicy: ISigningPolicy;
@@ -123,6 +125,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let weightsGwei: number[] = [];
     let stakeIds: string[] = [];
     let rewardClaim: any;
+    let feed: any;
 
     const RANDOM_ROOT = web3.utils.keccak256("root");
     const RANDOM_ROOT2 = web3.utils.keccak256("root2");
@@ -186,7 +189,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const initialWeights = Array(100).fill(655);
 
         voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, initialVoters, initialWeights);
-        flareSystemCalculator = await FlareSystemCalculator.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2500, 20 * 60, 600, 600);
+        flareSystemsCalculator = await FlareSystemsCalculator.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2500, 20 * 60, 600, 600);
 
         initialSigningPolicy = {
             rewardEpochId: 0,
@@ -219,7 +222,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         const firstVotingRoundStartTs = now.toNumber() - FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID * VOTING_EPOCH_DURATION_SEC;
 
-        flareSystemManager = await FlareSystemManager.new(
+        flareSystemsManager = await FlareSystemsManager.new(
             governanceSettings.address,
             accounts[0],
             ADDRESS_UPDATER,
@@ -235,11 +238,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         rewardManager = await RewardManager.new(
             governanceSettings.address,
             accounts[0],
-            ADDRESS_UPDATER
+            ADDRESS_UPDATER,
+            "0x0000000000000000000000000000000000000000"
         );
 
         relay = await Relay.new(
-            flareSystemManager.address,
+            flareSystemsManager.address,
             initialSigningPolicy.rewardEpochId,
             initialSigningPolicy.startVotingRoundId,
             getSigningPolicyHash(initialSigningPolicy),
@@ -272,11 +276,29 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         ftsoRewardOffersManager = await FtsoRewardOffersManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100);
 
-        ftsoFeedDecimals = await FtsoFeedDecimals.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2, 5);
+        ftsoFeedDecimals = await FtsoFeedDecimals.new(
+            governanceSettings.address,
+            accounts[0],
+            ADDRESS_UPDATER,
+            2,
+            5,
+            0,
+            [
+              { feedName: FtsoConfigurations.encodeFeedName("BTC"), decimals: 2 },
+              { feedName: FtsoConfigurations.encodeFeedName("ETH"), decimals: 3 }
+            ]);
 
-        cleanupBlockNumberManager = await CleanupBlockNumberManager.new(accounts[0], ADDRESS_UPDATER, "FlareSystemManager");
+        ftsoFeedPublisher = await FtsoFeedPublisher.new(
+            governanceSettings.address,
+            accounts[0],
+            ADDRESS_UPDATER,
+            FTSO_PROTOCOL_ID,
+            200
+        );
 
-        await flareSystemCalculator.enablePChainStakeMirror();
+        cleanupBlockNumberManager = await CleanupBlockNumberManager.new(accounts[0], ADDRESS_UPDATER, "FlareSystemsManager");
+
+        await flareSystemsCalculator.enablePChainStakeMirror();
         await rewardManager.enablePChainStakeMirror();
 
         // update contract addresses
@@ -289,40 +311,44 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [ADDRESS_UPDATER, governanceVotePower.address, CLEANUP_BLOCK_NUMBER_MANAGER], { from: ADDRESS_UPDATER });
 
         await voterRegistry.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.ENTITY_MANAGER, Contracts.FLARE_SYSTEM_CALCULATOR]),
-            [ADDRESS_UPDATER, flareSystemManager.address, entityManager.address, flareSystemCalculator.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.ENTITY_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR]),
+            [ADDRESS_UPDATER, flareSystemsManager.address, entityManager.address, flareSystemsCalculator.address], { from: ADDRESS_UPDATER });
 
-        await flareSystemCalculator.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.ENTITY_MANAGER, Contracts.WNAT_DELEGATION_FEE, Contracts.VOTER_REGISTRY, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
-            [ADDRESS_UPDATER, flareSystemManager.address, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
+        await flareSystemsCalculator.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.ENTITY_MANAGER, Contracts.WNAT_DELEGATION_FEE, Contracts.VOTER_REGISTRY, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
+            [ADDRESS_UPDATER, flareSystemsManager.address, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
 
-        await flareSystemManager.updateContractAddresses(
+        await flareSystemsManager.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY, Contracts.REWARD_MANAGER, Contracts.CLEANUP_BLOCK_NUMBER_MANAGER]),
             [ADDRESS_UPDATER, voterRegistry.address, submission.address, relay.address, rewardManager.address, cleanupBlockNumberManager.address], { from: ADDRESS_UPDATER });
 
         await rewardManager.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.FLARE_SYSTEM_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
-            [ADDRESS_UPDATER, voterRegistry.address, CLAIM_SETUP_MANAGER, flareSystemManager.address, flareSystemCalculator.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
+            [ADDRESS_UPDATER, voterRegistry.address, CLAIM_SETUP_MANAGER, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address], { from: ADDRESS_UPDATER });
 
         await submission.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.RELAY]),
-            [ADDRESS_UPDATER, flareSystemManager.address, relay.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+            [ADDRESS_UPDATER, flareSystemsManager.address, relay.address], { from: ADDRESS_UPDATER });
 
         await wNatDelegationFee.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
-            [ADDRESS_UPDATER, flareSystemManager.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
+            [ADDRESS_UPDATER, flareSystemsManager.address], { from: ADDRESS_UPDATER });
 
         await ftsoRewardOffersManager.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER, Contracts.REWARD_MANAGER, Contracts.FTSO_INFLATION_CONFIGURATIONS, Contracts.FTSO_FEED_DECIMALS, Contracts.INFLATION]),
-            [ADDRESS_UPDATER, flareSystemManager.address, rewardManager.address, ftsoInflationConfigurations.address, ftsoFeedDecimals.address, INFLATION], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.FTSO_INFLATION_CONFIGURATIONS, Contracts.FTSO_FEED_DECIMALS, Contracts.INFLATION]),
+            [ADDRESS_UPDATER, flareSystemsManager.address, rewardManager.address, ftsoInflationConfigurations.address, ftsoFeedDecimals.address, INFLATION], { from: ADDRESS_UPDATER });
 
         await ftsoFeedDecimals.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
-            [ADDRESS_UPDATER, flareSystemManager.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
+            [ADDRESS_UPDATER, flareSystemsManager.address], { from: ADDRESS_UPDATER });
+
+        await ftsoFeedPublisher.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
+            [ADDRESS_UPDATER, relay.address], { from: ADDRESS_UPDATER });
 
         await cleanupBlockNumberManager.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEM_MANAGER]),
-            [ADDRESS_UPDATER, flareSystemManager.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
+            [ADDRESS_UPDATER, flareSystemsManager.address], { from: ADDRESS_UPDATER });
 
         // set reward offers manager list
         await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address]);
@@ -336,7 +362,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await ftsoRewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION });
 
         // set rewards offer switchover trigger contracts
-        await flareSystemManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address]);
+        await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address]);
 
         // set ftso configurations
         await ftsoInflationConfigurations.addFtsoConfiguration(
@@ -364,7 +390,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await ftsoRewardOffersManager.offerRewards(1, [
             {
                 amount: 25000000,
-                feedName: FtsoConfigurations.encodeFeedNames(["BTC"]),
+                feedName: FtsoConfigurations.encodeFeedName("BTC"),
                 minRewardedTurnoutBIPS: 5000,
                 primaryBandRewardSharePPM: 450000,
                 secondaryBandWidthPPM: 50000,
@@ -438,7 +464,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should start random acquisition", async () => {
         await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC - NEW_SIGNING_POLICY_INITIALIZATION_START_SEC)); // 2 hours before new reward epoch
-        expectEvent(await flareSystemManager.daemonize(), "RandomAcquisitionStarted", { rewardEpochId: toBN(1) });
+        expectEvent(await flareSystemsManager.daemonize(), "RandomAcquisitionStarted", { rewardEpochId: toBN(1) });
     });
 
     it("Should get good random", async () => {
@@ -469,7 +495,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should select vote power block", async () => {
         await time.increase(1); // new random is later than random acquisition start
-        expectEvent(await flareSystemManager.daemonize(), "VotePowerBlockSelected", { rewardEpochId: toBN(1) });
+        expectEvent(await flareSystemsManager.daemonize(), "VotePowerBlockSelected", { rewardEpochId: toBN(1) });
     });
 
     it("Should register a few voters", async () => {
@@ -500,7 +526,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             weights: [34664, 20660, 6334, 3875]
         };
 
-        const receipt = await flareSystemManager.daemonize();
+        const receipt = await flareSystemsManager.daemonize();
         await expectEvent.inTransaction(receipt.tx, relay, "SigningPolicyInitialized",
             {
                 rewardEpochId: toBN(1), startVotingRoundId: toBN(startVotingRoundId), voters: newSigningPolicy.voters,
@@ -516,7 +542,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         let signatures = (51).toString(16).padStart(4, "0");
         for (let i = 0; i < 50; i++) {
             const signature = web3.eth.accounts.sign(newSigningPolicyHash, privateKeys[i].privateKey);
-            expectEvent(await flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature), "SigningPolicySigned",
+            expectEvent(await flareSystemsManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature), "SigningPolicySigned",
                 { rewardEpochId: toBN(rewardEpochId), signingPolicyAddress: accounts[i], voter: accounts[i], thresholdReached: false });
             signatures += ECDSASignatureWithIndex.encode({
                 v: parseInt(signature.v.slice(2), 16),
@@ -526,7 +552,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             }).slice(2);
         }
         const signature = web3.eth.accounts.sign(newSigningPolicyHash, privateKeys[50].privateKey);
-        expectEvent(await flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature), "SigningPolicySigned",
+        expectEvent(await flareSystemsManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature), "SigningPolicySigned",
             { rewardEpochId: toBN(rewardEpochId), signingPolicyAddress: accounts[50], voter: accounts[50], thresholdReached: true });
         signatures += ECDSASignatureWithIndex.encode({
             v: parseInt(signature.v.slice(2), 16),
@@ -555,12 +581,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should start new reward epoch, initiate new voting round and offer rewards for the next reward epoch", async () => {
         await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC));
-        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(0);
-        const tx = await flareSystemManager.daemonize();
+        expect((await flareSystemsManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(0);
+        const tx = await flareSystemsManager.daemonize();
         expectEvent(tx, "RewardEpochStarted");
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
         await expectEvent.inTransaction(tx.tx, ftsoRewardOffersManager, "InflationRewardsOffered", { rewardEpochId: toBN(2), amount: toBN("133333333333333333333333") });
-        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
+        expect((await flareSystemsManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
     });
 
     it("Should commit", async () => {
@@ -573,7 +599,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should initiate new voting round", async () => {
         await time.increaseTo(now.addn(REWARD_EPOCH_DURATION_IN_SEC + VOTING_EPOCH_DURATION_SEC));
-        const tx = await flareSystemManager.daemonize();
+        const tx = await flareSystemsManager.daemonize();
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
     });
 
@@ -592,7 +618,18 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     it("Should finalise and relay", async () => {
         const votingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
         const quality = true;
-        const root = web3.utils.keccak256("root1");
+
+        feed = {
+            votingRoundId: votingRoundId,
+            name: FtsoConfigurations.encodeFeedName("BTC"),
+            value: 12345,
+            turnoutBIPS: 6500,
+            decimals: 1
+        };
+
+        const root = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+            ["uint32", "bytes8", "int32", "uint16", "int8"],
+            [feed.votingRoundId, feed.name, feed.value, feed.turnoutBIPS, feed.decimals]));
 
         const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isSecureRandom: quality, merkleRoot: root };
         const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
@@ -624,6 +661,18 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         expect(await relay2.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
     });
 
+    it("Should publish ftso feed", async () => {
+        const feedWithProof = { body: feed, merkleProof: [] };
+        const tx = await ftsoFeedPublisher.publish([feedWithProof]);
+        expectEvent(tx, "FtsoFeedPublished", { votingRoundId: toBN(feed.votingRoundId), name: feed.name.padEnd(66, "0"), value: toBN(feed.value), turnoutBIPS: toBN(feed.turnoutBIPS), decimals: toBN(feed.decimals) });
+        const feedReturn = await ftsoFeedPublisher.getCurrentFeed(feed.name);
+        expect(feedReturn.votingRoundId).to.be.equal(feed.votingRoundId.toString());
+        expect(feedReturn.name).to.be.equal(feed.name);
+        expect(feedReturn.value).to.be.equal(feed.value.toString());
+        expect(feedReturn.turnoutBIPS).to.be.equal(feed.turnoutBIPS.toString());
+        expect(feedReturn.decimals).to.be.equal(feed.decimals.toString());
+    });
+
     it("Should commit 2", async () => {
         for (let i = 0; i < 4; i++) {
             expect(await submission.submit1.call({ from: accounts[10 + i] })).to.be.true;
@@ -632,7 +681,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should start random acquisition for reward epoch 2", async () => {
         await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC - NEW_SIGNING_POLICY_INITIALIZATION_START_SEC)); // 2 hours before new reward epoch
-        expectEvent(await flareSystemManager.daemonize(), "RandomAcquisitionStarted", { rewardEpochId: toBN(2) });
+        expectEvent(await flareSystemsManager.daemonize(), "RandomAcquisitionStarted", { rewardEpochId: toBN(2) });
     });
 
     it("Should get good random for reward epoch 2", async () => {
@@ -662,7 +711,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should select vote power block for reward epoch 2", async () => {
-        expectEvent(await flareSystemManager.daemonize(), "VotePowerBlockSelected", { rewardEpochId: toBN(2) });
+        expectEvent(await flareSystemsManager.daemonize(), "VotePowerBlockSelected", { rewardEpochId: toBN(2) });
     });
 
     it("Should register a few voters for reward epoch 2", async () => {
@@ -684,7 +733,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         }
         await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC - 3600)); // at least 30 minutes from the vote power block selection
         const votingRoundId = FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID + 2 * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
-        const receipt = await flareSystemManager.daemonize()
+        const receipt = await flareSystemsManager.daemonize()
         await expectEvent.inTransaction(receipt.tx, relay, "SigningPolicyInitialized",
             {
                 rewardEpochId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(30, 34),
@@ -697,23 +746,23 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const newSigningPolicyHash = await relay.toSigningPolicyHash(rewardEpochId);
 
         const signature = web3.eth.accounts.sign(newSigningPolicyHash, privateKeys[31].privateKey);
-        expectEvent(await flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature), "SigningPolicySigned",
+        expectEvent(await flareSystemsManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature), "SigningPolicySigned",
             { rewardEpochId: toBN(rewardEpochId), signingPolicyAddress: accounts[31], voter: registeredCAddresses[1], thresholdReached: false });
         const signature2 = web3.eth.accounts.sign(newSigningPolicyHash, privateKeys[30].privateKey);
-        expectEvent(await flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature2), "SigningPolicySigned",
+        expectEvent(await flareSystemsManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature2), "SigningPolicySigned",
             { rewardEpochId: toBN(rewardEpochId), signingPolicyAddress: accounts[30], voter: registeredCAddresses[0], thresholdReached: true });
         const signature3 = web3.eth.accounts.sign(newSigningPolicyHash, privateKeys[32].privateKey);
-        await expectRevert(flareSystemManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature3), "new signing policy already signed");
+        await expectRevert(flareSystemsManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature3), "new signing policy already signed");
 
     });
 
     it("Should start new reward epoch (2) and initiate new voting round", async () => {
         await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC));
-        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
-        const tx = await flareSystemManager.daemonize();
+        expect((await flareSystemsManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
+        const tx = await flareSystemsManager.daemonize();
         expectEvent(tx, "RewardEpochStarted");
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
-        expect((await flareSystemManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(2);
+        expect((await flareSystemsManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(2);
     });
 
     it("Should submit some uptime votes for reward epoch 1", async () => {
@@ -724,7 +773,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
                 [rewardEpochId, nodeIds]));
 
             const signature = web3.eth.accounts.sign(hash, privateKeys[30 + i].privateKey);
-            expectEvent(await flareSystemManager.submitUptimeVote(rewardEpochId, nodeIds, signature),
+            expectEvent(await flareSystemsManager.submitUptimeVote(rewardEpochId, nodeIds, signature),
                 "UptimeVoteSubmitted", { voter: registeredCAddresses[i], rewardEpochId: toBN(1), signingPolicyAddress: accounts[30 + i], nodeIds: nodeIds });
         }
     });
@@ -734,8 +783,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             await time.advanceBlock(); // create required number of blocks to proceed
         }
         await time.increaseTo(now.addn(2 * REWARD_EPOCH_DURATION_IN_SEC + 3600)); // at least 10 minutes from the new reward epoch start
-        const tx = await flareSystemManager.daemonize();
-        expectEvent(tx, "SingUptimeVoteEnabled", { rewardEpochId: toBN(1) });
+        const tx = await flareSystemsManager.daemonize();
+        expectEvent(tx, "SignUptimeVoteEnabled", { rewardEpochId: toBN(1) });
         const rewardEpochId = 1;
         const uptimeVoteHash = web3.utils.keccak256("uptime");
         const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
@@ -743,14 +792,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [rewardEpochId, uptimeVoteHash]));
 
         const signature = web3.eth.accounts.sign(hash, privateKeys[31].privateKey);
-        expectEvent(await flareSystemManager.signUptimeVote(rewardEpochId, uptimeVoteHash, signature), "UptimeVoteSigned",
+        expectEvent(await flareSystemsManager.signUptimeVote(rewardEpochId, uptimeVoteHash, signature), "UptimeVoteSigned",
             { rewardEpochId: toBN(1), signingPolicyAddress: accounts[31], voter: registeredCAddresses[1], thresholdReached: false });
         const signature2 = web3.eth.accounts.sign(hash, privateKeys[30].privateKey);
-        expectEvent(await flareSystemManager.signUptimeVote(rewardEpochId, uptimeVoteHash, signature2), "UptimeVoteSigned",
+        expectEvent(await flareSystemsManager.signUptimeVote(rewardEpochId, uptimeVoteHash, signature2), "UptimeVoteSigned",
             { rewardEpochId: toBN(1), signingPolicyAddress: accounts[30], voter: registeredCAddresses[0], thresholdReached: true });
         const signature3 = web3.eth.accounts.sign(hash, privateKeys[32].privateKey);
-        await expectRevert(flareSystemManager.signUptimeVote(rewardEpochId, uptimeVoteHash, signature3), "uptime vote hash already signed");
-        expect(await flareSystemManager.uptimeVoteHash(rewardEpochId)).to.be.equal(uptimeVoteHash);
+        await expectRevert(flareSystemsManager.signUptimeVote(rewardEpochId, uptimeVoteHash, signature3), "uptime vote hash already signed");
+        expect(await flareSystemsManager.uptimeVoteHash(rewardEpochId)).to.be.equal(uptimeVoteHash);
     });
 
     it("Should sign rewards for reward epoch 1", async () => {
@@ -772,15 +821,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash]));
 
         const signature = web3.eth.accounts.sign(hash, privateKeys[31].privateKey);
-        expectEvent(await flareSystemManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature), "RewardsSigned",
+        expectEvent(await flareSystemsManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature), "RewardsSigned",
             { rewardEpochId: toBN(1), signingPolicyAddress: accounts[31], voter: registeredCAddresses[1], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: false });
         const signature2 = web3.eth.accounts.sign(hash, privateKeys[30].privateKey);
-        expectEvent(await flareSystemManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature2), "RewardsSigned",
+        expectEvent(await flareSystemsManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature2), "RewardsSigned",
             { rewardEpochId: toBN(1), signingPolicyAddress: accounts[30], voter: registeredCAddresses[0], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: true });
         const signature3 = web3.eth.accounts.sign(hash, privateKeys[32].privateKey);
-        await expectRevert(flareSystemManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature3), "rewards hash already signed");
-        expect(await flareSystemManager.rewardsHash(rewardEpochId)).to.be.equal(rewardsVoteHash);
-        expect((await flareSystemManager.noOfWeightBasedClaims(rewardEpochId)).toNumber()).to.be.equal(noOfWeightBasedClaims);
+        await expectRevert(flareSystemsManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature3), "rewards hash already signed");
+        expect(await flareSystemsManager.rewardsHash(rewardEpochId)).to.be.equal(rewardsVoteHash);
+        expect((await flareSystemsManager.noOfWeightBasedClaims(rewardEpochId)).toNumber()).to.be.equal(noOfWeightBasedClaims);
     });
 
     it("Should claim the reward for reward epoch 1", async () => {
