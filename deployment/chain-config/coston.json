@@ -1,0 +1,111 @@
+{
+    "testDeployment": false,
+    "submissionDeployerPrivateKey": "<use .env: SUBMISSION_DEPLOYER_PRIVATE_KEY>",
+    "deployerPrivateKey": "<use .env: DEPLOYER_PRIVATE_KEY>",
+    "genesisGovernancePrivateKey": "<use .env: GENESIS_GOVERNANCE_PRIVATE_KEY>",
+    "governancePublicKey": "<use .env: GOVERNANCE_PUBLIC_KEY>",
+    "governancePrivateKey": "<use .env: GOVERNANCE_PRIVATE_KEY>",
+    "governanceTimelock": 3600,
+    "governanceExecutorPublicKey": "<use .env: GOVERNANCE_EXECUTOR_PUBLIC_KEY>",
+
+    "initialRewardEpochOffset": 1,
+    "initialRandomVotePowerBlockSelectionSize": 100,
+    "initialVoters": [
+    ],
+    "initialNormalisedWeights": [
+
+    ],
+    "initialThreshold": 32768,
+    "initialVoterData": [],
+    "initialFeedDecimalsList": [
+
+    ],
+
+    "firstVotingRoundStartTs": 1658430000,
+    "votingEpochDurationSeconds": 90,
+    "firstRewardEpochStartVotingRoundId": 0,
+    "rewardEpochDurationInVotingEpochs": 240,
+    "relayThresholdIncreaseBIPS": 12000,
+    "newSigningPolicyInitializationStartSeconds": 7200,
+    "randomAcquisitionMaxDurationSeconds": 14400,
+    "randomAcquisitionMaxDurationBlocks": 1920,
+    "newSigningPolicyMinNumberOfVotingRoundsDelay": 3,
+    "voterRegistrationMinDurationSeconds": 1800,
+    "voterRegistrationMinDurationBlocks": 240,
+    "submitUptimeVoteMinDurationSeconds": 600,
+    "submitUptimeVoteMinDurationBlocks": 80,
+    "signingPolicyThresholdPPM": 500000,
+    "signingPolicyMinNumberOfVoters": 3,
+    "rewardExpiryOffsetSeconds": 604800,
+    "maxNodeIdsPerEntity": 0,
+    "maxVotersPerRewardEpoch": 100,
+    "wNatCapPPM": 25000,
+    "signingPolicySignNonPunishableDurationSeconds": 1200,
+    "signingPolicySignNonPunishableDurationBlocks": 160,
+    "signingPolicySignNoRewardsDurationBlocks": 160,
+    "feePercentageUpdateOffset": 2,
+    "defaultFeePercentageBIPS": 2000,
+    "pChainStakeEnabled": false,
+
+    "ftsoProtocolId": 100,
+    "minimalRewardsOfferValueNAT": 10000,
+    "decimalsUpdateOffset": 2,
+    "defaultDecimals": 5,
+    "feedsHistorySize": 200,
+    "ftsoInflationConfigurations": [
+        {
+            "feedNames": [],
+            "inflationShareBIPS": 10000,
+            "minRewardedTurnoutBIPS": 5000,
+            "mode": 0,
+            "primaryBandRewardSharePPM": 700000,
+            "secondaryBandWidthPPMs": []
+        }
+    ],
+
+    "inflationReceivers": [
+        {
+            "oldContract": false,
+            "contractName": "RewardManager",
+            "sharingBIPS": 5000,
+            "topUpType": 1,
+            "topUpFactorx100": 0
+        },
+        {
+            "oldContract": true,
+            "contractName": "FtsoRewardManager",
+            "sharingBIPS": 5000,
+            "topUpType": 0,
+            "topUpFactorx100": 400
+        }
+    ],
+
+    "flareDaemonizedContracts": [
+        {
+            "oldContract": true,
+            "contractName": "Inflation",
+            "gasLimit": 3000000
+        },
+        {
+            "oldContract": true,
+            "contractName": "FtsoManager",
+            "gasLimit": 40000000
+        },
+        {
+            "oldContract": false,
+            "contractName": "FlareSystemsManager",
+            "gasLimit": 40000000
+        }
+    ],
+    "proposers": [
+        "0x1a16DC5ec4f48Ed769949855C3bC3a1d10c72A95",
+        "0x893baB99798BCF5e0faB09Ad5CE61872B951F0a5",
+        "0x2da78A7908A89038832f920869a5526c20689904"
+    ],
+    "maintainer": "0x25365AA95F57768d598cA6C938f93F7a8D2469E8",
+    "votingDelaySeconds": 3600,
+    "votingPeriodSeconds": 86400,
+    "thresholdConditionBIPS": 6600,
+    "majorityConditionBIPS": 5000,
+    "proposalFeeValueNAT": 100
+}

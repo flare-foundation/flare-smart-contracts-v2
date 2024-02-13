@@ -268,6 +268,14 @@
             },
             "type": "array"
         },
+        "maintainer": {
+            "description": "Address of maintainer of PollingFtso contract.",
+            "type": "string"
+        },
+        "majorityConditionBIPS": {
+            "description": "Majority condition (in BIPS) for proposal to be accepted. If less than majorityConditionBIPS votes in favor, proposal can't be accepted.",
+            "type": "integer"
+        },
         "maxNodeIdsPerEntity": {
             "description": "Max number of nodes per entity (e.g. 4).",
             "type": "integer"
@@ -291,6 +299,10 @@
         "pChainStakeEnabled": {
             "description": "Indicates whether the P-chain stake is enabled.",
             "type": "boolean"
+        },
+        "proposalFeeValueNAT": {
+            "description": "Cost of creating proposal (in NAT). It is paid by the proposer.",
+            "type": "integer"
         },
         "proposers": {
             "description": "Array of proposers that can create a proposal",
@@ -355,6 +367,10 @@
             "description": "Indicates whether this is a test deployment (local, scdev, etc.)",
             "type": "boolean"
         },
+        "thresholdConditionBIPS": {
+            "description": "Threshold (in BIPS) for proposal to potentially be accepted. If less than thresholdConditionBIPS of total vote power participates in vote, proposal can't be accepted.",
+            "type": "integer"
+        },
         "voterRegistrationMinDurationBlocks": {
             "description": "The minimal duration of voter registration phase in blocks (e.g. 900 blocks).",
             "type": "integer"
@@ -363,8 +379,16 @@
             "description": "The minimal duration of voter registration phase in seconds (e.g. 30 minutes).",
             "type": "integer"
         },
+        "votingDelaySeconds": {
+            "description": "Period (in seconds) between creation of proposal and voting start time.",
+            "type": "integer"
+        },
         "votingEpochDurationSeconds": {
             "description": "The duration of a voting epoch in seconds.",
+            "type": "integer"
+        },
+        "votingPeriodSeconds": {
+            "description": "Length (in seconds) of voting period.",
             "type": "integer"
         },
         "wNatCapPPM": {
@@ -397,12 +421,15 @@
         "initialThreshold",
         "initialVoterData",
         "initialVoters",
+        "maintainer",
+        "majorityConditionBIPS",
         "maxNodeIdsPerEntity",
         "maxVotersPerRewardEpoch",
         "minimalRewardsOfferValueNAT",
         "newSigningPolicyInitializationStartSeconds",
         "newSigningPolicyMinNumberOfVotingRoundsDelay",
         "pChainStakeEnabled",
+        "proposalFeeValueNAT",
         "proposers",
         "randomAcquisitionMaxDurationBlocks",
         "randomAcquisitionMaxDurationSeconds",
@@ -418,9 +445,12 @@
         "submitUptimeVoteMinDurationBlocks",
         "submitUptimeVoteMinDurationSeconds",
         "testDeployment",
+        "thresholdConditionBIPS",
         "voterRegistrationMinDurationBlocks",
         "voterRegistrationMinDurationSeconds",
+        "votingDelaySeconds",
         "votingEpochDurationSeconds",
+        "votingPeriodSeconds",
         "wNatCapPPM"
     ],
     "type": "object"

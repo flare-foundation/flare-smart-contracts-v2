@@ -55,6 +55,11 @@ export function verifyParameters(parameters: ChainParameters) {
   if (totalInitialNormalisedWeight <= parameters.initialThreshold) {
     throw new Error(`Total initialThreshold is too large`);
   }
+  for (const ftsoConfiguration of parameters.ftsoInflationConfigurations) {
+    if (ftsoConfiguration.feedNames.length !== ftsoConfiguration.secondaryBandWidthPPMs.length) {
+      throw new Error(`Mismatch between feedNames and secondaryBandWidthPPMs`);
+    }
+  }
 }
 
 export function spewNewContractInfo(contracts: Contracts, addressUpdaterContracts: string[] | null, name: string, contractName: string, address: string, quiet = false, pascal = true) {
