@@ -99,7 +99,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
         require(
             _votingPeriodSeconds > 0 &&
             _thresholdConditionBIPS <= MAX_BIPS &&
-            _majorityConditionBIPS <= MAX_BIPS,
+            _majorityConditionBIPS <= MAX_BIPS &&
             _majorityConditionBIPS >= 5000,
             "invalid parameters"
         );
