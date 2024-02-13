@@ -151,6 +151,19 @@ interface IIVoterRegistry is IVoterRegistry {
         external view returns (uint256 _registrationWeight);
 
     /**
+     * Returns normalised weight for a given reward epoch and voter address.
+     * It reverts if the voter is not registered or snapshot was not created yet.
+     * @param _voter The voter address.
+     * @param _rewardEpochId The reward epoch id.
+     * @return _normalisedWeight The normalised weight.
+     */
+    function getVoterNormalisedWeight(
+        address _voter,
+        uint256 _rewardEpochId
+    )
+        external view returns (uint16 _normalisedWeight);
+
+    /**
      * Returns weights sums for a given reward epoch.
      * @param _rewardEpochId The reward epoch id.
      * @return _weightsSum The weights sum.
