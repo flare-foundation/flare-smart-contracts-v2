@@ -21,7 +21,7 @@ abstract contract GovernorVotes {
         mapping(address => bool) hasVoted;  // flag if a voter has cast a vote
     }
 
-    mapping(uint256 => ProposalVoting) internal proposalVotings;
+    mapping(uint256 proposalId => ProposalVoting) internal proposalVotings;
 
     /**
      * @notice Stores a proposal vote

@@ -25,7 +25,7 @@ abstract contract GovernorProposals {
     }
 
     uint256 internal nextExecutionStartTime;            // first available time for next proposal execution
-    mapping(uint256 => Proposal) internal proposals;
+    mapping(uint256 proposalId => Proposal) internal proposals;
     uint256 immutable public chainId;
 
     constructor() {

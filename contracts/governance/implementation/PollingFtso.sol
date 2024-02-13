@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
-pragma abicoder v2;
 
 import "../../userInterfaces/IPollingFtso.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
@@ -20,8 +19,8 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     uint256 internal constant MAX_BIPS = 1e4;
     address payable constant internal BURN_ADDRESS = payable(0x000000000000000000000000000000000000dEaD);
 
-    mapping(uint256 => Proposal) internal proposals;
-    mapping(uint256 => ProposalVoting) internal proposalVotings;
+    mapping(uint256 proposalId => Proposal) internal proposals;
+    mapping(uint256 proposalId => ProposalVoting) internal proposalVotings;
     mapping(address voter => address proxy) public voterToProxy;
     mapping(address proxy => address voter) public proxyToVoter;
 
@@ -54,15 +53,16 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
 
     /**
      * Initializes the contract with default parameters
-     * @param _governance                   Address identifying the governance address
+     * @param _governanceSettings           The address of the GovernanceSettings contract
+     * @param _initialGovernance            The initial governance address
      * @param _addressUpdater               Address identifying the address updater contract
      */
     constructor(
         IGovernanceSettings _governanceSettings,
-        address _governance,
+        address _initialGovernance,
         address _addressUpdater
     )
-        Governed(_governanceSettings, _governance)
+        Governed(_governanceSettings, _initialGovernance)
         AddressUpdatable(_addressUpdater)
     {
     }
@@ -99,7 +99,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
         require(
             _votingPeriodSeconds > 0 &&
             _thresholdConditionBIPS <= MAX_BIPS &&
-            _majorityConditionBIPS <= MAX_BIPS,
+            _majorityConditionBIPS <= MAX_BIPS &&
             _majorityConditionBIPS >= 5000,
             "invalid parameters"
         );
@@ -132,7 +132,6 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     )
         external payable override returns (uint256 _proposalId)
     {
-
         uint256 currentRewardEpochId = _getCurrentRewardEpochId();
 
         // registered voter (or its proxy address) and maintainer can submit a proposal
@@ -147,12 +146,13 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
 
         // store proposal
         proposal.rewardEpochId = currentRewardEpochId;
+        proposal.description = _description;
         proposal.proposer = proposerAccount;
         proposal.voteStartTime = block.timestamp + votingDelaySeconds;
         proposal.voteEndTime = proposal.voteStartTime + votingPeriodSeconds;
-        (uint256 weightSum, , ) = voterRegistry.getWeightsSums(currentRewardEpochId);
-        proposal.threshold = weightSum.mulDiv(thresholdConditionBIPS, MAX_BIPS);
-        proposal.description = _description;
+        proposal.thresholdConditionBIPS = thresholdConditionBIPS;
+        proposal.majorityConditionBIPS = majorityConditionBIPS;
+        (proposal.totalWeight, , ) = voterRegistry.getWeightsSums(currentRewardEpochId);
 
         emit FtsoProposalCreated(
             _proposalId,
@@ -161,8 +161,9 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
             _description,
             proposal.voteStartTime,
             proposal.voteEndTime,
-            proposal.threshold,
-            proposal.majorityConditionBIPS
+            proposal.thresholdConditionBIPS,
+            proposal.majorityConditionBIPS,
+            proposal.totalWeight
         );
 
         //slither-disable-next-line arbitrary-send-eth
@@ -241,36 +242,40 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     /**
      * Returns information about the specified proposal
      * @param _proposalId               Id of the proposal
+     * @return _rewardEpochId           Reward epoch id
      * @return _description             Description of the proposal
      * @return _proposer                Address of the proposal submitter
      * @return _voteStartTime           Start time (in seconds from epoch) of the proposal voting
      * @return _voteEndTime             End time (in seconds from epoch) of the proposal voting
-     * @return _threshold               Number of votes (voter power) cast required for the proposal to pass
+     * @return _thresholdConditionBIPS  Number of votes (voter power) cast required for the proposal to pass
      * @return _majorityConditionBIPS   Number of FOR votes, as a percentage in BIPS of the
-     total cast votes, required for the proposal to pass
+     *                                  total cast votes, required for the proposal to pass
+     * @return _totalWeight             Total weight of all eligible voters
      */
     function getProposalInfo(
         uint256 _proposalId
     )
         external view override
         returns (
+            uint256 _rewardEpochId,
             string memory _description,
             address _proposer,
             uint256 _voteStartTime,
             uint256 _voteEndTime,
-            uint256 _threshold,
+            uint256 _thresholdConditionBIPS,
             uint256 _majorityConditionBIPS,
-            uint256 _rewardEpochId
+            uint256 _totalWeight
         )
     {
         Proposal storage proposal = proposals[_proposalId];
+        _rewardEpochId = proposal.rewardEpochId;
+        _description = proposal.description;
         _proposer = proposal.proposer;
         _voteStartTime = proposal.voteStartTime;
-        _voteEndTime = proposal.threshold;
-        _threshold = proposal.threshold;
+        _voteEndTime = proposal.voteEndTime;
+        _thresholdConditionBIPS = proposal.thresholdConditionBIPS;
         _majorityConditionBIPS = proposal.majorityConditionBIPS;
-        _description = proposal.description;
-        _rewardEpochId = proposal.rewardEpochId;
+        _totalWeight = proposal.totalWeight;
     }
 
     /**
@@ -446,17 +451,6 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Determines if an account can vote for a given proposal
-     * @param _account              Address of a queried account
-     * @param _proposalId           Id of a queried proposal
-     * @return True if an account is eligible to vote, and false otherwise
-     */
-    function _canVote(address _account, uint256 _proposalId) internal view returns (bool) {
-        Proposal storage proposal = proposals[_proposalId];
-        return _isVoterRegistered(_account, proposal.rewardEpochId);
-    }
-
-    /**
      * Returns the current state of a proposal
      * @param _proposalId           Id of the proposal
      * @param _proposal             Proposal object
@@ -502,7 +496,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
         ProposalVoting storage voting = proposalVotings[_proposalId];
 
         if (voting.forVotePower + voting.againstVotePower <
-            _proposal.threshold) {
+            _proposal.thresholdConditionBIPS.mulDivRoundUp(_proposal.totalWeight, MAX_BIPS)) {
             return false;
         }
 
@@ -521,6 +515,12 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
         return flareSystemsManager.getCurrentRewardEpochId();
     }
 
+    /**
+     * Determines if a voter is registered for a specific reward epoch
+     * @param _voter                Address of the voter
+     * @param _rewardEpochId        Reward epoch id
+     * @return True if the voter is registered, and false otherwise
+     */
     function _isVoterRegistered(address _voter, uint256 _rewardEpochId) internal view returns(bool) {
         return voterRegistry.isVoterRegistered(_voter, _rewardEpochId);
     }

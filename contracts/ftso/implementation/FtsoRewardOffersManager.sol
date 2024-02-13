@@ -67,7 +67,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase, IFtsoRewardOffersMa
             block.timestamp + flareSystemsManager.newSigningPolicyInitializationStartSeconds(),
             "too late for next reward epoch");
         uint256 sumRewardsOfferValues = 0;
-        for (uint i = 0; i < _offers.length; ++i) {
+        for (uint256 i = 0; i < _offers.length; ++i) {
             Offer calldata offer = _offers[i];
             require(offer.minRewardedTurnoutBIPS <= MAX_BIPS, "invalid minRewardedTurnoutBIPS value");
             require(offer.primaryBandRewardSharePPM <= PPM_MAX, "invalid primaryBandRewardSharePPM value");
@@ -168,7 +168,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase, IFtsoRewardOffersMa
         }
 
         uint256 remainingRewardsAmount = totalRewardsAmount;
-        for (uint i = 0; i < length; i++) {
+        for (uint256 i = 0; i < length; i++) {
             IFtsoInflationConfigurations.FtsoConfiguration memory config = configurations[i];
             uint256 amount = _getRewardsAmount(remainingRewardsAmount, inflationShareSum, config.inflationShare);
             remainingRewardsAmount -= amount;

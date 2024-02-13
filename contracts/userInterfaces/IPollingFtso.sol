@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
-pragma abicoder v2;
 
 
 interface IPollingFtso {
@@ -9,14 +8,15 @@ interface IPollingFtso {
      * Struct holding the information about proposal properties
      */
     struct Proposal {
-        string description;                // description of the proposal
-        address proposer;                  // address of the proposer
-        bool canceled;                     // flag indicating if proposal has been canceled
-        uint256 voteStartTime;             // start time of voting window (in seconds from epoch)
-        uint256 voteEndTime;               // end time of voting window (in seconds from epoch)
-        uint256 threshold;                 //  number of votes (voter power) cast required for the proposal to pass
-        uint256 majorityConditionBIPS;     // percentage in BIPS of the proper relation between FOR and AGAINST votes
-        uint256 rewardEpochId;
+        uint256 rewardEpochId;              // reward epoch id in which the proposal was created
+        string description;                 // description of the proposal
+        address proposer;                   // address of the proposer
+        bool canceled;                      // flag indicating if proposal has been canceled
+        uint256 voteStartTime;              // start time of voting window (in seconds from epoch)
+        uint256 voteEndTime;                // end time of voting window (in seconds from epoch)
+        uint256 thresholdConditionBIPS;     // percentage in BIPS of the total vote power required for proposal quorum
+        uint256 majorityConditionBIPS;      // percentage in BIPS of the proper relation between FOR and AGAINST votes
+        uint256 totalWeight;                // total weight of all eligible voters
     }
 
     /**
@@ -59,7 +59,8 @@ interface IPollingFtso {
         uint256 voteStartTime,
         uint256 voteEndTime,
         uint256 threshold,
-        uint256 majorityConditionBIPS
+        uint256 majorityConditionBIPS,
+        uint256 totalWeight
     );
 
     /**
@@ -162,26 +163,28 @@ interface IPollingFtso {
     /**
      * Returns information about the specified proposal
      * @param _proposalId               Id of the proposal
+     * @return _rewardEpochId           Reward epoch id
      * @return _description             Description of the proposal
      * @return _proposer                Address of the proposal submitter
      * @return _voteStartTime           Start time (in seconds from epoch) of the proposal voting
      * @return _voteEndTime             End time (in seconds from epoch) of the proposal voting
-     * @return _threshold               Number of votes (voter power) cast required for the proposal to pass
+     * @return _thresholdConditionBIPS  Number of votes (voter power) cast required for the proposal to pass
      * @return _majorityConditionBIPS   Number of FOR votes, as a percentage in BIPS of the
-     total cast votes, required for the proposal to pass
+     * @return _totalWeight             Total weight of all eligible voters
      */
     function getProposalInfo(
         uint256 _proposalId
     )
         external view
         returns (
+            uint256 _rewardEpochId,
             string memory _description,
             address _proposer,
             uint256 _voteStartTime,
             uint256 _voteEndTime,
-            uint256 _threshold,
+            uint256 _thresholdConditionBIPS,
             uint256 _majorityConditionBIPS,
-            uint256 _rewardEpochId
+            uint256 _totalWeight
         );
 
     /**

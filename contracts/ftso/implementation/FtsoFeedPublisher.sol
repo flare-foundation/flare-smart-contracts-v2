@@ -63,7 +63,7 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
     function publish(FeedWithProof[] calldata _proofs) external {
         uint256 minVotingRoundId = _getMinVotingRoundId();
         uint256 length = _proofs.length;
-        for (uint i = 0; i < length; i++) {
+        for (uint256 i = 0; i < length; i++) {
             FeedWithProof calldata proof = _proofs[i];
             Feed calldata feed = proof.body;
             bool addLastFeed = feed.votingRoundId > lastFeeds[feed.name].votingRoundId;
@@ -92,7 +92,7 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
     function publishFeeds(Feed[] memory _feeds) external onlyFeedsPublisher {
         uint256 minVotingRoundId = _getMinVotingRoundId();
         uint256 length = _feeds.length;
-        for (uint i = 0; i < length; i++) {
+        for (uint256 i = 0; i < length; i++) {
             Feed memory feed = _feeds[i];
             bool addLastFeed = feed.votingRoundId > lastFeeds[feed.name].votingRoundId;
             //slither-disable-next-line weak-prng
