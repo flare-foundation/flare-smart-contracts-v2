@@ -81,14 +81,23 @@ function processEnv() {
     console.log("Skipping voting epoch actions");
     SKIP_VOTING_EPOCH_ACTIONS = true;
   }
+
+  let SKIP_FINALIZATIONS = false;
+  if (process.env.SKIP_FINALIZATIONS) {
+    console.log("Skipping finalizations");
+    SKIP_FINALIZATIONS = true;
+  }
+
   return {
     SKIP_VOTER_REGISTRATION_SET,
     SKIP_SIGNING_POLICY_SIGNING_SET,
     SKIP_VOTING_EPOCH_ACTIONS,
+    SKIP_FINALIZATIONS,
   };
 }
 
-const { SKIP_VOTER_REGISTRATION_SET, SKIP_SIGNING_POLICY_SIGNING_SET, SKIP_VOTING_EPOCH_ACTIONS } = processEnv();
+const { SKIP_VOTER_REGISTRATION_SET, SKIP_SIGNING_POLICY_SIGNING_SET, SKIP_VOTING_EPOCH_ACTIONS, SKIP_FINALIZATIONS } =
+  processEnv();
 
 export const systemSettings = function (now: number) {
   return {
@@ -97,7 +106,7 @@ export const systemSettings = function (now: number) {
     firstRewardEpochStartVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
     rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
     updatableSettings: {
-      newSigningPolicyInitializationStartSeconds: 40,
+      newSigningPolicyInitializationStartSeconds: 45,
       randomAcquisitionMaxDurationSeconds: 80,
       randomAcquisitionMaxDurationBlocks: 1000,
       newSigningPolicyMinNumberOfVotingRoundsDelay: 0,
@@ -159,11 +168,10 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   }
   const logger = getLogger("");
 
-  const { SKIP_VOTER_REGISTRATION_SET, SKIP_SIGNING_POLICY_SIGNING_SET, SKIP_VOTING_EPOCH_ACTIONS } = processEnv();
-
   logger.info(`SKIP_VOTER_REGISTRATION_SET: ${new Array(...SKIP_VOTER_REGISTRATION_SET).join(" ")}`);
   logger.info(`SKIP_SIGNING_POLICY_SIGNING_SET:  ${new Array(...SKIP_SIGNING_POLICY_SIGNING_SET).join(" ")}`);
   logger.info(`SKIP_VOTING_EPOCH_ACTIONS: ${SKIP_VOTING_EPOCH_ACTIONS}`);
+  logger.info(`SKIP_FINALIZATIONS: ${SKIP_FINALIZATIONS}`);
   logger.info(`Simulation specific files generated in ${SIMULATION_DUMP_FOLDER}`);
 
   // Account 0 is reserved for governance, 1-5 for contract address use, 10+ for voters.
@@ -330,7 +338,16 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
 
     setTimeout(async () => {
       scheduleVotingEpochActions(skipSubmit);
-      await runVotingRound(skipSubmit, c, signingPolicies, registeredAccounts, epochSettings, events, hre.web3, false);
+      await runVotingRound(
+        skipSubmit,
+        c,
+        signingPolicies,
+        registeredAccounts,
+        epochSettings,
+        events,
+        hre.web3,
+        SKIP_FINALIZATIONS
+      );
     }, nextEpochStartMs - time + 1);
   }
 
@@ -556,7 +573,7 @@ async function runVotingRound(
   epochSettings: EpochSettings,
   events: EventStore,
   web3: Web3,
-  doFinalisation: boolean = false,
+  skipFinalisation: boolean = false,
   now: number = Date.now()
 ) {
   const logger = getLogger("voting");
@@ -604,7 +621,7 @@ async function runVotingRound(
       }
     }
   }
-  if (doFinalisation) await fakeFinalize(web3, signingPolicies, registeredAccounts, epochSettings, c);
+  if (!skipFinalisation) await fakeFinalize(web3, signingPolicies, registeredAccounts, epochSettings, c);
   logger.info(`Voting round ${votingRoundId} finished`);
 }
 
@@ -693,7 +710,8 @@ async function defineInitialSigningPolicy(
   await fakeFinalize(web3, signingPolicies, [governance], epochSettings, c, (await time.latest()) * 1000);
 
   await time.increaseTo(
-    rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds / 2)
+    rewardEpochStart +
+      (REWARD_EPOCH_DURATION_IN_SEC - Math.floor(epochSettings.newSigningPolicyInitializationStartSeconds / 2))
   );
 
   const resp2 = await c.flareSystemsManager.daemonize();
@@ -708,7 +726,7 @@ async function defineInitialSigningPolicy(
   await time.increaseTo(
     rewardEpochStart +
       (REWARD_EPOCH_DURATION_IN_SEC -
-        epochSettings.newSigningPolicyInitializationStartSeconds / 2 +
+        Math.floor(epochSettings.newSigningPolicyInitializationStartSeconds / 2) +
         epochSettings.voterRegistrationMinDurationSeconds +
         5)
   );
