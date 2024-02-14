@@ -14,6 +14,9 @@ import { deploySubmissionContract } from "./deployment/scripts/deploy-submission
 import { setInflationReceivers } from "./deployment/scripts/set-inflation-receivers";
 import { daemonizeContracts } from "./deployment/scripts/daemonize-contracts";
 import { switchToProductionMode } from "./deployment/scripts/switch-to-production-mode";
+import { transferAndWrapFunds } from "./deployment/tasks/transfer-and-wrap-funds";
+import { entityRegistration } from "./deployment/tasks/entity-registration";
+import { readEntities } from "./deployment/utils/Entity";
 
 dotenv.config();
 
@@ -92,6 +95,40 @@ task("run-simulation", `Runs local simulation.`) // prettier-ignore
   .addOptionalParam("voters", "Number of voters to simulate", "4")
   .setAction(async (args, hre, _runSuper) => {
     await runSimulation(hre, accounts, +args.voters);
+  });
+
+task("transfer-and-wrap-funds", `Transfer and wrap funds.`)
+  .setAction(async (args, hre, _runSuper) => {
+    if (!process.env.CHAIN_CONFIG) {
+      throw Error("CHAIN_CONFIG environment variable not set.")
+    }
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+    }
+    if (!process.env.ENTITIES_FILE_PATH) {
+      throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.")
+    }
+    if (!process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY) {
+      throw Error("ACCOUNT_WITH_FUNDS_PRIVATE_KEY environment variable not set.")
+    }
+    const network = process.env.CHAIN_CONFIG;
+    const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+    const entities = readEntities(process.env.ENTITIES_FILE_PATH);
+    await transferAndWrapFunds(hre, process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, oldContracts, entities, args.quiet);
+  });
+
+task("entity-registration", `Entity registration.`)
+  .setAction(async (args, hre, _runSuper) => {
+    if (!process.env.CHAIN_CONFIG) {
+      throw Error("CHAIN_CONFIG environment variable not set.")
+    }
+    if (!process.env.ENTITIES_FILE_PATH) {
+      throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.")
+    }
+    const network = process.env.CHAIN_CONFIG;
+    const contracts = readContracts(network);
+    const entities = readEntities(process.env.ENTITIES_FILE_PATH!);
+    await entityRegistration(hre, contracts, entities, args.quiet);
   });
 
 task("deploy-submission-contract", "Deploy submission contract")
