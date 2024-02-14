@@ -3,6 +3,9 @@ node_modules
 yarn-error.log
 db
 
+## Test deploys info
+deployment/deploys/scdev.json
+
 # Foundry files
 cache-forge/
 artifacts-forge/

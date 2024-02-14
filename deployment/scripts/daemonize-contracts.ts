@@ -47,7 +47,7 @@ export async function daemonizeContracts(
   web3.eth.defaultAccount = deployerAccount.address;
 
   // Get contract definitions
-  const FlareDaemon = artifacts.require("IIFlareDaemon");
+  const FlareDaemon = artifacts.require("IIFlareDaemonGovernance");
 
   // Fetch flare daemon
   const flareDaemon = await FlareDaemon.at(oldContracts.getContractAddress(Contracts.FLARE_DAEMON));

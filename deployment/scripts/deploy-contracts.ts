@@ -33,7 +33,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
   const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
   const Relay: RelayContract = artifacts.require("Relay");
-  const Supply = artifacts.require("IISupply");
+  const Supply = artifacts.require("IISupplyGovernance");
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
