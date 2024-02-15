@@ -53,6 +53,7 @@ let accounts = [
   ...(process.env.GOVERNANCE_PRIVATE_KEY ? [{ privateKey: process.env.GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
   ...(process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY ? [{ privateKey: process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
   ...(process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY ? [{ privateKey: process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
+  ...(process.env.INITIAL_VOTER_PRIVATE_KEY ? [{ privateKey: process.env.INITIAL_VOTER_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
   ...(process.env.ENTITIES_FILE_PATH ? getEntityAccounts(process.env.ENTITIES_FILE_PATH) : []),
 ];
 
@@ -78,6 +79,9 @@ function getChainConfigParameters(chainConfig: string | undefined) {
     }
     if (process.env.GOVERNANCE_EXECUTOR_PUBLIC_KEY) {
       parameters.governanceExecutorPublicKey = process.env.GOVERNANCE_EXECUTOR_PUBLIC_KEY
+    }
+    if (process.env.INITIAL_VOTER_PRIVATE_KEY) {
+      parameters.initialVoters = [web3.eth.accounts.privateKeyToAccount(process.env.INITIAL_VOTER_PRIVATE_KEY).address];
     }
     verifyParameters(parameters);
     return parameters;
@@ -258,13 +262,14 @@ const config: HardhatUserConfig = {
 
   networks: {
     scdev: {
-      url: "http://127.0.0.1:9650/ext/bc/C/rpc",
+      url: process.env.SCDEV_RPC || "http://127.0.0.1:9650/ext/bc/C/rpc",
       gas: 8000000,
       timeout: 40000,
       accounts: accounts.map((x: any) => x.privateKey),
     },
     staging: {
       url: process.env.STAGING_RPC || "http://127.0.0.1:9650/ext/bc/C/rpc",
+      gas: 8000000,
       timeout: 40000,
       accounts: accounts.map((x: any) => x.privateKey),
     },

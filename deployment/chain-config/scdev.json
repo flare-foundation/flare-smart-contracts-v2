@@ -8,9 +8,9 @@
     "governanceTimelock": 1,
     "governanceExecutorPublicKey": "<use .env: GOVERNANCE_EXECUTOR_PUBLIC_KEY>",
 
-    "initialRewardEpochOffset": 2,
+    "initialRewardEpochOffset": 1,
     "initialRandomVotePowerBlockSelectionSize": 1,
-    "initialVoters": ["0xc783df8a850f42e7f7e57013759c285caa701eb6"],
+    "initialVoters": ["<use .env: INITIAL_VOTER_PRIVATE_KEY>"],
     "initialNormalisedWeights": [65535],
     "initialThreshold": 32768,
     "initialVoterData": [],
@@ -22,34 +22,78 @@
         {
             "feedName": "ETH",
             "decimals": 3
+        },
+        {
+            "feedName": "XAU",
+            "decimals": 3
+        },
+        {
+            "feedName": "MKR",
+            "decimals": 3
+        },
+        {
+            "feedName": "BNB",
+            "decimals": 4
+        },
+        {
+            "feedName": "GNO",
+            "decimals": 4
+        },
+        {
+            "feedName": "BCH",
+            "decimals": 4
+        },
+        {
+            "feedName": "XMR",
+            "decimals": 4
+        },
+        {
+            "feedName": "SOL",
+            "decimals": 4
+        },
+        {
+            "feedName": "QNT",
+            "decimals": 4
+        },
+        {
+            "feedName": "BTT",
+            "decimals": 8
+        },
+        {
+            "feedName": "SHIB",
+            "decimals": 8
+        },
+        {
+            "feedName": "BONK",
+            "decimals": 8
         }
     ],
 
     "firstVotingRoundStartTs": 0,
-    "votingEpochDurationSeconds": 20,
-    "firstRewardEpochStartVotingRoundId": 2,
-    "rewardEpochDurationInVotingEpochs": 5,
+    "votingEpochDurationSeconds": 90,
+    "firstRewardEpochStartVotingRoundId": 0,
+    "rewardEpochDurationInVotingEpochs": 10,
     "relayThresholdIncreaseBIPS": 12000,
-    "newSigningPolicyInitializationStartSeconds": 40,
-    "randomAcquisitionMaxDurationSeconds": 80,
-    "randomAcquisitionMaxDurationBlocks": 1000,
-    "newSigningPolicyMinNumberOfVotingRoundsDelay": 0,
-    "voterRegistrationMinDurationSeconds": 10,
-    "voterRegistrationMinDurationBlocks": 1,
-    "submitUptimeVoteMinDurationSeconds": 10,
-    "submitUptimeVoteMinDurationBlocks": 1,
+    "newSigningPolicyInitializationStartSeconds": 450,
+    "randomAcquisitionMaxDurationSeconds": 750,
+    "randomAcquisitionMaxDurationBlocks": 250,
+    "newSigningPolicyMinNumberOfVotingRoundsDelay": 1,
+    "voterRegistrationMinDurationSeconds": 150,
+    "voterRegistrationMinDurationBlocks": 50,
+    "submitUptimeVoteMinDurationSeconds": 150,
+    "submitUptimeVoteMinDurationBlocks": 50,
     "signingPolicyThresholdPPM": 500000,
     "signingPolicyMinNumberOfVoters": 2,
-    "rewardExpiryOffsetSeconds": 1000,
-    "maxNodeIdsPerEntity": 4,
+    "rewardExpiryOffsetSeconds": 3600,
+    "maxNodeIdsPerEntity": 0,
     "maxVotersPerRewardEpoch": 100,
     "wNatCapPPM": 2500,
-    "signingPolicySignNonPunishableDurationSeconds": 200,
-    "signingPolicySignNonPunishableDurationBlocks": 100,
-    "signingPolicySignNoRewardsDurationBlocks": 100,
+    "signingPolicySignNonPunishableDurationSeconds": 150,
+    "signingPolicySignNonPunishableDurationBlocks": 50,
+    "signingPolicySignNoRewardsDurationBlocks": 50,
     "feePercentageUpdateOffset": 2,
     "defaultFeePercentageBIPS": 2000,
-    "pChainStakeEnabled": true,
+    "pChainStakeEnabled": false,
 
     "ftsoProtocolId": 100,
     "minimalRewardsOfferValueNAT": 1000,
@@ -58,20 +102,12 @@
     "feedsHistorySize": 200,
     "ftsoInflationConfigurations": [
         {
-            "feedNames": ["BTC", "XRP", "FLR", "ETH"],
-            "inflationShareBIPS": 200,
+            "feedNames": ["FLR", "SGB", "XRP", "LTC", "XLM", "DOGE", "ADA", "ALGO", "BTC", "ETH", "FIL", "ARB", "AVAX", "BNB", "MATIC", "SOL", "USDC", "USDT", "XDC", "TRX", "DOT", "LINK", "TON", "ICP", "SHIB", "DAI", "BCH", "ATOM", "UNI", "LEO", "ETC", "INJ", "XAU"],
+            "inflationShareBIPS": 10000,
             "minRewardedTurnoutBIPS": 5000,
             "mode": 0,
             "primaryBandRewardSharePPM": 700000,
-            "secondaryBandWidthPPMs": [400, 800, 100, 250]
-        },
-        {
-            "feedNames": ["BTC", "LTC"],
-            "inflationShareBIPS": 100,
-            "minRewardedTurnoutBIPS": 5000,
-            "mode": 0,
-            "primaryBandRewardSharePPM": 600000,
-            "secondaryBandWidthPPMs": [200, 1000]
+            "secondaryBandWidthPPMs": [400, 500, 150, 200, 200, 200, 200, 200, 100, 150, 200, 100, 100, 100, 100, 100, 100, 100, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         }
     ],
 
@@ -79,23 +115,16 @@
         {
             "oldContract": false,
             "contractName": "RewardManager",
-            "sharingBIPS": 3500,
+            "sharingBIPS": 5000,
             "topUpType": 1,
             "topUpFactorx100": 0
         },
         {
             "oldContract": true,
             "contractName": "FtsoRewardManager",
-            "sharingBIPS": 3500,
+            "sharingBIPS": 5000,
             "topUpType": 0,
             "topUpFactorx100": 400
-        },
-        {
-            "oldContract": true,
-            "contractName": "ValidatorRewardManager",
-            "sharingBIPS": 3000,
-            "topUpType": 1,
-            "topUpFactorx100": 0
         }
     ],
 
@@ -109,21 +138,6 @@
             "oldContract": true,
             "contractName": "FtsoManager",
             "gasLimit": 40000000
-        },
-        {
-            "oldContract": true,
-            "contractName": "PChainStakeMirror",
-            "gasLimit": 15000000
-        },
-        {
-            "oldContract": true,
-            "contractName": "IncentivePool",
-            "gasLimit": 3000000
-        },
-        {
-            "oldContract": true,
-            "contractName": "DistributionToDelegators",
-            "gasLimit": 25000000
         },
         {
             "oldContract": false,
