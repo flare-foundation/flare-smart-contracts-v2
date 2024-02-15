@@ -14,6 +14,7 @@ import { deploySubmissionContract } from "./deployment/scripts/deploy-submission
 import { setInflationReceivers } from "./deployment/scripts/set-inflation-receivers";
 import { daemonizeContracts } from "./deployment/scripts/daemonize-contracts";
 import { switchToProductionMode } from "./deployment/scripts/switch-to-production-mode";
+import { offerRewards } from "./deployment/scripts/offer-rewards";
 import { transferAndWrapFunds } from "./deployment/tasks/transfer-and-wrap-funds";
 import { getEntityAccounts, readEntities } from "./deployment/utils/Entity";
 import { registerEntities } from "./deployment/tasks/register-entities";
@@ -232,6 +233,19 @@ task("switch-to-production-mode", "Switch to production mode")
       await switchToProductionMode(hre, contracts, parameters, args.quiet);
     } else {
       throw Error("CHAIN_CONFIG environment variable not set.")
+    }
+  });
+
+  task("offer-rewards", "Continuously send out community reward offers")
+  .addFlag("runNow", "Sends out offers now without waiting for next reward epoch start.")
+  .setAction(async (args, hre, runSuper) => {
+    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+    if (parameters) {
+      const network = process.env.CHAIN_CONFIG!;
+      const contracts = readContracts(network);
+      await offerRewards(hre, contracts, parameters, args.runNow);
+    } else {
+      throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
     }
   });
 
