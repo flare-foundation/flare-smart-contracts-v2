@@ -50,6 +50,10 @@ export async function provideRandomNumberForInitialRewardEpoch(
   const flareDaemonAddress = await flareSystemsManager.flareDaemon();
   const initialRewardEpochStartVotingRoundId = (await relay.startingVotingRoundIds(initialRewardEpochId)).toNumber();
 
+  console.error(`Current reward epoch id: ${initialRewardEpochId}.`);
+  console.error(`Current reward epoch start voting round id: ${initialRewardEpochStartVotingRoundId}.`);
+  console.error(`Current reward epoch expected end timestamp: ${(await flareSystemsManager.currentRewardEpochExpectedEndTs()).toString()}.`);
+
   const initialSigningPolicy: ISigningPolicy = {
     rewardEpochId: initialRewardEpochId,
     startVotingRoundId: initialRewardEpochStartVotingRoundId,
@@ -64,10 +68,13 @@ export async function provideRandomNumberForInitialRewardEpoch(
       await web3.eth.sendTransaction({
         from: initialVoter,
         to: flareDaemonAddress,
-        data: TRIGGER_SELECTOR
+        data: TRIGGER_SELECTOR,
+        gas: 100000000
       });
       console.error("Flare daemon triggered successfully.");
     }
+    const latestBlock = await web3.eth.getBlock(await web3.eth.getBlockNumber());
+    console.error(`Latest block timestamp: ${latestBlock.timestamp}.`);
     const rai = await flareSystemsManager.getRandomAcquisitionInfo(initialRewardEpochId + 1);
     if (rai[0].toString() !== "0") {
       if (rai[2].toString() !== "0") {
@@ -76,11 +83,9 @@ export async function provideRandomNumberForInitialRewardEpoch(
         }
         break;
       }
-      const nowTimestamp = Math.floor(Date.now() / 1000);
-      const votingRoundId = (await relay.getVotingRoundId(nowTimestamp)).toNumber();
+      const votingRoundId = (await relay.getVotingRoundId(latestBlock.timestamp)).toNumber();
       const merkleRootHash = await relay.getConfirmedMerkleRoot(parameters.ftsoProtocolId, votingRoundId);
       if (merkleRootHash === ZERO_BYTES32) {
-            /// The FTSO random struct.
         const random = Math.floor(Math.random() * 1e6);
         const merkleRoot = web3.utils.keccak256(web3.eth.abi.encodeParameters(
           ["tuple(uint32,uint256,bool)"],

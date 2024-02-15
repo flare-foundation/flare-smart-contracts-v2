@@ -149,7 +149,7 @@ task("provide-random-number-for-initial-reward-epoch", `Provide random number fo
     if (parameters) {
       const network = process.env.CHAIN_CONFIG!;
       const contracts = readContracts(network);
-      await provideRandomNumberForInitialRewardEpoch(hre, process.env.INITIAL_VOTER_PRIVATE_KEY, args.trigger, contracts, parameters, args.quiet);
+      await provideRandomNumberForInitialRewardEpoch(hre, process.env.INITIAL_VOTER_PRIVATE_KEY, Boolean(args.trigger), contracts, parameters, args.quiet);
     } else {
       throw Error("CHAIN_CONFIG environment variable not set.")
     }

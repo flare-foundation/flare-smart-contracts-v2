@@ -69,7 +69,7 @@
         }
     ],
 
-    "firstVotingRoundStartTs": 0,
+    "firstVotingRoundStartTs": 1658430000,
     "votingEpochDurationSeconds": 90,
     "firstRewardEpochStartVotingRoundId": 0,
     "rewardEpochDurationInVotingEpochs": 10,

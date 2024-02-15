@@ -68,7 +68,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   }
 
   let firstVotingRoundStartTs = BN(parameters.firstVotingRoundStartTs);
-  if (firstVotingRoundStartTs.eqn(0)) {
+  if (firstVotingRoundStartTs.eqn(0) || firstVotingRoundStartTs.gt(currentBlockTs)) {
     // Get the timestamp for the just mined block
     firstVotingRoundStartTs = currentBlockTs;
     if (!quiet) {
