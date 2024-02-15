@@ -8,7 +8,7 @@
     "governanceTimelock": 1,
     "governanceExecutorPublicKey": "<use .env: GOVERNANCE_EXECUTOR_PUBLIC_KEY>",
 
-    "initialRewardEpochOffset": 1,
+    "initialRewardEpochOffset": 0,
     "initialRandomVotePowerBlockSelectionSize": 1,
     "initialVoters": ["<use .env: INITIAL_VOTER_PRIVATE_KEY>"],
     "initialNormalisedWeights": [65535],

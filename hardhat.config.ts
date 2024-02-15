@@ -17,6 +17,7 @@ import { switchToProductionMode } from "./deployment/scripts/switch-to-productio
 import { transferAndWrapFunds } from "./deployment/tasks/transfer-and-wrap-funds";
 import { getEntityAccounts, readEntities } from "./deployment/utils/Entity";
 import { registerEntities } from "./deployment/tasks/register-entities";
+import { provideRandomNumberForInitialRewardEpoch } from "./deployment/tasks/provide-random-number-for-initial-reward-epoch";
 
 dotenv.config();
 
@@ -134,8 +135,24 @@ task("register-entities", `Entities registration.`)
     }
     const network = process.env.CHAIN_CONFIG;
     const contracts = readContracts(network);
-    const entities = readEntities(process.env.ENTITIES_FILE_PATH!);
+    const entities = readEntities(process.env.ENTITIES_FILE_PATH);
     await registerEntities(hre, contracts, entities, args.quiet);
+  });
+
+task("provide-random-number-for-initial-reward-epoch", `Provide random number for initial reward epoch.`)
+  .addOptionalParam("trigger", "Trigger Flare daemon", "")
+  .setAction(async (args, hre, _runSuper) => {
+    if (!process.env.INITIAL_VOTER_PRIVATE_KEY) {
+      throw Error("INITIAL_VOTER_PRIVATE_KEY environment variable not set.")
+    }
+    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+    if (parameters) {
+      const network = process.env.CHAIN_CONFIG!;
+      const contracts = readContracts(network);
+      await provideRandomNumberForInitialRewardEpoch(hre, process.env.INITIAL_VOTER_PRIVATE_KEY, args.trigger, contracts, parameters, args.quiet);
+    } else {
+      throw Error("CHAIN_CONFIG environment variable not set.")
+    }
   });
 
 task("deploy-submission-contract", "Deploy submission contract")
@@ -150,7 +167,7 @@ task("deploy-submission-contract", "Deploy submission contract")
     const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
     await deploySubmissionContract(hre, oldContracts, parameters, args.quiet);
   } else {
-    throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
+    throw Error("CHAIN_CONFIG environment variable not set.")
   }
 });
 
@@ -167,7 +184,7 @@ task("deploy-contracts", "Deploy contracts")
       const contracts = readContracts(network);
       await deployContracts(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
-      throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
+      throw Error("CHAIN_CONFIG environment variable not set.")
     }
   });
 
@@ -184,7 +201,7 @@ task("set-inflation-receivers", "Set inflation receivers")
       const contracts = readContracts(network);
       await setInflationReceivers(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
-      throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
+      throw Error("CHAIN_CONFIG environment variable not set.")
     }
   });
 
@@ -201,7 +218,7 @@ task("daemonize-contracts", "Daemonize contracts")
       const contracts = readContracts(network);
       await daemonizeContracts(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
-      throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
+      throw Error("CHAIN_CONFIG environment variable not set.")
     }
   });
 
@@ -214,7 +231,7 @@ task("switch-to-production-mode", "Switch to production mode")
       const contracts = readContracts(network);
       await switchToProductionMode(hre, contracts, parameters, args.quiet);
     } else {
-      throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
+      throw Error("CHAIN_CONFIG environment variable not set.")
     }
   });
 
