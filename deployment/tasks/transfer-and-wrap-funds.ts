@@ -48,6 +48,6 @@ export async function transferAndWrapFunds(
     await web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.submitSignatures.address, value: funds });
     await web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.signingPolicy.address, value: funds });
     await web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.delegation.address, value: funds });
-    await wNat.depositTo(entity.delegation.address, { value: entity.wrapped });
+    await wNat.depositTo(entity.delegation.address, { value: entity.wrapped, from: accountWithFunds.address});
   }
 }

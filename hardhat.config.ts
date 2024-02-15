@@ -15,8 +15,8 @@ import { setInflationReceivers } from "./deployment/scripts/set-inflation-receiv
 import { daemonizeContracts } from "./deployment/scripts/daemonize-contracts";
 import { switchToProductionMode } from "./deployment/scripts/switch-to-production-mode";
 import { transferAndWrapFunds } from "./deployment/tasks/transfer-and-wrap-funds";
-import { entityRegistration } from "./deployment/tasks/entity-registration";
-import { readEntities } from "./deployment/utils/Entity";
+import { getEntityAccounts, readEntities } from "./deployment/utils/Entity";
+import { registerEntities } from "./deployment/tasks/register-entities";
 
 dotenv.config();
 
@@ -51,6 +51,9 @@ let accounts = [
   ...JSON.parse(fs.readFileSync('deployment/test-1020-accounts.json')).slice(0, process.env.TENDERLY == 'true' ? 150 : 2000).filter((x: any) => x.privateKey != process.env.DEPLOYER_PRIVATE_KEY),
   ...(process.env.GENESIS_GOVERNANCE_PRIVATE_KEY ? [{ privateKey: process.env.GENESIS_GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
   ...(process.env.GOVERNANCE_PRIVATE_KEY ? [{ privateKey: process.env.GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
+  ...(process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY ? [{ privateKey: process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
+  ...(process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY ? [{ privateKey: process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
+  ...(process.env.ENTITIES_FILE_PATH ? getEntityAccounts(process.env.ENTITIES_FILE_PATH) : []),
 ];
 
 function getChainConfigParameters(chainConfig: string | undefined) {
@@ -117,7 +120,7 @@ task("transfer-and-wrap-funds", `Transfer and wrap funds.`)
     await transferAndWrapFunds(hre, process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, oldContracts, entities, args.quiet);
   });
 
-task("entity-registration", `Entity registration.`)
+task("register-entities", `Entities registration.`)
   .setAction(async (args, hre, _runSuper) => {
     if (!process.env.CHAIN_CONFIG) {
       throw Error("CHAIN_CONFIG environment variable not set.")
@@ -128,7 +131,7 @@ task("entity-registration", `Entity registration.`)
     const network = process.env.CHAIN_CONFIG;
     const contracts = readContracts(network);
     const entities = readEntities(process.env.ENTITIES_FILE_PATH!);
-    await entityRegistration(hre, contracts, entities, args.quiet);
+    await registerEntities(hre, contracts, entities, args.quiet);
   });
 
 task("deploy-submission-contract", "Deploy submission contract")
@@ -267,21 +270,25 @@ const config: HardhatUserConfig = {
     },
     songbird: {
       url: process.env.SONGBIRD_RPC || "https://songbird-api.flare.network/ext/C/rpc",
+      gas: 8000000,
       timeout: 40000,
       accounts: accounts.map((x: any) => x.privateKey),
     },
     flare: {
       url: process.env.FLARE_RPC || "https://flare-api.flare.network/ext/C/rpc",
+      gas: 8000000,
       timeout: 40000,
       accounts: accounts.map((x: any) => x.privateKey),
     },
     coston: {
       url: process.env.COSTON_RPC || "https://coston-api.flare.network/ext/C/rpc",
+      gas: 8000000,
       timeout: 40000,
       accounts: accounts.map((x: any) => x.privateKey),
     },
     coston2: {
       url: process.env.COSTON2_RPC || "https://coston2-api.flare.network/ext/C/rpc",
+      gas: 8000000,
       timeout: 40000,
       accounts: accounts.map((x: any) => x.privateKey),
     },
