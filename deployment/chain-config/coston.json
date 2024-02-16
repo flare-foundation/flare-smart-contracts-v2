@@ -104,12 +104,12 @@
     "feedsHistorySize": 200,
     "ftsoInflationConfigurations": [
         {
-            "feedNames": ["FLR", "SGB", "XRP", "LTC", "XLM", "DOGE", "ADA", "ALGO", "BTC", "ETH", "FIL", "ARB", "AVAX", "BNB", "MATIC", "SOL", "USDC", "USDT", "XDC", "TRX", "DOT", "LINK", "TON", "ICP", "SHIB", "DAI", "BCH", "ATOM", "UNI", "LEO", "ETC", "INJ", "XAU"],
+            "feedNames": ["FLR", "SGB", "XRP", "LTC", "XLM", "DOGE", "ADA", "ALGO", "BTC", "ETH", "FIL", "ARB", "AVAX", "BNB", "MATIC", "SOL", "USDC", "USDT", "XDC", "TRX", "DOT", "LINK", "TON", "ICP", "SHIB", "DAI", "BCH", "ATOM", "UNI", "LEO", "ETC", "INJ", "EUR", "XAU"],
             "inflationShareBIPS": 10000,
             "minRewardedTurnoutBIPS": 5000,
             "mode": 0,
             "primaryBandRewardSharePPM": 700000,
-            "secondaryBandWidthPPMs": [400, 500, 150, 200, 200, 200, 200, 200, 100, 150, 200, 100, 100, 100, 100, 100, 100, 100, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            "secondaryBandWidthPPMs": [400, 500, 150, 200, 200, 200, 200, 200, 100, 150, 200, 100, 100, 100, 100, 100, 100, 100, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         }
     ],
 
