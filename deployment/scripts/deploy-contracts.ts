@@ -15,6 +15,8 @@ import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsC
 import { ISigningPolicy, SigningPolicy } from '../../scripts/libs/protocol/SigningPolicy';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 
+let fs = require('fs');
+
 export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContracts: Contracts, contracts: Contracts, parameters: ChainParameters, quiet: boolean = false) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
@@ -82,6 +84,8 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const initialRewardEpochId = currentBlockTs.sub(firstVotingRoundStartTs).addn(parameters.firstRewardEpochStartVotingRoundId * parameters.votingEpochDurationSeconds)
     .divn(parameters.votingEpochDurationSeconds * parameters.rewardEpochDurationInVotingEpochs).addn(parameters.initialRewardEpochOffset).toNumber();
   const initialRewardEpochStartVotingRoundId = initialRewardEpochId * parameters.rewardEpochDurationInVotingEpochs + parameters.firstRewardEpochStartVotingRoundId;
+
+  fs.writeFileSync("deployment/deploys/initialRewardEpochId.txt", initialRewardEpochId.toString());
 
   if (!quiet) {
     console.error(`Initial reward epoch id: ${initialRewardEpochId}. Start voting round id: ${initialRewardEpochStartVotingRoundId}.`);
