@@ -7,6 +7,7 @@ import { ISigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
 import { RelayMessage } from "../../scripts/libs/protocol/RelayMessage";
+import crypto from "crypto";
 
 /**
  * This script will provide a random number for initial reward epoch.
@@ -86,10 +87,11 @@ export async function provideRandomNumberForInitialRewardEpoch(
       const votingRoundId = (await relay.getVotingRoundId(latestBlock.timestamp)).toNumber();
       const merkleRootHash = await relay.getConfirmedMerkleRoot(parameters.ftsoProtocolId, votingRoundId);
       if (merkleRootHash === ZERO_BYTES32) {
-        const random = Math.floor(Math.random() * 1e6);
+        const random = new Uint32Array(1);
+        crypto.getRandomValues(random);
         const merkleRoot = web3.utils.keccak256(web3.eth.abi.encodeParameters(
           ["tuple(uint32,uint256,bool)"],
-          [[votingRoundId, random, true]]));
+          [[votingRoundId, random[0], true]]));
         const messageData: IProtocolMessageMerkleRoot = { protocolId: parameters.ftsoProtocolId, votingRoundId: votingRoundId, isSecureRandom: true, merkleRoot: merkleRoot };
         const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
         const signatures = await generateSignatures([initialVoterPrivateKey], messageHash, 1);
