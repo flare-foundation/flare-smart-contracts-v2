@@ -57,30 +57,38 @@
         },
         {
             "feedName": "BTT",
-            "decimals": 8
+            "decimals": 10
         },
         {
             "feedName": "SHIB",
-            "decimals": 8
+            "decimals": 10
         },
         {
             "feedName": "BONK",
-            "decimals": 8
+            "decimals": 10
+        },
+        {
+            "feedName": "LUNC",
+            "decimals": 10
+        },
+        {
+            "feedName": "1000SATS",
+            "decimals": 10
         }
     ],
 
     "firstVotingRoundStartTs": 1658430000,
     "votingEpochDurationSeconds": 90,
     "firstRewardEpochStartVotingRoundId": 0,
-    "rewardEpochDurationInVotingEpochs": 10,
+    "rewardEpochDurationInVotingEpochs": 4,
     "relayThresholdIncreaseBIPS": 12000,
-    "newSigningPolicyInitializationStartSeconds": 450,
-    "randomAcquisitionMaxDurationSeconds": 750,
-    "randomAcquisitionMaxDurationBlocks": 250,
+    "newSigningPolicyInitializationStartSeconds": 180,
+    "randomAcquisitionMaxDurationSeconds": 300,
+    "randomAcquisitionMaxDurationBlocks": 100,
     "newSigningPolicyMinNumberOfVotingRoundsDelay": 1,
-    "voterRegistrationMinDurationSeconds": 150,
+    "voterRegistrationMinDurationSeconds": 60,
     "voterRegistrationMinDurationBlocks": 50,
-    "submitUptimeVoteMinDurationSeconds": 150,
+    "submitUptimeVoteMinDurationSeconds": 60,
     "submitUptimeVoteMinDurationBlocks": 50,
     "signingPolicyThresholdPPM": 500000,
     "signingPolicyMinNumberOfVoters": 2,

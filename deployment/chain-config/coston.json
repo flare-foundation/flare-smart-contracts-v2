@@ -59,15 +59,23 @@
         },
         {
             "feedName": "BTT",
-            "decimals": 8
+            "decimals": 10
         },
         {
             "feedName": "SHIB",
-            "decimals": 8
+            "decimals": 10
         },
         {
             "feedName": "BONK",
-            "decimals": 8
+            "decimals": 10
+        },
+        {
+            "feedName": "LUNC",
+            "decimals": 10
+        },
+        {
+            "feedName": "1000SATS",
+            "decimals": 10
         }
     ],
 
