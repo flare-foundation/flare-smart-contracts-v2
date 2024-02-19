@@ -409,12 +409,17 @@ contract Relay is IIRelay {
                     calldatacopy(add(_memPos, M_1), pos, 32)
                     mstore(_memPos, keccak256(_memPos, 64))
                 }
-
-                // handle the remaining bytes
-                mstore(add(_memPos, M_1), 0)
-                calldatacopy(add(_memPos, M_1), endPos, mod(_policyLength, 32)) // remaining bytes
-                mstore(_memPos, keccak256(_memPos, 64))
-                _policyHash := mload(_memPos)
+                if iszero(mod(_policyLength, 32)) {
+                    // no additinal bytes
+                    _policyHash := mload(_memPos)
+                }
+                if gt(mod(_policyLength, 32), 0) {
+                    // handle the remaining bytes
+                    mstore(add(_memPos, M_1), 0)
+                    calldatacopy(add(_memPos, M_1), endPos, mod(_policyLength, 32)) // remaining bytes
+                    mstore(_memPos, keccak256(_memPos, 64))
+                    _policyHash := mload(_memPos)
+                }
             }
 
             function extractVotingRoundIdFromMessage(
@@ -713,6 +718,17 @@ contract Relay is IIRelay {
                     SD_BOFF_lastInitializedRewardEpoch,
                     SD_MASK_lastInitializedRewardEpoch
                 )
+
+                // should the old signing policy reward epoch id be the last intialized one
+                if iszero(
+                    eq(
+                        tmpLastInitializedRewardEpochId,
+                        rewardEpochId
+                    )
+                ) {
+                    revertWithMessage(mload(0x40), "Not with last intialized", 24)
+                }
+
                 // Should be next reward epoch id
                 if iszero(
                     eq(
