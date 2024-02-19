@@ -173,7 +173,9 @@ contract Submission is Governed, AddressUpdatable, IISubmission {
      * @inheritdoc IRandomProvider
      */
     function getCurrentRandom() external view returns(uint256 _currentRandom) {
-        (_currentRandom, , ) = relay.getRandomNumber();
+        bool isSecureRandom;
+        (_currentRandom, isSecureRandom, ) = relay.getRandomNumber();
+        require(isSecureRandom, "Not secure");
     }
 
     /**

@@ -8,7 +8,7 @@ interface IRandomProvider {
 
 
     /**
-     * Returns current random number.
+     * Returns current random number. Method reverts if random number was not generated securely.
      * @return _randomNumber Current random number.
      */
     function getCurrentRandom() external view returns(uint256 _randomNumber);
