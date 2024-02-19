@@ -220,6 +220,15 @@ contract Relay is IIRelay {
             _signingPolicy.voters.length == _signingPolicy.weights.length,
             "size mismatch"
         );
+        uint16 totalWeight = 0;
+        for (uint256 i = 0; i < _signingPolicy.weights.length; i++) {
+            totalWeight += _signingPolicy.weights[i];
+            if(totalWeight > _signingPolicy.threshold) {
+                break;
+            }
+        }
+        require(totalWeight > _signingPolicy.threshold, "total weight too small");
+
         bytes memory signingPolicyBytes = new bytes(
             SIGNING_POLICY_PREFIX_BYTES +
                 _signingPolicy.voters.length *

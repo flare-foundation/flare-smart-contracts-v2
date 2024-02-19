@@ -35,7 +35,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   const randomNumberProtocolId = 15;
   const THRESHOLD_INCREASE = 12000;
   let newSigningPolicyDataRelayed: ISigningPolicy;
-  
+
 
   const firstVotingRoundInRewardEpoch = (rewardEpochId: number) => firstRewardEpochVotingRoundId + rewardEpochDurationInVotingEpochs * rewardEpochId;
 
@@ -944,6 +944,43 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
       await expectRevert(relay2.setSigningPolicy(newSigningPolicyData, { from: signers[1].address }), "only sign policy setter");
+    });
+
+    it("Should fail to directly set the signing policy due to sum of weight being below threshold", async () => {
+      // "not next reward epoch"
+      const relay2 = await Relay.new(
+        signers[0].address,
+        signingPolicyData.rewardEpochId,
+        signingPolicyData.startVotingRoundId,
+        SigningPolicy.hash(signingPolicyData),
+        randomNumberProtocolId,
+        firstVotingRoundStartSec,
+        votingRoundDurationSec,
+        firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs,
+        THRESHOLD_INCREASE
+      );
+      const newSigningPolicyData = { ...signingPolicyData, rewardEpochId: signingPolicyData.rewardEpochId + 1 };
+      let totalWeight = 0;
+      for (let i = 0; i < newSigningPolicyData.weights.length; i++) {
+        newSigningPolicyData.weights[i] = Math.floor(newSigningPolicyData.weights[i] / 3);
+        totalWeight += newSigningPolicyData.weights[i];
+      }
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "total weight too small");
+      const dif = newSigningPolicyData.threshold - totalWeight;
+      newSigningPolicyData.weights[0] += dif;
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "total weight too small");
+      newSigningPolicyData.weights[0] += 1;
+      expectEvent(await relay2.setSigningPolicy(newSigningPolicyData), "SigningPolicyInitialized",
+        {
+          rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
+          startVotingRoundId: toBN(newSigningPolicyData.startVotingRoundId),
+          voters: newSigningPolicyData.voters,
+          seed: toBN(newSigningPolicyData.seed),
+          threshold: toBN(newSigningPolicyData.threshold),
+          weights: newSigningPolicyData.weights.map(x => toBN(x)),
+          signingPolicyBytes: SigningPolicy.encode(newSigningPolicyData)
+        });
     });
 
     it("Should fail to relay new signing policy due to policy setter being set", async () => {
