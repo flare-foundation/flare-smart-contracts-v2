@@ -254,6 +254,28 @@ contract SubmissionTest is Test {
         assertEq(randomTimestamp, 5);
     }
 
+    function testGetCurrentRandom2() public {
+        _setContractAddresses();
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encode(123, false, 5)
+        );
+        vm.expectRevert("Not secure");
+        submission.getCurrentRandom();
+
+        (uint256 currentRandom, bool quality) = submission.getCurrentRandomWithQuality();
+        assertEq(currentRandom, 123);
+        assertEq(quality, false);
+
+        uint256 randomTimestamp;
+        (currentRandom, quality, randomTimestamp) =
+            submission.getCurrentRandomWithQualityAndTimestamp();
+        assertEq(currentRandom, 123);
+        assertEq(quality, false);
+        assertEq(randomTimestamp, 5);
+    }
+
     function _setContractAddresses() private {
         nameHashes.push(keccak256(abi.encode("AddressUpdater")));
         addresses.push(makeAddr("AddressUpdater"));
