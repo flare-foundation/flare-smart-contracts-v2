@@ -61,11 +61,12 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
      * @inheritdoc IFtsoFeedPublisher
      */
     function publish(FeedWithProof[] calldata _proofs) external {
-        uint256 minVotingRoundId = _getMinVotingRoundId();
+        (uint256 minVotingRoundId, uint256 maxVotingRoundId) = _getMinMaxVotingRoundId();
         uint256 length = _proofs.length;
         for (uint256 i = 0; i < length; i++) {
             FeedWithProof calldata proof = _proofs[i];
             Feed calldata feed = proof.body;
+            require(feed.votingRoundId < maxVotingRoundId, "voting round id too high");
             bool addLastFeed = feed.votingRoundId > lastFeeds[feed.name].votingRoundId;
             //slither-disable-next-line weak-prng
             uint256 feedHistoryPosition = feed.votingRoundId % feedsHistorySize;
@@ -90,10 +91,11 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
      * @inheritdoc IIFtsoFeedPublisher
      */
     function publishFeeds(Feed[] memory _feeds) external onlyFeedsPublisher {
-        uint256 minVotingRoundId = _getMinVotingRoundId();
+        (uint256 minVotingRoundId, uint256 maxVotingRoundId) = _getMinMaxVotingRoundId();
         uint256 length = _feeds.length;
         for (uint256 i = 0; i < length; i++) {
             Feed memory feed = _feeds[i];
+            require(feed.votingRoundId < maxVotingRoundId, "voting round id too high");
             bool addLastFeed = feed.votingRoundId > lastFeeds[feed.name].votingRoundId;
             //slither-disable-next-line weak-prng
             uint256 feedHistoryPosition = feed.votingRoundId % feedsHistorySize;
@@ -131,7 +133,8 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
      * @inheritdoc IFtsoFeedPublisher
      */
     function getFeed(bytes8 _feedName, uint256 _votingRoundId) external view returns(Feed memory _feed) {
-        require(_getMinVotingRoundId() <= _votingRoundId, "too old voting round id");
+        (uint256 minVotingRoundId,) = _getMinMaxVotingRoundId();
+        require(minVotingRoundId <= _votingRoundId, "too old voting round id");
         //slither-disable-next-line weak-prng
         _feed = publishedFeeds[_feedName][_votingRoundId % feedsHistorySize];
         require(_feed.votingRoundId == _votingRoundId, "feed not published yet");
@@ -150,12 +153,18 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
     }
 
     /**
-     * Returns the minimum voting round id.
+     * Returns minimal and maximal (current) voting round id.
      */
-    function _getMinVotingRoundId() internal view returns(uint256 _minVotingRoundId) {
-        uint256 currentVotingRoundId = relay.getVotingRoundId(block.timestamp);
-        if (currentVotingRoundId > feedsHistorySize) {
-            _minVotingRoundId = currentVotingRoundId - feedsHistorySize;
+    function _getMinMaxVotingRoundId()
+        internal view
+        returns(
+            uint256 _minVotingRoundId,
+            uint256 _maxVotingRoundId
+        )
+    {
+        _maxVotingRoundId = relay.getVotingRoundId(block.timestamp);
+        if (_maxVotingRoundId > feedsHistorySize) {
+            _minVotingRoundId = _maxVotingRoundId - feedsHistorySize;
         }
     }
 }
