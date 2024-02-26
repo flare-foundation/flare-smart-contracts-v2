@@ -137,6 +137,13 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase, IFtsoRewardOffersMa
     }
 
     /**
+     * @inheritdoc InflationReceiver
+     */
+    function _receiveInflation() internal override {
+        // do nothing
+    }
+
+    /**
      * @inheritdoc RewardOffersManagerBase
      */
     function _triggerInflationOffers(
