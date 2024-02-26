@@ -66,6 +66,13 @@ contract ValidatorRewardOffersManager is RewardOffersManagerBase, IValidatorRewa
     }
 
     /**
+     * @inheritdoc InflationReceiver
+     */
+    function _receiveInflation() internal override {
+        // do nothing
+    }
+
+    /**
      * @inheritdoc RewardOffersManagerBase
      */
     function _triggerInflationOffers(
