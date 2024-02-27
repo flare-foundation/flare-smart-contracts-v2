@@ -612,8 +612,7 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     )
         external onlyGovernance
     {
-        require(_signingPolicyThresholdPPM <= PPM_MAX, "threshold too high");
-        require(_signingPolicyMinNumberOfVoters > 0, "zero voters");
+        _checkSigningPolicySettings(_signingPolicyThresholdPPM, _signingPolicyMinNumberOfVoters);
         signingPolicyThresholdPPM = _signingPolicyThresholdPPM;
         signingPolicyMinNumberOfVoters = _signingPolicyMinNumberOfVoters;
     }
@@ -901,6 +900,20 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     }
 
     /**
+     * @inheritdoc IFlareSystemsManager
+     */
+    function getCurrentVotingEpochId() external view returns(uint32) {
+        return _getCurrentVotingEpochId();
+    }
+
+    /**
+     * @inheritdoc IFlareSystemsManager
+     */
+    function getCurrentRewardEpoch() external view returns(uint256) {
+        return _getCurrentRewardEpochId();
+    }
+
+    /**
      * @inheritdoc IFlareDaemonize
      */
     function switchToFallbackMode() external view onlyFlareDaemon returns (bool) {
@@ -958,8 +971,7 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
      * @param _settings The new settings.
      */
     function _updateSettings(Settings memory _settings) internal {
-        require(_settings.signingPolicyThresholdPPM <= PPM_MAX, "threshold too high");
-        require(_settings.signingPolicyMinNumberOfVoters > 0, "zero voters");
+        _checkSigningPolicySettings(_settings.signingPolicyThresholdPPM, _settings.signingPolicyMinNumberOfVoters);
 
         randomAcquisitionMaxDurationSeconds = _settings.randomAcquisitionMaxDurationSeconds;
         randomAcquisitionMaxDurationBlocks = _settings.randomAcquisitionMaxDurationBlocks;
@@ -1124,5 +1136,18 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     function _checkIsTimeToSignRewards(uint24 _rewardEpochId) internal view {
         require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
         require(rewardEpochState[_rewardEpochId + 1].signingPolicySignEndTs != 0, "new signing policy not signed yet");
+    }
+
+    /**
+     * Checks the signing policy settings.
+     */
+    function _checkSigningPolicySettings(
+        uint24 _signingPolicyThresholdPPM,
+        uint16 _signingPolicyMinNumberOfVoters
+    )
+        internal pure
+    {
+        require(_signingPolicyThresholdPPM <= PPM_MAX, "threshold too high");
+        require(_signingPolicyMinNumberOfVoters > 0, "zero voters");
     }
 }

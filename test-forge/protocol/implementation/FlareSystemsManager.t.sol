@@ -778,11 +778,13 @@ contract FlareSystemsManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize();
         assertEq(flareSystemsManager.getStartVotingRoundId(1), 3360);
+        assertEq(flareSystemsManager.getCurrentVotingEpochId(), 3360);
 
         _initializeSigningPolicyAndMoveToNewEpoch(2);
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize();
         assertEq(flareSystemsManager.getStartVotingRoundId(2), 2 * 3360);
+        assertEq(flareSystemsManager.getCurrentVotingEpochId(), 2 * 3360);
 
         vm.warp(block.timestamp + 5400 + 500);
         // voting round duration is 90 seconds
@@ -792,6 +794,8 @@ contract FlareSystemsManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize();
         assertEq(flareSystemsManager.getStartVotingRoundId(3), 3 * 3360 + 5 + 1);
+        assertEq(flareSystemsManager.getCurrentVotingEpochId(),
+            (block.timestamp - flareSystemsManager.firstVotingRoundStartTs()) / VOTING_EPOCH_DURATION_SEC);
     }
 
     function testGetThreshold() public {
@@ -1239,11 +1243,13 @@ contract FlareSystemsManagerTest is Test {
         // reward epoch 1 is already finished.
         // First transaction in the block (daemonize() call will change `currentRewardEpochExpectedEndTs` value)
         assertEq(flareSystemsManager.getCurrentRewardEpochId(), 1);
+        assertEq(flareSystemsManager.getCurrentRewardEpoch(), 1);
         vm.prank(flareDaemon);
         vm.expectEmit();
         emit RewardEpochStarted(2, 2 * 3360, uint64(block.timestamp));
         flareSystemsManager.daemonize(); // start new reward epoch (epoch 2)
         assertEq(flareSystemsManager.getCurrentRewardEpochId(), 2);
+        assertEq(flareSystemsManager.getCurrentRewardEpoch(), 2);
         (uint64 startTs, uint64 startBlock) = flareSystemsManager.getRewardEpochStartInfo(2);
         assertEq(startTs, uint64(block.timestamp));
         assertEq(startBlock, uint64(block.number));

@@ -142,7 +142,7 @@
     "pChainStakeEnabled": false,
 
     "ftsoProtocolId": 100,
-    "minimalRewardsOfferValueNAT": 10000,
+    "minimalRewardsOfferValueNAT": 1000,
     "decimalsUpdateOffset": 2,
     "defaultDecimals": 5,
     "feedsHistorySize": 200,
