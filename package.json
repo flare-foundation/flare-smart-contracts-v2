@@ -61,6 +61,8 @@
     "register_entities_local_hardhat": "env CHAIN_CONFIG=scdev yarn --silent hardhat --network localhost register-entities",
     "provide_random_number_for_initial_reward_epoch_local_scdev": "env CHAIN_CONFIG=scdev yarn --silent hardhat --network scdev provide-random-number-for-initial-reward-epoch",
     "provide_random_number_for_initial_reward_epoch_local_hardhat": "env CHAIN_CONFIG=scdev yarn --silent hardhat --network localhost provide-random-number-for-initial-reward-epoch --trigger true",
+    "offer_rewards_local_scdev": "env CHAIN_CONFIG=scdev yarn --silent hardhat --network scdev offer-rewards",
+    "offer_rewards_local_hardhat": "env CHAIN_CONFIG=scdev yarn --silent hardhat --network localhost offer-rewards",
     "---------SIMULATION---SCRIPTS": "",
     "sim-node": "yarn hardhat node",
     "sim-run": "yarn hardhat run-simulation --network local",
