@@ -236,14 +236,16 @@ task("switch-to-production-mode", "Switch to production mode")
     }
   });
 
-  task("offer-rewards", "Continuously send out community reward offers")
-  .addFlag("runNow", "Sends out offers now without waiting for next reward epoch start.")
+  task("offer-rewards", "Generate and send community reward offers")
   .setAction(async (args, hre, runSuper) => {
     const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
     if (parameters) {
       const network = process.env.CHAIN_CONFIG!;
       const contracts = readContracts(network);
-      await offerRewards(hre, contracts, parameters, args.runNow);
+      if (!process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY) {
+        throw Error("ACCOUNT_WITH_FUNDS_PRIVATE_KEY environment variable not set.")
+      }
+      await offerRewards(hre, process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, contracts, parameters);
     } else {
       throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
     }

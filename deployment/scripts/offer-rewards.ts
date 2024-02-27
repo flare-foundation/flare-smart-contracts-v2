@@ -3,48 +3,29 @@ import { Contracts } from "./Contracts";
 import { FlareSystemsManagerContract, FtsoRewardOffersManagerContract } from "../../typechain-truffle";
 import { EpochSettings } from "../utils/EpochSettings";
 import { FtsoRewardOffersManagerInstance } from "../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager";
-import { sleepFor } from "../utils/time";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 import { ChainParameters } from "../chain-config/chain-parameters";
-
-const feedCount = 10;
-const rewardEpochOffsetSec = 10;
+import { sleep } from "../tasks/run-simulation";
 
 export async function offerRewards(
   hre: HardhatRuntimeEnvironment,
+  offerSenderKey: string,
   contracts: Contracts,
-  parameters: ChainParameters,
-  /** Will offer rewards now without waiting for next reward epoch start. */
-  runNow: boolean
+  parameters: ChainParameters
 ) {
   const epochSettings = await getEpochSettings(contracts);
 
-  const offerSender = hre.web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);
-  const offers = generateOffers(feedCount);
+  const offerSender = hre.web3.eth.accounts.privateKeyToAccount(offerSenderKey);
+
+  const feeds = parameters.ftsoInflationConfigurations[0].feedNames;
+  const offers = generateOffers(feeds, parameters.minimalRewardsOfferValueNAT, offerSender.address);
 
   const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
   const offerManager = await FtsoRewardOffersManager.at(
     contracts.getContractAddress(Contracts.FTSO_REWARD_OFFERS_MANAGER)
   );
 
-  if (runNow) {
-    await runOfferRewards(epochSettings, offerManager, offers, offerSender.address);
-  }
-
-  function scheduleOfferRewardsActions() {
-    const time = Date.now();
-    const nextEpochStartMs = epochSettings.nextRewardEpochStartMs(time);
-
-    setTimeout(async () => {
-      scheduleOfferRewardsActions();
-      await runOfferRewards(epochSettings, offerManager, offers, offerSender.address);
-    }, nextEpochStartMs - time + rewardEpochOffsetSec * 1000);
-  }
-  scheduleOfferRewardsActions();
-
-  while (true) {
-    await sleepFor(1000);
-  }
+  await runOfferRewards(epochSettings, offerManager, offers, offerSender.address);
 }
 
 async function runOfferRewards(
@@ -63,30 +44,32 @@ async function runOfferRewards(
   }
 
   for (const batch of offerBatches) {
-    let rewards = 0;
+    let rewards = web3.utils.toBN(0);
     for (const offer of batch) {
-      rewards += offer.amount;
+      rewards = rewards.add(web3.utils.toBN(offer.amount));
     }
     try {
+      console.log("Offering rewards..., total value: " + rewards.toString());
       await ofm.offerRewards(nextRewardEpochId, batch, { value: rewards.toString(), from: offerSender });
       console.log(`Rewards offered: ${batch.length}`);
-      await sleepFor(500);
+      await sleep(500);
     } catch (e) {
       console.error("Rewards not offered: " + e);
     }
   }
 }
 
-function generateOffers(n: number) {
+function generateOffers(feeds: string[], amountNat: number, offerSender: string) {
   const offers = [];
-  for (let i = 0; i < n; i++) {
+  const amount = web3.utils.toWei(amountNat.toString());
+  for (const feed of feeds) {
     offers.push({
-      amount: 25000000,
-      feedName: FtsoConfigurations.encodeFeedName(i.toString()),
+      amount: amount,
+      feedName: FtsoConfigurations.encodeFeedName(feed),
       minRewardedTurnoutBIPS: 5000,
       primaryBandRewardSharePPM: 450000,
       secondaryBandWidthPPM: 50000,
-      claimBackAddress: "0x0000000000000000000000000000000000000000",
+      claimBackAddress: offerSender,
     });
   }
   return offers;
