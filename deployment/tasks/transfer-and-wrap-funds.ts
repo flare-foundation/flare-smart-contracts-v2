@@ -2,6 +2,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "../scripts/Contracts";
 import { WNatContract } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/WNat";
 import { Entity } from "../utils/Entity";
+import { waitFinalize3 } from "../scripts/deploy-utils";
 
 /**
  * This script will transfer funds from deployer account to provided accounts and wrap them.
@@ -43,11 +44,11 @@ export async function transferAndWrapFunds(
 
   const funds = web3.utils.toWei("1000");
   for (const entity of entities) {
-    await web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.identity.address, value: funds });
-    await web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.submit.address, value: funds });
-    await web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.submitSignatures.address, value: funds });
-    await web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.signingPolicy.address, value: funds });
-    await web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.delegation.address, value: funds });
-    await wNat.depositTo(entity.delegation.address, { value: entity.wrapped, from: accountWithFunds.address});
+    await waitFinalize3(hre, accountWithFunds.address, () => web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.identity.address, value: funds }));
+    await waitFinalize3(hre, accountWithFunds.address, () => web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.submit.address, value: funds }));
+    await waitFinalize3(hre, accountWithFunds.address, () => web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.submitSignatures.address, value: funds }));
+    await waitFinalize3(hre, accountWithFunds.address, () => web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.signingPolicy.address, value: funds }));
+    await waitFinalize3(hre, accountWithFunds.address, () => web3.eth.sendTransaction({ from: accountWithFunds.address, to: entity.delegation.address, value: funds }));
+    await waitFinalize3(hre, accountWithFunds.address, () => wNat.depositTo(entity.delegation.address, { value: entity.wrapped, from: accountWithFunds.address}));
   }
 }

@@ -2,6 +2,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "../scripts/Contracts";
 import { EntityManagerContract } from "../../typechain-truffle/contracts/protocol/implementation/EntityManager";
 import { Entity } from "../utils/Entity";
+import { waitFinalize3 } from "../scripts/deploy-utils";
 
 /**
  * This script will register all entity addresses on entity manager.
@@ -29,15 +30,15 @@ export async function registerEntities(
   const entityManager = await EntityManager.at(contracts.getContractAddress(Contracts.ENTITY_MANAGER));
 
   for (const entity of entities) {
-    await entityManager.proposeSubmitAddress(entity.submit.address, { from: entity.identity.address });
-    await entityManager.confirmSubmitAddressRegistration(entity.identity.address, { from: entity.submit.address });
-    await entityManager.proposeSubmitSignaturesAddress(entity.submitSignatures.address, { from: entity.identity.address });
-    await entityManager.confirmSubmitSignaturesAddressRegistration(entity.identity.address, { from: entity.submitSignatures.address });
-    await entityManager.proposeSigningPolicyAddress(entity.signingPolicy.address, { from: entity.identity.address });
-    await entityManager.confirmSigningPolicyAddressRegistration(entity.identity.address, { from: entity.signingPolicy.address });
+    await waitFinalize3(hre, entity.identity.address, () => entityManager.proposeSubmitAddress(entity.submit.address, { from: entity.identity.address }));
+    await waitFinalize3(hre, entity.submit.address, () => entityManager.confirmSubmitAddressRegistration(entity.identity.address, { from: entity.submit.address }));
+    await waitFinalize3(hre, entity.identity.address, () => entityManager.proposeSubmitSignaturesAddress(entity.submitSignatures.address, { from: entity.identity.address }));
+    await waitFinalize3(hre, entity.submitSignatures.address, () => entityManager.confirmSubmitSignaturesAddressRegistration(entity.identity.address, { from: entity.submitSignatures.address }));
+    await waitFinalize3(hre, entity.identity.address, () => entityManager.proposeSigningPolicyAddress(entity.signingPolicy.address, { from: entity.identity.address }));
+    await waitFinalize3(hre, entity.signingPolicy.address, () => entityManager.confirmSigningPolicyAddressRegistration(entity.identity.address, { from: entity.signingPolicy.address }));
     if (entity.delegation.privateKey) {
-      await entityManager.proposeDelegationAddress(entity.delegation.address, { from: entity.identity.address });
-      await entityManager.confirmDelegationAddressRegistration(entity.identity.address, { from: entity.delegation.address });
+      await waitFinalize3(hre, entity.identity.address, () => entityManager.proposeDelegationAddress(entity.delegation.address, { from: entity.identity.address }));
+      await waitFinalize3(hre, entity.delegation.address, () => entityManager.confirmDelegationAddressRegistration(entity.identity.address, { from: entity.delegation.address }));
     }
   }
 }
