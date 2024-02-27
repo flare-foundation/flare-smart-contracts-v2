@@ -599,6 +599,8 @@ async function runVotingRound(
         logger.error(e);
       }
     }
+    const revealStartMs = epochSettings.votingEpochStartMs(votingRoundId + 1);
+    await sleep(revealStartMs - Date.now());
     for (const acc of registeredAccounts) {
       try {
         await c.submission.submit2({ from: acc.submit.address });
@@ -609,7 +611,7 @@ async function runVotingRound(
   }
 
   const revealDeadlineMs =
-    epochSettings.votingEpochStartMs(votingRoundId) + (epochSettings.votingEpochDurationSec * 1000) / 2;
+    epochSettings.votingEpochStartMs(votingRoundId + 1) + (epochSettings.votingEpochDurationSec * 1000) / 2;
   await sleep(revealDeadlineMs - Date.now());
 
   if (!skipSubmit) {
@@ -621,7 +623,7 @@ async function runVotingRound(
       }
     }
   }
-  if (!skipFinalisation) await fakeFinalize(web3, signingPolicies, registeredAccounts, epochSettings, c);
+  if (!skipFinalisation) await fakeFinalize(web3, signingPolicies, registeredAccounts, epochSettings, c, now);
   logger.info(`Voting round ${votingRoundId} finished`);
 }
 
@@ -631,7 +633,7 @@ async function fakeFinalize(
   registeredAccounts: RegisteredAccount[],
   epochSettings: EpochSettings,
   c: DeployedContracts,
-  now: number = Date.now()
+  now: number
 ) {
   const logger = getLogger("finalize");
 
