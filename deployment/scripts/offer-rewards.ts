@@ -1,11 +1,11 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "./Contracts";
 import { FlareSystemsManagerContract, FtsoRewardOffersManagerContract } from "../../typechain-truffle";
-import { EpochSettings } from "../utils/EpochSettings";
 import { FtsoRewardOffersManagerInstance } from "../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { sleep } from "../tasks/run-simulation";
+import { FlareSystemsManagerInstance } from "../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager";
 
 export async function offerRewards(
   hre: HardhatRuntimeEnvironment,
@@ -13,8 +13,6 @@ export async function offerRewards(
   contracts: Contracts,
   parameters: ChainParameters
 ) {
-  const epochSettings = await getEpochSettings(contracts);
-
   const offerSender = hre.web3.eth.accounts.privateKeyToAccount(offerSenderKey);
 
   const feeds = parameters.ftsoInflationConfigurations[0].feedNames;
@@ -25,17 +23,21 @@ export async function offerRewards(
     contracts.getContractAddress(Contracts.FTSO_REWARD_OFFERS_MANAGER)
   );
 
-  await runOfferRewards(epochSettings, offerManager, offers, offerSender.address);
+  const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
+  const systemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.at(
+    contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER)
+  );
+  const currentRewardEpochId = (await systemsManager.getCurrentRewardEpochId()).toNumber();
+
+  await runOfferRewards(currentRewardEpochId + 1, offerManager, offers, offerSender.address);
 }
 
 async function runOfferRewards(
-  epochSettings: EpochSettings,
+  nextRewardEpochId: number,
   ofm: FtsoRewardOffersManagerInstance,
   offers: any[],
   offerSender: string
 ) {
-  const nextRewardEpochId = epochSettings.rewardEpochForTime(Date.now()) + 1;
-
   const batchSize = 75;
   const offerBatches = [];
   for (let i = 0; i < offers.length; i += batchSize) {
@@ -73,20 +75,4 @@ function generateOffers(feeds: string[], amountNat: number, offerSender: string)
     });
   }
   return offers;
-}
-
-async function getEpochSettings(contracts: Contracts) {
-  const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
-  const fsm = await FlareSystemsManager.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER));
-
-  const epochSettings = new EpochSettings(
-    (await fsm.firstRewardEpochStartTs()).toNumber(),
-    (await fsm.rewardEpochDurationSeconds()).toNumber(),
-    (await fsm.firstVotingRoundStartTs()).toNumber(),
-    (await fsm.votingEpochDurationSeconds()).toNumber(),
-    (await fsm.newSigningPolicyInitializationStartSeconds()).toNumber(),
-    (await fsm.voterRegistrationMinDurationSeconds()).toNumber(),
-    (await fsm.voterRegistrationMinDurationBlocks()).toNumber()
-  );
-  return epochSettings;
 }
