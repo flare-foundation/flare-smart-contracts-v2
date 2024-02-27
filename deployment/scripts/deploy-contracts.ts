@@ -81,7 +81,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
       console.error(`Using firstVotingRoundStartTs parameter ${parameters.firstVotingRoundStartTs} as first voting round start timestamp.`);
     }
   }
-  const initialRewardEpochId = currentBlockTs.sub(firstVotingRoundStartTs).addn(parameters.firstRewardEpochStartVotingRoundId * parameters.votingEpochDurationSeconds)
+  const initialRewardEpochId = currentBlockTs.sub(firstVotingRoundStartTs).subn(parameters.firstRewardEpochStartVotingRoundId * parameters.votingEpochDurationSeconds)
     .divn(parameters.votingEpochDurationSeconds * parameters.rewardEpochDurationInVotingEpochs).addn(parameters.initialRewardEpochOffset).toNumber();
   const initialRewardEpochStartVotingRoundId = initialRewardEpochId * parameters.rewardEpochDurationInVotingEpochs + parameters.firstRewardEpochStartVotingRoundId;
 

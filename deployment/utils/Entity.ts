@@ -33,7 +33,9 @@ export function getEntityAccounts(filePath: string): PrivateKeyWithBalance[] {
     result.push({ privateKey: entity.submit.privateKey, balance: "0" });
     result.push({ privateKey: entity.submitSignatures.privateKey, balance: "0" });
     result.push({ privateKey: entity.signingPolicy.privateKey, balance: "0" });
-    result.push({ privateKey: entity.delegation.privateKey, balance: "0" });
+    if (entity.delegation.privateKey) {
+      result.push({ privateKey: entity.delegation.privateKey, balance: "0" });
+    }
   }
   return result;
 }

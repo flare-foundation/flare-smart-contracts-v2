@@ -11,11 +11,35 @@
     "initialRewardEpochOffset": 1,
     "initialRandomVotePowerBlockSelectionSize": 100,
     "initialVoters": ["<use .env: INITIAL_VOTER_PRIVATE_KEY>"],
-    "initialNormalisedWeights": [
-        65535
-    ],
+    "initialNormalisedWeights": [65535],
     "initialThreshold": 32768,
-    "initialVoterData": [],
+    "initialVoterData": [
+        {
+            "voter": "0x1d415d28380ff51a507f7b176ca5f27833f7fffd",
+            "delegationAddress": "0xb849b93b585effb7ce4b522ff88d9b3b24955f24",
+            "nodeIds": []
+        },
+        {
+            "voter": "0xf0b444bdc5522e908ff903e3f1730b5ab60b610a",
+            "delegationAddress": "0x07f5053c867ae107db15a38aa4421b2c24ac4e51",
+            "nodeIds": []
+        },
+        {
+            "voter": "0xc6cb03a22213a3e02186a3126d47c7fba20e4ef5",
+            "delegationAddress": "0xabaa1718c2d80fc037bf66e3f66f0975d67431a9",
+            "nodeIds": []
+        },
+        {
+            "voter": "0x2e46e8d1f3636f7036978d054b0a07e7395053c8",
+            "delegationAddress": "0xe80c39eae57c0359ee6c4086e2b22300353728e1",
+            "nodeIds": []
+        },
+        {
+            "voter": "0xca84d6086c5b32212a0cf1638803355d7be31482",
+            "delegationAddress": "0x55FcF7806F556204141Fe90FBe9Ce6207D9c52AC",
+            "nodeIds": []
+        }
+    ],
     "initialFeedDecimalsList": [
         {
             "feedName": "BTC",
@@ -136,7 +160,7 @@
     "inflationReceivers": [
         {
             "oldContract": false,
-            "contractName": "RewardManager",
+            "contractName": "FtsoRewardOffersManager",
             "sharingBIPS": 5000,
             "topUpType": 1,
             "topUpFactorx100": 0

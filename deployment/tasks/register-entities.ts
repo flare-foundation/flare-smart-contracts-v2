@@ -35,7 +35,9 @@ export async function registerEntities(
     await entityManager.confirmSubmitSignaturesAddressRegistration(entity.identity.address, { from: entity.submitSignatures.address });
     await entityManager.proposeSigningPolicyAddress(entity.signingPolicy.address, { from: entity.identity.address });
     await entityManager.confirmSigningPolicyAddressRegistration(entity.identity.address, { from: entity.signingPolicy.address });
-    await entityManager.proposeDelegationAddress(entity.delegation.address, { from: entity.identity.address });
-    await entityManager.confirmDelegationAddressRegistration(entity.identity.address, { from: entity.delegation.address });
+    if (entity.delegation.privateKey) {
+      await entityManager.proposeDelegationAddress(entity.delegation.address, { from: entity.identity.address });
+      await entityManager.confirmDelegationAddressRegistration(entity.identity.address, { from: entity.delegation.address });
+    }
   }
 }

@@ -134,7 +134,7 @@
     "inflationReceivers": [
         {
             "oldContract": false,
-            "contractName": "RewardManager",
+            "contractName": "FtsoRewardOffersManager",
             "sharingBIPS": 5000,
             "topUpType": 1,
             "topUpFactorx100": 0
