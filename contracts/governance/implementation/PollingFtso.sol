@@ -94,7 +94,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
         uint256 _majorityConditionBIPS,
         uint256 _proposalFeeValueWei
     )
-        external override onlyMaintainer
+        external onlyMaintainer
     {
         require(
             _votingPeriodSeconds > 0 &&
@@ -130,7 +130,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     function propose(
         string memory _description
     )
-        external payable override returns (uint256 _proposalId)
+        external payable returns (uint256 _proposalId)
     {
         uint256 currentRewardEpochId = _getCurrentRewardEpochId();
 
@@ -176,7 +176,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
      * Emits a ProposalCanceled event
      * @dev Can be called by proposer of the proposal or its proxy only before voting starts
      */
-    function cancel(uint256 _proposalId) external override {
+    function cancel(uint256 _proposalId) external {
         Proposal storage proposal = proposals[_proposalId];
 
         require(!proposal.canceled, "proposal is already canceled");
@@ -202,7 +202,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
         uint256 _proposalId,
         uint8 _support
     )
-        external override
+        external
     {
         Proposal storage proposal = proposals[_proposalId];
         require(_state(_proposalId, proposal) == ProposalState.Active, "proposal not active");
@@ -226,7 +226,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     function setProxyVoter(
         address _proxyVoter
     )
-        external override
+        external
     {
         address currentProxy = voterToProxy[msg.sender];
         delete proxyToVoter[currentProxy];
@@ -255,7 +255,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     function getProposalInfo(
         uint256 _proposalId
     )
-        external view override
+        external view
         returns (
             uint256 _rewardEpochId,
             string memory _description,
@@ -286,7 +286,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     function getProposalDescription(
         uint256 _proposalId
     )
-        external view override
+        external view
         returns (
             string memory _description
         )
@@ -300,7 +300,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
      * @return _proposalId              Id of the last proposal
      * @return _description             Description of the last proposal
      */
-    function getLastProposal() external view override
+    function getLastProposal() external view
         returns (
             uint256 _proposalId,
             string memory _description
@@ -318,7 +318,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
      * @param _account              Address of the queried account
      * @return True if the queried account can create a proposal, false otherwise
      */
-    function canPropose(address _account) external view override returns (bool) {
+    function canPropose(address _account) external view returns (bool) {
         (, bool registered) = _getOperatingAccount(_account, _getCurrentRewardEpochId());
         return _canPropose(_account, registered);
     }
@@ -329,7 +329,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
      * @param _proposalId           Id of the queried proposal
      * @return True if account is eligible to vote, false otherwise
      */
-    function canVote(address _account, uint256 _proposalId) external view override returns (bool) {
+    function canVote(address _account, uint256 _proposalId) external view returns (bool) {
         Proposal storage proposal = proposals[_proposalId];
         (, bool registered) = _getOperatingAccount(_account, proposal.rewardEpochId);
         return registered;
@@ -340,7 +340,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
      * @param _proposalId           Id of the proposal
      * @return ProposalState enum
      */
-    function state(uint256 _proposalId) public view override returns (ProposalState) {
+    function state(uint256 _proposalId) public view returns (ProposalState) {
         return _state(_proposalId, proposals[_proposalId]);
     }
 
@@ -350,7 +350,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
      * @param _voter                Address of the voter
      * @return True if the voter has cast a vote on the proposal, false otherwise
      */
-    function hasVoted(uint256 _proposalId, address _voter) public view override returns (bool) {
+    function hasVoted(uint256 _proposalId, address _voter) public view returns (bool) {
         return proposalVotings[_proposalId].hasVoted[_voter];
     }
 
@@ -363,7 +363,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     function getProposalVotes(
         uint256 _proposalId
     )
-        public view override
+        public view
         returns (
             uint256 _for,
             uint256 _against

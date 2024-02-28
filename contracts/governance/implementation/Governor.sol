@@ -20,15 +20,18 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
 
     uint256 internal constant MAX_BIPS = 1e4;
 
+    /// The Submission contract.
     ISubmission public submission;
+    /// The FlareSystemsManager contract.
     IIFlareSystemsManager public flareSystemsManager;
+    /// The Supply contract.
     IISupply public supply;
 
-    /// @notice The EIP-712 typehash for the ballot struct used by the contract
+    /// The EIP-712 typehash for the ballot struct used by the contract
     bytes32 public constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,uint8 support)");
 
     /**
-     * @notice Initializes the contract with default parameters
+     * Initializes the contract with default parameters
      * @param _addressUpdater               Address identifying the address updater contract
      */
     constructor(
@@ -42,11 +45,9 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * @notice Cancels a proposal
-     * @param _proposalId       Unique identifier obtained by hashing proposal data
-     * @notice Emits a ProposalCanceled event
+     * @inheritdoc IGovernor
      */
-    function cancel(uint256 _proposalId) external override {
+    function cancel(uint256 _proposalId) external {
         Proposal storage proposal = proposals[_proposalId];
 
         require(!proposal.canceled, "proposal is already canceled");
@@ -59,43 +60,28 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * @notice Casts a vote on a proposal
-     * @param _proposalId           Id of the proposal
-     * @param _support              A value indicating vote type (against, for)
-     * @return Vote power of the cast vote
-     * @notice Emits a VoteCast event
+     * @inheritdoc IGovernor
      */
     function castVote(
         uint256 _proposalId,
         uint8 _support
-    ) external override returns (uint256) {
+    ) external returns (uint256) {
         return _castVote(_proposalId, msg.sender, _support, "");
     }
 
     /**
-     * @notice Casts a vote on a proposal with a reason
-     * @param _proposalId           Id of the proposal
-     * @param _support              A value indicating vote type (against, for)
-     * @param _reason               Vote reason
-     * @return Vote power of the cast vote
-     * @notice Emits a VoteCast event
+     * @inheritdoc IGovernor
      */
     function castVoteWithReason(
         uint256 _proposalId,
         uint8 _support,
         string calldata _reason
-    ) external override returns (uint256) {
+    ) external returns (uint256) {
         return _castVote(_proposalId, msg.sender, _support, _reason);
     }
 
     /**
-     * @notice Casts a vote on a proposal using the user cryptographic signature
-     * @param _proposalId           Id of the proposal
-     * @param _support              A value indicating vote type (against, for)
-     * @param _v                    v part of the signature
-     * @param _r                    r part of the signature
-     * @param _s                    s part of the signature
-     * @notice Emits a VoteCast event
+     * @inheritdoc IGovernor
      */
     function castVoteBySig(
         uint256 _proposalId,
@@ -103,7 +89,7 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
         uint8 _v,
         bytes32 _r,
         bytes32 _s
-    ) external override returns (uint256) {
+    ) external returns (uint256) {
         bytes32 messageHash = MessageHashUtils.toEthSignedMessageHash(
             _hashTypedDataV4(keccak256(abi.encode(BALLOT_TYPEHASH, _proposalId, _support)))
         );
@@ -119,57 +105,40 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * @notice Executes a successful proposal without execution parameters
-     * @param _description          String description of the proposal
-     * @notice Emits a ProposalExecuted event
+     * @inheritdoc IGovernor
      */
-    function execute(string memory _description) external override returns (uint256) {
-        return _execute(new address[](0), new uint256[](0), new bytes[](0), _getDescriptionHash(_description));
+    function execute(uint256 _proposalId) external {
+        _execute(_proposalId, new address[](0), new uint256[](0), new bytes[](0));
     }
 
     /**
-     * @notice Executes a successful proposal
-     * @param _targets              Array of target addresses on which the calls are to be invoked
-     * @param _values               Array of values with which the calls are to be invoked
-     * @param _calldatas            Array of call data to be invoked
-     * @param _description          String description of the proposal
-     * @notice Emits a ProposalExecuted event
+     * @inheritdoc IGovernor
      */
     function execute(
+        uint256 _proposalId,
         address[] memory _targets,
         uint256[] memory _values,
-        bytes[] memory _calldatas,
-        string memory _description
-    ) external payable override returns (uint256 proposalId) {
-        return _execute(_targets, _values, _calldatas, _getDescriptionHash(_description));
+        bytes[] memory _calldatas
+    ) external payable {
+        _execute(_proposalId, _targets, _values, _calldatas);
     }
 
     /**
-     * @notice Returns the current state of a proposal
-     * @param _proposalId           Id of the proposal
-     * @return ProposalState enum
+     * @inheritdoc IGovernor
      */
-    function state(uint256 _proposalId) external view override returns (ProposalState) {
+    function state(uint256 _proposalId) external view returns (ProposalState) {
         return _state(_proposalId, proposals[_proposalId]);
-    }    
+    }
 
     /**
-     * @notice Returns the vote power of a voter at a specific block number
-     * @param _voter                Address of the voter
-     * @param _blockNumber          The block number
-     * @return Vote power of the voter at the block number
+     * @inheritdoc IGovernor
      */
-    function getVotes(address _voter, uint256 _blockNumber) external view override returns (uint256) {
+    function getVotes(address _voter, uint256 _blockNumber) external view returns (uint256) {
         return votePowerOfAt(_voter, _blockNumber);
     }
 
     /**
-     * @notice Returns proposal id determined by hashing proposal data
-     * @param _targets              Array of target addresses on which the calls are to be invoked
-     * @param _values               Array of values with which the calls are to be invoked
-     * @param _calldatas            Array of call data to be invoked
-     * @param _description          Description of the proposal
-     * @return Proposal id
+     * @inheritdoc IGovernor
      */
     function getProposalId(
         address[] memory _targets,
@@ -181,23 +150,19 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * @notice Returns information of the specified proposal
-     * @param _proposalId               Id of the proposal
-     * @return _proposer                Address of the proposal submitter
-     * @return _accept                  Type of the proposal - accept or reject
-     * @return _votePowerBlock          Block number used to determine the vote powers in voting process
-     * @return _voteStartTime           Start time (in seconds from epoch) of the proposal voting
-     * @return _voteEndTime             End time (in seconds from epoch) of the proposal voting
-     * @return _execStartTime           Start time (in seconds from epoch) of the proposal execution window
-     * @return _execEndTime             End time (in seconds from epoch) of the proposal exectuion window
-     * @return _thresholdConditionBIPS  Percentage in BIPS of the total vote power required for proposal "quorum"
-     * @return _majorityConditionBIPS   Percentage in BIPS of the proper relation between FOR and AGAINST votes
-     * @return _circulatingSupply       Circulating supply at votePowerBlock
+     * @inheritdoc IGovernor
+     */
+    function getProposalIds() external view returns (uint256[] memory) {
+        return proposalIds;
+    }
+
+    /**
+     * @inheritdoc IGovernor
      */
     function getProposalInfo(
         uint256 _proposalId
     )
-        external view override
+        external view
         returns (
             address _proposer,
             bool _accept,
@@ -208,8 +173,9 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
             uint256 _execEndTime,
             uint256 _thresholdConditionBIPS,
             uint256 _majorityConditionBIPS,
-            uint256 _circulatingSupply
-        ) 
+            uint256 _circulatingSupply,
+            string memory _description
+        )
     {
         Proposal storage proposal = proposals[_proposalId];
         _proposer = proposal.proposer;
@@ -222,22 +188,20 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
         _thresholdConditionBIPS = proposal.thresholdConditionBIPS;
         _majorityConditionBIPS = proposal.majorityConditionBIPS;
         _circulatingSupply = proposal.circulatingSupply;
+        _description = proposal.description;
     }
 
     /**
-     * @notice Returns votes (for, against) of the specified proposal 
-     * @param _proposalId           Id of the proposal
-     * @return _for                 Accumulated vote power for the proposal
-     * @return _against             Accumulated vote power against the proposal
+     * @inheritdoc IGovernor
      */
     function getProposalVotes(
         uint256 _proposalId
     )
-        external view override
+        external view
         returns (
             uint256 _for,
             uint256 _against
-        ) 
+        )
     {
         ProposalVoting storage voting = proposalVotings[_proposalId];
         _for = voting.forVotePower;
@@ -245,36 +209,33 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * @notice Returns information if a voter has cast a vote on a specific proposal
-     * @param _proposalId           Id of the proposal
-     * @param _voter                Address of the voter
-     * @return True if the voter has cast a vote on the proposal, and false otherwise
+     * @inheritdoc IGovernor
      */
-    function hasVoted(uint256 _proposalId, address _voter) external view override returns (bool) {
+    function hasVoted(uint256 _proposalId, address _voter) external view returns (bool) {
         return proposalVotings[_proposalId].hasVoted[_voter];
     }
 
     /**
-     * @notice Returns the name of the governor contract
+     * Returns the name of the governor contract
      * @return String representing the name
      */
     function name() public pure virtual returns (string memory);
 
     /**
-     * @notice Returns the version of the governor contract
+     * Returns the version of the governor contract
      * @return String representing the version
      */
     function version() public pure virtual returns (string memory);
 
     /**
-     * @notice Creates a new proposal
+     * Creates a new proposal
      * @param _targets              Array of target addresses on which the calls are to be invoked
      * @param _values               Array of values with which the calls are to be invoked
      * @param _calldatas            Array of call data to be invoked
      * @param _description          String description of the proposal
      * @param _settings             Settings of the poposal
      * @return Proposal id (unique identifier obtained by hashing proposal data)
-     * @notice Emits a ProposalCreated event
+     * Emits a ProposalCreated event
      */
     function _propose(
         address[] memory _targets,
@@ -329,7 +290,7 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * @notice Casts a vote on a proposal
+     * Casts a vote on a proposal
      * @param _proposalId           Id of the proposal
      * @param _voter                Address of the voter
      * @param _support              A value indicating vote type (against, for)
@@ -353,37 +314,39 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * @notice Executes a successful proposal
+     * Executes a successful proposal
+     * @param _proposalId           Id of the proposal
      * @param _targets              Array of target addresses on which the calls are to be invoked
      * @param _values               Array of values with which the calls are to be invoked
      * @param _calldatas            Array of call data to be invoked
-     * @param _descriptionHash      Hashed description of the proposal
-     * @notice Emits a ProposalExecuted event
+     * Emits a ProposalExecuted event
      */
     function _execute(
+        uint256 _proposalId,
         address[] memory _targets,
         uint256[] memory _values,
-        bytes[] memory _calldatas,
-        bytes32 _descriptionHash
-    ) internal returns (uint256 proposalId) {
-        proposalId = _getProposalId(_targets, _values, _calldatas, _descriptionHash);
-        Proposal storage proposal = proposals[proposalId];
+        bytes[] memory _calldatas
+    )
+        internal
+    {
+        Proposal storage proposal = proposals[_proposalId];
+        require(
+            _proposalId == _getProposalId(_targets, _values, _calldatas, _getDescriptionHash(proposal.description)),
+            "execution parameters do not match proposal");
 
         require(!proposal.executed, "proposal already executed");
         require(proposal.proposer == msg.sender, "proposal can only be executed by its proposer");
 
-        ProposalState proposalState = _state(proposalId, proposal);
+        ProposalState proposalState = _state(_proposalId, proposal);
         require(proposalState == ProposalState.Queued, "proposal not in execution state");
 
         proposal.executed = true;
         _executeProposal(_targets, _values, _calldatas);
-        emit ProposalExecuted(proposalId);
-
-        return proposalId;
+        emit ProposalExecuted(_proposalId);
     }
 
     /**
-     * @notice Implementation of the AddressUpdatable abstract method.
+     * Implementation of the AddressUpdatable abstract method.
      */
     function _updateContractAddresses(
         bytes32[] memory _contractNameHashes,
@@ -407,7 +370,7 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * @notice Calculates a vote power block for proposal
+     * Calculates a vote power block for proposal
      * @return Vote power block number
      */
     function _calculateVotePowerBlock(uint256 _vpBlockPeriodSeconds) internal view returns (uint256, uint256) {
@@ -438,7 +401,7 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * @notice Returns the current state of a proposal
+     * Returns the current state of a proposal
      * @param _proposalId           Id of the proposal
      * @param _proposal             Proposal object
      * @return ProposalState enum
@@ -480,18 +443,24 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
         return ProposalState.Defeated;
     }
 
+    /**
+     * Returns the start and end voting times of a proposal
+     */
     function _getVoteTimes(Proposal storage proposal) internal view returns (uint256[2] memory _voteTimes) {
         _voteTimes[0] = proposal.voteStartTime;
         _voteTimes[1] = proposal.voteEndTime;
     }
 
+    /**
+     * Returns the start and end execution times of a proposal
+     */
     function _getExecTimes(Proposal storage proposal) internal view returns (uint256[2] memory _execTimes) {
         _execTimes[0] = proposal.execStartTime;
         _execTimes[1] = proposal.execEndTime;
     }
 
     /**
-     * @notice Determines if a proposal has been successful
+     * Determines if a proposal has been successful
      * @param _proposalId           Id of the proposal
      * @param _proposal             Proposal
      * @return True if proposal succeeded and false otherwise
@@ -513,7 +482,7 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * @notice Determines if the submitter of a proposal is a valid proposer
+     * Determines if the submitter of a proposal is a valid proposer
      * @param _proposer             Address of the submitter
      * @param _votePowerBlock       Number representing the vote power block for which the validity is checked
      * @return True if the submitter is valid, and false otherwise

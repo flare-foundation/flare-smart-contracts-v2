@@ -131,10 +131,10 @@ interface IPollingFtso {
     ) external payable returns (uint256);
 
     /**
-     * @notice Casts a vote on a proposal
+     * Casts a vote on a proposal
      * @param _proposalId           Id of the proposal
      * @param _support              A value indicating vote type (against, for)
-     * @notice Emits a VoteCast event
+     * Emits a VoteCast event
      */
     function castVote(uint256 _proposalId, uint8 _support) external;
 
@@ -146,14 +146,14 @@ interface IPollingFtso {
     function setProxyVoter(address _proxyVoter) external;
 
     /**
-     * @notice Returns the current state of a proposal
+     * Returns the current state of a proposal
      * @param _proposalId           Id of the proposal
      * @return ProposalState enum
      */
     function state(uint256 _proposalId) external view returns (ProposalState);
 
     /**
-     * @notice Returns whether a voter has cast a vote on a specific proposal
+     * Returns whether a voter has cast a vote on a specific proposal
      * @param _proposalId           Id of the proposal
      * @param _voter                Address of the voter
      * @return True if the voter has cast a vote on the proposal, and false otherwise

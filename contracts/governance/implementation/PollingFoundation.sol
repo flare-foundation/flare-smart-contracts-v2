@@ -31,19 +31,15 @@ contract PollingFoundation is IIPollingFoundation, Governor, Governed, GovernorP
     {}
 
     /**
-     * Creates a new proposal without execution parameters.
-     * @param _description String description of the proposal.
-     * @param _settings Settings of the poposal.
-     * @return Proposal id (unique identifier obtained by hashing proposal data).
-     * Emits a ProposalCreated event.
+     * @inheritdoc IIPollingFoundation
      */
     function propose(
         string memory _description,
         GovernorSettingsWithoutExecParams memory _settings
-    ) external override returns (uint256) {
+    ) external returns (uint256) {
         GovernorSettings memory settings = GovernorSettings({
             accept: _settings.accept,
-            votingDelaySeconds: _settings.votingDelaySeconds,
+            votingStartTs: _settings.votingStartTs,
             votingPeriodSeconds: _settings.votingPeriodSeconds,
             vpBlockPeriodSeconds:_settings.vpBlockPeriodSeconds,
             thresholdConditionBIPS:_settings.thresholdConditionBIPS,
@@ -55,14 +51,7 @@ contract PollingFoundation is IIPollingFoundation, Governor, Governed, GovernorP
     }
 
     /**
-     * Creates a new proposal with execution parameters.
-     * @param _targets Array of target addresses on which the calls are to be invoked.
-     * @param _values Array of values with which the calls are to be invoked.
-     * @param _calldatas Array of call data to be invoked.
-     * @param _description String description of the proposal.
-     * @param _settings Settings of the poposal.
-     * @return Proposal id (unique identifier obtained by hashing proposal data).
-     * Emits a ProposalCreated event.
+     * @inheritdoc IIPollingFoundation
      */
     function propose(
         address[] memory _targets,
@@ -70,7 +59,7 @@ contract PollingFoundation is IIPollingFoundation, Governor, Governed, GovernorP
         bytes[] memory _calldatas,
         string memory _description,
         GovernorSettings memory _settings
-    ) external override returns (uint256) {
+    ) external returns (uint256) {
         return _propose(_targets, _values, _calldatas, _description, _settings);
     }
 

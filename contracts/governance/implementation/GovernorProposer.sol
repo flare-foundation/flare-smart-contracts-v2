@@ -11,7 +11,7 @@ abstract contract GovernorProposer is IIGovernorProposer, Governed {
     event ProposersChanged(address[] addedProposers, address[] removedProposers);
 
     /**
-     * @notice Initializes the governor parameters
+     * Initializes the governor parameters
      * @param _proposers                Array of addresses allowed to submit a proposal
      */
     constructor(
@@ -21,11 +21,11 @@ abstract contract GovernorProposer is IIGovernorProposer, Governed {
     }
 
     /**
-     * @notice Changes proposers
+     * Changes proposers
      * @param _proposersToAdd       Array of addresses to make eligible to submit a proposal
      * @param _proposersToRemove    Array of addresses to make ineligible to submit a proposal
-     * @notice This operation can only be performed through a governance proposal
-     * @notice Emits a ProposersChanged event
+     * This operation can only be performed through a governance proposal
+     * Emits a ProposersChanged event
      */
     function changeProposers(
         address[] memory _proposersToAdd,
@@ -35,19 +35,19 @@ abstract contract GovernorProposer is IIGovernorProposer, Governed {
     }
 
     /**
-     * @notice Determines if account is eligible to submit a proposal
+     * Determines if account is eligible to submit a proposal
      * @param _account              Address of the queried account
      * @return True if account is eligible for proposal submission, and false otherwise
      */
-    function isProposer(address _account) public view override returns (bool) {
+    function isProposer(address _account) public view returns (bool) {
         return proposers[_account];
     }
 
     /**
-     * @notice Changes proposers
+     * Changes proposers
      * @param _proposersToAdd       Array of addresses to make eligible to submit a proposal
      * @param _proposersToRemove    Array of addresses to make ineligible to submit a proposal
-     * @notice Emits a ProposersChanged event
+     * Emits a ProposersChanged event
      */
     function _changeProposers(address[] memory _proposersToAdd, address[] memory _proposersToRemove) internal {
         emit ProposersChanged(_proposersToAdd, _proposersToRemove);

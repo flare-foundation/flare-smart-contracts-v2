@@ -2,11 +2,12 @@
 pragma solidity 0.8.20;
 
 import "../../userInterfaces/IGovernor.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 abstract contract GovernorProposals {
 
     /**
-     * @notice Struct holding the information about proposal properties
+     * Struct holding the information about proposal properties
      */
     struct Proposal {
         address proposer;               // address of the proposer
@@ -22,10 +23,14 @@ abstract contract GovernorProposals {
         uint256 thresholdConditionBIPS; // percentage in BIPS of the total vote power required for proposal "quorum"
         uint256 majorityConditionBIPS;  // percentage in BIPS of the proper relation between FOR and AGAINST votes
         uint256 circulatingSupply;      // circulating supply at votePowerBlock
+        string description;             // description of the proposal
     }
 
     uint256 internal nextExecutionStartTime;            // first available time for next proposal execution
     mapping(uint256 proposalId => Proposal) internal proposals;
+    /// Array of proposal ids
+    uint256[] public proposalIds;
+    /// Chain id used for proposal id generation
     uint256 immutable public chainId;
 
     constructor() {
@@ -39,7 +44,7 @@ abstract contract GovernorProposals {
     }
 
     /**
-     * @notice Stores a new proposal
+     * Stores a new proposal
      * @param _proposer             Address of the proposer
      * @param _targets              Array of target addresses on which the calls are to be invoked
      * @param _values               Array of values with which the calls are to be invoked
@@ -71,9 +76,10 @@ abstract contract GovernorProposals {
         require(proposal.voteStartTime == 0, "proposal already exists");
 
         proposal.proposer = _proposer;
+        proposal.description = _description;
         proposal.votePowerBlock = _votePowerBlock;
         proposal.accept = _settings.accept;
-        proposal.voteStartTime = block.timestamp + _settings.votingDelaySeconds;
+        proposal.voteStartTime = Math.max(block.timestamp, _settings.votingStartTs);
         proposal.voteEndTime = proposal.voteStartTime + _settings.votingPeriodSeconds;
 
         require(proposal.voteEndTime - _minVPBlockTimestamp < _maxProposalDurationSeconds,
@@ -93,11 +99,13 @@ abstract contract GovernorProposals {
         proposal.majorityConditionBIPS = _settings.majorityConditionBIPS;
         proposal.circulatingSupply = _circulatingSupply;
 
+        proposalIds.push(proposalId);
+
         return (proposalId, proposal);
     }
 
     /**
-     * @notice Executes proposal
+     * Executes proposal
      * @param _targets              Array of target addresses on which the calls are to be invoked
      * @param _values               Array of values with which the calls are to be invoked
      * @param _calldatas            Array of call data to be invoked
@@ -132,7 +140,7 @@ abstract contract GovernorProposals {
     }
 
     /**
-     * @notice Creates the hash of a proposal which is used as its id
+     * Creates the hash of a proposal which is used as its id
      * @param _targets              Array of target addresses on which the calls are to be invoked
      * @param _values               Array of values with which the calls are to be invoked
      * @param _calldatas            Array of call data to be invoked
@@ -148,7 +156,7 @@ abstract contract GovernorProposals {
     }
 
     /**
-     * @notice Hashes the proposal description
+     * Hashes the proposal description
      * @param _description          String representing the proposal description
      * @return Bytes array representing hashed proposal description
      */
