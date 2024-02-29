@@ -889,7 +889,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         let tx = await pollingFoundation.methods["propose(string,(bool,uint256,uint256,uint256,uint256,uint256))"].sendTransaction("Proposal",
         {
             accept: false,
-            votingDelaySeconds: 3600,
+            votingStartTs: (await time.latest()).addn(3600).toNumber(),
             votingPeriodSeconds: 7200,
             vpBlockPeriodSeconds: 259200,
             thresholdConditionBIPS: 7500,
