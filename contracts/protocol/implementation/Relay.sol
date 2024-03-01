@@ -51,6 +51,9 @@ contract Relay is IIRelay {
 
     uint256 private constant THRESHOLD_BIPS = 10000;
     uint256 private constant SELECTOR_BYTES = 4;
+    uint256 private constant MAX_VOTERS = 300;
+    uint256 private constant MIN_THRESHOLD_BIPS = 5000;
+    uint256 private constant MAX_THRESHOLD_BIPS = 6600;
 
     // Signing policy byte encoding structure
     // 2 bytes - numberOfVoters
@@ -216,18 +219,24 @@ contract Relay is IIRelay {
             "not next reward epoch"
         );
         require(_signingPolicy.voters.length > 0, "must be non-trivial");
+        require(_signingPolicy.voters.length <= MAX_VOTERS, "too many voters");
         require(
             _signingPolicy.voters.length == _signingPolicy.weights.length,
             "size mismatch"
         );
-        uint16 totalWeight = 0;
+        uint256 totalWeight = 0;
         for (uint256 i = 0; i < _signingPolicy.weights.length; i++) {
             totalWeight += _signingPolicy.weights[i];
-            if(totalWeight > _signingPolicy.threshold) {
-                break;
-            }
         }
-        require(totalWeight > _signingPolicy.threshold, "total weight too small");
+        require(totalWeight < 2**16, "total weight too big");
+        require(
+            uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS) >= totalWeight * MIN_THRESHOLD_BIPS, 
+            "too small threshold"
+        );
+        require(
+            uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS) <= totalWeight * MAX_THRESHOLD_BIPS, 
+            "too big threshold"
+        );
 
         bytes memory signingPolicyBytes = new bytes(
             SIGNING_POLICY_PREFIX_BYTES +
@@ -446,6 +455,59 @@ contract Relay is IIRelay {
                     MSG_NMR_BOFF_votingRoundId,
                     MSG_NMR_MASK_votingRoundId
                 )
+            }
+
+            function checkThresholdConsistency(
+                _memPtr,
+                _metadata,
+                _signingPolicyStart
+            ) {
+                let totalWeight := 0
+                for {
+                    let i := 0                    
+                    let offset := add(
+                        add(_signingPolicyStart, SIGNING_POLICY_PREFIX_BYTES),
+                        ADDRESS_BYTES
+                    )
+                    let numberOfVoters := structValue(
+                        _metadata,
+                        MD_BOFF_numberOfVoters,
+                        MD_MASK_numberOfVoters
+                    )
+                } lt(i, numberOfVoters) {
+                    i := add(i, 1)
+                } {
+                    // clear the memory slot
+                    mstore(_memPtr, 0)
+                    // copy the weight to the rightmost WEIGHT_BYTES
+                    calldatacopy(
+                        add(_memPtr, sub(32, WEIGHT_BYTES)),
+                        add(
+                            offset,
+                            mul(i, ADDRESS_AND_WEIGHT_BYTES)
+                        ),
+                        WEIGHT_BYTES
+                    )
+                    // add to the total weight
+                    totalWeight := add(
+                        totalWeight,
+                        mload(_memPtr)
+                    )
+                }
+                if gt(totalWeight, sub(shl(16, 1),1)) {   // totalWeight > 2 ** 16 - 1
+                    revertWithMessage(_memPtr, "total weight too big", 20)
+                }
+                let threshold := structValue(
+                    _metadata,
+                    MD_BOFF_threshold,
+                    MD_MASK_threshold
+                )
+                if lt(mul(threshold, THRESHOLD_BIPS), mul(totalWeight, MIN_THRESHOLD_BIPS)) {
+                    revertWithMessage(_memPtr, "too small threshold", 19)
+                }
+                if gt(mul(threshold, THRESHOLD_BIPS), mul(totalWeight, MAX_THRESHOLD_BIPS)) {
+                    revertWithMessage(_memPtr, "too big threshold", 17)
+                }
             }
 
             // free memory pointer
@@ -698,6 +760,14 @@ contract Relay is IIRelay {
                     MD_BOFF_numberOfVoters,
                     MD_MASK_numberOfVoters
                 )
+                // must be at least one voter
+                if eq(newNumberOfVoters, 0) {
+                    revertWithMessage(mload(0x40), "must be non-trivial", 19)
+                }
+                // must be at most MAX_VOTERS
+                if gt(newNumberOfVoters, MAX_VOTERS) {
+                    revertWithMessage(mload(0x40), "too many voters", 15)
+                }
 
                 let newSigningPolicyLength := add(
                     SIGNING_POLICY_PREFIX_BYTES,
@@ -747,6 +817,16 @@ contract Relay is IIRelay {
                 ) {
                     revertWithMessage(mload(0x40), "Not next reward epoch", 21)
                 }
+
+                // Check the threshold consistency
+                checkThresholdConsistency(
+                    mload(0x40), 
+                    newMetadata, 
+                    add(
+                        SELECTOR_BYTES,
+                        add(PROTOCOL_ID_BYTES, signingPolicyLength)
+                    )                    
+                )
 
                 let newSigningPolicyHash := calculateSigningPolicyHash(
                     mload(0x40),

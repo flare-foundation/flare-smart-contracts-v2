@@ -15,6 +15,8 @@ import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsC
 import { ISigningPolicy, SigningPolicy } from '../../scripts/libs/protocol/SigningPolicy';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 
+let fs = require('fs');
+
 export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContracts: Contracts, contracts: Contracts, parameters: ChainParameters, quiet: boolean = false) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
@@ -33,7 +35,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
   const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
   const Relay: RelayContract = artifacts.require("Relay");
-  const Supply = artifacts.require("IISupply");
+  const Supply = artifacts.require("IISupplyGovernance");
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
@@ -68,7 +70,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   }
 
   let firstVotingRoundStartTs = BN(parameters.firstVotingRoundStartTs);
-  if (firstVotingRoundStartTs.eqn(0)) {
+  if (firstVotingRoundStartTs.eqn(0) || firstVotingRoundStartTs.gt(currentBlockTs)) {
     // Get the timestamp for the just mined block
     firstVotingRoundStartTs = currentBlockTs;
     if (!quiet) {
@@ -79,9 +81,11 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
       console.error(`Using firstVotingRoundStartTs parameter ${parameters.firstVotingRoundStartTs} as first voting round start timestamp.`);
     }
   }
-  const initialRewardEpochId = currentBlockTs.sub(firstVotingRoundStartTs).addn(parameters.firstRewardEpochStartVotingRoundId * parameters.votingEpochDurationSeconds)
+  const initialRewardEpochId = currentBlockTs.sub(firstVotingRoundStartTs).subn(parameters.firstRewardEpochStartVotingRoundId * parameters.votingEpochDurationSeconds)
     .divn(parameters.votingEpochDurationSeconds * parameters.rewardEpochDurationInVotingEpochs).addn(parameters.initialRewardEpochOffset).toNumber();
   const initialRewardEpochStartVotingRoundId = initialRewardEpochId * parameters.rewardEpochDurationInVotingEpochs + parameters.firstRewardEpochStartVotingRoundId;
+
+  fs.writeFileSync("deployment/deploys/initialRewardEpochId.txt", initialRewardEpochId.toString());
 
   if (!quiet) {
     console.error(`Initial reward epoch id: ${initialRewardEpochId}. Start voting round id: ${initialRewardEpochStartVotingRoundId}.`);

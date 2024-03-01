@@ -264,6 +264,47 @@ export interface ChainParameters {
      * Flare daemonized contracts. Order matters. Inflation should be first.
      */
     flareDaemonizedContracts: FlareDaemonizedContract[];
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Polling Foundation
+
+    /**
+     * Array of proposers that can create a proposal
+     */
+    proposers: string[];
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Polling Ftso
+
+    /**
+     * Address of maintainer of PollingFtso contract.
+     */
+    maintainer: string;
+
+    /**
+     * Period (in seconds) between creation of proposal and voting start time.
+     */
+    votingDelaySeconds: integer;
+
+    /**
+     * Length (in seconds) of voting period.
+     */
+    votingPeriodSeconds: integer;
+
+    /**
+     * Threshold (in BIPS) for proposal to potentially be accepted. If less than thresholdConditionBIPS of total vote power participates in vote, proposal can't be accepted.
+     */
+    thresholdConditionBIPS: integer;
+
+    /**
+     * Majority condition (in BIPS) for proposal to be accepted. If less than majorityConditionBIPS votes in favor, proposal can't be accepted.
+     */
+    majorityConditionBIPS: integer;
+
+    /**
+     * Cost of creating proposal (in NAT). It is paid by the proposer.
+     */
+    proposalFeeValueNAT: integer;
 }
 
 export interface FtsoInflationConfiguration {

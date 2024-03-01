@@ -47,8 +47,8 @@ export async function setInflationReceivers(
   web3.eth.defaultAccount = deployerAccount.address;
 
   // Get contract definitions
-  const Inflation = artifacts.require("IIInflation");
-  const InflationAllocation = artifacts.require("IIInflationAllocation");
+  const Inflation = artifacts.require("IIInflationGovernance");
+  const InflationAllocation = artifacts.require("IIInflationAllocationGovernance");
 
   // Fetch inflation contracts
   const inflation = await Inflation.at(oldContracts.getContractAddress(Contracts.INFLATION));

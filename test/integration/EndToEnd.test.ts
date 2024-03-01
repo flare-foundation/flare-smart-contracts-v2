@@ -34,6 +34,9 @@ import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfiguratio
 import { FlareSystemsCalculatorContract, FlareSystemsCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsCalculator';
 import { CleanupBlockNumberManagerContract, CleanupBlockNumberManagerInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/CleanupBlockNumberManager';
 import { RelayMessage } from '../../scripts/libs/protocol/RelayMessage';
+import { PollingFoundationContract, PollingFoundationInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingFoundation';
+import { PollingFtsoContract, PollingFtsoInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingFtso';
+import { ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance } from '../../typechain-truffle/contracts/staking/implementation/ValidatorRewardOffersManager';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -56,6 +59,9 @@ const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.requi
 const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
 const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
 const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
+const ValidatorRewardOffersManager: ValidatorRewardOffersManagerContract = artifacts.require("ValidatorRewardOffersManager");
+const PollingFoundation: PollingFoundationContract = artifacts.require("PollingFoundation");
+const PollingFtso: PollingFtsoContract = artifacts.require("PollingFtso");
 
 type PChainStake = {
     txId: string,
@@ -113,7 +119,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let ftsoRewardOffersManager: FtsoRewardOffersManagerInstance;
     let ftsoFeedDecimals: FtsoFeedDecimalsInstance;
     let ftsoFeedPublisher: FtsoFeedPublisherInstance;
+    let validatorRewardOffersManager: ValidatorRewardOffersManagerInstance
     let cleanupBlockNumberManager: CleanupBlockNumberManagerInstance;
+    let pollingFoundation: PollingFoundationInstance;
+    let supplyMock: MockContractInstance;
+    let pollingFtso: PollingFtsoInstance;
 
     let initialSigningPolicy: ISigningPolicy;
     let newSigningPolicy: ISigningPolicy;
@@ -296,7 +306,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             200
         );
 
+        validatorRewardOffersManager = await ValidatorRewardOffersManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
+
         cleanupBlockNumberManager = await CleanupBlockNumberManager.new(accounts[0], ADDRESS_UPDATER, "FlareSystemsManager");
+
+        pollingFoundation = await PollingFoundation.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, [accounts[10], accounts[11]]);
+        supplyMock = await MockContract.new();
+
+        pollingFtso = await PollingFtso.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
 
         await flareSystemsCalculator.enablePChainStakeMirror();
         await rewardManager.enablePChainStakeMirror();
@@ -346,12 +363,24 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
             [ADDRESS_UPDATER, relay.address], { from: ADDRESS_UPDATER });
 
+        await validatorRewardOffersManager.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.INFLATION]),
+            [ADDRESS_UPDATER, flareSystemsManager.address, rewardManager.address, INFLATION], { from: ADDRESS_UPDATER });
+
         await cleanupBlockNumberManager.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
             [ADDRESS_UPDATER, flareSystemsManager.address], { from: ADDRESS_UPDATER });
 
+        await pollingFoundation.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.SUPPLY, Contracts.SUBMISSION, Contracts.GOVERNANCE_VOTE_POWER]),
+            [ADDRESS_UPDATER, flareSystemsManager.address, supplyMock.address, submission.address, governanceVotePower.address], { from: ADDRESS_UPDATER });
+
+        await pollingFtso.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.FLARE_SYSTEMS_MANAGER]),
+            [ADDRESS_UPDATER, voterRegistry.address, flareSystemsManager.address], { from: ADDRESS_UPDATER });
+
         // set reward offers manager list
-        await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address]);
+        await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, validatorRewardOffersManager.address]);
 
         // set initial reward data
         await rewardManager.setInitialRewardData();
@@ -361,8 +390,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await ftsoRewardOffersManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION });
         await ftsoRewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION });
 
-        // set rewards offer switchover trigger contracts
-        await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address]);
+        await validatorRewardOffersManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION });
+        await validatorRewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION });
+
+        // set reward epoch switchover trigger contracts
+        await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address, validatorRewardOffersManager.address]);
 
         // set ftso configurations
         await ftsoInflationConfigurations.addFtsoConfiguration(
@@ -385,6 +417,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
                 secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([200, 1000])
             }
         );
+
+        // set polling ftso maintainer and parameters
+        await pollingFtso.setMaintainer(accounts[10]);
+        await pollingFtso.setParameters(3600, 3600, 5000, 5000, 100, { from: accounts[10] });
 
         // offer some rewards
         await ftsoRewardOffersManager.offerRewards(1, [
@@ -586,6 +622,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         expectEvent(tx, "RewardEpochStarted");
         await expectEvent.inTransaction(tx.tx, submission, "NewVotingRoundInitiated");
         await expectEvent.inTransaction(tx.tx, ftsoRewardOffersManager, "InflationRewardsOffered", { rewardEpochId: toBN(2), amount: toBN("133333333333333333333333") });
+        await expectEvent.inTransaction(tx.tx, ftsoRewardOffersManager, "InflationRewardsOffered", { rewardEpochId: toBN(2), amount: toBN("66666666666666666666667") });
+        await expectEvent.inTransaction(tx.tx, validatorRewardOffersManager, "InflationRewardsOffered", { rewardEpochId: toBN(2), amount: toBN("200000000000000000000000") });
         expect((await flareSystemsManager.getCurrentRewardEpochId()).toNumber()).to.be.equal(1);
     });
 
@@ -846,4 +884,53 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         expectEvent(tx, "RewardClaimed", { beneficiary: registeredCAddresses[0], rewardOwner:registeredCAddresses[0], recipient: accounts[200], rewardEpochId: toBN(1), claimType: toBN(2), amount: toBN(500)});
         expect(balanceAfter.sub(balanceBefore).toNumber()).to.be.equal(500);
     });
+
+    it("Should create new PollingFoundation proposal and vote on it", async () => {
+        let tx = await pollingFoundation.methods["propose(string,(bool,uint256,uint256,uint256,uint256,uint256))"].sendTransaction("Proposal",
+        {
+            accept: false,
+            votingStartTs: (await time.latest()).addn(3600).toNumber(),
+            votingPeriodSeconds: 7200,
+            vpBlockPeriodSeconds: 259200,
+            thresholdConditionBIPS: 7500,
+            majorityConditionBIPS: 5000
+        }, { from: accounts[10] }) as any;
+
+        let proposalId = tx.logs[0].args.proposalId.toString();
+
+        // advance one hour to the voting period
+        await time.increase(3600);
+
+        // voting
+        await pollingFoundation.castVote(proposalId, 0, { from: registeredCAddresses[0] });
+        await pollingFoundation.castVote(proposalId, 1, { from: registeredCAddresses[1] });
+        await pollingFoundation.castVote(proposalId, 0, { from: registeredCAddresses[2] });
+
+        // advance to the end of the voting period
+        await time.increase(7200);
+
+        let state = await pollingFoundation.state(proposalId);
+        expect(state.toString()).to.equals("2");
+    });
+
+    it("Should create new PollingFtso proposal and vote on it", async () => {
+        const proposalId = toBN(1);
+        let tx = await pollingFtso.propose("Proposal", { value: toBN(100), from: registeredCAddresses[0] });
+        expectEvent(tx, "FtsoProposalCreated", { proposalId: proposalId, proposer: registeredCAddresses[0] });
+
+        // advance one hour to the voting period
+        await time.increase(3600);
+
+        // voting
+        await pollingFtso.castVote(proposalId, 1, { from: registeredCAddresses[0] });
+        await pollingFtso.castVote(proposalId, 1, { from: registeredCAddresses[1] });
+        await pollingFtso.castVote(proposalId, 0, { from: registeredCAddresses[2] });
+
+        // advance to the end of the voting period
+        await time.increase(3600);
+
+        let state = await pollingFtso.state(proposalId);
+        expect(state.toString()).to.equals("4");
+    });
+
 });

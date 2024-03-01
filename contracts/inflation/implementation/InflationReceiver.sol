@@ -95,12 +95,12 @@ abstract contract InflationReceiver is TokenPoolBase, IIInflationReceiver, Addre
     /**
      * Method that is called when new daily inflation is authorized.
      */
-    function _setDailyAuthorizedInflation(uint256 _toAuthorizeWei) internal virtual {}
+    function _setDailyAuthorizedInflation(uint256 _toAuthorizeWei) internal virtual;
 
     /**
      * Method that is called when new inflation is received.
      */
-    function _receiveInflation() internal virtual {}
+    function _receiveInflation() internal virtual;
 
     /**
      * Checks that the caller is inflation.

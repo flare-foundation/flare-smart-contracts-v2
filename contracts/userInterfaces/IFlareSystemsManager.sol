@@ -204,5 +204,15 @@ interface IFlareSystemsManager {
     /**
      * Returns the current reward epoch id.
      */
-    function getCurrentRewardEpochId() external view returns(uint24 _currentRewardEpochId);
+    function getCurrentRewardEpochId() external view returns(uint24);
+
+    /**
+     * Returns the current voting epoch id.
+     */
+    function getCurrentVotingEpochId() external view returns(uint32);
+
+    /**
+     * Returns the current reward epoch id (backwards compatibility).
+     */
+    function getCurrentRewardEpoch() external view returns(uint256);
 }

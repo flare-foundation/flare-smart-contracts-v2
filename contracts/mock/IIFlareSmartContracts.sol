@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-interface IIInflationAllocation {
+interface IIInflationAllocationGovernance {
 
     function setSharingPercentages(
         address[] memory _inflationReceivers,
@@ -10,7 +10,7 @@ interface IIInflationAllocation {
         external;
 }
 
-interface IIInflation {
+interface IIInflationGovernance {
 
     enum TopupType{ FACTOROFDAILYAUTHORIZED, ALLAUTHORIZED }
 
@@ -22,7 +22,7 @@ interface IIInflation {
         external;
 }
 
-interface IIFlareDaemon {
+interface IIFlareDaemonGovernance {
 
     struct Registration {
         address daemonizedContract;
@@ -32,7 +32,7 @@ interface IIFlareDaemon {
     function registerToDaemonize(Registration[] memory _registrations) external;
 }
 
-interface IISupply {
+interface IISupplyGovernance {
 
     function addTokenPool(
         address _tokenPool,

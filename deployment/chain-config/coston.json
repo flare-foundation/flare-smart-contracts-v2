@@ -1,19 +1,45 @@
 {
-    "testDeployment": true,
+    "testDeployment": false,
     "submissionDeployerPrivateKey": "<use .env: SUBMISSION_DEPLOYER_PRIVATE_KEY>",
     "deployerPrivateKey": "<use .env: DEPLOYER_PRIVATE_KEY>",
     "genesisGovernancePrivateKey": "<use .env: GENESIS_GOVERNANCE_PRIVATE_KEY>",
     "governancePublicKey": "<use .env: GOVERNANCE_PUBLIC_KEY>",
     "governancePrivateKey": "<use .env: GOVERNANCE_PRIVATE_KEY>",
-    "governanceTimelock": 1,
+    "governanceTimelock": 3600,
     "governanceExecutorPublicKey": "<use .env: GOVERNANCE_EXECUTOR_PUBLIC_KEY>",
 
-    "initialRewardEpochOffset": 0,
-    "initialRandomVotePowerBlockSelectionSize": 1,
+    "initialRewardEpochOffset": 1,
+    "initialRandomVotePowerBlockSelectionSize": 100,
     "initialVoters": ["<use .env: INITIAL_VOTER_PRIVATE_KEY>"],
     "initialNormalisedWeights": [65535],
     "initialThreshold": 32768,
-    "initialVoterData": [],
+    "initialVoterData": [
+        {
+            "voter": "0x1d415d28380ff51a507f7b176ca5f27833f7fffd",
+            "delegationAddress": "0xb849b93b585effb7ce4b522ff88d9b3b24955f24",
+            "nodeIds": []
+        },
+        {
+            "voter": "0xf0b444bdc5522e908ff903e3f1730b5ab60b610a",
+            "delegationAddress": "0x07f5053c867ae107db15a38aa4421b2c24ac4e51",
+            "nodeIds": []
+        },
+        {
+            "voter": "0xc6cb03a22213a3e02186a3126d47c7fba20e4ef5",
+            "delegationAddress": "0xabaa1718c2d80fc037bf66e3f66f0975d67431a9",
+            "nodeIds": []
+        },
+        {
+            "voter": "0x2e46e8d1f3636f7036978d054b0a07e7395053c8",
+            "delegationAddress": "0xe80c39eae57c0359ee6c4086e2b22300353728e1",
+            "nodeIds": []
+        },
+        {
+            "voter": "0xca84d6086c5b32212a0cf1638803355d7be31482",
+            "delegationAddress": "0x55FcF7806F556204141Fe90FBe9Ce6207D9c52AC",
+            "nodeIds": []
+        }
+    ],
     "initialFeedDecimalsList": [
         {
             "feedName": "BTC",
@@ -92,25 +118,25 @@
     "firstVotingRoundStartTs": 1658430000,
     "votingEpochDurationSeconds": 90,
     "firstRewardEpochStartVotingRoundId": 0,
-    "rewardEpochDurationInVotingEpochs": 10,
+    "rewardEpochDurationInVotingEpochs": 240,
     "relayThresholdIncreaseBIPS": 12000,
-    "newSigningPolicyInitializationStartSeconds": 480,
-    "randomAcquisitionMaxDurationSeconds": 300,
-    "randomAcquisitionMaxDurationBlocks": 100,
-    "newSigningPolicyMinNumberOfVotingRoundsDelay": 1,
-    "voterRegistrationMinDurationSeconds": 60,
-    "voterRegistrationMinDurationBlocks": 10,
-    "submitUptimeVoteMinDurationSeconds": 60,
-    "submitUptimeVoteMinDurationBlocks": 10,
+    "newSigningPolicyInitializationStartSeconds": 7200,
+    "randomAcquisitionMaxDurationSeconds": 14400,
+    "randomAcquisitionMaxDurationBlocks": 1920,
+    "newSigningPolicyMinNumberOfVotingRoundsDelay": 3,
+    "voterRegistrationMinDurationSeconds": 1800,
+    "voterRegistrationMinDurationBlocks": 240,
+    "submitUptimeVoteMinDurationSeconds": 600,
+    "submitUptimeVoteMinDurationBlocks": 80,
     "signingPolicyThresholdPPM": 500000,
-    "signingPolicyMinNumberOfVoters": 2,
-    "rewardExpiryOffsetSeconds": 3600,
+    "signingPolicyMinNumberOfVoters": 3,
+    "rewardExpiryOffsetSeconds": 604800,
     "maxNodeIdsPerEntity": 0,
     "maxVotersPerRewardEpoch": 100,
-    "wNatCapPPM": 2500,
-    "signingPolicySignNonPunishableDurationSeconds": 150,
-    "signingPolicySignNonPunishableDurationBlocks": 50,
-    "signingPolicySignNoRewardsDurationBlocks": 50,
+    "wNatCapPPM": 25000,
+    "signingPolicySignNonPunishableDurationSeconds": 1200,
+    "signingPolicySignNonPunishableDurationBlocks": 160,
+    "signingPolicySignNoRewardsDurationBlocks": 160,
     "feePercentageUpdateOffset": 2,
     "defaultFeePercentageBIPS": 2000,
     "pChainStakeEnabled": false,
@@ -166,10 +192,11 @@
         }
     ],
     "proposers": [
-        "0xd7de703d9bbc4602242d0f3149e5ffcd30eb3adf",
-        "0x532792b73c0c6e7565912e7039c59986f7e1dd1f"
+        "0x1a16DC5ec4f48Ed769949855C3bC3a1d10c72A95",
+        "0x893baB99798BCF5e0faB09Ad5CE61872B951F0a5",
+        "0x2da78A7908A89038832f920869a5526c20689904"
     ],
-    "maintainer": "0xc783df8a850f42e7f7e57013759c285caa701eb6",
+    "maintainer": "0x25365AA95F57768d598cA6C938f93F7a8D2469E8",
     "votingDelaySeconds": 3600,
     "votingPeriodSeconds": 86400,
     "thresholdConditionBIPS": 6600,

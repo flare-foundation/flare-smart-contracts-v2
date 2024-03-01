@@ -1,19 +1,9 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { pascalCase } from "pascal-case";
-import {   } from "../../typechain-truffle";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contract, Contracts } from "./Contracts";
 import { readFileSync } from "fs";
 
-export interface AssetDefinition {
-  name?: string;
-  symbol: string;
-  wSymbol?: string;
-  decimals?: number;
-  ftsoDecimals: number;
-  maxMintRequestTwei?: number;
-  initialPriceUSDDec5: number;
-}
 
 const Ajv = require('ajv');
 const ajv = new Ajv();
@@ -55,6 +45,11 @@ export function verifyParameters(parameters: ChainParameters) {
   if (totalInitialNormalisedWeight <= parameters.initialThreshold) {
     throw new Error(`Total initialThreshold is too large`);
   }
+  for (const ftsoConfiguration of parameters.ftsoInflationConfigurations) {
+    if (ftsoConfiguration.feedNames.length !== ftsoConfiguration.secondaryBandWidthPPMs.length) {
+      throw new Error(`Mismatch between feedNames and secondaryBandWidthPPMs`);
+    }
+  }
 }
 
 export function spewNewContractInfo(contracts: Contracts, addressUpdaterContracts: string[] | null, name: string, contractName: string, address: string, quiet = false, pascal = true) {
@@ -72,10 +67,6 @@ export function spewNewContractInfo(contracts: Contracts, addressUpdaterContract
   }
 }
 
-// waitFinalize3 and setDefaultVPContract are duplicated from test helper library because imports contain hardhat runtime.
-// Because this procedure now runs as a hardhat task, the hardhat runtime cannot be imported, as this procedure
-// is now considered a part of the HH configuration.
-
 /**
  * Finalization wrapper for web3/truffle. Needed on Flare network since account nonce has to increase
  * to have the transaction confirmed.
@@ -89,7 +80,6 @@ export function spewNewContractInfo(contracts: Contracts, addressUpdaterContract
   let res = await func();
   while ((await web3.eth.getTransactionCount(address)) == nonce) {
     await new Promise((resolve: any) => { setTimeout(() => { resolve() }, 1000) })
-    // console.log("Waiting...")
   }
   return res;
 }

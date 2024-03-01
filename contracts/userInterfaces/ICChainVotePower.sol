@@ -59,7 +59,7 @@ interface ICChainVotePower {
     * @param _blockNumber The block number at which to fetch.
     * @return The total vote power at the block  (sum of all accounts' vote powers).
     */
-    function totalVotePowerAt(uint _blockNumber) external view returns(uint256);
+    function totalVotePowerAt(uint256 _blockNumber) external view returns(uint256);
 
     /**
      * Get the amounts and accounts being staked to by a vote power owner.
@@ -122,7 +122,7 @@ interface ICChainVotePower {
     * @param _blockNumber The block number at which to fetch.
     * @return The staked vote power.
     */
-    function votePowerFromToAt(address _owner, address _account, uint _blockNumber) external view returns(uint256);
+    function votePowerFromToAt(address _owner, address _account, uint256 _blockNumber) external view returns(uint256);
 
     /**
      * Return vote powers for several accounts in a batch.

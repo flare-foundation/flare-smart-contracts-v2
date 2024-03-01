@@ -39,6 +39,23 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
   const firstVotingRoundInRewardEpoch = (rewardEpochId: number) => firstRewardEpochVotingRoundId + rewardEpochDurationInVotingEpochs * rewardEpochId;
 
+  const prepareFullData = async (signingPolicyData: ISigningPolicy, newSigningPolicyData: ISigningPolicy) => {
+    const localHash = SigningPolicy.hash(newSigningPolicyData);
+
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      localHash,
+      N / 2 + 1
+    );
+
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      newSigningPolicy: newSigningPolicyData
+    };
+    return RelayMessage.encode(relayMessage);
+  }  
+
   before(async () => {
     // accounts = loadAccounts(web3);
     signers = (await ethers.getSigners()) as unknown as SignerWithAddress[];
@@ -746,6 +763,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     newSigningPolicyData.rewardEpochId = newRewardEpoch;
     newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
     newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
+    const weightSum = newSigningPolicyData.weights.reduce((a, b) => a + b, 0);
+    newSigningPolicyData.threshold = Math.ceil(weightSum / 2);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
     const localHash = SigningPolicy.hash(newSigningPolicyData);
     const signatures = await generateSignaturesEncoded(
@@ -774,6 +793,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     newSigningPolicyData.rewardEpochId = newRewardEpoch;
     newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 50);
     newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 50);
+    const weightSum = newSigningPolicyData.weights.reduce((a, b) => a + b, 0);
+    newSigningPolicyData.threshold = Math.ceil(weightSum / 2);
     newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
     const localHash = SigningPolicy.hash(newSigningPolicyData);
     const signatures = await generateSignaturesEncoded(
@@ -884,7 +905,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
     });
 
-    it("Should fail to directly set the signing policy due to policy being trivial", async () => {
+    it("Should fail to directly set or relay the signing policy due to policy being trivial", async () => {
       // "must be non-trivial"
       const relay2 = await Relay.new(
         signers[0].address,
@@ -898,12 +919,32 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs,
         THRESHOLD_INCREASE
       );
+
+      const relay3 = await Relay.new(
+        constants.ZERO_ADDRESS,
+        signingPolicyData.rewardEpochId,
+        signingPolicyData.startVotingRoundId,
+        SigningPolicy.hash(signingPolicyData),
+        randomNumberProtocolId,
+        firstVotingRoundStartSec,
+        votingRoundDurationSec,
+        firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs,
+        THRESHOLD_INCREASE
+      );
+
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
       newSigningPolicyData.voters = [];
       newSigningPolicyData.weights = [];
       await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "must be non-trivial");
-
+      await expect(
+        signers[0].sendTransaction({
+          from: signers[0].address,
+          to: relay3.address,
+          data: selector + (await prepareFullData(signingPolicyData, newSigningPolicyData)).slice(2),
+        })
+      ).to.be.revertedWith("must be non-trivial");      
     });
 
     it("Should fail due to voters and weights length mismatch", async () => {
@@ -960,27 +1001,27 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs,
         THRESHOLD_INCREASE
       );
-      const newSigningPolicyData = { ...signingPolicyData, rewardEpochId: signingPolicyData.rewardEpochId + 1 };
+      const newSigningPolicyData = { ...signingPolicyData, rewardEpochId: signingPolicyData.rewardEpochId + 1, weights: [...signingPolicyData.weights] };
       let totalWeight = 0;
       for (let i = 0; i < newSigningPolicyData.weights.length; i++) {
         newSigningPolicyData.weights[i] = Math.floor(newSigningPolicyData.weights[i] / 3);
         totalWeight += newSigningPolicyData.weights[i];
       }
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "total weight too small");
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too big threshold");
       const dif = newSigningPolicyData.threshold - totalWeight;
       newSigningPolicyData.weights[0] += dif;
-      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "total weight too small");
-      newSigningPolicyData.weights[0] += 1;
-      expectEvent(await relay2.setSigningPolicy(newSigningPolicyData), "SigningPolicyInitialized",
-        {
-          rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
-          startVotingRoundId: toBN(newSigningPolicyData.startVotingRoundId),
-          voters: newSigningPolicyData.voters,
-          seed: toBN(newSigningPolicyData.seed),
-          threshold: toBN(newSigningPolicyData.threshold),
-          weights: newSigningPolicyData.weights.map(x => toBN(x)),
-          signingPolicyBytes: SigningPolicy.encode(newSigningPolicyData)
-        });
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too big threshold");
+      // newSigningPolicyData.weights[0] += 1;
+      // expectEvent(await relay2.setSigningPolicy(newSigningPolicyData), "SigningPolicyInitialized",
+      //   {
+      //     rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
+      //     startVotingRoundId: toBN(newSigningPolicyData.startVotingRoundId),
+      //     voters: newSigningPolicyData.voters,
+      //     seed: toBN(newSigningPolicyData.seed),
+      //     threshold: toBN(newSigningPolicyData.threshold),
+      //     weights: newSigningPolicyData.weights.map(x => toBN(x)),
+      //     signingPolicyBytes: SigningPolicy.encode(newSigningPolicyData)
+      //   });
     });
 
     it("Should fail to relay new signing policy due to policy setter being set", async () => {
@@ -1029,5 +1070,196 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         })
       ).to.be.revertedWith("Sign policy relay disabled");
     });
+
+    it("Should fail directly setup voters with wrong number of voters", async () => {
+      const newSigningPolicyData = defaultTestSigningPolicy(
+        signers.map(x => x.address),
+        301, // max is 300
+        200
+      );
+      newSigningPolicyData.rewardEpochId = signingPolicyData.rewardEpochId + 1;
+      const relay2 = await Relay.new(
+        signers[0].address,
+        signingPolicyData.rewardEpochId,
+        signingPolicyData.startVotingRoundId,
+        SigningPolicy.hash(signingPolicyData),
+        randomNumberProtocolId,
+        firstVotingRoundStartSec,
+        votingRoundDurationSec,
+        firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs,
+        THRESHOLD_INCREASE
+      );
+
+      const relay3 = await Relay.new(
+        constants.ZERO_ADDRESS,
+        signingPolicyData.rewardEpochId,
+        signingPolicyData.startVotingRoundId,
+        SigningPolicy.hash(signingPolicyData),
+        randomNumberProtocolId,
+        firstVotingRoundStartSec,
+        votingRoundDurationSec,
+        firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs,
+        THRESHOLD_INCREASE
+      );
+
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too many voters");
+      await expect(
+        signers[0].sendTransaction({
+          from: signers[0].address,
+          to: relay3.address,
+          data: selector + (await prepareFullData(signingPolicyData, newSigningPolicyData)).slice(2),
+        })
+      ).to.be.revertedWith("too many voters");      
+
+      newSigningPolicyData.voters = newSigningPolicyData.voters.slice(0, 300);
+      newSigningPolicyData.weights = newSigningPolicyData.weights.slice(0, 300);
+      expectEvent(await relay2.setSigningPolicy(newSigningPolicyData), "SigningPolicyInitialized",
+        {
+          rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
+          startVotingRoundId: toBN(newSigningPolicyData.startVotingRoundId),
+          voters: newSigningPolicyData.voters,
+          seed: toBN(newSigningPolicyData.seed),
+          threshold: toBN(newSigningPolicyData.threshold),
+          weights: newSigningPolicyData.weights.map(x => toBN(x)),
+          signingPolicyBytes: SigningPolicy.encode(newSigningPolicyData)
+        });
+
+    });
+
+    it("Should fail due to total weight be too big or not in sync with threshold limits", async () => {
+      const newSigningPolicyData = { ...signingPolicyData, weights: [...signingPolicyData.weights] };
+      const newRewardEpoch = newSigningPolicyData.rewardEpochId + 1;
+      newSigningPolicyData.rewardEpochId = newRewardEpoch;
+      newSigningPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(newRewardEpoch);
+
+      let totalWeight = 0;
+      for (const weight of newSigningPolicyData.weights) {
+        totalWeight += weight;
+      }
+
+      const relay2 = await Relay.new(
+        signers[0].address,
+        signingPolicyData.rewardEpochId,
+        signingPolicyData.startVotingRoundId,
+        SigningPolicy.hash(signingPolicyData),
+        randomNumberProtocolId,
+        firstVotingRoundStartSec,
+        votingRoundDurationSec,
+        firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs,
+        THRESHOLD_INCREASE
+      );
+
+      const relay3 = await Relay.new(
+        constants.ZERO_ADDRESS,
+        signingPolicyData.rewardEpochId,
+        signingPolicyData.startVotingRoundId,
+        SigningPolicy.hash(signingPolicyData),
+        randomNumberProtocolId,
+        firstVotingRoundStartSec,
+        votingRoundDurationSec,
+        firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs,
+        THRESHOLD_INCREASE
+      );
+
+
+      newSigningPolicyData.weights[0] = 2 ** 16 - 1;
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "total weight too big");
+      await expect(
+        signers[0].sendTransaction({
+          from: signers[0].address,
+          to: relay3.address,
+          data: selector + (await prepareFullData(signingPolicyData, newSigningPolicyData)).slice(2),
+        })
+      ).to.be.revertedWith("total weight too big");
+
+      newSigningPolicyData.weights[0] = newSigningPolicyData.weights[1] + 1;
+      newSigningPolicyData.threshold = Math.floor(totalWeight / 2);
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too small threshold");
+      await expect(
+        signers[0].sendTransaction({
+          from: signers[0].address,
+          to: relay3.address,
+          data: selector + (await prepareFullData(signingPolicyData, newSigningPolicyData)).slice(2),
+        })
+      ).to.be.revertedWith("too small threshold");
+
+      newSigningPolicyData.weights[0] = newSigningPolicyData.weights[1];
+      newSigningPolicyData.threshold = Math.floor(totalWeight / 2) - 1;
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too small threshold");
+      await expect(
+        signers[0].sendTransaction({
+          from: signers[0].address,
+          to: relay3.address,
+          data: selector + (await prepareFullData(signingPolicyData, newSigningPolicyData)).slice(2),
+        })
+      ).to.be.revertedWith("too small threshold");
+
+
+      expect(totalWeight).to.equal(50000);  // further tests are designed assuming 50000!
+      newSigningPolicyData.threshold = Math.floor(totalWeight / 2);
+      expectEvent(await relay2.setSigningPolicy(newSigningPolicyData), "SigningPolicyInitialized",
+        {
+          rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
+          startVotingRoundId: toBN(newSigningPolicyData.startVotingRoundId),
+          voters: newSigningPolicyData.voters,
+          seed: toBN(newSigningPolicyData.seed),
+          threshold: toBN(newSigningPolicyData.threshold),
+          weights: newSigningPolicyData.weights.map(x => toBN(x)),
+          signingPolicyBytes: SigningPolicy.encode(newSigningPolicyData)
+        });
+
+      let receipt = await web3.eth.sendTransaction({
+        from: signers[0].address,
+        to: relay3.address,
+        data: selector + (await prepareFullData(signingPolicyData, newSigningPolicyData)).slice(2),
+      })
+
+      await expectEvent.inTransaction(receipt!.transactionHash, relay3, "SigningPolicyRelayed", {
+        rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
+      });
+
+      let lastRelayedSigningPolicy = { ...newSigningPolicyData };
+
+      newSigningPolicyData.rewardEpochId += 1;
+      newSigningPolicyData.threshold = Math.floor(totalWeight * 0.66) + 1;
+      await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too big threshold");
+      await expect(
+        signers[0].sendTransaction({
+          from: signers[0].address,
+          to: relay3.address,
+          data: selector + (await prepareFullData(lastRelayedSigningPolicy, newSigningPolicyData)).slice(2),
+        })
+      ).to.be.revertedWith("too big threshold");
+
+
+      newSigningPolicyData.threshold = Math.floor(totalWeight * 0.66);
+      expectEvent(await relay2.setSigningPolicy(newSigningPolicyData), "SigningPolicyInitialized",
+        {
+          rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
+          startVotingRoundId: toBN(newSigningPolicyData.startVotingRoundId),
+          voters: newSigningPolicyData.voters,
+          seed: toBN(newSigningPolicyData.seed),
+          threshold: toBN(newSigningPolicyData.threshold),
+          weights: newSigningPolicyData.weights.map(x => toBN(x)),
+          signingPolicyBytes: SigningPolicy.encode(newSigningPolicyData)
+        });
+
+      receipt = await web3.eth.sendTransaction({
+        from: signers[0].address,
+        to: relay3.address,
+        data: selector + (await prepareFullData(lastRelayedSigningPolicy, newSigningPolicyData)).slice(2),
+      })
+
+      await expectEvent.inTransaction(receipt!.transactionHash, relay3, "SigningPolicyRelayed", {
+        rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
+      });
+
+    });
+
   });
+
 });

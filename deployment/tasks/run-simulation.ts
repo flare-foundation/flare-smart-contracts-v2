@@ -81,14 +81,23 @@ function processEnv() {
     console.log("Skipping voting epoch actions");
     SKIP_VOTING_EPOCH_ACTIONS = true;
   }
+
+  let SKIP_FINALIZATIONS = false;
+  if (process.env.SKIP_FINALIZATIONS) {
+    console.log("Skipping finalizations");
+    SKIP_FINALIZATIONS = true;
+  }
+
   return {
     SKIP_VOTER_REGISTRATION_SET,
     SKIP_SIGNING_POLICY_SIGNING_SET,
     SKIP_VOTING_EPOCH_ACTIONS,
+    SKIP_FINALIZATIONS,
   };
 }
 
-const { SKIP_VOTER_REGISTRATION_SET, SKIP_SIGNING_POLICY_SIGNING_SET, SKIP_VOTING_EPOCH_ACTIONS } = processEnv();
+const { SKIP_VOTER_REGISTRATION_SET, SKIP_SIGNING_POLICY_SIGNING_SET, SKIP_VOTING_EPOCH_ACTIONS, SKIP_FINALIZATIONS } =
+  processEnv();
 
 export const systemSettings = function (now: number) {
   return {
@@ -97,7 +106,7 @@ export const systemSettings = function (now: number) {
     firstRewardEpochStartVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
     rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
     updatableSettings: {
-      newSigningPolicyInitializationStartSeconds: 40,
+      newSigningPolicyInitializationStartSeconds: 45,
       randomAcquisitionMaxDurationSeconds: 80,
       randomAcquisitionMaxDurationBlocks: 1000,
       newSigningPolicyMinNumberOfVotingRoundsDelay: 0,
@@ -159,11 +168,10 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   }
   const logger = getLogger("");
 
-  const { SKIP_VOTER_REGISTRATION_SET, SKIP_SIGNING_POLICY_SIGNING_SET, SKIP_VOTING_EPOCH_ACTIONS } = processEnv();
-
   logger.info(`SKIP_VOTER_REGISTRATION_SET: ${new Array(...SKIP_VOTER_REGISTRATION_SET).join(" ")}`);
   logger.info(`SKIP_SIGNING_POLICY_SIGNING_SET:  ${new Array(...SKIP_SIGNING_POLICY_SIGNING_SET).join(" ")}`);
   logger.info(`SKIP_VOTING_EPOCH_ACTIONS: ${SKIP_VOTING_EPOCH_ACTIONS}`);
+  logger.info(`SKIP_FINALIZATIONS: ${SKIP_FINALIZATIONS}`);
   logger.info(`Simulation specific files generated in ${SIMULATION_DUMP_FOLDER}`);
 
   // Account 0 is reserved for governance, 1-5 for contract address use, 10+ for voters.
@@ -207,10 +215,34 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     (await c.flareSystemsManager.voterRegistrationMinDurationBlocks()).toNumber()
   );
   logger.info(`EpochSettings:\n${JSON.stringify(epochSettings, null, 2)}`);
-  fs.writeFileSync(SETTINGS_FILE_LOCATION, JSON.stringify({
-    firstRewardEpochStartVotingId: (epochSettings.rewardEpochStartSec - epochSettings.firstVotingEpochStartSec) / epochSettings.votingEpochDurationSec,
-    rewardEpochDurationInVotingEpochs: epochSettings.rewardEpochDurationSec / epochSettings.votingEpochDurationSec,
-    ...epochSettings}, null, 2));
+  fs.writeFileSync(
+    SETTINGS_FILE_LOCATION,
+    JSON.stringify(
+      {
+        firstRewardEpochStartVotingId:
+          (epochSettings.rewardEpochStartSec - epochSettings.firstVotingEpochStartSec) /
+          epochSettings.votingEpochDurationSec,
+        rewardEpochDurationInVotingEpochs: epochSettings.rewardEpochDurationSec / epochSettings.votingEpochDurationSec,
+        ...epochSettings,
+      },
+      null,
+      2
+    )
+  );
+  fs.writeFileSync(
+    SETTINGS_FILE_LOCATION,
+    JSON.stringify(
+      {
+        firstRewardEpochStartVotingId:
+          (epochSettings.rewardEpochStartSec - epochSettings.firstVotingEpochStartSec) /
+          epochSettings.votingEpochDurationSec,
+        rewardEpochDurationInVotingEpochs: epochSettings.rewardEpochDurationSec / epochSettings.votingEpochDurationSec,
+        ...epochSettings,
+      },
+      null,
+      2
+    )
+  );
   logger.info(`Epoch settings written to ${SETTINGS_FILE_LOCATION}`);
 
   const signingPolicies = new Map<number, ISigningPolicy>();
@@ -223,7 +255,6 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     epochSettings,
     registeredAccounts,
     signingPolicies,
-    events,
     hre.web3,
     governanceAccount
   );
@@ -259,14 +290,12 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     await runSigningPolicyProtocol();
   }, timeUntilSigningPolicyProtocolStart);
 
-  scheduleOfferRewardsActions();
+  scheduleOfferRewardsActions(events);
   logger.info(`Skipping voting epoch actions: ${SKIP_VOTING_EPOCH_ACTIONS}`);
   const nowtime = Date.now();
   const nextEpochStartMs = epochSettings.nextVotingEpochStartMs(nowtime);
   logger.info(`Next voting epoch starts at ${new Date(nextEpochStartMs).toISOString()} | ${nextEpochStartMs}`);
-  if (!SKIP_VOTING_EPOCH_ACTIONS) {
-    scheduleVotingEpochActions();
-  }
+  scheduleVotingEpochActions(SKIP_VOTING_EPOCH_ACTIONS);
 
   // Hardhat set interval mining to auto-mine blocks every second
   await hre.network.provider.send("evm_setIntervalMining", [1000]);
@@ -303,23 +332,32 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     await defineNextSigningPolicy(governanceAccount, c, events.rewardEpochEvents, registeredAccounts);
   }
 
-  function scheduleVotingEpochActions() {
+  function scheduleVotingEpochActions(skipSubmit: boolean) {
     const time = Date.now();
     const nextEpochStartMs = epochSettings.nextVotingEpochStartMs(time);
 
     setTimeout(async () => {
-      scheduleVotingEpochActions();
-      await runVotingRound(c, signingPolicies, registeredAccounts, epochSettings, events, hre.web3);
+      scheduleVotingEpochActions(skipSubmit);
+      await runVotingRound(
+        skipSubmit,
+        c,
+        signingPolicies,
+        registeredAccounts,
+        epochSettings,
+        events,
+        hre.web3,
+        SKIP_FINALIZATIONS
+      );
     }, nextEpochStartMs - time + 1);
   }
 
-  function scheduleOfferRewardsActions() {
+  function scheduleOfferRewardsActions(eventStore: EventStore) {
     const time = Date.now();
     const nextEpochStartMs = epochSettings.nextRewardEpochStartMs(time);
 
     setTimeout(async () => {
-      scheduleOfferRewardsActions();
-      await runOfferRewards(c, epochSettings);
+      scheduleOfferRewardsActions(eventStore);
+      await runOfferRewards(c, epochSettings, eventStore);
     }, nextEpochStartMs - time + 1000);
   }
 
@@ -450,10 +488,10 @@ async function defineNextSigningPolicy(
   }
 
   for (const acc of registeredAccounts) {
-    if (SKIP_VOTER_REGISTRATION_SET.has(acc.identity.address.toLowerCase())) {
-      logger.info(`Skipping automatic voter registration for ${acc.identity.address}`);
+    if (SKIP_VOTER_REGISTRATION_SET.has(acc.signingPolicy.address.toLowerCase())) {
+      logger.info(`Skipping automatic voter registration for ${acc.signingPolicy.address}`);
       continue;
-    }
+    } else logger.info(`Registering voter ${acc.signingPolicy.address}`);
     await registerVoter(nextRewardEpochId, acc, c.voterRegistry);
   }
 
@@ -466,8 +504,8 @@ async function defineNextSigningPolicy(
   const newSigningPolicyHash = await c.relay.toSigningPolicyHash(nextRewardEpochId);
 
   for (const acc of registeredAccounts) {
-    if (SKIP_SIGNING_POLICY_SIGNING_SET.has(acc.identity.address.toLowerCase())) {
-      logger.info(`Skipping automatic new signing policy signing for ${acc.identity.address}`);
+    if (SKIP_SIGNING_POLICY_SIGNING_SET.has(acc.signingPolicy.address.toLowerCase())) {
+      logger.info(`Skipping automatic new signing policy signing for ${acc.signingPolicy.address}`);
       continue;
     }
     const signature = web3.eth.accounts.sign(newSigningPolicyHash, acc.signingPolicy.privateKey);
@@ -492,15 +530,33 @@ async function defineNextSigningPolicy(
   }
 }
 
-async function runOfferRewards(c: DeployedContracts, epochSettings: EpochSettings, forceEpoch?: number) {
+async function runOfferRewards(
+  c: DeployedContracts,
+  epochSettings: EpochSettings,
+  eventStore?: EventStore,
+  forceEpoch?: number
+) {
   const logger = getLogger("offerRewards");
+
   const nextRewardEpochId = forceEpoch ?? epochSettings.rewardEpochForTime(Date.now()) + 1;
+
+  if (forceEpoch == null) {
+    logger.info(`Waiting for reward epoch ${nextRewardEpochId - 1} to start`);
+    while (!eventStore!.rewardEpochEvents.get(nextRewardEpochId - 1)?.includes("RewardEpochStarted")) {
+      await sleep(500);
+    }
+  }
+
   let rewards = 0;
   for (const offer of OFFERS) {
     rewards += offer.amount;
   }
-  await c.ftsoRewardOffersManager.offerRewards(nextRewardEpochId, OFFERS, { value: rewards });
-  logger.info("Rewards offered");
+  try {
+    await c.ftsoRewardOffersManager.offerRewards(nextRewardEpochId, OFFERS, { value: rewards });
+    logger.info("Rewards offered");
+  } catch (e) {
+    logger.error("Rewards not offered: " + e);
+  }
 }
 
 /**
@@ -510,12 +566,14 @@ async function runOfferRewards(c: DeployedContracts, epochSettings: EpochSetting
  * Also the merkle root that gets finalized is randomly generated and not based on voting round results.
  */
 async function runVotingRound(
+  skipSubmit: boolean,
   c: DeployedContracts,
   signingPolicies: Map<number, ISigningPolicy>,
   registeredAccounts: RegisteredAccount[],
   epochSettings: EpochSettings,
   events: EventStore,
   web3: Web3,
+  skipFinalisation: boolean = false,
   now: number = Date.now()
 ) {
   const logger = getLogger("voting");
@@ -530,35 +588,58 @@ async function runVotingRound(
 
   logger.info(`Running voting protocol for round ${votingRoundId}, reward epoch: ${rewardEpochId}`);
 
-  for (const acc of registeredAccounts) {
-    try {
-      await c.submission.submit1({ from: acc.submit.address });
-    } catch (e) {
-      logger.error(e);
-    }
-  }
+  const previousMerkleRoot = await c.relay.getConfirmedMerkleRoot(FTSO_PROTOCOL_ID, votingRoundId - 2);
+  logger.info(`Confirmed merkle root in the last round ${votingRoundId - 2}: ${previousMerkleRoot}`);
 
-  for (const acc of registeredAccounts) {
-    try {
-      await c.submission.submit2({ from: acc.submit.address });
-    } catch (e) {
-      logger.error(e);
+  if (!skipSubmit) {
+    for (const acc of registeredAccounts) {
+      try {
+        await c.submission.submit1({ from: acc.submit.address });
+      } catch (e) {
+        logger.error(e);
+      }
+    }
+    const revealStartMs = epochSettings.votingEpochStartMs(votingRoundId + 1);
+    await sleep(revealStartMs - Date.now());
+    for (const acc of registeredAccounts) {
+      try {
+        await c.submission.submit2({ from: acc.submit.address });
+      } catch (e) {
+        logger.error(e);
+      }
     }
   }
 
   const revealDeadlineMs =
-    epochSettings.votingEpochStartMs(votingRoundId) + (epochSettings.votingEpochDurationSec * 1000) / 2;
+    epochSettings.votingEpochStartMs(votingRoundId + 1) + (epochSettings.votingEpochDurationSec * 1000) / 2;
   await sleep(revealDeadlineMs - Date.now());
 
-  for (const acc of registeredAccounts) {
-    try {
-      await c.submission.submitSignatures({ from: acc.submitSignatures.address });
-    } catch (e) {
-      logger.error(e);
+  if (!skipSubmit) {
+    for (const acc of registeredAccounts) {
+      try {
+        await c.submission.submitSignatures({ from: acc.submitSignatures.address });
+      } catch (e) {
+        logger.error(e);
+      }
     }
   }
+  if (!skipFinalisation) await fakeFinalize(web3, signingPolicies, registeredAccounts, epochSettings, c, now);
+  logger.info(`Voting round ${votingRoundId} finished`);
+}
 
-  // TODO: Obtain actual merkle root and sigantures from the indexer, use fake if not present.
+async function fakeFinalize(
+  web3: Web3,
+  signingPolicies: Map<number, ISigningPolicy>,
+  registeredAccounts: RegisteredAccount[],
+  epochSettings: EpochSettings,
+  c: DeployedContracts,
+  now: number
+) {
+  const logger = getLogger("finalize");
+
+  const votingRoundId = epochSettings.votingEpochForTime(now);
+  const rewardEpochId = epochSettings.rewardEpochForTime(now);
+
   const fakeMerkleRoot = web3.utils.keccak256("root1" + votingRoundId);
   const messageData: IProtocolMessageMerkleRoot = {
     protocolId: FTSO_PROTOCOL_ID,
@@ -594,8 +675,7 @@ async function runVotingRound(
       to: c.relay.address,
       data: RELAY_SELECTOR + fullData.slice(2),
     });
-
-    logger.info(`Voting round ${votingRoundId} finished`);
+    logger.info(`Finalized for voting round ${votingRoundId}`);
   } catch (e) {
     logger.error(e);
   }
@@ -608,12 +688,10 @@ async function defineInitialSigningPolicy(
   epochSettings: EpochSettings,
   registeredAccounts: RegisteredAccount[],
   signingPolicies: Map<number, ISigningPolicy>,
-  events: EventStore,
   web3: Web3,
   governanceAccount: Account
 ) {
-
-  await runOfferRewards(c, epochSettings, 1);
+  await runOfferRewards(c, epochSettings, undefined, 1);
 
   await time.increaseTo(
     rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds)
@@ -631,10 +709,11 @@ async function defineInitialSigningPolicy(
     signingPolicy: governanceAccount,
   };
 
-  await runVotingRound(c, signingPolicies, [governance], epochSettings, events, web3, (await time.latest()) * 1000);
+  await fakeFinalize(web3, signingPolicies, [governance], epochSettings, c, (await time.latest()) * 1000);
 
   await time.increaseTo(
-    rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds / 2)
+    rewardEpochStart +
+      (REWARD_EPOCH_DURATION_IN_SEC - Math.floor(epochSettings.newSigningPolicyInitializationStartSeconds / 2))
   );
 
   const resp2 = await c.flareSystemsManager.daemonize();
@@ -643,17 +722,13 @@ async function defineInitialSigningPolicy(
   }
 
   for (const acc of registeredAccounts) {
-    if (SKIP_VOTER_REGISTRATION_SET.has(acc.identity.address.toLowerCase())) {
-      getLogger("").info(`Skipping automatic voter registration for ${acc.identity.address}`);
-      continue;
-    }
     await registerVoter(1, acc, c.voterRegistry);
   }
 
   await time.increaseTo(
     rewardEpochStart +
       (REWARD_EPOCH_DURATION_IN_SEC -
-        epochSettings.newSigningPolicyInitializationStartSeconds / 2 +
+        Math.floor(epochSettings.newSigningPolicyInitializationStartSeconds / 2) +
         epochSettings.voterRegistrationMinDurationSeconds +
         5)
   );

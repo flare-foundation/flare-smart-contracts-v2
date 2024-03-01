@@ -40,7 +40,8 @@ export async function deploySubmissionContract(hre: HardhatRuntimeEnvironment, o
     governanceSettings,
     parameters.governancePublicKey,
     parameters.governancePublicKey, // tmp address updater
-    false
+    false,
+    { from: deployerAccount.address }
   );
   spewNewContractInfo(contracts, null, Submission.contractName, `Submission.sol`, submission.address, quiet);
 

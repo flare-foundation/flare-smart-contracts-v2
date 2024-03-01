@@ -400,6 +400,23 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     /**
      * @inheritdoc IIVoterRegistry
      */
+    function getVoterNormalisedWeight(
+        address _voter,
+        uint256 _rewardEpochId
+    )
+        external view returns (uint16 _normalisedWeight)
+    {
+        VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
+        uint256 weightsSum = votersAndWeights.weightsSum;
+        require(weightsSum > 0, "reward epoch id not supported");
+        uint256 weight = votersAndWeights.weights[_voter];
+        require(weight > 0, "voter not registered");
+        _normalisedWeight = uint16((weight * UINT16_MAX) / weightsSum);
+    }
+
+    /**
+     * @inheritdoc IIVoterRegistry
+     */
     function getWeightsSums(uint256 _rewardEpochId)
         external view
         returns (

@@ -20,7 +20,7 @@ interface ICChainStake is ICChainVotePower {
      * @param _blockNumber The block number when the totalSupply is queried.
      * @return The total amount of tokens at `_blockNumber`.
      **/
-    function totalSupplyAt(uint _blockNumber) external view returns(uint256);
+    function totalSupplyAt(uint256 _blockNumber) external view returns(uint256);
 
     /**
      * Queries the token balance of `_owner` at current block.
@@ -35,5 +35,5 @@ interface ICChainStake is ICChainVotePower {
      * @param _blockNumber The block number when the balance is queried.
      * @return The balance at `_blockNumber`.
      **/
-    function balanceOfAt(address _owner, uint _blockNumber) external view returns (uint256);
+    function balanceOfAt(address _owner, uint256 _blockNumber) external view returns (uint256);
 }

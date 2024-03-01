@@ -867,6 +867,22 @@ contract VoterRegistryTest is Test {
         voterRegistry.getVoterRegistrationWeight(initialVoters[1], 1);
     }
 
+    function testGetVoterNormalisedWeight() public {
+        vm.expectRevert("reward epoch id not supported");
+        voterRegistry.getVoterNormalisedWeight(initialVoters[0], 1);
+
+        // register voters
+        testRegisterVotersAndCreateSigningPolicySnapshot();
+
+        uint256 sum = initialVotersWeights[0] +
+            initialVotersWeights[1] + initialVotersWeights[2] + initialVotersWeights[3];
+        uint16 normWeight = voterRegistry.getVoterNormalisedWeight(initialVoters[0], 1);
+        assertEq(normWeight, uint16(initialVotersWeights[0] * UINT16_MAX / sum));
+
+        vm.expectRevert("voter not registered");
+        voterRegistry.getVoterNormalisedWeight(makeAddr("test_voter"), 1);
+    }
+
     ///// helper functions
     function _createInitialVoters(uint256 _num) internal {
         for (uint256 i = 0; i < _num; i++) {
