@@ -55,7 +55,7 @@ license_scanning:
 
 scanner-slither:
   image: node:18
-  timeout: 5 minutes
+  timeout: 7 minutes
   needs: []
   cache: [ !reference [.partials, cache-nodejs] ]
   variables:
@@ -92,7 +92,7 @@ build-smart-contracts:
     paths:
     - $YARN_CACHE_DIR
     - node_modules/
-    policy: pull
+    policy: pull-push
   artifacts:
     paths:
     - typechain
