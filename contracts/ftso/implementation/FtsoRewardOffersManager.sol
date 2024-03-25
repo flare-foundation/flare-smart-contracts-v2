@@ -80,8 +80,8 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase, IFtsoRewardOffersMa
             }
             emit RewardsOffered(
                 _nextRewardEpochId,
-                offer.feedName,
-                ftsoFeedDecimals.getDecimals(offer.feedName, _nextRewardEpochId),
+                offer.feedId,
+                ftsoFeedDecimals.getDecimals(offer.feedId, _nextRewardEpochId),
                 offer.amount,
                 offer.minRewardedTurnoutBIPS,
                 offer.primaryBandRewardSharePPM,
@@ -101,6 +101,22 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase, IFtsoRewardOffersMa
     function setMinimalRewardsOfferValue(uint128 _minimalRewardsOfferValueWei) external onlyGovernance {
         minimalRewardsOfferValueWei = _minimalRewardsOfferValueWei;
         emit MinimalRewardsOfferValueSet(_minimalRewardsOfferValueWei);
+    }
+
+    /**
+     * @inheritdoc IITokenPool
+     */
+    function getTokenPoolSupplyData()
+        external view
+        returns (
+            uint256 _lockedFundsWei,
+            uint256 _totalInflationAuthorizedWei,
+            uint256 _totalClaimedWei
+        )
+    {
+        _lockedFundsWei = 0;
+        _totalInflationAuthorizedWei = totalInflationAuthorizedWei;
+        _totalClaimedWei = totalInflationRewardsOfferedWei;
     }
 
     /**
@@ -132,8 +148,7 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase, IFtsoRewardOffersMa
      * @inheritdoc InflationReceiver
      */
     function _setDailyAuthorizedInflation(uint256 _toAuthorizeWei) internal override {
-        // all authorized inflation should be forwarded to the reward manager
-        rewardManager.addDailyAuthorizedInflation(_toAuthorizeWei);
+        // do nothing
     }
 
     /**
@@ -182,8 +197,8 @@ contract FtsoRewardOffersManager is RewardOffersManagerBase, IFtsoRewardOffersMa
             inflationShareSum -= config.inflationShare;
             emit InflationRewardsOffered(
                 nextRewardEpochId,
-                config.feedNames,
-                ftsoFeedDecimals.getDecimalsBulk(config.feedNames, nextRewardEpochId),
+                config.feedIds,
+                ftsoFeedDecimals.getDecimalsBulk(config.feedIds, nextRewardEpochId),
                 amount,
                 config.minRewardedTurnoutBIPS,
                 config.primaryBandRewardSharePPM,

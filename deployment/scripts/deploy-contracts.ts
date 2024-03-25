@@ -11,9 +11,10 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
-import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoFeedPublisherContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, RelayContract, RewardManagerContract, SubmissionContract, VoterRegistryContract, WNatDelegationFeeContract } from '../../typechain-truffle';
+import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoFeedPublisherContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, NodePossessionVerifierContract, RelayContract, RewardManagerContract, SubmissionContract, VoterRegistryContract, WNatDelegationFeeContract } from '../../typechain-truffle';
 import { ISigningPolicy, SigningPolicy } from '../../scripts/libs/protocol/SigningPolicy';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
+import { FtsoFeedIdConverterContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedIdConverter';
 
 let fs = require('fs');
 
@@ -22,7 +23,10 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const artifacts = hre.artifacts;
   const BN = web3.utils.toBN;
 
+  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
   const EntityManager: EntityManagerContract = artifacts.require("EntityManager");
+  const NodePossessionVerifier: NodePossessionVerifierContract = artifacts.require("NodePossessionVerifier");
   const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
   const FlareSystemsCalculator: FlareSystemsCalculatorContract = artifacts.require("FlareSystemsCalculator");
   const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
@@ -33,6 +37,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
   const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
   const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
+  const FtsoFeedIdConverter: FtsoFeedIdConverterContract = artifacts.require("FtsoFeedIdConverter");
   const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
   const Relay: RelayContract = artifacts.require("Relay");
   const Supply = artifacts.require("IISupplyGovernance");
@@ -51,7 +56,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
 
   const governanceSettings = oldContracts.getContractAddress(Contracts.GOVERNANCE_SETTINGS);
   const addressUpdater = oldContracts.getContractAddress(Contracts.ADDRESS_UPDATER);
-  const pChainStakeMirror = parameters.pChainStakeEnabled ? oldContracts.getContractAddress(Contracts.P_CHAIN_STAKE_MIRROR) : "0x0000000000000000000000000000000000000000";
+  const pChainStakeMirror = parameters.pChainStakeEnabled ? oldContracts.getContractAddress(Contracts.P_CHAIN_STAKE_MIRROR) : ZERO_ADDRESS;
   const wNat = oldContracts.getContractAddress(Contracts.WNAT);
   const claimSetupManager = oldContracts.getContractAddress(Contracts.CLAIM_SETUP_MANAGER);
   const inflation = oldContracts.getContractAddress(Contracts.INFLATION);
@@ -62,6 +67,11 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     parameters.maxNodeIdsPerEntity
   );
   spewNewContractInfo(contracts, null, EntityManager.contractName, `EntityManager.sol`, entityManager.address, quiet);
+
+  const nodePossessionVerifier = await NodePossessionVerifier.new();
+  spewNewContractInfo(contracts, null, NodePossessionVerifier.contractName, `NodePossessionVerifier.sol`, nodePossessionVerifier.address, quiet);
+
+  await entityManager.setNodePossessionVerifier(nodePossessionVerifier.address);
 
   const currentBlock = await web3.eth.getBlock(await web3.eth.getBlockNumber());
   const currentBlockTs = BN(currentBlock.timestamp);
@@ -160,7 +170,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     governanceSettings,
     deployerAccount.address,
     deployerAccount.address, // tmp address updater
-    "0x0000000000000000000000000000000000000000"
+    ZERO_ADDRESS
   );
   spewNewContractInfo(contracts, null, RewardManager.contractName, `RewardManager.sol`, rewardManager.address, quiet);
 
@@ -174,7 +184,8 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     parameters.votingEpochDurationSeconds,
     parameters.firstRewardEpochStartVotingRoundId,
     parameters.rewardEpochDurationInVotingEpochs,
-    parameters.relayThresholdIncreaseBIPS
+    parameters.relayThresholdIncreaseBIPS,
+    parameters.messageFinalizationWindowInRewardEpochs
   );
   spewNewContractInfo(contracts, null, Relay.contractName, `Relay.sol`, relay.address, quiet);
 
@@ -211,7 +222,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     initialRewardEpochId,
     parameters.initialFeedDecimalsList.map(fd => {
       return {
-        feedName: FtsoConfigurations.encodeFeedName(fd.feedName),
+        feedId: FtsoConfigurations.encodeFeedId(fd.feedId),
         decimals: fd.decimals
       }
     })
@@ -226,6 +237,9 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     parameters.feedsHistorySize
   );
   spewNewContractInfo(contracts, null, FtsoFeedPublisher.contractName, `FtsoFeedPublisher.sol`, ftsoFeedPublisher.address, quiet);
+
+  const ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
+  spewNewContractInfo(contracts, null, FtsoFeedIdConverter.contractName, `FtsoFeedIdConverter.sol`, ftsoFeedIdConverter.address, quiet);
 
   const cleanupBlockNumberManager = await CleanupBlockNumberManager.new(
     deployerAccount.address,
@@ -298,7 +312,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   // set ftso inflation configurations
   for (const ftsoInflationConfiguration of parameters.ftsoInflationConfigurations) {
     const configuration = {
-      feedNames: FtsoConfigurations.encodeFeedNames(ftsoInflationConfiguration.feedNames),
+      feedIds: FtsoConfigurations.encodeFeedIds(ftsoInflationConfiguration.feedIds),
       inflationShare: ftsoInflationConfiguration.inflationShareBIPS,
       minRewardedTurnoutBIPS: ftsoInflationConfiguration.minRewardedTurnoutBIPS,
       primaryBandRewardSharePPM: ftsoInflationConfiguration.primaryBandRewardSharePPM,

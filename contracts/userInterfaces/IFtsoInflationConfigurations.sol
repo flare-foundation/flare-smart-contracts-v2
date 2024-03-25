@@ -9,8 +9,8 @@ interface IFtsoInflationConfigurations {
 
     /// The FTSO configuration struct.
     struct FtsoConfiguration {
-        // concatenated feed names - i.e. base/quote symbol - multiple of 8 (one feedName is bytes8)
-        bytes feedNames;
+        // concatenated feed ids - i.e. type + base/quote symbol - multiple of 21 (one feedId is bytes21)
+        bytes feedIds;
         // inflation share for this configuration group
         uint24 inflationShare;
         // minimal reward eligibility turnout threshold in BIPS (basis points)

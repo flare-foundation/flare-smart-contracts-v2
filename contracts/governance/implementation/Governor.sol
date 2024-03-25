@@ -2,11 +2,11 @@
 pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/inflation/interface/IISupply.sol";
+import "flare-smart-contracts/contracts/token/interface/IIGovernanceVotePower.sol";
 import "../../userInterfaces/IGovernor.sol";
 import "../../userInterfaces/ISubmission.sol";
 import "./GovernorProposals.sol";
 import "./GovernorVotes.sol";
-import "./GovernorVotePower.sol";
 import "../../protocol/interface/IIFlareSystemsManager.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../utils/lib/SafePct.sol";
@@ -14,8 +14,7 @@ import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
-abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProposals, GovernorVotes, AddressUpdatable
-{
+abstract contract Governor is IGovernor, EIP712, GovernorProposals, GovernorVotes, AddressUpdatable {
     using SafePct for uint256;
 
     uint256 internal constant MAX_BIPS = 1e4;
@@ -26,13 +25,15 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     IIFlareSystemsManager public flareSystemsManager;
     /// The Supply contract.
     IISupply public supply;
+    /// The GovernanceVotePower contract.
+    IIGovernanceVotePower public governanceVotePower;
 
-    /// The EIP-712 typehash for the ballot struct used by the contract
+    /// The EIP-712 typehash for the ballot struct used by the contract.
     bytes32 public constant BALLOT_TYPEHASH = keccak256("Ballot(uint256 proposalId,uint8 support)");
 
     /**
-     * Initializes the contract with default parameters
-     * @param _addressUpdater               Address identifying the address updater contract
+     * Initializes the contract with default parameters.
+     * @param _addressUpdater The address of the AddressUpdater contract.
      */
     constructor(
         address _addressUpdater
@@ -41,8 +42,7 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
         GovernorProposals()
         GovernorVotes()
         AddressUpdatable(_addressUpdater)
-    {
-    }
+    { }
 
     /**
      * @inheritdoc IGovernor
@@ -134,7 +134,7 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
      * @inheritdoc IGovernor
      */
     function getVotes(address _voter, uint256 _blockNumber) external view returns (uint256) {
-        return votePowerOfAt(_voter, _blockNumber);
+        return governanceVotePower.votePowerOfAt(_voter, _blockNumber);
     }
 
     /**
@@ -216,26 +216,26 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * Returns the name of the governor contract
-     * @return String representing the name
+     * Returns the name of the governor contract.
+     * @return String representing the name.
      */
     function name() public pure virtual returns (string memory);
 
     /**
-     * Returns the version of the governor contract
-     * @return String representing the version
+     * Returns the version of the governor contract.
+     * @return String representing the version.
      */
     function version() public pure virtual returns (string memory);
 
     /**
-     * Creates a new proposal
-     * @param _targets              Array of target addresses on which the calls are to be invoked
-     * @param _values               Array of values with which the calls are to be invoked
-     * @param _calldatas            Array of call data to be invoked
-     * @param _description          String description of the proposal
-     * @param _settings             Settings of the poposal
-     * @return Proposal id (unique identifier obtained by hashing proposal data)
-     * Emits a ProposalCreated event
+     * Creates a new proposal.
+     * @param _targets Array of target addresses on which the calls are to be invoked.
+     * @param _values Array of values with which the calls are to be invoked.
+     * @param _calldatas Array of call data to be invoked.
+     * @param _description String description of the proposal.
+     * @param _settings Settings of the poposal.
+     * @return Proposal id (unique identifier obtained by hashing proposal data).
+     * Emits a ProposalCreated event.
      */
     function _propose(
         address[] memory _targets,
@@ -290,11 +290,11 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * Casts a vote on a proposal
-     * @param _proposalId           Id of the proposal
-     * @param _voter                Address of the voter
-     * @param _support              A value indicating vote type (against, for)
-     * @param _reason               Vote reason
+     * Casts a vote on a proposal.
+     * @param _proposalId Id of the proposal.
+     * @param _voter Address of the voter.
+     * @param _support A value indicating vote type (against, for).
+     * @param _reason Vote reason.
      */
     function _castVote(
         uint256 _proposalId,
@@ -305,7 +305,7 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
         Proposal storage proposal = proposals[_proposalId];
         require(_state(_proposalId, proposal) == ProposalState.Active, "proposal not active");
 
-        uint256 votePower = votePowerOfAt(_voter, proposal.votePowerBlock);
+        uint256 votePower = governanceVotePower.votePowerOfAt(_voter, proposal.votePowerBlock);
         ProposalVoting storage voting = _storeVote(_proposalId, _voter, _support, votePower);
 
         emit VoteCast(_voter, _proposalId, _support, votePower, _reason, voting.forVotePower, voting.againstVotePower);
@@ -314,12 +314,12 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * Executes a successful proposal
-     * @param _proposalId           Id of the proposal
-     * @param _targets              Array of target addresses on which the calls are to be invoked
-     * @param _values               Array of values with which the calls are to be invoked
-     * @param _calldatas            Array of call data to be invoked
-     * Emits a ProposalExecuted event
+     * Executes a successful proposal.
+     * @param _proposalId Id of the proposal.
+     * @param _targets Array of target addresses on which the calls are to be invoked.
+     * @param _values Array of values with which the calls are to be invoked.
+     * @param _calldatas Array of call data to be invoked.
+     * Emits a ProposalExecuted event.
      */
     function _execute(
         uint256 _proposalId,
@@ -363,15 +363,13 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
         submission = ISubmission(
             _getContractAddress(_contractNameHashes, _contractAddresses, "Submission"));
 
-        IIGovernanceVotePower vpContract = IIGovernanceVotePower(
+        governanceVotePower = IIGovernanceVotePower(
             _getContractAddress(_contractNameHashes, _contractAddresses, "GovernanceVotePower"));
-
-        setVotePowerContract(vpContract);
     }
 
     /**
-     * Calculates a vote power block for proposal
-     * @return Vote power block number
+     * Calculates a vote power block for proposal.
+     * @return Vote power block number.
      */
     function _calculateVotePowerBlock(uint256 _vpBlockPeriodSeconds) internal view returns (uint256, uint256) {
         uint24 rewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
@@ -379,7 +377,7 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
         (uint256 rewardEpochStartTs, uint256 rewardEpochStartBlock) =
             flareSystemsManager.getRewardEpochStartInfo(rewardEpochId);
 
-        uint256 cleanupBlock = votePower.getCleanupBlockNumber();
+        uint256 cleanupBlock = governanceVotePower.getCleanupBlockNumber();
 
         while (rewardEpochId > 0 && block.timestamp - rewardEpochStartTs < _vpBlockPeriodSeconds) {
             (uint256 prevRewardEpochStartTs, uint256 prevRewardEpochStartBlock) =
@@ -401,10 +399,10 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * Returns the current state of a proposal
-     * @param _proposalId           Id of the proposal
-     * @param _proposal             Proposal object
-     * @return ProposalState enum
+     * Returns the current state of a proposal.
+     * @param _proposalId Id of the proposal.
+     * @param _proposal Proposal object.
+     * @return ProposalState enum.
      */
     function _state(uint256 _proposalId, Proposal storage _proposal) internal view returns (ProposalState) {
         if (_proposal.canceled) {
@@ -444,7 +442,7 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * Returns the start and end voting times of a proposal
+     * Returns the start and end voting times of a proposal.
      */
     function _getVoteTimes(Proposal storage proposal) internal view returns (uint256[2] memory _voteTimes) {
         _voteTimes[0] = proposal.voteStartTime;
@@ -452,7 +450,7 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * Returns the start and end execution times of a proposal
+     * Returns the start and end execution times of a proposal.
      */
     function _getExecTimes(Proposal storage proposal) internal view returns (uint256[2] memory _execTimes) {
         _execTimes[0] = proposal.execStartTime;
@@ -460,10 +458,10 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * Determines if a proposal has been successful
-     * @param _proposalId           Id of the proposal
-     * @param _proposal             Proposal
-     * @return True if proposal succeeded and false otherwise
+     * Determines if a proposal has been successful.
+     * @param _proposalId Id of the proposal.
+     * @param _proposal Proposal object.
+     * @return True if proposal succeeded and false otherwise.
      */
     function _proposalSucceeded(uint256 _proposalId, Proposal storage _proposal) internal view virtual returns (bool) {
         ProposalVoting storage voting = proposalVotings[_proposalId];
@@ -482,10 +480,10 @@ abstract contract Governor is IGovernor, EIP712, GovernorVotePower, GovernorProp
     }
 
     /**
-     * Determines if the submitter of a proposal is a valid proposer
-     * @param _proposer             Address of the submitter
-     * @param _votePowerBlock       Number representing the vote power block for which the validity is checked
-     * @return True if the submitter is valid, and false otherwise
+     * Determines if the submitter of a proposal is a valid proposer.
+     * @param _proposer Address of the submitter.
+     * @param _votePowerBlock Number representing the vote power block for which the validity is checked.
+     * @return True if the submitter is valid, and false otherwise.
      */
     function _isValidProposer(address _proposer, uint256 _votePowerBlock) internal virtual view returns (bool);
 }

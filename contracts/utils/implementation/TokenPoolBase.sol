@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-abstract contract TokenPoolBase {
+import "flare-smart-contracts/contracts/tokenPools/interface/IITokenPool.sol";
+
+
+abstract contract TokenPoolBase is IITokenPool {
 
     address payable constant internal BURN_ADDRESS = payable(0x000000000000000000000000000000000000dEaD);
 

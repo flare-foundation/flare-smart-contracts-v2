@@ -1,164 +1,261 @@
-stages:
-  - build
-  - test
+# Prevent duplicate pipelines (MR and BRANCH pipelines, when a MR is opened for the given branch)
+workflow:
+  rules:
+  - if: '$CI_OPEN_MERGE_REQUESTS != null && ($CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "webide")'
+    when: never
+  - when: always
+
+default:
+  tags: [ flarenetwork ]
 
 variables:
-  YARN_CACHE_DIR: "$CI_PROJECT_DIR/.yarn-cache"
+  YARN_CACHE_DIR: .yarn-cache
+
+
+##
+## PARTIALS
+##
+
+.partials:
+  cache-nodejs:
+    key:
+      files: [ yarn.lock ]
+    paths:
+    - $YARN_CACHE_DIR
+    - node_modules/
+    policy: pull
+
+
+##
+## SCANNERS
+##
 
 
 include:
-  - template: Jobs/SAST.gitlab-ci.yml
+- template: Jobs/SAST.latest.gitlab-ci.yml
+- template: Jobs/Dependency-Scanning.latest.gitlab-ci.yml
+- template: Jobs/License-Scanning.latest.gitlab-ci.yml
+- template: Jobs/Secret-Detection.latest.gitlab-ci.yml
+
 
 sast:
-  needs:
-  - job: run-tests
-    optional: true
+  needs: []
+
+dependency_scanning:
+  needs: []
+
+license_scanning:
+  needs: []
+
+.secret-analyzer:
+  needs: []
 
 
-.rules:
-
-  always:
-    # branch pipelines
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS == null && $CI_PIPELINE_SOURCE == "web"'
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS == null'
-    # MR pipelines
-    - if: '$CI_OPEN_MERGE_REQUESTS != null && $CI_PIPELINE_SOURCE == "web"'
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_PIPELINE_SOURCE == "web"'
-    # Prevent duplicate MR && branch pipelines
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
-      when: never
-
-  manual-web_always:
-    # branch pipelines
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS == null && $CI_PIPELINE_SOURCE == "web"'
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS == null'
-      when: manual
-    # MR pipelines
-    - if: '$CI_OPEN_MERGE_REQUESTS != null && $CI_PIPELINE_SOURCE == "web"'
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_PIPELINE_SOURCE == "web"'
-      when: manual
-    # Prevent duplicate MR && branch pipelines
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE != "web"'
-      when: never
 
 
-.run-on-selfhosted-runner:
-  tags:
-    - flarenetworks
-
-.test-node:
-  stage: test
+scanner-slither:
   image: node:18
-  timeout: 3h
-  rules:
-  - !reference [.rules, always]
+  timeout: 5 minutes
+  needs: []
+  cache: [ !reference [.partials, cache-nodejs] ]
+  variables:
+    PIP_BREAK_SYSTEM_PACKAGES: "1"
+  before_script:
+  - apt-get update 1> /dev/null
+  - apt-get install -y python3-pip 1> /dev/null
+  - pip3 install slither-analyzer 1> /dev/null
+  - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
+  - rm -f ./slither.json ./slither_badge.json
+  script:
+  - slither . --json=./slither.json 2>/dev/null || true; node scripts/slither-parse.js ./slither.json
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths: [ slither.json ]
+
+##
+##
+##
+
+build-smart-contracts:
+  stage: build
+  needs: []
+  image: node:18
+  timeout: 5 minutes
+  before_script:
+  - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
+  script:
+  - yarn c
   cache:
-    - key:
-        files:
-          - yarn.lock
-      paths:
-        - .yarn-cache/
-        - node_modules/
-      policy: pull-push
+  - key:
+      files: [ yarn.lock ]
+    paths:
+    - $YARN_CACHE_DIR
+    - node_modules/
+    policy: pull
+  artifacts:
+    paths:
+    - typechain
+    - typechain-truffle
+    - typechain-web3
+    expire_in: 1 week
+
+##
+## UNIT TESTS
+##
+
+
 
 
 .test-node-sc:
-  extends: .test-node
+  image: node:18
+  timeout: 3 minutes
+  needs:
+  - job: build-smart-contracts
+    artifacts: true
+  cache: [ !reference [.partials, cache-nodejs] ]
   variables:
     DEPLOYER_PRIVATE_KEY: "0xc5e8f61d1ab959b397eecc0a37a6517b8e67a0e7cf1f4bce5591f3ed80199122"
     GENESIS_GOVERNANCE_PRIVATE_KEY: "0x50777f5a3ce16445e63411bf1e865a2a11d5ca3c4cbc1de00808a52180bd8d3c"
     GOVERNANCE_PRIVATE_KEY: "0xd49743deccbccc5dc7baa8e69e5be03298da8688a15dd202e20f15d5e0e9a9fb"
     GOVERNANCE_PUBLIC_KEY: "0xeAD9C93b79Ae7C1591b1FB5323BD777E86e150d4"
     GOVERNANCE_EXECUTOR_PUBLIC_KEY: "0xE5904695748fe4A84b40b3fc79De2277660BD1D3"
-  needs:
-    - build-smart-contracts
-    - job: run-tests
-      optional: true
-  dependencies:
-    - build-smart-contracts
   before_script:
-    - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
+  - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR 1>/dev/null
 
-
-run-tests:
-  stage: .pre
-  image: busybox
-  rules:
-  - !reference [.rules, manual-web_always]
-  script: [ "true" ]
-
-
-build-smart-contracts:
-  stage: build
-  needs: []
-  image: node:18
-  before_script:
-    - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
-  script:
-    - yarn c
-  cache:
-    - key:
-        files:
-          - yarn.lock
-      paths:
-        - .yarn-cache/
-        - node_modules/
-      policy: pull-push
-  rules:
-  - !reference [.rules, manual-web_always]
-  artifacts:
-    paths:
-      - typechain
-      - typechain-truffle
-      - typechain-web3
-      - node_modules
-    expire_in: 1 week
-
-
-### Jobs
 test-unit-hardhat:
   extends: .test-node-sc
   parallel:
     matrix:
     - TEST_ARG:
-      - ./test/unit/protocol/implementation/Relay.test.ts
+      - ./test/unit/protocol/coding/coding.test.ts
       - ./test/unit/protocol/implementation/RewardManager.test.ts
       - ./test/unit/protocol/implementation/Submission.test.ts
   script:
-    - yarn hardhat test --network hardhat ${TEST_ARG}
+  - yarn hardhat test --network hardhat ${TEST_ARG}
+
+test-unit-hardhat-md:
+  extends: test-unit-hardhat
+  timeout: 5 minutes
+  tags: [ flarenetwork-md ]
+  parallel:
+    matrix:
+    - TEST_ARG:
+      - ./test/unit/protocol/implementation/Relay.test.ts
 
 test-contract-end-to-end:
   extends: .test-node-sc
+  tags: [ flarenetwork-md ]
   script:
-    - yarn hardhat test ./test/integration/EndToEnd.test.ts
+  - yarn hardhat test ./test/integration/EndToEnd.test.ts
 
 test-linter:
   extends: .test-node-sc
   script:
-    - yarn lint
+  - yarn lint
 
 test-linter-forge:
   extends: .test-node-sc
   script:
-    - yarn lint-forge
-
-test-slither-check:
-  extends: .test-node-sc
-  variables:
-    PIP_BREAK_SYSTEM_PACKAGES: "1"
-  before_script:
-    - apt update
-    - apt install -y python3-pip
-    - pip3 install slither-analyzer
-    - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
-  script:
-    - yarn slither
-
+  - yarn lint-forge
 
 test-unit-forge:
   extends: .test-node-sc
+  timeout: 4 minutes
   image: ghcr.io/foundry-rs/foundry
   before_script:
-    - forge install
+  - forge install
   script:
-    - forge test -vvv
+  - forge test -vvv
+
+##
+## COVERAGE
+##
+
+coverage-hardhat:
+  image: node:18
+  needs: []
+  timeout: 5 minutes
+  tags: [ flarenetwork-md ]
+  cache: [ !reference [.partials, cache-nodejs] ]
+  before_script:
+  - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR 1>/dev/null
+  script:
+  - yarn run coverage
+  - cp coverage/cobertura-coverage.xml coverage-hardhat-cobertura.xml
+  artifacts:
+    name: coverage-hardhat
+    when: always
+    expire_in: 1 month
+    paths:
+    - ./coverage/
+    - ./coverage.json
+    - coverage-hardhat-cobertura.xml
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+
+
+coverage-forge-node_modules:
+  stage: .pre
+  needs: []
+  image: node:18
+  timeout: 7 minutes
+  before_script:
+  - apt-get update -y 1>/dev/null
+  - apt-get install -y zip 1>/dev/null
+  script:
+  - |
+    set -o pipefail
+    yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR 1>/dev/null
+    find node_modules -name '*.sol' | xargs zip node_modules.sol.zip
+  artifacts:
+    expire_in: 5 minutes
+    paths:
+    - node_modules.sol.zip
+
+coverage-forge:
+  image: ghcr.io/foundry-rs/foundry
+  needs:
+  - job: coverage-forge-node_modules
+    artifacts: true
+  tags: [ flarenetwork-md ]
+  timeout: 3 minutes
+  before_script:
+  - forge install
+  - unzip node_modules.sol.zip
+  script:
+  - forge coverage --report summary --report lcov
+  artifacts:
+    expire_in: 30 days
+    paths:
+    - lcov.info
+
+coverage-forge-reports:
+  image: node:18-alpine
+  timeout: 3 minutes
+  needs:
+  - job: coverage-forge
+    artifacts: true
+  before_script:
+  - echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
+  - apk add --no-cache python3 py3-pip lcov 1>/dev/null
+  - pip3 install --break-system-packages lcov_cobertura 1>/dev/null
+  script:
+  - node scripts/forge-lcov-prune.js
+  - genhtml lcov.info.pruned --branch-coverage --output-dir coverage-forge
+  - lcov_cobertura lcov.info.pruned --output coverage-forge-cobertura.xml
+  - lcov --summary lcov.info.pruned --rc branch_coverage=1
+  coverage: '/  lines[\ .:]+\d+\.\d+%/' # https://regex101.com/r/KVj9Dr/1
+  artifacts:
+    expire_in: 30 days
+    paths:
+    - lcov.info.pruned
+    - coverage-forge
+    - coverage-forge-cobertura.xml
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage-forge-cobertura.xml
+

@@ -2,7 +2,6 @@
 pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
-import "flare-smart-contracts/contracts/tokenPools/interface/IITokenPool.sol";
 import "../interface/IIRewardManager.sol";
 import "../interface/IIClaimSetupManager.sol";
 import "../interface/IIFlareSystemsCalculator.sol";
@@ -23,7 +22,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
  * Reward manager contract.
  */
 //solhint-disable-next-line max-states-count
-contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyGuard, IITokenPool, IIRewardManager {
+contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyGuard, IIRewardManager {
     using MerkleProof for bytes32[];
     using AddressSet for AddressSet.State;
     using SafeCast for uint256;
@@ -48,6 +47,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     mapping(address rewardOwner => uint24) private rewardOwnerNextClaimableEpochId;
     mapping(uint256 rewardEpochId => uint256) private epochVotePowerBlock;
     mapping(uint256 rewardEpochId => uint120) private epochTotalRewards;
+    mapping(uint256 rewardEpochId => uint120) private epochTotalInflationRewards;
     mapping(uint256 rewardEpochId => uint120) private epochInitialisedRewards;
     mapping(uint256 rewardEpochId => uint120) private epochClaimedRewards;
     mapping(uint256 rewardEpochId => uint120) private epochBurnedRewards;
@@ -71,9 +71,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     // Totals
     uint256 private totalClaimedWei;     // rewards that were claimed in time
     uint256 private totalBurnedWei;      // rewards that were unearned or expired and thus burned
-    uint256 private totalFundsReceivedWei;
-    uint256 private totalInflationReceivedWei;
-    uint256 private totalInflationAuthorizedWei;
+    uint256 private totalRewardsWei;
+    uint256 private totalInflationRewardsWei;
 
     /// The ClaimSetupManager contract.
     IIClaimSetupManager public claimSetupManager;
@@ -124,10 +123,10 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
     /**
      * Constructor.
-     * @param _governanceSettings Address of the GovernanceSettings contract.
+     * @param _governanceSettings The address of the GovernanceSettings contract.
      * @param _initialGovernance The initial governance address.
-     * @param _addressUpdater Address of the AddressUpdater contract.
-     * @param _oldRewardManager Address of the old `RewardManager`.
+     * @param _addressUpdater The address of the AddressUpdater contract.
+     * @param _oldRewardManager The address of the old `RewardManager`.
      */
     constructor(
         IGovernanceSettings _governanceSettings,
@@ -275,13 +274,6 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     /**
      * @inheritdoc IIRewardManager
      */
-    function addDailyAuthorizedInflation(uint256 _toAuthorizeWei) external onlyRewardOffersManager {
-        totalInflationAuthorizedWei = totalInflationAuthorizedWei + _toAuthorizeWei;
-    }
-
-    /**
-     * @inheritdoc IIRewardManager
-     */
     function receiveRewards(
         uint24 _rewardEpochId,
         bool _inflation
@@ -291,9 +283,10 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     {
         require(_rewardEpochId >= _getCurrentRewardEpochId(), "reward epoch id in the past");
         epochTotalRewards[_rewardEpochId] += msg.value.toUint120();
-        totalFundsReceivedWei += msg.value;
+        totalRewardsWei += msg.value;
         if (_inflation) {
-            totalInflationReceivedWei += msg.value;
+            epochTotalInflationRewards[_rewardEpochId] += msg.value.toUint120();
+            totalInflationRewardsWei += msg.value;
         }
     }
 
@@ -443,9 +436,9 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             uint256 _totalClaimedWei
         )
     {
-        //_lockedFundsWei = offers from community
-        _lockedFundsWei = totalFundsReceivedWei - totalInflationReceivedWei;
-        _totalInflationAuthorizedWei = totalInflationAuthorizedWei;
+        //_lockedFundsWei = offers from community + inflation rewards
+        _lockedFundsWei = totalRewardsWei;
+        _totalInflationAuthorizedWei = 0;
         _totalClaimedWei = totalClaimedWei + totalBurnedWei;
     }
 
@@ -477,20 +470,38 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     function getTotals()
         external view
         returns (
-            uint256 _totalFundsReceivedWei,
+            uint256 _totalRewardsWei,
+            uint256 _totalInflationRewardsWei,
             uint256 _totalClaimedWei,
-            uint256 _totalBurnedWei,
-            uint256 _totalInflationAuthorizedWei,
-            uint256 _totalInflationReceivedWei
+            uint256 _totalBurnedWei
         )
     {
         return (
-            totalFundsReceivedWei,
+            totalRewardsWei,
+            totalInflationRewardsWei,
             totalClaimedWei,
-            totalBurnedWei,
-            totalInflationAuthorizedWei,
-            totalInflationReceivedWei
+            totalBurnedWei
         );
+    }
+
+    /**
+     * @inheritdoc IRewardManager
+     */
+    function getRewardEpochTotals(uint24 _rewardEpochId)
+        external view
+        returns (
+            uint256 _totalRewardsWei,
+            uint256 _totalInflationRewardsWei,
+            uint256 _initialisedRewardsWei,
+            uint256 _claimedRewardsWei,
+            uint256 _burnedRewardsWei
+        )
+    {
+        _totalRewardsWei = epochTotalRewards[_rewardEpochId];
+        _totalInflationRewardsWei = epochTotalInflationRewards[_rewardEpochId];
+        _initialisedRewardsWei = epochInitialisedRewards[_rewardEpochId];
+        _claimedRewardsWei = epochClaimedRewards[_rewardEpochId];
+        _burnedRewardsWei = epochBurnedRewards[_rewardEpochId];
     }
 
     /**
@@ -752,26 +763,19 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                 _rewardOwner, _votePowerBlock);
             if (delegates.length > 0) { // _rewardOwner had some delegations at _votePowerBlock
                 for (uint256 i = 0; i < delegates.length; i++) {
-                    UnclaimedRewardState storage state =
-                        epochTypeBeneficiaryUnclaimedReward[_epoch][ClaimType.WNAT][delegates[i]];
-                    // check if reward state is already initialised
-                    require(_allClaimsInitialised || state.initialised, "not initialised");
                     // calculate weight that corresponds to the delegate at index `i`
                     uint256 weight = delegatorBalance.mulDiv(bips[i], MAX_BIPS);
                     // increase delegated bips
                     delegatedBIPS += bips[i];
-                    // reduce remaining amount and weight
-                    uint120 claimRewardAmount = _claimRewardAmount(state, weight);
                     // increase total reward amount
-                    _rewardAmountWei += claimRewardAmount;
-                    // emit event
-                    emit RewardClaimed(
+                    _rewardAmountWei += _claimRewards(
                         delegates[i],
                         _rewardOwner,
                         _recipient,
                         _epoch,
                         ClaimType.WNAT,
-                        claimRewardAmount
+                        weight,
+                        _allClaimsInitialised
                     );
                 }
             }
@@ -781,22 +785,15 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
                 // get undelegated vote power including revocations
                 uint256 undelegatedVotePower = wNat.undelegatedVotePowerOfAt(_rewardOwner, _votePowerBlock);
                 if (undelegatedVotePower > 0) {
-                    UnclaimedRewardState storage state =
-                        epochTypeBeneficiaryUnclaimedReward[_epoch][ClaimType.WNAT][_rewardOwner];
-                    // check if reward state is already initialised
-                    require(_allClaimsInitialised || state.initialised, "not initialised");
-                    // reduce remaining amount and weight
-                    uint120 claimRewardAmount = _claimRewardAmount(state, undelegatedVotePower);
                     // increase total reward amount
-                    _rewardAmountWei += claimRewardAmount;
-                    // emit event
-                    emit RewardClaimed(
+                    _rewardAmountWei +=_claimRewards(
                         _rewardOwner,
                         _rewardOwner,
                         _recipient,
                         _epoch,
                         ClaimType.WNAT,
-                        claimRewardAmount
+                        undelegatedVotePower,
+                        _allClaimsInitialised
                     );
                 }
             }
@@ -824,22 +821,15 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         (bytes20[] memory nodeIds, uint256[] memory weights) = pChainStakeMirror.stakesOfAt(
             _rewardOwner, _votePowerBlock);
         for (uint256 i = 0; i < nodeIds.length; i++) { // _rewardOwner had some stakes at _votePowerBlock
-            UnclaimedRewardState storage state =
-                epochTypeBeneficiaryUnclaimedReward[_epoch][ClaimType.MIRROR][address(nodeIds[i])];
-            // check if reward state is already initialised
-            require(_allClaimsInitialised || state.initialised, "not initialised");
-            // reduce remaining amount and weight
-            uint120 claimRewardAmount = _claimRewardAmount(state, weights[i]);
             // increase total reward amount
-            _rewardAmountWei += claimRewardAmount;
-            // emit event
-            emit RewardClaimed(
+            _rewardAmountWei += _claimRewards(
                 address(nodeIds[i]),
                 _rewardOwner,
                 _recipient,
                 _epoch,
                 ClaimType.MIRROR,
-                claimRewardAmount
+                weights[i],
+                _allClaimsInitialised
             );
         }
     }
@@ -865,44 +855,61 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         (address[] memory accounts, uint256[] memory weights) = cChainStake.stakesOfAt(
             _rewardOwner, _votePowerBlock);
         for (uint256 i = 0; i < accounts.length; i++) { // _rewardOwner had some stakes at _votePowerBlock
-            UnclaimedRewardState storage state =
-                epochTypeBeneficiaryUnclaimedReward[_epoch][ClaimType.CCHAIN][accounts[i]];
-            // check if reward state is already initialised
-            require(_allClaimsInitialised || state.initialised, "not initialised");
-            // reduce remaining amount and weight
-            uint120 claimRewardAmount = _claimRewardAmount(state, weights[i]);
             // increase total reward amount
-            _rewardAmountWei += claimRewardAmount;
-            // emit event
-            emit RewardClaimed(
+            _rewardAmountWei += _claimRewards(
                 accounts[i],
                 _rewardOwner,
                 _recipient,
                 _epoch,
                 ClaimType.CCHAIN,
-                claimRewardAmount
+                weights[i],
+                _allClaimsInitialised
             );
         }
     }
 
     /**
-     * Claims and returns the reward amount.
-     * @param _state Unclaimed reward state.
+     * Claims weight based rewards and returns the reward amount.
+     * @param _beneficiary Address of the reward beneficiary.
+     * @param _rewardOwner Address of the reward owner.
+     * @param _recipient Address of the reward recipient.
+     * @param _epoch Id of the reward epoch.
+     * @param _claimType Claim type.
      * @param _rewardWeight Reward weight.
+     * @param _allClaimsInitialised Indicates if all claims were already initialised.
      * @return _rewardAmount Reward amount.
      */
-    function _claimRewardAmount(
-        UnclaimedRewardState storage _state,
-        uint256 _rewardWeight
+    function _claimRewards(
+        address _beneficiary,
+        address _rewardOwner,
+        address _recipient,
+        uint24 _epoch,
+        ClaimType _claimType,
+        uint256 _rewardWeight,
+        bool _allClaimsInitialised
     )
         internal
         returns (uint120 _rewardAmount)
     {
-        _rewardAmount = _calculateRewardAmount(_state, _rewardWeight);
+        UnclaimedRewardState storage state = epochTypeBeneficiaryUnclaimedReward[_epoch][_claimType][_beneficiary];
+        // check if reward state is already initialised
+        require(_allClaimsInitialised || state.initialised, "not initialised");
+        // calculate reward amount
+        _rewardAmount = _calculateRewardAmount(state, _rewardWeight);
+        // reduce remaining amount and weight
         if (_rewardAmount > 0) {
-            _state.weight -= _rewardWeight.toUint128();
-            _state.amount -= _rewardAmount;
+            state.weight -= _rewardWeight.toUint128();
+            state.amount -= _rewardAmount;
         }
+        // emit event
+        emit RewardClaimed(
+            _beneficiary,
+            _rewardOwner,
+            _recipient,
+            _epoch,
+            _claimType,
+            _rewardAmount
+        );
     }
 
     /**
@@ -1207,7 +1214,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * Returns expected balance of reward manager (wei).
      */
     function _getExpectedBalance() internal view override returns(uint256) {
-        return totalFundsReceivedWei - totalClaimedWei - totalBurnedWei;
+        return totalRewardsWei - totalClaimedWei - totalBurnedWei;
     }
 
     /**

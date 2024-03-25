@@ -3,37 +3,45 @@ pragma solidity 0.8.20;
 
 import "../interface/IIRelay.sol";
 
+/**
+ * Relay (finalization) contract.
+ */
 contract Relay is IIRelay {
     /**
-     * State variables for the relay contract
+     * State variables for the relay contract.
      * IMPORTANT: if you change this, you have to adapt the assembly code interacting with
-     * the struct with relay() function
+     * the struct with relay() function.
      */
     struct StateData {
-        /// The protocol id of the random number protocol
+        /// The protocol id of the random number protocol.
         uint8 randomNumberProtocolId;
-        /// The timestamp of the first voting round start
+        /// The timestamp of the first voting round start.
         uint32 firstVotingRoundStartTs;
-        /// The duration of a voting epoch in seconds
+        /// The duration of a voting epoch in seconds.
         uint8 votingEpochDurationSeconds;
-        /// The voting round id of the first reward epoch
+        /// The start voting round id of the first reward epoch.
         uint32 firstRewardEpochStartVotingRoundId;
-        /// The duration of a reward epoch in voting epochs
+        /// The duration of a reward epoch in voting epochs.
         uint16 rewardEpochDurationInVotingEpochs;
-        /// The threshold increase in BIPS for signing with old signing policy
+        /// The threshold increase in BIPS for signing with old signing policy.
         uint16 thresholdIncreaseBIPS;
 
-        /// Publication of current random number
-        /// The voting round id of the random number generation
+        // Publication of current random number
+        /// The voting round id of the random number generation.
         uint32 randomVotingRoundId;
-        /// If true, the random number is generated secure
+        /// If true, the random number is generated secure.
         bool isSecureRandom;
 
-        /// The last reward epoch id for which the signing policy has been initialized
+        /// The last reward epoch id for which the signing policy has been initialized.
         uint32 lastInitializedRewardEpoch;
 
-        /// If true, signing policy relay is disabled
+        /// If true, signing policy relay is disabled.
         bool noSigningPolicyRelay;
+
+        /// If reward epoch of a message is less then
+        /// lastInitializedRewardEpoch - messageFinalizationWindowInRewardEpochs
+        /// relaying the message is rejected.
+        uint32 messageFinalizationWindowInRewardEpochs;
     }
 
     // Auxilary struct for memory variables
@@ -127,6 +135,9 @@ contract Relay is IIRelay {
     uint256 private constant SD_BOFF_lastInitializedRewardEpoch = 152;
     uint256 private constant SD_MASK_noSigningPolicyRelay = 0xff;
     uint256 private constant SD_BOFF_noSigningPolicyRelay = 184;
+    uint256 private constant SD_MASK_messageFinalizationWindowInRewardEpochs = 0xffffffff;
+    uint256 private constant SD_BOFF_messageFinalizationWindowInRewardEpochs = 192;
+
     /* solhint-enable const-name-snakecase */
 
     // Signature with index structure
@@ -159,16 +170,16 @@ contract Relay is IIRelay {
     uint256 private constant ADDRESS_OFFSET = 12;
     /* solhint-enable const-name-snakecase */
 
-    // rewardEpochId => signingPolicyHash
+    /// The signing policy hash for given reward epoch id.
     mapping(uint256 rewardEpochId => bytes32) public toSigningPolicyHash;
-    // protocolId => votingRoundId => merkleRoot
+    /// The merkle root for given protocol id and voting round id.
     //slither-disable-next-line uninitialized-state
     mapping(uint256 protocolId => mapping(uint256 votingRoundId => bytes32)) public merkleRoots;
-    // rewardEpochId => startingVotingRoundId
+    /// The start voting round id for given reward epoch id.
     mapping(uint256 rewardEpochId => uint256) public startingVotingRoundIds;
-
+    /// The address of the signing policy setter (zero if disabled).
     address public signingPolicySetter;
-
+    /// The state of the relay contract.
     StateData public stateData;
 
     /// Only signingPolicySetter address/contract can call this method.
@@ -177,6 +188,19 @@ contract Relay is IIRelay {
         _;
     }
 
+    /**
+     * Constructor.
+     * @param _signingPolicySetter The address of the signing policy setter.
+     * @param _initialRewardEpochId The initial reward epoch id.
+     * @param _startingVotingRoundIdForInitialRewardEpochId The starting voting round id for the initial reward epoch.
+     * @param _initialSigningPolicyHash The initial signing policy hash.
+     * @param _randomNumberProtocolId The protocol id of the random number protocol.
+     * @param _firstVotingRoundStartTs The timestamp of the first voting round start.
+     * @param _votingEpochDurationSeconds The duration of a voting epoch in seconds.
+     * @param _firstRewardEpochStartVotingRoundId The start voting round id of the first reward epoch.
+     * @param _rewardEpochDurationInVotingEpochs The duration of a reward epoch in voting epochs.
+     * @param _thresholdIncreaseBIPS The threshold increase in BIPS for signing with old signing policy.
+     */
     constructor(
         address _signingPolicySetter,
         uint32 _initialRewardEpochId,
@@ -187,7 +211,8 @@ contract Relay is IIRelay {
         uint8 _votingEpochDurationSeconds,
         uint32 _firstRewardEpochStartVotingRoundId,
         uint16 _rewardEpochDurationInVotingEpochs,
-        uint16 _thresholdIncreaseBIPS
+        uint16 _thresholdIncreaseBIPS,
+        uint32 _messageFinalizationWindowInRewardEpochs
     ) {
         require(_thresholdIncreaseBIPS >= THRESHOLD_BIPS, "threshold increase too small");
         require(_firstRewardEpochStartVotingRoundId + _initialRewardEpochId * _rewardEpochDurationInVotingEpochs <=
@@ -202,7 +227,8 @@ contract Relay is IIRelay {
         stateData.firstRewardEpochStartVotingRoundId = _firstRewardEpochStartVotingRoundId;
         stateData.rewardEpochDurationInVotingEpochs = _rewardEpochDurationInVotingEpochs;
         stateData.thresholdIncreaseBIPS = _thresholdIncreaseBIPS;
-        if(signingPolicySetter != address(0)) {
+        stateData.messageFinalizationWindowInRewardEpochs = _messageFinalizationWindowInRewardEpochs;
+        if (signingPolicySetter != address(0)) {
             stateData.noSigningPolicyRelay = true;
         }
     }
@@ -213,28 +239,28 @@ contract Relay is IIRelay {
     function setSigningPolicy(
         // using memory instead of calldata as called from another contract where signing policy is already in memory
         SigningPolicy memory _signingPolicy
-    ) external onlySigningPolicySetter returns (bytes32) {
+    )
+        external onlySigningPolicySetter
+        returns (bytes32)
+    {
         require(
             stateData.lastInitializedRewardEpoch + 1 == _signingPolicy.rewardEpochId,
             "not next reward epoch"
         );
         require(_signingPolicy.voters.length > 0, "must be non-trivial");
         require(_signingPolicy.voters.length <= MAX_VOTERS, "too many voters");
-        require(
-            _signingPolicy.voters.length == _signingPolicy.weights.length,
-            "size mismatch"
-        );
+        require(_signingPolicy.voters.length == _signingPolicy.weights.length, "size mismatch");
         uint256 totalWeight = 0;
         for (uint256 i = 0; i < _signingPolicy.weights.length; i++) {
             totalWeight += _signingPolicy.weights[i];
         }
         require(totalWeight < 2**16, "total weight too big");
         require(
-            uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS) >= totalWeight * MIN_THRESHOLD_BIPS, 
+            uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS) >= totalWeight * MIN_THRESHOLD_BIPS,
             "too small threshold"
         );
         require(
-            uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS) <= totalWeight * MAX_THRESHOLD_BIPS, 
+            uint256(_signingPolicy.threshold) * uint256(THRESHOLD_BIPS) <= totalWeight * MAX_THRESHOLD_BIPS,
             "too big threshold"
         );
 
@@ -323,8 +349,7 @@ contract Relay is IIRelay {
         }
         toSigningPolicyHash[_signingPolicy.rewardEpochId] = currentHash;
         stateData.lastInitializedRewardEpoch = _signingPolicy.rewardEpochId;
-        startingVotingRoundIds[_signingPolicy.rewardEpochId] = _signingPolicy
-            .startVotingRoundId;
+        startingVotingRoundIds[_signingPolicy.rewardEpochId] = _signingPolicy.startVotingRoundId;
         emit SigningPolicyInitialized(
             _signingPolicy.rewardEpochId,
             _signingPolicy.startVotingRoundId,
@@ -464,7 +489,7 @@ contract Relay is IIRelay {
             ) {
                 let totalWeight := 0
                 for {
-                    let i := 0                    
+                    let i := 0
                     let offset := add(
                         add(_signingPolicyStart, SIGNING_POLICY_PREFIX_BYTES),
                         ADDRESS_BYTES
@@ -509,7 +534,31 @@ contract Relay is IIRelay {
                     revertWithMessage(_memPtr, "too big threshold", 17)
                 }
             }
-
+////////////// A comment on handling of signing policy and a message /////////////////////////////////////////
+//
+// A relayer provides a signing policy and a message.
+// Let:
+// v - votingRoundId of the message
+// r - reward epoch of the signing policy
+// exp(v) - expected reward epoch for `v`
+// s - startVotingRound of signing policy for `r`
+// s+ - startVotingRound od signing policy for `r + 1` (`i` must be >= `r + 1`)
+// i - reward epoch of the last initialized signing policy
+//
+// Analysis of all combinations. Assume i >= r. Otherwise REVERT.
+//     exp(v) < r  |      REVERT
+// -----------------------------------------------------------------------------------------------------------
+//     exp(v) == r | v >= s    OK
+//                 | v < s     REVERT
+// -----------------------------------------------------------------------------------------------------------
+//     exp(v) > r  |  v < s    REVERT
+//                 -------------------------------------------------------------------------------------------
+//                 |  v >= s            |  i = r        OK (increase threshold)
+//                 |                    ----------------------------------------------------------------------
+//                 |                    |  i > r      | v >= s+       REVERT (new signing policy must be used)
+//                 |                    |             | v < s+        OK
+//
+////////////// Start of code /////////////////////////////////////////////////////////////////////////////////
             // free memory pointer
             let memPtr := mload(0x40)
             // NOTE: the struct is packed in reverse order of bytes
@@ -657,6 +706,26 @@ contract Relay is IIRelay {
                 // in reward epochs R or later
                 if lt(messageRewardEpochId, rewardEpochId) {
                     revertWithMessage(memPtrGP0, "Wrong sign policy reward epoch", 30)
+                }
+
+                // The message must not be too old
+                // This limits the influence of participants in old signing policies
+                if lt(
+                    add(
+                        messageRewardEpochId,
+                        structValue(
+                            mload(add(memPtrGP0, M_5_stateData)),
+                            SD_BOFF_messageFinalizationWindowInRewardEpochs,
+                            SD_MASK_messageFinalizationWindowInRewardEpochs
+                        )
+                    ),
+                    structValue(
+                        mload(add(memPtrGP0, M_5_stateData)),
+                        SD_BOFF_lastInitializedRewardEpoch,
+                        SD_MASK_lastInitializedRewardEpoch
+                    )
+                ){
+                    revertWithMessage(memPtrGP0, "Message too old", 15)
                 }
 
                 let startingVotingRoundId := structValue(
@@ -820,12 +889,12 @@ contract Relay is IIRelay {
 
                 // Check the threshold consistency
                 checkThresholdConsistency(
-                    mload(0x40), 
-                    newMetadata, 
+                    mload(0x40),
+                    newMetadata,
                     add(
                         SELECTOR_BYTES,
                         add(PROTOCOL_ID_BYTES, signingPolicyLength)
-                    )                    
+                    )
                 )
 
                 let newSigningPolicyHash := calculateSigningPolicyHash(
@@ -1132,19 +1201,14 @@ contract Relay is IIRelay {
      * @inheritdoc IRelay
      */
     function getRandomNumber()
-        external
-        view
+        external view
         returns (
             uint256 _randomNumber,
             bool _isSecureRandom,
             uint256 _randomTimestamp
         )
     {
-        _randomNumber = uint256(
-            merkleRoots[stateData.randomNumberProtocolId][
-                stateData.randomVotingRoundId
-            ]
-        );
+        _randomNumber = uint256(merkleRoots[stateData.randomNumberProtocolId][stateData.randomVotingRoundId]);
         _isSecureRandom = stateData.isSecureRandom;
         _randomTimestamp =
             stateData.firstVotingRoundStartTs +
@@ -1155,26 +1219,15 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
-    function getVotingRoundId(
-        uint256 _timestamp
-    ) external view returns (uint256) {
-        require(
-            _timestamp >= stateData.firstVotingRoundStartTs,
-            "before the start"
-        );
-        return
-            (_timestamp - stateData.firstVotingRoundStartTs) /
-            stateData.votingEpochDurationSeconds;
+    function getVotingRoundId(uint256 _timestamp) external view returns (uint256) {
+        require(_timestamp >= stateData.firstVotingRoundStartTs, "before the start");
+        return (_timestamp - stateData.firstVotingRoundStartTs) / stateData.votingEpochDurationSeconds;
     }
 
     /**
      * @inheritdoc IRelay
      */
-    function getConfirmedMerkleRoot(uint256 _protocolId, uint256 _votingRoundId)
-        external
-        view
-        returns (bytes32)
-    {
+    function getConfirmedMerkleRoot(uint256 _protocolId, uint256 _votingRoundId) external view returns (bytes32) {
         if (_protocolId == 0) {
             return toSigningPolicyHash[_votingRoundId];
         }
@@ -1184,10 +1237,13 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
-    function lastInitializedRewardEpochData() external view returns (
-        uint32 _lastInitializedRewardEpoch,
-        uint32 _startingVotingRoundIdForLastInitializedRewardEpoch
-    ) {
+    function lastInitializedRewardEpochData()
+        external view
+        returns (
+            uint32 _lastInitializedRewardEpoch,
+            uint32 _startingVotingRoundIdForLastInitializedRewardEpoch
+        )
+    {
         _lastInitializedRewardEpoch = stateData.lastInitializedRewardEpoch;
         _startingVotingRoundIdForLastInitializedRewardEpoch =
             uint32(startingVotingRoundIds[_lastInitializedRewardEpoch]);

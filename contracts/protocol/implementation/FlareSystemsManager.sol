@@ -196,10 +196,10 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
 
     /**
      * @dev Constructor.
-     * @param _governanceSettings Governance settings contract.
-     * @param _initialGovernance Initial governance address.
-     * @param _addressUpdater Address updater contract.
-     * @param _flareDaemon FlareDaemon contract address.
+     * @param _governanceSettings The address of the GovernanceSettings contract.
+     * @param _initialGovernance The initial governance address.
+     * @param _addressUpdater The address of the AddressUpdater contract.
+     * @param _flareDaemon The address of the FlareDaemon contract.
      * @param _settings Updatable settings.
      * @param _firstVotingRoundStartTs Timestamp when the first voting round started, in seconds since UNIX epoch.
      * @param _votingEpochDurationSeconds Duration of voting epochs, in seconds.
@@ -440,7 +440,7 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     {
         require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
         RewardEpochState storage state = rewardEpochState[_rewardEpochId];
-        require(state.uptimeVoteSignStartTs == 0, "submit uptime vote already finished");
+        require(state.uptimeVoteSignStartTs == 0, "submit uptime vote already ended");
         bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _nodeIds));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
@@ -598,23 +598,6 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
      */
     function setSubmit3Aligned(bool _submit3Aligned) external onlyGovernance {
         submit3Aligned = _submit3Aligned;
-    }
-
-    /**
-     * Method for changing the signing policy settings.
-     * @param _signingPolicyThresholdPPM Signing policy threshold, in parts per million.
-     * @param _signingPolicyMinNumberOfVoters Minimum number of voters for signing policy.
-     * @dev Only governance can call this method.
-     */
-    function changeSigningPolicySettings(
-        uint24 _signingPolicyThresholdPPM,
-        uint16 _signingPolicyMinNumberOfVoters
-    )
-        external onlyGovernance
-    {
-        _checkSigningPolicySettings(_signingPolicyThresholdPPM, _signingPolicyMinNumberOfVoters);
-        signingPolicyThresholdPPM = _signingPolicyThresholdPPM;
-        signingPolicyMinNumberOfVoters = _signingPolicyMinNumberOfVoters;
     }
 
     /**
@@ -971,7 +954,10 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
      * @param _settings The new settings.
      */
     function _updateSettings(Settings memory _settings) internal {
-        _checkSigningPolicySettings(_settings.signingPolicyThresholdPPM, _settings.signingPolicyMinNumberOfVoters);
+        require(_settings.signingPolicyThresholdPPM <= PPM_MAX, "threshold too high");
+        require(_settings.signingPolicyMinNumberOfVoters > 0 && (address(voterRegistry) == address(0) ||
+            voterRegistry.maxVoters() >= _settings.signingPolicyMinNumberOfVoters), "invalid number of voters");
+        require(_settings.rewardExpiryOffsetSeconds <= block.timestamp, "expiry too long");
 
         randomAcquisitionMaxDurationSeconds = _settings.randomAcquisitionMaxDurationSeconds;
         randomAcquisitionMaxDurationBlocks = _settings.randomAcquisitionMaxDurationBlocks;
@@ -1135,19 +1121,6 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
      */
     function _checkIsTimeToSignRewards(uint24 _rewardEpochId) internal view {
         require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
-        require(rewardEpochState[_rewardEpochId + 1].signingPolicySignEndTs != 0, "new signing policy not signed yet");
-    }
-
-    /**
-     * Checks the signing policy settings.
-     */
-    function _checkSigningPolicySettings(
-        uint24 _signingPolicyThresholdPPM,
-        uint16 _signingPolicyMinNumberOfVoters
-    )
-        internal pure
-    {
-        require(_signingPolicyThresholdPPM <= PPM_MAX, "threshold too high");
-        require(_signingPolicyMinNumberOfVoters > 0, "zero voters");
+        require(rewardEpochState[_rewardEpochId + 1].signingPolicySignEndTs != 0, "signing policy not signed yet");
     }
 }

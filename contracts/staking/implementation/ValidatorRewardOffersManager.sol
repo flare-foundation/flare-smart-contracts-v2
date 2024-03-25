@@ -37,6 +37,22 @@ contract ValidatorRewardOffersManager is RewardOffersManagerBase, IValidatorRewa
     { }
 
     /**
+     * @inheritdoc IITokenPool
+     */
+    function getTokenPoolSupplyData()
+        external view
+        returns (
+            uint256 _lockedFundsWei,
+            uint256 _totalInflationAuthorizedWei,
+            uint256 _totalClaimedWei
+        )
+    {
+        _lockedFundsWei = 0;
+        _totalInflationAuthorizedWei = totalInflationAuthorizedWei;
+        _totalClaimedWei = totalInflationRewardsOfferedWei;
+    }
+
+    /**
      * Implement this function to allow updating inflation receiver contracts through `AddressUpdater`.
      * @return Contract name.
      */
@@ -61,8 +77,7 @@ contract ValidatorRewardOffersManager is RewardOffersManagerBase, IValidatorRewa
      * @inheritdoc InflationReceiver
      */
     function _setDailyAuthorizedInflation(uint256 _toAuthorizeWei) internal override {
-        // all authorized inflation should be forwarded to the reward manager
-        rewardManager.addDailyAuthorizedInflation(_toAuthorizeWei);
+        // do nothing
     }
 
     /**

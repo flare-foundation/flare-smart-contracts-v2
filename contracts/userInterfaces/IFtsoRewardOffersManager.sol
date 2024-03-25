@@ -12,8 +12,8 @@ interface IFtsoRewardOffersManager {
     struct Offer {
         // amount (in wei) of reward in native coin
         uint120 amount;
-        // feed name - i.e. base/quote symbol
-        bytes8 feedName;
+        // feed id - i.e. type + base/quote symbol
+        bytes21 feedId;
         // minimal reward eligibility turnout threshold in BIPS (basis points)
         uint16 minRewardedTurnoutBIPS;
         // primary band reward share in PPM (parts per million)
@@ -31,8 +31,8 @@ interface IFtsoRewardOffersManager {
     event RewardsOffered(
         // reward epoch id
         uint24 indexed rewardEpochId,
-        // feed name - i.e. base/quote symbol
-        bytes8 feedName,
+        // feed id - i.e. type + base/quote symbol
+        bytes21 feedId,
         // number of decimals (negative exponent)
         int8 decimals,
         // amount (in wei) of reward in native coin
@@ -51,8 +51,8 @@ interface IFtsoRewardOffersManager {
     event InflationRewardsOffered(
         // reward epoch id
         uint24 indexed rewardEpochId,
-        // feed names - i.e. base/quote symbols - multiple of 8 (one feedName is bytes8)
-        bytes feedNames,
+        // feed ids - i.e. type + base/quote symbols - multiple of 21 (one feedId is bytes21)
+        bytes feedIds,
         // decimals encoded to - multiple of 1 (int8)
         bytes decimals,
         // amount (in wei) of reward in native coin

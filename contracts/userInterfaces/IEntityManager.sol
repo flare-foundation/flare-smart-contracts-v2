@@ -56,8 +56,10 @@ interface IEntityManager {
     /**
      * Registers a node id.
      * @param _nodeId Node id.
+     * @param _certificateRaw Certificate in raw format.
+     * @param _signature Signature.
      */
-    function registerNodeId(bytes20 _nodeId) external;
+    function registerNodeId(bytes20 _nodeId, bytes calldata _certificateRaw, bytes calldata _signature) external;
 
     /**
      * Unregisters a node id.
@@ -69,9 +71,9 @@ interface IEntityManager {
      * Registers a public key.
      * @param _part1 First part of the public key.
      * @param _part2 Second part of the public key.
-     * @param _data Additional data used to validate the public key.
+     * @param _verificationData Additional data used to verify the public key.
      */
-    function registerPublicKey(bytes32 _part1, bytes32 _part2, bytes calldata _data) external;
+    function registerPublicKey(bytes32 _part1, bytes32 _part2, bytes calldata _verificationData) external;
 
     /**
      * Unregisters a public key.

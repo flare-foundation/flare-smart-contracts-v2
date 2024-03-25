@@ -11,6 +11,7 @@ import {
 import { getTestFile } from "../../../utils/constants";
 import { defaultTestSigningPolicy, generateSignatures } from "./coding-helpers";
 import { RelayMessage } from "../../../../scripts/libs/protocol/RelayMessage";
+import { FtsoConfigurations } from "../../../../scripts/libs/protocol/FtsoConfigurations";
 
 contract(`Coding; ${getTestFile(__filename)}`, async () => {
   let signers: SignerWithAddress[];
@@ -122,6 +123,13 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
     expect(RelayMessage.decode(fullData)).not.to.throw;
     decodedRelayMessage = RelayMessage.decode(fullData);
     expect(RelayMessage.equals(relayMessage2, decodedRelayMessage)).to.be.true;
+  });
+
+  it("Should encode and decode ftso feeds", async () => {
+    const feeds = [{type: 1, name: "BTC/USD"}, {type: 126, name: "1TEST123"}];
+    const encoded = FtsoConfigurations.encodeFeedIds(feeds);
+    const decoded = FtsoConfigurations.decodeFeedIds(encoded);
+    expect(decoded).to.deep.equal(feeds);
   });
 
 });

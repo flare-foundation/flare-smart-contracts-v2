@@ -19,6 +19,7 @@ import { transferAndWrapFunds } from "./deployment/tasks/transfer-and-wrap-funds
 import { getEntityAccounts, readEntities } from "./deployment/utils/Entity";
 import { registerEntities } from "./deployment/tasks/register-entities";
 import { provideRandomNumberForInitialRewardEpoch } from "./deployment/tasks/provide-random-number-for-initial-reward-epoch";
+import { redeployContracts } from "./deployment/scripts/redeploy-contracts";
 
 dotenv.config();
 
@@ -248,6 +249,23 @@ task("switch-to-production-mode", "Switch to production mode")
       await offerRewards(hre, process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, contracts, parameters);
     } else {
       throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
+    }
+  });
+
+  task("redeploy-contracts", "Redeploy contracts")
+  .addFlag("quiet", "Suppress console output")
+  .setAction(async (args, hre, runSuper) => {
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+    }
+    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+    if (parameters) {
+      const network = process.env.CHAIN_CONFIG!;
+      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+      const contracts = readContracts(network);
+      await redeployContracts(hre, oldContracts, contracts, parameters, args.quiet);
+    } else {
+      throw Error("CHAIN_CONFIG environment variable not set.")
     }
   });
 

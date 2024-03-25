@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 import "../interface/IIEntityManager.sol";
 import "../interface/IIFlareSystemsCalculator.sol";
 import "../interface/IIVoterRegistry.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
+import "../interface/IIFlareSystemsManager.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../utils/lib/SafePct.sol";
@@ -46,7 +46,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
 
     // Addresses of the external contracts.
     /// The FlareSystemsManager contract.
-    IFlareSystemsManager public flareSystemsManager;
+    IIFlareSystemsManager public flareSystemsManager;
     /// The EntityManager contract.
     IIEntityManager public entityManager;
     /// The FlareSystemsCalculator contract.
@@ -159,6 +159,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      */
     function setMaxVoters(uint256 _maxVoters) external onlyGovernance {
         require(_maxVoters <= UINT16_MAX, "_maxVoters too high");
+        require(_maxVoters >= flareSystemsManager.signingPolicyMinNumberOfVoters(), "_maxVoters too low");
         maxVoters = _maxVoters;
     }
 
@@ -337,6 +338,50 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     /**
      * @inheritdoc IIVoterRegistry
      */
+    function getRegisteredVotersAndRegistrationWeights(
+        uint256 _rewardEpochId
+    )
+        external view
+        returns (
+            address[] memory _voters,
+            uint256[] memory _registrationWeights
+        )
+    {
+        VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
+        _voters = votersAndWeights.voters;
+        uint256 length = _voters.length;
+        _registrationWeights = new uint256[](length);
+        for (uint256 i = 0; i < length; i++) {
+            _registrationWeights[i] = votersAndWeights.weights[_voters[i]];
+        }
+    }
+
+    /**
+     * @inheritdoc IIVoterRegistry
+     */
+    function getRegisteredVotersAndNormalisedWeights(
+        uint256 _rewardEpochId
+    )
+        external view
+        returns (
+            address[] memory _voters,
+            uint16[] memory _normalisedWeights
+        )
+    {
+        VotersAndWeights storage votersAndWeights = register[_rewardEpochId];
+        uint256 weightsSum = votersAndWeights.weightsSum;
+        require(weightsSum > 0, "reward epoch id not supported");
+        _voters = votersAndWeights.voters;
+        uint256 length = _voters.length;
+        _normalisedWeights = new uint16[](length);
+        for (uint256 i = 0; i < length; i++) {
+            _normalisedWeights[i] = uint16((votersAndWeights.weights[_voters[i]] * UINT16_MAX) / weightsSum);
+        }
+    }
+
+    /**
+     * @inheritdoc IIVoterRegistry
+     */
     function getVoterWithNormalisedWeight(
         uint256 _rewardEpochId,
         address _signingPolicyAddress
@@ -448,7 +493,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     )
         internal override
     {
-        flareSystemsManager = IFlareSystemsManager(
+        flareSystemsManager = IIFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         entityManager = IIEntityManager(_getContractAddress(_contractNameHashes, _contractAddresses, "EntityManager"));
         flareSystemsCalculator = IIFlareSystemsCalculator(

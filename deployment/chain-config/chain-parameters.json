@@ -9,14 +9,32 @@
                     "description": "The feed decimals.",
                     "type": "integer"
                 },
-                "feedName": {
-                    "description": "The feed name.",
-                    "type": "string"
+                "feedId": {
+                    "$ref": "#/definitions/FeedId",
+                    "description": "The feed id."
                 }
             },
             "required": [
                 "decimals",
-                "feedName"
+                "feedId"
+            ],
+            "type": "object"
+        },
+        "FeedId": {
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "description": "The feed name.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "The feed type (0 - no type, 1 - crypto, 2 - traditional currency, 3 - commodity, 4 - stock, ...).",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "name",
+                "type"
             ],
             "type": "object"
         },
@@ -46,10 +64,10 @@
         "FtsoInflationConfiguration": {
             "additionalProperties": false,
             "properties": {
-                "feedNames": {
-                    "description": "List of feed names for this configuration.",
+                "feedIds": {
+                    "description": "List of feed ids for this configuration.",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/FeedId"
                     },
                     "type": "array"
                 },
@@ -78,7 +96,7 @@
                 }
             },
             "required": [
-                "feedNames",
+                "feedIds",
                 "inflationShareBIPS",
                 "minRewardedTurnoutBIPS",
                 "mode",
@@ -284,6 +302,10 @@
             "description": "Max number of voters per reward epoch (e.g. 100).",
             "type": "integer"
         },
+        "messageFinalizationWindowInRewardEpochs": {
+            "description": "If reward epoch of a message is less then `lastInitializedRewardEpoch - messageFinalizationWindowInRewardEpochs`\nthe relaying of a message is not allowed.",
+            "type": "integer"
+        },
         "minimalRewardsOfferValueNAT": {
             "description": "The minimal reward offer value in NAT (e.g. 1,000,000).",
             "type": "integer"
@@ -299,6 +321,22 @@
         "pChainStakeEnabled": {
             "description": "Indicates whether the P-chain stake is enabled.",
             "type": "boolean"
+        },
+        "pChainStakeMirrorMaxAmountNAT": {
+            "description": "Max amount of P-chain stake. In whole native units, not Wei. Recommended value 200.000.000.",
+            "type": "integer"
+        },
+        "pChainStakeMirrorMaxDurationDays": {
+            "description": "Max duration of P-chain stake in days, recommended value 365 days",
+            "type": "integer"
+        },
+        "pChainStakeMirrorMinAmountNAT": {
+            "description": "Min amount of P-chain stake. In whole native units, not Wei. Recommended value 50.000.",
+            "type": "integer"
+        },
+        "pChainStakeMirrorMinDurationDays": {
+            "description": "Min duration of P-chain stake in days, recommended value 14 days",
+            "type": "integer"
         },
         "proposalFeeValueNAT": {
             "description": "Cost of creating proposal (in NAT). It is paid by the proposer.",
@@ -425,10 +463,15 @@
         "majorityConditionBIPS",
         "maxNodeIdsPerEntity",
         "maxVotersPerRewardEpoch",
+        "messageFinalizationWindowInRewardEpochs",
         "minimalRewardsOfferValueNAT",
         "newSigningPolicyInitializationStartSeconds",
         "newSigningPolicyMinNumberOfVotingRoundsDelay",
         "pChainStakeEnabled",
+        "pChainStakeMirrorMaxAmountNAT",
+        "pChainStakeMirrorMaxDurationDays",
+        "pChainStakeMirrorMinAmountNAT",
+        "pChainStakeMirrorMinDurationDays",
         "proposalFeeValueNAT",
         "proposers",
         "randomAcquisitionMaxDurationBlocks",

@@ -14,9 +14,9 @@ contract PollingFoundation is IIPollingFoundation, Governor, Governed, GovernorP
 
     /**
      * Initializes the contract with default parameters.
-     * @param _governanceSettings Address of the GovernanceSettings contract.
+     * @param _governanceSettings The address of the GovernanceSettings contract.
      * @param _initialGovernance The initial governance address.
-     * @param _addressUpdater Address identifying the address updater contract.
+     * @param _addressUpdater The address of the AddressUpdater contract.
      * @param _proposers Array of addresses allowed to submit a proposal.
      */
     constructor(
@@ -64,26 +64,21 @@ contract PollingFoundation is IIPollingFoundation, Governor, Governed, GovernorP
     }
 
     /**
-     * Returns the name of the governor contract.
-     * @return String representing the name.
+     * @inheritdoc Governor
      */
     function name() public pure override returns (string memory) {
         return "PollingFoundation";
     }
 
     /**
-     * Returns the version of the governor contract.
-     * @return String representing the version.
+     * @inheritdoc Governor
      */
     function version() public pure override returns (string memory) {
-        return "1";
+        return "2";
     }
 
     /**
-     * Determines if the submitter of a proposal is a valid proposer.
-     * @param _proposer Address of the submitter.
-     * @param *_votePowerBlock* Number representing the vote power block for which the validity is checked.
-     * @return True if the submitter is valid, and false otherwise.
+     * @inheritdoc Governor
      */
     function _isValidProposer(address _proposer, uint256 /*_votePowerBlock*/) internal view override returns (bool) {
         return isProposer(_proposer);

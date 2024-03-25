@@ -17,7 +17,7 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
 
     /// Used for setting initial feed decimals.
     struct InitialFeedDecimals {
-        bytes8 feedName;
+        bytes21 feedId;
         int8 decimals;
     }
 
@@ -26,7 +26,7 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
     /// The default decimals value.
     int8 public immutable defaultDecimals;
     //slither-disable-next-line uninitialized-state
-    mapping(bytes8 feedName => Decimals[]) internal decimals;
+    mapping(bytes21 feedId => Decimals[]) internal decimals;
 
     /// The FlareSystemsManager contract.
     IFlareSystemsManager public flareSystemsManager;
@@ -55,70 +55,70 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
         defaultDecimals = _defaultDecimals;
         for (uint256 i = 0; i < _initialFeedDecimals.length; i++) {
             InitialFeedDecimals memory ifds = _initialFeedDecimals[i];
-            decimals[ifds.feedName].push(Decimals(ifds.decimals, _initialRewardEpochId));
-            emit DecimalsChanged(ifds.feedName, ifds.decimals, _initialRewardEpochId);
+            decimals[ifds.feedId].push(Decimals(ifds.decimals, _initialRewardEpochId));
+            emit DecimalsChanged(ifds.feedId, ifds.decimals, _initialRewardEpochId);
         }
     }
 
     /**
-     * Allows governance to set (or update last) decimal for given feed name.
-     * @param _feedName Feed name.
+     * Allows governance to set (or update last) decimal for given feed id.
+     * @param _feedId Feed id.
      * @param _decimals Number of decimals (negative exponent).
      * @dev Only governance can call this method.
      */
-    function setDecimals(bytes8 _feedName, int8 _decimals) external onlyGovernance {
+    function setDecimals(bytes21 _feedId, int8 _decimals) external onlyGovernance {
         uint24 rewardEpochId = _getCurrentRewardEpochId() + decimalsUpdateOffset;
-        Decimals[] storage decimalsForFeedName = decimals[_feedName];
+        Decimals[] storage decimalsForFeedId = decimals[_feedId];
 
         // determine whether to update the last setting or add a new one
-        uint256 position = decimalsForFeedName.length;
+        uint256 position = decimalsForFeedId.length;
         if (position > 0) {
             // do not allow updating the settings in the past
-            assert(rewardEpochId >= decimalsForFeedName[position - 1].validFromEpochId);
+            assert(rewardEpochId >= decimalsForFeedId[position - 1].validFromEpochId);
 
-            if (rewardEpochId == decimalsForFeedName[position - 1].validFromEpochId) {
+            if (rewardEpochId == decimalsForFeedId[position - 1].validFromEpochId) {
                 // update
                 position = position - 1;
             }
         }
-        if (position == decimalsForFeedName.length) {
+        if (position == decimalsForFeedId.length) {
             // add
-            decimalsForFeedName.push();
+            decimalsForFeedId.push();
         }
 
         // apply setting
-        decimalsForFeedName[position].value = _decimals;
-        decimalsForFeedName[position].validFromEpochId = rewardEpochId;
+        decimalsForFeedId[position].value = _decimals;
+        decimalsForFeedId[position].validFromEpochId = rewardEpochId;
 
-        emit DecimalsChanged(_feedName, _decimals, rewardEpochId);
+        emit DecimalsChanged(_feedId, _decimals, rewardEpochId);
     }
 
     /**
      * @inheritdoc IFtsoFeedDecimals
      */
-    function getCurrentDecimals(bytes8 _feedName) external view returns (int8) {
-        return _getDecimals(_feedName, _getCurrentRewardEpochId());
+    function getCurrentDecimals(bytes21 _feedId) external view returns (int8) {
+        return _getDecimals(_feedId, _getCurrentRewardEpochId());
     }
 
     /**
      * @inheritdoc IFtsoFeedDecimals
      */
     function getDecimals(
-        bytes8 _feedName,
+        bytes21 _feedId,
         uint256 _rewardEpochId
     )
         external view
         returns (int8)
     {
         require(_rewardEpochId <= _getCurrentRewardEpochId() + decimalsUpdateOffset, "invalid reward epoch id");
-        return _getDecimals(_feedName, _rewardEpochId);
+        return _getDecimals(_feedId, _rewardEpochId);
     }
 
     /**
      * @inheritdoc IFtsoFeedDecimals
      */
     function getScheduledDecimalsChanges(
-        bytes8 _feedName
+        bytes21 _feedId
     )
         external view
         returns (
@@ -127,21 +127,21 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
             bool[] memory _fixed
         )
     {
-        Decimals[] storage decimalsForFeedName = decimals[_feedName];
-        if (decimalsForFeedName.length > 0) {
+        Decimals[] storage decimalsForFeedId = decimals[_feedId];
+        if (decimalsForFeedId.length > 0) {
             uint256 currentEpochId = _getCurrentRewardEpochId();
-            uint256 position = decimalsForFeedName.length;
-            while (position > 0 && decimalsForFeedName[position - 1].validFromEpochId > currentEpochId) {
+            uint256 position = decimalsForFeedId.length;
+            while (position > 0 && decimalsForFeedId[position - 1].validFromEpochId > currentEpochId) {
                 position--;
             }
-            uint256 count = decimalsForFeedName.length - position;
+            uint256 count = decimalsForFeedId.length - position;
             if (count > 0) {
                 _decimals = new int8[](count);
                 _validFromEpochId = new uint256[](count);
                 _fixed = new bool[](count);
                 for (uint256 i = 0; i < count; i++) {
-                    _decimals[i] = decimalsForFeedName[i + position].value;
-                    _validFromEpochId[i] = decimalsForFeedName[i + position].validFromEpochId;
+                    _decimals[i] = decimalsForFeedId[i + position].value;
+                    _validFromEpochId[i] = decimalsForFeedId[i + position].validFromEpochId;
                     _fixed[i] = (_validFromEpochId[i] - currentEpochId) != decimalsUpdateOffset;
                 }
             }
@@ -152,26 +152,26 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
      * @inheritdoc IFtsoFeedDecimals
      */
     function getCurrentDecimalsBulk(
-        bytes memory _feedNames
+        bytes memory _feedIds
     )
         external view
         returns (bytes memory _decimals)
     {
-        return _getDecimalsBulk(_feedNames, _getCurrentRewardEpochId());
+        return _getDecimalsBulk(_feedIds, _getCurrentRewardEpochId());
     }
 
     /**
      * @inheritdoc IFtsoFeedDecimals
      */
     function getDecimalsBulk(
-        bytes memory _feedNames,
+        bytes memory _feedIds,
         uint256 _rewardEpochId
     )
         external view
         returns (bytes memory _decimals)
     {
         require(_rewardEpochId <= _getCurrentRewardEpochId() + decimalsUpdateOffset, "invalid reward epoch id");
-        return _getDecimalsBulk(_feedNames, _rewardEpochId);
+        return _getDecimalsBulk(_feedIds, _rewardEpochId);
     }
 
     /**
@@ -188,50 +188,50 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
     }
 
     /**
-     * Returns decimals setting for `_feedName` at `_rewardEpochId`.
-     * @param _feedName Feed name.
+     * Returns decimals setting for `_feedId` at `_rewardEpochId`.
+     * @param _feedId Feed id.
      * @param _rewardEpochId Reward epoch id.
      */
     function _getDecimals(
-        bytes8 _feedName,
+        bytes21 _feedId,
         uint256 _rewardEpochId
     )
         internal view
         returns (int8)
     {
-        Decimals[] storage decimalsForFeedName = decimals[_feedName];
-        uint256 index = decimalsForFeedName.length;
+        Decimals[] storage decimalsForFeedId = decimals[_feedId];
+        uint256 index = decimalsForFeedId.length;
         while (index > 0) {
             index--;
-            if (_rewardEpochId >= decimalsForFeedName[index].validFromEpochId) {
-                return decimalsForFeedName[index].value;
+            if (_rewardEpochId >= decimalsForFeedId[index].validFromEpochId) {
+                return decimalsForFeedId[index].value;
             }
         }
         return defaultDecimals;
     }
 
     /**
-     * Returns decimals setting for `_feedNames` at `_rewardEpochId`.
-     * @param _feedNames Concatenated feed names (each name bytes8).
+     * Returns decimals setting for `_feedIds` at `_rewardEpochId`.
+     * @param _feedIds Concatenated feed ids (each feed id is bytes21).
      * @param _rewardEpochId Reward epoch id.
      */
     function _getDecimalsBulk(
-        bytes memory _feedNames,
+        bytes memory _feedIds,
         uint256 _rewardEpochId
     )
         internal view
         returns (bytes memory _decimals)
     {
         //slither-disable-next-line weak-prng
-        require(_feedNames.length % 8 == 0, "invalid _feedNames length");
-        uint256 length = _feedNames.length / 8;
+        require(_feedIds.length % 21 == 0, "invalid _feedIds length");
+        uint256 length = _feedIds.length / 21;
         _decimals = new bytes(length);
-        bytes memory feedName = new bytes(8);
+        bytes memory feedId = new bytes(21);
         for (uint256 i = 0; i < length; i++) {
-            for (uint256 j = 0; j < 8; j++) {
-                feedName[j] = _feedNames[8 * i + j];
+            for (uint256 j = 0; j < 21; j++) {
+                feedId[j] = _feedIds[21 * i + j];
             }
-            int8 dec = _getDecimals(bytes8(feedName), _rewardEpochId);
+            int8 dec = _getDecimals(bytes21(feedId), _rewardEpochId);
             _decimals[i] = bytes1(uint8(dec));
         }
     }

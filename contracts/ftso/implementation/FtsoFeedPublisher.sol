@@ -16,8 +16,8 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
     using MerkleProof for bytes32[];
 
-    mapping(bytes8 feedName => Feed) internal lastFeeds;
-    mapping(bytes8 feedName => mapping(uint256 feedHistoryPosition => Feed)) internal publishedFeeds;
+    mapping(bytes21 feedId => Feed) internal lastFeeds;
+    mapping(bytes21 feedId => mapping(uint256 feedHistoryPosition => Feed)) internal publishedFeeds;
 
     /// The Relay contract.
     IRelay public relay;
@@ -67,22 +67,22 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
             FeedWithProof calldata proof = _proofs[i];
             Feed calldata feed = proof.body;
             require(feed.votingRoundId < maxVotingRoundId, "voting round id too high");
-            bool addLastFeed = feed.votingRoundId > lastFeeds[feed.name].votingRoundId;
+            bool addLastFeed = feed.votingRoundId > lastFeeds[feed.id].votingRoundId;
             //slither-disable-next-line weak-prng
             uint256 feedHistoryPosition = feed.votingRoundId % feedsHistorySize;
             bool addHistoryFeed = feed.votingRoundId >= minVotingRoundId &&
-                publishedFeeds[feed.name][feedHistoryPosition].votingRoundId != feed.votingRoundId;
+                publishedFeeds[feed.id][feedHistoryPosition].votingRoundId != feed.votingRoundId;
             if (addLastFeed || addHistoryFeed) {
                 bytes32 feedHash = keccak256(abi.encode(feed));
                 bytes32 merkleRoot = relay.merkleRoots(ftsoProtocolId, feed.votingRoundId);
                 require(proof.merkleProof.verifyCalldata(merkleRoot, feedHash), "merkle proof invalid");
                 if (addLastFeed) {
-                    lastFeeds[feed.name] = feed;
+                    lastFeeds[feed.id] = feed;
                 }
                 if (addHistoryFeed) {
-                    publishedFeeds[feed.name][feedHistoryPosition] = feed;
+                    publishedFeeds[feed.id][feedHistoryPosition] = feed;
                 }
-                emit FtsoFeedPublished(feed.votingRoundId, feed.name, feed.value, feed.turnoutBIPS, feed.decimals);
+                emit FtsoFeedPublished(feed.votingRoundId, feed.id, feed.value, feed.turnoutBIPS, feed.decimals);
             }
         }
     }
@@ -96,19 +96,19 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
         for (uint256 i = 0; i < length; i++) {
             Feed memory feed = _feeds[i];
             require(feed.votingRoundId < maxVotingRoundId, "voting round id too high");
-            bool addLastFeed = feed.votingRoundId > lastFeeds[feed.name].votingRoundId;
+            bool addLastFeed = feed.votingRoundId > lastFeeds[feed.id].votingRoundId;
             //slither-disable-next-line weak-prng
             uint256 feedHistoryPosition = feed.votingRoundId % feedsHistorySize;
             bool addHistoryFeed = feed.votingRoundId >= minVotingRoundId &&
-                publishedFeeds[feed.name][feedHistoryPosition].votingRoundId != feed.votingRoundId;
+                publishedFeeds[feed.id][feedHistoryPosition].votingRoundId != feed.votingRoundId;
             if (addLastFeed || addHistoryFeed) {
                 if (addLastFeed) {
-                    lastFeeds[feed.name] = feed;
+                    lastFeeds[feed.id] = feed;
                 }
                 if (addHistoryFeed) {
-                    publishedFeeds[feed.name][feedHistoryPosition] = feed;
+                    publishedFeeds[feed.id][feedHistoryPosition] = feed;
                 }
-                emit FtsoFeedPublished(feed.votingRoundId, feed.name, feed.value, feed.turnoutBIPS, feed.decimals);
+                emit FtsoFeedPublished(feed.votingRoundId, feed.id, feed.value, feed.turnoutBIPS, feed.decimals);
             }
         }
     }
@@ -125,18 +125,18 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
     /**
      * @inheritdoc IFtsoFeedPublisher
      */
-    function getCurrentFeed(bytes8 _feedName) external view returns(Feed memory) {
-        return lastFeeds[_feedName];
+    function getCurrentFeed(bytes21 _feedId) external view returns(Feed memory) {
+        return lastFeeds[_feedId];
     }
 
     /**
      * @inheritdoc IFtsoFeedPublisher
      */
-    function getFeed(bytes8 _feedName, uint256 _votingRoundId) external view returns(Feed memory _feed) {
+    function getFeed(bytes21 _feedId, uint256 _votingRoundId) external view returns(Feed memory _feed) {
         (uint256 minVotingRoundId,) = _getMinMaxVotingRoundId();
         require(minVotingRoundId <= _votingRoundId, "too old voting round id");
         //slither-disable-next-line weak-prng
-        _feed = publishedFeeds[_feedName][_votingRoundId % feedsHistorySize];
+        _feed = publishedFeeds[_feedId][_votingRoundId % feedsHistorySize];
         require(_feed.votingRoundId == _votingRoundId, "feed not published yet");
     }
 

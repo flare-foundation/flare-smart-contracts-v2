@@ -4,8 +4,8 @@ pragma solidity 0.8.20;
 abstract contract GovernorVotes {
 
     /**
-     * Enum that determines vote (support) type
-     * @dev 0 = Against, 1 = For
+     * Enum that determines vote (support) type.
+     * @dev 0 = Against, 1 = For.
      */
     enum VoteType {
         Against,
@@ -13,7 +13,7 @@ abstract contract GovernorVotes {
     }
 
     /**
-     * Struct holding the information about proposal voting
+     * Struct holding the information about proposal voting.
      */
     struct ProposalVoting {
         uint256 againstVotePower;           // accumulated vote power against the proposal
@@ -24,11 +24,11 @@ abstract contract GovernorVotes {
     mapping(uint256 proposalId => ProposalVoting) internal proposalVotings;
 
     /**
-     * Stores a proposal vote
-     * @param _proposalId           Id of the proposal
-     * @param _voter                Address of the voter
-     * @param _support              Parameter indicating the vote type
-     * @param _votePower            Vote power of the voter
+     * Stores a proposal vote.
+     * @param _proposalId Id of the proposal.
+     * @param _voter Address of the voter.
+     * @param _support Parameter indicating the vote type.
+     * @param _votePower Vote power of the voter.
      */
     function _storeVote(
         uint256 _proposalId,

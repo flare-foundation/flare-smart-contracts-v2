@@ -3,21 +3,33 @@ import { constants, expectEvent, expectRevert, time } from '@openzeppelin/test-h
 import { toChecksumAddress } from 'ethereumjs-util';
 import { Contracts } from '../../deployment/scripts/Contracts';
 import privateKeys from "../../deployment/test-1020-accounts.json";
-import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { ECDSASignatureWithIndex } from "../../scripts/libs/protocol/ECDSASignatureWithIndex";
+import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
+import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
+import { RelayMessage } from '../../scripts/libs/protocol/RelayMessage';
 import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
-import { AddressBinderInstance, EntityManagerInstance, FtsoFeedPublisherContract, FtsoFeedPublisherInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance } from '../../typechain-truffle';
+import { AddressBinderInstance, EntityManagerInstance, FtsoFeedIdConverterContract, FtsoFeedIdConverterInstance, FtsoFeedPublisherContract, FtsoFeedPublisherInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance } from '../../typechain-truffle';
 import { MockContractContract } from '../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract';
+import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
+import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
+import { FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
+import { PollingFoundationContract, PollingFoundationInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingFoundation';
+import { PollingFtsoContract, PollingFtsoInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingFtso';
 import { CChainStakeContract, CChainStakeInstance } from '../../typechain-truffle/contracts/mock/CChainStake';
 import { GovernanceVotePowerContract } from '../../typechain-truffle/contracts/mock/GovernanceVotePower';
 import { PChainStakeMirrorContract } from '../../typechain-truffle/contracts/mock/PChainStakeMirror';
 import { EntityManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/EntityManager';
+import { FlareSystemsCalculatorContract, FlareSystemsCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsCalculator';
 import { FlareSystemsManagerContract, FlareSystemsManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager';
 import { PChainStakeMirrorVerifierContract } from '../../typechain-truffle/contracts/protocol/implementation/PChainStakeMirrorVerifier';
 import { RelayContract, RelayInstance } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
+import { RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
 import { SubmissionContract, SubmissionInstance } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
 import { VoterRegistryContract, VoterRegistryInstance } from '../../typechain-truffle/contracts/protocol/implementation/VoterRegistry';
+import { WNatDelegationFeeContract, WNatDelegationFeeInstance } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
+import { ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance } from '../../typechain-truffle/contracts/staking/implementation/ValidatorRewardOffersManager';
 import { AddressBinderContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressBinder';
+import { CleanupBlockNumberManagerContract, CleanupBlockNumberManagerInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/CleanupBlockNumberManager';
 import { VPContractContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/VPContract';
 import { WNatContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/WNat';
 import { generateSignatures } from '../unit/protocol/coding/coding-helpers';
@@ -25,18 +37,6 @@ import { getTestFile } from "../utils/constants";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
 import * as util from "../utils/key-to-address";
 import { encodeContractNames, toBN } from '../utils/test-helpers';
-import { RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
-import { WNatDelegationFeeContract, WNatDelegationFeeInstance } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
-import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
-import { FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
-import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
-import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
-import { FlareSystemsCalculatorContract, FlareSystemsCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsCalculator';
-import { CleanupBlockNumberManagerContract, CleanupBlockNumberManagerInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/CleanupBlockNumberManager';
-import { RelayMessage } from '../../scripts/libs/protocol/RelayMessage';
-import { PollingFoundationContract, PollingFoundationInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingFoundation';
-import { PollingFtsoContract, PollingFtsoInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingFtso';
-import { ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance } from '../../typechain-truffle/contracts/staking/implementation/ValidatorRewardOffersManager';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -58,6 +58,7 @@ const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifac
 const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
 const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
 const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
+const FtsoFeedIdConverter: FtsoFeedIdConverterContract = artifacts.require("FtsoFeedIdConverter");
 const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
 const ValidatorRewardOffersManager: ValidatorRewardOffersManagerContract = artifacts.require("ValidatorRewardOffersManager");
 const PollingFoundation: PollingFoundationContract = artifacts.require("PollingFoundation");
@@ -119,6 +120,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let ftsoRewardOffersManager: FtsoRewardOffersManagerInstance;
     let ftsoFeedDecimals: FtsoFeedDecimalsInstance;
     let ftsoFeedPublisher: FtsoFeedPublisherInstance;
+    let ftsoFeedIdConverter: FtsoFeedIdConverterInstance;
     let validatorRewardOffersManager: ValidatorRewardOffersManagerInstance
     let cleanupBlockNumberManager: CleanupBlockNumberManagerInstance;
     let pollingFoundation: PollingFoundationInstance;
@@ -146,6 +148,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     const NEW_SIGNING_POLICY_INITIALIZATION_START_SEC = 3600 * 2; // 2 hours
     const RELAY_SELECTOR = web3.utils.sha3("relay()")!.slice(0, 10); // first 4 bytes is function selector
 
+    const MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS = 100;
     const GWEI = 1e9;
     const VOTING_EPOCH_DURATION_SEC = 90;
     const REWARD_EPOCH_DURATION_IN_SEC = REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS * VOTING_EPOCH_DURATION_SEC;
@@ -194,9 +197,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         now = await time.latest();
 
         entityManager = await EntityManager.new(governanceSettings.address, accounts[0], 4);
+        await entityManager.setNodePossessionVerifier(verifierMock.address); // mock verifier
+
         const initialThreshold = 65500 / 2;
         const initialVoters = accounts.slice(0, 100);
         const initialWeights = Array(100).fill(655);
+
 
         voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, initialVoters, initialWeights);
         flareSystemsCalculator = await FlareSystemsCalculator.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2500, 20 * 60, 600, 600);
@@ -249,7 +255,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             governanceSettings.address,
             accounts[0],
             ADDRESS_UPDATER,
-            "0x0000000000000000000000000000000000000000"
+            constants.ZERO_ADDRESS
         );
 
         relay = await Relay.new(
@@ -262,7 +268,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             VOTING_EPOCH_DURATION_SEC,
             FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            12000
+            12000,
+            MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS
         );
 
         relay2 = await Relay.new(
@@ -275,7 +282,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             VOTING_EPOCH_DURATION_SEC,
             FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
             REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            12000
+            12000,
+            MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS
         );
 
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
@@ -294,8 +302,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             5,
             0,
             [
-              { feedName: FtsoConfigurations.encodeFeedName("BTC"), decimals: 2 },
-              { feedName: FtsoConfigurations.encodeFeedName("ETH"), decimals: 3 }
+              { feedId: FtsoConfigurations.encodeFeedId({type: 1, name: "BTC/USD"}), decimals: 2 },
+              { feedId: FtsoConfigurations.encodeFeedId({type: 1, name: "ETH/USD"}), decimals: 3 }
             ]);
 
         ftsoFeedPublisher = await FtsoFeedPublisher.new(
@@ -305,6 +313,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             FTSO_PROTOCOL_ID,
             200
         );
+
+        ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
 
         validatorRewardOffersManager = await ValidatorRewardOffersManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
 
@@ -399,7 +409,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         // set ftso configurations
         await ftsoInflationConfigurations.addFtsoConfiguration(
             {
-                feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "XRP", "FLR", "ETH"]),
+                feedIds: FtsoConfigurations.encodeFeedIds([{type: 1, name: "BTC/USD"}, {type: 1, name: "XRP/USD"}, {type: 1, name: "FLR/USD"}, {type: 1, name: "ETH/USD"}]),
                 inflationShare: 200,
                 minRewardedTurnoutBIPS: 5000,
                 mode: 0,
@@ -409,7 +419,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         );
         await ftsoInflationConfigurations.addFtsoConfiguration(
             {
-                feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "LTC"]),
+                feedIds: FtsoConfigurations.encodeFeedIds([{type: 1, name: "BTC/USD"}, {type: 1, name: "LTC/USD"}]),
                 inflationShare: 100,
                 minRewardedTurnoutBIPS: 5000,
                 mode: 0,
@@ -426,11 +436,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await ftsoRewardOffersManager.offerRewards(1, [
             {
                 amount: 25000000,
-                feedName: FtsoConfigurations.encodeFeedName("BTC"),
+                feedId: FtsoConfigurations.encodeFeedId({type: 1, name: "BTC/USD"}),
                 minRewardedTurnoutBIPS: 5000,
                 primaryBandRewardSharePPM: 450000,
                 secondaryBandWidthPPM: 50000,
-                claimBackAddress: "0x0000000000000000000000000000000000000000"
+                claimBackAddress: constants.ZERO_ADDRESS
             }],
             { value: "25000000" }
         );
@@ -473,7 +483,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should register nodes", async () => {
         for (let i = 0; i < 4; i++) {
-            await entityManager.registerNodeId(nodeIds[i], { from: registeredCAddresses[i] });
+            await entityManager.registerNodeId(nodeIds[i], "0x", "0x", { from: registeredCAddresses[i] });
         }
     });
 
@@ -659,15 +669,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         feed = {
             votingRoundId: votingRoundId,
-            name: FtsoConfigurations.encodeFeedName("BTC"),
+            id: FtsoConfigurations.encodeFeedId({type: 1, name: "BTC/USD"}),
             value: 12345,
             turnoutBIPS: 6500,
             decimals: 1
         };
 
         const root = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-            ["uint32", "bytes8", "int32", "uint16", "int8"],
-            [feed.votingRoundId, feed.name, feed.value, feed.turnoutBIPS, feed.decimals]));
+            ["uint32", "bytes21", "int32", "uint16", "int8"],
+            [feed.votingRoundId, feed.id, feed.value, feed.turnoutBIPS, feed.decimals]));
 
         const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isSecureRandom: quality, merkleRoot: root };
         const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
@@ -702,13 +712,27 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     it("Should publish ftso feed", async () => {
         const feedWithProof = { body: feed, merkleProof: [] };
         const tx = await ftsoFeedPublisher.publish([feedWithProof]);
-        expectEvent(tx, "FtsoFeedPublished", { votingRoundId: toBN(feed.votingRoundId), name: feed.name.padEnd(66, "0"), value: toBN(feed.value), turnoutBIPS: toBN(feed.turnoutBIPS), decimals: toBN(feed.decimals) });
-        const feedReturn = await ftsoFeedPublisher.getCurrentFeed(feed.name);
+        expectEvent(tx, "FtsoFeedPublished", { votingRoundId: toBN(feed.votingRoundId), id: feed.id.padEnd(66, "0"), value: toBN(feed.value), turnoutBIPS: toBN(feed.turnoutBIPS), decimals: toBN(feed.decimals) });
+        const feedReturn = await ftsoFeedPublisher.getCurrentFeed(feed.id);
         expect(feedReturn.votingRoundId).to.be.equal(feed.votingRoundId.toString());
-        expect(feedReturn.name).to.be.equal(feed.name);
+        expect(feedReturn.id).to.be.equal(feed.id);
         expect(feedReturn.value).to.be.equal(feed.value.toString());
         expect(feedReturn.turnoutBIPS).to.be.equal(feed.turnoutBIPS.toString());
         expect(feedReturn.decimals).to.be.equal(feed.decimals.toString());
+    });
+
+    it("Should convert feed id", async () => {
+        const type = 1;
+        const name = "BTC/USD";
+        const encodedFeedId = FtsoConfigurations.encodeFeedId({type, name});
+        const feedId = FtsoConfigurations.decodeFeedIds(encodedFeedId)[0];
+        const encodedFeedId2 = await ftsoFeedIdConverter.getFeedId(type, name);
+        expect(encodedFeedId2).to.be.equal(encodedFeedId);
+        const feedId2 = await ftsoFeedIdConverter.getFeedTypeAndName(encodedFeedId);
+        expect(type).to.be.equal(feedId.type);
+        expect(name).to.be.equal(feedId.name);
+        expect(type).to.be.equal(feedId2[0]);
+        expect(name).to.be.equal(feedId2[1]);
     });
 
     it("Should commit 2", async () => {

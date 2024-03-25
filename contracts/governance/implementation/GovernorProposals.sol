@@ -28,9 +28,9 @@ abstract contract GovernorProposals {
 
     uint256 internal nextExecutionStartTime;            // first available time for next proposal execution
     mapping(uint256 proposalId => Proposal) internal proposals;
-    /// Array of proposal ids
+    /// Array of proposal ids.
     uint256[] public proposalIds;
-    /// Chain id used for proposal id generation
+    /// Chain id used for proposal id generation.
     uint256 immutable public chainId;
 
     constructor() {
@@ -44,17 +44,18 @@ abstract contract GovernorProposals {
     }
 
     /**
-     * Stores a new proposal
-     * @param _proposer             Address of the proposer
-     * @param _targets              Array of target addresses on which the calls are to be invoked
-     * @param _values               Array of values with which the calls are to be invoked
-     * @param _calldatas            Array of call data to be invoked
-     * @param _description          String description of the proposal
-     * @param _votePowerBlock       Block number used for identifying vote power
-     * @param _minVPBlockTimestamp  Timestamp of a minimal vote power block
-     * @param _settings             Address identifying the governance settings address
-     * @param _circulatingSupply    Total circulating supply (total vote power) at vote power block
-     * @return Proposal id and proposal object
+     * Stores a new proposal.
+     * @param _proposer Address of the proposer.
+     * @param _targets Array of target addresses on which the calls are to be invoked.
+     * @param _values Array of values with which the calls are to be invoked.
+     * @param _calldatas Array of call data to be invoked.
+     * @param _description String description of the proposal.
+     * @param _votePowerBlock Block number used for identifying vote power.
+     * @param _minVPBlockTimestamp Timestamp of a minimal vote power block.
+     * @param _settings Address identifying the governance settings address.
+     * @param _circulatingSupply Total circulating supply (total vote power) at vote power block.
+     * @return Proposal id.
+     * @return Proposal object.
      */
     function _storeProposal(
         address _proposer,
@@ -105,10 +106,10 @@ abstract contract GovernorProposals {
     }
 
     /**
-     * Executes proposal
-     * @param _targets              Array of target addresses on which the calls are to be invoked
-     * @param _values               Array of values with which the calls are to be invoked
-     * @param _calldatas            Array of call data to be invoked
+     * Executes proposal.
+     * @param _targets Array of target addresses on which the calls are to be invoked.
+     * @param _values Array of values with which the calls are to be invoked.
+     * @param _calldatas Array of call data to be invoked.
      */
     function _executeProposal(
         address[] memory _targets,
@@ -140,11 +141,11 @@ abstract contract GovernorProposals {
     }
 
     /**
-     * Creates the hash of a proposal which is used as its id
-     * @param _targets              Array of target addresses on which the calls are to be invoked
-     * @param _values               Array of values with which the calls are to be invoked
-     * @param _calldatas            Array of call data to be invoked
-     * @param _descriptionHash      Hashed description of the proposal
+     * Creates the hash of a proposal which is used as its id.
+     * @param _targets Array of target addresses on which the calls are to be invoked.
+     * @param _values Array of values with which the calls are to be invoked.
+     * @param _calldatas Array of call data to be invoked.
+     * @param _descriptionHash Hashed description of the proposal.
      */
     function _getProposalId(
         address[] memory _targets,
@@ -156,9 +157,9 @@ abstract contract GovernorProposals {
     }
 
     /**
-     * Hashes the proposal description
-     * @param _description          String representing the proposal description
-     * @return Bytes array representing hashed proposal description
+     * Hashes the proposal description.
+     * @param _description String representing the proposal description.
+     * @return Bytes array representing hashed proposal description.
      */
     function _getDescriptionHash(string memory _description) internal pure returns (bytes32) {
         return keccak256(bytes(_description));
