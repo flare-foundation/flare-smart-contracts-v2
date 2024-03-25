@@ -102,6 +102,8 @@ export async function deployContracts(
   const CLAIM_SETUP_MANAGER_ADDR = accounts[5].address;
   const INFLATION_ADDR = accounts[5].address;
 
+  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
   const MockContract: MockContractContract = hre.artifacts.require("MockContract");
   const WNat: WNatContract = hre.artifacts.require("WNat");
   const VPContract: VPContractContract = hre.artifacts.require("VPContract");
@@ -265,7 +267,7 @@ export async function deployContracts(
     governanceSettings.address,
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
-    "0x0000000000000000000000000000000000000000"
+    ZERO_ADDRESS
   );
 
   const relay = await Relay.new(
@@ -278,7 +280,8 @@ export async function deployContracts(
     settings.votingEpochDurationSeconds,
     settings.firstRewardEpochStartVotingRoundId,
     settings.rewardEpochDurationInVotingEpochs,
-    12000
+    12000,
+    100
   );
 
   const submission = await Submission.new(
@@ -314,8 +317,8 @@ export async function deployContracts(
     5,
     0,
     [
-      { feedName: FtsoConfigurations.encodeFeedName("BTC"), decimals: 2 },
-      { feedName: FtsoConfigurations.encodeFeedName("ETH"), decimals: 3 }
+      { feedId: FtsoConfigurations.encodeFeedId({type: 1, name: "BTC/USD"}), decimals: 2 },
+      { feedId: FtsoConfigurations.encodeFeedId({type: 1, name: "ETH/USD"}), decimals: 3 }
     ]
   );
 
@@ -474,7 +477,7 @@ export async function deployContracts(
   // set ftso configurations
   await ftsoInflationConfigurations.addFtsoConfiguration(
     {
-        feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "XRP", "FLR", "ETH"]),
+        feedIds: FtsoConfigurations.encodeFeedIds([{type: 1, name: "BTC/USD"}, {type: 1, name: "XRP/USD"}, {type: 1, name: "FLR/USD"}, {type: 1, name: "ETH/USD"}]),
         inflationShare: 200,
         minRewardedTurnoutBIPS: 5000,
         mode: 0,
@@ -485,7 +488,7 @@ export async function deployContracts(
   );
   await ftsoInflationConfigurations.addFtsoConfiguration(
     {
-        feedNames: FtsoConfigurations.encodeFeedNames(["BTC", "LTC"]),
+        feedIds: FtsoConfigurations.encodeFeedIds([{type: 1, name: "BTC/USD"}, {type: 1, name: "LTC/USD"}]),
         inflationShare: 100,
         minRewardedTurnoutBIPS: 5000,
         mode: 0,
@@ -494,6 +497,8 @@ export async function deployContracts(
     },
     { from: governanceAccount.address }
   );
+
+  await entityManager.setNodePossessionVerifier(verifierMock.address); // mock verifier
 
   await pChainStakeMirror.setCleanerContract(CLEANER_CONTRACT_ADDR, { from: governanceAccount.address });
   await pChainStakeMirror.activate({ from: governanceAccount.address });

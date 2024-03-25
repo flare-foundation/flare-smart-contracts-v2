@@ -5,7 +5,7 @@ pragma solidity >=0.7.6 <0.9;
 interface IPollingFtso {
 
     /**
-     * Struct holding the information about proposal properties
+     * Struct holding the information about proposal properties.
      */
     struct Proposal {
         uint256 rewardEpochId;              // reward epoch id in which the proposal was created
@@ -20,7 +20,7 @@ interface IPollingFtso {
     }
 
     /**
-     * Struct holding the information about proposal voting
+     * Struct holding the information about proposal voting.
      */
     struct ProposalVoting {
         uint256 againstVotePower;           // accumulated vote power against the proposal
@@ -29,7 +29,7 @@ interface IPollingFtso {
     }
 
     /**
-     * Enum describing a proposal state
+     * Enum describing a proposal state.
      */
     enum ProposalState {
         Canceled,
@@ -40,8 +40,8 @@ interface IPollingFtso {
     }
 
     /**
-     * Enum that determines vote (support) type
-     * @dev 0 = Against, 1 = For
+     * Enum that determines vote (support) type.
+     * 0 = Against, 1 = For.
      */
     enum VoteType {
         Against,
@@ -49,7 +49,7 @@ interface IPollingFtso {
     }
 
     /**
-     * Event emitted when a proposal is created
+     * Event emitted when a proposal is created.
      */
     event FtsoProposalCreated(
         uint256 indexed proposalId,
@@ -64,7 +64,7 @@ interface IPollingFtso {
     );
 
     /**
-     * Event emitted when a vote is cast
+     * Event emitted when a vote is cast.
      */
     event VoteCast(
         address indexed voter,
@@ -75,12 +75,12 @@ interface IPollingFtso {
     );
 
     /**
-     * Event emitted when a proposal is canceled
+     * Event emitted when a proposal is canceled.
      */
     event ProposalCanceled(uint256 indexed proposalId);
 
     /**
-     * Event emitted when parameters are set
+     * Event emitted when parameters are set.
      */
     event ParametersSet(
         uint256 votingDelaySeconds,
@@ -91,18 +91,24 @@ interface IPollingFtso {
     );
 
     /**
-     * Event emitted when maintainer is set
+     * Event emitted when maintainer is set.
      */
     event MaintainerSet(address newMaintainer);
 
     /**
-     * Event emitted when proxy voter is set
+     * Event emitted when proxy voter is set.
      */
     event ProxyVoterSet(address account, address proxyVoter);
 
     /**
      * Sets (or changes) contract's parameters. It is called after deployment of the contract
      * and every time one of the parameters changes.
+     * @param _votingDelaySeconds Period between proposal creation and start of the vote, in seconds.
+     * @param _votingPeriodSeconds Length of voting period, in seconds.
+     * @param _thresholdConditionBIPS Share of total vote power (in BIPS) required to participate in vote
+     * for proposal to pass.
+     * @param _majorityConditionBIPS Share of participating vote power (in BIPS) required to vote in favor.
+     * @param _proposalFeeValueWei Fee value (in wei) that proposer must pay to submit a proposal.
      */
     function setParameters(
         uint256 _votingDelaySeconds,
@@ -114,63 +120,63 @@ interface IPollingFtso {
     external;
 
     /**
-     * Cancels an existing proposal
-     * @param _proposalId           Unique identifier of a proposal
-     * Emits a ProposalCanceled event
+     * Cancels an existing proposal.
+     * @param _proposalId Unique identifier of a proposal.
+     * Emits a ProposalCanceled event.
      */
     function cancel(uint256 _proposalId) external;
 
     /**
-     * Creates a new proposal
-     * @param _description          String description of the proposal
-     * @return _proposalId          Unique identifier of the proposal
-     * Emits a FtsoProposalCreated event
+     * Creates a new proposal.
+     * @param _description String description of the proposal.
+     * @return _proposalId Unique identifier of the proposal.
+     * Emits a FtsoProposalCreated event.
      */
     function propose(
         string memory _description
     ) external payable returns (uint256);
 
     /**
-     * Casts a vote on a proposal
-     * @param _proposalId           Id of the proposal
-     * @param _support              A value indicating vote type (against, for)
-     * Emits a VoteCast event
+     * Casts a vote on a proposal.
+     * @param _proposalId Id of the proposal.
+     * @param _support A value indicating vote type (against, for).
+     * Emits a VoteCast event.
      */
     function castVote(uint256 _proposalId, uint8 _support) external;
 
     /**
-     * Sets a proxy voter for a voter (i.e. address that can vote in its name)
-     * @param _proxyVoter           Address to register as a proxy (use address(0) to remove proxy)
-     * Emits a ProxyVoterSet event
+     * Sets a proxy voter for a voter (i.e. address that can vote in its name).
+     * @param _proxyVoter Address to register as a proxy (use address(0) to remove proxy).
+     * Emits a ProxyVoterSet event.
      */
     function setProxyVoter(address _proxyVoter) external;
 
     /**
-     * Returns the current state of a proposal
-     * @param _proposalId           Id of the proposal
-     * @return ProposalState enum
+     * Returns the current state of a proposal.
+     * @param _proposalId Id of the proposal.
+     * @return ProposalState enum.
      */
     function state(uint256 _proposalId) external view returns (ProposalState);
 
     /**
-     * Returns whether a voter has cast a vote on a specific proposal
-     * @param _proposalId           Id of the proposal
-     * @param _voter                Address of the voter
-     * @return True if the voter has cast a vote on the proposal, and false otherwise
+     * Returns whether a voter has cast a vote on a specific proposal.
+     * @param _proposalId Id of the proposal.
+     * @param _voter Address of the voter.
+     * @return True if the voter has cast a vote on the proposal, and false otherwise.
      */
     function hasVoted(uint256 _proposalId, address _voter) external view returns (bool);
 
     /**
-     * Returns information about the specified proposal
-     * @param _proposalId               Id of the proposal
-     * @return _rewardEpochId           Reward epoch id
-     * @return _description             Description of the proposal
-     * @return _proposer                Address of the proposal submitter
-     * @return _voteStartTime           Start time (in seconds from epoch) of the proposal voting
-     * @return _voteEndTime             End time (in seconds from epoch) of the proposal voting
-     * @return _thresholdConditionBIPS  Number of votes (voter power) cast required for the proposal to pass
-     * @return _majorityConditionBIPS   Number of FOR votes, as a percentage in BIPS of the
-     * @return _totalWeight             Total weight of all eligible voters
+     * Returns information about the specified proposal.
+     * @param _proposalId Id of the proposal.
+     * @return _rewardEpochId Reward epoch id.
+     * @return _description Description of the proposal.
+     * @return _proposer Address of the proposal submitter.
+     * @return _voteStartTime Start time (in seconds from epoch) of the proposal voting.
+     * @return _voteEndTime End time (in seconds from epoch) of the proposal voting.
+     * @return _thresholdConditionBIPS Number of votes (voter power) cast required for the proposal to pass.
+     * @return _majorityConditionBIPS Number of FOR votes, as a percentage in BIPS of the.
+     * @return _totalWeight Total weight of all eligible voters.
      */
     function getProposalInfo(
         uint256 _proposalId
@@ -188,26 +194,26 @@ interface IPollingFtso {
         );
 
     /**
-     * Returns the description string that was supplied when the specified proposal was created
-     * @param _proposalId           Id of the proposal
-     * @return _description         Description of the proposal
+     * Returns the description string that was supplied when the specified proposal was created.
+     * @param _proposalId Id of the proposal.
+     * @return _description Description of the proposal.
      */
     function getProposalDescription(uint256 _proposalId) external view
         returns (string memory _description);
 
     /**
-     * Returns id and description of the last created proposal
-     * @return _proposalId          Id of the last proposal
-     * @return _description         Description of the last proposal
+     * Returns id and description of the last created proposal.
+     * @return _proposalId Id of the last proposal.
+     * @return _description Description of the last proposal.
      */
     function getLastProposal() external view
         returns ( uint256 _proposalId, string memory _description);
 
     /**
-     * Returns number of votes for and against the specified proposal
-     * @param _proposalId           Id of the proposal
-     * @return _for                 Accumulated vote power for the proposal
-     * @return _against             Accumulated vote power against the proposal
+     * Returns number of votes for and against the specified proposal.
+     * @param _proposalId Id of the proposal.
+     * @return _for Accumulated vote power for the proposal.
+     * @return _against Accumulated vote power against the proposal.
      */
     function getProposalVotes(
         uint256 _proposalId
@@ -219,19 +225,19 @@ interface IPollingFtso {
         );
 
     /**
-     * Returns whether an account can create proposals
+     * Returns whether an account can create proposals.
      * An address can make proposals if it is registered voter,
-     * its proxy or the maintainer of the contract
-     * @param _account              Address of the queried account
-     * @return True if the queried account can create a proposal, false otherwise
+     * its proxy or the maintainer of the contract.
+     * @param _account Address of the queried account.
+     * @return True if the queried account can create a proposal, false otherwise.
      */
     function canPropose(address _account) external view returns (bool);
 
     /**
-     * Returns whether an account can vote for a given proposal
-     * @param _account              Address of the queried account
-     * @param _proposalId           Id of the queried proposal
-     * @return True if account is eligible to vote, false otherwise
+     * Returns whether an account can vote for a given proposal.
+     * @param _account Address of the queried account.
+     * @param _proposalId Id of the queried proposal.
+     * @return True if account is eligible to vote, false otherwise.
      */
     function canVote(address _account, uint256 _proposalId) external view returns (bool);
 

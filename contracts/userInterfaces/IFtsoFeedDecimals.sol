@@ -7,7 +7,7 @@ pragma solidity >=0.7.6 <0.9;
 interface IFtsoFeedDecimals {
 
     /// Event emitted when a feed decimals value is changed.
-    event DecimalsChanged(bytes8 indexed feedName, int8 decimals, uint24 rewardEpochId);
+    event DecimalsChanged(bytes21 indexed feedId, int8 decimals, uint24 rewardEpochId);
 
     /// The offset in reward epochs for the decimals value to become effective.
     function decimalsUpdateOffset() external view returns (uint24);
@@ -16,33 +16,33 @@ interface IFtsoFeedDecimals {
     function defaultDecimals() external view returns (int8);
 
     /**
-     * Returns current decimals set for `_feedName`.
-     * @param _feedName Feed name.
+     * Returns current decimals set for `_feedId`.
+     * @param _feedId Feed id.
      */
-    function getCurrentDecimals(bytes8 _feedName) external view returns (int8);
+    function getCurrentDecimals(bytes21 _feedId) external view returns (int8);
 
     /**
-     * Returns the decimals of `_feedName` for given reward epoch id.
-     * @param _feedName Feed name.
+     * Returns the decimals of `_feedId` for given reward epoch id.
+     * @param _feedId Feed id.
      * @param _rewardEpochId Reward epoch id.
      * **NOTE:** decimals might still change for the `current + decimalsUpdateOffset` reward epoch id.
      */
     function getDecimals(
-        bytes8 _feedName,
+        bytes21 _feedId,
         uint256 _rewardEpochId
     )
         external view
         returns (int8);
 
     /**
-     * Returns the scheduled decimals changes of `_feedName`.
-     * @param _feedName Feed name.
+     * Returns the scheduled decimals changes of `_feedId`.
+     * @param _feedId Feed id.
      * @return _decimals Positional array of decimals.
      * @return _validFromEpochId Positional array of reward epoch ids the decimals setings are effective from.
      * @return _fixed Positional array of boolean values indicating if settings are subjected to change.
      */
     function getScheduledDecimalsChanges(
-        bytes8 _feedName
+        bytes21 _feedId
     )
         external view
         returns (
@@ -52,25 +52,25 @@ interface IFtsoFeedDecimals {
         );
 
     /**
-     * Returns current decimals setting for `_feedNames`.
-     * @param _feedNames Concatenated feed names (each feedName bytes8).
+     * Returns current decimals setting for `_feedIds`.
+     * @param _feedIds Concatenated feed ids (each feedId bytes21).
      * @return _decimals Concatenated corresponding decimals (each as bytes1(uint8(int8))).
      */
     function getCurrentDecimalsBulk(
-        bytes memory _feedNames
+        bytes memory _feedIds
     )
         external view
         returns (bytes memory _decimals);
 
     /**
-     * Returns decimals setting for `_feedNames` at `_rewardEpochId`.
-     * @param _feedNames Concatenated feed names (each feedName bytes8).
+     * Returns decimals setting for `_feedIds` at `_rewardEpochId`.
+     * @param _feedIds Concatenated feed ids (each feedId bytes21).
      * @param _rewardEpochId Reward epoch id.
      * @return _decimals Concatenated corresponding decimals (each as bytes1(uint8(int8))).
      * **NOTE:** decimals might still change for the `current + decimalsUpdateOffset` reward epoch id.
      */
     function getDecimalsBulk(
-        bytes memory _feedNames,
+        bytes memory _feedIds,
         uint256 _rewardEpochId
     )
         external view

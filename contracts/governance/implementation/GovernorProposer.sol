@@ -11,8 +11,8 @@ abstract contract GovernorProposer is IIGovernorProposer, Governed {
     event ProposersChanged(address[] addedProposers, address[] removedProposers);
 
     /**
-     * Initializes the governor parameters
-     * @param _proposers                Array of addresses allowed to submit a proposal
+     * Initializes the governor parameters.
+     * @param _proposers Array of addresses allowed to submit a proposal.
      */
     constructor(
         address[] memory _proposers
@@ -21,11 +21,11 @@ abstract contract GovernorProposer is IIGovernorProposer, Governed {
     }
 
     /**
-     * Changes proposers
-     * @param _proposersToAdd       Array of addresses to make eligible to submit a proposal
-     * @param _proposersToRemove    Array of addresses to make ineligible to submit a proposal
-     * This operation can only be performed through a governance proposal
-     * Emits a ProposersChanged event
+     * Changes proposers.
+     * @param _proposersToAdd Array of addresses to make eligible to submit a proposal.
+     * @param _proposersToRemove Array of addresses to make ineligible to submit a proposal.
+     * @dev This operation can only be performed by governance.
+     * Emits a ProposersChanged event.
      */
     function changeProposers(
         address[] memory _proposersToAdd,
@@ -35,19 +35,17 @@ abstract contract GovernorProposer is IIGovernorProposer, Governed {
     }
 
     /**
-     * Determines if account is eligible to submit a proposal
-     * @param _account              Address of the queried account
-     * @return True if account is eligible for proposal submission, and false otherwise
+     * @inheritdoc IIGovernorProposer
      */
     function isProposer(address _account) public view returns (bool) {
         return proposers[_account];
     }
 
     /**
-     * Changes proposers
-     * @param _proposersToAdd       Array of addresses to make eligible to submit a proposal
-     * @param _proposersToRemove    Array of addresses to make ineligible to submit a proposal
-     * Emits a ProposersChanged event
+     * Changes proposers.
+     * @param _proposersToAdd Array of addresses to make eligible to submit a proposal.
+     * @param _proposersToRemove Array of addresses to make ineligible to submit a proposal.
+     * Emits a ProposersChanged event.
      */
     function _changeProposers(address[] memory _proposersToAdd, address[] memory _proposersToRemove) internal {
         emit ProposersChanged(_proposersToAdd, _proposersToRemove);

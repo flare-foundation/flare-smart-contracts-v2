@@ -96,7 +96,7 @@ interface IRelay {
      * @param _timestamp The timestamp.
      * @return _votingRoundId The voting round id.
      */
-    function getVotingRoundId(uint256 _timestamp) external view returns (uint256);
+    function getVotingRoundId(uint256 _timestamp) external view returns (uint256 _votingRoundId);
 
     /**
      * Returns the confirmed merkle root for given protocol id and voting round id.

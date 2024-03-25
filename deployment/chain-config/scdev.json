@@ -15,78 +15,24 @@
     "initialThreshold": 32768,
     "initialVoterData": [],
     "initialFeedDecimalsList": [
-        {
-            "feedName": "BTC",
-            "decimals": 2
-        },
-        {
-            "feedName": "ETH",
-            "decimals": 3
-        },
-        {
-            "feedName": "XAU",
-            "decimals": 3
-        },
-        {
-            "feedName": "MKR",
-            "decimals": 3
-        },
-        {
-            "feedName": "XPT",
-            "decimals": 4
-        },
-        {
-            "feedName": "TAO",
-            "decimals": 4
-        },
-        {
-            "feedName": "BNB",
-            "decimals": 4
-        },
-        {
-            "feedName": "GNO",
-            "decimals": 4
-        },
-        {
-            "feedName": "BCH",
-            "decimals": 4
-        },
-        {
-            "feedName": "XMR",
-            "decimals": 4
-        },
-        {
-            "feedName": "SOL",
-            "decimals": 4
-        },
-        {
-            "feedName": "QNT",
-            "decimals": 4
-        },
-        {
-            "feedName": "AAVE",
-            "decimals": 4
-        },
-        {
-            "feedName": "BTT",
-            "decimals": 10
-        },
-        {
-            "feedName": "SHIB",
-            "decimals": 10
-        },
-        {
-            "feedName": "BONK",
-            "decimals": 10
-        },
-        {
-            "feedName": "LUNC",
-            "decimals": 10
-        },
-        {
-            "feedName": "1000SATS",
-            "decimals": 10
-        }
+        {"feedId": {"type": 1, "name":"BTC/USD"}, "decimals": 2},
+        {"feedId": {"type": 1, "name":"ETH/USD"}, "decimals": 3},
+        {"feedId": {"type": 3, "name":"XAU/USD"}, "decimals": 3},
+        {"feedId": {"type": 1, "name":"MKR/USD"}, "decimals": 3},
+        {"feedId": {"type": 3, "name":"XPT/USD"}, "decimals": 4},
+        {"feedId": {"type": 1, "name":"TAO/USD"}, "decimals": 4},
+        {"feedId": {"type": 1, "name":"BNB/USD"}, "decimals": 4},
+        {"feedId": {"type": 1, "name":"GNO/USD"}, "decimals": 4},
+        {"feedId": {"type": 1, "name":"BCH/USD"}, "decimals": 4},
+        {"feedId": {"type": 1, "name":"XMR/USD"}, "decimals": 4},
+        {"feedId": {"type": 1, "name":"SOL/USD"}, "decimals": 4},
+        {"feedId": {"type": 1, "name":"QNT/USD"}, "decimals": 4},
+        {"feedId": {"type": 1, "name":"AAVE/USD"}, "decimals": 4},
+        {"feedId": {"type": 1, "name":"BTT/USD"}, "decimals": 10},
+        {"feedId": {"type": 1, "name":"SHIB/USD"}, "decimals": 10},
+        {"feedId": {"type": 1, "name":"BONK/USD"}, "decimals": 10},
+        {"feedId": {"type": 1, "name":"LUNC/USD"}, "decimals": 10},
+        {"feedId": {"type": 1, "name":"1000SATS/USD"}, "decimals": 10}
     ],
 
     "firstVotingRoundStartTs": 1658430000,
@@ -94,6 +40,7 @@
     "firstRewardEpochStartVotingRoundId": 0,
     "rewardEpochDurationInVotingEpochs": 10,
     "relayThresholdIncreaseBIPS": 12000,
+    "messageFinalizationWindowInRewardEpochs": 10,
     "newSigningPolicyInitializationStartSeconds": 480,
     "randomAcquisitionMaxDurationSeconds": 300,
     "randomAcquisitionMaxDurationBlocks": 100,
@@ -122,7 +69,59 @@
     "feedsHistorySize": 200,
     "ftsoInflationConfigurations": [
         {
-            "feedNames": ["FLR", "SGB", "BTC", "XRP", "LTC", "XLM", "DOGE", "ADA", "ALGO", "ETH", "FIL", "ARB", "AVAX", "BNB", "MATIC", "SOL", "USDC", "USDT", "XDC", "TRX", "DOT", "SHIB", "UNI", "HBAR", "NEAR", "VET", "RNDR", "STRK", "AAVE", "QNT", "XTZ", "GALA", "ATOM", "ETC", "BEAM", "IMX", "STX", "APT", "OP", "ICP", "INJ", "TIA", "GRT", "SUI", "LDO", "XAU", "XAG", "XPT", "EUR", "JPY", "AUD"],
+            "feedIds": [
+                {"type": 1, "name": "FLR/USD"},
+                {"type": 1, "name": "SGB/USD"},
+                {"type": 1, "name": "BTC/USD"},
+                {"type": 1, "name": "XRP/USD"},
+                {"type": 1, "name": "LTC/USD"},
+                {"type": 1, "name": "XLM/USD"},
+                {"type": 1, "name": "DOGE/USD"},
+                {"type": 1, "name": "ADA/USD"},
+                {"type": 1, "name": "ALGO/USD"},
+                {"type": 1, "name": "ETH/USD"},
+                {"type": 1, "name": "FIL/USD"},
+                {"type": 1, "name": "ARB/USD"},
+                {"type": 1, "name": "AVAX/USD"},
+                {"type": 1, "name": "BNB/USD"},
+                {"type": 1, "name": "MATIC/USD"},
+                {"type": 1, "name": "SOL/USD"},
+                {"type": 1, "name": "USDC/USD"},
+                {"type": 1, "name": "USDT/USD"},
+                {"type": 1, "name": "XDC/USD"},
+                {"type": 1, "name": "TRX/USD"},
+                {"type": 1, "name": "DOT/USD"},
+                {"type": 1, "name": "SHIB/USD"},
+                {"type": 1, "name": "UNI/USD"},
+                {"type": 1, "name": "HBAR/USD"},
+                {"type": 1, "name": "NEAR/USD"},
+                {"type": 1, "name": "VET/USD"},
+                {"type": 1, "name": "RNDR/USD"},
+                {"type": 1, "name": "STRK/USD"},
+                {"type": 1, "name": "AAVE/USD"},
+                {"type": 1, "name": "QNT/USD"},
+                {"type": 1, "name": "XTZ/USD"},
+                {"type": 1, "name": "GALA/USD"},
+                {"type": 1, "name": "ATOM/USD"},
+                {"type": 1, "name": "ETC/USD"},
+                {"type": 1, "name": "BEAM/USD"},
+                {"type": 1, "name": "IMX/USD"},
+                {"type": 1, "name": "STX/USD"},
+                {"type": 1, "name": "APT/USD"},
+                {"type": 1, "name": "OP/USD"},
+                {"type": 1, "name": "ICP/USD"},
+                {"type": 1, "name": "INJ/USD"},
+                {"type": 1, "name": "TIA/USD"},
+                {"type": 1, "name": "GRT/USD"},
+                {"type": 1, "name": "SUI/USD"},
+                {"type": 1, "name": "LDO/USD"},
+                {"type": 3, "name": "XAU/USD"},
+                {"type": 3, "name": "XAG/USD"},
+                {"type": 3, "name": "XPT/USD"},
+                {"type": 2, "name": "EUR/USD"},
+                {"type": 2, "name": "JPY/USD"},
+                {"type": 2, "name": "AUD/USD"}
+            ],
             "inflationShareBIPS": 10000,
             "minRewardedTurnoutBIPS": 5000,
             "mode": 0,
@@ -174,5 +173,9 @@
     "votingPeriodSeconds": 86400,
     "thresholdConditionBIPS": 6600,
     "majorityConditionBIPS": 5000,
-    "proposalFeeValueNAT": 100
+    "proposalFeeValueNAT": 100,
+    "pChainStakeMirrorMinDurationDays": 14,
+    "pChainStakeMirrorMaxDurationDays": 365,
+    "pChainStakeMirrorMinAmountNAT": 50000,
+    "pChainStakeMirrorMaxAmountNAT": 200000000
 }

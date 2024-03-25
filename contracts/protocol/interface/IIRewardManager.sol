@@ -10,13 +10,6 @@ import "../../userInterfaces/IRewardManager.sol";
 interface IIRewardManager is IRewardManager {
 
     /**
-     * Adds daily authorized inflation.
-     * @param _toAuthorizeWei Amount of inflation to authorize (wei).
-     * @dev Only reward offers manager can call this method.
-     */
-    function addDailyAuthorizedInflation(uint256 _toAuthorizeWei) external;
-
-    /**
      * Receives funds from reward offers manager.
      * @param _rewardEpochId ID of the reward epoch for which the funds are received.
      * @param _inflation Indicates if the funds come from the inflation (true) or from the community (false).

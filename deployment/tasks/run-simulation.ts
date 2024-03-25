@@ -41,7 +41,7 @@ const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
 const OFFERS = [
   {
     amount: 25000000,
-    feedName: FtsoConfigurations.encodeFeedName("BTC"),
+    feedId: FtsoConfigurations.encodeFeedId({type: 1, name: "BTC/USD"}),
     minRewardedTurnoutBIPS: 5000,
     primaryBandRewardSharePPM: 450000,
     secondaryBandWidthPPM: 50000,
@@ -49,7 +49,7 @@ const OFFERS = [
   },
   {
     amount: 50000000,
-    feedName: FtsoConfigurations.encodeFeedName("XRP"),
+    feedId: FtsoConfigurations.encodeFeedId({type: 1, name: "XRP/USD"}),
     minRewardedTurnoutBIPS: 5000,
     primaryBandRewardSharePPM: 650000,
     secondaryBandWidthPPM: 20000,
@@ -437,7 +437,7 @@ async function registerAccounts(
 
     await c.wNat.deposit({ value: weightGwei * GWEI, from: identityAccount.address });
 
-    await c.entityManager.registerNodeId(nodeId, { from: identityAccount.address });
+    await c.entityManager.registerNodeId(nodeId, "0x", "0x", { from: identityAccount.address });
     await c.entityManager.proposeSubmitAddress(submitAccount.address, { from: identityAccount.address });
     await c.entityManager.confirmSubmitAddressRegistration(identityAccount.address, {
       from: submitAccount.address,

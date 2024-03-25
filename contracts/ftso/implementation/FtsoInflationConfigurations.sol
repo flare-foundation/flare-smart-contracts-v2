@@ -19,13 +19,13 @@ contract FtsoInflationConfigurations is Governed, IFtsoInflationConfigurations {
     /**
      * Constructor.
      * @param _governanceSettings The address of the GovernanceSettings contract.
-     * @param _governance The initial governance address.
+     * @param _initialGovernance The initial governance address.
      */
     constructor(
         IGovernanceSettings _governanceSettings,
-        address _governance
+        address _initialGovernance
     )
-        Governed(_governanceSettings, _governance)
+        Governed(_governanceSettings, _initialGovernance)
     { }
 
     /**
@@ -86,11 +86,11 @@ contract FtsoInflationConfigurations is Governed, IFtsoInflationConfigurations {
         require(_configuration.minRewardedTurnoutBIPS <= MAX_BIPS, "invalid minRewardedTurnoutBIPS value");
         require(_configuration.primaryBandRewardSharePPM <= PPM_MAX, "invalid primaryBandRewardSharePPM value");
         //slither-disable-next-line weak-prng
-        require(_configuration.feedNames.length % 8 == 0, "invalid feedNames length");
+        require(_configuration.feedIds.length % 21 == 0, "invalid feedIds length");
         //slither-disable-next-line weak-prng
         require(_configuration.secondaryBandWidthPPMs.length % 3 == 0, "invalid secondaryBandWidthPPMs length");
 
-        uint256 length = _configuration.feedNames.length / 8;
+        uint256 length = _configuration.feedIds.length / 21;
         require(_configuration.secondaryBandWidthPPMs.length / 3 == length, "array lengths do not match");
 
         for (uint256 i = 0; i < length; i++) {

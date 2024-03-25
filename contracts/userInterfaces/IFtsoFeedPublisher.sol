@@ -9,7 +9,7 @@ interface IFtsoFeedPublisher {
     /// The FTSO feed struct.
     struct Feed {
         uint32 votingRoundId;
-        bytes8 name;
+        bytes21 id;
         int32 value;
         uint16 turnoutBIPS;
         int8 decimals;
@@ -31,7 +31,7 @@ interface IFtsoFeedPublisher {
     /// Event emitted when a new feed is published.
     event FtsoFeedPublished(
         uint32 indexed votingRoundId,
-        bytes8 indexed name,
+        bytes21 indexed id,
         int32 value,
         uint16 turnoutBIPS,
         int8 decimals
@@ -55,14 +55,14 @@ interface IFtsoFeedPublisher {
 
     /**
      * Returns the current feed.
-     * @param _feedName Feed name.
+     * @param _feedId Feed id.
      */
-    function getCurrentFeed(bytes8 _feedName) external view returns(Feed memory);
+    function getCurrentFeed(bytes21 _feedId) external view returns(Feed memory);
 
     /**
      * Returns the feed for given voting round id.
-     * @param _feedName Feed name.
+     * @param _feedId Feed id.
      * @param _votingRoundId Voting round id.
      */
-    function getFeed(bytes8 _feedName, uint256 _votingRoundId) external view returns(Feed memory _feed);
+    function getFeed(bytes21 _feedId, uint256 _votingRoundId) external view returns(Feed memory);
 }

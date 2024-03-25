@@ -1,47 +1,60 @@
+export interface IFeedId {
+  type: number;
+  name: string;
+}
+
 export namespace FtsoConfigurations {
+
   /**
-   * Encodes feed name into byte encoding, represented by 0x-prefixed hex string
-   * @param feedName
+   * Encodes feed id into byte encoding, represented by 0x-prefixed hex string
+   * @param feedId
    * @returns
    */
-  export function encodeFeedName(feedName: string): string {
-    return encodeFeedNames([feedName]);
+  export function encodeFeedId(feedId: IFeedId): string {
+    return encodeFeedIds([feedId]);
   }
 
   /**
-   * Encodes feed names into byte encoding, represented by 0x-prefixed hex string
-   * @param feedNames
+   * Encodes feed ids into byte encoding, represented by 0x-prefixed hex string
+   * @param feedIds
    * @returns
    */
-  export function encodeFeedNames(feedNames: string[]): string {
+  export function encodeFeedIds(feedIds: IFeedId[]): string {
     let result = "0x";
-    for (const feedName of feedNames) {
-      if (feedName.length > 8) {
-        throw Error(`Invalid feed name: ${feedName} - length: ${feedName.length}`);
+    for (const feedId of feedIds) {
+      if (feedId.type < 0 || feedId.type >= 2**8) {
+        throw Error(`Invalid feed type: ${feedId.type}`);
       }
-      result += Buffer.from(feedName).toString("hex").padEnd(16, "0");
+      if (feedId.name.length > 20) {
+        throw Error(`Invalid feed id: ${feedId.name} - length: ${feedId.name.length}`);
+      }
+      result += feedId.type.toString(16).padStart(2, "0") + Buffer.from(feedId.name).toString("hex").padEnd(40, "0");
     }
     return result;
   }
 
   /**
-   * Decodes feed names from byte encoding, represented by 0x-prefixed hex string
-   * @param encodedFeedNames
+   * Decodes feed ids from byte encoding, represented by 0x-prefixed hex string
+   * @param encodedFeedIds
    * @returns
    */
-  export function decodeFeedNames(encodedFeedNames: string): string[] {
-    const encodedFeedNamesInternal = encodedFeedNames.startsWith("0x")
-      ? encodedFeedNames.slice(2)
-      : encodedFeedNames;
-    if (!/^[0-9a-f]*$/.test(encodedFeedNamesInternal)) {
-      throw Error(`Invalid format - not hex string: ${encodedFeedNames}`);
+  export function decodeFeedIds(encodedFeedIds: string): IFeedId[] {
+    const encodedFeedIdsInternal = encodedFeedIds.startsWith("0x")
+      ? encodedFeedIds.slice(2)
+      : encodedFeedIds;
+    if (!/^[0-9a-f]*$/.test(encodedFeedIdsInternal)) {
+      throw Error(`Invalid format - not hex string: ${encodedFeedIds}`);
     }
-    if (encodedFeedNamesInternal.length % 16 != 0) {
-      throw Error(`Invalid format - wrong length: ${encodedFeedNames}`);
+    if (encodedFeedIdsInternal.length % 42 != 0) {
+      throw Error(`Invalid format - wrong length: ${encodedFeedIds}`);
     }
-    const result: string[] = [];
-    for (let i = 0; i < encodedFeedNamesInternal.length / 16; i++) {
-      result[i] = Buffer.from(encodedFeedNamesInternal.slice(i * 16, (i + 1) * 16), "hex").toString().replaceAll("\0", "");
+    const result: IFeedId[] = [];
+    for (let i = 0; i < encodedFeedIdsInternal.length / 42; i++) {
+      let type = parseInt(encodedFeedIdsInternal.slice(i * 42, i * 42 + 2), 16);
+      if (type < 0 || type >= 2**8) { // can never happen
+        throw Error(`Invalid type: ${type}`);
+      }
+      result[i] = { type, name: Buffer.from(encodedFeedIdsInternal.slice(i * 42 + 2, (i + 1) * 42), "hex").toString().replaceAll("\0", "") };
     }
 
     return result;

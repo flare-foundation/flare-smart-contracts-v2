@@ -24,38 +24,39 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     mapping(address voter => address proxy) public voterToProxy;
     mapping(address proxy => address voter) public proxyToVoter;
 
-    // address of voter registry contract
+    /// Address of voter registry contract.
     IIVoterRegistry public voterRegistry;
-    // address of flare systems manager contract
+    /// Address of flare systems manager contract.
     IIFlareSystemsManager public flareSystemsManager;
 
-    //// voting parameters
-    // period between proposal creation and start of the vote, in seconds
+    // voting parameters
+    /// Period between proposal creation and start of the vote, in seconds.
     uint256 public votingDelaySeconds;
-    // length of voting period in seconds
+    /// Length of voting period, in seconds.
     uint256 public votingPeriodSeconds;
-    // share of total vote power (in BIPS) required to participate in vote for proposal to pass
+    /// Share of total vote power (in BIPS) required to participate in vote for proposal to pass.
     uint256 public thresholdConditionBIPS;
-    // share of participating vote power (in BIPS) required to vote in favor for proposal to pass
+    /// Share of participating vote power (in BIPS) required to vote in favor for proposal to pass.
     uint256 public majorityConditionBIPS;
-    // fee value (in wei) that proposer must pay to submit a proposal
+    /// Fee value (in wei) that proposer must pay to submit a proposal.
     uint256 public proposalFeeValueWei;
 
-    // number of created proposals
+    /// Number of created proposals.
     uint256 public idCounter = 0;
-    // maintainer of this contract; can change parameters and create proposals
+    /// Maintainer of this contract; can change parameters and create proposals.
     address public maintainer;
 
+    /// Modifier for allowing only maintainer to call the method.
     modifier onlyMaintainer {
         require(msg.sender == maintainer, "only maintainer");
         _;
     }
 
     /**
-     * Initializes the contract with default parameters
-     * @param _governanceSettings           The address of the GovernanceSettings contract
-     * @param _initialGovernance            The initial governance address
-     * @param _addressUpdater               Address identifying the address updater contract
+     * Initializes the contract with default parameters.
+     * @param _governanceSettings The address of the GovernanceSettings contract.
+     * @param _initialGovernance The initial governance address.
+     * @param _addressUpdater The address of the AddressUpdater contract.
      */
     constructor(
         IGovernanceSettings _governanceSettings,
@@ -64,13 +65,12 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     )
         Governed(_governanceSettings, _initialGovernance)
         AddressUpdatable(_addressUpdater)
-    {
-    }
+    { }
 
     /**
-     * Sets maintainer of this contract
-     * @param _newMaintainer                Address identifying the maintainer address
-     * @dev Only governance can call this
+     * Sets maintainer of this contract.
+     * @param _newMaintainer Address identifying the maintainer address.
+     * @dev Only governance can call this.
      */
     function setMaintainer(
         address _newMaintainer
@@ -83,9 +83,8 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Sets (or changes) contract's parameters. It is called after deployment of the contract
-     * and every time one of the parameters changes
-     * @dev Only maintainer can call this
+     * @inheritdoc IPollingFtso
+     * @dev Only maintainer can call this.
      */
     function setParameters(
         uint256 _votingDelaySeconds,
@@ -120,12 +119,9 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Creates a new proposal
-     * @param _description          String description of the proposal
-     * @return _proposalId          Unique identifier of the proposal
-     * Emits a FtsoProposalCreated event
-     * @dev Can only be called by currently registered voters, their proxies or the maintainer of the contract
-     * @dev Caller needs to pay a `proposalFeeValueWei` fee to create a proposal
+     * @inheritdoc IPollingFtso
+     * @dev Can only be called by currently registered voters, their proxies or the maintainer of the contract.
+     * @dev Caller needs to pay a `proposalFeeValueWei` fee to create a proposal.
      */
     function propose(
         string memory _description
@@ -171,10 +167,8 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Cancels an existing proposal
-     * @param _proposalId           Unique identifier of a proposal
-     * Emits a ProposalCanceled event
-     * @dev Can be called by proposer of the proposal or its proxy only before voting starts
+     * @inheritdoc IPollingFtso
+     * @dev Can be called by proposer of the proposal or its proxy only before voting starts.
      */
     function cancel(uint256 _proposalId) external {
         Proposal storage proposal = proposals[_proposalId];
@@ -191,12 +185,9 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Casts a vote on a proposal
-     * @param _proposalId           Id of the proposal
-     * @param _support              A value indicating vote type (against, for)
-     * Emits a VoteCast event
+     * @inheritdoc IPollingFtso
      * @dev Can only be called for active proposals by registered voters at the time that proposal was created
-     and their proxies
+     * and their proxies.
      */
     function castVote(
         uint256 _proposalId,
@@ -218,10 +209,8 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Sets a proxy voter for a voter (i.e. address that can vote in its name)
-     * @param _proxyVoter           Address to register as a proxy (use address(0) to remove proxy)
-     * Emits a ProxyVoterSet event
-     * @dev An address can be proxy only for a single address (member)
+     * @inheritdoc IPollingFtso
+     * @dev An address can be proxy only for a single address (voter).
      */
     function setProxyVoter(
         address _proxyVoter
@@ -240,17 +229,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Returns information about the specified proposal
-     * @param _proposalId               Id of the proposal
-     * @return _rewardEpochId           Reward epoch id
-     * @return _description             Description of the proposal
-     * @return _proposer                Address of the proposal submitter
-     * @return _voteStartTime           Start time (in seconds from epoch) of the proposal voting
-     * @return _voteEndTime             End time (in seconds from epoch) of the proposal voting
-     * @return _thresholdConditionBIPS  Number of votes (voter power) cast required for the proposal to pass
-     * @return _majorityConditionBIPS   Number of FOR votes, as a percentage in BIPS of the
-     *                                  total cast votes, required for the proposal to pass
-     * @return _totalWeight             Total weight of all eligible voters
+     * @inheritdoc IPollingFtso
      */
     function getProposalInfo(
         uint256 _proposalId
@@ -279,9 +258,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Returns the description string that was provided when the specified proposal was created
-     * @param _proposalId               Id of the proposal
-     * @return _description             Description of the proposal
+     * @inheritdoc IPollingFtso
      */
     function getProposalDescription(
         uint256 _proposalId
@@ -296,9 +273,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Returns id and description of the last created proposal
-     * @return _proposalId              Id of the last proposal
-     * @return _description             Description of the last proposal
+     * @inheritdoc IPollingFtso
      */
     function getLastProposal() external view
         returns (
@@ -312,11 +287,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Returns whether an account can create proposals
-     * An address can make proposals if it is registered voter,
-     * its proxy or the maintainer of the contract
-     * @param _account              Address of the queried account
-     * @return True if the queried account can create a proposal, false otherwise
+     * @inheritdoc IPollingFtso
      */
     function canPropose(address _account) external view returns (bool) {
         (, bool registered) = _getOperatingAccount(_account, _getCurrentRewardEpochId());
@@ -324,10 +295,7 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Returns whether an account can vote for a given proposal
-     * @param _account              Address of the queried account
-     * @param _proposalId           Id of the queried proposal
-     * @return True if account is eligible to vote, false otherwise
+     * @inheritdoc IPollingFtso
      */
     function canVote(address _account, uint256 _proposalId) external view returns (bool) {
         Proposal storage proposal = proposals[_proposalId];
@@ -336,29 +304,21 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Returns the current state of a proposal
-     * @param _proposalId           Id of the proposal
-     * @return ProposalState enum
+     * @inheritdoc IPollingFtso
      */
     function state(uint256 _proposalId) public view returns (ProposalState) {
         return _state(_proposalId, proposals[_proposalId]);
     }
 
     /**
-     * Returns whether a voter has cast a vote on a specific proposal
-     * @param _proposalId           Id of the proposal
-     * @param _voter                Address of the voter
-     * @return True if the voter has cast a vote on the proposal, false otherwise
+     * @inheritdoc IPollingFtso
      */
     function hasVoted(uint256 _proposalId, address _voter) public view returns (bool) {
         return proposalVotings[_proposalId].hasVoted[_voter];
     }
 
     /**
-     * Returns number of votes for and against the specified proposal
-     * @param _proposalId           Id of the proposal
-     * @return _for                 Accumulated vote power for the proposal
-     * @return _against             Accumulated vote power against the proposal
+     * @inheritdoc IPollingFtso
      */
     function getProposalVotes(
         uint256 _proposalId
@@ -375,10 +335,10 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Stores a proposal vote
-     * @param _proposalId           Id of the proposal
-     * @param _voter                Address of the voter
-     * @param _support              Parameter indicating the vote type
+     * Stores a proposal vote.
+     * @param _proposalId Id of the proposal.
+     * @param _voter Address of the voter.
+     * @param _support Parameter indicating the vote type.
      */
     function _storeVote(
         uint256 _proposalId,
@@ -419,10 +379,10 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Determines operating account and whether it is a registered voter
-     * @param _account              Address of a queried account
-     * @return Address of a queried account or its voter if queried account is a proxy
-     * @return True if voter is registered, false otherwise
+     * Determines operating account and whether it is a registered voter.
+     * @param _account Address of a queried account.
+     * @return Address of a queried account or its voter if queried account is a proxy.
+     * @return True if voter is registered, false otherwise.
      */
     function _getOperatingAccount(address _account, uint256 _rewardEpochId) internal view returns (address, bool) {
         if (_account == maintainer) {
@@ -442,19 +402,19 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Determines if an account can create a proposal
-     * @param _account              Address of a queried account
-     * @return True if a queried account can propose, false otherwise
+     * Determines if an account can create a proposal.
+     * @param _account Address of a queried account.
+     * @return True if a queried account can propose, false otherwise.
      */
     function _canPropose(address _account, bool _registered) internal view returns (bool) {
         return  _registered || _account == maintainer;
     }
 
     /**
-     * Returns the current state of a proposal
-     * @param _proposalId           Id of the proposal
-     * @param _proposal             Proposal object
-     * @return ProposalState enum
+     * Returns the current state of a proposal.
+     * @param _proposalId Id of the proposal.
+     * @param _proposal Proposal object.
+     * @return ProposalState enum.
      */
     function _state(
         uint256 _proposalId,
@@ -487,10 +447,10 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Determines if a proposal has been successful
-     * @param _proposalId           Id of the proposal
-     * @param _proposal             Proposal
-     * @return True if proposal succeeded, false otherwise
+     * Determines if a proposal has been successful.
+     * @param _proposalId Id of the proposal.
+     * @param _proposal Proposal object.
+     * @return True if proposal succeeded, false otherwise.
      */
     function _proposalSucceeded(uint256 _proposalId, Proposal storage _proposal) internal view virtual returns (bool) {
         ProposalVoting storage voting = proposalVotings[_proposalId];
@@ -516,10 +476,10 @@ contract PollingFtso is IPollingFtso, AddressUpdatable, Governed {
     }
 
     /**
-     * Determines if a voter is registered for a specific reward epoch
-     * @param _voter                Address of the voter
-     * @param _rewardEpochId        Reward epoch id
-     * @return True if the voter is registered, and false otherwise
+     * Determines if a voter is registered for a specific reward epoch.
+     * @param _voter Address of the voter.
+     * @param _rewardEpochId Reward epoch id.
+     * @return True if the voter is registered, and false otherwise.
      */
     function _isVoterRegistered(address _voter, uint256 _rewardEpochId) internal view returns(bool) {
         return voterRegistry.isVoterRegistered(_voter, _rewardEpochId);

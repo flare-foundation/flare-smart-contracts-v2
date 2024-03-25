@@ -2,7 +2,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "./Contracts";
 import { FlareSystemsManagerContract, FtsoRewardOffersManagerContract } from "../../typechain-truffle";
 import { FtsoRewardOffersManagerInstance } from "../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager";
-import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
+import { FtsoConfigurations, IFeedId } from "../../scripts/libs/protocol/FtsoConfigurations";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { sleep } from "../tasks/run-simulation";
 import { FlareSystemsManagerInstance } from "../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager";
@@ -15,8 +15,8 @@ export async function offerRewards(
 ) {
   const offerSender = hre.web3.eth.accounts.privateKeyToAccount(offerSenderKey);
 
-  const feeds = parameters.ftsoInflationConfigurations[0].feedNames;
-  const offers = generateOffers(feeds, parameters.minimalRewardsOfferValueNAT, offerSender.address);
+  const feedIds = parameters.ftsoInflationConfigurations[0].feedIds;
+  const offers = generateOffers(feedIds, parameters.minimalRewardsOfferValueNAT, offerSender.address);
 
   const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
   const offerManager = await FtsoRewardOffersManager.at(
@@ -61,13 +61,13 @@ async function runOfferRewards(
   }
 }
 
-function generateOffers(feeds: string[], amountNat: number, offerSender: string) {
+function generateOffers(feedIds: IFeedId[], amountNat: number, offerSender: string) {
   const offers = [];
   const amount = web3.utils.toWei(amountNat.toString());
-  for (const feed of feeds) {
+  for (const feedId of feedIds) {
     offers.push({
       amount: amount,
-      feedName: FtsoConfigurations.encodeFeedName(feed),
+      feedId: FtsoConfigurations.encodeFeedId(feedId),
       minRewardedTurnoutBIPS: 5000,
       primaryBandRewardSharePPM: 450000,
       secondaryBandWidthPPM: 50000,

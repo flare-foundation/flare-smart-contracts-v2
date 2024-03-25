@@ -16,11 +16,11 @@ interface IIPollingFoundation is IGovernor, IIGovernorProposer {
     }
 
     /**
-     * Creates a new proposal without execution parameters
-     * @param _description          String description of the proposal
-     * @param _settings             Settings of the poposal
-     * @return Proposal id (unique identifier obtained by hashing proposal data)
-     * Emits a ProposalCreated event
+     * Creates a new proposal without execution parameters.
+     * @param _description String description of the proposal.
+     * @param _settings Settings of the poposal.
+     * @return Proposal id (unique identifier obtained by hashing proposal data).
+     * Emits a ProposalCreated event.
      */
     function propose(
         string memory _description,
@@ -28,14 +28,14 @@ interface IIPollingFoundation is IGovernor, IIGovernorProposer {
     ) external returns (uint256);
 
     /**
-     * Creates a new proposal with execution parameters
-     * @param _targets              Array of target addresses on which the calls are to be invoked
-     * @param _values               Array of values with which the calls are to be invoked
-     * @param _calldatas            Array of call data to be invoked
-     * @param _description          String description of the proposal
-     * @param _settings             Settings of the poposal
-     * @return Proposal id (unique identifier obtained by hashing proposal data)
-     * Emits a ProposalCreated event
+     * Creates a new proposal with execution parameters.
+     * @param _targets Array of target addresses on which the calls are to be invoked.
+     * @param _values Array of values with which the calls are to be invoked.
+     * @param _calldatas Array of call data to be invoked.
+     * @param _description String description of the proposal.
+     * @param _settings Settings of the poposal.
+     * @return Proposal id (unique identifier obtained by hashing proposal data).
+     * Emits a ProposalCreated event.
      */
     function propose(
         address[] memory _targets,

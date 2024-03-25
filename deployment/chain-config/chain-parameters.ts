@@ -121,6 +121,12 @@ export interface ChainParameters {
     relayThresholdIncreaseBIPS: integer;
 
     /**
+     * If reward epoch of a message is less then `lastInitializedRewardEpoch - messageFinalizationWindowInRewardEpochs`
+     * the relaying of a message is not allowed.
+     */
+    messageFinalizationWindowInRewardEpochs: integer;
+
+    /**
      * The time in seconds before the end of the reward epoch when the new signing policy initialization starts (e.g. 2 hours).
      */
     newSigningPolicyInitializationStartSeconds: integer;
@@ -305,13 +311,36 @@ export interface ChainParameters {
      * Cost of creating proposal (in NAT). It is paid by the proposer.
      */
     proposalFeeValueNAT: integer;
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // P-chain stake mirror verifier
+
+    /**
+     * Min duration of P-chain stake in days, recommended value 14 days
+     */
+    pChainStakeMirrorMinDurationDays: integer;
+
+    /**
+     * Max duration of P-chain stake in days, recommended value 365 days
+     */
+    pChainStakeMirrorMaxDurationDays: integer;
+
+    /**
+     * Min amount of P-chain stake. In whole native units, not Wei. Recommended value 50.000.
+     */
+    pChainStakeMirrorMinAmountNAT: integer;
+
+    /**
+     * Max amount of P-chain stake. In whole native units, not Wei. Recommended value 200.000.000.
+     */
+    pChainStakeMirrorMaxAmountNAT: integer;
 }
 
 export interface FtsoInflationConfiguration {
     /**
-     * List of feed names for this configuration.
+     * List of feed ids for this configuration.
      */
-    feedNames: string[];
+    feedIds: FeedId[];
 
     /**
      * Inflation share for this configuration in BIPS (e.g. 50%).
@@ -358,9 +387,9 @@ export interface InitialVoterData {
 
 export interface FeedDecimals {
     /**
-     * The feed name.
+     * The feed id.
      */
-    feedName: string;
+    feedId: FeedId;
 
     /**
      * The feed decimals.
@@ -412,4 +441,16 @@ export interface FlareDaemonizedContract {
      * The daemonized contract gas limit.
      */
     gasLimit: integer;
+}
+
+export interface FeedId {
+    /**
+     * The feed type (0 - no type, 1 - crypto, 2 - traditional currency, 3 - commodity, 4 - stock, ...).
+     */
+    type: integer;
+
+    /**
+     * The feed name.
+     */
+    name: string;
 }

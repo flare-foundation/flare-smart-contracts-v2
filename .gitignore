@@ -18,6 +18,7 @@ artifacts-forge/
 coverage/
 coverage-forge/
 lcov.info
+lcov.info.pruned
 coverage.json
 
 # Hardhat files

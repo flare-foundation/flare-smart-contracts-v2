@@ -100,6 +100,37 @@ interface IIVoterRegistry is IVoterRegistry {
         returns (bytes20[][] memory _nodeIds);
 
     /**
+     * Returns the list of registered voters' addresses and their registration weights for a given reward epoch.
+     * It returns empty lists if the reward epoch is not supported.
+     * @param _rewardEpochId The reward epoch id.
+     * @return _voters The voters' addresses.
+     * @return _registrationWeights The registration weights.
+     */
+    function getRegisteredVotersAndRegistrationWeights(
+        uint256 _rewardEpochId
+    )
+        external view
+        returns (
+            address[] memory _voters,
+            uint256[] memory _registrationWeights
+        );
+
+    /**
+     * Returns the list of registered voters' addresses and their normalised weights for a given reward epoch.
+     * @param _rewardEpochId The reward epoch id.
+     * @return _voters The voters' addresses.
+     * @return _normalisedWeights The normalised weights.
+     */
+    function getRegisteredVotersAndNormalisedWeights(
+        uint256 _rewardEpochId
+    )
+        external view
+        returns (
+            address[] memory _voters,
+            uint16[] memory _normalisedWeights
+        );
+
+    /**
      * Returns voter's address and normalised weight for a given reward epoch and signing policy address.
      * @param _rewardEpochId The reward epoch id.
      * @param _signingPolicyAddress The signing policy address of the voter.

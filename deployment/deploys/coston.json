@@ -7,61 +7,66 @@
   {
     "name": "EntityManager",
     "contractName": "EntityManager.sol",
-    "address": "0x35E74af3AfC322e1fCf187cB4970126D76fF9Dcd"
+    "address": "0x18AC71B309fd10Dbf245809C053a152D486F7117"
   },
   {
     "name": "VoterRegistry",
     "contractName": "VoterRegistry.sol",
-    "address": "0xb9657EDCf84BCA4DE60b0f849f397C093459D0f8"
+    "address": "0xa8e2a3B83bd574Ac058fEb8B01ac1B44AAA9c450"
   },
   {
     "name": "FlareSystemsCalculator",
     "contractName": "FlareSystemsCalculator.sol",
-    "address": "0x99D17A3EF05fddF0C0d4E1c0D0Ba4f8aCc8e150a"
+    "address": "0xc2AaBcB2F7d00264078D86b6E4aAd7133a5F5aee"
   },
   {
     "name": "FlareSystemsManager",
     "contractName": "FlareSystemsManager.sol",
-    "address": "0x6e5A85aB09c2056A9Af46c3Ca5a5A1E6752C8D79"
+    "address": "0xBb8Ffe18043AA0c7E76806353936DE707E2f39CE"
   },
   {
     "name": "RewardManager",
     "contractName": "RewardManager.sol",
-    "address": "0xB5927e4A55125a5eED6E24AC11F418c916689D4C"
+    "address": "0xcdC07BE75477C66eAa1A1BC12b93ACB55eb4f7e2"
   },
   {
     "name": "Relay",
     "contractName": "Relay.sol",
-    "address": "0xf84B299803fe4184a7c9167514E5D4f19B3cD95b"
+    "address": "0x5bd25EbeB35Ca383e34C70bF28d1898edf3C402d"
   },
   {
     "name": "WNatDelegationFee",
     "contractName": "WNatDelegationFee.sol",
-    "address": "0x44bA2dd2cd4C158f41dFF0738362DB3F28E58B67"
+    "address": "0x52A5394009F9DCbBb3cb5a049FF94428699b5190"
   },
   {
     "name": "FtsoInflationConfigurations",
     "contractName": "FtsoInflationConfigurations.sol",
-    "address": "0xe5FB51Cd62e7672CEDd781261c1b57B45d5baD30"
+    "address": "0x3Fe3b64e546BC1660D50b7FF2E0a6a8Fd35b6534"
   },
   {
     "name": "FtsoRewardOffersManager",
     "contractName": "FtsoRewardOffersManager.sol",
-    "address": "0x3692A549F0436EADCD77dCC254D7D3843537e6e0"
+    "address": "0x42B289391ED2aec3C91Ca51dc2b894e933845789"
   },
   {
     "name": "FtsoFeedDecimals",
     "contractName": "FtsoFeedDecimals.sol",
-    "address": "0xA5692A4aA5B252f3aFDdb86645CaE22288d4E27a"
+    "address": "0xCadb408aC749ee56d2Fb7fD738A5f37F854752c9"
   },
   {
     "name": "FtsoFeedPublisher",
     "contractName": "FtsoFeedPublisher.sol",
-    "address": "0xAC1d780AB8297fF5D605EB695b220e3ecFFC84A6"
+    "address": "0xB57731cF6865bb614Af23FefC3d6D0690597590D"
   },
   {
     "name": "CleanupBlockNumberManager",
     "contractName": "CleanupBlockNumberManager.sol",
-    "address": "0x7FFCd980cB3aA0EDDc740F6539930EBE80eAEB84"
+    "address": "0x761e37c504F9027AaCB3c49712469F1886199CbD"
+  },
+  {
+    "name": "FtsoFeedIdConverter",
+    "contractName": "FtsoFeedIdConverter.sol",
+    "address": "0x7aa353EbaD325e95c61c08969205d518056A5F04"
   }
 ]

@@ -5,6 +5,8 @@ import "../lib/AddressHistory.sol";
 import "../lib/NodesHistory.sol";
 import "../lib/PublicKeyHistory.sol";
 import "../interface/IIEntityManager.sol";
+import "../interface/IINodePossessionVerifier.sol";
+import "../interface/IIPublicKeyVerifier.sol";
 import "../../governance/implementation/Governed.sol";
 
 /**
@@ -33,9 +35,9 @@ contract EntityManager is Governed, IIEntityManager {
     }
 
     /// The public key verification contract used in `registerPublicKey` call.
-    address public publicKeyVerificationContract;
-    /// The selector to use when `registerPublicKey` is called.
-    bytes4 public publicKeyVerificationSelector;
+    IIPublicKeyVerifier public publicKeyVerifier;
+    /// The node possession verification contract used in `registerNodeId` call.
+    IINodePossessionVerifier public nodePossessionVerifier;
     /// Maximum number of node ids per entity.
     uint32 public maxNodeIdsPerEntity;
 
@@ -56,16 +58,16 @@ contract EntityManager is Governed, IIEntityManager {
 
     /**
      * @dev Constructor.
-     * @param _governanceSettings Governance settings contract.
-     * @param _governance Governance contract.
+     * @param _governanceSettings The address of the GovernanceSettings contract.
+     * @param _initialGovernance The initial governance address.
      * @param _maxNodeIdsPerEntity Maximum number of node ids per entity.
      */
     constructor(
         IGovernanceSettings _governanceSettings,
-        address _governance,
+        address _initialGovernance,
         uint32 _maxNodeIdsPerEntity
     )
-        Governed(_governanceSettings, _governance)
+        Governed(_governanceSettings, _initialGovernance)
     {
         maxNodeIdsPerEntity = _maxNodeIdsPerEntity;
         emit MaxNodeIdsPerEntitySet(_maxNodeIdsPerEntity);
@@ -74,8 +76,10 @@ contract EntityManager is Governed, IIEntityManager {
     /**
      * @inheritdoc IEntityManager
      */
-    function registerNodeId(bytes20 _nodeId) external {
+    function registerNodeId(bytes20 _nodeId, bytes calldata _certificateRaw, bytes calldata _signature) external {
         require(nodeIdRegistered[_nodeId].addressAtNow() == address(0), "node id already registered");
+        require(address(nodePossessionVerifier) != address(0), "node id registration not enabled");
+        nodePossessionVerifier.verifyNodePossession(msg.sender, _nodeId, _certificateRaw, _signature);
         register[msg.sender].nodeIds.addRemoveNodeId(_nodeId, true, maxNodeIdsPerEntity);
         nodeIdRegistered[_nodeId].setAddress(msg.sender);
         emit NodeIdRegistered(msg.sender, _nodeId);
@@ -94,16 +98,10 @@ contract EntityManager is Governed, IIEntityManager {
     /**
      * @inheritdoc IEntityManager
      */
-    function registerPublicKey(bytes32 _part1, bytes32 _part2, bytes calldata _data) external {
+    function registerPublicKey(bytes32 _part1, bytes32 _part2, bytes calldata _verificationData) external {
         require(_part1 != bytes32(0) || _part2 != bytes32(0), "public key invalid");
-        require(publicKeyVerificationContract != address(0) && publicKeyVerificationSelector != bytes4(0),
-            "public key registration not enabled");
-        /* solhint-disable avoid-low-level-calls */
-        //slither-disable-next-line arbitrary-send-eth
-        (bool success, bytes memory e) =
-            publicKeyVerificationContract.call(bytes.concat(publicKeyVerificationSelector, _part1, _part2, _data));
-        /* solhint-enable avoid-low-level-calls */
-        require(success, _getRevertMsg(e));
+        require(address(publicKeyVerifier) != address(0), "public key registration not enabled");
+        publicKeyVerifier.verifyPublicKey(msg.sender, _part1, _part2, _verificationData);
         bytes32 publicKeyHash = keccak256(abi.encode(_part1, _part2));
         require(publicKeyRegistered[publicKeyHash].addressAtNow() == address(0), "public key already registered");
         (bytes32 oldPart1, bytes32 oldPart2) = register[msg.sender].publicKey.publicKeyAtNow();
@@ -256,19 +254,21 @@ contract EntityManager is Governed, IIEntityManager {
     }
 
     /**
-     * Sets the public key verification contract and selector.
-     * @param _publicKeyVerificationContract The public key verification contract used in `registerPublicKey` call.
-     * @param _publicKeyVerificationSelector The selector to use when `registerPublicKey` is called.
+     * Sets the public key verification contract.
+     * @param _publicKeyVerifier The public key verification contract used in `registerPublicKey`.
      * @dev Only governance can call this method.
      */
-    function setPublicKeyVerificationData(
-        address _publicKeyVerificationContract,
-        bytes4 _publicKeyVerificationSelector
-    )
-        external onlyGovernance
-    {
-        publicKeyVerificationContract = _publicKeyVerificationContract;
-        publicKeyVerificationSelector = _publicKeyVerificationSelector;
+    function setPublicKeyVerifier(IIPublicKeyVerifier _publicKeyVerifier) external onlyGovernance {
+        publicKeyVerifier = _publicKeyVerifier;
+    }
+
+    /**
+     * Sets the node possession verification contract.
+     * @param _nodePossessionVerifier The node possession verification contract used in `registerNodeId`.
+     * @dev Only governance can call this method.
+     */
+    function setNodePossessionVerifier(IINodePossessionVerifier _nodePossessionVerifier) external onlyGovernance {
+        nodePossessionVerifier = _nodePossessionVerifier;
     }
 
     /**
@@ -572,23 +572,5 @@ contract EntityManager is Governed, IIEntityManager {
         if (_voter == address(0)) {
             _voter = _signingPolicyAddress;
         }
-    }
-
-    /**
-     * @dev Returns the revert message from the returned bytes.
-     * @param _returnData The returned bytes.
-     * @return The revert message.
-     */
-    function _getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {
-        // If the _res length is less than 68, then the transaction failed silently (without a revert message)
-        uint256 length = _returnData.length;
-        if (length < 68) return "Transaction reverted silently";
-
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            _returnData := add(_returnData, 0x04) // Slice the signature hash
-            mstore(_returnData, sub(length, 0x04)) // Set proper length
-        }
-        return abi.decode(_returnData, (string)); // All that remains is the revert string
     }
 }

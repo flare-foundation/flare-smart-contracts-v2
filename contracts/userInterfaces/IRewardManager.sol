@@ -190,20 +190,37 @@ interface IRewardManager {
 
     /**
      * Returns totals.
-     * @return _totalFundsReceivedWei Total amount of funds ever received (wei).
-     * @return _totalClaimedWei Total claimed amount (wei).
-     * @return _totalBurnedWei Total burned amount (wei).
-     * @return _totalInflationAuthorizedWei Total inflation authorized amount (wei).
-     * @return _totalInflationReceivedWei Total inflation received amount (wei).
+     * @return _totalRewardsWei Total rewards (wei).
+     * @return _totalInflationRewardsWei Total inflation rewards (wei).
+     * @return _totalClaimedWei Total claimed rewards (wei).
+     * @return _totalBurnedWei Total burned rewards (wei).
      */
     function getTotals()
         external view
         returns (
-            uint256 _totalFundsReceivedWei,
+            uint256 _totalRewardsWei,
+            uint256 _totalInflationRewardsWei,
             uint256 _totalClaimedWei,
-            uint256 _totalBurnedWei,
-            uint256 _totalInflationAuthorizedWei,
-            uint256 _totalInflationReceivedWei
+            uint256 _totalBurnedWei
+        );
+
+    /**
+     * Returns reward epoch totals.
+     * @param _rewardEpochId Reward epoch id.
+     * @return _totalRewardsWei Total rewards (inflation + community) for the epoch (wei).
+     * @return _totalInflationRewardsWei Total inflation rewards for the epoch (wei).
+     * @return _initialisedRewardsWei Initialised rewards of all claim types for the epoch (wei).
+     * @return _claimedRewardsWei Claimed rewards for the epoch (wei).
+     * @return _burnedRewardsWei Burned rewards for the epoch (wei).
+     */
+    function getRewardEpochTotals(uint24 _rewardEpochId)
+        external view
+        returns (
+            uint256 _totalRewardsWei,
+            uint256 _totalInflationRewardsWei,
+            uint256 _initialisedRewardsWei,
+            uint256 _claimedRewardsWei,
+            uint256 _burnedRewardsWei
         );
 
      /**
