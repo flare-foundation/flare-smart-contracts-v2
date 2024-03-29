@@ -18,14 +18,14 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
     function verifyNodePossession(
         address _voter,
         bytes20 _nodeId,
-        bytes memory _certificateRaw,
-        bytes memory _signature
+        bytes calldata _certificateRaw,
+        bytes calldata _signature
     )
         external view
     {
         bytes20 nodeIdFromPublicKey = ripemd160(abi.encodePacked(sha256(abi.encodePacked(_certificateRaw))));
         require(nodeIdFromPublicKey == _nodeId, "invalid node id");
-        (bytes memory modulus, bytes memory exponent) = extractPublicKeyFromRawCert(_certificateRaw);
+        (bytes memory modulus, bytes memory exponent) = extractPublicKeyFromRawCertificate(_certificateRaw);
         bytes32 message = sha256(abi.encodePacked(_voter));
         require(verifyPKCS1v15SHA256(message, _signature, modulus, exponent), "invalid signature");
     }
@@ -40,7 +40,7 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
       */
     function verifyPKCS1v15SHA256(
         bytes32 _messageSHA256,
-        bytes memory _signature,
+        bytes calldata _signature,
         bytes memory _modulus,
         bytes memory _exponent
     )
@@ -98,11 +98,11 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
      * @return _modulus The modulus of the public key.
      * @return _exponent The exponent of the public key.
      */
-    function extractPublicKeyFromRawCert(bytes memory _certificateRaw)
+    function extractPublicKeyFromRawCertificate(bytes calldata _certificateRaw)
         public view
         returns (bytes memory _modulus, bytes memory _exponent)
     {
-        (uint256 length, bytes memory data, bool success) = this.readASN1Element(_certificateRaw, 0x30, true);
+        (uint256 length, bytes memory data, bool success) = readASN1Element(_certificateRaw, 0x30, true);
         require(success, "couldn't read certificate element");
 
         // read RawTBSCertificate element

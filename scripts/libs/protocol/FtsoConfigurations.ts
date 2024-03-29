@@ -1,5 +1,5 @@
 export interface IFeedId {
-  type: number;
+  category: number;
   name: string;
 }
 
@@ -22,13 +22,13 @@ export namespace FtsoConfigurations {
   export function encodeFeedIds(feedIds: IFeedId[]): string {
     let result = "0x";
     for (const feedId of feedIds) {
-      if (feedId.type < 0 || feedId.type >= 2**8) {
-        throw Error(`Invalid feed type: ${feedId.type}`);
+      if (feedId.category < 0 || feedId.category >= 2**8) {
+        throw Error(`Invalid feed category: ${feedId.category}`);
       }
       if (feedId.name.length > 20) {
-        throw Error(`Invalid feed id: ${feedId.name} - length: ${feedId.name.length}`);
+        throw Error(`Invalid feed name: ${feedId.name} - length: ${feedId.name.length}`);
       }
-      result += feedId.type.toString(16).padStart(2, "0") + Buffer.from(feedId.name).toString("hex").padEnd(40, "0");
+      result += feedId.category.toString(16).padStart(2, "0") + Buffer.from(feedId.name).toString("hex").padEnd(40, "0");
     }
     return result;
   }
@@ -50,11 +50,11 @@ export namespace FtsoConfigurations {
     }
     const result: IFeedId[] = [];
     for (let i = 0; i < encodedFeedIdsInternal.length / 42; i++) {
-      let type = parseInt(encodedFeedIdsInternal.slice(i * 42, i * 42 + 2), 16);
-      if (type < 0 || type >= 2**8) { // can never happen
-        throw Error(`Invalid type: ${type}`);
+      let category = parseInt(encodedFeedIdsInternal.slice(i * 42, i * 42 + 2), 16);
+      if (category < 0 || category >= 2**8) { // can never happen
+        throw Error(`Invalid category: ${category}`);
       }
-      result[i] = { type, name: Buffer.from(encodedFeedIdsInternal.slice(i * 42 + 2, (i + 1) * 42), "hex").toString().replaceAll("\0", "") };
+      result[i] = { category, name: Buffer.from(encodedFeedIdsInternal.slice(i * 42 + 2, (i + 1) * 42), "hex").toString().replaceAll("\0", "") };
     }
 
     return result;

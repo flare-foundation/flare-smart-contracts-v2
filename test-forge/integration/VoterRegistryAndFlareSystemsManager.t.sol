@@ -74,6 +74,9 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
     uint256 private constant UINT16_MAX = type(uint16).max;
 
+    bytes private certificateRawTest;
+    bytes private signatureTest;
+
     event BeneficiaryChilled(bytes20 indexed beneficiary, uint256 untilRewardEpochId);
     event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId);
     event VoterRegistered(
@@ -242,6 +245,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         mockNodePossessionVerification = new MockNodePossessionVerification();
         entityManager.setNodePossessionVerifier(mockNodePossessionVerification);
+        certificateRawTest = mockNodePossessionVerification.CERTIFICATE_RAW_TEST();
+        signatureTest = mockNodePossessionVerification.SIGNATURE_TEST();
 
         vm.mockCall(
             mockSubmission,
@@ -462,7 +467,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 mockNodePossessionVerification.setVoterAndNodeId(initialVoters[i], initialNodeIds[i][j]);
                 entityManager.registerNodeId(
                     initialNodeIds[i][j],
-                    mockNodePossessionVerification.CERTIFICATE_RAW_TEST(), mockNodePossessionVerification.SIGNATURE_TEST()
+                    certificateRawTest,
+                    signatureTest
                 );
             }
             vm.stopPrank();
@@ -884,8 +890,10 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         // can't yet sign rewards, because new signing policy (for epoch 2) is not yet signed
         bytes32 rewardsHash = keccak256("rewards1");
-        uint64 noOfWeightBasedClaims = 3;
-        messageHash = keccak256(abi.encode(1, noOfWeightBasedClaims, rewardsHash));
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](1);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 3);
+        messageHash = keccak256(abi.encode(1, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
@@ -923,7 +931,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signatureFSM);
 
         //// sign rewards for reward epoch 1
-        messageHash = keccak256(abi.encode(1, noOfWeightBasedClaims, rewardsHash));
+        messageHash = keccak256(abi.encode(1, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
@@ -1087,8 +1095,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         //// sign rewards for reward epoch 2
         rewardsHash = keccak256("rewards2");
-        noOfWeightBasedClaims = 6;
-        messageHash = keccak256(abi.encode(2, noOfWeightBasedClaims, rewardsHash));
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 6);
+        messageHash = keccak256(abi.encode(2, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
@@ -1336,7 +1344,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 mockNodePossessionVerification.setVoterAndNodeId(initialVoters[i], initialNodeIds[i][j]);
                 entityManager.registerNodeId(
                     initialNodeIds[i][j],
-                    mockNodePossessionVerification.CERTIFICATE_RAW_TEST(), mockNodePossessionVerification.SIGNATURE_TEST()
+                    certificateRawTest,
+                    signatureTest
                 );
             }
             vm.stopPrank();

@@ -267,7 +267,8 @@ export async function deployContracts(
     governanceSettings.address,
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
-    ZERO_ADDRESS
+    ZERO_ADDRESS,
+    0
   );
 
   const relay = await Relay.new(
@@ -317,8 +318,8 @@ export async function deployContracts(
     5,
     0,
     [
-      { feedId: FtsoConfigurations.encodeFeedId({type: 1, name: "BTC/USD"}), decimals: 2 },
-      { feedId: FtsoConfigurations.encodeFeedId({type: 1, name: "ETH/USD"}), decimals: 3 }
+      { feedId: FtsoConfigurations.encodeFeedId({category: 1, name: "BTC/USD"}), decimals: 2 },
+      { feedId: FtsoConfigurations.encodeFeedId({category: 1, name: "ETH/USD"}), decimals: 3 }
     ]
   );
 
@@ -477,7 +478,7 @@ export async function deployContracts(
   // set ftso configurations
   await ftsoInflationConfigurations.addFtsoConfiguration(
     {
-        feedIds: FtsoConfigurations.encodeFeedIds([{type: 1, name: "BTC/USD"}, {type: 1, name: "XRP/USD"}, {type: 1, name: "FLR/USD"}, {type: 1, name: "ETH/USD"}]),
+        feedIds: FtsoConfigurations.encodeFeedIds([{category: 1, name: "BTC/USD"}, {category: 1, name: "XRP/USD"}, {category: 1, name: "FLR/USD"}, {category: 1, name: "ETH/USD"}]),
         inflationShare: 200,
         minRewardedTurnoutBIPS: 5000,
         mode: 0,
@@ -488,7 +489,7 @@ export async function deployContracts(
   );
   await ftsoInflationConfigurations.addFtsoConfiguration(
     {
-        feedIds: FtsoConfigurations.encodeFeedIds([{type: 1, name: "BTC/USD"}, {type: 1, name: "LTC/USD"}]),
+        feedIds: FtsoConfigurations.encodeFeedIds([{category: 1, name: "BTC/USD"}, {category: 1, name: "LTC/USD"}]),
         inflationShare: 100,
         minRewardedTurnoutBIPS: 5000,
         mode: 0,

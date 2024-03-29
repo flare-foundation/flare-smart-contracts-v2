@@ -22,11 +22,11 @@ contract FtsoFeedIdConverterTest is Test {
         ftsoFeedIdConverter.getFeedId(123, "feedTooLongName123456");
     }
 
-    function testGetFeedTypeAndName() public {
+    function testGetFeedCategoryAndName() public {
         string memory name = "feed1";
-        (uint8 feedType, string memory feedName) =
-            ftsoFeedIdConverter.getFeedTypeAndName(hex"106665656431000000000000000000000000000000");
-        assertEq(feedType, 16);
+        (uint8 feedCategory, string memory feedName) =
+            ftsoFeedIdConverter.getFeedCategoryAndName(hex"106665656431000000000000000000000000000000");
+        assertEq(feedCategory, 16);
         assertEq(keccak256(abi.encode(feedName)), keccak256(abi.encode(name)));
         assertEq(feedName, name);
     }

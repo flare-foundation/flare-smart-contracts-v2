@@ -97,6 +97,7 @@ function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {
 contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     const FTSO_PROTOCOL_ID = 100;
+    const REWARD_MANAGER_ID = 0;
 
     let wNat: WNatInstance;
     let pChainStakeMirror: PChainStakeMirrorInstance;
@@ -255,7 +256,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             governanceSettings.address,
             accounts[0],
             ADDRESS_UPDATER,
-            constants.ZERO_ADDRESS
+            constants.ZERO_ADDRESS,
+            REWARD_MANAGER_ID
         );
 
         relay = await Relay.new(
@@ -302,8 +304,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             5,
             0,
             [
-              { feedId: FtsoConfigurations.encodeFeedId({type: 1, name: "BTC/USD"}), decimals: 2 },
-              { feedId: FtsoConfigurations.encodeFeedId({type: 1, name: "ETH/USD"}), decimals: 3 }
+              { feedId: FtsoConfigurations.encodeFeedId({category: 1, name: "BTC/USD"}), decimals: 2 },
+              { feedId: FtsoConfigurations.encodeFeedId({category: 1, name: "ETH/USD"}), decimals: 3 }
             ]);
 
         ftsoFeedPublisher = await FtsoFeedPublisher.new(
@@ -409,7 +411,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         // set ftso configurations
         await ftsoInflationConfigurations.addFtsoConfiguration(
             {
-                feedIds: FtsoConfigurations.encodeFeedIds([{type: 1, name: "BTC/USD"}, {type: 1, name: "XRP/USD"}, {type: 1, name: "FLR/USD"}, {type: 1, name: "ETH/USD"}]),
+                feedIds: FtsoConfigurations.encodeFeedIds([{category: 1, name: "BTC/USD"}, {category: 1, name: "XRP/USD"}, {category: 1, name: "FLR/USD"}, {category: 1, name: "ETH/USD"}]),
                 inflationShare: 200,
                 minRewardedTurnoutBIPS: 5000,
                 mode: 0,
@@ -419,7 +421,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         );
         await ftsoInflationConfigurations.addFtsoConfiguration(
             {
-                feedIds: FtsoConfigurations.encodeFeedIds([{type: 1, name: "BTC/USD"}, {type: 1, name: "LTC/USD"}]),
+                feedIds: FtsoConfigurations.encodeFeedIds([{category: 1, name: "BTC/USD"}, {category: 1, name: "LTC/USD"}]),
                 inflationShare: 100,
                 minRewardedTurnoutBIPS: 5000,
                 mode: 0,
@@ -436,7 +438,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await ftsoRewardOffersManager.offerRewards(1, [
             {
                 amount: 25000000,
-                feedId: FtsoConfigurations.encodeFeedId({type: 1, name: "BTC/USD"}),
+                feedId: FtsoConfigurations.encodeFeedId({category: 1, name: "BTC/USD"}),
                 minRewardedTurnoutBIPS: 5000,
                 primaryBandRewardSharePPM: 450000,
                 secondaryBandWidthPPM: 50000,
@@ -669,7 +671,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         feed = {
             votingRoundId: votingRoundId,
-            id: FtsoConfigurations.encodeFeedId({type: 1, name: "BTC/USD"}),
+            id: FtsoConfigurations.encodeFeedId({category: 1, name: "BTC/USD"}),
             value: 12345,
             turnoutBIPS: 6500,
             decimals: 1
@@ -722,16 +724,16 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should convert feed id", async () => {
-        const type = 1;
+        const category = 1;
         const name = "BTC/USD";
-        const encodedFeedId = FtsoConfigurations.encodeFeedId({type, name});
+        const encodedFeedId = FtsoConfigurations.encodeFeedId({category, name});
         const feedId = FtsoConfigurations.decodeFeedIds(encodedFeedId)[0];
-        const encodedFeedId2 = await ftsoFeedIdConverter.getFeedId(type, name);
+        const encodedFeedId2 = await ftsoFeedIdConverter.getFeedId(category, name);
         expect(encodedFeedId2).to.be.equal(encodedFeedId);
-        const feedId2 = await ftsoFeedIdConverter.getFeedTypeAndName(encodedFeedId);
-        expect(type).to.be.equal(feedId.type);
+        const feedId2 = await ftsoFeedIdConverter.getFeedCategoryAndName(encodedFeedId);
+        expect(category).to.be.equal(feedId.category);
         expect(name).to.be.equal(feedId.name);
-        expect(type).to.be.equal(feedId2[0]);
+        expect(category).to.be.equal(feedId2[0]);
         expect(name).to.be.equal(feedId2[1]);
     });
 
@@ -866,7 +868,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should sign rewards for reward epoch 1", async () => {
         const rewardEpochId = 1;
-        const noOfWeightBasedClaims = 1;
+        const noOfWeightBasedClaims = [{rewardManagerId: REWARD_MANAGER_ID, noOfWeightBasedClaims: 1}];
 
         rewardClaim = {
             rewardEpochId: 1,
@@ -878,20 +880,23 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const rewardsVoteHash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
             ["uint24", "bytes20", "uint120", "uint8"],
             [rewardClaim.rewardEpochId, rewardClaim.beneficiary, rewardClaim.amount, rewardClaim.claimType]));
+        const noOfWeightBasedClaimsHash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+            ["tuple(uint256,uint256)[]"],
+            [noOfWeightBasedClaims.map(value => [value.rewardManagerId, value.noOfWeightBasedClaims])]));
         const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-            ["uint24", "uint64", "bytes32"],
-            [rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash]));
+            ["uint24", "bytes32", "bytes32"],
+            [rewardEpochId, noOfWeightBasedClaimsHash, rewardsVoteHash]));
 
         const signature = web3.eth.accounts.sign(hash, privateKeys[31].privateKey);
         expectEvent(await flareSystemsManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature), "RewardsSigned",
-            { rewardEpochId: toBN(1), signingPolicyAddress: accounts[31], voter: registeredCAddresses[1], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: false });
+            { rewardEpochId: toBN(1), signingPolicyAddress: accounts[31], voter: registeredCAddresses[1], thresholdReached: false });
         const signature2 = web3.eth.accounts.sign(hash, privateKeys[30].privateKey);
         expectEvent(await flareSystemsManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature2), "RewardsSigned",
-            { rewardEpochId: toBN(1), signingPolicyAddress: accounts[30], voter: registeredCAddresses[0], noOfWeightBasedClaims: toBN(noOfWeightBasedClaims), thresholdReached: true });
+            { rewardEpochId: toBN(1), signingPolicyAddress: accounts[30], voter: registeredCAddresses[0], thresholdReached: true });
         const signature3 = web3.eth.accounts.sign(hash, privateKeys[32].privateKey);
         await expectRevert(flareSystemsManager.signRewards(rewardEpochId, noOfWeightBasedClaims, rewardsVoteHash, signature3), "rewards hash already signed");
         expect(await flareSystemsManager.rewardsHash(rewardEpochId)).to.be.equal(rewardsVoteHash);
-        expect((await flareSystemsManager.noOfWeightBasedClaims(rewardEpochId)).toNumber()).to.be.equal(noOfWeightBasedClaims);
+        expect((await flareSystemsManager.noOfWeightBasedClaims(rewardEpochId, REWARD_MANAGER_ID)).toNumber()).to.be.equal(noOfWeightBasedClaims[0].noOfWeightBasedClaims);
     });
 
     it("Should claim the reward for reward epoch 1", async () => {

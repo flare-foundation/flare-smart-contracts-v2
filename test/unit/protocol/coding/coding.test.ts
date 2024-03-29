@@ -126,7 +126,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
   });
 
   it("Should encode and decode ftso feeds", async () => {
-    const feeds = [{type: 1, name: "BTC/USD"}, {type: 126, name: "1TEST123"}];
+    const feeds = [{category: 1, name: "BTC/USD"}, {category: 126, name: "1TEST123"}];
     const encoded = FtsoConfigurations.encodeFeedIds(feeds);
     const decoded = FtsoConfigurations.decodeFeedIds(encoded);
     expect(decoded).to.deep.equal(feeds);

@@ -182,6 +182,11 @@ export interface ChainParameters {
     rewardExpiryOffsetSeconds: integer;
 
     /**
+     * The reward manager id is used to identify the reward manager contract in the Flare Systems Manager contract (e.g. chain id).
+     */
+    rewardManagerId: integer;
+
+    /**
      * Max number of nodes per entity (e.g. 4).
      */
     maxNodeIdsPerEntity: integer;
@@ -445,9 +450,9 @@ export interface FlareDaemonizedContract {
 
 export interface FeedId {
     /**
-     * The feed type (0 - no type, 1 - crypto, 2 - traditional currency, 3 - commodity, 4 - stock, ...).
+     * The feed category (0 - none, 1 - crypto, 2 - FX, 3 - commodity, 4 - stock, ...).
      */
-    type: integer;
+    category: integer;
 
     /**
      * The feed name.

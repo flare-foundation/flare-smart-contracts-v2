@@ -9,7 +9,7 @@ interface IFtsoInflationConfigurations {
 
     /// The FTSO configuration struct.
     struct FtsoConfiguration {
-        // concatenated feed ids - i.e. type + base/quote symbol - multiple of 21 (one feedId is bytes21)
+        // concatenated feed ids - i.e. category + base/quote symbol - multiple of 21 (one feedId is bytes21)
         bytes feedIds;
         // inflation share for this configuration group
         uint24 inflationShare;

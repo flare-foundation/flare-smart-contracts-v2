@@ -23,18 +23,18 @@
         "FeedId": {
             "additionalProperties": false,
             "properties": {
+                "category": {
+                    "description": "The feed category (0 - none, 1 - crypto, 2 - FX, 3 - commodity, 4 - stock, ...).",
+                    "type": "integer"
+                },
                 "name": {
                     "description": "The feed name.",
                     "type": "string"
-                },
-                "type": {
-                    "description": "The feed type (0 - no type, 1 - crypto, 2 - traditional currency, 3 - commodity, 4 - stock, ...).",
-                    "type": "integer"
                 }
             },
             "required": [
-                "name",
-                "type"
+                "category",
+                "name"
             ],
             "type": "object"
         },
@@ -369,6 +369,10 @@
             "description": "The reward expiry offset in seconds (e.g. 90 days).",
             "type": "integer"
         },
+        "rewardManagerId": {
+            "description": "The reward manager id is used to identify the reward manager contract in the Flare Systems Manager contract (e.g. chain id).",
+            "type": "integer"
+        },
         "signingPolicyMinNumberOfVoters": {
             "description": "The minimal number of voters for the signing policy (e.g. 10).",
             "type": "integer"
@@ -479,6 +483,7 @@
         "relayThresholdIncreaseBIPS",
         "rewardEpochDurationInVotingEpochs",
         "rewardExpiryOffsetSeconds",
+        "rewardManagerId",
         "signingPolicyMinNumberOfVoters",
         "signingPolicySignNoRewardsDurationBlocks",
         "signingPolicySignNonPunishableDurationBlocks",

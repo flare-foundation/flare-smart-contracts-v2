@@ -86,13 +86,13 @@ contract FlareSystemsManagerTest is Test {
 
     /// Event emitted when rewards are signed.
     event RewardsSigned(
-        uint24 indexed rewardEpochId,           // Reward epoch id
-        address indexed signingPolicyAddress,   // Address which signed this
-        address indexed voter,                  // Voter (entity)
-        bytes32 rewardsHash,                    // Rewards hash
-        uint256 noOfWeightBasedClaims,          // Number of weight based claims
-        uint64 timestamp,                       // Timestamp when this happened
-        bool thresholdReached                   // Indicates if signing threshold was reached
+        uint24 indexed rewardEpochId,                       // Reward epoch id
+        address indexed signingPolicyAddress,               // Address which signed this
+        address indexed voter,                              // Voter (entity)
+        bytes32 rewardsHash,                                // Rewards hash
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] noOfWeightBasedClaims, // Number of weight based claims list
+        uint64 timestamp,                                   // Timestamp when this happened
+        bool thresholdReached                               // Indicates if signing threshold was reached
     );
 
     event TriggeringVoterRegistrationFailed(uint24 rewardEpochId);
@@ -989,7 +989,7 @@ contract FlareSystemsManagerTest is Test {
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
         // should revert when trying to sign again
-        vm.expectRevert("signing address already signed");
+        vm.expectRevert("voter already signed");
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
     }
 
@@ -1306,6 +1306,10 @@ contract FlareSystemsManagerTest is Test {
         assertEq(signTs, uint64(block.timestamp));
         assertEq(signBlock, uint64(block.number));
 
+        // reading data for next epoch -> should revert
+        vm.expectRevert("uptime vote hash not signed yet");
+        flareSystemsManager.getVoterUptimeVoteSignInfo(2, voters[1]);
+
         // new signing policy already signed -> should revert
         vm.expectRevert("uptime vote hash already signed");
         flareSystemsManager.signUptimeVote(1, uptimeHash, signature);
@@ -1391,8 +1395,10 @@ contract FlareSystemsManagerTest is Test {
 
     // sign rewards tests
     function testRevertSignRewardsHashZero() public {
-        uint64 noOfWeightBasedClaims = 3;
-        bytes32 messageHash = keccak256(abi.encode(0, noOfWeightBasedClaims, bytes32(0)));
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](1);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 3);
+        bytes32 messageHash = keccak256(abi.encode(1, keccak256(abi.encode(noOfWeightBasedClaims)), bytes32(0)));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
@@ -1404,8 +1410,10 @@ contract FlareSystemsManagerTest is Test {
 
     function testRevertSignRewardsEpochNotEnded() public {
         bytes32 rewardsHash = keccak256("rewards hash");
-        uint64 noOfWeightBasedClaims = 3;
-        bytes32 messageHash = keccak256(abi.encode(0, noOfWeightBasedClaims, rewardsHash));
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](1);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 3);
+        bytes32 messageHash = keccak256(abi.encode(0, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
@@ -1465,8 +1473,10 @@ contract FlareSystemsManagerTest is Test {
         flareSystemsManager.daemonize(); // start new reward epoch (epoch 2)
 
         bytes32 rewardsHash = keccak256("rewards hash");
-        uint64 noOfWeightBasedClaims = 3;
-        messageHash = keccak256(abi.encode(0, noOfWeightBasedClaims, rewardsHash));
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](1);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 3);
+        messageHash = keccak256(abi.encode(0, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs
@@ -1524,8 +1534,10 @@ contract FlareSystemsManagerTest is Test {
         flareSystemsManager.daemonize(); // start new reward epoch (epoch 2)
 
         bytes32 rewardsHash = keccak256("rewards hash");
-        uint64 noOfWeightBasedClaims = 3;
-        messageHash = keccak256(abi.encode(1, noOfWeightBasedClaims, rewardsHash));
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](1);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 3);
+        messageHash = keccak256(abi.encode(1, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs
@@ -1612,8 +1624,10 @@ contract FlareSystemsManagerTest is Test {
 
         // sign rewards
         bytes32 rewardsHash = keccak256("rewards hash");
-        uint64 noOfWeightBasedClaims = 3;
-        messageHash = keccak256(abi.encode(1, noOfWeightBasedClaims, rewardsHash));
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](1);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 3);
+        messageHash = keccak256(abi.encode(1, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs
@@ -1646,6 +1660,9 @@ contract FlareSystemsManagerTest is Test {
         assertEq(rewardsSignInfo[2], uint64(block.timestamp));
         assertEq(rewardsSignInfo[3], uint64(block.number));
 
+        // reading data for next epoch -> should revert
+        vm.expectRevert("rewards hash not signed yet");
+        flareSystemsManager.getVoterRewardsSignInfo(2, voters[1]);
 
         // new signing policy already signed -> should revert
         vm.expectRevert("rewards hash already signed");
@@ -1728,8 +1745,10 @@ contract FlareSystemsManagerTest is Test {
 
         // sign rewards
         bytes32 rewardsHash = keccak256("rewards hash");
-        uint64 noOfWeightBasedClaims = 3;
-        messageHash = keccak256(abi.encode(1, noOfWeightBasedClaims, rewardsHash));
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](1);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 3);
+        messageHash = keccak256(abi.encode(1, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs
@@ -1818,8 +1837,10 @@ contract FlareSystemsManagerTest is Test {
 
         // sign rewards
         bytes32 rewardsHash = keccak256("rewards hash");
-        uint64 noOfWeightBasedClaims = 3;
-        messageHash = keccak256(abi.encode(1, noOfWeightBasedClaims, rewardsHash));
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](1);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 3);
+        messageHash = keccak256(abi.encode(1, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         // voter0 signs
@@ -1837,15 +1858,21 @@ contract FlareSystemsManagerTest is Test {
     // set rewards hash tests
 
     function testRevertSetRewardsDataRewardsHashZero() public {
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](1);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 1);
         vm.prank(governance);
         vm.expectRevert("rewards hash zero");
-        flareSystemsManager.setRewardsData(1, 2, bytes32(0));
+        flareSystemsManager.setRewardsData(1, noOfWeightBasedClaims, bytes32(0));
     }
 
     function testRevertSetRewardsDataEpochNotEnded() public {
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](1);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 1);
         vm.prank(governance);
         vm.expectRevert("epoch not ended yet");
-        flareSystemsManager.setRewardsData(1, 2, keccak256("rewards hash"));
+        flareSystemsManager.setRewardsData(1, noOfWeightBasedClaims, keccak256("rewards hash"));
     }
 
     function testRevertSetRewardsDataSigningPolicyNotSigned() public {
@@ -1897,24 +1924,45 @@ contract FlareSystemsManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize(); // start new reward epoch (epoch 2)
 
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](1);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 1);
+
         vm.expectRevert("signing policy not signed yet");
         vm.prank(governance);
-        flareSystemsManager.setRewardsData(0, 2, keccak256("rewards hash"));
+        flareSystemsManager.setRewardsData(0, noOfWeightBasedClaims, keccak256("rewards hash"));
+    }
+
+    function testRevertSetRewardsDataRewardManagerIdNotIncreasing() public {
+        testSignRewards();
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](2);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(2, 1);
+        noOfWeightBasedClaims[1] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 1);
+        bytes32 rewardsHash = keccak256("rewards hash 2");
+        assertNotEq(flareSystemsManager.rewardsHash(1), rewardsHash);
+        assertNotEq(flareSystemsManager.noOfWeightBasedClaims(1, 0), 1);
+        assertNotEq(flareSystemsManager.noOfWeightBasedClaims(1, 2), 1);
+        vm.expectRevert("reward manager id not increasing");
+        vm.prank(governance);
+        flareSystemsManager.setRewardsData(1, noOfWeightBasedClaims, rewardsHash);
     }
 
     function testUpdateRewardsData() public {
         testSignRewards();
-        uint64 noOfWeightBasedClaims = 1;
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](1);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 1);
         bytes32 rewardsHash = keccak256("rewards hash 2");
         assertNotEq(flareSystemsManager.rewardsHash(1), rewardsHash);
-        assertNotEq(flareSystemsManager.noOfWeightBasedClaims(1), noOfWeightBasedClaims);
+        assertNotEq(flareSystemsManager.noOfWeightBasedClaims(1, 0), 1);
         vm.prank(governance);
         vm.expectEmit();
         emit RewardsSigned(1, governance, governance,
             rewardsHash, noOfWeightBasedClaims, uint64(block.timestamp), true);
         flareSystemsManager.setRewardsData(1, noOfWeightBasedClaims, rewardsHash);
         assertEq(flareSystemsManager.rewardsHash(1), rewardsHash);
-        assertEq(flareSystemsManager.noOfWeightBasedClaims(1), noOfWeightBasedClaims);
+        assertEq(flareSystemsManager.noOfWeightBasedClaims(1, 0), 1);
     }
 
     function testSetRewardsData() public {
@@ -1973,7 +2021,10 @@ contract FlareSystemsManagerTest is Test {
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize(); // start new reward epoch (epoch 2)
 
-        uint64 noOfWeightBasedClaims = 3;
+        IFlareSystemsManager.NumberOfWeightBasedClaims[] memory noOfWeightBasedClaims =
+            new IFlareSystemsManager.NumberOfWeightBasedClaims[](2);
+        noOfWeightBasedClaims[0] = IFlareSystemsManager.NumberOfWeightBasedClaims(0, 3);
+        noOfWeightBasedClaims[1] = IFlareSystemsManager.NumberOfWeightBasedClaims(1, 4);
         bytes32 rewardsHash = keccak256("rewards hash");
         vm.prank(governance);
         vm.expectEmit();
@@ -1981,7 +2032,9 @@ contract FlareSystemsManagerTest is Test {
             rewardsHash, noOfWeightBasedClaims, uint64(block.timestamp), true);
         flareSystemsManager.setRewardsData(1, noOfWeightBasedClaims, rewardsHash);
         assertEq(flareSystemsManager.rewardsHash(1), rewardsHash);
-        assertEq(flareSystemsManager.noOfWeightBasedClaims(1), noOfWeightBasedClaims);
+        assertEq(flareSystemsManager.noOfWeightBasedClaims(1, 0), 3);
+        assertEq(flareSystemsManager.noOfWeightBasedClaims(1, 1), 4);
+        assertEq(flareSystemsManager.noOfWeightBasedClaims(1, 2), 0);
     }
 
 
