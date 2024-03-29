@@ -18,7 +18,7 @@ contract(`RewardManager.sol; ${getTestFile(__filename)}`, async accounts => {
   const ADDRESS_UPDATER = accounts[16];
 
   beforeEach(async () => {
-    rewardManager = await RewardManager.new(accounts[0], accounts[0], ADDRESS_UPDATER, "0x0000000000000000000000000000000000000000");
+    rewardManager = await RewardManager.new(accounts[0], accounts[0], ADDRESS_UPDATER, "0x0000000000000000000000000000000000000000", 0);
     flareSystemsManager = await MockContract.new();
     await rewardManager.updateContractAddresses(
       encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),

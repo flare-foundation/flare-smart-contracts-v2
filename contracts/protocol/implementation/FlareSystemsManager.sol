@@ -124,8 +124,10 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     /// Rewards hash for given reward epoch id
     mapping(uint256 rewardEpochId => bytes32) public rewardsHash;
 
-    /// Number of weight based claims for given reward epoch id
-    mapping(uint256 rewardEpochId => uint256) public noOfWeightBasedClaims;
+    /// Number of weight based claims for given reward epoch id and reward manager id
+    mapping(uint256 rewardEpochId => mapping(uint256 rewardManagerId => uint256)) public noOfWeightBasedClaims;
+    /// Hash of number of weight based claims for given reward epoch id
+    mapping(uint256 rewardEpochId => bytes32) public noOfWeightBasedClaimsHash;
 
     // Signing policy settings
     /// Maximum duration of random acquisition phase, in seconds.
@@ -184,13 +186,13 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
 
     /// Modifier for allowing only FlareDaemon contract to call the method.
     modifier onlyFlareDaemon {
-        require(msg.sender == flareDaemon, "only flare daemon");
+        _checkOnlyFlareDaemon();
         _;
     }
 
     /// Modifier for allowing only if reward epoch is initialized.
     modifier onlyIfInitialized(uint256 _rewardEpochId) {
-        require(rewardEpochState[_rewardEpochId].signingPolicySignStartTs != 0, "reward epoch not initialized yet");
+        _checkIfInitialized(_rewardEpochId);
         _;
     }
 
@@ -399,12 +401,9 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
             "new signing policy hash invalid");
         RewardEpochState storage state = rewardEpochState[_rewardEpochId];
         require(state.signingPolicySignEndTs == 0, "new signing policy already signed");
-        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(_newSigningPolicyHash);
-        address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        (address voter, uint16 weight) = voterRegistry.getVoterWithNormalisedWeight(
-            _rewardEpochId - 1, signingPolicyAddress);
-        require(voter != address(0), "signature invalid");
-        require(state.signingPolicyVotes.voters[voter].signTs == 0, "signing address already signed");
+        (address signingPolicyAddress, address voter, uint16 weight) =
+            _getVoterData(_rewardEpochId - 1, _newSigningPolicyHash, _signature);
+        _checkIfVoterAlreadySigned(state.signingPolicyVotes.voters[voter].signTs);
         // save voter's timestamp and block number
         state.signingPolicyVotes.voters[voter] = VoterData(block.timestamp.toUint64(), block.number.toUint64());
         // check if signing threshold is reached (use previous epoch threshold)
@@ -438,15 +437,12 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     )
         external
     {
-        require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
+        _checkIfPastRewardEpoch(_rewardEpochId);
         RewardEpochState storage state = rewardEpochState[_rewardEpochId];
         require(state.uptimeVoteSignStartTs == 0, "submit uptime vote already ended");
         bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _nodeIds));
-        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
-        address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        (address voter, ) = voterRegistry.getVoterWithNormalisedWeight(
-            _rewardEpochId, signingPolicyAddress);
-        require(voter != address(0), "signature invalid");
+        (address signingPolicyAddress, address voter, ) =
+            _getVoterData(_rewardEpochId, messageHash, _signature);
         // save voter's timestamp and block number (overrides previous submit)
         state.submitUptimeVoteVotes.voters[voter] = VoterData(block.timestamp.toUint64(), block.number.toUint64());
         emit UptimeVoteSubmitted(
@@ -469,17 +465,14 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
         external
     {
         require(_uptimeVoteHash != bytes32(0), "uptime vote hash zero");
+        _checkIfPastRewardEpoch(_rewardEpochId);
         RewardEpochState storage state = rewardEpochState[_rewardEpochId];
-        require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
         require(state.uptimeVoteSignStartTs != 0, "sign uptime vote not started yet");
         require(uptimeVoteHash[_rewardEpochId] == bytes32(0), "uptime vote hash already signed");
         bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _uptimeVoteHash));
-        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
-        address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        (address voter, uint16 weight) = voterRegistry.getVoterWithNormalisedWeight(
-            _rewardEpochId, signingPolicyAddress);
-        require(voter != address(0), "signature invalid");
-        require(state.uptimeVoteVotes[_uptimeVoteHash].voters[voter].signTs == 0, "voter already signed");
+        (address signingPolicyAddress, address voter, uint16 weight) =
+            _getVoterData(_rewardEpochId, messageHash, _signature);
+        _checkIfVoterAlreadySigned(state.uptimeVoteVotes[_uptimeVoteHash].voters[voter].signTs);
         // save voter's timestamp and block number
         state.uptimeVoteVotes[_uptimeVoteHash].voters[voter] =
             VoterData(block.timestamp.toUint64(), block.number.toUint64());
@@ -510,24 +503,21 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
      */
     function signRewards(
         uint24 _rewardEpochId,
-        uint64 _noOfWeightBasedClaims,
+        NumberOfWeightBasedClaims[] calldata _noOfWeightBasedClaims,
         bytes32 _rewardsHash,
         Signature calldata _signature
     )
         external
     {
-        require(_rewardsHash != bytes32(0), "rewards hash zero");
-        _checkIsTimeToSignRewards(_rewardEpochId);
-        RewardEpochState storage state = rewardEpochState[_rewardEpochId];
-        require(uptimeVoteHash[_rewardEpochId] != bytes32(0), "uptime vote hash not signed yet");
+        _checkConditionsForSigningRewards(_rewardEpochId, _rewardsHash);
+        _checkIsUptimeVoteHashSigned(_rewardEpochId);
         require(rewardsHash[_rewardEpochId] == bytes32(0), "rewards hash already signed");
-        bytes32 messageHash = keccak256(abi.encode(_rewardEpochId, _noOfWeightBasedClaims, _rewardsHash));
-        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
-        address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
-        (address voter, uint16 weight) =
-            voterRegistry.getVoterWithNormalisedWeight(_rewardEpochId, signingPolicyAddress);
-        require(voter != address(0), "signature invalid");
-        require(state.rewardVotes[messageHash].voters[voter].signTs == 0, "voter already signed");
+        bytes32 messageHash = keccak256(abi.encode(
+            _rewardEpochId, keccak256(abi.encode(_noOfWeightBasedClaims)), _rewardsHash));
+        (address signingPolicyAddress, address voter, uint16 weight) =
+            _getVoterData(_rewardEpochId, messageHash, _signature);
+        RewardEpochState storage state = rewardEpochState[_rewardEpochId];
+        _checkIfVoterAlreadySigned(state.rewardVotes[messageHash].voters[voter].signTs);
         // save voter's timestamp and block number
         state.rewardVotes[messageHash].voters[voter] =
             VoterData(block.timestamp.toUint64(), block.number.toUint64());
@@ -537,20 +527,17 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
             // save timestamp and block number (this enables claiming)
             state.rewardsSignEndTs = block.timestamp.toUint64();
             state.rewardsSignEndBlock = block.number.toUint64();
-            rewardsHash[_rewardEpochId] = _rewardsHash;
-            noOfWeightBasedClaims[_rewardEpochId] = _noOfWeightBasedClaims;
             delete state.rewardVotes[messageHash].accumulatedWeight;
         } else {
             // keep collecting signatures
             state.rewardVotes[messageHash].accumulatedWeight += weight;
         }
-        emit RewardsSigned(
+        _updateRewardsHashAndEmitRewardsSigned(
             _rewardEpochId,
             signingPolicyAddress,
             voter,
             _rewardsHash,
             _noOfWeightBasedClaims,
-            block.timestamp.toUint64(),
             thresholdReached
         );
     }
@@ -561,25 +548,22 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
      * @param _noOfWeightBasedClaims Number of weight based claims.
      * @param _rewardsHash Rewards hash.
      * @dev Only governance can call this method.
+     * @dev Note that in case _noOfWeightBasedClaims were already set, they are not deleted and have to be overwritten.
      */
     function setRewardsData(
         uint24 _rewardEpochId,
-        uint64 _noOfWeightBasedClaims,
+        NumberOfWeightBasedClaims[] calldata _noOfWeightBasedClaims,
         bytes32 _rewardsHash
     )
         external onlyImmediateGovernance
     {
-        require(_rewardsHash != bytes32(0), "rewards hash zero");
-        _checkIsTimeToSignRewards(_rewardEpochId);
-        rewardsHash[_rewardEpochId] = _rewardsHash;
-        noOfWeightBasedClaims[_rewardEpochId] = _noOfWeightBasedClaims;
-        emit RewardsSigned(
+        _checkConditionsForSigningRewards(_rewardEpochId, _rewardsHash);
+        _updateRewardsHashAndEmitRewardsSigned(
             _rewardEpochId,
             governance(),
             governance(),
             _rewardsHash,
             _noOfWeightBasedClaims,
-            block.timestamp.toUint64(),
             true
         );
     }
@@ -817,6 +801,7 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
             uint64 _uptimeVoteSignBlock
         )
     {
+        _checkIsUptimeVoteHashSigned(_rewardEpochId);
         RewardEpochState storage state = rewardEpochState[_rewardEpochId];
         VoterData storage data = state.uptimeVoteVotes[uptimeVoteHash[_rewardEpochId]].voters[_voter];
         _uptimeVoteSignTs = data.signTs;
@@ -848,9 +833,10 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
             uint64 _rewardsSignBlock
         )
     {
+        require(rewardsHash[_rewardEpochId] != bytes32(0), "rewards hash not signed yet");
         RewardEpochState storage state = rewardEpochState[_rewardEpochId];
         bytes32 messageHash = keccak256(abi.encode(
-            _rewardEpochId, noOfWeightBasedClaims[_rewardEpochId], rewardsHash[_rewardEpochId]));
+            _rewardEpochId, noOfWeightBasedClaimsHash[_rewardEpochId], rewardsHash[_rewardEpochId]));
         VoterData storage data = state.rewardVotes[messageHash].voters[_voter];
         _rewardsSignTs = data.signTs;
         _rewardsSignBlock = data.signBlock;
@@ -1029,6 +1015,74 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     }
 
     /**
+     * Updates rewards hash (if thresold is reached) and emits RewardsSigned event.
+     * @param _rewardEpochId Reward epoch id.
+     * @param _signingPolicyAddress Voter's signing policy address.
+     * @param _voter Voter's address.
+     * @param _rewardsHash Rewards hash.
+     * @param _noOfWeightBasedClaims Number of weight based claims.
+     * @param _thresholdReached True if threshold is reached.
+     */
+    function _updateRewardsHashAndEmitRewardsSigned(
+        uint24 _rewardEpochId,
+        address _signingPolicyAddress,
+        address _voter,
+        bytes32 _rewardsHash,
+        NumberOfWeightBasedClaims[] calldata _noOfWeightBasedClaims,
+        bool _thresholdReached
+    )
+        internal
+    {
+        if (_thresholdReached) {
+            rewardsHash[_rewardEpochId] = _rewardsHash;
+            noOfWeightBasedClaimsHash[_rewardEpochId] = keccak256(abi.encode(_noOfWeightBasedClaims));
+            for (uint256 i = 0; i < _noOfWeightBasedClaims.length; i++) {
+                uint256 rewardManagerId = _noOfWeightBasedClaims[i].rewardManagerId;
+                require(i == 0 || rewardManagerId > _noOfWeightBasedClaims[i - 1].rewardManagerId,
+                    "reward manager id not increasing");
+                noOfWeightBasedClaims[_rewardEpochId][rewardManagerId] =
+                    _noOfWeightBasedClaims[i].noOfWeightBasedClaims;
+            }
+        }
+        emit RewardsSigned(
+            _rewardEpochId,
+            _signingPolicyAddress,
+            _voter,
+            _rewardsHash,
+            _noOfWeightBasedClaims,
+            block.timestamp.toUint64(),
+            _thresholdReached
+        );
+    }
+
+    /**
+     * Returns the voter data for given reward epoch id.
+     * @param _rewardEpochId Reward epoch id.
+     * @param _messageHash Message hash.
+     * @param _signature Signature.
+     * @return _signingPolicyAddress Signing policy address.
+     * @return _voter Voter address.
+     * @return _weight Voter weight (normalised).
+     */
+    function _getVoterData(
+        uint24 _rewardEpochId,
+        bytes32 _messageHash,
+        Signature calldata _signature
+    )
+        internal view
+        returns(address _signingPolicyAddress, address _voter, uint16 _weight)
+    {
+        _signingPolicyAddress = ECDSA.recover(
+            MessageHashUtils.toEthSignedMessageHash(_messageHash),
+            _signature.v,
+            _signature.r,
+            _signature.s
+        );
+        (_voter, _weight) = voterRegistry.getVoterWithNormalisedWeight(_rewardEpochId, _signingPolicyAddress);
+        require(_voter != address(0), "signature invalid");
+    }
+
+    /**
      * Selects vote power block for given reward epoch id.
      * @param _nextRewardEpochId Reward epoch id.
      * @param _random Random number.
@@ -1117,10 +1171,46 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     }
 
     /**
-     * Checks if it is time to sign rewards.
+     * Checks conditions for singing the rewards.
      */
-    function _checkIsTimeToSignRewards(uint24 _rewardEpochId) internal view {
-        require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
+    function _checkConditionsForSigningRewards(uint24 _rewardEpochId, bytes32 _rewardsHash) internal view {
+        require(_rewardsHash != bytes32(0), "rewards hash zero");
+        _checkIfPastRewardEpoch(_rewardEpochId);
         require(rewardEpochState[_rewardEpochId + 1].signingPolicySignEndTs != 0, "signing policy not signed yet");
+    }
+
+    /**
+     * Checks if caller is flare daemon.
+     */
+    function _checkOnlyFlareDaemon() internal view {
+        require(msg.sender == address(flareDaemon), "only flare daemon");
+    }
+
+    /**
+     * Checks if reward epoch is initialized.
+     */
+    function _checkIfInitialized(uint256 _rewardEpochId) internal view {
+        require(rewardEpochState[_rewardEpochId].signingPolicySignStartTs != 0, "reward epoch not initialized yet");
+    }
+
+    /**
+     * Checks if uptime vote hash is signed.
+     */
+    function _checkIsUptimeVoteHashSigned(uint24 _rewardEpochId) internal view {
+        require(uptimeVoteHash[_rewardEpochId] != bytes32(0), "uptime vote hash not signed yet");
+    }
+
+    /**
+     * Checks if it is a past reward epoch.
+     */
+    function _checkIfPastRewardEpoch(uint24 _rewardEpochId) internal view {
+        require(_rewardEpochId < _getCurrentRewardEpochId(), "epoch not ended yet");
+    }
+
+    /**
+     * Checks if voter has already signed.
+     */
+    function _checkIfVoterAlreadySigned(uint64 _signTs) internal pure {
+        require(_signTs == 0, "voter already signed");
     }
 }

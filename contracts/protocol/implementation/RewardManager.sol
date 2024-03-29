@@ -93,6 +93,9 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     /// Indicates if the contract is active - claims are enabled.
     bool public active;
 
+    /// Reward manager id.
+    uint256 public immutable rewardManagerId;
+
     /// Address of the old `RewardManager`, replaced by this one.
     address public immutable oldRewardManager;
     /// Address of the new `RewardManager` that replaced this one.
@@ -127,17 +130,20 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @param _initialGovernance The initial governance address.
      * @param _addressUpdater The address of the AddressUpdater contract.
      * @param _oldRewardManager The address of the old `RewardManager`.
+     * @param _rewardManagerId The reward manager id.
      */
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
-        address _oldRewardManager
+        address _oldRewardManager,
+        uint256 _rewardManagerId
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
         firstClaimableRewardEpochId = FIRST_CLAIMABLE_EPOCH;
         oldRewardManager = _oldRewardManager;
+        rewardManagerId = _rewardManagerId;
     }
 
     /**
@@ -702,7 +708,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         for (uint24 epoch = nextClaimableEpochId; epoch <= _rewardEpochId; epoch++) {
             // check if all weight based claims were already initialised
             // (in this case zero unclaimed rewards are actually zeros)
-            uint256 noOfWeightBasedClaims = flareSystemsManager.noOfWeightBasedClaims(epoch);
+            uint256 noOfWeightBasedClaims = flareSystemsManager.noOfWeightBasedClaims(epoch, rewardManagerId);
             if (noOfWeightBasedClaims == 0) {
                 require(_isRewardsHashSet(epoch), "rewards hash zero");
             }
@@ -1050,7 +1056,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             RewardState[] memory _rewardStates
         )
     {
-        uint256 noOfWeightBasedClaims = flareSystemsManager.noOfWeightBasedClaims(_rewardEpochId);
+        uint256 noOfWeightBasedClaims = flareSystemsManager.noOfWeightBasedClaims(_rewardEpochId, rewardManagerId);
         uint256 votePowerBlock = _getVotePowerBlock(_rewardEpochId);
 
         uint256 count = 0;

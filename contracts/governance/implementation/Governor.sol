@@ -379,6 +379,8 @@ abstract contract Governor is IGovernor, EIP712, GovernorProposals, GovernorVote
 
         uint256 cleanupBlock = governanceVotePower.getCleanupBlockNumber();
 
+        require(rewardEpochStartBlock >= cleanupBlock, "start block already cleaned-up");
+
         while (rewardEpochId > 0 && block.timestamp - rewardEpochStartTs < _vpBlockPeriodSeconds) {
             (uint256 prevRewardEpochStartTs, uint256 prevRewardEpochStartBlock) =
                 flareSystemsManager.getRewardEpochStartInfo(rewardEpochId - 1);

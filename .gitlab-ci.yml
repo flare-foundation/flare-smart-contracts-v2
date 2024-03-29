@@ -81,7 +81,7 @@ build-smart-contracts:
   stage: build
   needs: []
   image: node:18
-  timeout: 5 minutes
+  timeout: 10 minutes
   before_script:
   - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
   script:

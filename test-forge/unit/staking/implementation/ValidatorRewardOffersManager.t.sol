@@ -51,7 +51,8 @@ contract ValidatorRewardOffersManagerTest is Test {
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            address(0)
+            address(0),
+            0
         );
 
         vm.startPrank(addressUpdater);

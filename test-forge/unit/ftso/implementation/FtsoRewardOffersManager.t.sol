@@ -35,7 +35,7 @@ contract FtsoRewardOffersManagerTest is Test {
     event RewardsOffered(
         // reward epoch id
         uint24 indexed rewardEpochId,
-        // feed id - i.e. type + base/quote symbol
+        // feed id - i.e. category + base/quote symbol
         bytes21 feedId,
         // number of decimals (negative exponent)
         int8 decimals,
@@ -54,7 +54,7 @@ contract FtsoRewardOffersManagerTest is Test {
     event InflationRewardsOffered(
         // reward epoch id
         uint24 indexed rewardEpochId,
-        // feed ids - i.e. type + base/quote symbols - multiple of 21 (one feedId is bytes21)
+        // feed ids - i.e. category + base/quote symbols - multiple of 21 (one feedId is bytes21)
         bytes feedIds,
         // decimals encoded to - multiple of 1 (int8)
         bytes decimals,
@@ -91,7 +91,8 @@ contract FtsoRewardOffersManagerTest is Test {
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            address(0)
+            address(0),
+            0
         );
 
         vm.startPrank(addressUpdater);

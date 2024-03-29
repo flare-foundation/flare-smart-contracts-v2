@@ -1218,7 +1218,7 @@ contract PollingFoundationTest is Test {
         );
     }
 
-    function _mockVotePowerOfAt(address _owner, uint256 _blockNumber, uint256 _votePower) public {
+    function _mockVotePowerOfAt(address _owner, uint256 _blockNumber, uint256 _votePower) private {
         vm.mockCall(
             mockGovernanceVotePower,
             abi.encodeWithSelector(IGovernanceVotePower.votePowerOfAt.selector, _owner, _blockNumber),
@@ -1234,7 +1234,7 @@ contract PollingFoundationTest is Test {
 
     function _getProposalId(
         string memory _description
-    ) internal view returns (uint256) {
+    ) private view returns (uint256) {
         return uint256(keccak256(abi.encode(
             pollingFoundation.chainId(),
             address(pollingFoundation),

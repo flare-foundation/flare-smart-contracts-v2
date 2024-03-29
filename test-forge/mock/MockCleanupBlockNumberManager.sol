@@ -5,7 +5,7 @@ import "../../contracts/protocol/interface/IICleanupBlockNumberManager.sol";
 
 contract MockCleanupBlockNumberManager is IICleanupBlockNumberManager {
     //solhint-disable-next-line no-unused-vars
-    function setCleanUpBlockNumber(uint256 _cleanupBlock) external pure {
+    function setCleanUpBlockNumber(uint256 /*_cleanupBlock*/) external pure {
         revert("error123");
     }
 }

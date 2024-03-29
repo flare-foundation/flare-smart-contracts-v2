@@ -7,24 +7,24 @@ import "../../userInterfaces/IFtsoFeedIdConverter.sol";
 /**
  * FtsoFeedIdConverter contract.
  *
- * This contract is used for converting the feed id to type and name and vice versa.
+ * This contract is used for converting the feed id to category and name and vice versa.
  */
 contract FtsoFeedIdConverter is IFtsoFeedIdConverter {
 
     /**
      * @inheritdoc IFtsoFeedIdConverter
      */
-    function getFeedId(uint8 _type, string memory _name) external pure returns(bytes21) {
+    function getFeedId(uint8 _category, string memory _name) external pure returns(bytes21) {
         bytes memory nameBytes = bytes(_name);
         require(nameBytes.length <= 20, "name too long");
-        return bytes21(bytes.concat(bytes1(_type), nameBytes));
+        return bytes21(bytes.concat(bytes1(_category), nameBytes));
     }
 
     /**
      * @inheritdoc IFtsoFeedIdConverter
      */
-    function getFeedTypeAndName(bytes21 _feedId) external pure returns(uint8 _type, string memory _name) {
-        _type = uint8(_feedId[0]);
+    function getFeedCategoryAndName(bytes21 _feedId) external pure returns(uint8 _category, string memory _name) {
+        _category = uint8(_feedId[0]);
         uint256 length = 20;
         while (length > 0) {
             if (_feedId[length] != 0x00) {

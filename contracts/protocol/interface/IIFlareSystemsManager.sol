@@ -16,19 +16,27 @@ interface IIFlareSystemsManager is IFlareSystemsManager {
     event SettingCleanUpBlockNumberFailed(uint64 blockNumber);
 
     /**
-     * Uptime vote hash for given reward epoch id
+     * Uptime vote hash for given reward epoch id.
      */
     function uptimeVoteHash(uint256 _rewardEpochId) external view returns (bytes32);
 
     /**
-     * Rewards hash for given reward epoch id
+     * Rewards hash for given reward epoch id.
      */
     function rewardsHash(uint256 _rewardEpochId) external view returns (bytes32);
 
     /**
-     * Number of weight based claims for given reward epoch
+     * Number of weight based claims for given reward epoch id and reward manager id.
+     * @param _rewardEpochId Reward epoch id.
+     * @param _rewardManagerId Reward manager id.
      */
-    function noOfWeightBasedClaims(uint256 _rewardEpochId) external view returns (uint256);
+    function noOfWeightBasedClaims(uint256 _rewardEpochId, uint256 _rewardManagerId) external view returns (uint256);
+
+    /**
+     * Number of weight based claims hash for given reward epoch id.
+     * @param _rewardEpochId Reward epoch id.
+     */
+    function noOfWeightBasedClaimsHash(uint256 _rewardEpochId) external view returns (bytes32);
 
     /**
      * Maximum duration of random acquisition phase, in seconds.

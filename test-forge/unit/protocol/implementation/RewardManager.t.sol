@@ -61,7 +61,8 @@ contract RewardManagerTest is Test {
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            address(0)
+            address(0),
+            0
         );
 
         mockClaimSetupManager = makeAddr("mockClaimSetupManager");
@@ -1972,7 +1973,8 @@ contract RewardManagerTest is Test {
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            address(0)
+            address(0),
+            0
         );
 
         vm.prank(addressUpdater);
@@ -2046,7 +2048,8 @@ contract RewardManagerTest is Test {
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            address(0)
+            address(0),
+            0
         );
         vm.prank(addressUpdater);
         oldRewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
@@ -2055,7 +2058,8 @@ contract RewardManagerTest is Test {
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            address(oldRewardManager)
+            address(oldRewardManager),
+            0
         );
         vm.prank(addressUpdater);
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
@@ -2064,7 +2068,8 @@ contract RewardManagerTest is Test {
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            address(0)
+            address(0),
+            0
         );
 
         _mockGetCurrentEpochId(100);
@@ -2137,7 +2142,8 @@ contract RewardManagerTest is Test {
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            address(0)
+            address(0),
+            0
         );
 
         _mockGetCurrentEpochId(89);
@@ -2227,7 +2233,7 @@ contract RewardManagerTest is Test {
     function _mockNoOfWeightBasedClaims(uint256 _epoch, uint256 _noOfClaims) private {
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(bytes4(keccak256("noOfWeightBasedClaims(uint256)")), _epoch),
+            abi.encodeWithSelector(bytes4(keccak256("noOfWeightBasedClaims(uint256,uint256)")), _epoch, 0),
             abi.encode(_noOfClaims)
         );
     }
