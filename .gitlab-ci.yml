@@ -109,7 +109,7 @@ build-smart-contracts:
 
 .test-node-sc:
   image: node:18
-  timeout: 3 minutes
+  timeout: 5 minutes
   needs:
   - job: build-smart-contracts
     artifacts: true
@@ -136,7 +136,7 @@ test-unit-hardhat:
 
 test-unit-hardhat-md:
   extends: test-unit-hardhat
-  timeout: 5 minutes
+  timeout: 10 minutes
   tags: [ flarenetwork-md ]
   parallel:
     matrix:
