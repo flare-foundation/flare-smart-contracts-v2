@@ -204,6 +204,16 @@ contract PollingFoundationIntegrationTest is Test {
             abi.encodeWithSelector(bytes4(keccak256("balanceOfAt(address,uint256)"))),
             abi.encode(0)
         );
+        vm.mockCall(
+            makeAddr("pChain"),
+            abi.encodeWithSelector(bytes4(keccak256("balanceOf(address)"))),
+            abi.encode(0)
+        );
+        vm.mockCall(
+            makeAddr("cChain"),
+            abi.encodeWithSelector(bytes4(keccak256("balanceOf(address)"))),
+            abi.encode(0)
+        );
     }
 
     function testVPBlockSelectionAndVoting() public {
@@ -322,6 +332,9 @@ contract PollingFoundationIntegrationTest is Test {
         vm.prank(voters[3]);
         wNat.withdraw(350);
 
+        vm.prank(voters[0]);
+        governanceVotePower.delegate(voters[1]);
+
         // move to start of the voting period
         vm.warp(block.timestamp + 1000);
         vm.prank(voters[0]);
@@ -398,8 +411,9 @@ contract PollingFoundationIntegrationTest is Test {
         pollingFoundation.propose("proposalAccept2", settings);
         proposalId = _getProposalId("proposalAccept2");
         (, , uint256 vpBlock, , , , , , , uint256 circulatingSupply, ) = pollingFoundation.getProposalInfo(proposalId);
-        assertEq(pollingFoundation.getVotes(voters[0], vpBlock), 100);
-        assertEq(pollingFoundation.getVotes(voters[1], vpBlock), 200);
+        // voter0 delegated to voter1
+        assertEq(pollingFoundation.getVotes(voters[0], vpBlock), 0);
+        assertEq(pollingFoundation.getVotes(voters[1], vpBlock), 200 + 100);
         assertEq(pollingFoundation.getVotes(voters[2], vpBlock), 500);
         assertEq(pollingFoundation.getVotes(voters[3], vpBlock), 50);
         assertEq(circulatingSupply, 1200);
@@ -407,6 +421,8 @@ contract PollingFoundationIntegrationTest is Test {
         vm.warp(block.timestamp + 500);
         vm.roll(block.number + 200);
         vm.prank(voters[0]);
+        vm.expectEmit();
+        emit VoteCast(voters[0], proposalId, uint8(GovernorVotes.VoteType.For), 0, "", 0, 0);
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.For));
         vm.prank(voters[1]);
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.For));
