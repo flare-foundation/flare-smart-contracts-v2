@@ -4,3 +4,4 @@ contracts/token/lib/DelegateCheckPointsByAddress.sol
 contracts/token/implementation/CleanupBlockNumberManager.sol
 contracts/staking/implementation/PChainStakeMirror.sol
 contracts/staking/implementation/AddressBinder.sol
+contracts/genesis/mock/TestableFlareDaemon.sol

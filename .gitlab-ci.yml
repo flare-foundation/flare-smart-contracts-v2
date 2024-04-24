@@ -127,6 +127,9 @@ test-unit-hardhat:
       - ./test/unit/protocol/coding/coding.test.ts
       - ./test/unit/protocol/implementation/RewardManager.test.ts
       - ./test/unit/protocol/implementation/Submission.test.ts
+      - ./test/unit/fastUpdates/lib/Bn256.test.ts
+      - ./test/unit/fastUpdates/lib/FixedPointArithmetic.test.ts
+      - ./test/unit/fastUpdates/lib/Sortition.test.ts
   script:
   - yarn hardhat test --network hardhat ${TEST_ARG}
 
@@ -138,6 +141,8 @@ test-unit-hardhat-md:
     matrix:
     - TEST_ARG:
       - ./test/unit/protocol/implementation/Relay.test.ts
+      - ./test/unit/fastUpdates/implementation/FastUpdateIncentiveManager.test.ts
+      - ./test/unit/fastUpdates/implementation/FastUpdater.test.ts
 
 test-contract-end-to-end:
   extends: .test-node-sc
@@ -171,7 +176,7 @@ test-unit-forge:
 coverage-hardhat:
   image: node:18
   needs: []
-  timeout: 5 minutes
+  timeout: 20 minutes
   tags: [ flarenetwork-md ]
   cache: [ !reference [.partials, cache-nodejs] ]
   before_script:

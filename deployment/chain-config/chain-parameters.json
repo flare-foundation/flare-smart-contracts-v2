@@ -2,6 +2,29 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "additionalProperties": false,
     "definitions": {
+        "FeedConfiguration": {
+            "additionalProperties": false,
+            "properties": {
+                "feedId": {
+                    "$ref": "#/definitions/FeedId",
+                    "description": "The feed id."
+                },
+                "inflationShare": {
+                    "description": "The inflation share/weight.",
+                    "type": "integer"
+                },
+                "rewardBandValue": {
+                    "description": "The reward band value (interpreted off-chain) in relation to the median.",
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "feedId",
+                "inflationShare",
+                "rewardBandValue"
+            ],
+            "type": "object"
+        },
         "FeedDecimals": {
             "additionalProperties": false,
             "properties": {
@@ -169,6 +192,14 @@
         "$schema": {
             "type": "string"
         },
+        "baseRange": {
+            "description": "The base range.",
+            "type": "string"
+        },
+        "baseSampleSize": {
+            "description": "The base sample size.",
+            "type": "string"
+        },
         "decimalsUpdateOffset": {
             "description": "Feed decimals update timelock measured in reward epochs (must be more than 1, e.g. 3).",
             "type": "integer"
@@ -188,6 +219,13 @@
         "feePercentageUpdateOffset": {
             "description": "Fee percentage update timelock measured in reward epochs (must be more than 1, e.g. 3).",
             "type": "integer"
+        },
+        "feedConfigurations": {
+            "description": "The feed configurations.",
+            "items": {
+                "$ref": "#/definitions/FeedConfiguration"
+            },
+            "type": "array"
         },
         "feedsHistorySize": {
             "description": "Feed history size (e.g. 200).",
@@ -237,6 +275,10 @@
         },
         "governanceTimelock": {
             "description": "The timelock in seconds to use for all governance operations (the time that has to pass before any governance operation is executed).\nIt safeguards the system against bad governance decisions or hijacked governance.",
+            "type": "integer"
+        },
+        "incentiveOfferDurationBlocks": {
+            "description": "The incentive offer duration in blocks.",
             "type": "integer"
         },
         "inflationReceivers": {
@@ -357,6 +399,10 @@
             "description": "The maximal random acquisition duration in seconds (e.g. 8 hour).",
             "type": "integer"
         },
+        "rangeIncreasePriceNAT": {
+            "description": "The range increase price. In whole native units, not Wei.",
+            "type": "integer"
+        },
         "relayThresholdIncreaseBIPS": {
             "description": "The increase of the threshold in BIPS for relaying the merkle root with the old signing policy (must be more than 100%).",
             "type": "integer"
@@ -372,6 +418,10 @@
         "rewardManagerId": {
             "description": "The reward manager id is used to identify the reward manager contract in the Flare Systems Manager contract (e.g. chain id).",
             "type": "integer"
+        },
+        "sampleIncreaseLimit": {
+            "description": "The sample increase limit.",
+            "type": "string"
         },
         "signingPolicyMinNumberOfVoters": {
             "description": "The minimal number of voters for the signing policy (e.g. 10).",
@@ -396,6 +446,10 @@
         "submissionDeployerPrivateKey": {
             "description": "Submission deployer private key. Overriden if provided in `.env` file as `SUBMISSION_DEPLOYER_PRIVATE_KEY`",
             "type": "string"
+        },
+        "submissionWindowBlocks": {
+            "description": "The submission window in blocks.",
+            "type": "integer"
         },
         "submitUptimeVoteMinDurationBlocks": {
             "description": "The minimal duration of uptime vote submission phase in blocks (e.g. 300 blocks).",
@@ -439,11 +493,14 @@
         }
     },
     "required": [
+        "baseRange",
+        "baseSampleSize",
         "decimalsUpdateOffset",
         "defaultDecimals",
         "defaultFeePercentageBIPS",
         "deployerPrivateKey",
         "feePercentageUpdateOffset",
+        "feedConfigurations",
         "feedsHistorySize",
         "firstRewardEpochStartVotingRoundId",
         "firstVotingRoundStartTs",
@@ -455,6 +512,7 @@
         "governancePrivateKey",
         "governancePublicKey",
         "governanceTimelock",
+        "incentiveOfferDurationBlocks",
         "inflationReceivers",
         "initialFeedDecimalsList",
         "initialNormalisedWeights",
@@ -480,16 +538,19 @@
         "proposers",
         "randomAcquisitionMaxDurationBlocks",
         "randomAcquisitionMaxDurationSeconds",
+        "rangeIncreasePriceNAT",
         "relayThresholdIncreaseBIPS",
         "rewardEpochDurationInVotingEpochs",
         "rewardExpiryOffsetSeconds",
         "rewardManagerId",
+        "sampleIncreaseLimit",
         "signingPolicyMinNumberOfVoters",
         "signingPolicySignNoRewardsDurationBlocks",
         "signingPolicySignNonPunishableDurationBlocks",
         "signingPolicySignNonPunishableDurationSeconds",
         "signingPolicyThresholdPPM",
         "submissionDeployerPrivateKey",
+        "submissionWindowBlocks",
         "submitUptimeVoteMinDurationBlocks",
         "submitUptimeVoteMinDurationSeconds",
         "testDeployment",

@@ -205,5 +205,268 @@
     "pChainStakeMirrorMinDurationDays": 14,
     "pChainStakeMirrorMaxDurationDays": 365,
     "pChainStakeMirrorMinAmountNAT": 50000,
-    "pChainStakeMirrorMaxAmountNAT": 200000000
+    "pChainStakeMirrorMaxAmountNAT": 200000000,
+    "baseSampleSize": "0x01000000000000000000000000000000",
+    "baseRange": "0x00000800000000000000000000000000",
+    "sampleIncreaseLimit": "0x00100000000000000000000000000000",
+    "rangeIncreasePriceNAT": 1000000,
+    "incentiveOfferDurationBlocks": 8,
+    "submissionWindowBlocks": 10,
+    "feedConfigurations": [
+        {
+            "feedId": {"category": 1, "name": "FLR/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "SGB/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "BTC/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "XRP/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "LTC/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "XLM/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "DOGE/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "ADA/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "ALGO/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "ETH/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "FIL/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "ARB/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "AVAX/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "BNB/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "MATIC/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "SOL/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "USDC/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "USDT/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "XDC/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "TRX/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "DOT/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "SHIB/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "UNI/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "HBAR/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "NEAR/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "VET/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "RNDR/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "STRK/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "AAVE/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "QNT/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "XTZ/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "GALA/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "ATOM/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "ETC/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "BEAM/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "IMX/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "STX/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "APT/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "OP/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "ICP/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "INJ/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "TIA/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "GRT/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "SUI/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "LDO/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 3, "name": "XAU/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 3, "name": "XAG/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 3, "name": "XPT/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 2, "name": "EUR/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 2, "name": "JPY/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 2, "name": "AUD/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        }
+    ]
 }
