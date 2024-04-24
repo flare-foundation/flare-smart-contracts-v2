@@ -10,12 +10,20 @@ import {
   CleanupBlockNumberManagerInstance,
   EntityManagerContract,
   EntityManagerInstance,
+  FastUpdateIncentiveManagerContract,
+  FastUpdateIncentiveManagerInstance,
+  FastUpdaterContract,
+  FastUpdaterInstance,
+  FastUpdatesConfigurationContract,
+  FastUpdatesConfigurationInstance,
   FlareSystemsCalculatorContract,
   FlareSystemsCalculatorInstance,
   FlareSystemsManagerContract,
   FlareSystemsManagerInstance,
   FtsoFeedDecimalsContract,
   FtsoFeedDecimalsInstance,
+  FtsoFeedIdConverterContract,
+  FtsoFeedIdConverterInstance,
   FtsoFeedPublisherContract,
   FtsoFeedPublisherInstance,
   FtsoInflationConfigurationsContract,
@@ -26,6 +34,8 @@ import {
   GovernanceVotePowerInstance,
   MockContractContract,
   MockContractInstance,
+  NodePossessionVerifierContract,
+  NodePossessionVerifierInstance,
   PChainStakeMirrorContract,
   PChainStakeMirrorInstance,
   PChainStakeMirrorVerifierContract,
@@ -36,6 +46,8 @@ import {
   RewardManagerInstance,
   SubmissionContract,
   SubmissionInstance,
+  TestableFlareDaemonContract,
+  TestableFlareDaemonInstance,
   VPContractContract,
   VPContractInstance,
   VoterRegistryContract,
@@ -59,18 +71,19 @@ import {
   FTSO_PROTOCOL_ID,
 } from "../tasks/run-simulation";
 import { getLogger } from "./logger";
-import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from "./contract-helpers";
+import { testDeployGovernanceSettings } from "./contract-helpers";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 
 export interface DeployedContracts {
+  readonly flareDaemon: TestableFlareDaemonInstance;
   readonly pChainStakeMirror: PChainStakeMirrorInstance;
   readonly cChainStake: CChainStakeInstance;
   readonly vp: VPContractInstance;
   readonly wNat: WNatInstance;
   readonly governanceVotePower: GovernanceVotePowerInstance;
   readonly addressBinder: AddressBinderInstance;
-  readonly pChainVerifier: PChainStakeMirrorVerifierInstance;
-  readonly verifierMock: MockContractInstance;
+  readonly pChainStakeMirrorVerifier: PChainStakeMirrorVerifierInstance;
+  readonly mockContract: MockContractInstance;
   readonly entityManager: EntityManagerInstance;
   readonly voterRegistry: VoterRegistryInstance;
   readonly flareSystemsCalculator: FlareSystemsCalculatorInstance;
@@ -83,7 +96,12 @@ export interface DeployedContracts {
   readonly ftsoRewardOffersManager: FtsoRewardOffersManagerInstance;
   readonly ftsoFeedDecimals: FtsoFeedDecimalsInstance;
   readonly ftsoFeedPublisher: FtsoFeedPublisherInstance;
+  readonly ftsoFeedIdConverter: FtsoFeedIdConverterInstance;
   readonly cleanupBlockNumberManager: CleanupBlockNumberManagerInstance;
+  readonly fastUpdateIncentiveManager: FastUpdateIncentiveManagerInstance;
+  readonly fastUpdater: FastUpdaterInstance;
+  readonly fastUpdatesConfiguration: FastUpdatesConfigurationInstance;
+  readonly nodePossessionVerifier: NodePossessionVerifierInstance;
 }
 
 const logger = getLogger("contracts");
@@ -93,7 +111,6 @@ export async function deployContracts(
   hre: HardhatRuntimeEnvironment,
   governanceAccount: Account
 ): Promise<[DeployedContracts, number, ISigningPolicy]> {
-  const FLARE_DAEMON_ADDR = governanceAccount.address;
   const ADDRESS_UPDATER_ADDR = accounts[1].address;
   const CLEANER_CONTRACT_ADDR = accounts[2].address;
   const CLEANUP_BLOCK_NUMBER_MANAGER_ADDR = accounts[3].address;
@@ -103,6 +120,7 @@ export async function deployContracts(
   const INFLATION_ADDR = accounts[5].address;
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+  const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
   const MockContract: MockContractContract = hre.artifacts.require("MockContract");
   const WNat: WNatContract = hre.artifacts.require("WNat");
@@ -123,8 +141,15 @@ export async function deployContracts(
   const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = hre.artifacts.require("FtsoRewardOffersManager");
   const FtsoFeedDecimals: FtsoFeedDecimalsContract = hre.artifacts.require("FtsoFeedDecimals");
   const FtsoFeedPublisher: FtsoFeedPublisherContract = hre.artifacts.require("FtsoFeedPublisher");
+  const FtsoFeedIdConverter: FtsoFeedIdConverterContract = hre.artifacts.require("FtsoFeedIdConverter");
   const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = hre.artifacts.require("CleanupBlockNumberManager");
   const Relay: RelayContract = hre.artifacts.require("Relay");
+  const TestableFlareDaemon: TestableFlareDaemonContract = hre.artifacts.require("TestableFlareDaemon");
+  const NodePossessionVerifier: NodePossessionVerifierContract = hre.artifacts.require("NodePossessionVerifier");
+
+  const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract = artifacts.require("FastUpdateIncentiveManager");
+  const FastUpdater: FastUpdaterContract = artifacts.require("FastUpdater");
+  const FastUpdatesConfiguration: FastUpdatesConfigurationContract = artifacts.require("FastUpdatesConfiguration");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
@@ -153,8 +178,7 @@ export async function deployContracts(
   );
 
   const wNat = await WNat.new(governanceAccount.address, "Wrapped NAT", "WNAT");
-  await wNat.switchToProductionMode({ from: governanceAccount.address });
-  const switchToProdModeTime = await time.latest();
+  const ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
 
   const vpContract = await VPContract.new(wNat.address, false);
   await wNat.setWriteVpContract(vpContract.address);
@@ -166,21 +190,19 @@ export async function deployContracts(
   );
   await wNat.setGovernanceVotePower(governanceVotePower.address);
 
-  await time.increaseTo(switchToProdModeTime + TIMELOCK_SEC);
-  await executeTimelockedGovernanceCall(hre.artifacts, wNat, governance =>
-    wNat.setWriteVpContract(vpContract.address, { from: governance })
-  );
-  await executeTimelockedGovernanceCall(hre.artifacts, wNat, governance =>
-    wNat.setReadVpContract(vpContract.address, { from: governance })
-  );
-  await executeTimelockedGovernanceCall(hre.artifacts, wNat, governance =>
-    wNat.setGovernanceVotePower(governanceVotePower.address, { from: governance })
-  );
+  const flareDaemon = await TestableFlareDaemon.new();
+  await flareDaemon.initialiseFixedAddress();
+  const genesisGovernance = await flareDaemon.governance();
+  await flareDaemon.setAddressUpdater(ADDRESS_UPDATER_ADDR, { from: genesisGovernance });
+  const nodePossessionVerifier = await NodePossessionVerifier.new();
+  const nodePossessionmockContract = await MockContract.new();
+  await cChainStake.setCleanerContract(CLEANER_CONTRACT_ADDR, { from: governanceAccount.address });
+  await cChainStake.activate();
 
   const addressBinder: AddressBinderInstance = await AddressBinder.new();
-  const pChainVerifier = await PChainStakeMirrorVerifier.new(MULTI_SIG_VOTING_ADDR, RELAY_ADDR, 10, 1000, 5, 5000);
+  const pChainStakeMirrorVerifier = await PChainStakeMirrorVerifier.new(MULTI_SIG_VOTING_ADDR, RELAY_ADDR, 10, 1000, 5, 5000);
 
-  const verifierMock = await MockContract.new();
+  const mockContract = await MockContract.new();
 
   await pChainStakeMirror.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -195,7 +217,7 @@ export async function deployContracts(
       addressBinder.address,
       governanceVotePower.address,
       CLEANUP_BLOCK_NUMBER_MANAGER_ADDR,
-      verifierMock.address,
+      mockContract.address,
     ],
     { from: ADDRESS_UPDATER_ADDR }
   );
@@ -254,7 +276,7 @@ export async function deployContracts(
     governanceSettings.address,
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
-    FLARE_DAEMON_ADDR,
+    flareDaemon.address,
     settings.updatableSettings,
     settings.firstVotingRoundStartTs,
     settings.votingEpochDurationSeconds,
@@ -337,8 +359,48 @@ export async function deployContracts(
     "FlareSystemsManager"
   );
 
+  // FAST UPDATES
+  const fastUpdateIncentiveManager = await FastUpdateIncentiveManager.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    "0x01000000000000000000000000000000",
+    "0x00000800000000000000000000000000",
+    "0x00100000000000000000000000000000",
+    1000000,
+    8
+  );
+
+  const fastUpdater = await FastUpdater.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    flareDaemon.address,
+    settings.firstVotingRoundStartTs,
+    settings.votingEpochDurationSeconds,
+    10
+  );
+
+  const fastUpdatesConfiguration = await FastUpdatesConfiguration.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR
+  );
+
   await flareSystemsCalculator.enablePChainStakeMirror({ from: governanceAccount.address });
   await rewardManager.enablePChainStakeMirror({ from: governanceAccount.address });
+
+  await flareDaemon.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.INFLATION
+    ]),
+    [
+      ADDRESS_UPDATER_ADDR,
+      INFLATION_ADDR
+    ],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await pChainStakeMirror.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -353,7 +415,7 @@ export async function deployContracts(
       addressBinder.address,
       governanceVotePower.address,
       CLEANUP_BLOCK_NUMBER_MANAGER_ADDR,
-      verifierMock.address,
+      mockContract.address,
     ],
     { from: ADDRESS_UPDATER_ADDR }
   );
@@ -461,8 +523,34 @@ export async function deployContracts(
       Contracts.FLARE_SYSTEMS_MANAGER]),
     [ADDRESS_UPDATER_ADDR, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
 
+  await fastUpdateIncentiveManager.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.FAST_UPDATER,
+      Contracts.FAST_UPDATES_CONFIGURATION,
+      Contracts.REWARD_MANAGER,
+      Contracts.INFLATION]),
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, fastUpdater.address, fastUpdatesConfiguration.address, rewardManager.address, INFLATION_ADDR], { from: ADDRESS_UPDATER_ADDR });
+
+  await fastUpdater.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.FAST_UPDATE_INCENTIVE_MANAGER,
+      Contracts.VOTER_REGISTRY,
+      Contracts.FAST_UPDATES_CONFIGURATION,
+      Contracts.FTSO_FEED_PUBLISHER]),
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, fastUpdateIncentiveManager.address, voterRegistry.address, fastUpdatesConfiguration.address, mockContract.address], { from: ADDRESS_UPDATER_ADDR });
+
+  await fastUpdatesConfiguration.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FAST_UPDATER]),
+    [ADDRESS_UPDATER_ADDR, fastUpdater.address], { from: ADDRESS_UPDATER_ADDR });
+
   // set reward offers manager list
-  await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address]);
+  await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, fastUpdateIncentiveManager.address]);
 
   // set initial reward data
   await rewardManager.setInitialRewardData();
@@ -471,9 +559,11 @@ export async function deployContracts(
   const inflationFunds = hre.web3.utils.toWei("200000");
   await ftsoRewardOffersManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION_ADDR });
   await ftsoRewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION_ADDR });
+  await fastUpdateIncentiveManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION_ADDR });
+  await fastUpdateIncentiveManager.receiveInflation({ value: inflationFunds, from: INFLATION_ADDR });
 
   // set rewards offer switchover trigger contracts
-  await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address], { from: governanceAccount.address });
+  await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address, fastUpdateIncentiveManager.address], { from: governanceAccount.address });
 
   // set ftso configurations
   await ftsoInflationConfigurations.addFtsoConfiguration(
@@ -499,27 +589,77 @@ export async function deployContracts(
     { from: governanceAccount.address }
   );
 
-  await entityManager.setNodePossessionVerifier(verifierMock.address); // mock verifier
+  const FEED_IDS = [
+    FtsoConfigurations.encodeFeedId({ category: 1, name: "BTC/USD" }),
+    FtsoConfigurations.encodeFeedId({ category: 1, name: "XRP/USD" }),
+    FtsoConfigurations.encodeFeedId({ category: 1, name: "FLR/USD" }),
+    FtsoConfigurations.encodeFeedId({ category: 1, name: "ETH/USD" }),
+    FtsoConfigurations.encodeFeedId({ category: 1, name: "LTC/USD" })
+  ];
+  const ANCHOR_FEEDS = [7097158, 5500, 4000, 3000000, 10000000];
+  const DECIMALS = [2, 5, 5, 3, 5];
+
+  for (let i = 0; i < 5; i++) {
+    const getCurrentFeed = ftsoFeedPublisher.contract.methods.getCurrentFeed(FEED_IDS[i]).encodeABI();
+    const feed = web3.eth.abi.encodeParameters(
+      ["tuple(uint32,bytes21,int32,uint16,int8)"], // IFtsoFeedPublisher.Feed (uint32 votingRoundId, bytes21 id, int32 value, uint16 turnoutBIPS, int8 decimals)
+      [[FIRST_REWARD_EPOCH_VOTING_ROUND_ID, FEED_IDS[i], ANCHOR_FEEDS[i], 6000, DECIMALS[i]]]
+    );
+    await mockContract.givenCalldataReturn(getCurrentFeed, feed);
+  }
+
+  // Add feeds to FastUpdatesConfiguration
+  await fastUpdatesConfiguration.addFeeds([
+    { feedId: FEED_IDS[0], rewardBandValue: 2000, inflationShare: 200 },
+    { feedId: FEED_IDS[1], rewardBandValue: 4000, inflationShare: 100 },
+    { feedId: FEED_IDS[2], rewardBandValue: 3000, inflationShare: 200 },
+    { feedId: FEED_IDS[3], rewardBandValue: 3000, inflationShare: 100 },
+    { feedId: FEED_IDS[4], rewardBandValue: 3000, inflationShare: 100 }
+  ]);
+
+  // Register FastUpdater on Submission contract
+  await submission.setSubmitAndPassData(
+    fastUpdater.address,
+    fastUpdater.contract.methods.submitUpdates(
+      {
+        sortitionBlock: 0,
+        sortitionCredential: {replicate: 0, gamma: {x: 0, y: 0}, c: 0, s: 0},
+        deltas: "0x",
+        signature: {v: 0, r: ZERO_BYTES32, s: ZERO_BYTES32}
+      }
+    ).encodeABI().slice(0, 10), // first 4 bytes is function selector
+    { from: governanceAccount.address });
+
+  await entityManager.setNodePossessionVerifier(nodePossessionmockContract.address); // mock verifier
+  await entityManager.setPublicKeyVerifier(fastUpdater.address);
 
   await pChainStakeMirror.setCleanerContract(CLEANER_CONTRACT_ADDR, { from: governanceAccount.address });
   await pChainStakeMirror.activate({ from: governanceAccount.address });
   await cChainStake.activate({ from: governanceAccount.address });
 
+  // register flare daemonized contracts
+  const registrations = [
+    { daemonizedContract: flareSystemsManager.address, gasLimit: 40000000 },
+    { daemonizedContract: fastUpdater.address, gasLimit: 20000000 },
+  ];
+  await flareDaemon.registerToDaemonize(registrations, { from: genesisGovernance });
+
   logger.info(
-    `Finished deploying contracts:\n  FlareSystemsManager: ${flareSystemsManager.address},\n  Submission: ${submission.address},\n  Relay: ${relay.address}`
+    `Finished deploying contracts:\n  FlareSystemsManager: ${flareSystemsManager.address},\n  Submission: ${submission.address},\n  Relay: ${relay.address},\n  FastUpdater: ${fastUpdater.address}`
   );
 
   logger.info(`Current network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
   const contracts: DeployedContracts = {
+    flareDaemon,
     pChainStakeMirror,
     cChainStake,
     vp: vpContract,
     wNat,
     governanceVotePower,
     addressBinder,
-    pChainVerifier,
-    verifierMock,
+    pChainStakeMirrorVerifier,
+    mockContract,
     entityManager,
     voterRegistry,
     flareSystemsCalculator,
@@ -532,7 +672,12 @@ export async function deployContracts(
     ftsoRewardOffersManager,
     ftsoFeedDecimals,
     ftsoFeedPublisher,
-    cleanupBlockNumberManager
+    ftsoFeedIdConverter,
+    cleanupBlockNumberManager,
+    fastUpdateIncentiveManager,
+    fastUpdater,
+    fastUpdatesConfiguration,
+    nodePossessionVerifier
   };
 
   return [contracts, rewardEpochStart, initialSigningPolicy];

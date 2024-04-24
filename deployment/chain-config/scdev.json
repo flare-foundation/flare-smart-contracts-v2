@@ -178,5 +178,34 @@
     "pChainStakeMirrorMinDurationDays": 14,
     "pChainStakeMirrorMaxDurationDays": 365,
     "pChainStakeMirrorMinAmountNAT": 50000,
-    "pChainStakeMirrorMaxAmountNAT": 200000000
+    "pChainStakeMirrorMaxAmountNAT": 200000000,
+    "baseSampleSize": "0x01000000000000000000000000000000",
+    "baseRange": "0x00000800000000000000000000000000",
+    "sampleIncreaseLimit": "0x00100000000000000000000000000000",
+    "rangeIncreasePriceNAT": 10000,
+    "incentiveOfferDurationBlocks": 8,
+    "submissionWindowBlocks": 10,
+    "feedConfigurations": [
+        {
+            "feedId": {"category": 1, "name": "FLR/USD"},
+            "rewardBandValue": 2000,
+            "inflationShare": 2000
+        },
+        {
+            "feedId": {"category": 1, "name": "BTC/USD"},
+            "rewardBandValue": 500,
+            "inflationShare": 2000
+        },
+        {
+            "feedId": {"category": 1, "name": "XRP/USD"},
+            "rewardBandValue": 2000,
+            "inflationShare": 500
+        },
+        {
+            "feedId": {"category": 1, "name": "ETH/USD"},
+            "rewardBandValue": 1000,
+            "inflationShare": 1000
+        }
+    ]
+
 }

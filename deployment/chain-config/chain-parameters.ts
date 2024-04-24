@@ -339,6 +339,45 @@ export interface ChainParameters {
      * Max amount of P-chain stake. In whole native units, not Wei. Recommended value 200.000.000.
      */
     pChainStakeMirrorMaxAmountNAT: integer;
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Fast updates
+
+    /**
+     * The base sample size.
+     */
+    baseSampleSize: string;
+
+    /**
+     * The base range.
+     */
+    baseRange: string;
+
+    /**
+     * The sample increase limit.
+     */
+    sampleIncreaseLimit: string;
+
+    /**
+     * The range increase price. In whole native units, not Wei.
+     */
+    rangeIncreasePriceNAT: integer;
+
+    /**
+     * The incentive offer duration in blocks.
+     */
+    incentiveOfferDurationBlocks: integer;
+
+    /**
+     *  The submission window in blocks.
+     */
+    submissionWindowBlocks: integer;
+
+    /**
+     * The feed configurations.
+     */
+    feedConfigurations: FeedConfiguration[];
+
 }
 
 export interface FtsoInflationConfiguration {
@@ -400,6 +439,23 @@ export interface FeedDecimals {
      * The feed decimals.
      */
     decimals: integer;
+}
+
+export interface FeedConfiguration {
+    /**
+     * The feed id.
+     */
+    feedId: FeedId;
+
+    /**
+     * The reward band value (interpreted off-chain) in relation to the median.
+     */
+    rewardBandValue: integer;
+
+    /**
+     * The inflation share/weight.
+     */
+    inflationShare: integer;
 }
 
 export interface InflationReceiver {

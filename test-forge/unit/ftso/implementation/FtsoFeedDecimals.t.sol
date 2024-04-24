@@ -125,6 +125,15 @@ contract FtsoFeedDecimalsTest is Test {
         assertEq(ftsoFeedDecimals.getDecimalsBulk(feedIds, 3), decimals);
     }
 
+    function testSetNegativeDecimals() public {
+        _mockGetCurrentEpochId(0);
+
+        vm.startPrank(governance);
+        ftsoFeedDecimals.setDecimals(feedId1, -8);
+        assertEq(ftsoFeedDecimals.getCurrentDecimals(feedId1), 6);
+        assertEq(ftsoFeedDecimals.getDecimals(feedId1, 0 + 2), -8);
+    }
+
     function testUpdateInThePastRevert() public {
         vm.startPrank(governance);
         _mockGetCurrentEpochId(10);

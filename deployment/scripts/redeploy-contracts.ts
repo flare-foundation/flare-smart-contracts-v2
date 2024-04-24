@@ -11,8 +11,9 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
-import { PChainStakeMirrorVerifierContract, PollingFoundationContract, PollingFtsoContract, ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance } from '../../typechain-truffle';
+import { FastUpdateIncentiveManagerContract, FastUpdaterContract, FastUpdaterInstance, FastUpdatesConfigurationContract, PChainStakeMirrorVerifierContract, PollingFoundationContract, PollingFtsoContract, ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance } from '../../typechain-truffle';
 import { PChainStakeMirrorVerifierInstance } from '../../typechain-truffle/contracts/mock/PChainStakeMirrorVerifier';
+import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 
 let fs = require('fs');
 
@@ -27,6 +28,9 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   const PollingFtso: PollingFtsoContract = artifacts.require("PollingFtso");
   const ValidatorRewardOffersManager: ValidatorRewardOffersManagerContract = artifacts.require("ValidatorRewardOffersManager");
   const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = artifacts.require("PChainStakeMirrorVerifier");
+  const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract = artifacts.require("FastUpdateIncentiveManager");
+  const FastUpdater: FastUpdaterContract = artifacts.require("FastUpdater");
+  const FastUpdatesConfiguration: FastUpdatesConfigurationContract = artifacts.require("FastUpdatesConfiguration");
 
   let validatorRewardOffersManager: ValidatorRewardOffersManagerInstance;
   let pChainStakeMirrorVerifier: PChainStakeMirrorVerifierInstance;
@@ -49,12 +53,14 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   const governanceVotePower = oldContracts.getContractAddress(Contracts.GOVERNANCE_VOTE_POWER);
   const inflation = oldContracts.getContractAddress(Contracts.INFLATION);
   const pChainStakeMirrorMultiSigVoting = parameters.pChainStakeEnabled ? oldContracts.getContractAddress(Contracts.P_CHAIN_STAKE_MIRROR_MULTI_SIG_VOTING) : ZERO_ADDRESS;
+  const flareDaemon = oldContracts.getContractAddress(Contracts.FLARE_DAEMON);
 
   const flareSystemsManager = contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER);
   const submission = contracts.getContractAddress(Contracts.SUBMISSION);
   const voterRegistry = contracts.getContractAddress(Contracts.VOTER_REGISTRY);
   const rewardManager = contracts.getContractAddress(Contracts.REWARD_MANAGER);
   const relay = contracts.getContractAddress(Contracts.RELAY);
+  const ftsoFeedPublisher = contracts.getContractAddress(Contracts.FTSO_FEED_PUBLISHER);
 
   // Deploy the contracts
   const pollingFoundation = await PollingFoundation.new(
@@ -100,6 +106,36 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
     spewNewContractInfo(contracts, null, PChainStakeMirrorVerifier.contractName, `PChainStakeMirrorVerifier.sol`, pChainStakeMirrorVerifier.address, quiet);
   }
 
+  const fastUpdateIncentiveManager = await FastUpdateIncentiveManager.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address, // tmp address updater
+    parameters.baseSampleSize,
+    parameters.baseRange,
+    parameters.sampleIncreaseLimit,
+    BN(parameters.rangeIncreasePriceNAT).mul(BN(10).pow(BN(18))),
+    parameters.incentiveOfferDurationBlocks
+  );
+  spewNewContractInfo(contracts, null, FastUpdateIncentiveManager.contractName, `FastUpdateIncentiveManager.sol`, fastUpdateIncentiveManager.address, quiet);
+
+  const fastUpdater = await FastUpdater.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address, // tmp address updater
+    flareDaemon,
+    parameters.firstVotingRoundStartTs,
+    parameters.votingEpochDurationSeconds,
+    parameters.submissionWindowBlocks
+  );
+  spewNewContractInfo(contracts, null, FastUpdater.contractName, `FastUpdater.sol`, fastUpdater.address, quiet);
+
+  const fastUpdatesConfiguration = await FastUpdatesConfiguration.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address, // tmp address updater
+  );
+  spewNewContractInfo(contracts, null, FastUpdatesConfiguration.contractName, `FastUpdatesConfiguration.sol`, fastUpdatesConfiguration.address, quiet);
+
   // Update contract addresses
   await pollingFoundation.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.SUPPLY, Contracts.SUBMISSION, Contracts.GOVERNANCE_VOTE_POWER]),
@@ -118,12 +154,41 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
     );
   }
 
+  await fastUpdateIncentiveManager!.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FAST_UPDATER, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.REWARD_MANAGER, Contracts.INFLATION]),
+    [addressUpdater, flareSystemsManager, fastUpdater.address, fastUpdatesConfiguration.address, rewardManager, inflation]
+  );
+
+  await fastUpdater.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FAST_UPDATE_INCENTIVE_MANAGER, Contracts.VOTER_REGISTRY, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.FTSO_FEED_PUBLISHER]),
+    [addressUpdater, flareSystemsManager, fastUpdateIncentiveManager.address, voterRegistry, fastUpdatesConfiguration.address, ftsoFeedPublisher]
+  );
+
+  await fastUpdatesConfiguration.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FAST_UPDATER]),
+    [addressUpdater, fastUpdater.address]
+  );
+
+  // Add feeds to FastUpdatesConfiguration
+  await fastUpdatesConfiguration.addFeeds(
+    parameters.feedConfigurations.map(fc => {
+      return {
+        feedId: FtsoConfigurations.encodeFeedId(fc.feedId),
+        rewardBandValue: fc.rewardBandValue,
+        inflationShare: fc.inflationShare
+      }
+    })
+  );
+
   // Switch to production mode
   await pollingFoundation.switchToProductionMode();
   await pollingFtso.switchToProductionMode();
   if (parameters.pChainStakeEnabled) {
     await validatorRewardOffersManager!.switchToProductionMode();
   }
+  await fastUpdateIncentiveManager.switchToProductionMode();
+  await fastUpdater.switchToProductionMode();
+  await fastUpdatesConfiguration.switchToProductionMode();
 
   if (!quiet) {
     console.error("Contracts in JSON:");

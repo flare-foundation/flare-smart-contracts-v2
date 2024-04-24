@@ -22,6 +22,8 @@ import { errorString } from "../utils/error";
 import { decodeLogs as decodeRawLogs } from "../utils/events";
 import { MockDBIndexer } from "../utils/indexer/MockDBIndexer";
 import { getLogger } from "../utils/logger";
+import { Sign, Signature, SortitionKey, generateSortitionKey, ParseSortitionKey } from "../../test/utils/sortition";
+import { sha256 } from "ethers";
 
 // Simulation config
 export const SIMULATION_DUMP_FOLDER = "./sim";
@@ -38,10 +40,17 @@ export const REWARD_EPOCH_DURATION_IN_SEC = REWARD_EPOCH_DURATION_IN_VOTING_EPOC
 export const FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
 const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
 
+export function bigIntReplacer(key: string, value: any): any {
+  if (typeof value === "bigint") {
+    return value.toString() + "n";
+  }
+  return value;
+}
+
 const OFFERS = [
   {
     amount: 25000000,
-    feedId: FtsoConfigurations.encodeFeedId({category: 1, name: "BTC/USD"}),
+    feedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "BTC/USD" }),
     minRewardedTurnoutBIPS: 5000,
     primaryBandRewardSharePPM: 450000,
     secondaryBandWidthPPM: 50000,
@@ -49,7 +58,7 @@ const OFFERS = [
   },
   {
     amount: 50000000,
-    feedId: FtsoConfigurations.encodeFeedId({category: 1, name: "XRP/USD"}),
+    feedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "XRP/USD" }),
     minRewardedTurnoutBIPS: 5000,
     primaryBandRewardSharePPM: 650000,
     secondaryBandWidthPPM: 20000,
@@ -131,6 +140,13 @@ interface RegisteredAccount {
   readonly submitSignatures: Account;
   readonly signingPolicy: Account;
   readonly identity: Account;
+  readonly sortitionKey: SortitionKeyStrings;
+}
+
+interface SortitionKeyStrings {
+  readonly sk: string;
+  readonly pkx: string;
+  readonly pky: string;
 }
 
 class EventStore {
@@ -202,7 +218,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   });
 
   const registeredAccounts: RegisteredAccount[] = await registerAccounts(voterCount, accounts, c, rewardEpochStart);
-  fs.writeFileSync(SIMULATION_ACCOUNTS_FILE, JSON.stringify(registeredAccounts, null, 2));
+  fs.writeFileSync(SIMULATION_ACCOUNTS_FILE, JSON.stringify(registeredAccounts, bigIntReplacer, 2));
   logger.info("Registered account keys written to " + SIMULATION_ACCOUNTS_FILE);
 
   const epochSettings = new EpochSettings(
@@ -266,7 +282,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     while (Date.now() < firstEpochStartMs) await sleep(500);
   }
 
-  await c.flareSystemsManager.daemonize();
+  await c.flareDaemon.trigger({ gas: 20000000 });
 
   const currentRewardEpochId = (await c.flareSystemsManager.getCurrentRewardEpochId()).toNumber();
   if (currentRewardEpochId != 1) {
@@ -301,25 +317,38 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   await hre.network.provider.send("evm_setIntervalMining", [1000]);
 
   while (true) {
-    const response = await c.flareSystemsManager.daemonize({ gas: 20000000 });
+    const response = await c.flareDaemon.trigger({ gas: 20000000 });
     // if (response.receipt.gasUsed > 100000) console.log("Gas used:", response.receipt.gasUsed);
     const blockTimestamp = +(await hre.web3.eth.getBlock(response.receipt.blockNumber)).timestamp;
-
-    if (response.logs.length > 0) {
-      // For events emitted by the FlareSystemsManager.
-      for (const log of response.logs) {
-        await processLog(log, blockTimestamp, events);
-      }
-      const logs = decodeRawLogs(response, c.ftsoRewardOffersManager, "InflationRewardsOffered");
+    let logs;
+    // For events emitted by the FlareSystemsManager.
+    const eventList = [
+      "RandomAcquisitionStarted",
+      "VotePowerBlockSelected",
+      "SigningPolicySigned",
+      "RewardEpochStarted",
+      "SignUptimeVoteEnabled",
+      "UptimeVoteSubmitted",
+      "UptimeVoteSigned",
+      "RewardsSigned",
+    ];
+    for (const event of eventList) {
+      logs = decodeRawLogs(response, c.flareSystemsManager, event);
       for (const log of logs) {
         await processLog(log, blockTimestamp, events);
       }
-    } else {
-      // For events emitted by the Relay (Truffle won't decode it automatically).
-      const logs = decodeRawLogs(response, c.relay, "SigningPolicyInitialized");
-      for (const log of logs) {
-        await processLog(log, blockTimestamp, events);
-      }
+    }
+    logs = decodeRawLogs(response, c.ftsoRewardOffersManager, "InflationRewardsOffered");
+    for (const log of logs) {
+      await processLog(log, blockTimestamp, events);
+    }
+    logs = decodeRawLogs(response, c.fastUpdateIncentiveManager, "InflationRewardsOffered");
+    for (const log of logs) {
+      await processLog(log, blockTimestamp, events);
+    }
+    logs = decodeRawLogs(response, c.relay, "SigningPolicyInitialized");
+    for (const log of logs) {
+      await processLog(log, blockTimestamp, events);
     }
     await sleep(500);
   }
@@ -423,8 +452,8 @@ async function registerAccounts(
     await c.addressBinder.registerAddresses(pubKey, pAddr, identityAccount.address);
 
     const data = await setMockStakingData(
-      c.verifierMock,
-      c.pChainVerifier,
+      c.mockContract,
+      c.pChainStakeMirrorVerifier,
       stakeId,
       0,
       pAddr,
@@ -452,11 +481,30 @@ async function registerAccounts(
       from: policySigningAccount.address,
     });
 
+    const key: SortitionKey = ParseSortitionKey(policySigningAccount.privateKey);
+    const msg = sha256(web3.utils.encodePacked(identityAccount.address)!);
+
+    const signature: Signature = Sign(key, msg);
+    const pkx = "0x" + web3.utils.padLeft(key.pk.x.toString(16), 64);
+    const pky = "0x" + web3.utils.padLeft(key.pk.y.toString(16), 64);
+    const sk = "0x" + web3.utils.padLeft(key.sk.toString(16), 64);
+    const sortitionKey: SortitionKeyStrings = { sk, pkx, pky };
+    await c.entityManager.registerPublicKey(
+      pkx,
+      pky,
+      web3.eth.abi.encodeParameters(
+        ["uint256", "uint256", "uint256"],
+        [signature.s.toString(), signature.r.x.toString(), signature.r.y.toString()]
+      ),
+      { from: identityAccount.address }
+    );
+
     registeredAccounts.push({
       identity: identityAccount,
       submit: submitAccount,
       submitSignatures: signingAccount,
       signingPolicy: policySigningAccount,
+      sortitionKey: sortitionKey,
     });
   }
   return registeredAccounts;
@@ -697,16 +745,23 @@ async function defineInitialSigningPolicy(
     rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds)
   );
 
-  const resp = await c.flareSystemsManager.daemonize();
-  if (resp.logs[0]?.event != "RandomAcquisitionStarted") {
+  const response = await c.flareDaemon.trigger({ gas: 20000000 });
+  const logs = decodeRawLogs(response, c.flareSystemsManager, "RandomAcquisitionStarted");
+  if (logs.length == 0) {
     throw new Error("Expected random acquisition to start");
   }
 
+  const key = generateSortitionKey();
+  const pkx = "0x" + web3.utils.padLeft(key.pk.x.toString(16), 64);
+  const pky = "0x" + web3.utils.padLeft(key.pk.y.toString(16), 64);
+  const sk = "0x" + web3.utils.padLeft(key.sk.toString(16), 64);
+  const sortitionKey: SortitionKeyStrings = { sk, pkx, pky };
   const governance = {
     identity: governanceAccount,
     submit: governanceAccount,
     submitSignatures: governanceAccount,
     signingPolicy: governanceAccount,
+    sortitionKey: sortitionKey,
   };
 
   await fakeFinalize(web3, signingPolicies, [governance], epochSettings, c, (await time.latest()) * 1000);
@@ -716,9 +771,10 @@ async function defineInitialSigningPolicy(
       (REWARD_EPOCH_DURATION_IN_SEC - Math.floor(epochSettings.newSigningPolicyInitializationStartSeconds / 2))
   );
 
-  const resp2 = await c.flareSystemsManager.daemonize();
-  if (resp2.logs[0]?.event != "VotePowerBlockSelected") {
-    throw new Error("Expected vote power block to be selected");
+  const response2 = await c.flareDaemon.trigger({ gas: 20000000 });
+  const logs2 = decodeRawLogs(response2, c.flareSystemsManager, "VotePowerBlockSelected");
+  if (logs2.length == 0) {
+    throw new Error("Expected random acquisition to start");
   }
 
   for (const acc of registeredAccounts) {
@@ -733,13 +789,13 @@ async function defineInitialSigningPolicy(
         5)
   );
 
-  const resp3 = await c.flareSystemsManager.daemonize();
-  const eventLog = decodeRawLogs(resp3, c.relay, "SigningPolicyInitialized")[0];
+  const response3 = await c.flareDaemon.trigger({ gas: 20000000 });
+  const logs3 = decodeRawLogs(response3, c.relay, "SigningPolicyInitialized");
 
-  if (eventLog.event != "SigningPolicyInitialized") {
+  if (logs3.length == 0) {
     throw new Error("Expected signing policy to be initialized");
   } else {
-    const arg = eventLog.args;
+    const arg = logs3[0].args;
     signingPolicies.set(1, extractSigningPolicy(arg));
   }
   const rewardEpochId = 1;

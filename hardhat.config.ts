@@ -5,6 +5,7 @@ import "@nomicfoundation/hardhat-chai-matchers";
 import 'solidity-coverage';
 
 import { HardhatUserConfig, task } from "hardhat/config";
+import { TASK_COMPILE } from 'hardhat/builtin-tasks/task-names';
 import * as dotenv from "dotenv";
 import { runSimulation } from "./deployment/tasks/run-simulation";
 import { loadParameters, verifyParameters } from "./deployment/scripts/deploy-utils";
@@ -20,6 +21,8 @@ import { getEntityAccounts, readEntities } from "./deployment/utils/Entity";
 import { registerEntities } from "./deployment/tasks/register-entities";
 import { provideRandomNumberForInitialRewardEpoch } from "./deployment/tasks/provide-random-number-for-initial-reward-epoch";
 import { redeployContracts } from "./deployment/scripts/redeploy-contracts";
+import { registerPublicKeys } from "./deployment/tasks/register-public-keys";
+const intercept = require('intercept-stdout');
 
 dotenv.config();
 
@@ -100,6 +103,17 @@ function readContracts(network: string, filePath?: string): Contracts {
 }
 
 // Tasks
+// Override solc compile task and filter out useless warnings
+task(TASK_COMPILE)
+  .setAction(async (args, hre, runSuper) => {
+    intercept((text: any) => {
+      if (/MockContract.sol/.test(text)) return '';
+      if (/SuicidalMock.sol/.test(text)) return '';
+      if (/FlareSmartContracts.sol/.test(text) ) return '';
+      return text;
+    });
+    await runSuper(args);
+  });
 
 task("run-simulation", `Runs local simulation.`) // prettier-ignore
   .addOptionalParam("voters", "Number of voters to simulate", "4")
@@ -139,6 +153,20 @@ task("register-entities", `Entities registration.`)
     const contracts = readContracts(network);
     const entities = readEntities(process.env.ENTITIES_FILE_PATH);
     await registerEntities(hre, contracts, entities, args.quiet);
+  });
+
+task("register-public-keys", `Public keys registration.`)
+  .setAction(async (args, hre, _runSuper) => {
+    if (!process.env.CHAIN_CONFIG) {
+      throw Error("CHAIN_CONFIG environment variable not set.")
+    }
+    if (!process.env.ENTITIES_FILE_PATH) {
+      throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.")
+    }
+    const network = process.env.CHAIN_CONFIG;
+    const contracts = readContracts(network);
+    const entities = readEntities(process.env.ENTITIES_FILE_PATH);
+    await registerPublicKeys(hre, contracts, entities, args.quiet);
   });
 
 task("provide-random-number-for-initial-reward-epoch", `Provide random number for initial reward epoch.`)
