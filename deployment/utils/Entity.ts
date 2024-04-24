@@ -14,7 +14,7 @@ export interface Entity {
   readonly submitSignatures: Account;
   readonly signingPolicy: Account;
   readonly delegation: Account;
-  readonly sortition: Account;
+  readonly sortitionPrivateKey: string;
   readonly wrapped: string;
 }
 

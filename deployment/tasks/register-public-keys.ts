@@ -32,7 +32,7 @@ export async function registerPublicKeys(
   const entityManager = await EntityManager.at(contracts.getContractAddress(Contracts.ENTITY_MANAGER));
 
   for (const entity of entities) {
-    const key: SortitionKey = ParseSortitionKey(entity.sortition.privateKey);
+    const key: SortitionKey = ParseSortitionKey(entity.sortitionPrivateKey);
     const msg = sha256(web3.utils.encodePacked(entity.identity.address)!);
 
     const signature: Signature = Sign(key, msg);
