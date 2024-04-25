@@ -1,0 +1,150 @@
+{
+    "testDeployment": false,
+    "submissionDeployerPrivateKey": "<use .env: SUBMISSION_DEPLOYER_PRIVATE_KEY>",
+    "deployerPrivateKey": "<use .env: DEPLOYER_PRIVATE_KEY>",
+    "genesisGovernancePrivateKey": "<use .env: GENESIS_GOVERNANCE_PRIVATE_KEY>",
+    "governancePublicKey": "<use .env: GOVERNANCE_PUBLIC_KEY>",
+    "governancePrivateKey": "<use .env: GOVERNANCE_PRIVATE_KEY>",
+    "governanceTimelock": 3600,
+    "governanceExecutorPublicKey": "<use .env: GOVERNANCE_EXECUTOR_PUBLIC_KEY>",
+
+    "initialRewardEpochOffset": 0,
+    "initialRandomVotePowerBlockSelectionSize": 1000,
+    "initialVoters": ["<use .env: INITIAL_VOTER_PRIVATE_KEY>"],
+    "initialNormalisedWeights": [65535],
+    "initialThreshold": 32768,
+    "initialVoterData": [],
+    "initialFeedDecimalsList": [
+        {"feedId": {"category": 1, "name":"BTC/USD"}, "decimals": 2},
+        {"feedId": {"category": 1, "name":"ETH/USD"}, "decimals": 3},
+        {"feedId": {"category": 3, "name":"XAU/USD"}, "decimals": 3},
+        {"feedId": {"category": 1, "name":"MKR/USD"}, "decimals": 3},
+        {"feedId": {"category": 3, "name":"XPT/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"TAO/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"BNB/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"GNO/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"BCH/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"XMR/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"SOL/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"QNT/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"AAVE/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"BTT/USD"}, "decimals": 10},
+        {"feedId": {"category": 1, "name":"SHIB/USD"}, "decimals": 10},
+        {"feedId": {"category": 1, "name":"BONK/USD"}, "decimals": 10},
+        {"feedId": {"category": 1, "name":"LUNC/USD"}, "decimals": 10},
+        {"feedId": {"category": 1, "name":"1000SATS/USD"}, "decimals": 10}
+    ],
+
+    "firstVotingRoundStartTs": 1658429955,
+    "votingEpochDurationSeconds": 90,
+    "firstRewardEpochStartVotingRoundId": 0,
+    "rewardEpochDurationInVotingEpochs": 3360,
+    "relayThresholdIncreaseBIPS": 12000,
+    "messageFinalizationWindowInRewardEpochs": 10,
+    "newSigningPolicyInitializationStartSeconds": 7200,
+    "randomAcquisitionMaxDurationSeconds": 28800,
+    "randomAcquisitionMaxDurationBlocks": 28800,
+    "newSigningPolicyMinNumberOfVotingRoundsDelay": 3,
+    "voterRegistrationMinDurationSeconds": 1800,
+    "voterRegistrationMinDurationBlocks": 1800,
+    "submitUptimeVoteMinDurationSeconds": 600,
+    "submitUptimeVoteMinDurationBlocks": 600,
+    "signingPolicyThresholdPPM": 500000,
+    "signingPolicyMinNumberOfVoters": 1,
+    "rewardExpiryOffsetSeconds": 7776000,
+    "rewardManagerId": 19,
+    "maxNodeIdsPerEntity": 0,
+    "maxVotersPerRewardEpoch": 100,
+    "wNatCapPPM": 25000,
+    "signingPolicySignNonPunishableDurationSeconds": 1200,
+    "signingPolicySignNonPunishableDurationBlocks": 1200,
+    "signingPolicySignNoRewardsDurationBlocks": 1200,
+    "feePercentageUpdateOffset": 3,
+    "defaultFeePercentageBIPS": 2000,
+    "pChainStakeEnabled": false,
+
+    "ftsoProtocolId": 100,
+    "minimalRewardsOfferValueNAT": 200000,
+    "decimalsUpdateOffset": 3,
+    "defaultDecimals": 5,
+    "feedsHistorySize": 1000,
+    "ftsoInflationConfigurations": [
+        {
+            "feedIds": [
+                {"category": 1, "name": "FLR/USD"},
+                {"category": 1, "name": "SGB/USD"},
+                {"category": 1, "name": "BTC/USD"},
+                {"category": 1, "name": "XRP/USD"},
+                {"category": 1, "name": "LTC/USD"},
+                {"category": 1, "name": "XLM/USD"},
+                {"category": 1, "name": "DOGE/USD"},
+                {"category": 1, "name": "ADA/USD"},
+                {"category": 1, "name": "ALGO/USD"},
+                {"category": 1, "name": "ETH/USD"},
+                {"category": 1, "name": "FIL/USD"},
+                {"category": 1, "name": "ARB/USD"},
+                {"category": 1, "name": "AVAX/USD"},
+                {"category": 1, "name": "BNB/USD"},
+                {"category": 1, "name": "MATIC/USD"},
+                {"category": 1, "name": "SOL/USD"},
+                {"category": 1, "name": "USDC/USD"},
+                {"category": 1, "name": "USDT/USD"},
+                {"category": 1, "name": "XDC/USD"}
+            ],
+            "inflationShareBIPS": 10000,
+            "minRewardedTurnoutBIPS": 5000,
+            "mode": 0,
+            "primaryBandRewardSharePPM": 700000,
+            "secondaryBandWidthPPMs": [400, 500, 100, 150, 200, 200, 200, 200, 200, 150, 200, 100, 100, 100, 100, 100, 100, 100, 400]
+        }
+    ],
+
+    "inflationReceivers": [
+        {
+            "oldContract": false,
+            "contractName": "FtsoRewardOffersManager",
+            "sharingBIPS": 0,
+            "topUpType": 1,
+            "topUpFactorx100": 0
+        },
+        {
+            "oldContract": true,
+            "contractName": "FtsoRewardManager",
+            "sharingBIPS": 10000,
+            "topUpType": 0,
+            "topUpFactorx100": 400
+        }
+    ],
+
+    "flareDaemonizedContracts": [
+        {
+            "oldContract": true,
+            "contractName": "Inflation",
+            "gasLimit": 3000000
+        },
+        {
+            "oldContract": true,
+            "contractName": "FtsoManager",
+            "gasLimit": 40000000
+        },
+        {
+            "oldContract": false,
+            "contractName": "FlareSystemsManager",
+            "gasLimit": 40000000
+        }
+    ],
+    "proposers": [
+        "0x51e40f275feeca0a859cda9d499afbcbe3804b71",
+        "0xBe6a26eAA777001A260DA7FcEAc67d2604cc5069"
+    ],
+    "maintainer": "0xBe6a26eAA777001A260DA7FcEAc67d2604cc5069",
+    "votingDelaySeconds": 0,
+    "votingPeriodSeconds": 172800,
+    "thresholdConditionBIPS": 6600,
+    "majorityConditionBIPS": 5000,
+    "proposalFeeValueNAT": 100,
+    "pChainStakeMirrorMinDurationDays": 14,
+    "pChainStakeMirrorMaxDurationDays": 365,
+    "pChainStakeMirrorMinAmountNAT": 50000,
+    "pChainStakeMirrorMaxAmountNAT": 200000000
+}

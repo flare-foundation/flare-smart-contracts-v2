@@ -3,5 +3,70 @@
     "name": "Submission",
     "contractName": "Submission.sol",
     "address": "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f"
+  },
+  {
+    "name": "EntityManager",
+    "contractName": "EntityManager.sol",
+    "address": "0x46C417D0760198E94fee455CE0e223262a3D0049"
+  },
+  {
+    "name": "VoterRegistry",
+    "contractName": "VoterRegistry.sol",
+    "address": "0x16EdaECC2D3713C3A94CCd1FFCd2589cfb7Ee9e0"
+  },
+  {
+    "name": "FlareSystemsCalculator",
+    "contractName": "FlareSystemsCalculator.sol",
+    "address": "0x126FAeEc75601dA3354c0b5Cc0b60C85fCbC3A5e"
+  },
+  {
+    "name": "FlareSystemsManager",
+    "contractName": "FlareSystemsManager.sol",
+    "address": "0x421c69E22f48e14Fc2d2Ee3812c59bfb81c38516"
+  },
+  {
+    "name": "RewardManager",
+    "contractName": "RewardManager.sol",
+    "address": "0x8A80583BD5A5Cd8f68De585163259D61Ea8dc904"
+  },
+  {
+    "name": "Relay",
+    "contractName": "Relay.sol",
+    "address": "0xbA35e39D01A3f5710d1e43FC61dbb738B68641c4"
+  },
+  {
+    "name": "WNatDelegationFee",
+    "contractName": "WNatDelegationFee.sol",
+    "address": "0x3499a6D765640F8D35538cF0a292BcA38504353C"
+  },
+  {
+    "name": "FtsoInflationConfigurations",
+    "contractName": "FtsoInflationConfigurations.sol",
+    "address": "0xedCC74C6Dac98abB2F658D8cF6112D6B53B0E78D"
+  },
+  {
+    "name": "FtsoRewardOffersManager",
+    "contractName": "FtsoRewardOffersManager.sol",
+    "address": "0x5aB9cB258a342001C4663D9526A1c54cCcF8C545"
+  },
+  {
+    "name": "FtsoFeedDecimals",
+    "contractName": "FtsoFeedDecimals.sol",
+    "address": "0xDf7f36Fc273CdC07D77B0eEC72Ac570B97075E2b"
+  },
+  {
+    "name": "FtsoFeedPublisher",
+    "contractName": "FtsoFeedPublisher.sol",
+    "address": "0xD29D1AE96c5D505Bcf886d38C9DC0358b326E458"
+  },
+  {
+    "name": "FtsoFeedIdConverter",
+    "contractName": "FtsoFeedIdConverter.sol",
+    "address": "0x9c20c3F1fC39F14ad0D09DE91B74a16c12a36C61"
+  },
+  {
+    "name": "CleanupBlockNumberManager",
+    "contractName": "CleanupBlockNumberManager.sol",
+    "address": "0x4ea19A89689ef82DdF02022DE03757A18bA2C4ef"
   }
 ]

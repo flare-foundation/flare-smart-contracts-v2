@@ -32,7 +32,7 @@ export async function offerRewards(
   await runOfferRewards(currentRewardEpochId + 1, offerManager, offers, offerSender.address);
 }
 
-async function runOfferRewards(
+export async function runOfferRewards(
   nextRewardEpochId: number,
   ofm: FtsoRewardOffersManagerInstance,
   offers: any[],
@@ -51,9 +51,9 @@ async function runOfferRewards(
       rewards = rewards.add(web3.utils.toBN(offer.amount));
     }
     try {
-      console.log("Offering rewards..., total value: " + rewards.toString());
+      // console.log("Offering rewards..., total value: " + rewards.toString());
       await ofm.offerRewards(nextRewardEpochId, batch, { value: rewards.toString(), from: offerSender });
-      console.log(`Rewards offered: ${batch.length}`);
+      // console.log(`Rewards offered: ${batch.length}`);
       await sleep(500);
     } catch (e) {
       console.error("Rewards not offered: " + e);
@@ -61,7 +61,7 @@ async function runOfferRewards(
   }
 }
 
-function generateOffers(feedIds: IFeedId[], amountNat: number, offerSender: string) {
+export function generateOffers(feedIds: IFeedId[], amountNat: number, offerSender: string) {
   const offers = [];
   const amount = web3.utils.toWei(amountNat.toString());
   for (const feedId of feedIds) {

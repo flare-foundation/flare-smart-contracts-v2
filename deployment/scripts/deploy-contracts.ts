@@ -15,6 +15,7 @@ import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsC
 import { ISigningPolicy, SigningPolicy } from '../../scripts/libs/protocol/SigningPolicy';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 import { FtsoFeedIdConverterContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedIdConverter';
+import { generateOffers, runOfferRewards } from './offer-rewards';
 
 let fs = require('fs');
 
@@ -210,7 +211,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     governanceSettings,
     deployerAccount.address,
     deployerAccount.address, // tmp address updater
-    BN(parameters.minimalRewardsOfferValueNAT).mul(BN(10).pow(BN(18)))
+    0 // temp fee
   );
   spewNewContractInfo(contracts, null, FtsoRewardOffersManager.contractName, `FtsoRewardOffersManager.sol`, ftsoRewardOffersManager.address, quiet);
 
@@ -334,6 +335,15 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
 
   // activate reward manager
   await rewardManager.activate();
+
+  // send initial offers
+  for (const ftsoInflationConfiguration of parameters.ftsoInflationConfigurations) {
+    const offers = generateOffers(ftsoInflationConfiguration.feedIds, 0, deployerAccount.address);
+    await runOfferRewards(initialRewardEpochId + 1, ftsoRewardOffersManager, offers, deployerAccount.address);
+  }
+
+  // update minimalRewardsOfferValueNAT
+  await ftsoRewardOffersManager.setMinimalRewardsOfferValue(BN(parameters.minimalRewardsOfferValueNAT).mul(BN(10).pow(BN(18))));
 
   if (parameters.testDeployment) {
     await rewardManager.enableClaims();
