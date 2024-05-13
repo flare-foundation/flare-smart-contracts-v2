@@ -26,7 +26,7 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
         bytes20 nodeIdFromPublicKey = ripemd160(abi.encodePacked(sha256(abi.encodePacked(_certificateRaw))));
         require(nodeIdFromPublicKey == _nodeId, "invalid node id");
         (bytes memory modulus, bytes memory exponent) = extractPublicKeyFromRawCertificate(_certificateRaw);
-        bytes32 message = sha256(abi.encodePacked(_voter));
+        bytes32 message = sha256(abi.encodePacked(bytes32(0), _voter));
         require(verifyPKCS1v15SHA256(message, _signature, modulus, exponent), "invalid signature");
     }
 
@@ -47,11 +47,11 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
         public view returns(bool)
     {
         uint256 length = _modulus.length;
-        if(length < 64) {
+        if (length < 512) {
             return false; // invalid modulus length
         }
 
-        if(_signature.length != length) {
+        if (_signature.length != length) {
             return false; // invalid signature length
         }
 
@@ -184,12 +184,12 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
         public pure
         returns(uint256 _length, bytes memory _extractedData, bool _success)
     {
-        if(_data.length < 2) { // data too short
+        if (_data.length < 2) { // data too short
             return (0, "", false);
         }
         bytes1 tag = _data[0];
         bytes1 lengthByte = _data[1];
-        if(_expectedTag != bytes1(0) && tag != _expectedTag) { // unexpected tag
+        if (_expectedTag != bytes1(0) && tag != _expectedTag) { // unexpected tag
             return (0, "", false);
         }
 
