@@ -235,13 +235,16 @@ coverage-forge:
 
 coverage-forge-reports:
   image: node:18-alpine
-  timeout: 3 minutes
+  timeout: 4 minutes
   needs:
   - job: coverage-forge
     artifacts: true
   before_script:
   - echo "https://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
+  - echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
+  - echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
   - apk add --no-cache python3 py3-pip lcov 1>/dev/null
+  - apk upgrade --no-cache 1>/dev/null
   - pip3 install --break-system-packages lcov_cobertura 1>/dev/null
   script:
   - node scripts/forge-lcov-prune.js
