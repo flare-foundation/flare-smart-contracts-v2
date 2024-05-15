@@ -1,0 +1,302 @@
+{
+    "testDeployment": false,
+    "submissionDeployerPrivateKey": "<use .env: SUBMISSION_DEPLOYER_PRIVATE_KEY>",
+    "deployerPrivateKey": "<use .env: DEPLOYER_PRIVATE_KEY>",
+    "genesisGovernancePrivateKey": "<use .env: GENESIS_GOVERNANCE_PRIVATE_KEY>",
+    "governancePublicKey": "<use .env: GOVERNANCE_PUBLIC_KEY>",
+    "governancePrivateKey": "<use .env: GOVERNANCE_PRIVATE_KEY>",
+    "governanceTimelock": 3600,
+    "governanceExecutorPublicKey": "<use .env: GOVERNANCE_EXECUTOR_PUBLIC_KEY>",
+
+    "initialRewardEpochOffset": 0,
+    "initialRandomVotePowerBlockSelectionSize": 100,
+    "initialVoters": ["<use .env: INITIAL_VOTER_PRIVATE_KEY>"],
+    "initialNormalisedWeights": [65535],
+    "initialThreshold": 32768,
+    "initialVoterData": [
+        {
+            "voter": "0xb63c1e02a41e975f4d826bd06eccafacd5038b5d",
+            "delegationAddress": "0xb849b93b585effb7ce4b522ff88d9b3b24955f24",
+            "nodeIds": ["0xa6cf908a6e9bcabb265f7cfc10f2892bf89b6b6c", "0x72425e3b7e8d42218e7dc394d93f2fd64b2a60f1"]
+        },
+        {
+            "voter": "0x2848c61d11ec0bb0212c012715569b49cec90fc2",
+            "delegationAddress": "0x07f5053c867ae107db15a38aa4421b2c24ac4e51",
+            "nodeIds": ["0xc20af3539881e6038a3c5a546e4f2e39d6d338e3", "0x4e15bc646c48b65a576623c7e4689200c0e3ef2d"]
+        },
+        {
+            "voter": "0x858517d68bf814d3719770998473c58791eb8ead",
+            "delegationAddress": "0xabaa1718c2d80fc037bf66e3f66f0975d67431a9",
+            "nodeIds": ["0xe1338a26bf988e4b5651f22f9835c8dd16ecf3b1", "0xc68bb6e611eae238bff63bb8516b0543375e4b6e"]
+        },
+        {
+            "voter": "0xee5cf0ca918515298e4ceea92766e541fb72f6db",
+            "delegationAddress": "0xe80c39eae57c0359ee6c4086e2b22300353728e1",
+            "nodeIds": ["0x664b4924a25af8be5f07052b2c2e582f7c10a654", "0x7ed15d3a6edb46932f13650b8d93a9c0caaeef8f"]
+        },
+        {
+            "voter": "0x08f332378fc4cf26d858386248e674e9f3cb658f",
+            "delegationAddress": "0x55FcF7806F556204141Fe90FBe9Ce6207D9c52AC",
+            "nodeIds": ["0x9dfabb9df1e96c6391c44d7ba383fc0856f37796", "0x1354016a11735733758a012c3c22b4552c0a06b0"]
+        }
+    ],
+    "initialFeedDecimalsList": [
+        {"feedId": {"category": 1, "name":"BTC/USD"}, "decimals": 2},
+        {"feedId": {"category": 1, "name":"ETH/USD"}, "decimals": 3},
+        {"feedId": {"category": 3, "name":"XAU/USD"}, "decimals": 3},
+        {"feedId": {"category": 1, "name":"MKR/USD"}, "decimals": 3},
+        {"feedId": {"category": 3, "name":"XPT/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"TAO/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"BNB/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"GNO/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"BCH/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"XMR/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"SOL/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"QNT/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"AAVE/USD"}, "decimals": 4},
+        {"feedId": {"category": 1, "name":"BTT/USD"}, "decimals": 10},
+        {"feedId": {"category": 1, "name":"SHIB/USD"}, "decimals": 10},
+        {"feedId": {"category": 1, "name":"BONK/USD"}, "decimals": 10},
+        {"feedId": {"category": 1, "name":"LUNC/USD"}, "decimals": 10},
+        {"feedId": {"category": 1, "name":"1000SATS/USD"}, "decimals": 10}
+    ],
+
+    "firstVotingRoundStartTs": 1658430000,
+    "votingEpochDurationSeconds": 90,
+    "firstRewardEpochStartVotingRoundId": 0,
+    "rewardEpochDurationInVotingEpochs": 240,
+    "relayThresholdIncreaseBIPS": 12000,
+    "messageFinalizationWindowInRewardEpochs": 30,
+    "newSigningPolicyInitializationStartSeconds": 7200,
+    "randomAcquisitionMaxDurationSeconds": 14400,
+    "randomAcquisitionMaxDurationBlocks": 1440,
+    "newSigningPolicyMinNumberOfVotingRoundsDelay": 3,
+    "voterRegistrationMinDurationSeconds": 1800,
+    "voterRegistrationMinDurationBlocks": 180,
+    "submitUptimeVoteMinDurationSeconds": 600,
+    "submitUptimeVoteMinDurationBlocks": 60,
+    "signingPolicyThresholdPPM": 500000,
+    "signingPolicyMinNumberOfVoters": 3,
+    "rewardExpiryOffsetSeconds": 604800,
+    "rewardManagerId": 114,
+    "maxNodeIdsPerEntity": 4,
+    "maxVotersPerRewardEpoch": 100,
+    "wNatCapPPM": 25000,
+    "signingPolicySignNonPunishableDurationSeconds": 1200,
+    "signingPolicySignNonPunishableDurationBlocks": 120,
+    "signingPolicySignNoRewardsDurationBlocks": 120,
+    "feePercentageUpdateOffset": 2,
+    "defaultFeePercentageBIPS": 2000,
+    "pChainStakeEnabled": true,
+
+    "ftsoProtocolId": 100,
+    "minimalRewardsOfferValueNAT": 1000,
+    "decimalsUpdateOffset": 2,
+    "defaultDecimals": 5,
+    "feedsHistorySize": 1000,
+    "ftsoInflationConfigurations": [
+        {
+            "feedIds": [
+                {"category": 1, "name": "FLR/USD"},
+                {"category": 1, "name": "SGB/USD"},
+                {"category": 1, "name": "BTC/USD"},
+                {"category": 1, "name": "XRP/USD"},
+                {"category": 1, "name": "LTC/USD"},
+                {"category": 1, "name": "XLM/USD"},
+                {"category": 1, "name": "DOGE/USD"},
+                {"category": 1, "name": "ADA/USD"},
+                {"category": 1, "name": "ALGO/USD"},
+                {"category": 1, "name": "ETH/USD"},
+                {"category": 1, "name": "FIL/USD"},
+                {"category": 1, "name": "ARB/USD"},
+                {"category": 1, "name": "AVAX/USD"},
+                {"category": 1, "name": "BNB/USD"},
+                {"category": 1, "name": "MATIC/USD"},
+                {"category": 1, "name": "SOL/USD"},
+                {"category": 1, "name": "USDC/USD"},
+                {"category": 1, "name": "USDT/USD"},
+                {"category": 1, "name": "XDC/USD"}
+            ],
+            "inflationShareBIPS": 10000,
+            "minRewardedTurnoutBIPS": 5000,
+            "mode": 0,
+            "primaryBandRewardSharePPM": 700000,
+            "secondaryBandWidthPPMs": [400, 500, 50, 50, 50, 150, 50, 100, 100, 50, 100, 100, 100, 100, 100, 100, 100, 100, 400]
+        }
+    ],
+
+    "inflationReceivers": [
+        {
+            "oldContract": false,
+            "contractName": "FtsoRewardOffersManager",
+            "sharingBIPS": 3500,
+            "topUpType": 1,
+            "topUpFactorx100": 0
+        },
+        {
+            "oldContract": true,
+            "contractName": "FtsoRewardManager",
+            "sharingBIPS": 3500,
+            "topUpType": 0,
+            "topUpFactorx100": 400
+        },
+        {
+            "oldContract": true,
+            "contractName": "ValidatorRewardManager",
+            "sharingBIPS": 3000,
+            "topUpType": 1,
+            "topUpFactorx100": 0
+        }
+    ],
+
+    "flareDaemonizedContracts": [
+        {
+            "oldContract": true,
+            "contractName": "Inflation",
+            "gasLimit": 3000000
+        },
+        {
+            "oldContract": true,
+            "contractName": "FtsoManager",
+            "gasLimit": 40000000
+        },
+        {
+            "oldContract": true,
+            "contractName": "PChainStakeMirror",
+            "gasLimit": 15000000
+        },
+        {
+            "oldContract": true,
+            "contractName": "IncentivePool",
+            "gasLimit": 3000000
+        },
+        {
+            "oldContract": true,
+            "contractName": "DistributionToDelegators",
+            "gasLimit": 25000000
+        },
+        {
+            "oldContract": false,
+            "contractName": "FlareSystemsManager",
+            "gasLimit": 40000000
+        }
+    ],
+    "proposers": [
+        "0xC83Ec6a4aFf2099942836860A28C7e248Fabc32C",
+        "0x1a16DC5ec4f48Ed769949855C3bC3a1d10c72A95",
+        "0x893baB99798BCF5e0faB09Ad5CE61872B951F0a5"
+    ],
+    "maintainer": "0xC83Ec6a4aFf2099942836860A28C7e248Fabc32C",
+    "votingDelaySeconds": 3600,
+    "votingPeriodSeconds": 86400,
+    "thresholdConditionBIPS": 6600,
+    "majorityConditionBIPS": 5000,
+    "proposalFeeValueNAT": 100,
+    "pChainStakeMirrorMinDurationDays": 14,
+    "pChainStakeMirrorMaxDurationDays": 365,
+    "pChainStakeMirrorMinAmountNAT": 50000,
+    "pChainStakeMirrorMaxAmountNAT": 200000000,
+    "baseSampleSize": "0x01000000000000000000000000000000",
+    "baseRange": "0x00000800000000000000000000000000",
+    "sampleIncreaseLimit": "0x00100000000000000000000000000000",
+    "rangeIncreasePriceNAT": 1000000,
+    "incentiveOfferDurationBlocks": 8,
+    "submissionWindowBlocks": 10,
+    "feedConfigurations": [
+        {
+            "feedId": {"category": 1, "name": "FLR/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "SGB/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "BTC/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "XRP/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "LTC/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "XLM/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "DOGE/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "ADA/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "ALGO/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "ETH/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "FIL/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "ARB/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "AVAX/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "BNB/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "MATIC/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "SOL/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "USDC/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "USDT/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        },
+        {
+            "feedId": {"category": 1, "name": "XDC/USD"},
+            "rewardBandValue": 5000,
+            "inflationShare": 10000
+        }
+    ]
+}
