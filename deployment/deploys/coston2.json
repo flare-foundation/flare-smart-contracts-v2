@@ -3,5 +3,75 @@
     "name": "Submission",
     "contractName": "Submission.sol",
     "address": "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f"
+  },
+  {
+    "name": "EntityManager",
+    "contractName": "EntityManager.sol",
+    "address": "0xB16C9bd0783D153a32029d3D8473532DE1A80A79"
+  },
+  {
+    "name": "NodePossessionVerifier",
+    "contractName": "NodePossessionVerifier.sol",
+    "address": "0x5a3c0Ef8Df40AcfC2A1Ec417e8b2778AFb3c6Fc2"
+  },
+  {
+    "name": "VoterRegistry",
+    "contractName": "VoterRegistry.sol",
+    "address": "0x51e375fda99181f052C2e28299e166D6984A5B89"
+  },
+  {
+    "name": "FlareSystemsCalculator",
+    "contractName": "FlareSystemsCalculator.sol",
+    "address": "0x9D7207b1410De031523356882637dd01F460E958"
+  },
+  {
+    "name": "FlareSystemsManager",
+    "contractName": "FlareSystemsManager.sol",
+    "address": "0xbC1F76CEB521Eb5484b8943B5462D08ea96617A1"
+  },
+  {
+    "name": "RewardManager",
+    "contractName": "RewardManager.sol",
+    "address": "0x2F10597B3c9Fd42031cb18818eF2Ab88b18Ceff8"
+  },
+  {
+    "name": "Relay",
+    "contractName": "Relay.sol",
+    "address": "0x5CdF9eAF3EB8b44fB696984a1420B56A7575D250"
+  },
+  {
+    "name": "WNatDelegationFee",
+    "contractName": "WNatDelegationFee.sol",
+    "address": "0x8eeeE00D3f129eb0e93B2d4Cf2f2FF3e13D68A21"
+  },
+  {
+    "name": "FtsoInflationConfigurations",
+    "contractName": "FtsoInflationConfigurations.sol",
+    "address": "0x2D0d83686269b469b0Bc300Ce40369C201409F97"
+  },
+  {
+    "name": "FtsoRewardOffersManager",
+    "contractName": "FtsoRewardOffersManager.sol",
+    "address": "0xd7107a7Ddb6ff24ff76ecFF2E06b9c4a3D8DCb88"
+  },
+  {
+    "name": "FtsoFeedDecimals",
+    "contractName": "FtsoFeedDecimals.sol",
+    "address": "0x816b1739e6aBEe2b31B1cEc87522C18704ce649f"
+  },
+  {
+    "name": "FtsoFeedPublisher",
+    "contractName": "FtsoFeedPublisher.sol",
+    "address": "0x6A70a0f68a7087A0b2FD85aB55c784CA1B586461"
+  },
+  {
+    "name": "FtsoFeedIdConverter",
+    "contractName": "FtsoFeedIdConverter.sol",
+    "address": "0x5561825a1E2fC68085F5fA558A6f050686713187"
+  },
+  {
+    "name": "CleanupBlockNumberManager",
+    "contractName": "CleanupBlockNumberManager.sol",
+    "address": "0x7236885969046A915E072FeD3bfA4dC869422ab3"
   }
 ]
