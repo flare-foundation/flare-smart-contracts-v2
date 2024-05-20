@@ -2,6 +2,7 @@ import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-truffle5";
 import "@nomiclabs/hardhat-web3";
 import "@nomicfoundation/hardhat-chai-matchers";
+import "@nomicfoundation/hardhat-verify";
 import 'solidity-coverage';
 
 import { HardhatUserConfig, task } from "hardhat/config";
@@ -315,6 +316,11 @@ task("switch-to-production-mode", "Switch to production mode")
     }
   });
 
+// verification constants
+const ETHERSCAN_API_URL = process.env.ETHERSCAN_API_URL || "123";
+const FLARE_EXPLORER_API_KEY = process.env.FLARE_EXPLORER_API_KEY || "123";
+const FLARESCAN_API_KEY = process.env.FLARESCAN_API_KEY || "123";
+
 const config: HardhatUserConfig = {
   solidity: {
     compilers: [
@@ -407,11 +413,59 @@ const config: HardhatUserConfig = {
       chainId: 31337,
     },
   },
+
   paths: {
     sources: "./contracts/",
     tests: process.env.TEST_PATH || "test",
     cache: "./cache",
     artifacts: "./artifacts",
+  },
+
+  etherscan: {
+    apiKey: {
+      "goerli": `${ETHERSCAN_API_URL}`,
+      "coston": `${FLARESCAN_API_KEY}`,
+      "coston2": `${FLARESCAN_API_KEY}`,
+      "songbird": `${FLARESCAN_API_KEY}`,
+      "flare": `${FLARESCAN_API_KEY}`,
+      "sepolia": `${ETHERSCAN_API_URL}`,
+    },
+    customChains: [
+      {
+        network: "coston",
+        chainId: 16,
+        urls: {
+          // faucet: https://faucet.towolabs.com/
+          apiURL: "https://coston-explorer.flare.network/api" + (FLARE_EXPLORER_API_KEY ? `?x-apikey=${FLARE_EXPLORER_API_KEY}` : ""), // Must not have / endpoint
+          browserURL: "https://coston-explorer.flare.network"
+        }
+      },
+      {
+        network: "coston2",
+        chainId: 114,
+        urls: {
+          // faucet: https://coston2-faucet.towolabs.com/
+          apiURL: "https://coston2-explorer.flare.network/api" + (FLARE_EXPLORER_API_KEY ? `?x-apikey=${FLARE_EXPLORER_API_KEY}` : ""), // Must not have / endpoint
+          browserURL: "https://coston2-explorer.flare.network"
+        }
+      },
+      {
+        network: "songbird",
+        chainId: 19,
+        urls: {
+          apiURL: "https://songbird-explorer.flare.network/api" + (FLARE_EXPLORER_API_KEY ? `?x-apikey=${FLARE_EXPLORER_API_KEY}` : ""), // Must not have / endpoint
+          browserURL: "https://songbird-explorer.flare.network/"
+        }
+      },
+      {
+        network: "flare",
+        chainId: 14,
+        urls: {
+          apiURL: "https://flare-explorer.flare.network/api" + (FLARE_EXPLORER_API_KEY ? `?x-apikey=${FLARE_EXPLORER_API_KEY}` : ""), // Must not have / endpoint
+          browserURL: "https://flare-explorer.flare.network/",
+        }
+      }
+    ]
   },
 };
 
