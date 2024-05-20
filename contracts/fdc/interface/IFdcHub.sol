@@ -8,6 +8,7 @@ pragma solidity >=0.7.6 <0.9;
  */
 interface IFdcHub  {
     event AttestationRequest(bytes data, uint256 fee);
+    // TODO: @Luka Iztok woudl prefer to also emit round id 
 
     /**
      * Method to request an attestation.
