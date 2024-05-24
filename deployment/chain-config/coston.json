@@ -209,6 +209,8 @@
     "baseSampleSize": "0x01000000000000000000000000000000",
     "baseRange": "0x00000800000000000000000000000000",
     "sampleIncreaseLimit": "0x00100000000000000000000000000000",
+    "rangeIncreaseLimit": "0x00008000000000000000000000000000",
+    "sampleSizeIncreasePriceNAT": 1000000,
     "rangeIncreasePriceNAT": 1000000,
     "incentiveOfferDurationBlocks": 8,
     "submissionWindowBlocks": 10,

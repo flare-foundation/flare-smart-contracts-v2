@@ -399,6 +399,10 @@
             "description": "The maximal random acquisition duration in seconds (e.g. 8 hour).",
             "type": "integer"
         },
+        "rangeIncreaseLimit": {
+            "description": "The range increase limit.",
+            "type": "string"
+        },
         "rangeIncreasePriceNAT": {
             "description": "The range increase price. In whole native units, not Wei.",
             "type": "integer"
@@ -422,6 +426,10 @@
         "sampleIncreaseLimit": {
             "description": "The sample increase limit.",
             "type": "string"
+        },
+        "sampleSizeIncreasePriceNAT": {
+            "description": "The sample size increase price. In whole native units, not Wei.",
+            "type": "integer"
         },
         "signingPolicyMinNumberOfVoters": {
             "description": "The minimal number of voters for the signing policy (e.g. 10).",
@@ -538,12 +546,14 @@
         "proposers",
         "randomAcquisitionMaxDurationBlocks",
         "randomAcquisitionMaxDurationSeconds",
+        "rangeIncreaseLimit",
         "rangeIncreasePriceNAT",
         "relayThresholdIncreaseBIPS",
         "rewardEpochDurationInVotingEpochs",
         "rewardExpiryOffsetSeconds",
         "rewardManagerId",
         "sampleIncreaseLimit",
+        "sampleSizeIncreasePriceNAT",
         "signingPolicyMinNumberOfVoters",
         "signingPolicySignNoRewardsDurationBlocks",
         "signingPolicySignNonPunishableDurationBlocks",

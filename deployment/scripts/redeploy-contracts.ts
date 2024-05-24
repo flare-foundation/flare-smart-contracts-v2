@@ -113,6 +113,8 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
     parameters.baseSampleSize,
     parameters.baseRange,
     parameters.sampleIncreaseLimit,
+    parameters.rangeIncreaseLimit,
+    BN(parameters.sampleSizeIncreasePriceNAT).mul(BN(10).pow(BN(18))),
     BN(parameters.rangeIncreasePriceNAT).mul(BN(10).pow(BN(18))),
     parameters.incentiveOfferDurationBlocks
   );

@@ -19,7 +19,6 @@ type Fee is uint256;        // 128x0; same scale as currency units,restricted to
                             // (1e18 integer and fractional parts) to accommodate arithmetic
 
 Scale constant oneS = Scale.wrap(1 << 127);
-Fee constant oneF = Fee.wrap(1);
 SampleSize constant zeroS = SampleSize.wrap(0);
 Range constant zeroR = Range.wrap(0);
 Fee constant zeroF = Fee.wrap(0);
@@ -176,7 +175,7 @@ function mul(Fractional x, SampleSize y) pure returns (SampleSize z) {
 
 function frac(Range x, Range y) pure returns (Fractional z) {
     unchecked {
-       uint256 xWide = Range.unwrap(x) << 128;
+        uint256 xWide = Range.unwrap(x) << 128;
         uint256 yWide = Range.unwrap(y);
         uint256 zWide = xWide / yWide;
         z = Fractional.wrap(zWide);

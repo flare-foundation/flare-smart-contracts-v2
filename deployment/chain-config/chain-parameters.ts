@@ -358,6 +358,16 @@ export interface ChainParameters {
      */
     sampleIncreaseLimit: string;
 
+    /** 
+     * The range increase limit.
+     */
+    rangeIncreaseLimit: string;
+
+    /**
+     * The sample size increase price. In whole native units, not Wei.
+     */
+    sampleSizeIncreasePriceNAT: integer;
+
     /**
      * The range increase price. In whole native units, not Wei.
      */

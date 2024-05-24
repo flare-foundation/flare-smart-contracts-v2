@@ -2,7 +2,7 @@
 pragma solidity 0.8.20;
 
 abstract contract CircularListManager {
-    uint256 public circularLength;
+    uint256 internal circularLength;
 
     constructor(uint256 _cl) {
         _setCircularLength(_cl);

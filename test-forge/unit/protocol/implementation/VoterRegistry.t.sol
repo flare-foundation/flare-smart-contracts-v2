@@ -809,22 +809,21 @@ contract VoterRegistryTest is Test {
         vm.expectRevert("voter not registered");
         voterRegistry.getPublicKeyAndNormalisedWeight(1, notRegisteredSignPolicyAddr);
 
-        bytes32 publicKey1 = initialPublicKeyParts1[0];
-        bytes32 publicKey2 = initialPublicKeyParts2[0];
-        vm.mockCall(
-            mockEntityManager,
-            abi.encodeWithSelector(IEntityManager.getPublicKeyOfAt.selector,
-                initialVoters[0], voterRegistry.newSigningPolicyInitializationStartBlockNumber(1)),
-            abi.encode(publicKey1, publicKey2)
-        );
-
         uint256 sum = initialVotersWeights[0] +
             initialVotersWeights[1] + initialVotersWeights[2] + initialVotersWeights[3];
+
         (bytes32 key1, bytes32 key2, uint16 normWeight, uint16 normWeightSum) =
             voterRegistry.getPublicKeyAndNormalisedWeight(1, initialSigningPolicyAddresses[0]);
-        assertEq(key1, publicKey1);
-        assertEq(key2, publicKey2);
+        assertEq(key1, initialPublicKeyParts1[0]);
+        assertEq(key2, initialPublicKeyParts2[0]);
         assertEq(normWeight, uint16(initialVotersWeights[0] * UINT16_MAX / sum));
+        assertEq(normWeightSum, uint16(initialVotersWeights[0] * UINT16_MAX / sum));
+
+        (key1, key2, normWeight, normWeightSum) =
+            voterRegistry.getPublicKeyAndNormalisedWeight(1, initialSigningPolicyAddresses[1]);
+        assertEq(key1, bytes32(0));
+        assertEq(key2, bytes32(0));
+        assertEq(normWeight, uint16(initialVotersWeights[1] * UINT16_MAX / sum));
         assertEq(normWeightSum, uint16(initialVotersWeights[0] * UINT16_MAX / sum));
     }
 

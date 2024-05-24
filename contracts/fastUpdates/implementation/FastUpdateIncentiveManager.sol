@@ -37,8 +37,12 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
     /// This is controlled by governance and forces a minimum cost to increasing the sample size greatly,
     /// which would otherwise be an attack on the protocol.
     FPA.SampleSize public sampleIncreaseLimit;
+    /// The maximum value that the range can be increased to by an incentive offer.
+    FPA.Range public rangeIncreaseLimit;
     /// The price for increasing the per-block range of variation by 1, prorated for the actual amount of increase.
     FPA.Fee public rangeIncreasePrice;
+    /// Base scale value.
+    FPA.Scale internal baseScale;
 
     /// Modifier for allowing only FastUpdater contract to call the method.
     modifier onlyFastUpdater {
@@ -55,6 +59,8 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
      * @param _ss The initial base sample size
      * @param _r The initial base range
      * @param _sil The initial sample increase limit
+     * @param _ril The range increase limit
+     * @param _x The initial sample size increase price (wei)
      * @param _rip The initial range increase price (wei)
      * @param _dur The initial value of the duration of an incentive offer's effect
      */
@@ -65,25 +71,31 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
         FPA.SampleSize _ss,
         FPA.Range _r,
         FPA.SampleSize _sil,
+        FPA.Range _ril,
+        FPA.Fee _x,
         FPA.Fee _rip,
         uint256 _dur
     )
         RewardOffersManagerBase(_governanceSettings, _initialGovernance, _addressUpdater)
-        IncreaseManager(_ss, _r, FPA.oneF, _dur) // _x is arbitrary initial value, but must not be 0
+        IncreaseManager(_ss, _r, _x, _dur)
     {
+        _checkRangeParameters(_r, _ril, _rip);
+        _checkPrecisionBound(_ril, _ss);
         _setSampleIncreaseLimit(_sil);
+        _setRangeIncreaseLimit(_ril);
         _setRangeIncreasePrice(_rip);
+        _setBaseScale();
     }
 
     /**
      * @inheritdoc IFastUpdateIncentiveManager
      */
     function offerIncentive(IncentiveOffer calldata _offer) external payable mustBalance {
-        (FPA.Fee dc, FPA.Range dr) = _processIncentiveOffer(_offer);
-        FPA.SampleSize de = _sampleSizeIncrease(dc, dr);
+        (FPA.Fee dc, FPA.Range dr, FPA.SampleSize de) = _processIncentiveOffer(_offer);
 
-        rewardManager.receiveRewards{value: FPA.Fee.unwrap(dc)} (rewardManager.getCurrentRewardEpochId(), false);
-        emit IncentiveOffered(dr, de, dc);
+        uint24 currentRewardEpochId = rewardManager.getCurrentRewardEpochId();
+        rewardManager.receiveRewards{value: FPA.Fee.unwrap(dc)} (currentRewardEpochId, false);
+        emit IncentiveOffered(currentRewardEpochId, dr, de, dc);
         payable(msg.sender).transfer(msg.value - FPA.Fee.unwrap(dc));
     }
 
@@ -97,10 +109,21 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
 
     /** Governance-only setter for the sample increase limit
      * @param _lim The new limit. This should be carefully considered by governance to make sample increases
-     * unaffordablebeyond a certain upper bound.
+     * unaffordable beyond a certain upper bound.
      */
     function setSampleIncreaseLimit(FPA.SampleSize _lim) external onlyGovernance {
         _setSampleIncreaseLimit(_lim);
+    }
+
+    /** Governance-only setter for the range increase limit
+     * @param _lim The new limit.
+     */
+    function setRangeIncreaseLimit(FPA.Range _lim) external onlyGovernance {
+        FPA.Range baseRange = FPA.sub(range, FPA.sum(rangeIncreases));
+        _checkRangeParameters(baseRange, _lim, rangeIncreasePrice);
+        FPA.SampleSize baseSampleSize = FPA.sub(sampleSize, FPA.sum(sampleIncreases));
+        _checkPrecisionBound(_lim, baseSampleSize);
+        _setRangeIncreaseLimit(_lim);
     }
 
     /**
@@ -109,6 +132,8 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
      * the implicit cost due to loss of precision of increasing the scale rather than the expected sample size
      */
     function setRangeIncreasePrice(FPA.Fee _price) external onlyGovernance {
+        FPA.Range baseRange = FPA.sub(range, FPA.sum(rangeIncreases));
+        _checkRangeParameters(baseRange, rangeIncreaseLimit, _price);
         _setRangeIncreasePrice(_price);
     }
 
@@ -116,6 +141,7 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
      * Governance-only setter for updating increase manager settings. This clears all active incentives.
      * @param _ss The new expected sample size.
      * @param _r The new expected range.
+     * @param _x The new sample size increase price (wei).
      * @param _dur The new incentive duration (in blocks). This should be carefully considered by governance so
      * that the cost of making an offer matches the expected value to the offering party of having an increased
      * variation range for the duration. A reasonable value is the length of the `FastUpdater` submission window,
@@ -125,11 +151,15 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
     function setIncentiveParameters(
         FPA.SampleSize _ss,
         FPA.Range _r,
+        FPA.Fee _x,
         uint256 _dur
     )
         external onlyGovernance
     {
-        _updateSettings(_ss, _r, FPA.oneF, _dur);
+        _checkRangeParameters(_r, rangeIncreaseLimit, rangeIncreasePrice);
+        _checkPrecisionBound(rangeIncreaseLimit, _ss);
+        _updateSettings(_ss, _r, _x, _dur);
+        _setBaseScale();
     }
 
     /**
@@ -149,13 +179,29 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
     /**
      * @inheritdoc IFastUpdateIncentiveManager
      */
+    function getCurrentSampleSizeIncreasePrice() external view returns (FPA.Fee) {
+        return excessOfferValue;
+    }
+
+    /**
+     * @inheritdoc IFastUpdateIncentiveManager
+     */
     function getPrecision() external view returns (FPA.Precision) {
         return _computePrecision();
     }
 
-    /// Viewer for the current value of the scale itself.
+    /**
+     * @inheritdoc IFastUpdateIncentiveManager
+     */
     function getScale() external view returns (FPA.Scale) {
         return FPA.scaleWithPrecision(_computePrecision());
+    }
+
+    /**
+     * @inheritdoc IFastUpdateIncentiveManager
+     */
+    function getBaseScale() external view returns (FPA.Scale) {
+        return baseScale;
     }
 
     /**
@@ -182,9 +228,18 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
         return "FastUpdateIncentiveManager";
     }
 
+    function _setBaseScale() internal {
+        baseScale = FPA.scaleWithPrecision(_computePrecision());
+    }
+
     function _setSampleIncreaseLimit(FPA.SampleSize _lim) internal {
         require(FPA.check(_lim), "Sample increase limit too large");
         sampleIncreaseLimit = _lim;
+    }
+
+    function _setRangeIncreaseLimit(FPA.Range _lim) internal {
+        require(FPA.check(_lim), "Range increase limit too large");
+        rangeIncreaseLimit = _lim;
     }
 
     function _setRangeIncreasePrice(FPA.Fee _price) internal {
@@ -199,17 +254,22 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
      * total offered amount due to the range limit.
      * @return _rangeIncrease The amount by which the range is actually increased, which may be less than the amount
      * requested due to the range limit.
+     * @return _sampleSizeIncrease The amount by which the sample size is increased, which is computed from the
+     * contribution and the range increase.
      */
     function _processIncentiveOffer(
         IncentiveOffer calldata _offer
     )
         internal
-        returns (FPA.Fee _contribution, FPA.Range _rangeIncrease)
+        returns (FPA.Fee _contribution, FPA.Range _rangeIncrease, FPA.SampleSize _sampleSizeIncrease)
     {
         require(msg.value >> 120 == 0, "Incentive offer value capped at 120 bits");
-        _contribution = FPA.Fee.wrap(uint240(msg.value));
+        require(FPA.check(_offer.rangeIncrease), "Range increase too large");
+        _contribution = FPA.Fee.wrap(msg.value);
         _rangeIncrease = _offer.rangeIncrease;
 
+        // Apply the range limit to the range increase. If the range increase is greater than the limit,
+        // adjust the contribution to reflect the reduced range increase.
         FPA.Range finalRange = FPA.add(range, _rangeIncrease);
         if (FPA.lessThan(_offer.rangeLimit, finalRange)) {
             finalRange = _offer.rangeLimit;
@@ -217,7 +277,30 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
             _contribution = FPA.mul(FPA.frac(newRangeIncrease, _rangeIncrease), _contribution);
             _rangeIncrease = newRangeIncrease;
         }
-        require(FPA.lessThan(finalRange, sampleSize), "Offer would make the precision greater than 100%");
+        if (FPA.lessThan(rangeIncreaseLimit, finalRange)) {
+            finalRange = rangeIncreaseLimit;
+            FPA.Range newRangeIncrease = FPA.lessThan(finalRange, range) ? FPA.zeroR : FPA.sub(finalRange, range);
+            _contribution = FPA.mul(FPA.frac(newRangeIncrease, _rangeIncrease), _contribution);
+            _rangeIncrease = newRangeIncrease;
+        }
+
+        // Calculate the cost of the range increase and apply it if the contribution is sufficient.
+        FPA.Fee rangeCost = FPA.mul(rangeIncreasePrice, _rangeIncrease);
+        require(!FPA.lessThan(_contribution, rangeCost), "Insufficient contribution to pay for range increase");
+
+        _increaseRange(_rangeIncrease);
+
+        // Remaining contribution is used for sample size increase.
+        FPA.Fee sampleSizeIncreasePayment = FPA.sub(_contribution, rangeCost);
+
+        // sampleSizeIncreasePayment == 0 means _sampleSizeIncrease = 0
+        if (FPA.lessThan(FPA.zeroF, sampleSizeIncreasePayment)) {
+            // The formula implies that the payment required to increase the sample size is exponentially increasing.
+            _increaseExcessOfferValue(sampleSizeIncreasePayment);
+            _sampleSizeIncrease = FPA.mul(FPA.frac(sampleSizeIncreasePayment, excessOfferValue), sampleIncreaseLimit);
+
+            _increaseSampleSize(_sampleSizeIncrease);
+        }
     }
 
     /**
@@ -268,14 +351,12 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
         uint256 totalRewardsAmount = (totalInflationReceivedWei - totalInflationRewardsOfferedWei)
             .mulDiv(_rewardEpochDurationSeconds, intervalEnd - intervalStart);
         uint24 nextRewardEpochId = _currentRewardEpochId + 1;
-        (bytes memory feedIds, bytes memory rewardBandValues, bytes memory inflationShares) =
-            fastUpdatesConfiguration.getFeedConfigurationsBytes();
+        IFastUpdatesConfiguration.FeedConfiguration[] memory feedConfigurations =
+            fastUpdatesConfiguration.getFeedConfigurations();
         // emit offers
         emit InflationRewardsOffered(
             nextRewardEpochId,
-            feedIds,
-            rewardBandValues,
-            inflationShares,
+            feedConfigurations,
             totalRewardsAmount
         );
         // send reward amount to reward manager
@@ -296,23 +377,26 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
     }
 
     /**
-     * Converts the amounts of range increase and payment into the sample size increase. The formula implies that
-     * the payment required to achieve greater sample sizes is exponentially increasing, with each incentive offer
-     * having a maximum sample size increase.
-     * @param _dc The increment of "contribution" offered for the incentive, after refunds
-     * @param _dr The increment of range, after capping
-     * @return _de The increment of sample size
+     * Checks the range parameters. Range cannot be greater than the range increase limit.
+     * Range should be more than 1e6 and price high enough to make the range increase meaningful.
+     * @param _r The range.
+     * @param _ril The range increase limit.
+     * @param _rip The range increase price.
      */
-    function _sampleSizeIncrease(FPA.Fee _dc, FPA.Range _dr) private returns (FPA.SampleSize _de) {
-        FPA.Fee rangeCost = FPA.mul(rangeIncreasePrice, _dr);
-        require(!FPA.lessThan(_dc, rangeCost), "Insufficient contribution to pay for range increase");
-        FPA.Fee _dx = FPA.sub(_dc, rangeCost);
+    function _checkRangeParameters(FPA.Range _r, FPA.Range _ril, FPA.Fee _rip) internal pure {
+        require(!FPA.lessThan(_ril, _r), "Range cannot be greater than the range increase limit");
+        // this check implies that the rounding error in offerIncentive does not cause to overpay
+        // more that (1e-6 * range) of range change
+        require(FPA.lessThan(FPA.zeroF, FPA.mul(_rip, FPA.Range.wrap(FPA.Range.unwrap(_r) / 1e6))),
+            "Range increase price too low, range increase of 1e-6 of base range should cost at least 1 wei");
+    }
 
-        _increaseExcessOfferValue(_dx);
-
-        _de = FPA.mul(FPA.frac(_dx, excessOfferValue), sampleIncreaseLimit);
-
-        _increaseSampleSize(_de);
-        _increaseRange(_dr);
+    /**
+     * Checks that the precision can never be greater than 100%.
+     * @param _ril The range increase limit.
+     * @param _ss The expected sample size.
+     */
+    function _checkPrecisionBound(FPA.Range _ril, FPA.SampleSize _ss) internal pure {
+        require(FPA.lessThan(_ril, _ss), "Parameters should not allow making the precision greater than 100%");
     }
 }

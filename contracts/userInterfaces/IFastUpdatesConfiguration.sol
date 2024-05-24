@@ -55,20 +55,6 @@ interface IFastUpdatesConfiguration {
     function getFeedConfigurations() external view returns (FeedConfiguration[] memory);
 
     /**
-     * Returns the feed configurations in bytes format, including removed ones.
-     * @return _feedIds The feed ids - multiple of 21 (one feedId is bytes21).
-     * @return _rewardBandValues The reward band values - multiple of 4 (uint32).
-     * @return _inflationShares The inflation shares - multiple of 3 (uint24).
-     */
-    function getFeedConfigurationsBytes()
-        external view
-        returns (
-            bytes memory _feedIds,
-            bytes memory _rewardBandValues,
-            bytes memory _inflationShares
-        );
-
-    /**
      * Returns the unused indices - indices of removed feeds.
      */
     function getUnusedIndices() external view returns (uint256[] memory);

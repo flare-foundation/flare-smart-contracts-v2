@@ -2,6 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import "../fastUpdates/lib/FixedPointArithmetic.sol" as FPA;
+import "./IFastUpdatesConfiguration.sol";
 import "./IIncreaseManager.sol";
 
 /**
@@ -16,18 +17,19 @@ interface IFastUpdateIncentiveManager is IIncreaseManager {
     }
 
     /// Event emitted when an incentive is offered.
-    event IncentiveOffered(FPA.Range rangeIncrease, FPA.SampleSize sampleSizeIncrease, FPA.Fee offerAmount);
+    event IncentiveOffered(
+        uint24 indexed rewardEpochId,
+        FPA.Range rangeIncrease,
+        FPA.SampleSize sampleSizeIncrease,
+        FPA.Fee offerAmount
+    );
 
     /// Event emitted when inflation rewards are offered.
     event InflationRewardsOffered(
         // reward epoch id
         uint24 indexed rewardEpochId,
-        // feed ids - i.e. type + base/quote symbols - multiple of 21 (one feedId is bytes21)
-        bytes feedIds,
-        // reward band values (interpreted off-chain) in relation to the median - multiple of 4 (uint32)
-        bytes rewardBandValues,
-        // inflation shares - multiple of 3 (uint24)
-        bytes inflationShares,
+        // feed configurations
+        IFastUpdatesConfiguration.FeedConfiguration[] feedConfigurations,
         // amount (in wei) of reward in native coin
         uint256 amount
     );
@@ -51,6 +53,23 @@ interface IFastUpdateIncentiveManager is IIncreaseManager {
     /// Viewer for the current value of the per-block variation range.
     function getRange() external view returns (FPA.Range);
 
+    /// Viewer for the current value of sample size increase price.
+    function getCurrentSampleSizeIncreasePrice() external view returns (FPA.Fee);
+
     /// Viewer for the current value of the scale itself.
     function getScale() external view returns (FPA.Scale);
+
+    /// Viewer for the base value of the scale itself.
+    function getBaseScale() external view returns (FPA.Scale);
+
+    /// The maximum amount by which the expected sample size can be increased by an incentive offer.
+    /// This is controlled by governance and forces a minimum cost to increasing the sample size greatly,
+    /// which would otherwise be an attack on the protocol.
+    function sampleIncreaseLimit() external view returns (FPA.SampleSize);
+
+    /// The maximum value that the range can be increased to by an incentive offer.
+    function rangeIncreaseLimit() external view returns (FPA.Range);
+
+    /// The price for increasing the per-block range of variation by 1, prorated for the actual amount of increase.
+    function rangeIncreasePrice() external view returns (FPA.Fee);
 }
