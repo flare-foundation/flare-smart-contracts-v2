@@ -72,16 +72,16 @@
   {
     "name": "FastUpdateIncentiveManager",
     "contractName": "FastUpdateIncentiveManager.sol",
-    "address": "0x5522C2367005870FdCfd81C82CddF55D571D50e7"
+    "address": "0xc1a22A1d295e829Caf3be61bd1E11E5eEd7f0F15"
   },
   {
     "name": "FastUpdater",
     "contractName": "FastUpdater.sol",
-    "address": "0x5249E5C5F7013032abd4A3086414d9B485617632"
+    "address": "0x9B931f5d3e24fc8C9064DB35bDc8FB4bE0E862f9"
   },
   {
     "name": "FastUpdatesConfiguration",
     "contractName": "FastUpdatesConfiguration.sol",
-    "address": "0x2bbBafc73cf089aca8f67a4C00a7F665fd8a2f07"
+    "address": "0x9A53e14B58383642cdB2bb4D5C46989F05C6B5f9"
   }
 ]

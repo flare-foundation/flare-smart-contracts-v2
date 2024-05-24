@@ -7,14 +7,18 @@ import type {
 } from '../../../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdateIncentiveManager'
 import { getTestFile } from '../../../utils/constants'
 import { encodeContractNames } from '../../../utils/test-helpers'
+import { RangeOrSampleFPA } from "../../../utils/fixed-point-arithmetic";
+import { FtsoConfigurations } from '../../../../scripts/libs/protocol/FtsoConfigurations'
 
 const FastUpdateIncentiveManager = artifacts.require('FastUpdateIncentiveManager') as FastUpdateIncentiveManagerContract
 const MockContract = artifacts.require('MockContract') as MockContractContract
 
-const SAMPLE_SIZE = 5 * 2 ** 8 // 2^8 since scaled for 2^(-8) for fixed precision arithmetic
-const RANGE = 2 * 2 ** 8
-const SAMPLE_INCREASE_LIMIT = 5 * 2 ** 8
-const RANGE_INCREASE_PRICE = 5
+const SAMPLE_SIZE = 1
+const RANGE = 2**-13
+const SAMPLE_INCREASE_LIMIT = 1/16
+const RANGE_INCREASE_LIMIT = 16 * RANGE
+const RANGE_INCREASE_PRICE = BigInt(10) ** BigInt(24);
+const SAMPLE_SIZE_INCREASE_PRICE = BigInt(10) ** BigInt(24);
 const DURATION = 8
 
 contract(
@@ -39,10 +43,12 @@ contract(
                 accounts[0],
                 governance,
                 addressUpdater,
-                SAMPLE_SIZE,
-                RANGE,
-                SAMPLE_INCREASE_LIMIT,
-                RANGE_INCREASE_PRICE,
+                RangeOrSampleFPA(SAMPLE_SIZE),
+                RangeOrSampleFPA(RANGE),
+                RangeOrSampleFPA(SAMPLE_INCREASE_LIMIT),
+                RangeOrSampleFPA(RANGE_INCREASE_LIMIT),
+                SAMPLE_SIZE_INCREASE_PRICE.toString(),
+                RANGE_INCREASE_PRICE.toString(),
                 DURATION
             )
 
@@ -56,74 +62,74 @@ contract(
         it('should get expected sample size', async () => {
             const sampleSize =
                 await fastUpdateIncentiveManager.getExpectedSampleSize()
-            expect(sampleSize).to.equal(SAMPLE_SIZE)
+            expect(sampleSize).to.equal(BigInt(RangeOrSampleFPA(SAMPLE_SIZE)))
         })
 
         it('should get range', async () => {
             const range = await fastUpdateIncentiveManager.getRange()
-            expect(range).to.equal(RANGE)
+            expect(range).to.equal(BigInt(RangeOrSampleFPA(RANGE)))
         })
 
         it('should get precision', async () => {
             const precision = await fastUpdateIncentiveManager.getPrecision()
             // precision scaled for 2^(-127)
             expect(precision).to.equal(
-                (BigInt(RANGE) << 127n) / BigInt(SAMPLE_SIZE)
+                (BigInt(RangeOrSampleFPA(RANGE)) << 127n) / BigInt(RangeOrSampleFPA(SAMPLE_SIZE))
             )
         })
 
         it('should get scale', async () => {
             const scale = await fastUpdateIncentiveManager.getScale()
             expect(scale).to.equal(
-                (1n << 127n) + (BigInt(RANGE) << 127n) / BigInt(SAMPLE_SIZE)
+                (1n << 127n) + (BigInt(RangeOrSampleFPA(RANGE)) << 127n) / BigInt(RangeOrSampleFPA(SAMPLE_SIZE))
             )
         })
 
         it('should offer incentive', async () => {
-            const rangeIncrease = RANGE
-            const rangeLimit = 4 * 2 ** 8
+            const rangeIncrease = RangeOrSampleFPA(RANGE)
+            const rangeLimit = RangeOrSampleFPA(RANGE * 2)
             const offer = {
-                rangeIncrease: rangeIncrease.toString(),
-                rangeLimit: rangeLimit.toString(),
+                rangeIncrease: rangeIncrease,
+                rangeLimit: rangeLimit,
             }
             if (!accounts[1]) throw new Error('Account not found')
             await fastUpdateIncentiveManager.offerIncentive(offer, {
                 from: accounts[1],
-                value: '100000',
+                value: (RANGE_INCREASE_PRICE / BigInt(1 / (RANGE))).toString(),
             })
 
             const newRange = (
                 await fastUpdateIncentiveManager.getRange()
-            ).toNumber()
-            expect(newRange).to.equal(RANGE * 2)
+            )
+            expect(newRange).to.equal(BigInt(RangeOrSampleFPA(RANGE * 2)))
 
             const newSampleSize = (
                 await fastUpdateIncentiveManager.getExpectedSampleSize()
-            ).toNumber()
-            expect(newSampleSize).to.equal(SAMPLE_SIZE * 2 - 1)
+            )
+            expect(newSampleSize).to.equal(BigInt(RangeOrSampleFPA(SAMPLE_SIZE)))
 
             const precision = await fastUpdateIncentiveManager.getPrecision()
             expect(precision).to.equal(
-                (BigInt(newRange) << 127n) / BigInt(newSampleSize)
+                (BigInt(newRange.toString()) << 127n) / BigInt(newSampleSize.toString())
             )
 
             const scale = await fastUpdateIncentiveManager.getScale()
             expect(scale).to.equal(
-                (1n << 127n) + (BigInt(newRange) << 127n) / BigInt(newSampleSize)
+                (1n << 127n) + (BigInt(newRange.toString()) << 127n) / BigInt(newSampleSize.toString())
             )
         })
 
         it('should offer incentive and not increase range', async () => {
-            const rangeIncrease = 4;
-            const rangeLimit = 4 * 2 ** 7;
+            const rangeIncrease = RangeOrSampleFPA(RANGE * 4);
+            const rangeLimit = RangeOrSampleFPA(RANGE);
             const offer = {
                 rangeIncrease: rangeIncrease.toString(),
                 rangeLimit: rangeLimit.toString(),
             }
             const oldRange = (
                 await fastUpdateIncentiveManager.getRange()
-            ).toNumber()
-            expect(oldRange).to.equal(512);
+            )
+            expect(oldRange).to.equal(RangeOrSampleFPA(RANGE));
 
             await fastUpdateIncentiveManager.offerIncentive(offer, {
                 from: accounts[1],
@@ -132,46 +138,53 @@ contract(
 
             const newRange = (
                 await fastUpdateIncentiveManager.getRange()
-            ).toNumber()
-            expect(newRange).to.equal(512);
+            )
+            expect(newRange).to.equal(RangeOrSampleFPA(RANGE));
         });
 
-        it('should offer incentive and not increase range (2)', async () => {
-            const rangeIncrease = 4;
-            const rangeLimit = 2;
+        it('should offer incentive and not increase range above range limit', async () => {
+            const rangeIncrease = RangeOrSampleFPA(RANGE * 20);
+            const rangeLimit = RangeOrSampleFPA(RANGE_INCREASE_LIMIT * 20);
             const offer = {
                 rangeIncrease: rangeIncrease.toString(),
                 rangeLimit: rangeLimit.toString(),
             }
             const oldRange = (
                 await fastUpdateIncentiveManager.getRange()
-            ).toNumber()
-            expect(oldRange).to.equal(512);
+            )
+            expect(oldRange).to.equal(RangeOrSampleFPA(RANGE));
 
             await fastUpdateIncentiveManager.offerIncentive(offer, {
                 from: accounts[1],
-                value: '100000',
+                value: '9000000000000000000000000000000',
             })
 
             const newRange = (
                 await fastUpdateIncentiveManager.getRange()
-            ).toNumber()
-            expect(newRange).to.equal(512);
+            )
+            expect(newRange).to.equal(RangeOrSampleFPA(RANGE_INCREASE_LIMIT));
         });
 
-        it('should revert if offer would make the precision greater than 100%', async () => {
-            const rangeIncrease = SAMPLE_SIZE + 20;
-            const rangeLimit = SAMPLE_SIZE + 10;
-            const offer = {
-                rangeIncrease: rangeIncrease.toString(),
-                rangeLimit: rangeLimit.toString(),
-            }
+        it('should revert if the parameters would allow making the precision greater than 100%', async () => {
+            await expectRevert(FastUpdateIncentiveManager.new(
+                accounts[0],
+                governance,
+                addressUpdater,
+                RangeOrSampleFPA(SAMPLE_SIZE),
+                RangeOrSampleFPA(RANGE),
+                RangeOrSampleFPA(SAMPLE_INCREASE_LIMIT),
+                RangeOrSampleFPA(1),
+                SAMPLE_SIZE_INCREASE_PRICE.toString(),
+                RANGE_INCREASE_PRICE.toString(),
+                DURATION
+            ),
+            "Parameters should not allow making the precision greater than 100%"
+            );
 
-            await expectRevert(fastUpdateIncentiveManager.offerIncentive(offer, {
-                from: accounts[1],
-                value: '100000',
+            await expectRevert(fastUpdateIncentiveManager.setRangeIncreaseLimit(RangeOrSampleFPA(4), {
+                from: governance
             }),
-            "Offer would make the precision greater than 100%"
+            "Parameters should not allow making the precision greater than 100%"
             );
         })
 
@@ -185,7 +198,7 @@ contract(
             expect(incentiveDuration.toString()).to.equal(DURATION.toString())
 
             if (!accounts[0]) throw new Error('Account not found')
-            await fastUpdateIncentiveManager.setIncentiveParameters(SAMPLE_SIZE, RANGE, 10, {
+            await fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(SAMPLE_SIZE), RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE.toString(), 10, {
                 from: accounts[0],
             })
 
@@ -196,15 +209,23 @@ contract(
         })
 
         it("should revert if setting circular length to zero", async() => {
-            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(SAMPLE_SIZE, RANGE, 0, { from: governance }), "CircularListManager: circular length must be greater than 0");
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(SAMPLE_SIZE), RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE.toString(), 0, { from: governance }), "CircularListManager: circular length must be greater than 0");
         });
 
         it("Should trigger inflation offers", async() => {
             const DAY = 60 * 60 * 24;
 
-            const getFeedConfigurationsBytes = web3.utils.sha3("getFeedConfigurationsBytes()")!.slice(0, 10);
-            const getFeedConfigurationsBytesReturn = web3.eth.abi.encodeParameters(['string', 'string', 'string'], ['', '', '']);
-            await fastUpdatesConfiguration.givenMethodReturn(getFeedConfigurationsBytes, getFeedConfigurationsBytesReturn);
+            const configs = [];
+            for (let i = 0; i < 1000; i++) {
+                configs.push([FtsoConfigurations.encodeFeedId({ category: 1, name: `Test${i}/USD` }), 5000, 10000]);
+            }
+
+            const getFeedConfigurations = web3.utils.sha3("getFeedConfigurations()")!.slice(0, 10);
+            const getFeedConfigurationsReturn = web3.eth.abi.encodeParameters(
+                ["tuple(bytes21,uint32,uint24)[]"], //  IFastUpdatesConfiguration.FeedConfiguration (bytes21 feedId, uint32 rewardBandValue, uint24 inflationShare)
+                [configs]
+            );
+            await fastUpdatesConfiguration.givenMethodReturn(getFeedConfigurations, getFeedConfigurationsReturn);
 
             expect(await fastUpdateIncentiveManager.getContractName()).to.equal("FastUpdateIncentiveManager");
 
@@ -226,6 +247,7 @@ contract(
             expectEvent(trigger, "InflationRewardsOffered", { rewardEpochId: "3", amount: "5000"})
             expect(await web3.eth.getBalance(fastUpdateIncentiveManager.address)).to.equal("0");
             expect(await web3.eth.getBalance(rewardManagerMock.address)).to.equal("5000");
+            console.log("Gas used:", trigger.receipt?.gasUsed?.toString());
 
             let tokenPoolSupplyData = await fastUpdateIncentiveManager.getTokenPoolSupplyData();
             expect(tokenPoolSupplyData[0]).to.equal("0");
@@ -234,26 +256,30 @@ contract(
         })
 
         it("Should set price increase range and sample increase limit", async() => {
-            expect(await fastUpdateIncentiveManager.sampleIncreaseLimit()).to.equal(SAMPLE_INCREASE_LIMIT);
+            expect(await fastUpdateIncentiveManager.sampleIncreaseLimit()).to.equal(RangeOrSampleFPA(SAMPLE_INCREASE_LIMIT));
             expect(await fastUpdateIncentiveManager.rangeIncreasePrice()).to.equal(RANGE_INCREASE_PRICE);
+            expect(await fastUpdateIncentiveManager.rangeIncreaseLimit()).to.equal(RangeOrSampleFPA(RANGE_INCREASE_LIMIT));
 
             // change values
-            await fastUpdateIncentiveManager.setSampleIncreaseLimit(SAMPLE_INCREASE_LIMIT * 2, { from: governance });
-            await fastUpdateIncentiveManager.setRangeIncreasePrice(RANGE_INCREASE_PRICE * 2, { from: governance });
+            await fastUpdateIncentiveManager.setSampleIncreaseLimit((BigInt(RangeOrSampleFPA(SAMPLE_INCREASE_LIMIT * 2))).toString(), { from: governance });
+            await fastUpdateIncentiveManager.setRangeIncreaseLimit((BigInt(RangeOrSampleFPA(RANGE_INCREASE_LIMIT * 2))).toString(), { from: governance });
+            await fastUpdateIncentiveManager.setRangeIncreasePrice((RANGE_INCREASE_PRICE * BigInt(2)).toString(), { from: governance });
 
-            expect(await fastUpdateIncentiveManager.sampleIncreaseLimit()).to.equal(SAMPLE_INCREASE_LIMIT * 2);
-            expect(await fastUpdateIncentiveManager.rangeIncreasePrice()).to.equal(RANGE_INCREASE_PRICE * 2);
+            expect(await fastUpdateIncentiveManager.sampleIncreaseLimit()).to.equal(BigInt(RangeOrSampleFPA(SAMPLE_INCREASE_LIMIT * 2)));
+            expect(await fastUpdateIncentiveManager.rangeIncreaseLimit()).to.equal(BigInt(RangeOrSampleFPA(RANGE_INCREASE_LIMIT * 2)));
+            expect(await fastUpdateIncentiveManager.rangeIncreasePrice()).to.equal(RANGE_INCREASE_PRICE * BigInt(2));
         });
 
         it("Should set sample size and range", async() => {
-            expect(await fastUpdateIncentiveManager.getExpectedSampleSize()).to.equal(SAMPLE_SIZE);
-            expect(await fastUpdateIncentiveManager.getRange()).to.equal(RANGE);
+            expect(await fastUpdateIncentiveManager.getExpectedSampleSize()).to.equal(RangeOrSampleFPA(SAMPLE_SIZE));
+            expect(await fastUpdateIncentiveManager.getRange()).to.equal(RangeOrSampleFPA(RANGE));
 
             // change values
-            await fastUpdateIncentiveManager.setIncentiveParameters(SAMPLE_SIZE * 2, RANGE * 2, DURATION, { from: governance });
+            await fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(SAMPLE_SIZE * 2), RangeOrSampleFPA(RANGE * 2), (SAMPLE_SIZE_INCREASE_PRICE * BigInt(2)).toString(), DURATION, { from: governance });
 
-            expect(await fastUpdateIncentiveManager.getExpectedSampleSize()).to.equal(SAMPLE_SIZE * 2);
-            expect(await fastUpdateIncentiveManager.getRange()).to.equal(RANGE * 2);
+            expect(await fastUpdateIncentiveManager.getExpectedSampleSize()).to.equal(RangeOrSampleFPA(SAMPLE_SIZE * 2));
+            expect(await fastUpdateIncentiveManager.getRange()).to.equal(RangeOrSampleFPA(RANGE * 2));
+            expect(await fastUpdateIncentiveManager.getCurrentSampleSizeIncreasePrice()).to.equal(SAMPLE_SIZE_INCREASE_PRICE * BigInt(2));
         })
 
         it("should revert when setting sample increase limit or range increase price if value too big", async() => {
@@ -264,22 +290,34 @@ contract(
             await expectRevert(fastUpdateIncentiveManager.setRangeIncreasePrice(value, { from: governance }), "Range increase price too large");
         });
 
-        it("should revert when setting sample size or range if value too big", async() => {
+        it("should revert when setting sample size, range etc. if value too big/small", async() => {
             let value = (2 ** 255).toString(16);
 
-            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(value, RANGE, DURATION, { from: governance }), "Sample size too large");
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(value, RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE.toString(), DURATION, { from: governance }), "Sample size too large");
 
-            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(SAMPLE_SIZE, value, DURATION, { from: governance }), "Range too large");
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(RANGE * 2), RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE.toString(), DURATION, { from: governance }), "Parameters should not allow making the precision greater than 100%");
 
-            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(100, 200, DURATION, { from: governance }), "Range must be less than sample size");
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(RANGE_INCREASE_LIMIT * 2), RangeOrSampleFPA(RANGE_INCREASE_LIMIT * 3), SAMPLE_SIZE_INCREASE_PRICE.toString(), DURATION, { from: governance }), "Range cannot be greater than the range increase limit");
+
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(1), RangeOrSampleFPA(2**(-30)), SAMPLE_SIZE_INCREASE_PRICE.toString(), DURATION, { from: governance }), "Precision value of updates needs to be at least 2^(-25)");
         });
 
         it("should revert if not setting base sample size, base range etc. from governance", async() => {
-            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(SAMPLE_SIZE, RANGE, DURATION, { from: accounts[1] }), "only governance");
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(SAMPLE_SIZE), RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE.toString(), DURATION, { from: accounts[1] }), "only governance");
 
-            await expectRevert(fastUpdateIncentiveManager.setSampleIncreaseLimit(SAMPLE_INCREASE_LIMIT, { from: accounts[1] }), "only governance");
+            await expectRevert(fastUpdateIncentiveManager.setSampleIncreaseLimit(RangeOrSampleFPA(SAMPLE_INCREASE_LIMIT), { from: accounts[1] }), "only governance");
 
-            await expectRevert(fastUpdateIncentiveManager.setRangeIncreasePrice(RANGE_INCREASE_PRICE, { from: accounts[1] }), "only governance");
+            await expectRevert(fastUpdateIncentiveManager.setRangeIncreasePrice(RANGE_INCREASE_PRICE.toString(), { from: accounts[1] }), "only governance");
+
+            await expectRevert(fastUpdateIncentiveManager.setRangeIncreaseLimit(RangeOrSampleFPA(RANGE_INCREASE_LIMIT), { from:accounts[1] }), "only governance");
+        });
+
+        it("should revert when setting base range, range increase price or range increase limit too low", async() => {
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(1), 1e5, SAMPLE_SIZE_INCREASE_PRICE.toString(), DURATION, { from: governance }), "Range increase price too low, range increase of 1e-6 of base range should cost at least 1 wei");
+
+            await expectRevert(fastUpdateIncentiveManager.setRangeIncreasePrice(5, { from: governance }), "Range increase price too low, range increase of 1e-6 of base range should cost at least 1 wei");
+
+            await expectRevert(fastUpdateIncentiveManager.setRangeIncreaseLimit(5, { from: governance }), "Range cannot be greater than the range increase limit");
         });
     }
 )

@@ -115,14 +115,6 @@ contract FastUpdatesConfigurationTest is Test {
     function testUpdateFeeds() public {
         testAddFeeds();
 
-        (bytes memory names, bytes memory bandValues, bytes memory inflationShares) =
-            fastUpdatesConfiguration.getFeedConfigurationsBytes();
-        assertEq(names.length, 21 * 3);
-        assertEq(bandValues.length, 4 * 3);
-        assertEq(inflationShares.length, 3 * 3);
-        assertEq(bandValues[3], bytes1(uint8(100)));
-        assertEq(bandValues[7], bytes1(uint8(200)));
-
         IFastUpdatesConfiguration.FeedConfiguration[] memory feedConfigs =
             fastUpdatesConfiguration.getFeedConfigurations();
         assertEq(feedConfigs.length, 3);
@@ -156,14 +148,6 @@ contract FastUpdatesConfigurationTest is Test {
         vm.expectEmit();
         emit FeedUpdated(bytes21("feed2"), 210, 650, 1);
         fastUpdatesConfiguration.updateFeeds(feedConfigs);
-
-        (names, bandValues, inflationShares) =
-            fastUpdatesConfiguration.getFeedConfigurationsBytes();
-        assertEq(names.length, 21 * 3);
-        assertEq(bandValues.length, 4 * 3);
-        assertEq(inflationShares.length, 3 * 3);
-        assertEq(bandValues[3], bytes1(uint8(110)));
-        assertEq(bandValues[7], bytes1(uint8(210)));
 
         feedConfigs = fastUpdatesConfiguration.getFeedConfigurations();
         assertEq(feedConfigs.length, 3);

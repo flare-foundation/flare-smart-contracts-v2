@@ -141,37 +141,6 @@ contract FastUpdatesConfiguration is Governed, AddressUpdatable, IFastUpdatesCon
     /**
      * @inheritdoc IFastUpdatesConfiguration
      */
-    function getFeedConfigurationsBytes()
-        external view
-        returns (
-            bytes memory _feedIds,
-            bytes memory _rewardBandValues,
-            bytes memory _inflationShares
-        )
-    {
-        uint256 length = feedConfigurations.length;
-        _feedIds = new bytes(length * 21);
-        _rewardBandValues = new bytes(length * 4);
-        _inflationShares = new bytes(length * 3);
-        for (uint256 i = 0; i < length; i++) {
-            bytes21 feedId = feedConfigurations[i].feedId;
-            bytes4 rewardBandValue = bytes4(feedConfigurations[i].rewardBandValue);
-            bytes3 inflationShare = bytes3(feedConfigurations[i].inflationShare);
-            for (uint256 j = 0; j < 21; j++) {
-                _feedIds[i * 21 + j] = feedId[j];
-            }
-            for (uint256 j = 0; j < 4; j++) {
-                _rewardBandValues[i * 4 + j] = rewardBandValue[j];
-            }
-            for (uint256 j = 0; j < 3; j++) {
-                _inflationShares[i * 3 + j] = inflationShare[j];
-            }
-        }
-    }
-
-    /**
-     * @inheritdoc IFastUpdatesConfiguration
-     */
     function getUnusedIndices() external view returns (uint256[] memory) {
         return unusedIndices;
     }

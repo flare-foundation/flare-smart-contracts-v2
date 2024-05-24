@@ -367,7 +367,9 @@ export async function deployContracts(
     "0x01000000000000000000000000000000",
     "0x00000800000000000000000000000000",
     "0x00100000000000000000000000000000",
-    1000000,
+    "0x00008000000000000000000000000000",
+    BigInt(10) ** BigInt(24),
+    BigInt(10) ** BigInt(24),
     8
   );
 
@@ -596,8 +598,8 @@ export async function deployContracts(
     FtsoConfigurations.encodeFeedId({ category: 1, name: "ETH/USD" }),
     FtsoConfigurations.encodeFeedId({ category: 1, name: "LTC/USD" })
   ];
-  const ANCHOR_FEEDS = [7097158, 5500, 4000, 3000000, 10000000];
-  const DECIMALS = [2, 5, 5, 3, 5];
+  const ANCHOR_FEEDS = [6971622, 5296, 2813, 3813387, 863218];
+  const DECIMALS = [2, 4, 5, 3, 4];
 
   for (let i = 0; i < 5; i++) {
     const getCurrentFeed = ftsoFeedPublisher.contract.methods.getCurrentFeed(FEED_IDS[i]).encodeABI();
