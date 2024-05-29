@@ -62,7 +62,7 @@ const SAMPLE_INCREASE_LIMIT = 0.5;
 const RANGE_INCREASE_LIMIT = 16 * RANGE;
 const SCALE = 1 + RANGE / SAMPLE_SIZE;
 const RANGE_INCREASE_PRICE = BigInt(10) ** BigInt(24);
-const SAMPLE_SIZE_INCREASE_PRICE = BigInt(10) ** BigInt(24);
+const SAMPLE_SIZE_INCREASE_PRICE = 1425;
 
 const NUM_FEEDS: number = 1000;
 const FEED_IDS = [
@@ -144,7 +144,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       RangeOrSampleFPA(RANGE),
       RangeOrSampleFPA(SAMPLE_INCREASE_LIMIT),
       RangeOrSampleFPA(RANGE_INCREASE_LIMIT),
-      SAMPLE_SIZE_INCREASE_PRICE.toString(),
+      SAMPLE_SIZE_INCREASE_PRICE,
       RANGE_INCREASE_PRICE.toString(),
       DURATION
     );

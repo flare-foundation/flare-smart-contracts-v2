@@ -18,7 +18,7 @@ const RANGE = 2**-13
 const SAMPLE_INCREASE_LIMIT = 1/16
 const RANGE_INCREASE_LIMIT = 16 * RANGE
 const RANGE_INCREASE_PRICE = BigInt(10) ** BigInt(24);
-const SAMPLE_SIZE_INCREASE_PRICE = BigInt(10) ** BigInt(24);
+const SAMPLE_SIZE_INCREASE_PRICE = 1425;
 const DURATION = 8
 
 contract(
@@ -47,7 +47,7 @@ contract(
                 RangeOrSampleFPA(RANGE),
                 RangeOrSampleFPA(SAMPLE_INCREASE_LIMIT),
                 RangeOrSampleFPA(RANGE_INCREASE_LIMIT),
-                SAMPLE_SIZE_INCREASE_PRICE.toString(),
+                SAMPLE_SIZE_INCREASE_PRICE,
                 RANGE_INCREASE_PRICE.toString(),
                 DURATION
             )
@@ -174,7 +174,7 @@ contract(
                 RangeOrSampleFPA(RANGE),
                 RangeOrSampleFPA(SAMPLE_INCREASE_LIMIT),
                 RangeOrSampleFPA(1),
-                SAMPLE_SIZE_INCREASE_PRICE.toString(),
+                SAMPLE_SIZE_INCREASE_PRICE,
                 RANGE_INCREASE_PRICE.toString(),
                 DURATION
             ),
@@ -198,7 +198,7 @@ contract(
             expect(incentiveDuration.toString()).to.equal(DURATION.toString())
 
             if (!accounts[0]) throw new Error('Account not found')
-            await fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(SAMPLE_SIZE), RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE.toString(), 10, {
+            await fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(SAMPLE_SIZE), RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE, 10, {
                 from: accounts[0],
             })
 
@@ -209,7 +209,7 @@ contract(
         })
 
         it("should revert if setting circular length to zero", async() => {
-            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(SAMPLE_SIZE), RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE.toString(), 0, { from: governance }), "CircularListManager: circular length must be greater than 0");
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(SAMPLE_SIZE), RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE, 0, { from: governance }), "CircularListManager: circular length must be greater than 0");
         });
 
         it("Should trigger inflation offers", async() => {
@@ -275,11 +275,11 @@ contract(
             expect(await fastUpdateIncentiveManager.getRange()).to.equal(RangeOrSampleFPA(RANGE));
 
             // change values
-            await fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(SAMPLE_SIZE * 2), RangeOrSampleFPA(RANGE * 2), (SAMPLE_SIZE_INCREASE_PRICE * BigInt(2)).toString(), DURATION, { from: governance });
+            await fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(SAMPLE_SIZE * 2), RangeOrSampleFPA(RANGE * 2), SAMPLE_SIZE_INCREASE_PRICE * 2, DURATION, { from: governance });
 
             expect(await fastUpdateIncentiveManager.getExpectedSampleSize()).to.equal(RangeOrSampleFPA(SAMPLE_SIZE * 2));
             expect(await fastUpdateIncentiveManager.getRange()).to.equal(RangeOrSampleFPA(RANGE * 2));
-            expect(await fastUpdateIncentiveManager.getCurrentSampleSizeIncreasePrice()).to.equal(SAMPLE_SIZE_INCREASE_PRICE * BigInt(2));
+            expect(await fastUpdateIncentiveManager.getCurrentSampleSizeIncreasePrice()).to.equal(SAMPLE_SIZE_INCREASE_PRICE * 2);
         })
 
         it("should revert when setting sample increase limit or range increase price if value too big", async() => {
@@ -293,17 +293,17 @@ contract(
         it("should revert when setting sample size, range etc. if value too big/small", async() => {
             let value = (2 ** 255).toString(16);
 
-            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(value, RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE.toString(), DURATION, { from: governance }), "Sample size too large");
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(value, RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE, DURATION, { from: governance }), "Sample size too large");
 
-            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(RANGE * 2), RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE.toString(), DURATION, { from: governance }), "Parameters should not allow making the precision greater than 100%");
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(RANGE * 2), RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE, DURATION, { from: governance }), "Parameters should not allow making the precision greater than 100%");
 
-            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(RANGE_INCREASE_LIMIT * 2), RangeOrSampleFPA(RANGE_INCREASE_LIMIT * 3), SAMPLE_SIZE_INCREASE_PRICE.toString(), DURATION, { from: governance }), "Range cannot be greater than the range increase limit");
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(RANGE_INCREASE_LIMIT * 2), RangeOrSampleFPA(RANGE_INCREASE_LIMIT * 3), SAMPLE_SIZE_INCREASE_PRICE, DURATION, { from: governance }), "Range cannot be greater than the range increase limit");
 
-            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(1), RangeOrSampleFPA(2**(-30)), SAMPLE_SIZE_INCREASE_PRICE.toString(), DURATION, { from: governance }), "Precision value of updates needs to be at least 2^(-25)");
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(1), RangeOrSampleFPA(2**(-30)), SAMPLE_SIZE_INCREASE_PRICE, DURATION, { from: governance }), "Precision value of updates needs to be at least 2^(-25)");
         });
 
         it("should revert if not setting base sample size, base range etc. from governance", async() => {
-            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(SAMPLE_SIZE), RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE.toString(), DURATION, { from: accounts[1] }), "only governance");
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(SAMPLE_SIZE), RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE, DURATION, { from: accounts[1] }), "only governance");
 
             await expectRevert(fastUpdateIncentiveManager.setSampleIncreaseLimit(RangeOrSampleFPA(SAMPLE_INCREASE_LIMIT), { from: accounts[1] }), "only governance");
 
@@ -313,7 +313,7 @@ contract(
         });
 
         it("should revert when setting base range, range increase price or range increase limit too low", async() => {
-            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(1), 1e5, SAMPLE_SIZE_INCREASE_PRICE.toString(), DURATION, { from: governance }), "Range increase price too low, range increase of 1e-6 of base range should cost at least 1 wei");
+            await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(RangeOrSampleFPA(1), 1e5, SAMPLE_SIZE_INCREASE_PRICE, DURATION, { from: governance }), "Range increase price too low, range increase of 1e-6 of base range should cost at least 1 wei");
 
             await expectRevert(fastUpdateIncentiveManager.setRangeIncreasePrice(5, { from: governance }), "Range increase price too low, range increase of 1e-6 of base range should cost at least 1 wei");
 

@@ -358,15 +358,15 @@ export interface ChainParameters {
      */
     sampleIncreaseLimit: string;
 
-    /** 
+    /**
      * The range increase limit.
      */
     rangeIncreaseLimit: string;
 
     /**
-     * The sample size increase price. In whole native units, not Wei.
+     * The sample size increase price. In Wei.
      */
-    sampleSizeIncreasePriceNAT: integer;
+    sampleSizeIncreasePriceWei: integer;
 
     /**
      * The range increase price. In whole native units, not Wei.
@@ -397,9 +397,9 @@ export interface FtsoInflationConfiguration {
     feedIds: FeedId[];
 
     /**
-     * Inflation share for this configuration in BIPS (e.g. 50%).
+     * Inflation share/weight for this configuration.
      */
-    inflationShareBIPS: integer;
+    inflationShare: integer;
 
     /**
      * Minimal reward eligibility turnout threshold in BIPS (e.g. 30%).

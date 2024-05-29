@@ -369,7 +369,7 @@ export async function deployContracts(
     "0x00100000000000000000000000000000",
     "0x00008000000000000000000000000000",
     BigInt(10) ** BigInt(24),
-    BigInt(10) ** BigInt(24),
+    1425,
     8
   );
 
