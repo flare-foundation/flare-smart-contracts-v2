@@ -85,6 +85,8 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         address _addressUpdater,
         uint256 _maxVoters,
         uint256 _initialRewardEpochId,
+        uint256 _intitialNewSigningPolicyInitializationStartBlockNumber,
+        uint16 _initialNormalisedWeightsSumOfVotersWithPublicKeys,
         address[] memory _initialVoters,
         uint16[] memory _initialNormalisedWeights
     )
@@ -96,6 +98,10 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         uint256 length = _initialVoters.length;
         require(length > 0 && length <= _maxVoters, "_initialVoters length invalid");
         require(length == _initialNormalisedWeights.length, "array lengths do not match");
+        require(_intitialNewSigningPolicyInitializationStartBlockNumber < block.number,
+            "_intitialNewSigningPolicyInitializationStartBlockNumber invalid");
+        newSigningPolicyInitializationStartBlockNumber[_initialRewardEpochId] =
+            _intitialNewSigningPolicyInitializationStartBlockNumber;
         VotersAndWeights storage votersAndWeights = register[_initialRewardEpochId];
         uint16 weightsSum = 0;
         for (uint256 i = 0; i < length; i++) {
@@ -105,6 +111,10 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         }
         votersAndWeights.weightsSum = weightsSum;
         votersAndWeights.normalisedWeightsSum = weightsSum;
+        require(_initialNormalisedWeightsSumOfVotersWithPublicKeys <= weightsSum,
+            "_initialNormalisedWeightsSumOfVotersWithPublicKeys invalid");
+        votersAndWeights.normalisedWeightsSumOfVotersWithPublicKeys =
+            _initialNormalisedWeightsSumOfVotersWithPublicKeys;
     }
 
     /**
@@ -397,6 +407,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         require(weightsSum > 0, "reward epoch id not supported");
         _voter = entityManager.getVoterForSigningPolicyAddress(_signingPolicyAddress,
             newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
+        require(_voter != _signingPolicyAddress, "invalid signing policy address");
         uint256 weight = votersAndWeights.weights[_voter];
         require(weight > 0, "voter not registered");
         _normalisedWeight = uint16((weight * UINT16_MAX) / weightsSum);
@@ -422,6 +433,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         require(weightsSum > 0, "reward epoch id not supported");
         uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[_rewardEpochId];
         address voter = entityManager.getVoterForSigningPolicyAddress(_signingPolicyAddress, initBlock);
+        require(voter != _signingPolicyAddress, "invalid signing policy address");
         uint256 weight = votersAndWeights.weights[voter];
         require(weight > 0, "voter not registered");
         _normalisedWeight = uint16((weight * UINT16_MAX) / weightsSum);
@@ -516,6 +528,8 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         (uint256 votePowerBlock, bool enabled) = flareSystemsManager.getVoterRegistrationData(_rewardEpochId);
         require(votePowerBlock != 0, "vote power block zero");
         require(enabled, "voter registration not enabled");
+        require(entityManager.getDelegationAddressOfAt(_voter, votePowerBlock) != _voter,
+            "delegation address not set");
         uint256 weight = flareSystemsCalculator.calculateRegistrationWeight(_voter, _rewardEpochId, votePowerBlock);
         require(weight > 0, "voter weight zero");
 
@@ -594,5 +608,8 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         uint256 initBlock = newSigningPolicyInitializationStartBlockNumber[_rewardEpochId];
         require(initBlock != 0, "registration not available yet");
         _voterAddresses = entityManager.getVoterAddressesAt(_voter, initBlock);
+        require(_voterAddresses.signingPolicyAddress != _voter, "signing policy address not set");
+        require(_voterAddresses.submitAddress != _voter, "submit address not set");
+        require(_voterAddresses.submitSignaturesAddress != _voter, "submit signatures address not set");
     }
 }

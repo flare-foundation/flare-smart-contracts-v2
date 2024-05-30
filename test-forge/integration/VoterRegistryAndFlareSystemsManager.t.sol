@@ -125,6 +125,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             addressUpdater,
             4,
             0,
+            0,
+            0,
             initialVoters,
             initialNormWeights
         );

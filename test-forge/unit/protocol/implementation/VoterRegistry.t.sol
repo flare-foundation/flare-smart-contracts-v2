@@ -59,6 +59,8 @@ contract VoterRegistryTest is Test {
             addressUpdater,
             4,
             0,
+            0,
+            0,
             initialVoters,
             initialNormWeights
         );
@@ -90,6 +92,8 @@ contract VoterRegistryTest is Test {
             addressUpdater,
             UINT16_MAX + 1,
             0,
+            0,
+            0,
             initialVoters,
             initialNormWeights
         );
@@ -102,6 +106,8 @@ contract VoterRegistryTest is Test {
             governance,
             addressUpdater,
             1,
+            0,
+            0,
             0,
             initialVoters,
             initialNormWeights
@@ -116,6 +122,8 @@ contract VoterRegistryTest is Test {
             governance,
             addressUpdater,
             5,
+            0,
+            0,
             0,
             initialVoters,
             initialNormWeights

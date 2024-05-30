@@ -205,7 +205,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const initialWeights = Array(100).fill(655);
 
 
-        voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, initialVoters, initialWeights);
+        voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, 0, 0, initialVoters, initialWeights);
         flareSystemsCalculator = await FlareSystemsCalculator.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2500, 20 * 60, 600, 600);
 
         initialSigningPolicy = {
