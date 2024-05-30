@@ -77,7 +77,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      * @param _maxVoters The maximum number of voters in one reward epoch.
      * @param _initialRewardEpochId The initial reward epoch id.
      * @param _initialVoters The initial voters' addresses.
-     * @param _initialNormalisedWeights The initial voters' normalised weights.
+     * @param _initialRegistrationWeights The initial voters' registration weights.
      */
     constructor(
         IGovernanceSettings _governanceSettings,
@@ -88,7 +88,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         uint256 _intitialNewSigningPolicyInitializationStartBlockNumber,
         uint16 _initialNormalisedWeightsSumOfVotersWithPublicKeys,
         address[] memory _initialVoters,
-        uint16[] memory _initialNormalisedWeights
+        uint256[] memory _initialRegistrationWeights
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
@@ -97,22 +97,28 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
 
         uint256 length = _initialVoters.length;
         require(length > 0 && length <= _maxVoters, "_initialVoters length invalid");
-        require(length == _initialNormalisedWeights.length, "array lengths do not match");
+        require(length == _initialRegistrationWeights.length, "array lengths do not match");
         require(_intitialNewSigningPolicyInitializationStartBlockNumber < block.number,
             "_intitialNewSigningPolicyInitializationStartBlockNumber invalid");
         newSigningPolicyInitializationStartBlockNumber[_initialRewardEpochId] =
             _intitialNewSigningPolicyInitializationStartBlockNumber;
         VotersAndWeights storage votersAndWeights = register[_initialRewardEpochId];
-        uint16 weightsSum = 0;
+        uint256 weightsSum = 0;
+        uint16 normalisedWeightsSum = 0;
         for (uint256 i = 0; i < length; i++) {
             votersAndWeights.voters.push(_initialVoters[i]);
-            votersAndWeights.weights[_initialVoters[i]] = _initialNormalisedWeights[i];
-            weightsSum += _initialNormalisedWeights[i];
+            votersAndWeights.weights[_initialVoters[i]] = _initialRegistrationWeights[i];
+            weightsSum += _initialRegistrationWeights[i];
         }
-        votersAndWeights.weightsSum = weightsSum;
-        votersAndWeights.normalisedWeightsSum = weightsSum;
-        require(_initialNormalisedWeightsSumOfVotersWithPublicKeys <= weightsSum,
+        for (uint256 i = 0; i < length; i++) {
+            // _initialRegistrationWeights[i] <= weightsSum
+            normalisedWeightsSum += uint16((_initialRegistrationWeights[i] * UINT16_MAX) / weightsSum);
+        }
+
+        require(_initialNormalisedWeightsSumOfVotersWithPublicKeys <= normalisedWeightsSum,
             "_initialNormalisedWeightsSumOfVotersWithPublicKeys invalid");
+        votersAndWeights.weightsSum = uint128(weightsSum);
+        votersAndWeights.normalisedWeightsSum = normalisedWeightsSum;
         votersAndWeights.normalisedWeightsSumOfVotersWithPublicKeys =
             _initialNormalisedWeightsSumOfVotersWithPublicKeys;
     }
