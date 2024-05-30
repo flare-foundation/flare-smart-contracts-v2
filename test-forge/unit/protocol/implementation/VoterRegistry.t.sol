@@ -16,7 +16,7 @@ contract VoterRegistryTest is Test {
     address private addressUpdater;
     address[] private initialVoters;
     uint256[] private initialVotersSigningPolicyPk; // private keys
-    uint16[] private initialNormWeights;
+    uint256[] private initialWeights;
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
     address[] private initialDelegationAddresses;
@@ -62,7 +62,7 @@ contract VoterRegistryTest is Test {
             0,
             0,
             initialVoters,
-            initialNormWeights
+            initialWeights
         );
 
         //// update contract addresses
@@ -95,7 +95,7 @@ contract VoterRegistryTest is Test {
             0,
             0,
             initialVoters,
-            initialNormWeights
+            initialWeights
         );
     }
 
@@ -110,7 +110,7 @@ contract VoterRegistryTest is Test {
             0,
             0,
             initialVoters,
-            initialNormWeights
+            initialWeights
         );
     }
 
@@ -126,7 +126,7 @@ contract VoterRegistryTest is Test {
             0,
             0,
             initialVoters,
-            initialNormWeights
+            initialWeights
         );
     }
 
@@ -207,11 +207,11 @@ contract VoterRegistryTest is Test {
         (address[] memory signPolAddresses, uint16[] memory normWeights, uint16 normWeightsSum) =
             voterRegistry.createSigningPolicySnapshot(0);
         assertEq(initialSigningPolicyAddresses.length, signPolAddresses.length);
-        uint16 sum = 0;
+        uint256 sum = 0;
         for (uint256 i = 0; i < initialVoters.length; i++) {
             assertEq(signPolAddresses[i], initialSigningPolicyAddresses[i]);
-            assertEq(normWeights[i], initialNormWeights[i]);
-            sum += initialNormWeights[i];
+            assertEq(normWeights[i], initialWeights[i]);
+            sum += initialWeights[i];
         }
         assertEq(sum, normWeightsSum);
     }
@@ -370,7 +370,7 @@ contract VoterRegistryTest is Test {
             (address voter, uint16 normWeight) =
                 voterRegistry.getVoterWithNormalisedWeight(0, initialSigningPolicyAddresses[i]);
             assertEq(voter, initialVoters[i]);
-            assertEq(normWeight, initialNormWeights[i]);
+            assertEq(normWeight, initialWeights[i]);
         }
         address notRegistered = makeAddr("notRegisteredVoter");
         address notRegisteredSignPolicyAddr = makeAddr("notRegisteredVoterSigningPolicyAddress");
@@ -404,6 +404,7 @@ contract VoterRegistryTest is Test {
         _mockGetPublicKeyOfAt();
         _mockGetVoterRegistrationData(10, true);
         _mockVoterWeights();
+        _mockGetDelegationAddressOfAt();
         vm.prank(mockFlareSystemsManager);
         voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
 
@@ -480,6 +481,7 @@ contract VoterRegistryTest is Test {
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddressesAt();
+        _mockGetDelegationAddressOfAt();
         _mockGetPublicKeyOfAt();
         _mockGetVoterRegistrationData(10, true);
         _mockVoterWeights();
@@ -511,6 +513,7 @@ contract VoterRegistryTest is Test {
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddressesAt();
+        _mockGetDelegationAddressOfAt();
         _mockGetPublicKeyOfAt();
         _mockGetVoterRegistrationData(10, true);
         _mockVoterWeights();
@@ -572,6 +575,7 @@ contract VoterRegistryTest is Test {
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddressesAt();
+        _mockGetDelegationAddressOfAt();
         _mockGetPublicKeyOfAt();
         _mockGetVoterRegistrationData(10, true);
         _mockVoterWeights();
@@ -627,6 +631,7 @@ contract VoterRegistryTest is Test {
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddressesAt();
+        _mockGetDelegationAddressOfAt();
         _mockGetPublicKeyOfAt();
         _mockGetVoterRegistrationData(10, true);
         _mockVoterWeights();
@@ -699,6 +704,7 @@ contract VoterRegistryTest is Test {
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddressesAt();
+        _mockGetDelegationAddressOfAt();
         _mockGetPublicKeyOfAt();
         _mockGetVoterRegistrationData(10, true);
         _mockVoterWeights();
@@ -722,6 +728,7 @@ contract VoterRegistryTest is Test {
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddressesAt();
+        _mockGetDelegationAddressOfAt();
         _mockGetPublicKeyOfAt();
         _mockGetVoterRegistrationData(10, true);
         _mockVoterWeights();
@@ -757,6 +764,7 @@ contract VoterRegistryTest is Test {
 
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddressesAt();
+        _mockGetDelegationAddressOfAt();
         _mockGetPublicKeyOfAt();
         _mockGetVoterRegistrationData(10, true);
         _mockVoterWeights();
@@ -847,6 +855,7 @@ contract VoterRegistryTest is Test {
         // register voters
         _mockGetCurrentEpochId(0);
         _mockGetVoterAddressesAt();
+        _mockGetDelegationAddressOfAt();
         _mockGetPublicKeyOfAt();
         _mockGetVoterRegistrationData(10, true);
         _mockVoterWeights();
@@ -942,7 +951,7 @@ contract VoterRegistryTest is Test {
     function _createInitialVoters(uint256 _num) internal {
         for (uint256 i = 0; i < _num; i++) {
             initialVoters.push(makeAddr(string.concat("initialVoter", vm.toString(i))));
-            initialNormWeights.push(uint16(UINT16_MAX / _num));
+            initialWeights.push(uint16(UINT16_MAX / _num));
 
             initialDelegationAddresses.push(makeAddr(
                 string.concat("delegationAddress", vm.toString(i))));
@@ -988,6 +997,16 @@ contract VoterRegistryTest is Test {
                 mockEntityManager,
                 abi.encodeWithSelector(IEntityManager.getVoterAddressesAt.selector, initialVoters[i]),
                 abi.encode(initialVotersRegisteredAddresses[i])
+            );
+        }
+    }
+
+    function _mockGetDelegationAddressOfAt() internal {
+        for (uint256 i = 0; i < initialVoters.length; i++) {
+            vm.mockCall(
+                mockEntityManager,
+                abi.encodeWithSelector(IEntityManager.getDelegationAddressOfAt.selector, initialVoters[i]),
+                abi.encode(initialDelegationAddresses[i])
             );
         }
     }
