@@ -94,8 +94,8 @@
                     },
                     "type": "array"
                 },
-                "inflationShareBIPS": {
-                    "description": "Inflation share for this configuration in BIPS (e.g. 50%).",
+                "inflationShare": {
+                    "description": "Inflation share/weight for this configuration.",
                     "type": "integer"
                 },
                 "minRewardedTurnoutBIPS": {
@@ -120,7 +120,7 @@
             },
             "required": [
                 "feedIds",
-                "inflationShareBIPS",
+                "inflationShare",
                 "minRewardedTurnoutBIPS",
                 "mode",
                 "primaryBandRewardSharePPM",
@@ -427,8 +427,8 @@
             "description": "The sample increase limit.",
             "type": "string"
         },
-        "sampleSizeIncreasePriceNAT": {
-            "description": "The sample size increase price. In whole native units, not Wei.",
+        "sampleSizeIncreasePriceWei": {
+            "description": "The sample size increase price. In Wei.",
             "type": "integer"
         },
         "signingPolicyMinNumberOfVoters": {
@@ -553,7 +553,7 @@
         "rewardExpiryOffsetSeconds",
         "rewardManagerId",
         "sampleIncreaseLimit",
-        "sampleSizeIncreasePriceNAT",
+        "sampleSizeIncreasePriceWei",
         "signingPolicyMinNumberOfVoters",
         "signingPolicySignNoRewardsDurationBlocks",
         "signingPolicySignNonPunishableDurationBlocks",

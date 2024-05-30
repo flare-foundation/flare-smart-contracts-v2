@@ -315,7 +315,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   for (const ftsoInflationConfiguration of parameters.ftsoInflationConfigurations) {
     const configuration = {
       feedIds: FtsoConfigurations.encodeFeedIds(ftsoInflationConfiguration.feedIds),
-      inflationShare: ftsoInflationConfiguration.inflationShareBIPS,
+      inflationShare: ftsoInflationConfiguration.inflationShare,
       minRewardedTurnoutBIPS: ftsoInflationConfiguration.minRewardedTurnoutBIPS,
       primaryBandRewardSharePPM: ftsoInflationConfiguration.primaryBandRewardSharePPM,
       secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs(ftsoInflationConfiguration.secondaryBandWidthPPMs),

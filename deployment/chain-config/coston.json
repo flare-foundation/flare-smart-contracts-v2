@@ -149,9 +149,9 @@
                 {"category": 2, "name": "JPY/USD"},
                 {"category": 2, "name": "AUD/USD"}
             ],
-            "inflationShareBIPS": 10000,
+            "inflationShare": 10000,
             "minRewardedTurnoutBIPS": 5000,
-            "mode": 0,
+            "mode": 2,
             "primaryBandRewardSharePPM": 700000,
             "secondaryBandWidthPPMs": [400, 500, 100, 150, 200, 200, 200, 200, 200, 150, 200, 100, 100, 100, 100, 100, 100, 100, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         }
@@ -210,7 +210,7 @@
     "baseRange": "0x00000800000000000000000000000000",
     "sampleIncreaseLimit": "0x00100000000000000000000000000000",
     "rangeIncreaseLimit": "0x00008000000000000000000000000000",
-    "sampleSizeIncreasePriceNAT": 1000000,
+    "sampleSizeIncreasePriceWei": 1425,
     "rangeIncreasePriceNAT": 1000000,
     "incentiveOfferDurationBlocks": 8,
     "submissionWindowBlocks": 10,
