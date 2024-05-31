@@ -76,6 +76,10 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      * @param _addressUpdater The address of the AddressUpdater contract.
      * @param _maxVoters The maximum number of voters in one reward epoch.
      * @param _initialRewardEpochId The initial reward epoch id.
+     * @param _initialNewSigningPolicyInitializationStartBlockNumber The initial block number for
+     *          new signing policy initialization.
+     * @param _initialNormalisedWeightsSumOfVotersWithPublicKeys The initial normalised weights sum
+     *          of voters with public keys.
      * @param _initialVoters The initial voters' addresses.
      * @param _initialRegistrationWeights The initial voters' registration weights.
      */
@@ -85,7 +89,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         address _addressUpdater,
         uint256 _maxVoters,
         uint256 _initialRewardEpochId,
-        uint256 _intitialNewSigningPolicyInitializationStartBlockNumber,
+        uint256 _initialNewSigningPolicyInitializationStartBlockNumber,
         uint16 _initialNormalisedWeightsSumOfVotersWithPublicKeys,
         address[] memory _initialVoters,
         uint256[] memory _initialRegistrationWeights
@@ -98,10 +102,10 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         uint256 length = _initialVoters.length;
         require(length > 0 && length <= _maxVoters, "_initialVoters length invalid");
         require(length == _initialRegistrationWeights.length, "array lengths do not match");
-        require(_intitialNewSigningPolicyInitializationStartBlockNumber < block.number,
-            "_intitialNewSigningPolicyInitializationStartBlockNumber invalid");
+        require(_initialNewSigningPolicyInitializationStartBlockNumber < block.number,
+            "_initialNewSigningPolicyInitializationStartBlockNumber invalid");
         newSigningPolicyInitializationStartBlockNumber[_initialRewardEpochId] =
-            _intitialNewSigningPolicyInitializationStartBlockNumber;
+            _initialNewSigningPolicyInitializationStartBlockNumber;
         VotersAndWeights storage votersAndWeights = register[_initialRewardEpochId];
         uint256 weightsSum = 0;
         uint16 normalisedWeightsSum = 0;
