@@ -130,6 +130,37 @@ contract VoterRegistryTest is Test {
         );
     }
 
+    function testRevertInitialInitializationStartBlockInvalid() public {
+        vm.roll(1000);
+        vm.expectRevert("_initialNewSigningPolicyInitializationStartBlockNumber invalid");
+        new VoterRegistry(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            5,
+            0,
+            2000,
+            0,
+            initialVoters,
+            initialWeights
+        );
+    }
+
+    function testRevertInitialSumWithPubKeysInvalid() public {
+        vm.expectRevert("_initialNormalisedWeightsSumOfVotersWithPublicKeys invalid");
+        new VoterRegistry(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            5,
+            0,
+            0,
+            uint16(UINT16_MAX - 2),
+            initialVoters,
+            initialWeights
+        );
+    }
+
     function testChillVoter() public {
         vm.prank(governance);
         _mockGetCurrentEpochId(1);
