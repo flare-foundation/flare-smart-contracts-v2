@@ -348,6 +348,22 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
     // voter3 confirms its addresses after vp block
     function testRegisterVoters2() public {
+
+        // voter2 registers addresses for its delegation address
+        (address fakeSigningPolicyAddr, uint256 fakeSubmitSignatureAddressPK) =
+            makeAddrAndKey("fakeSigningPolicyAddr");
+        vm.startPrank(initialDelegationAddresses[2]);
+        entityManager.proposeSubmitAddress(makeAddr("fakeSubmitAddress2"));
+        entityManager.proposeSubmitSignaturesAddress(makeAddr("fakeSubmitSignaturesAddress2"));
+        entityManager.proposeSigningPolicyAddress(fakeSigningPolicyAddr);
+        vm.stopPrank();
+        vm.prank(makeAddr("fakeSubmitAddress2"));
+        entityManager.confirmSubmitAddressRegistration(initialDelegationAddresses[2]);
+        vm.prank(makeAddr("fakeSubmitSignaturesAddress2"));
+        entityManager.confirmSubmitSignaturesAddressRegistration(initialDelegationAddresses[2]);
+        vm.prank(fakeSigningPolicyAddr);
+        entityManager.confirmSigningPolicyAddressRegistration(initialDelegationAddresses[2]);
+
         _registerAddressesAndNodes();
 
         uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
@@ -407,7 +423,18 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
 
-        // voter 3 registered (confirmed) its addresses after vp block for reward epoch 1
+        // voter2 tries to register again, this time with its delegation address (initialDelegationAddresses[2])
+        // for its delegation address it did not register delegation address
+        // -> it defaults to initialDelegationAddresses[2] -> should revert
+        bytes32 messageHash = keccak256(abi.encode(1, initialDelegationAddresses[2]));
+        signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+        (v, r, s) = vm.sign(fakeSubmitSignatureAddressPK, signedMessageHash);
+        signature = IVoterRegistry.Signature(v, r, s);
+        vm.expectRevert("delegation address not set");
+        voterRegistry.registerVoter(initialDelegationAddresses[2], signature);
+
+        // voter 3 registered (confirmed) its delegation address after vp block for reward epoch 1
+        // -> should not be able to register
         signature = _createSigningPolicyAddressSignature(3, 1);
         vm.expectRevert("delegation address not set");
         voterRegistry.registerVoter(initialVoters[3], signature);
@@ -657,13 +684,12 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
 
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(newSigningPolicyHash);
-        // voters needs to signing with their identity address, because they registered their signing policy
-        // addresses after initialization block
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[0], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         vm.expectRevert("invalid signing policy address");
         flareSystemsManager.signNewSigningPolicy(1, newSigningPolicyHash, signatureFSM);
 
+        // voter signs with its identity address -> should revert
         (v, r, s) = vm.sign(initialVotersPK[0], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         vm.expectRevert("invalid signing policy address");

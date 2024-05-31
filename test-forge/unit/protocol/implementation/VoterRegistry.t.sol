@@ -798,6 +798,119 @@ contract VoterRegistryTest is Test {
         voterRegistry.registerVoter(initialVoters[0], signature);
     }
 
+    function testRegisterVoterRevertSubmitAddressNotSet() public {
+        IVoterRegistry.Signature memory signature;
+        _mockGetCurrentEpochId(0);
+        _mockGetDelegationAddressOfAt();
+        // submit address is not yet registered, i.e. it is set as identity address
+        IEntityManager.VoterAddresses memory addresses0 = IEntityManager.VoterAddresses(
+            initialVoters[0],
+            initialSubmitSignaturesAddresses[0],
+            initialSigningPolicyAddresses[0]
+        );
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(IEntityManager.getVoterAddressesAt.selector, initialVoters[0]),
+            abi.encode(addresses0)
+        );
+        _mockGetPublicKeyOfAt();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVoterWeights();
+        _mockSigningPolicyMinNumberOfVoters(3);
+        vm.prank(governance);
+        voterRegistry.setMaxVoters(3);
+        vm.prank(mockFlareSystemsManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
+
+        signature = _createSigningPolicyAddressSignature(0, 1);
+        vm.expectRevert("submit address not set");
+        voterRegistry.registerVoter(initialVoters[0], signature);
+    }
+
+    function testRegisterVoterRevertSubmitSignatureAddressNotSet() public {
+        IVoterRegistry.Signature memory signature;
+        _mockGetCurrentEpochId(0);
+        _mockGetDelegationAddressOfAt();
+        // submit signatures address is not yet registered, i.e. it is set as identity address
+        IEntityManager.VoterAddresses memory addresses0 = IEntityManager.VoterAddresses(
+            initialSubmitAddresses[0],
+            initialVoters[0],
+            initialSigningPolicyAddresses[0]
+        );
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(IEntityManager.getVoterAddressesAt.selector, initialVoters[0]),
+            abi.encode(addresses0)
+        );
+        _mockGetPublicKeyOfAt();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVoterWeights();
+        _mockSigningPolicyMinNumberOfVoters(3);
+        vm.prank(governance);
+        voterRegistry.setMaxVoters(3);
+        vm.prank(mockFlareSystemsManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
+
+        signature = _createSigningPolicyAddressSignature(0, 1);
+        vm.expectRevert("submit signatures address not set");
+        voterRegistry.registerVoter(initialVoters[0], signature);
+    }
+
+    function testRegisterVoterRevertSigningPolicyAddressNotSet() public {
+        IVoterRegistry.Signature memory signature;
+        _mockGetCurrentEpochId(0);
+        _mockGetVoterAddressesAt();
+        _mockGetDelegationAddressOfAt();
+        // signing policy address is not yet registered, i.e. it is set as identity address
+        IEntityManager.VoterAddresses memory addresses0 = IEntityManager.VoterAddresses(
+            initialSubmitAddresses[0],
+            initialSubmitSignaturesAddresses[0],
+            initialVoters[0]
+        );
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(IEntityManager.getVoterAddressesAt.selector, initialVoters[0]),
+            abi.encode(addresses0)
+        );
+        _mockGetPublicKeyOfAt();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVoterWeights();
+        _mockSigningPolicyMinNumberOfVoters(3);
+        vm.prank(governance);
+        voterRegistry.setMaxVoters(3);
+        vm.prank(mockFlareSystemsManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
+
+        signature = _createSigningPolicyAddressSignature(0, 1);
+        vm.expectRevert("signing policy address not set");
+        voterRegistry.registerVoter(initialVoters[0], signature);
+    }
+
+    function testRegisterVoterRevertDelegationAddressNotSet() public {
+        IVoterRegistry.Signature memory signature;
+        _mockGetCurrentEpochId(0);
+        _mockGetDelegationAddressOfAt();
+        // delegation address is not yet registered, i.e. it is set as identity address
+         vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(IEntityManager.getDelegationAddressOfAt.selector, initialVoters[0]),
+            abi.encode(initialVoters[0])
+        );
+        _mockGetVoterAddressesAt();
+        _mockGetPublicKeyOfAt();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVoterWeights();
+        _mockSigningPolicyMinNumberOfVoters(3);
+        vm.prank(governance);
+        voterRegistry.setMaxVoters(3);
+        vm.prank(mockFlareSystemsManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
+
+        signature = _createSigningPolicyAddressSignature(0, 1);
+        vm.expectRevert("delegation address not set");
+        voterRegistry.registerVoter(initialVoters[0], signature);
+    }
+
     function testGetPublicKeyAndNormalisedWeight() public {
         vm.expectRevert("reward epoch id not supported");
         voterRegistry.getPublicKeyAndNormalisedWeight(1, initialSigningPolicyAddresses[0]);
