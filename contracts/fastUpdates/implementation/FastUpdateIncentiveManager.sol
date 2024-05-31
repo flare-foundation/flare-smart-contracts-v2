@@ -96,7 +96,11 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
         uint24 currentRewardEpochId = rewardManager.getCurrentRewardEpochId();
         rewardManager.receiveRewards{value: FPA.Fee.unwrap(dc)} (currentRewardEpochId, false);
         emit IncentiveOffered(currentRewardEpochId, dr, de, dc);
-        payable(msg.sender).transfer(msg.value - FPA.Fee.unwrap(dc));
+        /* solhint-disable avoid-low-level-calls */
+        //slither-disable-next-line arbitrary-send-eth
+        (bool success, ) = msg.sender.call{value: msg.value - FPA.Fee.unwrap(dc)}("");
+        /* solhint-enable avoid-low-level-calls */
+        require(success, "Transfer failed");
     }
 
     /**
@@ -270,25 +274,25 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
 
         // Apply the range limit to the range increase. If the range increase is greater than the limit,
         // adjust the contribution to reflect the reduced range increase.
-        FPA.Range finalRange = FPA.add(range, _rangeIncrease);
-        if (FPA.lessThan(_offer.rangeLimit, finalRange)) {
-            finalRange = _offer.rangeLimit;
-            FPA.Range newRangeIncrease = FPA.lessThan(finalRange, range) ? FPA.zeroR : FPA.sub(finalRange, range);
-            _contribution = FPA.mul(FPA.frac(newRangeIncrease, _rangeIncrease), _contribution);
-            _rangeIncrease = newRangeIncrease;
-        }
-        if (FPA.lessThan(rangeIncreaseLimit, finalRange)) {
-            finalRange = rangeIncreaseLimit;
-            FPA.Range newRangeIncrease = FPA.lessThan(finalRange, range) ? FPA.zeroR : FPA.sub(finalRange, range);
-            _contribution = FPA.mul(FPA.frac(newRangeIncrease, _rangeIncrease), _contribution);
-            _rangeIncrease = newRangeIncrease;
-        }
+        FPA.Fee rangeCost = FPA.zeroF;
+        if (FPA.lessThan(FPA.zeroR, _rangeIncrease)) {
+            FPA.Range rangeLimit = FPA.lessThan(_offer.rangeLimit, rangeIncreaseLimit) ?
+                _offer.rangeLimit : rangeIncreaseLimit;
+            if (FPA.lessThan(rangeLimit, FPA.add(range, _rangeIncrease))) {
+                FPA.Range newRangeIncrease = FPA.lessThan(rangeLimit, range) ? FPA.zeroR : FPA.sub(rangeLimit, range);
+                _contribution = FPA.mul(FPA.frac(newRangeIncrease, _rangeIncrease), _contribution);
+                _rangeIncrease = newRangeIncrease;
+            }
 
-        // Calculate the cost of the range increase and apply it if the contribution is sufficient.
-        FPA.Fee rangeCost = FPA.mul(rangeIncreasePrice, _rangeIncrease);
-        require(!FPA.lessThan(_contribution, rangeCost), "Insufficient contribution to pay for range increase");
+            // Calculate the cost of the range increase and apply it if the contribution is sufficient.
+            rangeCost = FPA.mul(rangeIncreasePrice, _rangeIncrease);
+            require(!FPA.lessThan(_contribution, rangeCost), "Insufficient contribution to pay for range increase");
 
-        _increaseRange(_rangeIncrease);
+            _increaseRange(_rangeIncrease);
+        } else if (FPA.lessThan(FPA.zeroR, _offer.rangeLimit) && FPA.lessThan(_offer.rangeLimit, range)) {
+            _contribution = FPA.zeroF;
+            _rangeIncrease = FPA.zeroR;
+        }
 
         // Remaining contribution is used for sample size increase.
         FPA.Fee sampleSizeIncreasePayment = FPA.sub(_contribution, rangeCost);
