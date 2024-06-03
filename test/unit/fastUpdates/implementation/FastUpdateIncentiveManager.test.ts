@@ -21,7 +21,7 @@ const RANGE_INCREASE_PRICE = BigInt(10) ** BigInt(24);
 const SAMPLE_SIZE_INCREASE_PRICE = 1425;
 const DURATION = 8
 
-contract.only(
+contract(
     `FastUpdateIncentiveManager.sol; ${getTestFile(__filename)}`,
     accounts => {
         let fastUpdateIncentiveManager: FastUpdateIncentiveManagerInstance
