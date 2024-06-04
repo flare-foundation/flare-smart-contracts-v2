@@ -159,6 +159,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     const CLAIM_SETUP_MANAGER = accounts[18];
     const INFLATION = accounts[19];
 
+    const INITIAL_NUMBER_OF_VOTERS = 100;
+
     before(async () => {
         pChainStakeMirror = await PChainStakeMirror.new(
             accounts[0],
@@ -197,15 +199,22 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         stakeIds = [web3.utils.keccak256("stake1"), web3.utils.keccak256("stake2"), web3.utils.keccak256("stake3"), web3.utils.keccak256("stake4")];
         now = await time.latest();
 
+        const initialThreshold = 65500 / 2;
+        const initialVoters = accounts.slice(0, INITIAL_NUMBER_OF_VOTERS);
+        const initialSigningPolicyVoters = accounts.slice(INITIAL_NUMBER_OF_VOTERS, INITIAL_NUMBER_OF_VOTERS + INITIAL_NUMBER_OF_VOTERS);
+        const initialWeights = Array(100).fill(655);
+
         entityManager = await EntityManager.new(governanceSettings.address, accounts[0], 4);
         await entityManager.setNodePossessionVerifier(verifierMock.address); // mock verifier
 
-        const initialThreshold = 65500 / 2;
-        const initialVoters = accounts.slice(0, 100);
-        const initialWeights = Array(100).fill(655);
+        for (let i = 0; i < INITIAL_NUMBER_OF_VOTERS; i++) {
+            await entityManager.proposeSigningPolicyAddress(accounts[INITIAL_NUMBER_OF_VOTERS + i], { from: initialVoters[i] });
+            await entityManager.confirmSigningPolicyAddressRegistration(initialVoters[i], { from: accounts[INITIAL_NUMBER_OF_VOTERS + i] });
+        }
 
+        await time.advanceBlock();
 
-        voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, initialVoters, initialWeights);
+        voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, (await time.latestBlock()).toNumber() - 1, 0, initialVoters, initialWeights);
         flareSystemsCalculator = await FlareSystemsCalculator.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2500, 20 * 60, 600, 600);
 
         initialSigningPolicy = {
@@ -213,7 +222,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             startVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
             threshold: initialThreshold,
             seed: web3.utils.keccak256("123"),
-            voters: initialVoters,
+            voters: initialSigningPolicyVoters,
             weights: initialWeights
         };
 
@@ -477,9 +486,16 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         }
     });
 
+    it("Should register and confirm delegation addresses", async () => {
+        for (let i = 0; i < 4; i++) {
+            await entityManager.proposeDelegationAddress(accounts[50 + i], { from: registeredCAddresses[i] });
+            await entityManager.confirmDelegationAddressRegistration(registeredCAddresses[i], { from: accounts[50 + i] });
+        }
+    });
+
     it("Should wrap some funds", async () => {
         for (let i = 0; i < 4; i++) {
-            await wNat.deposit({ value: weightsGwei[i] * GWEI, from: registeredCAddresses[i] });
+            await wNat.deposit({ value: weightsGwei[i] * GWEI, from: accounts[50 + i] });
         }
     });
 
@@ -522,7 +538,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         const messageData: IProtocolMessageMerkleRoot = { protocolId: FTSO_PROTOCOL_ID, votingRoundId: votingRoundId, isSecureRandom: quality, merkleRoot: RANDOM_ROOT };
         const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
-        const signatures = await generateSignatures(privateKeys.map(x => x.privateKey), messageHash, 51);
+        const signatures = await generateSignatures(privateKeys.slice(INITIAL_NUMBER_OF_VOTERS, INITIAL_NUMBER_OF_VOTERS + 51).map(x => x.privateKey), messageHash, 51);
 
         const relayMessage = {
             signingPolicy: initialSigningPolicy,
@@ -589,9 +605,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         let signatures = (51).toString(16).padStart(4, "0");
         for (let i = 0; i < 50; i++) {
-            const signature = web3.eth.accounts.sign(newSigningPolicyHash, privateKeys[i].privateKey);
+            const signature = web3.eth.accounts.sign(newSigningPolicyHash, privateKeys[INITIAL_NUMBER_OF_VOTERS + i].privateKey);
             expectEvent(await flareSystemsManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature), "SigningPolicySigned",
-                { rewardEpochId: toBN(rewardEpochId), signingPolicyAddress: accounts[i], voter: accounts[i], thresholdReached: false });
+                { rewardEpochId: toBN(rewardEpochId), signingPolicyAddress: accounts[INITIAL_NUMBER_OF_VOTERS + i], voter: accounts[i], thresholdReached: false });
             signatures += ECDSASignatureWithIndex.encode({
                 v: parseInt(signature.v.slice(2), 16),
                 r: signature.r,
@@ -599,9 +615,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
                 index: i
             }).slice(2);
         }
-        const signature = web3.eth.accounts.sign(newSigningPolicyHash, privateKeys[50].privateKey);
+        const signature = web3.eth.accounts.sign(newSigningPolicyHash, privateKeys[INITIAL_NUMBER_OF_VOTERS + 50].privateKey);
         expectEvent(await flareSystemsManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature), "SigningPolicySigned",
-            { rewardEpochId: toBN(rewardEpochId), signingPolicyAddress: accounts[50], voter: accounts[50], thresholdReached: true });
+            { rewardEpochId: toBN(rewardEpochId), signingPolicyAddress: accounts[INITIAL_NUMBER_OF_VOTERS + 50], voter: accounts[50], thresholdReached: true });
         signatures += ECDSASignatureWithIndex.encode({
             v: parseInt(signature.v.slice(2), 16),
             r: signature.r,
@@ -872,7 +888,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         rewardClaim = {
             rewardEpochId: 1,
-            beneficiary: registeredCAddresses[0],
+            beneficiary: accounts[50],
             amount: 500,
             claimType: 2 //IRewardManager.ClaimType.WNAT
         }
@@ -901,16 +917,16 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should claim the reward for reward epoch 1", async () => {
         const balanceBefore = await wNat.balanceOf(accounts[200]);
-        const tx = await rewardManager.claim(registeredCAddresses[0],
+        const tx = await rewardManager.claim(accounts[50],
             accounts[200],
             1,
             true,
             [{body: rewardClaim, merkleProof: []}],
-            { from: registeredCAddresses[0] }
+            { from: accounts[50] }
         );
         const balanceAfter = await wNat.balanceOf(accounts[200]);
 
-        expectEvent(tx, "RewardClaimed", { beneficiary: registeredCAddresses[0], rewardOwner:registeredCAddresses[0], recipient: accounts[200], rewardEpochId: toBN(1), claimType: toBN(2), amount: toBN(500)});
+        expectEvent(tx, "RewardClaimed", { beneficiary: accounts[50], rewardOwner: accounts[50], recipient: accounts[200], rewardEpochId: toBN(1), claimType: toBN(2), amount: toBN(500)});
         expect(balanceAfter.sub(balanceBefore).toNumber()).to.be.equal(500);
     });
 

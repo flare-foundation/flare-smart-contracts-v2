@@ -242,6 +242,8 @@ export async function deployContracts(
     ADDRESS_UPDATER_ADDR,
     100,
     0,
+    0,
+    0,
     initialVoters,
     initialWeights
   );

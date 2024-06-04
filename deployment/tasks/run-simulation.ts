@@ -439,6 +439,7 @@ async function registerAccounts(
     const stakeId = web3.utils.keccak256("stake" + i);
 
     const identityAccount = accounts[accountOffset++];
+    const delegationAccount = accounts[accountOffset++];
     const submitAccount = accounts[accountOffset++];
     const signingAccount = accounts[accountOffset++];
     const policySigningAccount = accounts[accountOffset++];
@@ -464,9 +465,13 @@ async function registerAccounts(
     );
     await c.pChainStakeMirror.mirrorStake(data, []);
 
-    await c.wNat.deposit({ value: weightGwei * GWEI, from: identityAccount.address });
+    await c.wNat.deposit({ value: weightGwei * GWEI, from: delegationAccount.address });
 
     await c.entityManager.registerNodeId(nodeId, "0x", "0x", { from: identityAccount.address });
+    await c.entityManager.proposeDelegationAddress(delegationAccount.address, { from: identityAccount.address });
+    await c.entityManager.confirmDelegationAddressRegistration(identityAccount.address, {
+      from: delegationAccount.address,
+    });
     await c.entityManager.proposeSubmitAddress(submitAccount.address, { from: identityAccount.address });
     await c.entityManager.confirmSubmitAddressRegistration(identityAccount.address, {
       from: submitAccount.address,
@@ -797,21 +802,6 @@ async function defineInitialSigningPolicy(
   } else {
     const arg = logs3[0].args;
     signingPolicies.set(1, extractSigningPolicy(arg));
-  }
-  const rewardEpochId = 1;
-  const newSigningPolicyHash = await c.relay.toSigningPolicyHash(rewardEpochId);
-
-  const signature = web3.eth.accounts.sign(newSigningPolicyHash, governanceAccount.privateKey);
-  const resp4 = await c.flareSystemsManager.signNewSigningPolicy(rewardEpochId, newSigningPolicyHash, signature, {
-    from: governanceAccount.address,
-  });
-
-  if (resp4.logs[0]?.event != "SigningPolicySigned") {
-    throw new Error("Expected signing policy to be signed");
-  }
-  const args = resp4.logs[0].args as any;
-  if (!args.thresholdReached) {
-    throw new Error("Threshold not reached");
   }
 }
 
