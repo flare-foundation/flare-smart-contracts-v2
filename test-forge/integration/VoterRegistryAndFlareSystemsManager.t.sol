@@ -43,7 +43,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     address[] private initialVoters;
     uint256[] private initialVotersPK;
     uint256[] private initialVotersSigningPolicyPk; // private keys
-    uint16[] private initialNormWeights;
+    uint256[] private initialWeights;
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
     address[] private initialDelegationAddresses;
@@ -125,8 +125,10 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             addressUpdater,
             4,
             0,
+            0,
+            0,
             initialVoters,
-            initialNormWeights
+            initialWeights
         );
 
         // entity manager contract
@@ -346,6 +348,22 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
     // voter3 confirms its addresses after vp block
     function testRegisterVoters2() public {
+
+        // voter2 registers addresses for its delegation address
+        (address fakeSigningPolicyAddr, uint256 fakeSubmitSignatureAddressPK) =
+            makeAddrAndKey("fakeSigningPolicyAddr");
+        vm.startPrank(initialDelegationAddresses[2]);
+        entityManager.proposeSubmitAddress(makeAddr("fakeSubmitAddress2"));
+        entityManager.proposeSubmitSignaturesAddress(makeAddr("fakeSubmitSignaturesAddress2"));
+        entityManager.proposeSigningPolicyAddress(fakeSigningPolicyAddr);
+        vm.stopPrank();
+        vm.prank(makeAddr("fakeSubmitAddress2"));
+        entityManager.confirmSubmitAddressRegistration(initialDelegationAddresses[2]);
+        vm.prank(makeAddr("fakeSubmitSignaturesAddress2"));
+        entityManager.confirmSubmitSignaturesAddressRegistration(initialDelegationAddresses[2]);
+        vm.prank(fakeSigningPolicyAddr);
+        entityManager.confirmSigningPolicyAddressRegistration(initialDelegationAddresses[2]);
+
         _registerAddressesAndNodes();
 
         uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
@@ -389,7 +407,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         calculator.updateContractAddresses(contractNameHashes, contractAddresses);
         assertEq(address(calculator.pChainStakeMirror()), mockPChainStakeMirror);
 
-        for (uint256 i = 0; i < initialVoters.length; i++) {
+        for (uint256 i = 0; i < initialVoters.length - 1; i++) {
             signature = _createSigningPolicyAddressSignature(i, 1);
             vm.expectEmit();
             emit VoterRegistered(
@@ -405,37 +423,53 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
 
+        // voter2 tries to register again, this time with its delegation address (initialDelegationAddresses[2])
+        // for its delegation address it did not register delegation address
+        // -> it defaults to initialDelegationAddresses[2] -> should revert
+        bytes32 messageHash = keccak256(abi.encode(1, initialDelegationAddresses[2]));
+        signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+        (v, r, s) = vm.sign(fakeSubmitSignatureAddressPK, signedMessageHash);
+        signature = IVoterRegistry.Signature(v, r, s);
+        vm.expectRevert("delegation address not set");
+        voterRegistry.registerVoter(initialDelegationAddresses[2], signature);
+
+        // voter 3 registered (confirmed) its delegation address after vp block for reward epoch 1
+        // -> should not be able to register
+        signature = _createSigningPolicyAddressSignature(3, 1);
+        vm.expectRevert("delegation address not set");
+        voterRegistry.registerVoter(initialVoters[3], signature);
+
         // create signing policy snapshot
         _createSigningPolicySnapshot();
 
         address[] memory addresses = voterRegistry.getRegisteredVoters(1);
         assertEq(addresses.length, 3);
-        assertEq(addresses[0], initialVoters[3]); // voter3 kicked out voter0
+        assertEq(addresses[0], initialVoters[0]);
         assertEq(addresses[1], initialVoters[1]);
         assertEq(addresses[2], initialVoters[2]);
 
         // delegations address voter voter3 is registered too late
         addresses = voterRegistry.getRegisteredDelegationAddresses(1);
         assertEq(addresses.length, 3);
-        assertEq(addresses[0], initialVoters[3]);
+        assertEq(addresses[0], initialDelegationAddresses[0]);
         assertEq(addresses[1], initialDelegationAddresses[1]);
         assertEq(addresses[2], initialDelegationAddresses[2]);
 
         addresses = voterRegistry.getRegisteredSubmitAddresses(1);
         assertEq(addresses.length, 3);
-        assertEq(addresses[0], initialSubmitAddresses[3]);
+        assertEq(addresses[0], initialSubmitAddresses[0]);
         assertEq(addresses[1], initialSubmitAddresses[1]);
         assertEq(addresses[2], initialSubmitAddresses[2]);
 
         addresses = voterRegistry.getRegisteredSubmitSignaturesAddresses(1);
         assertEq(addresses.length, 3);
-        assertEq(addresses[0], initialSubmitSignaturesAddresses[3]);
+        assertEq(addresses[0], initialSubmitSignaturesAddresses[0]);
         assertEq(addresses[1], initialSubmitSignaturesAddresses[1]);
         assertEq(addresses[2], initialSubmitSignaturesAddresses[2]);
 
         addresses = voterRegistry.getRegisteredSigningPolicyAddresses(1);
         assertEq(addresses.length, 3);
-        assertEq(addresses[0], initialSigningPolicyAddresses[3]);
+        assertEq(addresses[0], initialSigningPolicyAddresses[0]);
         assertEq(addresses[1], initialSigningPolicyAddresses[1]);
         assertEq(addresses[2], initialSigningPolicyAddresses[2]);
     }
@@ -567,7 +601,9 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
 
-        // register voter3; its signing policy address is the same as its voter address
+        // register voter3; did not register its addresses before new signing policy initialization start block number
+        // therefore its signing policy address is the same as its voter address
+        // should not be able to register
         bytes32 messageHash = keccak256(abi.encode(1, initialVoters[3]));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersPK[3], signedMessageHash);
@@ -587,26 +623,16 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             ),
             abi.encode(voter3RegisteredPChainVPAtVpBlock)
         );
-        vm.expectEmit();
-         emit VoterRegistered(
-            initialVoters[3],
-            uint24(1),
-            initialVoters[3],
-            initialVoters[3],
-            initialVoters[3],
-            initialPublicKeyParts1[3],
-            initialPublicKeyParts2[3],
-            initialVotersRegistrationWeight[3]
-        );
+
+        vm.expectRevert("signing policy address not set");
         voterRegistry.registerVoter(initialVoters[3], signature);
 
         assertEq(voterRegistry.isVoterRegistered(initialVoters[0], 1), false);
 
         address[] memory addresses = voterRegistry.getRegisteredVoters(1);
-        assertEq(addresses.length, 3);
+        assertEq(addresses.length, 2);
         assertEq(addresses[0], initialVoters[1]);
         assertEq(addresses[1], initialVoters[2]);
-        assertEq(addresses[2], initialVoters[3]);
 
         // create signing policy snapshot
         _createSigningPolicySnapshot();
@@ -615,28 +641,24 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         voterRegistry.getPublicKeyAndNormalisedWeight(1, initialSigningPolicyAddresses[0]);
 
         addresses = voterRegistry.getRegisteredDelegationAddresses(1);
-        assertEq(addresses.length, 3);
+        assertEq(addresses.length, 2);
         assertEq(addresses[0], initialDelegationAddresses[1]);
         assertEq(addresses[1], initialDelegationAddresses[2]);
-        assertEq(addresses[2], initialVoters[3]);
 
         addresses = voterRegistry.getRegisteredSubmitAddresses(1);
-        assertEq(addresses.length, 3);
+        assertEq(addresses.length, 2);
         assertEq(addresses[0], initialSubmitAddresses[1]);
         assertEq(addresses[1], initialSubmitAddresses[2]);
-        assertEq(addresses[2], initialVoters[3]);
 
         addresses = voterRegistry.getRegisteredSubmitSignaturesAddresses(1);
-        assertEq(addresses.length, 3);
+        assertEq(addresses.length, 2);
         assertEq(addresses[0], initialSubmitSignaturesAddresses[1]);
         assertEq(addresses[1], initialSubmitSignaturesAddresses[2]);
-        assertEq(addresses[2], initialVoters[3]);
 
         addresses = voterRegistry.getRegisteredSigningPolicyAddresses(1);
-        assertEq(addresses.length, 3);
+        assertEq(addresses.length, 2);
         assertEq(addresses[0], initialSigningPolicyAddresses[1]);
         assertEq(addresses[1], initialSigningPolicyAddresses[2]);
-        assertEq(addresses[2], initialVoters[3]);
 
         // move to the reward epoch 1
         newSigningPolicyHash = keccak256("signingPolicyHash1");
@@ -655,28 +677,22 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         assertEq(addresses[1], initialVoters[1]);
         assertEq(addresses[2], initialVoters[2]);
         assertEq(addresses[3], initialVoters[3]);
-        vm.expectRevert("voter not registered");
+        // voter0 did not register its signing policy address
+        // before new signing policy initialization start block number
+        vm.expectRevert("invalid signing policy address");
         voterRegistry.getVoterWithNormalisedWeight(0, initialSigningPolicyAddresses[0]);
 
 
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(newSigningPolicyHash);
-        // voters needs to signing with their identity address, because they registered their signing policy
-        // addresses after initialization block
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[0], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
-        vm.expectRevert("voter not registered");
+        vm.expectRevert("invalid signing policy address");
         flareSystemsManager.signNewSigningPolicy(1, newSigningPolicyHash, signatureFSM);
 
+        // voter signs with its identity address -> should revert
         (v, r, s) = vm.sign(initialVotersPK[0], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
-        vm.expectEmit();
-        emit SigningPolicySigned(
-            1,
-            initialVoters[0],
-            initialVoters[0],
-            uint64(block.timestamp),
-            true // initial threshold is 10000 so it is reached with first vote
-        );
+        vm.expectRevert("invalid signing policy address");
         flareSystemsManager.signNewSigningPolicy(1, newSigningPolicyHash, signatureFSM);
 
 
@@ -864,28 +880,15 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         );
         flareSystemsManager.signUptimeVote(1, uptimeHash, signatureFSM);
 
-        // voter3 needs to sign with its identity address, because it registered its signing policy
-        // after initialization block for reward epoch 1
+        // voter3 can't sign because its signing policy address was not registered
+        // before new signing policy initialization start block number
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[3], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
-        vm.expectRevert("voter not registered");
-        flareSystemsManager.signUptimeVote(1, uptimeHash, signatureFSM);
-        (v, r, s) = vm.sign(initialVotersPK[3], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
-        vm.expectEmit();
-        emit UptimeVoteSigned(
-            1,
-            initialVoters[3],
-            initialVoters[3],
-            uptimeHash,
-            uint64(block.timestamp),
-            true
-        );
+        vm.expectRevert("invalid signing policy address");
         flareSystemsManager.signUptimeVote(1, uptimeHash, signatureFSM);
 
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
-        vm.expectRevert("uptime vote hash already signed");
         flareSystemsManager.signUptimeVote(1, uptimeHash, signatureFSM);
 
         // can't yet sign rewards, because new signing policy (for epoch 2) is not yet signed
@@ -904,7 +907,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         newSigningPolicyHash = keccak256("signingPolicy2");
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(newSigningPolicyHash);
 
-        // voter1 signs
+        // voter2 signs
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         vm.expectEmit();
@@ -913,35 +916,21 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             initialSigningPolicyAddresses[2],
             initialVoters[2],
             uint64(block.timestamp),
-            false
-        );
-        flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signatureFSM);
-
-        // voter3 needs to sign with its identity address, because it registered its signing policy
-        (v, r, s) = vm.sign(initialVotersPK[3], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
-        vm.expectEmit();
-        emit SigningPolicySigned(
-            2,
-            initialVoters[3],
-            initialVoters[3],
-            uint64(block.timestamp),
             true
         );
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signatureFSM);
 
         //// sign rewards for reward epoch 1
+        assertEq(flareSystemsManager.rewardsHash(1), bytes32(0));
         messageHash = keccak256(abi.encode(1, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         flareSystemsManager.signRewards(1, noOfWeightBasedClaims, rewardsHash, signatureFSM);
-        assertEq(flareSystemsManager.rewardsHash(1), bytes32(0));
-
-        (v, r, s) = vm.sign(initialVotersSigningPolicyPk[1], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
-        flareSystemsManager.signRewards(1, noOfWeightBasedClaims, rewardsHash, signatureFSM);
         assertEq(flareSystemsManager.rewardsHash(1), rewardsHash);
+
+        vm.expectRevert("rewards hash already signed");
+        flareSystemsManager.signRewards(1, noOfWeightBasedClaims, rewardsHash, signatureFSM);
 
         (v, r, s) = vm.sign(initialVotersPK[3], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
@@ -1291,7 +1280,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         // voter1 changed its signing policy address
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[1], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
-        vm.expectRevert("voter not registered");
+        vm.expectRevert("invalid signing policy address");
         flareSystemsManager.signNewSigningPolicy(5, newSigningPolicyHash, signatureFSM);
 
         (v, r, s) = vm.sign(newSigningPolicyPK, signedMessageHash);
@@ -1409,7 +1398,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 string.concat("initialVoter", vm.toString(i)));
             initialVoters.push(addr);
             initialVotersPK.push(pk);
-            initialNormWeights.push(uint16(UINT16_MAX / _num));
+            initialWeights.push(uint16(UINT16_MAX / _num));
 
             initialDelegationAddresses.push(makeAddr(
                 string.concat("delegationAddress", vm.toString(i))));

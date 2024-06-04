@@ -108,6 +108,8 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     deployerAccount.address, // tmp address updater
     parameters.maxVotersPerRewardEpoch,
     initialRewardEpochId,
+    0,
+    0,
     parameters.initialVoters,
     parameters.initialNormalisedWeights
   );
