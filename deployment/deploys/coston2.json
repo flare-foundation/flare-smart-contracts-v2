@@ -73,5 +73,20 @@
     "name": "CleanupBlockNumberManager",
     "contractName": "CleanupBlockNumberManager.sol",
     "address": "0x7236885969046A915E072FeD3bfA4dC869422ab3"
+  },
+  {
+    "name": "FastUpdateIncentiveManager",
+    "contractName": "FastUpdateIncentiveManager.sol",
+    "address": "0x003e9bD18f73e0B25BED0DC8382Bde6aa999525c"
+  },
+  {
+    "name": "FastUpdater",
+    "contractName": "FastUpdater.sol",
+    "address": "0x58fb598EC6DB6901aA6F26a9A2087E9274128E59"
+  },
+  {
+    "name": "FastUpdatesConfiguration",
+    "contractName": "FastUpdatesConfiguration.sol",
+    "address": "0xE7d1D5D58cAE01a82b84989A931999Cb34A86B14"
   }
 ]
