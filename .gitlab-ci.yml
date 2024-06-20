@@ -163,6 +163,7 @@ test-linter-forge:
 test-unit-forge:
   extends: .test-node-sc
   timeout: 4 minutes
+  tags: [ flarenetwork-md ]
   image: ghcr.io/foundry-rs/foundry
   before_script:
   - forge install
