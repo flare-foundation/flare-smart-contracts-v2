@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../fastUpdates/lib/Bn256.sol";
-import { SortitionCredential } from "../fastUpdates/lib/Sortition.sol";
+
+import { SortitionCredential } from "./ISortition.sol";
 
 /**
  * Fast updater interface.
