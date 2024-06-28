@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../fastUpdates/lib/FixedPointArithmetic.sol" as FPA;
+import "./IFixedPointArithmetic.sol" as FPA;
 import "./IFastUpdatesConfiguration.sol";
 import "./IIncreaseManager.sol";
 

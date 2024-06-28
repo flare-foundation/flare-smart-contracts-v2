@@ -10,6 +10,7 @@ import "../../userInterfaces/IFastUpdatesConfiguration.sol";
 import "../../protocol/interface/IIVoterRegistry.sol";
 import "../interface/IIFastUpdater.sol";
 import "../lib/Bn256.sol";
+import "../lib/FixedPointArithmetic.sol" as FPA;
 import "../interface/IIFastUpdateIncentiveManager.sol";
 import { SortitionState, verifySortitionCredential, verifySignature } from "../lib/Sortition.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
