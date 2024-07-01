@@ -942,7 +942,7 @@ contract Relay is IIRelay {
                 mstore(add(mload(0x40), M_3), "SigningPolicyRelayed(uint256)")
                 log2(mload(0x40), 0, keccak256(add(mload(0x40), M_3), 29), newSigningPolicyRewardEpochId)
             }
-        // END
+
             // Assumptions here:
             // - memPtr (slot M_1) contains either protocol message merkle root hash or new signing policy hash
             // - signatureStart points to the first signature in calldata
