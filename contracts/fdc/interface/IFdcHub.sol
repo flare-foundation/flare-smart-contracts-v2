@@ -7,8 +7,12 @@ pragma solidity >=0.7.6 <0.9;
  * IFdcHub interface.
  */
 interface IFdcHub  {
+    // Event emitted when an attestation request is made.
     event AttestationRequest(bytes data, uint256 fee);
     // TODO: @Luka Iztok woudl prefer to also emit round id 
+
+    // Event emitted when a type and source price is set.
+    event TypeAndSourcePriceSet(bytes32 indexed _type, bytes32 indexed _source, uint256 price);
 
     /**
      * Method to request an attestation.
