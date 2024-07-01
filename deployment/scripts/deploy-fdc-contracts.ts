@@ -15,7 +15,8 @@ import { spewNewContractInfo } from "./deploy-utils";
 
 export async function deployFdcContracts(
   hre: HardhatRuntimeEnvironment,
-  // oldContracts: Contracts,
+  oldContracts: Contracts, 
+  contracts: Contracts,
   parameters: ChainParameters,
   quiet: boolean = false
 ) {
@@ -28,7 +29,7 @@ export async function deployFdcContracts(
   // Define accounts in play for the deployment process
   let deployerAccount: any;
   // Define repository for created contracts
-  const contracts = new Contracts();
+  // const contracts = new Contracts();
 
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);

@@ -3,10 +3,10 @@ import "@nomiclabs/hardhat-truffle5";
 import "@nomiclabs/hardhat-web3";
 import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-verify";
-import 'solidity-coverage';
+import "solidity-coverage";
 
 import { HardhatUserConfig, task } from "hardhat/config";
-import { TASK_COMPILE } from 'hardhat/builtin-tasks/task-names';
+import { TASK_COMPILE } from "hardhat/builtin-tasks/task-names";
 import * as dotenv from "dotenv";
 import { runSimulation } from "./deployment/tasks/run-simulation";
 import { loadParameters, verifyParameters } from "./deployment/scripts/deploy-utils";
@@ -24,16 +24,18 @@ import { provideRandomNumberForInitialRewardEpoch } from "./deployment/tasks/pro
 import { redeployContracts } from "./deployment/scripts/redeploy-contracts";
 import { registerPublicKeys } from "./deployment/tasks/register-public-keys";
 import { deployFdcContracts } from "./deployment/scripts/deploy-fdc-contracts";
-const intercept = require('intercept-stdout');
+const intercept = require("intercept-stdout");
 
 dotenv.config();
 
-let fs = require('fs');
+let fs = require("fs");
 
 // Config
 let accounts = [
   // In Truffle, default account is always the first one.
-  ...(process.env.DEPLOYER_PRIVATE_KEY ? [{ privateKey: process.env.DEPLOYER_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
+  ...(process.env.DEPLOYER_PRIVATE_KEY
+    ? [{ privateKey: process.env.DEPLOYER_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
+    : []),
   // First 20 accounts with 10^14 NAT each
   // Addresses:
   //   0xc783df8a850f42e7f7e57013759c285caa701eb6
@@ -56,12 +58,24 @@ let accounts = [
   //   0x0a057a7172d0466aef80976d7e8c80647dfd35e3
   //   0x68dfc526037e9030c8f813d014919cc89e7d4d74
   //   0x26c43a1d431a4e5ee86cd55ed7ef9edf3641e901
-  ...JSON.parse(fs.readFileSync('deployment/test-1020-accounts.json')).slice(0, process.env.TENDERLY == 'true' ? 150 : 2000).filter((x: any) => x.privateKey != process.env.DEPLOYER_PRIVATE_KEY),
-  ...(process.env.GENESIS_GOVERNANCE_PRIVATE_KEY ? [{ privateKey: process.env.GENESIS_GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
-  ...(process.env.GOVERNANCE_PRIVATE_KEY ? [{ privateKey: process.env.GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
-  ...(process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY ? [{ privateKey: process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
-  ...(process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY ? [{ privateKey: process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
-  ...(process.env.INITIAL_VOTER_PRIVATE_KEY ? [{ privateKey: process.env.INITIAL_VOTER_PRIVATE_KEY, balance: "100000000000000000000000000000000" }] : []),
+  ...JSON.parse(fs.readFileSync("deployment/test-1020-accounts.json"))
+    .slice(0, process.env.TENDERLY == "true" ? 150 : 2000)
+    .filter((x: any) => x.privateKey != process.env.DEPLOYER_PRIVATE_KEY),
+  ...(process.env.GENESIS_GOVERNANCE_PRIVATE_KEY
+    ? [{ privateKey: process.env.GENESIS_GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
+    : []),
+  ...(process.env.GOVERNANCE_PRIVATE_KEY
+    ? [{ privateKey: process.env.GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
+    : []),
+  ...(process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY
+    ? [{ privateKey: process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
+    : []),
+  ...(process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY
+    ? [{ privateKey: process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
+    : []),
+  ...(process.env.INITIAL_VOTER_PRIVATE_KEY
+    ? [{ privateKey: process.env.INITIAL_VOTER_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
+    : []),
   ...(process.env.ENTITIES_FILE_PATH ? getEntityAccounts(process.env.ENTITIES_FILE_PATH) : []),
 ];
 
@@ -71,22 +85,22 @@ function getChainConfigParameters(chainConfig: string | undefined) {
 
     // inject private keys from .env, if they exist
     if (process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY) {
-      parameters.submissionDeployerPrivateKey = process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY
+      parameters.submissionDeployerPrivateKey = process.env.SUBMISSION_DEPLOYER_PRIVATE_KEY;
     }
     if (process.env.DEPLOYER_PRIVATE_KEY) {
-      parameters.deployerPrivateKey = process.env.DEPLOYER_PRIVATE_KEY
+      parameters.deployerPrivateKey = process.env.DEPLOYER_PRIVATE_KEY;
     }
     if (process.env.GENESIS_GOVERNANCE_PRIVATE_KEY) {
-      parameters.genesisGovernancePrivateKey = process.env.GENESIS_GOVERNANCE_PRIVATE_KEY
+      parameters.genesisGovernancePrivateKey = process.env.GENESIS_GOVERNANCE_PRIVATE_KEY;
     }
     if (process.env.GOVERNANCE_PRIVATE_KEY) {
-      parameters.governancePrivateKey = process.env.GOVERNANCE_PRIVATE_KEY
+      parameters.governancePrivateKey = process.env.GOVERNANCE_PRIVATE_KEY;
     }
     if (process.env.GOVERNANCE_PUBLIC_KEY) {
-      parameters.governancePublicKey = process.env.GOVERNANCE_PUBLIC_KEY
+      parameters.governancePublicKey = process.env.GOVERNANCE_PUBLIC_KEY;
     }
     if (process.env.GOVERNANCE_EXECUTOR_PUBLIC_KEY) {
-      parameters.governanceExecutorPublicKey = process.env.GOVERNANCE_EXECUTOR_PUBLIC_KEY
+      parameters.governanceExecutorPublicKey = process.env.GOVERNANCE_EXECUTOR_PUBLIC_KEY;
     }
     if (process.env.INITIAL_VOTER_PRIVATE_KEY) {
       parameters.initialVoters = [web3.eth.accounts.privateKeyToAccount(process.env.INITIAL_VOTER_PRIVATE_KEY).address];
@@ -100,22 +114,21 @@ function getChainConfigParameters(chainConfig: string | undefined) {
 
 function readContracts(network: string, filePath?: string): Contracts {
   const contracts = new Contracts();
-  contracts.deserializeFile(filePath || (`deployment/deploys/${network}.json`));
+  contracts.deserializeFile(filePath || `deployment/deploys/${network}.json`);
   return contracts;
 }
 
 // Tasks
 // Override solc compile task and filter out useless warnings
-task(TASK_COMPILE)
-  .setAction(async (args, hre, runSuper) => {
-    intercept((text: any) => {
-      if (/MockContract.sol/.test(text)) return '';
-      if (/SuicidalMock.sol/.test(text)) return '';
-      if (/FlareSmartContracts.sol/.test(text) ) return '';
-      return text;
-    });
-    await runSuper(args);
+task(TASK_COMPILE).setAction(async (args, hre, runSuper) => {
+  intercept((text: any) => {
+    if (/MockContract.sol/.test(text)) return "";
+    if (/SuicidalMock.sol/.test(text)) return "";
+    if (/FlareSmartContracts.sol/.test(text)) return "";
+    return text;
   });
+  await runSuper(args);
+});
 
 task("run-simulation", `Runs local simulation.`) // prettier-ignore
   .addOptionalParam("voters", "Number of voters to simulate", "4")
@@ -123,91 +136,95 @@ task("run-simulation", `Runs local simulation.`) // prettier-ignore
     await runSimulation(hre, accounts, +args.voters);
   });
 
-task("transfer-and-wrap-funds", `Transfer and wrap funds.`)
-  .setAction(async (args, hre, _runSuper) => {
-    if (!process.env.CHAIN_CONFIG) {
-      throw Error("CHAIN_CONFIG environment variable not set.")
-    }
-    if (!process.env.OLD_CONTRACTS_PATH) {
-      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
-    }
-    if (!process.env.ENTITIES_FILE_PATH) {
-      throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.")
-    }
-    if (!process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY) {
-      throw Error("ACCOUNT_WITH_FUNDS_PRIVATE_KEY environment variable not set.")
-    }
-    const network = process.env.CHAIN_CONFIG;
-    const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
-    const entities = readEntities(process.env.ENTITIES_FILE_PATH);
-    await transferAndWrapFunds(hre, process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, oldContracts, entities, args.quiet);
-  });
+task("transfer-and-wrap-funds", `Transfer and wrap funds.`).setAction(async (args, hre, _runSuper) => {
+  if (!process.env.CHAIN_CONFIG) {
+    throw Error("CHAIN_CONFIG environment variable not set.");
+  }
+  if (!process.env.OLD_CONTRACTS_PATH) {
+    throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
+  }
+  if (!process.env.ENTITIES_FILE_PATH) {
+    throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.");
+  }
+  if (!process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY) {
+    throw Error("ACCOUNT_WITH_FUNDS_PRIVATE_KEY environment variable not set.");
+  }
+  const network = process.env.CHAIN_CONFIG;
+  const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+  const entities = readEntities(process.env.ENTITIES_FILE_PATH);
+  await transferAndWrapFunds(hre, process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, oldContracts, entities, args.quiet);
+});
 
-task("register-entities", `Entities registration.`)
-  .setAction(async (args, hre, _runSuper) => {
-    if (!process.env.CHAIN_CONFIG) {
-      throw Error("CHAIN_CONFIG environment variable not set.")
-    }
-    if (!process.env.ENTITIES_FILE_PATH) {
-      throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.")
-    }
-    const network = process.env.CHAIN_CONFIG;
-    const contracts = readContracts(network);
-    const entities = readEntities(process.env.ENTITIES_FILE_PATH);
-    await registerEntities(hre, contracts, entities, args.quiet);
-  });
+task("register-entities", `Entities registration.`).setAction(async (args, hre, _runSuper) => {
+  if (!process.env.CHAIN_CONFIG) {
+    throw Error("CHAIN_CONFIG environment variable not set.");
+  }
+  if (!process.env.ENTITIES_FILE_PATH) {
+    throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.");
+  }
+  const network = process.env.CHAIN_CONFIG;
+  const contracts = readContracts(network);
+  const entities = readEntities(process.env.ENTITIES_FILE_PATH);
+  await registerEntities(hre, contracts, entities, args.quiet);
+});
 
-task("register-public-keys", `Public keys registration.`)
-  .setAction(async (args, hre, _runSuper) => {
-    if (!process.env.CHAIN_CONFIG) {
-      throw Error("CHAIN_CONFIG environment variable not set.")
-    }
-    if (!process.env.ENTITIES_FILE_PATH) {
-      throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.")
-    }
-    const network = process.env.CHAIN_CONFIG;
-    const contracts = readContracts(network);
-    const entities = readEntities(process.env.ENTITIES_FILE_PATH);
-    await registerPublicKeys(hre, contracts, entities, args.quiet);
-  });
+task("register-public-keys", `Public keys registration.`).setAction(async (args, hre, _runSuper) => {
+  if (!process.env.CHAIN_CONFIG) {
+    throw Error("CHAIN_CONFIG environment variable not set.");
+  }
+  if (!process.env.ENTITIES_FILE_PATH) {
+    throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.");
+  }
+  const network = process.env.CHAIN_CONFIG;
+  const contracts = readContracts(network);
+  const entities = readEntities(process.env.ENTITIES_FILE_PATH);
+  await registerPublicKeys(hre, contracts, entities, args.quiet);
+});
 
 task("provide-random-number-for-initial-reward-epoch", `Provide random number for initial reward epoch.`)
   .addOptionalParam("trigger", "Trigger Flare daemon", "")
   .setAction(async (args, hre, _runSuper) => {
     if (!process.env.INITIAL_VOTER_PRIVATE_KEY) {
-      throw Error("INITIAL_VOTER_PRIVATE_KEY environment variable not set.")
+      throw Error("INITIAL_VOTER_PRIVATE_KEY environment variable not set.");
     }
     const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
     if (parameters) {
       const network = process.env.CHAIN_CONFIG!;
       const contracts = readContracts(network);
-      await provideRandomNumberForInitialRewardEpoch(hre, process.env.INITIAL_VOTER_PRIVATE_KEY, Boolean(args.trigger), contracts, parameters, args.quiet);
+      await provideRandomNumberForInitialRewardEpoch(
+        hre,
+        process.env.INITIAL_VOTER_PRIVATE_KEY,
+        Boolean(args.trigger),
+        contracts,
+        parameters,
+        args.quiet
+      );
     } else {
-      throw Error("CHAIN_CONFIG environment variable not set.")
+      throw Error("CHAIN_CONFIG environment variable not set.");
     }
   });
 
 task("deploy-submission-contract", "Deploy submission contract")
-.addFlag("quiet", "Suppress console output")
-.setAction(async (args, hre, runSuper) => {
-  if (!process.env.OLD_CONTRACTS_PATH) {
-    throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
-  }
-  const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
-  if (parameters) {
-    const network = process.env.CHAIN_CONFIG!;
-    const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
-    await deploySubmissionContract(hre, oldContracts, parameters, args.quiet);
-  } else {
-    throw Error("CHAIN_CONFIG environment variable not set.")
-  }
-});
+  .addFlag("quiet", "Suppress console output")
+  .setAction(async (args, hre, runSuper) => {
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
+    }
+    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+    if (parameters) {
+      const network = process.env.CHAIN_CONFIG!;
+      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+      await deploySubmissionContract(hre, oldContracts, parameters, args.quiet);
+    } else {
+      throw Error("CHAIN_CONFIG environment variable not set.");
+    }
+  });
 
 task("deploy-contracts", "Deploy contracts")
   .addFlag("quiet", "Suppress console output")
   .setAction(async (args, hre, runSuper) => {
     if (!process.env.OLD_CONTRACTS_PATH) {
-      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
     }
     const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
     if (parameters) {
@@ -216,7 +233,7 @@ task("deploy-contracts", "Deploy contracts")
       const contracts = readContracts(network);
       await deployContracts(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
-      throw Error("CHAIN_CONFIG environment variable not set.")
+      throw Error("CHAIN_CONFIG environment variable not set.");
     }
   });
 
@@ -224,7 +241,7 @@ task("set-inflation-receivers", "Set inflation receivers")
   .addFlag("quiet", "Suppress console output")
   .setAction(async (args, hre, runSuper) => {
     if (!process.env.OLD_CONTRACTS_PATH) {
-      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
     }
     const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
     if (parameters) {
@@ -233,7 +250,7 @@ task("set-inflation-receivers", "Set inflation receivers")
       const contracts = readContracts(network);
       await setInflationReceivers(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
-      throw Error("CHAIN_CONFIG environment variable not set.")
+      throw Error("CHAIN_CONFIG environment variable not set.");
     }
   });
 
@@ -241,7 +258,7 @@ task("daemonize-contracts", "Daemonize contracts")
   .addFlag("quiet", "Suppress console output")
   .setAction(async (args, hre, runSuper) => {
     if (!process.env.OLD_CONTRACTS_PATH) {
-      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
     }
     const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
     if (parameters) {
@@ -250,7 +267,7 @@ task("daemonize-contracts", "Daemonize contracts")
       const contracts = readContracts(network);
       await daemonizeContracts(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
-      throw Error("CHAIN_CONFIG environment variable not set.")
+      throw Error("CHAIN_CONFIG environment variable not set.");
     }
   });
 
@@ -263,30 +280,29 @@ task("switch-to-production-mode", "Switch to production mode")
       const contracts = readContracts(network);
       await switchToProductionMode(hre, contracts, parameters, args.quiet);
     } else {
-      throw Error("CHAIN_CONFIG environment variable not set.")
+      throw Error("CHAIN_CONFIG environment variable not set.");
     }
   });
 
-  task("offer-rewards", "Generate and send community reward offers")
-  .setAction(async (args, hre, runSuper) => {
-    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
-    if (parameters) {
-      const network = process.env.CHAIN_CONFIG!;
-      const contracts = readContracts(network);
-      if (!process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY) {
-        throw Error("ACCOUNT_WITH_FUNDS_PRIVATE_KEY environment variable not set.")
-      }
-      await offerRewards(hre, process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, contracts, parameters);
-    } else {
-      throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.")
+task("offer-rewards", "Generate and send community reward offers").setAction(async (args, hre, runSuper) => {
+  const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+  if (parameters) {
+    const network = process.env.CHAIN_CONFIG!;
+    const contracts = readContracts(network);
+    if (!process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY) {
+      throw Error("ACCOUNT_WITH_FUNDS_PRIVATE_KEY environment variable not set.");
     }
-  });
+    await offerRewards(hre, process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, contracts, parameters);
+  } else {
+    throw Error("CHAIN_CONFIG environment variable not set. Must be parameter json file name.");
+  }
+});
 
-  task("redeploy-contracts", "Redeploy contracts")
+task("redeploy-contracts", "Redeploy contracts")
   .addFlag("quiet", "Suppress console output")
   .setAction(async (args, hre, runSuper) => {
     if (!process.env.OLD_CONTRACTS_PATH) {
-      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
     }
     const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
     if (parameters) {
@@ -295,11 +311,11 @@ task("switch-to-production-mode", "Switch to production mode")
       const contracts = readContracts(network);
       await redeployContracts(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
-      throw Error("CHAIN_CONFIG environment variable not set.")
+      throw Error("CHAIN_CONFIG environment variable not set.");
     }
   });
 
-  task("deploy-fdc", "Deploy FDC contracts")
+task("deploy-fdc", "Deploy FDC contracts")
   .addFlag("quiet", "Suppress console output")
   .setAction(async (args, hre, runSuper) => {
     // if (!process.env.OLD_CONTRACTS_PATH) {
@@ -307,12 +323,12 @@ task("switch-to-production-mode", "Switch to production mode")
     // }
     const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
     if (parameters) {
-      // const network = process.env.CHAIN_CONFIG!;
-      // const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
-      // const contracts = readContracts(network);
-      await deployFdcContracts(hre, parameters, args.quiet);
+      const network = process.env.CHAIN_CONFIG!;
+      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+      const contracts = readContracts(network);
+      await deployFdcContracts(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
-      throw Error("CHAIN_CONFIG environment variable not set.")
+      throw Error("CHAIN_CONFIG environment variable not set.");
     }
   });
 
@@ -423,12 +439,12 @@ const config: HardhatUserConfig = {
 
   etherscan: {
     apiKey: {
-      "goerli": `${ETHERSCAN_API_URL}`,
-      "coston": `${FLARESCAN_API_KEY}`,
-      "coston2": `${FLARESCAN_API_KEY}`,
-      "songbird": `${FLARESCAN_API_KEY}`,
-      "flare": `${FLARESCAN_API_KEY}`,
-      "sepolia": `${ETHERSCAN_API_URL}`,
+      goerli: `${ETHERSCAN_API_URL}`,
+      coston: `${FLARESCAN_API_KEY}`,
+      coston2: `${FLARESCAN_API_KEY}`,
+      songbird: `${FLARESCAN_API_KEY}`,
+      flare: `${FLARESCAN_API_KEY}`,
+      sepolia: `${ETHERSCAN_API_URL}`,
     },
     customChains: [
       {
@@ -436,36 +452,44 @@ const config: HardhatUserConfig = {
         chainId: 16,
         urls: {
           // faucet: https://faucet.towolabs.com/
-          apiURL: "https://coston-explorer.flare.network/api" + (FLARE_EXPLORER_API_KEY ? `?x-apikey=${FLARE_EXPLORER_API_KEY}` : ""), // Must not have / endpoint
-          browserURL: "https://coston-explorer.flare.network"
-        }
+          apiURL:
+            "https://coston-explorer.flare.network/api" +
+            (FLARE_EXPLORER_API_KEY ? `?x-apikey=${FLARE_EXPLORER_API_KEY}` : ""), // Must not have / endpoint
+          browserURL: "https://coston-explorer.flare.network",
+        },
       },
       {
         network: "coston2",
         chainId: 114,
         urls: {
           // faucet: https://coston2-faucet.towolabs.com/
-          apiURL: "https://coston2-explorer.flare.network/api" + (FLARE_EXPLORER_API_KEY ? `?x-apikey=${FLARE_EXPLORER_API_KEY}` : ""), // Must not have / endpoint
-          browserURL: "https://coston2-explorer.flare.network"
-        }
+          apiURL:
+            "https://coston2-explorer.flare.network/api" +
+            (FLARE_EXPLORER_API_KEY ? `?x-apikey=${FLARE_EXPLORER_API_KEY}` : ""), // Must not have / endpoint
+          browserURL: "https://coston2-explorer.flare.network",
+        },
       },
       {
         network: "songbird",
         chainId: 19,
         urls: {
-          apiURL: "https://songbird-explorer.flare.network/api" + (FLARE_EXPLORER_API_KEY ? `?x-apikey=${FLARE_EXPLORER_API_KEY}` : ""), // Must not have / endpoint
-          browserURL: "https://songbird-explorer.flare.network/"
-        }
+          apiURL:
+            "https://songbird-explorer.flare.network/api" +
+            (FLARE_EXPLORER_API_KEY ? `?x-apikey=${FLARE_EXPLORER_API_KEY}` : ""), // Must not have / endpoint
+          browserURL: "https://songbird-explorer.flare.network/",
+        },
       },
       {
         network: "flare",
         chainId: 14,
         urls: {
-          apiURL: "https://flare-explorer.flare.network/api" + (FLARE_EXPLORER_API_KEY ? `?x-apikey=${FLARE_EXPLORER_API_KEY}` : ""), // Must not have / endpoint
+          apiURL:
+            "https://flare-explorer.flare.network/api" +
+            (FLARE_EXPLORER_API_KEY ? `?x-apikey=${FLARE_EXPLORER_API_KEY}` : ""), // Must not have / endpoint
           browserURL: "https://flare-explorer.flare.network/",
-        }
-      }
-    ]
+        },
+      },
+    ],
   },
 };
 
