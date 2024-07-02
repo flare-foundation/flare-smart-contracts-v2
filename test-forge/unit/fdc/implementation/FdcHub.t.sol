@@ -25,14 +25,14 @@ contract FdcHubTest is Test {
         assertEq(fdcHub.getContractName(), "FdcHub");
     }
 
-  function testSettingPrice() public {
+  function testSettingFee() public {
     vm.prank(governance);
     bytes32 atType = 0x5061796d656e7400000000000000000000000000000000000000000000000000;
     bytes32 source = 0x7465737458525000000000000000000000000000000000000000000000000000;
-    fdcHub.setTypeAndSourcePrice(atType, source, 100);
+    fdcHub.setTypeAndSourceFee(atType, source, 100);
     // TODO: no idea how to pass a calldata to method call
     bytes memory data = bytes("0x5061796d656e74000000000000000000000000000000000000000000000000007465737458525000000000000000000000000000000000000000000000000000974578ed414a4d5ab784a5b0bcab92c07abef6bf80d35b5a731b26e53a87bdb91d24cd21d86ba709a5f81a3e584b39c16cef99f8a2332d4494d3b4321dc9e38700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
-    assertEq(fdcHub.getBaseFee(data), 100);
+    assertEq(fdcHub.getRequestFee(data), 100);
     // vm.expectRevert("offset too small");
   }
 }

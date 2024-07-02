@@ -12,7 +12,9 @@ interface IFdcHub  {
     // TODO: @Luka Iztok woudl prefer to also emit round id 
 
     // Event emitted when a type and source price is set.
-    event TypeAndSourcePriceSet(bytes32 indexed _type, bytes32 indexed _source, uint256 price);
+    event TypeAndSourceFeeSet(bytes32 indexed _type, bytes32 indexed source, uint256 fee);
+    // Event emitted when a type and source price is removed.
+    event TypeAndSourceFeeRemoved(bytes32 indexed _type, bytes32 indexed source);
 
     /**
      * Method to request an attestation.
@@ -21,8 +23,8 @@ interface IFdcHub  {
     function requestAttestation(bytes calldata _data) external payable;
 
     /**
-     * Method to get the base fee for an attestation request.
+     * Method to get the base fee for an attestation request. if 0 is returned, the request is not supported.
      * @param _data ABI encoded attestation request
      */
-    function getBaseFee(bytes calldata _data) external view returns (uint256);
+    function getRequestFee(bytes calldata _data) external view returns (uint256);
 }

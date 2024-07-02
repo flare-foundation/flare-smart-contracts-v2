@@ -7,9 +7,7 @@ import "../../protocol/implementation/RewardOffersManagerBase.sol";
 
 // contract FdcHub is IFdcHub {
 contract FdcHub is RewardOffersManagerBase, IFdcHub {
-  uint256 public constant MINIMAL_FEE = 1 wei;
-
-  mapping(bytes32 => uint256) public typeAndSourcePrices;
+  mapping(bytes32 => uint256) public typeAndSourceFees;
 
   /// The RewardManager contract.
   IIRewardManager public rewardManager;
@@ -28,55 +26,74 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
     // Pass
   }
 
-  function setTypeAndSourcePrice(bytes32 _type, bytes32 _source, uint256 _price) external onlyGovernance {
-    _setSingleTypeAndSourcePrice(_type, _source, _price);
+  function setTypeAndSourceFee(bytes32 _type, bytes32 source, uint256 fee) external onlyGovernance {
+    _setSingleTypeAndSourceFee(_type, source, fee);
   }
 
-  function setTypeAndSourcePrices(
+  function removeTypeAndSourceFee(bytes32 _type, bytes32 source) external onlyGovernance {
+    _removeSingleTypeAndSourceFee(_type, source);
+  }
+
+  function setTypeAndSourceFees(
     bytes32[] memory _types,
-    bytes32[] memory _source,
-    uint256[] memory _price
+    bytes32[] memory _sources,
+    uint256[] memory _fees
   ) external onlyGovernance {
-    require(_types.length == _source.length && _types.length == _price.length, "length mismatch");
+    require(_types.length == _sources.length && _types.length == _fees.length, "length mismatch");
     for (uint256 i = 0; i < _types.length; i++) {
-      _setSingleTypeAndSourcePrice(_types[i], _source[i], _price[i]);
+      _setSingleTypeAndSourceFee(_types[i], _sources[i], _fees[i]);
     }
   }
 
-  function _setSingleTypeAndSourcePrice(bytes32 _type, bytes32 _source, uint256 _price) private onlyGovernance {
-    typeAndSourcePrices[_joinTypeAndSource(_type, _source)] = _price;
-    emit TypeAndSourcePriceSet(_type, _source, _price);
+  function removeTypeAndSourceFees(bytes32[] memory _types, bytes32[] memory _sources) external onlyGovernance {
+    require(_types.length == _sources.length, "length mismatch");
+    for (uint256 i = 0; i < _types.length; i++) {
+      _removeSingleTypeAndSourceFee(_types[i], _sources[i]);
+    }
   }
 
+  /**
+   * @inheritdoc IFdcHub
+   */
   function requestAttestation(bytes calldata _data) external payable {
     uint256 fee = _getBaseFee(_data);
     require(msg.value >= fee, "fee to low, call getBaseFee to get the required fee amount");
     uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-    rewardManager.receiveRewards{value: msg.value} (currentRewardEpochId, false);
-
-
+    rewardManager.receiveRewards{value: msg.value}(currentRewardEpochId, false);
     emit AttestationRequest(_data, msg.value);
   }
 
-  function getBaseFee(bytes calldata _data) external view returns (uint256) {
+  /**
+   * @inheritdoc IFdcHub
+   */
+  function getRequestFee(bytes calldata _data) external view returns (uint256) {
     return _getBaseFee(_data);
   }
 
-  function _getBaseFee(bytes calldata _data) internal view returns (uint256) {
+  function _setSingleTypeAndSourceFee(bytes32 _type, bytes32 _source, uint256 _fee) private onlyGovernance {
+    require(_fee > 0, "Fee must be greater than 0");
+    typeAndSourceFees[_joinTypeAndSource(_type, _source)] = _fee;
+    emit TypeAndSourceFeeSet(_type, _source, _fee);
+  }
+
+  function _removeSingleTypeAndSourceFee(bytes32 _type, bytes32 _source) private onlyGovernance {
+    // Same as setting this to 0 but we want to emit a different event + gas savings
+    delete typeAndSourceFees[_joinTypeAndSource(_type, _source)];
+    emit TypeAndSourceFeeRemoved(_type, _source);
+  }
+
+  function _getBaseFee(bytes calldata _data) private view returns (uint256) {
     require(_data.length >= 64, "Request data too short, shoudl at least specify type and source");
     bytes32 _type = abi.decode(_data[:32], (bytes32));
     bytes32 _source = abi.decode(_data[32:64], (bytes32));
-    return _getTypeAndSourcePrice(_type, _source);
+    return _getTypeAndSourceFee(_type, _source);
   }
 
-  function _getTypeAndSourcePrice(bytes32 _type, bytes32 _source) internal view returns (uint256 value) {
-    value = typeAndSourcePrices[_joinTypeAndSource(_type, _source)];
-    if (value == 0) {
-      value = MINIMAL_FEE;
-    }
+  function _getTypeAndSourceFee(bytes32 _type, bytes32 _source) private view returns (uint256 value) {
+    value = typeAndSourceFees[_joinTypeAndSource(_type, _source)];
   }
 
-  function _joinTypeAndSource(bytes32 _type, bytes32 _source) internal pure returns (bytes32) {
+  function _joinTypeAndSource(bytes32 _type, bytes32 _source) private pure returns (bytes32) {
     return keccak256(abi.encodePacked(_type, _source));
   }
 
