@@ -57,6 +57,7 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
    */
   function requestAttestation(bytes calldata _data) external payable {
     uint256 fee = _getBaseFee(_data);
+    require(fee > 0, "No fee specified for this type and source");
     require(msg.value >= fee, "fee to low, call getBaseFee to get the required fee amount");
     uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
     rewardManager.receiveRewards{value: msg.value}(currentRewardEpochId, false);
