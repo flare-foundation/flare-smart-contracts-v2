@@ -16,6 +16,8 @@ import {
   FastUpdaterInstance,
   FastUpdatesConfigurationContract,
   FastUpdatesConfigurationInstance,
+  FdcHubContract,
+  FdcHubInstance,
   FlareSystemsCalculatorContract,
   FlareSystemsCalculatorInstance,
   FlareSystemsManagerContract,
@@ -102,6 +104,7 @@ export interface DeployedContracts {
   readonly fastUpdater: FastUpdaterInstance;
   readonly fastUpdatesConfiguration: FastUpdatesConfigurationInstance;
   readonly nodePossessionVerifier: NodePossessionVerifierInstance;
+  readonly fdcHub: FdcHubInstance;
 }
 
 const logger = getLogger("contracts");
@@ -146,6 +149,7 @@ export async function deployContracts(
   const Relay: RelayContract = hre.artifacts.require("Relay");
   const TestableFlareDaemon: TestableFlareDaemonContract = hre.artifacts.require("TestableFlareDaemon");
   const NodePossessionVerifier: NodePossessionVerifierContract = hre.artifacts.require("NodePossessionVerifier");
+  const FdcHub: FdcHubContract = hre.artifacts.require("FdcHub");
 
   const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract = artifacts.require("FastUpdateIncentiveManager");
   const FastUpdater: FastUpdaterContract = artifacts.require("FastUpdater");
@@ -370,8 +374,8 @@ export async function deployContracts(
     "0x00000800000000000000000000000000",
     "0x00100000000000000000000000000000",
     "0x00008000000000000000000000000000",
-    BigInt(10) ** BigInt(24),
     1425,
+    BigInt(10) ** BigInt(24),
     8
   );
 
@@ -386,6 +390,12 @@ export async function deployContracts(
   );
 
   const fastUpdatesConfiguration = await FastUpdatesConfiguration.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR
+  );
+
+  const fdcHub = await FdcHub.new(
     governanceSettings.address,
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR
@@ -553,8 +563,16 @@ export async function deployContracts(
       Contracts.FAST_UPDATER]),
     [ADDRESS_UPDATER_ADDR, fastUpdater.address], { from: ADDRESS_UPDATER_ADDR });
 
+  await fdcHub.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.REWARD_MANAGER,
+      Contracts.INFLATION]),
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, rewardManager.address, INFLATION_ADDR], { from: ADDRESS_UPDATER_ADDR });
+
   // set reward offers manager list
-  await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, fastUpdateIncentiveManager.address]);
+  await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, fastUpdateIncentiveManager.address, fdcHub.address]);
 
   // set initial reward data
   await rewardManager.setInitialRewardData();
@@ -565,9 +583,14 @@ export async function deployContracts(
   await ftsoRewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION_ADDR });
   await fastUpdateIncentiveManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION_ADDR });
   await fastUpdateIncentiveManager.receiveInflation({ value: inflationFunds, from: INFLATION_ADDR });
+  await fdcHub.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION_ADDR });
+  await fdcHub.receiveInflation({ value: inflationFunds, from: INFLATION_ADDR });
+
+  // set FDC types + sources + fees
+  // TODO Luka
 
   // set rewards offer switchover trigger contracts
-  await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address, fastUpdateIncentiveManager.address], { from: governanceAccount.address });
+  await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address, fastUpdateIncentiveManager.address, fdcHub.address], { from: governanceAccount.address });
 
   // set ftso configurations
   await ftsoInflationConfigurations.addFtsoConfiguration(
@@ -681,7 +704,8 @@ export async function deployContracts(
     fastUpdateIncentiveManager,
     fastUpdater,
     fastUpdatesConfiguration,
-    nodePossessionVerifier
+    nodePossessionVerifier,
+    fdcHub
   };
 
   return [contracts, rewardEpochStart, initialSigningPolicy];

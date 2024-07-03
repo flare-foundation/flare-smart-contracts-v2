@@ -88,6 +88,8 @@
     "redeploy_contracts_network_coston": "env CHAIN_CONFIG=coston yarn --silent hardhat --network coston redeploy-contracts > ./deployment/deploys/costonTmp.json && mv ./deployment/deploys/costonTmp.json ./deployment/deploys/coston.json",
     "redeploy_contracts_local_scdev": "env CHAIN_CONFIG=scdev yarn --silent hardhat --network scdev redeploy-contracts > ./deployment/deploys/scdevTmp.json && mv ./deployment/deploys/scdevTmp.json ./deployment/deploys/scdev.json",
     "redeploy_contracts_local_hardhat": "env CHAIN_CONFIG=scdev yarn --silent hardhat --network localhost redeploy-contracts > ./deployment/deploys/scdevTmp.json && mv ./deployment/deploys/scdevTmp.json ./deployment/deploys/scdev.json",
+    "deploy_fdc_contracts_network_coston2": "env CHAIN_CONFIG=coston2 yarn --silent hardhat --network coston2 deploy-fdc",
+    "deploy_fdc_contracts_network_coston": "env CHAIN_CONFIG=coston yarn --silent hardhat --network coston deploy-fdc",
     "---------SIMULATION---SCRIPTS": "",
     "sim-node": "yarn hardhat node",
     "sim-run": "yarn hardhat run-simulation --network local",

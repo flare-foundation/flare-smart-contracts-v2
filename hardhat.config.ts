@@ -318,15 +318,11 @@ task("redeploy-contracts", "Redeploy contracts")
 task("deploy-fdc", "Deploy FDC contracts")
   .addFlag("quiet", "Suppress console output")
   .setAction(async (args, hre, runSuper) => {
-    // if (!process.env.OLD_CONTRACTS_PATH) {
-    //   throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.")
-    // }
     const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
     if (parameters) {
       const network = process.env.CHAIN_CONFIG!;
-      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
       const contracts = readContracts(network);
-      await deployFdcContracts(hre, oldContracts, contracts, parameters, args.quiet);
+      await deployFdcContracts(hre, contracts, parameters, args.quiet);
     } else {
       throw Error("CHAIN_CONFIG environment variable not set.");
     }
