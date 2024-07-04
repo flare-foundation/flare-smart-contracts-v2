@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
  * FdcHub contract.
  *
  * This contract is used to manage the FDC attestation requests and receive the inflation.
- * It is triggered by the Flare systems mannager to emit the inflation reward offers.
+ * It is triggered by the Flare systems manager to emit the inflation reward offers.
  */
 contract FdcHub is RewardOffersManagerBase, IFdcHub {
     using SafePct for uint256;
@@ -157,6 +157,7 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
      */
     function _removeSingleTypeAndSourceFee(bytes32 _type, bytes32 _source) internal {
         // Same as setting this to 0 but we want to emit a different event + gas savings
+        require(typeAndSourceFees[_joinTypeAndSource(_type, _source)] > 0, "Fee not set");
         delete typeAndSourceFees[_joinTypeAndSource(_type, _source)];
         emit TypeAndSourceFeeRemoved(_type, _source);
     }
