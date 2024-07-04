@@ -388,6 +388,39 @@ export interface ChainParameters {
      */
     feedConfigurations: FeedConfiguration[];
 
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // RNat
+
+    /**
+     * The RNat token name.
+     */
+    rNatName: string;
+
+    /**
+     * The RNat token symbol.
+     */
+    rNatSymbol: string;
+
+    /**
+     * The RNat manager address.
+     */
+    rNatManager: string;
+
+    /**
+     * The RNat first month start timestamp.
+     */
+    rNatFirstMonthStartTs: integer;
+
+    /**
+     * The RNat funding address.
+     */
+    rNatFundingAddress: string;
+
+    /**
+     * Indicates if RNat is funded by incentive pool.
+     */
+    rNatFundedByIncentivePool: boolean;
+
 }
 
 export interface FtsoInflationConfiguration {

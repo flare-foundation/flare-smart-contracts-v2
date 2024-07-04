@@ -14,6 +14,9 @@ import { spewNewContractInfo } from './deploy-utils';
 import { FastUpdateIncentiveManagerContract, FastUpdaterContract, FastUpdaterInstance, FastUpdatesConfigurationContract, PChainStakeMirrorVerifierContract, PollingFoundationContract, PollingFtsoContract, ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance } from '../../typechain-truffle';
 import { PChainStakeMirrorVerifierInstance } from '../../typechain-truffle/contracts/mock/PChainStakeMirrorVerifier';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
+import { RNatContract } from '../../typechain-truffle/contracts/rNat/implementation/RNat';
+import { RNatAccountContract } from '../../typechain-truffle/contracts/rNat/implementation/RNatAccount';
+import { WNatContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/WNat';
 
 let fs = require('fs');
 
@@ -31,6 +34,9 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract = artifacts.require("FastUpdateIncentiveManager");
   const FastUpdater: FastUpdaterContract = artifacts.require("FastUpdater");
   const FastUpdatesConfiguration: FastUpdatesConfigurationContract = artifacts.require("FastUpdatesConfiguration");
+  const WNat: WNatContract = artifacts.require("WNat");
+  const RNat: RNatContract = artifacts.require("RNat");
+  const RNatAccount: RNatAccountContract = artifacts.require("RNatAccount");
 
   let validatorRewardOffersManager: ValidatorRewardOffersManagerInstance;
   let pChainStakeMirrorVerifier: PChainStakeMirrorVerifierInstance;
@@ -54,6 +60,8 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   const inflation = oldContracts.getContractAddress(Contracts.INFLATION);
   const pChainStakeMirrorMultiSigVoting = parameters.pChainStakeEnabled ? oldContracts.getContractAddress(Contracts.P_CHAIN_STAKE_MIRROR_MULTI_SIG_VOTING) : ZERO_ADDRESS;
   const flareDaemon = oldContracts.getContractAddress(Contracts.FLARE_DAEMON);
+  const wNat = await WNat.at(oldContracts.getContractAddress(Contracts.WNAT));
+  const claimSetupManager = oldContracts.getContractAddress(Contracts.CLAIM_SETUP_MANAGER);
 
   const flareSystemsManager = contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER);
   const submission = contracts.getContractAddress(Contracts.SUBMISSION);
@@ -138,6 +146,27 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   );
   spewNewContractInfo(contracts, null, FastUpdatesConfiguration.contractName, `FastUpdatesConfiguration.sol`, fastUpdatesConfiguration.address, quiet);
 
+  const rNat = await RNat.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address, // tmp address updater
+    parameters.rNatName,
+    parameters.rNatSymbol,
+    await wNat.decimals(),
+    parameters.rNatManager,
+    parameters.rNatFirstMonthStartTs);
+  spewNewContractInfo(contracts, null, RNat.contractName, `RNat.sol`, rNat.address, quiet);
+
+  const rNatAccount = await RNatAccount.new();
+  await rNatAccount.initialize(rNat.address, rNat.address);
+  spewNewContractInfo(contracts, null, RNatAccount.contractName, `RNatAccount.sol`, rNatAccount.address, quiet);
+
+  await rNat.setLibraryAddress(rNatAccount.address);
+  await rNat.setFundingAddress(parameters.rNatFundingAddress);
+  if (parameters.rNatFundedByIncentivePool) {
+    await rNat.enableIncentivePool();
+  }
+
   // Update contract addresses
   await pollingFoundation.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.SUPPLY, Contracts.SUBMISSION, Contracts.GOVERNANCE_VOTE_POWER]),
@@ -171,6 +200,18 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
     [addressUpdater, fastUpdater.address]
   );
 
+  if (parameters.rNatFundedByIncentivePool) {
+    await rNat.updateContractAddresses(
+      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.CLAIM_SETUP_MANAGER, Contracts.WNAT, Contracts.INCENTIVE_POOL]),
+      [addressUpdater, claimSetupManager, wNat.address, oldContracts.getContractAddress(Contracts.INCENTIVE_POOL)]
+    );
+  } else {
+    await rNat.updateContractAddresses(
+      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.CLAIM_SETUP_MANAGER, Contracts.WNAT]),
+      [addressUpdater, claimSetupManager, wNat.address]
+    );
+  }
+
   // Add feeds to FastUpdatesConfiguration
   await fastUpdatesConfiguration.addFeeds(
     parameters.feedConfigurations.map(fc => {
@@ -191,6 +232,7 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   await fastUpdateIncentiveManager.switchToProductionMode();
   await fastUpdater.switchToProductionMode();
   await fastUpdatesConfiguration.switchToProductionMode();
+  await rNat.switchToProductionMode();
 
   if (!quiet) {
     console.error("Contracts in JSON:");

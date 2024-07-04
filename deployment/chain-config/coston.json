@@ -470,5 +470,11 @@
             "rewardBandValue": 5000,
             "inflationShare": 10000
         }
-    ]
+    ],
+    "rNatName": "Reward CostonFlare",
+    "rNatSymbol": "rCFLR",
+    "rNatManager": "0x25365AA95F57768d598cA6C938f93F7a8D2469E8",
+    "rNatFirstMonthStartTs": 1719792000,
+    "rNatFundingAddress": "0x0000000000000000000000000000000000000000",
+    "rNatFundedByIncentivePool": false
 }
