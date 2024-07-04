@@ -3,5 +3,15 @@
     "name": "Submission",
     "contractName": "Submission.sol",
     "address": "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f"
+  },
+  {
+    "name": "RNat",
+    "contractName": "RNat.sol",
+    "address": "0x26d460c3Cf931Fb2014FA436a49e3Af08619810e"
+  },
+  {
+    "name": "RNatAccount",
+    "contractName": "RNatAccount.sol",
+    "address": "0x79201Fe40781c59d589Bf0CAe55DB0CF082ea53d"
   }
 ]

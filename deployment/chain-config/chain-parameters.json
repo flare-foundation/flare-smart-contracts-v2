@@ -391,6 +391,30 @@
             },
             "type": "array"
         },
+        "rNatFirstMonthStartTs": {
+            "description": "The RNat first month start timestamp.",
+            "type": "integer"
+        },
+        "rNatFundedByIncentivePool": {
+            "description": "Indicates if RNat is funded by incentive pool.",
+            "type": "boolean"
+        },
+        "rNatFundingAddress": {
+            "description": "The RNat funding address.",
+            "type": "string"
+        },
+        "rNatManager": {
+            "description": "The RNat manager address.",
+            "type": "string"
+        },
+        "rNatName": {
+            "description": "The RNat token name.",
+            "type": "string"
+        },
+        "rNatSymbol": {
+            "description": "The RNat token symbol.",
+            "type": "string"
+        },
         "randomAcquisitionMaxDurationBlocks": {
             "description": "The maximal random acquisition duration in blocks (e.g. 15000 blocks).",
             "type": "integer"
@@ -544,6 +568,12 @@
         "pChainStakeMirrorMinDurationDays",
         "proposalFeeValueNAT",
         "proposers",
+        "rNatFirstMonthStartTs",
+        "rNatFundedByIncentivePool",
+        "rNatFundingAddress",
+        "rNatManager",
+        "rNatName",
+        "rNatSymbol",
         "randomAcquisitionMaxDurationBlocks",
         "randomAcquisitionMaxDurationSeconds",
         "rangeIncreaseLimit",

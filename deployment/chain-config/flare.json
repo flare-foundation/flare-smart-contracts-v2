@@ -9,7 +9,7 @@
     "governanceExecutorPublicKey": "<use .env: GOVERNANCE_EXECUTOR_PUBLIC_KEY>",
 
     "initialRewardEpochOffset": 0,
-    "initialRandomVotePowerBlockSelectionSize": 1000,
+    "initialRandomVotePowerBlockSelectionSize": 100,
     "initialVoters": ["<use .env: INITIAL_VOTER_PRIVATE_KEY>"],
     "initialNormalisedWeights": [65535],
     "initialThreshold": 32768,
@@ -35,7 +35,7 @@
         {"feedId": {"category": 1, "name":"1000SATS/USD"}, "decimals": 10}
     ],
 
-    "firstVotingRoundStartTs": 1658429955,
+    "firstVotingRoundStartTs": 1658430000,
     "votingEpochDurationSeconds": 90,
     "firstRewardEpochStartVotingRoundId": 0,
     "rewardEpochDurationInVotingEpochs": 3360,
@@ -43,28 +43,28 @@
     "messageFinalizationWindowInRewardEpochs": 10,
     "newSigningPolicyInitializationStartSeconds": 7200,
     "randomAcquisitionMaxDurationSeconds": 28800,
-    "randomAcquisitionMaxDurationBlocks": 28800,
+    "randomAcquisitionMaxDurationBlocks": 14400,
     "newSigningPolicyMinNumberOfVotingRoundsDelay": 3,
     "voterRegistrationMinDurationSeconds": 1800,
-    "voterRegistrationMinDurationBlocks": 1800,
+    "voterRegistrationMinDurationBlocks": 900,
     "submitUptimeVoteMinDurationSeconds": 600,
-    "submitUptimeVoteMinDurationBlocks": 600,
+    "submitUptimeVoteMinDurationBlocks": 300,
     "signingPolicyThresholdPPM": 500000,
-    "signingPolicyMinNumberOfVoters": 10,
+    "signingPolicyMinNumberOfVoters": 5,
     "rewardExpiryOffsetSeconds": 7776000,
-    "rewardManagerId": 19,
-    "maxNodeIdsPerEntity": 0,
+    "rewardManagerId": 14,
+    "maxNodeIdsPerEntity": 4,
     "maxVotersPerRewardEpoch": 100,
     "wNatCapPPM": 25000,
     "signingPolicySignNonPunishableDurationSeconds": 1200,
-    "signingPolicySignNonPunishableDurationBlocks": 1200,
-    "signingPolicySignNoRewardsDurationBlocks": 1200,
+    "signingPolicySignNonPunishableDurationBlocks": 600,
+    "signingPolicySignNoRewardsDurationBlocks": 600,
     "feePercentageUpdateOffset": 3,
     "defaultFeePercentageBIPS": 2000,
-    "pChainStakeEnabled": false,
+    "pChainStakeEnabled": true,
 
     "ftsoProtocolId": 100,
-    "minimalRewardsOfferValueNAT": 200000,
+    "minimalRewardsOfferValueNAT": 100000,
     "decimalsUpdateOffset": 3,
     "defaultDecimals": 5,
     "feedsHistorySize": 1000,
@@ -95,24 +95,24 @@
             "minRewardedTurnoutBIPS": 5000,
             "mode": 2,
             "primaryBandRewardSharePPM": 700000,
-            "secondaryBandWidthPPMs": [400, 500, 100, 150, 200, 200, 200, 200, 200, 150, 200, 100, 100, 100, 100, 100, 100, 100, 400]
+            "secondaryBandWidthPPMs": [400, 500, 50, 50, 50, 150, 50, 100, 100, 50, 100, 100, 100, 100, 100, 100, 100, 100, 400]
         }
     ],
 
     "inflationReceivers": [
         {
-            "oldContract": false,
-            "contractName": "FtsoRewardOffersManager",
-            "sharingBIPS": 5000,
-            "topUpType": 1,
-            "topUpFactorx100": 0
+            "oldContract": true,
+            "contractName": "FtsoRewardManager",
+            "sharingBIPS": 7000,
+            "topUpType": 0,
+            "topUpFactorx100": 400
         },
         {
             "oldContract": true,
-            "contractName": "FtsoRewardManager",
-            "sharingBIPS": 5000,
-            "topUpType": 0,
-            "topUpFactorx100": 400
+            "contractName": "ValidatorRewardManager",
+            "sharingBIPS": 3000,
+            "topUpType": 1,
+            "topUpFactorx100": 0
         }
     ],
 
@@ -128,16 +128,26 @@
             "gasLimit": 40000000
         },
         {
-            "oldContract": false,
-            "contractName": "FlareSystemsManager",
-            "gasLimit": 40000000
+            "oldContract": true,
+            "contractName": "PChainStakeMirror",
+            "gasLimit": 15000000
+        },
+        {
+            "oldContract": true,
+            "contractName": "IncentivePool",
+            "gasLimit": 3000000
+        },
+        {
+            "oldContract": true,
+            "contractName": "DistributionToDelegators",
+            "gasLimit": 25000000
         }
     ],
     "proposers": [
-        "0x51e40f275feeca0a859cda9d499afbcbe3804b71",
-        "0xBe6a26eAA777001A260DA7FcEAc67d2604cc5069"
+        "0xbe653c54df337f13fcb726101388f4a4803049f3",
+        "0xb5Dd6cA7b14bd7d2B6E296983D0AA0D373979CFE"
     ],
-    "maintainer": "0xBe6a26eAA777001A260DA7FcEAc67d2604cc5069",
+    "maintainer": "0xbe653c54df337f13fcb726101388f4a4803049f3",
     "votingDelaySeconds": 0,
     "votingPeriodSeconds": 172800,
     "thresholdConditionBIPS": 6600,
@@ -151,8 +161,8 @@
     "baseRange": "0x00000800000000000000000000000000",
     "sampleIncreaseLimit": "0x00100000000000000000000000000000",
     "rangeIncreaseLimit": "0x00008000000000000000000000000000",
-    "sampleSizeIncreasePriceWei": 4275,
-    "rangeIncreasePriceNAT": 3000000,
+    "sampleSizeIncreasePriceWei": 1425,
+    "rangeIncreasePriceNAT": 1000000,
     "incentiveOfferDurationBlocks": 8,
     "submissionWindowBlocks": 10,
     "feedConfigurations": [
@@ -252,10 +262,10 @@
             "inflationShare": 10000
         }
     ],
-    "rNatName": "Reward Songbird",
-    "rNatSymbol": "rSGB",
-    "rNatManager": "0xBe6a26eAA777001A260DA7FcEAc67d2604cc5069",
-    "rNatFirstMonthStartTs": 1719792000,
+    "rNatName": "Reward Flare",
+    "rNatSymbol": "rFLR",
+    "rNatManager": "0x4A0565f8960fEB35DC0E0c2CE0FE1FfbEa12fCA3",
+    "rNatFirstMonthStartTs": 1717675200,
     "rNatFundingAddress": "0x0000000000000000000000000000000000000000",
-    "rNatFundedByIncentivePool": false
+    "rNatFundedByIncentivePool": true
 }

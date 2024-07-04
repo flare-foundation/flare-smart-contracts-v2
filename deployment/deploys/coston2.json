@@ -88,5 +88,15 @@
     "name": "FastUpdatesConfiguration",
     "contractName": "FastUpdatesConfiguration.sol",
     "address": "0xE7d1D5D58cAE01a82b84989A931999Cb34A86B14"
+  },
+  {
+    "name": "RNat",
+    "contractName": "RNat.sol",
+    "address": "0x221D27529e7788B929E13533edc3b00ec1ac5e8A"
+  },
+  {
+    "name": "RNatAccount",
+    "contractName": "RNatAccount.sol",
+    "address": "0x14174a6A12172ad47FFF001C8BEe7aea2Bbf1d9f"
   }
 ]
