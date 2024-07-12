@@ -117,6 +117,7 @@ export async function deployContracts(
   const MULTI_SIG_VOTING_ADDR = accounts[4].address;
   const RELAY_ADDR = accounts[5].address;
   const CLAIM_SETUP_MANAGER_ADDR = accounts[5].address;
+  const REWARD_MANAGER_PROXY_ADDR = accounts[5].address;
   const INFLATION_ADDR = accounts[5].address;
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -370,8 +371,8 @@ export async function deployContracts(
     "0x00000800000000000000000000000000",
     "0x00100000000000000000000000000000",
     "0x00008000000000000000000000000000",
-    BigInt(10) ** BigInt(24),
     1425,
+    BigInt(10) ** BigInt(24),
     8
   );
 
@@ -479,8 +480,9 @@ export async function deployContracts(
       Contracts.FLARE_SYSTEMS_MANAGER,
       Contracts.FLARE_SYSTEMS_CALCULATOR,
       Contracts.P_CHAIN_STAKE_MIRROR,
-      Contracts.WNAT]),
-    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address],
+      Contracts.WNAT,
+      Contracts.REWARD_MANAGER_PROXY]),
+    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address, REWARD_MANAGER_PROXY_ADDR],
     { from: ADDRESS_UPDATER_ADDR }
   );
 

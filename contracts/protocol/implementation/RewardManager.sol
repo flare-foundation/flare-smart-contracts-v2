@@ -74,6 +74,10 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     uint256 private totalRewardsWei;
     uint256 private totalInflationRewardsWei;
 
+    /// The RewardManagerProxy contract that can be used for claiming the rewards.
+    /// The RewardManagerProxy is responsible for checking the allowed executors and recipients.
+    /// This contract trusts the RewardManagerProxy to call the claim method with the correct parameters.
+    address public rewardManagerProxy;
     /// The ClaimSetupManager contract.
     IIClaimSetupManager public claimSetupManager;
     /// The FlareSystemsManager contract.
@@ -963,6 +967,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             cChainStake = ICChainStake(_getContractAddress(_contractNameHashes, _contractAddresses, "CChainStake"));
         }
         wNat = IWNat(_getContractAddress(_contractNameHashes, _contractAddresses, "WNat"));
+        rewardManagerProxy = _getContractAddress(_contractNameHashes, _contractAddresses, "RewardManagerProxy");
     }
 
     /**
@@ -1236,7 +1241,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @param _recipient Address of the reward recipient.
      */
     function _checkExecutorAndAllowedRecipient(address _rewardOwner, address _recipient) private view {
-        if (msg.sender == _rewardOwner) {
+        if (msg.sender == _rewardOwner || msg.sender == rewardManagerProxy) {
             return;
         }
         claimSetupManager.checkExecutorAndAllowedRecipient(msg.sender, _rewardOwner, _recipient);

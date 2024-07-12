@@ -22,6 +22,7 @@ contract RewardManagerTest is Test {
     address private mockWNat;
     address[] private rewardOffersManagers;
     address private mockFlareSystemsCalculator;
+    address private mockRewardManagerProxy;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -71,10 +72,11 @@ contract RewardManagerTest is Test {
         mockCChainStake = makeAddr("mockCChainStake");
         mockWNat = makeAddr("mockWNat");
         mockFlareSystemsCalculator = makeAddr("mockFlareSystemsCalculator");
+        mockRewardManagerProxy = makeAddr("mockRewardManagerProxy");
 
         vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](7);
-        contractAddresses = new address[](7);
+        contractNameHashes = new bytes32[](8);
+        contractAddresses = new address[](8);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("ClaimSetupManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
@@ -82,6 +84,7 @@ contract RewardManagerTest is Test {
         contractNameHashes[4] = keccak256(abi.encode("CChainStake"));
         contractNameHashes[5] = keccak256(abi.encode("WNat"));
         contractNameHashes[6] = keccak256(abi.encode("FlareSystemsCalculator"));
+        contractNameHashes[7] = keccak256(abi.encode("RewardManagerProxy"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockClaimSetupManager;
         contractAddresses[2] = mockFlareSystemsManager;
@@ -89,6 +92,7 @@ contract RewardManagerTest is Test {
         contractAddresses[4] = mockCChainStake;
         contractAddresses[5] = mockWNat;
         contractAddresses[6] = mockFlareSystemsCalculator;
+        contractAddresses[7] = mockRewardManagerProxy;
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
