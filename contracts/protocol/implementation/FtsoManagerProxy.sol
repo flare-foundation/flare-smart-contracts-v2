@@ -12,17 +12,18 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 
 /**
- * FlareSystemsManagerProxy is a compatibility contract that is used for proxying data from FlareSystemsManager.
+ * FtsoManagerProxy is a compatibility contract replacing FtsoManager
+ * that is used for proxying data from FlareSystemsManager.
  */
 
-contract FlareSystemsManagerProxy is IFtsoManager, Governed, ReentrancyGuard, AddressUpdatable {
+contract FtsoManagerProxy is IFtsoManager, Governed, ReentrancyGuard, AddressUpdatable {
     using SafeCast for uint256;
 
     // for redeploy (name is kept for compatibility)
     address public immutable oldFtsoManager;
 
     // contract addresses
-    /// RewardManagerProxy contract address (name is kept for compatibility)
+    /// FtsoRewardManagerProxy contract address (name is kept for compatibility)
     address public rewardManager;
     /// Flare systems manager contract address.
     IIFlareSystemsManager public flareSystemsManager;
@@ -33,11 +34,11 @@ contract FlareSystemsManagerProxy is IFtsoManager, Governed, ReentrancyGuard, Ad
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
-        address _oldFlareSystemsManagerProxy
+        address _oldFtsoManagerProxy
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
-        oldFtsoManager = _oldFlareSystemsManagerProxy;
+        oldFtsoManager = _oldFtsoManagerProxy;
     }
 
     /**
@@ -209,7 +210,7 @@ contract FlareSystemsManagerProxy is IFtsoManager, Governed, ReentrancyGuard, Ad
     )
         internal override
     {
-        rewardManager = _getContractAddress(_contractNameHashes, _contractAddresses, "RewardManagerProxy");
+        rewardManager = _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRewardManagerProxy");
         rewardManagerV2 = IIRewardManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
         flareSystemsManager = IIFlareSystemsManager(

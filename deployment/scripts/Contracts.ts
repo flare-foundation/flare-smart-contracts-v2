@@ -53,12 +53,12 @@ export class Contracts {
   public static readonly P_CHAIN_STAKE_MIRROR = "PChainStakeMirror";
   public static readonly ENTITY_MANAGER = "EntityManager";
   public static readonly FLARE_SYSTEMS_MANAGER = "FlareSystemsManager";
-  public static readonly FLARE_SYSTEMS_MANAGER_PROXY = "FlareSystemsManagerProxy";
+  public static readonly FTSO_MANAGER_PROXY = "FtsoManagerProxy";
   public static readonly SUBMISSION = "Submission";
   public static readonly RELAY = "Relay";
   public static readonly VOTER_REGISTRY = "VoterRegistry";
   public static readonly REWARD_MANAGER = "RewardManager";
-  public static readonly REWARD_MANAGER_PROXY = "RewardManagerProxy";
+  public static readonly FTSO_REWARD_MANAGER_PROXY = "FtsoRewardManagerProxy";
   public static readonly FLARE_SYSTEMS_CALCULATOR = "FlareSystemsCalculator";
   public static readonly WNAT_DELEGATION_FEE = "WNatDelegationFee";
   public static readonly FTSO_INFLATION_CONFIGURATIONS = "FtsoInflationConfigurations";

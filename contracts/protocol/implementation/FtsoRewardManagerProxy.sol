@@ -4,7 +4,6 @@ pragma solidity 0.8.20;
 import "flare-smart-contracts/contracts/tokenPools/interface/IIFtsoRewardManager.sol";
 import "../interface/IIRewardManager.sol";
 import "../interface/IIFlareSystemsManager.sol";
-import "../interface/IIClaimSetupManager.sol";
 import "../../userInterfaces/IWNatDelegationFee.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
@@ -13,10 +12,11 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 
 /**
- * RewardManagerProxy is a compatibility contract that is used for claiming rewards through RewardManager.
+ * FtsoRewardManagerProxy is a compatibility contract replacing FtsoRewardManager
+ * that is used for claiming rewards through RewardManager.
  */
 
-contract RewardManagerProxy is IFtsoRewardManager, Governed, ReentrancyGuard, AddressUpdatable {
+contract FtsoRewardManagerProxy is IFtsoRewardManager, Governed, ReentrancyGuard, AddressUpdatable {
     using SafeCast for uint256;
 
     /// Indicates if the contract is enabled - claims are enabled.
@@ -26,7 +26,6 @@ contract RewardManagerProxy is IFtsoRewardManager, Governed, ReentrancyGuard, Ad
     IIRewardManager public rewardManager;
     IIFlareSystemsManager public flareSystemsManager;
     IWNatDelegationFee public wNatDelegationFee;
-    IIClaimSetupManager public claimSetupManager;
     address public wNat;
 
     // for redeploy (name is kept for compatibility)
@@ -38,20 +37,15 @@ contract RewardManagerProxy is IFtsoRewardManager, Governed, ReentrancyGuard, Ad
         _;
     }
 
-    modifier onlyExecutorAndAllowedRecipient(address _rewardOwner, address _recipient) {
-        _checkExecutorAndAllowedRecipient(_rewardOwner, _recipient);
-        _;
-    }
-
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
-        address _oldRewardManagerProxy
+        address _oldFtsoRewardManager
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
-        oldFtsoRewardManager = _oldRewardManagerProxy;
+        oldFtsoRewardManager = _oldFtsoRewardManager;
     }
 
     /**
@@ -74,7 +68,7 @@ contract RewardManagerProxy is IFtsoRewardManager, Governed, ReentrancyGuard, Ad
             }
         }
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
-        _rewardAmount = rewardManager.claim(msg.sender, _recipient, maxRewardEpoch.toUint24(), false, proofs);
+        return rewardManager.claimProxy(msg.sender, msg.sender, _recipient, maxRewardEpoch.toUint24(), false, proofs);
     }
 
     /**
@@ -90,41 +84,14 @@ contract RewardManagerProxy is IFtsoRewardManager, Governed, ReentrancyGuard, Ad
         external
         onlyIfEnabled
         nonReentrant
-        onlyExecutorAndAllowedRecipient(_rewardOwner, _recipient)
         returns (uint256 _rewardAmount)
     {
         IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
-        _rewardAmount = rewardManager.claim(_rewardOwner, _recipient, _rewardEpoch.toUint24(), _wrap, proofs);
+        return rewardManager.claimProxy(msg.sender, _rewardOwner, _recipient, _rewardEpoch.toUint24(), _wrap, proofs);
     }
 
     /**
-     * Claim rewards for `_rewardOwner` and transfer them to `_recipient`.
-     * It can be called by reward owner or its authorized executor.
-     * @param _rewardOwner Address of the reward owner.
-     * @param _recipient Address of the reward recipient.
-     * @param _rewardEpoch Id of the reward epoch up to which the rewards are claimed.
-     * @param _wrap Indicates if the reward should be wrapped (deposited) to the WNAT contract.
-     * @param _proofs Array of reward claims with merkle proofs.
-     * @return _rewardAmount Amount of rewarded native tokens (wei).
-     */
-    function claimV2(
-        address _rewardOwner,
-        address payable _recipient,
-        uint256 _rewardEpoch,
-        bool _wrap,
-        IRewardManager.RewardClaimWithProof[] memory _proofs
-    )
-        external
-        onlyIfEnabled
-        nonReentrant
-        onlyExecutorAndAllowedRecipient(_rewardOwner, _recipient)
-        returns (uint256 _rewardAmount)
-    {
-        _rewardAmount = rewardManager.claim(_rewardOwner, _recipient, _rewardEpoch.toUint24(), _wrap, _proofs);
-    }
-
-    /**
-     * Activates reward manager proxy (allows claiming rewards if rewardManager is active).
+     * Activates ftso reward manager proxy (allows claiming rewards if rewardManager is active).
      */
     function enable() external onlyImmediateGovernance {
         require(address(rewardManager) != address(0), "reward manager not set");
@@ -132,20 +99,20 @@ contract RewardManagerProxy is IFtsoRewardManager, Governed, ReentrancyGuard, Ad
     }
 
     /**
-     * Deactivates reward manager proxy (prevents claiming rewards through it).
+     * Deactivates ftso reward manager proxy (prevents claiming rewards through it).
      */
     function disable() external onlyImmediateGovernance {
         enabled = false;
     }
 
     /**
-     * Sets new reward manager proxy address.
-     * @dev Should be called at the time of switching to the new reward manager proxy, can be called only once
+     * Sets new ftso reward manager address.
+     * @dev Should be called at the time of switching to the new ftso reward manager, can be called only once
      */
-    function setNewRewardManagerProxy(address _newRewardManagerProxy) external onlyGovernance {
+    function setNewFtsoRewardManager(address _newFtsoRewardManager) external onlyGovernance {
         require(newFtsoRewardManager == address(0), "already set");
-        require(_newRewardManagerProxy != address(0), "address zero");
-        newFtsoRewardManager = _newRewardManagerProxy;
+        require(_newFtsoRewardManager != address(0), "address zero");
+        newFtsoRewardManager = _newFtsoRewardManager;
     }
 
     /**
@@ -240,22 +207,6 @@ contract RewardManagerProxy is IFtsoRewardManager, Governed, ReentrancyGuard, Ad
         } catch {
             _claimable = false;
         }
-    }
-
-    /**
-     * Returns the state of rewards for a given address for all unclaimed reward epochs with claimable rewards.
-     * @param _rewardOwner Address of the reward owner.
-     * @return _rewardStates Array of reward states.
-     */
-    function getStateOfRewardsV2(
-        address _rewardOwner
-    )
-        external view
-        returns (
-            IRewardManager.RewardState[][] memory _rewardStates
-        )
-    {
-        return rewardManager.getStateOfRewards(_rewardOwner);
     }
 
     /**
@@ -469,22 +420,12 @@ contract RewardManagerProxy is IFtsoRewardManager, Governed, ReentrancyGuard, Ad
         wNatDelegationFee = IWNatDelegationFee(
             _getContractAddress(_contractNameHashes, _contractAddresses, "WNatDelegationFee"));
         wNat = _getContractAddress(_contractNameHashes, _contractAddresses, "WNat");
-        claimSetupManager = IIClaimSetupManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "ClaimSetupManager"));
     }
 
-    function _checkExecutorAndAllowedRecipient(address _rewardOwner, address _recipient) private view {
-        if (msg.sender == _rewardOwner) {
-            return;
-        }
-        claimSetupManager.checkExecutorAndAllowedRecipient(msg.sender, _rewardOwner, _recipient);
-    }
-
+    /**
+     * Checks if the contract is enabled.
+     */
     function _checkOnlyEnabled() private view {
-        require(enabled, "reward manager disabled");
-    }
-
-    function _checkNonzeroRecipient(address _address) private pure {
-        require(_address != address(0), "recipient zero");
+        require(enabled, "ftso reward manager proxy disabled");
     }
 }

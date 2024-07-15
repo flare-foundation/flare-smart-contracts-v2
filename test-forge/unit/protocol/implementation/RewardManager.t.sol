@@ -22,7 +22,7 @@ contract RewardManagerTest is Test {
     address private mockWNat;
     address[] private rewardOffersManagers;
     address private mockFlareSystemsCalculator;
-    address private mockRewardManagerProxy;
+    address private mockFtsoRewardManagerProxy;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -72,7 +72,7 @@ contract RewardManagerTest is Test {
         mockCChainStake = makeAddr("mockCChainStake");
         mockWNat = makeAddr("mockWNat");
         mockFlareSystemsCalculator = makeAddr("mockFlareSystemsCalculator");
-        mockRewardManagerProxy = makeAddr("mockRewardManagerProxy");
+        mockFtsoRewardManagerProxy = makeAddr("mockFtsoRewardManagerProxy");
 
         vm.startPrank(addressUpdater);
         contractNameHashes = new bytes32[](8);
@@ -84,7 +84,7 @@ contract RewardManagerTest is Test {
         contractNameHashes[4] = keccak256(abi.encode("CChainStake"));
         contractNameHashes[5] = keccak256(abi.encode("WNat"));
         contractNameHashes[6] = keccak256(abi.encode("FlareSystemsCalculator"));
-        contractNameHashes[7] = keccak256(abi.encode("RewardManagerProxy"));
+        contractNameHashes[7] = keccak256(abi.encode("FtsoRewardManagerProxy"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockClaimSetupManager;
         contractAddresses[2] = mockFlareSystemsManager;
@@ -92,7 +92,7 @@ contract RewardManagerTest is Test {
         contractAddresses[4] = mockCChainStake;
         contractAddresses[5] = mockWNat;
         contractAddresses[6] = mockFlareSystemsCalculator;
-        contractAddresses[7] = mockRewardManagerProxy;
+        contractAddresses[7] = mockFtsoRewardManagerProxy;
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
@@ -1464,7 +1464,7 @@ contract RewardManagerTest is Test {
         _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
 
         vm.prank(voter1);
-        vm.expectRevert("recipient zero");
+        vm.expectRevert("address zero");
         rewardManager.claim(voter1, payable(address(0)), 0, false, proofs);
     }
 
