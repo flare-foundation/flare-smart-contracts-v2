@@ -1,0 +1,433 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.20;
+
+import "forge-std/Test.sol";
+import "../../../../contracts/protocol/implementation/FtsoManagerProxy.sol";
+import "../../../../contracts/protocol/implementation/FlareSystemsManager.sol";
+
+contract FtsoManagerProxyTest is Test {
+
+    FtsoManagerProxy private ftsoManagerProxy;
+    address private flareDaemon;
+    address private governance;
+    address private addressUpdater;
+    address private mockRewardManager; // FtsoRewardManagerProxy
+    address private mockRewardManagerV2; // RewardManager
+
+    FlareSystemsManager private flareSystemsManager;
+    address private mockRelay;
+    address private mockVoterRegistry;
+    address private mockCleanupBlockNumberManager;
+    address private mockSubmission;
+
+    FlareSystemsManager.Settings private settings;
+    FlareSystemsManager.InitialSettings private initialSettings;
+    address private voter1;
+    bytes32[] private contractNameHashes;
+    address[] private contractAddresses;
+
+    address[] private signingAddresses;
+    uint256[] private signingAddressesPk;
+
+    address[] private voters;
+    uint16[] private votersWeight;
+
+    IIRewardEpochSwitchoverTrigger[] private switchoverContracts;
+
+    uint16 private constant REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
+    uint8 private constant VOTING_EPOCH_DURATION_SEC = 90;
+    uint64 private constant REWARD_EPOCH_DURATION_IN_SEC =
+    uint64(REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS) * VOTING_EPOCH_DURATION_SEC;
+    uint24 private constant PPM_MAX = 1e6;
+
+    function setUp() public {
+        vm.warp(1000);
+        flareDaemon = makeAddr("flareDaemon");
+        governance = makeAddr("governance");
+        addressUpdater = makeAddr("addressUpdater");
+        settings = FlareSystemsManager.Settings(
+            3600 * 8,
+            15000,
+            3600 * 2,
+            0,
+            30 * 60,
+            20,
+            10,
+            2,
+            500000,
+            2,
+            1000
+        );
+
+        initialSettings = FlareSystemsManager.InitialSettings(
+            5,
+            0,
+            0
+        );
+
+        flareSystemsManager = new FlareSystemsManager(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            flareDaemon,
+            settings,
+            uint32(block.timestamp),
+            VOTING_EPOCH_DURATION_SEC,
+            0,
+            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            initialSettings
+        );
+
+        mockSubmission = makeAddr("submission");
+        mockRelay = makeAddr("relay");
+        mockRewardManager = makeAddr("ftsoRewardManagerProxy");
+        mockRewardManagerV2 = makeAddr("rewardManagerV2");
+        mockVoterRegistry = makeAddr("voterRegistry");
+        mockCleanupBlockNumberManager = makeAddr("cleanupBlockNumberManager");
+
+        //// update contract addresses
+        contractNameHashes = new bytes32[](6);
+        contractAddresses = new address[](6);
+        contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
+        contractNameHashes[1] = keccak256(abi.encode("VoterRegistry"));
+        contractNameHashes[2] = keccak256(abi.encode("Submission"));
+        contractNameHashes[3] = keccak256(abi.encode("Relay"));
+        contractNameHashes[4] = keccak256(abi.encode("RewardManager"));
+        contractNameHashes[5] = keccak256(abi.encode("CleanupBlockNumberManager"));
+        contractAddresses[0] = addressUpdater;
+        contractAddresses[1] = mockVoterRegistry;
+        contractAddresses[2] = mockSubmission;
+        contractAddresses[3] = mockRelay;
+        contractAddresses[4] = mockRewardManagerV2;
+        contractAddresses[5] = mockCleanupBlockNumberManager;
+        vm.prank(addressUpdater);
+        flareSystemsManager.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        ftsoManagerProxy = new FtsoManagerProxy(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            makeAddr("oldFtsoManager")
+        );
+
+        contractNameHashes = new bytes32[](4);
+        contractAddresses = new address[](4);
+        contractNameHashes[0] = keccak256(abi.encode("FtsoRewardManagerProxy"));
+        contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
+        contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
+        contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
+        contractAddresses[0] = mockRewardManager;
+        contractAddresses[1] = mockRewardManagerV2;
+        contractAddresses[2] = address(flareSystemsManager);
+        contractAddresses[3] = addressUpdater;
+        vm.prank(addressUpdater);
+        ftsoManagerProxy.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        // mock registered addresses
+        _mockRegisteredAddresses(0);
+
+        _createSigningAddressesAndPk(3);
+
+        // don't cleanup anything yet
+        _mockCleanupBlockNumber(0);
+
+        vm.mockCall(
+            mockSubmission,
+            abi.encodeWithSelector(IISubmission.initNewVotingRound.selector),
+            abi.encode()
+        );
+    }
+
+    function testContractAddresses() public {
+        assertEq(ftsoManagerProxy.oldFtsoManager(), makeAddr("oldFtsoManager"));
+        assertEq(address(ftsoManagerProxy.rewardManager()), mockRewardManager);
+        assertEq(address(ftsoManagerProxy.flareSystemsManager()), address(flareSystemsManager));
+        assertEq(address(ftsoManagerProxy.rewardManagerV2()), mockRewardManagerV2);
+    }
+
+    function testGetRewardEpochVotePowerBlock() public {
+        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        vm.warp(currentTime);
+
+        _mockToSigningPolicyHash(1, bytes32(0));
+
+        // start random acquisition
+        vm.roll(199);
+        vm.startPrank(flareDaemon);
+        flareSystemsManager.daemonize();
+
+        vm.roll(234);
+        vm.warp(currentTime + uint64(11));
+        // select vote power block
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encode(123, true, currentTime + 1)
+        );
+        flareSystemsManager.daemonize();
+        // endBlock = 199, _initialRandomVotePowerBlockSelectionSize = 5
+        // numberOfBlocks = 5, random (=123) % 5 = 3 -> vote power block = 199 - 3 = 196
+        assertEq(flareSystemsManager.getVotePowerBlock(1), 196);
+        assertEq(ftsoManagerProxy.getRewardEpochVotePowerBlock(1), 196);
+        assertEq(ftsoManagerProxy.getVotePowerBlock(1), 196);
+    }
+
+    function testGetCurrentRewardEpoch() public {
+        assertEq(ftsoManagerProxy.getCurrentRewardEpochId(), 0);
+        for (uint256 i = 1; i < 12; i++) {
+            _initializeSigningPolicyAndMoveToNewEpoch(i);
+            vm.prank(flareDaemon);
+            flareSystemsManager.daemonize();
+            assertEq(ftsoManagerProxy.getCurrentRewardEpochId(), i);
+            assertEq(ftsoManagerProxy.getCurrentRewardEpoch(), i);
+        }
+    }
+
+    function testGetCurrentPriceEpochId() public {
+        _initializeSigningPolicyAndMoveToNewEpoch(1);
+        vm.prank(flareDaemon);
+        flareSystemsManager.daemonize();
+        assertEq(ftsoManagerProxy.getCurrentPriceEpochId(), 3360);
+        assertEq(ftsoManagerProxy.getCurrentVotingEpochId(), 3360);
+
+        _initializeSigningPolicyAndMoveToNewEpoch(2);
+        vm.prank(flareDaemon);
+        flareSystemsManager.daemonize();
+        assertEq(ftsoManagerProxy.getCurrentPriceEpochId(), 2 * 3360);
+        assertEq(ftsoManagerProxy.getCurrentVotingEpochId(), 2 * 3360);
+
+        // move 5 voting rounds
+        vm.warp(block.timestamp + 5 * 90);
+        assertEq(ftsoManagerProxy.getCurrentPriceEpochId(), 2 * 3360 + 5);
+        assertEq(ftsoManagerProxy.getCurrentVotingEpochId(), 2 * 3360 + 5);
+    }
+
+    function testGetCurrentPriceEpochData() public {
+        _initializeSigningPolicyAndMoveToNewEpoch(1);
+        vm.prank(flareDaemon);
+        flareSystemsManager.daemonize();
+
+        uint256 firstVotingEpochStartTs = 1000;
+
+        (uint256 priceEpochId, uint256 priceEpochStartTimestamp,
+            uint256 priceEpochEndTimestamp, uint256 priceEpochRevealEndTimestamp,
+            uint256 currentTimestamp
+        ) = ftsoManagerProxy.getCurrentPriceEpochData();
+        assertEq(priceEpochId, 3360);
+        assertEq(priceEpochStartTimestamp, firstVotingEpochStartTs + 3360 * 90);
+        assertEq(priceEpochEndTimestamp, firstVotingEpochStartTs + 3360 * 90 + 90);
+        assertEq(priceEpochRevealEndTimestamp, firstVotingEpochStartTs + 3360 * 90 + 90 + 45);
+        assertEq(currentTimestamp, block.timestamp);
+    }
+
+    function testGetPriceEpochConfiguration() public {
+        (uint256 firstPriceEpochStart, uint256 priceEpochDuration, uint256 revealEpochDuration) =
+            ftsoManagerProxy.getPriceEpochConfiguration();
+        assertEq(firstPriceEpochStart, 1000);
+        assertEq(priceEpochDuration, 90);
+        assertEq(revealEpochDuration, 45);
+    }
+
+    function testGetRewardEpochConfiguration() public {
+        (uint256 firstRewardEpochStart, uint256 rewardEpochDuration) =
+            ftsoManagerProxy.getRewardEpochConfiguration();
+        assertEq(firstRewardEpochStart, 1000 + 0);
+        assertEq(rewardEpochDuration, 3360 * 90);
+
+        FlareSystemsManager flareSystemsManager1 = new FlareSystemsManager(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            flareDaemon,
+            settings,
+            9876,
+            VOTING_EPOCH_DURATION_SEC,
+            8,
+            1234,
+            initialSettings
+        );
+        contractNameHashes = new bytes32[](4);
+        contractAddresses = new address[](4);
+        contractNameHashes[0] = keccak256(abi.encode("FtsoRewardManagerProxy"));
+        contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
+        contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
+        contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
+        contractAddresses[0] = mockRewardManager;
+        contractAddresses[1] = mockRewardManagerV2;
+        contractAddresses[2] = address(flareSystemsManager1);
+        contractAddresses[3] = addressUpdater;
+        vm.prank(addressUpdater);
+        ftsoManagerProxy.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        (firstRewardEpochStart, rewardEpochDuration) =
+            ftsoManagerProxy.getRewardEpochConfiguration();
+        assertEq(firstRewardEpochStart, 9876 + 8 * 90);
+        assertEq(rewardEpochDuration, 1234 * 90);
+    }
+
+    function testFirstRewardEpochStartTs() public {
+        assertEq(ftsoManagerProxy.firstRewardEpochStartTs(), 1000);
+    }
+
+    function testRewardEpochDurationSeconds() public {
+        assertEq(ftsoManagerProxy.rewardEpochDurationSeconds(), 3360 * 90);
+    }
+
+    function testFirstVotingRoundStartTs() public {
+        assertEq(ftsoManagerProxy.firstVotingRoundStartTs(), 1000);
+    }
+
+    function testVotingEpochDurationSeconds() public {
+        assertEq(ftsoManagerProxy.votingEpochDurationSeconds(), 90);
+    }
+
+    function testGetStartVotingRoundId() public {
+        _initializeSigningPolicyAndMoveToNewEpoch(1);
+        vm.prank(flareDaemon);
+        flareSystemsManager.daemonize();
+        assertEq(ftsoManagerProxy.getStartVotingRoundId(1), 3360);
+
+        _initializeSigningPolicyAndMoveToNewEpoch(2);
+        vm.prank(flareDaemon);
+        flareSystemsManager.daemonize();
+        assertEq(ftsoManagerProxy.getStartVotingRoundId(2), 3360 * 2);
+    }
+
+    function testActive() public {
+        assert(ftsoManagerProxy.active());
+    }
+
+    function testGetFtsos() public {
+        IIFtso[] memory ftsos = ftsoManagerProxy.getFtsos();
+        assertEq(ftsos.length, 0);
+    }
+
+    function testGetFallbackMode() public {
+        (bool fallbackMode, IIFtso[] memory ftsos, bool[] memory ftsosFallbackMode) =
+            ftsoManagerProxy.getFallbackMode();
+        assert(!fallbackMode);
+        assertEq(ftsos.length, 0);
+        assertEq(ftsosFallbackMode.length, 0);
+    }
+
+    function testGetRewardEpochToExpireNext() public {
+        vm.mockCall(
+            mockRewardManagerV2,
+            abi.encodeWithSelector(bytes4(keccak256("getRewardEpochIdToExpireNext()"))),
+            abi.encode(8)
+        );
+        assertEq(ftsoManagerProxy.getRewardEpochToExpireNext(), 8);
+    }
+
+    //// helper functions
+    function _mockRegisteredAddresses(uint256 _epochid) internal {
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(IIVoterRegistry.getRegisteredSubmitAddresses.selector, _epochid),
+            abi.encode(new address[](0))
+        );
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(IIVoterRegistry.getRegisteredSubmitSignaturesAddresses.selector, _epochid),
+            abi.encode(new address[](0))
+        );
+    }
+
+    function _createSigningAddressesAndPk(uint256 _num) internal {
+        for (uint256 i = 0; i < _num; i++) {
+            (address signingAddress, uint256 pk) = makeAddrAndKey(
+                string.concat("signingAddress", vm.toString(i)));
+            signingAddresses.push(signingAddress);
+            signingAddressesPk.push(pk);
+        }
+    }
+
+
+    function _initializeSigningPolicy(uint256 _nextEpochId) internal {
+        // mock signing policy snapshot
+        voters = new address[](3);
+        voters[0] = makeAddr("voter0");
+        voters[1] = makeAddr("voter1");
+        voters[2] = makeAddr("voter2");
+        votersWeight = new uint16[](3);
+        votersWeight[0] = 400;
+        votersWeight[1] = 250;
+        votersWeight[2] = 350;
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(IIVoterRegistry.createSigningPolicySnapshot.selector, _nextEpochId),
+            abi.encode(voters, votersWeight, 1000)
+        );
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IIRelay.setSigningPolicy.selector),
+            abi.encode(bytes32(0))
+        );
+
+        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        vm.warp(currentTime);
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IRelay.toSigningPolicyHash.selector, _nextEpochId),
+            abi.encode(bytes32(0))
+        );
+
+        vm.startPrank(flareDaemon);
+        // start random acquisition
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(
+                IIVoterRegistry.setNewSigningPolicyInitializationStartBlockNumber.selector, _nextEpochId),
+            abi.encode()
+        );
+        flareSystemsManager.daemonize();
+
+        // select vote power block
+        vm.roll(block.number + 1);
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encode(123, true, currentTime + 1)
+        );
+        flareSystemsManager.daemonize();
+
+        // initialize signing policy
+        vm.warp(currentTime + 30 * 60 + 1); // after 30 minutes
+        vm.roll(block.number + 21); // after 20 blocks
+        vm.mockCall(
+            mockVoterRegistry,
+            abi.encodeWithSelector(IVoterRegistry.getNumberOfRegisteredVoters.selector, _nextEpochId),
+            abi.encode(3)
+        ); // 3 registered voters
+        flareSystemsManager.daemonize();
+        vm.stopPrank();
+    }
+
+    function _mockCleanupBlockNumber(uint256 _cleanupBlock) internal {
+        vm.mockCall(
+            mockRewardManagerV2,
+            abi.encodeWithSelector(bytes4(keccak256("cleanupBlockNumber()"))),
+            abi.encode(_cleanupBlock)
+        );
+    }
+
+    function _initializeSigningPolicyAndMoveToNewEpoch(uint256 _nextEpochId) private {
+        _initializeSigningPolicy(_nextEpochId);
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IRelay.toSigningPolicyHash.selector, _nextEpochId),
+            abi.encode(bytes32("signing policy1"))
+        ); // define new signing policy
+        _mockRegisteredAddresses(_nextEpochId);
+        vm.warp(block.timestamp + 5400); // after end of current reward epoch (_nextEpochId - 1)
+    }
+
+    function _mockToSigningPolicyHash(uint256 _epochId, bytes32 _hash) private {
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IRelay.toSigningPolicyHash.selector, _epochId),
+            abi.encode(_hash)
+        );
+    }
+
+}
