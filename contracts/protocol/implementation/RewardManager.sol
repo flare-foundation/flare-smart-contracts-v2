@@ -1084,7 +1084,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @param _rewardOwner Address of the reward owner.
      * @param _rewardEpochId Id of the reward epoch.
      * @return _rewardStates Array of reward states.
-     * @dev Existance of _rewardEpochId rewards hash has to be checked elsewhere.
+     * @dev Existence of _rewardEpochId rewards hash has to be checked elsewhere.
      */
     function _getStateOfRewardsAt(
         address _rewardOwner,
