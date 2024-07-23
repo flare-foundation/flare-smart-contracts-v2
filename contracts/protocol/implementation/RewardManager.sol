@@ -1064,7 +1064,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     /**
      * Returns last claimable reward epoch id.
      * @param _minClaimableEpochId Minimum claimable epoch id.
-     * @dev Existance of _minClaimableEpochId rewards hash has to be checked elsewhere.
+     * @dev Existence of _minClaimableEpochId rewards hash has to be checked elsewhere.
      */
     function _getLastClaimableRewardEpochId(
         uint24 _minClaimableEpochId
