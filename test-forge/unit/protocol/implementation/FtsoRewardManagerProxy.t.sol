@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import "../../../../contracts/protocol/implementation/RewardManager.sol";
 import "../../../../contracts/protocol/implementation/FtsoRewardManagerProxy.sol";
+import "../../../../contracts/protocol/implementation/WNatDelegationFee.sol";
 
 // solhint-disable-next-line max-states-count
 contract FtsoRewardManagerProxyTest is Test {
@@ -24,7 +25,7 @@ contract FtsoRewardManagerProxyTest is Test {
     address[] private rewardOffersManagers;
     address private mockFlareSystemsCalculator;
     FtsoRewardManagerProxy private ftsoRewardManagerProxy;
-    address private mockWNatDelegationFee;
+    WNatDelegationFee private wNatDelegationFee;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -81,7 +82,12 @@ contract FtsoRewardManagerProxyTest is Test {
         mockCChainStake = makeAddr("mockCChainStake");
         mockWNat = makeAddr("mockWNat");
         mockFlareSystemsCalculator = makeAddr("mockFlareSystemsCalculator");
-        mockWNatDelegationFee = makeAddr("mockWNatDelegationFee");
+
+        wNatDelegationFee = new WNatDelegationFee(addressUpdater, 2, 2000);
+
+        vm.prank(governance);
+        vm.expectRevert("reward manager not set");
+        ftsoRewardManagerProxy.enable();
 
         vm.startPrank(addressUpdater);
         contractNameHashes = new bytes32[](5);
@@ -94,9 +100,17 @@ contract FtsoRewardManagerProxyTest is Test {
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockFlareSystemsManager;
         contractAddresses[2] = mockWNat;
-        contractAddresses[3] = mockWNatDelegationFee;
+        contractAddresses[3] = address(wNatDelegationFee);
         contractAddresses[4] = address(rewardManager);
         ftsoRewardManagerProxy.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        contractNameHashes = new bytes32[](2);
+        contractAddresses = new address[](2);
+        contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
+        contractNameHashes[1] = keccak256(abi.encode("FlareSystemsManager"));
+        contractAddresses[0] = addressUpdater;
+        contractAddresses[1] = mockFlareSystemsManager;
+        wNatDelegationFee.updateContractAddresses(contractNameHashes, contractAddresses);
 
         contractNameHashes = new bytes32[](8);
         contractAddresses = new address[](8);
@@ -133,21 +147,6 @@ contract FtsoRewardManagerProxyTest is Test {
         ftsoRewardManagerProxy.claimReward(recipient, rewardEpochIds);
     }
 
-    // user has nothing to claim (no delegations, p-chain and c-chain not enabled)
-    // function testGetStateOfRewardsAt1() public {
-    //     RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-    //     _mockGetVpBlock(0, rewardEpochData.vpBlock);
-    //     _mockWNatBalance(voter1, rewardEpochData.vpBlock, rewardEpochData.id);
-    //     _mockGetCurrentEpochId(0);
-    //     _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
-    //     _mockNoOfWeightBasedClaims(rewardEpochData.id, 0);
-    //     _mockRewardsHash(rewardEpochData.id, bytes32("root"));
-
-    //     RewardManager.RewardState[] memory rewardStates =
-    //         rewardManager.getStateOfRewardsAt(voter1, rewardEpochData.id);
-    //     assertEq(rewardStates.length, 0);
-    // }
-
     function testClaimReward() public {
         _enablePChainStakeMirror();
         // enable ftso reward manager proxy
@@ -176,7 +175,7 @@ contract FtsoRewardManagerProxyTest is Test {
         _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
 
         // _claimWeightBasedRewards
-        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1); // DIRECT claim and one weight based claim (WNAT)
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1);
 
         // voter data
         // voter1 balance = 250; vp = 300; he is delegating 100% to himself
@@ -284,7 +283,7 @@ contract FtsoRewardManagerProxyTest is Test {
         _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
 
         // _claimWeightBasedRewards
-        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1); // DIRECT claim and one weight based claim (WNAT)
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1);
 
         // voter data
         // voter1 balance = 250; vp = 300; he is delegating 100% to himself
@@ -440,25 +439,51 @@ contract FtsoRewardManagerProxyTest is Test {
     }
 
     function testGetDataProviderCurrentFeePercentage() public {
-        vm.mockCall(
-            mockWNatDelegationFee,
-            abi.encodeWithSelector(IWNatDelegationFee.getVoterCurrentFeePercentage.selector, voter1),
-            abi.encode(3000)
-        );
-        assertEq(ftsoRewardManagerProxy.getDataProviderCurrentFeePercentage(voter1), 3000);
+        _mockGetCurrentEpochId(0);
+        assertEq(ftsoRewardManagerProxy.getDataProviderCurrentFeePercentage(voter1), 2000);
+
+        // change fee to 10%
+        vm.prank(voter1);
+        wNatDelegationFee.setVoterFeePercentage(uint16(1000));
+
+        // move to epoch 2
+        _mockGetCurrentEpochId(2);
+        assertEq(ftsoRewardManagerProxy.getDataProviderCurrentFeePercentage(voter1), 1000);
     }
 
     function testGetDataProviderFeePercentage() public {
-        vm.mockCall(
-            mockWNatDelegationFee,
-            abi.encodeWithSelector(IWNatDelegationFee.getVoterFeePercentage.selector, voter1, 2),
-            abi.encode(4000)
-        );
-        assertEq(ftsoRewardManagerProxy.getDataProviderFeePercentage(voter1, 2), 4000);
+        _mockGetCurrentEpochId(0);
+
+        // change fee to 10%
+        vm.prank(voter1);
+        wNatDelegationFee.setVoterFeePercentage(uint16(1000));
+
+        assertEq(ftsoRewardManagerProxy.getDataProviderFeePercentage(voter1, 0), 2000);
+        assertEq(ftsoRewardManagerProxy.getDataProviderFeePercentage(voter1, 1), 2000);
+        assertEq(ftsoRewardManagerProxy.getDataProviderFeePercentage(voter1, 2), 1000);
     }
 
     function testGetDataProviderScheduledFeePercentageChanges() public {
+        _mockGetCurrentEpochId(0);
 
+        // change fee to 10%
+        vm.prank(voter1);
+        wNatDelegationFee.setVoterFeePercentage(uint16(1000));
+
+        // set fee to 5%
+        _mockGetCurrentEpochId(1);
+        vm.prank(voter1);
+        wNatDelegationFee.setVoterFeePercentage(uint16(500));
+
+        (uint256[] memory percentageBIPS, uint256[] memory validFrom, bool[] memory isFixed) =
+            ftsoRewardManagerProxy.getDataProviderScheduledFeePercentageChanges(voter1);
+        assertEq(percentageBIPS.length, 2);
+        assertEq(percentageBIPS[0], 1000);
+        assertEq(percentageBIPS[1], 500);
+        assertEq(validFrom[0], 2);
+        assertEq(validFrom[1], 3);
+        assertEq(isFixed[0], true);
+        assertEq(isFixed[1], false);
     }
 
     function testGetEpochReward() public {
@@ -519,7 +544,7 @@ contract FtsoRewardManagerProxyTest is Test {
         _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
 
         // _claimWeightBasedRewards
-        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1); // DIRECT claim and one weight based claim (WNAT)
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1);
 
         // voter data
         // voter1 balance = 250; vp = 300; he is delegating 100% to himself
@@ -560,7 +585,7 @@ contract FtsoRewardManagerProxyTest is Test {
         _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
 
         // _claimWeightBasedRewards
-        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1); // DIRECT claim and one weight based claim (WNAT)
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1);
 
         // voter data
         // voter1 balance = 250; vp = 300; he is delegating 100% to himself
@@ -679,7 +704,7 @@ contract FtsoRewardManagerProxyTest is Test {
         _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
 
         // _claimWeightBasedRewards
-        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1); // DIRECT claim and one weight based claim (WNAT)
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1);
 
         // voter data
         // voter1 balance = 250; vp = 300; he is delegating 100% to himself
@@ -735,7 +760,7 @@ contract FtsoRewardManagerProxyTest is Test {
         _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
 
         // _claimWeightBasedRewards
-        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1); // DIRECT claim and one weight based claim (WNAT)
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1);
 
         // voter data
         // voter1 balance = 250; vp = 300; he is delegating 100% to himself
@@ -765,6 +790,161 @@ contract FtsoRewardManagerProxyTest is Test {
         uint256[] memory epochs = ftsoRewardManagerProxy.getEpochsWithUnclaimedRewards(voter1);
         assertEq(epochs.length, 1);
         assertEq(epochs[0], 0);
+    }
+
+    function testGetClaimedReward1() public {
+        _enablePChainStakeMirror();
+        // enable ftso reward manager proxy
+        vm.prank(governance);
+        ftsoRewardManagerProxy.enable();
+
+        RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
+        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        merkleProof1 = new bytes32[](1);
+
+        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        bytes32 leaf1 = keccak256(abi.encode(body1));
+        bytes32 merkleRoot = _hashPair(leaf1, leaf1);
+
+        // proof for WNAT claim
+        merkleProof1[0] = leaf1;
+        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+
+        // contract needs some funds for rewarding
+        _fundRewardContract(1000, rewardEpochData.id);
+
+        _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
+        _mockRewardsHash(rewardEpochData.id, merkleRoot);
+
+        _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
+
+        // _claimWeightBasedRewards
+        _mockNoOfWeightBasedClaims(rewardEpochData.id, 1);
+
+        // voter data
+        _setWNatData(rewardEpochData.vpBlock);
+        _setPChainMirrorData(rewardEpochData.vpBlock);
+        _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
+
+        address[] memory delegates = new address[](1);
+        delegates[0] = voter1;
+        uint256[] memory bips = new uint256[](1);
+        bips[0] = 10000;
+        _mockWNatDelegations(delegator, rewardEpochData.vpBlock, delegates, bips);
+        _mockWNatBalance(delegator, rewardEpochData.vpBlock, 50);
+        bytes20[] memory nodeIds = new bytes20[](1);
+        uint256[] memory weights = new uint256[](1);
+        nodeIds[0] = nodeId1;
+        weights[0] = 350;
+        _mockStakes(delegator, rewardEpochData.vpBlock, nodeIds, weights);
+        _mockMirroredVp(nodeIds[0], rewardEpochData.vpBlock, 400);
+
+        // get claimed reward
+        (bool claimed, uint256 amount) = ftsoRewardManagerProxy.getClaimedReward(0, voter1, delegator);
+        assertEq(claimed, false);
+        assertEq(amount, 0);
+
+        // initialize rewards
+        rewardManager.initialiseWeightBasedClaims(proofs);
+        (claimed, amount) = ftsoRewardManagerProxy.getClaimedReward(0, voter1, delegator);
+        assertEq(claimed, false);
+        assertEq(amount, 33);
+    }
+
+    // already claimed
+    function testGetClaimedReward2() public {
+        testGetClaimedReward1();
+
+        // claim
+        _mockGetCurrentEpochId(2);
+        vm.prank(delegator);
+        uint256[] memory rewardEpochs = new uint256[](1);
+        rewardEpochs[0] = 0;
+        ftsoRewardManagerProxy.claim(delegator, recipient, 0, false);
+
+        (bool claimed, uint256 amount) = ftsoRewardManagerProxy.getClaimedReward(0, voter1, delegator);
+        assertEq(claimed, true);
+        assertEq(amount, 0);
+    }
+
+    function testGetClaimedRewardRevertWithMsg() public {
+        _mockGetCurrentEpochId(2);
+        vm.expectRevert("not claimable");
+        // state in the future
+        ftsoRewardManagerProxy.getClaimedReward(12, voter1, delegator);
+    }
+
+    function testGetRewardEpochToExpireNext() public {
+        _mockGetCurrentEpochId(0);
+        vm.prank(governance);
+        rewardManager.enableClaims();
+
+        assertEq(ftsoRewardManagerProxy.getRewardEpochToExpireNext(), 0);
+
+        vm.prank(mockFlareSystemsManager);
+        rewardManager.closeExpiredRewardEpoch(0);
+
+        assertEq(ftsoRewardManagerProxy.getRewardEpochToExpireNext(), 1);
+    }
+
+    function testGetRewardEpochVotePowerBlock() public {
+        _mockGetVpBlock(0, 10);
+        assertEq(ftsoRewardManagerProxy.getRewardEpochVotePowerBlock(0), 10);
+    }
+
+    function testGetCurrentRewardEpochId() public {
+        _mockGetCurrentEpochId(9);
+        assertEq(ftsoRewardManagerProxy.getCurrentRewardEpoch(), 9);
+    }
+
+    function testGetInitialRewardEpoch() public {
+        assertEq(ftsoRewardManagerProxy.getInitialRewardEpoch(), 0);
+
+        _mockGetCurrentEpochId(9);
+        vm.mockCall(
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(bytes4(keccak256("rewardEpochIdToExpireNext()"))),
+            abi.encode(3)
+        );
+        vm.prank(governance);
+        rewardManager.setInitialRewardData();
+        assertEq(ftsoRewardManagerProxy.getInitialRewardEpoch(), 9);
+    }
+
+    function testClaimRewardFromDataProviders() public {
+        assertEq(ftsoRewardManagerProxy.claimRewardFromDataProviders(
+            payable(voter1), new uint256[](0), new address[](0)), 0);
+    }
+
+    function testClaimFromDataProviders() public {
+        assertEq(ftsoRewardManagerProxy.claimFromDataProviders(
+            voter1, recipient, new uint256[](0), new address[](0), false), 0);
+    }
+
+    function testAutoClaim() public {
+        vm.expectRevert("not supported, use RewardManager");
+        ftsoRewardManagerProxy.autoClaim(new address[](0), 0);
+    }
+
+    function testSetDataProviderFeePercentage() public {
+        vm.expectRevert("not supported, use WNatDelegationFee");
+        ftsoRewardManagerProxy.setDataProviderFeePercentage(2);
+    }
+
+    function testGetStateOfRewardsFromDataProviders() public {
+        (uint256[] memory amounts, bool[] memory claimed, bool claimable) =
+            ftsoRewardManagerProxy.getStateOfRewardsFromDataProviders(voter1, 0, new address[](0));
+        assertEq(amounts.length, 0);
+        assertEq(claimed.length, 0);
+        assertEq(claimable, false);
+    }
+
+    function testGetDataProviderPerformanceInfo() public {
+        (uint256 amount, uint256 revocation) =
+            ftsoRewardManagerProxy.getDataProviderPerformanceInfo(0, voter1);
+        assertEq(amount, 0);
+        assertEq(revocation, 0);
     }
 
     //// helper functions
