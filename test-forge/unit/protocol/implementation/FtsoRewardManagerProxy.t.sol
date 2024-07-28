@@ -6,7 +6,6 @@ import "../../../../contracts/protocol/implementation/RewardManager.sol";
 import "../../../../contracts/protocol/implementation/FtsoRewardManagerProxy.sol";
 import "../../../../contracts/protocol/implementation/WNatDelegationFee.sol";
 
-// solhint-disable-next-line max-states-count
 contract FtsoRewardManagerProxyTest is Test {
 
     struct RewardEpochData {
