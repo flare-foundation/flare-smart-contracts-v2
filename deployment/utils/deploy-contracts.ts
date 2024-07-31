@@ -131,7 +131,8 @@ export async function deployContracts(
   const PChainStakeMirror: PChainStakeMirrorContract = hre.artifacts.require("PChainStakeMirror");
   const GovernanceVotePower: GovernanceVotePowerContract = hre.artifacts.require("GovernanceVotePower" as any);
   const AddressBinder: AddressBinderContract = hre.artifacts.require("AddressBinder");
-  const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = hre.artifacts.require("PChainStakeMirrorVerifier");
+  const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract =
+    hre.artifacts.require("PChainStakeMirrorVerifier");
   const EntityManager: EntityManagerContract = hre.artifacts.require("EntityManager");
   const VoterRegistry: VoterRegistryContract = hre.artifacts.require("VoterRegistry");
   const FlareSystemsCalculator: FlareSystemsCalculatorContract = hre.artifacts.require("FlareSystemsCalculator");
@@ -140,18 +141,21 @@ export async function deployContracts(
   const Submission: SubmissionContract = hre.artifacts.require("Submission");
   const CChainStake: CChainStakeContract = hre.artifacts.require("CChainStake");
   const WNatDelegationFee: WNatDelegationFeeContract = hre.artifacts.require("WNatDelegationFee");
-  const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = hre.artifacts.require("FtsoInflationConfigurations");
+  const FtsoInflationConfigurations: FtsoInflationConfigurationsContract =
+    hre.artifacts.require("FtsoInflationConfigurations");
   const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = hre.artifacts.require("FtsoRewardOffersManager");
   const FtsoFeedDecimals: FtsoFeedDecimalsContract = hre.artifacts.require("FtsoFeedDecimals");
   const FtsoFeedPublisher: FtsoFeedPublisherContract = hre.artifacts.require("FtsoFeedPublisher");
   const FtsoFeedIdConverter: FtsoFeedIdConverterContract = hre.artifacts.require("FtsoFeedIdConverter");
-  const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = hre.artifacts.require("CleanupBlockNumberManager");
+  const CleanupBlockNumberManager: CleanupBlockNumberManagerContract =
+    hre.artifacts.require("CleanupBlockNumberManager");
   const Relay: RelayContract = hre.artifacts.require("Relay");
   const TestableFlareDaemon: TestableFlareDaemonContract = hre.artifacts.require("TestableFlareDaemon");
   const NodePossessionVerifier: NodePossessionVerifierContract = hre.artifacts.require("NodePossessionVerifier");
   const FdcHub: FdcHubContract = hre.artifacts.require("FdcHub");
 
-  const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract = artifacts.require("FastUpdateIncentiveManager");
+  const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract =
+    artifacts.require("FastUpdateIncentiveManager");
   const FastUpdater: FastUpdaterContract = artifacts.require("FastUpdater");
   const FastUpdatesConfiguration: FastUpdatesConfigurationContract = artifacts.require("FastUpdatesConfiguration");
 
@@ -204,7 +208,14 @@ export async function deployContracts(
   await cChainStake.activate();
 
   const addressBinder: AddressBinderInstance = await AddressBinder.new();
-  const pChainStakeMirrorVerifier = await PChainStakeMirrorVerifier.new(MULTI_SIG_VOTING_ADDR, RELAY_ADDR, 10, 1000, 5, 5000);
+  const pChainStakeMirrorVerifier = await PChainStakeMirrorVerifier.new(
+    MULTI_SIG_VOTING_ADDR,
+    RELAY_ADDR,
+    10,
+    1000,
+    5,
+    5000
+  );
 
   const mockContract = await MockContract.new();
 
@@ -274,8 +285,8 @@ export async function deployContracts(
   const initialSettings = {
     initialRandomVotePowerBlockSelectionSize: 1,
     initialRewardEpochId: 0,
-    initialRewardEpochThreshold: initialThreshold
-}
+    initialRewardEpochThreshold: initialThreshold,
+  };
 
   const settings = systemSettings(rewardEpochStart);
   const flareSystemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.new(
@@ -320,11 +331,7 @@ export async function deployContracts(
     false
   );
 
-  const wNatDelegationFee = await WNatDelegationFee.new(
-    ADDRESS_UPDATER_ADDR,
-    2,
-    2000
-  );
+  const wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER_ADDR, 2, 2000);
 
   const ftsoInflationConfigurations = await FtsoInflationConfigurations.new(
     governanceSettings.address,
@@ -346,8 +353,8 @@ export async function deployContracts(
     5,
     0,
     [
-      { feedId: FtsoConfigurations.encodeFeedId({category: 1, name: "BTC/USD"}), decimals: 2 },
-      { feedId: FtsoConfigurations.encodeFeedId({category: 1, name: "ETH/USD"}), decimals: 3 }
+      { feedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "BTC/USD" }), decimals: 2 },
+      { feedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "ETH/USD" }), decimals: 3 },
     ]
   );
 
@@ -395,24 +402,14 @@ export async function deployContracts(
     ADDRESS_UPDATER_ADDR
   );
 
-  const fdcHub = await FdcHub.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    ADDRESS_UPDATER_ADDR
-  );
+  const fdcHub = await FdcHub.new(governanceSettings.address, governanceAccount.address, ADDRESS_UPDATER_ADDR);
 
   await flareSystemsCalculator.enablePChainStakeMirror({ from: governanceAccount.address });
   await rewardManager.enablePChainStakeMirror({ from: governanceAccount.address });
 
   await flareDaemon.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.INFLATION
-    ]),
-    [
-      ADDRESS_UPDATER_ADDR,
-      INFLATION_ADDR
-    ],
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.INFLATION]),
+    [ADDRESS_UPDATER_ADDR, INFLATION_ADDR],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -463,8 +460,17 @@ export async function deployContracts(
       Contracts.WNAT_DELEGATION_FEE,
       Contracts.VOTER_REGISTRY,
       Contracts.P_CHAIN_STAKE_MIRROR,
-      Contracts.WNAT]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror.address, wNat.address],
+      Contracts.WNAT,
+    ]),
+    [
+      ADDRESS_UPDATER_ADDR,
+      flareSystemsManager.address,
+      entityManager.address,
+      wNatDelegationFee.address,
+      voterRegistry.address,
+      pChainStakeMirror.address,
+      wNat.address,
+    ],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -477,7 +483,14 @@ export async function deployContracts(
       Contracts.REWARD_MANAGER,
       Contracts.CLEANUP_BLOCK_NUMBER_MANAGER,
     ]),
-    [ADDRESS_UPDATER_ADDR, voterRegistry.address, submission.address, relay.address, rewardManager.address, cleanupBlockNumberManager.address],
+    [
+      ADDRESS_UPDATER_ADDR,
+      voterRegistry.address,
+      submission.address,
+      relay.address,
+      rewardManager.address,
+      cleanupBlockNumberManager.address,
+    ],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -489,25 +502,31 @@ export async function deployContracts(
       Contracts.FLARE_SYSTEMS_MANAGER,
       Contracts.FLARE_SYSTEMS_CALCULATOR,
       Contracts.P_CHAIN_STAKE_MIRROR,
-      Contracts.WNAT]),
-    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address],
+      Contracts.WNAT,
+    ]),
+    [
+      ADDRESS_UPDATER_ADDR,
+      voterRegistry.address,
+      CLAIM_SETUP_MANAGER_ADDR,
+      flareSystemsManager.address,
+      flareSystemsCalculator.address,
+      pChainStakeMirror.address,
+      wNat.address,
+    ],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
   await submission.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEMS_MANAGER,
-      Contracts.RELAY]),
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
     [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, relay.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
   await wNatDelegationFee.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEMS_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await ftsoRewardOffersManager.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -516,26 +535,36 @@ export async function deployContracts(
       Contracts.REWARD_MANAGER,
       Contracts.FTSO_INFLATION_CONFIGURATIONS,
       Contracts.FTSO_FEED_DECIMALS,
-      Contracts.INFLATION]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, rewardManager.address, ftsoInflationConfigurations.address, ftsoFeedDecimals.address, INFLATION_ADDR], { from: ADDRESS_UPDATER_ADDR });
+      Contracts.INFLATION,
+    ]),
+    [
+      ADDRESS_UPDATER_ADDR,
+      flareSystemsManager.address,
+      rewardManager.address,
+      ftsoInflationConfigurations.address,
+      ftsoFeedDecimals.address,
+      INFLATION_ADDR,
+    ],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await ftsoFeedDecimals.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEMS_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await ftsoFeedPublisher.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.RELAY]),
-    [ADDRESS_UPDATER_ADDR, relay.address], { from: ADDRESS_UPDATER_ADDR });
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
+    [ADDRESS_UPDATER_ADDR, relay.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await cleanupBlockNumberManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEMS_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await fastUpdateIncentiveManager.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -544,8 +573,18 @@ export async function deployContracts(
       Contracts.FAST_UPDATER,
       Contracts.FAST_UPDATES_CONFIGURATION,
       Contracts.REWARD_MANAGER,
-      Contracts.INFLATION]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, fastUpdater.address, fastUpdatesConfiguration.address, rewardManager.address, INFLATION_ADDR], { from: ADDRESS_UPDATER_ADDR });
+      Contracts.INFLATION,
+    ]),
+    [
+      ADDRESS_UPDATER_ADDR,
+      flareSystemsManager.address,
+      fastUpdater.address,
+      fastUpdatesConfiguration.address,
+      rewardManager.address,
+      INFLATION_ADDR,
+    ],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await fastUpdater.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -554,25 +593,42 @@ export async function deployContracts(
       Contracts.FAST_UPDATE_INCENTIVE_MANAGER,
       Contracts.VOTER_REGISTRY,
       Contracts.FAST_UPDATES_CONFIGURATION,
-      Contracts.FTSO_FEED_PUBLISHER]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, fastUpdateIncentiveManager.address, voterRegistry.address, fastUpdatesConfiguration.address, mockContract.address], { from: ADDRESS_UPDATER_ADDR });
+      Contracts.FTSO_FEED_PUBLISHER,
+    ]),
+    [
+      ADDRESS_UPDATER_ADDR,
+      flareSystemsManager.address,
+      fastUpdateIncentiveManager.address,
+      voterRegistry.address,
+      fastUpdatesConfiguration.address,
+      mockContract.address,
+    ],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await fastUpdatesConfiguration.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.FAST_UPDATER]),
-    [ADDRESS_UPDATER_ADDR, fastUpdater.address], { from: ADDRESS_UPDATER_ADDR });
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FAST_UPDATER]),
+    [ADDRESS_UPDATER_ADDR, fastUpdater.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await fdcHub.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
       Contracts.FLARE_SYSTEMS_MANAGER,
       Contracts.REWARD_MANAGER,
-      Contracts.INFLATION]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, rewardManager.address, INFLATION_ADDR], { from: ADDRESS_UPDATER_ADDR });
+      Contracts.INFLATION,
+    ]),
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, rewardManager.address, INFLATION_ADDR],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   // set reward offers manager list
-  await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, fastUpdateIncentiveManager.address, fdcHub.address]);
+  await rewardManager.setRewardOffersManagerList([
+    ftsoRewardOffersManager.address,
+    fastUpdateIncentiveManager.address,
+    fdcHub.address,
+  ]);
 
   // set initial reward data
   await rewardManager.setInitialRewardData();
@@ -587,31 +643,47 @@ export async function deployContracts(
   await fdcHub.receiveInflation({ value: inflationFunds, from: INFLATION_ADDR });
 
   // set FDC types + sources + fees
-  // TODO Luka
+
+  const EVMTransactionType = web3.utils.utf8ToHex("EVMTransaction").padEnd(66, "0");
+
+  const testSGB = web3.utils.utf8ToHex("testSGB").padEnd(66, "0");
+
+  await fdcHub.setTypeAndSourceFees([EVMTransactionType], [testSGB], [1], { from: governanceAccount.address });
 
   // set rewards offer switchover trigger contracts
-  await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address, fastUpdateIncentiveManager.address, fdcHub.address], { from: governanceAccount.address });
+  await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts(
+    [ftsoRewardOffersManager.address, fastUpdateIncentiveManager.address, fdcHub.address],
+    { from: governanceAccount.address }
+  );
 
   // set ftso configurations
   await ftsoInflationConfigurations.addFtsoConfiguration(
     {
-        feedIds: FtsoConfigurations.encodeFeedIds([{category: 1, name: "BTC/USD"}, {category: 1, name: "XRP/USD"}, {category: 1, name: "FLR/USD"}, {category: 1, name: "ETH/USD"}]),
-        inflationShare: 200,
-        minRewardedTurnoutBIPS: 5000,
-        mode: 0,
-        primaryBandRewardSharePPM: 700000,
-        secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([400, 800, 100, 250])
+      feedIds: FtsoConfigurations.encodeFeedIds([
+        { category: 1, name: "BTC/USD" },
+        { category: 1, name: "XRP/USD" },
+        { category: 1, name: "FLR/USD" },
+        { category: 1, name: "ETH/USD" },
+      ]),
+      inflationShare: 200,
+      minRewardedTurnoutBIPS: 5000,
+      mode: 0,
+      primaryBandRewardSharePPM: 700000,
+      secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([400, 800, 100, 250]),
     },
     { from: governanceAccount.address }
   );
   await ftsoInflationConfigurations.addFtsoConfiguration(
     {
-        feedIds: FtsoConfigurations.encodeFeedIds([{category: 1, name: "BTC/USD"}, {category: 1, name: "LTC/USD"}]),
-        inflationShare: 100,
-        minRewardedTurnoutBIPS: 5000,
-        mode: 0,
-        primaryBandRewardSharePPM: 600000,
-        secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([200, 1000])
+      feedIds: FtsoConfigurations.encodeFeedIds([
+        { category: 1, name: "BTC/USD" },
+        { category: 1, name: "LTC/USD" },
+      ]),
+      inflationShare: 100,
+      minRewardedTurnoutBIPS: 5000,
+      mode: 0,
+      primaryBandRewardSharePPM: 600000,
+      secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs([200, 1000]),
     },
     { from: governanceAccount.address }
   );
@@ -621,7 +693,7 @@ export async function deployContracts(
     FtsoConfigurations.encodeFeedId({ category: 1, name: "XRP/USD" }),
     FtsoConfigurations.encodeFeedId({ category: 1, name: "FLR/USD" }),
     FtsoConfigurations.encodeFeedId({ category: 1, name: "ETH/USD" }),
-    FtsoConfigurations.encodeFeedId({ category: 1, name: "LTC/USD" })
+    FtsoConfigurations.encodeFeedId({ category: 1, name: "LTC/USD" }),
   ];
   const ANCHOR_FEEDS = [6971622, 5296, 2813, 3813387, 863218];
   const DECIMALS = [2, 4, 5, 3, 4];
@@ -641,21 +713,23 @@ export async function deployContracts(
     { feedId: FEED_IDS[1], rewardBandValue: 4000, inflationShare: 100 },
     { feedId: FEED_IDS[2], rewardBandValue: 3000, inflationShare: 200 },
     { feedId: FEED_IDS[3], rewardBandValue: 3000, inflationShare: 100 },
-    { feedId: FEED_IDS[4], rewardBandValue: 3000, inflationShare: 100 }
+    { feedId: FEED_IDS[4], rewardBandValue: 3000, inflationShare: 100 },
   ]);
 
   // Register FastUpdater on Submission contract
   await submission.setSubmitAndPassData(
     fastUpdater.address,
-    fastUpdater.contract.methods.submitUpdates(
-      {
+    fastUpdater.contract.methods
+      .submitUpdates({
         sortitionBlock: 0,
-        sortitionCredential: {replicate: 0, gamma: {x: 0, y: 0}, c: 0, s: 0},
+        sortitionCredential: { replicate: 0, gamma: { x: 0, y: 0 }, c: 0, s: 0 },
         deltas: "0x",
-        signature: {v: 0, r: ZERO_BYTES32, s: ZERO_BYTES32}
-      }
-    ).encodeABI().slice(0, 10), // first 4 bytes is function selector
-    { from: governanceAccount.address });
+        signature: { v: 0, r: ZERO_BYTES32, s: ZERO_BYTES32 },
+      })
+      .encodeABI()
+      .slice(0, 10), // first 4 bytes is function selector
+    { from: governanceAccount.address }
+  );
 
   await entityManager.setNodePossessionVerifier(nodePossessionmockContract.address); // mock verifier
   await entityManager.setPublicKeyVerifier(fastUpdater.address);
@@ -705,7 +779,7 @@ export async function deployContracts(
     fastUpdater,
     fastUpdatesConfiguration,
     nodePossessionVerifier,
-    fdcHub
+    fdcHub,
   };
 
   return [contracts, rewardEpochStart, initialSigningPolicy];
@@ -718,4 +792,3 @@ export function serializeDeployedContractsAddresses(contracts: DeployedContracts
   });
   fs.writeFileSync(fname, JSON.stringify(result, null, 2));
 }
-
