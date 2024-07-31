@@ -3,9 +3,14 @@ pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/tokenPools/interface/IIFtsoRewardManager.sol";
 import "flare-smart-contracts/contracts/ftso/interface/IIFtsoManager.sol";
+import "flare-smart-contracts/contracts/genesis/interface/IIPriceSubmitter.sol";
+import "flare-smart-contracts/contracts/utils/interface/IIFtsoRegistry.sol";
 import "../interface/IIRewardManager.sol";
 import "../interface/IIFlareSystemsManager.sol";
+import "../../fastUpdates/interface/IIFastUpdater.sol";
 import "../../governance/implementation/Governed.sol";
+import "../../userInterfaces/IFastUpdatesConfiguration.sol";
+import "../../userInterfaces/ISubmission.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -25,20 +30,57 @@ contract FtsoManagerProxy is IFtsoManager, Governed, ReentrancyGuard, AddressUpd
     // contract addresses
     /// FtsoRewardManagerProxy contract address (name is kept for compatibility)
     address public rewardManager;
+    /// FtsoRegistry contract address.
+    IIFtsoRegistry public ftsoRegistry;
     /// Flare systems manager contract address.
     IIFlareSystemsManager public flareSystemsManager;
     /// Reward manager (V2) contract address.
     IIRewardManager public rewardManagerV2;
+    /// FastUpdater contract address.
+    IIFastUpdater public fastUpdater;
+    /// The FastUpdatesConfiguration contract.
+    IFastUpdatesConfiguration public fastUpdatesConfiguration;
+    /// Submission contract.
+    ISubmission public submission;
 
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
-        address _oldFtsoManagerProxy
+        address _oldFtsoManager
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
-        oldFtsoManager = _oldFtsoManagerProxy;
+        oldFtsoManager = _oldFtsoManager; // or old ftso manager proxy address
+    }
+
+    /**
+     * Adds FtsoProxy contracts to the FtsoRegistry.
+     */
+    function addFtsos(IFtso[] memory _ftsos) external onlyGovernance {
+        for (uint256 i = 0; i < _ftsos.length; i++) {
+            IIFtso ftso = IIFtso(address(_ftsos[i]));
+            require(address(this) == ftso.ftsoManager(), "invalid ftso manager");
+            ftsoRegistry.addFtso(ftso);
+        }
+    }
+
+    /**
+     * Removes FtsoProxy contracts from the FtsoRegistry.
+     */
+    function removeFtsos(IFtso[] memory _ftsos) external onlyGovernance {
+        for (uint256 i = 0; i < _ftsos.length; i++) {
+            IIFtso ftso = IIFtso(address(_ftsos[i]));
+            require(address(this) == ftso.ftsoManager(), "invalid ftso manager");
+            ftsoRegistry.removeFtso(ftso);
+        }
+    }
+
+    /**
+     * This method should be called only once by governance in order to remove the trusted addresses.
+     */
+    function removeTrustedAddresses() external onlyGovernance {
+        IIPriceSubmitter(0x1000000000000000000000000000000000000003).setTrustedAddresses(new address[](0));
     }
 
     /**
@@ -177,28 +219,31 @@ contract FtsoManagerProxy is IFtsoManager, Governed, ReentrancyGuard, AddressUpd
     /**
      * @inheritdoc IFtsoManager
      */
-    function active() external pure returns (bool) {
-        return true;
+    function getFtsos() external view returns (IIFtso[] memory) {
+        return _getFtsos();
     }
 
     /**
      * @inheritdoc IFtsoManager
      */
-    function getFtsos() external pure returns (IIFtso[] memory) {
-        // return empty array
-    }
-
-    /**
-     * @inheritdoc IFtsoManager
-     */
-    function getFallbackMode() external pure
+    function getFallbackMode() external view
         returns (
-            bool,
-            IIFtso[] memory,
-            bool[] memory
+            bool _fallbackMode,
+            IIFtso[] memory _ftsos,
+            bool[] memory _ftsoInFallbackMode
         )
     {
-        // return false, empty array, empty array
+        _fallbackMode = false;
+        _ftsos = _getFtsos();
+        uint256 len = _ftsos.length;
+        _ftsoInFallbackMode = new bool[](len); // all false
+    }
+
+    /**
+     * @inheritdoc IFtsoManager
+     */
+    function active() external pure returns (bool) {
+        return true;
     }
 
     /**
@@ -211,9 +256,24 @@ contract FtsoManagerProxy is IFtsoManager, Governed, ReentrancyGuard, AddressUpd
         internal override
     {
         rewardManager = _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRewardManagerProxy");
+        ftsoRegistry = IIFtsoRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRegistry"));
         rewardManagerV2 = IIRewardManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
         flareSystemsManager = IIFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
+        fastUpdater = IIFastUpdater(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FastUpdater"));
+        fastUpdatesConfiguration = IFastUpdatesConfiguration(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FastUpdatesConfiguration"));
+        submission = ISubmission(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "Submission"));
+    }
+
+    /**
+     * Returns the supported FTSOs.
+     */
+    function _getFtsos() internal view returns (IIFtso[] memory) {
+        return ftsoRegistry.getSupportedFtsos();
     }
 }
