@@ -648,7 +648,7 @@ export async function deployContracts(
 
   const testSGB = web3.utils.utf8ToHex("testSGB").padEnd(66, "0");
 
-  await fdcHub.setTypeAndSourceFees([EVMTransactionType], [testSGB], [1], { from: governanceAccount.address });
+  await fdcHub.setTypeAndSourceFee(EVMTransactionType, testSGB, "1", { from: governanceAccount.address });
 
   // set rewards offer switchover trigger contracts
   await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts(

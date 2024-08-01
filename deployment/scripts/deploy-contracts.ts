@@ -65,7 +65,7 @@ export async function deployContracts(
   const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
   const Relay: RelayContract = artifacts.require("Relay");
   const Supply = artifacts.require("IISupplyGovernance");
-  const FdcHub: FdcHubContract = hre.artifacts.require("FdcHub");
+  const FdcHub: FdcHubContract = artifacts.require("FdcHub");
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
@@ -549,7 +549,7 @@ export async function deployContracts(
 
   const testSGB = web3.utils.utf8ToHex("testSGB").padEnd(66, "0");
 
-  await fdcHub.setTypeAndSourceFees([EVMTransactionType], [testSGB], [1], { from: governanceSettings });
+  await fdcHub.setTypeAndSourceFee(EVMTransactionType, testSGB, "1", { from: governanceSettings });
 
   if (parameters.testDeployment) {
     await rewardManager.enableClaims();
