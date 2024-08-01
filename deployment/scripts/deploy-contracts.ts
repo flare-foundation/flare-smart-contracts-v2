@@ -7,19 +7,41 @@
  * json defining the created contracts.
  */
 
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { ChainParameters } from '../chain-config/chain-parameters';
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
-import { spewNewContractInfo } from './deploy-utils';
-import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoFeedPublisherContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, NodePossessionVerifierContract, RelayContract, RewardManagerContract, SubmissionContract, VoterRegistryContract, WNatDelegationFeeContract } from '../../typechain-truffle';
-import { ISigningPolicy, SigningPolicy } from '../../scripts/libs/protocol/SigningPolicy';
-import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
-import { FtsoFeedIdConverterContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedIdConverter';
-import { generateOffers, runOfferRewards } from './offer-rewards';
+import { spewNewContractInfo } from "./deploy-utils";
+import {
+  CleanupBlockNumberManagerContract,
+  EntityManagerContract,
+  FlareSystemsCalculatorContract,
+  FlareSystemsManagerContract,
+  FtsoFeedDecimalsContract,
+  FtsoFeedPublisherContract,
+  FtsoInflationConfigurationsContract,
+  FtsoRewardOffersManagerContract,
+  NodePossessionVerifierContract,
+  RelayContract,
+  RewardManagerContract,
+  SubmissionContract,
+  VoterRegistryContract,
+  WNatDelegationFeeContract,
+  FdcHubContract,
+} from "../../typechain-truffle";
+import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
+import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
+import { FtsoFeedIdConverterContract } from "../../typechain-truffle/contracts/ftso/implementation/FtsoFeedIdConverter";
+import { generateOffers, runOfferRewards } from "./offer-rewards";
 
-let fs = require('fs');
+let fs = require("fs");
 
-export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContracts: Contracts, contracts: Contracts, parameters: ChainParameters, quiet: boolean = false) {
+export async function deployContracts(
+  hre: HardhatRuntimeEnvironment,
+  oldContracts: Contracts,
+  contracts: Contracts,
+  parameters: ChainParameters,
+  quiet: boolean = false
+) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
   const BN = web3.utils.toBN;
@@ -34,7 +56,8 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
   const Submission: SubmissionContract = artifacts.require("Submission");
   const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDelegationFee");
-  const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifacts.require("FtsoInflationConfigurations");
+  const FtsoInflationConfigurations: FtsoInflationConfigurationsContract =
+    artifacts.require("FtsoInflationConfigurations");
   const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
   const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
   const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
@@ -42,6 +65,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
   const Relay: RelayContract = artifacts.require("Relay");
   const Supply = artifacts.require("IISupplyGovernance");
+  const FdcHub: FdcHubContract = hre.artifacts.require("FdcHub");
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
@@ -49,7 +73,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e)
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e);
   }
 
   // Wire up the default account that will do the deployment
@@ -57,7 +81,9 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
 
   const governanceSettings = oldContracts.getContractAddress(Contracts.GOVERNANCE_SETTINGS);
   const addressUpdater = oldContracts.getContractAddress(Contracts.ADDRESS_UPDATER);
-  const pChainStakeMirror = parameters.pChainStakeEnabled ? oldContracts.getContractAddress(Contracts.P_CHAIN_STAKE_MIRROR) : ZERO_ADDRESS;
+  const pChainStakeMirror = parameters.pChainStakeEnabled
+    ? oldContracts.getContractAddress(Contracts.P_CHAIN_STAKE_MIRROR)
+    : ZERO_ADDRESS;
   const wNat = oldContracts.getContractAddress(Contracts.WNAT);
   const claimSetupManager = oldContracts.getContractAddress(Contracts.CLAIM_SETUP_MANAGER);
   const inflation = oldContracts.getContractAddress(Contracts.INFLATION);
@@ -70,7 +96,14 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   spewNewContractInfo(contracts, null, EntityManager.contractName, `EntityManager.sol`, entityManager.address, quiet);
 
   const nodePossessionVerifier = await NodePossessionVerifier.new();
-  spewNewContractInfo(contracts, null, NodePossessionVerifier.contractName, `NodePossessionVerifier.sol`, nodePossessionVerifier.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    NodePossessionVerifier.contractName,
+    `NodePossessionVerifier.sol`,
+    nodePossessionVerifier.address,
+    quiet
+  );
 
   await entityManager.setNodePossessionVerifier(nodePossessionVerifier.address);
 
@@ -89,17 +122,26 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     }
   } else {
     if (!quiet) {
-      console.error(`Using firstVotingRoundStartTs parameter ${parameters.firstVotingRoundStartTs} as first voting round start timestamp.`);
+      console.error(
+        `Using firstVotingRoundStartTs parameter ${parameters.firstVotingRoundStartTs} as first voting round start timestamp.`
+      );
     }
   }
-  const initialRewardEpochId = currentBlockTs.sub(firstVotingRoundStartTs).subn(parameters.firstRewardEpochStartVotingRoundId * parameters.votingEpochDurationSeconds)
-    .divn(parameters.votingEpochDurationSeconds * parameters.rewardEpochDurationInVotingEpochs).addn(parameters.initialRewardEpochOffset).toNumber();
-  const initialRewardEpochStartVotingRoundId = initialRewardEpochId * parameters.rewardEpochDurationInVotingEpochs + parameters.firstRewardEpochStartVotingRoundId;
+  const initialRewardEpochId = currentBlockTs
+    .sub(firstVotingRoundStartTs)
+    .subn(parameters.firstRewardEpochStartVotingRoundId * parameters.votingEpochDurationSeconds)
+    .divn(parameters.votingEpochDurationSeconds * parameters.rewardEpochDurationInVotingEpochs)
+    .addn(parameters.initialRewardEpochOffset)
+    .toNumber();
+  const initialRewardEpochStartVotingRoundId =
+    initialRewardEpochId * parameters.rewardEpochDurationInVotingEpochs + parameters.firstRewardEpochStartVotingRoundId;
 
   fs.writeFileSync("deployment/deploys/initialRewardEpochId.txt", initialRewardEpochId.toString());
 
   if (!quiet) {
-    console.error(`Initial reward epoch id: ${initialRewardEpochId}. Start voting round id: ${initialRewardEpochStartVotingRoundId}.`);
+    console.error(
+      `Initial reward epoch id: ${initialRewardEpochId}. Start voting round id: ${initialRewardEpochStartVotingRoundId}.`
+    );
   }
 
   const voterRegistry = await VoterRegistry.new(
@@ -124,7 +166,14 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     parameters.signingPolicySignNonPunishableDurationBlocks,
     parameters.signingPolicySignNoRewardsDurationBlocks
   );
-  spewNewContractInfo(contracts, null, FlareSystemsCalculator.contractName, `FlareSystemsCalculator.sol`, flareSystemsCalculator.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    FlareSystemsCalculator.contractName,
+    `FlareSystemsCalculator.sol`,
+    flareSystemsCalculator.address,
+    quiet
+  );
 
   const initialSigningPolicy: ISigningPolicy = {
     rewardEpochId: initialRewardEpochId,
@@ -132,14 +181,14 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     threshold: parameters.initialThreshold,
     seed: web3.utils.keccak256("123"),
     voters: parameters.initialVoters,
-    weights: parameters.initialNormalisedWeights
+    weights: parameters.initialNormalisedWeights,
   };
 
   const initialSettings = {
     initialRandomVotePowerBlockSelectionSize: parameters.initialRandomVotePowerBlockSelectionSize,
     initialRewardEpochId: initialRewardEpochId,
-    initialRewardEpochThreshold: parameters.initialThreshold
-  }
+    initialRewardEpochThreshold: parameters.initialThreshold,
+  };
 
   const updatableSettings = {
     newSigningPolicyInitializationStartSeconds: parameters.newSigningPolicyInitializationStartSeconds,
@@ -152,8 +201,8 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     submitUptimeVoteMinDurationBlocks: parameters.submitUptimeVoteMinDurationBlocks,
     signingPolicyThresholdPPM: parameters.signingPolicyThresholdPPM,
     signingPolicyMinNumberOfVoters: parameters.signingPolicyMinNumberOfVoters,
-    rewardExpiryOffsetSeconds: parameters.rewardExpiryOffsetSeconds
-  }
+    rewardExpiryOffsetSeconds: parameters.rewardExpiryOffsetSeconds,
+  };
 
   const flareSystemsManager = await FlareSystemsManager.new(
     governanceSettings,
@@ -167,7 +216,14 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     parameters.rewardEpochDurationInVotingEpochs,
     initialSettings
   );
-  spewNewContractInfo(contracts, null, FlareSystemsManager.contractName, `FlareSystemsManager.sol`, flareSystemsManager.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    FlareSystemsManager.contractName,
+    `FlareSystemsManager.sol`,
+    flareSystemsManager.address,
+    quiet
+  );
 
   const rewardManager = await RewardManager.new(
     governanceSettings,
@@ -201,13 +257,27 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     parameters.feePercentageUpdateOffset,
     parameters.defaultFeePercentageBIPS
   );
-  spewNewContractInfo(contracts, null, WNatDelegationFee.contractName, `WNatDelegationFee.sol`, wNatDelegationFee.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    WNatDelegationFee.contractName,
+    `WNatDelegationFee.sol`,
+    wNatDelegationFee.address,
+    quiet
+  );
 
   const ftsoInflationConfigurations = await FtsoInflationConfigurations.new(
     governanceSettings,
     deployerAccount.address
   );
-  spewNewContractInfo(contracts, null, FtsoInflationConfigurations.contractName, `FtsoInflationConfigurations.sol`, ftsoInflationConfigurations.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    FtsoInflationConfigurations.contractName,
+    `FtsoInflationConfigurations.sol`,
+    ftsoInflationConfigurations.address,
+    quiet
+  );
 
   const ftsoRewardOffersManager = await FtsoRewardOffersManager.new(
     governanceSettings,
@@ -215,7 +285,14 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     deployerAccount.address, // tmp address updater
     0 // temp fee
   );
-  spewNewContractInfo(contracts, null, FtsoRewardOffersManager.contractName, `FtsoRewardOffersManager.sol`, ftsoRewardOffersManager.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    FtsoRewardOffersManager.contractName,
+    `FtsoRewardOffersManager.sol`,
+    ftsoRewardOffersManager.address,
+    quiet
+  );
 
   const ftsoFeedDecimals = await FtsoFeedDecimals.new(
     governanceSettings,
@@ -227,11 +304,18 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     parameters.initialFeedDecimalsList.map(fd => {
       return {
         feedId: FtsoConfigurations.encodeFeedId(fd.feedId),
-        decimals: fd.decimals
-      }
+        decimals: fd.decimals,
+      };
     })
   );
-  spewNewContractInfo(contracts, null, FtsoFeedDecimals.contractName, `FtsoFeedDecimals.sol`, ftsoFeedDecimals.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    FtsoFeedDecimals.contractName,
+    `FtsoFeedDecimals.sol`,
+    ftsoFeedDecimals.address,
+    quiet
+  );
 
   const ftsoFeedPublisher = await FtsoFeedPublisher.new(
     governanceSettings,
@@ -240,17 +324,42 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     parameters.ftsoProtocolId,
     parameters.feedsHistorySize
   );
-  spewNewContractInfo(contracts, null, FtsoFeedPublisher.contractName, `FtsoFeedPublisher.sol`, ftsoFeedPublisher.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    FtsoFeedPublisher.contractName,
+    `FtsoFeedPublisher.sol`,
+    ftsoFeedPublisher.address,
+    quiet
+  );
 
   const ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
-  spewNewContractInfo(contracts, null, FtsoFeedIdConverter.contractName, `FtsoFeedIdConverter.sol`, ftsoFeedIdConverter.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    FtsoFeedIdConverter.contractName,
+    `FtsoFeedIdConverter.sol`,
+    ftsoFeedIdConverter.address,
+    quiet
+  );
 
   const cleanupBlockNumberManager = await CleanupBlockNumberManager.new(
     deployerAccount.address,
     deployerAccount.address, // tmp address updater
     "FlareSystemsManager"
   );
-  spewNewContractInfo(contracts, null, CleanupBlockNumberManager.contractName, `CleanupBlockNumberManager.sol`, cleanupBlockNumberManager.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    CleanupBlockNumberManager.contractName,
+    `CleanupBlockNumberManager.sol`,
+    cleanupBlockNumberManager.address,
+    quiet
+  );
+
+  const fdcHub = await FdcHub.new(governanceSettings, deployerAccount.address, deployerAccount.address);
+
+  spewNewContractInfo(contracts, null, FdcHub.contractName, `FdcHub.sol`, fdcHub.address, quiet);
 
   if (parameters.pChainStakeEnabled) {
     await flareSystemsCalculator.enablePChainStakeMirror();
@@ -258,23 +367,74 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   }
 
   await voterRegistry.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.ENTITY_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR]),
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.ENTITY_MANAGER,
+      Contracts.FLARE_SYSTEMS_CALCULATOR,
+    ]),
     [addressUpdater, flareSystemsManager.address, entityManager.address, flareSystemsCalculator.address]
   );
 
   await flareSystemsCalculator.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.ENTITY_MANAGER, Contracts.WNAT_DELEGATION_FEE, Contracts.VOTER_REGISTRY, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
-    [addressUpdater, flareSystemsManager.address, entityManager.address, wNatDelegationFee.address, voterRegistry.address, pChainStakeMirror, wNat]
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.ENTITY_MANAGER,
+      Contracts.WNAT_DELEGATION_FEE,
+      Contracts.VOTER_REGISTRY,
+      Contracts.P_CHAIN_STAKE_MIRROR,
+      Contracts.WNAT,
+    ]),
+    [
+      addressUpdater,
+      flareSystemsManager.address,
+      entityManager.address,
+      wNatDelegationFee.address,
+      voterRegistry.address,
+      pChainStakeMirror,
+      wNat,
+    ]
   );
 
   await flareSystemsManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY, Contracts.REWARD_MANAGER, Contracts.CLEANUP_BLOCK_NUMBER_MANAGER]),
-    [addressUpdater, voterRegistry.address, submission.address, relay.address, rewardManager.address, cleanupBlockNumberManager.address]
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.VOTER_REGISTRY,
+      Contracts.SUBMISSION,
+      Contracts.RELAY,
+      Contracts.REWARD_MANAGER,
+      Contracts.CLEANUP_BLOCK_NUMBER_MANAGER,
+    ]),
+    [
+      addressUpdater,
+      voterRegistry.address,
+      submission.address,
+      relay.address,
+      rewardManager.address,
+      cleanupBlockNumberManager.address,
+    ]
   );
 
   await rewardManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
-    [addressUpdater, voterRegistry.address, claimSetupManager, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror, wNat]
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.VOTER_REGISTRY,
+      Contracts.CLAIM_SETUP_MANAGER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.FLARE_SYSTEMS_CALCULATOR,
+      Contracts.P_CHAIN_STAKE_MIRROR,
+      Contracts.WNAT,
+    ]),
+    [
+      addressUpdater,
+      voterRegistry.address,
+      claimSetupManager,
+      flareSystemsManager.address,
+      flareSystemsCalculator.address,
+      pChainStakeMirror,
+      wNat,
+    ]
   );
 
   if (parameters.testDeployment) {
@@ -291,8 +451,22 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   );
 
   await ftsoRewardOffersManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.FTSO_INFLATION_CONFIGURATIONS, Contracts.FTSO_FEED_DECIMALS, Contracts.INFLATION]),
-    [addressUpdater, flareSystemsManager.address, rewardManager.address, ftsoInflationConfigurations.address, ftsoFeedDecimals.address, inflation]
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.REWARD_MANAGER,
+      Contracts.FTSO_INFLATION_CONFIGURATIONS,
+      Contracts.FTSO_FEED_DECIMALS,
+      Contracts.INFLATION,
+    ]),
+    [
+      addressUpdater,
+      flareSystemsManager.address,
+      rewardManager.address,
+      ftsoInflationConfigurations.address,
+      ftsoFeedDecimals.address,
+      inflation,
+    ]
   );
 
   await ftsoFeedDecimals.updateContractAddresses(
@@ -300,14 +474,33 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     [addressUpdater, flareSystemsManager.address]
   );
 
-  await ftsoFeedPublisher.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
-    [addressUpdater, relay.address]
-  );
+  await ftsoFeedPublisher.updateContractAddresses(encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]), [
+    addressUpdater,
+    relay.address,
+  ]);
 
   await cleanupBlockNumberManager.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
     [addressUpdater, flareSystemsManager.address]
+  );
+
+  await fdcHub.updateContractAddresses(
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.REWARD_MANAGER,
+      Contracts.FTSO_INFLATION_CONFIGURATIONS,
+      Contracts.FTSO_FEED_DECIMALS,
+      Contracts.INFLATION,
+    ]),
+    [
+      addressUpdater,
+      flareSystemsManager.address,
+      rewardManager.address,
+      ftsoInflationConfigurations.address,
+      ftsoFeedDecimals.address,
+      inflation,
+    ]
   );
 
   // set initial voter data on entity manager
@@ -320,17 +513,19 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
       inflationShare: ftsoInflationConfiguration.inflationShare,
       minRewardedTurnoutBIPS: ftsoInflationConfiguration.minRewardedTurnoutBIPS,
       primaryBandRewardSharePPM: ftsoInflationConfiguration.primaryBandRewardSharePPM,
-      secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs(ftsoInflationConfiguration.secondaryBandWidthPPMs),
-      mode: ftsoInflationConfiguration.mode
+      secondaryBandWidthPPMs: FtsoConfigurations.encodeSecondaryBandWidthPPMs(
+        ftsoInflationConfiguration.secondaryBandWidthPPMs
+      ),
+      mode: ftsoInflationConfiguration.mode,
     };
     await ftsoInflationConfigurations.addFtsoConfiguration(configuration);
   }
 
   // set reward offers manager list
-  await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address]);
+  await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, fdcHub.address]);
 
   // set rewards offer switchover trigger contracts
-  await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address]);
+  await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address, fdcHub.address]);
 
   // set initial data on reward manager
   await rewardManager.setInitialRewardData();
@@ -345,7 +540,16 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   }
 
   // update minimalRewardsOfferValueNAT
-  await ftsoRewardOffersManager.setMinimalRewardsOfferValue(BN(parameters.minimalRewardsOfferValueNAT).mul(BN(10).pow(BN(18))));
+  await ftsoRewardOffersManager.setMinimalRewardsOfferValue(
+    BN(parameters.minimalRewardsOfferValueNAT).mul(BN(10).pow(BN(18)))
+  );
+
+  // set FDC types + sources + fees
+  const EVMTransactionType = web3.utils.utf8ToHex("EVMTransaction").padEnd(66, "0");
+
+  const testSGB = web3.utils.utf8ToHex("testSGB").padEnd(66, "0");
+
+  await fdcHub.setTypeAndSourceFees([EVMTransactionType], [testSGB], [1], { from: governanceSettings });
 
   if (parameters.testDeployment) {
     await rewardManager.enableClaims();
@@ -367,4 +571,3 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     return web3.utils.keccak256(web3.eth.abi.encodeParameters(["string"], [text]));
   }
 }
-
