@@ -62,7 +62,7 @@ interface IFastUpdater {
      * @return _timestamp The timestamp of the last update.
      */
     function fetchAllCurrentFeeds()
-        external view
+        external payable
         returns (
             bytes21[] memory _feedIds,
             uint256[] memory _feeds,
@@ -84,7 +84,7 @@ interface IFastUpdater {
     function fetchCurrentFeeds(
         uint256[] calldata _indices
     )
-        external view
+        external payable
         returns (
             uint256[] memory _feeds,
             int8[] memory _decimals,

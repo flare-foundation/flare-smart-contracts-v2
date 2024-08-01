@@ -4,9 +4,9 @@ pragma solidity 0.8.20;
 import "../../userInterfaces/IRandomProvider.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 
-contract FtsoV2Proxy is IRandomProvider, AddressUpdatable {
+contract RandomNumberV2 is IRandomProvider, AddressUpdatable {
 
-    IRandomProvider public submission;
+    IRandomProvider public randomProvider;
 
     constructor(
         address _addressUpdater
@@ -19,21 +19,21 @@ contract FtsoV2Proxy is IRandomProvider, AddressUpdatable {
      * @inheritdoc IRandomProvider
      */
     function getCurrentRandom() external view returns (uint256) {
-        return submission.getCurrentRandom();
+        return randomProvider.getCurrentRandom();
     }
 
     /**
      * @inheritdoc IRandomProvider
      */
     function getCurrentRandomWithQuality() external view returns (uint256, bool) {
-        return submission.getCurrentRandomWithQuality();
+        return randomProvider.getCurrentRandomWithQuality();
     }
 
     /**
      * @inheritdoc IRandomProvider
      */
     function getCurrentRandomWithQualityAndTimestamp() external view returns (uint256, bool, uint256) {
-        return submission.getCurrentRandomWithQualityAndTimestamp();
+        return randomProvider.getCurrentRandomWithQualityAndTimestamp();
     }
 
     /**
@@ -45,7 +45,7 @@ contract FtsoV2Proxy is IRandomProvider, AddressUpdatable {
     )
         internal override
     {
-        submission = IRandomProvider(_getContractAddress(_contractNameHashes, _contractAddresses, "Submission"));
+        randomProvider = IRandomProvider(_getContractAddress(_contractNameHashes, _contractAddresses, "Submission"));
     }
 
 }
