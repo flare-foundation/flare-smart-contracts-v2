@@ -549,7 +549,7 @@ export async function deployContracts(
 
   const testSGB = web3.utils.utf8ToHex("testSGB").padEnd(66, "0");
 
-  await fdcHub.setTypeAndSourceFee(EVMTransactionType, testSGB, "1", { from: governanceSettings });
+  await fdcHub.setTypeAndSourceFee(EVMTransactionType, testSGB, "1", { from: deployerAccount.address });
 
   if (parameters.testDeployment) {
     await rewardManager.enableClaims();
