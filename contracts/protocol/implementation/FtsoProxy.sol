@@ -16,11 +16,13 @@ import "../../protocol/interface/IIFtsoManagerProxy.sol";
 
 contract FtsoProxy is IFtso {
 
-    IRelay public immutable relay;
+    // IRelay public immutable relay;
     IFastUpdaterView public immutable fastUpdater;
     IFastUpdatesConfiguration public immutable fastUpdatesConfiguration;
     IFlareSystemsManager public immutable flareSystemsManager;
     IRandomProvider public immutable submission;
+    /// Address of the `FtsoManager` contract.
+    address immutable public ftsoManager;
 
     /// @inheritdoc IFtso
     string public symbol;
@@ -37,17 +39,20 @@ contract FtsoProxy is IFtso {
         string memory _symbol,
         bytes21 _feedId,
         uint8 _randomNumberProtocolId,
-        IIFtsoManagerProxy _ftsoManagerProxy
+        IIFtsoManagerProxy _ftsoManager
     )
     {
         symbol = _symbol;
         feedId = _feedId;
         randomNumberProtocolId = _randomNumberProtocolId;
-        relay = IRelay(_ftsoManagerProxy.relay());
-        fastUpdater = IFastUpdaterView(_ftsoManagerProxy.fastUpdater());
-        fastUpdatesConfiguration = IFastUpdatesConfiguration(_ftsoManagerProxy.fastUpdatesConfiguration());
-        flareSystemsManager = IFlareSystemsManager(_ftsoManagerProxy.flareSystemsManager());
-        submission = IRandomProvider(_ftsoManagerProxy.submission());
+        // relay = IRelay(IIFtsoManagerProxy(_ftsoManager).relay());
+        fastUpdater = IFastUpdaterView(_ftsoManager.fastUpdater());
+        fastUpdatesConfiguration = IFastUpdatesConfiguration(
+            _ftsoManager.fastUpdatesConfiguration()
+        );
+        flareSystemsManager = IFlareSystemsManager(_ftsoManager.flareSystemsManager());
+        submission = IRandomProvider(_ftsoManager.submission());
+        ftsoManager = address((_ftsoManager));
     }
 
     /**
@@ -76,7 +81,9 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      */
     function getRandom(uint256 _epochId) external view returns (uint256) {
-        return uint256(relay.merkleRoots(randomNumberProtocolId, _epochId));
+        // return uint256(relay.merkleRoots(randomNumberProtocolId, _epochId));
+        return 0;
+        // todo
     }
 
     /**
