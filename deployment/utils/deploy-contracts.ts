@@ -746,7 +746,7 @@ export async function deployContracts(
   await flareDaemon.registerToDaemonize(registrations, { from: genesisGovernance });
 
   logger.info(
-    `Finished deploying contracts:\n  FlareSystemsManager: ${flareSystemsManager.address},\n  Submission: ${submission.address},\n  Relay: ${relay.address},\n  FastUpdater: ${fastUpdater.address}`
+    `Finished deploying contracts:\n  FlareSystemsManager: ${flareSystemsManager.address},\n  Submission: ${submission.address},\n  Relay: ${relay.address},\n  FastUpdater: ${fastUpdater.address},\n  fdcHub: ${fdcHub.address}`
   );
 
   logger.info(`Current network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
