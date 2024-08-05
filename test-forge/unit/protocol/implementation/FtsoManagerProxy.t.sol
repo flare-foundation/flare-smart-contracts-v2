@@ -4,8 +4,6 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import "../../../../contracts/protocol/implementation/FtsoManagerProxy.sol";
 import "../../../../contracts/protocol/implementation/FlareSystemsManager.sol";
-import "flare-smart-contracts/contracts/utils/interface/IIFtsoRegistry.sol";
-// import "flare-smart-contracts/contracts/utils/implementation/FtsoRegistryProxy.sol";
 import "../interface/IIIFtsoRegistry.sol";
 import "../../../../contracts/protocol/implementation/FtsoProxy.sol";
 import "../../../../contracts/protocol/interface/IIFtsoManagerProxy.sol";
@@ -29,8 +27,8 @@ contract FtsoManagerProxyTest is Test {
     address private mockFastUpdater;
     address private mockFastUpdatesConfiguration;
     IIIFtsoRegistry private ftsoRegistry;
-    // address private ftsoRegistryProxy;
-    // IMockVoterRegistry private registry;
+    address private ftsoRegistryProxy;
+    IIIFtsoRegistry private registry;
     IIIPriceSubmitter private priceSubmitter;
 
     FlareSystemsManager.Settings private settings;
@@ -109,29 +107,22 @@ contract FtsoManagerProxyTest is Test {
             abi.encode()
         ));
 
-        address registryGovernance = ftsoRegistry.governance();
-        vm.prank(registryGovernance);
-        ftsoRegistry.initialiseRegistry(addressUpdater);
-
-        // todo?
-        // ftsoRegistryProxy = deployCode(
-        //     "artifacts-forge/FlareSmartContracts.sol/FtsoRegistryProxy.json",
-        //     abi.encode(governance, address(ftsoRegistry))
-        // );
-
-        // deployCodeTo(
-        //     "artifacts-forge/FlareSmartContracts.sol/FtsoRegistry.json",
-        //     abi.encode(),
-        //     ftsoRegistryProxy
-        // );
-
-        // registry = IIFtsoRegistry(ftsoRegistryProxy);
-
-        deployCodeTo(
-            "artifacts-forge/FlareSmartContracts.sol/PriceSubmitter.json",
-            0x1000000000000000000000000000000000000003
+        ftsoRegistryProxy = deployCode(
+            "artifacts-forge/FlareSmartContracts.sol/FtsoRegistryProxy.json",
+            abi.encode(governance, address(ftsoRegistry))
         );
 
+        registry = IIIFtsoRegistry(ftsoRegistryProxy);
+
+        vm.prank(governance);
+        registry.initialiseRegistry(addressUpdater);
+
+        // price submitter
+        deployCodeTo(
+            "artifacts-forge/FlareSmartContracts.sol/PriceSubmitter.json",
+            abi.encode(),
+            0x1000000000000000000000000000000000000003
+        );
         priceSubmitter = IIIPriceSubmitter(0x1000000000000000000000000000000000000003);
         priceSubmitter.initialiseFixedAddress();
         address submitterGovernance = address(0xfffEc6C83c8BF5c3F4AE0cCF8c45CE20E4560BD7);
@@ -193,7 +184,7 @@ contract FtsoManagerProxyTest is Test {
         contractAddresses[4] = mockSubmission;
         contractAddresses[5] = mockFastUpdater;
         contractAddresses[6] = mockFastUpdatesConfiguration;
-        contractAddresses[7] = address(ftsoRegistry);
+        contractAddresses[7] = address(registry);
         ftsoManagerProxy.updateContractAddresses(contractNameHashes, contractAddresses);
 
         contractNameHashes = new bytes32[](2);
@@ -202,7 +193,7 @@ contract FtsoManagerProxyTest is Test {
         contractNameHashes[1] = keccak256(abi.encode("AddressUpdater"));
         contractAddresses[0] = address(ftsoManagerProxy);
         contractAddresses[1] = addressUpdater;
-        ftsoRegistry.updateContractAddresses(contractNameHashes, contractAddresses);
+        registry.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
         // mock registered addresses
@@ -474,7 +465,7 @@ contract FtsoManagerProxyTest is Test {
         contractAddresses[4] = mockSubmission;
         contractAddresses[5] = mockFastUpdater;
         contractAddresses[6] = mockFastUpdatesConfiguration;
-        contractAddresses[7] = address(ftsoRegistry);
+        contractAddresses[7] = address(registry);
         vm.prank(addressUpdater);
         ftsoManagerProxy1.updateContractAddresses(contractNameHashes, contractAddresses);
 
@@ -519,7 +510,7 @@ contract FtsoManagerProxyTest is Test {
         contractAddresses[4] = mockSubmission;
         contractAddresses[5] = mockFastUpdater;
         contractAddresses[6] = mockFastUpdatesConfiguration;
-        contractAddresses[7] = address(ftsoRegistry);
+        contractAddresses[7] = address(registry);
         vm.prank(addressUpdater);
         ftsoManagerProxy1.updateContractAddresses(contractNameHashes, contractAddresses);
 
