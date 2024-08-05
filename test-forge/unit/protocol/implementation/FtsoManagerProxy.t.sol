@@ -9,7 +9,7 @@ import "flare-smart-contracts/contracts/utils/interface/IIFtsoRegistry.sol";
 import "../interface/IIIFtsoRegistry.sol";
 import "../../../../contracts/protocol/implementation/FtsoProxy.sol";
 import "../../../../contracts/protocol/interface/IIFtsoManagerProxy.sol";
-import "flare-smart-contracts/contracts/genesis/interface/IIPriceSubmitter.sol";
+import "../interface/IIIPriceSubmitter.sol";
 
 // solhint-disable-next-line max-states-count
 contract FtsoManagerProxyTest is Test {
@@ -31,6 +31,7 @@ contract FtsoManagerProxyTest is Test {
     IIIFtsoRegistry private ftsoRegistry;
     // address private ftsoRegistryProxy;
     // IMockVoterRegistry private registry;
+    IIIPriceSubmitter private priceSubmitter;
 
     FlareSystemsManager.Settings private settings;
     FlareSystemsManager.InitialSettings private initialSettings;
@@ -126,6 +127,24 @@ contract FtsoManagerProxyTest is Test {
 
         // registry = IIFtsoRegistry(ftsoRegistryProxy);
 
+        deployCodeTo(
+            "artifacts-forge/FlareSmartContracts.sol/PriceSubmitter.json",
+            0x1000000000000000000000000000000000000003
+        );
+
+        priceSubmitter = IIIPriceSubmitter(0x1000000000000000000000000000000000000003);
+        priceSubmitter.initialiseFixedAddress();
+        address submitterGovernance = address(0xfffEc6C83c8BF5c3F4AE0cCF8c45CE20E4560BD7);
+        vm.prank(submitterGovernance);
+        priceSubmitter.setAddressUpdater(addressUpdater);
+
+
+        ftsoManagerProxy = new FtsoManagerProxy(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            makeAddr("oldFtsoManager")
+        );
 
         //// update contract addresses
         vm.startPrank(addressUpdater);
@@ -145,12 +164,17 @@ contract FtsoManagerProxyTest is Test {
         contractAddresses[5] = mockCleanupBlockNumberManager;
         flareSystemsManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
-        ftsoManagerProxy = new FtsoManagerProxy(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
-            addressUpdater,
-            makeAddr("oldFtsoManager")
-        );
+        contractNameHashes = new bytes32[](4);
+        contractAddresses = new address[](4);
+        contractNameHashes[0] = keccak256(abi.encode("FtsoRegistry"));
+        contractNameHashes[1] = keccak256(abi.encode("FtsoManager"));
+        contractNameHashes[2] = keccak256(abi.encode("VoterWhitelister"));
+        contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
+        contractAddresses[0] = address(ftsoRegistry);
+        contractAddresses[1] = address(ftsoManagerProxy);
+        contractAddresses[2] = makeAddr("voterWhitelister");
+        contractAddresses[3] = addressUpdater;
+        priceSubmitter.updateContractAddresses(contractNameHashes, contractAddresses);
 
         contractNameHashes = new bytes32[](8);
         contractAddresses = new address[](8);
@@ -425,9 +449,104 @@ contract FtsoManagerProxyTest is Test {
         assertEq(address(ftsos[0]), address(ftso2));
     }
 
-    // function testRemoveTrustedAddresses() public {
+    function testAddFtsosRevert() public {
+        FtsoManagerProxy ftsoManagerProxy1 = new FtsoManagerProxy(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            makeAddr("oldFtsoManager")
+        );
 
-    // }
+        contractNameHashes = new bytes32[](8);
+        contractAddresses = new address[](8);
+        contractNameHashes[0] = keccak256(abi.encode("FtsoRewardManagerProxy"));
+        contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
+        contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
+        contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
+        contractNameHashes[4] = keccak256(abi.encode("Submission"));
+        contractNameHashes[5] = keccak256(abi.encode("FastUpdater"));
+        contractNameHashes[6] = keccak256(abi.encode("FastUpdatesConfiguration"));
+        contractNameHashes[7] = keccak256(abi.encode("FtsoRegistry"));
+        contractAddresses[0] = mockRewardManager;
+        contractAddresses[1] = mockRewardManagerV2;
+        contractAddresses[2] = address(flareSystemsManager);
+        contractAddresses[3] = addressUpdater;
+        contractAddresses[4] = mockSubmission;
+        contractAddresses[5] = mockFastUpdater;
+        contractAddresses[6] = mockFastUpdatesConfiguration;
+        contractAddresses[7] = address(ftsoRegistry);
+        vm.prank(addressUpdater);
+        ftsoManagerProxy1.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        ftso2 = new FtsoProxy(
+            "FLR",
+            bytes21("FLR"),
+            100,
+            IIFtsoManagerProxy(address(ftsoManagerProxy1))
+        );
+        IFtso[] memory ftsos = new IFtso[](2);
+        ftsos[0] = ftso1;
+        ftsos[1] = ftso2;
+        vm.prank(governance);
+        vm.expectRevert("invalid ftso manager");
+        ftsoManagerProxy.addFtsos(ftsos);
+    }
+
+    function testRemoveFtsoRevert() public {
+        testAddFtsos();
+
+        FtsoManagerProxy ftsoManagerProxy1 = new FtsoManagerProxy(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            makeAddr("oldFtsoManager")
+        );
+
+        contractNameHashes = new bytes32[](8);
+        contractAddresses = new address[](8);
+        contractNameHashes[0] = keccak256(abi.encode("FtsoRewardManagerProxy"));
+        contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
+        contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
+        contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
+        contractNameHashes[4] = keccak256(abi.encode("Submission"));
+        contractNameHashes[5] = keccak256(abi.encode("FastUpdater"));
+        contractNameHashes[6] = keccak256(abi.encode("FastUpdatesConfiguration"));
+        contractNameHashes[7] = keccak256(abi.encode("FtsoRegistry"));
+        contractAddresses[0] = mockRewardManager;
+        contractAddresses[1] = mockRewardManagerV2;
+        contractAddresses[2] = address(flareSystemsManager);
+        contractAddresses[3] = addressUpdater;
+        contractAddresses[4] = mockSubmission;
+        contractAddresses[5] = mockFastUpdater;
+        contractAddresses[6] = mockFastUpdatesConfiguration;
+        contractAddresses[7] = address(ftsoRegistry);
+        vm.prank(addressUpdater);
+        ftsoManagerProxy1.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        IFtso[] memory ftsosToRemove = new IFtso[](1);
+        ftsosToRemove[0] = ftso1;
+
+        vm.prank(governance);
+        vm.expectRevert("invalid ftso manager");
+        ftsoManagerProxy1.removeFtsos(ftsosToRemove);
+    }
+
+    function testRemoveTrustedAddresses() public {
+        address[] memory trustedAddresses = new address[](2);
+        trustedAddresses[0] = makeAddr("trustedAddress0");
+        trustedAddresses[1] = makeAddr("trustedAddress1");
+        vm.prank(address(ftsoManagerProxy));
+        priceSubmitter.setTrustedAddresses(trustedAddresses);
+
+        address[] memory trusted = priceSubmitter.getTrustedAddresses();
+        assertEq(trusted.length, 2);
+        assertEq(trusted[0], trustedAddresses[0]);
+        assertEq(trusted[1], trustedAddresses[1]);
+
+        vm.prank(governance);
+        ftsoManagerProxy.removeTrustedAddresses();
+        assertEq(priceSubmitter.getTrustedAddresses().length, 0);
+    }
 
     //// helper functions
     function _mockRegisteredAddresses(uint256 _epochid) internal {
