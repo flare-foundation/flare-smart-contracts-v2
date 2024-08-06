@@ -340,7 +340,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
      *
      * @dev Only governance can call this method.
      */
-    function setRewardOffersManagerList(address[] calldata _freeFetchContractsSet) external onlyGovernance {
+    function setFreeFetchContracts(address[] calldata _freeFetchContractsSet) external onlyGovernance {
         freeFetchContractsSet.replaceAll(_freeFetchContractsSet);
     }
 

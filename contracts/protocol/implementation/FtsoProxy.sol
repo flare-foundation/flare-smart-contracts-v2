@@ -2,7 +2,6 @@
 pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/userInterfaces/IFtso.sol";
-import "../../userInterfaces/IRelay.sol";
 import "../../userInterfaces/IFastUpdaterView.sol";
 import "../../userInterfaces/IFastUpdatesConfiguration.sol";
 import "../../userInterfaces/IRandomProvider.sol";
@@ -16,7 +15,6 @@ import "../../protocol/interface/IIFtsoManagerProxy.sol";
 
 contract FtsoProxy is IFtso {
 
-    // IRelay public immutable relay;
     IFastUpdaterView public immutable fastUpdater;
     IFastUpdatesConfiguration public immutable fastUpdatesConfiguration;
     IFlareSystemsManager public immutable flareSystemsManager;
@@ -45,7 +43,6 @@ contract FtsoProxy is IFtso {
         symbol = _symbol;
         feedId = _feedId;
         randomNumberProtocolId = _randomNumberProtocolId;
-        // relay = IRelay(IIFtsoManagerProxy(_ftsoManager).relay());
         fastUpdater = IFastUpdaterView(_ftsoManager.fastUpdater());
         fastUpdatesConfiguration = IFastUpdatesConfiguration(
             _ftsoManager.fastUpdatesConfiguration()
