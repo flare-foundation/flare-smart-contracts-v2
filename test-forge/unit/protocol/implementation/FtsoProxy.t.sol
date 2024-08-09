@@ -114,20 +114,22 @@ contract FtsoProxyTest is Test {
         contractAddresses[1] = address(fastUpdater);
         fastUpdatesConfiguration.updateContractAddresses(contractNameHashes, contractAddresses);
 
-        contractNameHashes = new bytes32[](6);
-        contractAddresses = new address[](6);
+        contractNameHashes = new bytes32[](7);
+        contractAddresses = new address[](7);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[2] = keccak256(abi.encode("FastUpdateIncentiveManager"));
         contractNameHashes[3] = keccak256(abi.encode("VoterRegistry"));
         contractNameHashes[4] = keccak256(abi.encode("FastUpdatesConfiguration"));
         contractNameHashes[5] = keccak256(abi.encode("FtsoFeedPublisher"));
+        contractNameHashes[6] = keccak256(abi.encode("FeeCalculator"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockFlareSystemsManager;
         contractAddresses[2] = address(fastUpdateIncentiveManager);
         contractAddresses[3] = makeAddr("mockVoterRegistry");
         contractAddresses[4] = address(fastUpdatesConfiguration);
         contractAddresses[5] = mockFtsoFeedPublisher;
+        contractAddresses[6] = makeAddr("mockFeeCalculator");
         fastUpdater.updateContractAddresses(contractNameHashes, contractAddresses);
 
         contractNameHashes = new bytes32[](3);
@@ -420,6 +422,4 @@ contract FtsoProxyTest is Test {
         vm.prank(governance);
         fastUpdatesConfiguration.addFeeds(feedConfigs);
     }
-
-
 }

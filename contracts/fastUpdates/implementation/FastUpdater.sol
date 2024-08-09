@@ -16,6 +16,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "../../utils/lib/SafePct.sol";
 import "../../utils/lib/AddressSet.sol";
+import "../interface/IIFeeCalculator.sol";
 
 // The number of units of weight distributed among providers is 1 << VIRTUAL_PROVIDER_BITS
 uint256 constant VIRTUAL_PROVIDER_BITS = 12;
@@ -35,6 +36,7 @@ uint256 constant BIG_P = Bn256.p >> (2 * UINT_SPLIT);
  * @dev The contract stores references to several others that provide services, in particular the
  * `FastUpdateIncentiveManager` as well as several Flare system contracts for managing providers and the daemon.
  */
+// solhint-disable-next-line max-states-count
 contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     using AddressSet for AddressSet.State;
 
@@ -89,6 +91,8 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     IFtsoFeedPublisher public ftsoFeedPublisher;
     /// The FastUpdatesConfiguration contract.
     IFastUpdatesConfiguration public fastUpdatesConfiguration;
+    /// The FeeCalculator contract.
+    IIFeeCalculator public feeCalculator;
 
     /**
      * @dev This list is a circular buffer of updates that have already been accepted,
@@ -119,7 +123,6 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
 
     // List of addresses that are allowed to call the fetchCurrentFeeds method for free.
     AddressSet.State internal freeFetchContractsSet;
-    address public feeCalculator;
     address public feeDestination;
 
     /// Modifier for allowing only FlareDaemon contract to call the method.
@@ -344,10 +347,6 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
         freeFetchContractsSet.replaceAll(_freeFetchContractsSet);
     }
 
-    function setFeeCalculator(address _feeCalculator) external onlyGovernance {
-        feeCalculator = _feeCalculator;
-    }
-
     function setFeeDestination(address _feeDestination) external onlyGovernance {
         feeDestination = _feeDestination;
     }
@@ -365,12 +364,8 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     {
         // calculate fees
         if (freeFetchContractsSet.index[msg.sender] == 0) {
-            uint256 fee;
-            if (feeCalculator != address(0)) {
-                // fee = feeCalculator.calculateFee(_indices)
-            } else {
-                fee = _indices.length;
-            }
+            require(address(feeCalculator) != address(0), "fee calculator not set");
+            uint256 fee = feeCalculator.calculateFee(_indices);
             require(msg.value >= fee, "incorrect fee sent");
             (bool success, ) = feeDestination.call{value: fee}("");
             require(success, "fee transfer failed");
@@ -736,6 +731,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoFeedPublisher"));
         fastUpdatesConfiguration = IFastUpdatesConfiguration(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FastUpdatesConfiguration"));
+        feeCalculator = IIFeeCalculator(_getContractAddress(_contractNameHashes, _contractAddresses, "FeeCalculator"));
     }
 
     /// Internal method that applies the submitted updates to the current feed values.
