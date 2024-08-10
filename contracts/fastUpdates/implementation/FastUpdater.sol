@@ -336,7 +336,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
         for (uint256 i = 0; i < indices.length; i++) {
             indices[i] = i;
         }
-        (_feeds, _decimals, _timestamp) = this.fetchCurrentFeeds(indices);
+        (_feeds, _decimals, _timestamp) = this.fetchCurrentFeeds{value: msg.value}(indices);
     }
 
     /**
