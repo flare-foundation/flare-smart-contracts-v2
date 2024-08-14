@@ -9,10 +9,9 @@ import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../protocol/interface/IIFtsoManagerProxy.sol";
 
 /**
- * FtsoManagerProxy is a compatibility contract replacing Ftso contract
+ * FtsoProxy is a compatibility contract replacing Ftso contract
  * that is used for proxying data from V2 contracts.
  */
-
 contract FtsoProxy is IFtso {
 
     IFastUpdaterView public immutable fastUpdater;
@@ -76,11 +75,10 @@ contract FtsoProxy is IFtso {
 
     /**
      * @inheritdoc IFtso
+     * @dev Deprecated - reverts
      */
-    function getRandom(uint256 _epochId) external view returns (uint256) {
-        // return uint256(relay.merkleRoots(randomNumberProtocolId, _epochId));
-        return 0;
-        // todo
+    function getRandom(uint256) external view returns (uint256) {
+        revert("not supported");
     }
 
     /**

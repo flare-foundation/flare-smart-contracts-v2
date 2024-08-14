@@ -175,7 +175,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFee.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFee.selector),
             abi.encode(fee)
         );
 
@@ -207,7 +207,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFee.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFee.selector),
             abi.encode(fee)
         );
 
@@ -235,7 +235,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFee.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFee.selector),
             abi.encode(fee)
         );
 
@@ -263,7 +263,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFee.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFee.selector),
             abi.encode(fee)
         );
 
@@ -291,7 +291,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFee.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFee.selector),
             abi.encode(fee)
         );
 
@@ -319,7 +319,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFee.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFee.selector),
             abi.encode(fee)
         );
 
@@ -347,7 +347,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFee.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFee.selector),
             abi.encode(fee)
         );
 
@@ -371,7 +371,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFee.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFee.selector),
             abi.encode(fee)
         );
 

@@ -54,8 +54,8 @@ contract FeeCalculatorTest is Test {
         fees[1] = 20;
         vm.prank(governance);
         feeCalculator.setCategoriesDefaultFees(categories, fees);
-        assertEq(feeCalculator.defaultFee(1), 10);
-        assertEq(feeCalculator.defaultFee(2), 20);
+        assertEq(feeCalculator.categoryDefaultFee(1), 10);
+        assertEq(feeCalculator.categoryDefaultFee(2), 20);
     }
 
     function testCategoriesDefaultFees1() public {
@@ -67,8 +67,8 @@ contract FeeCalculatorTest is Test {
         fees[0] = 0;
         vm.prank(governance);
         feeCalculator.setCategoriesDefaultFees(categories, fees);
-        assertEq(feeCalculator.defaultFee(1), 0);
-        assertEq(feeCalculator.defaultFee(2), 20);
+        assertEq(feeCalculator.categoryDefaultFee(1), 0);
+        assertEq(feeCalculator.categoryDefaultFee(2), 20);
     }
 
     function testCategoriesDefaultFeesRevert() public {

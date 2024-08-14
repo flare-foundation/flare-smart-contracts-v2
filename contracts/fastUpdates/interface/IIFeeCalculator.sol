@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-interface IIFeeCalculator {
+import "../../userInterfaces/IFeeCalculator.sol";
+
+interface IIFeeCalculator is IFeeCalculator {
 
     event FeeSet(bytes21 indexed feedId, uint256 fee);
     event DefaultFeeSet(uint8 indexed category, uint256 fee);
@@ -19,7 +21,4 @@ interface IIFeeCalculator {
 
     function removeFeedsFees(bytes21[] memory _feedIds) external;
 
-    function calculateFee(uint256[] memory _indices) external view returns (uint256 _fee);
-
-    function getFeedFee(bytes21 _feedId) external view returns (uint256 _fee);
 }

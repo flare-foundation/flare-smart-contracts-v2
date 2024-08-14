@@ -7,14 +7,14 @@ import "../../userInterfaces/IFastUpdatesConfiguration.sol";
 import "../interface/IIFeeCalculator.sol";
 
 /**
- * @title FeeCalculator
-*/
+ * FeeCalculator is a contract that calculates fee for fetching current feeds from FastUpdater contract.
+ */
 contract FeeCalculator is Governed, AddressUpdatable, IIFeeCalculator {
 
     /// The FastUpdatesConfiguration contract.
     IFastUpdatesConfiguration public fastUpdatesConfiguration;
 
-    mapping(uint8 category => uint256) public defaultFee;
+    mapping(uint8 category => uint256) public categoryDefaultFee;
     mapping(bytes21 feedId => uint256) internal feedFee; // fee + 1, to distinguish from 0
 
     constructor(
@@ -34,7 +34,7 @@ contract FeeCalculator is Governed, AddressUpdatable, IIFeeCalculator {
     {
         require(_categories.length == _fees.length, "lengths mismatch");
         for (uint256 i = 0; i < _categories.length; i++) {
-            defaultFee[_categories[i]] = _fees[i];
+            categoryDefaultFee[_categories[i]] = _fees[i];
             emit DefaultFeeSet(_categories[i], _fees[i]);
         }
     }
@@ -66,7 +66,7 @@ contract FeeCalculator is Governed, AddressUpdatable, IIFeeCalculator {
             if (feedFee[feedId] > 0) {
                 _fee += feedFee[feedId] - 1;
             } else {
-                _fee += defaultFee[uint8(feedId[0])];
+                _fee += categoryDefaultFee[uint8(feedId[0])];
             }
         }
     }
