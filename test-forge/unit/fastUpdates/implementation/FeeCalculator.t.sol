@@ -17,7 +17,7 @@ contract FeeCalculatorTest is Test {
     bytes21[] private feedIds;
 
     event FeeSet(bytes21 indexed feedId, uint256 fee);
-    event DefaultFeeSet(uint8 indexed category, uint256 fee);
+    event CategoryDefaultFeeSet(uint8 indexed category, uint256 fee);
     event FeeRemoved(bytes21 indexed feedId);
 
     function setUp() public {

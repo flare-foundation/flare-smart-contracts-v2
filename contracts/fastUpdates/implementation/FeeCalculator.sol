@@ -7,7 +7,7 @@ import "../../userInterfaces/IFastUpdatesConfiguration.sol";
 import "../interface/IIFeeCalculator.sol";
 
 /**
- * FeeCalculator is a contract that calculates fee for fetching current feeds from FastUpdater contract.
+ * FeeCalculator is a contract used calculates fee for fetching current feed data from FastUpdater contract.
  */
 contract FeeCalculator is Governed, AddressUpdatable, IIFeeCalculator {
 
@@ -35,7 +35,7 @@ contract FeeCalculator is Governed, AddressUpdatable, IIFeeCalculator {
         require(_categories.length == _fees.length, "lengths mismatch");
         for (uint256 i = 0; i < _categories.length; i++) {
             categoryDefaultFee[_categories[i]] = _fees[i];
-            emit DefaultFeeSet(_categories[i], _fees[i]);
+            emit CategoryDefaultFeeSet(_categories[i], _fees[i]);
         }
     }
 
