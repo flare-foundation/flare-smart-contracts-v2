@@ -27,7 +27,7 @@ contract FdcHubTest is Test {
 
     uint64 internal constant DAY = 1 days;
 
-    event AttestationRequest(uint32 indexed votingRoundId, bytes data, uint256 fee);
+    event AttestationRequest(bytes data, uint256 fee);
     event InflationRewardsOffered(uint24 indexed rewardEpochId, uint256 amount);
 
     function setUp() public {
@@ -215,7 +215,7 @@ contract FdcHubTest is Test {
 
         vm.prank(user);
         vm.expectEmit();
-        emit AttestationRequest(1550, abi.encodePacked(type1, source1), 123);
+        emit AttestationRequest(abi.encodePacked(type1, source1), 123);
         fdcHub.requestAttestation { value: 123 }(abi.encodePacked(type1, source1));
         vm.assertEq(address(rewardManager).balance, 123);
     }

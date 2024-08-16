@@ -107,7 +107,7 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
         require(msg.value >= fee, "fee to low, call getRequestFee to get the required fee amount");
         uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         rewardManager.receiveRewards{value: msg.value}(currentRewardEpochId, false);
-        emit AttestationRequest(flareSystemsManager.getCurrentVotingEpochId(), _data, msg.value);
+        emit AttestationRequest(_data, msg.value);
     }
 
     /**
