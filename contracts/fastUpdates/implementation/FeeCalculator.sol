@@ -7,7 +7,7 @@ import "../../userInterfaces/IFastUpdatesConfiguration.sol";
 import "../interface/IIFeeCalculator.sol";
 
 /**
- * FeeCalculator is a contract used calculates fee for fetching current feed data from FastUpdater contract.
+ * FeeCalculator is a contract that calculates fees for fetching current feeds' data from FastUpdater contract.
  */
 contract FeeCalculator is Governed, AddressUpdatable, IIFeeCalculator {
 
@@ -73,8 +73,7 @@ contract FeeCalculator is Governed, AddressUpdatable, IIFeeCalculator {
 
     function getFeedFee(bytes21 _feedId) external view returns (uint256 _fee) {
         _fee = feedFee[_feedId];
-        require(_fee != 0, "overriding fee not set; category default fee will be used");
-        // todo revert or return default fee for category??
+        require(_fee != 0, "feed fee not set; its category default fee will be used");
         _fee--;
     }
 

@@ -26,7 +26,7 @@ interface IIFeeCalculator is IFeeCalculator {
 
     /**
      * Sets fees for feeds.
-     * If fee for a feed is not set, the default fee for its category is used.
+     * It overrides the default category feeds.
      * @param _feedIds List of feed ids.
      * @param _fees List of fees.
      * @dev Only governance can call this method.

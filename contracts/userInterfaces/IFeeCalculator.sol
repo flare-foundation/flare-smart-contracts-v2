@@ -18,7 +18,6 @@ interface IFeeCalculator {
     /**
      * Returns a fee for a feed.
      * @param _feedId Feed id for which to return the fee.
-     // todo if fee is not set revert or return default fee for category??
      */
     function getFeedFee(bytes21 _feedId) external view returns (uint256 _fee);
 
