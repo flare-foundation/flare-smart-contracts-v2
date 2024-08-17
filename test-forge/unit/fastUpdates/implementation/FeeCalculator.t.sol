@@ -114,7 +114,7 @@ contract FeeCalculatorTest is Test {
     }
 
     function getFeedFeeRevert() public {
-        vm.expectRevert("overriding fee not set; category default fee will be used");
+        vm.expectRevert("feed fee not set; its category default fee will be used");
         feeCalculator.getFeedFee(_getFeedId(uint8(4), "feed0"));
     }
 
@@ -135,9 +135,9 @@ contract FeeCalculatorTest is Test {
         feeCalculator.removeFeedsFees(feedsToRemove);
 
         assertEq(feeCalculator.getFeedFee(feedIds[2]), 20);
-        vm.expectRevert("overriding fee not set; category default fee will be used");
+        vm.expectRevert("feed fee not set; its category default fee will be used");
         feeCalculator.getFeedFee(feedIds[0]);
-        vm.expectRevert("overriding fee not set; category default fee will be used");
+        vm.expectRevert("feed fee not set; its category default fee will be used");
         feeCalculator.getFeedFee(feedIds[1]);
     }
 
