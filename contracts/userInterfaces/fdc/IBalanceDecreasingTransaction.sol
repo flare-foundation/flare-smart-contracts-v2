@@ -11,15 +11,15 @@ pragma solidity >=0.7.6 <0.9;
  * Such an attestation could prove a violation of an agreement and therefore provides grounds to liquidate
  * some funds locked by a smart contract on Flare.
  *
- * A transaction is considered “balance decreasing” for the address, if the balance after the 
- * transaction is lower than before or the address is among the signers of the transaction 
+ * A transaction is considered “balance decreasing” for the address, if the balance after the
+ * transaction is lower than before or the address is among the signers of the transaction
  * (even if its balance is greater than before the transaction).
- * @custom:verification The transaction with `transactionId` is fetched from the API of the 
+ * @custom:verification The transaction with `transactionId` is fetched from the API of the
  * source blockchain node or relevant indexer.
- * If the transaction cannot be fetched or the transaction is in a block that does not have a 
+ * If the transaction cannot be fetched or the transaction is in a block that does not have a
  * sufficient number of confirmations, the attestation request is rejected.
  *
- * Once the transaction is received, the response fields are extracted if the transaction is balance 
+ * Once the transaction is received, the response fields are extracted if the transaction is balance
  * decreasing for the indicated address.
  * Some of the request and response fields are chain specific as described below.
  * The fields can be computed with the help of a balance decreasing summary.
@@ -30,7 +30,7 @@ pragma solidity >=0.7.6 <0.9;
  * If the indicated input does not exist or the indicated input does not have the address,
  * the attestation request is rejected.
  * The `sourceAddress` is the address of the indicated transaction input.
- * - `spentAmount` is the sum of values of all inputs with sourceAddress minus the sum of 
+ * - `spentAmount` is the sum of values of all inputs with sourceAddress minus the sum of
  * all outputs with `sourceAddress`.
  * Can be negative.
  * - `blockTimestamp` is the mediantime of a block.
@@ -38,7 +38,7 @@ pragma solidity >=0.7.6 <0.9;
  * ### XRPL
  *
  * - `sourceAddressIndicator` is the standard address hash of the address whose balance has been decreased.
- * If the address indicated by `sourceAddressIndicator` is not among the signers of the transaction and the balance 
+ * If the address indicated by `sourceAddressIndicator` is not among the signers of the transaction and the balance
  * of the address was not lowered in the transaction, the attestation request is rejected.
  *
  * - `spentAmount` is the difference between the balance of the indicated address after and before the transaction.
@@ -48,73 +48,73 @@ pragma solidity >=0.7.6 <0.9;
  * @custom:lut `blockTimestamp`
  */
 interface IBalanceDecreasingTransaction {
-  /**
-   * @notice Toplevel request
-   * @param attestationType ID of the attestation type.
-   * @param sourceId ID of the data source.
-   * @param messageIntegrityCode `MessageIntegrityCode` that is derived from the expected response.
-   * @param requestBody Data defining the request. Type and interpretation is determined by the `attestationType`.
-   */
-  struct Request {
-    bytes32 attestationType;
-    bytes32 sourceId;
-    bytes32 messageIntegrityCode;
-    RequestBody requestBody;
-  }
+    /**
+     * @notice Toplevel request
+     * @param attestationType ID of the attestation type.
+     * @param sourceId ID of the data source.
+     * @param messageIntegrityCode `MessageIntegrityCode` that is derived from the expected response.
+     * @param requestBody Data defining the request. Type and interpretation is determined by the `attestationType`.
+     */
+    struct Request {
+        bytes32 attestationType;
+        bytes32 sourceId;
+        bytes32 messageIntegrityCode;
+        RequestBody requestBody;
+    }
 
-  /**
-   * @notice Toplevel response
-   * @param attestationType Extracted from the request.
-   * @param sourceId Extracted from the request.
-   * @param votingRound The ID of the State Connector round in which the request was considered. 
-   * This is a security measure to prevent a collision of attestation hashes.
-   * @param lowestUsedTimestamp The lowest timestamp used to generate the response.
-   * @param requestBody Extracted from the request.
-   * @param responseBody Data defining the response. The verification rules for the construction of the 
-   * response body and the type are defined per specific `attestationType`.
-   */
-  struct Response {
-    bytes32 attestationType;
-    bytes32 sourceId;
-    uint64 votingRound;
-    uint64 lowestUsedTimestamp;
-    RequestBody requestBody;
-    ResponseBody responseBody;
-  }
+    /**
+     * @notice Toplevel response
+     * @param attestationType Extracted from the request.
+     * @param sourceId Extracted from the request.
+     * @param votingRound The ID of the State Connector round in which the request was considered.
+     * This is a security measure to prevent a collision of attestation hashes.
+     * @param lowestUsedTimestamp The lowest timestamp used to generate the response.
+     * @param requestBody Extracted from the request.
+     * @param responseBody Data defining the response. The verification rules for the construction of the
+     * response body and the type are defined per specific `attestationType`.
+     */
+    struct Response {
+        bytes32 attestationType;
+        bytes32 sourceId;
+        uint64 votingRound;
+        uint64 lowestUsedTimestamp;
+        RequestBody requestBody;
+        ResponseBody responseBody;
+    }
 
-  /**
-   * @notice Toplevel proof
-   * @param merkleProof Merkle proof corresponding to the attestation response.
-   * @param data Attestation response.
-   */
-  struct Proof {
-    bytes32[] merkleProof;
-    Response data;
-  }
+    /**
+     * @notice Toplevel proof
+     * @param merkleProof Merkle proof corresponding to the attestation response.
+     * @param data Attestation response.
+     */
+    struct Proof {
+        bytes32[] merkleProof;
+        Response data;
+    }
 
-  /**
-   * @notice Request body for IBalanceDecreasingTransaction attestation type
-   * @param transactionId ID of the payment transaction.
-   * @param sourceAddressIndicator The indicator of the address whose balance has been decreased.
-   */
-  struct RequestBody {
-    bytes32 transactionId;
-    bytes32 sourceAddressIndicator;
-  }
+    /**
+     * @notice Request body for IBalanceDecreasingTransaction attestation type
+     * @param transactionId ID of the payment transaction.
+     * @param sourceAddressIndicator The indicator of the address whose balance has been decreased.
+     */
+    struct RequestBody {
+        bytes32 transactionId;
+        bytes32 sourceAddressIndicator;
+    }
 
-  /**
-   * @notice Response body for IBalanceDecreasingTransaction attestation type.
-   * @param blockNumber The number of the block in which the transaction is included.
-   * @param blockTimestamp The timestamp of the block in which the transaction is included.
-   * @param sourceAddressHash Standard address hash of the address indicated by the `sourceAddressIndicator`.
-   * @param spentAmount Amount spent by the source address in minimal units.
-   * @param standardPaymentReference Standard payment reference of the transaction.
-   */
-  struct ResponseBody {
-    uint64 blockNumber;
-    uint64 blockTimestamp;
-    bytes32 sourceAddressHash;
-    int256 spentAmount;
-    bytes32 standardPaymentReference;
-  }
+    /**
+     * @notice Response body for IBalanceDecreasingTransaction attestation type.
+     * @param blockNumber The number of the block in which the transaction is included.
+     * @param blockTimestamp The timestamp of the block in which the transaction is included.
+     * @param sourceAddressHash Standard address hash of the address indicated by the `sourceAddressIndicator`.
+     * @param spentAmount Amount spent by the source address in minimal units.
+     * @param standardPaymentReference Standard payment reference of the transaction.
+     */
+    struct ResponseBody {
+        uint64 blockNumber;
+        uint64 blockTimestamp;
+        bytes32 sourceAddressHash;
+        int256 spentAmount;
+        bytes32 standardPaymentReference;
+    }
 }

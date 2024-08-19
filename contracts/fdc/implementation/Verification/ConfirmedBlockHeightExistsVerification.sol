@@ -1,28 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../interface/types/ConfirmedBlockHeightExists.sol";
-import "../../interface/external/IMerkleRootStorage.sol";
-import "./interface/IConfirmedBlockHeightExistsVerification.sol";
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "../FdcVerificationBase.sol";
+import "../../../userInterfaces/fdc/IConfirmedBlockHeightExistsVerification.sol";
 
-contract ConfirmedBlockHeightExistsVerification is IConfirmedBlockHeightExistsVerification {
-   using MerkleProof for bytes32[];
+contract ConfirmedBlockHeightExistsVerification is FdcVerificationBase, IConfirmedBlockHeightExistsVerification {
+    using MerkleProof for bytes32[];
 
-   IMerkleRootStorage public immutable merkleRootStorage;
+    /**
+     * Constructor.
+     * @param _addressUpdater The address of the AddressUpdater contract.
+     * @param _fdcProtocolId The FDC protocol id.
+     */
+    constructor(address _addressUpdater, uint8 _fdcProtocolId) FdcVerificationBase(_addressUpdater, _fdcProtocolId) {}
 
-   constructor(IMerkleRootStorage _merkleRootStorage) {
-      merkleRootStorage = _merkleRootStorage;
-   }
-
-   function verifyConfirmedBlockHeightExists(
-      ConfirmedBlockHeightExists.Proof calldata _proof
-   ) external view returns (bool _proved) {
-      return _proof.data.attestationType == bytes32("ConfirmedBlockHeightExists") &&
-         _proof.merkleProof.verify(
-            merkleRootStorage.merkleRoot(_proof.data.votingRound),
-            keccak256(abi.encode(_proof.data))
-         );
+    /**
+     * @inheritdoc IConfirmedBlockHeightExistsVerification
+     */
+    function verifyConfirmedBlockHeightExists(IConfirmedBlockHeightExists.Proof calldata _proof)
+        external view returns (bool _proved)
+    {
+        bytes32 merkleRoot = relay.merkleRoots(fdcProtocolId, _proof.data.votingRound);
+        return
+            _proof.data.attestationType == bytes32("ConfirmedBlockHeightExists") &&
+            _proof.merkleProof.verifyCalldata(merkleRoot, keccak256(abi.encode(_proof.data)));
    }
 }
-   

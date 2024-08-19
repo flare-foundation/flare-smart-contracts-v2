@@ -38,7 +38,7 @@ interface IAddressValidity {
      * @param votingRound The ID of the State Connector round in which the request was considered.
      * @param lowestUsedTimestamp The lowest timestamp used to generate the response.
      * @param requestBody Extracted from the request.
-     * @param responseBody Data defining the response. The verification rules for the construction of the 
+     * @param responseBody Data defining the response. The verification rules for the construction of the
      * response body and the type are defined per specific `attestationType`.
      */
     struct Response {
@@ -72,7 +72,7 @@ interface IAddressValidity {
      * @notice Response body for IAddressValidity attestation type
      * @param isValid Boolean indicator of the address validity.
      * @param standardAddress If `isValid`, standard form of the validated address. Otherwise an empty string.
-     * @param standardAddressHash If `isValid`, standard address hash of the validated address. 
+     * @param standardAddressHash If `isValid`, standard address hash of the validated address.
      * Otherwise a zero bytes32 string.
      */
     struct ResponseBody {

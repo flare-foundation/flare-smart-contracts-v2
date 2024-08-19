@@ -1,28 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../interface/types/EVMTransaction.sol";
-import "../../interface/external/IMerkleRootStorage.sol";
-import "./interface/IEVMTransactionVerification.sol";
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "../FdcVerificationBase.sol";
+import "../../../userInterfaces/fdc/IEVMTransactionVerification.sol";
 
-contract EVMTransactionVerification is IEVMTransactionVerification {
-   using MerkleProof for bytes32[];
+contract AddressValidityVerification is FdcVerificationBase, IEVMTransactionVerification {
+    using MerkleProof for bytes32[];
 
-   IMerkleRootStorage public immutable merkleRootStorage;
+    /**
+     * Constructor.
+     * @param _addressUpdater The address of the AddressUpdater contract.
+     * @param _fdcProtocolId The FDC protocol id.
+     */
+    constructor(address _addressUpdater, uint8 _fdcProtocolId) FdcVerificationBase(_addressUpdater, _fdcProtocolId) {}
 
-   constructor(IMerkleRootStorage _merkleRootStorage) {
-      merkleRootStorage = _merkleRootStorage;
-   }
-
-   function verifyEVMTransaction(
-      EVMTransaction.Proof calldata _proof
-   ) external view returns (bool _proved) {
-      return _proof.data.attestationType == bytes32("EVMTransaction") &&
-         _proof.merkleProof.verify(
-            merkleRootStorage.merkleRoot(_proof.data.votingRound),
-            keccak256(abi.encode(_proof.data))
-         );
-   }
+    /**
+     * @inheritdoc IEVMTransactionVerification
+     */
+    function verifyEVMTransaction(IEVMTransaction.Proof calldata _proof)
+        external view returns (bool _proved)
+    {
+        bytes32 merkleRoot = relay.merkleRoots(fdcProtocolId, _proof.data.votingRound);
+        return
+            _proof.data.attestationType == bytes32("EVMTransaction") &&
+            _proof.merkleProof.verifyCalldata(merkleRoot, keccak256(abi.encode(_proof.data)));
+    }
 }
-   

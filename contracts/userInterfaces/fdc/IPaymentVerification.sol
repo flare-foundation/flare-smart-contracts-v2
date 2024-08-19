@@ -5,8 +5,6 @@ import "./IPayment.sol";
 
 interface IPaymentVerification {
 
-   function verifyPayment(
-      IPayment.Proof calldata _proof
-   ) external view returns (bool _proved);
+    function verifyPayment(IPayment.Proof calldata _proof)
+        external view returns (bool _proved);
 }
-   

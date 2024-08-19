@@ -5,8 +5,6 @@ import "./IAddressValidity.sol";
 
 interface IAddressValidityVerification {
 
-   function verifyAddressValidity(
-      IAddressValidity.Proof calldata _proof
-   ) external view returns (bool _proved);
+    function verifyAddressValidity(IAddressValidity.Proof calldata _proof)
+        external view returns (bool _proved);
 }
-   

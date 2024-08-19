@@ -1,28 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../interface/types/ReferencedPaymentNonexistence.sol";
-import "../../interface/external/IMerkleRootStorage.sol";
-import "./interface/IReferencedPaymentNonexistenceVerification.sol";
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "../FdcVerificationBase.sol";
+import "../../../userInterfaces/fdc/IReferencedPaymentNonexistenceVerification.sol";
 
-contract ReferencedPaymentNonexistenceVerification is IReferencedPaymentNonexistenceVerification {
-   using MerkleProof for bytes32[];
+contract AddressValidityVerification is FdcVerificationBase, IReferencedPaymentNonexistenceVerification {
+    using MerkleProof for bytes32[];
 
-   IMerkleRootStorage public immutable merkleRootStorage;
+    /**
+     * Constructor.
+     * @param _addressUpdater The address of the AddressUpdater contract.
+     * @param _fdcProtocolId The FDC protocol id.
+     */
+    constructor(address _addressUpdater, uint8 _fdcProtocolId) FdcVerificationBase(_addressUpdater, _fdcProtocolId) {}
 
-   constructor(IMerkleRootStorage _merkleRootStorage) {
-      merkleRootStorage = _merkleRootStorage;
-   }
-
-   function verifyReferencedPaymentNonexistence(
-      ReferencedPaymentNonexistence.Proof calldata _proof
-   ) external view returns (bool _proved) {
-      return _proof.data.attestationType == bytes32("ReferencedPaymentNonexistence") &&
-         _proof.merkleProof.verify(
-            merkleRootStorage.merkleRoot(_proof.data.votingRound),
-            keccak256(abi.encode(_proof.data))
-         );
-   }
+    /**
+     * @inheritdoc IReferencedPaymentNonexistenceVerification
+     */
+    function verifyReferencedPaymentNonexistence(IReferencedPaymentNonexistence.Proof calldata _proof)
+        external view returns (bool _proved)
+    {
+        bytes32 merkleRoot = relay.merkleRoots(fdcProtocolId, _proof.data.votingRound);
+        return
+            _proof.data.attestationType == bytes32("ReferencedPaymentNonexistence") &&
+            _proof.merkleProof.verifyCalldata(merkleRoot, keccak256(abi.encode(_proof.data)));
+    }
 }
-   
