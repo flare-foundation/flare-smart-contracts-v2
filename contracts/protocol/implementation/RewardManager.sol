@@ -75,8 +75,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     uint256 private totalInflationRewardsWei;
 
     /// The FtsoRewardManagerProxy contract that can be used for claiming the rewards.
-    /// The FtsoRewardManagerProxy is responsible for checking the allowed executors and recipients.
-    /// This contract trusts the FtsoRewardManagerProxy to call the claim method with the correct parameters.
+    /// This contract trusts the FtsoRewardManagerProxy to call the claimProxy method with the correct parameters.
     address public ftsoRewardManagerProxy;
     /// The ClaimSetupManager contract.
     IIClaimSetupManager public claimSetupManager;
