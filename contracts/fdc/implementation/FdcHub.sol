@@ -22,22 +22,33 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
     /// Total rewards offered by inflation (in wei).
     uint256 public totalInflationRewardsOfferedWei;
 
+    /// The FDC inflation configurations contract.
+    IFdcInflationConfigurations public fdcInflationConfigurations;
+
     /// The RewardManager contract.
     IIRewardManager public rewardManager;
+
+    /// The offset (in seconds) for the requests to be processed during the current voting round.
+    uint8 public requestsOffsetSeconds;
 
     /**
     * Constructor.
     * @param _governanceSettings The address of the GovernanceSettings contract.
     * @param _initialGovernance The initial governance address.
     * @param _addressUpdater The address of the AddressUpdater contract.
+    * @param _requestsOffsetSeconds The requests offset in seconds.
     */
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
-        address _addressUpdater
+        address _addressUpdater,
+        uint8 _requestsOffsetSeconds
     )
         RewardOffersManagerBase(_governanceSettings, _initialGovernance, _addressUpdater)
-    { }
+    {
+        requestsOffsetSeconds = _requestsOffsetSeconds;
+        emit RequestsOffsetSet(_requestsOffsetSeconds);
+    }
 
     /**
      * Sets the fee for a given type and source.
@@ -99,14 +110,35 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
     }
 
     /**
+     * Sets the offset for the requests to be processed during the current voting round.
+     * @param _requestsOffsetSeconds The requests offset in seconds.
+     * @dev Only governance can call this method.
+     */
+    function setRequestsOffset(uint8 _requestsOffsetSeconds) external onlyGovernance {
+        require(_requestsOffsetSeconds < flareSystemsManager.votingEpochDurationSeconds(), "invalid offset");
+        requestsOffsetSeconds = _requestsOffsetSeconds;
+        emit RequestsOffsetSet(_requestsOffsetSeconds);
+    }
+
+    /**
     * @inheritdoc IFdcHub
     */
     function requestAttestation(bytes calldata _data) external payable mustBalance {
         uint256 fee = _getBaseFee(_data);
         require(fee > 0, "No fee specified for this type and source");
         require(msg.value >= fee, "fee to low, call getRequestFee to get the required fee amount");
-        uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        rewardManager.receiveRewards{value: msg.value}(currentRewardEpochId, false);
+        uint24 rewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        uint64 currentRewardEpochExpectedEndTs = flareSystemsManager.currentRewardEpochExpectedEndTs();
+        if (block.timestamp >= currentRewardEpochExpectedEndTs - requestsOffsetSeconds) {
+            try flareSystemsManager.getStartVotingRoundId(rewardEpochId + 1) returns (uint32 _startVotingRoundId) {
+                if (_startVotingRoundId <= flareSystemsManager.getCurrentVotingEpochId() + 1) {
+                    rewardEpochId += 1;
+                }
+            } catch {
+                // use the current reward epoch id
+            }
+        }
+        rewardManager.receiveRewards{value: msg.value}(rewardEpochId, false);
         emit AttestationRequest(_data, msg.value);
     }
 
@@ -172,6 +204,8 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
         internal override
     {
         super._updateContractAddresses(_contractNameHashes, _contractAddresses);
+        fdcInflationConfigurations = IFdcInflationConfigurations(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FdcInflationConfigurations"));
         rewardManager = IIRewardManager(_getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
     }
 
@@ -208,6 +242,7 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
         // emit offer
         emit InflationRewardsOffered(
             nextRewardEpochId,
+            fdcInflationConfigurations.getFdcConfigurations(),
             totalRewardsAmount
         );
         // send reward amount to reward manager

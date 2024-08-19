@@ -214,5 +214,12 @@
     "rNatManager": "0xc783df8a850f42e7f7e57013759c285caa701eb6",
     "rNatFirstMonthStartTs": 1719792000,
     "rNatFundingAddress": "0x0000000000000000000000000000000000000000",
-    "rNatFundedByIncentivePool": false
+    "rNatFundedByIncentivePool": false,
+    "fdcRequestsOffsetSeconds": 30,
+    "fdcRequestFees": [
+        {"attestationType": "EVMTransaction", "source": "testSGB", "feeWei": "1"}
+    ],
+    "fdcInflationConfigurations": [
+        {"attestationType": "EVMTransaction", "source": "testSGB", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0}
+    ]
 }

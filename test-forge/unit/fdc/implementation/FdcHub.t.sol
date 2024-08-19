@@ -3,10 +3,14 @@ pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
 import "../../../../contracts/fdc/implementation/FdcHub.sol";
+import "../../../../contracts/fdc/implementation/FdcInflationConfigurations.sol";
 import "../../../../contracts/protocol/implementation/RewardManager.sol";
 
 contract FdcHubTest is Test {
     FdcHub private fdcHub;
+    FdcInflationConfigurations private fdcInflationConfigurations;
+
+    IFdcInflationConfigurations.FdcConfiguration[] private fdcConfigurations;
 
     address private governance;
     address private addressUpdater;
@@ -28,7 +32,14 @@ contract FdcHubTest is Test {
     uint64 internal constant DAY = 1 days;
 
     event AttestationRequest(bytes data, uint256 fee);
-    event InflationRewardsOffered(uint24 indexed rewardEpochId, uint256 amount);
+    event InflationRewardsOffered(
+        // reward epoch id
+        uint24 indexed rewardEpochId,
+        // fdc configurations
+        IFdcInflationConfigurations.FdcConfiguration[] fdcConfigurations,
+        // amount (in wei) of reward in native coin
+        uint256 amount
+    );
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -40,7 +51,14 @@ contract FdcHubTest is Test {
         fdcHub = new FdcHub(
           IGovernanceSettings(makeAddr("governanceSettings")),
           governance,
-          addressUpdater
+          addressUpdater,
+          30
+        );
+
+        fdcInflationConfigurations = new FdcInflationConfigurations(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater
         );
 
         rewardManager = new RewardManager(
@@ -52,18 +70,30 @@ contract FdcHubTest is Test {
         );
 
         vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](4);
-        contractAddresses = new address[](4);
+        // set contracts on fdc hub
+        contractNameHashes = new bytes32[](5);
+        contractAddresses = new address[](5);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("Inflation"));
+        contractNameHashes[4] = keccak256(abi.encode("FdcInflationConfigurations"));
         contractAddresses[0] = addressUpdater;
         // contractAddresses[1] = mockRewardManager;
         contractAddresses[1] = address(rewardManager);
         contractAddresses[2] = mockFlareSystemsManager;
         contractAddresses[3] = mockInflation;
+        contractAddresses[4] = address(fdcInflationConfigurations);
         fdcHub.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        // set contracts on fdc inflation configurations
+        contractNameHashes = new bytes32[](2);
+        contractAddresses = new address[](2);
+        contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
+        contractNameHashes[1] = keccak256(abi.encode("FdcHub"));
+        contractAddresses[0] = addressUpdater;
+        contractAddresses[1] = address(fdcHub);
+        fdcInflationConfigurations.updateContractAddresses(contractNameHashes, contractAddresses);
 
         // set contracts on reward manager
         contractNameHashes = new bytes32[](7);
@@ -99,6 +129,14 @@ contract FdcHubTest is Test {
         fee2 = 456;
 
         vm.deal(mockInflation, 1 ether);
+
+        fdcConfigurations.push(IFdcInflationConfigurations.FdcConfiguration({
+            attestationType: type1,
+            source: source1,
+            inflationShare: 10000,
+            minRequestsThreshold: 2,
+            mode: 0
+        }));
     }
 
     // type and source fee
@@ -209,7 +247,7 @@ contract FdcHubTest is Test {
 
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.getCurrentVotingEpochId.selector),
+            abi.encodeWithSelector(IIFlareSystemsManager.currentRewardEpochExpectedEndTs.selector),
             abi.encode(1550)
         );
 
@@ -218,6 +256,109 @@ contract FdcHubTest is Test {
         emit AttestationRequest(abi.encodePacked(type1, source1), 123);
         fdcHub.requestAttestation { value: 123 }(abi.encodePacked(type1, source1));
         vm.assertEq(address(rewardManager).balance, 123);
+
+        (uint256 totalRewardsWei,,,,) = rewardManager.getRewardEpochTotals(5);
+        vm.assertEq(totalRewardsWei, 123);
+    }
+
+    function testRequestAttestation2() public {
+        testSetTypeAndSourceFee();
+        address user = makeAddr("user");
+        vm.deal(user, 1000);
+
+        vm.warp(50);
+
+        _mockGetCurrentEpochId(5);
+
+        vm.mockCall(
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IIFlareSystemsManager.currentRewardEpochExpectedEndTs.selector),
+            abi.encode(60)
+        );
+        vm.mockCall(
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IFlareSystemsManager.getStartVotingRoundId.selector, 6),
+            abi.encode(16)
+        );
+        vm.mockCall(
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IFlareSystemsManager.getCurrentVotingEpochId.selector),
+            abi.encode(14)
+        );
+
+        vm.prank(user);
+        vm.expectEmit();
+        emit AttestationRequest(abi.encodePacked(type1, source1), 123);
+        fdcHub.requestAttestation { value: 123 }(abi.encodePacked(type1, source1));
+        vm.assertEq(address(rewardManager).balance, 123);
+
+        (uint256 totalRewardsWei,,,,) = rewardManager.getRewardEpochTotals(5);
+        vm.assertEq(totalRewardsWei, 123);
+    }
+
+    function testRequestAttestation3() public {
+        testSetTypeAndSourceFee();
+        address user = makeAddr("user");
+        vm.deal(user, 1000);
+
+        vm.warp(50);
+
+        _mockGetCurrentEpochId(5);
+
+        vm.mockCall(
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IIFlareSystemsManager.currentRewardEpochExpectedEndTs.selector),
+            abi.encode(60)
+        );
+        vm.mockCallRevert(
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IFlareSystemsManager.getStartVotingRoundId.selector, 6),
+            abi.encode()
+        );
+
+        vm.prank(user);
+        vm.expectEmit();
+        emit AttestationRequest(abi.encodePacked(type1, source1), 123);
+        fdcHub.requestAttestation { value: 123 }(abi.encodePacked(type1, source1));
+        vm.assertEq(address(rewardManager).balance, 123);
+
+        (uint256 totalRewardsWei,,,,) = rewardManager.getRewardEpochTotals(5);
+        vm.assertEq(totalRewardsWei, 123);
+    }
+
+    function testRequestAttestation4() public {
+        testSetTypeAndSourceFee();
+        address user = makeAddr("user");
+        vm.deal(user, 1000);
+
+        vm.warp(50);
+
+        _mockGetCurrentEpochId(5);
+
+        vm.mockCall(
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IIFlareSystemsManager.currentRewardEpochExpectedEndTs.selector),
+            abi.encode(60)
+        );
+        vm.mockCall(
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IFlareSystemsManager.getStartVotingRoundId.selector, 6),
+            abi.encode(15)
+        );
+        vm.mockCall(
+            mockFlareSystemsManager,
+            abi.encodeWithSelector(IFlareSystemsManager.getCurrentVotingEpochId.selector),
+            abi.encode(14)
+        );
+
+        vm.prank(user);
+        vm.expectEmit();
+        emit AttestationRequest(abi.encodePacked(type1, source1), 123);
+        fdcHub.requestAttestation { value: 123 }(abi.encodePacked(type1, source1));
+        vm.assertEq(address(rewardManager).balance, 123);
+
+        (uint256 totalRewardsWei,,,,) = rewardManager.getRewardEpochTotals(6);
+        vm.assertEq(totalRewardsWei, 123);
     }
 
     function testRequestAttestationRevertFeeTooLow() public {
@@ -236,6 +377,10 @@ contract FdcHubTest is Test {
     }
 
     function testTriggerInflationOffers() public {
+        testSetTypeAndSourceFee();
+        vm.prank(governance);
+        fdcInflationConfigurations.addFdcConfiguration(fdcConfigurations[0]);
+
         vm.startPrank(mockInflation);
         // set daily authorized inflation
         vm.warp(100); // block.timestamp = 100
@@ -259,6 +404,7 @@ contract FdcHubTest is Test {
         vm.expectEmit();
         emit InflationRewardsOffered(
             2 + 1,
+            fdcConfigurations,
             5000
         );
         fdcHub.triggerRewardEpochSwitchover(2, 3 * DAY, DAY);
@@ -274,6 +420,7 @@ contract FdcHubTest is Test {
         vm.expectEmit();
         emit InflationRewardsOffered(
             2 + 1,
+            fdcConfigurations,
             0 // amount
         );
         fdcHub.triggerRewardEpochSwitchover(2, 3 * DAY, DAY);
@@ -281,7 +428,7 @@ contract FdcHubTest is Test {
 
 
 
-    function testGetContractName() view public {
+    function testGetContractName() public view {
         assertEq(fdcHub.getContractName(), "FdcHub");
     }
 

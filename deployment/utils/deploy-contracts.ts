@@ -18,6 +18,7 @@ import {
   FastUpdatesConfigurationInstance,
   FdcHubContract,
   FdcHubInstance,
+  FdcInflationConfigurationsContract,
   FlareSystemsCalculatorContract,
   FlareSystemsCalculatorInstance,
   FlareSystemsManagerContract,
@@ -153,6 +154,7 @@ export async function deployContracts(
   const TestableFlareDaemon: TestableFlareDaemonContract = hre.artifacts.require("TestableFlareDaemon");
   const NodePossessionVerifier: NodePossessionVerifierContract = hre.artifacts.require("NodePossessionVerifier");
   const FdcHub: FdcHubContract = hre.artifacts.require("FdcHub");
+  const FdcInflationConfigurations: FdcInflationConfigurationsContract = hre.artifacts.require("FdcInflationConfigurations");
 
   const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract =
     artifacts.require("FastUpdateIncentiveManager");
@@ -402,7 +404,8 @@ export async function deployContracts(
     ADDRESS_UPDATER_ADDR
   );
 
-  const fdcHub = await FdcHub.new(governanceSettings.address, governanceAccount.address, ADDRESS_UPDATER_ADDR);
+  const fdcHub = await FdcHub.new(governanceSettings.address, governanceAccount.address, ADDRESS_UPDATER_ADDR, 30);
+  const fdcInflationConfigurations = await FdcInflationConfigurations.new(governanceSettings.address, governanceAccount.address, ADDRESS_UPDATER_ADDR);
 
   await flareSystemsCalculator.enablePChainStakeMirror({ from: governanceAccount.address });
   await rewardManager.enablePChainStakeMirror({ from: governanceAccount.address });
@@ -618,8 +621,15 @@ export async function deployContracts(
       Contracts.FLARE_SYSTEMS_MANAGER,
       Contracts.REWARD_MANAGER,
       Contracts.INFLATION,
+      Contracts.FDC_INFLATION_CONFIGURATIONS
     ]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, rewardManager.address, INFLATION_ADDR],
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, rewardManager.address, INFLATION_ADDR, fdcInflationConfigurations.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
+
+  await fdcInflationConfigurations.updateContractAddresses(
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FDC_HUB]),
+    [ADDRESS_UPDATER_ADDR, fdcHub.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -649,6 +659,17 @@ export async function deployContracts(
   const testSGB = web3.utils.utf8ToHex("testSGB").padEnd(66, "0");
 
   await fdcHub.setTypeAndSourceFee(EVMTransactionType, testSGB, "1", { from: governanceAccount.address });
+
+  await fdcInflationConfigurations.addFdcConfiguration(
+    {
+      attestationType: EVMTransactionType,
+      source: testSGB,
+      inflationShare: 100,
+      minRequestsThreshold: 2,
+      mode: 0
+    },
+    { from: governanceAccount.address }
+  );
 
   // set rewards offer switchover trigger contracts
   await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts(
@@ -746,7 +767,7 @@ export async function deployContracts(
   await flareDaemon.registerToDaemonize(registrations, { from: genesisGovernance });
 
   logger.info(
-    `Finished deploying contracts:\n  FlareSystemsManager: ${flareSystemsManager.address},\n  Submission: ${submission.address},\n  Relay: ${relay.address},\n  FastUpdater: ${fastUpdater.address},\n  fdcHub: ${fdcHub.address}`
+    `Finished deploying contracts:\n  FlareSystemsManager: ${flareSystemsManager.address},\n  Submission: ${submission.address},\n  Relay: ${relay.address},\n  FastUpdater: ${fastUpdater.address},\n  FdcHub: ${fdcHub.address}`
   );
 
   logger.info(`Current network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
