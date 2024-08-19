@@ -193,14 +193,6 @@ contract FtsoProxyTest is Test {
         fastUpdater.setFreeFetchContracts(freeFetchContracts);
     }
 
-
-    function testGetContractAddresses() public {
-        assertEq(address(ftsoProxyFLR.fastUpdater()), address(fastUpdater));
-        assertEq(address(ftsoProxyFLR.fastUpdatesConfiguration()), address(fastUpdatesConfiguration));
-        assertEq(address(ftsoProxyFLR.flareSystemsManager()), mockFlareSystemsManager);
-        assertEq(address(ftsoProxyFLR.submission()), address(submission));
-    }
-
     function testSymbol() public {
         // deploying contract in test for constructor coverage
         FtsoProxy ftsoProxyETH = new FtsoProxy(

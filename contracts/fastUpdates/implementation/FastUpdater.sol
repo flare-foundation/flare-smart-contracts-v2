@@ -365,7 +365,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
         // calculate fees
         if (freeFetchContractsSet.index[msg.sender] == 0) {
             require(address(feeCalculator) != address(0), "fee calculator not set");
-            uint256 fee = feeCalculator.calculateFee(_indices);
+            uint256 fee = feeCalculator.calculateFeeByIndices(_indices);(_indices);
             // todo limit msg.value to certain amount?
             require(msg.value >= fee, "incorrect fee sent");
             (bool success, ) = feeDestination.call{value: fee}("");

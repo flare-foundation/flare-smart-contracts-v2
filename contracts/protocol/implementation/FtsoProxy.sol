@@ -14,12 +14,8 @@ import "../../protocol/interface/IIFtsoManagerProxy.sol";
  */
 contract FtsoProxy is IFtso {
 
-    IFastUpdaterView public immutable fastUpdater;
-    IFastUpdatesConfiguration public immutable fastUpdatesConfiguration;
-    IFlareSystemsManager public immutable flareSystemsManager;
-    IRandomProvider public immutable submission;
     /// Address of the `FtsoManager` contract.
-    address immutable public ftsoManager;
+    IIFtsoManagerProxy immutable public ftsoManager;
 
     /// @inheritdoc IFtso
     string public symbol;
@@ -41,13 +37,7 @@ contract FtsoProxy is IFtso {
         symbol = _symbol;
         feedId = _feedId;
         randomNumberProtocolId = _randomNumberProtocolId;
-        fastUpdater = IFastUpdaterView(_ftsoManager.fastUpdater());
-        fastUpdatesConfiguration = IFastUpdatesConfiguration(
-            _ftsoManager.fastUpdatesConfiguration()
-        );
-        flareSystemsManager = IFlareSystemsManager(_ftsoManager.flareSystemsManager());
-        submission = IRandomProvider(_ftsoManager.submission());
-        ftsoManager = address(_ftsoManager);
+        ftsoManager = _ftsoManager;
     }
 
     /**
@@ -61,13 +51,14 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      */
     function getCurrentEpochId() external view returns (uint256) {
-        return flareSystemsManager.getCurrentVotingEpochId();
+        return IFlareSystemsManager(ftsoManager.flareSystemsManager()).getCurrentVotingEpochId();
     }
 
     /**
      * @inheritdoc IFtso
      */
     function getEpochId(uint256 _timestamp) external view returns (uint256) {
+        IFlareSystemsManager flareSystemsManager = IFlareSystemsManager(ftsoManager.flareSystemsManager());
         return (_timestamp - flareSystemsManager.firstVotingRoundStartTs()) /
             flareSystemsManager.votingEpochDurationSeconds();
     }
@@ -100,6 +91,7 @@ contract FtsoProxy is IFtso {
             bool _fallbackMode
         )
     {
+        IFlareSystemsManager flareSystemsManager = IFlareSystemsManager(ftsoManager.flareSystemsManager());
         uint256 votingEpochDuration = flareSystemsManager.votingEpochDurationSeconds();
         _epochId = flareSystemsManager.getCurrentVotingEpochId();
         _epochSubmitEndTime = flareSystemsManager.firstVotingRoundStartTs() + (_epochId + 1) * votingEpochDuration;
@@ -118,6 +110,7 @@ contract FtsoProxy is IFtso {
             uint256 _revealPeriodSeconds
         )
     {
+        IFlareSystemsManager flareSystemsManager = IFlareSystemsManager(ftsoManager.flareSystemsManager());
         _firstEpochStartTs = flareSystemsManager.firstVotingRoundStartTs();
         _submitPeriodSeconds = flareSystemsManager.votingEpochDurationSeconds();
         _revealPeriodSeconds = _submitPeriodSeconds / 2;
@@ -197,15 +190,15 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      */
     function getCurrentRandom() external view returns (uint256 _currentRandom) {
-        (_currentRandom, ) = submission.getCurrentRandomWithQuality();
+        (_currentRandom, ) = IRandomProvider(ftsoManager.submission()).getCurrentRandomWithQuality();
     }
 
     function _getCurrentPrice() internal view returns (uint256 _price, uint64 _timestamp) {
         uint256[] memory indices = new uint256[](1);
-        indices[0] = fastUpdatesConfiguration.getFeedIndex(feedId);
+        indices[0] = IFastUpdatesConfiguration(ftsoManager.fastUpdatesConfiguration()).getFeedIndex(feedId);
         uint256[] memory values;
         int8[] memory decimals;
-        (values, decimals, _timestamp) = fastUpdater.fetchCurrentFeeds(indices);
+        (values, decimals, _timestamp) = IFastUpdaterView(ftsoManager.fastUpdater()).fetchCurrentFeeds(indices);
         _price = values[0];
         int256 decimalsDiff = int256(ASSET_PRICE_USD_DECIMALS) - decimals[0];
         if (decimalsDiff < 0) {
