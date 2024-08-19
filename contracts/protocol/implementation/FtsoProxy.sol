@@ -29,8 +29,7 @@ contract FtsoProxy is IFtso {
 
     /// Number of decimal places in an asset's USD price.
     /// Actual USD price is the integer value divided by 10^`ASSET_PRICE_USD_DECIMALS`
-    // solhint-disable-next-line var-name-mixedcase
-    int256 public constant ASSET_PRICE_USD_DECIMALS = 5;
+    uint256 public constant ASSET_PRICE_USD_DECIMALS = 5;
 
     constructor(
         string memory _symbol,
@@ -48,7 +47,7 @@ contract FtsoProxy is IFtso {
         );
         flareSystemsManager = IFlareSystemsManager(_ftsoManager.flareSystemsManager());
         submission = IRandomProvider(_ftsoManager.submission());
-        ftsoManager = address((_ftsoManager));
+        ftsoManager = address(_ftsoManager);
     }
 
     /**
@@ -151,7 +150,7 @@ contract FtsoProxy is IFtso {
         )
     {
         (_value, _timestamp) = _getCurrentPrice();
-        _decimals = uint256(ASSET_PRICE_USD_DECIMALS);
+        _decimals = ASSET_PRICE_USD_DECIMALS;
     }
 
 
@@ -208,7 +207,7 @@ contract FtsoProxy is IFtso {
         int8[] memory decimals;
         (values, decimals, _timestamp) = fastUpdater.fetchCurrentFeeds(indices);
         _price = values[0];
-        int256 decimalsDiff = ASSET_PRICE_USD_DECIMALS - decimals[0];
+        int256 decimalsDiff = int256(ASSET_PRICE_USD_DECIMALS) - decimals[0];
         if (decimalsDiff < 0) {
             _price = _price / (10 ** uint256(-decimalsDiff));
         } else {
