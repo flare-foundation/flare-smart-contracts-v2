@@ -1,11 +1,8 @@
 # FDC
 
-Double governance
+## Governance
+
 - Flare foundation governance
-- Validator majority governance
-
-For now just 2 governance addresses, where 1 is set to foundation governance and an option to add another governance address
-
 
 ## Adding attestation type fees
 
