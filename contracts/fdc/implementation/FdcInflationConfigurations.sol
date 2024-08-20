@@ -2,9 +2,9 @@
 pragma solidity 0.8.20;
 
 import "../../userInterfaces/IFdcInflationConfigurations.sol";
+import "../../userInterfaces/IFdcRequestFeeConfigurations.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/IFdcHub.sol";
 
 /**
  * FdcInflationConfigurations contract.
@@ -14,7 +14,7 @@ import "../../userInterfaces/IFdcHub.sol";
 contract FdcInflationConfigurations is Governed, AddressUpdatable, IFdcInflationConfigurations {
 
     /// The FDC Hub contract.
-    IFdcHub public fdcHub;
+    IFdcRequestFeeConfigurations public fdcRequestFeeConfigurations;
 
     /// The FDC configurations.
     FdcConfiguration[] internal fdcConfigurations;
@@ -93,7 +93,8 @@ contract FdcInflationConfigurations is Governed, AddressUpdatable, IFdcInflation
     )
         internal override
     {
-        fdcHub = IFdcHub(_getContractAddress(_contractNameHashes, _contractAddresses, "FdcHub"));
+        fdcRequestFeeConfigurations = IFdcRequestFeeConfigurations(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FdcRequestFeeConfigurations"));
     }
 
     /**
@@ -101,7 +102,7 @@ contract FdcInflationConfigurations is Governed, AddressUpdatable, IFdcInflation
      * @param _configuration The FDC configuration.
      */
     function _checkFdcConfiguration(FdcConfiguration calldata _configuration) internal view {
-        require(fdcHub.getRequestFee(abi.encodePacked(_configuration.attestationType, _configuration.source)) > 0,
-            "attestation type and source not supported");
+        // Check if the fee is set for the given type and source - call should revert if not.
+        fdcRequestFeeConfigurations.getRequestFee(abi.encode(_configuration.attestationType, _configuration.source));
     }
 }

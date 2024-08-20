@@ -4,11 +4,13 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import "../../../../contracts/fdc/implementation/FdcHub.sol";
 import "../../../../contracts/fdc/implementation/FdcInflationConfigurations.sol";
+import "../../../../contracts/fdc/implementation/FdcRequestFeeConfigurations.sol";
 import "../../../../contracts/protocol/implementation/RewardManager.sol";
 
 contract FdcHubTest is Test {
     FdcHub private fdcHub;
     FdcInflationConfigurations private fdcInflationConfigurations;
+    FdcRequestFeeConfigurations private fdcRequestFeeConfigurations;
 
     IFdcInflationConfigurations.FdcConfiguration[] private fdcConfigurations;
 
@@ -61,6 +63,11 @@ contract FdcHubTest is Test {
             addressUpdater
         );
 
+        fdcRequestFeeConfigurations = new FdcRequestFeeConfigurations(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance
+        );
+
         rewardManager = new RewardManager(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
@@ -71,28 +78,30 @@ contract FdcHubTest is Test {
 
         vm.startPrank(addressUpdater);
         // set contracts on fdc hub
-        contractNameHashes = new bytes32[](5);
-        contractAddresses = new address[](5);
+        contractNameHashes = new bytes32[](6);
+        contractAddresses = new address[](6);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("Inflation"));
         contractNameHashes[4] = keccak256(abi.encode("FdcInflationConfigurations"));
+        contractNameHashes[5] = keccak256(abi.encode("FdcRequestFeeConfigurations"));
         contractAddresses[0] = addressUpdater;
         // contractAddresses[1] = mockRewardManager;
         contractAddresses[1] = address(rewardManager);
         contractAddresses[2] = mockFlareSystemsManager;
         contractAddresses[3] = mockInflation;
         contractAddresses[4] = address(fdcInflationConfigurations);
+        contractAddresses[5] = address(fdcRequestFeeConfigurations);
         fdcHub.updateContractAddresses(contractNameHashes, contractAddresses);
 
         // set contracts on fdc inflation configurations
         contractNameHashes = new bytes32[](2);
         contractAddresses = new address[](2);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("FdcHub"));
+        contractNameHashes[1] = keccak256(abi.encode("FdcRequestFeeConfigurations"));
         contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = address(fdcHub);
+        contractAddresses[1] = address(fdcRequestFeeConfigurations);
         fdcInflationConfigurations.updateContractAddresses(contractNameHashes, contractAddresses);
 
         // set contracts on reward manager
@@ -137,109 +146,12 @@ contract FdcHubTest is Test {
             minRequestsThreshold: 2,
             mode: 0
         }));
-    }
-
-    // type and source fee
-    function testSetTypeAndSourceFee() public {
-        vm.prank(governance);
-        fdcHub.setTypeAndSourceFee(type1, source1, fee1);
-
-        assertEq(fdcHub.typeAndSourceFees(_joinTypeAndSource(type1, source1)), fee1);
-    }
-
-    function testSetTypeAndSourceFeeRevertFeeZero() public {
-        vm.prank(governance);
-        vm.expectRevert("Fee must be greater than 0");
-        fdcHub.setTypeAndSourceFee(type1, source1, 0);
-    }
-
-    function testRemoveTypeAndSourceFee() public {
-        testSetTypeAndSourceFee();
 
         vm.prank(governance);
-        fdcHub.removeTypeAndSourceFee(type1, source1);
-
-        assertEq(fdcHub.typeAndSourceFees(_joinTypeAndSource(type1, source1)), 0);
-    }
-
-    function testRemoveTypeAndSourceFeeRevertNotSet() public {
-        vm.prank(governance);
-        vm.expectRevert("Fee not set");
-        fdcHub.removeTypeAndSourceFee(type1, source1);
-    }
-
-    function testSetTypeAndSourceFees() public {
-        bytes32[] memory types = new bytes32[](2);
-        types[0] = type1;
-        types[1] = type2;
-        bytes32[] memory sources = new bytes32[](2);
-        sources[0] = source1;
-        sources[1] = source2;
-        uint256[] memory fees = new uint256[](2);
-        fees[0] = fee1;
-        fees[1] = fee2;
-        vm.prank(governance);
-        fdcHub.setTypeAndSourceFees(types, sources, fees);
-
-        assertEq(fdcHub.typeAndSourceFees(_joinTypeAndSource(type1, source1)), fee1);
-        assertEq(fdcHub.typeAndSourceFees(_joinTypeAndSource(type2, source2)), fee2);
-    }
-
-    function testSetTypeAndSourceFeeRevertMismatch() public {
-        bytes32[] memory types = new bytes32[](2);
-        types[0] = type1;
-        types[1] = type2;
-        bytes32[] memory sources = new bytes32[](2);
-        sources[0] = source1;
-        sources[1] = source2;
-        uint256[] memory fees = new uint256[](1);
-        fees[0] = fee1;
-        vm.prank(governance);
-        vm.expectRevert("length mismatch");
-        fdcHub.setTypeAndSourceFees(types, sources, fees);
-    }
-
-    function testRemoveTypeAndSourceFees() public {
-        testSetTypeAndSourceFees();
-
-        bytes32[] memory types = new bytes32[](1);
-        types[0] = type1;
-        bytes32[] memory sources = new bytes32[](1);
-        sources[0] = source1;
-        vm.prank(governance);
-        fdcHub.removeTypeAndSourceFees(types, sources);
-
-        assertEq(fdcHub.typeAndSourceFees(_joinTypeAndSource(type1, source1)), 0);
-        assertEq(fdcHub.typeAndSourceFees(_joinTypeAndSource(type2, source2)), 456);
-    }
-
-    function testRemoveTypeAndSourceFeesRevertMismatch() public {
-        testSetTypeAndSourceFees();
-
-        bytes32[] memory types = new bytes32[](1);
-        types[0] = type1;
-        bytes32[] memory sources = new bytes32[](0);
-        vm.prank(governance);
-        vm.expectRevert("length mismatch");
-        fdcHub.removeTypeAndSourceFees(types, sources);
-    }
-
-
-    function testGetRequestFee() public {
-        testSetTypeAndSourceFee();
-
-        bytes memory data = abi.encodePacked(type1, source1);
-        data = abi.encodePacked(data, bytes32("additional data"));
-        assertEq(fdcHub.getRequestFee(data), fee1);
-    }
-
-    function testGetBaseFeeRevert() public {
-        vm.expectRevert("Request data too short, should at least specify type and source");
-        fdcHub.getRequestFee(abi.encodePacked(type1));
+        fdcRequestFeeConfigurations.setTypeAndSourceFee(type1, source1, fee1);
     }
 
     function testRequestAttestation() public {
-        testSetTypeAndSourceFee();
         address user = makeAddr("user");
         vm.deal(user, 1000);
 
@@ -262,7 +174,6 @@ contract FdcHubTest is Test {
     }
 
     function testRequestAttestation2() public {
-        testSetTypeAndSourceFee();
         address user = makeAddr("user");
         vm.deal(user, 1000);
 
@@ -288,8 +199,11 @@ contract FdcHubTest is Test {
 
         vm.prank(user);
         vm.expectEmit();
-        emit AttestationRequest(abi.encodePacked(type1, source1), 123);
-        fdcHub.requestAttestation { value: 123 }(abi.encodePacked(type1, source1));
+        bytes32 typeAndSource = _joinTypeAndSource(type1, source1);
+        emit AttestationRequest(abi.encodePacked(type1, source1, typeAndSource, typeAndSource,
+            typeAndSource, typeAndSource, typeAndSource, typeAndSource, typeAndSource, typeAndSource), 123);
+        fdcHub.requestAttestation { value: 123 }(abi.encodePacked(type1, source1, typeAndSource, typeAndSource,
+            typeAndSource, typeAndSource, typeAndSource, typeAndSource, typeAndSource, typeAndSource));
         vm.assertEq(address(rewardManager).balance, 123);
 
         (uint256 totalRewardsWei,,,,) = rewardManager.getRewardEpochTotals(5);
@@ -297,7 +211,6 @@ contract FdcHubTest is Test {
     }
 
     function testRequestAttestation3() public {
-        testSetTypeAndSourceFee();
         address user = makeAddr("user");
         vm.deal(user, 1000);
 
@@ -327,7 +240,6 @@ contract FdcHubTest is Test {
     }
 
     function testRequestAttestation4() public {
-        testSetTypeAndSourceFee();
         address user = makeAddr("user");
         vm.deal(user, 1000);
 
@@ -362,7 +274,6 @@ contract FdcHubTest is Test {
     }
 
     function testRequestAttestationRevertFeeTooLow() public {
-        testSetTypeAndSourceFee();
         address user = makeAddr("user");
         vm.deal(user, 1000);
 
@@ -371,13 +282,12 @@ contract FdcHubTest is Test {
         fdcHub.requestAttestation { value: 122 }(abi.encodePacked(type1, source1));
     }
 
-    function testRequestAttestationRevertNoFeeSpecified() public {
-        vm.expectRevert("No fee specified for this type and source");
-        fdcHub.requestAttestation(abi.encodePacked(type1, source1));
+    function testRequestAttestationRevertTypeAndSourceCombinationNotSupported() public {
+        vm.expectRevert("Type and source combination not supported");
+        fdcHub.requestAttestation(abi.encodePacked(type1, source2));
     }
 
     function testTriggerInflationOffers() public {
-        testSetTypeAndSourceFee();
         vm.prank(governance);
         fdcInflationConfigurations.addFdcConfiguration(fdcConfigurations[0]);
 
@@ -425,8 +335,6 @@ contract FdcHubTest is Test {
         );
         fdcHub.triggerRewardEpochSwitchover(2, 3 * DAY, DAY);
     }
-
-
 
     function testGetContractName() public view {
         assertEq(fdcHub.getContractName(), "FdcHub");

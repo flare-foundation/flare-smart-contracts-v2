@@ -2,6 +2,7 @@
 pragma solidity 0.8.20;
 
 import "../../userInterfaces/IFdcHub.sol";
+import "../../userInterfaces/IFdcRequestFeeConfigurations.sol";
 import "../../protocol/interface/IIRewardManager.sol";
 import "../../protocol/implementation/RewardOffersManagerBase.sol";
 import "../../utils/lib/SafePct.sol";
@@ -16,14 +17,14 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 contract FdcHub is RewardOffersManagerBase, IFdcHub {
     using SafePct for uint256;
 
-    /// Mapping of type and source to fee.
-    mapping(bytes32 typeAndSource => uint256 fee) public typeAndSourceFees;
-
     /// Total rewards offered by inflation (in wei).
     uint256 public totalInflationRewardsOfferedWei;
 
     /// The FDC inflation configurations contract.
     IFdcInflationConfigurations public fdcInflationConfigurations;
+
+    /// The FDC request fee configurations contract.
+    IFdcRequestFeeConfigurations public fdcRequestFeeConfigurations;
 
     /// The RewardManager contract.
     IIRewardManager public rewardManager;
@@ -51,65 +52,6 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
     }
 
     /**
-     * Sets the fee for a given type and source.
-     * @param _type The type to set the fee for.
-     * @param _source The source to set the fee for.
-     * @param _fee The fee to set.
-     * @dev Only governance can call this method.
-     */
-    function setTypeAndSourceFee(bytes32 _type, bytes32 _source, uint256 _fee) external onlyGovernance {
-        _setSingleTypeAndSourceFee(_type, _source, _fee);
-    }
-
-    /**
-     * Removes the fee for a given type and source.
-     * @param _type The type to remove.
-     * @param _source The source to remove.
-     * @dev Only governance can call this method.
-     */
-    function removeTypeAndSourceFee(bytes32 _type, bytes32 _source) external onlyGovernance {
-        _removeSingleTypeAndSourceFee(_type, _source);
-    }
-
-    /**
-     * Sets the fees for multiple types and sources.
-     * @param _types The types to set the fees for.
-     * @param _sources The sources to set the fees for.
-     * @param _fees The fees to set.
-     * @dev Only governance can call this method.
-     */
-    function setTypeAndSourceFees(
-        bytes32[] memory _types,
-        bytes32[] memory _sources,
-        uint256[] memory _fees
-    )
-        external onlyGovernance
-    {
-        require(_types.length == _sources.length && _types.length == _fees.length, "length mismatch");
-        for (uint256 i = 0; i < _types.length; i++) {
-            _setSingleTypeAndSourceFee(_types[i], _sources[i], _fees[i]);
-        }
-    }
-
-    /**
-     * Removes the fees for multiple types and sources.
-     * @param _types The types to remove.
-     * @param _sources The sources to remove.
-     * @dev Only governance can call this method.
-     */
-    function removeTypeAndSourceFees(
-        bytes32[] memory _types,
-        bytes32[] memory _sources
-    )
-        external onlyGovernance
-    {
-        require(_types.length == _sources.length, "length mismatch");
-        for (uint256 i = 0; i < _types.length; i++) {
-            _removeSingleTypeAndSourceFee(_types[i], _sources[i]);
-        }
-    }
-
-    /**
      * Sets the offset for the requests to be processed during the current voting round.
      * @param _requestsOffsetSeconds The requests offset in seconds.
      * @dev Only governance can call this method.
@@ -121,11 +63,10 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
     }
 
     /**
-    * @inheritdoc IFdcHub
-    */
+     * @inheritdoc IFdcHub
+     */
     function requestAttestation(bytes calldata _data) external payable mustBalance {
-        uint256 fee = _getBaseFee(_data);
-        require(fee > 0, "No fee specified for this type and source");
+        uint256 fee = fdcRequestFeeConfigurations.getRequestFee(_data);
         require(msg.value >= fee, "fee to low, call getRequestFee to get the required fee amount");
         uint24 rewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         uint64 currentRewardEpochExpectedEndTs = flareSystemsManager.currentRewardEpochExpectedEndTs();
@@ -143,15 +84,8 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
     }
 
     /**
-    * @inheritdoc IFdcHub
-    */
-    function getRequestFee(bytes calldata _data) external view returns (uint256) {
-        return _getBaseFee(_data);
-    }
-
-    /**
-    * @inheritdoc IITokenPool
-    */
+     * @inheritdoc IITokenPool
+     */
     function getTokenPoolSupplyData()
         external view
         returns (
@@ -176,25 +110,6 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
     ////////////////////////// Internal functions ///////////////////////////////////////////////
 
     /**
-     * Sets the fee for a given type and source.
-     */
-    function _setSingleTypeAndSourceFee(bytes32 _type, bytes32 _source, uint256 _fee) internal {
-        require(_fee > 0, "Fee must be greater than 0");
-        typeAndSourceFees[_joinTypeAndSource(_type, _source)] = _fee;
-        emit TypeAndSourceFeeSet(_type, _source, _fee);
-    }
-
-    /**
-     * Removes a given type and source by setting the fee to 0.
-     */
-    function _removeSingleTypeAndSourceFee(bytes32 _type, bytes32 _source) internal {
-        // Same as setting this to 0 but we want to emit a different event + gas savings
-        require(typeAndSourceFees[_joinTypeAndSource(_type, _source)] > 0, "Fee not set");
-        delete typeAndSourceFees[_joinTypeAndSource(_type, _source)];
-        emit TypeAndSourceFeeRemoved(_type, _source);
-    }
-
-    /**
      * @inheritdoc AddressUpdatable
      */
     function _updateContractAddresses(
@@ -206,6 +121,8 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
         super._updateContractAddresses(_contractNameHashes, _contractAddresses);
         fdcInflationConfigurations = IFdcInflationConfigurations(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FdcInflationConfigurations"));
+        fdcRequestFeeConfigurations = IFdcRequestFeeConfigurations(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FdcRequestFeeConfigurations"));
         rewardManager = IIRewardManager(_getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
     }
 
@@ -255,29 +172,5 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
      */
     function _getExpectedBalance() internal view override returns (uint256 _balanceExpectedWei) {
         return totalInflationReceivedWei - totalInflationRewardsOfferedWei;
-    }
-
-    /**
-     * Calculates the base fee for an attestation request.
-     */
-    function _getBaseFee(bytes calldata _data) internal view returns (uint256) {
-        require(_data.length >= 64, "Request data too short, should at least specify type and source");
-        bytes32 _type = abi.decode(_data[:32], (bytes32));
-        bytes32 _source = abi.decode(_data[32:64], (bytes32));
-        return _getTypeAndSourceFee(_type, _source);
-    }
-
-    /**
-     * Returns the fee for a given type and source.
-     */
-    function _getTypeAndSourceFee(bytes32 _type, bytes32 _source) internal view returns (uint256 _fee) {
-        _fee = typeAndSourceFees[_joinTypeAndSource(_type, _source)];
-    }
-
-    /**
-     * Joins a type and source into a single bytes32 value.
-     */
-    function _joinTypeAndSource(bytes32 _type, bytes32 _source) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_type, _source));
     }
 }

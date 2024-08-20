@@ -9,7 +9,7 @@ contract FdcInflationConfigurationsTest is Test {
     FdcInflationConfigurations private inflationConfigs;
     address private governance;
     address private addressUpdater;
-    address private mockFdcHub;
+    address private mockFdcRequestFeeConfigurations;
 
     IFdcInflationConfigurations.FdcConfiguration private config;
 
@@ -24,7 +24,7 @@ contract FdcInflationConfigurationsTest is Test {
     function setUp() public {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
-        mockFdcHub = makeAddr("fdcHub");
+        mockFdcRequestFeeConfigurations = makeAddr("fdcRequestFeeConfigurations");
 
         inflationConfigs = new FdcInflationConfigurations(
             IGovernanceSettings(makeAddr("governanceSettings")),
@@ -37,9 +37,9 @@ contract FdcInflationConfigurationsTest is Test {
         contractNameHashes = new bytes32[](2);
         contractAddresses = new address[](2);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("FdcHub"));
+        contractNameHashes[1] = keccak256(abi.encode("FdcRequestFeeConfigurations"));
         contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = address(mockFdcHub);
+        contractAddresses[1] = address(mockFdcRequestFeeConfigurations);
         inflationConfigs.updateContractAddresses(contractNameHashes, contractAddresses);
 
         type1 = bytes32("type1");
@@ -50,18 +50,18 @@ contract FdcInflationConfigurationsTest is Test {
     }
 
     function testAddConfigRevertTypeAndSourceNotSupported() public {
-        _mockGetRequestFee(type1, source1, 0);
+        _mockGetRequestFee(type1, source1, true);
         config = IFdcInflationConfigurations.FdcConfiguration(
             type1, source1, 10000, 2, 0
         );
-        vm.expectRevert("attestation type and source not supported");
+        vm.expectRevert("Type and source combination not supported");
         inflationConfigs.addFdcConfiguration(config);
     }
 
 
     function testAddFdcConfiguration() public {
-        _mockGetRequestFee(type1, source1, 10);
-        _mockGetRequestFee(type2, source2, 5);
+        _mockGetRequestFee(type1, source1, false);
+        _mockGetRequestFee(type2, source2, false);
         IFdcInflationConfigurations.FdcConfiguration[] memory fdcConfigurations;
 
         config = IFdcInflationConfigurations.FdcConfiguration(
@@ -99,12 +99,12 @@ contract FdcInflationConfigurationsTest is Test {
         vm.expectRevert("invalid index");
         inflationConfigs.replaceFdcConfiguration(2, config);
 
-        // replace fdc configuration on index 1 -> should revert if type and source not supported
-        _mockGetRequestFee(type1, source2, 0);
-        vm.expectRevert("attestation type and source not supported");
+        // replace fdc configuration on index 1 -> should revert if Type and source combination not supported
+        _mockGetRequestFee(type1, source2, true);
+        vm.expectRevert("Type and source combination not supported");
         inflationConfigs.replaceFdcConfiguration(1, config);
 
-        _mockGetRequestFee(type1, source2, 1);
+        _mockGetRequestFee(type1, source2, false);
         // replace fdc configuration on index 1
         getConfig = inflationConfigs.getFdcConfiguration(1);
         assertEq(getConfig.attestationType, type2);
@@ -145,12 +145,22 @@ contract FdcInflationConfigurationsTest is Test {
         assertEq(fdcConfigurations.length, 0);
     }
 
-    function _mockGetRequestFee(bytes32 _type, bytes32 _source, uint256 _fee) internal {
-        vm.mockCall(
-            mockFdcHub,
-            abi.encodeWithSelector(IFdcHub.getRequestFee.selector, abi.encodePacked(_type, _source)),
-            abi.encode(_fee)
-        );
+    function _mockGetRequestFee(bytes32 _type, bytes32 _source, bool _revert) internal {
+        bytes memory selectorWithData =
+            abi.encodeWithSelector(IFdcRequestFeeConfigurations.getRequestFee.selector, abi.encode(_type, _source));
+        if (_revert) {
+            vm.mockCallRevert(
+                mockFdcRequestFeeConfigurations,
+                selectorWithData,
+                "Type and source combination not supported"
+            );
+        } else {
+            vm.mockCall(
+                mockFdcRequestFeeConfigurations,
+                selectorWithData,
+                abi.encode(5)
+            );
+        }
     }
 
 }
