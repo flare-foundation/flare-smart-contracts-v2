@@ -16,6 +16,7 @@ import { ISigningPolicy, SigningPolicy } from '../../scripts/libs/protocol/Signi
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 import { FtsoFeedIdConverterContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedIdConverter';
 import { generateOffers, runOfferRewards } from './offer-rewards';
+import { RelayInitialConfig } from '../utils/RelayInitialConfig';
 
 let fs = require('fs');
 
@@ -188,19 +189,37 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   );
   spewNewContractInfo(contracts, null, FtsoRewardManagerProxy.contractName, `FtsoRewardManagerProxy.sol`, ftsoRewardManagerProxy.address, quiet);
 
+  const relayInitialConfig: RelayInitialConfig = {
+    initialRewardEpochId: initialSigningPolicy.rewardEpochId,
+    startingVotingRoundIdForInitialRewardEpochId: initialSigningPolicy.startVotingRoundId,
+    initialSigningPolicyHash: SigningPolicy.hash(initialSigningPolicy),
+    randomNumberProtocolId: parameters.ftsoProtocolId,
+    firstVotingRoundStartTs: firstVotingRoundStartTs.toNumber(),
+    votingEpochDurationSeconds: parameters.votingEpochDurationSeconds,
+    firstRewardEpochStartVotingRoundId: parameters.firstRewardEpochStartVotingRoundId,
+    rewardEpochDurationInVotingEpochs: parameters.rewardEpochDurationInVotingEpochs,
+    thresholdIncreaseBIPS: parameters.relayThresholdIncreaseBIPS,
+    messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs
+  }
+
   const relay = await Relay.new(
-    flareSystemsManager.address,
-    initialSigningPolicy.rewardEpochId,
-    initialSigningPolicy.startVotingRoundId,
-    SigningPolicy.hash(initialSigningPolicy),
-    parameters.ftsoProtocolId,
-    firstVotingRoundStartTs,
-    parameters.votingEpochDurationSeconds,
-    parameters.firstRewardEpochStartVotingRoundId,
-    parameters.rewardEpochDurationInVotingEpochs,
-    parameters.relayThresholdIncreaseBIPS,
-    parameters.messageFinalizationWindowInRewardEpochs
+    relayInitialConfig,
+    flareSystemsManager.address
   );
+
+  // const relay = await Relay.new(
+  //   flareSystemsManager.address,
+  //   initialSigningPolicy.rewardEpochId,
+  //   initialSigningPolicy.startVotingRoundId,
+  //   SigningPolicy.hash(initialSigningPolicy),
+  //   parameters.ftsoProtocolId,
+  //   firstVotingRoundStartTs,
+  //   parameters.votingEpochDurationSeconds,
+  //   parameters.firstRewardEpochStartVotingRoundId,
+  //   parameters.rewardEpochDurationInVotingEpochs,
+  //   parameters.relayThresholdIncreaseBIPS,
+  //   parameters.messageFinalizationWindowInRewardEpochs
+  // );
   spewNewContractInfo(contracts, null, Relay.contractName, `Relay.sol`, relay.address, quiet);
 
   // get the submission contract
@@ -250,6 +269,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     parameters.ftsoProtocolId,
     parameters.feedsHistorySize
   );
+
   spewNewContractInfo(contracts, null, FtsoFeedPublisher.contractName, `FtsoFeedPublisher.sol`, ftsoFeedPublisher.address, quiet);
 
   const ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
@@ -349,6 +369,10 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
 
   // set initial data on reward manager
   await rewardManager.setInitialRewardData();
+
+  // grant access to merkle roots to FtsoFeedPublisher. Set relay contract to production.
+  await relay.setMerkleTreeGetter(ftsoFeedPublisher.address, true);
+  await relay.setInProduction();
 
   // activate reward manager
   await rewardManager.activate();

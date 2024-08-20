@@ -11,7 +11,6 @@ import { encodeContractNames } from '../../../utils/test-helpers';
 const Submission: SubmissionContract = artifacts.require("Submission");
 const Relay: RelayContract = artifacts.require("Relay");
 const MockContract: MockContractContract = artifacts.require("MockContract");
-const RelayConfigBasic = artifacts.require("RelayConfigBasic");
 
 contract(`Submission.sol; ${getTestFile(__filename)}`, async accounts => {
 
@@ -39,21 +38,10 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, async accounts => {
       thresholdIncreaseBIPS: 12000,
       messageFinalizationWindowInRewardEpochs: 10,
     } 
-    const FEE_WEI = 0;
-    const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
-    const relayConfigBasic = await RelayConfigBasic.new(
-      FEE_WEI,
-      BURN_ADDRESS,
-      [],                       // _zeroFeeAddresses
-      [],    // _merkleRootGetters
-      [],    // _signingPolicyGetters
-      []                        // _signingPolicySetters
-    );
 
     const relay = await Relay.new(
       relayInitialConfig,
-      accounts[1],
-      relayConfigBasic.address
+      accounts[1]
     );
 
     // const relay = await Relay.new(accounts[1], 0, 0, web3.utils.keccak256("test"), 1, 242, 90, 0, 23, 12000, 100);

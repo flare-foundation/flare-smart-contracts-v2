@@ -2,30 +2,33 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { constants, expectEvent, expectRevert } from "@openzeppelin/test-helpers";
 import { artifacts, config, contract, ethers } from "hardhat";
 import { HardhatNetworkAccountConfig } from "hardhat/types";
+import { RelayInitialConfig } from "../../../../deployment/utils/RelayInitialConfig";
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { RelayMessage } from "../../../../scripts/libs/protocol/RelayMessage";
 import {
   ISigningPolicy,
   SigningPolicy
 } from "../../../../scripts/libs/protocol/SigningPolicy";
-import { RelayConfigBasicInstance, RelayInstance } from "../../../../typechain-truffle";
+import { RelayInstance } from "../../../../typechain-truffle";
 import { getTestFile } from "../../../utils/constants";
 import { toBN } from "../../../utils/test-helpers";
 import { defaultTestSigningPolicy, generateSignatures, generateSignaturesEncoded } from "../coding/coding-helpers";
-import { RelayInitialConfig } from "../../../../deployment/utils/RelayInitialConfig";
 
 const Relay = artifacts.require("Relay");
-const RelayConfigBasic = artifacts.require("RelayConfigBasic");
 
 const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+
+async function initializeRelay(relay: RelayInstance, signers: SignerWithAddress[]) {
+  await relay.setMerkleTreeGetter(signers[11].address, true);
+  await relay.setSigningPolicyGetter(signers[10].address, true);    
+}
 
 contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   // let accounts: Account[];
   let signers: SignerWithAddress[];
   const accountPrivateKeys = (config.networks.hardhat.accounts as HardhatNetworkAccountConfig[]).map(x => x.privateKey);
   let relay: RelayInstance;
-  let relayConfigBasic: RelayConfigBasicInstance;
 
   const selector = ethers.keccak256(ethers.toUtf8Bytes("relay()"))!.slice(0, 10);
   const N = 100;
@@ -90,20 +93,11 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
     }
 
-    relayConfigBasic = await RelayConfigBasic.new(
-      FEE_WEI,
-      BURN_ADDRESS,
-      [],                       // _zeroFeeAddresses
-      [signers[11].address],    // _merkleRootGetters
-      [signers[10].address],    // _signingPolicyGetters
-      []                        // _signingPolicySetters
-    );
-
     relay = await Relay.new(
       relayInitialConfig,
-      constants.ZERO_ADDRESS,
-      relayConfigBasic.address
+      constants.ZERO_ADDRESS
     );
+    await initializeRelay(relay, signers);
   });
 
   let merkleRoot: string;
@@ -329,9 +323,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
     const relay2 = await Relay.new(
       relayInitialConfig,
-      constants.ZERO_ADDRESS,
-      relayConfigBasic.address
+      constants.ZERO_ADDRESS
     );
+    await initializeRelay(relay2, signers);
 
     const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
 
@@ -535,9 +529,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
     const relay2 = await Relay.new(
       relayInitialConfig,
-      constants.ZERO_ADDRESS,
-      relayConfigBasic.address
+      constants.ZERO_ADDRESS
     );
+    await initializeRelay(relay2, signers);
 
     let lastSigningPolicyData = signingPolicyData;
     for (let i = signingPolicyData.rewardEpochId + 1; i < signingPolicyData.rewardEpochId + MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS + 2; i++) {
@@ -983,9 +977,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
       const relay2 = await Relay.new(
         relayInitialConfig,
-        signers[0].address,
-        relayConfigBasic.address
+        signers[0].address
       );
+      await initializeRelay(relay2, signers);  
 
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
@@ -1030,9 +1024,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
       const relay2 = await Relay.new(
         relayInitialConfig,
-        signers[0].address,
-        relayConfigBasic.address
+        signers[0].address
       );
+      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData };
 
@@ -1060,9 +1054,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
       const relay2 = await Relay.new(
         relayInitialConfig2,
-        signers[0].address,
-        relayConfigBasic.address
+        signers[0].address
       );
+      await initializeRelay(relay2, signers);
 
       const relayInitialConfig3: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -1079,10 +1073,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
       const relay3 = await Relay.new(
         relayInitialConfig3,
-        constants.ZERO_ADDRESS,
-        relayConfigBasic.address
+        constants.ZERO_ADDRESS
       );
-
+      await initializeRelay(relay3, signers);
+      
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
       newSigningPolicyData.voters = [];
@@ -1114,9 +1108,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       
       const relay2 = await Relay.new(
         relayInitialConfig,
-        signers[0].address,
-        relayConfigBasic.address
+        signers[0].address
       );
+      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
@@ -1142,9 +1136,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
       const relay2 = await Relay.new(
         relayInitialConfig,
-        signers[0].address,
-        relayConfigBasic.address
+        signers[0].address
       );
+      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
@@ -1168,9 +1162,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
       const relay2 = await Relay.new(
         relayInitialConfig,
-        signers[0].address,
-        relayConfigBasic.address
+        signers[0].address
       );
+      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData, rewardEpochId: signingPolicyData.rewardEpochId + 1, weights: [...signingPolicyData.weights] };
       let totalWeight = 0;
@@ -1212,9 +1206,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
       const relay2 = await Relay.new(
         relayInitialConfig,
-        signers[0].address,
-        relayConfigBasic.address
+        signers[0].address
       );
+      await initializeRelay(relay2, signers);
 
 
       const newSigningPolicyData = { ...signingPolicyData };
@@ -1272,9 +1266,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
       const relay2 = await Relay.new(
         relayInitialConfig2,
-        signers[0].address,
-        relayConfigBasic.address
+        signers[0].address
       );
+      await initializeRelay(relay2, signers);
 
       const relayInitialConfig3: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -1291,9 +1285,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
       const relay3 = await Relay.new(
         relayInitialConfig3,
-        constants.ZERO_ADDRESS,
-        relayConfigBasic.address
+        constants.ZERO_ADDRESS
       );
+      await initializeRelay(relay3, signers);
 
       await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too many voters");
       await expect(
@@ -1345,9 +1339,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
       const relay2 = await Relay.new(
         relayInitialConfig2,
-        signers[0].address,
-        relayConfigBasic.address
+        signers[0].address
       );
+      await initializeRelay(relay2, signers);
 
       const relayInitialConfig3: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -1364,9 +1358,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
       const relay3 = await Relay.new(
         relayInitialConfig3,
-        constants.ZERO_ADDRESS,
-        relayConfigBasic.address
+        constants.ZERO_ADDRESS
       );
+      await initializeRelay(relay3, signers);
 
       newSigningPolicyData.weights[0] = 2 ** 16 - 1;
       await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "total weight too big");

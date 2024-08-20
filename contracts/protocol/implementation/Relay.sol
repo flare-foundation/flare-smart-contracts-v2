@@ -2,7 +2,6 @@
 pragma solidity 0.8.20;
 
 import "../interface/IIRelay.sol";
-import "../interface/IIRelayConfig.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
@@ -183,8 +182,21 @@ contract Relay is IIRelay {
     mapping(uint256 rewardEpochId => uint256) public startingVotingRoundIds;
     /// The address of the signing policy setter (zero if disabled).
     address public signingPolicySetter;
-    /// Relay calculator contract
-    IIRelayConfig public relayConfig;
+
+    // Addresses that have zero fee
+    mapping(address => bool) public hasZeroFee;
+    // Addresses that can get merkle root directly
+    mapping(address => bool) public merkleRootGetters;
+    // Addresses that can get signing policy hash directly
+    mapping(address => bool) public signingPolicyGetters;
+    // deployer
+    address private deployer;
+    // isInProduction
+    bool public isInProduction;
+    // fee collection address
+    address payable public feeCollectionAddressInternal;
+    // fee for verify or relay verify in wei
+    uint256 public verifyFeeWei;
 
     /// The state of the relay contract.
     StateData public stateData;
@@ -197,9 +209,8 @@ contract Relay is IIRelay {
 
     /// Only signingPolicySetter address/contract can call this method.
     modifier onlySigningPolicyGetter() {
-        require(address(relayConfig) != address(0), "no relay config");
         require(
-            msg.sender == signingPolicySetter || relayConfig.canGetSigningPolicy(msg.sender), 
+            msg.sender == signingPolicySetter || signingPolicyGetters[msg.sender], 
             "only sign policy getter"
         );
         _;
@@ -207,23 +218,26 @@ contract Relay is IIRelay {
 
     /// Only signingPolicySetter address/contract can call this method.
     modifier onlyDirectMerkleRootGetter() {
-        require(address(relayConfig) != address(0), "no relay config");
-        require(relayConfig.canGetMerkleRoot(msg.sender), "only direct merkle root access");
+        require(merkleRootGetters[msg.sender], "only direct merkle root access");
         _;
     }
 
+    /// This method can be called by deployer and only if not in production.
+    modifier onlyIfNotInProduction() {
+        require(msg.sender == deployer, "only deployer");
+        require(!isInProduction, "only if not in production");
+        _;
+    }
+    
     /**
      * Constructor.
      * @param _initialConfig The initial configuration of the relay.
      * @param _signingPolicySetter The address of the signing policy setter.
-     * @param _relayConfig The address of the relay config contract.
      */
     constructor(
         RelayInitialConfig memory _initialConfig,
-        address _signingPolicySetter,        
-        address _relayConfig
+        address _signingPolicySetter
     ) {
-        // require(address(_relayConfig) != address(0), "relay config address is zero");
         require(_initialConfig.thresholdIncreaseBIPS >= THRESHOLD_BIPS, "threshold increase too small");
         require(_initialConfig.firstRewardEpochStartVotingRoundId + 
             _initialConfig.initialRewardEpochId * _initialConfig.rewardEpochDurationInVotingEpochs <=
@@ -244,7 +258,59 @@ contract Relay is IIRelay {
         if (signingPolicySetter != address(0)) {
             stateData.noSigningPolicyRelay = true;
         }
-        relayConfig = IIRelayConfig(_relayConfig);
+        deployer = msg.sender;        
+    }
+
+    /**
+     * Sets the fee in wei.
+     */
+    function setFeeInWei(uint256 _fee) external onlyIfNotInProduction {
+        verifyFeeWei = _fee;
+    }
+
+    /**
+     * Sets the fee collection address.
+     */
+    function setFeeCollectionAddress(address payable _feeCollectionAddress) external onlyIfNotInProduction {
+        feeCollectionAddressInternal = _feeCollectionAddress;
+    }
+
+    /**
+     * Sets or resets the merkle root getter address.
+     */
+    function setMerkleTreeGetter(address _address, bool _value) external onlyIfNotInProduction {
+        merkleRootGetters[_address] = _value;
+    }
+
+    /**
+     * Sets or resets the signing policy hash getter address.
+     */
+    function setSigningPolicyGetter(address _address, bool _value) external onlyIfNotInProduction {
+        signingPolicyGetters[_address] = _value;
+    }
+
+    /**
+     * Sets or resets the a zero fee address.
+     */
+    function setZeroFee(address _address, bool _value) external onlyIfNotInProduction {
+        hasZeroFee[_address] = _value;
+    }
+
+    /**
+     * Sets the contract to production mode, disabling further changes to the configuration.
+     */
+    function setInProduction() external onlyIfNotInProduction {
+        isInProduction = true;
+    }
+
+    /**
+     * Returns required fee in wei for given address.
+     */
+    function requiredFee(address _sender) internal view returns (uint256) {
+        if (hasZeroFee[_sender]) {
+            return 0;
+        }
+        return verifyFeeWei;
     }
 
     /**
@@ -407,19 +473,14 @@ contract Relay is IIRelay {
             "too old signing policy"
         );
 
-        if(signingPolicySetter != address(0) && _config.signingPolicySetter != address(0)) {
-            // change signing policy setter only if it is already set initially
-            signingPolicySetter = _config.signingPolicySetter;    
-        }
-        require(address(_config.relayConfig) != address(0), "relay config address is zero");
-        relayConfig = IIRelayConfig(_config.relayConfig);
+        verifyFeeWei = _config.newFee; 
     }
 
     /**
      * @inheritdoc IRelay
      */
     function relay() external payable returns (bytes memory){
-        require(msg.value >= relayConfig.requiredFee(msg.sender), "too low fee");
+        require(msg.value >= requiredFee(msg.sender), "too low fee");
         // solhint-disable-next-line no-inline-assembly
         assembly {
             // Helper function to revert with a message
@@ -1292,12 +1353,11 @@ contract Relay is IIRelay {
         external payable
         returns (bool)
     {
-        require(address(relayConfig) != address(0), "no relay config");
-        require(msg.value >= relayConfig.requiredFee(msg.sender), "too low fee");
+        require(msg.value >= requiredFee(msg.sender), "too low fee");
         require(_proof.verifyCalldata(merkleRootsPrivate[_protocolId][_votingRoundId], _leaf), "merkle proof invalid");
         /* solhint-disable avoid-low-level-calls */
         //slither-disable-next-line arbitrary-send-eth
-        (bool success, ) = relayConfig.feeCollectionAddress().call{value: msg.value}("");
+        (bool success, ) = feeCollectionAddressInternal.call{value: msg.value}("");
         /* solhint-enable avoid-low-level-calls */
         require(success, "Transfer failed");
 

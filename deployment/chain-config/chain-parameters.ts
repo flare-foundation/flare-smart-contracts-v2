@@ -127,6 +127,16 @@ export interface ChainParameters {
     messageFinalizationWindowInRewardEpochs: integer;
 
     /**
+     * The relay verification fee in Wei as string.
+     */
+    relayVerificationFeeInWei: string;
+
+    /**
+     * Fee collection address for Relay verifications.
+     */
+    defaultRelayFeeCollectionAddress: string;
+
+    /**
      * The time in seconds before the end of the reward epoch when the new signing policy initialization starts (e.g. 2 hours).
      */
     newSigningPolicyInitializationStartSeconds: integer;

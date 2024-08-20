@@ -24,11 +24,8 @@ interface IRelay {
 
     struct RelayGovernanceConfig {
         bytes32 descriptionHash;        // Description hash (should be keccak256("RelayGovernance")
-        uint256 chainId;                 // Chain id on which is the relay is deployed
-        address relayContract;          // Relay contract address
-        address signingPolicySetter;    // Signing policy setter address (usually FlareSystemsManager, 
-                                        // on Flare blockchain only) 
-        address relayConfig;            // Relay config contract address
+        uint256 chainId;                // Chain id on which is the relay is deployed
+        uint256 newFee;                 // New fee in wei 
     }
 
     // Event is emitted when a new signing policy is initialized by the signing policy setter.

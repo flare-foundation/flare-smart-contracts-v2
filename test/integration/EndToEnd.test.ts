@@ -3,6 +3,7 @@ import { constants, expectEvent, expectRevert, time } from '@openzeppelin/test-h
 import { toChecksumAddress } from 'ethereumjs-util';
 import { Contracts } from '../../deployment/scripts/Contracts';
 import privateKeys from "../../deployment/test-1020-accounts.json";
+import { RelayInitialConfig } from '../../deployment/utils/RelayInitialConfig';
 import { ECDSASignatureWithIndex } from "../../scripts/libs/protocol/ECDSASignatureWithIndex";
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
@@ -37,8 +38,6 @@ import { getTestFile } from "../utils/constants";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
 import * as util from "../utils/key-to-address";
 import { encodeContractNames, toBN } from '../utils/test-helpers';
-import { RelayConfigBasicInstance } from '../../typechain-truffle/contracts/protocol/implementation/RelayConfigBasic';
-import { RelayInitialConfig } from '../../deployment/utils/RelayInitialConfig';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -65,7 +64,6 @@ const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.r
 const ValidatorRewardOffersManager: ValidatorRewardOffersManagerContract = artifacts.require("ValidatorRewardOffersManager");
 const PollingFoundation: PollingFoundationContract = artifacts.require("PollingFoundation");
 const PollingFtso: PollingFtsoContract = artifacts.require("PollingFtso");
-const RelayConfigBasic = artifacts.require("RelayConfigBasic");
 
 const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 const FEE_WEI = 0;
@@ -98,6 +96,11 @@ async function setMockStakingData(verifierMock: MockContractInstance, pChainStak
 
 function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {
     return SigningPolicy.hash(signingPolicy);
+}
+
+async function initializeRelay(relay: RelayInstance, account: string) {
+    await relay.setMerkleTreeGetter(account, true);
+    await relay.setSigningPolicyGetter(account, true);
 }
 
 contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
@@ -133,7 +136,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let pollingFoundation: PollingFoundationInstance;
     let supplyMock: MockContractInstance;
     let pollingFtso: PollingFtsoInstance;
-    let relayConfigBasic: RelayConfigBasicInstance;
 
     let initialSigningPolicy: ISigningPolicy;
     let newSigningPolicy: ISigningPolicy;
@@ -277,15 +279,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             REWARD_MANAGER_ID
         );
 
-        relayConfigBasic = await RelayConfigBasic.new(
-            FEE_WEI,
-            BURN_ADDRESS,
-            [],    // _zeroFeeAddresses
-            [accounts[0]],    // _merkleRootGetters
-            [accounts[0]],    // _signingPolicyGetters
-            []     // _signingPolicySetters
-        );
-
         const relayInitialConfig: RelayInitialConfig = {
             initialRewardEpochId: initialSigningPolicy.rewardEpochId,
             startingVotingRoundIdForInitialRewardEpochId: initialSigningPolicy.startVotingRoundId,
@@ -301,9 +294,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         relay = await Relay.new(
             relayInitialConfig,
-            flareSystemsManager.address,
-            relayConfigBasic.address
+            flareSystemsManager.address
         );
+        await initializeRelay(relay, accounts[0]);
 
         const relayInitialConfig2: RelayInitialConfig = {
             initialRewardEpochId: initialSigningPolicy.rewardEpochId,
@@ -320,9 +313,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         relay2 = await Relay.new(
             relayInitialConfig2,
-            constants.ZERO_ADDRESS,
-            relayConfigBasic.address
+            constants.ZERO_ADDRESS
         );
+        await initializeRelay(relay2, accounts[0]);
 
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
 
@@ -352,8 +345,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             200
         );
 
-        await relayConfigBasic.setMerkleTreeGetter(ftsoFeedPublisher.address, true);
-        await relayConfigBasic.setInProduction();
+        await relay.setMerkleTreeGetter(ftsoFeedPublisher.address, true);
+        await relay.setInProduction();
         ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
 
         validatorRewardOffersManager = await ValidatorRewardOffersManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
