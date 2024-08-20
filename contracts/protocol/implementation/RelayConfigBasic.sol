@@ -50,6 +50,41 @@ contract RelayConfigBasic is IIRelayConfig {
     }
 
     /**
+     * Sets the fee for the relay if not in production.
+     */
+    function setFee(uint256 _feeWei) external onlyIfNotInProduction {
+        feeWei = _feeWei;
+    }
+
+    /**
+     * Sets the fee collection address.
+     */
+    function setFeeCollectionAddress(address payable _feeCollectionAddress) external {
+        feeCollectionAddressInternal = _feeCollectionAddress;
+    }
+
+    /**
+     * Sets or resets the merkle root getter address.
+     */
+    function setMerkleTreeGetter(address _merkleRootGetter, bool _value) external onlyIfNotInProduction {
+        merkleRootGetters[_merkleRootGetter] = _value;
+    }
+
+    /**
+     * Sets or resets the signing policy setter address.
+     */
+    function setSigningPolicyGetter(address _signingPolicyGetter, bool _value) external onlyIfNotInProduction {
+        signingPolicyGetters[_signingPolicyGetter] = _value;
+    }
+
+    /**
+     * Sets the contract to production mode, disabling further changes to the configuration.
+     */
+    function setInProduction() external onlyIfNotInProduction {
+        isInProduction = true;
+    }
+
+    /**
      * @inheritdoc IIRelayConfig
      */
     function requiredFee(address _sender) external view returns (uint256 _minFeeInWei) {
@@ -66,19 +101,11 @@ contract RelayConfigBasic is IIRelayConfig {
         return feeCollectionAddressInternal;
     }
 
-    function changeFeeCollectionAddress(address payable _feeCollectionAddress) external {
-        feeCollectionAddressInternal = _feeCollectionAddress;
-    }
-
     /**
      * @inheritdoc IIRelayConfig
      */
     function canGetMerkleRoot(address _sender) external view returns (bool) {
         return merkleRootGetters[_sender];
-    }
-
-    function addMerkleTreeGetter(address _merkleRootGetter) external onlyIfNotInProduction {
-        merkleRootGetters[_merkleRootGetter] = true;
     }
 
     /**
@@ -87,24 +114,4 @@ contract RelayConfigBasic is IIRelayConfig {
     function canGetSigningPolicy(address _sender) external view returns (bool) {
         return signingPolicyGetters[_sender];
     }
-
-    function addSigningPolicyGetter(address _signingPolicyGetter) external onlyIfNotInProduction {
-        signingPolicyGetters[_signingPolicyGetter] = true;
-    }
-
-    /**
-     * @inheritdoc IIRelayConfig
-     */
-    function canSetSigningPolicy(address _sender) external view returns (bool) {
-        return signingPolicySetters[_sender];
-    }
-
-    function addSigningPolicySetter(address _signingPolicySetter) external onlyIfNotInProduction {
-        signingPolicySetters[_signingPolicySetter] = true;
-    }
-
-    function setInProduction() external onlyIfNotInProduction {
-        isInProduction = true;
-    }
-
 }

@@ -12,23 +12,10 @@ import { RelayConfigBasicInstance, RelayInstance } from "../../../../typechain-t
 import { getTestFile } from "../../../utils/constants";
 import { toBN } from "../../../utils/test-helpers";
 import { defaultTestSigningPolicy, generateSignatures, generateSignaturesEncoded } from "../coding/coding-helpers";
+import { RelayInitialConfig } from "../../../../deployment/utils/RelayInitialConfig";
 
 const Relay = artifacts.require("Relay");
 const RelayConfigBasic = artifacts.require("RelayConfigBasic");
-
-interface RelayInitialConfig {
-  initialRewardEpochId: number;
-  startingVotingRoundIdForInitialRewardEpochId: number;
-  initialSigningPolicyHash: string;
-  randomNumberProtocolId: number;
-  firstVotingRoundStartTs: number;
-  votingEpochDurationSeconds: number;
-  firstRewardEpochStartVotingRoundId: number;
-  rewardEpochDurationInVotingEpochs: number;
-  thresholdIncreaseBIPS: number;
-  messageFinalizationWindowInRewardEpochs: number;
-}
-
 
 const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
@@ -1473,6 +1460,16 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochId: toBN(newSigningPolicyData.rewardEpochId),
       });
 
+    });
+
+  });
+
+  describe("Access functions", async () => {
+    it("Should random number be hashed", async () => {
+    });
+    it("Should access to merkle tree work correctly", async () => {
+    });
+    it("Should access to merkle tree work correctly", async () => {
     });
 
   });

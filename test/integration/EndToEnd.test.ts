@@ -38,6 +38,7 @@ import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '.
 import * as util from "../utils/key-to-address";
 import { encodeContractNames, toBN } from '../utils/test-helpers';
 import { RelayConfigBasicInstance } from '../../typechain-truffle/contracts/protocol/implementation/RelayConfigBasic';
+import { RelayInitialConfig } from '../../deployment/utils/RelayInitialConfig';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -78,20 +79,6 @@ type PChainStake = {
     endTime: number,
     weight: number,
 }
-
-interface RelayInitialConfig {
-    initialRewardEpochId: number;
-    startingVotingRoundIdForInitialRewardEpochId: number;
-    initialSigningPolicyHash: string;
-    randomNumberProtocolId: number;
-    firstVotingRoundStartTs: number;
-    votingEpochDurationSeconds: number;
-    firstRewardEpochStartVotingRoundId: number;
-    rewardEpochDurationInVotingEpochs: number;
-    thresholdIncreaseBIPS: number;
-    messageFinalizationWindowInRewardEpochs: number;
-}
-
 
 async function setMockStakingData(verifierMock: MockContractInstance, pChainStakeMirrorVerifierInterface: PChainStakeMirrorVerifierInstance, txId: string, stakingType: number, inputAddress: string, nodeId: string, startTime: BN, endTime: BN, weight: number, stakingProved: boolean = true): Promise<PChainStake> {
     let data = {
@@ -365,7 +352,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             200
         );
 
-        await relayConfigBasic.addMerkleTreeGetter(ftsoFeedPublisher.address);
+        await relayConfigBasic.setMerkleTreeGetter(ftsoFeedPublisher.address, true);
         await relayConfigBasic.setInProduction();
         ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
 

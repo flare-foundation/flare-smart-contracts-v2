@@ -27,9 +27,4 @@ interface IIRelayConfig {
      */
     function canGetSigningPolicy(address _sender) external view returns (bool);
 
-    /**
-     * Checks whether the sender can set the signing policy directly.
-     */
-    function canSetSigningPolicy(address _sender) external view returns (bool);
-
 }
