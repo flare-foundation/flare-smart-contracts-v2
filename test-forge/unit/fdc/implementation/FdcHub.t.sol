@@ -433,15 +433,15 @@ contract FdcHubTest is Test {
     }
 
 
-    function _joinTypeAndSource(bytes32 _type, bytes32 _source) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_type, _source));
-    }
-
     function _mockGetCurrentEpochId(uint256 _epochId) internal {
         vm.mockCall(
             mockFlareSystemsManager,
             abi.encodeWithSelector(IFlareSystemsManager.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
+    }
+
+    function _joinTypeAndSource(bytes32 _type, bytes32 _source) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_type, _source));
     }
 }
