@@ -37,6 +37,7 @@ import { getTestFile } from "../utils/constants";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
 import * as util from "../utils/key-to-address";
 import { encodeContractNames, toBN } from '../utils/test-helpers';
+import { RelayConfigBasicInstance } from '../../typechain-truffle/contracts/protocol/implementation/RelayConfigBasic';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -63,6 +64,10 @@ const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.r
 const ValidatorRewardOffersManager: ValidatorRewardOffersManagerContract = artifacts.require("ValidatorRewardOffersManager");
 const PollingFoundation: PollingFoundationContract = artifacts.require("PollingFoundation");
 const PollingFtso: PollingFtsoContract = artifacts.require("PollingFtso");
+const RelayConfigBasic = artifacts.require("RelayConfigBasic");
+
+const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+const FEE_WEI = 0;
 
 type PChainStake = {
     txId: string,
@@ -73,6 +78,20 @@ type PChainStake = {
     endTime: number,
     weight: number,
 }
+
+interface RelayInitialConfig {
+    initialRewardEpochId: number;
+    startingVotingRoundIdForInitialRewardEpochId: number;
+    initialSigningPolicyHash: string;
+    randomNumberProtocolId: number;
+    firstVotingRoundStartTs: number;
+    votingEpochDurationSeconds: number;
+    firstRewardEpochStartVotingRoundId: number;
+    rewardEpochDurationInVotingEpochs: number;
+    thresholdIncreaseBIPS: number;
+    messageFinalizationWindowInRewardEpochs: number;
+}
+
 
 async function setMockStakingData(verifierMock: MockContractInstance, pChainStakeMirrorVerifierInterface: PChainStakeMirrorVerifierInstance, txId: string, stakingType: number, inputAddress: string, nodeId: string, startTime: BN, endTime: BN, weight: number, stakingProved: boolean = true): Promise<PChainStake> {
     let data = {
@@ -127,6 +146,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let pollingFoundation: PollingFoundationInstance;
     let supplyMock: MockContractInstance;
     let pollingFtso: PollingFtsoInstance;
+    let relayConfigBasic: RelayConfigBasicInstance;
 
     let initialSigningPolicy: ISigningPolicy;
     let newSigningPolicy: ISigningPolicy;
@@ -269,32 +289,51 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             REWARD_MANAGER_ID
         );
 
-        relay = await Relay.new(
-            flareSystemsManager.address,
-            initialSigningPolicy.rewardEpochId,
-            initialSigningPolicy.startVotingRoundId,
-            getSigningPolicyHash(initialSigningPolicy),
-            FTSO_PROTOCOL_ID,
-            firstVotingRoundStartTs,
-            VOTING_EPOCH_DURATION_SEC,
-            FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
-            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            12000,
-            MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS
+        relayConfigBasic = await RelayConfigBasic.new(
+            FEE_WEI,
+            BURN_ADDRESS,
+            [],    // _zeroFeeAddresses
+            [accounts[0]],    // _merkleRootGetters
+            [accounts[0]],    // _signingPolicyGetters
+            []     // _signingPolicySetters
         );
 
+        const relayInitialConfig: RelayInitialConfig = {
+            initialRewardEpochId: initialSigningPolicy.rewardEpochId,
+            startingVotingRoundIdForInitialRewardEpochId: initialSigningPolicy.startVotingRoundId,
+            initialSigningPolicyHash: getSigningPolicyHash(initialSigningPolicy),
+            randomNumberProtocolId: FTSO_PROTOCOL_ID,
+            firstVotingRoundStartTs: firstVotingRoundStartTs,
+            votingEpochDurationSeconds: VOTING_EPOCH_DURATION_SEC,
+            firstRewardEpochStartVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
+            rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            thresholdIncreaseBIPS: 12000,
+            messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        }
+
+        relay = await Relay.new(
+            relayInitialConfig,
+            flareSystemsManager.address,
+            relayConfigBasic.address
+        );
+
+        const relayInitialConfig2: RelayInitialConfig = {
+            initialRewardEpochId: initialSigningPolicy.rewardEpochId,
+            startingVotingRoundIdForInitialRewardEpochId: initialSigningPolicy.startVotingRoundId,
+            initialSigningPolicyHash: getSigningPolicyHash(initialSigningPolicy),
+            randomNumberProtocolId: FTSO_PROTOCOL_ID,
+            firstVotingRoundStartTs: firstVotingRoundStartTs,
+            votingEpochDurationSeconds: VOTING_EPOCH_DURATION_SEC,
+            firstRewardEpochStartVotingRoundId: FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
+            rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
+            thresholdIncreaseBIPS: 12000,
+            messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        }
+
         relay2 = await Relay.new(
+            relayInitialConfig2,
             constants.ZERO_ADDRESS,
-            initialSigningPolicy.rewardEpochId,
-            initialSigningPolicy.startVotingRoundId,
-            getSigningPolicyHash(initialSigningPolicy),
-            FTSO_PROTOCOL_ID,
-            firstVotingRoundStartTs,
-            VOTING_EPOCH_DURATION_SEC,
-            FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID,
-            REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
-            12000,
-            MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS
+            relayConfigBasic.address
         );
 
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
@@ -313,8 +352,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             5,
             0,
             [
-              { feedId: FtsoConfigurations.encodeFeedId({category: 1, name: "BTC/USD"}), decimals: 2 },
-              { feedId: FtsoConfigurations.encodeFeedId({category: 1, name: "ETH/USD"}), decimals: 3 }
+                { feedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "BTC/USD" }), decimals: 2 },
+                { feedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "ETH/USD" }), decimals: 3 }
             ]);
 
         ftsoFeedPublisher = await FtsoFeedPublisher.new(
@@ -325,6 +364,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             200
         );
 
+        await relayConfigBasic.addMerkleTreeGetter(ftsoFeedPublisher.address);
+        await relayConfigBasic.setInProduction();
         ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
 
         validatorRewardOffersManager = await ValidatorRewardOffersManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
@@ -420,7 +461,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         // set ftso configurations
         await ftsoInflationConfigurations.addFtsoConfiguration(
             {
-                feedIds: FtsoConfigurations.encodeFeedIds([{category: 1, name: "BTC/USD"}, {category: 1, name: "XRP/USD"}, {category: 1, name: "FLR/USD"}, {category: 1, name: "ETH/USD"}]),
+                feedIds: FtsoConfigurations.encodeFeedIds([{ category: 1, name: "BTC/USD" }, { category: 1, name: "XRP/USD" }, { category: 1, name: "FLR/USD" }, { category: 1, name: "ETH/USD" }]),
                 inflationShare: 200,
                 minRewardedTurnoutBIPS: 5000,
                 mode: 0,
@@ -430,7 +471,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         );
         await ftsoInflationConfigurations.addFtsoConfiguration(
             {
-                feedIds: FtsoConfigurations.encodeFeedIds([{category: 1, name: "BTC/USD"}, {category: 1, name: "LTC/USD"}]),
+                feedIds: FtsoConfigurations.encodeFeedIds([{ category: 1, name: "BTC/USD" }, { category: 1, name: "LTC/USD" }]),
                 inflationShare: 100,
                 minRewardedTurnoutBIPS: 5000,
                 mode: 0,
@@ -447,7 +488,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await ftsoRewardOffersManager.offerRewards(1, [
             {
                 amount: 25000000,
-                feedId: FtsoConfigurations.encodeFeedId({category: 1, name: "BTC/USD"}),
+                feedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "BTC/USD" }),
                 minRewardedTurnoutBIPS: 5000,
                 primaryBandRewardSharePPM: 450000,
                 secondaryBandWidthPPM: 50000,
@@ -585,7 +626,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             rewardEpochId: 1,
             startVotingRoundId: startVotingRoundId,
             threshold: Math.floor(65535 / 2),
-            seed: RANDOM_ROOT,
+            seed: web3.utils.keccak256(RANDOM_ROOT),
             voters: accounts.slice(30, 34),
             weights: [34664, 20660, 6334, 3875]
         };
@@ -594,7 +635,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await expectEvent.inTransaction(receipt.tx, relay, "SigningPolicyInitialized",
             {
                 rewardEpochId: toBN(1), startVotingRoundId: toBN(startVotingRoundId), voters: newSigningPolicy.voters,
-                seed: toBN(RANDOM_ROOT), threshold: toBN(32767), weights: newSigningPolicy.weights.map(x => toBN(x))
+                seed: toBN(web3.utils.keccak256(RANDOM_ROOT)), threshold: toBN(32767), weights: newSigningPolicy.weights.map(x => toBN(x))
             });
         expect(await relay.toSigningPolicyHash(1)).to.be.equal(getSigningPolicyHash(newSigningPolicy));
     });
@@ -687,7 +728,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         feed = {
             votingRoundId: votingRoundId,
-            id: FtsoConfigurations.encodeFeedId({category: 1, name: "BTC/USD"}),
+            id: FtsoConfigurations.encodeFeedId({ category: 1, name: "BTC/USD" }),
             value: 12345,
             turnoutBIPS: 6500,
             decimals: 1
@@ -716,7 +757,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             data: RELAY_SELECTOR + fullData.slice(2),
         });
         expect(await relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
-        expect((await submission.getCurrentRandom()).eq(toBN(root))).to.be.true;
+        expect((await submission.getCurrentRandom()).eq(toBN(web3.utils.keccak256(root)))).to.be.true;
         expect((await submission.getCurrentRandomWithQuality())[1]).to.be.true;
 
         await web3.eth.sendTransaction({
@@ -742,7 +783,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     it("Should convert feed id", async () => {
         const category = 1;
         const name = "BTC/USD";
-        const encodedFeedId = FtsoConfigurations.encodeFeedId({category, name});
+        const encodedFeedId = FtsoConfigurations.encodeFeedId({ category, name });
         const feedId = FtsoConfigurations.decodeFeedIds(encodedFeedId)[0];
         const encodedFeedId2 = await ftsoFeedIdConverter.getFeedId(category, name);
         expect(encodedFeedId2).to.be.equal(encodedFeedId);
@@ -817,7 +858,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         await expectEvent.inTransaction(receipt.tx, relay, "SigningPolicyInitialized",
             {
                 rewardEpochId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(30, 34),
-                seed: toBN(RANDOM_ROOT2), threshold: toBN(32767), weights: [toBN(34664), toBN(20660), toBN(6334), toBN(3875)]
+                seed: toBN(web3.utils.keccak256(RANDOM_ROOT2)), threshold: toBN(32767), weights: [toBN(34664), toBN(20660), toBN(6334), toBN(3875)]
             });
     });
 
@@ -884,7 +925,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should sign rewards for reward epoch 1", async () => {
         const rewardEpochId = 1;
-        const noOfWeightBasedClaims = [{rewardManagerId: REWARD_MANAGER_ID, noOfWeightBasedClaims: 1}];
+        const noOfWeightBasedClaims = [{ rewardManagerId: REWARD_MANAGER_ID, noOfWeightBasedClaims: 1 }];
 
         rewardClaim = {
             rewardEpochId: 1,
@@ -921,25 +962,25 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             accounts[200],
             1,
             true,
-            [{body: rewardClaim, merkleProof: []}],
+            [{ body: rewardClaim, merkleProof: [] }],
             { from: accounts[50] }
         );
         const balanceAfter = await wNat.balanceOf(accounts[200]);
 
-        expectEvent(tx, "RewardClaimed", { beneficiary: accounts[50], rewardOwner: accounts[50], recipient: accounts[200], rewardEpochId: toBN(1), claimType: toBN(2), amount: toBN(500)});
+        expectEvent(tx, "RewardClaimed", { beneficiary: accounts[50], rewardOwner: accounts[50], recipient: accounts[200], rewardEpochId: toBN(1), claimType: toBN(2), amount: toBN(500) });
         expect(balanceAfter.sub(balanceBefore).toNumber()).to.be.equal(500);
     });
 
     it("Should create new PollingFoundation proposal and vote on it", async () => {
         let tx = await pollingFoundation.methods["propose(string,(bool,uint256,uint256,uint256,uint256,uint256))"].sendTransaction("Proposal",
-        {
-            accept: false,
-            votingStartTs: (await time.latest()).addn(3600).toNumber(),
-            votingPeriodSeconds: 7200,
-            vpBlockPeriodSeconds: 259200,
-            thresholdConditionBIPS: 7500,
-            majorityConditionBIPS: 5000
-        }, { from: accounts[10] }) as any;
+            {
+                accept: false,
+                votingStartTs: (await time.latest()).addn(3600).toNumber(),
+                votingPeriodSeconds: 7200,
+                vpBlockPeriodSeconds: 259200,
+                thresholdConditionBIPS: 7500,
+                majorityConditionBIPS: 5000
+            }, { from: accounts[10] }) as any;
 
         let proposalId = tx.logs[0].args.proposalId.toString();
 
