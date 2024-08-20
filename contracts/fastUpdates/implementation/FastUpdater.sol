@@ -15,6 +15,8 @@ import { SortitionState, verifySortitionCredential, verifySignature } from "../l
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "../../utils/lib/SafePct.sol";
+import "../../utils/lib/AddressSet.sol";
+import "../interface/IIFeeCalculator.sol";
 
 // The number of units of weight distributed among providers is 1 << VIRTUAL_PROVIDER_BITS
 uint256 constant VIRTUAL_PROVIDER_BITS = 12;
@@ -34,7 +36,9 @@ uint256 constant BIG_P = Bn256.p >> (2 * UINT_SPLIT);
  * @dev The contract stores references to several others that provide services, in particular the
  * `FastUpdateIncentiveManager` as well as several Flare system contracts for managing providers and the daemon.
  */
+// solhint-disable-next-line max-states-count
 contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
+    using AddressSet for AddressSet.State;
 
     /// Maximum number of updates that can be stored in the backlog.
     uint256 private constant MAX_SUBMITTED_DELTAS_BACKLOG = 1000;
@@ -87,6 +91,8 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     IFtsoFeedPublisher public ftsoFeedPublisher;
     /// The FastUpdatesConfiguration contract.
     IFastUpdatesConfiguration public fastUpdatesConfiguration;
+    /// The FeeCalculator contract.
+    IIFeeCalculator public feeCalculator;
 
     /**
      * @dev This list is a circular buffer of updates that have already been accepted,
@@ -114,6 +120,10 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     bytes[] internal submittedDeltas;
     uint256 internal currentDelta;
     uint256 internal backlogDelta;
+
+    // List of addresses that are allowed to call the fetchCurrentFeeds method for free.
+    AddressSet.State internal freeFetchContractsSet;
+    address public feeDestination;
 
     /// Modifier for allowing only FlareDaemon contract to call the method.
     modifier onlyFlareDaemon {
@@ -155,6 +165,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
         _initThresholds();
         submittedDeltas = new bytes[](MAX_SUBMITTED_DELTAS_BACKLOG);
     }
+
 
     /**
      * Governance-only setter for the submission window length.
@@ -311,7 +322,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
      * @inheritdoc IFastUpdater
      */
     function fetchAllCurrentFeeds()
-        external view
+        external payable
         returns (
             bytes21[] memory _feedIds,
             uint256[] memory _feeds,
@@ -325,20 +336,42 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
         for (uint256 i = 0; i < indices.length; i++) {
             indices[i] = i;
         }
-        (_feeds, _decimals, _timestamp) = this.fetchCurrentFeeds(indices);
+        (_feeds, _decimals, _timestamp) = this.fetchCurrentFeeds{value: msg.value}(indices);
+    }
+
+    /**
+     *
+     * @dev Only governance can call this method.
+     */
+    function setFreeFetchContracts(address[] calldata _freeFetchContractsSet) external onlyGovernance {
+        freeFetchContractsSet.replaceAll(_freeFetchContractsSet);
+    }
+
+    function setFeeDestination(address _feeDestination) external onlyGovernance {
+        feeDestination = _feeDestination;
     }
 
     /**
      * @inheritdoc IFastUpdater
      */
     function fetchCurrentFeeds(uint256[] calldata _indices)
-        external view
+        external payable
         returns (
             uint256[] memory _feeds,
             int8[] memory _decimals,
             uint64 _timestamp
         )
     {
+        // calculate fees
+        if (freeFetchContractsSet.index[msg.sender] == 0) {
+            require(address(feeCalculator) != address(0), "fee calculator not set");
+            uint256 fee = feeCalculator.calculateFeeByIndices(_indices);(_indices);
+            // todo limit msg.value to certain amount?
+            require(msg.value >= fee, "incorrect fee sent");
+            (bool success, ) = feeDestination.call{value: fee}("");
+            require(success, "fee transfer failed");
+        }
+
         _decimals = new int8[](_indices.length);
 
         // solhint-disable-next-line no-inline-assembly
@@ -358,7 +391,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
                 // get index of the first feed
                 calldatacopy(arg, _indices.offset, 0x20)
                 mstore(add(arg, 0x20), div(mload(arg), 32))  // slot offset
-                
+
                 // if the index is out of bound, revert
                 if iszero(lt(mload(arg), length)) {
                     revert(0, 0)
@@ -397,7 +430,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
 
                 for { let j := 0 } lt(j, _indices.length) { j := add(j, 1) } {
                     calldatacopy(arg, add(_indices.offset, mul(j, 0x20)), 0x20)
-                    
+
                     // if index out of bound, revert
                     if iszero(lt(mload(arg), length)) {
                         revert(0, 0)
@@ -699,6 +732,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoFeedPublisher"));
         fastUpdatesConfiguration = IFastUpdatesConfiguration(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FastUpdatesConfiguration"));
+        feeCalculator = IIFeeCalculator(_getContractAddress(_contractNameHashes, _contractAddresses, "FeeCalculator"));
     }
 
     /// Internal method that applies the submitted updates to the current feed values.

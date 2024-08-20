@@ -74,6 +74,9 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     uint256 private totalRewardsWei;
     uint256 private totalInflationRewardsWei;
 
+    /// The FtsoRewardManagerProxy contract that can be used for claiming the rewards.
+    /// This contract trusts the FtsoRewardManagerProxy to call the claimProxy method with the correct parameters.
+    address public ftsoRewardManagerProxy;
     /// The ClaimSetupManager contract.
     IIClaimSetupManager public claimSetupManager;
     /// The FlareSystemsManager contract.
@@ -119,8 +122,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     /// Only the reward owner and its authorized executors can call this method.
     /// Executors can only send rewards to authorized recipients.
     /// See `ClaimSetupManager`.
-    modifier onlyExecutorAndAllowedRecipient(address _rewardOwner, address _recipient) {
-        _checkExecutorAndAllowedRecipient(_rewardOwner, _recipient);
+    modifier onlyExecutorAndAllowedRecipient(address _msgSender, address _rewardOwner, address _recipient) {
+        _checkExecutorAndAllowedRecipient(_msgSender, _rewardOwner, _recipient);
         _;
     }
 
@@ -160,30 +163,32 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         onlyIfActive
         mustBalance
         nonReentrant
-        onlyExecutorAndAllowedRecipient(_rewardOwner, _recipient)
+        onlyExecutorAndAllowedRecipient(msg.sender, _rewardOwner, _recipient)
         returns (uint256 _rewardAmountWei)
     {
-        _checkNonzeroRecipient(_recipient);
-        _checkIsPastRewardEpoch(_rewardEpochId);
+        return _claim(_rewardOwner, _recipient, _rewardEpochId, _wrap, _proofs);
+    }
 
-        uint24 minClaimableEpochId = _minClaimableRewardEpochId();
-        uint120 burnAmountWei;
-        (_rewardAmountWei, burnAmountWei) = _processProofs(_rewardOwner, _recipient, _proofs, minClaimableEpochId);
-
-        _rewardAmountWei += _claimWeightBasedRewards(
-            _rewardOwner, _recipient, _rewardEpochId, minClaimableEpochId, false);
-
-        if (burnAmountWei > 0) {
-            totalBurnedWei += burnAmountWei;
-            //slither-disable-next-line arbitrary-send-eth
-            BURN_ADDRESS.transfer(burnAmountWei);
-        }
-
-        if (_rewardAmountWei > 0) {
-            //solhint-disable-next-line reentrancy
-            totalClaimedWei += _rewardAmountWei;
-            _transferOrWrap(_recipient, _rewardAmountWei, _wrap);
-        }
+    /**
+     * @inheritdoc IIRewardManager
+     */
+    function claimProxy(
+        address _msgSender,
+        address _rewardOwner,
+        address payable _recipient,
+        uint24 _rewardEpochId,
+        bool _wrap,
+        RewardClaimWithProof[] calldata _proofs
+    )
+        external
+        onlyIfActive
+        mustBalance
+        nonReentrant
+        onlyExecutorAndAllowedRecipient(_msgSender, _rewardOwner, _recipient)
+        returns (uint256 _rewardAmountWei)
+    {
+        require(msg.sender == ftsoRewardManagerProxy, "only ftso reward manager proxy");
+        return _claim(_rewardOwner, _recipient, _rewardEpochId, _wrap, _proofs);
     }
 
     /**
@@ -379,7 +384,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         _checkIsPastRewardEpoch(_rewardEpochId);
         require(_rewardEpochId >= _nextClaimableEpochId(_rewardOwner, _minClaimableRewardEpochId()),
             "already claimed");
-        require(_isRewardsHashSet(_rewardEpochId), "rewards hash zero");
+        _checkRewardsHashSet(_rewardEpochId);
         return _getStateOfRewardsAt(_rewardOwner, _rewardEpochId);
     }
 
@@ -538,6 +543,39 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         return _nextClaimableEpochId(_rewardOwner, _minClaimableRewardEpochId());
     }
 
+    function _claim(
+        address _rewardOwner,
+        address payable _recipient,
+        uint24 _rewardEpochId,
+        bool _wrap,
+        RewardClaimWithProof[] calldata _proofs
+    )
+        internal
+        returns (uint256 _rewardAmountWei)
+    {
+        _checkNonzeroRecipient(_recipient);
+        _checkIsPastRewardEpoch(_rewardEpochId);
+
+        uint24 minClaimableEpochId = _minClaimableRewardEpochId();
+        uint120 burnAmountWei;
+        (_rewardAmountWei, burnAmountWei) = _processProofs(_rewardOwner, _recipient, _proofs, minClaimableEpochId);
+
+        _rewardAmountWei += _claimWeightBasedRewards(
+            _rewardOwner, _recipient, _rewardEpochId, minClaimableEpochId, false);
+
+        if (burnAmountWei > 0) {
+            totalBurnedWei += burnAmountWei;
+            //slither-disable-next-line arbitrary-send-eth
+            BURN_ADDRESS.transfer(burnAmountWei);
+        }
+
+        if (_rewardAmountWei > 0) {
+            //solhint-disable-next-line reentrancy
+            totalClaimedWei += _rewardAmountWei;
+            _transferOrWrap(_recipient, _rewardAmountWei, _wrap);
+        }
+    }
+
     /**
      * Claims from DIRECT and FEE claims and initialises weight based claims.
      * @param _rewardOwner Address of the reward owner.
@@ -599,8 +637,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
         bytes32 claimHash = keccak256(abi.encode(rewardClaim));
         if (!epochProcessedRewardClaims[rewardClaim.rewardEpochId][claimHash]) {
             // not claimed yet - check if valid merkle proof
-            bytes32 rewardsHash = flareSystemsManager.rewardsHash(rewardClaim.rewardEpochId);
-            require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
+            _checkMerkleProof(_proof, claimHash);
             // initialise reward amount
             _rewardAmountWei = _initRewardAmount(rewardClaim.rewardEpochId, rewardClaim.amount);
             if (rewardClaim.claimType == ClaimType.FEE) {
@@ -651,9 +688,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             [rewardClaim.rewardEpochId][rewardClaim.claimType][address(rewardClaim.beneficiary)];
         if (!state.initialised) {
             // not initialised yet - check if valid merkle proof
-            bytes32 rewardsHash = flareSystemsManager.rewardsHash(rewardClaim.rewardEpochId);
             bytes32 claimHash = keccak256(abi.encode(rewardClaim));
-            require(_proof.merkleProof.verifyCalldata(rewardsHash, claimHash), "merkle proof invalid");
+            _checkMerkleProof(_proof, claimHash);
             // mark as initialised
             state.initialised = true;
             // initialise reward amount
@@ -710,7 +746,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             // (in this case zero unclaimed rewards are actually zeros)
             uint256 noOfWeightBasedClaims = flareSystemsManager.noOfWeightBasedClaims(epoch, rewardManagerId);
             if (noOfWeightBasedClaims == 0) {
-                require(_isRewardsHashSet(epoch), "rewards hash zero");
+                _checkRewardsHashSet(epoch);
             }
             bool allClaimsInitialised = noOfInitialisedWeightBasedClaims[epoch] >= noOfWeightBasedClaims;
             uint256 votePowerBlock = _getVotePowerBlock(epoch);
@@ -963,6 +999,8 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             cChainStake = ICChainStake(_getContractAddress(_contractNameHashes, _contractAddresses, "CChainStake"));
         }
         wNat = IWNat(_getContractAddress(_contractNameHashes, _contractAddresses, "WNat"));
+        ftsoRewardManagerProxy =
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRewardManagerProxy");
     }
 
     /**
@@ -1025,7 +1063,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     /**
      * Returns last claimable reward epoch id.
      * @param _minClaimableEpochId Minimum claimable epoch id.
-     * @dev Existance of _minClaimableEpochId rewards hash has to be checked elsewhere.
+     * @dev Existence of _minClaimableEpochId rewards hash has to be checked elsewhere.
      */
     function _getLastClaimableRewardEpochId(
         uint24 _minClaimableEpochId
@@ -1045,7 +1083,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
      * @param _rewardOwner Address of the reward owner.
      * @param _rewardEpochId Id of the reward epoch.
      * @return _rewardStates Array of reward states.
-     * @dev Existance of _rewardEpochId rewards hash has to be checked elsewhere.
+     * @dev Existence of _rewardEpochId rewards hash has to be checked elsewhere.
      */
     function _getStateOfRewardsAt(
         address _rewardOwner,
@@ -1185,6 +1223,14 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
+     * Checks if rewards hash for `_rewardEpochId` is set.
+     * @param _rewardEpochId Reward epoch id.
+     */
+    function _checkRewardsHashSet(uint24 _rewardEpochId) internal view {
+        require(_isRewardsHashSet(_rewardEpochId), "rewards hash zero");
+    }
+
+    /**
      * Returns next claimable epoch id for `_rewardOwner`.
      * @param _rewardOwner Address of the reward owner.
      * @param _minClaimableEpochId Minimum claimable epoch id.
@@ -1232,14 +1278,21 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
 
     /**
      * Checks if the caller is the reward owner or the executor and that recipient is allowed.
+     * @param _msgSender Address of the message sender.
      * @param _rewardOwner Address of the reward owner.
      * @param _recipient Address of the reward recipient.
      */
-    function _checkExecutorAndAllowedRecipient(address _rewardOwner, address _recipient) private view {
-        if (msg.sender == _rewardOwner) {
+    function _checkExecutorAndAllowedRecipient(
+        address _msgSender,
+        address _rewardOwner,
+        address _recipient
+    )
+        private view
+    {
+        if (_msgSender == _rewardOwner) {
             return;
         }
-        claimSetupManager.checkExecutorAndAllowedRecipient(msg.sender, _rewardOwner, _recipient);
+        claimSetupManager.checkExecutorAndAllowedRecipient(_msgSender, _rewardOwner, _recipient);
     }
 
     /**
@@ -1257,9 +1310,24 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
+     * Checks if the merkle proof is valid.
+     * @param _proof Reward claim with merkle proof.
+     * @param _claimHash Claim hash.
+     */
+    function _checkMerkleProof(
+        RewardClaimWithProof calldata _proof,
+        bytes32 _claimHash
+    )
+        private view
+    {
+        bytes32 rewardsHash = flareSystemsManager.rewardsHash(_proof.body.rewardEpochId);
+        require(_proof.merkleProof.verifyCalldata(rewardsHash, _claimHash), "merkle proof invalid");
+    }
+
+    /**
      * Checks if recipient is not zero address.
      */
     function _checkNonzeroRecipient(address _recipient) private pure {
-        require(_recipient != address(0), "recipient zero");
+        require(_recipient != address(0), "address zero");
     }
 }

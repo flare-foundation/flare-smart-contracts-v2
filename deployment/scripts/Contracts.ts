@@ -53,10 +53,12 @@ export class Contracts {
   public static readonly P_CHAIN_STAKE_MIRROR = "PChainStakeMirror";
   public static readonly ENTITY_MANAGER = "EntityManager";
   public static readonly FLARE_SYSTEMS_MANAGER = "FlareSystemsManager";
+  public static readonly FTSO_MANAGER_PROXY = "FtsoManagerProxy";
   public static readonly SUBMISSION = "Submission";
   public static readonly RELAY = "Relay";
   public static readonly VOTER_REGISTRY = "VoterRegistry";
   public static readonly REWARD_MANAGER = "RewardManager";
+  public static readonly FTSO_REWARD_MANAGER_PROXY = "FtsoRewardManagerProxy";
   public static readonly FLARE_SYSTEMS_CALCULATOR = "FlareSystemsCalculator";
   public static readonly WNAT_DELEGATION_FEE = "WNatDelegationFee";
   public static readonly FTSO_INFLATION_CONFIGURATIONS = "FtsoInflationConfigurations";
@@ -66,6 +68,7 @@ export class Contracts {
   public static readonly FAST_UPDATER = "FastUpdater";
   public static readonly FAST_UPDATE_INCENTIVE_MANAGER = "FastUpdateIncentiveManager";
   public static readonly FAST_UPDATES_CONFIGURATION = "FastUpdatesConfiguration";
+  public static readonly FEE_CALCULATOR = "FeeCalculator";
 
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 

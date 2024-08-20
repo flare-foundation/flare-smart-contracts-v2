@@ -56,13 +56,14 @@ interface IFastUpdater {
 
     /**
      * Public access to the stored data of all feeds.
+     * A fee (calculated by the FeeCalculator contract) may need to be paid.
      * @return _feedIds The list of feed ids.
      * @return _feeds The list of feeds.
      * @return _decimals The list of decimal places for feeds.
      * @return _timestamp The timestamp of the last update.
      */
     function fetchAllCurrentFeeds()
-        external view
+        external payable
         returns (
             bytes21[] memory _feedIds,
             uint256[] memory _feeds,
@@ -73,6 +74,7 @@ interface IFastUpdater {
     /**
      * Public access to the stored data of each feed, allowing controlled batch access to the lengthy complete data.
      * Feeds should be sorted for better performance.
+     * A fee (calculated by the FeeCalculator contract) may need to be paid.
      * @param _indices Index numbers of the feeds for which data should be returned, corresponding to `feedIds` in
      * the `FastUpdatesConfiguration` contract.
      * @return _feeds The list of data for the requested feeds, in the same order as the feed indices were given
@@ -84,7 +86,7 @@ interface IFastUpdater {
     function fetchCurrentFeeds(
         uint256[] calldata _indices
     )
-        external view
+        external payable
         returns (
             uint256[] memory _feeds,
             int8[] memory _decimals,

@@ -11,7 +11,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
-import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoFeedPublisherContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, NodePossessionVerifierContract, RelayContract, RewardManagerContract, SubmissionContract, VoterRegistryContract, WNatDelegationFeeContract } from '../../typechain-truffle';
+import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoFeedPublisherContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, NodePossessionVerifierContract, RelayContract, RewardManagerContract, FtsoRewardManagerProxyContract, SubmissionContract, VoterRegistryContract, WNatDelegationFeeContract } from '../../typechain-truffle';
 import { ISigningPolicy, SigningPolicy } from '../../scripts/libs/protocol/SigningPolicy';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 import { FtsoFeedIdConverterContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedIdConverter';
@@ -32,6 +32,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const FlareSystemsCalculator: FlareSystemsCalculatorContract = artifacts.require("FlareSystemsCalculator");
   const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
   const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
+  const FtsoRewardManagerProxy: FtsoRewardManagerProxyContract = artifacts.require("FtsoRewardManagerProxy");
   const Submission: SubmissionContract = artifacts.require("Submission");
   const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDelegationFee");
   const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifacts.require("FtsoInflationConfigurations");
@@ -61,6 +62,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const wNat = oldContracts.getContractAddress(Contracts.WNAT);
   const claimSetupManager = oldContracts.getContractAddress(Contracts.CLAIM_SETUP_MANAGER);
   const inflation = oldContracts.getContractAddress(Contracts.INFLATION);
+  const ftsoRewardManager = oldContracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER);
 
   const entityManager = await EntityManager.new(
     governanceSettings,
@@ -178,6 +180,14 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   );
   spewNewContractInfo(contracts, null, RewardManager.contractName, `RewardManager.sol`, rewardManager.address, quiet);
 
+  const ftsoRewardManagerProxy = await FtsoRewardManagerProxy.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address, // tmp address updater
+    ftsoRewardManager
+  );
+  spewNewContractInfo(contracts, null, FtsoRewardManagerProxy.contractName, `FtsoRewardManagerProxy.sol`, ftsoRewardManagerProxy.address, quiet);
+
   const relay = await Relay.new(
     flareSystemsManager.address,
     initialSigningPolicy.rewardEpochId,
@@ -273,8 +283,13 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   );
 
   await rewardManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT]),
-    [addressUpdater, voterRegistry.address, claimSetupManager, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror, wNat]
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT, Contracts.FTSO_REWARD_MANAGER_PROXY]),
+    [addressUpdater, voterRegistry.address, claimSetupManager, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror, wNat, ftsoRewardManagerProxy.address]
+  );
+
+  await ftsoRewardManagerProxy.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.WNAT_DELEGATION_FEE, Contracts.WNAT, Contracts.CLAIM_SETUP_MANAGER]),
+    [addressUpdater, rewardManager.address, flareSystemsManager.address, wNatDelegationFee.address, wNat, claimSetupManager]
   );
 
   if (parameters.testDeployment) {

@@ -8961,3 +8961,2121 @@ contract TestableFlareDaemon is FlareDaemon {
         return triggerInternal();
     }
 }
+
+
+// File contracts/genesis/interface/IFtsoGenesis.sol
+
+
+
+/**
+ * Portion of the IFtso interface that is available to contracts deployed at genesis.
+ */
+interface IFtsoGenesis {
+
+    /**
+     * Reveals the price submitted by a voter on a specific epoch.
+     * The hash of _price and _random must be equal to the submitted hash
+     * @param _voter Voter address.
+     * @param _epochId ID of the epoch in which the price hash was submitted.
+     * @param _price Submitted price.
+     * @param _voterWNatVP Voter's vote power in WNat units.
+     */
+    function revealPriceSubmitter(
+        address _voter,
+        uint256 _epochId,
+        uint256 _price,
+        uint256 _voterWNatVP
+    ) external;
+
+    /**
+     * Get and cache the vote power of a voter on a specific epoch, in WNat units.
+     * @param _voter Voter address.
+     * @param _epochId ID of the epoch in which the price hash was submitted.
+     * @return Voter's vote power in WNat units.
+     */
+    function wNatVotePowerCached(address _voter, uint256 _epochId) external returns (uint256);
+}
+
+
+// File contracts/userInterfaces/IFtso.sol
+
+
+/**
+ * Interface for each of the FTSO contracts that handles an asset.
+ * Read the [FTSO documentation page](https://docs.flare.network/tech/ftso/)
+ * for general information about the FTSO system.
+ */
+interface IFtso {
+    /**
+     * How did a price epoch finalize.
+     *
+     * * `NOT_FINALIZED`: The epoch has not been finalized yet. This is the initial state.
+     * * `WEIGHTED_MEDIAN`: The median was used to calculate the final price.
+     *     This is the most common state in normal operation.
+     * * `TRUSTED_ADDRESSES`: Due to low turnout, the final price was calculated using only
+     *     the median of trusted addresses.
+     * * `PREVIOUS_PRICE_COPIED`: Due to low turnout and absence of votes from trusted addresses,
+     *     the final price was copied from the previous epoch.
+     * * `TRUSTED_ADDRESSES_EXCEPTION`: Due to an exception, the final price was calculated
+     *     using only the median of trusted addresses.
+     * * `PREVIOUS_PRICE_COPIED_EXCEPTION`: Due to an exception, the final price was copied
+     *     from the previous epoch.
+     */
+    enum PriceFinalizationType {
+        NOT_FINALIZED,
+        WEIGHTED_MEDIAN,
+        TRUSTED_ADDRESSES,
+        PREVIOUS_PRICE_COPIED,
+        TRUSTED_ADDRESSES_EXCEPTION,
+        PREVIOUS_PRICE_COPIED_EXCEPTION
+    }
+
+    /**
+     * A voter has revealed its price.
+     * @param voter The voter.
+     * @param epochId The ID of the epoch for which the price has been revealed.
+     * @param price The revealed price.
+     * @param timestamp Timestamp of the block where the reveal happened.
+     * @param votePowerNat Vote power of the voter in this epoch. This includes the
+     * vote power derived from its WNat holdings and the delegations.
+     * @param votePowerAsset _Unused_.
+     */
+    event PriceRevealed(
+        address indexed voter, uint256 indexed epochId, uint256 price, uint256 timestamp,
+        uint256 votePowerNat, uint256 votePowerAsset
+    );
+
+    /**
+     * An epoch has ended and the asset price is available.
+     * @param epochId The ID of the epoch that has just ended.
+     * @param price The asset's price for that epoch.
+     * @param rewardedFtso Whether the next 4 parameters contain data.
+     * @param lowIQRRewardPrice Lowest price in the primary (inter-quartile) reward band.
+     * @param highIQRRewardPrice Highest price in the primary (inter-quartile) reward band.
+     * @param lowElasticBandRewardPrice Lowest price in the secondary (elastic) reward band.
+     * @param highElasticBandRewardPrice Highest price in the secondary (elastic) reward band.
+     * @param finalizationType Reason for the finalization of the epoch.
+     * @param timestamp Timestamp of the block where the price has been finalized.
+     */
+    event PriceFinalized(
+        uint256 indexed epochId, uint256 price, bool rewardedFtso,
+        uint256 lowIQRRewardPrice, uint256 highIQRRewardPrice,
+        uint256 lowElasticBandRewardPrice, uint256 highElasticBandRewardPrice,
+        PriceFinalizationType finalizationType, uint256 timestamp
+    );
+
+    /**
+     * All necessary parameters have been set for an epoch and prices can start being _revealed_.
+     * Note that prices can already be _submitted_ immediately after the previous price epoch submit end time is over.
+     *
+     * This event is not emitted in fallback mode (see `getPriceEpochData`).
+     * @param epochId The ID of the epoch that has just started.
+     * @param endTime Deadline to submit prices, in seconds since UNIX epoch.
+     * @param timestamp Current on-chain timestamp.
+     */
+    event PriceEpochInitializedOnFtso(
+        uint256 indexed epochId, uint256 endTime, uint256 timestamp
+    );
+
+    /**
+     * Not enough votes were received for this asset during a price epoch that has just ended.
+     * @param epochId The ID of the epoch.
+     * @param natTurnout Total received vote power, as a percentage of the circulating supply in BIPS.
+     * @param lowNatTurnoutThresholdBIPS Minimum required vote power, as a percentage
+     * of the circulating supply in BIPS.
+     * The fact that this number is higher than `natTurnout` is what triggered this event.
+     * @param timestamp Timestamp of the block where the price epoch ended.
+     */
+    event LowTurnout(
+        uint256 indexed epochId,
+        uint256 natTurnout,
+        uint256 lowNatTurnoutThresholdBIPS,
+        uint256 timestamp
+    );
+
+    /**
+     * Returns whether FTSO is active or not.
+     */
+    function active() external view returns (bool);
+
+    /**
+     * Returns the FTSO symbol.
+     */
+    function symbol() external view returns (string memory);
+
+    /**
+     * Returns the current epoch ID.
+     * @return Currently running epoch ID. IDs are consecutive numbers starting from zero.
+     */
+    function getCurrentEpochId() external view returns (uint256);
+
+    /**
+     * Returns the ID of the epoch that was opened for price submission at the specified timestamp.
+     * @param _timestamp Queried timestamp in seconds from UNIX epoch.
+     * @return Epoch ID corresponding to that timestamp. IDs are consecutive numbers starting from zero.
+     */
+    function getEpochId(uint256 _timestamp) external view returns (uint256);
+
+    /**
+     * Returns the random number used in a specific past epoch, obtained from the random numbers
+     * provided by all data providers along with their data submissions.
+     * @param _epochId ID of the queried epoch.
+     * Current epoch cannot be queried, and the previous epoch is constantly updated
+     * as data providers reveal their prices and random numbers.
+     * Only the last 50 epochs can be queried and there is no bounds checking
+     * for this parameter. Out-of-bounds queries return undefined values.
+
+     * @return The random number used in that epoch.
+     */
+    function getRandom(uint256 _epochId) external view returns (uint256);
+
+    /**
+     * Returns agreed asset price in the specified epoch.
+     * @param _epochId ID of the epoch.
+     * Only the last 200 epochs can be queried. Out-of-bounds queries revert.
+     * @return Price in USD multiplied by 10^`ASSET_PRICE_USD_DECIMALS`.
+     */
+    function getEpochPrice(uint256 _epochId) external view returns (uint256);
+
+    /**
+     * Returns current epoch data.
+     * Intervals are open on the right: End times are not included.
+     * @return _epochId Current epoch ID.
+     * @return _epochSubmitEndTime End time of the price submission window in seconds from UNIX epoch.
+     * @return _epochRevealEndTime End time of the price reveal window in seconds from UNIX epoch.
+     * @return _votePowerBlock Vote power block for the current epoch.
+     * @return _fallbackMode Whether the current epoch is in fallback mode.
+     * Only votes from trusted addresses are used in this mode.
+     */
+    function getPriceEpochData() external view returns (
+        uint256 _epochId,
+        uint256 _epochSubmitEndTime,
+        uint256 _epochRevealEndTime,
+        uint256 _votePowerBlock,
+        bool _fallbackMode
+    );
+
+    /**
+     * Returns current epoch's configuration.
+     * @return _firstEpochStartTs First epoch start timestamp in seconds from UNIX epoch.
+     * @return _submitPeriodSeconds Submit period in seconds.
+     * @return _revealPeriodSeconds Reveal period in seconds.
+     */
+    function getPriceEpochConfiguration() external view returns (
+        uint256 _firstEpochStartTs,
+        uint256 _submitPeriodSeconds,
+        uint256 _revealPeriodSeconds
+    );
+
+    /**
+     * Returns asset price submitted by a voter in the specified epoch.
+     * @param _epochId ID of the epoch being queried.
+     * Only the last 200 epochs can be queried. Out-of-bounds queries revert.
+     * @param _voter Address of the voter being queried.
+     * @return Price in USD multiplied by 10^`ASSET_PRICE_USD_DECIMALS`.
+     */
+    function getEpochPriceForVoter(uint256 _epochId, address _voter) external view returns (uint256);
+
+    /**
+     * Returns the current asset price.
+     * @return _price Price in USD multiplied by 10^`ASSET_PRICE_USD_DECIMALS`.
+     * @return _timestamp Time when price was updated for the last time,
+     * in seconds from UNIX epoch.
+     */
+    function getCurrentPrice() external view returns (uint256 _price, uint256 _timestamp);
+
+    /**
+     * Returns current asset price and number of decimals.
+     * @return _price Price in USD multiplied by 10^`_assetPriceUsdDecimals`.
+     * @return _timestamp Time when price was updated for the last time,
+     * in seconds from UNIX epoch.
+     * @return _assetPriceUsdDecimals Number of decimals used to return the USD price.
+     */
+    function getCurrentPriceWithDecimals() external view returns (
+        uint256 _price,
+        uint256 _timestamp,
+        uint256 _assetPriceUsdDecimals
+    );
+
+    /**
+     * Returns current asset price calculated only using input from trusted providers.
+     * @return _price Price in USD multiplied by 10^`ASSET_PRICE_USD_DECIMALS`.
+     * @return _timestamp Time when price was updated for the last time,
+     * in seconds from UNIX epoch.
+     */
+    function getCurrentPriceFromTrustedProviders() external view returns (uint256 _price, uint256 _timestamp);
+
+    /**
+     * Returns current asset price calculated only using input from trusted providers and number of decimals.
+     * @return _price Price in USD multiplied by 10^`ASSET_PRICE_USD_DECIMALS`.
+     * @return _timestamp Time when price was updated for the last time,
+     * in seconds from UNIX epoch.
+     * @return _assetPriceUsdDecimals Number of decimals used to return the USD price.
+     */
+    function getCurrentPriceWithDecimalsFromTrustedProviders() external view returns (
+        uint256 _price,
+        uint256 _timestamp,
+        uint256 _assetPriceUsdDecimals
+    );
+
+    /**
+     * Returns asset's current price details.
+     * All timestamps are in seconds from UNIX epoch.
+     * @return _price Price in USD multiplied by 10^`ASSET_PRICE_USD_DECIMALS`.
+     * @return _priceTimestamp Time when price was updated for the last time.
+     * @return _priceFinalizationType Finalization type when price was updated for the last time.
+     * @return _lastPriceEpochFinalizationTimestamp Time when last price epoch was finalized.
+     * @return _lastPriceEpochFinalizationType Finalization type of last finalized price epoch.
+     */
+    function getCurrentPriceDetails() external view returns (
+        uint256 _price,
+        uint256 _priceTimestamp,
+        PriceFinalizationType _priceFinalizationType,
+        uint256 _lastPriceEpochFinalizationTimestamp,
+        PriceFinalizationType _lastPriceEpochFinalizationType
+    );
+
+    /**
+     * Returns the random number for the previous price epoch, obtained from the random numbers
+     * provided by all data providers along with their data submissions.
+     */
+    function getCurrentRandom() external view returns (uint256);
+}
+
+
+// File contracts/ftso/interface/IIFtso.sol
+
+
+
+
+/**
+ * Internal interface for each of the FTSO contracts that handles an asset.
+ * Read the [FTSO documentation page](https://docs.flare.network/tech/ftso/)
+ * for general information about the FTSO system.
+ */
+interface IIFtso is IFtso, IFtsoGenesis {
+
+    /**
+     * Computes epoch price based on gathered votes.
+     *
+     * * If the price reveal window for the epoch has ended, finalize the epoch.
+     * * Iterate list of price submissions.
+     * * Find weighted median.
+     * * Find adjacent 50% of price submissions.
+     * * Allocate rewards for price submissions.
+     * @param _epochId ID of the epoch to finalize.
+     * @param _returnRewardData Parameter that determines if the reward data is returned.
+     * @return _eligibleAddresses List of addresses eligible for reward.
+     * @return _natWeights List of native token weights corresponding to the eligible addresses.
+     * @return _totalNatWeight Sum of weights in `_natWeights`.
+     */
+    function finalizePriceEpoch(uint256 _epochId, bool _returnRewardData) external
+        returns(
+            address[] memory _eligibleAddresses,
+            uint256[] memory _natWeights,
+            uint256 _totalNatWeight
+        );
+
+    /**
+     * Forces finalization of a price epoch, calculating the median price from trusted addresses only.
+     *
+     * Used as a fallback method, for example, due to an unexpected error during normal epoch finalization or
+     * because the `ftsoManager` enabled the fallback mode.
+     * @param _epochId ID of the epoch to finalize.
+     */
+    function fallbackFinalizePriceEpoch(uint256 _epochId) external;
+
+    /**
+     * Forces finalization of a price epoch by copying the price from the previous epoch.
+     *
+     * Used as a fallback method if `fallbackFinalizePriceEpoch` fails due to an exception.
+     * @param _epochId ID of the epoch to finalize.
+     */
+    function forceFinalizePriceEpoch(uint256 _epochId) external;
+
+    /**
+     * Initializes FTSO immutable settings and activates the contract.
+     * @param _firstEpochStartTs Timestamp of the first epoch in seconds from UNIX epoch.
+     * @param _submitPeriodSeconds Duration of epoch submission window in seconds.
+     * @param _revealPeriodSeconds Duration of epoch reveal window in seconds.
+     */
+    function activateFtso(
+        uint256 _firstEpochStartTs,
+        uint256 _submitPeriodSeconds,
+        uint256 _revealPeriodSeconds
+    ) external;
+
+    /**
+     * Deactivates the contract.
+     */
+    function deactivateFtso() external;
+
+    /**
+     * Updates initial asset price when the contract is not active yet.
+     */
+    function updateInitialPrice(uint256 _initialPriceUSD, uint256 _initialPriceTimestamp) external;
+
+    /**
+     * Sets configurable settings related to epochs.
+     * @param _maxVotePowerNatThresholdFraction High threshold for native token vote power per voter.
+     * @param _maxVotePowerAssetThresholdFraction High threshold for asset vote power per voter.
+     * @param _lowAssetUSDThreshold Threshold for low asset vote power (in scaled USD).
+     * @param _highAssetUSDThreshold Threshold for high asset vote power (in scaled USD).
+     * @param _highAssetTurnoutThresholdBIPS Threshold for high asset turnout (in BIPS).
+     * @param _lowNatTurnoutThresholdBIPS Threshold for low nat turnout (in BIPS).
+     * @param _elasticBandRewardBIPS Percentage of the rewards (in BIPS) that go to the [secondary
+     * reward band](https://docs.flare.network/tech/ftso/#rewards). The rest go to the primary reward band.
+     * @param _elasticBandWidthPPM Width of the secondary reward band, in parts-per-milion of the median.
+     * @param _trustedAddresses Trusted voters that will be used if low voter turnout is detected.
+     */
+    function configureEpochs(
+        uint256 _maxVotePowerNatThresholdFraction,
+        uint256 _maxVotePowerAssetThresholdFraction,
+        uint256 _lowAssetUSDThreshold,
+        uint256 _highAssetUSDThreshold,
+        uint256 _highAssetTurnoutThresholdBIPS,
+        uint256 _lowNatTurnoutThresholdBIPS,
+        uint256 _elasticBandRewardBIPS,
+        uint256 _elasticBandWidthPPM,
+        address[] memory _trustedAddresses
+    ) external;
+
+    /**
+     * Sets asset for FTSO to operate as single-asset oracle.
+     * @param _asset Address of the `IIVPToken` contract that will be the asset tracked by this FTSO.
+     */
+    function setAsset(IIVPToken _asset) external;
+
+    /**
+     * Sets an array of FTSOs for FTSO to operate as multi-asset oracle.
+     * FTSOs implicitly determine the FTSO assets.
+     * @param _assetFtsos Array of FTSOs.
+     */
+    function setAssetFtsos(IIFtso[] memory _assetFtsos) external;
+
+    /**
+     * Sets the current vote power block.
+     * Current vote power block will update per reward epoch.
+     * The FTSO doesn't have notion of reward epochs.
+     * @param _blockNumber Vote power block.
+     */
+    function setVotePowerBlock(uint256 _blockNumber) external;
+
+    /**
+     * Initializes current epoch instance for reveal.
+     * @param _circulatingSupplyNat Epoch native token circulating supply.
+     * @param _fallbackMode Whether the current epoch is in fallback mode.
+     */
+    function initializeCurrentEpochStateForReveal(uint256 _circulatingSupplyNat, bool _fallbackMode) external;
+
+    /**
+     * Returns the FTSO manager's address.
+     * @return Address of the FTSO manager contract.
+     */
+    function ftsoManager() external view returns (address);
+
+    /**
+     * Returns the FTSO asset.
+     * @return Address of the `IIVPToken` tracked by this FTSO.
+     * `null` in case of multi-asset FTSO.
+     */
+    function getAsset() external view returns (IIVPToken);
+
+    /**
+     * Returns the asset FTSOs.
+     * @return Array of `IIFtso` contract addresses.
+     * `null` in case of single-asset FTSO.
+     */
+    function getAssetFtsos() external view returns (IIFtso[] memory);
+
+    /**
+     * Returns current configuration of epoch state.
+     * @return _maxVotePowerNatThresholdFraction High threshold for native token vote power per voter.
+     * @return _maxVotePowerAssetThresholdFraction High threshold for asset vote power per voter.
+     * @return _lowAssetUSDThreshold Threshold for low asset vote power (in scaled USD).
+     * @return _highAssetUSDThreshold Threshold for high asset vote power (in scaled USD).
+     * @return _highAssetTurnoutThresholdBIPS Threshold for high asset turnout (in BIPS).
+     * @return _lowNatTurnoutThresholdBIPS Threshold for low nat turnout (in BIPS).
+     * @return _elasticBandRewardBIPS Percentage of the rewards (in BIPS) that go to the [secondary
+     * reward band](https://docs.flare.network/tech/ftso/#rewards). The rest go to the primary reward band.
+     * @return _elasticBandWidthPPM Width of the secondary reward band, in parts-per-milion of the median.
+     * @return _trustedAddresses Trusted voters that will be used if low voter turnout is detected.
+     */
+    function epochsConfiguration() external view
+        returns (
+            uint256 _maxVotePowerNatThresholdFraction,
+            uint256 _maxVotePowerAssetThresholdFraction,
+            uint256 _lowAssetUSDThreshold,
+            uint256 _highAssetUSDThreshold,
+            uint256 _highAssetTurnoutThresholdBIPS,
+            uint256 _lowNatTurnoutThresholdBIPS,
+            uint256 _elasticBandRewardBIPS,
+            uint256 _elasticBandWidthPPM,
+            address[] memory _trustedAddresses
+        );
+
+    /**
+     * Returns parameters necessary for replicating vote weighting (used in VoterWhitelister).
+     * @return _assets The list of assets that are accounted in vote.
+     * @return _assetMultipliers Weight multiplier of each asset in (multiasset) FTSO.
+     * @return _totalVotePowerNat Total native token vote power at block.
+     * @return _totalVotePowerAsset Total combined asset vote power at block.
+     * @return _assetWeightRatio Ratio of combined asset vote power vs. native token vp (in BIPS).
+     * @return _votePowerBlock Vote power block for the epoch.
+     */
+    function getVoteWeightingParameters() external view
+        returns (
+            IIVPToken[] memory _assets,
+            uint256[] memory _assetMultipliers,
+            uint256 _totalVotePowerNat,
+            uint256 _totalVotePowerAsset,
+            uint256 _assetWeightRatio,
+            uint256 _votePowerBlock
+        );
+
+    /**
+     * Address of the WNat contract.
+     * @return Address of the WNat contract.
+     */
+    function wNat() external view returns (IIVPToken);
+}
+
+
+// File contracts/genesis/interface/IFtsoRegistryGenesis.sol
+
+
+/**
+ * Portion of the `IFtsoRegistry` interface that is available to contracts deployed at genesis.
+ */
+interface IFtsoRegistryGenesis {
+
+    /**
+     * Get the addresses of the active FTSOs at the given indices.
+     * Reverts if any of the provided indices is non-existing or inactive.
+     * @param _indices Array of FTSO indices to query.
+     * @return _ftsos The array of FTSO addresses.
+     */
+    function getFtsos(uint256[] memory _indices) external view returns(IFtsoGenesis[] memory _ftsos);
+}
+
+
+// File contracts/userInterfaces/IFtsoRegistry.sol
+
+
+
+/**
+ * Interface for the `FtsoRegistry` contract.
+ */
+interface IFtsoRegistry is IFtsoRegistryGenesis {
+
+    /**
+     * Structure describing the price of an FTSO asset at a particular point in time.
+     */
+    struct PriceInfo {
+        // Index of the asset.
+        uint256 ftsoIndex;
+        // Price of the asset in USD, multiplied by 10^`ASSET_PRICE_USD_DECIMALS`
+        uint256 price;
+        // Number of decimals used in the `price` field.
+        uint256 decimals;
+        // Timestamp for when this price was updated, in seconds since UNIX epoch.
+        uint256 timestamp;
+    }
+
+    /**
+     * Returns the address of the FTSO contract for a given index.
+     * Reverts if unsupported index is passed.
+     * @param _activeFtso The queried index.
+     * @return _activeFtsoAddress FTSO contract address for the queried index.
+     */
+
+    function getFtso(uint256 _activeFtso) external view returns(IIFtso _activeFtsoAddress);
+    /**
+     * Returns the address of the FTSO contract for a given symbol.
+     * Reverts if unsupported symbol is passed.
+     * @param _symbol The queried symbol.
+     * @return _activeFtsoAddress FTSO contract address for the queried symbol.
+     */
+
+    function getFtsoBySymbol(string memory _symbol) external view returns(IIFtso _activeFtsoAddress);
+    /**
+     * Returns the indices of the currently supported FTSOs.
+     * Active FTSOs are ones that currently receive price feeds.
+     * @return _supportedIndices Array of all active FTSO indices in increasing order.
+     */
+    function getSupportedIndices() external view returns(uint256[] memory _supportedIndices);
+
+    /**
+     * Returns the symbols of the currently supported FTSOs.
+     * Active FTSOs are ones that currently receive price feeds.
+     * @return _supportedSymbols Array of all active FTSO symbols in increasing order.
+     */
+    function getSupportedSymbols() external view returns(string[] memory _supportedSymbols);
+
+    /**
+     * Get array of all FTSO contracts for all supported asset indices.
+     * The index of FTSO in returned array does not necessarily correspond to the asset's index.
+     * Due to deletion, some indices might be unsupported.
+     *
+     * Use `getSupportedIndicesAndFtsos` to retrieve pairs of correct indices and FTSOs,
+     * where possible "null" holes are readily apparent.
+     * @return _ftsos Array of all supported FTSOs.
+     */
+    function getSupportedFtsos() external view returns(IIFtso[] memory _ftsos);
+
+    /**
+     * Returns the FTSO index corresponding to a given asset symbol.
+     * Reverts if the symbol is not supported.
+     * @param _symbol Symbol to query.
+     * @return _assetIndex The corresponding asset index.
+     */
+    function getFtsoIndex(string memory _symbol) external view returns (uint256 _assetIndex);
+
+    /**
+     * Returns the asset symbol corresponding to a given FTSO index.
+     * Reverts if the index is not supported.
+     * @param _ftsoIndex Index to query.
+     * @return _symbol The corresponding asset symbol.
+     */
+    function getFtsoSymbol(uint256 _ftsoIndex) external view returns (string memory _symbol);
+
+    /**
+     * Public view function to get the current price of a given active FTSO index.
+     * Reverts if the index is not supported.
+     * @param _ftsoIndex Index to query.
+     * @return _price Current price of the asset in USD multiplied by 10^`ASSET_PRICE_USD_DECIMALS`.
+     * @return _timestamp Timestamp for when this price was updated, in seconds since UNIX epoch.
+     */
+    function getCurrentPrice(uint256 _ftsoIndex) external view returns(uint256 _price, uint256 _timestamp);
+
+    /**
+     * Public view function to get the current price of a given active asset symbol.
+     * Reverts if the symbol is not supported.
+     * @param _symbol Symbol to query.
+     * @return _price Current price of the asset in USD multiplied by 10^`ASSET_PRICE_USD_DECIMALS`.
+     * @return _timestamp Timestamp for when this price was updated, in seconds since UNIX epoch.
+     */
+    function getCurrentPrice(string memory _symbol) external view returns(uint256 _price, uint256 _timestamp);
+
+    /**
+     * Public view function to get the current price and decimals of a given active FTSO index.
+     * Reverts if the index is not supported.
+     * @param _assetIndex Index to query.
+     * @return _price Current price of the asset in USD multiplied by 10^`_assetPriceUsdDecimals`.
+     * @return _timestamp Timestamp for when this price was updated, in seconds since UNIX epoch.
+     * @return _assetPriceUsdDecimals Number of decimals used to return the `_price`.
+     */
+    function getCurrentPriceWithDecimals(uint256 _assetIndex) external view
+        returns(uint256 _price, uint256 _timestamp, uint256 _assetPriceUsdDecimals);
+
+    /**
+     * Public view function to get the current price and decimals of a given active asset symbol.
+     * Reverts if the symbol is not supported.
+     * @param _symbol Symbol to query.
+     * @return _price Current price of the asset in USD multiplied by 10^`_assetPriceUsdDecimals`.
+     * @return _timestamp Timestamp for when this price was updated, in seconds since UNIX epoch.
+     * @return _assetPriceUsdDecimals Number of decimals used to return the `_price`.
+     */
+    function getCurrentPriceWithDecimals(string memory _symbol) external view
+        returns(uint256 _price, uint256 _timestamp, uint256 _assetPriceUsdDecimals);
+
+    /**
+     * Returns the current price of all supported assets.
+     * @return Array of `PriceInfo` structures.
+     */
+    function getAllCurrentPrices() external view returns (PriceInfo[] memory);
+
+    /**
+     * Returns the current price of a list of indices.
+     * Reverts if any of the indices is not supported.
+     * @param _indices Array of indices to query.
+     * @return Array of `PriceInfo` structures.
+     */
+    function getCurrentPricesByIndices(uint256[] memory _indices) external view returns (PriceInfo[] memory);
+
+    /**
+     * Returns the current price of a list of asset symbols.
+     * Reverts if any of the symbols is not supported.
+     * @param _symbols Array of symbols to query.
+     * @return Array of `PriceInfo` structures.
+     */
+    function getCurrentPricesBySymbols(string[] memory _symbols) external view returns (PriceInfo[] memory);
+
+    /**
+     * Get all supported indices and corresponding FTSO addresses.
+     * Active FTSOs are ones that currently receive price feeds.
+     * @return _supportedIndices Array of all supported indices.
+     * @return _ftsos Array of all supported FTSO addresses.
+     */
+    function getSupportedIndicesAndFtsos() external view
+        returns(uint256[] memory _supportedIndices, IIFtso[] memory _ftsos);
+
+    /**
+     * Get all supported symbols and corresponding FTSO addresses.
+     * Active FTSOs are ones that currently receive price feeds.
+     * @return _supportedSymbols Array of all supported symbols.
+     * @return _ftsos Array of all supported FTSO addresses.
+     */
+    function getSupportedSymbolsAndFtsos() external view
+        returns(string[] memory _supportedSymbols, IIFtso[] memory _ftsos);
+
+    /**
+     * Get all supported indices and corresponding symbols.
+     * Active FTSOs are ones that currently receive price feeds.
+     * @return _supportedIndices Array of all supported indices.
+     * @return _supportedSymbols Array of all supported symbols.
+     */
+    function getSupportedIndicesAndSymbols() external view
+        returns(uint256[] memory _supportedIndices, string[] memory _supportedSymbols);
+
+    /**
+     * Get all supported indices, symbols, and corresponding FTSO addresses.
+     * Active FTSOs are ones that currently receive price feeds.
+     * @return _supportedIndices Array of all supported indices.
+     * @return _supportedSymbols Array of all supported symbols.
+     * @return _ftsos Array of all supported FTSO addresses.
+     */
+    function getSupportedIndicesSymbolsAndFtsos() external view
+        returns(uint256[] memory _supportedIndices, string[] memory _supportedSymbols, IIFtso[] memory _ftsos);
+}
+
+
+// File contracts/utils/interface/IIFtsoRegistry.sol
+
+
+
+/**
+ * Internal interface for the `FtsoRegistry` contract.
+ */
+interface IIFtsoRegistry is IFtsoRegistry {
+
+    /**
+     * Add a new FTSO contract to the registry.
+     * @param _ftsoContract New target FTSO contract.
+     * @return The FTSO index assigned to the new asset.
+     */
+    function addFtso(IIFtso _ftsoContract) external returns(uint256);
+
+    /**
+     * Removes the FTSO and keeps part of the history.
+     * Reverts if the provided address is not supported.
+     *
+     * From now on, the index this asset was using is "reserved" and cannot be used again.
+     * It will not be returned in any list of currently supported assets.
+     * @param _ftso Address of the FTSO contract to remove.
+     */
+    function removeFtso(IIFtso _ftso) external;
+}
+
+
+// File contracts/genesis/interface/IFtsoManagerGenesis.sol
+
+
+
+/**
+ * Portion of the `IFtsoManager` interface that is available to contracts deployed at genesis.
+ */
+interface IFtsoManagerGenesis {
+
+    /**
+     * Returns current price epoch ID.
+     * @return _priceEpochId Currently running epoch ID. IDs are consecutive numbers starting from zero.
+     */
+    function getCurrentPriceEpochId() external view returns (uint256 _priceEpochId);
+
+}
+
+
+// File contracts/userInterfaces/IFtsoManager.sol
+
+
+
+/**
+ * Interface for the `FtsoManager` contract.
+ */
+interface IFtsoManager is IFtsoManagerGenesis {
+
+    /**
+     * Emitted when a new FTSO has been added or an existing one has been removed.
+     * @param ftso Contract address of the FTSO.
+     * @param add True if added, removed otherwise.
+     */
+    event FtsoAdded(IIFtso ftso, bool add);
+
+    /**
+     * Emitted when the fallback mode of the FTSO manager changes its state.
+     * Fallback mode is a recovery mode, where only data from a trusted subset of FTSO
+     * data providers is used to calculate the final price.
+     *
+     * The FTSO Manager enters the fallback mode when ALL FTSOs are in fallback mode.
+     * @param fallbackMode New state of the FTSO Manager fallback mode.
+     */
+    event FallbackMode(bool fallbackMode);
+
+    /**
+     * Emitted when the fallback mode of an FTSO changes its state.
+     * @param ftso Contract address of the FTSO.
+     * @param fallbackMode New state of its fallback mode.
+     */
+    event FtsoFallbackMode(IIFtso ftso, bool fallbackMode);
+
+    /**
+     * Emitted when a [reward epoch](https://docs.flare.network/tech/ftso/#procedure-overview)
+     * ends and rewards are available.
+     * @param votepowerBlock The [vote power block](https://docs.flare.network/tech/ftso/#vote-power)
+     * of the epoch.
+     * @param startBlock The first block of the epoch.
+     */
+    event RewardEpochFinalized(uint256 votepowerBlock, uint256 startBlock);
+
+    /**
+     * Emitted when a [price epoch](https://docs.flare.network/tech/ftso/#procedure-overview) ends, this is,
+     * after the reveal phase, when final prices are calculated.
+     * @param chosenFtso Contract address of the FTSO asset that was randomly chosen to be
+     * the basis for reward calculation. On this price epoch, rewards will be calculated based
+     * on how close each data provider was to the median of all submitted prices FOR THIS FTSO.
+     * @param rewardEpochId Reward epoch ID this price epoch belongs to.
+     */
+    event PriceEpochFinalized(address chosenFtso, uint256 rewardEpochId);
+
+    /**
+     * Unexpected failure while initializing a price epoch.
+     * This should be a rare occurrence.
+     * @param ftso Contract address of the FTSO where the failure happened.
+     * @param epochId Epoch ID that failed initialization.
+     */
+    event InitializingCurrentEpochStateForRevealFailed(IIFtso ftso, uint256 epochId);
+
+    /**
+     * Unexpected failure while finalizing a price epoch.
+     * This should be a rare occurrence.
+     * @param ftso Contract address of the FTSO where the failure happened.
+     * @param epochId Epoch ID of the failure.
+     * @param failingType How was the epoch finalized.
+     */
+    event FinalizingPriceEpochFailed(IIFtso ftso, uint256 epochId, IFtso.PriceFinalizationType failingType);
+
+    /**
+     * Unexpected failure while distributing rewards.
+     * This should be a rare occurrence.
+     * @param ftso Contract address of the FTSO where the failure happened.
+     * @param epochId Epoch ID of the failure.
+     */
+    event DistributingRewardsFailed(address ftso, uint256 epochId);
+
+    /**
+     * Unexpected failure while accruing unearned rewards.
+     * This should be a rare occurrence.
+     * @param epochId Epoch ID of the failure.
+     */
+    event AccruingUnearnedRewardsFailed(uint256 epochId);
+
+    /**
+     * Emitted when the requirement to provide good random numbers has changed.
+     *
+     * As part of [the FTSO protocol](https://docs.flare.network/tech/ftso/#data-submission-process),
+     * data providers must submit a random number along with their price reveals.
+     * When good random numbers are enforced, all providers that submit a hash must then
+     * submit a reveal with a random number or they will be punished.
+     * This is a measure against random number manipulation.
+     * @param useGoodRandom Whether good random numbers are now enforced or not.
+     * @param maxWaitForGoodRandomSeconds Max number of seconds to wait for a good random
+     * number to be submitted.
+     */
+    event UseGoodRandomSet(bool useGoodRandom, uint256 maxWaitForGoodRandomSeconds);
+
+    /**
+     * Returns whether the FTSO Manager is active or not.
+     * @return bool Active status.
+     */
+    function active() external view returns (bool);
+
+    /**
+     * Returns current reward epoch ID (the one currently running).
+     * @return Reward epoch ID. A monotonically increasing integer.
+     */
+    function getCurrentRewardEpoch() external view returns (uint256);
+
+    /**
+     * Returns the [vote power block](https://docs.flare.network/tech/ftso/#vote-power)
+     * that was used for a past reward epoch.
+     * @param _rewardEpoch The queried reward epoch ID.
+     * @return uint256 The block number of that reward epoch's vote power block.
+     */
+    function getRewardEpochVotePowerBlock(uint256 _rewardEpoch) external view returns (uint256);
+
+    /**
+     * Return reward epoch that will expire next, when a new reward epoch is initialized.
+     *
+     * Reward epochs older than 90 days expire, and any unclaimed rewards in them become
+     * inaccessible.
+     * @return uint256 Reward epoch ID.
+     */
+    function getRewardEpochToExpireNext() external view returns (uint256);
+
+    /**
+     * Returns timing information for the current price epoch.
+     * All intervals are half-closed: end time is not included.
+     * All timestamps are in seconds since UNIX epoch.
+     *
+     * See the [FTSO page](https://docs.flare.network/tech/ftso/#data-submission-process)
+     * for information about the different submission phases.
+     * @return _priceEpochId Price epoch ID.
+     * @return _priceEpochStartTimestamp Beginning of the commit phase.
+     * @return _priceEpochEndTimestamp End of the commit phase.
+     * @return _priceEpochRevealEndTimestamp End of the reveal phase.
+     * @return _currentTimestamp Current time.
+     */
+    function getCurrentPriceEpochData() external view
+        returns (
+            uint256 _priceEpochId,
+            uint256 _priceEpochStartTimestamp,
+            uint256 _priceEpochEndTimestamp,
+            uint256 _priceEpochRevealEndTimestamp,
+            uint256 _currentTimestamp
+        );
+
+    /**
+     * Returns the list of currently active FTSOs.
+     * @return _ftsos Array of contract addresses for the FTSOs.
+     */
+    function getFtsos() external view returns (IIFtso[] memory _ftsos);
+
+    /**
+     * Returns the current values for price epoch timing configuration.
+     *
+     * See the [FTSO page](https://docs.flare.network/tech/ftso/#data-submission-process)
+     * for information about the different submission phases.
+     * @return _firstPriceEpochStartTs Timestamp, in seconds since UNIX epoch, of the
+     * first price epoch.
+     * @return _priceEpochDurationSeconds Duration in seconds of the commit phase.
+     * @return _revealEpochDurationSeconds Duration in seconds of the reveal phase.
+     */
+    function getPriceEpochConfiguration() external view
+        returns (
+            uint256 _firstPriceEpochStartTs,
+            uint256 _priceEpochDurationSeconds,
+            uint256 _revealEpochDurationSeconds
+        );
+
+    /**
+     * Returns the current values for reward epoch timing configuration.
+     *
+     * See the [Reward epochs](https://docs.flare.network/tech/ftso/#vote-power) box.
+     * @return _firstRewardEpochStartTs Timestamp, in seconds since UNIX epoch, of the
+     * first reward epoch.
+     * @return _rewardEpochDurationSeconds Duration in seconds of the reward epochs.
+     */
+    function getRewardEpochConfiguration() external view
+        returns (
+            uint256 _firstRewardEpochStartTs,
+            uint256 _rewardEpochDurationSeconds
+        );
+
+    /**
+     * Returns whether the FTSO Manager is currently in fallback mode.
+     *
+     * In this mode only submissions from trusted providers are used.
+     * @return _fallbackMode True if fallback mode is enabled for the manager.
+     * @return _ftsos Array of all currently active FTSO assets.
+     * @return _ftsoInFallbackMode Boolean array indicating which FTSO assets are in
+     * fallback mode.
+     * If the FTSO Manager is in fallback mode then ALL FTSOs are in fallback mode.
+     */
+    function getFallbackMode() external view
+        returns (
+            bool _fallbackMode,
+            IIFtso[] memory _ftsos,
+            bool[] memory _ftsoInFallbackMode
+        );
+}
+
+
+// File contracts/ftso/interface/IIFtsoManager.sol
+
+
+
+
+
+/**
+ * Internal interface for the `FtsoManager` contract.
+ */
+interface IIFtsoManager is IFtsoManager, IFlareDaemonize {
+
+    /**
+     * Information about a reward epoch.
+     */
+    struct RewardEpochData {
+        uint256 votepowerBlock;
+        uint256 startBlock;
+        uint256 startTimestamp;
+    }
+
+    /// Unexpected failure. This should be a rare occurrence.
+    event ClosingExpiredRewardEpochFailed(uint256 rewardEpoch);
+
+    /// Unexpected failure. This should be a rare occurrence.
+    event CleanupBlockNumberManagerFailedForBlock(uint256 blockNumber);
+
+    /// Unexpected failure. This should be a rare occurrence.
+    event UpdatingActiveValidatorsTriggerFailed(uint256 rewardEpoch);
+
+    /// Unexpected failure. This should be a rare occurrence.
+    event FtsoDeactivationFailed(IIFtso ftso);
+
+    /// Unexpected failure. This should be a rare occurrence.
+    event ChillingNonrevealingDataProvidersFailed();
+
+    /**
+     * Activates FTSO manager (daemonize() will run jobs).
+     */
+    function activate() external;
+
+    /**
+     * Set reward data to values from old ftso manager.
+     * Can only be called before activation.
+     * @param _nextRewardEpochToExpire See `getRewardEpochToExpireNext`.
+     * @param _rewardEpochsLength See `getRewardEpochConfiguration`.
+     * @param _currentRewardEpochEnds See `getCurrentRewardEpoch`.
+     */
+    function setInitialRewardData(
+        uint256 _nextRewardEpochToExpire,
+        uint256 _rewardEpochsLength,
+        uint256 _currentRewardEpochEnds
+    ) external;
+
+    /**
+     * Sets governance parameters for FTSOs
+     * @param _updateTs Time, in seconds since UNIX epoch, when updated settings should be pushed to FTSOs.
+     * @param _maxVotePowerNatThresholdFraction High threshold for native token vote power per voter.
+     * @param _maxVotePowerAssetThresholdFraction High threshold for asset vote power per voter
+     * @param _lowAssetUSDThreshold Threshold for low asset vote power (in scaled USD).
+     * @param _highAssetUSDThreshold Threshold for high asset vote power (in scaled USD).
+     * @param _highAssetTurnoutThresholdBIPS Threshold for high asset turnout (in BIPS).
+     * @param _lowNatTurnoutThresholdBIPS Threshold for low nat turnout (in BIPS).
+     * @param _elasticBandRewardBIPS Secondary reward band, where _elasticBandRewardBIPS goes to the
+     * secondary band and 10000 - _elasticBandRewardBIPS to the primary (IQR) band.
+     * @param _rewardExpiryOffsetSeconds Reward epochs closed earlier than
+     * block.timestamp - _rewardExpiryOffsetSeconds expire.
+     * @param _trustedAddresses Trusted addresses will be used as a fallback mechanism for setting the price.
+     */
+    function setGovernanceParameters(
+        uint256 _updateTs,
+        uint256 _maxVotePowerNatThresholdFraction,
+        uint256 _maxVotePowerAssetThresholdFraction,
+        uint256 _lowAssetUSDThreshold,
+        uint256 _highAssetUSDThreshold,
+        uint256 _highAssetTurnoutThresholdBIPS,
+        uint256 _lowNatTurnoutThresholdBIPS,
+        uint256 _elasticBandRewardBIPS,
+        uint256 _rewardExpiryOffsetSeconds,
+        address[] memory _trustedAddresses
+    ) external;
+
+    /**
+     * Adds FTSO to the list of managed FTSOs, to support a new price pair.
+     * All FTSOs in a multi-asset FTSO must be managed by the same FTSO manager.
+     * @param _ftso FTSO contract address to add.
+     */
+    function addFtso(IIFtso _ftso) external;
+
+    /**
+     * Adds a list of FTSOs to the list of managed FTSOs, to support new price pairs.
+     * All FTSOs in a multi-asset FTSO must be managed by the same FTSO manager.
+     * @param _ftsos Array of FTSO contract addresses to add.
+     */
+    function addFtsosBulk(IIFtso[] memory _ftsos) external;
+
+    /**
+     * Removes an FTSO from the list of managed FTSOs.
+     * Reverts if FTSO is used in a multi-asset FTSO.
+     * Deactivates the `_ftso`.
+     * @param _ftso FTSO contract address to remove.
+     */
+    function removeFtso(IIFtso _ftso) external;
+
+    /**
+     * Replaces one FTSO with another with the same symbol.
+     * All FTSOs in a multi-asset FTSO must be managed by the same FTSO manager.
+     * Deactivates the old FTSO.
+     * @param _ftsoToAdd FTSO contract address to add.
+     * An existing FTSO with the same symbol will be removed.
+     * @param copyCurrentPrice When true, initializes the new FTSO with the
+     * current price of the previous FTSO.
+     * @param copyAssetOrAssetFtsos When true, initializes the new FTSO with the
+     * current asset or asset FTSOs of the previous FTSO.
+     */
+    function replaceFtso(
+        IIFtso _ftsoToAdd,
+        bool copyCurrentPrice,
+        bool copyAssetOrAssetFtsos
+    ) external;
+
+    /**
+     * Replaces a list of FTSOs with other FTSOs with the same symbol.
+     * All FTSOs in a multi-asset FTSO must be managed by the same FTSO manager.
+     * Deactivates the old FTSOs.
+     * @param _ftsosToAdd Array of FTSO contract addresses to add.
+     * Every existing FTSO with the same symbols will be removed.
+     * @param copyCurrentPrice When true, initializes the new FTSOs with the
+     * current price of the previous FTSOs.
+     * @param copyAssetOrAssetFtsos When true, initializes the new FTSOs with the
+     * current asset or asset FTSOs of the previous FTSOs.
+     */
+    function replaceFtsosBulk(
+        IIFtso[] memory _ftsosToAdd,
+        bool copyCurrentPrice,
+        bool copyAssetOrAssetFtsos
+    ) external;
+
+    /**
+     * Sets the asset tracked by an FTSO.
+     * @param _ftso The FTSO contract address.
+     * @param _asset The `VPToken` contract address of the asset to track.
+     */
+    function setFtsoAsset(IIFtso _ftso, IIVPToken _asset) external;
+
+    /**
+     * Sets an array of FTSOs to be tracked by a multi-asset FTSO.
+     * FTSOs implicitly determine the FTSO assets.
+     * @param _ftso The multi-asset FTSO contract address.
+     * @param _assetFtsos Array of FTSOs to be tracked.
+     */
+    function setFtsoAssetFtsos(IIFtso _ftso, IIFtso[] memory _assetFtsos) external;
+
+    /**
+     * Sets whether the FTSO Manager is currently in fallback mode.
+     * In this mode only submissions from trusted providers are used.
+     * @param _fallbackMode True if fallback mode is enabled.
+     */
+    function setFallbackMode(bool _fallbackMode) external;
+
+    /**
+     * Sets whether an FTSO is currently in fallback mode.
+     * In this mode only submissions from trusted providers are used.
+     * @param _ftso The FTSO contract address.
+     * @param _fallbackMode Fallback mode.
+     */
+    function setFtsoFallbackMode(IIFtso _ftso, bool _fallbackMode) external;
+
+    /**
+     * Returns whether an FTSO has been initialized.
+     * @return bool Initialization state.
+     */
+    function notInitializedFtsos(IIFtso) external view returns (bool);
+
+    /**
+     * Returns data regarding a specific reward epoch ID.
+     * @param _rewardEpochId Epoch ID.
+     * @return RewardEpochData Its associated data.
+     */
+    function getRewardEpochData(uint256 _rewardEpochId) external view returns (RewardEpochData memory);
+
+    /**
+     * Returns when the current reward epoch finishes.
+     * @return uint256 Time in seconds since the UNIX epoch when the current reward
+     * epoch will finish.
+     */
+    function currentRewardEpochEnds() external view returns (uint256);
+
+    /**
+     * Returns information regarding the currently unprocessed price epoch.
+     * This epoch is not necessarily the last one, in case the network halts for some
+     * time due to validator node problems, for example.
+     * @return _lastUnprocessedPriceEpoch ID of the price epoch that is currently waiting
+     * finalization.
+     * @return _lastUnprocessedPriceEpochRevealEnds When that price epoch can be finalized,
+     * in seconds since UNIX epoch.
+     * @return _lastUnprocessedPriceEpochInitialized Whether this price epoch has been
+     * already initialized and therefore it must be finalized before the corresponding
+     * reward epoch can be finalized.
+     */
+    function getLastUnprocessedPriceEpochData() external view
+        returns (
+            uint256 _lastUnprocessedPriceEpoch,
+            uint256 _lastUnprocessedPriceEpochRevealEnds,
+            bool _lastUnprocessedPriceEpochInitialized
+        );
+
+    /**
+     * Time when the current reward epoch started.
+     * @return uint256 Timestamp, in seconds since UNIX epoch.
+     */
+    function rewardEpochsStartTs() external view returns (uint256);
+
+    /**
+     * Currently configured reward epoch duration.
+     * @return uint256 Reward epoch duration, in seconds.
+     */
+    function rewardEpochDurationSeconds() external view returns (uint256);
+
+    /**
+     * Returns information about a reward epoch.
+     * @param _rewardEpochId The epoch ID to query.
+     * @return _votepowerBlock The [vote power block](https://docs.flare.network/tech/ftso/#vote-power)
+     * of the epoch.
+     * @return _startBlock The first block of the epoch.
+     * @return _startTimestamp Timestamp of the epoch start, in seconds since UNIX epoch.
+     */
+    function rewardEpochs(uint256 _rewardEpochId) external view
+        returns (
+            uint256 _votepowerBlock,
+            uint256 _startBlock,
+            uint256 _startTimestamp
+        );
+
+    /**
+     * Returns the currently configured reward expiration time.
+     * @return uint256 Unclaimed rewards accrued in reward epochs more than this
+     * amount of seconds in the past expire and become inaccessible.
+     */
+    function getRewardExpiryOffsetSeconds() external view returns (uint256);
+
+    /**
+     * Returns the secondary band's width in PPM (parts-per-million) of the median value,
+     * for a given FTSO.
+     * @param _ftso The queried FTSO contract address.
+     * @return uint256 Secondary band width in PPM. To obtain the actual band width,
+     * divide this number by 10^6 and multiply by the price median value.
+     */
+    function getElasticBandWidthPPMFtso(IIFtso _ftso) external view returns (uint256);
+}
+
+
+// File contracts/utils/implementation/FtsoRegistry.sol
+
+
+
+
+
+/**
+ * Handles registration of assets to the [FTSO system](https://docs.flare.network/tech/ftso).
+ */
+contract FtsoRegistry is IIFtsoRegistry, AddressUpdatable, GovernedBase {
+
+    // constants
+    uint256 internal constant MAX_HISTORY_LENGTH = 5;
+    address internal constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+
+    // errors
+    string internal constant ERR_TOKEN_NOT_SUPPORTED = "FTSO index not supported";
+    string internal constant ERR_FTSO_MANAGER_ONLY = "FTSO manager only";
+
+    // storage
+    IIFtso[MAX_HISTORY_LENGTH][] internal ftsoHistory;
+    mapping(string => uint256) internal ftsoIndex;
+
+    // addresses
+    /// `FtsoManager` contract that can add and remove assets to the registry.
+    IIFtsoManager public ftsoManager;
+
+    /// Only the `ftsoManager` can call this method.
+    modifier onlyFtsoManager () {
+        require (msg.sender == address(ftsoManager), ERR_FTSO_MANAGER_ONLY);
+        _;
+    }
+
+    // Using a governed proxy pattern - no constructor will run. Using initialiseRegistry function instead.
+    constructor() GovernedBase(DEAD_ADDRESS) AddressUpdatable(address(0)) {
+        /* empty block */
+    }
+
+    function initialiseRegistry(address _addressUpdater) external onlyGovernance {
+        require(getAddressUpdater() == address(0), "already initialized");
+        require(_addressUpdater != address(0), "_addressUpdater zero");
+        setAddressUpdaterValue(_addressUpdater);
+    }
+
+    /**
+     * @inheritdoc IIFtsoRegistry
+     * @dev Only the ftsoManager can call this method.
+     */
+    function addFtso(IIFtso _ftsoContract) external override onlyFtsoManager returns(uint256 _assetIndex) {
+        string memory symbol = _ftsoContract.symbol();
+        _assetIndex = ftsoIndex[symbol];
+        // ftso with the symbol is not yet in history array, add it
+        if (_assetIndex == 0) {
+            _assetIndex = ftsoHistory.length;
+            ftsoIndex[symbol] = _assetIndex + 1;
+            ftsoHistory.push();
+        } else {
+            // Shift history
+            _assetIndex = _assetIndex - 1;
+            _shiftHistory(_assetIndex);
+        }
+        ftsoHistory[_assetIndex][0] = _ftsoContract;
+    }
+
+    /**
+     * @inheritdoc IIFtsoRegistry
+     * @dev Only the ftsoManager can call this method.
+     */
+    function removeFtso(IIFtso _ftso) external override onlyFtsoManager {
+        string memory symbol = _ftso.symbol();
+        uint256 assetIndex = ftsoIndex[symbol];
+        if (assetIndex > 0) {
+            assetIndex = assetIndex - 1;
+            _shiftHistory(assetIndex);
+            ftsoHistory[assetIndex][0] = IIFtso(address(0));
+            delete ftsoIndex[symbol];
+            return;
+        }
+
+        revert(ERR_TOKEN_NOT_SUPPORTED);
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getFtso(uint256 _assetIndex) external view override returns(IIFtso _activeFtso) {
+        return _getFtso(_assetIndex);
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getFtsoBySymbol(string memory _symbol) external view override returns(IIFtso _activeFtso) {
+        return _getFtsoBySymbol(_symbol);
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getCurrentPrice(uint256 _assetIndex) external view override
+        returns(uint256 _price, uint256 _timestamp)
+    {
+        return _getFtso(_assetIndex).getCurrentPrice();
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getCurrentPrice(string memory _symbol) external view override
+        returns(uint256 _price, uint256 _timestamp)
+    {
+        return _getFtsoBySymbol(_symbol).getCurrentPrice();
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getCurrentPriceWithDecimals(uint256 _assetIndex) external view override
+        returns(uint256 _price, uint256 _timestamp, uint256 _assetPriceUsdDecimals)
+    {
+        return _getFtso(_assetIndex).getCurrentPriceWithDecimals();
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getCurrentPriceWithDecimals(string memory _symbol) external view override
+        returns(uint256 _price, uint256 _timestamp, uint256 _assetPriceUsdDecimals)
+    {
+        return _getFtsoBySymbol(_symbol).getCurrentPriceWithDecimals();
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getSupportedIndices() external view override returns(uint256[] memory _supportedIndices) {
+        (_supportedIndices, ) = _getSupportedIndicesAndFtsos();
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getSupportedSymbols() external view override returns(string[] memory _supportedSymbols) {
+        (, IIFtso[] memory ftsos) = _getSupportedIndicesAndFtsos();
+        uint256 len = ftsos.length;
+        _supportedSymbols = new string[](len);
+        while (len > 0) {
+            --len;
+            _supportedSymbols[len] = ftsos[len].symbol();
+        }
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getSupportedIndicesAndFtsos() external view override
+        returns(uint256[] memory _supportedIndices, IIFtso[] memory _ftsos)
+    {
+        (_supportedIndices, _ftsos) = _getSupportedIndicesAndFtsos();
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getSupportedSymbolsAndFtsos() external view override
+        returns(string[] memory _supportedSymbols, IIFtso[] memory _ftsos)
+    {
+        (, _ftsos) = _getSupportedIndicesAndFtsos();
+        uint256 len = _ftsos.length;
+        _supportedSymbols = new string[](len);
+        while (len > 0) {
+            --len;
+            _supportedSymbols[len] = _ftsos[len].symbol();
+        }
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getSupportedIndicesAndSymbols() external view override
+        returns(uint256[] memory _supportedIndices, string[] memory _supportedSymbols)
+    {
+        IIFtso[] memory ftsos;
+        (_supportedIndices, ftsos) = _getSupportedIndicesAndFtsos();
+        uint256 len = _supportedIndices.length;
+        _supportedSymbols = new string[](len);
+        while (len > 0) {
+            --len;
+            _supportedSymbols[len] = ftsos[len].symbol();
+        }
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getSupportedIndicesSymbolsAndFtsos() external view override
+        returns(uint256[] memory _supportedIndices, string[] memory _supportedSymbols, IIFtso[] memory _ftsos)
+    {
+        (_supportedIndices, _ftsos) = _getSupportedIndicesAndFtsos();
+        uint256 len = _supportedIndices.length;
+        _supportedSymbols = new string[](len);
+        while (len > 0) {
+            --len;
+            _supportedSymbols[len] = _ftsos[len].symbol();
+        }
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getSupportedFtsos() external view override returns(IIFtso[] memory _ftsos) {
+        (, _ftsos) = _getSupportedIndicesAndFtsos();
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistryGenesis
+     */
+    function getFtsos(uint256[] memory _assetIndices) external view override returns(IFtsoGenesis[] memory _ftsos) {
+        uint256 ftsoLength = ftsoHistory.length;
+        uint256 len = _assetIndices.length;
+        _ftsos = new IFtsoGenesis[](len);
+        while (len > 0) {
+            --len;
+            uint256 assetIndex = _assetIndices[len];
+            require(assetIndex < ftsoLength, ERR_TOKEN_NOT_SUPPORTED);
+            _ftsos[len] = ftsoHistory[assetIndex][0];
+            if (address(_ftsos[len]) == address(0)) {
+                // Invalid index, revert if address is zero address
+                revert(ERR_TOKEN_NOT_SUPPORTED);
+            }
+        }
+    }
+
+    /**
+     * Return all currently supported FTSO contracts.
+     * @return _ftsos Array of FTSO contract addresses.
+     */
+    function getAllFtsos() external view returns(IIFtso[] memory _ftsos) {
+        uint256 len = ftsoHistory.length;
+        IIFtso[] memory ftsos = new IIFtso[](len);
+        while (len > 0) {
+            --len;
+            ftsos[len] = ftsoHistory[len][0];
+        }
+        return ftsos;
+    }
+
+    /**
+     * Get the history of FTSOs for given index.
+     * If there are less then MAX_HISTORY_LENGTH the remaining addresses will be 0 addresses.
+     * Reverts if index is not supported.
+     * @param _assetIndex Asset index to query.
+     * @return _ftsoAddressHistory History of FTSOs contract for provided index.
+     */
+    function getFtsoHistory(uint256 _assetIndex) external view
+        returns(IIFtso[MAX_HISTORY_LENGTH] memory _ftsoAddressHistory)
+    {
+        require(_assetIndex < ftsoHistory.length &&
+                address(ftsoHistory[_assetIndex][0]) != address(0), ERR_TOKEN_NOT_SUPPORTED);
+        return ftsoHistory[_assetIndex];
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getFtsoIndex(string memory _symbol) external view override returns (uint256 _assetIndex) {
+        return _getFtsoIndex(_symbol);
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getFtsoSymbol(uint256 _assetIndex) external view override returns (string memory _symbol) {
+        return _getFtso(_assetIndex).symbol();
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getAllCurrentPrices() external view override returns (PriceInfo[] memory) {
+        (uint256[] memory indices, IIFtso[] memory ftsos) = _getSupportedIndicesAndFtsos();
+        return _getCurrentPrices(indices, ftsos);
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getCurrentPricesByIndices(uint256[] memory _indices) external view override returns (PriceInfo[] memory) {
+        IIFtso[] memory ftsos = new IIFtso[](_indices.length);
+
+        for (uint256 i = 0; i < _indices.length; i++) {
+            ftsos[i] = _getFtso(_indices[i]);
+        }
+        return _getCurrentPrices(_indices, ftsos);
+    }
+
+    /**
+     * @inheritdoc IFtsoRegistry
+     */
+    function getCurrentPricesBySymbols(string[] memory _symbols) external view override returns (PriceInfo[] memory) {
+        uint256[] memory indices = new uint256[](_symbols.length);
+        IIFtso[] memory ftsos = new IIFtso[](_symbols.length);
+
+        for (uint256 i = 0; i < _symbols.length; i++) {
+            indices[i] = _getFtsoIndex(_symbols[i]);
+            ftsos[i] = ftsoHistory[indices[i]][0];
+        }
+        return _getCurrentPrices(indices, ftsos);
+    }
+
+    /**
+     * Implementation of the AddressUpdatable abstract method.
+     */
+    function _updateContractAddresses(
+        bytes32[] memory _contractNameHashes,
+        address[] memory _contractAddresses
+    )
+        internal override
+    {
+        ftsoManager = IIFtsoManager(_getContractAddress(_contractNameHashes, _contractAddresses, "FtsoManager"));
+    }
+
+    /**
+     * Shift the FTSOs history by one so the FTSO at index 0 can be overwritten.
+     * Internal helper function.
+     */
+    function _shiftHistory(uint256 _assetIndex) internal {
+        for (uint256 i = MAX_HISTORY_LENGTH-1; i > 0; i--) {
+            ftsoHistory[_assetIndex][i] = ftsoHistory[_assetIndex][i-1];
+        }
+    }
+
+    function _getCurrentPrices(
+        uint256[] memory indices,
+        IIFtso[] memory ftsos
+    )
+        internal view
+        returns (PriceInfo[] memory _result)
+    {
+        uint256 length = ftsos.length;
+        _result = new PriceInfo[](length);
+
+        for(uint256 i = 0; i < length; i++) {
+            _result[i].ftsoIndex = indices[i];
+            (_result[i].price, _result[i].timestamp, _result[i].decimals) = ftsos[i].getCurrentPriceWithDecimals();
+        }
+    }
+
+    function _getFtsoIndex(string memory _symbol) internal view returns (uint256) {
+        uint256 assetIndex = ftsoIndex[_symbol];
+        require(assetIndex > 0, ERR_TOKEN_NOT_SUPPORTED);
+        return assetIndex - 1;
+    }
+
+    /**
+     * Get the active FTSO for given index.
+     * Internal get ftso function so it can be used within other methods.
+     */
+    function _getFtso(uint256 _assetIndex) internal view returns(IIFtso _activeFtso) {
+        require(_assetIndex < ftsoHistory.length, ERR_TOKEN_NOT_SUPPORTED);
+
+        IIFtso ftso = ftsoHistory[_assetIndex][0];
+        if (address(ftso) == address(0)) {
+            // Invalid index, revert if address is zero address
+            revert(ERR_TOKEN_NOT_SUPPORTED);
+        }
+        _activeFtso = ftso;
+    }
+
+    /**
+     * Get the active FTSO for given symbol.
+     * Internal get ftso function so it can be used within other methods.
+     */
+    function _getFtsoBySymbol(string memory _symbol) internal view returns(IIFtso _activeFtso) {
+        uint256 assetIndex = _getFtsoIndex(_symbol);
+        _activeFtso = ftsoHistory[assetIndex][0];
+    }
+
+    function _getSupportedIndicesAndFtsos() internal view
+        returns(uint256[] memory _supportedIndices, IIFtso[] memory _ftsos)
+    {
+        uint256 len = ftsoHistory.length;
+        uint256[] memory supportedIndices = new uint256[](len);
+        IIFtso[] memory ftsos = new IIFtso[](len);
+        address zeroAddress = address(0);
+        uint256 taken = 0;
+        for (uint256 i = 0; i < len; ++i) {
+            IIFtso ftso = ftsoHistory[i][0];
+            if (address(ftso) != zeroAddress) {
+                supportedIndices[taken] = i;
+                ftsos[taken] = ftso;
+                ++taken;
+            }
+        }
+        _supportedIndices = new uint256[](taken);
+        _ftsos = new IIFtso[](taken);
+        while (taken > 0) {
+            --taken;
+            _supportedIndices[taken] = supportedIndices[taken];
+            _ftsos[taken] = ftsos[taken];
+        }
+    }
+}
+
+
+// File contracts/utils/implementation/ProxyGoverned.sol
+
+
+/**
+ * @title A governed proxy contract
+ */
+abstract contract ProxyGoverned is Governed {
+
+    // Storage position of the address of the current implementation
+    bytes32 private constant IMPLEMENTATION_POSITION = 
+        keccak256("flare.diamond.ProxyGoverned.IMPLEMENTATION_POSITION");
+
+    string internal constant ERR_IMPLEMENTATION_ZERO = "implementation zero";
+
+    event ImplementationSet(address newImplementation);
+
+    constructor(
+        address _governance,
+        address _initialImplementation
+    ) 
+        Governed(_governance)
+    {
+        _setImplementation(_initialImplementation);
+    }
+    
+    /**
+     * @dev Fallback function that delegates calls to the address returned by `implementation()`. Will run if call data
+     * is empty.
+     */
+    receive() external payable {
+        _delegate();
+    }
+
+    /**
+     * @dev Fallback function that delegates calls to the address returned by `implementation()`. Will run if no other
+     * function in the contract matches the call data.
+     */
+    fallback() external payable {
+        _delegate();
+    }
+
+    /**
+     * @dev Sets the address of the current implementation
+     * @param _newImplementation address representing the new implementation to be set
+     */
+    function setImplementation(address _newImplementation) external onlyGovernance {
+        _setImplementation(_newImplementation);
+    }
+
+    /**
+     * @dev Tells the address of the current implementation
+     */
+    function implementation() public view returns (address _impl) {
+        bytes32 position = IMPLEMENTATION_POSITION;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            _impl := sload(position)
+        }
+    }
+
+    // solhint-disable no-complex-fallback
+    function _delegate() internal {
+        address impl = implementation();
+            
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            calldatacopy(0, 0, calldatasize())
+            let result := delegatecall(gas(), impl, 0, calldatasize(), 0, 0)
+            let size := returndatasize()
+            returndatacopy(0, 0, size)
+
+            switch result
+            case 0 { revert(0, size) }
+            default { return(0, size) }
+        }
+    }
+
+    /**
+     * @dev Sets the address of the current implementation
+     * @param _newImplementation address representing the new implementation to be set
+     */
+    function _setImplementation(address _newImplementation) internal {
+        require(_newImplementation != address(0), ERR_IMPLEMENTATION_ZERO);
+        bytes32 position = IMPLEMENTATION_POSITION;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            sstore(position, _newImplementation)
+        }
+        emit ImplementationSet(_newImplementation);
+    }
+}
+
+
+// File contracts/utils/implementation/FtsoRegistryProxy.sol
+
+
+/**
+ * @title A ftso registry governed proxy contract
+ */
+contract FtsoRegistryProxy is ProxyGoverned {
+
+    constructor(
+        address _governance,
+        address _initialImplementation
+    )
+        ProxyGoverned(
+            _governance,
+            _initialImplementation
+        )
+    {}
+}
+
+
+// File contracts/userInterfaces/IPriceSubmitter.sol
+
+
+
+
+/**
+ * Interface for the `PriceSubmitter` contract.
+ *
+ * This is the contract used by all [FTSO data providers](https://docs.flare.network/tech/ftso)
+ * to submit their data.
+ */
+interface IPriceSubmitter {
+    /**
+     * Emitted when a hash is submitted through `submitHash`.
+     * @param submitter Address of the submitting data provider.
+     * @param epochId Current price epoch ID.
+     * @param hash Submitted hash.
+     * @param timestamp Current block timestamp.
+     */
+    event HashSubmitted(
+        address indexed submitter,
+        uint256 indexed epochId,
+        bytes32 hash,
+        uint256 timestamp
+    );
+
+    /**
+     * Emitted when prices are revealed through `revealPrice`.
+     * @param voter Address of the revealing data provider.
+     * @param epochId ID of the epoch in which the price hash is revealed.
+     * @param ftsos Array of FTSOs that correspond to the indexes in the call.
+     * @param prices List of revealed prices.
+     * @param random Revealed random number.
+     * @param timestamp Current block timestamp.
+     */
+    event PricesRevealed(
+        address indexed voter,
+        uint256 indexed epochId,
+        IFtsoGenesis[] ftsos,
+        uint256[] prices,
+        uint256 random,
+        uint256 timestamp
+    );
+
+    /**
+     * Submits a hash for the current epoch. Can only be called by FTSO data providers
+     * whitelisted through the `VoterWhitelisted` contract.
+     * Emits the `HashSubmitted` event.
+     * @param _epochId ID of the target epoch to which the hash is submitted.
+     * @param _hash A hash of the FTSO indices, prices, random number, and voter address.
+     */
+    function submitHash(
+        uint256 _epochId,
+        bytes32 _hash
+    ) external;
+
+    /**
+     * Reveals submitted prices during the epoch reveal period.
+     * The hash of FTSO indices, prices, random number, and voter address must be equal
+     * to the hash previously submitted with `submitHash`.
+     * Emits a `PricesRevealed` event.
+     * @param _epochId ID of the epoch to which the price hashes are submitted.
+     * @param _ftsoIndices List of FTSO indices in ascending order.
+     * @param _prices List of submitted prices in USD.
+     * @param _random Submitted random number.
+     */
+    function revealPrices(
+        uint256 _epochId,
+        uint256[] memory _ftsoIndices,
+        uint256[] memory _prices,
+        uint256 _random
+    ) external;
+
+    /**
+     * Returns a bitmap of all FTSOs for which a data provider is allowed to submit prices or hashes.
+     * @param _voter Address of the voter.
+     * @return If a data provider is allowed to vote for a given FTSO index, the corresponding
+     * bit in the result is 1.
+     */
+    function voterWhitelistBitmap(address _voter) external view returns (uint256);
+
+    /**
+     * Returns the address of the `VoterWhitelister` contract managing the data provider whitelist.
+     */
+    function getVoterWhitelister() external view returns (address);
+
+    /**
+     * Returns the address of the `FtsoRegistry` contract.
+     */
+    function getFtsoRegistry() external view returns (IFtsoRegistryGenesis);
+
+    /**
+     * Returns the address of the `FtsoManager` contract.
+     */
+    function getFtsoManager() external view returns (IFtsoManagerGenesis);
+
+    /**
+     * Returns the random number for the previous epoch, obtained from the random numbers
+     * provided by all data providers along with their data submissions.
+     * Note that the random number for the previous epoch keeps updating as new submissions are revealed.
+     * @return Random number calculated from all data provider's submissions.
+     */
+    function getCurrentRandom() external view returns (uint256);
+
+    /**
+     * Returns the random number used in a specific past epoch, obtained from the random numbers
+     * provided by all data providers along with their data submissions.
+     * @param _epochId ID of the queried epoch.
+     * Current epoch cannot be queried, and the previous epoch is constantly updated
+     * as data providers reveal their prices and random numbers.
+     * Note that only the last 50 epochs can be queried and there is no bounds checking
+     * for this parameter. Out-of-bounds queries return undefined values.
+     * @return The random number used in that epoch.
+     */
+    function getRandom(uint256 _epochId) external view returns (uint256);
+}
+
+
+// File contracts/genesis/interface/IIPriceSubmitter.sol
+
+
+/**
+ * Internal interface for the `PriceSubmitter` contract.
+ */
+interface IIPriceSubmitter is IPriceSubmitter {
+
+    /**
+     * Set trusted addresses that are always allowed to submit and reveal.
+     * Only ftso manager can call this method.
+     * @param _trustedAddresses Array of voter addresses.
+     */
+    function setTrustedAddresses(address[] memory _trustedAddresses) external;
+
+    /**
+     * Called from the `VoterWhitelister` contract when a new voter has been whitelisted.
+     * @param _voter Voter address that has been added to the whitelist.
+     * @param _ftsoIndex Index of the FTSO to which the voter has registered.
+     * Each FTSO has its own whitelist.
+     */
+    function voterWhitelisted(address _voter, uint256 _ftsoIndex) external;
+
+    /**
+     * Called from the `VoterWhitelister` contract when one or more voters have been removed.
+     * @param _voters Array of voter addresses that have been removed.
+     * @param _ftsoIndex Index of the FTSO to which the voters were registered.
+     * Each FTSO has its own whitelist.
+     */
+    function votersRemovedFromWhitelist(address[] memory _voters, uint256 _ftsoIndex) external;
+
+    /**
+     * Returns the list of trusted addresses that are always allowed to submit and reveal.
+     * @return address[] Array of trusted voter addresses.
+     */
+    function getTrustedAddresses() external view returns (address[] memory);
+}
+
+
+// File contracts/genesis/implementation/PriceSubmitter.sol
+
+
+
+
+/**
+ * Receives prices from [FTSO data providers](https://docs.flare.network/tech/ftso).
+ *
+ * It then forwards the submissions to the appropriate FTSO contract,
+ * allowing data providers to perform all required operations in a single transaction
+ * per price epoch.
+ */
+contract PriceSubmitter is IIPriceSubmitter, GovernedAtGenesis, AddressUpdatable {
+
+    string internal constant ERR_ALREADY_SET = "Already set";
+    string internal constant ERR_ARRAY_LENGTHS = "Array lengths do not match";
+    string internal constant ERR_NOT_WHITELISTED = "Not whitelisted";
+    string internal constant ERR_FTSO_MANAGER_ONLY = "FTSO manager only";
+    string internal constant ERR_WHITELISTER_ONLY = "Voter whitelister only";
+    string internal constant ERR_WRONG_EPOCH_ID = "Wrong epoch id";
+    string internal constant ERR_DUPLICATE_SUBMIT_IN_EPOCH = "Duplicate submit in epoch";
+    string internal constant ERR_PRICE_INVALID = "Price already revealed or not valid";
+    string internal constant ERR_RANDOM_TOO_SMALL = "Too small random number";
+    string internal constant ERR_FTSO_INDICES_NOT_INCREASING = "FTSO indices not increasing";
+
+    /// Minimal random value accepted along price submissions.
+    /// Submitted random values below this threshold will revert.
+    uint256 public constant MINIMAL_RANDOM = 2**128;
+    /// Number of past random numbers remembered.
+    uint256 public constant RANDOM_EPOCH_CYCLIC_BUFFER_SIZE = 50;
+
+    IFtsoRegistryGenesis internal ftsoRegistry;
+    IFtsoManagerGenesis internal ftsoManager;
+    address internal voterWhitelister;
+
+    // Bit at index `i` corresponds to being whitelisted for vote on ftso at index `i`
+    mapping(address => uint256) internal whitelistedFtsoBitmap;
+
+    address[] internal trustedAddresses;
+    // for checking addresses at submit/reveal
+    mapping(address => bool) internal trustedAddressesMapping;
+
+    mapping(uint256 => mapping(address => bytes32)) internal epochVoterHash;
+    uint256[RANDOM_EPOCH_CYCLIC_BUFFER_SIZE] internal randoms;
+
+    /// Only the `ftsoManager` can call this method.
+    modifier onlyFtsoManager {
+        require(msg.sender == address(ftsoManager), ERR_FTSO_MANAGER_ONLY);
+        _;
+    }
+
+    /// Only the `voterWhitelister` can call this method.
+    modifier onlyWhitelister {
+        require(msg.sender == voterWhitelister, ERR_WHITELISTER_ONLY);
+        _;
+    }
+
+    /**
+     * @dev This constructor should contain no code as this contract is pre-loaded into the genesis block.
+     *   The super constructors are called for testing convenience.
+     */
+    constructor() GovernedAtGenesis(address(0)) AddressUpdatable(address(0)) {
+        /* empty block */
+    }
+
+
+    /**
+     * Sets the address updater contract.
+     * Only governance cal call this method.
+     * @param _addressUpdater Address of the `AddressUpdater` contract.
+     */
+    function setAddressUpdater(address _addressUpdater) external onlyGovernance {
+        require(getAddressUpdater() == address(0), ERR_ALREADY_SET);
+        setAddressUpdaterValue(_addressUpdater);
+    }
+
+    /**
+     * Set the trusted addresses that are always allowed to submit and reveal.
+     * Trusted addresses are used, for example, in fallback mode.
+     * Only FTSO Manager can call this method.
+     * @param _trustedAddresses Array of FTSO data provider addresses (voters).
+     * The previous list of trusted addresses is discarded.
+     */
+    function setTrustedAddresses(address[] memory _trustedAddresses) external override onlyFtsoManager {
+        // remove old addresses mapping
+        uint256 len = trustedAddresses.length;
+        for (uint256 i = 0; i < len; i++) {
+            trustedAddressesMapping[trustedAddresses[i]] = false;
+        }
+        // set new addresses mapping
+        len = _trustedAddresses.length;
+        for (uint256 i = 0; i < len; i++) {
+            trustedAddressesMapping[_trustedAddresses[i]] = true;
+        }
+        trustedAddresses = _trustedAddresses;
+    }
+
+    /**
+     * @inheritdoc IIPriceSubmitter
+     * @dev Only the `VoterWhitelister` contract can call this method.
+     */
+    function voterWhitelisted(address _voter, uint256 _ftsoIndex) external override onlyWhitelister {
+        whitelistedFtsoBitmap[_voter] |= 1 << _ftsoIndex;
+    }
+
+    /**
+     * @inheritdoc IIPriceSubmitter
+     * @dev Only the `VoterWhitelister` contract can call this method.
+     */
+    function votersRemovedFromWhitelist(address[] memory _removedVoters, uint256 _ftsoIndex)
+        external override
+        onlyWhitelister
+    {
+        for (uint256 i = 0; i < _removedVoters.length; i++) {
+            whitelistedFtsoBitmap[_removedVoters[i]]  &= ~(1 << _ftsoIndex);
+        }
+    }
+
+    /**
+     * @inheritdoc IPriceSubmitter
+     */
+    function submitHash(
+        uint256 _epochId,
+        bytes32 _hash
+    )
+        external override
+    {
+        require(_epochId == ftsoManager.getCurrentPriceEpochId(), ERR_WRONG_EPOCH_ID);
+        require(epochVoterHash[_epochId][msg.sender] == 0, ERR_DUPLICATE_SUBMIT_IN_EPOCH);
+        require(whitelistedFtsoBitmap[msg.sender] != 0 || trustedAddressesMapping[msg.sender], ERR_NOT_WHITELISTED);
+
+        epochVoterHash[_epochId][msg.sender] = _hash;
+        emit HashSubmitted(msg.sender, _epochId, _hash, block.timestamp);
+    }
+
+    /**
+     * @inheritdoc IPriceSubmitter
+     */
+    function revealPrices(
+        uint256 _epochId,
+        uint256[] memory _ftsoIndices,
+        uint256[] memory _prices,
+        uint256 _random
+    )
+        external override
+    {
+        uint256 length  = _ftsoIndices.length;
+        require(length == _prices.length, ERR_ARRAY_LENGTHS);
+        require(_random >= MINIMAL_RANDOM, ERR_RANDOM_TOO_SMALL);
+        require(epochVoterHash[_epochId][msg.sender] ==
+            keccak256(abi.encode(_ftsoIndices, _prices, _random, msg.sender)),
+            ERR_PRICE_INVALID);
+
+        IFtsoGenesis[] memory ftsos = ftsoRegistry.getFtsos(_ftsoIndices);
+        uint256 allowedBitmask = whitelistedFtsoBitmap[msg.sender];
+        bool isTrustedAddress = false;
+
+        // read native VP only once
+        uint256 wNatVP = length > 0 ? ftsos[0].wNatVotePowerCached(msg.sender, _epochId) : 0;
+        uint256 currentIndex;
+
+        for (uint256 i = 0; i < length; i++) {
+            if (i != 0 && currentIndex >= _ftsoIndices[i]) {
+                revert(ERR_FTSO_INDICES_NOT_INCREASING);
+            }
+            currentIndex = _ftsoIndices[i];
+            if (allowedBitmask & (1 << currentIndex) == 0) {
+                if (!isTrustedAddress) {
+                    if (trustedAddressesMapping[msg.sender]) {
+                        isTrustedAddress = true;
+                    } else {
+                        revert(ERR_NOT_WHITELISTED);
+                    }
+                }
+            }
+
+            // call reveal price on ftso
+            ftsos[i].revealPriceSubmitter(msg.sender, _epochId, _prices[i], wNatVP);
+        }
+        // prevent price submission from being revealed twice
+        delete epochVoterHash[_epochId][msg.sender];
+
+        // random can overflow but still ok
+        //slither-disable-next-line weak-prng // not used for random
+        randoms[_epochId % RANDOM_EPOCH_CYCLIC_BUFFER_SIZE] += uint256(keccak256(abi.encode(_random, _prices)));
+
+        emit PricesRevealed(msg.sender, _epochId, ftsos, _prices, _random, block.timestamp);
+    }
+
+    /**
+     * @inheritdoc IPriceSubmitter
+     * @dev It never reverts.
+     */
+    function getCurrentRandom() external view override returns (uint256) {
+        uint256 currentEpochId = ftsoManager.getCurrentPriceEpochId();
+        if (currentEpochId == 0) {
+            return 0;
+        }
+        //slither-disable-next-line weak-prng // not used for random
+        return randoms[(currentEpochId - 1) % RANDOM_EPOCH_CYCLIC_BUFFER_SIZE];
+    }
+
+    /**
+     * @inheritdoc IPriceSubmitter
+     */
+    function getRandom(uint256 _epochId) external view override returns (uint256) {
+        //slither-disable-next-line weak-prng // not used for random
+        return randoms[_epochId % RANDOM_EPOCH_CYCLIC_BUFFER_SIZE];
+    }
+
+    /**
+     * @inheritdoc IPriceSubmitter
+     */
+    function voterWhitelistBitmap(address _voter) external view override returns (uint256) {
+        return whitelistedFtsoBitmap[_voter];
+    }
+
+    /**
+     * @inheritdoc IIPriceSubmitter
+     */
+    function getTrustedAddresses() external view override returns (address[] memory) {
+        return trustedAddresses;
+    }
+
+    /**
+     * @inheritdoc IPriceSubmitter
+     */
+    function getVoterWhitelister() external view override returns (address) {
+        return voterWhitelister;
+    }
+
+    /**
+     * @inheritdoc IPriceSubmitter
+     */
+    function getFtsoRegistry() external view override returns (IFtsoRegistryGenesis) {
+        return ftsoRegistry;
+    }
+
+    /**
+     * @inheritdoc IPriceSubmitter
+     */
+    function getFtsoManager() external view override returns (IFtsoManagerGenesis) {
+        return ftsoManager;
+    }
+
+    /**
+     * @notice Implementation of the AddressUpdatable abstract method.
+     * @dev If replacing the registry or the whitelist and the old one is not empty, make sure to replicate the state,
+     * otherwise internal whitelist bitmaps won't match.
+     */
+    function _updateContractAddresses(
+        bytes32[] memory _contractNameHashes,
+        address[] memory _contractAddresses
+    )
+        internal override
+    {
+        ftsoRegistry = IFtsoRegistryGenesis(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRegistry"));
+        ftsoManager = IFtsoManagerGenesis(_getContractAddress(_contractNameHashes, _contractAddresses, "FtsoManager"));
+        voterWhitelister = _getContractAddress(_contractNameHashes, _contractAddresses, "VoterWhitelister");
+    }
+}

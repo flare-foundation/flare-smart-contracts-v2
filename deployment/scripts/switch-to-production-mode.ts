@@ -1,6 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "./Contracts";
-import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoFeedPublisherContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, RewardManagerContract, SubmissionContract, VoterRegistryContract } from "../../typechain-truffle";
+import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoFeedPublisherContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, RewardManagerContract, FtsoRewardManagerProxyContract, SubmissionContract, VoterRegistryContract } from "../../typechain-truffle";
 import { ChainParameters } from "../chain-config/chain-parameters";
 
 type Account = ReturnType<typeof web3.eth.accounts.privateKeyToAccount>;
@@ -37,6 +37,7 @@ export async function switchToProductionMode(hre: HardhatRuntimeEnvironment, con
   const FlareSystemsCalculator: FlareSystemsCalculatorContract = artifacts.require("FlareSystemsCalculator");
   const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
   const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
+  const FtsoRewardManagerProxy: FtsoRewardManagerProxyContract = artifacts.require("FtsoRewardManagerProxy");
   const Submission: SubmissionContract = artifacts.require("Submission");
   const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifacts.require("FtsoInflationConfigurations");
   const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
@@ -50,6 +51,7 @@ export async function switchToProductionMode(hre: HardhatRuntimeEnvironment, con
   const flareSystemsCalculator = await FlareSystemsCalculator.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_CALCULATOR));
   const flareSystemsManager = await FlareSystemsManager.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER));
   const rewardManager = await RewardManager.at(contracts.getContractAddress(Contracts.REWARD_MANAGER));
+  const ftsoRewardManagerProxy = await FtsoRewardManagerProxy.at(contracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER_PROXY));
   const submission = await Submission.at(contracts.getContractAddress(Contracts.SUBMISSION));
   const ftsoInflationConfigurations = await FtsoInflationConfigurations.at(contracts.getContractAddress(Contracts.FTSO_INFLATION_CONFIGURATIONS));
   const ftsoRewardOffersManager = await FtsoRewardOffersManager.at(contracts.getContractAddress(Contracts.FTSO_REWARD_OFFERS_MANAGER));
@@ -64,6 +66,7 @@ export async function switchToProductionMode(hre: HardhatRuntimeEnvironment, con
   await flareSystemsCalculator.switchToProductionMode();
   await flareSystemsManager.switchToProductionMode();
   await rewardManager.switchToProductionMode();
+  await ftsoRewardManagerProxy.switchToProductionMode();
   if (parameters.testDeployment) {
     await submission.switchToProductionMode({ from: parameters.governancePublicKey });
   }

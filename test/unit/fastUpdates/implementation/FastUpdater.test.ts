@@ -101,6 +101,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
   let ftsoFeedPublisherMock: MockContractInstance;
   let flareSystemMock: FlareSystemMockInstance;
   let fastUpdatesConfigurationMock: MockContractInstance;
+  let feeCalculatorMock: MockContractInstance;
   let sortitionKeys: SortitionKey[];
   const weights: number[] = [];
   const voters: string[] = [];
@@ -123,6 +124,10 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       );
       await ftsoFeedPublisherMock.givenCalldataReturn(getCurrentFeed, feed);
     }
+
+    feeCalculatorMock = await MockContract.new();
+    const calculateFee = web3.utils.sha3("calculateFee(uint256[])")!.slice(0, 10);
+    await feeCalculatorMock.givenMethodReturnUint(calculateFee, 1);
   });
 
   beforeEach(async () => {
@@ -216,6 +221,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         Contracts.VOTER_REGISTRY,
         Contracts.FAST_UPDATES_CONFIGURATION,
         Contracts.FTSO_FEED_PUBLISHER,
+        Contracts.FEE_CALCULATOR,
       ]),
       [
         addressUpdater,
@@ -224,6 +230,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         flareSystemMock.address,
         fastUpdatesConfiguration.address,
         ftsoFeedPublisherMock.address,
+        feeCalculatorMock.address
       ],
       { from: addressUpdater }
     );
@@ -262,7 +269,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       }
 
       // Fetch current feeds from the contract
-      const startingFeeds = await fastUpdater.fetchCurrentFeeds(indices);
+      const startingFeeds = await fastUpdater.fetchCurrentFeeds.call(indices, { value: "1" });
       const startingFeedsVal: number[] = startingFeeds[0].map((x: BN) => x.toNumber());
       const startingFeedsDec: number[] = startingFeeds[1].map((x: BN) => x.toNumber());
       var expectedFeeds: number[] = [];
@@ -401,9 +408,9 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       }
 
       shuffleArray(indices);
-      let allCurrentFeeds = await fastUpdater.fetchAllCurrentFeeds();
+      let allCurrentFeeds = await fastUpdater.fetchAllCurrentFeeds.call({ value: "1" });
       expect(allCurrentFeeds[0].length).to.be.equal(NUM_FEEDS);
-      let feeds = await fastUpdater.fetchCurrentFeeds(indices);
+      let feeds = await fastUpdater.fetchCurrentFeeds.call(indices, { value: "1" });
       let feedsVal: number[] = feeds[0].map((x: BN) => x.toNumber());
       let feedsDec: number[] = feeds[1].map((x: BN) => x.toNumber());
       for (let i = 0; i < NUM_FEEDS; i++) {
@@ -420,8 +427,8 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       });
       expect(tx.receipt.gasUsed).to.be.lessThan(4000000);
 
-      feedsVal = (await fastUpdater.fetchCurrentFeeds(indices))[0].map((x: BN) => x.toNumber());
-      allCurrentFeeds = await fastUpdater.fetchAllCurrentFeeds();
+      feedsVal = (await fastUpdater.fetchCurrentFeeds.call(indices, { value: "1" }))[0].map((x: BN) => x.toNumber());
+      allCurrentFeeds = await fastUpdater.fetchAllCurrentFeeds.call({ value: "1" });
       expect(allCurrentFeeds[0].length).to.be.equal(NUM_FEEDS);
       for (let i = 0; i < NUM_FEEDS; i++) {
         const index = indices.indexOf(i);
@@ -470,7 +477,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
     });
 
     it("should revert fetching feeds if the index bigger than the number of feeds", async () => {
-      await expectRevert.unspecified(fastUpdater.fetchCurrentFeeds([0, 1, NUM_FEEDS + 2]));
+      await expectRevert.unspecified(fastUpdater.fetchCurrentFeeds.call([0, 1, NUM_FEEDS + 2], { value: "1" }));
     });
 
     it("should revert if deploying contract with invalid parameters", async () => {
@@ -712,6 +719,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
             Contracts.VOTER_REGISTRY,
             Contracts.FAST_UPDATES_CONFIGURATION,
             Contracts.FTSO_FEED_PUBLISHER,
+            Contracts.FEE_CALCULATOR,
           ]),
           [
             addressUpdater,
@@ -720,6 +728,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
             flareSystemMock.address,
             fastUpdatesConfigurationMock.address,
             ftsoFeedPublisherMock.address,
+            feeCalculatorMock.address
           ],
           { from: addressUpdater }
         );
@@ -738,6 +747,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
             Contracts.VOTER_REGISTRY,
             Contracts.FAST_UPDATES_CONFIGURATION,
             Contracts.FTSO_FEED_PUBLISHER,
+            Contracts.FEE_CALCULATOR
           ]),
           [
             addressUpdater,
@@ -746,11 +756,12 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
             flareSystemMock.address,
             accounts[123],
             ftsoFeedPublisherMock.address,
+            feeCalculatorMock.address
           ],
           { from: addressUpdater }
         );
 
-        let currentFeeds = await fastUpdater.fetchCurrentFeeds([0, 1, 8, 19]);
+        let currentFeeds = await fastUpdater.fetchCurrentFeeds.call([0, 1, 8, 19], { value: "1" });
         expect(currentFeeds[0][0].toNumber()).to.equals(5000000);
         expect(currentFeeds[0][1].toNumber()).to.equals(1000000);
         expect(currentFeeds[0][2].toNumber()).to.equals(800000);
@@ -761,7 +772,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         expect(currentFeeds[1][3].toNumber()).to.equals(3);
 
         await fastUpdater.removeFeeds([0, 1, 19], { from: accounts[123] });
-        currentFeeds = await fastUpdater.fetchCurrentFeeds([0, 1, 8, 19]);
+        currentFeeds = await fastUpdater.fetchCurrentFeeds.call([0, 1, 8, 19], { value: "1" });
         expect(currentFeeds[0][0].toNumber()).to.equals(0);
         expect(currentFeeds[0][1].toNumber()).to.equals(0);
         expect(currentFeeds[0][2].toNumber()).to.equals(800000);
@@ -846,7 +857,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         }
 
         await fastUpdater.resetFeeds(indices, { from: governance });
-        let currentFeeds = await fastUpdater.fetchCurrentFeeds([0, 2, 8, 11, 13]);
+        let currentFeeds = await fastUpdater.fetchCurrentFeeds.call([0, 2, 8, 11, 13], { value: "1" });
         for (let i = 0; i < indices.length; i++) {
           expect(currentFeeds[0][i].toNumber()).to.equals(updatedAnchorFeeds[indices[i]]);
           expect(currentFeeds[1][i].toNumber()).to.equals(updateDecimals[indices[i]]);
@@ -854,7 +865,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         expect(currentFeeds[0][4].toNumber()).to.equals(1300000);
         expect(currentFeeds[1][4].toNumber()).to.equals(3);
 
-        let allCurrentFeeds = await fastUpdater.fetchAllCurrentFeeds();
+        let allCurrentFeeds = await fastUpdater.fetchAllCurrentFeeds.call({ value: "1" });
         expect(allCurrentFeeds[0].length).to.be.equal(20);
         for (let i = 0; i < 20; i++) {
           while (Math.floor(updatedAnchorFeeds[i] * (SCALE - 1)) < 8) {

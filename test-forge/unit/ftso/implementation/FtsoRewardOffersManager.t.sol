@@ -114,8 +114,8 @@ contract FtsoRewardOffersManagerTest is Test {
         ftsoRewardOffersManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
         // set contract on reward manager
-        contractNameHashes = new bytes32[](7);
-        contractAddresses = new address[](7);
+        contractNameHashes = new bytes32[](8);
+        contractAddresses = new address[](8);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("VoterRegistry"));
         contractNameHashes[2] = keccak256(abi.encode("ClaimSetupManager"));
@@ -123,6 +123,7 @@ contract FtsoRewardOffersManagerTest is Test {
         contractNameHashes[4] = keccak256(abi.encode("FlareSystemsCalculator"));
         contractNameHashes[5] = keccak256(abi.encode("PChainStakeMirror"));
         contractNameHashes[6] = keccak256(abi.encode("WNat"));
+        contractNameHashes[7] = keccak256(abi.encode("FtsoRewardManagerProxy"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = makeAddr("voterRegistry");
         contractAddresses[2] = makeAddr("claimSetupManager");
@@ -130,6 +131,7 @@ contract FtsoRewardOffersManagerTest is Test {
         contractAddresses[4] = makeAddr("flareSystemsCalculator");
         contractAddresses[5] = makeAddr("pChainStakeMirror");
         contractAddresses[6] = makeAddr("wNat");
+        contractAddresses[7] = makeAddr("FtsoRewardManagerProxy");
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 

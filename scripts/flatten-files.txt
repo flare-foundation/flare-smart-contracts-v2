@@ -5,3 +5,6 @@ contracts/token/implementation/CleanupBlockNumberManager.sol
 contracts/staking/implementation/PChainStakeMirror.sol
 contracts/staking/implementation/AddressBinder.sol
 contracts/genesis/mock/TestableFlareDaemon.sol
+contracts/utils/implementation/FtsoRegistry.sol
+contracts/utils/implementation/FtsoRegistryProxy.sol
+contracts/genesis/implementation/PriceSubmitter.sol
