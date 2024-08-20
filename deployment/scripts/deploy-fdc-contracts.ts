@@ -3,10 +3,9 @@
  */
 
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { FdcHubContract, MockContractContract } from "../../typechain-truffle";
+import { FdcHubContract, FdcInflationConfigurationsContract, FdcRequestFeeConfigurationsContract, MockContractContract } from "../../typechain-truffle";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
-import { FdcInflationConfigurationsContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcInflationConfigurations";
 
 export async function deployFdcContracts(
   hre: HardhatRuntimeEnvironment,
@@ -19,6 +18,7 @@ export async function deployFdcContracts(
 
   const FdcHub: FdcHubContract = artifacts.require("FdcHub");
   const FdcInflationConfigurations: FdcInflationConfigurationsContract = artifacts.require("FdcInflationConfigurations");
+  const FdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FdcRequestFeeConfigurations");
   const MockContract: MockContractContract = artifacts.require("MockContract");
 
   // Define accounts in play for the deployment process
@@ -37,17 +37,19 @@ export async function deployFdcContracts(
 
   const fdcHub = await FdcHub.new(mockContract.address, deployerAccount.address, deployerAccount.address, 30);
   const fdcInflationConfigurations = await FdcInflationConfigurations.new(mockContract.address, deployerAccount.address, deployerAccount.address);
+  const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(mockContract.address, deployerAccount.address);
   await fdcHub.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.INFLATION, Contracts.FDC_INFLATION_CONFIGURATIONS]),
-    [deployerAccount.address, contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER), mockContract.address, mockContract.address, fdcInflationConfigurations.address]);
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.INFLATION, Contracts.FDC_INFLATION_CONFIGURATIONS, Contracts.FDC_REQUEST_FEE_CONFIGURATIONS]),
+    [deployerAccount.address, contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER), mockContract.address, mockContract.address, fdcInflationConfigurations.address, fdcRequestFeeConfigurations.address]);
 
   await fdcInflationConfigurations.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FDC_HUB]),
-    [deployerAccount.address, fdcHub.address]);
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FDC_REQUEST_FEE_CONFIGURATIONS]),
+    [deployerAccount.address, fdcRequestFeeConfigurations.address]);
 
   if (!quiet) {
     console.error("FdcHub contract address: ", fdcHub.address);
     console.error("FdcInflationConfigurations contract address: ", fdcInflationConfigurations.address);
+    console.error("FdcRequestFeeConfigurations contract address: ", fdcRequestFeeConfigurations.address);
     console.error("Deploy complete.");
   }
 

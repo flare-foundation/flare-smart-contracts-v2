@@ -68,6 +68,7 @@ export class Contracts {
   public static readonly FAST_UPDATES_CONFIGURATION = "FastUpdatesConfiguration";
   public static readonly FDC_HUB = "FdcHub";
   public static readonly FDC_INFLATION_CONFIGURATIONS = "FdcInflationConfigurations";
+  public static readonly FDC_REQUEST_FEE_CONFIGURATIONS = "FdcRequestFeeConfigurations";
 
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 

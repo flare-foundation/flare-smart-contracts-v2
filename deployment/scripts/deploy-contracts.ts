@@ -28,6 +28,7 @@ import {
   WNatDelegationFeeContract,
   FdcHubContract,
   FdcInflationConfigurationsContract,
+  FdcRequestFeeConfigurationsContract,
 } from "../../typechain-truffle";
 import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
@@ -68,6 +69,7 @@ export async function deployContracts(
   const Supply = artifacts.require("IISupplyGovernance");
   const FdcHub: FdcHubContract = artifacts.require("FdcHub");
   const FdcInflationConfigurations: FdcInflationConfigurationsContract = artifacts.require("FdcInflationConfigurations");
+  const FdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FdcRequestFeeConfigurations");
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
@@ -365,6 +367,9 @@ export async function deployContracts(
   const fdcInflationConfigurations = await FdcInflationConfigurations.new(governanceSettings, deployerAccount.address, deployerAccount.address);
   spewNewContractInfo(contracts, null, FdcInflationConfigurations.contractName, `FdcInflationConfigurations.sol`, fdcInflationConfigurations.address, quiet);
 
+  const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(governanceSettings, deployerAccount.address);
+  spewNewContractInfo(contracts, null, FdcRequestFeeConfigurations.contractName, `FdcRequestFeeConfigurations.sol`, fdcRequestFeeConfigurations.address, quiet);
+
   if (parameters.pChainStakeEnabled) {
     await flareSystemsCalculator.enablePChainStakeMirror();
     await rewardManager.enablePChainStakeMirror();
@@ -496,7 +501,8 @@ export async function deployContracts(
       Contracts.FTSO_INFLATION_CONFIGURATIONS,
       Contracts.FTSO_FEED_DECIMALS,
       Contracts.INFLATION,
-      Contracts.FDC_INFLATION_CONFIGURATIONS
+      Contracts.FDC_INFLATION_CONFIGURATIONS,
+      Contracts.FDC_REQUEST_FEE_CONFIGURATIONS
     ]),
     [
       addressUpdater,
@@ -505,13 +511,14 @@ export async function deployContracts(
       ftsoInflationConfigurations.address,
       ftsoFeedDecimals.address,
       inflation,
-      fdcInflationConfigurations.address
+      fdcInflationConfigurations.address,
+      fdcRequestFeeConfigurations.address
     ]
   );
 
   await fdcInflationConfigurations.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FDC_HUB]),
-    [addressUpdater, fdcHub.address]
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FDC_REQUEST_FEE_CONFIGURATIONS]),
+    [addressUpdater, fdcRequestFeeConfigurations.address]
   );
 
   // set initial voter data on entity manager
@@ -557,7 +564,7 @@ export async function deployContracts(
 
   // set fdc request fee configurations
   for (const fdcRequestFee of parameters.fdcRequestFees) {
-    await fdcHub.setTypeAndSourceFee(
+    await fdcRequestFeeConfigurations.setTypeAndSourceFee(
       web3.utils.utf8ToHex(fdcRequestFee.attestationType).padEnd(66, "0"),
       web3.utils.utf8ToHex(fdcRequestFee.source).padEnd(66, "0"),
       fdcRequestFee.feeWei

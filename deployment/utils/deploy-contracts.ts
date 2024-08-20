@@ -19,6 +19,7 @@ import {
   FdcHubContract,
   FdcHubInstance,
   FdcInflationConfigurationsContract,
+  FdcRequestFeeConfigurationsContract,
   FlareSystemsCalculatorContract,
   FlareSystemsCalculatorInstance,
   FlareSystemsManagerContract,
@@ -155,6 +156,7 @@ export async function deployContracts(
   const NodePossessionVerifier: NodePossessionVerifierContract = hre.artifacts.require("NodePossessionVerifier");
   const FdcHub: FdcHubContract = hre.artifacts.require("FdcHub");
   const FdcInflationConfigurations: FdcInflationConfigurationsContract = hre.artifacts.require("FdcInflationConfigurations");
+  const FdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = hre.artifacts.require("FdcRequestFeeConfigurations");
 
   const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract =
     artifacts.require("FastUpdateIncentiveManager");
@@ -406,6 +408,7 @@ export async function deployContracts(
 
   const fdcHub = await FdcHub.new(governanceSettings.address, governanceAccount.address, ADDRESS_UPDATER_ADDR, 30);
   const fdcInflationConfigurations = await FdcInflationConfigurations.new(governanceSettings.address, governanceAccount.address, ADDRESS_UPDATER_ADDR);
+  const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(governanceSettings.address, governanceAccount.address);
 
   await flareSystemsCalculator.enablePChainStakeMirror({ from: governanceAccount.address });
   await rewardManager.enablePChainStakeMirror({ from: governanceAccount.address });
@@ -621,15 +624,16 @@ export async function deployContracts(
       Contracts.FLARE_SYSTEMS_MANAGER,
       Contracts.REWARD_MANAGER,
       Contracts.INFLATION,
-      Contracts.FDC_INFLATION_CONFIGURATIONS
+      Contracts.FDC_INFLATION_CONFIGURATIONS,
+      Contracts.FDC_REQUEST_FEE_CONFIGURATIONS
     ]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, rewardManager.address, INFLATION_ADDR, fdcInflationConfigurations.address],
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, rewardManager.address, INFLATION_ADDR, fdcInflationConfigurations.address, fdcRequestFeeConfigurations.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
   await fdcInflationConfigurations.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FDC_HUB]),
-    [ADDRESS_UPDATER_ADDR, fdcHub.address],
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FDC_REQUEST_FEE_CONFIGURATIONS]),
+    [ADDRESS_UPDATER_ADDR, fdcRequestFeeConfigurations.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -658,7 +662,7 @@ export async function deployContracts(
 
   const testSGB = web3.utils.utf8ToHex("testSGB").padEnd(66, "0");
 
-  await fdcHub.setTypeAndSourceFee(EVMTransactionType, testSGB, "1", { from: governanceAccount.address });
+  await fdcRequestFeeConfigurations.setTypeAndSourceFee(EVMTransactionType, testSGB, "1", { from: governanceAccount.address });
 
   await fdcInflationConfigurations.addFdcConfiguration(
     {
