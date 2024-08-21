@@ -640,8 +640,8 @@ async function runVotingRound(
   }
 
   logger.info(`Running voting protocol for round ${votingRoundId}, reward epoch: ${rewardEpochId}`);
-
-  const previousMerkleRoot = await c.relay.getConfirmedMerkleRoot(FTSO_PROTOCOL_ID, votingRoundId - 2);
+  // NOTE: access to merkle roots will work if relay not in production mode
+  const previousMerkleRoot = await c.relay.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId - 2);
   logger.info(`Confirmed merkle root in the last round ${votingRoundId - 2}: ${previousMerkleRoot}`);
 
   if (!skipSubmit) {

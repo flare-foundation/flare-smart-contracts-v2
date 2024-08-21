@@ -89,7 +89,7 @@ interface IRelay {
      *       it is valid, the merkleRoot is published for protocolId and votingRoundId.
      * Reverts if relaying is not successful.
      */
-    function relay() external payable returns (bytes memory);
+    function relay() external returns (bytes memory);
 
     /**
      * Returns the signing policy hash for given reward epoch id.
@@ -141,16 +141,6 @@ interface IRelay {
      * @return _votingRoundId The voting round id.
      */
     function getVotingRoundId(uint256 _timestamp) external view returns (uint256 _votingRoundId);
-
-    // /**
-    //  * Returns the confirmed merkle root for given protocol id and voting round id.
-    //  * @param _protocolId The protocol id.
-    //  * @param _votingRoundId The voting round id.
-    //  * @return _merkleRoot The confirmed merkle root.
-    //  */
-    // function getConfirmedMerkleRoot(uint256 _protocolId, uint256 _votingRoundId)
-    //     external view
-    //     returns (bytes32 _merkleRoot);
 
     /**
      * Returns last initialized reward epoch data.

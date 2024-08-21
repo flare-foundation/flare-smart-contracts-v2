@@ -194,9 +194,9 @@ contract Relay is IIRelay {
     // isInProduction
     bool public isInProduction;
     // fee collection address
-    address payable public feeCollectionAddressInternal;
+    address payable public feeCollectionAddress;
     // fee for verify or relay verify in wei
-    uint256 public verifyFeeWei;
+    uint256 public verificationFeeWei;
 
     /// The state of the relay contract.
     StateData public stateData;
@@ -210,7 +210,7 @@ contract Relay is IIRelay {
     /// Only signingPolicySetter address/contract can call this method.
     modifier onlySigningPolicyGetter() {
         require(
-            msg.sender == signingPolicySetter || signingPolicyGetters[msg.sender], 
+            msg.sender == signingPolicySetter || msg.sender == deployer || signingPolicyGetters[msg.sender], 
             "only sign policy getter"
         );
         _;
@@ -218,14 +218,14 @@ contract Relay is IIRelay {
 
     /// Only signingPolicySetter address/contract can call this method.
     modifier onlyDirectMerkleRootGetter() {
-        require(merkleRootGetters[msg.sender], "only direct merkle root access");
+        require(msg.sender == deployer || merkleRootGetters[msg.sender], "only direct merkle root access");
         _;
     }
 
     /// This method can be called by deployer and only if not in production.
-    modifier onlyIfNotInProduction() {
-        require(msg.sender == deployer, "only deployer");
+    modifier onlyIfNotInProduction() {        
         require(!isInProduction, "only if not in production");
+        require(msg.sender == deployer, "only deployer");
         _;
     }
     
@@ -264,15 +264,15 @@ contract Relay is IIRelay {
     /**
      * Sets the fee in wei.
      */
-    function setFeeInWei(uint256 _fee) external onlyIfNotInProduction {
-        verifyFeeWei = _fee;
+    function setFee(uint256 _feeInWei) external onlyIfNotInProduction {
+        verificationFeeWei = _feeInWei;
     }
 
     /**
      * Sets the fee collection address.
      */
     function setFeeCollectionAddress(address payable _feeCollectionAddress) external onlyIfNotInProduction {
-        feeCollectionAddressInternal = _feeCollectionAddress;
+        feeCollectionAddress = _feeCollectionAddress;
     }
 
     /**
@@ -301,6 +301,7 @@ contract Relay is IIRelay {
      */
     function setInProduction() external onlyIfNotInProduction {
         isInProduction = true;
+        deployer = address(0);
     }
 
     /**
@@ -310,7 +311,7 @@ contract Relay is IIRelay {
         if (hasZeroFee[_sender]) {
             return 0;
         }
-        return verifyFeeWei;
+        return verificationFeeWei;
     }
 
     /**
@@ -473,14 +474,13 @@ contract Relay is IIRelay {
             "too old signing policy"
         );
 
-        verifyFeeWei = _config.newFee; 
+        verificationFeeWei = _config.newFee; 
     }
 
     /**
      * @inheritdoc IRelay
      */
-    function relay() external payable returns (bytes memory){
-        require(msg.value >= requiredFee(msg.sender), "too low fee");
+    function relay() external returns (bytes memory){
         // solhint-disable-next-line no-inline-assembly
         assembly {
             // Helper function to revert with a message
@@ -828,10 +828,15 @@ contract Relay is IIRelay {
                 }
 
                 // the expected reward epoch id
-                let messageRewardEpochId := rewardEpochIdFromVotingRoundId(
-                    mload(add(memPtrGP0, M_5_stateData)),
-                    votingRoundId
-                )
+                // for direct message signing (protocolId == 1)
+                let messageRewardEpochId := rewardEpochId
+
+                if iszero(eq(protocolId, 1)) {
+                    messageRewardEpochId := rewardEpochIdFromVotingRoundId(
+                        mload(add(memPtrGP0, M_5_stateData)),
+                        votingRoundId
+                    )
+                }
 
                 // Given a signing policy for reward epoch R one can sign either messages
                 // in reward epochs R or later
@@ -866,7 +871,7 @@ contract Relay is IIRelay {
                 )
                 // in case the reward epoch id start gets delayed -> signing policy for earlier
                 // reward epoch must be provided
-                if lt(votingRoundId, startingVotingRoundId) {
+                if and(iszero(eq(protocolId, 1)), lt(votingRoundId, startingVotingRoundId)) {
                     revertWithMessage(memPtrGP0, "Delayed sign policy", 19)
                 }
 
@@ -1357,7 +1362,7 @@ contract Relay is IIRelay {
         require(_proof.verifyCalldata(merkleRootsPrivate[_protocolId][_votingRoundId], _leaf), "merkle proof invalid");
         /* solhint-disable avoid-low-level-calls */
         //slither-disable-next-line arbitrary-send-eth
-        (bool success, ) = feeCollectionAddressInternal.call{value: msg.value}("");
+        (bool success, ) = feeCollectionAddress.call{value: msg.value}("");
         /* solhint-enable avoid-low-level-calls */
         require(success, "Transfer failed");
 
@@ -1392,16 +1397,6 @@ contract Relay is IIRelay {
         require(_timestamp >= stateData.firstVotingRoundStartTs, "before the start");
         return (_timestamp - stateData.firstVotingRoundStartTs) / stateData.votingEpochDurationSeconds;
     }
-
-    // /**
-    //  * @inheritdoc IRelay
-    //  */
-    // function getConfirmedMerkleRoot(uint256 _protocolId, uint256 _votingRoundId) external view returns (bytes32) {
-    //     if (_protocolId == 0) {
-    //         return toSigningPolicyHash[_votingRoundId];
-    //     }
-    //     return merkleRootsPrivate[_protocolId][_votingRoundId];
-    // }
 
     /**
      * @inheritdoc IRelay

@@ -84,8 +84,9 @@ export async function provideRandomNumberForInitialRewardEpoch(
         }
         break;
       }
-      const votingRoundId = (await relay.getVotingRoundId(latestBlock.timestamp)).toNumber();
-      const merkleRootHash = await relay.getConfirmedMerkleRoot(parameters.ftsoProtocolId, votingRoundId);
+      const votingRoundId = (await relay.getVotingRoundId(latestBlock.timestamp)).toNumber()
+      // NOTE: access to merkle roots will work if relay not in production mode
+      const merkleRootHash = await relay.merkleRoots(parameters.ftsoProtocolId, votingRoundId);
       if (merkleRootHash === ZERO_BYTES32) {
         const random = new Uint32Array(1);
         crypto.getRandomValues(random);
