@@ -277,7 +277,8 @@ contract FtsoProxyTest is Test {
     }
 
     function testGetRandom() public {
-        // todo
+        vm.expectRevert("not supported");
+        ftsoProxyFLR.getRandom(1);
     }
 
     function testGetCurrentPriceFromTrustedProviders() public {
