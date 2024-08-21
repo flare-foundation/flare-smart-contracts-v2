@@ -73,6 +73,7 @@ import {
 import { getLogger } from "./logger";
 import { testDeployGovernanceSettings } from "./contract-helpers";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
+import { RelayInitialConfig } from "./RelayInitialConfig";
 
 export interface DeployedContracts {
   readonly flareDaemon: TestableFlareDaemonInstance;
@@ -296,18 +297,22 @@ export async function deployContracts(
     0
   );
 
+  const relayInitialConfig: RelayInitialConfig = {
+    initialRewardEpochId: initialSigningPolicy.rewardEpochId,
+    startingVotingRoundIdForInitialRewardEpochId: initialSigningPolicy.startVotingRoundId,
+    initialSigningPolicyHash: getSigningPolicyHash(initialSigningPolicy),
+    randomNumberProtocolId: FTSO_PROTOCOL_ID,
+    firstVotingRoundStartTs: settings.firstVotingRoundStartTs,
+    votingEpochDurationSeconds: settings.votingEpochDurationSeconds,
+    firstRewardEpochStartVotingRoundId: settings.firstRewardEpochStartVotingRoundId,
+    rewardEpochDurationInVotingEpochs: settings.rewardEpochDurationInVotingEpochs,
+    thresholdIncreaseBIPS: 12000,
+    messageFinalizationWindowInRewardEpochs: 100,
+  }
+
   const relay = await Relay.new(
+    relayInitialConfig,
     flareSystemsManager.address,
-    initialSigningPolicy.rewardEpochId,
-    initialSigningPolicy.startVotingRoundId,
-    getSigningPolicyHash(initialSigningPolicy),
-    FTSO_PROTOCOL_ID,
-    settings.firstVotingRoundStartTs,
-    settings.votingEpochDurationSeconds,
-    settings.firstRewardEpochStartVotingRoundId,
-    settings.rewardEpochDurationInVotingEpochs,
-    12000,
-    100
   );
 
   const submission = await Submission.new(
@@ -560,6 +565,10 @@ export async function deployContracts(
 
   // set initial reward data
   await rewardManager.setInitialRewardData();
+
+  // grant access to merkle roots to FtsoFeedPublisher. Set relay contract to production.
+  await relay.setMerkleTreeGetter(ftsoFeedPublisher.address, true);
+  await relay.setInProduction();
 
   // send some inflation funds
   const inflationFunds = hre.web3.utils.toWei("200000");
