@@ -283,7 +283,7 @@ contract FtsoFeedPublisherTest is Test {
     function _mockGetVotingRoundId(uint256 _blockTs, uint256 _roundId) private {
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getVotingRoundId.selector, _blockTs),
+            abi.encodeWithSelector(IRelayNonPayable.getVotingRoundId.selector, _blockTs),
             abi.encode(_roundId)
         );
     }

@@ -25,7 +25,8 @@ interface IRelay {
     struct RelayGovernanceConfig {
         bytes32 descriptionHash;        // Description hash (should be keccak256("RelayGovernance")
         uint256 chainId;                // Chain id on which is the relay is deployed
-        uint256 newFee;                 // New fee in wei 
+        uint8 protocolId;               // Protocol id for wich the new fee is set
+        uint256 newFeeInWei;            // New fee in wei 
     }
 
     // Event is emitted when a new signing policy is initialized by the signing policy setter.
@@ -65,7 +66,7 @@ interface IRelay {
      * If the check is successful, the relay contract is configured with the new _config data, which
      * in particular means that addresses of certaion external contracts are changed.
      */
-    function governanceSetup(bytes calldata _relayMessage, RelayGovernanceConfig calldata _config) external payable;
+    function governanceFeeSetup(bytes calldata _relayMessage, RelayGovernanceConfig calldata _config) external;
 
     /**
      * Finalization function for new signing policies and protocol messages.
@@ -99,12 +100,11 @@ interface IRelay {
     function toSigningPolicyHash(uint256 _rewardEpochId) external view returns (bytes32 _signingPolicyHash);
 
     /**
-     * Returns the Merkle root for given protocol id and voting round id.
+     * Returns true if there is finalization for a given protocol id and voting round id.
      * @param _protocolId The protocol id.
      * @param _votingRoundId The voting round id.
-     * @return _merkleRoot The Merkle root.
      */
-    function merkleRoots(uint256 _protocolId, uint256 _votingRoundId) external view returns (bytes32 _merkleRoot);
+    function isFinalized(uint256 _protocolId, uint256 _votingRoundId) external view returns (bool);
 
     /**
      * Returns the start voting round id for given reward epoch id.
@@ -153,4 +153,15 @@ interface IRelay {
             uint32 _lastInitializedRewardEpoch,
             uint32 _startingVotingRoundIdForLastInitializedRewardEpoch
         );
+
+    /**
+     * Returns fee collection address.
+     */
+    function feeCollectionAddress() external view returns (address payable);
+
+    /**
+     * Returns fee one verification in wei.
+     */
+    function protocolFeeInWei(uint256 _protocolId) external view returns (uint256);
+
 }

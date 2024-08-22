@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/staking/interface/IIPChainStakeMirrorVerifier.sol";
 import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirrorMultiSigVoting.sol";
-import "../../userInterfaces/IRelay.sol";
+import "../../userInterfaces/IRelayNonPayable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
@@ -15,7 +15,7 @@ contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
     uint256 public constant P_CHAIN_STAKE_MIRROR_PROTOCOL_ID = 1;
 
     /// Relay contract with voted Merkle roots.
-    IRelay public immutable relay;
+    IRelayNonPayable public immutable relay;
     /// P-chain stake mirror voting contract with voted Merkle roots.
     IPChainStakeMirrorMultiSigVoting public immutable pChainStakeMirrorVoting;
 
@@ -39,7 +39,7 @@ contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
      */
     constructor(
         IPChainStakeMirrorMultiSigVoting _pChainStakeMirrorVoting,
-        IRelay _relay,
+        IRelayNonPayable _relay,
         uint256 _minStakeDurationSeconds,
         uint256 _maxStakeDurationSeconds,
         uint256 _minStakeAmountGwei,
@@ -75,22 +75,10 @@ contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
             _stakeData.weight >= minStakeAmountGwei &&
             _stakeData.weight <= maxStakeAmountGwei &&
             _verifyMerkleProof(
+                _stakeData.startTime,
                 _merkleProof,
-                _merkleRootForStartTime(_stakeData.startTime),
                 _hashPChainStaking(_stakeData)
             );
-    }
-
-    /**
-     * Gets the Merkle root for the given start time.
-     * @param _startTime The start time.
-     * @return _merkleRoot The Merkle root.
-     */
-    function _merkleRootForStartTime(uint256 _startTime) internal view returns(bytes32 _merkleRoot) {
-        _merkleRoot = relay.merkleRoots(P_CHAIN_STAKE_MIRROR_PROTOCOL_ID, relay.getVotingRoundId(_startTime));
-        if (_merkleRoot == bytes32(0)) {
-            _merkleRoot = pChainStakeMirrorVoting.getMerkleRoot(pChainStakeMirrorVoting.getEpochId(_startTime));
-        }
     }
 
     /**
@@ -103,20 +91,25 @@ contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
     }
 
     /**
-     * Verifies the Merkle proof.
+     * Verifies the Merkle proof for the Merkle root obtained according to start time.
+     * @param _startTime The start time 
      * @param _proof The Merkle proof.
-     * @param _merkleRoot The Merkle root.
      * @param _leaf The leaf.
      * @return True if the proof is valid.
      */
     function _verifyMerkleProof(
+        uint256 _startTime,
         bytes32[] memory _proof,
-        bytes32 _merkleRoot,
         bytes32 _leaf
     )
-        internal pure
+        internal view
         returns (bool)
     {
+        // TODO: Is this a sufficient condition. What if no finalization yet?
+        if(relay.isFinalized(P_CHAIN_STAKE_MIRROR_PROTOCOL_ID, relay.getVotingRoundId(_startTime))) {
+            return relay.verify(P_CHAIN_STAKE_MIRROR_PROTOCOL_ID, relay.getVotingRoundId(_startTime), _leaf, _proof);
+        }
+        bytes32 _merkleRoot = pChainStakeMirrorVoting.getMerkleRoot(pChainStakeMirrorVoting.getEpochId(_startTime));
         return _proof.verify(_merkleRoot, _leaf);
     }
 

@@ -21,10 +21,6 @@ const Relay = artifacts.require("Relay");
 const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
-async function initializeRelay(relay: RelayInstance, signers: SignerWithAddress[]) {
-  await relay.setMerkleTreeGetter(signers[11].address, true);
-  await relay.setSigningPolicyGetter(signers[10].address, true);
-}
 
 contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   // let accounts: Account[];
@@ -99,7 +95,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       relayInitialConfig,
       constants.ZERO_ADDRESS
     );
-    await initializeRelay(relay, signers);
   });
 
   let merkleRoot: string;
@@ -120,9 +115,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     const { _lastInitializedRewardEpoch, _startingVotingRoundIdForLastInitializedRewardEpoch } = await relay.lastInitializedRewardEpochData();
     expect(_lastInitializedRewardEpoch.toString()).to.equal(signingPolicyData.rewardEpochId.toString());
     expect(_startingVotingRoundIdForLastInitializedRewardEpoch.toString()).to.equal(signingPolicyData.startVotingRoundId.toString());
-    const obtainedSigningPolicyHash = await relay.toSigningPolicyHash(signingPolicyData.rewardEpochId, { from: signers[10].address });
-    const localHash = SigningPolicy.hashEncoded(signingPolicy);
-    expect(obtainedSigningPolicyHash).to.equal(localHash);
   });
 
   it("Should relay a message", async () => {
@@ -152,8 +144,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
-    const confirmedMerkleRoot = await relay.merkleRoots(messageData.protocolId, messageData.votingRoundId, { from: signers[11].address });
-    expect(confirmedMerkleRoot).to.equal(merkleRoot);
+    expect(await relay.isFinalized(messageData.protocolId, messageData.votingRoundId)).to.equal(true);
 
     let stateData = await relay.stateData();
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(messageData.protocolId.toString());
@@ -330,7 +321,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       relayInitialConfig,
       constants.ZERO_ADDRESS
     );
-    await initializeRelay(relay2, signers);
 
     const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
 
@@ -434,8 +424,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
-    const confirmedMerkleRoot = await relay.merkleRoots(newMessageData.protocolId, newMessageData.votingRoundId, { from: signers[11].address });
-    expect(confirmedMerkleRoot).to.equal(merkleRoot);
+    expect(await relay.isFinalized(newMessageData.protocolId, newMessageData.votingRoundId)).to.equal(true);
 
     let stateData = await relay.stateData();
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
@@ -496,9 +485,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
     const fullData = RelayMessage.encode(relayMessage);
 
-    const hashBefore = await relay.toSigningPolicyHash(newRewardEpoch, { from: signers[10].address });
-    expect(hashBefore).to.equal(ZERO_BYTES32);
-
     const receipt = await web3.eth.sendTransaction({
       from: signers[0].address,
       to: relay.address,
@@ -507,8 +493,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "SigningPolicyRelayed", {
       rewardEpochId: toBN(newSigningPolicyDataRelayed.rewardEpochId),
     });
-    const hashAfter = await relay.toSigningPolicyHash(newRewardEpoch, { from: signers[10].address });
-    expect(hashAfter).to.equal(localHash);
     const { _lastInitializedRewardEpoch, _startingVotingRoundIdForLastInitializedRewardEpoch } = await relay.lastInitializedRewardEpochData();
     expect(_lastInitializedRewardEpoch.toString()).to.equal(newRewardEpoch.toString());
     expect(_startingVotingRoundIdForLastInitializedRewardEpoch.toString()).to.equal(newSigningPolicyDataRelayed.startVotingRoundId.toString());
@@ -536,7 +520,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       relayInitialConfig,
       constants.ZERO_ADDRESS
     );
-    await initializeRelay(relay2, signers);
 
     let lastSigningPolicyData = signingPolicyData;
     for (let i = signingPolicyData.rewardEpochId + 1; i < signingPolicyData.rewardEpochId + MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS + 2; i++) {
@@ -572,8 +555,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       await expectEvent.inTransaction(receipt!.transactionHash, relay2, "SigningPolicyRelayed", {
         rewardEpochId: toBN(newSigningPolicyDataRelayed.rewardEpochId),
       });
-      const hashAfter = await relay2.toSigningPolicyHash(newRewardEpoch, { from: signers[10].address });
-      expect(hashAfter).to.equal(localHash);
       const { _lastInitializedRewardEpoch, _startingVotingRoundIdForLastInitializedRewardEpoch } = await relay2.lastInitializedRewardEpochData();
       expect(_lastInitializedRewardEpoch.toString()).to.equal(newRewardEpoch.toString());
       expect(_startingVotingRoundIdForLastInitializedRewardEpoch.toString()).to.equal(newSigningPolicyDataRelayed.startVotingRoundId.toString());
@@ -685,8 +666,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
-    const confirmedMerkleRoot = await relay.merkleRoots(newMessageData.protocolId, newMessageData.votingRoundId, { from: signers[11].address });
-    expect(confirmedMerkleRoot).to.equal(merkleRoot);
+    expect(await relay.isFinalized(newMessageData.protocolId, newMessageData.votingRoundId)).to.equal(true);
+    
 
     let stateData = await relay.stateData();
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
@@ -726,8 +707,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
-    const confirmedMerkleRoot = await relay.merkleRoots(newMessageData.protocolId, newMessageData.votingRoundId, { from: signers[11].address });
-    expect(confirmedMerkleRoot).to.equal(merkleRoot);
+    expect(await relay.isFinalized(newMessageData.protocolId, newMessageData.votingRoundId)).to.equal(true);
 
     let stateData = await relay.stateData();
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
@@ -984,7 +964,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
@@ -1006,9 +985,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       const { _lastInitializedRewardEpoch, _startingVotingRoundIdForLastInitializedRewardEpoch } = await relay2.lastInitializedRewardEpochData();
       expect(_lastInitializedRewardEpoch.toString()).to.equal(newSigningPolicyData.rewardEpochId.toString());
       expect(_startingVotingRoundIdForLastInitializedRewardEpoch.toString()).to.equal(newSigningPolicyData.startVotingRoundId.toString());
-      const obtainedSigningPolicyHash = await relay2.toSigningPolicyHash(newSigningPolicyData.rewardEpochId, { from: signers[10].address });
-      const localHash = SigningPolicy.hash(newSigningPolicyData);
-      expect(obtainedSigningPolicyHash).to.equal(localHash);
 
     });
 
@@ -1031,7 +1007,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData };
 
@@ -1061,7 +1036,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig2,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const relayInitialConfig3: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -1080,7 +1054,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig3,
         constants.ZERO_ADDRESS
       );
-      await initializeRelay(relay3, signers);
 
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
@@ -1115,7 +1088,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
@@ -1143,7 +1115,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
@@ -1169,7 +1140,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData, rewardEpochId: signingPolicyData.rewardEpochId + 1, weights: [...signingPolicyData.weights] };
       let totalWeight = 0;
@@ -1213,8 +1183,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
-
 
       const newSigningPolicyData = { ...signingPolicyData };
       const newRewardEpoch = newSigningPolicyData.rewardEpochId + 1;
@@ -1273,7 +1241,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig2,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const relayInitialConfig3: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -1292,7 +1259,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig3,
         constants.ZERO_ADDRESS
       );
-      await initializeRelay(relay3, signers);
 
       await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too many voters");
       await expect(
@@ -1346,7 +1312,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig2,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const relayInitialConfig3: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -1365,7 +1330,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig3,
         constants.ZERO_ADDRESS
       );
-      await initializeRelay(relay3, signers);
 
       newSigningPolicyData.weights[0] = 2 ** 16 - 1;
       await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "total weight too big");
@@ -1464,28 +1428,13 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   });
 
   describe("Access functions and production mode", async () => {
-    it("Should access to merkle roots work correctly", async () => {
-      expect(await relay.isInProduction()).to.be.false;
-      // deployer should have access if not in production mode
-      const merkleRoot = await relay.merkleRoots(messageData.protocolId, messageData.votingRoundId, { from: signers[0].address });
-      expect(await relay.merkleRoots(messageData.protocolId, messageData.votingRoundId, { from: signers[11].address })).to.equal(merkleRoot);
-      await expectRevert(relay.merkleRoots(messageData.protocolId, messageData.votingRoundId, { from: signers[1].address }), "only direct merkle root access");
-    });
-
-    it("Should access to signing policy hash work correctly", async () => {
-      expect(await relay.isInProduction()).to.be.false;
-      // deployer should have access if not in production mode
-      const signingPolicyHash = await relay.toSigningPolicyHash(rewardEpochId, { from: signers[0].address });
-      expect(await relay.toSigningPolicyHash(rewardEpochId, { from: signers[10].address })).to.equal(signingPolicyHash);
-      await expectRevert(relay.toSigningPolicyHash(rewardEpochId, { from: signers[1].address }), "only sign policy getter");
-    });
 
     it("Should be able to set fee", async () => {
-      expect(await relay.verificationFeeWei()).to.equal(0);
+      expect(await relay.protocolFeeInWei(randomNumberProtocolId)).to.equal(0);
       const newFee = 1000;
-      await expectRevert(relay.setFee(newFee, { from: signers[1].address }), "only deployer");
-      await relay.setFee(newFee);
-      expect((await relay.verificationFeeWei()).toNumber()).to.equal(newFee);
+      await expectRevert(relay.setFee(randomNumberProtocolId, newFee, { from: signers[1].address }), "only deployer");
+      await relay.setFee(randomNumberProtocolId, newFee);
+      expect((await relay.protocolFeeInWei(randomNumberProtocolId)).toNumber()).to.equal(newFee);
     });
 
     it("Should be able to set fee collection address", async () => {
@@ -1499,15 +1448,10 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     it("Should production mode work", async () => {
       await relay.setInProduction();
       expect(await relay.isInProduction()).to.be.true;
-      await expectRevert(relay.merkleRoots(messageData.protocolId, messageData.votingRoundId, { from: signers[0].address }), "only direct merkle root access");
-      await expectRevert(relay.toSigningPolicyHash(rewardEpochId, { from: signers[0].address }), "only sign policy getter");
       await expectRevert(relay.setFeeCollectionAddress(BURN_ADDRESS, { from: signers[0].address }), "only if not in production");
 
-      expect(await relay.merkleRoots(messageData.protocolId, messageData.votingRoundId, { from: signers[11].address })).to.exist;
-      await expectRevert(relay.merkleRoots(messageData.protocolId, messageData.votingRoundId, { from: signers[1].address }), "only direct merkle root access");
+      expect(await relay.isFinalized(messageData.protocolId, messageData.votingRoundId)).to.equal(true);
 
-      expect(await relay.toSigningPolicyHash(rewardEpochId, { from: signers[10].address })).to.exist;
-      await expectRevert(relay.toSigningPolicyHash(rewardEpochId, { from: signers[1].address }), "only sign policy getter");
     });
   });
 
@@ -1540,7 +1484,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig,
         constants.ZERO_ADDRESS
       );
-      await initializeRelay(relay, signers);
   
       const makeHashes = (i: number, shiftSeed = 0) =>
         new Array(i).fill(0).map((x, i) => ethers.keccak256(ethers.toBeHex(shiftSeed + i)));
@@ -1577,7 +1520,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       expect(oldBalance).to.equal("0");
       await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof);      
       await relay.setFeeCollectionAddress(BURN_ADDRESS);
-      await relay.setFee(1000);
+      await relay.setFee(newMessageData.protocolId, 1000);
       await expectRevert(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof), "too low fee");
       await expectRevert(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, {value: 999}), "too low fee");
       await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, {value: 1000});
@@ -1615,7 +1558,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         relayInitialConfig,
         constants.ZERO_ADDRESS
       );
-      await initializeRelay(relay, signers);
   
       const specificHash = web3.utils.keccak256("Something");
 

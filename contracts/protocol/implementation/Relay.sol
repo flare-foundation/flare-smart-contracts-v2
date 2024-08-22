@@ -183,20 +183,14 @@ contract Relay is IIRelay {
     /// The address of the signing policy setter (zero if disabled).
     address public signingPolicySetter;
 
-    // Addresses that have zero fee
-    mapping(address => bool) public hasZeroFee;
-    // Addresses that can get merkle root directly
-    mapping(address => bool) public merkleRootGetters;
-    // Addresses that can get signing policy hash directly
-    mapping(address => bool) public signingPolicyGetters;
+    // Fees in wei per protocol
+    mapping(uint256 => uint256) public protocolFeeInWei;
     // deployer
     address private deployer;
     // isInProduction
     bool public isInProduction;
     // fee collection address
     address payable public feeCollectionAddress;
-    // fee for verify or relay verify in wei
-    uint256 public verificationFeeWei;
 
     /// The state of the relay contract.
     StateData public stateData;
@@ -204,21 +198,6 @@ contract Relay is IIRelay {
     /// Only signingPolicySetter address/contract can call this method.
     modifier onlySigningPolicySetter() {
         require(msg.sender == signingPolicySetter, "only sign policy setter");
-        _;
-    }
-
-    /// Only signingPolicySetter address/contract can call this method.
-    modifier onlySigningPolicyGetter() {
-        require(
-            msg.sender == signingPolicySetter || msg.sender == deployer || signingPolicyGetters[msg.sender], 
-            "only sign policy getter"
-        );
-        _;
-    }
-
-    /// Only signingPolicySetter address/contract can call this method.
-    modifier onlyDirectMerkleRootGetter() {
-        require(msg.sender == deployer || merkleRootGetters[msg.sender], "only direct merkle root access");
         _;
     }
 
@@ -264,36 +243,17 @@ contract Relay is IIRelay {
     /**
      * Sets the fee in wei.
      */
-    function setFee(uint256 _feeInWei) external onlyIfNotInProduction {
-        verificationFeeWei = _feeInWei;
+    function setFee(uint256 _protocolId, uint256 _feeInWei) external onlyIfNotInProduction {
+        require(signingPolicySetter == address(0), "fee cannot be set");
+        protocolFeeInWei[_protocolId] = _feeInWei;
     }
 
     /**
      * Sets the fee collection address.
      */
     function setFeeCollectionAddress(address payable _feeCollectionAddress) external onlyIfNotInProduction {
+        require(signingPolicySetter == address(0), "collection address cannot be set");
         feeCollectionAddress = _feeCollectionAddress;
-    }
-
-    /**
-     * Sets or resets the merkle root getter address.
-     */
-    function setMerkleTreeGetter(address _address, bool _value) external onlyIfNotInProduction {
-        merkleRootGetters[_address] = _value;
-    }
-
-    /**
-     * Sets or resets the signing policy hash getter address.
-     */
-    function setSigningPolicyGetter(address _address, bool _value) external onlyIfNotInProduction {
-        signingPolicyGetters[_address] = _value;
-    }
-
-    /**
-     * Sets or resets the a zero fee address.
-     */
-    function setZeroFee(address _address, bool _value) external onlyIfNotInProduction {
-        hasZeroFee[_address] = _value;
     }
 
     /**
@@ -307,11 +267,11 @@ contract Relay is IIRelay {
     /**
      * Returns required fee in wei for given address.
      */
-    function requiredFee(address _sender) internal view returns (uint256) {
-        if (hasZeroFee[_sender]) {
+    function requiredFee(uint256 _protocolId) internal view returns (uint256) {
+        if(signingPolicySetter != address(0)) {
             return 0;
         }
-        return verificationFeeWei;
+        return protocolFeeInWei[_protocolId];
     }
 
     /**
@@ -448,12 +408,13 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
-    function governanceSetup(bytes calldata _relayMessage, RelayGovernanceConfig calldata _config) external payable {
+    function governanceFeeSetup(bytes calldata _relayMessage, RelayGovernanceConfig calldata _config) external {
+        require(signingPolicySetter == address(0), "fee cannot be set");
         require(_config.chainId == block.chainid, "wrong chain id");
         require(_config.descriptionHash == keccak256("RelayGovernance"), "wrong description hash");
         /* solhint-disable avoid-low-level-calls */
         //slither-disable-next-line arbitrary-send-eth
-        (bool success, bytes memory returnData) = address(this).call{value: msg.value}(_relayMessage);
+        (bool success, bytes memory returnData) = address(this).call(_relayMessage);
         /* solhint-enable avoid-low-level-calls */
         require(success, "Verification failed");
         // 32 bytes hash + 2 bytes reward epoch id
@@ -473,8 +434,7 @@ contract Relay is IIRelay {
             stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId,
             "too old signing policy"
         );
-
-        verificationFeeWei = _config.newFee; 
+        protocolFeeInWei[_config.protocolId] = _config.newFeeInWei;
     }
 
     /**
@@ -1344,11 +1304,11 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
-    function merkleRoots(uint256 _protocolId, uint256 _votingRoundId) 
-        external view onlyDirectMerkleRootGetter
-        returns (bytes32 _merkleRoot)
+    function isFinalized(uint256 _protocolId, uint256 _votingRoundId) 
+        external view
+        returns (bool)
     {
-        return merkleRootsPrivate[_protocolId][_votingRoundId];
+        return merkleRootsPrivate[_protocolId][_votingRoundId] != bytes32(0);
     }
 
     /**
@@ -1358,7 +1318,7 @@ contract Relay is IIRelay {
         external payable
         returns (bool)
     {
-        require(msg.value >= requiredFee(msg.sender), "too low fee");
+        require(msg.value >= requiredFee(_protocolId), "too low fee");
         require(_proof.verifyCalldata(merkleRootsPrivate[_protocolId][_votingRoundId], _leaf), "merkle proof invalid");
         /* solhint-disable avoid-low-level-calls */
         //slither-disable-next-line arbitrary-send-eth
@@ -1401,7 +1361,7 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
-    function toSigningPolicyHash(uint256 _rewardEpochId) external view onlySigningPolicyGetter returns (bytes32) {
+    function toSigningPolicyHash(uint256 _rewardEpochId) external view onlySigningPolicySetter returns (bytes32) {
         return toSigningPolicyHashPrivate[_rewardEpochId];
     }
 
