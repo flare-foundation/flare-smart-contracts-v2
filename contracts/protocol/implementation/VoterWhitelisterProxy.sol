@@ -2,13 +2,12 @@
 pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/genesis/interface/IIPriceSubmitter.sol";
-import "../../governance/implementation/Governed.sol";
 
 /**
  * VoterWhitelisterProxy contract.
  */
 
-contract VoterWhitelisterProxy is Governed {
+contract VoterWhitelisterProxy {
 
     /// Address of the PriceSubmitter contract set at construction time.
     IIPriceSubmitter public immutable priceSubmitter;
@@ -21,11 +20,8 @@ contract VoterWhitelisterProxy is Governed {
     event VoterRemovedFromWhitelist(address voter, uint256 ftsoIndex);
 
     constructor(
-        IGovernanceSettings _governanceSettings,
-        address _initialGovernance,
         IIPriceSubmitter _priceSubmitter
     )
-        Governed(_governanceSettings, _initialGovernance)
     {
         priceSubmitter = _priceSubmitter;
     }
@@ -35,7 +31,7 @@ contract VoterWhitelisterProxy is Governed {
      * @param _removedVoters Array of addresses to remove from the whitelist.
      * @param _ftsoIndex Index of the FTSO for which to remove voters from the whitelist.
      */
-    function votersRemovedFromWhitelist(address[] memory _removedVoters, uint256 _ftsoIndex) external onlyGovernance {
+    function votersRemovedFromWhitelist(address[] memory _removedVoters, uint256 _ftsoIndex) external {
         for (uint256 i = 0; i < _removedVoters.length; i++) {
             emit VoterRemovedFromWhitelist(_removedVoters[i], _ftsoIndex);
         }

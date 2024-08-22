@@ -13,7 +13,6 @@ contract VoterWhitelisterProxyTest is Test {
     address private mockFtsoManager;
     address private mockFtsoRegistry;
     address private addressUpdater;
-    address private governance;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -22,7 +21,6 @@ contract VoterWhitelisterProxyTest is Test {
 
     function setUp() public {
         addressUpdater = makeAddr("addressUpdater");
-        governance = makeAddr("governance");
 
         // price submitter
         deployCodeTo(
@@ -38,8 +36,6 @@ contract VoterWhitelisterProxyTest is Test {
 
         // voter whitelister proxy
         voterWhitelisterProxy = new VoterWhitelisterProxy(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
             priceSubmitter
         );
 
@@ -74,7 +70,6 @@ contract VoterWhitelisterProxyTest is Test {
         priceSubmitter.voterWhitelisted(voters[99], 2);
         vm.stopPrank();
 
-        vm.startPrank(governance);
         // remove voters from whitelist for ftso with index 0
         for (uint256 i = 0; i < 100; i++) {
             vm.expectEmit();

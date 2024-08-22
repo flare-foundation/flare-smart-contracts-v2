@@ -121,8 +121,8 @@ interface IRewardManager {
     function noOfInitialisedWeightBasedClaims(uint256 _rewardEpochId) external view returns (uint256);
 
     /**
-        * Indicates if the contract is active - claims are enabled.
-        */
+     * Indicates if the contract is active - claims are enabled.
+     */
     function active() external view returns (bool);
 
     /**
