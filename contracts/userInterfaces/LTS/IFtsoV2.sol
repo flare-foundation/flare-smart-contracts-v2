@@ -2,7 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 /**
- * FtsoV2 interface.
+ * FtsoV2 long term support interface.
  */
 interface IFtsoV2 {
 

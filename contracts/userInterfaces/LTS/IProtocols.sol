@@ -4,7 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 /**
  * Protocols long term support interface.
  */
-interface IProtocolsLTS {
+interface IProtocols {
 
     /**
      * Timestamp when the first reward epoch started, in seconds since UNIX epoch.

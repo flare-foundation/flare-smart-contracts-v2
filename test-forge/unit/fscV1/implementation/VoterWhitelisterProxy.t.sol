@@ -2,8 +2,9 @@
 pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/VoterWhitelisterProxy.sol";
-import "../interface/IIIPriceSubmitter.sol";
+import "../../../../contracts/fscV1/implementation/VoterWhitelisterProxy.sol";
+import "../../../../contracts/mock/IIIPriceSubmitter.sol";
+
 
 contract VoterWhitelisterProxyTest is Test {
 

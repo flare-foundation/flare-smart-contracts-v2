@@ -4,7 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 /**
  * Rewards long term support interface.
  */
-interface IRewardsLTS {
+interface IRewards {
 
     /// Claim type enum.
     enum ClaimType { DIRECT, FEE, WNAT, MIRROR, CCHAIN }

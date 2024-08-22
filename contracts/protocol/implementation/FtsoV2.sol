@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../userInterfaces/IFtsoV2.sol";
+import "../../userInterfaces/LTS/IFtsoV2.sol";
 import "../../userInterfaces/IFastUpdater.sol";
 import "../../userInterfaces/IFastUpdatesConfiguration.sol";
 import "../../userInterfaces/IRelay.sol";

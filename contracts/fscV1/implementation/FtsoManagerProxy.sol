@@ -5,8 +5,8 @@ import "flare-smart-contracts/contracts/tokenPools/interface/IIFtsoRewardManager
 import "flare-smart-contracts/contracts/ftso/interface/IIFtsoManager.sol";
 import "flare-smart-contracts/contracts/genesis/interface/IIPriceSubmitter.sol";
 import "flare-smart-contracts/contracts/utils/interface/IIFtsoRegistry.sol";
-import "../interface/IIRewardManager.sol";
-import "../interface/IIFlareSystemsManager.sol";
+import "../../protocol/interface/IIRewardManager.sol";
+import "../../protocol/interface/IIFlareSystemsManager.sol";
 import "../../fastUpdates/interface/IIFastUpdater.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/IFastUpdatesConfiguration.sol";
