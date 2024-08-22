@@ -11,7 +11,7 @@ contract PChainStakeMirrorVerifierTest is Test {
   function setUp() public {
     mockRelay = makeAddr("relay");
     IPChainStakeMirrorMultiSigVoting pChainStakeMirrorVoting = IPChainStakeMirrorMultiSigVoting(makeAddr("voting"));
-    verifier = new PChainStakeMirrorVerifier(pChainStakeMirrorVoting, IRelayNonPayable(mockRelay), 60, 2678400, 10, 1e8);
+    verifier = new PChainStakeMirrorVerifier(pChainStakeMirrorVoting, IRelay(mockRelay), 60, 2678400, 10, 1e8);
   }
 
   function testVerifyStake() public {

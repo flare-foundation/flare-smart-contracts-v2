@@ -417,6 +417,12 @@ contract FtsoV2Test is Test {
             body: feedData1
         });
 
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IRelay.merkleRoots.selector, 100, 2),
+            abi.encode(merkleRoot)
+        );
+
         assertTrue(ftsoV2.verifyFeedData(feedDataWithProof));
     }
 
@@ -445,6 +451,11 @@ contract FtsoV2Test is Test {
             body: feedData1
         });
 
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IRelay.merkleRoots.selector, 100, 2),
+            abi.encode(bytes32(0))
+        );
 
         vm.expectRevert("merkle proof invalid");
         ftsoV2.verifyFeedData(feedDataWithProof);

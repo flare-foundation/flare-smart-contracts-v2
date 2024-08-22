@@ -94,6 +94,8 @@ interface IRelay {
 
     /**
      * Returns the signing policy hash for given reward epoch id.
+     * The function is reverted if signingPolicySetter is set, hence on all
+     * deployments where the contract is used as a pure relay.
      * @param _rewardEpochId The reward epoch id.
      * @return _signingPolicyHash The signing policy hash.
      */
@@ -105,6 +107,16 @@ interface IRelay {
      * @param _votingRoundId The voting round id.
      */
     function isFinalized(uint256 _protocolId, uint256 _votingRoundId) external view returns (bool);
+
+    /**
+     * Returns the Merkle root for given protocol id and voting round id.
+     * The function is reverted if signingPolicySetter is set, hence on all
+     * deployments where the contract is used as a pure relay.
+     * @param _protocolId The protocol id.
+     * @param _votingRoundId The voting round id.
+     * @return _merkleRoot The Merkle root.
+     */
+    function merkleRoots(uint256 _protocolId, uint256 _votingRoundId) external view returns (bytes32 _merkleRoot);
 
     /**
      * Returns the start voting round id for given reward epoch id.

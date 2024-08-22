@@ -4,14 +4,16 @@ pragma solidity 0.8.20;
 import "../../userInterfaces/IFtsoV2.sol";
 import "../../userInterfaces/IFastUpdater.sol";
 import "../../userInterfaces/IFastUpdatesConfiguration.sol";
-import "../../userInterfaces/IRelayNonPayable.sol";
+import "../../userInterfaces/IRelay.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract FtsoV2 is IFtsoV2, AddressUpdatable {
+    using MerkleProof for bytes32[];
 
     IFastUpdater public fastUpdater;
     IFastUpdatesConfiguration public fastUpdatesConfiguration;
-    IRelayNonPayable public relay;
+    IRelay public relay;
 
     uint256 public constant FTSO_PROTOCOL_ID = 100;
 
@@ -41,10 +43,8 @@ contract FtsoV2 is IFtsoV2, AddressUpdatable {
      */
     function verifyFeedData(FeedDataWithProof calldata _feedData) external view returns (bool) {
         bytes32 feedHash = keccak256(abi.encode(_feedData.body));
-        require(
-            relay.verify(FTSO_PROTOCOL_ID, _feedData.body.votingRoundId, feedHash, _feedData.proof), 
-            "merkle proof invalid"
-        );
+        bytes32 merkleRoot = relay.merkleRoots(FTSO_PROTOCOL_ID, _feedData.body.votingRoundId);
+        require(_feedData.proof.verifyCalldata(merkleRoot, feedHash), "merkle proof invalid");
         return true;
     }
 
@@ -206,6 +206,6 @@ contract FtsoV2 is IFtsoV2, AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "FastUpdater"));
         fastUpdatesConfiguration = IFastUpdatesConfiguration(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FastUpdatesConfiguration"));
-        relay = IRelayNonPayable(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
+        relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 }

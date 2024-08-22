@@ -2,9 +2,10 @@
 pragma solidity 0.8.20;
 
 import "../interface/IIFtsoFeedPublisher.sol";
-import "../../userInterfaces/IRelayNonPayable.sol";
+import "../../userInterfaces/IRelay.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 
 /**
@@ -13,12 +14,13 @@ import "../../governance/implementation/Governed.sol";
  * This contract is used to publish the FTSO feeds.
  */
 contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
+    using MerkleProof for bytes32[];
 
     mapping(bytes21 feedId => Feed) internal lastFeeds;
     mapping(bytes21 feedId => mapping(uint256 feedHistoryPosition => Feed)) internal publishedFeeds;
 
     /// The Relay contract.
-    IRelayNonPayable public relay;
+    IRelay public relay;
     /// The FTSO protocol id.
     uint8 public immutable ftsoProtocolId;
     /// The size of the feeds history.
@@ -72,10 +74,8 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
                 publishedFeeds[feed.id][feedHistoryPosition].votingRoundId != feed.votingRoundId;
             if (addLastFeed || addHistoryFeed) {
                 bytes32 feedHash = keccak256(abi.encode(feed));
-                require(
-                    relay.verify(ftsoProtocolId, feed.votingRoundId, feedHash, proof.merkleProof), 
-                    "merkle proof invalid"
-                );
+                bytes32 merkleRoot = relay.merkleRoots(ftsoProtocolId, feed.votingRoundId);
+                require(proof.merkleProof.verifyCalldata(merkleRoot, feedHash), "merkle proof invalid");
                 if (addLastFeed) {
                     lastFeeds[feed.id] = feed;
                 }
@@ -149,7 +149,7 @@ contract FtsoFeedPublisher is Governed, AddressUpdatable, IIFtsoFeedPublisher {
     )
         internal override
     {
-        relay = IRelayNonPayable(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
+        relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
     /**

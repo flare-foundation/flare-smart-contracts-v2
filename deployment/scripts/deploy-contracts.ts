@@ -256,7 +256,6 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     parameters.ftsoProtocolId,
     parameters.feedsHistorySize
   );
-
   spewNewContractInfo(contracts, null, FtsoFeedPublisher.contractName, `FtsoFeedPublisher.sol`, ftsoFeedPublisher.address, quiet);
 
   const ftsoFeedIdConverter = await FtsoFeedIdConverter.new();

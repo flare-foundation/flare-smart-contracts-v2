@@ -763,10 +763,9 @@ contract Relay is IIRelay {
                 mstore(add(memPtrGP0, M_4), merkleRootsPrivate.slot) // merkleRoot slot
                 mstore(add(memPtrGP0, M_4), keccak256(add(memPtrGP0, M_3), 64))
                 mstore(add(memPtrGP0, M_3), votingRoundId) // key 2 (votingRoundId)
-                if gt(protocolId, 1) {
-                    if gt(sload(keccak256(add(memPtrGP0, M_3), 64)), 0) {
-                        revertWithMessage(memPtrGP0, "Already relayed", 15)
-                    }
+
+                if gt(sload(keccak256(add(memPtrGP0, M_3), 64)), 0) {
+                    revertWithMessage(memPtrGP0, "Already relayed", 15)
                 }
 
                 if eq(protocolId, 1) {
@@ -1182,10 +1181,6 @@ contract Relay is IIRelay {
                     }
 
                     if gt(protocolId, 0) {
-                        let votingRoundId := extractVotingRoundIdFromMessage(
-                            memPtrFor,
-                            signingPolicyLength
-                        )
                         // M_6_merkleRoot <- Merkle root
                         calldatacopy(
                             add(memPtrFor, M_6_merkleRoot),
@@ -1203,6 +1198,11 @@ contract Relay is IIRelay {
                             )
                             return (memPtrFor, add(32, REWARD_EPOCH_ID_BYTES))
                         }
+
+                        let votingRoundId := extractVotingRoundIdFromMessage(
+                            memPtrFor,
+                            signingPolicyLength
+                        )
 
                         // writing into the map
                         mstore(memPtrFor, protocolId) // key 1 (protocolId)
@@ -1314,6 +1314,17 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
+    function merkleRoots(uint256 _protocolId, uint256 _votingRoundId) 
+        external view
+        returns (bytes32 _merkleRoot)
+    {
+        require(signingPolicySetter != address(0), "no access to merkle roots");
+        return merkleRootsPrivate[_protocolId][_votingRoundId];
+    }
+
+    /**
+     * @inheritdoc IRelay
+     */
     function verify(uint256 _protocolId, uint256 _votingRoundId, bytes32 _leaf, bytes32[] calldata _proof)
         external payable
         returns (bool)
@@ -1361,7 +1372,8 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
-    function toSigningPolicyHash(uint256 _rewardEpochId) external view onlySigningPolicySetter returns (bytes32) {
+    function toSigningPolicyHash(uint256 _rewardEpochId) external view returns (bytes32) {
+        require(signingPolicySetter != address(0), "no access to signing policy hashes");
         return toSigningPolicyHashPrivate[_rewardEpochId];
     }
 
