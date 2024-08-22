@@ -1,5 +1,6 @@
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { constants, expectEvent, expectRevert } from "@openzeppelin/test-helpers";
+import { ZeroAddress } from "ethers";
 import { artifacts, config, contract, ethers } from "hardhat";
 import { HardhatNetworkAccountConfig } from "hardhat/types";
 import { RelayInitialConfig } from "../../../../deployment/utils/RelayInitialConfig";
@@ -10,18 +11,58 @@ import {
   SigningPolicy
 } from "../../../../scripts/libs/protocol/SigningPolicy";
 import { RelayInstance } from "../../../../typechain-truffle";
+import { MerkleTree, verifyWithMerkleProof } from "../../../utils/MerkleTree";
 import { getTestFile } from "../../../utils/constants";
 import { toBN } from "../../../utils/test-helpers";
 import { defaultTestSigningPolicy, generateSignatures, generateSignaturesEncoded } from "../coding/coding-helpers";
-import { ZeroAddress } from "ethers";
-import { MerkleTree, verifyWithMerkleProof } from "../../../utils/MerkleTree";
-import exp from "constants";
+const coder = ethers.AbiCoder.defaultAbiCoder();
 
 const Relay = artifacts.require("Relay");
 
 const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
+interface RelayGovernanceConfig {
+  descriptionHash: string;
+  chainId: number;
+  protocolId: number;
+  newFeeInWei: string;
+}
+
+const RelayGovernanceConfigABI = {
+  "components": [
+    {
+      "internalType": "bytes32",
+      "name": "descriptionHash",
+      "type": "bytes32"
+    },
+    {
+      "internalType": "uint256",
+      "name": "chainId",
+      "type": "uint256"
+    },
+    {
+      "internalType": "uint8",
+      "name": "protocolId",
+      "type": "uint8"
+    },
+    {
+      "internalType": "uint256",
+      "name": "newFeeInWei",
+      "type": "uint256"
+    }
+  ],
+  "internalType": "struct IRelay.RelayGovernanceConfig",
+  "name": "_config",
+  "type": "tuple"
+}
+
+function hashRelayGovernanceConfig(config: RelayGovernanceConfig): string {
+  const abiEncoded = coder.encode([RelayGovernanceConfigABI as any], [config]);
+  return ethers.keccak256(abiEncoded);
+}
+
+const relayGovernanceDescriptionHash = web3.utils.keccak256("RelayGovernance");
 
 contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   // let accounts: Account[];
@@ -1519,6 +1560,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof);
       await relay.setFeeCollectionAddress(BURN_ADDRESS);
       await relay.setFee(newMessageData.protocolId, 1000);
+
       await expectRevert(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof), "too low fee");
       await expectRevert(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: 999 }), "too low fee");
       await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: 1000 });
@@ -1605,7 +1647,116 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
   describe("Governance fee changing", async () => {
     it("Should fee be changed through signer governance", async () => {
+      const signingPolicyData = defaultTestSigningPolicy(
+        signers.map(x => x.address),
+        N,
+        singleWeight
+      );
+      signingPolicyData.rewardEpochId = rewardEpochId;
+      signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
+      const signingPolicy = SigningPolicy.encode(signingPolicyData);
+      const localHash = SigningPolicy.hashEncoded(signingPolicy);
 
+      async function relayNewSigningPolicy(newRewardEpochId: number, relayAddress: string) {
+        const prevSigningPolicyData = { ...signingPolicyData };
+        prevSigningPolicyData.rewardEpochId = newRewardEpochId - 1;
+        const newSigningPolicyDataRelayed = { ...signingPolicyData };
+        newSigningPolicyDataRelayed.rewardEpochId = newRewardEpochId;
+        const localHash = SigningPolicy.hash(newSigningPolicyDataRelayed);
+        const signatures = await generateSignatures(
+          accountPrivateKeys,
+          localHash,
+          N / 2 + 1
+        );
+        const relayMessage = {
+          signingPolicy: prevSigningPolicyData,
+          signatures,
+          newSigningPolicy: newSigningPolicyDataRelayed
+        };
+        const fullData = RelayMessage.encode(relayMessage);
+
+        return await web3.eth.sendTransaction({
+          from: signers[0].address,
+          to: relayAddress,
+          data: selector + fullData.slice(2),
+        })
+      }
+
+      const relayInitialConfig: RelayInitialConfig = {
+        initialRewardEpochId: signingPolicyData.rewardEpochId,
+        startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
+        initialSigningPolicyHash: localHash,
+        randomNumberProtocolId: randomNumberProtocolId,
+        firstVotingRoundStartTs: firstVotingRoundStartSec,
+        votingEpochDurationSeconds: votingRoundDurationSec,
+        firstRewardEpochStartVotingRoundId: firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
+        thresholdIncreaseBIPS: THRESHOLD_INCREASE,
+        messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+      }
+
+      const relay = await Relay.new(
+        relayInitialConfig,
+        constants.ZERO_ADDRESS
+      );
+
+      const chainId = await web3.eth.getChainId();
+
+      const NEW_FEE = "1000";
+      const newRelayGovernanceConfig: RelayGovernanceConfig = {
+        descriptionHash: relayGovernanceDescriptionHash,
+        chainId,
+        protocolId: 2,
+        newFeeInWei: NEW_FEE,
+      }
+
+      async function prepareRelayMessage(config: RelayGovernanceConfig, numSignatures = N / 2 + 1, protocolId = 1, votingRoundId = 0, newRewardEpochId?: number) {
+        const newMessageData = { ...messageData };
+        newMessageData.merkleRoot = specificHash;
+        newMessageData.votingRoundId = votingRoundId;
+        newMessageData.isSecureRandom = false;
+        newMessageData.protocolId = protocolId;
+        const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+        const signatures = await generateSignatures(
+          accountPrivateKeys,
+          messageHash,
+          numSignatures
+        );
+
+        const tmpSigningPolicyData = { ...signingPolicyData };
+        if(newRewardEpochId) {
+          tmpSigningPolicyData.rewardEpochId = rewardEpochId;
+        }
+        const relayMessage = {
+          signingPolicy: tmpSigningPolicyData,
+          signatures,
+          protocolMessageMerkleRoot: newMessageData,
+        };
+        let fullData = RelayMessage.encode(relayMessage);
+        return selector + fullData.slice(2)
+      }
+      let specificHash = hashRelayGovernanceConfig(newRelayGovernanceConfig);
+
+      expect((await relay.protocolFeeInWei(newRelayGovernanceConfig.protocolId)).toString()).to.equal("0");
+      await relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig);
+      expect((await relay.protocolFeeInWei(newRelayGovernanceConfig.protocolId)).toString()).to.equal(NEW_FEE);
+
+      newRelayGovernanceConfig.descriptionHash = web3.utils.keccak256("Something else");
+      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig), "wrong description hash");
+      newRelayGovernanceConfig.descriptionHash = relayGovernanceDescriptionHash;
+      newRelayGovernanceConfig.chainId = newRelayGovernanceConfig.chainId + 1;
+      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig), "wrong chain id");
+      newRelayGovernanceConfig.chainId = newRelayGovernanceConfig.chainId - 1;
+      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig, Math.round(N / 4)), newRelayGovernanceConfig), "Verification failed");
+      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig, N / 2 + 1, 5, signingPolicyData.startVotingRoundId), newRelayGovernanceConfig), "Wrong verification data");
+
+      const tmpRelayGovernanceConfig = { ...newRelayGovernanceConfig };
+      tmpRelayGovernanceConfig.newFeeInWei = NEW_FEE + "1";
+      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), tmpRelayGovernanceConfig), "Invalid config hash");
+
+      await relayNewSigningPolicy(signingPolicyData.rewardEpochId + 1, relay.address);
+      await relayNewSigningPolicy(signingPolicyData.rewardEpochId + 2, relay.address);
+      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig), "too old signing policy");
     });
   });
 

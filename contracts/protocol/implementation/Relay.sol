@@ -417,14 +417,14 @@ contract Relay is IIRelay {
         (bool success, bytes memory returnData) = address(this).call(_relayMessage);
         /* solhint-enable avoid-low-level-calls */
         require(success, "Verification failed");
-        // 32 bytes hash + 2 bytes reward epoch id
+        // 32 bytes hash + 3 bytes reward epoch id
         require(returnData.length == 35, "Wrong verification data");
         bytes32 returnHash;
         uint256 returnRewardEpochId;
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            returnHash := mload(returnData)
-            returnRewardEpochId := shr(sub(256, mul(8, REWARD_EPOCH_ID_BYTES)), mload(add(returnData, 0x20)))
+            returnHash := mload(add(returnData, 0x20))
+            returnRewardEpochId := shr(sub(256, mul(8, REWARD_EPOCH_ID_BYTES)), mload(add(returnData, 0x40)))
         }
         require(bytes32(returnHash) == keccak256(abi.encode(_config)), "Invalid config hash");
         // allow signing with the latest or one earliest. Since the signature test has passed, they 
