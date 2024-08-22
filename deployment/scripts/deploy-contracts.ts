@@ -357,7 +357,6 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   await rewardManager.setInitialRewardData();
 
   // grant access to merkle roots to FtsoFeedPublisher. Set relay contract to production.
-  await relay.setMerkleTreeGetter(ftsoFeedPublisher.address, true);
   await relay.setInProduction();
 
   // activate reward manager

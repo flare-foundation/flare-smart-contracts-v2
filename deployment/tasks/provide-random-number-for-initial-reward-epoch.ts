@@ -85,7 +85,6 @@ export async function provideRandomNumberForInitialRewardEpoch(
         break;
       }
       const votingRoundId = (await relay.getVotingRoundId(latestBlock.timestamp)).toNumber()
-      // NOTE: access to merkle roots will work if relay not in production mode
       const isFinalized = await relay.isFinalized(parameters.ftsoProtocolId, votingRoundId);
       if (!isFinalized) {
         const random = new Uint32Array(1);
