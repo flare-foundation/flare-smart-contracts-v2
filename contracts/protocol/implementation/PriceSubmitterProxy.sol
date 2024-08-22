@@ -36,10 +36,26 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
     }
 
     /**
+     * Submits price hashes for current epoch (Songbird version)
+     * @dev Deprecated - reverts
+     */
+    function submitPriceHashes(uint256, uint256[] memory, bytes32[] memory) external {
+        revert("not supported");
+    }
+
+    /**
      * @inheritdoc IPriceSubmitter
      * @dev Deprecated - reverts
      */
     function revealPrices(uint256, uint256[] memory, uint256[] memory, uint256) external {
+        revert("not supported");
+    }
+
+    /**
+     * Reveals submitted prices during epoch reveal period (Songbird version)
+     * @dev Deprecated - reverts
+     */
+    function revealPrices(uint256, uint256[] memory, uint256[] memory, uint256[] memory) external {
         revert("not supported");
     }
 

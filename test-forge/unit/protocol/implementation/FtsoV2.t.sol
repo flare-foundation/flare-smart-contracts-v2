@@ -3,7 +3,9 @@ pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
 import "../../../../contracts/protocol/implementation/FtsoV2.sol";
-import "../../../../contracts/fastUpdates/implementation/FastUpdater.sol";
+import "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
+import "../../../../contracts/userInterfaces/IFeeCalculator.sol";
+import { FastUpdater } from "../../../../contracts/fastUpdates/implementation/FastUpdater.sol";
 import "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
 import "../../../../contracts/fastUpdates/implementation/FastUpdateIncentiveManager.sol";
 
@@ -175,7 +177,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFeeByIndices.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFeeByIndices.selector),
             abi.encode(fee)
         );
 
@@ -207,7 +209,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFeeByIndices.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFeeByIndices.selector),
             abi.encode(fee)
         );
 
@@ -235,7 +237,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFeeByIndices.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFeeByIndices.selector),
             abi.encode(fee)
         );
 
@@ -263,7 +265,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFeeByIndices.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFeeByIndices.selector),
             abi.encode(fee)
         );
 
@@ -291,7 +293,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFeeByIndices.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFeeByIndices.selector),
             abi.encode(fee)
         );
 
@@ -319,7 +321,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFeeByIndices.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFeeByIndices.selector),
             abi.encode(fee)
         );
 
@@ -347,7 +349,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFeeByIndices.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFeeByIndices.selector),
             abi.encode(fee)
         );
 
@@ -371,7 +373,7 @@ contract FtsoV2Test is Test {
         uint256 fee = 8;
         vm.mockCall(
             mockFeeCalculator,
-            abi.encodeWithSelector(IIFeeCalculator.calculateFeeByIndices.selector),
+            abi.encodeWithSelector(IFeeCalculator.calculateFeeByIndices.selector),
             abi.encode(fee)
         );
 

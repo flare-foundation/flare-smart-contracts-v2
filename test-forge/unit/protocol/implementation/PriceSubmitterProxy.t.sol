@@ -50,9 +50,19 @@ contract PriceSubmitterProxyTest is Test {
         priceSubmitterProxy.submitHash(0, bytes32(0));
     }
 
+    function testSubmitPriceHashes() public {
+        vm.expectRevert("not supported");
+        priceSubmitterProxy.submitPriceHashes(0, new uint256[](0), new bytes32[](0));
+    }
+
     function testRevealPrices() public {
         vm.expectRevert("not supported");
         priceSubmitterProxy.revealPrices(0, new uint256[](0), new uint256[](0), 0);
+    }
+
+    function testRevealPricesSongbird() public {
+        vm.expectRevert("not supported");
+        priceSubmitterProxy.revealPrices(0, new uint256[](0), new uint256[](0), new uint256[](0));
     }
 
     function testGetCurrentRandom() public {

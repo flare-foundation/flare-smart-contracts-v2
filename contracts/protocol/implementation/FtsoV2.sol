@@ -58,8 +58,8 @@ contract FtsoV2 is IFtsoV2, AddressUpdatable {
     /**
      * @inheritdoc IFtsoV2
      */
-    function getFeedById(bytes21 _id) external payable returns (uint256, int8, uint64) {
-        return _getFeedByIndex(fastUpdatesConfiguration.getFeedIndex(_id));
+    function getFeedById(bytes21 _feedId) external payable returns (uint256, int8, uint64) {
+        return _getFeedByIndex(fastUpdatesConfiguration.getFeedIndex(_feedId));
     }
 
     /**

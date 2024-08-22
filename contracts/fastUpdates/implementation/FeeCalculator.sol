@@ -90,7 +90,7 @@ contract FeeCalculator is Governed, AddressUpdatable, IIFeeCalculator {
     }
 
     /**
-     * @inheritdoc IIFeeCalculator
+     * @inheritdoc IFeeCalculator
      */
     function calculateFeeByIndices(uint256[] memory _indices) external view returns (uint256 _fee) {
         for (uint256 i = 0; i < _indices.length; i++) {
@@ -99,8 +99,7 @@ contract FeeCalculator is Governed, AddressUpdatable, IIFeeCalculator {
                 _fee += feedFee[feedId] - 1;
             } else if(categoryFee[uint8(feedId[0])] > 0) {
                 _fee += categoryFee[uint8(feedId[0])] - 1;
-            }
-            else {
+            } else {
                 _fee += defaultFee;
             }
         }
@@ -116,8 +115,7 @@ contract FeeCalculator is Governed, AddressUpdatable, IIFeeCalculator {
                 _fee += feedFee[feedId] - 1;
             } else if(categoryFee[uint8(feedId[0])] > 0) {
                 _fee += categoryFee[uint8(feedId[0])] - 1;
-            }
-            else {
+            } else {
                 _fee += defaultFee;
             }
         }

@@ -41,12 +41,12 @@ interface IFtsoV2 {
     /**
      * Returns stored data of a feed.
      * A fee (calculated by the FeeCalculator contract) may need to be paid.
-     * @param _id The id of the feed.
+     * @param _feedId The id of the feed.
      * @return _value The value for the requested feed.
      * @return _decimals The decimal places for the requested feed.
      * @return _timestamp The timestamp of the last update.
      */
-    function getFeedById(bytes21 _id)
+    function getFeedById(bytes21 _feedId)
         external payable
         returns (
             uint256 _value,
@@ -74,12 +74,12 @@ interface IFtsoV2 {
     /**
      * Returns stored data of each feed.
      * A fee (calculated by the FeeCalculator contract) may need to be paid.
-     * @param _ids The list of feed ids.
+     * @param _feedIds The list of feed ids.
      * @return _values The list of values for the requested feeds.
      * @return _decimals The list of decimal places for the requested feeds.
      * @return _timestamp The timestamp of the last update.
      */
-    function getFeedsById(bytes21[] calldata _ids)
+    function getFeedsById(bytes21[] calldata _feedIds)
         external payable
         returns (
             uint256[] memory _values,
@@ -107,11 +107,11 @@ interface IFtsoV2 {
     /**
      * Returns value in wei and timestamp of a feed.
      * A fee (calculated by the FeeCalculator contract) may need to be paid.
-     * @param _id The id of the feed.
+     * @param _feedId The id of the feed.
      * @return _value The value for the requested feed in wei (i.e. with 18 decimal places).
      * @return _timestamp The timestamp of the last update.
      */
-    function getFeedByIdInWei(bytes21 _id)
+    function getFeedByIdInWei(bytes21 _feedId)
         external payable
         returns (
             uint256 _value,
@@ -134,11 +134,11 @@ interface IFtsoV2 {
 
     /** Returns value of each feed and a timestamp.
      * For some feeds, a fee (calculated by the FeeCalculator contract) may need to be paid.
-     * @param _ids Ids of the feeds.
+     * @param _feedIds Ids of the feeds.
      * @return _values The list of values for the requested feeds in wei (i.e. with 18 decimal places).
      * @return _timestamp The timestamp of the last update.
      */
-    function getFeedsByIdInWei(bytes21[] calldata _ids)
+    function getFeedsByIdInWei(bytes21[] calldata _feedIds)
         external payable
         returns (
             uint256[] memory _values,
