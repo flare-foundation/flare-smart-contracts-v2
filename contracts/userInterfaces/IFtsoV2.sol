@@ -164,5 +164,5 @@ interface IFtsoV2 {
      * @param _feedData Structure containing data about the feed (FeedData structure) and Merkle proof.
      * @return true if the feed data is valid.
      */
-    function verifyFeedData(FeedDataWithProof calldata _feedData) external returns (bool);
+    function verifyFeedData(FeedDataWithProof calldata _feedData) external view returns (bool);
 }

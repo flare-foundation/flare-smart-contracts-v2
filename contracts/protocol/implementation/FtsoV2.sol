@@ -39,7 +39,7 @@ contract FtsoV2 is IFtsoV2, AddressUpdatable {
     /**
      * @inheritdoc IFtsoV2
      */
-    function verifyFeedData(FeedDataWithProof calldata _feedData) external returns (bool) {
+    function verifyFeedData(FeedDataWithProof calldata _feedData) external view returns (bool) {
         bytes32 feedHash = keccak256(abi.encode(_feedData.body));
         require(
             relay.verify(FTSO_PROTOCOL_ID, _feedData.body.votingRoundId, feedHash, _feedData.proof), 
