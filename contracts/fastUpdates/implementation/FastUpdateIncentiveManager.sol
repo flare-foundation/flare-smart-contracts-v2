@@ -10,6 +10,7 @@ import { IncreaseManager } from "./IncreaseManager.sol";
 import "../interface/IIFastUpdateIncentiveManager.sol";
 import "../../utils/lib/SafePct.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "../lib/FixedPointArithmetic.sol" as FPA;
 
 /**
  * @title Fast update-specific configuration contract for managing the volatility incentive and its effects
