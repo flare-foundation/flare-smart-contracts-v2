@@ -255,7 +255,7 @@ contract FtsoManagerProxy is IFtsoManager, Governed, ReentrancyGuard, AddressUpd
     )
         internal override
     {
-        rewardManager = _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRewardManagerProxy");
+        rewardManager = _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRewardManager");
         ftsoRegistry = IIFtsoRegistry(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRegistry"));
         rewardManagerV2 = IIRewardManager(

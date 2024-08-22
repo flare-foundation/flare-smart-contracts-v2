@@ -186,7 +186,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     deployerAccount.address, // tmp address updater
     ftsoRewardManager
   );
-  spewNewContractInfo(contracts, null, FtsoRewardManagerProxy.contractName, `FtsoRewardManagerProxy.sol`, ftsoRewardManagerProxy.address, quiet);
+  spewNewContractInfo(contracts, null, "FtsoRewardManager", `FtsoRewardManagerProxy.sol`, ftsoRewardManagerProxy.address, quiet);
 
   const relay = await Relay.new(
     flareSystemsManager.address,
@@ -283,7 +283,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   );
 
   await rewardManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT, Contracts.FTSO_REWARD_MANAGER_PROXY]),
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT, Contracts.FTSO_REWARD_MANAGER]),
     [addressUpdater, voterRegistry.address, claimSetupManager, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror, wNat, ftsoRewardManagerProxy.address]
   );
 

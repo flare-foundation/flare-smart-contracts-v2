@@ -999,8 +999,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
             cChainStake = ICChainStake(_getContractAddress(_contractNameHashes, _contractAddresses, "CChainStake"));
         }
         wNat = IWNat(_getContractAddress(_contractNameHashes, _contractAddresses, "WNat"));
-        ftsoRewardManagerProxy =
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRewardManagerProxy");
+        ftsoRewardManagerProxy = _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRewardManager");
     }
 
     /**

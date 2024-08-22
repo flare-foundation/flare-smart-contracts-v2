@@ -388,6 +388,11 @@ export interface ChainParameters {
      */
     feedConfigurations: FeedConfiguration[];
 
+    /**
+     * The list of old FTSO.
+     */
+    ftsoProxies: FtsoProxy[];
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // RNat
 
@@ -557,4 +562,16 @@ export interface FeedId {
      * The feed name.
      */
     name: string;
+}
+
+export interface FtsoProxy {
+    /**
+     * The ftso feed id.
+     */
+    feedId: FeedId;
+
+    /**
+     * The FTSO symbol.
+     */
+    symbol: string;
 }

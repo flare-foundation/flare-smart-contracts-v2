@@ -51,7 +51,7 @@ export async function switchToProductionMode(hre: HardhatRuntimeEnvironment, con
   const flareSystemsCalculator = await FlareSystemsCalculator.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_CALCULATOR));
   const flareSystemsManager = await FlareSystemsManager.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER));
   const rewardManager = await RewardManager.at(contracts.getContractAddress(Contracts.REWARD_MANAGER));
-  const ftsoRewardManagerProxy = await FtsoRewardManagerProxy.at(contracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER_PROXY));
+  const ftsoRewardManagerProxy = await FtsoRewardManagerProxy.at(contracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER));
   const submission = await Submission.at(contracts.getContractAddress(Contracts.SUBMISSION));
   const ftsoInflationConfigurations = await FtsoInflationConfigurations.at(contracts.getContractAddress(Contracts.FTSO_INFLATION_CONFIGURATIONS));
   const ftsoRewardOffersManager = await FtsoRewardOffersManager.at(contracts.getContractAddress(Contracts.FTSO_REWARD_OFFERS_MANAGER));

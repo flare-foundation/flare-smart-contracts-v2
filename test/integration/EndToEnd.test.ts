@@ -157,7 +157,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     const ADDRESS_UPDATER = accounts[15];
     const CLEANUP_BLOCK_NUMBER_MANAGER = accounts[16];
     const CLAIM_SETUP_MANAGER = accounts[17];
-    const FTSO_REWARD_MANAGER_PROXY = accounts[18];
+    const FTSO_REWARD_MANAGER = accounts[18];
     const INFLATION = accounts[19];
 
     const INITIAL_NUMBER_OF_VOTERS = 100;
@@ -362,8 +362,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             [ADDRESS_UPDATER, voterRegistry.address, submission.address, relay.address, rewardManager.address, cleanupBlockNumberManager.address], { from: ADDRESS_UPDATER });
 
         await rewardManager.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT, Contracts.FTSO_REWARD_MANAGER_PROXY]),
-            [ADDRESS_UPDATER, voterRegistry.address, CLAIM_SETUP_MANAGER, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address, FTSO_REWARD_MANAGER_PROXY], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT, Contracts.FTSO_REWARD_MANAGER]),
+            [ADDRESS_UPDATER, voterRegistry.address, CLAIM_SETUP_MANAGER, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address, FTSO_REWARD_MANAGER], { from: ADDRESS_UPDATER });
 
         await submission.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),

@@ -117,7 +117,7 @@ export async function deployContracts(
   const MULTI_SIG_VOTING_ADDR = accounts[4].address;
   const RELAY_ADDR = accounts[5].address;
   const CLAIM_SETUP_MANAGER_ADDR = accounts[5].address;
-  const FTSO_REWARD_MANAGER_PROXY_ADDR = accounts[5].address;
+  const FTSO_REWARD_MANAGER_ADDR = accounts[5].address;
   const INFLATION_ADDR = accounts[5].address;
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -481,8 +481,8 @@ export async function deployContracts(
       Contracts.FLARE_SYSTEMS_CALCULATOR,
       Contracts.P_CHAIN_STAKE_MIRROR,
       Contracts.WNAT,
-      Contracts.FTSO_REWARD_MANAGER_PROXY]),
-    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address, FTSO_REWARD_MANAGER_PROXY_ADDR],
+      Contracts.FTSO_REWARD_MANAGER]),
+    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address, FTSO_REWARD_MANAGER_ADDR],
     { from: ADDRESS_UPDATER_ADDR }
   );
 

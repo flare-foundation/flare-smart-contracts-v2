@@ -24,8 +24,7 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
         address _addressUpdater
     )
         AddressUpdatable(_addressUpdater)
-    {
-    }
+    { }
 
     /**
      * @inheritdoc IPriceSubmitter
