@@ -12,6 +12,8 @@ const Submission: SubmissionContract = artifacts.require("Submission");
 const Relay: RelayContract = artifacts.require("Relay");
 const MockContract: MockContractContract = artifacts.require("MockContract");
 
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
 contract(`Submission.sol; ${getTestFile(__filename)}`, async accounts => {
 
   let submission: SubmissionInstance;
@@ -37,6 +39,8 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, async accounts => {
       rewardEpochDurationInVotingEpochs: 23,
       thresholdIncreaseBIPS: 12000,
       messageFinalizationWindowInRewardEpochs: 10,
+      feeCollectionAddress: ZERO_ADDRESS,
+      feeConfigs: []  
     } 
 
     const relay = await Relay.new(

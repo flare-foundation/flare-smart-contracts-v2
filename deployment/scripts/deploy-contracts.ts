@@ -199,7 +199,9 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     firstRewardEpochStartVotingRoundId: parameters.firstRewardEpochStartVotingRoundId,
     rewardEpochDurationInVotingEpochs: parameters.rewardEpochDurationInVotingEpochs,
     thresholdIncreaseBIPS: parameters.relayThresholdIncreaseBIPS,
-    messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs
+    messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
+    feeCollectionAddress: ZERO_ADDRESS,
+    feeConfigs: []
   }
 
   const relay = await Relay.new(
@@ -355,9 +357,6 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
 
   // set initial data on reward manager
   await rewardManager.setInitialRewardData();
-
-  // grant access to merkle roots to FtsoFeedPublisher. Set relay contract to production.
-  await relay.setInProduction();
 
   // activate reward manager
   await rewardManager.activate();

@@ -308,6 +308,8 @@ export async function deployContracts(
     rewardEpochDurationInVotingEpochs: settings.rewardEpochDurationInVotingEpochs,
     thresholdIncreaseBIPS: 12000,
     messageFinalizationWindowInRewardEpochs: 100,
+    feeCollectionAddress: ZERO_ADDRESS,
+    feeConfigs: []
   }
 
   const relay = await Relay.new(
@@ -565,9 +567,6 @@ export async function deployContracts(
 
   // set initial reward data
   await rewardManager.setInitialRewardData();
-
-  // grant access to merkle roots to FtsoFeedPublisher. Set relay contract to production.
-  await relay.setInProduction();
 
   // send some inflation funds
   const inflationFunds = hre.web3.utils.toWei("200000");

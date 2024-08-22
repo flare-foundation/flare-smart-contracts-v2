@@ -284,6 +284,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             thresholdIncreaseBIPS: 12000,
             messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+            feeCollectionAddress: constants.ZERO_ADDRESS,
+            feeConfigs: []        
         }
 
         relay = await Relay.new(
@@ -302,6 +304,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             thresholdIncreaseBIPS: 12000,
             messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+            feeCollectionAddress: constants.ZERO_ADDRESS,
+            feeConfigs: []        
         }
 
         relay2 = await Relay.new(
@@ -337,7 +341,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             200
         );
 
-        await relay.setInProduction();
         ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
 
         validatorRewardOffersManager = await ValidatorRewardOffersManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);

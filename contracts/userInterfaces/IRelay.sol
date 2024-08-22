@@ -6,6 +6,11 @@ pragma solidity >=0.7.6 <0.9;
  */
 interface IRelay {
 
+    struct FeeConfig {
+        uint8 protocolId;   // Protocol id for which the fee is set
+        uint256 feeInWei;   // Fee in wei
+    }
+
     struct RelayInitialConfig {        
         uint32 initialRewardEpochId;                           // The initial reward epoch id.
         uint32 startingVotingRoundIdForInitialRewardEpochId;   // The starting voting round id for the initial 
@@ -20,6 +25,8 @@ interface IRelay {
                                                                // old signing policy.
         uint32 messageFinalizationWindowInRewardEpochs;        // The window of reward epochs for finalizing 
                                                                // the protocol messages.
+        address payable feeCollectionAddress;                  // Fee collection address
+        FeeConfig[] feeConfigs;                                // Fee configurations
     }
 
     struct RelayGovernanceConfig {

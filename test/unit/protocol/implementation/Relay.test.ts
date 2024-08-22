@@ -129,6 +129,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
       thresholdIncreaseBIPS: THRESHOLD_INCREASE,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+      feeCollectionAddress: constants.ZERO_ADDRESS,
+      feeConfigs: []        
     }
 
     relay = await Relay.new(
@@ -355,6 +357,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
       thresholdIncreaseBIPS: THRESHOLD_INCREASE,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+      feeCollectionAddress: constants.ZERO_ADDRESS,
+      feeConfigs: []        
     }
 
     const relay2 = await Relay.new(
@@ -554,6 +558,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
       thresholdIncreaseBIPS: THRESHOLD_INCREASE,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+      feeCollectionAddress: constants.ZERO_ADDRESS,
+      feeConfigs: []        
     }
 
     const relay2 = await Relay.new(
@@ -997,6 +1003,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay2 = await Relay.new(
@@ -1040,6 +1048,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay2 = await Relay.new(
@@ -1069,6 +1079,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay2 = await Relay.new(
@@ -1087,6 +1099,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay3 = await Relay.new(
@@ -1121,6 +1135,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay2 = await Relay.new(
@@ -1148,6 +1164,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay2 = await Relay.new(
@@ -1173,6 +1191,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay2 = await Relay.new(
@@ -1216,6 +1236,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay2 = await Relay.new(
@@ -1274,6 +1296,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay2 = await Relay.new(
@@ -1292,6 +1316,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay3 = await Relay.new(
@@ -1345,6 +1371,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay2 = await Relay.new(
@@ -1363,6 +1391,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay3 = await Relay.new(
@@ -1466,34 +1496,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
   });
 
-  describe("Access functions and production mode", async () => {
-
-    it("Should be able to set fee", async () => {
-      expect(await relay.protocolFeeInWei(randomNumberProtocolId)).to.equal(0);
-      const newFee = 1000;
-      await expectRevert(relay.setFee(randomNumberProtocolId, newFee, { from: signers[1].address }), "only deployer");
-      await relay.setFee(randomNumberProtocolId, newFee);
-      expect((await relay.protocolFeeInWei(randomNumberProtocolId)).toNumber()).to.equal(newFee);
-    });
-
-    it("Should be able to set fee collection address", async () => {
-      expect(await relay.feeCollectionAddress()).to.equal(ZeroAddress);
-      const newAddress = BURN_ADDRESS;
-      await expectRevert(relay.setFeeCollectionAddress(newAddress, { from: signers[1].address }), "only deployer");
-      await relay.setFeeCollectionAddress(newAddress);
-      expect(await relay.feeCollectionAddress()).to.equal(newAddress);
-    });
-
-    it("Should production mode work", async () => {
-      await relay.setInProduction();
-      expect(await relay.isInProduction()).to.be.true;
-      await expectRevert(relay.setFeeCollectionAddress(BURN_ADDRESS, { from: signers[0].address }), "only if not in production");
-
-      expect(await relay.isFinalized(messageData.protocolId, messageData.votingRoundId)).to.equal(true);
-
-    });
-  });
-
   describe("Verification", async () => {
     it("Should verification work", async () => {
       const signingPolicyData = defaultTestSigningPolicy(
@@ -1517,6 +1519,11 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: BURN_ADDRESS,
+        feeConfigs: [{
+          protocolId: 17,
+          feeInWei: "1000"
+        }]        
       }
 
       const relay = await Relay.new(
@@ -1535,21 +1542,21 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       newMessageData.merkleRoot = tree.root!;
       const specificVotingRoundId = newMessageData.votingRoundId + 5;
       newMessageData.votingRoundId = specificVotingRoundId;
-      const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
-      const signatures = await generateSignatures(
+      let messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+      let signatures = await generateSignatures(
         accountPrivateKeys,
         messageHash,
         N / 2 + 1
       );
 
-      const relayMessage = {
+      let relayMessage = {
         signingPolicy: signingPolicyData,
         signatures,
         protocolMessageMerkleRoot: newMessageData,
       };
 
-      const fullData = RelayMessage.encode(relayMessage);
-      const receipt = await web3.eth.sendTransaction({
+      let fullData = RelayMessage.encode(relayMessage);
+      let receipt = await web3.eth.sendTransaction({
         from: signers[0].address,
         to: relay.address,
         data: selector + fullData.slice(2),
@@ -1558,8 +1565,33 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       const oldBalance = (await web3.eth.getBalance(BURN_ADDRESS)).toString();
       expect(oldBalance).to.equal("0");
       await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof);
-      await relay.setFeeCollectionAddress(BURN_ADDRESS);
-      await relay.setFee(newMessageData.protocolId, 1000);
+
+      newMessageData.protocolId = 17;
+
+      messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+      signatures = await generateSignatures(
+        accountPrivateKeys,
+        messageHash,
+        N / 2 + 1
+      );
+
+      relayMessage = {
+        signingPolicy: signingPolicyData,
+        signatures,
+        protocolMessageMerkleRoot: newMessageData,
+      };
+
+      fullData = RelayMessage.encode(relayMessage);
+
+      receipt = await web3.eth.sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData.slice(2),
+      })
+
+      // TODO: broken
+      // await relay.setFeeCollectionAddress(BURN_ADDRESS);
+      // await relay.setFee(newMessageData.protocolId, 1000);
 
       await expectRevert(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof), "too low fee");
       await expectRevert(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: 999 }), "too low fee");
@@ -1592,6 +1624,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay = await Relay.new(
@@ -1693,6 +1727,8 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []        
       }
 
       const relay = await Relay.new(

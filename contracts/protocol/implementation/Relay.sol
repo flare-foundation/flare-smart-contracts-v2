@@ -185,10 +185,6 @@ contract Relay is IIRelay {
 
     // Fees in wei per protocol
     mapping(uint256 => uint256) public protocolFeeInWei;
-    // deployer
-    address private deployer;
-    // isInProduction
-    bool public isInProduction;
     // fee collection address
     address payable public feeCollectionAddress;
 
@@ -198,13 +194,6 @@ contract Relay is IIRelay {
     /// Only signingPolicySetter address/contract can call this method.
     modifier onlySigningPolicySetter() {
         require(msg.sender == signingPolicySetter, "only sign policy setter");
-        _;
-    }
-
-    /// This method can be called by deployer and only if not in production.
-    modifier onlyIfNotInProduction() {        
-        require(!isInProduction, "only if not in production");
-        require(msg.sender == deployer, "only deployer");
         _;
     }
     
@@ -237,31 +226,10 @@ contract Relay is IIRelay {
         if (signingPolicySetter != address(0)) {
             stateData.noSigningPolicyRelay = true;
         }
-        deployer = msg.sender;        
-    }
-
-    /**
-     * Sets the fee in wei.
-     */
-    function setFee(uint256 _protocolId, uint256 _feeInWei) external onlyIfNotInProduction {
-        require(signingPolicySetter == address(0), "fee cannot be set");
-        protocolFeeInWei[_protocolId] = _feeInWei;
-    }
-
-    /**
-     * Sets the fee collection address.
-     */
-    function setFeeCollectionAddress(address payable _feeCollectionAddress) external onlyIfNotInProduction {
-        require(signingPolicySetter == address(0), "collection address cannot be set");
-        feeCollectionAddress = _feeCollectionAddress;
-    }
-
-    /**
-     * Sets the contract to production mode, disabling further changes to the configuration.
-     */
-    function setInProduction() external onlyIfNotInProduction {
-        isInProduction = true;
-        deployer = address(0);
+        feeCollectionAddress = _initialConfig.feeCollectionAddress;
+        for(uint256 i = 0; i < _initialConfig.feeConfigs.length; i++) {
+            protocolFeeInWei[_initialConfig.feeConfigs[i].protocolId] = _initialConfig.feeConfigs[i].feeInWei;
+        }
     }
 
     /**

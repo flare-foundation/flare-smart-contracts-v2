@@ -1,3 +1,7 @@
+export interface FeeConfig {
+  protocolId: number;
+  feeInWei: string;
+}
 export interface RelayInitialConfig {
   initialRewardEpochId: number;
   startingVotingRoundIdForInitialRewardEpochId: number;
@@ -9,4 +13,6 @@ export interface RelayInitialConfig {
   rewardEpochDurationInVotingEpochs: number;
   thresholdIncreaseBIPS: number;
   messageFinalizationWindowInRewardEpochs: number;
+  feeCollectionAddress: string;
+  feeConfigs: FeeConfig[];
 }
