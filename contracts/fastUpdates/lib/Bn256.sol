@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
+import {G1Point} from "../../userInterfaces/IBn256.sol";
 
 /**
  * @title Operations on bn256 aka alt_bn128
@@ -11,12 +12,6 @@ pragma solidity 0.8.20;
  * https://github.com/keep-network/keep-core/blob/main/solidity-v1/contracts/cryptography/AltBn128.sol
  */
 library Bn256 {
-    // G1Point implements a point in G1 group.
-    struct G1Point {
-        uint256 x;
-        uint256 y;
-    }
-
     // p is a prime over which we form a basic field, q is order of the group
     // Taken from go-ethereum/crypto/bn256/cloudflare/constants.go
     /* solhint-disable const-name-snakecase */

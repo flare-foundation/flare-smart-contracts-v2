@@ -2,8 +2,8 @@
 pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/tokenPools/interface/IIFtsoRewardManager.sol";
-import "../interface/IIRewardManager.sol";
-import "../interface/IIFlareSystemsManager.sol";
+import "../../protocol/interface/IIRewardManager.sol";
+import "../../protocol/interface/IIFlareSystemsManager.sol";
 import "../../userInterfaces/IWNatDelegationFee.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";

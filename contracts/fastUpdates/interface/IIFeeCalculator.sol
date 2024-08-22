@@ -80,12 +80,4 @@ interface IIFeeCalculator is IFeeCalculator {
      * Returns a default fee.
      */
     function defaultFee() external view returns (uint256 _fee);
-
-    /**
-     * Calculates a fee that needs to be paid to fetch feeds' data.
-     * Used when fetching feeds' data.
-     * @param _indices Indices of the feeds, corresponding to feed ids in
-     * the FastUpdatesConfiguration contract.
-    */
-    function calculateFeeByIndices(uint256[] memory _indices) external view returns (uint256 _fee);
 }

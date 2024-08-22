@@ -2,12 +2,12 @@
 pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/FtsoManagerProxy.sol";
+import "../../../../contracts/fscV1/implementation/FtsoManagerProxy.sol";
 import "../../../../contracts/protocol/implementation/FlareSystemsManager.sol";
-import "../interface/IIIFtsoRegistry.sol";
-import "../../../../contracts/protocol/implementation/FtsoProxy.sol";
+import "../../../../contracts/mock/IIIFtsoRegistry.sol";
+import "../../../../contracts/fscV1/implementation/FtsoProxy.sol";
 import "../../../../contracts/protocol/interface/IIFtsoManagerProxy.sol";
-import "../interface/IIIPriceSubmitter.sol";
+import "../../../../contracts/mock/IIIPriceSubmitter.sol";
 
 // solhint-disable-next-line max-states-count
 contract FtsoManagerProxyTest is Test {

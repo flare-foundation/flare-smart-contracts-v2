@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../userInterfaces/IFtsoV2.sol";
+import "../../userInterfaces/LTS/IFtsoV2.sol";
 import "../../userInterfaces/IFastUpdater.sol";
 import "../../userInterfaces/IFastUpdatesConfiguration.sol";
 import "../../userInterfaces/IRelay.sol";
@@ -58,8 +58,8 @@ contract FtsoV2 is IFtsoV2, AddressUpdatable {
     /**
      * @inheritdoc IFtsoV2
      */
-    function getFeedById(bytes21 _id) external payable returns (uint256, int8, uint64) {
-        return _getFeedByIndex(fastUpdatesConfiguration.getFeedIndex(_id));
+    function getFeedById(bytes21 _feedId) external payable returns (uint256, int8, uint64) {
+        return _getFeedByIndex(fastUpdatesConfiguration.getFeedIndex(_feedId));
     }
 
     /**

@@ -2,10 +2,11 @@
 pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/FtsoProxy.sol";
-import "../../../../contracts/protocol/implementation/FtsoManagerProxy.sol";
+import "../../../../contracts/fscV1/implementation/FtsoProxy.sol";
+import "../../../../contracts/fscV1/implementation/FtsoManagerProxy.sol";
 import "../../../../contracts/protocol/implementation/Submission.sol";
-import "../../../../contracts/fastUpdates/implementation/FastUpdater.sol";
+import "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
+import { FastUpdater } from "../../../../contracts/fastUpdates/implementation/FastUpdater.sol";
 import "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
 import "../../../../contracts/fastUpdates/implementation/FastUpdateIncentiveManager.sol";
 
@@ -277,7 +278,8 @@ contract FtsoProxyTest is Test {
     }
 
     function testGetRandom() public {
-        // todo
+        vm.expectRevert("not supported");
+        ftsoProxyFLR.getRandom(1);
     }
 
     function testGetCurrentPriceFromTrustedProviders() public {
