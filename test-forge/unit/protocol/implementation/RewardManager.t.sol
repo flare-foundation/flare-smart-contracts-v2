@@ -84,7 +84,7 @@ contract RewardManagerTest is Test {
         contractNameHashes[4] = keccak256(abi.encode("CChainStake"));
         contractNameHashes[5] = keccak256(abi.encode("WNat"));
         contractNameHashes[6] = keccak256(abi.encode("FlareSystemsCalculator"));
-        contractNameHashes[7] = keccak256(abi.encode("FtsoRewardManagerProxy"));
+        contractNameHashes[7] = keccak256(abi.encode("FtsoRewardManager"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockClaimSetupManager;
         contractAddresses[2] = mockFlareSystemsManager;

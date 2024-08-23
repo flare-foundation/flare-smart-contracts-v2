@@ -21,7 +21,7 @@ contract(`RewardManager.sol; ${getTestFile(__filename)}`, async accounts => {
     rewardManager = await RewardManager.new(accounts[0], accounts[0], ADDRESS_UPDATER, "0x0000000000000000000000000000000000000000", 0);
     flareSystemsManager = await MockContract.new();
     await rewardManager.updateContractAddresses(
-      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT, Contracts.FTSO_REWARD_MANAGER_PROXY]),
+      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT, Contracts.FTSO_REWARD_MANAGER]),
       [ADDRESS_UPDATER, accounts[2], accounts[2], flareSystemsManager.address, accounts[2], accounts[2], accounts[2], accounts[2]], { from: ADDRESS_UPDATER });
     await rewardManager.enableClaims();
     await rewardManager.activate();

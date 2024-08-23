@@ -79,7 +79,7 @@ contract ValidatorRewardOffersManagerTest is Test {
         contractNameHashes[4] = keccak256(abi.encode("FlareSystemsCalculator"));
         contractNameHashes[5] = keccak256(abi.encode("PChainStakeMirror"));
         contractNameHashes[6] = keccak256(abi.encode("WNat"));
-        contractNameHashes[7] = keccak256(abi.encode("FtsoRewardManagerProxy"));
+        contractNameHashes[7] = keccak256(abi.encode("FtsoRewardManager"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = makeAddr("voterRegistry");
         contractAddresses[2] = makeAddr("claimSetupManager");

@@ -16,6 +16,8 @@ import {
   FastUpdaterInstance,
   FastUpdatesConfigurationContract,
   FastUpdatesConfigurationInstance,
+  FeeCalculatorContract,
+  FeeCalculatorInstance,
   FlareSystemsCalculatorContract,
   FlareSystemsCalculatorInstance,
   FlareSystemsManagerContract,
@@ -103,6 +105,7 @@ export interface DeployedContracts {
   readonly fastUpdater: FastUpdaterInstance;
   readonly fastUpdatesConfiguration: FastUpdatesConfigurationInstance;
   readonly nodePossessionVerifier: NodePossessionVerifierInstance;
+  readonly feeCalculator: FeeCalculatorInstance;
 }
 
 const logger = getLogger("contracts");
@@ -118,7 +121,7 @@ export async function deployContracts(
   const MULTI_SIG_VOTING_ADDR = accounts[4].address;
   const RELAY_ADDR = accounts[5].address;
   const CLAIM_SETUP_MANAGER_ADDR = accounts[5].address;
-  const FTSO_REWARD_MANAGER_PROXY_ADDR = accounts[5].address;
+  const FTSO_REWARD_MANAGER_ADDR = accounts[5].address;
   const INFLATION_ADDR = accounts[5].address;
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -152,6 +155,7 @@ export async function deployContracts(
   const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract = artifacts.require("FastUpdateIncentiveManager");
   const FastUpdater: FastUpdaterContract = artifacts.require("FastUpdater");
   const FastUpdatesConfiguration: FastUpdatesConfigurationContract = artifacts.require("FastUpdatesConfiguration");
+  const FeeCalculator: FeeCalculatorContract = artifacts.require("FeeCalculator");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
@@ -399,6 +403,13 @@ export async function deployContracts(
     ADDRESS_UPDATER_ADDR
   );
 
+  const feeCalculator = await FeeCalculator.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    "1"
+  );
+
   await flareSystemsCalculator.enablePChainStakeMirror({ from: governanceAccount.address });
   await rewardManager.enablePChainStakeMirror({ from: governanceAccount.address });
 
@@ -488,8 +499,8 @@ export async function deployContracts(
       Contracts.FLARE_SYSTEMS_CALCULATOR,
       Contracts.P_CHAIN_STAKE_MIRROR,
       Contracts.WNAT,
-      Contracts.FTSO_REWARD_MANAGER_PROXY]),
-    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address, FTSO_REWARD_MANAGER_PROXY_ADDR],
+      Contracts.FTSO_REWARD_MANAGER]),
+    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address, FTSO_REWARD_MANAGER_ADDR],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -553,14 +564,21 @@ export async function deployContracts(
       Contracts.FAST_UPDATE_INCENTIVE_MANAGER,
       Contracts.VOTER_REGISTRY,
       Contracts.FAST_UPDATES_CONFIGURATION,
-      Contracts.FTSO_FEED_PUBLISHER]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, fastUpdateIncentiveManager.address, voterRegistry.address, fastUpdatesConfiguration.address, mockContract.address], { from: ADDRESS_UPDATER_ADDR });
+      Contracts.FTSO_FEED_PUBLISHER,
+      Contracts.FEE_CALCULATOR]),
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, fastUpdateIncentiveManager.address, voterRegistry.address, fastUpdatesConfiguration.address, mockContract.address, feeCalculator.address], { from: ADDRESS_UPDATER_ADDR });
 
   await fastUpdatesConfiguration.updateContractAddresses(
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
       Contracts.FAST_UPDATER]),
     [ADDRESS_UPDATER_ADDR, fastUpdater.address], { from: ADDRESS_UPDATER_ADDR });
+
+  await feeCalculator.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FAST_UPDATES_CONFIGURATION]),
+    [ADDRESS_UPDATER_ADDR, fastUpdatesConfiguration.address], { from: ADDRESS_UPDATER_ADDR });
 
   // set reward offers manager list
   await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, fastUpdateIncentiveManager.address]);
@@ -690,7 +708,8 @@ export async function deployContracts(
     fastUpdateIncentiveManager,
     fastUpdater,
     fastUpdatesConfiguration,
-    nodePossessionVerifier
+    nodePossessionVerifier,
+    feeCalculator
   };
 
   return [contracts, rewardEpochStart, initialSigningPolicy];

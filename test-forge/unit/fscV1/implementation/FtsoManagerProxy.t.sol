@@ -161,7 +161,7 @@ contract FtsoManagerProxyTest is Test {
         contractNameHashes[1] = keccak256(abi.encode("FtsoManager"));
         contractNameHashes[2] = keccak256(abi.encode("VoterWhitelister"));
         contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
-        contractAddresses[0] = address(ftsoRegistry);
+        contractAddresses[0] = address(registry);
         contractAddresses[1] = address(ftsoManagerProxy);
         contractAddresses[2] = makeAddr("voterWhitelister");
         contractAddresses[3] = addressUpdater;
@@ -169,7 +169,7 @@ contract FtsoManagerProxyTest is Test {
 
         contractNameHashes = new bytes32[](8);
         contractAddresses = new address[](8);
-        contractNameHashes[0] = keccak256(abi.encode("FtsoRewardManagerProxy"));
+        contractNameHashes[0] = keccak256(abi.encode("FtsoRewardManager"));
         contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
@@ -334,7 +334,7 @@ contract FtsoManagerProxyTest is Test {
         );
         contractNameHashes = new bytes32[](8);
         contractAddresses = new address[](8);
-        contractNameHashes[0] = keccak256(abi.encode("FtsoRewardManagerProxy"));
+        contractNameHashes[0] = keccak256(abi.encode("FtsoRewardManager"));
         contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
@@ -349,7 +349,7 @@ contract FtsoManagerProxyTest is Test {
         contractAddresses[4] = mockSubmission;
         contractAddresses[5] = mockFastUpdater;
         contractAddresses[6] = mockFastUpdatesConfiguration;
-        contractAddresses[7] = address(ftsoRegistry);
+        contractAddresses[7] = address(registry);
         vm.prank(addressUpdater);
         ftsoManagerProxy.updateContractAddresses(contractNameHashes, contractAddresses);
 
@@ -450,7 +450,7 @@ contract FtsoManagerProxyTest is Test {
 
         contractNameHashes = new bytes32[](8);
         contractAddresses = new address[](8);
-        contractNameHashes[0] = keccak256(abi.encode("FtsoRewardManagerProxy"));
+        contractNameHashes[0] = keccak256(abi.encode("FtsoRewardManager"));
         contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
@@ -495,7 +495,7 @@ contract FtsoManagerProxyTest is Test {
 
         contractNameHashes = new bytes32[](8);
         contractAddresses = new address[](8);
-        contractNameHashes[0] = keccak256(abi.encode("FtsoRewardManagerProxy"));
+        contractNameHashes[0] = keccak256(abi.encode("FtsoRewardManager"));
         contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));

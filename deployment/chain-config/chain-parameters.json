@@ -128,6 +128,24 @@
             ],
             "type": "object"
         },
+        "FtsoProxy": {
+            "additionalProperties": false,
+            "properties": {
+                "feedId": {
+                    "$ref": "#/definitions/FeedId",
+                    "description": "The ftso feed id."
+                },
+                "symbol": {
+                    "description": "The FTSO symbol.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "feedId",
+                "symbol"
+            ],
+            "type": "object"
+        },
         "InflationReceiver": {
             "additionalProperties": false,
             "properties": {
@@ -212,6 +230,10 @@
             "description": "Default fee percentage, in BIPS (e.g. 20%).",
             "type": "integer"
         },
+        "defaultFeeWei": {
+            "description": "The default fee for fetching fast update feeds. In Wei.",
+            "type": "string"
+        },
         "deployerPrivateKey": {
             "description": "Deployer private key. Overriden if provided in `.env` file as `DEPLOYER_PRIVATE_KEY`",
             "type": "string"
@@ -256,6 +278,13 @@
         "ftsoProtocolId": {
             "description": "The FTSO protocol id - used for random number generation.",
             "type": "integer"
+        },
+        "ftsoProxies": {
+            "description": "The list of old FTSOs.",
+            "items": {
+                "$ref": "#/definitions/FtsoProxy"
+            },
+            "type": "array"
         },
         "genesisGovernancePrivateKey": {
             "description": "Genesis governance private key (the key used as governance during deploy).\nOverriden if set in `.env` file as `GENESIS_GOVERNANCE_PRIVATE_KEY`.",
@@ -530,6 +559,7 @@
         "decimalsUpdateOffset",
         "defaultDecimals",
         "defaultFeePercentageBIPS",
+        "defaultFeeWei",
         "deployerPrivateKey",
         "feePercentageUpdateOffset",
         "feedConfigurations",
@@ -539,6 +569,7 @@
         "flareDaemonizedContracts",
         "ftsoInflationConfigurations",
         "ftsoProtocolId",
+        "ftsoProxies",
         "genesisGovernancePrivateKey",
         "governanceExecutorPublicKey",
         "governancePrivateKey",

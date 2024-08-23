@@ -43,7 +43,7 @@ contract FtsoProxy is IFtso {
     /**
      * @inheritdoc IFtso
      */
-    function active() external view returns (bool) {
+    function active() external pure returns (bool) {
         return true;
     }
 
@@ -67,7 +67,7 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      * @dev Deprecated - reverts
      */
-    function getRandom(uint256) external view returns (uint256) {
+    function getRandom(uint256) external pure returns (uint256) {
         revert("not supported");
     }
 
@@ -75,7 +75,7 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      * @dev Deprecated - reverts
      */
-    function getEpochPrice(uint256) external view returns (uint256) {
+    function getEpochPrice(uint256) external pure returns (uint256) {
         revert("not supported");
     }
 
@@ -120,7 +120,7 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      * @dev Deprecated - reverts
      */
-    function getEpochPriceForVoter(uint256, address) external view returns (uint256) {
+    function getEpochPriceForVoter(uint256, address) external pure returns (uint256) {
         revert("not supported");
     }
 
@@ -174,7 +174,7 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      * @dev Deprecated - reverts
      */
-    function getCurrentPriceFromTrustedProviders() external view returns (uint256, uint256) {
+    function getCurrentPriceFromTrustedProviders() external pure returns (uint256, uint256) {
         revert("not supported");
     }
 
@@ -182,7 +182,7 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      * @dev Deprecated - reverts
      */
-    function getCurrentPriceWithDecimalsFromTrustedProviders() external view returns (uint256, uint256, uint256) {
+    function getCurrentPriceWithDecimalsFromTrustedProviders() external pure returns (uint256, uint256, uint256) {
         revert("not supported");
     }
 

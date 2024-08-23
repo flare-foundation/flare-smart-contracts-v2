@@ -122,8 +122,9 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     uint256 internal currentDelta;
     uint256 internal backlogDelta;
 
-    // List of addresses that are allowed to call the fetchCurrentFeeds method for free.
-    AddressSet.State internal freeFetchContractsSet;
+    /// List of addresses that are allowed to call the fetchCurrentFeeds method for free.
+    AddressSet.State internal freeFetchAddresses;
+    /// Destination address for transferring fees.
     address public feeDestination;
 
     /// Modifier for allowing only FlareDaemon contract to call the method.
@@ -341,13 +342,17 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     }
 
     /**
-     *
+     * A list of addresses that are allowed to call the fetchCurrentFeeds method for free.
      * @dev Only governance can call this method.
      */
-    function setFreeFetchContracts(address[] calldata _freeFetchContractsSet) external onlyGovernance {
-        freeFetchContractsSet.replaceAll(_freeFetchContractsSet);
+    function setFreeFetchAddresses(address[] calldata _freeFetchAddresses) external onlyGovernance {
+        freeFetchAddresses.replaceAll(_freeFetchAddresses);
     }
 
+    /**
+     * Destination address for transferring fees.
+     * @dev Only governance can call this method.
+     */
     function setFeeDestination(address _feeDestination) external onlyGovernance {
         feeDestination = _feeDestination;
     }
@@ -364,13 +369,16 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
         )
     {
         // calculate fees
-        if (freeFetchContractsSet.index[msg.sender] == 0) {
+        if (freeFetchAddresses.index[msg.sender] == 0) {
             require(address(feeCalculator) != address(0), "fee calculator not set");
-            uint256 fee = feeCalculator.calculateFeeByIndices(_indices);(_indices);
-            // todo limit msg.value to certain amount?
+            uint256 fee = feeCalculator.calculateFeeByIndices(_indices);
             require(msg.value >= fee, "incorrect fee sent");
-            (bool success, ) = feeDestination.call{value: fee}("");
-            require(success, "fee transfer failed");
+            if (msg.value > 0) {
+                (bool success, ) = feeDestination.call{value: fee}("");
+                require(success, "fee transfer failed");
+            }
+        } else {
+            require(msg.value == 0, "no fee expected");
         }
 
         _decimals = new int8[](_indices.length);
@@ -651,6 +659,13 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
         require(_blockNumber + MAX_BLOCKS_HISTORY > block.number && _blockNumber <= block.number,
             "The given block is no longer or not yet available");
         return numOfUpdatesInBlock[_blockNumber];
+    }
+
+    /**
+     * @inheritdoc IIFastUpdater
+     */
+    function getFreeFetchAddresses() external view returns (address[] memory) {
+        return freeFetchAddresses.list;
     }
 
     /**

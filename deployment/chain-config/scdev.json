@@ -209,6 +209,13 @@
             "inflationShare": 1000
         }
     ],
+    "defaultFeeWei": "1",
+    "ftsoProxies": [
+        {"feedId": {"category": 1, "name": "FLR/USD"}, "symbol": "FLR"},
+        {"feedId": {"category": 1, "name": "BTC/USD"}, "symbol": "BTC"},
+        {"feedId": {"category": 1, "name": "XRP/USD"}, "symbol": "XRP"},
+        {"feedId": {"category": 1, "name": "ETH/USD"}, "symbol": "ETH"}
+    ],
     "rNatName": "Reward Flare",
     "rNatSymbol": "rFLR",
     "rNatManager": "0xc783df8a850f42e7f7e57013759c285caa701eb6",
