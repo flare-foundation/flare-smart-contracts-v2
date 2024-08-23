@@ -196,7 +196,7 @@ contract Relay is IIRelay {
         require(msg.sender == signingPolicySetter, "only sign policy setter");
         _;
     }
-    
+
     /**
      * Constructor.
      * @param _initialConfig The initial configuration of the relay.
@@ -207,13 +207,13 @@ contract Relay is IIRelay {
         address _signingPolicySetter
     ) {
         require(_initialConfig.thresholdIncreaseBIPS >= THRESHOLD_BIPS, "threshold increase too small");
-        require(_initialConfig.firstRewardEpochStartVotingRoundId + 
+        require(_initialConfig.firstRewardEpochStartVotingRoundId +
             _initialConfig.initialRewardEpochId * _initialConfig.rewardEpochDurationInVotingEpochs <=
             _initialConfig.startingVotingRoundIdForInitialRewardEpochId, "invalid initial starting voting round id"
         );
         signingPolicySetter = _signingPolicySetter;
         stateData.lastInitializedRewardEpoch = _initialConfig.initialRewardEpochId;
-        startingVotingRoundIds[_initialConfig.initialRewardEpochId] = 
+        startingVotingRoundIds[_initialConfig.initialRewardEpochId] =
             _initialConfig.startingVotingRoundIdForInitialRewardEpochId;
         toSigningPolicyHashPrivate[_initialConfig.initialRewardEpochId] = _initialConfig.initialSigningPolicyHash;
         stateData.randomNumberProtocolId = _initialConfig.randomNumberProtocolId;
@@ -223,23 +223,16 @@ contract Relay is IIRelay {
         stateData.rewardEpochDurationInVotingEpochs = _initialConfig.rewardEpochDurationInVotingEpochs;
         stateData.thresholdIncreaseBIPS = _initialConfig.thresholdIncreaseBIPS;
         stateData.messageFinalizationWindowInRewardEpochs = _initialConfig.messageFinalizationWindowInRewardEpochs;
-        if (signingPolicySetter != address(0)) {
+        if (_signingPolicySetter != address(0)) {
+            require(_initialConfig.feeConfigs.length == 0, "fee cannot be set");
             stateData.noSigningPolicyRelay = true;
         }
         feeCollectionAddress = _initialConfig.feeCollectionAddress;
         for(uint256 i = 0; i < _initialConfig.feeConfigs.length; i++) {
-            protocolFeeInWei[_initialConfig.feeConfigs[i].protocolId] = _initialConfig.feeConfigs[i].feeInWei;
+            uint8 protocolId = _initialConfig.feeConfigs[i].protocolId;
+            require(protocolId > 1, "invalid protocol id");
+            protocolFeeInWei[protocolId] = _initialConfig.feeConfigs[i].feeInWei;
         }
-    }
-
-    /**
-     * Returns required fee in wei for given address.
-     */
-    function requiredFee(uint256 _protocolId) internal view returns (uint256) {
-        if(signingPolicySetter != address(0)) {
-            return 0;
-        }
-        return protocolFeeInWei[_protocolId];
     }
 
     /**
@@ -380,6 +373,7 @@ contract Relay is IIRelay {
         require(signingPolicySetter == address(0), "fee cannot be set");
         require(_config.chainId == block.chainid, "wrong chain id");
         require(_config.descriptionHash == keccak256("RelayGovernance"), "wrong description hash");
+        require(_config.protocolId > 1, "invalid protocol id");
         /* solhint-disable avoid-low-level-calls */
         //slither-disable-next-line arbitrary-send-eth
         (bool success, bytes memory returnData) = address(this).call(_relayMessage);
@@ -395,10 +389,10 @@ contract Relay is IIRelay {
             returnRewardEpochId := shr(sub(256, mul(8, REWARD_EPOCH_ID_BYTES)), mload(add(returnData, 0x40)))
         }
         require(bytes32(returnHash) == keccak256(abi.encode(_config)), "Invalid config hash");
-        // allow signing with the latest or one earliest. Since the signature test has passed, they 
+        // allow signing with the latest or one earliest. Since the signature test has passed, they
         // are both valid (current with threshold or previous with the increased threshold)
         require(
-            stateData.lastInitializedRewardEpoch == returnRewardEpochId || 
+            stateData.lastInitializedRewardEpoch == returnRewardEpochId ||
             stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId,
             "too old signing policy"
         );
@@ -741,7 +735,7 @@ contract Relay is IIRelay {
                     if votingRoundId {
                         revertWithMessage(memPtrGP0, "Wrong message format", 20)
                     }
-                    
+
                     if structValue( // isSecureRandom should be 0
                         shr(
                             sub(256, mul(8, MESSAGE_NO_MR_BYTES)),
@@ -1161,7 +1155,7 @@ contract Relay is IIRelay {
                         if eq(protocolId, 1) {
                             mstore(memPtrFor, mload(add(memPtrFor, M_6_merkleRoot)))
                             mstore(
-                                add(memPtrFor, M_1), 
+                                add(memPtrFor, M_1),
                                 shl(sub(256, mul(8, REWARD_EPOCH_ID_BYTES)), rewardEpochId)
                             )
                             return (memPtrFor, add(32, REWARD_EPOCH_ID_BYTES))
@@ -1272,7 +1266,28 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
-    function isFinalized(uint256 _protocolId, uint256 _votingRoundId) 
+    function verify(uint256 _protocolId, uint256 _votingRoundId, bytes32 _leaf, bytes32[] calldata _proof)
+        external payable
+        returns (bool)
+    {
+        require(_protocolId > 1, "invalid protocol id");
+        require(msg.value >= protocolFeeInWei[_protocolId], "too low fee");
+        require(_proof.verifyCalldata(merkleRootsPrivate[_protocolId][_votingRoundId], _leaf), "merkle proof invalid");
+        if (msg.value > 0) {
+            /* solhint-disable avoid-low-level-calls */
+            //slither-disable-next-line arbitrary-send-eth
+            (bool success, ) = feeCollectionAddress.call{value: msg.value}("");
+            /* solhint-enable avoid-low-level-calls */
+            require(success, "Transfer failed");
+        }
+
+        return true;
+    }
+
+    /**
+     * @inheritdoc IRelay
+     */
+    function isFinalized(uint256 _protocolId, uint256 _votingRoundId)
         external view
         returns (bool)
     {
@@ -1282,30 +1297,12 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
-    function merkleRoots(uint256 _protocolId, uint256 _votingRoundId) 
+    function merkleRoots(uint256 _protocolId, uint256 _votingRoundId)
         external view
         returns (bytes32 _merkleRoot)
     {
         require(signingPolicySetter != address(0), "no access to merkle roots");
         return merkleRootsPrivate[_protocolId][_votingRoundId];
-    }
-
-    /**
-     * @inheritdoc IRelay
-     */
-    function verify(uint256 _protocolId, uint256 _votingRoundId, bytes32 _leaf, bytes32[] calldata _proof)
-        external payable
-        returns (bool)
-    {
-        require(msg.value >= requiredFee(_protocolId), "too low fee");
-        require(_proof.verifyCalldata(merkleRootsPrivate[_protocolId][_votingRoundId], _leaf), "merkle proof invalid");
-        /* solhint-disable avoid-low-level-calls */
-        //slither-disable-next-line arbitrary-send-eth
-        (bool success, ) = feeCollectionAddress.call{value: msg.value}("");
-        /* solhint-enable avoid-low-level-calls */
-        require(success, "Transfer failed");
-
-        return true;
     }
 
     /**

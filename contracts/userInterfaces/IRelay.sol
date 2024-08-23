@@ -11,9 +11,9 @@ interface IRelay {
         uint256 feeInWei;   // Fee in wei
     }
 
-    struct RelayInitialConfig {        
+    struct RelayInitialConfig {
         uint32 initialRewardEpochId;                           // The initial reward epoch id.
-        uint32 startingVotingRoundIdForInitialRewardEpochId;   // The starting voting round id for the initial 
+        uint32 startingVotingRoundIdForInitialRewardEpochId;   // The starting voting round id for the initial
                                                                // reward epoch.
         bytes32 initialSigningPolicyHash;                      // The initial signing policy hash.
         uint8 randomNumberProtocolId;                          // The protocol id of the random number protocol.
@@ -21,9 +21,9 @@ interface IRelay {
         uint8 votingEpochDurationSeconds;                      // The duration of a voting epoch in seconds.
         uint32 firstRewardEpochStartVotingRoundId;             // The start voting round id of the first reward epoch.
         uint16 rewardEpochDurationInVotingEpochs;              // The duration of a reward epoch in voting epochs.
-        uint16 thresholdIncreaseBIPS;                          // The threshold increase in BIPS for signing with 
+        uint16 thresholdIncreaseBIPS;                          // The threshold increase in BIPS for signing with
                                                                // old signing policy.
-        uint32 messageFinalizationWindowInRewardEpochs;        // The window of reward epochs for finalizing 
+        uint32 messageFinalizationWindowInRewardEpochs;        // The window of reward epochs for finalizing
                                                                // the protocol messages.
         address payable feeCollectionAddress;                  // Fee collection address
         FeeConfig[] feeConfigs;                                // Fee configurations
@@ -33,7 +33,7 @@ interface IRelay {
         bytes32 descriptionHash;        // Description hash (should be keccak256("RelayGovernance")
         uint256 chainId;                // Chain id on which is the relay is deployed
         uint8 protocolId;               // Protocol id for wich the new fee is set
-        uint256 newFeeInWei;            // New fee in wei 
+        uint256 newFeeInWei;            // New fee in wei
     }
 
     // Event is emitted when a new signing policy is initialized by the signing policy setter.
@@ -89,8 +89,8 @@ interface IRelay {
      *        function signature (4 bytes) + signing policy
      *           + signed message (38 bytes) + ECDSA signatures with indices (67 bytes each)
      *     This case splits into two subcases:
-     *     - protocolMessageId = 1: Message id must be of the form (protocolMessageId, 0, 0, merkleRoot). 
-     *       The validity of the signatures of sufficient weight is checked and if 
+     *     - protocolMessageId = 1: Message id must be of the form (protocolMessageId, 0, 0, merkleRoot).
+     *       The validity of the signatures of sufficient weight is checked and if
      *       successful, the merkleRoot from the message is returned (32 bytes) and the
      *       reward epoch id of the signing policy as well (additional 3 bytes)
      *     - protocolMessageId > 1: The validity of the signatures of sufficient weight is checked and if
@@ -98,6 +98,19 @@ interface IRelay {
      * Reverts if relaying is not successful.
      */
     function relay() external returns (bytes memory);
+
+    /**
+     * Verifies the leaf (or intermediate node) with the Merkle proof against the Merkle root
+     * for given protocol id and voting round id.
+     * @param _protocolId The protocol id.
+     * @param _votingRoundId The voting round id.
+     * @param _leaf The leaf (or intermediate node) to verify.
+     * @param _proof The Merkle proof.
+     * @return True if the verification is successful.
+     */
+    function verify(uint256 _protocolId, uint256 _votingRoundId, bytes32 _leaf, bytes32[] calldata _proof)
+        external payable
+        returns (bool);
 
     /**
      * Returns the signing policy hash for given reward epoch id.
@@ -131,14 +144,6 @@ interface IRelay {
      * @return _startingVotingRoundId The start voting round id.
      */
     function startingVotingRoundIds(uint256 _rewardEpochId) external view returns (uint256 _startingVotingRoundId);
-
-    /**
-     * Verifies the leaf (or intermediate node) with the Merkle proof against the Merkle root
-     * for given protocol id and voting round id.
-     */
-    function verify(uint256 _protocolId, uint256 _votingRoundId, bytes32 _leaf, bytes32[] calldata _proof)
-        external payable
-        returns (bool);
 
     /**
      * Returns the current random number, its timestamp and the flag indicating if it is secure.
@@ -179,7 +184,8 @@ interface IRelay {
     function feeCollectionAddress() external view returns (address payable);
 
     /**
-     * Returns fee one verification in wei.
+     * Returns fee in wei for one verification of a given protocol id.
+     * @param _protocolId The protocol id.
      */
     function protocolFeeInWei(uint256 _protocolId) external view returns (uint256);
 

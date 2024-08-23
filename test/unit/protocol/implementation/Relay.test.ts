@@ -1523,7 +1523,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         feeConfigs: [{
           protocolId: 17,
           feeInWei: "1000"
-        }]        
+        }]
       }
 
       const relay = await Relay.new(
@@ -1562,8 +1562,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         data: selector + fullData.slice(2),
       })
       expect(verifyWithMerkleProof(specificHash, proof!, tree.root!)).to.be.true;
-      const oldBalance = (await web3.eth.getBalance(BURN_ADDRESS)).toString();
-      expect(oldBalance).to.equal("0");
+      const oldBalance = Number(await web3.eth.getBalance(BURN_ADDRESS));
       await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof);
 
       newMessageData.protocolId = 17;
@@ -1589,15 +1588,11 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         data: selector + fullData.slice(2),
       })
 
-      // TODO: broken
-      // await relay.setFeeCollectionAddress(BURN_ADDRESS);
-      // await relay.setFee(newMessageData.protocolId, 1000);
-
       await expectRevert(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof), "too low fee");
       await expectRevert(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: 999 }), "too low fee");
       await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: 1000 });
-      const newBalance = (await web3.eth.getBalance(BURN_ADDRESS)).toString();
-      expect(newBalance).to.equal("1000");
+      const newBalance = Number(await web3.eth.getBalance(BURN_ADDRESS));
+      expect(newBalance - oldBalance).to.equal(1000);
     });
   });
 
