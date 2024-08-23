@@ -67,10 +67,9 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
 
     /**
      * @inheritdoc IPriceSubmitter
-     * @dev Deprecated - reverts
      */
-    function getRandom(uint256) external pure returns (uint256) {
-        revert("not supported");
+    function getRandom(uint256 _votingRoundId) external view returns (uint256 _randomNumber) {
+        (_randomNumber, ,) = relay.getRandomNumberHistorical(_votingRoundId);
     }
 
     /**

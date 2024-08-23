@@ -638,7 +638,7 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     }
 
     /**
-     * @inheritdoc IFlareSystemsManager
+     * @inheritdoc ProtocolsV2Interface
      */
     function getVotePowerBlock(uint256 _rewardEpochId)
         external view
@@ -661,7 +661,7 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     }
 
     /**
-     * @inheritdoc IFlareSystemsManager
+     * @inheritdoc ProtocolsV2Interface
      */
     function getStartVotingRoundId(uint256 _rewardEpochId)
         external view
@@ -862,14 +862,14 @@ contract FlareSystemsManager is Governed, AddressUpdatable, IFlareDaemonize, IIF
     }
 
     /**
-     * @inheritdoc IFlareSystemsManager
+     * @inheritdoc ProtocolsV2Interface
      */
     function getCurrentRewardEpochId() external view returns(uint24) {
         return _getCurrentRewardEpochId();
     }
 
     /**
-     * @inheritdoc IFlareSystemsManager
+     * @inheritdoc ProtocolsV2Interface
      */
     function getCurrentVotingEpochId() external view returns(uint32) {
         return _getCurrentVotingEpochId();

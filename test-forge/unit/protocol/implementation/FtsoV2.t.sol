@@ -393,14 +393,14 @@ contract FtsoV2Test is Test {
     }
 
     function testVerifyFeedData() public {
-        IFtsoV2.FeedData memory feedData1 = IFtsoV2.FeedData({
+        FtsoV2Interface.FeedData memory feedData1 = FtsoV2Interface.FeedData({
             votingRoundId: 2,
             id: bytes21("FLR"),
             value: 123456,
             turnoutBIPS: 1000,
             decimals: 4
         });
-        IFtsoV2.FeedData memory feedData2 = IFtsoV2.FeedData({
+        FtsoV2Interface.FeedData memory feedData2 = FtsoV2Interface.FeedData({
             votingRoundId: 2,
             id: bytes21("SGB"),
             value: 123456,
@@ -414,7 +414,7 @@ contract FtsoV2Test is Test {
         bytes32[] memory proof = new bytes32[](1);
         proof[0] = leaf2;
 
-        IFtsoV2.FeedDataWithProof memory feedDataWithProof = IFtsoV2.FeedDataWithProof({
+        FtsoV2Interface.FeedDataWithProof memory feedDataWithProof = FtsoV2Interface.FeedDataWithProof({
             proof:proof,
             body: feedData1
         });
@@ -429,14 +429,14 @@ contract FtsoV2Test is Test {
     }
 
     function testVerifyFeedDataRevert() public {
-         IFtsoV2.FeedData memory feedData1 = IFtsoV2.FeedData({
+         FtsoV2Interface.FeedData memory feedData1 = FtsoV2Interface.FeedData({
             votingRoundId: 2,
             id: bytes21("FLR"),
             value: 123456,
             turnoutBIPS: 1000,
             decimals: 4
         });
-        IFtsoV2.FeedData memory feedData2 = IFtsoV2.FeedData({
+        FtsoV2Interface.FeedData memory feedData2 = FtsoV2Interface.FeedData({
             votingRoundId: 2,
             id: bytes21("SGB"),
             value: 123456,
@@ -448,7 +448,7 @@ contract FtsoV2Test is Test {
         bytes32[] memory proof = new bytes32[](1);
         proof[0] = leaf2;
 
-        IFtsoV2.FeedDataWithProof memory feedDataWithProof = IFtsoV2.FeedDataWithProof({
+        FtsoV2Interface.FeedDataWithProof memory feedDataWithProof = FtsoV2Interface.FeedDataWithProof({
             proof:proof,
             body: feedData1
         });

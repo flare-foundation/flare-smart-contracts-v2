@@ -154,17 +154,17 @@ contract FtsoRewardManagerProxyTest is Test {
         ftsoRewardManagerProxy.enable();
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
         merkleProof1 = new bytes32[](1);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
         bytes32 leaf1 = keccak256(abi.encode(body1));
         bytes32 merkleRoot = _hashPair(leaf1, leaf1);
 
         // proof for WNAT claim
         merkleProof1[0] = leaf1;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // contract needs some funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -212,17 +212,17 @@ contract FtsoRewardManagerProxyTest is Test {
         //// reward epoch 1
         rewardEpochData = RewardEpochData(1, 20);
         _fundRewardContract(100, rewardEpochData.id);
-        proofs = new IRewardManager.RewardClaimWithProof[](1);
+        proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
         merkleProof1 = new bytes32[](1);
 
-        body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
         leaf1 = keccak256(abi.encode(body1));
         merkleRoot = _hashPair(leaf1, leaf1);
 
         // proof for WNAT claim
         merkleProof1[0] = leaf1;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         _mockRewardsHash(rewardEpochData.id, merkleRoot);
         _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
@@ -262,17 +262,17 @@ contract FtsoRewardManagerProxyTest is Test {
         ftsoRewardManagerProxy.enable();
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
         merkleProof1 = new bytes32[](1);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
         bytes32 leaf1 = keccak256(abi.encode(body1));
         bytes32 merkleRoot = _hashPair(leaf1, leaf1);
 
         // proof for WNAT claim
         merkleProof1[0] = leaf1;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // contract needs some funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -320,17 +320,17 @@ contract FtsoRewardManagerProxyTest is Test {
         //// reward epoch 1
         rewardEpochData = RewardEpochData(1, 20);
         _fundRewardContract(100, rewardEpochData.id);
-        proofs = new IRewardManager.RewardClaimWithProof[](1);
+        proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
         merkleProof1 = new bytes32[](1);
 
-        body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
         leaf1 = keccak256(abi.encode(body1));
         merkleRoot = _hashPair(leaf1, leaf1);
 
         // proof for WNAT claim
         merkleProof1[0] = leaf1;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         _mockRewardsHash(rewardEpochData.id, merkleRoot);
         _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
@@ -523,17 +523,17 @@ contract FtsoRewardManagerProxyTest is Test {
         ftsoRewardManagerProxy.enable();
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
         merkleProof1 = new bytes32[](1);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
         bytes32 leaf1 = keccak256(abi.encode(body1));
         bytes32 merkleRoot = _hashPair(leaf1, leaf1);
 
         // proof for WNAT claim
         merkleProof1[0] = leaf1;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // contract needs some funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -564,17 +564,17 @@ contract FtsoRewardManagerProxyTest is Test {
         ftsoRewardManagerProxy.enable();
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
         merkleProof1 = new bytes32[](1);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
         bytes32 leaf1 = keccak256(abi.encode(body1));
         bytes32 merkleRoot = _hashPair(leaf1, leaf1);
 
         // proof for WNAT claim
         merkleProof1[0] = leaf1;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // contract needs some funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -682,17 +682,17 @@ contract FtsoRewardManagerProxyTest is Test {
         ftsoRewardManagerProxy.enable();
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
         merkleProof1 = new bytes32[](1);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
         bytes32 leaf1 = keccak256(abi.encode(body1));
         bytes32 merkleRoot = _hashPair(leaf1, leaf1);
 
         // proof for WNAT claim
         merkleProof1[0] = leaf1;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // contract needs some funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -738,17 +738,17 @@ contract FtsoRewardManagerProxyTest is Test {
         ftsoRewardManagerProxy.enable();
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
         merkleProof1 = new bytes32[](1);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
         bytes32 leaf1 = keccak256(abi.encode(body1));
         bytes32 merkleRoot = _hashPair(leaf1, leaf1);
 
         // proof for WNAT claim
         merkleProof1[0] = leaf1;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // contract needs some funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -777,14 +777,14 @@ contract FtsoRewardManagerProxyTest is Test {
 
         // initialize
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
         merkleProof1 = new bytes32[](1);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
         bytes32 leaf1 = keccak256(abi.encode(body1));
         merkleProof1[0] = leaf1;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
         rewardManager.initialiseWeightBasedClaims(proofs);
 
         uint256[] memory epochs = ftsoRewardManagerProxy.getEpochsWithUnclaimedRewards(voter1);
@@ -799,17 +799,17 @@ contract FtsoRewardManagerProxyTest is Test {
         ftsoRewardManagerProxy.enable();
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
         merkleProof1 = new bytes32[](1);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
         bytes32 leaf1 = keccak256(abi.encode(body1));
         bytes32 merkleRoot = _hashPair(leaf1, leaf1);
 
         // proof for WNAT claim
         merkleProof1[0] = leaf1;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // contract needs some funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -951,7 +951,7 @@ contract FtsoRewardManagerProxyTest is Test {
     function _mockGetCurrentEpochId(uint256 _epochId) private {
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.getCurrentRewardEpochId.selector),
+            abi.encodeWithSelector(ProtocolsV2Interface.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }
@@ -959,7 +959,7 @@ contract FtsoRewardManagerProxyTest is Test {
     function _mockGetVpBlock(uint256 _epochId, uint256 _vpBlock) private {
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.getVotePowerBlock.selector, _epochId),
+            abi.encodeWithSelector(ProtocolsV2Interface.getVotePowerBlock.selector, _epochId),
             abi.encode(_vpBlock)
         );
     }

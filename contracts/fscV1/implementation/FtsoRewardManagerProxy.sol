@@ -67,7 +67,7 @@ contract FtsoRewardManagerProxy is IFtsoRewardManager, Governed, ReentrancyGuard
                 maxRewardEpoch = _rewardEpochs[i];
             }
         }
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
         return rewardManager.claimProxy(msg.sender, msg.sender, _recipient, maxRewardEpoch.toUint24(), false, proofs);
     }
 
@@ -86,7 +86,7 @@ contract FtsoRewardManagerProxy is IFtsoRewardManager, Governed, ReentrancyGuard
         nonReentrant
         returns (uint256 _rewardAmount)
     {
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
         return rewardManager.claimProxy(msg.sender, _rewardOwner, _recipient, _rewardEpoch.toUint24(), _wrap, proofs);
     }
 

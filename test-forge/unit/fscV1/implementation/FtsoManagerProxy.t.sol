@@ -173,7 +173,7 @@ contract FtsoManagerProxyTest is Test {
         contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[4] = keccak256(abi.encode("Submission"));
+        contractNameHashes[4] = keccak256(abi.encode("Relay"));
         contractNameHashes[5] = keccak256(abi.encode("FastUpdater"));
         contractNameHashes[6] = keccak256(abi.encode("FastUpdatesConfiguration"));
         contractNameHashes[7] = keccak256(abi.encode("FtsoRegistry"));
@@ -181,7 +181,7 @@ contract FtsoManagerProxyTest is Test {
         contractAddresses[1] = mockRewardManagerV2;
         contractAddresses[2] = address(flareSystemsManager);
         contractAddresses[3] = addressUpdater;
-        contractAddresses[4] = mockSubmission;
+        contractAddresses[4] = mockRelay;
         contractAddresses[5] = mockFastUpdater;
         contractAddresses[6] = mockFastUpdatesConfiguration;
         contractAddresses[7] = address(registry);
@@ -338,7 +338,7 @@ contract FtsoManagerProxyTest is Test {
         contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[4] = keccak256(abi.encode("Submission"));
+        contractNameHashes[4] = keccak256(abi.encode("Relay"));
         contractNameHashes[5] = keccak256(abi.encode("FastUpdater"));
         contractNameHashes[6] = keccak256(abi.encode("FastUpdatesConfiguration"));
         contractNameHashes[7] = keccak256(abi.encode("FtsoRegistry"));
@@ -346,7 +346,7 @@ contract FtsoManagerProxyTest is Test {
         contractAddresses[1] = mockRewardManagerV2;
         contractAddresses[2] = address(flareSystemsManager1);
         contractAddresses[3] = addressUpdater;
-        contractAddresses[4] = mockSubmission;
+        contractAddresses[4] = mockRelay;
         contractAddresses[5] = mockFastUpdater;
         contractAddresses[6] = mockFastUpdatesConfiguration;
         contractAddresses[7] = address(registry);
@@ -454,7 +454,7 @@ contract FtsoManagerProxyTest is Test {
         contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[4] = keccak256(abi.encode("Submission"));
+        contractNameHashes[4] = keccak256(abi.encode("Relay"));
         contractNameHashes[5] = keccak256(abi.encode("FastUpdater"));
         contractNameHashes[6] = keccak256(abi.encode("FastUpdatesConfiguration"));
         contractNameHashes[7] = keccak256(abi.encode("FtsoRegistry"));
@@ -462,7 +462,7 @@ contract FtsoManagerProxyTest is Test {
         contractAddresses[1] = mockRewardManagerV2;
         contractAddresses[2] = address(flareSystemsManager);
         contractAddresses[3] = addressUpdater;
-        contractAddresses[4] = mockSubmission;
+        contractAddresses[4] = mockRelay;
         contractAddresses[5] = mockFastUpdater;
         contractAddresses[6] = mockFastUpdatesConfiguration;
         contractAddresses[7] = address(registry);
@@ -499,7 +499,7 @@ contract FtsoManagerProxyTest is Test {
         contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[4] = keccak256(abi.encode("Submission"));
+        contractNameHashes[4] = keccak256(abi.encode("Relay"));
         contractNameHashes[5] = keccak256(abi.encode("FastUpdater"));
         contractNameHashes[6] = keccak256(abi.encode("FastUpdatesConfiguration"));
         contractNameHashes[7] = keccak256(abi.encode("FtsoRegistry"));
@@ -507,7 +507,7 @@ contract FtsoManagerProxyTest is Test {
         contractAddresses[1] = mockRewardManagerV2;
         contractAddresses[2] = address(flareSystemsManager);
         contractAddresses[3] = addressUpdater;
-        contractAddresses[4] = mockSubmission;
+        contractAddresses[4] = mockRelay;
         contractAddresses[5] = mockFastUpdater;
         contractAddresses[6] = mockFastUpdatesConfiguration;
         contractAddresses[7] = address(registry);

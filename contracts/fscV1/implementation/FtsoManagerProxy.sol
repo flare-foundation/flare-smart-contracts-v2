@@ -10,7 +10,7 @@ import "../../protocol/interface/IIFlareSystemsManager.sol";
 import "../../fastUpdates/interface/IIFastUpdater.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/IFastUpdatesConfiguration.sol";
-import "../../userInterfaces/ISubmission.sol";
+import "../../userInterfaces/IRelay.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -40,8 +40,8 @@ contract FtsoManagerProxy is IFtsoManager, Governed, ReentrancyGuard, AddressUpd
     IIFastUpdater public fastUpdater;
     /// The FastUpdatesConfiguration contract.
     IFastUpdatesConfiguration public fastUpdatesConfiguration;
-    /// Submission contract.
-    ISubmission public submission;
+    /// Relay contract.
+    IRelay public relay;
 
     constructor(
         IGovernanceSettings _governanceSettings,
@@ -266,8 +266,8 @@ contract FtsoManagerProxy is IFtsoManager, Governed, ReentrancyGuard, AddressUpd
             _getContractAddress(_contractNameHashes, _contractAddresses, "FastUpdater"));
         fastUpdatesConfiguration = IFastUpdatesConfiguration(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FastUpdatesConfiguration"));
-        submission = ISubmission(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "Submission"));
+        relay = IRelay(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
     /**

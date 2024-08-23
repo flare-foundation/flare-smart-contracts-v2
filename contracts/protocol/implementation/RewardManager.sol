@@ -150,7 +150,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
-     * @inheritdoc IRewardManager
+     * @inheritdoc RewardsV2Interface
      */
     function claim(
         address _rewardOwner,
@@ -389,7 +389,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
-     * @inheritdoc IRewardManager
+     * @inheritdoc RewardsV2Interface
      */
     function getStateOfRewards(
         address _rewardOwner
@@ -461,7 +461,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
-     * @inheritdoc IRewardManager
+     * @inheritdoc RewardsV2Interface
      */
     function getRewardEpochIdsWithClaimableRewards()
         external view
@@ -537,7 +537,7 @@ contract RewardManager is Governed, TokenPoolBase, AddressUpdatable, ReentrancyG
     }
 
     /**
-     * @inheritdoc IRewardManager
+     * @inheritdoc RewardsV2Interface
      */
     function getNextClaimableRewardEpochId(address _rewardOwner) external view returns (uint256) {
         return _nextClaimableEpochId(_rewardOwner, _minClaimableRewardEpochId());

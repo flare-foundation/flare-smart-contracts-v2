@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../userInterfaces/LTS/IFtsoV2.sol";
+import "../../userInterfaces/LTS/FtsoV2Interface.sol";
 import "../../userInterfaces/IFastUpdater.sol";
 import "../../userInterfaces/IFastUpdatesConfiguration.sol";
 import "../../userInterfaces/IRelay.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
-contract FtsoV2 is IFtsoV2, AddressUpdatable {
+contract FtsoV2 is FtsoV2Interface, AddressUpdatable {
     using MerkleProof for bytes32[];
 
     IFastUpdater public fastUpdater;
@@ -25,21 +25,21 @@ contract FtsoV2 is IFtsoV2, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc IFtsoV2
+     * @inheritdoc FtsoV2Interface
      */
     function getFeedId(uint256 _index) external view returns (bytes21) {
         return fastUpdatesConfiguration.getFeedId(_index);
     }
 
     /**
-     * @inheritdoc IFtsoV2
+     * @inheritdoc FtsoV2Interface
      */
     function getFeedIndex(bytes21 _feedId) external view returns (uint256) {
         return fastUpdatesConfiguration.getFeedIndex(_feedId);
     }
 
     /**
-     * @inheritdoc IFtsoV2
+     * @inheritdoc FtsoV2Interface
      */
     function verifyFeedData(FeedDataWithProof calldata _feedData) external view returns (bool) {
         bytes32 feedHash = keccak256(abi.encode(_feedData.body));
@@ -49,21 +49,21 @@ contract FtsoV2 is IFtsoV2, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc IFtsoV2
+     * @inheritdoc FtsoV2Interface
      */
     function getFeedByIndex(uint256 _index) external payable returns (uint256, int8, uint64) {
         return _getFeedByIndex(_index);
     }
 
     /**
-     * @inheritdoc IFtsoV2
+     * @inheritdoc FtsoV2Interface
      */
     function getFeedById(bytes21 _feedId) external payable returns (uint256, int8, uint64) {
         return _getFeedByIndex(fastUpdatesConfiguration.getFeedIndex(_feedId));
     }
 
     /**
-     * @inheritdoc IFtsoV2
+     * @inheritdoc FtsoV2Interface
      */
     function getFeedsByIndex(uint256[] calldata _indices)
         external payable
@@ -77,7 +77,7 @@ contract FtsoV2 is IFtsoV2, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc IFtsoV2
+     * @inheritdoc FtsoV2Interface
      */
     function getFeedsById(bytes21[] calldata _feedIds)
         external payable
@@ -95,7 +95,7 @@ contract FtsoV2 is IFtsoV2, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc IFtsoV2
+     * @inheritdoc FtsoV2Interface
      */
     function getFeedByIndexInWei(uint256 _index) external payable
         returns (
@@ -111,7 +111,7 @@ contract FtsoV2 is IFtsoV2, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc IFtsoV2
+     * @inheritdoc FtsoV2Interface
      */
     function getFeedByIdInWei(bytes21 _feedId)
         external payable
@@ -128,7 +128,7 @@ contract FtsoV2 is IFtsoV2, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc IFtsoV2
+     * @inheritdoc FtsoV2Interface
      */
     function getFeedsByIndexInWei(uint256[] calldata _indices)
         external payable
@@ -141,7 +141,7 @@ contract FtsoV2 is IFtsoV2, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc IFtsoV2
+     * @inheritdoc FtsoV2Interface
      */
     function getFeedsByIdInWei(bytes21[] calldata _feedIds)
         external payable

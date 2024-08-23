@@ -343,6 +343,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
 
     /**
      * A list of addresses that are allowed to call the fetchCurrentFeeds method for free.
+     * @notice Calling fetchAllCurrentFeeds is still payable.
      * @dev Only governance can call this method.
      */
     function setFreeFetchAddresses(address[] calldata _freeFetchAddresses) external onlyGovernance {
@@ -354,6 +355,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
      * @dev Only governance can call this method.
      */
     function setFeeDestination(address _feeDestination) external onlyGovernance {
+        require(_feeDestination != address(0), "address zero");
         feeDestination = _feeDestination;
     }
 
@@ -370,9 +372,8 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     {
         // calculate fees
         if (freeFetchAddresses.index[msg.sender] == 0) {
-            require(address(feeCalculator) != address(0), "fee calculator not set");
             uint256 fee = feeCalculator.calculateFeeByIndices(_indices);
-            require(msg.value >= fee, "incorrect fee sent");
+            require(msg.value >= fee, "too low fee");
             if (msg.value > 0) {
                 (bool success, ) = feeDestination.call{value: fee}("");
                 require(success, "fee transfer failed");

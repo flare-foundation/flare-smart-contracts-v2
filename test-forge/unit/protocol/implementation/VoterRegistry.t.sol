@@ -297,7 +297,7 @@ contract VoterRegistryTest is Test {
         uint256 votePowerBlock = 5;
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.getVotePowerBlock.selector),
+            abi.encodeWithSelector(ProtocolsV2Interface.getVotePowerBlock.selector),
             abi.encode(votePowerBlock)
         );
         vm.mockCall(
@@ -363,7 +363,7 @@ contract VoterRegistryTest is Test {
         uint256 votePowerBlock = 5;
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.getVotePowerBlock.selector),
+            abi.encodeWithSelector(ProtocolsV2Interface.getVotePowerBlock.selector),
             abi.encode(votePowerBlock)
         );
         vm.mockCall(
@@ -1168,7 +1168,7 @@ contract VoterRegistryTest is Test {
     function _mockGetCurrentEpochId(uint256 _epochId) internal {
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.getCurrentRewardEpochId.selector),
+            abi.encodeWithSelector(ProtocolsV2Interface.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }

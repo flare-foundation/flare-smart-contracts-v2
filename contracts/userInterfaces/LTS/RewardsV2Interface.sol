@@ -2,9 +2,9 @@
 pragma solidity >=0.7.6 <0.9;
 
 /**
- * Rewards long term support interface.
+ * Rewards V2 long term support interface.
  */
-interface IRewards {
+interface RewardsV2Interface {
 
     /// Claim type enum.
     enum ClaimType { DIRECT, FEE, WNAT, MIRROR, CCHAIN }
@@ -21,6 +21,15 @@ interface IRewards {
         bytes20 beneficiary; // c-chain address or node id (bytes20) in case of type MIRROR
         uint120 amount; // in wei
         ClaimType claimType;
+    }
+
+    /// Struct used for returning state of rewards.
+    struct RewardState {
+        uint24 rewardEpochId;
+        bytes20 beneficiary; // c-chain address or node id (bytes20) in case of type MIRROR
+        uint120 amount; // in wei
+        ClaimType claimType;
+        bool initialised;
     }
 
     /**
@@ -65,5 +74,18 @@ interface IRewards {
      * @param _rewardOwner Address of the reward owner to query.
      */
     function getNextClaimableRewardEpochId(address _rewardOwner) external view returns (uint256);
+
+    /**
+     * Returns the state of rewards for a given address for all unclaimed reward epochs with claimable rewards.
+     * @param _rewardOwner Address of the reward owner.
+     * @return _rewardStates Array of reward states.
+     */
+    function getStateOfRewards(
+        address _rewardOwner
+    )
+        external view
+        returns (
+            RewardState[][] memory _rewardStates
+        );
 
 }

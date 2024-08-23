@@ -75,8 +75,12 @@ contract PriceSubmitterProxyTest is Test {
     }
 
     function testGetRandom() public {
-        vm.expectRevert("not supported");
-        priceSubmitterProxy.getRandom(7);
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IRelay.getRandomNumberHistorical.selector, 12),
+            abi.encode(123, false, 987)
+        );
+        assertEq(priceSubmitterProxy.getRandom(12), 123);
     }
 
     function testGetFtsoManager() public {

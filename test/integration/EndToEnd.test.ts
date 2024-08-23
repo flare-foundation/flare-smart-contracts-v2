@@ -921,7 +921,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             rewardEpochId: 1,
             beneficiary: accounts[50],
             amount: 500,
-            claimType: 2 //IRewardManager.ClaimType.WNAT
+            claimType: 2 //RewardsV2Interface.ClaimType.WNAT
         }
 
         const rewardsVoteHash = web3.utils.keccak256(web3.eth.abi.encodeParameters(

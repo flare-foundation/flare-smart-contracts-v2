@@ -149,7 +149,7 @@ contract FtsoProxyTest is Test {
         contractNameHashes[1] = keccak256(abi.encode("RewardManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[4] = keccak256(abi.encode("Submission"));
+        contractNameHashes[4] = keccak256(abi.encode("Relay"));
         contractNameHashes[5] = keccak256(abi.encode("FastUpdater"));
         contractNameHashes[6] = keccak256(abi.encode("FastUpdatesConfiguration"));
         contractNameHashes[7] = keccak256(abi.encode("FtsoRegistry"));
@@ -157,7 +157,7 @@ contract FtsoProxyTest is Test {
         contractAddresses[1] = mockRewardManagerV2;
         contractAddresses[2] = mockFlareSystemsManager;
         contractAddresses[3] = addressUpdater;
-        contractAddresses[4] = address(submission);
+        contractAddresses[4] = mockRelay;
         contractAddresses[5] = address(fastUpdater);
         contractAddresses[6] = address(fastUpdatesConfiguration);
         contractAddresses[7] = makeAddr("mockFtsoRegistry");
@@ -237,7 +237,7 @@ contract FtsoProxyTest is Test {
         );
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.getVotePowerBlock.selector, currentRewardEpoch),
+            abi.encodeWithSelector(ProtocolsV2Interface.getVotePowerBlock.selector, currentRewardEpoch),
             abi.encode(987)
         );
         _mockFirstVotingRoundStartTs(1000);
@@ -278,8 +278,12 @@ contract FtsoProxyTest is Test {
     }
 
     function testGetRandom() public {
-        vm.expectRevert("not supported");
-        ftsoProxyFLR.getRandom(1);
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(IRelay.getRandomNumberHistorical.selector, 12345),
+            abi.encode(812, true, 123456)
+        );
+        assertEq(ftsoProxyFLR.getRandom(12345), 812);
     }
 
     function testGetCurrentPriceFromTrustedProviders() public {
@@ -334,7 +338,7 @@ contract FtsoProxyTest is Test {
     function _mockGetCurrentVotingEpochId(uint256 _epochId) private {
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.getCurrentVotingEpochId.selector),
+            abi.encodeWithSelector(ProtocolsV2Interface.getCurrentVotingEpochId.selector),
             abi.encode(_epochId)
         );
     }
@@ -342,7 +346,7 @@ contract FtsoProxyTest is Test {
     function _mockFirstVotingRoundStartTs(uint256 _startTs) private {
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.firstVotingRoundStartTs.selector),
+            abi.encodeWithSelector(ProtocolsV2Interface.firstVotingRoundStartTs.selector),
             abi.encode(_startTs)
         );
     }
@@ -350,7 +354,7 @@ contract FtsoProxyTest is Test {
     function _mockVotingEpochDurationSeconds(uint256 _duration) private {
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.votingEpochDurationSeconds.selector),
+            abi.encodeWithSelector(ProtocolsV2Interface.votingEpochDurationSeconds.selector),
             abi.encode(_duration)
         );
     }

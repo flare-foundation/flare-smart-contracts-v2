@@ -531,7 +531,7 @@ contract FtsoRewardOffersManagerTest is Test {
     function _mockGetCurrentEpochId(uint256 _epochId) internal {
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.getCurrentRewardEpochId.selector),
+            abi.encodeWithSelector(ProtocolsV2Interface.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }

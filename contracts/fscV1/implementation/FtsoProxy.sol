@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 import "flare-smart-contracts/contracts/userInterfaces/IFtso.sol";
 import "../../userInterfaces/IFastUpdaterView.sol";
 import "../../userInterfaces/IFastUpdatesConfiguration.sol";
-import "../../userInterfaces/IRandomProvider.sol";
+import "../../userInterfaces/IRelay.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../protocol/interface/IIFtsoManagerProxy.sol";
 
@@ -65,10 +65,9 @@ contract FtsoProxy is IFtso {
 
     /**
      * @inheritdoc IFtso
-     * @dev Deprecated - reverts
      */
-    function getRandom(uint256) external pure returns (uint256) {
-        revert("not supported");
+    function getRandom(uint256 _votingRoundId) external view returns (uint256 _randomNumber) {
+        (_randomNumber, , ) = IRelay(ftsoManager.relay()).getRandomNumberHistorical(_votingRoundId);
     }
 
     /**
@@ -190,7 +189,7 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      */
     function getCurrentRandom() external view returns (uint256 _currentRandom) {
-        (_currentRandom, ) = IRandomProvider(ftsoManager.submission()).getCurrentRandomWithQuality();
+        (_currentRandom, , ) = IRelay(ftsoManager.relay()).getRandomNumber();
     }
 
     function _getCurrentPrice() internal view returns (uint256 _price, uint64 _timestamp) {
