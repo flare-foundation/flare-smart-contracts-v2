@@ -30,7 +30,7 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
      * @inheritdoc IPriceSubmitter
      * @dev Deprecated - reverts
      */
-    function submitHash(uint256, bytes32) external {
+    function submitHash(uint256, bytes32) external pure {
         revert("not supported");
     }
 
@@ -38,7 +38,7 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
      * Submits price hashes for current epoch (Songbird version)
      * @dev Deprecated - reverts
      */
-    function submitPriceHashes(uint256, uint256[] memory, bytes32[] memory) external {
+    function submitPriceHashes(uint256, uint256[] memory, bytes32[] memory) external pure {
         revert("not supported");
     }
 
@@ -46,7 +46,7 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
      * @inheritdoc IPriceSubmitter
      * @dev Deprecated - reverts
      */
-    function revealPrices(uint256, uint256[] memory, uint256[] memory, uint256) external {
+    function revealPrices(uint256, uint256[] memory, uint256[] memory, uint256) external pure {
         revert("not supported");
     }
 
@@ -54,7 +54,7 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
      * Reveals submitted prices during epoch reveal period (Songbird version)
      * @dev Deprecated - reverts
      */
-    function revealPrices(uint256, uint256[] memory, uint256[] memory, uint256[] memory) external {
+    function revealPrices(uint256, uint256[] memory, uint256[] memory, uint256[] memory) external pure {
         revert("not supported");
     }
 
@@ -69,7 +69,7 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
      * @inheritdoc IPriceSubmitter
      * @dev Deprecated - reverts
      */
-    function getRandom(uint256) external view returns (uint256) {
+    function getRandom(uint256) external pure returns (uint256) {
         revert("not supported");
     }
 
@@ -98,7 +98,7 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
      * @inheritdoc IPriceSubmitter
      * @dev Deprecated - reverts
      */
-    function voterWhitelistBitmap(address) external view override returns (uint256) {
+    function voterWhitelistBitmap(address) external pure override returns (uint256) {
         revert("not supported");
     }
 

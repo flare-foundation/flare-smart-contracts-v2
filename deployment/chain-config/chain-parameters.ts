@@ -389,7 +389,12 @@ export interface ChainParameters {
     feedConfigurations: FeedConfiguration[];
 
     /**
-     * The list of old FTSO.
+     * The default fee for fetching fast update feeds. In Wei.
+     */
+    defaultFeeWei: string;
+
+    /**
+     * The list of old FTSOs.
      */
     ftsoProxies: FtsoProxy[];
 

@@ -11,7 +11,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
-import { FastUpdateIncentiveManagerContract, FastUpdaterContract, FastUpdaterInstance, FastUpdatesConfigurationContract, FtsoManagerProxyContract, FtsoProxyContract, FtsoV2Contract, PChainStakeMirrorVerifierContract, PollingFoundationContract, PollingFtsoContract, PriceSubmitterProxyContract, ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance, VoterWhitelisterProxyContract } from '../../typechain-truffle';
+import { FastUpdateIncentiveManagerContract, FastUpdaterContract, FastUpdaterInstance, FastUpdatesConfigurationContract, FeeCalculatorContract, FtsoManagerProxyContract, FtsoProxyContract, FtsoV2Contract, PChainStakeMirrorVerifierContract, PollingFoundationContract, PollingFtsoContract, PriceSubmitterProxyContract, ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance, VoterWhitelisterProxyContract } from '../../typechain-truffle';
 import { PChainStakeMirrorVerifierInstance } from '../../typechain-truffle/contracts/mock/PChainStakeMirrorVerifier';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 import { RNatContract } from '../../typechain-truffle/contracts/rNat/implementation/RNat';
@@ -26,6 +26,7 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   const BN = web3.utils.toBN;
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+  const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
   const PollingFoundation: PollingFoundationContract = artifacts.require("PollingFoundation");
   const PollingFtso: PollingFtsoContract = artifacts.require("PollingFtso");
@@ -34,6 +35,7 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract = artifacts.require("FastUpdateIncentiveManager");
   const FastUpdater: FastUpdaterContract = artifacts.require("FastUpdater");
   const FastUpdatesConfiguration: FastUpdatesConfigurationContract = artifacts.require("FastUpdatesConfiguration");
+  const FeeCalculator: FeeCalculatorContract = artifacts.require("FeeCalculator");
   const WNat: WNatContract = artifacts.require("WNat");
   const RNat: RNatContract = artifacts.require("RNat");
   const RNatAccount: RNatAccountContract = artifacts.require("RNatAccount");
@@ -151,6 +153,15 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   );
   spewNewContractInfo(contracts, null, FastUpdatesConfiguration.contractName, `FastUpdatesConfiguration.sol`, fastUpdatesConfiguration.address, quiet);
 
+  const feeCalculator = await FeeCalculator.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address, // tmp address updater
+    parameters.defaultFeeWei
+  );
+  spewNewContractInfo(contracts, null, FeeCalculator.contractName, `FeeCalculator.sol`, feeCalculator.address, quiet);
+
+
   const rNat = await RNat.new(
     governanceSettings,
     deployerAccount.address,
@@ -180,6 +191,7 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   );
   spewNewContractInfo(contracts, null, "FtsoManager", `FtsoManagerProxy.sol`, ftsoManagerProxy.address, quiet);
 
+  const ftsoProxyAddresses: string[] = [];
   for (const ftso of parameters.ftsoProxies) {
     const ftsoProxy = await FtsoProxy.new(
       ftso.symbol,
@@ -187,6 +199,7 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
       parameters.ftsoProtocolId,
       ftsoManagerProxy.address
     );
+    ftsoProxyAddresses.push(ftsoProxy.address);
     spewNewContractInfo(contracts, null, `FTSO ${ftso.symbol}`, `FtsoProxy.sol`, ftsoProxy.address, quiet);
   }
 
@@ -229,13 +242,18 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   );
 
   await fastUpdater.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FAST_UPDATE_INCENTIVE_MANAGER, Contracts.VOTER_REGISTRY, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.FTSO_FEED_PUBLISHER]),
-    [addressUpdater, flareSystemsManager, fastUpdateIncentiveManager.address, voterRegistry, fastUpdatesConfiguration.address, ftsoFeedPublisher]
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FAST_UPDATE_INCENTIVE_MANAGER, Contracts.VOTER_REGISTRY, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.FTSO_FEED_PUBLISHER, Contracts.FEE_CALCULATOR]),
+    [addressUpdater, flareSystemsManager, fastUpdateIncentiveManager.address, voterRegistry, fastUpdatesConfiguration.address, ftsoFeedPublisher, feeCalculator.address]
   );
 
   await fastUpdatesConfiguration.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FAST_UPDATER]),
     [addressUpdater, fastUpdater.address]
+  );
+
+  await feeCalculator.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FAST_UPDATES_CONFIGURATION]),
+    [addressUpdater, fastUpdatesConfiguration.address]
   );
 
   if (parameters.rNatFundedByIncentivePool) {
@@ -276,6 +294,12 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
     })
   );
 
+  // set ftso proxy addresses as free fetch addresses
+  await fastUpdater.setFreeFetchAddresses(ftsoProxyAddresses);
+
+  // set burn address as fee destination
+  await fastUpdater.setFeeDestination(BURN_ADDRESS);
+
   // Switch to production mode
   await pollingFoundation.switchToProductionMode();
   await pollingFtso.switchToProductionMode();
@@ -285,6 +309,7 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   await fastUpdateIncentiveManager.switchToProductionMode();
   await fastUpdater.switchToProductionMode();
   await fastUpdatesConfiguration.switchToProductionMode();
+  await feeCalculator.switchToProductionMode();
   await rNat.switchToProductionMode();
   await ftsoManagerProxy.switchToProductionMode();
 

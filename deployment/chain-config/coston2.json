@@ -301,6 +301,27 @@
             "inflationShare": 10000
         }
     ],
+    "defaultFeeWei": "1",
+    "ftsoProxies": [
+        {"feedId": {"category": 1, "name": "FLR/USD"}, "symbol": "C2FLR"},
+        {"feedId": {"category": 1, "name": "XRP/USD"}, "symbol": "testXRP"},
+        {"feedId": {"category": 1, "name": "LTC/USD"}, "symbol": "testLTC"},
+        {"feedId": {"category": 1, "name": "XLM/USD"}, "symbol": "testXLM"},
+        {"feedId": {"category": 1, "name": "DOGE/USD"}, "symbol": "testDOGE"},
+        {"feedId": {"category": 1, "name": "ADA/USD"}, "symbol": "testADA"},
+        {"feedId": {"category": 1, "name": "ALGO/USD"}, "symbol": "testALGO"},
+        {"feedId": {"category": 1, "name": "BTC/USD"}, "symbol": "testBTC"},
+        {"feedId": {"category": 1, "name": "ETH/USD"}, "symbol": "testETH"},
+        {"feedId": {"category": 1, "name": "FIL/USD"}, "symbol": "testFIL"},
+        {"feedId": {"category": 1, "name": "ARB/USD"}, "symbol": "testARB"},
+        {"feedId": {"category": 1, "name": "AVAX/USD"}, "symbol": "testAVAX"},
+        {"feedId": {"category": 1, "name": "BNB/USD"}, "symbol": "testBNB"},
+        {"feedId": {"category": 1, "name": "MATIC/USD"}, "symbol": "testMATIC"},
+        {"feedId": {"category": 1, "name": "SOL/USD"}, "symbol": "testSOL"},
+        {"feedId": {"category": 1, "name": "USDC/USD"}, "symbol": "testUSDC"},
+        {"feedId": {"category": 1, "name": "USDT/USD"}, "symbol": "testUSDT"},
+        {"feedId": {"category": 1, "name": "XDC/USD"}, "symbol": "testXDC"}
+    ],
     "rNatName": "Reward Coston2Flare",
     "rNatSymbol": "rC2FLR",
     "rNatManager": "0xC83Ec6a4aFf2099942836860A28C7e248Fabc32C",
