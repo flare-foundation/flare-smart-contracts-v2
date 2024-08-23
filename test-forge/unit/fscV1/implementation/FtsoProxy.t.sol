@@ -280,7 +280,7 @@ contract FtsoProxyTest is Test {
     function testGetRandom() public {
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumberHistorical.selector, 12345),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumberHistorical.selector, 12345),
             abi.encode(812, true, 123456)
         );
         assertEq(ftsoProxyFLR.getRandom(12345), 812);

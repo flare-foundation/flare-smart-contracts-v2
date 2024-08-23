@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
+import "./LTS/RandomNumberV2Interface.sol";
+
 /**
  * Relay interface.
  */
-interface IRelay {
+interface IRelay is RandomNumberV2Interface {
 
     struct FeeConfig {
         uint8 protocolId;   // Protocol id for which the fee is set
@@ -28,7 +30,7 @@ interface IRelay {
         address payable feeCollectionAddress;                  // Fee collection address
         FeeConfig[] feeConfigs;                                // Fee configurations
     }
-    
+
     struct RelayGovernanceConfig {
         bytes32 descriptionHash;        // Description hash (should be keccak256("RelayGovernance")
         uint256 chainId;                // Chain id on which is the relay is deployed
@@ -157,36 +159,6 @@ interface IRelay {
      * @return _startingVotingRoundId The start voting round id.
      */
     function startingVotingRoundIds(uint256 _rewardEpochId) external view returns (uint256 _startingVotingRoundId);
-
-    /**
-     * Returns the current random number, its timestamp and the flag indicating if it is secure.
-     * @return _randomNumber The current random number.
-     * @return _isSecureRandom The flag indicating if the random number is secure.
-     * @return _randomTimestamp The timestamp of the random number.
-     */
-    function getRandomNumber()
-        external view
-        returns (
-            uint256 _randomNumber,
-            bool _isSecureRandom,
-            uint256 _randomTimestamp
-        );
-
-    /**
-     * Returns the historical random number for a given _votingRoundId, its timestamp and the flag indicating if it is secure.
-     * If no finalization in the _votingRoundId, the function reverts.
-     * @param _votingRoundId The voting round id.
-     * @return _randomNumber The current random number.
-     * @return _isSecureRandom The flag indicating if the random number is secure.
-     * @return _randomTimestamp The timestamp of the random number.
-     */
-    function getRandomNumberHistorical(uint256 _votingRoundId)
-        external view
-        returns (
-            uint256 _randomNumber,
-            bool _isSecureRandom,
-            uint256 _randomTimestamp
-        );
 
     /**
      * Returns the voting round id for given timestamp.

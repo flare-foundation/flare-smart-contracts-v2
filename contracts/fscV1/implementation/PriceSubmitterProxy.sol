@@ -6,7 +6,7 @@ import "flare-smart-contracts/contracts/genesis/interface/IFtsoManagerGenesis.so
 import "flare-smart-contracts/contracts/genesis/interface/IFtsoRegistryGenesis.sol";
 import "../../userInterfaces/IRandomProvider.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/IRelay.sol";
+import "../../userInterfaces/LTS/RandomNumberV2Interface.sol";
 
 /**
  * PriceSubmitterProxy is a compatibility contract replacing PriceSubmitter.
@@ -15,7 +15,7 @@ import "../../userInterfaces/IRelay.sol";
 contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
 
     /// The Relay contract.
-    IRelay public relay;
+    RandomNumberV2Interface public relay;
     IFtsoManagerGenesis internal ftsoManager;
     IFtsoRegistryGenesis internal ftsoRegistry;
     address internal voterWhitelister;
@@ -119,7 +119,7 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
     )
         internal override
     {
-        relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
+        relay = RandomNumberV2Interface(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
         ftsoRegistry = IFtsoRegistryGenesis(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRegistry"));
         ftsoManager = IFtsoManagerGenesis(_getContractAddress(_contractNameHashes, _contractAddresses, "FtsoManager"));

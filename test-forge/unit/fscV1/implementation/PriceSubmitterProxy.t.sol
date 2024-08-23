@@ -68,7 +68,7 @@ contract PriceSubmitterProxyTest is Test {
     function testGetCurrentRandom() public {
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(123, false, 987)
         );
         assertEq(priceSubmitterProxy.getCurrentRandom(), 123);
@@ -77,7 +77,7 @@ contract PriceSubmitterProxyTest is Test {
     function testGetRandom() public {
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumberHistorical.selector, 12),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumberHistorical.selector, 12),
             abi.encode(123, false, 987)
         );
         assertEq(priceSubmitterProxy.getRandom(12), 123);
@@ -103,7 +103,7 @@ contract PriceSubmitterProxyTest is Test {
     function testGetCurrentRandomWithQuality() public {
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(123, true, 987)
         );
         (uint256 currentRandom, bool isSecureRandom) = priceSubmitterProxy.getCurrentRandomWithQuality();
@@ -112,7 +112,7 @@ contract PriceSubmitterProxyTest is Test {
 
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(456, false, 1987)
         );
         (currentRandom, isSecureRandom) = priceSubmitterProxy.getCurrentRandomWithQuality();

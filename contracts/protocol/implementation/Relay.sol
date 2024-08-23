@@ -1337,7 +1337,7 @@ contract Relay is IIRelay {
     }
 
     /**
-     * @inheritdoc IRelay
+     * @inheritdoc RandomNumberV2Interface
      */
     function getRandomNumber()
         external view
@@ -1358,7 +1358,7 @@ contract Relay is IIRelay {
     }
 
     /**
-     * @inheritdoc IRelay
+     * @inheritdoc RandomNumberV2Interface
      */
     function getRandomNumberHistorical(uint256 _votingRoundId)
         external view
@@ -1373,8 +1373,8 @@ contract Relay is IIRelay {
         _randomNumber = uint256(
             keccak256(abi.encode(merkleRoot))
         );
-        _isSecureRandom = 
-            (isSecureRandomMap[_votingRoundId / 256] >> (255 - _votingRoundId % 256)) & bytes32(uint256(1)) 
+        _isSecureRandom =
+            (isSecureRandomMap[_votingRoundId / 256] >> (255 - _votingRoundId % 256)) & bytes32(uint256(1))
                 == bytes32(uint256(1));
         _randomTimestamp =
             stateData.firstVotingRoundStartTs +

@@ -50,6 +50,8 @@ const MockContract = artifacts.require("MockContract") as MockContractContract;
 
 let TEST_REWARD_EPOCH: bigint;
 
+const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+
 const EPOCH_LEN = 1000 as const;
 const NUM_ACCOUNTS = 3 as const;
 const VOTER_WEIGHT = 1000 as const;
@@ -126,7 +128,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
     }
 
     feeCalculatorMock = await MockContract.new();
-    const calculateFee = web3.utils.sha3("calculateFee(uint256[])")!.slice(0, 10);
+    const calculateFee = web3.utils.sha3("calculateFeeByIndices(uint256[])")!.slice(0, 10);
     await feeCalculatorMock.givenMethodReturnUint(calculateFee, 1);
   });
 
@@ -186,6 +188,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       90,
       SUBMISSION_WINDOW
     );
+    await fastUpdater.setFeeDestination(BURN_ADDRESS, { from: governance });
 
     await fastUpdateIncentiveManager.updateContractAddresses(
       encodeContractNames([
@@ -427,7 +430,18 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       });
       expect(tx.receipt.gasUsed).to.be.lessThan(4000000);
 
-      feedsVal = (await fastUpdater.fetchCurrentFeeds.call(indices, { value: "1" }))[0].map((x: BN) => x.toNumber());
+      // set addresses that can fetch the feeds for free
+      await fastUpdater.setFreeFetchAddresses([accounts[0], accounts[123]], { from: governance });
+
+      expect(await fastUpdater.getFreeFetchAddresses()).to.be.deep.equal([accounts[0], accounts[123]]);
+
+      // accounts[0] can fetch the feeds for free
+      feedsVal = (await fastUpdater.fetchCurrentFeeds.call(indices, { value: "0" }))[0].map((x: BN) => x.toNumber());
+      // accounts[1] still needs to pay
+      await expectRevert(fastUpdater.fetchCurrentFeeds(indices, { value: "0", from: accounts[1] }), "too low fee");
+
+      // accounts[0] still needs to pay if calling fetchAllCurrentFeeds
+      await expectRevert(fastUpdater.fetchAllCurrentFeeds({ value: "0" }), "too low fee");
       allCurrentFeeds = await fastUpdater.fetchAllCurrentFeeds.call({ value: "1" });
       expect(allCurrentFeeds[0].length).to.be.equal(NUM_FEEDS);
       for (let i = 0; i < NUM_FEEDS; i++) {
@@ -438,6 +452,11 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
 
       const noOfUpdates = await fastUpdater.numberOfUpdates(10);
       expect(noOfUpdates.reduce((a, b) => a + b.toNumber(), 0)).to.be.equal(numSubmitted);
+
+      // destination fee address should receive the fee
+      const balanceBefore = await web3.eth.getBalance(BURN_ADDRESS);
+      await fastUpdater.fetchCurrentFeeds(indices, { value: "1", from: accounts[1] });
+      expect(Number(await web3.eth.getBalance(BURN_ADDRESS)) - (Number(balanceBefore))).to.be.equal(1);
     });
 
     it("should daemonize and emit all current feeds and decimals", async () => {
@@ -477,7 +496,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
     });
 
     it("should revert fetching feeds if the index bigger than the number of feeds", async () => {
-      await expectRevert.unspecified(fastUpdater.fetchCurrentFeeds.call([0, 1, NUM_FEEDS + 2], { value: "1" }));
+      await expectRevert.unspecified(fastUpdater.fetchCurrentFeeds([0, 1, NUM_FEEDS + 2], { value: "1" }));
     });
 
     it("should revert if deploying contract with invalid parameters", async () => {
@@ -705,6 +724,29 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         fastUpdater.blockScoreCutoff((blockNum - SUBMISSION_WINDOW).toString()),
         "score cutoff not available for the given block"
       );
+    });
+
+    it("should revert fetching current feeds when sending fee if address is on free fetch list", async () => {
+      await fastUpdater.setFreeFetchAddresses([accounts[0]], { from: governance });
+      await fastUpdater.setFeeDestination(BURN_ADDRESS, { from: governance });
+      await expectRevert(fastUpdater.fetchCurrentFeeds([0, 1], { value: "100", from: accounts[0] }), "no fee expected");
+    });
+
+    it("should revert setting fee destination to address zero", async () => {
+      await expectRevert(fastUpdater.setFeeDestination(constants.ZERO_ADDRESS, { from: governance }), "address zero");
+    });
+
+    it("should set destination fee address", async () => {
+      await fastUpdater.setFeeDestination(BURN_ADDRESS, { from: governance });
+      expect(await fastUpdater.feeDestination()).to.be.equal(BURN_ADDRESS);
+    });
+
+    it("should revert setting fee destination if not from governance", async () => {
+      await expectRevert(fastUpdater.setFeeDestination(constants.ZERO_ADDRESS), "only governance");
+    });
+
+    it("should revert setting free fetch addresses if not from governance", async () => {
+      await expectRevert(fastUpdater.setFreeFetchAddresses([]), "only governance");
     });
 
     describe("Remove and reset feeds", async () => {

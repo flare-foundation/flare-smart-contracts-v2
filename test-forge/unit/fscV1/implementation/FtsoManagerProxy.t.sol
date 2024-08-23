@@ -247,7 +247,7 @@ contract FtsoManagerProxyTest is Test {
         // select vote power block
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
         flareSystemsManager.daemonize();
@@ -606,7 +606,7 @@ contract FtsoManagerProxyTest is Test {
         vm.roll(block.number + 1);
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
         flareSystemsManager.daemonize();

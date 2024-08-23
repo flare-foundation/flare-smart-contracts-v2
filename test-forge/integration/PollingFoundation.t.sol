@@ -236,7 +236,7 @@ contract PollingFoundationIntegrationTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(currentRandom, true, currentTime + 1)
         );
         _mockGetCurrentRandom(currentRandom);
@@ -287,7 +287,7 @@ contract PollingFoundationIntegrationTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(currentRandom, true, currentTime + 1)
         );
         _mockGetCurrentRandom(currentRandom);
@@ -378,7 +378,7 @@ contract PollingFoundationIntegrationTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(currentRandom, true, currentTime + 1)
         );
         _mockGetCurrentRandom(currentRandom);
