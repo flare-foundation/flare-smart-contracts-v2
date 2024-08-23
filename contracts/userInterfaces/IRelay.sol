@@ -28,12 +28,11 @@ interface IRelay {
         address payable feeCollectionAddress;                  // Fee collection address
         FeeConfig[] feeConfigs;                                // Fee configurations
     }
-
+    
     struct RelayGovernanceConfig {
         bytes32 descriptionHash;        // Description hash (should be keccak256("RelayGovernance")
         uint256 chainId;                // Chain id on which is the relay is deployed
-        uint8 protocolId;               // Protocol id for wich the new fee is set
-        uint256 newFeeInWei;            // New fee in wei
+        FeeConfig[] newFeeConfigs;      // Fee configurations
     }
 
     // Event is emitted when a new signing policy is initialized by the signing policy setter.
@@ -69,9 +68,23 @@ interface IRelay {
     );
 
     /**
+     * Checks the relay message for sufficient weight of signatures for the _hashMessage
+     * signed for protocol message Merkle root of the form (1, 0, 0, _hashMessage).
+     * If the check is successful, reward epoch id of the signing policy is returned.
+     * Otherwise the function reverts.
+     * @param _relayMessage The relay message.
+     * @param _messageHash The hash of the message.
+     * @return _rewardEpochId The reward epoch id of the signing policy.
+     */
+    function verifyCustomSignature(bytes calldata _relayMessage, bytes32 _messageHash) external returns (uint256 _rewardEpochId);
+
+    /**
      * Checks the relay message for sufficient weight of signatures of the hash of the _config data.
      * If the check is successful, the relay contract is configured with the new _config data, which
      * in particular means that addresses of certaion external contracts are changed.
+     * Otherwise the function reverts.
+     * @param _relayMessage The relay message.
+     * @param _config The new relay configuration.
      */
     function governanceFeeSetup(bytes calldata _relayMessage, RelayGovernanceConfig calldata _config) external;
 

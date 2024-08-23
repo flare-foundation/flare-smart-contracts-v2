@@ -369,26 +369,26 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
+    function verifyCustomSignature(
+        bytes calldata _relayMessage, 
+        bytes32 _messageHash
+    ) external returns (uint256 _rewardEpochId) {
+        return _verifyCustomSignature(_relayMessage, _messageHash);
+    }
+
+    /**
+     * @inheritdoc IRelay
+     */
     function governanceFeeSetup(bytes calldata _relayMessage, RelayGovernanceConfig calldata _config) external {
         require(signingPolicySetter == address(0), "fee cannot be set");
         require(_config.chainId == block.chainid, "wrong chain id");
         require(_config.descriptionHash == keccak256("RelayGovernance"), "wrong description hash");
-        require(_config.protocolId > 1, "invalid protocol id");
-        /* solhint-disable avoid-low-level-calls */
-        //slither-disable-next-line arbitrary-send-eth
-        (bool success, bytes memory returnData) = address(this).call(_relayMessage);
-        /* solhint-enable avoid-low-level-calls */
-        require(success, "Verification failed");
-        // 32 bytes hash + 3 bytes reward epoch id
-        require(returnData.length == 35, "Wrong verification data");
-        bytes32 returnHash;
-        uint256 returnRewardEpochId;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            returnHash := mload(add(returnData, 0x20))
-            returnRewardEpochId := shr(sub(256, mul(8, REWARD_EPOCH_ID_BYTES)), mload(add(returnData, 0x40)))
+        for(uint256 i = 0; i < _config.newFeeConfigs.length; i++) {
+            uint8 protocolId = _config.newFeeConfigs[i].protocolId;
+            require(protocolId > 1, "invalid protocol id");
+            protocolFeeInWei[protocolId] = _config.newFeeConfigs[i].feeInWei;
         }
-        require(bytes32(returnHash) == keccak256(abi.encode(_config)), "Invalid config hash");
+        uint256 returnRewardEpochId = _verifyCustomSignature(_relayMessage, keccak256(abi.encode(_config)));
         // allow signing with the latest or one earliest. Since the signature test has passed, they
         // are both valid (current with threshold or previous with the increased threshold)
         require(
@@ -396,7 +396,10 @@ contract Relay is IIRelay {
             stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId,
             "too old signing policy"
         );
-        protocolFeeInWei[_config.protocolId] = _config.newFeeInWei;
+        for(uint256 i = 0; i < _config.newFeeConfigs.length; i++) {
+            uint8 protocolId = _config.newFeeConfigs[i].protocolId;
+            protocolFeeInWei[protocolId] = _config.newFeeConfigs[i].feeInWei;
+        }
     }
 
     /**
@@ -1356,4 +1359,26 @@ contract Relay is IIRelay {
         _startingVotingRoundIdForLastInitializedRewardEpoch =
             uint32(startingVotingRoundIds[_lastInitializedRewardEpoch]);
     }
+
+    function _verifyCustomSignature(
+        bytes calldata _relayMessage, 
+        bytes32 _messageHash
+    ) internal returns (uint256 _rewardEpochId) {
+        /* solhint-disable avoid-low-level-calls */
+        //slither-disable-next-line arbitrary-send-eth
+        (bool success, bytes memory returnData) = address(this).call(_relayMessage);
+        /* solhint-enable avoid-low-level-calls */
+        require(success, "Verification failed");
+        // 32 bytes hash + 3 bytes reward epoch id
+        require(returnData.length == 35, "Wrong verification data");
+        bytes32 returnHash;
+        uint256 returnRewardEpochId;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            returnHash := mload(add(returnData, 0x20))
+            returnRewardEpochId := shr(sub(256, mul(8, REWARD_EPOCH_ID_BYTES)), mload(add(returnData, 0x40)))
+        }
+        require(bytes32(returnHash) == _messageHash, "Invalid config hash");
+        return returnRewardEpochId;
+    }    
 }
