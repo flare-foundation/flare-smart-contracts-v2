@@ -12,6 +12,8 @@ const Submission: SubmissionContract = artifacts.require("Submission");
 const Relay: RelayContract = artifacts.require("Relay");
 const MockContract: MockContractContract = artifacts.require("MockContract");
 
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
 contract(`Submission.sol; ${getTestFile(__filename)}`, async accounts => {
 
   let submission: SubmissionInstance;
@@ -37,14 +39,14 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, async accounts => {
       rewardEpochDurationInVotingEpochs: 23,
       thresholdIncreaseBIPS: 12000,
       messageFinalizationWindowInRewardEpochs: 10,
+      feeCollectionAddress: ZERO_ADDRESS,
+      feeConfigs: []  
     } 
 
     const relay = await Relay.new(
       relayInitialConfig,
       accounts[1]
     );
-
-    // const relay = await Relay.new(accounts[1], 0, 0, web3.utils.keccak256("test"), 1, 242, 90, 0, 23, 12000, 100);
 
     await submission.setSubmitAndPassData(relay.address, web3.utils.keccak256("relay()").slice(0, 10)); // first 4 bytes is function selector
     let startBalance = BigInt(await web3.eth.getBalance(accounts[0]));

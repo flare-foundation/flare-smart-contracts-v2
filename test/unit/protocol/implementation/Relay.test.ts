@@ -10,26 +10,75 @@ import {
   SigningPolicy
 } from "../../../../scripts/libs/protocol/SigningPolicy";
 import { RelayInstance } from "../../../../typechain-truffle";
+import { MerkleTree, verifyWithMerkleProof } from "../../../utils/MerkleTree";
 import { getTestFile } from "../../../utils/constants";
 import { toBN } from "../../../utils/test-helpers";
 import { defaultTestSigningPolicy, generateSignatures, generateSignaturesEncoded } from "../coding/coding-helpers";
+const coder = ethers.AbiCoder.defaultAbiCoder();
 
 const Relay = artifacts.require("Relay");
 
 const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
-async function initializeRelay(relay: RelayInstance, signers: SignerWithAddress[]) {
-  await relay.setMerkleTreeGetter(signers[11].address, true);
-  await relay.setSigningPolicyGetter(signers[10].address, true);    
+interface FeeConfig {
+  protocolId: number;
+  feeInWei: string;
 }
+
+interface RelayGovernanceConfig {
+  descriptionHash: string;
+  chainId: number;
+  newFeeConfigs: FeeConfig[];
+}
+
+const RelayGovernanceConfigABI = {
+  "components": [
+    {
+      "internalType": "bytes32",
+      "name": "descriptionHash",
+      "type": "bytes32"
+    },
+    {
+      "internalType": "uint256",
+      "name": "chainId",
+      "type": "uint256"
+    },
+    {
+      "components": [
+        {
+          "internalType": "uint8",
+          "name": "protocolId",
+          "type": "uint8"
+        },
+        {
+          "internalType": "uint256",
+          "name": "feeInWei",
+          "type": "uint256"
+        }
+      ],
+      "internalType": "struct IRelay.FeeConfig[]",
+      "name": "newFeeConfigs",
+      "type": "tuple[]"
+    }
+  ],
+  "internalType": "struct IRelay.RelayGovernanceConfig",
+  "name": "_config",
+  "type": "tuple"
+}
+
+function hashRelayGovernanceConfig(config: RelayGovernanceConfig): string {
+  const abiEncoded = coder.encode([RelayGovernanceConfigABI as any], [config]);
+  return ethers.keccak256(abiEncoded);
+}
+
+const relayGovernanceDescriptionHash = web3.utils.keccak256("RelayGovernance");
 
 contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   // let accounts: Account[];
   let signers: SignerWithAddress[];
   const accountPrivateKeys = (config.networks.hardhat.accounts as HardhatNetworkAccountConfig[]).map(x => x.privateKey);
   let relay: RelayInstance;
-
   const selector = ethers.keccak256(ethers.toUtf8Bytes("relay()"))!.slice(0, 10);
   const N = 100;
   const singleWeight = 500;
@@ -45,7 +94,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
   const THRESHOLD_INCREASE = 12000;
   const MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS = 3;
   let newSigningPolicyDataRelayed: ISigningPolicy;
-  const FEE_WEI = 0;
 
 
   const firstVotingRoundInRewardEpoch = (rewardEpochId: number) => firstRewardEpochVotingRoundId + rewardEpochDurationInVotingEpochs * rewardEpochId;
@@ -91,13 +139,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
       thresholdIncreaseBIPS: THRESHOLD_INCREASE,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+      feeCollectionAddress: constants.ZERO_ADDRESS,
+      feeConfigs: []
     }
 
     relay = await Relay.new(
       relayInitialConfig,
       constants.ZERO_ADDRESS
     );
-    await initializeRelay(relay, signers);
   });
 
   let merkleRoot: string;
@@ -118,9 +167,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     const { _lastInitializedRewardEpoch, _startingVotingRoundIdForLastInitializedRewardEpoch } = await relay.lastInitializedRewardEpochData();
     expect(_lastInitializedRewardEpoch.toString()).to.equal(signingPolicyData.rewardEpochId.toString());
     expect(_startingVotingRoundIdForLastInitializedRewardEpoch.toString()).to.equal(signingPolicyData.startVotingRoundId.toString());
-    const obtainedSigningPolicyHash = await relay.toSigningPolicyHash(signingPolicyData.rewardEpochId, {from: signers[10].address});
-    const localHash = SigningPolicy.hashEncoded(signingPolicy);
-    expect(obtainedSigningPolicyHash).to.equal(localHash);
   });
 
   it("Should relay a message", async () => {
@@ -150,8 +196,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
-    const confirmedMerkleRoot = await relay.merkleRoots(messageData.protocolId, messageData.votingRoundId, {from: signers[11].address});
-    expect(confirmedMerkleRoot).to.equal(merkleRoot);
+    expect(await relay.isFinalized(messageData.protocolId, messageData.votingRoundId)).to.equal(true);
 
     let stateData = await relay.stateData();
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(messageData.protocolId.toString());
@@ -162,8 +207,11 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     const decodedRelayMessage = RelayMessage.decode(fullData);
 
     expect(RelayMessage.equals(relayMessage, decodedRelayMessage)).to.be.true;
-
-
+    const { _randomNumber, _isSecureRandom, _randomTimestamp } = await relay.getRandomNumber();
+    expect(_isSecureRandom).to.be.true;
+    expect(_randomNumber.toString()).to.equal(BigInt(web3.utils.keccak256(messageData.merkleRoot)).toString());
+    expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (messageData.votingRoundId + 1));
+    expect((await relay.getVotingRoundId(_randomTimestamp)).toNumber()).to.be.equal(toBN(messageData.votingRoundId + 1));
   });
 
   it("Should fail to relay a message due to low weight", async () => {
@@ -319,13 +367,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
       thresholdIncreaseBIPS: THRESHOLD_INCREASE,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+      feeCollectionAddress: constants.ZERO_ADDRESS,
+      feeConfigs: []
     }
 
     const relay2 = await Relay.new(
       relayInitialConfig,
       constants.ZERO_ADDRESS
     );
-    await initializeRelay(relay2, signers);
 
     const fullMessage = ProtocolMessageMerkleRoot.encode(messageData).slice(2);
 
@@ -429,8 +478,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
-    const confirmedMerkleRoot = await relay.merkleRoots(newMessageData.protocolId, newMessageData.votingRoundId, {from: signers[11].address});
-    expect(confirmedMerkleRoot).to.equal(merkleRoot);
+    expect(await relay.isFinalized(newMessageData.protocolId, newMessageData.votingRoundId)).to.equal(true);
 
     let stateData = await relay.stateData();
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
@@ -491,9 +539,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
     const fullData = RelayMessage.encode(relayMessage);
 
-    const hashBefore = await relay.toSigningPolicyHash(newRewardEpoch, {from: signers[10].address});
-    expect(hashBefore).to.equal(ZERO_BYTES32);
-
     const receipt = await web3.eth.sendTransaction({
       from: signers[0].address,
       to: relay.address,
@@ -502,8 +547,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     await expectEvent.inTransaction(receipt!.transactionHash, relay, "SigningPolicyRelayed", {
       rewardEpochId: toBN(newSigningPolicyDataRelayed.rewardEpochId),
     });
-    const hashAfter = await relay.toSigningPolicyHash(newRewardEpoch, {from: signers[10].address});
-    expect(hashAfter).to.equal(localHash);
     const { _lastInitializedRewardEpoch, _startingVotingRoundIdForLastInitializedRewardEpoch } = await relay.lastInitializedRewardEpochData();
     expect(_lastInitializedRewardEpoch.toString()).to.equal(newRewardEpoch.toString());
     expect(_startingVotingRoundIdForLastInitializedRewardEpoch.toString()).to.equal(newSigningPolicyDataRelayed.startVotingRoundId.toString());
@@ -525,13 +568,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
       thresholdIncreaseBIPS: THRESHOLD_INCREASE,
       messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+      feeCollectionAddress: constants.ZERO_ADDRESS,
+      feeConfigs: []
     }
 
     const relay2 = await Relay.new(
       relayInitialConfig,
       constants.ZERO_ADDRESS
     );
-    await initializeRelay(relay2, signers);
 
     let lastSigningPolicyData = signingPolicyData;
     for (let i = signingPolicyData.rewardEpochId + 1; i < signingPolicyData.rewardEpochId + MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS + 2; i++) {
@@ -567,8 +611,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       await expectEvent.inTransaction(receipt!.transactionHash, relay2, "SigningPolicyRelayed", {
         rewardEpochId: toBN(newSigningPolicyDataRelayed.rewardEpochId),
       });
-      const hashAfter = await relay2.toSigningPolicyHash(newRewardEpoch, {from: signers[10].address});
-      expect(hashAfter).to.equal(localHash);
       const { _lastInitializedRewardEpoch, _startingVotingRoundIdForLastInitializedRewardEpoch } = await relay2.lastInitializedRewardEpochData();
       expect(_lastInitializedRewardEpoch.toString()).to.equal(newRewardEpoch.toString());
       expect(_startingVotingRoundIdForLastInitializedRewardEpoch.toString()).to.equal(newSigningPolicyDataRelayed.startVotingRoundId.toString());
@@ -680,8 +722,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
-    const confirmedMerkleRoot = await relay.merkleRoots(newMessageData.protocolId, newMessageData.votingRoundId, {from: signers[11].address});
-    expect(confirmedMerkleRoot).to.equal(merkleRoot);
+    expect(await relay.isFinalized(newMessageData.protocolId, newMessageData.votingRoundId)).to.equal(true);
 
     let stateData = await relay.stateData();
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
@@ -721,8 +762,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       merkleRoot: merkleRoot,
     });
     console.log("Gas used:", receipt?.gasUsed?.toString());
-    const confirmedMerkleRoot = await relay.merkleRoots(newMessageData.protocolId, newMessageData.votingRoundId, {from: signers[11].address});
-    expect(confirmedMerkleRoot).to.equal(merkleRoot);
+    expect(await relay.isFinalized(newMessageData.protocolId, newMessageData.votingRoundId)).to.equal(true);
 
     let stateData = await relay.stateData();
     expect(stateData.randomNumberProtocolId.toString()).to.be.equal(newMessageData.protocolId.toString());
@@ -973,13 +1013,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
       }
 
       const relay2 = await Relay.new(
         relayInitialConfig,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);  
 
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
@@ -1001,9 +1042,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
       const { _lastInitializedRewardEpoch, _startingVotingRoundIdForLastInitializedRewardEpoch } = await relay2.lastInitializedRewardEpochData();
       expect(_lastInitializedRewardEpoch.toString()).to.equal(newSigningPolicyData.rewardEpochId.toString());
       expect(_startingVotingRoundIdForLastInitializedRewardEpoch.toString()).to.equal(newSigningPolicyData.startVotingRoundId.toString());
-      const obtainedSigningPolicyHash = await relay2.toSigningPolicyHash(newSigningPolicyData.rewardEpochId, {from: signers[10].address});
-      const localHash = SigningPolicy.hash(newSigningPolicyData);
-      expect(obtainedSigningPolicyHash).to.equal(localHash);
 
     });
 
@@ -1020,13 +1058,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
       }
 
       const relay2 = await Relay.new(
         relayInitialConfig,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData };
 
@@ -1050,13 +1089,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
       }
 
       const relay2 = await Relay.new(
         relayInitialConfig2,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const relayInitialConfig3: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -1069,14 +1109,15 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
       }
 
       const relay3 = await Relay.new(
         relayInitialConfig3,
         constants.ZERO_ADDRESS
       );
-      await initializeRelay(relay3, signers);
-      
+
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
       newSigningPolicyData.voters = [];
@@ -1104,13 +1145,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
       }
-      
+
       const relay2 = await Relay.new(
         relayInitialConfig,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
@@ -1132,13 +1174,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
       }
 
       const relay2 = await Relay.new(
         relayInitialConfig,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData };
       newSigningPolicyData.rewardEpochId += 1;
@@ -1158,13 +1201,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
       }
 
       const relay2 = await Relay.new(
         relayInitialConfig,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const newSigningPolicyData = { ...signingPolicyData, rewardEpochId: signingPolicyData.rewardEpochId + 1, weights: [...signingPolicyData.weights] };
       let totalWeight = 0;
@@ -1202,14 +1246,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
       }
 
       const relay2 = await Relay.new(
         relayInitialConfig,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
-
 
       const newSigningPolicyData = { ...signingPolicyData };
       const newRewardEpoch = newSigningPolicyData.rewardEpochId + 1;
@@ -1262,13 +1306,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
       }
 
       const relay2 = await Relay.new(
         relayInitialConfig2,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const relayInitialConfig3: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -1281,13 +1326,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
       }
 
       const relay3 = await Relay.new(
         relayInitialConfig3,
         constants.ZERO_ADDRESS
       );
-      await initializeRelay(relay3, signers);
 
       await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "too many voters");
       await expect(
@@ -1335,13 +1381,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
       }
 
       const relay2 = await Relay.new(
         relayInitialConfig2,
         signers[0].address
       );
-      await initializeRelay(relay2, signers);
 
       const relayInitialConfig3: RelayInitialConfig = {
         initialRewardEpochId: signingPolicyData.rewardEpochId,
@@ -1354,13 +1401,14 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
         rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
         thresholdIncreaseBIPS: THRESHOLD_INCREASE,
         messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
       }
 
       const relay3 = await Relay.new(
         relayInitialConfig3,
         constants.ZERO_ADDRESS
       );
-      await initializeRelay(relay3, signers);
 
       newSigningPolicyData.weights[0] = 2 ** 16 - 1;
       await expectRevert(relay2.setSigningPolicy(newSigningPolicyData), "total weight too big");
@@ -1458,14 +1506,399 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
 
   });
 
-  describe("Access functions", async () => {
-    it("Should random number be hashed", async () => {
-    });
-    it("Should access to merkle tree work correctly", async () => {
-    });
-    it("Should access to merkle tree work correctly", async () => {
-    });
+  describe("Verification", async () => {
+    it("Should verification work", async () => {
+      const signingPolicyData = defaultTestSigningPolicy(
+        signers.map(x => x.address),
+        N,
+        singleWeight
+      );
+      signingPolicyData.rewardEpochId = rewardEpochId;
+      signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
+      const signingPolicy = SigningPolicy.encode(signingPolicyData);
+      const localHash = SigningPolicy.hashEncoded(signingPolicy);
 
+      const relayInitialConfig: RelayInitialConfig = {
+        initialRewardEpochId: signingPolicyData.rewardEpochId,
+        startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
+        initialSigningPolicyHash: localHash,
+        randomNumberProtocolId: randomNumberProtocolId,
+        firstVotingRoundStartTs: firstVotingRoundStartSec,
+        votingEpochDurationSeconds: votingRoundDurationSec,
+        firstRewardEpochStartVotingRoundId: firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
+        thresholdIncreaseBIPS: THRESHOLD_INCREASE,
+        messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: BURN_ADDRESS,
+        feeConfigs: [{
+          protocolId: 17,
+          feeInWei: "1000"
+        }]
+      }
+
+      const relay = await Relay.new(
+        relayInitialConfig,
+        constants.ZERO_ADDRESS
+      );
+
+      const makeHashes = (i: number, shiftSeed = 0) =>
+        new Array(i).fill(0).map((x, i) => ethers.keccak256(ethers.toBeHex(shiftSeed + i)));
+      const hashes = makeHashes(100);
+      const tree = new MerkleTree(hashes);
+      const specificHash = hashes[10];
+
+      const proof = tree.getProof(specificHash);
+      const newMessageData = { ...messageData };
+      newMessageData.merkleRoot = tree.root!;
+      const specificVotingRoundId = newMessageData.votingRoundId + 5;
+      newMessageData.votingRoundId = specificVotingRoundId;
+      let messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+      let signatures = await generateSignatures(
+        accountPrivateKeys,
+        messageHash,
+        N / 2 + 1
+      );
+
+      let relayMessage = {
+        signingPolicy: signingPolicyData,
+        signatures,
+        protocolMessageMerkleRoot: newMessageData,
+      };
+
+      let fullData = RelayMessage.encode(relayMessage);
+      let receipt = await web3.eth.sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData.slice(2),
+      })
+      expect(verifyWithMerkleProof(specificHash, proof!, tree.root!)).to.be.true;
+      const oldBalance = Number(await web3.eth.getBalance(BURN_ADDRESS));
+      await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof);
+
+      newMessageData.protocolId = 17;
+
+      messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+      signatures = await generateSignatures(
+        accountPrivateKeys,
+        messageHash,
+        N / 2 + 1
+      );
+
+      relayMessage = {
+        signingPolicy: signingPolicyData,
+        signatures,
+        protocolMessageMerkleRoot: newMessageData,
+      };
+
+      fullData = RelayMessage.encode(relayMessage);
+
+      receipt = await web3.eth.sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData.slice(2),
+      })
+
+      await expectRevert(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof), "too low fee");
+      await expectRevert(relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: 999 }), "too low fee");
+      await relay.verify(newMessageData.protocolId, newMessageData.votingRoundId, specificHash, proof, { value: 1000 });
+      const newBalance = Number(await web3.eth.getBalance(BURN_ADDRESS));
+      expect(newBalance - oldBalance).to.equal(1000);
+    });
   });
 
+  describe("Custom hash signing", async () => {
+    it("Should verification work", async () => {
+      const signingPolicyData = defaultTestSigningPolicy(
+        signers.map(x => x.address),
+        N,
+        singleWeight
+      );
+      signingPolicyData.rewardEpochId = rewardEpochId;
+      signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
+      const signingPolicy = SigningPolicy.encode(signingPolicyData);
+      const localHash = SigningPolicy.hashEncoded(signingPolicy);
+
+      const relayInitialConfig: RelayInitialConfig = {
+        initialRewardEpochId: signingPolicyData.rewardEpochId,
+        startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
+        initialSigningPolicyHash: localHash,
+        randomNumberProtocolId: randomNumberProtocolId,
+        firstVotingRoundStartTs: firstVotingRoundStartSec,
+        votingEpochDurationSeconds: votingRoundDurationSec,
+        firstRewardEpochStartVotingRoundId: firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
+        thresholdIncreaseBIPS: THRESHOLD_INCREASE,
+        messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
+      }
+
+      const relay = await Relay.new(
+        relayInitialConfig,
+        constants.ZERO_ADDRESS
+      );
+
+      const specificHash = web3.utils.keccak256("Something");
+
+      const newMessageData = { ...messageData };
+      newMessageData.merkleRoot = specificHash;
+      newMessageData.votingRoundId = 0;
+      newMessageData.isSecureRandom = false;
+      newMessageData.protocolId = 1;
+      const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+      const signatures = await generateSignatures(
+        accountPrivateKeys,
+        messageHash,
+        N / 2 + 1
+      );
+
+      const relayMessage = {
+        signingPolicy: signingPolicyData,
+        signatures,
+        protocolMessageMerkleRoot: newMessageData,
+      };
+
+      let fullData = RelayMessage.encode(relayMessage);
+      const result = await web3.eth.call({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData.slice(2),
+      })
+      expect(result.slice(0, 66)).to.equal(newMessageData.merkleRoot);
+      expect(parseInt(result.slice(66), 16)).to.equal(rewardEpochId);
+      newMessageData.votingRoundId = 1;
+      fullData = RelayMessage.encode(relayMessage);
+      await expectRevert(web3.eth.sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData.slice(2),
+      }), "Wrong message format");
+      newMessageData.votingRoundId = 0;
+      newMessageData.isSecureRandom = true;
+      fullData = RelayMessage.encode(relayMessage);
+      await expectRevert(web3.eth.sendTransaction({
+        from: signers[0].address,
+        to: relay.address,
+        data: selector + fullData.slice(2),
+      }), "Wrong message format2");
+    });
+  });
+
+  describe("Governance fee changing", async () => {
+    it("Should fee be changed through signer governance", async () => {
+      const signingPolicyData = defaultTestSigningPolicy(
+        signers.map(x => x.address),
+        N,
+        singleWeight
+      );
+      signingPolicyData.rewardEpochId = rewardEpochId;
+      signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
+      const signingPolicy = SigningPolicy.encode(signingPolicyData);
+      const localHash = SigningPolicy.hashEncoded(signingPolicy);
+
+      async function relayNewSigningPolicy(newRewardEpochId: number, relayAddress: string) {
+        const prevSigningPolicyData = { ...signingPolicyData };
+        prevSigningPolicyData.rewardEpochId = newRewardEpochId - 1;
+        const newSigningPolicyDataRelayed = { ...signingPolicyData };
+        newSigningPolicyDataRelayed.rewardEpochId = newRewardEpochId;
+        const localHash = SigningPolicy.hash(newSigningPolicyDataRelayed);
+        const signatures = await generateSignatures(
+          accountPrivateKeys,
+          localHash,
+          N / 2 + 1
+        );
+        const relayMessage = {
+          signingPolicy: prevSigningPolicyData,
+          signatures,
+          newSigningPolicy: newSigningPolicyDataRelayed
+        };
+        const fullData = RelayMessage.encode(relayMessage);
+
+        return await web3.eth.sendTransaction({
+          from: signers[0].address,
+          to: relayAddress,
+          data: selector + fullData.slice(2),
+        })
+      }
+
+      const relayInitialConfig: RelayInitialConfig = {
+        initialRewardEpochId: signingPolicyData.rewardEpochId,
+        startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
+        initialSigningPolicyHash: localHash,
+        randomNumberProtocolId: randomNumberProtocolId,
+        firstVotingRoundStartTs: firstVotingRoundStartSec,
+        votingEpochDurationSeconds: votingRoundDurationSec,
+        firstRewardEpochStartVotingRoundId: firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
+        thresholdIncreaseBIPS: THRESHOLD_INCREASE,
+        messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: constants.ZERO_ADDRESS,
+        feeConfigs: []
+      }
+
+      const relay = await Relay.new(
+        relayInitialConfig,
+        constants.ZERO_ADDRESS
+      );
+
+      const chainId = await web3.eth.getChainId();
+
+      const NEW_FEE = "1000";
+      const newRelayGovernanceConfig: RelayGovernanceConfig = {
+        descriptionHash: relayGovernanceDescriptionHash,
+        chainId,
+        newFeeConfigs: [
+          {
+            protocolId: 2,
+            feeInWei: NEW_FEE
+          }
+        ]
+      }
+
+      async function prepareRelayMessage(config: RelayGovernanceConfig, numSignatures = N / 2 + 1, protocolId = 1, votingRoundId = 0, newRewardEpochId?: number) {
+        const newMessageData = { ...messageData };
+        newMessageData.merkleRoot = specificHash;
+        newMessageData.votingRoundId = votingRoundId;
+        newMessageData.isSecureRandom = false;
+        newMessageData.protocolId = protocolId;
+        const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+        const signatures = await generateSignatures(
+          accountPrivateKeys,
+          messageHash,
+          numSignatures
+        );
+
+        const tmpSigningPolicyData = { ...signingPolicyData };
+        if (newRewardEpochId) {
+          tmpSigningPolicyData.rewardEpochId = rewardEpochId;
+        }
+        const relayMessage = {
+          signingPolicy: tmpSigningPolicyData,
+          signatures,
+          protocolMessageMerkleRoot: newMessageData,
+        };
+        let fullData = RelayMessage.encode(relayMessage);
+        return selector + fullData.slice(2)
+      }
+      let specificHash = hashRelayGovernanceConfig(newRelayGovernanceConfig);
+
+      for (let feeChange of newRelayGovernanceConfig.newFeeConfigs) {
+        expect((await relay.protocolFeeInWei(feeChange.protocolId)).toString()).to.equal("0");
+        await relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig);
+        expect((await relay.protocolFeeInWei(feeChange.protocolId)).toString()).to.equal(NEW_FEE);
+      }
+
+      newRelayGovernanceConfig.descriptionHash = web3.utils.keccak256("Something else");
+      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig), "wrong description hash");
+      newRelayGovernanceConfig.descriptionHash = relayGovernanceDescriptionHash;
+      newRelayGovernanceConfig.chainId = newRelayGovernanceConfig.chainId + 1;
+      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig), "wrong chain id");
+      newRelayGovernanceConfig.chainId = newRelayGovernanceConfig.chainId - 1;
+      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig, Math.round(N / 4)), newRelayGovernanceConfig), "Verification failed");
+      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig, N / 2 + 1, 5, signingPolicyData.startVotingRoundId), newRelayGovernanceConfig), "Wrong verification data");
+
+      const tmpRelayGovernanceConfig = { ...newRelayGovernanceConfig };
+      tmpRelayGovernanceConfig.newFeeConfigs = tmpRelayGovernanceConfig.newFeeConfigs.map(x => ({ ...x }));
+      tmpRelayGovernanceConfig.newFeeConfigs[0].feeInWei = NEW_FEE + "1";
+      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), tmpRelayGovernanceConfig), "Invalid config hash");
+
+      await relayNewSigningPolicy(signingPolicyData.rewardEpochId + 1, relay.address);
+      await relayNewSigningPolicy(signingPolicyData.rewardEpochId + 2, relay.address);
+      await expectRevert(relay.governanceFeeSetup(await prepareRelayMessage(newRelayGovernanceConfig), newRelayGovernanceConfig), "too old signing policy");
+    });
+  });
+
+  describe("Random number test", async () => {
+    it("Should historical random number work", async () => {
+      const signingPolicyData = defaultTestSigningPolicy(
+        signers.map(x => x.address),
+        N,
+        singleWeight
+      );
+      signingPolicyData.rewardEpochId = rewardEpochId;
+      signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
+      const signingPolicy = SigningPolicy.encode(signingPolicyData);
+      const localHash = SigningPolicy.hashEncoded(signingPolicy);
+
+      const relayInitialConfig: RelayInitialConfig = {
+        initialRewardEpochId: signingPolicyData.rewardEpochId,
+        startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
+        initialSigningPolicyHash: localHash,
+        randomNumberProtocolId: randomNumberProtocolId,
+        firstVotingRoundStartTs: firstVotingRoundStartSec,
+        votingEpochDurationSeconds: votingRoundDurationSec,
+        firstRewardEpochStartVotingRoundId: firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
+        thresholdIncreaseBIPS: THRESHOLD_INCREASE,
+        messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: BURN_ADDRESS,
+        feeConfigs: []
+      }
+
+      const relay = await Relay.new(
+        relayInitialConfig,
+        constants.ZERO_ADDRESS
+      );
+
+      const hashes = new Map<number, string>();
+      const isSecure = new Map<number, boolean>();
+      const startVotingRoundId = signingPolicyData.startVotingRoundId;
+      const MAX_NUM = 1000;
+      const STEP = 39;
+      for (let i = 0; i < MAX_NUM; i += STEP) {
+        const random = Math.random() > 0.5;
+        const specificHash = web3.utils.keccak256(`hash${i}`);
+        hashes.set(startVotingRoundId + i, specificHash);
+        isSecure.set(startVotingRoundId + i, random);
+        const newMessageData = {
+          merkleRoot: specificHash,
+          votingRoundId: startVotingRoundId + i,
+          isSecureRandom: random,
+          protocolId: randomNumberProtocolId
+        };
+        let messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+        let signatures = await generateSignatures(
+          accountPrivateKeys,
+          messageHash,
+          N / 2 + 1
+        );
+
+        let relayMessage = {
+          signingPolicy: signingPolicyData,
+          signatures,
+          protocolMessageMerkleRoot: newMessageData,
+        };
+
+        let fullData = RelayMessage.encode(relayMessage);
+        await web3.eth.sendTransaction({
+          from: signers[0].address,
+          to: relay.address,
+          data: selector + fullData.slice(2),
+        })
+
+        let { _randomNumber, _isSecureRandom, _randomTimestamp } = await relay.getRandomNumber();
+        expect(_isSecureRandom).to.equal(random);
+        expect(_randomNumber.toString()).to.equal(BigInt(web3.utils.keccak256(newMessageData.merkleRoot)).toString());
+        expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (newMessageData.votingRoundId + 1));
+        expect((await relay.getVotingRoundId(_randomTimestamp)).toNumber()).to.be.equal(toBN(newMessageData.votingRoundId + 1));
+
+        ({ _randomNumber, _isSecureRandom, _randomTimestamp } = await relay.getRandomNumberHistorical(newMessageData.votingRoundId));
+        expect(_randomNumber.toString()).to.equal(BigInt(web3.utils.keccak256(newMessageData.merkleRoot)).toString());
+        expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (newMessageData.votingRoundId + 1));
+        expect(_isSecureRandom).to.equal(random);
+      }
+
+      for (let i = 0; i < MAX_NUM; i++) {
+        const votingRoundId = startVotingRoundId + i;
+        if (hashes.get(votingRoundId)) {
+          const { _randomNumber, _isSecureRandom, _randomTimestamp } = await relay.getRandomNumberHistorical(votingRoundId);
+          expect(_randomNumber.toString()).to.equal(BigInt(web3.utils.keccak256(hashes.get(votingRoundId)!)).toString());
+          expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (votingRoundId + 1));
+          expect(_isSecureRandom).to.equal(isSecure.get(votingRoundId));
+        } else {
+            await expectRevert(relay.getRandomNumberHistorical(votingRoundId), "no random number");
+        }
+      }
+    });
+  });
 });

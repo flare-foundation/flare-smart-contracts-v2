@@ -199,7 +199,9 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     firstRewardEpochStartVotingRoundId: parameters.firstRewardEpochStartVotingRoundId,
     rewardEpochDurationInVotingEpochs: parameters.rewardEpochDurationInVotingEpochs,
     thresholdIncreaseBIPS: parameters.relayThresholdIncreaseBIPS,
-    messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs
+    messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
+    feeCollectionAddress: ZERO_ADDRESS,
+    feeConfigs: []
   }
 
   const relay = await Relay.new(
@@ -207,19 +209,6 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     flareSystemsManager.address
   );
 
-  // const relay = await Relay.new(
-  //   flareSystemsManager.address,
-  //   initialSigningPolicy.rewardEpochId,
-  //   initialSigningPolicy.startVotingRoundId,
-  //   SigningPolicy.hash(initialSigningPolicy),
-  //   parameters.ftsoProtocolId,
-  //   firstVotingRoundStartTs,
-  //   parameters.votingEpochDurationSeconds,
-  //   parameters.firstRewardEpochStartVotingRoundId,
-  //   parameters.rewardEpochDurationInVotingEpochs,
-  //   parameters.relayThresholdIncreaseBIPS,
-  //   parameters.messageFinalizationWindowInRewardEpochs
-  // );
   spewNewContractInfo(contracts, null, Relay.contractName, `Relay.sol`, relay.address, quiet);
 
   // get the submission contract
@@ -269,7 +258,6 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     parameters.ftsoProtocolId,
     parameters.feedsHistorySize
   );
-
   spewNewContractInfo(contracts, null, FtsoFeedPublisher.contractName, `FtsoFeedPublisher.sol`, ftsoFeedPublisher.address, quiet);
 
   const ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
@@ -369,10 +357,6 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
 
   // set initial data on reward manager
   await rewardManager.setInitialRewardData();
-
-  // grant access to merkle roots to FtsoFeedPublisher. Set relay contract to production.
-  await relay.setMerkleTreeGetter(ftsoFeedPublisher.address, true);
-  await relay.setInProduction();
 
   // activate reward manager
   await rewardManager.activate();

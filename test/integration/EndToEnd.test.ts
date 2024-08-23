@@ -65,9 +65,6 @@ const ValidatorRewardOffersManager: ValidatorRewardOffersManagerContract = artif
 const PollingFoundation: PollingFoundationContract = artifacts.require("PollingFoundation");
 const PollingFtso: PollingFtsoContract = artifacts.require("PollingFtso");
 
-const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
-const FEE_WEI = 0;
-
 type PChainStake = {
     txId: string,
     stakingType: number,
@@ -96,11 +93,6 @@ async function setMockStakingData(verifierMock: MockContractInstance, pChainStak
 
 function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {
     return SigningPolicy.hash(signingPolicy);
-}
-
-async function initializeRelay(relay: RelayInstance, account: string) {
-    await relay.setMerkleTreeGetter(account, true);
-    await relay.setSigningPolicyGetter(account, true);
 }
 
 contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
@@ -148,6 +140,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let stakeIds: string[] = [];
     let rewardClaim: any;
     let feed: any;
+
+    let tempSigningPolicyEncoded: string;
 
     const RANDOM_ROOT = web3.utils.keccak256("root");
     const RANDOM_ROOT2 = web3.utils.keccak256("root2");
@@ -290,13 +284,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             thresholdIncreaseBIPS: 12000,
             messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+            feeCollectionAddress: constants.ZERO_ADDRESS,
+            feeConfigs: []        
         }
 
         relay = await Relay.new(
             relayInitialConfig,
             flareSystemsManager.address
         );
-        await initializeRelay(relay, accounts[0]);
 
         const relayInitialConfig2: RelayInitialConfig = {
             initialRewardEpochId: initialSigningPolicy.rewardEpochId,
@@ -309,13 +304,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             rewardEpochDurationInVotingEpochs: REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS,
             thresholdIncreaseBIPS: 12000,
             messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+            feeCollectionAddress: constants.ZERO_ADDRESS,
+            feeConfigs: []        
         }
 
         relay2 = await Relay.new(
             relayInitialConfig2,
             constants.ZERO_ADDRESS
         );
-        await initializeRelay(relay2, accounts[0]);
 
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
 
@@ -345,8 +341,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             200
         );
 
-        await relay.setMerkleTreeGetter(ftsoFeedPublisher.address, true);
-        await relay.setInProduction();
         ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
 
         validatorRewardOffersManager = await ValidatorRewardOffersManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
@@ -618,11 +612,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
                 rewardEpochId: toBN(1), startVotingRoundId: toBN(startVotingRoundId), voters: newSigningPolicy.voters,
                 seed: toBN(web3.utils.keccak256(RANDOM_ROOT)), threshold: toBN(32767), weights: newSigningPolicy.weights.map(x => toBN(x))
             });
+        const { _lastInitializedRewardEpoch, _startingVotingRoundIdForLastInitializedRewardEpoch } = (await relay.lastInitializedRewardEpochData()) as any;
+        expect(_lastInitializedRewardEpoch.toString()).to.equal("1");
+        expect(_startingVotingRoundIdForLastInitializedRewardEpoch.toString()).to.equal(startVotingRoundId.toString());
         expect(await relay.toSigningPolicyHash(1)).to.be.equal(getSigningPolicyHash(newSigningPolicy));
     });
 
     it("Should sign new signing policy and relay it", async () => {
         const rewardEpochId = 1;
+        // const newSigningPolicyHash = getSigningPolicyHash(newSigningPolicy)
         const newSigningPolicyHash = await relay.toSigningPolicyHash(rewardEpochId);
 
         let signatures = (51).toString(16).padStart(4, "0");
@@ -651,8 +649,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const newSigningPolicyEncoded = SigningPolicy.encode(newSigningPolicy).slice(2);
         const fullData = RELAY_SELECTOR + signingPolicyEncoded + "00" + newSigningPolicyEncoded + signatures;
 
-        const hashBefore = await relay2.toSigningPolicyHash(rewardEpochId);
-        expect(hashBefore).to.equal(constants.ZERO_BYTES32);
+        const { _lastInitializedRewardEpoch } = (await relay2.lastInitializedRewardEpochData()) as any;
+        expect(_lastInitializedRewardEpoch.toString()).to.equal("0");        
 
         const txReceipt = await web3.eth.sendTransaction({
             from: accounts[0],
@@ -661,8 +659,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         });
 
         await expectEvent.inTransaction(txReceipt.transactionHash, relay2, "SigningPolicyRelayed", { rewardEpochId: toBN(rewardEpochId) });
-        const hashAfter = await relay2.toSigningPolicyHash(rewardEpochId);
-        expect(hashAfter).to.equal(newSigningPolicyHash);
+        const data = (await relay2.lastInitializedRewardEpochData()) as any;
+        expect(data._lastInitializedRewardEpoch.toString()).to.equal(rewardEpochId.toString());
     });
 
     it("Should start new reward epoch, initiate new voting round and offer rewards for the next reward epoch", async () => {
@@ -741,12 +739,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         expect((await submission.getCurrentRandom()).eq(toBN(web3.utils.keccak256(root)))).to.be.true;
         expect((await submission.getCurrentRandomWithQuality())[1]).to.be.true;
 
+        expect(await relay2.isFinalized(FTSO_PROTOCOL_ID, votingRoundId)).to.be.false;
         await web3.eth.sendTransaction({
             from: accounts[0],
             to: relay2.address,
             data: RELAY_SELECTOR + fullData.slice(2),
         });
-        expect(await relay2.merkleRoots(FTSO_PROTOCOL_ID, votingRoundId)).to.be.equal(root);
+        expect(await relay2.isFinalized(FTSO_PROTOCOL_ID, votingRoundId)).to.be.true;
     });
 
     it("Should publish ftso feed", async () => {
@@ -841,10 +840,20 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
                 rewardEpochId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(30, 34),
                 seed: toBN(web3.utils.keccak256(RANDOM_ROOT2)), threshold: toBN(32767), weights: [toBN(34664), toBN(20660), toBN(6334), toBN(3875)]
             });
+        // tempSigningPolicyEncoded = SigningPolicy.encode({
+        //     rewardEpochId: 2,
+        //     startVotingRoundId: votingRoundId,
+        //     voters: accounts.slice(30, 34),
+        //     seed: web3.utils.keccak256(RANDOM_ROOT2),
+        //     threshold: 32767,
+        //     weights: [34664, 20660, 6334, 3875]
+        // })
+
     });
 
     it("Should sign new signing policy for reward epoch 2", async () => {
         const rewardEpochId = 2;
+        // const newSigningPolicyHash = SigningPolicy.hashEncoded(tempSigningPolicyEncoded)
         const newSigningPolicyHash = await relay.toSigningPolicyHash(rewardEpochId);
 
         const signature = web3.eth.accounts.sign(newSigningPolicyHash, privateKeys[31].privateKey);

@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 contract PChainStakeMirrorVerifier is IIPChainStakeMirrorVerifier {
     using MerkleProof for bytes32[];
 
-    uint256 public constant P_CHAIN_STAKE_MIRROR_PROTOCOL_ID = 1;
+    uint256 public constant P_CHAIN_STAKE_MIRROR_PROTOCOL_ID = 2;
 
     /// Relay contract with voted Merkle roots.
     IRelay public immutable relay;
