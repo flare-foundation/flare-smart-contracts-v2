@@ -191,7 +191,7 @@ contract FtsoProxyTest is Test {
         freeFetchContracts[1] = address(ftsoProxySGB);
         freeFetchContracts[2] = address(ftsoProxyBTC);
         vm.prank(governance);
-        fastUpdater.setFreeFetchContracts(freeFetchContracts);
+        fastUpdater.setFreeFetchAddresses(freeFetchContracts);
     }
 
     function testSymbol() public {
