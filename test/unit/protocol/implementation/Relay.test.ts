@@ -1,6 +1,5 @@
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { constants, expectEvent, expectRevert } from "@openzeppelin/test-helpers";
-import { ZeroAddress } from "ethers";
 import { artifacts, config, contract, ethers } from "hardhat";
 import { HardhatNetworkAccountConfig } from "hardhat/types";
 import { RelayInitialConfig } from "../../../../deployment/utils/RelayInitialConfig";
@@ -1809,4 +1808,97 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     });
   });
 
+  describe("Random number test", async () => {
+    it("Should historical random number work", async () => {
+      const signingPolicyData = defaultTestSigningPolicy(
+        signers.map(x => x.address),
+        N,
+        singleWeight
+      );
+      signingPolicyData.rewardEpochId = rewardEpochId;
+      signingPolicyData.startVotingRoundId = firstVotingRoundInRewardEpoch(rewardEpochId);
+      const signingPolicy = SigningPolicy.encode(signingPolicyData);
+      const localHash = SigningPolicy.hashEncoded(signingPolicy);
+
+      const relayInitialConfig: RelayInitialConfig = {
+        initialRewardEpochId: signingPolicyData.rewardEpochId,
+        startingVotingRoundIdForInitialRewardEpochId: signingPolicyData.startVotingRoundId,
+        initialSigningPolicyHash: localHash,
+        randomNumberProtocolId: randomNumberProtocolId,
+        firstVotingRoundStartTs: firstVotingRoundStartSec,
+        votingEpochDurationSeconds: votingRoundDurationSec,
+        firstRewardEpochStartVotingRoundId: firstRewardEpochVotingRoundId,
+        rewardEpochDurationInVotingEpochs: rewardEpochDurationInVotingEpochs,
+        thresholdIncreaseBIPS: THRESHOLD_INCREASE,
+        messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
+        feeCollectionAddress: BURN_ADDRESS,
+        feeConfigs: []
+      }
+
+      const relay = await Relay.new(
+        relayInitialConfig,
+        constants.ZERO_ADDRESS
+      );
+
+      const hashes = new Map<number, string>();
+      const isSecure = new Map<number, boolean>();
+      const startVotingRoundId = signingPolicyData.startVotingRoundId;
+      const MAX_NUM = 1000;
+      const STEP = 39;
+      for (let i = 0; i < MAX_NUM; i += STEP) {
+        const random = Math.random() > 0.5;
+        const specificHash = web3.utils.keccak256(`hash${i}`);
+        hashes.set(startVotingRoundId + i, specificHash);
+        isSecure.set(startVotingRoundId + i, random);
+        const newMessageData = {
+          merkleRoot: specificHash,
+          votingRoundId: startVotingRoundId + i,
+          isSecureRandom: random,
+          protocolId: randomNumberProtocolId
+        };
+        let messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
+        let signatures = await generateSignatures(
+          accountPrivateKeys,
+          messageHash,
+          N / 2 + 1
+        );
+
+        let relayMessage = {
+          signingPolicy: signingPolicyData,
+          signatures,
+          protocolMessageMerkleRoot: newMessageData,
+        };
+
+        let fullData = RelayMessage.encode(relayMessage);
+        await web3.eth.sendTransaction({
+          from: signers[0].address,
+          to: relay.address,
+          data: selector + fullData.slice(2),
+        })
+
+        let { _randomNumber, _isSecureRandom, _randomTimestamp } = await relay.getRandomNumber();
+        expect(_isSecureRandom).to.equal(random);
+        expect(_randomNumber.toString()).to.equal(BigInt(web3.utils.keccak256(newMessageData.merkleRoot)).toString());
+        expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (newMessageData.votingRoundId + 1));
+        expect((await relay.getVotingRoundId(_randomTimestamp)).toNumber()).to.be.equal(toBN(newMessageData.votingRoundId + 1));
+
+        ({ _randomNumber, _isSecureRandom, _randomTimestamp } = await relay.getRandomNumberHistorical(newMessageData.votingRoundId));
+        expect(_randomNumber.toString()).to.equal(BigInt(web3.utils.keccak256(newMessageData.merkleRoot)).toString());
+        expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (newMessageData.votingRoundId + 1));
+        expect(_isSecureRandom).to.equal(random);
+      }
+
+      for (let i = 0; i < MAX_NUM; i++) {
+        const votingRoundId = startVotingRoundId + i;
+        if (hashes.get(votingRoundId)) {
+          const { _randomNumber, _isSecureRandom, _randomTimestamp } = await relay.getRandomNumberHistorical(votingRoundId);
+          expect(_randomNumber.toString()).to.equal(BigInt(web3.utils.keccak256(hashes.get(votingRoundId)!)).toString());
+          expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (votingRoundId + 1));
+          expect(_isSecureRandom).to.equal(isSecure.get(votingRoundId));
+        } else {
+            await expectRevert(relay.getRandomNumberHistorical(votingRoundId), "no random number");
+        }
+      }
+    });
+  });
 });

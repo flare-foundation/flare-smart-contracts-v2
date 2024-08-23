@@ -188,6 +188,11 @@ contract Relay is IIRelay {
     // fee collection address
     address payable public feeCollectionAddress;
 
+    // A map with bits indicating whether a random number is secure for 
+    // historical purposes. For given votingRoundId, the bit vector is obtained 
+    // in index  votingRoundId / 256 and the bit is at position votingRoundId % 256
+    mapping(uint256 => bytes32) public isSecureRandomMap;
+
     /// The state of the relay contract.
     StateData public stateData;
 
@@ -570,6 +575,20 @@ contract Relay is IIRelay {
                 if gt(mul(threshold, THRESHOLD_BIPS), mul(totalWeight, MAX_THRESHOLD_BIPS)) {
                     revertWithMessage(_memPtr, "too big threshold", 17)
                 }
+            }
+
+            function setIsSecureRandomBit(_memPtr, _votingRoundId) {
+                //  isSecureRandomMap[_votingRoundId / 256]
+                mstore(_memPtr, div(_votingRoundId, 256)) // key (_votingRoundId / 256)
+                mstore(add(_memPtr, 32), isSecureRandomMap.slot)
+
+                sstore(
+                    keccak256(_memPtr, 64),
+                    or(
+                        sload(keccak256(_memPtr, 64)), 
+                        shl(sub(255, mod(_votingRoundId, 256)), 1)
+                    )
+                )
             }
 ////////////// A comment on handling of signing policy and a message /////////////////////////////////////////
 //
@@ -1235,6 +1254,15 @@ contract Relay is IIRelay {
                                 mload(add(memPtrFor, M_5_stateData))
                             )
 
+                            // using M_3 and M_4 for helping store historical isSecureRandom
+                            if structValue(
+                                mload(memPtrFor),
+                                MSG_NMR_BOFF_isSecureRandom,
+                                MSG_NMR_MASK_isSecureRandom
+                            ) {
+                                setIsSecureRandomBit(add(memPtrFor, M_3), votingRoundId)
+                            }
+
                             // M_5_stateData is not used anymore. Using M_5_isSecureRandom for
                             // isSecureRandom, together with M_6_merkleRoot for data of an event
                             mstore(
@@ -1326,6 +1354,31 @@ contract Relay is IIRelay {
         _randomTimestamp =
             stateData.firstVotingRoundStartTs +
             uint256(stateData.randomVotingRoundId + 1) *
+            stateData.votingEpochDurationSeconds;
+    }
+
+    /**
+     * @inheritdoc IRelay
+     */
+    function getRandomNumberHistorical(uint256 _votingRoundId)
+        external view
+        returns (
+            uint256 _randomNumber,
+            bool _isSecureRandom,
+            uint256 _randomTimestamp
+        )
+    {
+        bytes32 merkleRoot = merkleRootsPrivate[stateData.randomNumberProtocolId][_votingRoundId];
+        require(merkleRoot != bytes32(0), "no random number");
+        _randomNumber = uint256(
+            keccak256(abi.encode(merkleRoot))
+        );
+        _isSecureRandom = 
+            (isSecureRandomMap[_votingRoundId / 256] >> (255 - _votingRoundId % 256)) & bytes32(uint256(1)) 
+                == bytes32(uint256(1));
+        _randomTimestamp =
+            stateData.firstVotingRoundStartTs +
+            uint256(_votingRoundId + 1) *
             stateData.votingEpochDurationSeconds;
     }
 
