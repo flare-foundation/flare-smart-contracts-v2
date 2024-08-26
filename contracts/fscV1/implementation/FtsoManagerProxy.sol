@@ -34,7 +34,7 @@ contract FtsoManagerProxy is IFtsoManager, IIFtsoManagerProxy, Governed, Reentra
     /// Reward manager (V2) contract address.
     IIRewardManager public rewardManagerV2;
     /// FastUpdater contract address.
-    IFastUpdaterView public fastUpdater;
+    IIFastUpdaterView public fastUpdater;
     /// The FastUpdatesConfiguration contract.
     IFastUpdatesConfiguration public fastUpdatesConfiguration;
     /// Relay contract.
@@ -259,7 +259,7 @@ contract FtsoManagerProxy is IFtsoManager, IIFtsoManagerProxy, Governed, Reentra
             _getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
-        fastUpdater = IFastUpdaterView(
+        fastUpdater = IIFastUpdaterView(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FastUpdater"));
         fastUpdatesConfiguration = IFastUpdatesConfiguration(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FastUpdatesConfiguration"));

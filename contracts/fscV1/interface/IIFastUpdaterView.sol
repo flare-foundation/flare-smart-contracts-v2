@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../fastUpdates/lib/Bn256.sol";
-import { SortitionCredential } from "../fastUpdates/lib/Sortition.sol";
+import "../../fastUpdates/lib/Bn256.sol";
+import { SortitionCredential } from "../../fastUpdates/lib/Sortition.sol";
 
 /**
  * Fast updater interface, used for fetching current feeds without a fee.
  */
-interface IFastUpdaterView {
+interface IIFastUpdaterView {
 
     /**
      * Public access to the stored data of each feed, allowing controlled batch access to the lengthy complete data.
