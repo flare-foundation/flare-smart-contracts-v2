@@ -6,7 +6,7 @@ import "flare-smart-contracts/contracts/ftso/interface/IIFtsoManager.sol";
 import "flare-smart-contracts/contracts/genesis/interface/IIPriceSubmitter.sol";
 import "flare-smart-contracts/contracts/utils/interface/IIFtsoRegistry.sol";
 import "../interface/IIFtsoManagerProxy.sol";
-import "../../protocol/interface/IIRewardManager.sol";
+import "../../userInterfaces/IRewardManager.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -32,7 +32,7 @@ contract FtsoManagerProxy is IFtsoManager, IIFtsoManagerProxy, Governed, Reentra
     /// Flare systems manager contract address.
     IFlareSystemsManager public flareSystemsManager;
     /// Reward manager (V2) contract address.
-    IIRewardManager public rewardManagerV2;
+    IRewardManager public rewardManagerV2;
     /// FastUpdater contract address.
     IIFastUpdaterView public fastUpdater;
     /// The FastUpdatesConfiguration contract.
@@ -255,7 +255,7 @@ contract FtsoManagerProxy is IFtsoManager, IIFtsoManagerProxy, Governed, Reentra
         rewardManager = _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRewardManager");
         ftsoRegistry = IIFtsoRegistry(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRegistry"));
-        rewardManagerV2 = IIRewardManager(
+        rewardManagerV2 = IRewardManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
