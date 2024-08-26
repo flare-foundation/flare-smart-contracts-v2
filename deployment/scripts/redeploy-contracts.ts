@@ -269,8 +269,8 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   }
 
   await ftsoManagerProxy.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FTSO_REWARD_MANAGER, Contracts.FTSO_REGISTRY, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FAST_UPDATER, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.SUBMISSION]),
-    [addressUpdater, contracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER), oldContracts.getContractAddress(Contracts.FTSO_REGISTRY), rewardManager, flareSystemsManager, fastUpdater.address, fastUpdatesConfiguration.address, submission]
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FTSO_REWARD_MANAGER, Contracts.FTSO_REGISTRY, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FAST_UPDATER, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.RELAY]),
+    [addressUpdater, contracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER), oldContracts.getContractAddress(Contracts.FTSO_REGISTRY), rewardManager, flareSystemsManager, fastUpdater.address, fastUpdatesConfiguration.address, relay]
   );
 
   await ftsoV2.updateContractAddresses(

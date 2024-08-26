@@ -169,21 +169,21 @@ contract FtsoProxyTest is Test {
             "FLR",
             bytes21("FLR"),
             100,
-            IIFtsoManagerProxy(address(ftsoManagerProxy))
+            ftsoManagerProxy
         );
 
         ftsoProxySGB = new FtsoProxy(
             "SGB",
             bytes21("SGB"),
             100,
-            IIFtsoManagerProxy(address(ftsoManagerProxy))
+            ftsoManagerProxy
         );
 
         ftsoProxyBTC = new FtsoProxy(
             "BTC",
             bytes21("BTC"),
             100,
-            IIFtsoManagerProxy(address(ftsoManagerProxy))
+            ftsoManagerProxy
         );
 
         address[] memory freeFetchContracts = new address[](3);
@@ -200,7 +200,7 @@ contract FtsoProxyTest is Test {
             "ETH",
             bytes21("ETH"),
             100,
-            IIFtsoManagerProxy(address(ftsoManagerProxy))
+            ftsoManagerProxy
         );
         assertEq(ftsoProxyETH.symbol(), "ETH");
         assertEq(ftsoProxyETH.feedId(), bytes21("ETH"));

@@ -2,11 +2,7 @@
 pragma solidity 0.8.20;
 
 import "flare-smart-contracts/contracts/userInterfaces/IFtso.sol";
-import "../../userInterfaces/IFastUpdaterView.sol";
-import "../../userInterfaces/IFastUpdatesConfiguration.sol";
-import "../../userInterfaces/LTS/RandomNumberV2Interface.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../protocol/interface/IIFtsoManagerProxy.sol";
+import "../../fscV1/interface/IIFtsoManagerProxy.sol";
 
 /**
  * FtsoProxy is a compatibility contract replacing Ftso contract
@@ -51,14 +47,14 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      */
     function getCurrentEpochId() external view returns (uint256) {
-        return IFlareSystemsManager(ftsoManager.flareSystemsManager()).getCurrentVotingEpochId();
+        return ftsoManager.flareSystemsManager().getCurrentVotingEpochId();
     }
 
     /**
      * @inheritdoc IFtso
      */
     function getEpochId(uint256 _timestamp) external view returns (uint256) {
-        IFlareSystemsManager flareSystemsManager = IFlareSystemsManager(ftsoManager.flareSystemsManager());
+        IFlareSystemsManager flareSystemsManager = ftsoManager.flareSystemsManager();
         return (_timestamp - flareSystemsManager.firstVotingRoundStartTs()) /
             flareSystemsManager.votingEpochDurationSeconds();
     }
@@ -67,7 +63,7 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      */
     function getRandom(uint256 _votingRoundId) external view returns (uint256 _randomNumber) {
-        (_randomNumber, , ) = RandomNumberV2Interface(ftsoManager.relay()).getRandomNumberHistorical(_votingRoundId);
+        (_randomNumber, , ) = ftsoManager.relay().getRandomNumberHistorical(_votingRoundId);
     }
 
     /**
@@ -90,7 +86,7 @@ contract FtsoProxy is IFtso {
             bool _fallbackMode
         )
     {
-        IFlareSystemsManager flareSystemsManager = IFlareSystemsManager(ftsoManager.flareSystemsManager());
+        IFlareSystemsManager flareSystemsManager = ftsoManager.flareSystemsManager();
         uint256 votingEpochDuration = flareSystemsManager.votingEpochDurationSeconds();
         _epochId = flareSystemsManager.getCurrentVotingEpochId();
         _epochSubmitEndTime = flareSystemsManager.firstVotingRoundStartTs() + (_epochId + 1) * votingEpochDuration;
@@ -109,7 +105,7 @@ contract FtsoProxy is IFtso {
             uint256 _revealPeriodSeconds
         )
     {
-        IFlareSystemsManager flareSystemsManager = IFlareSystemsManager(ftsoManager.flareSystemsManager());
+        IFlareSystemsManager flareSystemsManager = ftsoManager.flareSystemsManager();
         _firstEpochStartTs = flareSystemsManager.firstVotingRoundStartTs();
         _submitPeriodSeconds = flareSystemsManager.votingEpochDurationSeconds();
         _revealPeriodSeconds = _submitPeriodSeconds / 2;
@@ -189,15 +185,15 @@ contract FtsoProxy is IFtso {
      * @inheritdoc IFtso
      */
     function getCurrentRandom() external view returns (uint256 _currentRandom) {
-        (_currentRandom, , ) = RandomNumberV2Interface(ftsoManager.relay()).getRandomNumber();
+        (_currentRandom, , ) = ftsoManager.relay().getRandomNumber();
     }
 
     function _getCurrentPrice() internal view returns (uint256 _price, uint64 _timestamp) {
         uint256[] memory indices = new uint256[](1);
-        indices[0] = IFastUpdatesConfiguration(ftsoManager.fastUpdatesConfiguration()).getFeedIndex(feedId);
+        indices[0] = ftsoManager.fastUpdatesConfiguration().getFeedIndex(feedId);
         uint256[] memory values;
         int8[] memory decimals;
-        (values, decimals, _timestamp) = IFastUpdaterView(ftsoManager.fastUpdater()).fetchCurrentFeeds(indices);
+        (values, decimals, _timestamp) = ftsoManager.fastUpdater().fetchCurrentFeeds(indices);
         _price = values[0];
         int256 decimalsDiff = int256(ASSET_PRICE_USD_DECIMALS) - decimals[0];
         if (decimalsDiff < 0) {

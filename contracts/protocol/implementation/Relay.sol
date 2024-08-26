@@ -183,15 +183,16 @@ contract Relay is IIRelay {
     /// The address of the signing policy setter (zero if disabled).
     address public signingPolicySetter;
 
-    // Fees in wei per protocol
+    /// Fees in wei per protocol.
     mapping(uint256 => uint256) public protocolFeeInWei;
-    // fee collection address
+    /// fee collection address.
     address payable public feeCollectionAddress;
 
-    // A map with bits indicating whether a random number is secure for 
-    // historical purposes. For given votingRoundId, the bit vector is obtained 
-    // in index  votingRoundId / 256 and the bit is at position votingRoundId % 256
-    mapping(uint256 => bytes32) public isSecureRandomMap;
+    /// A map with bits indicating whether a random number is secure for
+    /// historical purposes. For given votingRoundId, the bit vector is obtained
+    /// in index  votingRoundId / 256 and the bit is at position votingRoundId % 256.
+    //slither-disable-next-line uninitialized-state
+    mapping(uint256 => bytes32) internal isSecureRandomMap;
 
     /// The state of the relay contract.
     StateData public stateData;
@@ -375,7 +376,7 @@ contract Relay is IIRelay {
      * @inheritdoc IRelay
      */
     function verifyCustomSignature(
-        bytes calldata _relayMessage, 
+        bytes calldata _relayMessage,
         bytes32 _messageHash
     ) external returns (uint256 _rewardEpochId) {
         return _verifyCustomSignature(_relayMessage, _messageHash);
@@ -585,7 +586,7 @@ contract Relay is IIRelay {
                 sstore(
                     keccak256(_memPtr, 64),
                     or(
-                        sload(keccak256(_memPtr, 64)), 
+                        sload(keccak256(_memPtr, 64)),
                         shl(sub(255, mod(_votingRoundId, 256)), 1)
                     )
                 )
@@ -1414,7 +1415,7 @@ contract Relay is IIRelay {
     }
 
     function _verifyCustomSignature(
-        bytes calldata _relayMessage, 
+        bytes calldata _relayMessage,
         bytes32 _messageHash
     ) internal returns (uint256 _rewardEpochId) {
         /* solhint-disable avoid-low-level-calls */
@@ -1433,5 +1434,5 @@ contract Relay is IIRelay {
         }
         require(bytes32(returnHash) == _messageHash, "Invalid config hash");
         return returnRewardEpochId;
-    }    
+    }
 }

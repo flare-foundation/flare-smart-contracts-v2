@@ -6,7 +6,6 @@ import "../../../../contracts/fscV1/implementation/FtsoManagerProxy.sol";
 import "../../../../contracts/protocol/implementation/FlareSystemsManager.sol";
 import "../../../../contracts/mock/IIIFtsoRegistry.sol";
 import "../../../../contracts/fscV1/implementation/FtsoProxy.sol";
-import "../../../../contracts/protocol/interface/IIFtsoManagerProxy.sol";
 import "../../../../contracts/mock/IIIPriceSubmitter.sol";
 
 // solhint-disable-next-line max-states-count
@@ -214,13 +213,13 @@ contract FtsoManagerProxyTest is Test {
             "BTC",
             bytes21("BTC"),
             100,
-            IIFtsoManagerProxy(address(ftsoManagerProxy))
+            ftsoManagerProxy
         );
         ftso2 = new FtsoProxy(
             "FLR",
             bytes21("FLR"),
             100,
-            IIFtsoManagerProxy(address(ftsoManagerProxy))
+            ftsoManagerProxy
         );
     }
 
@@ -473,7 +472,7 @@ contract FtsoManagerProxyTest is Test {
             "FLR",
             bytes21("FLR"),
             100,
-            IIFtsoManagerProxy(address(ftsoManagerProxy1))
+            ftsoManagerProxy1
         );
         IFtso[] memory ftsos = new IFtso[](2);
         ftsos[0] = ftso1;

@@ -5,12 +5,9 @@ import "flare-smart-contracts/contracts/tokenPools/interface/IIFtsoRewardManager
 import "flare-smart-contracts/contracts/ftso/interface/IIFtsoManager.sol";
 import "flare-smart-contracts/contracts/genesis/interface/IIPriceSubmitter.sol";
 import "flare-smart-contracts/contracts/utils/interface/IIFtsoRegistry.sol";
+import "../interface/IIFtsoManagerProxy.sol";
 import "../../protocol/interface/IIRewardManager.sol";
-import "../../protocol/interface/IIFlareSystemsManager.sol";
-import "../../fastUpdates/interface/IIFastUpdater.sol";
 import "../../governance/implementation/Governed.sol";
-import "../../userInterfaces/IFastUpdatesConfiguration.sol";
-import "../../userInterfaces/IRelay.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -21,7 +18,7 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
  * that is used for proxying data from FlareSystemsManager.
  */
 
-contract FtsoManagerProxy is IFtsoManager, Governed, ReentrancyGuard, AddressUpdatable {
+contract FtsoManagerProxy is IFtsoManager, IIFtsoManagerProxy, Governed, ReentrancyGuard, AddressUpdatable {
     using SafeCast for uint256;
 
     // for redeploy (name is kept for compatibility)
@@ -33,11 +30,11 @@ contract FtsoManagerProxy is IFtsoManager, Governed, ReentrancyGuard, AddressUpd
     /// FtsoRegistry contract address.
     IIFtsoRegistry public ftsoRegistry;
     /// Flare systems manager contract address.
-    IIFlareSystemsManager public flareSystemsManager;
+    IFlareSystemsManager public flareSystemsManager;
     /// Reward manager (V2) contract address.
     IIRewardManager public rewardManagerV2;
     /// FastUpdater contract address.
-    IIFastUpdater public fastUpdater;
+    IFastUpdaterView public fastUpdater;
     /// The FastUpdatesConfiguration contract.
     IFastUpdatesConfiguration public fastUpdatesConfiguration;
     /// Relay contract.
@@ -260,9 +257,9 @@ contract FtsoManagerProxy is IFtsoManager, Governed, ReentrancyGuard, AddressUpd
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtsoRegistry"));
         rewardManagerV2 = IIRewardManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
-        flareSystemsManager = IIFlareSystemsManager(
+        flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
-        fastUpdater = IIFastUpdater(
+        fastUpdater = IFastUpdaterView(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FastUpdater"));
         fastUpdatesConfiguration = IFastUpdatesConfiguration(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FastUpdatesConfiguration"));
