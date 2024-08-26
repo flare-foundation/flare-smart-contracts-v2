@@ -402,10 +402,6 @@ contract Relay is IIRelay {
             stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId,
             "too old signing policy"
         );
-        for(uint256 i = 0; i < _config.newFeeConfigs.length; i++) {
-            uint8 protocolId = _config.newFeeConfigs[i].protocolId;
-            protocolFeeInWei[protocolId] = _config.newFeeConfigs[i].feeInWei;
-        }
     }
 
     /**
