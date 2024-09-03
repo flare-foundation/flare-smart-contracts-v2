@@ -32,7 +32,7 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, async accounts => {
       initialRewardEpochId: 0,
       startingVotingRoundIdForInitialRewardEpochId: 0,
       initialSigningPolicyHash: web3.utils.keccak256("test"),
-      randomNumberProtocolId: 1,
+      randomNumberProtocolId: 2,
       firstVotingRoundStartTs: 242,
       votingEpochDurationSeconds: 90,
       firstRewardEpochStartVotingRoundId: 0,

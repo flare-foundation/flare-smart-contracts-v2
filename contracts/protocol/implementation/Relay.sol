@@ -222,6 +222,7 @@ contract Relay is IIRelay {
         startingVotingRoundIds[_initialConfig.initialRewardEpochId] =
             _initialConfig.startingVotingRoundIdForInitialRewardEpochId;
         toSigningPolicyHashPrivate[_initialConfig.initialRewardEpochId] = _initialConfig.initialSigningPolicyHash;
+        require(_initialConfig.randomNumberProtocolId > 1, "random number protocol id must be > 1");
         stateData.randomNumberProtocolId = _initialConfig.randomNumberProtocolId;
         stateData.firstVotingRoundStartTs = _initialConfig.firstVotingRoundStartTs;
         stateData.votingEpochDurationSeconds = _initialConfig.votingEpochDurationSeconds;
@@ -234,7 +235,7 @@ contract Relay is IIRelay {
             stateData.noSigningPolicyRelay = true;
         }
         feeCollectionAddress = _initialConfig.feeCollectionAddress;
-        for(uint256 i = 0; i < _initialConfig.feeConfigs.length; i++) {
+        for (uint256 i = 0; i < _initialConfig.feeConfigs.length; i++) {
             uint8 protocolId = _initialConfig.feeConfigs[i].protocolId;
             require(protocolId > 1, "invalid protocol id");
             protocolFeeInWei[protocolId] = _initialConfig.feeConfigs[i].feeInWei;
@@ -389,14 +390,13 @@ contract Relay is IIRelay {
         require(signingPolicySetter == address(0), "fee cannot be set");
         require(_config.chainId == block.chainid, "wrong chain id");
         require(_config.descriptionHash == keccak256("RelayGovernance"), "wrong description hash");
-        for(uint256 i = 0; i < _config.newFeeConfigs.length; i++) {
+        for (uint256 i = 0; i < _config.newFeeConfigs.length; i++) {
             uint8 protocolId = _config.newFeeConfigs[i].protocolId;
             require(protocolId > 1, "invalid protocol id");
             protocolFeeInWei[protocolId] = _config.newFeeConfigs[i].feeInWei;
         }
         uint256 returnRewardEpochId = _verifyCustomSignature(_relayMessage, keccak256(abi.encode(_config)));
-        // allow signing with the latest or one earliest. Since the signature test has passed, they
-        // are both valid (current with threshold or previous with the increased threshold)
+        // allow signing with the latest or one earliest signing policy
         require(
             stateData.lastInitializedRewardEpoch == returnRewardEpochId ||
             stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId,
