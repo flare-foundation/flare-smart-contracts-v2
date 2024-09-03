@@ -70,20 +70,25 @@ interface IRelay is RandomNumberV2Interface {
     );
 
     /**
-     * Checks the relay message for sufficient weight of signatures for the _hashMessage
-     * signed for protocol message Merkle root of the form (1, 0, 0, _hashMessage).
+     * Checks the relay message for sufficient weight of signatures for the _messageHash
+     * signed for protocol message Merkle root of the form (1, 0, 0, _messageHash).
      * If the check is successful, reward epoch id of the signing policy is returned.
      * Otherwise the function reverts.
      * @param _relayMessage The relay message.
      * @param _messageHash The hash of the message.
      * @return _rewardEpochId The reward epoch id of the signing policy.
      */
-    function verifyCustomSignature(bytes calldata _relayMessage, bytes32 _messageHash) external returns (uint256 _rewardEpochId);
+    function verifyCustomSignature(
+        bytes calldata _relayMessage,
+        bytes32 _messageHash
+    )
+        external
+        returns (uint256 _rewardEpochId);
 
     /**
      * Checks the relay message for sufficient weight of signatures of the hash of the _config data.
      * If the check is successful, the relay contract is configured with the new _config data, which
-     * in particular means that addresses of certaion external contracts are changed.
+     * in particular means that fee configurations are updated.
      * Otherwise the function reverts.
      * @param _relayMessage The relay message.
      * @param _config The new relay configuration.
@@ -117,6 +122,8 @@ interface IRelay is RandomNumberV2Interface {
     /**
      * Verifies the leaf (or intermediate node) with the Merkle proof against the Merkle root
      * for given protocol id and voting round id.
+     * A fee may need to be paid. It is protocol specific.
+     * **NOTE:** Overpayment is not refunded.
      * @param _protocolId The protocol id.
      * @param _votingRoundId The voting round id.
      * @param _leaf The leaf (or intermediate node) to verify.
