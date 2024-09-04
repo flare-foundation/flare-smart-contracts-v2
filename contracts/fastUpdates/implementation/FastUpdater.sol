@@ -42,7 +42,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     using AddressSet for AddressSet.State;
 
     /// Maximum number of updates that can be stored in the backlog.
-    uint256 private constant MAX_SUBMITTED_DELTAS_BACKLOG = 1000;
+    uint256 private constant MAX_SUBMITTED_DELTAS_BACKLOG = 500;
 
     /// Maximum number of blocks that can be retrieved for history.
     uint256 public constant MAX_BLOCKS_HISTORY = 100;
