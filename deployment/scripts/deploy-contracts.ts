@@ -11,12 +11,25 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
-import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoFeedPublisherContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, NodePossessionVerifierContract, RelayContract, RewardManagerContract, FtsoRewardManagerProxyContract, SubmissionContract, VoterRegistryContract, WNatDelegationFeeContract } from '../../typechain-truffle';
 import { ISigningPolicy, SigningPolicy } from '../../scripts/libs/protocol/SigningPolicy';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 import { FtsoFeedIdConverterContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedIdConverter';
 import { generateOffers, runOfferRewards } from './offer-rewards';
 import { RelayInitialConfig } from '../utils/RelayInitialConfig';
+import { EntityManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/EntityManager';
+import { NodePossessionVerifierContract } from '../../typechain-truffle/contracts/protocol/implementation/NodePossessionVerifier';
+import { VoterRegistryContract } from '../../typechain-truffle/contracts/protocol/implementation/VoterRegistry';
+import { FlareSystemsCalculatorContract } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsCalculator';
+import { FlareSystemsManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager';
+import { RewardManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
+import { FtsoRewardManagerProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/FtsoRewardManagerProxy';
+import { SubmissionContract } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
+import { WNatDelegationFeeContract } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
+import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
+import { FtsoRewardOffersManagerContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
+import { FtsoFeedDecimalsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
+import { FtsoFeedPublisherContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedPublisher';
+import { RelayContract } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
 
 let fs = require('fs');
 
@@ -41,7 +54,6 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
   const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
   const FtsoFeedIdConverter: FtsoFeedIdConverterContract = artifacts.require("FtsoFeedIdConverter");
-  const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
   const Relay: RelayContract = artifacts.require("Relay");
   const Supply = artifacts.require("IISupplyGovernance");
 
@@ -64,6 +76,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const claimSetupManager = oldContracts.getContractAddress(Contracts.CLAIM_SETUP_MANAGER);
   const inflation = oldContracts.getContractAddress(Contracts.INFLATION);
   const ftsoRewardManager = oldContracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER);
+  const cleanupBlockNumberManager = oldContracts.getContractAddress(Contracts.CLEANUP_BLOCK_NUMBER_MANAGER);
 
   const entityManager = await EntityManager.new(
     governanceSettings,
@@ -263,13 +276,6 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   const ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
   spewNewContractInfo(contracts, null, FtsoFeedIdConverter.contractName, `FtsoFeedIdConverter.sol`, ftsoFeedIdConverter.address, quiet);
 
-  const cleanupBlockNumberManager = await CleanupBlockNumberManager.new(
-    deployerAccount.address,
-    deployerAccount.address, // tmp address updater
-    "FlareSystemsManager"
-  );
-  spewNewContractInfo(contracts, null, CleanupBlockNumberManager.contractName, `CleanupBlockNumberManager.sol`, cleanupBlockNumberManager.address, quiet);
-
   if (parameters.pChainStakeEnabled) {
     await flareSystemsCalculator.enablePChainStakeMirror();
     await rewardManager.enablePChainStakeMirror();
@@ -287,7 +293,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
 
   await flareSystemsManager.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY, Contracts.REWARD_MANAGER, Contracts.CLEANUP_BLOCK_NUMBER_MANAGER]),
-    [addressUpdater, voterRegistry.address, submission.address, relay.address, rewardManager.address, cleanupBlockNumberManager.address]
+    [addressUpdater, voterRegistry.address, submission.address, relay.address, rewardManager.address, cleanupBlockNumberManager]
   );
 
   await rewardManager.updateContractAddresses(
@@ -326,11 +332,6 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
   await ftsoFeedPublisher.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
     [addressUpdater, relay.address]
-  );
-
-  await cleanupBlockNumberManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
-    [addressUpdater, flareSystemsManager.address]
   );
 
   // set initial voter data on entity manager

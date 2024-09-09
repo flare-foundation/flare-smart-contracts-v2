@@ -9,14 +9,15 @@
     "governanceExecutorPublicKey": "<use .env: GOVERNANCE_EXECUTOR_PUBLIC_KEY>",
 
     "initialRewardEpochOffset": 0,
-    "initialRandomVotePowerBlockSelectionSize": 100,
+    "initialRandomVotePowerBlockSelectionSize": 1000,
     "initialVoters": ["<use .env: INITIAL_VOTER_PRIVATE_KEY>"],
     "initialNormalisedWeights": [65535],
     "initialThreshold": 32768,
     "initialVoterData": [
         {
             "voter": "0x564a2694342E57EE1223697b67086695695D1c57",
-            "delegationAddress": "0x50A1BCa4d5e91B3bcea7891742248F5BA5ACF0e5"
+            "delegationAddress": "0x50A1BCa4d5e91B3bcea7891742248F5BA5ACF0e5",
+            "nodeIds": []
         }
     ],
     "initialFeedDecimalsList": [

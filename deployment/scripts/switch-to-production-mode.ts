@@ -1,6 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "./Contracts";
-import { CleanupBlockNumberManagerContract, EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoFeedPublisherContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, RewardManagerContract, FtsoRewardManagerProxyContract, SubmissionContract, VoterRegistryContract } from "../../typechain-truffle";
+import { EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoFeedPublisherContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, RewardManagerContract, FtsoRewardManagerProxyContract, SubmissionContract, VoterRegistryContract } from "../../typechain-truffle";
 import { ChainParameters } from "../chain-config/chain-parameters";
 
 type Account = ReturnType<typeof web3.eth.accounts.privateKeyToAccount>;
@@ -43,7 +43,6 @@ export async function switchToProductionMode(hre: HardhatRuntimeEnvironment, con
   const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
   const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
   const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
-  const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
 
   // Get deployed contracts
   const entityManager = await EntityManager.at(contracts.getContractAddress(Contracts.ENTITY_MANAGER));
@@ -57,7 +56,6 @@ export async function switchToProductionMode(hre: HardhatRuntimeEnvironment, con
   const ftsoRewardOffersManager = await FtsoRewardOffersManager.at(contracts.getContractAddress(Contracts.FTSO_REWARD_OFFERS_MANAGER));
   const ftsoFeedDecimals = await FtsoFeedDecimals.at(contracts.getContractAddress(Contracts.FTSO_FEED_DECIMALS));
   const ftsoFeedPublisher = await FtsoFeedPublisher.at(contracts.getContractAddress(Contracts.FTSO_FEED_PUBLISHER));
-  const cleanupBlockNumberManager = await CleanupBlockNumberManager.at(contracts.getContractAddress(Contracts.CLEANUP_BLOCK_NUMBER_MANAGER));
 
 
   // switch to production mode
@@ -74,5 +72,4 @@ export async function switchToProductionMode(hre: HardhatRuntimeEnvironment, con
   await ftsoRewardOffersManager.switchToProductionMode();
   await ftsoFeedDecimals.switchToProductionMode();
   await ftsoFeedPublisher.switchToProductionMode();
-  await cleanupBlockNumberManager.switchToProductionMode();
 }
