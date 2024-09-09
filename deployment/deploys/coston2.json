@@ -192,7 +192,12 @@
   {
     "name": "FtsoTestMatic",
     "contractName": "FtsoProxy.sol",
-    "address": "0xa2561A42F1B0cFE162B7A6663DDA6DF00525909C"
+    "address": "0x964cf992F8d563154EdAb2A4Db1530279DFDA9aF"
+  },
+  {
+    "name": "FtsoTestPol",
+    "contractName": "FtsoProxy.sol",
+    "address": "0x8a37960CFEec34EB436bf15Ec5DE2F24b412ef4E"
   },
   {
     "name": "FtsoTestSol",
