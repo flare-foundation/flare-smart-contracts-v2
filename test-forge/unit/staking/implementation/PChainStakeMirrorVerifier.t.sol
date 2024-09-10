@@ -31,7 +31,7 @@ contract PChainStakeMirrorVerifierTest is Test {
 
     vm.mockCall(
       mockRelay,
-      abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), 1, 3),
+      abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), 2, 3),
       abi.encode(merkleRoot)
     );
 
@@ -57,7 +57,7 @@ contract PChainStakeMirrorVerifierTest is Test {
 
     vm.mockCall(
       mockRelay,
-      abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), 1, 3),
+      abi.encodeWithSelector(bytes4(keccak256("merkleRoots(uint256,uint256)")), 2, 3),
       abi.encode(bytes32(0))
     );
 

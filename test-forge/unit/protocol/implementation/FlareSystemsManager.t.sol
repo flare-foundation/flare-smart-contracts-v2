@@ -371,7 +371,7 @@ contract FlareSystemsManagerTest is Test {
         // select vote power block
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
         vm.expectEmit();
@@ -415,7 +415,7 @@ contract FlareSystemsManagerTest is Test {
         vm.warp(block.timestamp + uint64(8 * 60 * 60 + 1));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(123, false, currentTime + 1)
         );
 
@@ -452,7 +452,7 @@ contract FlareSystemsManagerTest is Test {
         vm.warp(block.timestamp + uint64(8 * 60 * 60 + 1));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(123, false, currentTime + 1)
         );
 
@@ -524,7 +524,7 @@ contract FlareSystemsManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
 
@@ -571,7 +571,7 @@ contract FlareSystemsManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
         vm.expectEmit();
@@ -2106,7 +2106,7 @@ contract FlareSystemsManagerTest is Test {
         vm.roll(block.number + 1);
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(123, true, currentTime + 1)
         );
         flareSystemsManager.daemonize();

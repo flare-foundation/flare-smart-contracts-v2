@@ -2,11 +2,13 @@
 pragma solidity 0.8.20;
 
 import "../interface/IIRelay.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
  * Relay (finalization) contract.
  */
 contract Relay is IIRelay {
+    using MerkleProof for bytes32[];
     /**
      * State variables for the relay contract.
      * IMPORTANT: if you change this, you have to adapt the assembly code interacting with
@@ -77,6 +79,7 @@ contract Relay is IIRelay {
 
     /* solhint-disable const-name-snakecase */
     uint256 private constant METADATA_BYTES = 11;
+    uint256 private constant REWARD_EPOCH_ID_BYTES = 3;
     uint256 private constant MD_MASK_threshold = 0xffff;
     uint256 private constant MD_BOFF_threshold = 0;
     uint256 private constant MD_MASK_startingVotingRoundId = 0xffffffff;
@@ -171,14 +174,26 @@ contract Relay is IIRelay {
     /* solhint-enable const-name-snakecase */
 
     /// The signing policy hash for given reward epoch id.
-    mapping(uint256 rewardEpochId => bytes32) public toSigningPolicyHash;
+    mapping(uint256 rewardEpochId => bytes32) private toSigningPolicyHashPrivate;
     /// The merkle root for given protocol id and voting round id.
     //slither-disable-next-line uninitialized-state
-    mapping(uint256 protocolId => mapping(uint256 votingRoundId => bytes32)) public merkleRoots;
+    mapping(uint256 protocolId => mapping(uint256 votingRoundId => bytes32)) private merkleRootsPrivate;
     /// The start voting round id for given reward epoch id.
     mapping(uint256 rewardEpochId => uint256) public startingVotingRoundIds;
     /// The address of the signing policy setter (zero if disabled).
     address public signingPolicySetter;
+
+    /// Fees in wei per protocol.
+    mapping(uint256 => uint256) public protocolFeeInWei;
+    /// fee collection address.
+    address payable public feeCollectionAddress;
+
+    /// A map with bits indicating whether a random number is secure for
+    /// historical purposes. For given votingRoundId, the bit vector is obtained
+    /// in index  votingRoundId / 256 and the bit is at position votingRoundId % 256.
+    //slither-disable-next-line uninitialized-state
+    mapping(uint256 => bytes32) internal isSecureRandomMap;
+
     /// The state of the relay contract.
     StateData public stateData;
 
@@ -190,46 +205,40 @@ contract Relay is IIRelay {
 
     /**
      * Constructor.
+     * @param _initialConfig The initial configuration of the relay.
      * @param _signingPolicySetter The address of the signing policy setter.
-     * @param _initialRewardEpochId The initial reward epoch id.
-     * @param _startingVotingRoundIdForInitialRewardEpochId The starting voting round id for the initial reward epoch.
-     * @param _initialSigningPolicyHash The initial signing policy hash.
-     * @param _randomNumberProtocolId The protocol id of the random number protocol.
-     * @param _firstVotingRoundStartTs The timestamp of the first voting round start.
-     * @param _votingEpochDurationSeconds The duration of a voting epoch in seconds.
-     * @param _firstRewardEpochStartVotingRoundId The start voting round id of the first reward epoch.
-     * @param _rewardEpochDurationInVotingEpochs The duration of a reward epoch in voting epochs.
-     * @param _thresholdIncreaseBIPS The threshold increase in BIPS for signing with old signing policy.
      */
     constructor(
-        address _signingPolicySetter,
-        uint32 _initialRewardEpochId,
-        uint32 _startingVotingRoundIdForInitialRewardEpochId,
-        bytes32 _initialSigningPolicyHash,
-        uint8 _randomNumberProtocolId,
-        uint32 _firstVotingRoundStartTs,
-        uint8 _votingEpochDurationSeconds,
-        uint32 _firstRewardEpochStartVotingRoundId,
-        uint16 _rewardEpochDurationInVotingEpochs,
-        uint16 _thresholdIncreaseBIPS,
-        uint32 _messageFinalizationWindowInRewardEpochs
+        RelayInitialConfig memory _initialConfig,
+        address _signingPolicySetter
     ) {
-        require(_thresholdIncreaseBIPS >= THRESHOLD_BIPS, "threshold increase too small");
-        require(_firstRewardEpochStartVotingRoundId + _initialRewardEpochId * _rewardEpochDurationInVotingEpochs <=
-            _startingVotingRoundIdForInitialRewardEpochId, "invalid initial starting voting round id");
+        require(_initialConfig.thresholdIncreaseBIPS >= THRESHOLD_BIPS, "threshold increase too small");
+        require(_initialConfig.firstRewardEpochStartVotingRoundId +
+            _initialConfig.initialRewardEpochId * _initialConfig.rewardEpochDurationInVotingEpochs <=
+            _initialConfig.startingVotingRoundIdForInitialRewardEpochId, "invalid initial starting voting round id"
+        );
         signingPolicySetter = _signingPolicySetter;
-        stateData.lastInitializedRewardEpoch = _initialRewardEpochId;
-        startingVotingRoundIds[_initialRewardEpochId] = _startingVotingRoundIdForInitialRewardEpochId;
-        toSigningPolicyHash[_initialRewardEpochId] = _initialSigningPolicyHash;
-        stateData.randomNumberProtocolId = _randomNumberProtocolId;
-        stateData.firstVotingRoundStartTs = _firstVotingRoundStartTs;
-        stateData.votingEpochDurationSeconds = _votingEpochDurationSeconds;
-        stateData.firstRewardEpochStartVotingRoundId = _firstRewardEpochStartVotingRoundId;
-        stateData.rewardEpochDurationInVotingEpochs = _rewardEpochDurationInVotingEpochs;
-        stateData.thresholdIncreaseBIPS = _thresholdIncreaseBIPS;
-        stateData.messageFinalizationWindowInRewardEpochs = _messageFinalizationWindowInRewardEpochs;
-        if (signingPolicySetter != address(0)) {
+        stateData.lastInitializedRewardEpoch = _initialConfig.initialRewardEpochId;
+        startingVotingRoundIds[_initialConfig.initialRewardEpochId] =
+            _initialConfig.startingVotingRoundIdForInitialRewardEpochId;
+        toSigningPolicyHashPrivate[_initialConfig.initialRewardEpochId] = _initialConfig.initialSigningPolicyHash;
+        require(_initialConfig.randomNumberProtocolId > 1, "random number protocol id must be > 1");
+        stateData.randomNumberProtocolId = _initialConfig.randomNumberProtocolId;
+        stateData.firstVotingRoundStartTs = _initialConfig.firstVotingRoundStartTs;
+        stateData.votingEpochDurationSeconds = _initialConfig.votingEpochDurationSeconds;
+        stateData.firstRewardEpochStartVotingRoundId = _initialConfig.firstRewardEpochStartVotingRoundId;
+        stateData.rewardEpochDurationInVotingEpochs = _initialConfig.rewardEpochDurationInVotingEpochs;
+        stateData.thresholdIncreaseBIPS = _initialConfig.thresholdIncreaseBIPS;
+        stateData.messageFinalizationWindowInRewardEpochs = _initialConfig.messageFinalizationWindowInRewardEpochs;
+        if (_signingPolicySetter != address(0)) {
+            require(_initialConfig.feeConfigs.length == 0, "fee cannot be set");
             stateData.noSigningPolicyRelay = true;
+        }
+        feeCollectionAddress = _initialConfig.feeCollectionAddress;
+        for (uint256 i = 0; i < _initialConfig.feeConfigs.length; i++) {
+            uint8 protocolId = _initialConfig.feeConfigs[i].protocolId;
+            require(protocolId > 1, "invalid protocol id");
+            protocolFeeInWei[protocolId] = _initialConfig.feeConfigs[i].feeInWei;
         }
     }
 
@@ -347,7 +356,7 @@ contract Relay is IIRelay {
                 }
             }
         }
-        toSigningPolicyHash[_signingPolicy.rewardEpochId] = currentHash;
+        toSigningPolicyHashPrivate[_signingPolicy.rewardEpochId] = currentHash;
         stateData.lastInitializedRewardEpoch = _signingPolicy.rewardEpochId;
         startingVotingRoundIds[_signingPolicy.rewardEpochId] = _signingPolicy.startVotingRoundId;
         emit SigningPolicyInitialized(
@@ -367,8 +376,38 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
-    function relay() external {
+    function verifyCustomSignature(
+        bytes calldata _relayMessage,
+        bytes32 _messageHash
+    ) external returns (uint256 _rewardEpochId) {
+        return _verifyCustomSignature(_relayMessage, _messageHash);
+    }
 
+    /**
+     * @inheritdoc IRelay
+     */
+    function governanceFeeSetup(bytes calldata _relayMessage, RelayGovernanceConfig calldata _config) external {
+        require(signingPolicySetter == address(0), "fee cannot be set");
+        require(_config.chainId == block.chainid, "wrong chain id");
+        require(_config.descriptionHash == keccak256("RelayGovernance"), "wrong description hash");
+        for (uint256 i = 0; i < _config.newFeeConfigs.length; i++) {
+            uint8 protocolId = _config.newFeeConfigs[i].protocolId;
+            require(protocolId > 1, "invalid protocol id");
+            protocolFeeInWei[protocolId] = _config.newFeeConfigs[i].feeInWei;
+        }
+        uint256 returnRewardEpochId = _verifyCustomSignature(_relayMessage, keccak256(abi.encode(_config)));
+        // allow signing with the latest or one earliest signing policy
+        require(
+            stateData.lastInitializedRewardEpoch == returnRewardEpochId ||
+            stateData.lastInitializedRewardEpoch - 1 == returnRewardEpochId,
+            "too old signing policy"
+        );
+    }
+
+    /**
+     * @inheritdoc IRelay
+     */
+    function relay() external returns (bytes memory){
         // solhint-disable-next-line no-inline-assembly
         assembly {
             // Helper function to revert with a message
@@ -534,6 +573,20 @@ contract Relay is IIRelay {
                     revertWithMessage(_memPtr, "too big threshold", 17)
                 }
             }
+
+            function setIsSecureRandomBit(_memPtr, _votingRoundId) {
+                //  isSecureRandomMap[_votingRoundId / 256]
+                mstore(_memPtr, div(_votingRoundId, 256)) // key (_votingRoundId / 256)
+                mstore(add(_memPtr, 32), isSecureRandomMap.slot)
+
+                sstore(
+                    keccak256(_memPtr, 64),
+                    or(
+                        sload(keccak256(_memPtr, 64)),
+                        shl(sub(255, mod(_votingRoundId, 256)), 1)
+                    )
+                )
+            }
 ////////////// A comment on handling of signing policy and a message /////////////////////////////////////////
 //
 // A relayer provides a signing policy and a message.
@@ -611,9 +664,9 @@ contract Relay is IIRelay {
                 )
             )
 
-            //  toSigningPolicyHash[rewardEpochId] -> existingSigningPolicyHash
+            //  toSigningPolicyHashPrivate[rewardEpochId] -> existingSigningPolicyHash
             mstore(memPtr, rewardEpochId) // key (rewardEpochId)
-            mstore(add(memPtr, M_1), toSigningPolicyHash.slot)
+            mstore(add(memPtr, M_1), toSigningPolicyHashPrivate.slot)
 
             // store existing signing policy hash to slot M_3 temporarily
             mstore(
@@ -659,7 +712,7 @@ contract Relay is IIRelay {
             )
 
             ///////////// Preparation of message hash /////////////
-            // protocolId > 0 means we are relaying (Mode 2)
+            // protocolId > 0 means we are relaying or checking the validity of signatures (Mode 2)
             // The signed hash is the message hash and it gets prepared into slot 32
             if gt(protocolId, 0) {
                 let memPtrGP0 := mload(0x40)
@@ -685,10 +738,10 @@ contract Relay is IIRelay {
                     MSG_NMR_BOFF_votingRoundId,
                     MSG_NMR_MASK_votingRoundId
                 )
-                // Check if merkleRoots[protocolId][votingRoundId] is set
+                // Check if merkleRootsPrivate[protocolId][votingRoundId] is set
                 // NOTE: M1 is already consumed. Hence using M_3 and M_4
                 mstore(add(memPtrGP0, M_3), protocolId) // key 1 (protocolId)
-                mstore(add(memPtrGP0, M_4), merkleRoots.slot) // merkleRoot slot
+                mstore(add(memPtrGP0, M_4), merkleRootsPrivate.slot) // merkleRoot slot
                 mstore(add(memPtrGP0, M_4), keccak256(add(memPtrGP0, M_3), 64))
                 mstore(add(memPtrGP0, M_3), votingRoundId) // key 2 (votingRoundId)
 
@@ -696,11 +749,34 @@ contract Relay is IIRelay {
                     revertWithMessage(memPtrGP0, "Already relayed", 15)
                 }
 
+                if eq(protocolId, 1) {
+                    // both votingRoundId and isSecureRandom should be 0
+                    if votingRoundId {
+                        revertWithMessage(memPtrGP0, "Wrong message format", 20)
+                    }
+
+                    if structValue( // isSecureRandom should be 0
+                        shr(
+                            sub(256, mul(8, MESSAGE_NO_MR_BYTES)),
+                            mload(memPtrGP0)
+                        ),
+                        MSG_NMR_BOFF_isSecureRandom,
+                        MSG_NMR_MASK_isSecureRandom
+                    ) {
+                        revertWithMessage(memPtrGP0, "Wrong message format2", 21)
+                    }
+                }
+
                 // the expected reward epoch id
-                let messageRewardEpochId := rewardEpochIdFromVotingRoundId(
-                    mload(add(memPtrGP0, M_5_stateData)),
-                    votingRoundId
-                )
+                // for direct message signing (protocolId == 1)
+                let messageRewardEpochId := rewardEpochId
+
+                if iszero(eq(protocolId, 1)) {
+                    messageRewardEpochId := rewardEpochIdFromVotingRoundId(
+                        mload(add(memPtrGP0, M_5_stateData)),
+                        votingRoundId
+                    )
+                }
 
                 // Given a signing policy for reward epoch R one can sign either messages
                 // in reward epochs R or later
@@ -735,7 +811,7 @@ contract Relay is IIRelay {
                 )
                 // in case the reward epoch id start gets delayed -> signing policy for earlier
                 // reward epoch must be provided
-                if lt(votingRoundId, startingVotingRoundId) {
+                if and(iszero(eq(protocolId, 1)), lt(votingRoundId, startingVotingRoundId)) {
                     revertWithMessage(memPtrGP0, "Delayed sign policy", 19)
                 }
 
@@ -929,9 +1005,9 @@ contract Relay is IIRelay {
                     )
                 )
 
-                // toSigningPolicyHash[newSigningPolicyRewardEpochId] = newSigningPolicyHash
+                // toSigningPolicyHashPrivate[newSigningPolicyRewardEpochId] = newSigningPolicyHash
                 mstore(mload(0x40), newSigningPolicyRewardEpochId)
-                mstore(add(mload(0x40), M_1), toSigningPolicyHash.slot)
+                mstore(add(mload(0x40), M_1), toSigningPolicyHashPrivate.slot)
                 sstore(keccak256(mload(0x40), 64), newSigningPolicyHash)
                 // Prepare the hash on slot 32 for signature verification
                 mstore(add(mload(0x40), M_1), newSigningPolicyHash)
@@ -1086,10 +1162,6 @@ contract Relay is IIRelay {
                     }
 
                     if gt(protocolId, 0) {
-                        let votingRoundId := extractVotingRoundIdFromMessage(
-                            memPtrFor,
-                            signingPolicyLength
-                        )
                         // M_6_merkleRoot <- Merkle root
                         calldatacopy(
                             add(memPtrFor, M_6_merkleRoot),
@@ -1099,15 +1171,28 @@ contract Relay is IIRelay {
                             ),
                             32
                         )
+                        if eq(protocolId, 1) {
+                            mstore(memPtrFor, mload(add(memPtrFor, M_6_merkleRoot)))
+                            mstore(
+                                add(memPtrFor, M_1),
+                                shl(sub(256, mul(8, REWARD_EPOCH_ID_BYTES)), rewardEpochId)
+                            )
+                            return (memPtrFor, add(32, REWARD_EPOCH_ID_BYTES))
+                        }
+
+                        let votingRoundId := extractVotingRoundIdFromMessage(
+                            memPtrFor,
+                            signingPolicyLength
+                        )
 
                         // writing into the map
                         mstore(memPtrFor, protocolId) // key 1 (protocolId)
-                        mstore(add(memPtrFor, M_1), merkleRoots.slot) // merkleRoot slot
+                        mstore(add(memPtrFor, M_1), merkleRootsPrivate.slot) // merkleRoot slot
 
                         // parent map location in slot for next hashing
                         mstore(add(memPtrFor, M_1), keccak256(memPtrFor, 64))
                         mstore(memPtrFor, votingRoundId) // key 2 (votingRoundId)
-                        // merkleRoot stored at merkleRoots[protocolId][votingRoundId]
+                        // merkleRoot stored at merkleRootsPrivate[protocolId][votingRoundId]
                         sstore(
                             keccak256(memPtrFor, 64),
                             mload(add(memPtrFor, M_6_merkleRoot))
@@ -1166,6 +1251,15 @@ contract Relay is IIRelay {
                                 mload(add(memPtrFor, M_5_stateData))
                             )
 
+                            // using M_3 and M_4 for helping store historical isSecureRandom
+                            if structValue(
+                                mload(memPtrFor),
+                                MSG_NMR_BOFF_isSecureRandom,
+                                MSG_NMR_MASK_isSecureRandom
+                            ) {
+                                setIsSecureRandomBit(add(memPtrFor, M_3), votingRoundId)
+                            }
+
                             // M_5_stateData is not used anymore. Using M_5_isSecureRandom for
                             // isSecureRandom, together with M_6_merkleRoot for data of an event
                             mstore(
@@ -1200,6 +1294,48 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
+    function verify(uint256 _protocolId, uint256 _votingRoundId, bytes32 _leaf, bytes32[] calldata _proof)
+        external payable
+        returns (bool)
+    {
+        require(_protocolId > 1, "invalid protocol id");
+        require(msg.value >= protocolFeeInWei[_protocolId], "too low fee");
+        require(_proof.verifyCalldata(merkleRootsPrivate[_protocolId][_votingRoundId], _leaf), "merkle proof invalid");
+        if (msg.value > 0) {
+            /* solhint-disable avoid-low-level-calls */
+            //slither-disable-next-line arbitrary-send-eth
+            (bool success, ) = feeCollectionAddress.call{value: msg.value}("");
+            /* solhint-enable avoid-low-level-calls */
+            require(success, "Transfer failed");
+        }
+
+        return true;
+    }
+
+    /**
+     * @inheritdoc IRelay
+     */
+    function isFinalized(uint256 _protocolId, uint256 _votingRoundId)
+        external view
+        returns (bool)
+    {
+        return merkleRootsPrivate[_protocolId][_votingRoundId] != bytes32(0);
+    }
+
+    /**
+     * @inheritdoc IRelay
+     */
+    function merkleRoots(uint256 _protocolId, uint256 _votingRoundId)
+        external view
+        returns (bytes32 _merkleRoot)
+    {
+        require(signingPolicySetter != address(0), "no access to merkle roots");
+        return merkleRootsPrivate[_protocolId][_votingRoundId];
+    }
+
+    /**
+     * @inheritdoc RandomNumberV2Interface
+     */
     function getRandomNumber()
         external view
         returns (
@@ -1208,11 +1344,38 @@ contract Relay is IIRelay {
             uint256 _randomTimestamp
         )
     {
-        _randomNumber = uint256(merkleRoots[stateData.randomNumberProtocolId][stateData.randomVotingRoundId]);
+        _randomNumber = uint256(
+            keccak256(abi.encode(merkleRootsPrivate[stateData.randomNumberProtocolId][stateData.randomVotingRoundId]))
+        );
         _isSecureRandom = stateData.isSecureRandom;
         _randomTimestamp =
             stateData.firstVotingRoundStartTs +
             uint256(stateData.randomVotingRoundId + 1) *
+            stateData.votingEpochDurationSeconds;
+    }
+
+    /**
+     * @inheritdoc RandomNumberV2Interface
+     */
+    function getRandomNumberHistorical(uint256 _votingRoundId)
+        external view
+        returns (
+            uint256 _randomNumber,
+            bool _isSecureRandom,
+            uint256 _randomTimestamp
+        )
+    {
+        bytes32 merkleRoot = merkleRootsPrivate[stateData.randomNumberProtocolId][_votingRoundId];
+        require(merkleRoot != bytes32(0), "no random number");
+        _randomNumber = uint256(
+            keccak256(abi.encode(merkleRoot))
+        );
+        _isSecureRandom =
+            (isSecureRandomMap[_votingRoundId / 256] >> (255 - _votingRoundId % 256)) & bytes32(uint256(1))
+                == bytes32(uint256(1));
+        _randomTimestamp =
+            stateData.firstVotingRoundStartTs +
+            uint256(_votingRoundId + 1) *
             stateData.votingEpochDurationSeconds;
     }
 
@@ -1227,11 +1390,9 @@ contract Relay is IIRelay {
     /**
      * @inheritdoc IRelay
      */
-    function getConfirmedMerkleRoot(uint256 _protocolId, uint256 _votingRoundId) external view returns (bytes32) {
-        if (_protocolId == 0) {
-            return toSigningPolicyHash[_votingRoundId];
-        }
-        return merkleRoots[_protocolId][_votingRoundId];
+    function toSigningPolicyHash(uint256 _rewardEpochId) external view returns (bytes32) {
+        require(signingPolicySetter != address(0), "no access to signing policy hashes");
+        return toSigningPolicyHashPrivate[_rewardEpochId];
     }
 
     /**
@@ -1247,5 +1408,27 @@ contract Relay is IIRelay {
         _lastInitializedRewardEpoch = stateData.lastInitializedRewardEpoch;
         _startingVotingRoundIdForLastInitializedRewardEpoch =
             uint32(startingVotingRoundIds[_lastInitializedRewardEpoch]);
+    }
+
+    function _verifyCustomSignature(
+        bytes calldata _relayMessage,
+        bytes32 _messageHash
+    ) internal returns (uint256 _rewardEpochId) {
+        /* solhint-disable avoid-low-level-calls */
+        //slither-disable-next-line arbitrary-send-eth
+        (bool success, bytes memory returnData) = address(this).call(_relayMessage);
+        /* solhint-enable avoid-low-level-calls */
+        require(success, "Verification failed");
+        // 32 bytes hash + 3 bytes reward epoch id
+        require(returnData.length == 35, "Wrong verification data");
+        bytes32 returnHash;
+        uint256 returnRewardEpochId;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            returnHash := mload(add(returnData, 0x20))
+            returnRewardEpochId := shr(sub(256, mul(8, REWARD_EPOCH_ID_BYTES)), mload(add(returnData, 0x40)))
+        }
+        require(bytes32(returnHash) == _messageHash, "Invalid config hash");
+        return returnRewardEpochId;
     }
 }
