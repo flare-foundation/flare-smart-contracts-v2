@@ -270,7 +270,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(103, true, currentTime + 1)
         );
         flareSystemsManager.daemonize();
@@ -375,7 +375,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(118, true, currentTime + 1)
         );
         flareSystemsManager.daemonize();
@@ -532,7 +532,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(40, true, currentTime + 1)
         );
         flareSystemsManager.daemonize();
@@ -706,7 +706,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(55, true, currentTime + 1)
         );
         flareSystemsManager.daemonize();
@@ -844,7 +844,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(40, true, currentTime + 1)
         );
         flareSystemsManager.daemonize();
@@ -1051,7 +1051,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(40, true, currentTime + 1)
         );
         flareSystemsManager.daemonize();
@@ -1240,7 +1240,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         vm.warp(currentTime + uint64(11));
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(40, true, currentTime + 1)
         );
         flareSystemsManager.daemonize();

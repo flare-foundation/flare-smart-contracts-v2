@@ -5,13 +5,13 @@ import "../lib/Bn256.sol";
 
 contract Bn256Mock {
 
-    Bn256.G1Point public g1 = Bn256.g1();
+    G1Point public g1 = Bn256.g1();
 
     function runHashingTest() public view {
         string memory hello = "hello!";
         string memory goodbye = "goodbye.";
-        Bn256.G1Point memory p1;
-        Bn256.G1Point memory p2;
+        G1Point memory p1;
+        G1Point memory p2;
         p1 = Bn256.g1HashToPoint(bytes(hello));
         p2 = Bn256.g1HashToPoint(bytes(goodbye));
 
@@ -27,13 +27,13 @@ contract Bn256Mock {
     function runHashAndAddTest() public view {
         string memory hello = "hello!";
         string memory goodbye = "goodbye.";
-        Bn256.G1Point memory p1;
-        Bn256.G1Point memory p2;
+        G1Point memory p1;
+        G1Point memory p2;
         p1 = Bn256.g1HashToPoint(bytes(hello));
         p2 = Bn256.g1HashToPoint(bytes(goodbye));
 
-        Bn256.G1Point memory p3;
-        Bn256.G1Point memory p4;
+        G1Point memory p3;
+        G1Point memory p4;
 
         p3 = Bn256.g1Add(p1, p2);
         p4 = Bn256.g1Add(p2, p1);
@@ -46,8 +46,8 @@ contract Bn256Mock {
 
     function runHashAndScalarMultiplyTest() public view {
         string memory hello = "hello!";
-        Bn256.G1Point memory p1;
-        Bn256.G1Point memory p2;
+        G1Point memory p1;
+        G1Point memory p2;
         p1 = Bn256.g1HashToPoint(bytes(hello));
 
         p2 = Bn256.scalarMultiply(p1, 12);
@@ -55,11 +55,11 @@ contract Bn256Mock {
         require(Bn256.isG1PointOnCurve(p2), "Multiplied point should be on the curve.");
     }
 
-    function publicG1Add(Bn256.G1Point memory a, Bn256.G1Point memory b) public view returns (Bn256.G1Point memory c) {
+    function publicG1Add(G1Point memory a, G1Point memory b) public view returns (G1Point memory c) {
         c = Bn256.g1Add(a, b);
     }
 
-    function publicG1ScalarMultiply(Bn256.G1Point memory a, uint256 s) public view returns (Bn256.G1Point memory c) {
+    function publicG1ScalarMultiply(G1Point memory a, uint256 s) public view returns (G1Point memory c) {
         c = Bn256.scalarMultiply(a, s);
     }
 }

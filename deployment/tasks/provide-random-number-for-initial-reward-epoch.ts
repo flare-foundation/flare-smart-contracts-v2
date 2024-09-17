@@ -84,9 +84,9 @@ export async function provideRandomNumberForInitialRewardEpoch(
         }
         break;
       }
-      const votingRoundId = (await relay.getVotingRoundId(latestBlock.timestamp)).toNumber();
-      const merkleRootHash = await relay.getConfirmedMerkleRoot(parameters.ftsoProtocolId, votingRoundId);
-      if (merkleRootHash === ZERO_BYTES32) {
+      const votingRoundId = (await relay.getVotingRoundId(latestBlock.timestamp)).toNumber()
+      const isFinalized = await relay.isFinalized(parameters.ftsoProtocolId, votingRoundId);
+      if (!isFinalized) {
         const random = new Uint32Array(1);
         crypto.getRandomValues(random);
         const merkleRoot = web3.utils.keccak256(web3.eth.abi.encodeParameters(

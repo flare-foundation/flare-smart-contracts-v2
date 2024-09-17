@@ -70,8 +70,8 @@ contract ValidatorRewardOffersManagerTest is Test {
         validatorRewardOffersManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
         // set contracts on reward manager
-        contractNameHashes = new bytes32[](7);
-        contractAddresses = new address[](7);
+        contractNameHashes = new bytes32[](8);
+        contractAddresses = new address[](8);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("VoterRegistry"));
         contractNameHashes[2] = keccak256(abi.encode("ClaimSetupManager"));
@@ -79,6 +79,7 @@ contract ValidatorRewardOffersManagerTest is Test {
         contractNameHashes[4] = keccak256(abi.encode("FlareSystemsCalculator"));
         contractNameHashes[5] = keccak256(abi.encode("PChainStakeMirror"));
         contractNameHashes[6] = keccak256(abi.encode("WNat"));
+        contractNameHashes[7] = keccak256(abi.encode("FtsoRewardManager"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = makeAddr("voterRegistry");
         contractAddresses[2] = makeAddr("claimSetupManager");
@@ -86,6 +87,7 @@ contract ValidatorRewardOffersManagerTest is Test {
         contractAddresses[4] = makeAddr("flareSystemsCalculator");
         contractAddresses[5] = makeAddr("pChainStakeMirror");
         contractAddresses[6] = makeAddr("wNat");
+        contractAddresses[7] = makeAddr("FtsoRewardManagerProxy");
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
@@ -209,7 +211,7 @@ contract ValidatorRewardOffersManagerTest is Test {
     function _mockGetCurrentEpochId(uint256 _epochId) internal {
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.getCurrentRewardEpochId.selector),
+            abi.encodeWithSelector(ProtocolsV2Interface.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }

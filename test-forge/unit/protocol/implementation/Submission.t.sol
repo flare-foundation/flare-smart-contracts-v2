@@ -221,7 +221,7 @@ contract SubmissionTest is Test {
         _setContractAddresses();
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(123, true, 5)
         );
         assertEq(submission.getCurrentRandom(), 123);
@@ -242,7 +242,7 @@ contract SubmissionTest is Test {
         _setContractAddresses();
         vm.mockCall(
             mockRelay,
-            abi.encodeWithSelector(IRelay.getRandomNumber.selector),
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
             abi.encode(123, false, 5)
         );
         vm.expectRevert("Not secure");

@@ -225,7 +225,27 @@
         {"feedId": {"category": 1, "name": "ETHFI/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "ENA/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "PYTH/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
-
+    ],
+    "defaultFeeWei": "1",
+    "ftsoProxies": [
+        {"feedId": {"category": 1, "name": "SGB/USD"}, "symbol": "SGB"},
+        {"feedId": {"category": 1, "name": "XRP/USD"}, "symbol": "XRP"},
+        {"feedId": {"category": 1, "name": "LTC/USD"}, "symbol": "LTC"},
+        {"feedId": {"category": 1, "name": "XLM/USD"}, "symbol": "XLM"},
+        {"feedId": {"category": 1, "name": "DOGE/USD"}, "symbol": "DOGE"},
+        {"feedId": {"category": 1, "name": "ADA/USD"}, "symbol": "ADA"},
+        {"feedId": {"category": 1, "name": "ALGO/USD"}, "symbol": "ALGO"},
+        {"feedId": {"category": 1, "name": "BTC/USD"}, "symbol": "BTC"},
+        {"feedId": {"category": 1, "name": "ETH/USD"}, "symbol": "ETH"},
+        {"feedId": {"category": 1, "name": "FIL/USD"}, "symbol": "FIL"},
+        {"feedId": {"category": 1, "name": "ARB/USD"}, "symbol": "ARB"},
+        {"feedId": {"category": 1, "name": "AVAX/USD"}, "symbol": "AVAX"},
+        {"feedId": {"category": 1, "name": "BNB/USD"}, "symbol": "BNB"},
+        {"feedId": {"category": 1, "name": "MATIC/USD"}, "symbol": "MATIC"},
+        {"feedId": {"category": 1, "name": "SOL/USD"}, "symbol": "SOL"},
+        {"feedId": {"category": 1, "name": "USDC/USD"}, "symbol": "USDC"},
+        {"feedId": {"category": 1, "name": "USDT/USD"}, "symbol": "USDT"},
+        {"feedId": {"category": 1, "name": "XDC/USD"}, "symbol": "XDC"}
     ],
     "rNatName": "Reward Songbird",
     "rNatSymbol": "rSGB",

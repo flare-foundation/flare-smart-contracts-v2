@@ -66,6 +66,7 @@ export class Contracts {
   public static readonly FAST_UPDATER = "FastUpdater";
   public static readonly FAST_UPDATE_INCENTIVE_MANAGER = "FastUpdateIncentiveManager";
   public static readonly FAST_UPDATES_CONFIGURATION = "FastUpdatesConfiguration";
+  public static readonly FEE_CALCULATOR = "FeeCalculator";
   public static readonly FDC_HUB = "FdcHub";
   public static readonly FDC_INFLATION_CONFIGURATIONS = "FdcInflationConfigurations";
   public static readonly FDC_REQUEST_FEE_CONFIGURATIONS = "FdcRequestFeeConfigurations";

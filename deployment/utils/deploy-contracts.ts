@@ -20,6 +20,8 @@ import {
   FdcHubInstance,
   FdcInflationConfigurationsContract,
   FdcRequestFeeConfigurationsContract,
+  FeeCalculatorContract,
+  FeeCalculatorInstance,
   FlareSystemsCalculatorContract,
   FlareSystemsCalculatorInstance,
   FlareSystemsManagerContract,
@@ -77,6 +79,7 @@ import {
 import { getLogger } from "./logger";
 import { testDeployGovernanceSettings } from "./contract-helpers";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
+import { RelayInitialConfig } from "./RelayInitialConfig";
 
 export interface DeployedContracts {
   readonly flareDaemon: TestableFlareDaemonInstance;
@@ -106,6 +109,7 @@ export interface DeployedContracts {
   readonly fastUpdater: FastUpdaterInstance;
   readonly fastUpdatesConfiguration: FastUpdatesConfigurationInstance;
   readonly nodePossessionVerifier: NodePossessionVerifierInstance;
+  readonly feeCalculator: FeeCalculatorInstance;
   readonly fdcHub: FdcHubInstance;
 }
 
@@ -122,6 +126,7 @@ export async function deployContracts(
   const MULTI_SIG_VOTING_ADDR = accounts[4].address;
   const RELAY_ADDR = accounts[5].address;
   const CLAIM_SETUP_MANAGER_ADDR = accounts[5].address;
+  const FTSO_REWARD_MANAGER_ADDR = accounts[5].address;
   const INFLATION_ADDR = accounts[5].address;
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -162,6 +167,7 @@ export async function deployContracts(
     artifacts.require("FastUpdateIncentiveManager");
   const FastUpdater: FastUpdaterContract = artifacts.require("FastUpdater");
   const FastUpdatesConfiguration: FastUpdatesConfigurationContract = artifacts.require("FastUpdatesConfiguration");
+  const FeeCalculator: FeeCalculatorContract = artifacts.require("FeeCalculator");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
@@ -314,18 +320,24 @@ export async function deployContracts(
     0
   );
 
+  const relayInitialConfig: RelayInitialConfig = {
+    initialRewardEpochId: initialSigningPolicy.rewardEpochId,
+    startingVotingRoundIdForInitialRewardEpochId: initialSigningPolicy.startVotingRoundId,
+    initialSigningPolicyHash: getSigningPolicyHash(initialSigningPolicy),
+    randomNumberProtocolId: FTSO_PROTOCOL_ID,
+    firstVotingRoundStartTs: settings.firstVotingRoundStartTs,
+    votingEpochDurationSeconds: settings.votingEpochDurationSeconds,
+    firstRewardEpochStartVotingRoundId: settings.firstRewardEpochStartVotingRoundId,
+    rewardEpochDurationInVotingEpochs: settings.rewardEpochDurationInVotingEpochs,
+    thresholdIncreaseBIPS: 12000,
+    messageFinalizationWindowInRewardEpochs: 100,
+    feeCollectionAddress: ZERO_ADDRESS,
+    feeConfigs: []
+  }
+
   const relay = await Relay.new(
+    relayInitialConfig,
     flareSystemsManager.address,
-    initialSigningPolicy.rewardEpochId,
-    initialSigningPolicy.startVotingRoundId,
-    getSigningPolicyHash(initialSigningPolicy),
-    FTSO_PROTOCOL_ID,
-    settings.firstVotingRoundStartTs,
-    settings.votingEpochDurationSeconds,
-    settings.firstRewardEpochStartVotingRoundId,
-    settings.rewardEpochDurationInVotingEpochs,
-    12000,
-    100
   );
 
   const submission = await Submission.new(
@@ -404,6 +416,13 @@ export async function deployContracts(
     governanceSettings.address,
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR
+  );
+
+  const feeCalculator = await FeeCalculator.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    "1"
   );
 
   const fdcHub = await FdcHub.new(governanceSettings.address, governanceAccount.address, ADDRESS_UPDATER_ADDR, 30);
@@ -509,16 +528,8 @@ export async function deployContracts(
       Contracts.FLARE_SYSTEMS_CALCULATOR,
       Contracts.P_CHAIN_STAKE_MIRROR,
       Contracts.WNAT,
-    ]),
-    [
-      ADDRESS_UPDATER_ADDR,
-      voterRegistry.address,
-      CLAIM_SETUP_MANAGER_ADDR,
-      flareSystemsManager.address,
-      flareSystemsCalculator.address,
-      pChainStakeMirror.address,
-      wNat.address,
-    ],
+      Contracts.FTSO_REWARD_MANAGER]),
+    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address, FTSO_REWARD_MANAGER_ADDR],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -600,23 +611,20 @@ export async function deployContracts(
       Contracts.VOTER_REGISTRY,
       Contracts.FAST_UPDATES_CONFIGURATION,
       Contracts.FTSO_FEED_PUBLISHER,
-    ]),
-    [
-      ADDRESS_UPDATER_ADDR,
-      flareSystemsManager.address,
-      fastUpdateIncentiveManager.address,
-      voterRegistry.address,
-      fastUpdatesConfiguration.address,
-      mockContract.address,
-    ],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
+      Contracts.FEE_CALCULATOR]),
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, fastUpdateIncentiveManager.address, voterRegistry.address, fastUpdatesConfiguration.address, mockContract.address, feeCalculator.address], { from: ADDRESS_UPDATER_ADDR });
 
   await fastUpdatesConfiguration.updateContractAddresses(
     encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FAST_UPDATER]),
     [ADDRESS_UPDATER_ADDR, fastUpdater.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
+
+  await feeCalculator.updateContractAddresses(
+    encodeContractNames(hre.web3, [
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FAST_UPDATES_CONFIGURATION]),
+    [ADDRESS_UPDATER_ADDR, fastUpdatesConfiguration.address], { from: ADDRESS_UPDATER_ADDR });
 
   await fdcHub.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -804,7 +812,8 @@ export async function deployContracts(
     fastUpdater,
     fastUpdatesConfiguration,
     nodePossessionVerifier,
-    fdcHub,
+    feeCalculator,
+    fdcHub
   };
 
   return [contracts, rewardEpochStart, initialSigningPolicy];

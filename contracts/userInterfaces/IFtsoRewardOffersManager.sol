@@ -79,7 +79,7 @@ interface IFtsoRewardOffersManager {
         external payable;
 
     /**
-     * Mininal rewards offer value (in wei).
+     * Minimal rewards offer value (in wei).
      */
     function minimalRewardsOfferValueWei() external view returns(uint256);
 }

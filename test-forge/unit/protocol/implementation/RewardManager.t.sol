@@ -22,6 +22,7 @@ contract RewardManagerTest is Test {
     address private mockWNat;
     address[] private rewardOffersManagers;
     address private mockFlareSystemsCalculator;
+    address private mockFtsoRewardManagerProxy;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -71,10 +72,11 @@ contract RewardManagerTest is Test {
         mockCChainStake = makeAddr("mockCChainStake");
         mockWNat = makeAddr("mockWNat");
         mockFlareSystemsCalculator = makeAddr("mockFlareSystemsCalculator");
+        mockFtsoRewardManagerProxy = makeAddr("mockFtsoRewardManagerProxy");
 
         vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](7);
-        contractAddresses = new address[](7);
+        contractNameHashes = new bytes32[](8);
+        contractAddresses = new address[](8);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("ClaimSetupManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
@@ -82,6 +84,7 @@ contract RewardManagerTest is Test {
         contractNameHashes[4] = keccak256(abi.encode("CChainStake"));
         contractNameHashes[5] = keccak256(abi.encode("WNat"));
         contractNameHashes[6] = keccak256(abi.encode("FlareSystemsCalculator"));
+        contractNameHashes[7] = keccak256(abi.encode("FtsoRewardManager"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockClaimSetupManager;
         contractAddresses[2] = mockFlareSystemsManager;
@@ -89,6 +92,7 @@ contract RewardManagerTest is Test {
         contractAddresses[4] = mockCChainStake;
         contractAddresses[5] = mockWNat;
         contractAddresses[6] = mockFlareSystemsCalculator;
+        contractAddresses[7] = mockFtsoRewardManagerProxy;
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
@@ -106,10 +110,10 @@ contract RewardManagerTest is Test {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
         bytes32 leaf1 = keccak256(abi.encode(body));
@@ -157,22 +161,22 @@ contract RewardManagerTest is Test {
 
         merkleProof1 = new bytes32[](1);
         merkleProof2 = new bytes32[](1);
-        IRewardManager.RewardClaimWithProof[] memory proof1 = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaimWithProof[] memory proof2 = new IRewardManager.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaimWithProof[] memory proof1 = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaimWithProof[] memory proof2 = new RewardsV2Interface.RewardClaimWithProof[](1);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        IRewardManager.RewardClaim memory body2 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(address(0)), 200, IRewardManager.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaim memory body2 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(address(0)), 200, RewardsV2Interface.ClaimType.DIRECT);
 
         bytes32 leaf1 = keccak256(abi.encode(body1));
         bytes32 leaf2 = keccak256(abi.encode(body2));
         bytes32 merkleRoot = _hashPair(leaf1, leaf2);
 
         merkleProof1[0] = leaf2;
-        proof1[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proof1[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
         merkleProof2[0] = leaf1;
-        proof2[0] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+        proof2[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof2, body2);
 
         // contract needs some funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -227,7 +231,7 @@ contract RewardManagerTest is Test {
     function testClaimDirectRevertRewardsHashZero() public {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
 
         _mockGetCurrentEpochId(0);
         _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
@@ -249,25 +253,25 @@ contract RewardManagerTest is Test {
     function testClaimDirectAndWeightBased1() public {
         _enablePChainStakeMirror();
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](2);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](2);
         merkleProof1 = new bytes32[](1);
         merkleProof2 = new bytes32[](1);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        IRewardManager.RewardClaim memory body2 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaim memory body2 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
         bytes32 leaf1 = keccak256(abi.encode(body1));
         bytes32 leaf2 = keccak256(abi.encode(body2));
         bytes32 merkleRoot = _hashPair(leaf1, leaf2);
 
         // proof for DIRECT claim
         merkleProof1[0] = leaf2;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // proof for WNAT claim
         merkleProof2[0] = leaf1;
-        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+        proofs[1] = RewardsV2Interface.RewardClaimWithProof(merkleProof2, body2);
 
         // contract needs some funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -301,7 +305,7 @@ contract RewardManagerTest is Test {
     function testClaimDirectAndWeightBase2() public {
         _enablePChainStakeMirror();
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
 
         _fundRewardContract(1000, rewardEpochData.id);
         _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
@@ -325,14 +329,14 @@ contract RewardManagerTest is Test {
 
 
         // set proofs and initialised claims
-        proofs = new IRewardManager.RewardClaimWithProof[](2);
+        proofs = new RewardsV2Interface.RewardClaimWithProof[](2);
         merkleProof1 = new bytes32[](1);
         merkleProof2 = new bytes32[](1);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        IRewardManager.RewardClaim memory body2 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaim memory body2 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
         bytes32 leaf1 = keccak256(abi.encode(body1));
         bytes32 leaf2 = keccak256(abi.encode(body2));
         bytes32 merkleRoot = _hashPair(leaf1, leaf2);
@@ -340,11 +344,11 @@ contract RewardManagerTest is Test {
 
         // proof for DIRECT claim
         merkleProof1[0] = leaf2;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // proof for WNAT claim
         merkleProof2[0] = leaf1;
-        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+        proofs[1] = RewardsV2Interface.RewardClaimWithProof(merkleProof2, body2);
 
         RewardManager.RewardState[] memory rewardStates =
             rewardManager.getStateOfRewardsAt(voter1, rewardEpochData.id);
@@ -384,7 +388,7 @@ contract RewardManagerTest is Test {
         weights[0] = 40;
         _mockCChainStakes(delegator, 10, accounts, weights);
 
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
 
         _mockUndelegatedVotePowerOfAt(delegator, 10, 64);
 
@@ -392,16 +396,16 @@ contract RewardManagerTest is Test {
         // WNAT rewards; should receive floor(200 * 250 / 300) = 166
         // WNAT rewards; should receive floor[(200 - 166) * 80 * 0.2 / (300 - 250)] = 10
         vm.expectEmit();
-        emit RewardClaimed(voter1, delegator, delegator, 0, IRewardManager.ClaimType.WNAT, 10);
+        emit RewardClaimed(voter1, delegator, delegator, 0, RewardsV2Interface.ClaimType.WNAT, 10);
         // undelegated voter power
         vm.expectEmit();
-        emit RewardClaimed(delegator, delegator, delegator, 0, IRewardManager.ClaimType.WNAT, 0);
+        emit RewardClaimed(delegator, delegator, delegator, 0, RewardsV2Interface.ClaimType.WNAT, 0);
         // MIRROR rewards; should receive ceil(300 * 30/400) = 22
         vm.expectEmit();
-        emit RewardClaimed(address(nodeId1), delegator, delegator, 0, IRewardManager.ClaimType.MIRROR, 22);
+        emit RewardClaimed(address(nodeId1), delegator, delegator, 0, RewardsV2Interface.ClaimType.MIRROR, 22);
         // CCHAIN rewards; should receive ceil(400 * 40/500) = 400 - 360 = 32
         vm.expectEmit();
-        emit RewardClaimed(account1, delegator, delegator, 0, IRewardManager.ClaimType.CCHAIN, 32);
+        emit RewardClaimed(account1, delegator, delegator, 0, RewardsV2Interface.ClaimType.CCHAIN, 32);
         rewardManager.claim(delegator, payable(delegator), 0, false, proofs);
         // assertEq(delegator.balance, 17 + 38 + 40);
     }
@@ -418,20 +422,20 @@ contract RewardManagerTest is Test {
         assertEq(address(rewardManager.cChainStake()), mockCChainStake);
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](4);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](4);
         merkleProof1 = new bytes32[](2);
         merkleProof2 = new bytes32[](2);
         merkleProof3 = new bytes32[](2);
         merkleProof4 = new bytes32[](2);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        IRewardManager.RewardClaim memory body2 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
-        IRewardManager.RewardClaim memory body3 = IRewardManager.RewardClaim(
-            rewardEpochData.id, nodeId1, 300, IRewardManager.ClaimType.MIRROR);
-        IRewardManager.RewardClaim memory body4 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(account1), 400, IRewardManager.ClaimType.CCHAIN);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaim memory body2 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body3 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, nodeId1, 300, RewardsV2Interface.ClaimType.MIRROR);
+        RewardsV2Interface.RewardClaim memory body4 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(account1), 400, RewardsV2Interface.ClaimType.CCHAIN);
         bytes32[] memory hashes = new bytes32[](7);
         hashes[0] = keccak256(abi.encode(body1)); // leaf1
         hashes[1] = keccak256(abi.encode(body2)); // leaf2
@@ -444,22 +448,22 @@ contract RewardManagerTest is Test {
         // proof for DIRECT claim
         merkleProof1[0] = hashes[1];
         merkleProof1[1] = hashes[5];
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // proof for WNAT claim
         merkleProof2[0] = hashes[0];
         merkleProof2[1] = hashes[5];
-        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+        proofs[1] = RewardsV2Interface.RewardClaimWithProof(merkleProof2, body2);
 
         // proof for MIRROR claim
         merkleProof3[0] = hashes[3];
         merkleProof3[1] = hashes[4];
-        proofs[2] = IRewardManager.RewardClaimWithProof(merkleProof3, body3);
+        proofs[2] = RewardsV2Interface.RewardClaimWithProof(merkleProof3, body3);
 
         // proof for CCHAIN claim
         merkleProof4[0] = hashes[2];
         merkleProof4[1] = hashes[4];
-        proofs[3] = IRewardManager.RewardClaimWithProof(merkleProof4, body4);
+        proofs[3] = RewardsV2Interface.RewardClaimWithProof(merkleProof4, body4);
 
         // contract needs some funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -520,20 +524,20 @@ contract RewardManagerTest is Test {
        _enableCChainStake();
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](4);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](4);
         merkleProof1 = new bytes32[](2);
         merkleProof2 = new bytes32[](2);
         merkleProof3 = new bytes32[](2);
         merkleProof4 = new bytes32[](2);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        IRewardManager.RewardClaim memory body2 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
-        IRewardManager.RewardClaim memory body3 = IRewardManager.RewardClaim(
-            rewardEpochData.id, nodeId1, 300, IRewardManager.ClaimType.MIRROR);
-        IRewardManager.RewardClaim memory body4 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(account1), 400, IRewardManager.ClaimType.CCHAIN);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaim memory body2 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body3 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, nodeId1, 300, RewardsV2Interface.ClaimType.MIRROR);
+        RewardsV2Interface.RewardClaim memory body4 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(account1), 400, RewardsV2Interface.ClaimType.CCHAIN);
         bytes32[] memory hashes = new bytes32[](7);
         hashes[0] = keccak256(abi.encode(body1)); // leaf1
         hashes[1] = keccak256(abi.encode(body2)); // leaf2
@@ -546,22 +550,22 @@ contract RewardManagerTest is Test {
         // proof for DIRECT claim
         merkleProof1[0] = hashes[1];
         merkleProof1[1] = hashes[5];
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // proof for WNAT claim
         merkleProof2[0] = hashes[0];
         merkleProof2[1] = hashes[5];
-        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+        proofs[1] = RewardsV2Interface.RewardClaimWithProof(merkleProof2, body2);
 
         // proof for MIRROR claim
         merkleProof3[0] = hashes[3];
         merkleProof3[1] = hashes[4];
-        proofs[2] = IRewardManager.RewardClaimWithProof(merkleProof3, body3);
+        proofs[2] = RewardsV2Interface.RewardClaimWithProof(merkleProof3, body3);
 
         // proof for CCHAIN claim
         merkleProof4[0] = hashes[2];
         merkleProof4[1] = hashes[4];
-        proofs[3] = IRewardManager.RewardClaimWithProof(merkleProof4, body4);
+        proofs[3] = RewardsV2Interface.RewardClaimWithProof(merkleProof4, body4);
 
         // contract needs some funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -600,20 +604,20 @@ contract RewardManagerTest is Test {
         // claim for next epoch (1)
         // vp block for epoch 1 was set to 2* vp block for epoch 0 (=20)
         rewardEpochData = RewardEpochData(1, 20);
-        proofs = new IRewardManager.RewardClaimWithProof[](4);
+        proofs = new RewardsV2Interface.RewardClaimWithProof[](4);
         merkleProof1 = new bytes32[](2);
         merkleProof2 = new bytes32[](2);
         merkleProof3 = new bytes32[](2);
         merkleProof4 = new bytes32[](2);
 
-        body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        body2 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
-        body3 = IRewardManager.RewardClaim(
-            rewardEpochData.id, nodeId1, 300, IRewardManager.ClaimType.MIRROR);
-        body4 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(account1), 400, IRewardManager.ClaimType.CCHAIN);
+        body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        body2 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
+        body3 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, nodeId1, 300, RewardsV2Interface.ClaimType.MIRROR);
+        body4 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(account1), 400, RewardsV2Interface.ClaimType.CCHAIN);
         hashes = new bytes32[](7);
         hashes[0] = keccak256(abi.encode(body1)); // leaf1
         hashes[1] = keccak256(abi.encode(body2)); // leaf2
@@ -626,22 +630,22 @@ contract RewardManagerTest is Test {
         // proof for DIRECT claim
         merkleProof1[0] = hashes[1];
         merkleProof1[1] = hashes[5];
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // proof for WNAT claim
         merkleProof2[0] = hashes[0];
         merkleProof2[1] = hashes[5];
-        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+        proofs[1] = RewardsV2Interface.RewardClaimWithProof(merkleProof2, body2);
 
         // proof for MIRROR claim
         merkleProof3[0] = hashes[3];
         merkleProof3[1] = hashes[4];
-        proofs[2] = IRewardManager.RewardClaimWithProof(merkleProof3, body3);
+        proofs[2] = RewardsV2Interface.RewardClaimWithProof(merkleProof3, body3);
 
         // proof for CCHAIN claim
         merkleProof4[0] = hashes[2];
         merkleProof4[1] = hashes[4];
-        proofs[3] = IRewardManager.RewardClaimWithProof(merkleProof4, body4);
+        proofs[3] = RewardsV2Interface.RewardClaimWithProof(merkleProof4, body4);
 
         _mockRewardsHash(rewardEpochData.id, hashes[6]);
         _mockCalculateBurnFactor(rewardEpochData.id, voter1, 0);
@@ -704,7 +708,7 @@ contract RewardManagerTest is Test {
         weights[0] = 50;
         _mockCChainStakes(delegator, 10, accounts, weights);
 
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
 
         // get state of rewards for delegator
         RewardManager.RewardState[] memory rewardStates = rewardManager.getStateOfRewardsAt(delegator, 0);
@@ -723,13 +727,13 @@ contract RewardManagerTest is Test {
         vm.prank(delegator);
         // WNAT rewards; should receive everything that is left (ceil(200 * 50/300) = 34)
         vm.expectEmit();
-        emit RewardClaimed(voter1, delegator, delegator, 0, IRewardManager.ClaimType.WNAT, 34);
+        emit RewardClaimed(voter1, delegator, delegator, 0, RewardsV2Interface.ClaimType.WNAT, 34);
         // MIRROR rewards; should receive ceil(300 * 50/400) = 38
         vm.expectEmit();
-        emit RewardClaimed(address(nodeId1), delegator, delegator, 0, IRewardManager.ClaimType.MIRROR, 38);
+        emit RewardClaimed(address(nodeId1), delegator, delegator, 0, RewardsV2Interface.ClaimType.MIRROR, 38);
         // CCHAIN rewards; should receive ceil(400 * 50/500) = 400 - 360 = 40
         vm.expectEmit();
-        emit RewardClaimed(account1, delegator, delegator, 0, IRewardManager.ClaimType.CCHAIN, 40);
+        emit RewardClaimed(account1, delegator, delegator, 0, RewardsV2Interface.ClaimType.CCHAIN, 40);
         rewardManager.claim(delegator, payable(delegator), 0, false, proofs);
         assertEq(delegator.balance, 34 + 38 + 40);
 
@@ -750,21 +754,21 @@ contract RewardManagerTest is Test {
         _enableCChainStake();
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](3);
-        IRewardManager.RewardClaimWithProof[] memory directProofs = new IRewardManager.RewardClaimWithProof[](2);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](3);
+        RewardsV2Interface.RewardClaimWithProof[] memory directProofs = new RewardsV2Interface.RewardClaimWithProof[](2);
         merkleProof1 = new bytes32[](2);
         merkleProof2 = new bytes32[](2);
         merkleProof3 = new bytes32[](2);
         merkleProof4 = new bytes32[](2);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        IRewardManager.RewardClaim memory body2 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
-        IRewardManager.RewardClaim memory body3 = IRewardManager.RewardClaim(
-            rewardEpochData.id, nodeId1, 300, IRewardManager.ClaimType.MIRROR);
-        IRewardManager.RewardClaim memory body4 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(account1), 400, IRewardManager.ClaimType.CCHAIN);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaim memory body2 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body3 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, nodeId1, 300, RewardsV2Interface.ClaimType.MIRROR);
+        RewardsV2Interface.RewardClaim memory body4 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(account1), 400, RewardsV2Interface.ClaimType.CCHAIN);
         bytes32[] memory hashes = new bytes32[](7);
         hashes[0] = keccak256(abi.encode(body1)); // leaf1
         hashes[1] = keccak256(abi.encode(body2)); // leaf2
@@ -777,22 +781,22 @@ contract RewardManagerTest is Test {
         // proof for DIRECT claim
         merkleProof1[0] = hashes[1];
         merkleProof1[1] = hashes[5];
-        directProofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        directProofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // proof for WNAT claim
         merkleProof2[0] = hashes[0];
         merkleProof2[1] = hashes[5];
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof2, body2);
 
         // proof for MIRROR claim
         merkleProof3[0] = hashes[3];
         merkleProof3[1] = hashes[4];
-        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof3, body3);
+        proofs[1] = RewardsV2Interface.RewardClaimWithProof(merkleProof3, body3);
 
         // proof for CCHAIN claim
         merkleProof4[0] = hashes[2];
         merkleProof4[1] = hashes[4];
-        proofs[2] = IRewardManager.RewardClaimWithProof(merkleProof4, body4);
+        proofs[2] = RewardsV2Interface.RewardClaimWithProof(merkleProof4, body4);
 
         _fundRewardContract(1000, rewardEpochData.id);
         _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
@@ -842,20 +846,20 @@ contract RewardManagerTest is Test {
 
         // reward epoch 1
         rewardEpochData = RewardEpochData(1, 100);
-        proofs = new IRewardManager.RewardClaimWithProof[](3);
+        proofs = new RewardsV2Interface.RewardClaimWithProof[](3);
         merkleProof1 = new bytes32[](2);
         merkleProof2 = new bytes32[](2);
         merkleProof3 = new bytes32[](2);
         merkleProof4 = new bytes32[](2);
 
-        body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 50, IRewardManager.ClaimType.FEE);
-        body2 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.WNAT);
-        body3 = IRewardManager.RewardClaim(
-            rewardEpochData.id, nodeId1, 150, IRewardManager.ClaimType.MIRROR);
-        body4 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(account1), 200, IRewardManager.ClaimType.CCHAIN);
+        body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 50, RewardsV2Interface.ClaimType.FEE);
+        body2 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.WNAT);
+        body3 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, nodeId1, 150, RewardsV2Interface.ClaimType.MIRROR);
+        body4 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(account1), 200, RewardsV2Interface.ClaimType.CCHAIN);
         hashes = new bytes32[](7);
         hashes[0] = keccak256(abi.encode(body1)); // leaf1
         hashes[1] = keccak256(abi.encode(body2)); // leaf2
@@ -868,22 +872,22 @@ contract RewardManagerTest is Test {
         // proof for DIRECT claim
         merkleProof1[0] = hashes[1];
         merkleProof1[1] = hashes[5];
-        directProofs[1] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        directProofs[1] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // proof for WNAT claim
         merkleProof2[0] = hashes[0];
         merkleProof2[1] = hashes[5];
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof2, body2);
 
         // proof for MIRROR claim
         merkleProof3[0] = hashes[3];
         merkleProof3[1] = hashes[4];
-        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof3, body3);
+        proofs[1] = RewardsV2Interface.RewardClaimWithProof(merkleProof3, body3);
 
         // proof for CCHAIN claim
         merkleProof4[0] = hashes[2];
         merkleProof4[1] = hashes[4];
-        proofs[2] = IRewardManager.RewardClaimWithProof(merkleProof4, body4);
+        proofs[2] = RewardsV2Interface.RewardClaimWithProof(merkleProof4, body4);
 
         // contract needs funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -936,7 +940,7 @@ contract RewardManagerTest is Test {
         assertEq(rewardStates[1][2].amount, 180);
         assertEq(rewardStates[1][2].initialised, true);
 
-        proofs = new IRewardManager.RewardClaimWithProof[](0);
+        proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
         vm.startPrank(voter1);
         // claim for reward epoch 0
         // // DIRECT rewards
@@ -988,10 +992,10 @@ contract RewardManagerTest is Test {
         // claim DIRECT and FEE
         // DIRECT reward
         vm.expectEmit();
-        emit RewardClaimed(voter1, voter1, voter1, 0, IRewardManager.ClaimType.DIRECT, 100);
+        emit RewardClaimed(voter1, voter1, voter1, 0, RewardsV2Interface.ClaimType.DIRECT, 100);
         // FEE reward
         vm.expectEmit();
-        emit RewardClaimed(voter1, voter1, voter1, 1, IRewardManager.ClaimType.FEE, 50);
+        emit RewardClaimed(voter1, voter1, voter1, 1, RewardsV2Interface.ClaimType.FEE, 50);
         balanceBefore = voter1.balance;
         rewardManager.claim(voter1, payable(voter1), 1, false, directProofs);
         assertEq(voter1.balance, balanceBefore + 100 + 50);
@@ -1000,15 +1004,15 @@ contract RewardManagerTest is Test {
 
     function testInitializeWeightBasedAndAfterClaim() public {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
         merkleProof1 = new bytes32[](0);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
 
         bytes32 merkleRoot = keccak256(abi.encode(body1));
 
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // contract needs some funds for rewarding
         _fundRewardContract(1000, rewardEpochData.id);
@@ -1025,14 +1029,14 @@ contract RewardManagerTest is Test {
         _mockGetVpBlock(rewardEpochData.id, rewardEpochData.vpBlock);
 
         RewardManager.UnclaimedRewardState memory state =
-            rewardManager.getUnclaimedRewardState(voter1, rewardEpochData.id, IRewardManager.ClaimType.WNAT);
+            rewardManager.getUnclaimedRewardState(voter1, rewardEpochData.id, RewardsV2Interface.ClaimType.WNAT);
         assertEq(rewardManager.noOfInitialisedWeightBasedClaims(rewardEpochData.id), 0);
         assertEq(state.initialised, false);
         assertEq(state.amount, 0);
         assertEq(state.weight, 0);
 
         rewardManager.initialiseWeightBasedClaims(proofs);
-        state = rewardManager.getUnclaimedRewardState(voter1, rewardEpochData.id, IRewardManager.ClaimType.WNAT);
+        state = rewardManager.getUnclaimedRewardState(voter1, rewardEpochData.id, RewardsV2Interface.ClaimType.WNAT);
         assertEq(rewardManager.noOfInitialisedWeightBasedClaims(rewardEpochData.id), 1);
         assertEq(state.initialised, true);
         assertEq(state.amount, 200);
@@ -1045,7 +1049,7 @@ contract RewardManagerTest is Test {
         rewardManager.claim(voter1, payable(voter1), rewardEpochData.id, false, proofs);
         assertEq(voter1.balance, 166);
 
-        state = rewardManager.getUnclaimedRewardState(voter1, rewardEpochData.id, IRewardManager.ClaimType.WNAT);
+        state = rewardManager.getUnclaimedRewardState(voter1, rewardEpochData.id, RewardsV2Interface.ClaimType.WNAT);
         assertEq(state.amount, 200 - 166);
         assertEq(state.weight, 300 - 250);
     }
@@ -1084,25 +1088,25 @@ contract RewardManagerTest is Test {
         accounts = new address[](0);
         _mockCChainStakes(delegator2, 10, accounts, weights);
 
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
 
         vm.prank(delegator1);
         // WNAT rewards; should receive (200 - 166) * 25 / (300 - 250) = 17
         vm.expectEmit();
-        emit RewardClaimed(voter1, delegator1, delegator1, 0, IRewardManager.ClaimType.WNAT, 17);
+        emit RewardClaimed(voter1, delegator1, delegator1, 0, RewardsV2Interface.ClaimType.WNAT, 17);
         // MIRROR rewards; should receive ceil(300 * 50/400) = 38
         vm.expectEmit();
-        emit RewardClaimed(address(nodeId1), delegator1, delegator1, 0, IRewardManager.ClaimType.MIRROR, 38);
+        emit RewardClaimed(address(nodeId1), delegator1, delegator1, 0, RewardsV2Interface.ClaimType.MIRROR, 38);
         // CCHAIN rewards; should receive ceil(400 * 50/500) = 400 - 360 = 40
         vm.expectEmit();
-        emit RewardClaimed(account1, delegator1, delegator1, 0, IRewardManager.ClaimType.CCHAIN, 40);
+        emit RewardClaimed(account1, delegator1, delegator1, 0, RewardsV2Interface.ClaimType.CCHAIN, 40);
         rewardManager.claim(delegator1, payable(delegator1), 0, false, proofs);
         assertEq(delegator1.balance, 17 + 38 + 40);
 
         vm.prank(delegator2);
         vm.expectEmit();
         // WNAT rewards; should receive what is left (= 17)
-        emit RewardClaimed(voter1, delegator2, delegator2, 0, IRewardManager.ClaimType.WNAT, 17);
+        emit RewardClaimed(voter1, delegator2, delegator2, 0, RewardsV2Interface.ClaimType.WNAT, 17);
         rewardManager.claim(delegator2, payable(delegator2), 0, false, proofs);
         assertEq(delegator2.balance, 17);
     }
@@ -1130,7 +1134,7 @@ contract RewardManagerTest is Test {
         weights[0] = 50;
         _mockCChainStakes(delegator, 10, accounts, weights);
 
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
 
         vm.prank(delegator);
         vm.expectRevert();
@@ -1169,7 +1173,7 @@ contract RewardManagerTest is Test {
         weights[0] = 50;
         _mockCChainStakes(delegator, 10, accounts, weights);
 
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
 
         vm.startPrank(delegator);
         vm.expectRevert("not initialised"); // WNAT
@@ -1201,10 +1205,10 @@ contract RewardManagerTest is Test {
          RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
         bytes32 leaf1 = keccak256(abi.encode(body));
@@ -1236,10 +1240,10 @@ contract RewardManagerTest is Test {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.FEE);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.FEE);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
         bytes32 leaf1 = keccak256(abi.encode(body));
@@ -1274,10 +1278,10 @@ contract RewardManagerTest is Test {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.FEE);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.FEE);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
         bytes32 leaf1 = keccak256(abi.encode(body));
@@ -1306,10 +1310,10 @@ contract RewardManagerTest is Test {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.WNAT);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
         bytes32 leaf1 = keccak256(abi.encode(body));
@@ -1342,11 +1346,11 @@ contract RewardManagerTest is Test {
         RewardEpochData memory rewardEpochData = RewardEpochData(16, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
         // epoch 13 is expired
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            13, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            13, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
         bytes32 leaf1 = keccak256(abi.encode(body));
@@ -1373,10 +1377,10 @@ contract RewardManagerTest is Test {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.FEE);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.FEE);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
         bytes32 leaf1 = keccak256(abi.encode(body));
@@ -1405,10 +1409,10 @@ contract RewardManagerTest is Test {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.FEE);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.FEE);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
         bytes32 leaf1 = keccak256(abi.encode(body));
@@ -1438,7 +1442,7 @@ contract RewardManagerTest is Test {
 
     function testClaimRevertNotClaimable() public {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
 
         _fundRewardContract(1000, rewardEpochData.id);
         _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
@@ -1454,13 +1458,13 @@ contract RewardManagerTest is Test {
 
     function testClaimRevertZeroRecipient() public {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
 
         _fundRewardContract(1000, rewardEpochData.id);
         _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
 
         vm.prank(voter1);
-        vm.expectRevert("recipient zero");
+        vm.expectRevert("address zero");
         rewardManager.claim(voter1, payable(address(0)), 0, false, proofs);
     }
 
@@ -1468,10 +1472,10 @@ contract RewardManagerTest is Test {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
         bytes32 leaf1 = keccak256(abi.encode(body));
@@ -1510,25 +1514,25 @@ contract RewardManagerTest is Test {
     // claim weight based (wNat)  - delegating to two delegators
     function testClaimWNatTwoDelegations() public {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](2);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](2);
         merkleProof1 = new bytes32[](1);
         merkleProof2 = new bytes32[](1);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.WNAT);
-        IRewardManager.RewardClaim memory body2 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter2), 200, IRewardManager.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body2 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter2), 200, RewardsV2Interface.ClaimType.WNAT);
         bytes32 leaf1 = keccak256(abi.encode(body1));
         bytes32 leaf2 = keccak256(abi.encode(body2));
         bytes32 merkleRoot = _hashPair(leaf1, leaf2);
 
         // proof for the first WNAT claim
         merkleProof1[0] = leaf2;
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // proof for the second WNAT claim
         merkleProof2[0] = leaf1;
-        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+        proofs[1] = RewardsV2Interface.RewardClaimWithProof(merkleProof2, body2);
 
         // contract needs some funds for rewarding
         _fundRewardContract(300, rewardEpochData.id);
@@ -1570,7 +1574,7 @@ contract RewardManagerTest is Test {
     //// auto claim tests
     function testAutoClaimRevertNotClaimable() public {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](0);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](0);
 
         _fundRewardContract(1000, rewardEpochData.id);
         _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
@@ -1595,20 +1599,20 @@ contract RewardManagerTest is Test {
         _mockGetAutoClaimAddressesAndExecutorFee(voter1, rewardOwners, rewardOwners, executorFee);
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](4);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](4);
         merkleProof1 = new bytes32[](2);
         merkleProof2 = new bytes32[](2);
         merkleProof3 = new bytes32[](2);
         merkleProof4 = new bytes32[](2);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        IRewardManager.RewardClaim memory body2 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
-        IRewardManager.RewardClaim memory body3 = IRewardManager.RewardClaim(
-            rewardEpochData.id, nodeId1, 300, IRewardManager.ClaimType.MIRROR);
-        IRewardManager.RewardClaim memory body4 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(account1), 400, IRewardManager.ClaimType.CCHAIN);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaim memory body2 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body3 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, nodeId1, 300, RewardsV2Interface.ClaimType.MIRROR);
+        RewardsV2Interface.RewardClaim memory body4 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(account1), 400, RewardsV2Interface.ClaimType.CCHAIN);
         bytes32[] memory hashes = new bytes32[](7);
         hashes[0] = keccak256(abi.encode(body1)); // leaf1
         hashes[1] = keccak256(abi.encode(body2)); // leaf2
@@ -1621,22 +1625,22 @@ contract RewardManagerTest is Test {
         // proof for DIRECT claim; will not be used since auto claim supports only weight based claims
         merkleProof1[0] = hashes[1];
         merkleProof1[1] = hashes[5];
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // proof for WNAT claim
         merkleProof2[0] = hashes[0];
         merkleProof2[1] = hashes[5];
-        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+        proofs[1] = RewardsV2Interface.RewardClaimWithProof(merkleProof2, body2);
 
         // proof for MIRROR claim
         merkleProof3[0] = hashes[3];
         merkleProof3[1] = hashes[4];
-        proofs[2] = IRewardManager.RewardClaimWithProof(merkleProof3, body3);
+        proofs[2] = RewardsV2Interface.RewardClaimWithProof(merkleProof3, body3);
 
         // proof for CCHAIN claim
         merkleProof4[0] = hashes[2];
         merkleProof4[1] = hashes[4];
-        proofs[3] = IRewardManager.RewardClaimWithProof(merkleProof4, body4);
+        proofs[3] = RewardsV2Interface.RewardClaimWithProof(merkleProof4, body4);
 
         _fundRewardContract(1000, rewardEpochData.id);
         _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
@@ -1705,20 +1709,20 @@ contract RewardManagerTest is Test {
         _mockGetAutoClaimAddressesAndExecutorFee(voter1, rewardOwners, pdas, executorFee);
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](4);
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](4);
         merkleProof1 = new bytes32[](2);
         merkleProof2 = new bytes32[](2);
         merkleProof3 = new bytes32[](2);
         merkleProof4 = new bytes32[](2);
 
-        IRewardManager.RewardClaim memory body1 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.DIRECT);
-        IRewardManager.RewardClaim memory body2 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
-        IRewardManager.RewardClaim memory body3 = IRewardManager.RewardClaim(
-            rewardEpochData.id, nodeId1, 300, IRewardManager.ClaimType.MIRROR);
-        IRewardManager.RewardClaim memory body4 = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(account1), 400, IRewardManager.ClaimType.CCHAIN);
+        RewardsV2Interface.RewardClaim memory body1 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.DIRECT);
+        RewardsV2Interface.RewardClaim memory body2 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaim memory body3 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, nodeId1, 300, RewardsV2Interface.ClaimType.MIRROR);
+        RewardsV2Interface.RewardClaim memory body4 = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(account1), 400, RewardsV2Interface.ClaimType.CCHAIN);
         bytes32[] memory hashes = new bytes32[](7);
         hashes[0] = keccak256(abi.encode(body1)); // leaf1
         hashes[1] = keccak256(abi.encode(body2)); // leaf2
@@ -1731,22 +1735,22 @@ contract RewardManagerTest is Test {
         // proof for DIRECT claim; will not be used since auto claim supports only weight based claims
         merkleProof1[0] = hashes[1];
         merkleProof1[1] = hashes[5];
-        proofs[0] = IRewardManager.RewardClaimWithProof(merkleProof1, body1);
+        proofs[0] = RewardsV2Interface.RewardClaimWithProof(merkleProof1, body1);
 
         // proof for WNAT claim
         merkleProof2[0] = hashes[0];
         merkleProof2[1] = hashes[5];
-        proofs[1] = IRewardManager.RewardClaimWithProof(merkleProof2, body2);
+        proofs[1] = RewardsV2Interface.RewardClaimWithProof(merkleProof2, body2);
 
         // proof for MIRROR claim
         merkleProof3[0] = hashes[3];
         merkleProof3[1] = hashes[4];
-        proofs[2] = IRewardManager.RewardClaimWithProof(merkleProof3, body3);
+        proofs[2] = RewardsV2Interface.RewardClaimWithProof(merkleProof3, body3);
 
         // proof for CCHAIN claim
         merkleProof4[0] = hashes[2];
         merkleProof4[1] = hashes[4];
-        proofs[3] = IRewardManager.RewardClaimWithProof(merkleProof4, body4);
+        proofs[3] = RewardsV2Interface.RewardClaimWithProof(merkleProof4, body4);
 
         _fundRewardContract(1000, rewardEpochData.id);
         _enableAndActivate(rewardEpochData.id, rewardEpochData.vpBlock);
@@ -1817,10 +1821,10 @@ contract RewardManagerTest is Test {
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 200, IRewardManager.ClaimType.WNAT);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 200, RewardsV2Interface.ClaimType.WNAT);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
 
@@ -1876,10 +1880,10 @@ contract RewardManagerTest is Test {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.FEE);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.FEE);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
         bytes32 leaf1 = keccak256(abi.encode(body));
@@ -1946,10 +1950,10 @@ contract RewardManagerTest is Test {
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.FEE);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.FEE);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
         bytes32 leaf1 = keccak256(abi.encode(body));
@@ -2157,10 +2161,10 @@ contract RewardManagerTest is Test {
         RewardEpochData memory rewardEpochData = RewardEpochData(90, 10);
 
         bytes32[] memory merkleProof = new bytes32[](0);
-        IRewardManager.RewardClaimWithProof[] memory proofs = new IRewardManager.RewardClaimWithProof[](1);
-        IRewardManager.RewardClaim memory body = IRewardManager.RewardClaim(
-            rewardEpochData.id, bytes20(voter1), 100, IRewardManager.ClaimType.FEE);
-        IRewardManager.RewardClaimWithProof memory proof = IRewardManager.RewardClaimWithProof(
+        RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](1);
+        RewardsV2Interface.RewardClaim memory body = RewardsV2Interface.RewardClaim(
+            rewardEpochData.id, bytes20(voter1), 100, RewardsV2Interface.ClaimType.FEE);
+        RewardsV2Interface.RewardClaimWithProof memory proof = RewardsV2Interface.RewardClaimWithProof(
             merkleProof, body);
         proofs[0] = proof;
         bytes32 leaf1 = keccak256(abi.encode(body));
@@ -2201,7 +2205,7 @@ contract RewardManagerTest is Test {
     function _mockGetCurrentEpochId(uint256 _epochId) private {
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.getCurrentRewardEpochId.selector),
+            abi.encodeWithSelector(ProtocolsV2Interface.getCurrentRewardEpochId.selector),
             abi.encode(_epochId)
         );
     }
@@ -2209,7 +2213,7 @@ contract RewardManagerTest is Test {
     function _mockGetVpBlock(uint256 _epochId, uint256 _vpBlock) private {
         vm.mockCall(
             mockFlareSystemsManager,
-            abi.encodeWithSelector(IFlareSystemsManager.getVotePowerBlock.selector, _epochId),
+            abi.encodeWithSelector(ProtocolsV2Interface.getVotePowerBlock.selector, _epochId),
             abi.encode(_vpBlock)
         );
     }

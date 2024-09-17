@@ -38,7 +38,7 @@ interface IFtsoFeedDecimals {
      * Returns the scheduled decimals changes of `_feedId`.
      * @param _feedId Feed id.
      * @return _decimals Positional array of decimals.
-     * @return _validFromEpochId Positional array of reward epoch ids the decimals setings are effective from.
+     * @return _validFromEpochId Positional array of reward epoch ids the decimals settings are effective from.
      * @return _fixed Positional array of boolean values indicating if settings are subjected to change.
      */
     function getScheduledDecimalsChanges(

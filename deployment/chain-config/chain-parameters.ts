@@ -388,6 +388,16 @@ export interface ChainParameters {
      */
     feedConfigurations: FeedConfiguration[];
 
+    /**
+     * The default fee for fetching fast update feeds. In Wei.
+     */
+    defaultFeeWei: string;
+
+    /**
+     * The list of old FTSOs.
+     */
+    ftsoProxies: FtsoProxy[];
+
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // RNat
 
@@ -575,6 +585,18 @@ export interface FeedId {
      * The feed name.
      */
     name: string;
+}
+
+export interface FtsoProxy {
+    /**
+     * The ftso feed id.
+     */
+    feedId: FeedId;
+
+    /**
+     * The FTSO symbol.
+     */
+    symbol: string;
 }
 
 export interface FdcRequestFee {
