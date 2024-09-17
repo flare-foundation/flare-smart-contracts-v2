@@ -9,12 +9,6 @@ import { FdcHubContract } from "../../typechain-truffle/contracts/fdc/implementa
 import { FdcInflationConfigurationsContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcInflationConfigurations";
 import { FdcRequestFeeConfigurationsContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcRequestFeeConfigurations";
 import { spewNewContractInfo } from "./deploy-utils";
-import { AddressValidityVerificationContract } from "../../typechain-truffle/contracts/fdc/implementation/Verification/AddressValidityVerification";
-import { BalanceDecreasingTransactionVerificationContract } from "../../typechain-truffle/contracts/fdc/implementation/Verification/BalanceDecreasingTransactionVerification";
-import { ConfirmedBlockHeightExistsVerificationContract } from "../../typechain-truffle/contracts/fdc/implementation/Verification/ConfirmedBlockHeightExistsVerification";
-import { EVMTransactionVerificationContract } from "../../typechain-truffle/contracts/fdc/implementation/Verification/EVMTransactionVerification";
-import { PaymentVerificationContract } from "../../typechain-truffle/contracts/fdc/implementation/Verification/PaymentVerification";
-import { ReferencedPaymentNonexistenceVerificationContract } from "../../typechain-truffle/contracts/fdc/implementation/Verification/ReferencedPaymentNonexistenceVerification";
 import { FdcVerificationContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcVerification";
 
 export async function deployFdcContracts(
@@ -31,12 +25,6 @@ export async function deployFdcContracts(
   const FdcInflationConfigurations: FdcInflationConfigurationsContract = artifacts.require("FdcInflationConfigurations");
   const FdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FdcRequestFeeConfigurations");
   const FdcVerification: FdcVerificationContract = artifacts.require("FdcVerification");
-  const AddressValidityVerification: AddressValidityVerificationContract = artifacts.require("AddressValidityVerification");
-  const BalanceDecreasingTransactionVerification: BalanceDecreasingTransactionVerificationContract = artifacts.require("BalanceDecreasingTransactionVerification");
-  const ConfirmedBlockHeightExistsVerification: ConfirmedBlockHeightExistsVerificationContract = artifacts.require("ConfirmedBlockHeightExistsVerification");
-  const EVMTransactionVerification: EVMTransactionVerificationContract = artifacts.require("EVMTransactionVerification");
-  const PaymentVerification: PaymentVerificationContract = artifacts.require("PaymentVerification");
-  const ReferencedPaymentNonexistenceVerification: ReferencedPaymentNonexistenceVerificationContract = artifacts.require("ReferencedPaymentNonexistenceVerification");
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
@@ -63,20 +51,6 @@ export async function deployFdcContracts(
   spewNewContractInfo(contracts, null, FdcRequestFeeConfigurations.contractName, `FdcRequestFeeConfigurations.sol`, fdcRequestFeeConfigurations.address, quiet);
   const fdcVerification = await FdcVerification.new(deployerAccount.address, parameters.fdcProtocolId);
   spewNewContractInfo(contracts, null, FdcVerification.contractName, `FdcVerification.sol`, fdcVerification.address, quiet);
-
-  const addressValidityVerification = await AddressValidityVerification.new(deployerAccount.address, parameters.fdcProtocolId);
-  spewNewContractInfo(contracts, null, AddressValidityVerification.contractName, `AddressValidityVerification.sol`, addressValidityVerification.address, quiet);
-  const balanceDecreasingTransactionVerification = await BalanceDecreasingTransactionVerification.new(deployerAccount.address, parameters.fdcProtocolId);
-  spewNewContractInfo(contracts, null, BalanceDecreasingTransactionVerification.contractName, `BalanceDecreasingTransactionVerification.sol`, balanceDecreasingTransactionVerification.address, quiet);
-  const confirmedBlockHeightExistsVerification = await ConfirmedBlockHeightExistsVerification.new(deployerAccount.address, parameters.fdcProtocolId);
-  spewNewContractInfo(contracts, null, ConfirmedBlockHeightExistsVerification.contractName, `ConfirmedBlockHeightExistsVerification.sol`, confirmedBlockHeightExistsVerification.address, quiet);
-  const evmTransactionVerification = await EVMTransactionVerification.new(deployerAccount.address, parameters.fdcProtocolId);
-  spewNewContractInfo(contracts, null, EVMTransactionVerification.contractName, `EVMTransactionVerification.sol`, evmTransactionVerification.address, quiet);
-  const paymentVerification = await PaymentVerification.new(deployerAccount.address, parameters.fdcProtocolId);
-  spewNewContractInfo(contracts, null, PaymentVerification.contractName, `PaymentVerification.sol`, paymentVerification.address, quiet);
-  const referencedPaymentNonexistenceVerification = await ReferencedPaymentNonexistenceVerification.new(deployerAccount.address, parameters.fdcProtocolId);
-  spewNewContractInfo(contracts, null, ReferencedPaymentNonexistenceVerification.contractName, `ReferencedPaymentNonexistenceVerification.sol`, referencedPaymentNonexistenceVerification.address, quiet);
-
 
   // update contract addresses
   await fdcHub.updateContractAddresses(
@@ -105,24 +79,14 @@ export async function deployFdcContracts(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
     [addressUpdater, relay]);
 
-  await addressValidityVerification.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
-    [addressUpdater, relay]);
-  await balanceDecreasingTransactionVerification.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
-    [addressUpdater, relay]);
-  await confirmedBlockHeightExistsVerification.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
-    [addressUpdater, relay]);
-  await evmTransactionVerification.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
-    [addressUpdater, relay]);
-  await paymentVerification.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
-    [addressUpdater, relay]);
-  await referencedPaymentNonexistenceVerification.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
-    [addressUpdater, relay]);
+  // set fdc request fee configurations
+  for (const fdcRequestFee of parameters.fdcRequestFees) {
+    await fdcRequestFeeConfigurations.setTypeAndSourceFee(
+      web3.utils.utf8ToHex(fdcRequestFee.attestationType).padEnd(66, "0"),
+      web3.utils.utf8ToHex(fdcRequestFee.source).padEnd(66, "0"),
+      fdcRequestFee.feeWei
+    );
+  }
 
   // set fdc inflation configurations
   const fdcConfigurations = [];
@@ -137,15 +101,6 @@ export async function deployFdcContracts(
     fdcConfigurations.push(configuration);
   }
   await fdcInflationConfigurations.addFdcConfigurations(fdcConfigurations);
-
-  // set fdc request fee configurations
-  for (const fdcRequestFee of parameters.fdcRequestFees) {
-    await fdcRequestFeeConfigurations.setTypeAndSourceFee(
-      web3.utils.utf8ToHex(fdcRequestFee.attestationType).padEnd(66, "0"),
-      web3.utils.utf8ToHex(fdcRequestFee.source).padEnd(66, "0"),
-      fdcRequestFee.feeWei
-    );
-  }
 
   // switch to production mode
   await fdcHub.switchToProductionMode();

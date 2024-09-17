@@ -83,5 +83,25 @@
     "name": "FastUpdatesConfiguration",
     "contractName": "FastUpdatesConfiguration.sol",
     "address": "0x9A53e14B58383642cdB2bb4D5C46989F05C6B5f9"
+  },
+  {
+    "name": "FdcHub",
+    "contractName": "FdcHub.sol",
+    "address": "0x1c78A073E3BD2aCa4cc327d55FB0cD4f0549B55b"
+  },
+  {
+    "name": "FdcInflationConfigurations",
+    "contractName": "FdcInflationConfigurations.sol",
+    "address": "0x8807adc15496Ef8F89CdFEfce19001a10878ACaF"
+  },
+  {
+    "name": "FdcRequestFeeConfigurations",
+    "contractName": "FdcRequestFeeConfigurations.sol",
+    "address": "0x2bBfb46aC3A71A6725699004B8a8fE4C928E7108"
+  },
+  {
+    "name": "FdcVerification",
+    "contractName": "FdcVerification.sol",
+    "address": "0xa6D12A8C224E82330b7fA4F7a1003E64cbF50D38"
   }
 ]
