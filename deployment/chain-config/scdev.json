@@ -206,7 +206,9 @@
     "rNatFirstMonthStartTs": 1719792000,
     "rNatFundingAddress": "0x0000000000000000000000000000000000000000",
     "rNatFundedByIncentivePool": false,
-    "fdcRequestsOffsetSeconds": 30,
+
+    "fdcProtocolId": 200,
+    "fdcRequestsOffsetSeconds": 0,
     "fdcRequestFees": [
         {"attestationType": "EVMTransaction", "source": "testSGB", "feeWei": "1"}
     ],

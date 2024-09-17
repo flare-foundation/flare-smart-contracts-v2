@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 import "../FdcVerificationBase.sol";
 import "../../../userInterfaces/fdc/IReferencedPaymentNonexistenceVerification.sol";
 
-contract AddressValidityVerification is FdcVerificationBase, IReferencedPaymentNonexistenceVerification {
+contract ReferencedPaymentNonexistenceVerification is FdcVerificationBase, IReferencedPaymentNonexistenceVerification {
     using MerkleProof for bytes32[];
 
     /**

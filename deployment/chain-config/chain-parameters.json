@@ -301,6 +301,10 @@
             },
             "type": "array"
         },
+        "fdcProtocolId": {
+            "description": "The FDC protocol id.",
+            "type": "integer"
+        },
         "fdcRequestFees": {
             "description": "The supported requests fee configurations.",
             "items": {
@@ -636,6 +640,7 @@
         "defaultFeeWei",
         "deployerPrivateKey",
         "fdcInflationConfigurations",
+        "fdcProtocolId",
         "fdcRequestFees",
         "fdcRequestsOffsetSeconds",
         "feePercentageUpdateOffset",

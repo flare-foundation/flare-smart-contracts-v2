@@ -435,6 +435,11 @@ export interface ChainParameters {
     // FDC protocol settings
 
     /**
+     *  The FDC protocol id.
+     */
+    fdcProtocolId: integer;
+
+    /**
      *  The requests offset (in seconds).
      */
     fdcRequestsOffsetSeconds: integer;

@@ -268,7 +268,9 @@
     "rNatFirstMonthStartTs": 1717675200,
     "rNatFundingAddress": "0x0000000000000000000000000000000000000000",
     "rNatFundedByIncentivePool": true,
-    "fdcRequestsOffsetSeconds": 30,
+
+    "fdcProtocolId": 200,
+    "fdcRequestsOffsetSeconds": 0,
     "fdcRequestFees": [],
     "fdcInflationConfigurations": []
 }

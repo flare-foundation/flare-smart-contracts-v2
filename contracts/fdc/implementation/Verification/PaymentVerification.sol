@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 import "../FdcVerificationBase.sol";
 import "../../../userInterfaces/fdc/IPaymentVerification.sol";
 
-contract AddressValidityVerification is FdcVerificationBase, IPaymentVerification {
+contract PaymentVerification is FdcVerificationBase, IPaymentVerification {
     using MerkleProof for bytes32[];
 
     /**

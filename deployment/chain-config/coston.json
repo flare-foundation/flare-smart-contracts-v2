@@ -337,103 +337,47 @@
     "rNatFirstMonthStartTs": 1719792000,
     "rNatFundingAddress": "0x0000000000000000000000000000000000000000",
     "rNatFundedByIncentivePool": false,
+
+    "fdcProtocolId": 200,
     "fdcRequestsOffsetSeconds": 0,
     "fdcRequestFees": [
-        {
-            "attestationType": "0x4164647265737356616c69646974790000000000000000000000000000000000", 
-            "source": "0x7465737458525000000000000000000000000000000000000000000000000000",
-            "feeWei": "0x1"
-        },
-        {
-            "attestationType": "0x4164647265737356616c69646974790000000000000000000000000000000000", 
-            "source": "0x7465737442544300000000000000000000000000000000000000000000000000", 
-            "feeWei": "0x1"
-        },
-        {
-            "attestationType": "0x4164647265737356616c69646974790000000000000000000000000000000000", 
-            "source": "0x74657374444f4745000000000000000000000000000000000000000000000000",
-            "feeWei": "0x1"
-        },
-
-        {
-            "attestationType": "0x42616c616e636544656372656173696e675472616e73616374696f6e00000000", 
-            "source": "0x7465737458525000000000000000000000000000000000000000000000000000",
-            "feeWei": "0x1"
-        },
-        {
-            "attestationType": "0x42616c616e636544656372656173696e675472616e73616374696f6e00000000", 
-            "source": "0x7465737442544300000000000000000000000000000000000000000000000000", 
-            "feeWei": "0x1"
-        },
-        {
-            "attestationType": "0x42616c616e636544656372656173696e675472616e73616374696f6e00000000", 
-            "source": "0x74657374444f4745000000000000000000000000000000000000000000000000",
-            "feeWei": "0x1"
-        },
-
-        {
-            "attestationType": "0x436f6e6669726d6564426c6f636b486569676874457869737473000000000000", 
-            "source": "0x7465737458525000000000000000000000000000000000000000000000000000",
-            "feeWei": "0x1"
-        },
-        {
-            "attestationType": "0x436f6e6669726d6564426c6f636b486569676874457869737473000000000000", 
-            "source": "0x7465737442544300000000000000000000000000000000000000000000000000", 
-            "feeWei": "0x1"
-        },
-        {
-            "attestationType": "0x436f6e6669726d6564426c6f636b486569676874457869737473000000000000", 
-            "source": "0x74657374444f4745000000000000000000000000000000000000000000000000",
-            "feeWei": "0x1"
-        },
-
-        {
-            "attestationType": "0x5061796d656e7400000000000000000000000000000000000000000000000000", 
-            "source": "0x7465737458525000000000000000000000000000000000000000000000000000",
-            "feeWei": "0x1"
-        },
-        {
-            "attestationType": "0x5061796d656e7400000000000000000000000000000000000000000000000000", 
-            "source": "0x7465737442544300000000000000000000000000000000000000000000000000", 
-            "feeWei": "0x1"
-        },
-        {
-            "attestationType": "0x5061796d656e7400000000000000000000000000000000000000000000000000", 
-            "source": "0x74657374444f4745000000000000000000000000000000000000000000000000",
-            "feeWei": "0x1"
-        },
-
-        {
-            "attestationType": "0x5265666572656e6365645061796d656e744e6f6e6578697374656e6365000000", 
-            "source": "0x7465737458525000000000000000000000000000000000000000000000000000",
-            "feeWei": "0x1"
-        },
-        {
-            "attestationType": "0x5265666572656e6365645061796d656e744e6f6e6578697374656e6365000000", 
-            "source": "0x7465737442544300000000000000000000000000000000000000000000000000", 
-            "feeWei": "0x1"
-        },
-        {
-            "attestationType": "0x5265666572656e6365645061796d656e744e6f6e6578697374656e6365000000", 
-            "source": "0x74657374444f4745000000000000000000000000000000000000000000000000",
-            "feeWei": "0x1"
-        },
-
-        {
-            "attestationType": "0x45564d5472616e73616374696f6e000000000000000000000000000000000000", 
-            "source": "0x7465737445544800000000000000000000000000000000000000000000000000",
-            "feeWei": "0x1"
-        },
-        {
-            "attestationType": "0x45564d5472616e73616374696f6e000000000000000000000000000000000000", 
-            "source": "0x74657374464c5200000000000000000000000000000000000000000000000000", 
-            "feeWei": "0x1"
-        },
-        {
-            "attestationType": "0x45564d5472616e73616374696f6e000000000000000000000000000000000000", 
-            "source": "0x7465737453474200000000000000000000000000000000000000000000000000",
-            "feeWei": "0x1"
-        }
+        {"attestationType": "AddressValidity", "source": "testXRP", "feeWei": "1"},
+        {"attestationType": "AddressValidity", "source": "testBTC", "feeWei": "1"},
+        {"attestationType": "AddressValidity", "source": "testDOGE", "feeWei": "1"},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "testXRP", "feeWei": "1"},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "testBTC", "feeWei": "1"},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "testDOGE", "feeWei": "1"},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "testXRP", "feeWei": "1"},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "testBTC", "feeWei": "1"},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "testDOGE", "feeWei": "1"},
+        {"attestationType": "Payment", "source": "testXRP", "feeWei": "1"},
+        {"attestationType": "Payment", "source": "testBTC", "feeWei": "1"},
+        {"attestationType": "Payment", "source": "testDOGE", "feeWei": "1"},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "testXRP", "feeWei": "1"},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "testBTC", "feeWei": "1"},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "testDOGE", "feeWei": "1"},
+        {"attestationType": "EVMTransaction", "source": "testETH", "feeWei": "1"},
+        {"attestationType": "EVMTransaction", "source": "testFLR", "feeWei": "1"},
+        {"attestationType": "EVMTransaction", "source": "testSGB", "feeWei": "1"}
     ],
-    "fdcInflationConfigurations": []
+    "fdcInflationConfigurations": [
+        {"attestationType": "AddressValidity", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "AddressValidity", "source": "testBTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "AddressValidity", "source": "testDOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "testBTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "testDOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "testBTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "testDOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "Payment", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "Payment", "source": "testBTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "Payment", "source": "testDOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "testBTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "testDOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "EVMTransaction", "source": "testETH", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "EVMTransaction", "source": "testFLR", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "EVMTransaction", "source": "testSGB", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0}
+    ]
 }

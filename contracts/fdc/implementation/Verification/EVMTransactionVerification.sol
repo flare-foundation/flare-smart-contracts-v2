@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 import "../FdcVerificationBase.sol";
 import "../../../userInterfaces/fdc/IEVMTransactionVerification.sol";
 
-contract AddressValidityVerification is FdcVerificationBase, IEVMTransactionVerification {
+contract EVMTransactionVerification is FdcVerificationBase, IEVMTransactionVerification {
     using MerkleProof for bytes32[];
 
     /**

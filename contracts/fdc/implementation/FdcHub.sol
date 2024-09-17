@@ -147,8 +147,10 @@ contract FdcHub is RewardOffersManagerBase, IFdcHub {
         uint24 _currentRewardEpochId,
         uint64 _currentRewardEpochExpectedEndTs,
         uint64 _rewardEpochDurationSeconds
-    ) internal virtual override {
-         // start of previous reward epoch
+    )
+        internal override
+    {
+        // start of previous reward epoch
         uint256 intervalStart = _currentRewardEpochExpectedEndTs - 2 * _rewardEpochDurationSeconds;
         uint256 intervalEnd = Math.max(lastInflationReceivedTs + INFLATION_TIME_FRAME_SEC,
             _currentRewardEpochExpectedEndTs - _rewardEpochDurationSeconds); // start of current reward epoch (in past)
