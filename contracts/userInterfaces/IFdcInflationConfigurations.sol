@@ -3,11 +3,12 @@ pragma solidity >=0.7.6 <0.9;
 
 
 /**
- * IFdcInflationConfigurations interface.
+ * FdcInflationConfigurations interface.
  */
 interface IFdcInflationConfigurations {
 
     /// The FDC configuration struct.
+
     struct FdcConfiguration {
         // attestation type
         bytes32 attestationType;

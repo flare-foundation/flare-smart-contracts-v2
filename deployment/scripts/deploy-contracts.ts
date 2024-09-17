@@ -544,6 +544,7 @@ export async function deployContracts(
   }
 
   // set fdc inflation configurations
+  const fdcConfigurations = [];
   for (const fdcInflationConfiguration of parameters.fdcInflationConfigurations) {
     const configuration = {
       attestationType: web3.utils.utf8ToHex(fdcInflationConfiguration.attestationType).padEnd(66, "0"),
@@ -552,8 +553,9 @@ export async function deployContracts(
       minRequestsThreshold: fdcInflationConfiguration.minRequestsThreshold,
       mode: fdcInflationConfiguration.mode,
     };
-    await fdcInflationConfigurations.addFdcConfiguration(configuration);
+    fdcConfigurations.push(configuration);
   }
+  await fdcInflationConfigurations.addFdcConfigurations(fdcConfigurations);
 
   if (parameters.testDeployment) {
     await rewardManager.enableClaims();

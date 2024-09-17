@@ -20,7 +20,7 @@ interface ITypeTemplate {
    * @param attestationType ID of the attestation type.
    * @param sourceId ID of the data source.
    * @param messageIntegrityCode `MessageIntegrityCode` that is derived from the expected response.
-   * @param requestBody Data defining the request. Type (struct) and interpretation is 
+   * @param requestBody Data defining the request. Type (struct) and interpretation is
    * determined by the `attestationType`.
    */
   struct Request {
@@ -37,7 +37,7 @@ interface ITypeTemplate {
    * @param votingRound The ID of the State Connector round in which the request was considered.
    * @param lowestUsedTimestamp The lowest timestamp used to generate the response.
    * @param requestBody Extracted from the request.
-   * @param responseBody Data defining the response. The verification rules for the construction 
+   * @param responseBody Data defining the response. The verification rules for the construction
    * of the response body and the type are defined per specific `attestationType`.
    */
   struct Response {

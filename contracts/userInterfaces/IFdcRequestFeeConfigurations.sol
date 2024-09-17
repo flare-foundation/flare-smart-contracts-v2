@@ -3,7 +3,7 @@ pragma solidity >=0.7.6 <0.9;
 
 
 /**
- * FdcHub interface.
+ * FdcRequestFeeConfigurations interface.
  */
 interface IFdcRequestFeeConfigurations  {
 

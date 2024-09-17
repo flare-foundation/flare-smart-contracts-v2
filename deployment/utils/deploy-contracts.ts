@@ -672,14 +672,14 @@ export async function deployContracts(
 
   await fdcRequestFeeConfigurations.setTypeAndSourceFee(EVMTransactionType, testSGB, "1", { from: governanceAccount.address });
 
-  await fdcInflationConfigurations.addFdcConfiguration(
-    {
+  await fdcInflationConfigurations.addFdcConfigurations(
+    [{
       attestationType: EVMTransactionType,
       source: testSGB,
       inflationShare: 100,
       minRequestsThreshold: 2,
       mode: 0
-    },
+    }],
     { from: governanceAccount.address }
   );
 

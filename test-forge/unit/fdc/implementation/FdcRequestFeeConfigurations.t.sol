@@ -91,7 +91,7 @@ contract FdcRequestFeeConfigurationsTest is Test {
         uint256[] memory fees = new uint256[](1);
         fees[0] = fee1;
         vm.prank(governance);
-        vm.expectRevert("length mismatch");
+        vm.expectRevert("lengths mismatch");
         fdcRequestFeeConfigurations.setTypeAndSourceFees(types, sources, fees);
     }
 
@@ -116,7 +116,7 @@ contract FdcRequestFeeConfigurationsTest is Test {
         types[0] = type1;
         bytes32[] memory sources = new bytes32[](0);
         vm.prank(governance);
-        vm.expectRevert("length mismatch");
+        vm.expectRevert("lengths mismatch");
         fdcRequestFeeConfigurations.removeTypeAndSourceFees(types, sources);
     }
 

@@ -11,8 +11,6 @@ contract FdcInflationConfigurationsTest is Test {
     address private addressUpdater;
     address private mockFdcRequestFeeConfigurations;
 
-    IFdcInflationConfigurations.FdcConfiguration private config;
-
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
@@ -51,31 +49,33 @@ contract FdcInflationConfigurationsTest is Test {
 
     function testAddConfigRevertTypeAndSourceNotSupported() public {
         _mockGetRequestFee(type1, source1, true);
-        config = IFdcInflationConfigurations.FdcConfiguration(
+        IFdcInflationConfigurations.FdcConfiguration[] memory configs =
+            new IFdcInflationConfigurations.FdcConfiguration[](1);
+        configs[0] = IFdcInflationConfigurations.FdcConfiguration(
             type1, source1, 10000, 2, 0
         );
         vm.expectRevert("Type and source combination not supported");
-        inflationConfigs.addFdcConfiguration(config);
+        inflationConfigs.addFdcConfigurations(configs);
     }
 
 
-    function testAddFdcConfiguration() public {
+    function testAddFdcConfigurations() public {
         _mockGetRequestFee(type1, source1, false);
         _mockGetRequestFee(type2, source2, false);
         IFdcInflationConfigurations.FdcConfiguration[] memory fdcConfigurations;
 
-        config = IFdcInflationConfigurations.FdcConfiguration(
-            type1, source1, 10000, 2, 0
-        );
-        inflationConfigs.addFdcConfiguration(config);
-
         vm.expectRevert("invalid index");
         inflationConfigs.getFdcConfiguration(3);
 
-        config = IFdcInflationConfigurations.FdcConfiguration(
+        IFdcInflationConfigurations.FdcConfiguration[] memory configs =
+            new IFdcInflationConfigurations.FdcConfiguration[](2);
+        configs[0] = IFdcInflationConfigurations.FdcConfiguration(
+            type1, source1, 10000, 2, 0
+        );
+        configs[1] = IFdcInflationConfigurations.FdcConfiguration(
             type2, source2, 5000, 5, 1
         );
-        inflationConfigs.addFdcConfiguration(config);
+        inflationConfigs.addFdcConfigurations(configs);
 
         fdcConfigurations = inflationConfigs.getFdcConfigurations();
         assertEq(fdcConfigurations.length, 2);
@@ -89,20 +89,25 @@ contract FdcInflationConfigurationsTest is Test {
         assertEq(fdcConfigurations[1].mode, 1);
     }
 
-    function testReplaceFdcConfiguration() public {
+    function testReplaceFdcConfigurations() public {
         IFdcInflationConfigurations.FdcConfiguration memory getConfig;
-        testAddFdcConfiguration();
-         // replace fdc configuration on index 2 -> should revert if index is invalid
-        config = IFdcInflationConfigurations.FdcConfiguration(
+        testAddFdcConfigurations();
+        // replace fdc configuration on index 2 -> should revert if index is invalid
+        uint256[] memory indices = new uint256[](1);
+        indices[0] = 2;
+        IFdcInflationConfigurations.FdcConfiguration[] memory configs =
+            new IFdcInflationConfigurations.FdcConfiguration[](1);
+        configs[0] = IFdcInflationConfigurations.FdcConfiguration(
             type1, source2, 6000, 100, 3
         );
         vm.expectRevert("invalid index");
-        inflationConfigs.replaceFdcConfiguration(2, config);
+        inflationConfigs.replaceFdcConfigurations(indices, configs);
 
         // replace fdc configuration on index 1 -> should revert if Type and source combination not supported
         _mockGetRequestFee(type1, source2, true);
         vm.expectRevert("Type and source combination not supported");
-        inflationConfigs.replaceFdcConfiguration(1, config);
+        indices[0] = 1;
+        inflationConfigs.replaceFdcConfigurations(indices, configs);
 
         _mockGetRequestFee(type1, source2, false);
         // replace fdc configuration on index 1
@@ -112,7 +117,7 @@ contract FdcInflationConfigurationsTest is Test {
         assertEq(getConfig.inflationShare, 5000);
         assertEq(getConfig.minRequestsThreshold, 5);
         assertEq(getConfig.mode, 1);
-        inflationConfigs.replaceFdcConfiguration(1, config);
+        inflationConfigs.replaceFdcConfigurations(indices, configs);
         getConfig = inflationConfigs.getFdcConfiguration(1);
         assertEq(getConfig.attestationType, type1);
         assertEq(getConfig.source, source2);
@@ -121,10 +126,25 @@ contract FdcInflationConfigurationsTest is Test {
         assertEq(getConfig.mode, 3);
     }
 
+    function testReplaceFdcConfigurationsRevertMismatch() public {
+        testAddFdcConfigurations();
+        // replace fdc configuration on index 2 -> should revert if index is invalid
+        uint256[] memory indices = new uint256[](2);
+        indices[0] = 0;
+        indices[1] = 1;
+        IFdcInflationConfigurations.FdcConfiguration[] memory configs =
+            new IFdcInflationConfigurations.FdcConfiguration[](1);
+        configs[0] = IFdcInflationConfigurations.FdcConfiguration(
+            type1, source2, 6000, 100, 3
+        );
+        vm.expectRevert("lengths mismatch");
+        inflationConfigs.replaceFdcConfigurations(indices, configs);
+    }
+
     function testRemoveFdcConfiguration() public {
         IFdcInflationConfigurations.FdcConfiguration memory getConfig;
         IFdcInflationConfigurations.FdcConfiguration[] memory fdcConfigurations;
-        testAddFdcConfiguration();
+        testAddFdcConfigurations();
         // remove fdc configuration on index 2 -> should revert
         vm.expectRevert("invalid index");
         inflationConfigs.removeFdcConfiguration(2);

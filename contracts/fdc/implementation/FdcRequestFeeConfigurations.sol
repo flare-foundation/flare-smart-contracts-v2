@@ -61,7 +61,7 @@ contract FdcRequestFeeConfigurations is Governed, IFdcRequestFeeConfigurations {
     )
         external onlyGovernance
     {
-        require(_types.length == _sources.length && _types.length == _fees.length, "length mismatch");
+        require(_types.length == _sources.length && _types.length == _fees.length, "lengths mismatch");
         for (uint256 i = 0; i < _types.length; i++) {
             _setSingleTypeAndSourceFee(_types[i], _sources[i], _fees[i]);
         }
@@ -79,7 +79,7 @@ contract FdcRequestFeeConfigurations is Governed, IFdcRequestFeeConfigurations {
     )
         external onlyGovernance
     {
-        require(_types.length == _sources.length, "length mismatch");
+        require(_types.length == _sources.length, "lengths mismatch");
         for (uint256 i = 0; i < _types.length; i++) {
             _removeSingleTypeAndSourceFee(_types[i], _sources[i]);
         }

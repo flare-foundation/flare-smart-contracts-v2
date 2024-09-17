@@ -125,6 +125,7 @@ export async function deployFdcContracts(
     [addressUpdater, relay]);
 
   // set fdc inflation configurations
+  const fdcConfigurations = [];
   for (const fdcInflationConfiguration of parameters.fdcInflationConfigurations) {
     const configuration = {
       attestationType: web3.utils.utf8ToHex(fdcInflationConfiguration.attestationType).padEnd(66, "0"),
@@ -133,8 +134,9 @@ export async function deployFdcContracts(
       minRequestsThreshold: fdcInflationConfiguration.minRequestsThreshold,
       mode: fdcInflationConfiguration.mode,
     };
-    await fdcInflationConfigurations.addFdcConfiguration(configuration);
+    fdcConfigurations.push(configuration);
   }
+  await fdcInflationConfigurations.addFdcConfigurations(fdcConfigurations);
 
   // set fdc request fee configurations
   for (const fdcRequestFee of parameters.fdcRequestFees) {

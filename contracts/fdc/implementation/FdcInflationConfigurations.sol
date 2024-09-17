@@ -34,25 +34,36 @@ contract FdcInflationConfigurations is Governed, AddressUpdatable, IFdcInflation
     { }
 
     /**
-     * Allows governance to add a new FDC configuration.
-     * @param _config The FDC configuration.
+     * Allows governance to add new FDC configurations.
+     * @param _configs The FDC configurations.
      * @dev Only governance can call this method.
      */
-    function addFdcConfiguration(FdcConfiguration calldata _config) external onlyGovernance {
-        _checkFdcConfiguration(_config);
-        fdcConfigurations.push(_config);
+    function addFdcConfigurations(FdcConfiguration[] calldata _configs) external onlyGovernance {
+        for (uint256 i = 0; i < _configs.length; i++) {
+            _checkFdcConfiguration(_configs[i]);
+            fdcConfigurations.push(_configs[i]);
+        }
     }
 
     /**
-     * Allows governance to replace an existing FDC configuration.
-     * @param _index The index of the FDC configuration to replace.
-     * @param _config The FDC configuration.
+     * Allows governance to replace the existing FDC configurations.
+     * @param _indices The indices of the FDC configurations to replace.
+     * @param _configs The FDC configurations.
      * @dev Only governance can call this method.
      */
-    function replaceFdcConfiguration(uint256 _index, FdcConfiguration calldata _config) external onlyGovernance {
-        require(fdcConfigurations.length > _index, "invalid index");
-        _checkFdcConfiguration(_config);
-        fdcConfigurations[_index] = _config;
+    function replaceFdcConfigurations(
+        uint256[] calldata _indices,
+        FdcConfiguration[] calldata _configs
+    )
+        external onlyGovernance
+    {
+        uint256 length = fdcConfigurations.length;
+        require(_indices.length == _configs.length, "lengths mismatch");
+        for (uint256 i = 0; i < _indices.length; i++) {
+            require(length > _indices[i], "invalid index");
+            _checkFdcConfiguration(_configs[i]);
+            fdcConfigurations[_indices[i]] = _configs[i];
+        }
     }
 
     /**
