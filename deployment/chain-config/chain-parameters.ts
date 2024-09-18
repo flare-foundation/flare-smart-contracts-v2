@@ -39,11 +39,6 @@ export interface ChainParameters {
     initialVoterData: InitialVoterData[];
 
     /**
-     * The initial feed decimals used in the FTSO system.
-     */
-    initialFeedDecimalsList: FeedDecimals[];
-
-    /**
      * Indicates whether this is a test deployment (local, scdev, etc.)
      */
     testDeployment: boolean;
@@ -258,6 +253,11 @@ export interface ChainParameters {
      * Feed history size (e.g. 200).
      */
     feedsHistorySize: integer;
+
+    /**
+     * The feed decimals used in the FTSO system.
+     */
+    feedDecimalsList: FeedDecimals[];
 
     /**
      * The inflation configurations for the FTSO protocol.

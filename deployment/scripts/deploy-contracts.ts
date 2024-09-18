@@ -255,7 +255,7 @@ export async function deployContracts(hre: HardhatRuntimeEnvironment, oldContrac
     parameters.decimalsUpdateOffset,
     parameters.defaultDecimals,
     initialRewardEpochId,
-    parameters.initialFeedDecimalsList.map(fd => {
+    parameters.feedDecimalsList.map(fd => {
       return {
         feedId: FtsoConfigurations.encodeFeedId(fd.feedId),
         decimals: fd.decimals

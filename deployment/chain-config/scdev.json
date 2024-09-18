@@ -14,7 +14,7 @@
     "initialNormalisedWeights": [65535],
     "initialThreshold": 32768,
     "initialVoterData": [],
-    "initialFeedDecimalsList": [
+    "feedDecimalsList": [
         {"feedId": {"category": 1, "name":"BTC/USD"}, "decimals": 2},
         {"feedId": {"category": 1, "name":"ETH/USD"}, "decimals": 3},
         {"feedId": {"category": 3, "name":"XAU/USD"}, "decimals": 3},
