@@ -40,7 +40,7 @@
             "nodeIds": []
         }
     ],
-    "initialFeedDecimalsList": [
+    "feedDecimalsList": [
         {"feedId": {"category": 1, "name":"BTC/USD"}, "decimals": 2},
         {"feedId": {"category": 1, "name":"ETH/USD"}, "decimals": 3},
         {"feedId": {"category": 3, "name":"XAU/USD"}, "decimals": 3},
@@ -52,13 +52,20 @@
         {"feedId": {"category": 1, "name":"BCH/USD"}, "decimals": 4},
         {"feedId": {"category": 1, "name":"XMR/USD"}, "decimals": 4},
         {"feedId": {"category": 1, "name":"SOL/USD"}, "decimals": 4},
-        {"feedId": {"category": 1, "name":"QNT/USD"}, "decimals": 4},
         {"feedId": {"category": 1, "name":"AAVE/USD"}, "decimals": 4},
-        {"feedId": {"category": 1, "name":"BTT/USD"}, "decimals": 10},
-        {"feedId": {"category": 1, "name":"SHIB/USD"}, "decimals": 10},
-        {"feedId": {"category": 1, "name":"BONK/USD"}, "decimals": 10},
-        {"feedId": {"category": 1, "name":"LUNC/USD"}, "decimals": 10},
-        {"feedId": {"category": 1, "name":"1000SATS/USD"}, "decimals": 10}
+        {"feedId": {"category": 1, "name":"XLM/USD"}, "decimals": 6},
+        {"feedId": {"category": 1, "name":"XDC/USD"}, "decimals": 6},
+        {"feedId": {"category": 1, "name":"FLR/USD"}, "decimals": 6},
+        {"feedId": {"category": 1, "name":"SGB/USD"}, "decimals": 7},
+        {"feedId": {"category": 1, "name":"NOT/USD"}, "decimals": 7},
+        {"feedId": {"category": 1, "name":"1000SATS/USD"}, "decimals": 8},
+        {"feedId": {"category": 1, "name":"FLOKI/USD"}, "decimals": 8},
+        {"feedId": {"category": 1, "name":"LUNC/USD"}, "decimals": 9},
+        {"feedId": {"category": 1, "name":"XEC/USD"}, "decimals": 9},
+        {"feedId": {"category": 1, "name":"BONK/USD"}, "decimals": 9},
+        {"feedId": {"category": 1, "name":"SHIB/USD"}, "decimals": 9},
+        {"feedId": {"category": 1, "name":"PEPE/USD"}, "decimals": 10},
+        {"feedId": {"category": 1, "name":"BTT/USD"}, "decimals": 11}
     ],
 
     "firstVotingRoundStartTs": 1658429955,

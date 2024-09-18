@@ -249,6 +249,13 @@
             },
             "type": "array"
         },
+        "feedDecimalsList": {
+            "description": "The feed decimals used in the FTSO system.",
+            "items": {
+                "$ref": "#/definitions/FeedDecimals"
+            },
+            "type": "array"
+        },
         "feedsHistorySize": {
             "description": "Feed history size (e.g. 200).",
             "type": "integer"
@@ -314,13 +321,6 @@
             "description": "The inflation receivers.",
             "items": {
                 "$ref": "#/definitions/InflationReceiver"
-            },
-            "type": "array"
-        },
-        "initialFeedDecimalsList": {
-            "description": "The initial feed decimals used in the FTSO system.",
-            "items": {
-                "$ref": "#/definitions/FeedDecimals"
             },
             "type": "array"
         },
@@ -563,6 +563,7 @@
         "deployerPrivateKey",
         "feePercentageUpdateOffset",
         "feedConfigurations",
+        "feedDecimalsList",
         "feedsHistorySize",
         "firstRewardEpochStartVotingRoundId",
         "firstVotingRoundStartTs",
@@ -577,7 +578,6 @@
         "governanceTimelock",
         "incentiveOfferDurationBlocks",
         "inflationReceivers",
-        "initialFeedDecimalsList",
         "initialNormalisedWeights",
         "initialRandomVotePowerBlockSelectionSize",
         "initialRewardEpochOffset",

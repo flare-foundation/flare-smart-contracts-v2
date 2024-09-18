@@ -85,7 +85,11 @@ contract FtsoFeedDecimalsTest is Test {
         assertEq(ftsoFeedDecimals.getDecimals(feedId2, 0), 6);
         assertEq(ftsoFeedDecimals.getDecimals(feedId2, 1), 3);
         vm.startPrank(governance);
-        ftsoFeedDecimals.setDecimals(feedId1, 8);
+        bytes21[] memory feedIdsList = new bytes21[](1);
+        feedIdsList[0] = feedId1;
+        int8[] memory decimalsList = new int8[](1);
+        decimalsList[0] = 8;
+        ftsoFeedDecimals.setDecimals(feedIdsList, decimalsList);
         assertEq(ftsoFeedDecimals.getDecimals(feedId1, 1 + 2), 8);
     }
 
@@ -100,17 +104,32 @@ contract FtsoFeedDecimalsTest is Test {
             ftsoFeedDecimals.getScheduledDecimalsChanges(feedId1);
         assertEq(_decimals.length, 0);
 
+        bytes21[] memory feedIdsList = new bytes21[](2);
+        feedIdsList[0] = feedId1;
+        feedIdsList[1] = feedId2;
+        int8[] memory decimalsList = new int8[](2);
+        decimalsList[0] = 8;
+        decimalsList[1] = 0;
+
         vm.startPrank(governance);
-        ftsoFeedDecimals.setDecimals(feedId1, 8);
+        ftsoFeedDecimals.setDecimals(feedIdsList, decimalsList);
         assertEq(ftsoFeedDecimals.getCurrentDecimals(feedId1), 6);
+        assertEq(ftsoFeedDecimals.getCurrentDecimals(feedId2), 6);
         assertEq(ftsoFeedDecimals.getDecimals(feedId1, 0 + 2), 8);
-        // change again (to 10)
-        ftsoFeedDecimals.setDecimals(feedId1, 10);
+        assertEq(ftsoFeedDecimals.getDecimals(feedId2, 0 + 2), 0);
+        // change again
+        decimalsList[0] = 10;
+        decimalsList[1] = 5;
+        ftsoFeedDecimals.setDecimals(feedIdsList, decimalsList);
         assertEq(ftsoFeedDecimals.getDecimals(feedId1, 0 + 2), 10);
+        assertEq(ftsoFeedDecimals.getDecimals(feedId2, 0 + 2), 5);
         // move to epoch 1 and set fee to 12
         _mockGetCurrentEpochId(1);
-        ftsoFeedDecimals.setDecimals(feedId1, 12);
+        decimalsList[0] = 12;
+        decimalsList[1] = 2;
+        ftsoFeedDecimals.setDecimals(feedIdsList, decimalsList);
         assertEq(ftsoFeedDecimals.getDecimals(feedId1, 1 + 2), 12);
+        assertEq(ftsoFeedDecimals.getDecimals(feedId2, 1 + 2), 2);
 
         (_decimals, validFrom, isFixed) = ftsoFeedDecimals.getScheduledDecimalsChanges(feedId1);
         assertEq(_decimals.length, 2);
@@ -121,7 +140,7 @@ contract FtsoFeedDecimalsTest is Test {
         assertEq(isFixed[0], true);
         assertEq(isFixed[1], false);
 
-        decimals = bytes.concat(bytes1(uint8(12)), bytes1(uint8(6)));
+        decimals = bytes.concat(bytes1(uint8(12)), bytes1(uint8(2)));
         assertEq(ftsoFeedDecimals.getDecimalsBulk(feedIds, 3), decimals);
     }
 
@@ -129,20 +148,43 @@ contract FtsoFeedDecimalsTest is Test {
         _mockGetCurrentEpochId(0);
 
         vm.startPrank(governance);
-        ftsoFeedDecimals.setDecimals(feedId1, -8);
+        bytes21[] memory feedIdsList = new bytes21[](1);
+        feedIdsList[0] = feedId1;
+        int8[] memory decimalsList = new int8[](1);
+        decimalsList[0] = -8;
+        ftsoFeedDecimals.setDecimals(feedIdsList, decimalsList);
         assertEq(ftsoFeedDecimals.getCurrentDecimals(feedId1), 6);
         assertEq(ftsoFeedDecimals.getDecimals(feedId1, 0 + 2), -8);
+    }
+
+    function testUpdateLenghtsMismatchRevert() public {
+        _mockGetCurrentEpochId(0);
+
+        vm.startPrank(governance);
+        bytes21[] memory feedIdsList = new bytes21[](1);
+        feedIdsList[0] = feedId1;
+        int8[] memory decimalsList = new int8[](2);
+        decimalsList[0] = 5;
+        decimalsList[1] = 2;
+
+        vm.expectRevert("lengths mismatch");
+        ftsoFeedDecimals.setDecimals(feedIdsList, decimalsList);
+        vm.stopPrank();
     }
 
     function testUpdateInThePastRevert() public {
         vm.startPrank(governance);
         _mockGetCurrentEpochId(10);
-        ftsoFeedDecimals.setDecimals(feedId1, 5);
+        bytes21[] memory feedIdsList = new bytes21[](1);
+        feedIdsList[0] = feedId1;
+        int8[] memory decimalsList = new int8[](1);
+        decimalsList[0] = 5;
+        ftsoFeedDecimals.setDecimals(feedIdsList, decimalsList);
 
         // go back in time
         _mockGetCurrentEpochId(9);
         vm.expectRevert();
-        ftsoFeedDecimals.setDecimals(feedId1, 5);
+        ftsoFeedDecimals.setDecimals(feedIdsList, decimalsList);
         vm.stopPrank();
     }
 

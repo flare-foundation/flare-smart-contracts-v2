@@ -62,35 +62,38 @@ contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
 
     /**
      * Allows governance to set (or update last) decimal for given feed id.
-     * @param _feedId Feed id.
-     * @param _decimals Number of decimals (negative exponent).
+     * @param _feedIds List of feed ids.
+     * @param _decimals List of corresponding number of decimals (negative exponent).
      * @dev Only governance can call this method.
      */
-    function setDecimals(bytes21 _feedId, int8 _decimals) external onlyGovernance {
+    function setDecimals(bytes21[] calldata _feedIds, int8[] calldata _decimals) external onlyGovernance {
+        require(_feedIds.length == _decimals.length, "lengths mismatch");
         uint24 rewardEpochId = _getCurrentRewardEpochId() + decimalsUpdateOffset;
-        Decimals[] storage decimalsForFeedId = decimals[_feedId];
+        for (uint256 i = 0; i < _feedIds.length; i++) {
+            Decimals[] storage decimalsForFeedId = decimals[_feedIds[i]];
 
-        // determine whether to update the last setting or add a new one
-        uint256 position = decimalsForFeedId.length;
-        if (position > 0) {
-            // do not allow updating the settings in the past
-            assert(rewardEpochId >= decimalsForFeedId[position - 1].validFromEpochId);
+            // determine whether to update the last setting or add a new one
+            uint256 position = decimalsForFeedId.length;
+            if (position > 0) {
+                // do not allow updating the settings in the past
+                assert(rewardEpochId >= decimalsForFeedId[position - 1].validFromEpochId);
 
-            if (rewardEpochId == decimalsForFeedId[position - 1].validFromEpochId) {
-                // update
-                position = position - 1;
+                if (rewardEpochId == decimalsForFeedId[position - 1].validFromEpochId) {
+                    // update
+                    position = position - 1;
+                }
             }
-        }
-        if (position == decimalsForFeedId.length) {
-            // add
-            decimalsForFeedId.push();
-        }
+            if (position == decimalsForFeedId.length) {
+                // add
+                decimalsForFeedId.push();
+            }
 
-        // apply setting
-        decimalsForFeedId[position].value = _decimals;
-        decimalsForFeedId[position].validFromEpochId = rewardEpochId;
+            // apply setting
+            decimalsForFeedId[position].value = _decimals[i];
+            decimalsForFeedId[position].validFromEpochId = rewardEpochId;
 
-        emit DecimalsChanged(_feedId, _decimals, rewardEpochId);
+            emit DecimalsChanged(_feedIds[i], _decimals[i], rewardEpochId);
+        }
     }
 
     /**
