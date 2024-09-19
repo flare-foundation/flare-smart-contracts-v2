@@ -431,6 +431,29 @@ export interface ChainParameters {
      */
     rNatFundedByIncentivePool: boolean;
 
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // FDC protocol settings
+
+    /**
+     *  The FDC protocol id.
+     */
+    fdcProtocolId: integer;
+
+    /**
+     *  The requests offset (in seconds).
+     */
+    fdcRequestsOffsetSeconds: integer;
+
+    /**
+     *  The supported requests fee configurations.
+     */
+    fdcRequestFees: FdcRequestFee[];
+
+    /**
+     * The inflation configurations for the FDC protocol.
+     */
+    fdcInflationConfigurations: FdcInflationConfiguration[];
+
 }
 
 export interface FtsoInflationConfiguration {
@@ -579,4 +602,48 @@ export interface FtsoProxy {
      * The FTSO symbol.
      */
     symbol: string;
+}
+
+export interface FdcRequestFee {
+    /**
+     * The attestation type.
+     */
+    attestationType: string;
+
+    /**
+     * The source.
+     */
+    source: string;
+
+    /**
+     * The fee per request. In Wei.
+     */
+    feeWei: string;
+}
+
+export interface FdcInflationConfiguration {
+    /**
+     * The attestation type.
+     */
+    attestationType: string;
+
+    /**
+     * The source.
+     */
+    source: string;
+
+    /**
+     * Inflation share/weight for this configuration.
+     */
+    inflationShare: integer;
+
+    /**
+     * Minimal reward eligibility threshold in number of request.
+     */
+    minRequestsThreshold: integer;
+
+    /**
+     * Mode (additional settings interpreted on the client side off-chain).
+     */
+    mode: integer;
 }

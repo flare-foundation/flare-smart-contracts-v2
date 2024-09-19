@@ -37,12 +37,16 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
     /// The maximum amount by which the expected sample size can be increased by an incentive offer.
     /// This is controlled by governance and forces a minimum cost to increasing the sample size greatly,
     /// which would otherwise be an attack on the protocol.
+    //slither-disable-next-line uninitialized-state
     FPA.SampleSize public sampleIncreaseLimit;
     /// The maximum value that the range can be increased to by an incentive offer.
+    //slither-disable-next-line uninitialized-state
     FPA.Range public rangeIncreaseLimit;
     /// The price for increasing the per-block range of variation by 1, prorated for the actual amount of increase.
+    //slither-disable-next-line uninitialized-state
     FPA.Fee public rangeIncreasePrice;
     /// Base scale value.
+    //slither-disable-next-line uninitialized-state
     FPA.Scale internal baseScale;
 
     /// Modifier for allowing only FastUpdater contract to call the method.

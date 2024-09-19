@@ -346,6 +346,10 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     for (const log of logs) {
       await processLog(log, blockTimestamp, events);
     }
+    logs = decodeRawLogs(response, c.fdcHub, "InflationRewardsOffered");
+    for (const log of logs) {
+      await processLog(log, blockTimestamp, events);
+    }
     logs = decodeRawLogs(response, c.relay, "SigningPolicyInitialized");
     for (const log of logs) {
       await processLog(log, blockTimestamp, events);

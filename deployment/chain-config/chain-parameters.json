@@ -2,6 +2,62 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "additionalProperties": false,
     "definitions": {
+        "FdcInflationConfiguration": {
+            "additionalProperties": false,
+            "properties": {
+                "attestationType": {
+                    "description": "The attestation type.",
+                    "type": "string"
+                },
+                "inflationShare": {
+                    "description": "Inflation share/weight for this configuration.",
+                    "type": "integer"
+                },
+                "minRequestsThreshold": {
+                    "description": "Minimal reward eligibility threshold in number of request.",
+                    "type": "integer"
+                },
+                "mode": {
+                    "description": "Mode (additional settings interpreted on the client side off-chain).",
+                    "type": "integer"
+                },
+                "source": {
+                    "description": "The source.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "attestationType",
+                "inflationShare",
+                "minRequestsThreshold",
+                "mode",
+                "source"
+            ],
+            "type": "object"
+        },
+        "FdcRequestFee": {
+            "additionalProperties": false,
+            "properties": {
+                "attestationType": {
+                    "description": "The attestation type.",
+                    "type": "string"
+                },
+                "feeWei": {
+                    "description": "The fee per request. In Wei.",
+                    "type": "string"
+                },
+                "source": {
+                    "description": "The source.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "attestationType",
+                "feeWei",
+                "source"
+            ],
+            "type": "object"
+        },
         "FeedConfiguration": {
             "additionalProperties": false,
             "properties": {
@@ -237,6 +293,28 @@
         "deployerPrivateKey": {
             "description": "Deployer private key. Overriden if provided in `.env` file as `DEPLOYER_PRIVATE_KEY`",
             "type": "string"
+        },
+        "fdcInflationConfigurations": {
+            "description": "The inflation configurations for the FDC protocol.",
+            "items": {
+                "$ref": "#/definitions/FdcInflationConfiguration"
+            },
+            "type": "array"
+        },
+        "fdcProtocolId": {
+            "description": "The FDC protocol id.",
+            "type": "integer"
+        },
+        "fdcRequestFees": {
+            "description": "The supported requests fee configurations.",
+            "items": {
+                "$ref": "#/definitions/FdcRequestFee"
+            },
+            "type": "array"
+        },
+        "fdcRequestsOffsetSeconds": {
+            "description": "The requests offset (in seconds).",
+            "type": "integer"
         },
         "feePercentageUpdateOffset": {
             "description": "Fee percentage update timelock measured in reward epochs (must be more than 1, e.g. 3).",
@@ -561,6 +639,10 @@
         "defaultFeePercentageBIPS",
         "defaultFeeWei",
         "deployerPrivateKey",
+        "fdcInflationConfigurations",
+        "fdcProtocolId",
+        "fdcRequestFees",
+        "fdcRequestsOffsetSeconds",
         "feePercentageUpdateOffset",
         "feedConfigurations",
         "feedDecimalsList",
