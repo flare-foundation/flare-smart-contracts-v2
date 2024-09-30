@@ -118,7 +118,7 @@
                 {"category": 1, "name": "ARB/USD"},
                 {"category": 1, "name": "AVAX/USD"},
                 {"category": 1, "name": "BNB/USD"},
-                {"category": 1, "name": "MATIC/USD"},
+                {"category": 1, "name": "POL/USD"},
                 {"category": 1, "name": "SOL/USD"},
                 {"category": 1, "name": "USDC/USD"},
                 {"category": 1, "name": "USDT/USD"},
@@ -160,7 +160,8 @@
             "minRewardedTurnoutBIPS": 5000,
             "mode": 2,
             "primaryBandRewardSharePPM": 700000,
-            "secondaryBandWidthPPMs": [400, 500, 100, 150, 200, 200, 200, 200, 200, 150, 200, 100, 100, 100, 100, 100, 100, 100, 400, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            "secondaryBandWidthPPMs": [400, 500, 100, 150, 200, 200, 200, 200, 200, 150, 200, 100, 100, 100, 100, 100, 100, 100, 400,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         },
         {
             "feedIds": [
@@ -174,13 +175,22 @@
                 {"category": 1, "name": "JUP/USD"},
                 {"category": 1, "name": "ETHFI/USD"},
                 {"category": 1, "name": "ENA/USD"},
-                {"category": 1, "name": "PYTH/USD"}
+                {"category": 1, "name": "PYTH/USD"},
+                {"category": 1, "name": "HNT/USD"},
+                {"category": 1, "name": "PEPE/USD"},
+                {"category": 1, "name": "FTM/USD"},
+                {"category": 1, "name": "ONDO/USD"},
+                {"category": 1, "name": "TAO/USD"},
+                {"category": 1, "name": "FET/USD"},
+                {"category": 1, "name": "RENDER/USD"},
+                {"category": 1, "name": "NOT/USD"},
+                {"category": 1, "name": "RUNE/USD"}
             ],
             "inflationShare": 10000,
             "minRewardedTurnoutBIPS": 5000,
             "mode": 2,
             "primaryBandRewardSharePPM": 700000,
-            "secondaryBandWidthPPMs": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            "secondaryBandWidthPPMs": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         }
     ],
 
@@ -268,7 +278,7 @@
         {"feedId": {"category": 1, "name": "ARB/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "AVAX/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "BNB/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
-        {"feedId": {"category": 1, "name": "MATIC/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "POL/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "SOL/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "USDC/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "USDT/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
@@ -315,7 +325,16 @@
         {"feedId": {"category": 1, "name": "JUP/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "ETHFI/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "ENA/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
-        {"feedId": {"category": 1, "name": "PYTH/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
+        {"feedId": {"category": 1, "name": "PYTH/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "HNT/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "PEPE/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "FTM/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "ONDO/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "TAO/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "FET/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "RENDER/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "NOT/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "RUNE/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
     ],
     "defaultFeeWei": "1",
     "ftsoProxies": [
@@ -332,7 +351,8 @@
         {"feedId": {"category": 1, "name": "ARB/USD"}, "symbol": "testARB"},
         {"feedId": {"category": 1, "name": "AVAX/USD"}, "symbol": "testAVAX"},
         {"feedId": {"category": 1, "name": "BNB/USD"}, "symbol": "testBNB"},
-        {"feedId": {"category": 1, "name": "MATIC/USD"}, "symbol": "testMATIC"},
+        {"feedId": {"category": 1, "name": "POL/USD"}, "symbol": "testMATIC"},
+        {"feedId": {"category": 1, "name": "POL/USD"}, "symbol": "testPOL"},
         {"feedId": {"category": 1, "name": "SOL/USD"}, "symbol": "testSOL"},
         {"feedId": {"category": 1, "name": "USDC/USD"}, "symbol": "testUSDC"},
         {"feedId": {"category": 1, "name": "USDT/USD"}, "symbol": "testUSDT"},
