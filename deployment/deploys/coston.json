@@ -27,12 +27,12 @@
   {
     "name": "RewardManager",
     "contractName": "RewardManager.sol",
-    "address": "0xA17197b7Bdff7Be7c3Da39ec08981FB716B70d3A"
+    "address": "0x2ade9972E7f27200872D378acF7a1BaD8D696FC5"
   },
   {
     "name": "Relay",
     "contractName": "Relay.sol",
-    "address": "0x32D46A1260BB2D8C9d5Ab1C9bBd7FF7D7CfaabCC"
+    "address": "0xA300E71257547e645CD7241987D3B75f2012E0E3"
   },
   {
     "name": "WNatDelegationFee",
@@ -60,11 +60,6 @@
     "address": "0x595AbCc4f9330b30ca31966dFfF71EBE0Af2b820"
   },
   {
-    "name": "CleanupBlockNumberManager",
-    "contractName": "CleanupBlockNumberManager.sol",
-    "address": "0xc1D51dB91B4f6234cC60b0a36f0374Bd5234E2F1"
-  },
-  {
     "name": "FtsoFeedIdConverter",
     "contractName": "FtsoFeedIdConverter.sol",
     "address": "0x5c871668b17B604c0CAA848D8Efa7D9094748BC8"
@@ -77,7 +72,7 @@
   {
     "name": "FastUpdater",
     "contractName": "FastUpdater.sol",
-    "address": "0x9B931f5d3e24fc8C9064DB35bDc8FB4bE0E862f9"
+    "address": "0xB8336A96b4b8af89f60EA080002214191Bc8293A"
   },
   {
     "name": "FastUpdatesConfiguration",
@@ -103,5 +98,140 @@
     "name": "FdcVerification",
     "contractName": "FdcVerification.sol",
     "address": "0xa6D12A8C224E82330b7fA4F7a1003E64cbF50D38"
+  },
+  {
+    "name": "FtsoRewardManager",
+    "contractName": "FtsoRewardManagerProxy.sol",
+    "address": "0x332b2B083f20504588Dd0624D6fd14379b692FAb"
+  },
+  {
+    "name": "PollingFoundation",
+    "contractName": "PollingFoundation.sol",
+    "address": "0x2E6E089da48214C955aD1f8f88ac19EBE1ca5eFC"
+  },
+  {
+    "name": "PollingFtso",
+    "contractName": "PollingFtso.sol",
+    "address": "0xAB53139CcEb08b2b2C030F80FC036d1063d9e606"
+  },
+  {
+    "name": "FeeCalculator",
+    "contractName": "FeeCalculator.sol",
+    "address": "0x08e0CBdc9173e537208CEAd8c38f263517f54F22"
+  },
+  {
+    "name": "FtsoManager",
+    "contractName": "FtsoManagerProxy.sol",
+    "address": "0x9E10Ca7D1EA3c6f50071d20bde95608b93D2efe1"
+  },
+  {
+    "name": "FtsoCFlr",
+    "contractName": "FtsoProxy.sol",
+    "address": "0x935B0248fA936Be2990826a91Af03273A38b42d6"
+  },
+  {
+    "name": "FtsoTestXrp",
+    "contractName": "FtsoProxy.sol",
+    "address": "0xDDa2e39088f26aACc5A9C6e232799cfE821Fe144"
+  },
+  {
+    "name": "FtsoTestLtc",
+    "contractName": "FtsoProxy.sol",
+    "address": "0x92f8d62027E1d70C74F770FBB62Ac33baFA033e9"
+  },
+  {
+    "name": "FtsoTestXlm",
+    "contractName": "FtsoProxy.sol",
+    "address": "0xCd0198B89eb631f278e1C5f828B12D73548584C2"
+  },
+  {
+    "name": "FtsoTestDoge",
+    "contractName": "FtsoProxy.sol",
+    "address": "0x1378FAfD13625B220Fd7D2623bCbAD31F2124561"
+  },
+  {
+    "name": "FtsoTestAda",
+    "contractName": "FtsoProxy.sol",
+    "address": "0x4dC7DbC340DEc9009Bc05585717022f2581b2108"
+  },
+  {
+    "name": "FtsoTestAlgo",
+    "contractName": "FtsoProxy.sol",
+    "address": "0xd5bBEe08bB5f4ABbDd603E77a9c341519FA05FdE"
+  },
+  {
+    "name": "FtsoTestBtc",
+    "contractName": "FtsoProxy.sol",
+    "address": "0xB68e0ce6BA93C7473c1896767E03f886509FBA02"
+  },
+  {
+    "name": "FtsoTestEth",
+    "contractName": "FtsoProxy.sol",
+    "address": "0xAD30A68A3b0ef88b8b3037f0f6986Cfaa0D9bf58"
+  },
+  {
+    "name": "FtsoTestFil",
+    "contractName": "FtsoProxy.sol",
+    "address": "0x221C956EFbF9e9D87D6924cb82D823519bfB235C"
+  },
+  {
+    "name": "FtsoTestArb",
+    "contractName": "FtsoProxy.sol",
+    "address": "0x0dc94526c8B26De3dEBB7b653D47bBFa15DaC9Df"
+  },
+  {
+    "name": "FtsoTestAvax",
+    "contractName": "FtsoProxy.sol",
+    "address": "0xC75da1c263bC3f2f05960e49026e2c0C5E72BbfA"
+  },
+  {
+    "name": "FtsoTestBnb",
+    "contractName": "FtsoProxy.sol",
+    "address": "0x73289BC55F0e6C600d219cb75f77f44187cD9a39"
+  },
+  {
+    "name": "FtsoTestMatic",
+    "contractName": "FtsoProxy.sol",
+    "address": "0xC925F31E5c58cE11CD17002703C342169a4149bb"
+  },
+  {
+    "name": "FtsoTestPol",
+    "contractName": "FtsoProxy.sol",
+    "address": "0x6a61901C41a5697BF34dD706EC36AD00848eB95F"
+  },
+  {
+    "name": "FtsoTestSol",
+    "contractName": "FtsoProxy.sol",
+    "address": "0x308Cd303FCbF2c3d9F4B806d4172b8Adb0c57Da0"
+  },
+  {
+    "name": "FtsoTestUsdc",
+    "contractName": "FtsoProxy.sol",
+    "address": "0x38f415402F7FE8bF5645D6D778cC1C2637Aa44C7"
+  },
+  {
+    "name": "FtsoTestUsdt",
+    "contractName": "FtsoProxy.sol",
+    "address": "0x4f7c686342B3979a6AB0CD1E7204AD575AfA6735"
+  },
+  {
+    "name": "FtsoTestXdc",
+    "contractName": "FtsoProxy.sol",
+    "address": "0xDf259E0219092346d26c4Adb92b322DA27447BBC"
+  },
+  {
+    "name": "FtsoV2",
+    "contractName": "FtsoV2.sol",
+    "address": "0x5BBCc7810D72Cc1720cC97aD144926E556bE1E93"
+  },
+  {
+    "name": "PriceSubmitter",
+    "contractName": "PriceSubmitterProxy.sol",
+    "address": "0x2ADC05f9c85149274266fFeD348C705622858820"
+  },
+  {
+    "name": "VoterWhitelister",
+    "contractName": "VoterWhitelisterProxy.sol",
+    "address": "0x6b9d022224c11446Ad7D373F5BaF6271200FdA1f"
   }
 ]
