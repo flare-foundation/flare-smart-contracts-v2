@@ -1159,6 +1159,9 @@ contract Relay is IIRelay {
                             stateData.slot,
                             mload(add(memPtrFor, M_5_stateData))
                         )
+                        // in case protocolId == 0, the new signing policy is already stored
+                        // and event emitted
+                        return(0,0)
                     }
 
                     if gt(protocolId, 0) {
@@ -1197,6 +1200,49 @@ contract Relay is IIRelay {
                             keccak256(memPtrFor, 64),
                             mload(add(memPtrFor, M_6_merkleRoot))
                         ) // set Merkle Root
+
+                        // if protocolId != stateData.randomNumberProtocolId
+                        // just emit an event
+                        if iszero(
+                            eq(
+                                protocolId,
+                                structValue(
+                                    mload(add(memPtrFor, M_5_stateData)),
+                                    SD_BOFF_randomNumberProtocolId,
+                                    SD_MASK_randomNumberProtocolId
+                                )
+                            )
+                        ) {
+                            calldatacopy(
+                                memPtrFor,
+                                add(SELECTOR_BYTES, signingPolicyLength),
+                                MESSAGE_NO_MR_BYTES
+                            )
+                            mstore(
+                                memPtrFor,
+                                shr(
+                                    sub(256, mul(8, MESSAGE_NO_MR_BYTES)),
+                                    mload(memPtrFor)
+                                )
+                            )
+
+                            // Here we setup M_5 to be 0/false while on M_6 we have Merkle root
+                            // These two fields are used for the emitted event
+                            mstore(add(memPtrFor, M_5_isSecureRandom), 
+                                structValue(
+                                    mload(memPtrFor),
+                                    MSG_NMR_BOFF_isSecureRandom,
+                                    MSG_NMR_MASK_isSecureRandom
+                                )                            
+                            )
+                            mstore(add(memPtrFor, M_3), "ProtocolMessageRelayed(uint8,uin")
+                            mstore(add(memPtrFor, M_4), "t32,bool,bytes32)")
+                            log3(
+                                add(memPtrFor, M_5_isSecureRandom), 64, keccak256(add(memPtrFor, M_3), 49),
+                                protocolId, votingRoundId
+                            )
+                            return(0,0)
+                        }
 
                         // if protocolId == stateData.randomNumberProtocolId
                         if eq(
@@ -1277,11 +1323,10 @@ contract Relay is IIRelay {
                                 add(memPtrFor, M_5_isSecureRandom), 64, keccak256(add(memPtrFor, M_3), 49),
                                 protocolId, votingRoundId
                             )
+                            return(0,0)
                         } // if protocolId == stateData.randomNumberProtocolId
                     } // if protocolId > 0
-                    // in case protocolId == 0, the new signing policy is already stored
-                    // and event emitted
-                    // set _result to 1 to indicate successful relay/finalization
+                    // this return should never happen as particular cases are handled above
                     return(0,0)
                 }
             } // for

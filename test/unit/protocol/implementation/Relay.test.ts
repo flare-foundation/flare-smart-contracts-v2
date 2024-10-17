@@ -169,7 +169,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     expect(_startingVotingRoundIdForLastInitializedRewardEpoch.toString()).to.equal(signingPolicyData.startVotingRoundId.toString());
   });
 
-  it("Should relay a message", async () => {
+  it("Should relay a message for random number generating protocol", async () => {
     const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
     const signatures = await generateSignatures(
       accountPrivateKeys,
@@ -214,6 +214,56 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, async () => {
     expect((await relay.getVotingRoundId(_randomTimestamp)).toNumber()).to.be.equal(toBN(messageData.votingRoundId + 1));
   });
 
+  it("Should relay a message for non random number generating protocol", async () => {
+    messageData.protocolId++;
+    messageData.isSecureRandom = false;
+    const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+    const signatures = await generateSignatures(
+      accountPrivateKeys,
+      messageHash,
+      N / 2 + 1
+    );
+
+    const relayMessage = {
+      signingPolicy: signingPolicyData,
+      signatures,
+      protocolMessageMerkleRoot: messageData,
+    };
+
+    const fullData = RelayMessage.encode(relayMessage);
+    const receipt = await web3.eth.sendTransaction({
+      from: signers[0].address,
+      to: relay.address,
+      data: selector + fullData.slice(2),
+    })
+    await expectEvent.inTransaction(receipt!.transactionHash, relay, "ProtocolMessageRelayed", {
+      protocolId: toBN(messageData.protocolId),
+      votingRoundId: toBN(messageData.votingRoundId),
+      isSecureRandom: messageData.isSecureRandom,
+      merkleRoot: merkleRoot,
+    });
+    console.log("Gas used:", receipt?.gasUsed?.toString());
+    expect(await relay.isFinalized(messageData.protocolId, messageData.votingRoundId)).to.equal(true);
+
+    let stateData = await relay.stateData();
+    expect(stateData.randomNumberProtocolId.toString()).to.be.equal(randomNumberProtocolId.toString());
+    // because of the previous test
+    expect(stateData.randomVotingRoundId.toString()).to.be.equal(messageData.votingRoundId.toString());
+    // expect(stateData.isSecureRandom.toString()).to.be.equal(messageData.isSecureRandom.toString());
+
+    expect(RelayMessage.decode(fullData)).not.to.throw;
+    const decodedRelayMessage = RelayMessage.decode(fullData);
+
+    expect(RelayMessage.equals(relayMessage, decodedRelayMessage)).to.be.true;
+    const { _randomNumber, _isSecureRandom, _randomTimestamp } = await relay.getRandomNumber();
+    // Because of previous test
+    expect(_isSecureRandom).to.be.true;
+    // different randomly generated merkle root
+    expect(_randomNumber.toString()).to.not.equal(BigInt(web3.utils.keccak256(messageData.merkleRoot)).toString());
+    expect(_randomTimestamp.toNumber()).to.equal(firstVotingRoundStartSec + votingRoundDurationSec * (messageData.votingRoundId + 1));
+    expect((await relay.getVotingRoundId(_randomTimestamp)).toNumber()).to.be.equal(toBN(messageData.votingRoundId + 1));
+  });
+ 
   it("Should fail to relay a message due to low weight", async () => {
     const newMessageData = { ...messageData };
     newMessageData.votingRoundId++;
