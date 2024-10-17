@@ -511,6 +511,9 @@ export async function deployContracts(
     await ftsoInflationConfigurations.addFtsoConfiguration(configuration);
   }
 
+  // enable ftso reward manager proxy
+  await ftsoRewardManagerProxy.enable();
+
   // set reward offers manager list
   await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, fdcHub.address]);
 

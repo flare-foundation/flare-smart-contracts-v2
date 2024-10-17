@@ -420,6 +420,7 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
 
     // enable claims
     await rewardManager.enableClaims();
+    await ftsoRewardManagerProxy.enable();
   }
 
   // set fee = 0 for crypto feeds (category 1)
