@@ -4,7 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 /**
  * @custom:name IReferencedPaymentNonexistence
  * @custom:id 0x04
- * @custom:supported BTC, DOGE, XRP, testBTC, testDOGE, testXRP
+ * @custom:supported BTC, DOGE, XRP
  * @author Flare
  * @notice Assertion that an agreed-upon payment has not been made by a certain deadline.
  * A confirmed request shows that a transaction meeting certain criteria (address, amount, reference)
@@ -54,6 +54,7 @@ pragma solidity >=0.7.6 <0.9;
  * Timestamp is `close_time` converted to UNIX time.
  *
  * @custom:lut `minimalBlockTimestamp`
+ * @custom:lutlimit `0x127500`, `0x127500`, `0x127500`
  */
 interface IReferencedPaymentNonexistence {
     /**
@@ -107,6 +108,8 @@ interface IReferencedPaymentNonexistence {
      * @param destinationAddressHash The standard address hash of the address to which the payment had to be done.
      * @param amount The requested amount in minimal units that had to be payed.
      * @param standardPaymentReference The requested standard payment reference.
+     * @param checkSourceAddresses If true, the source address root is checked (only full match).
+     * @param sourceAddressesRoot The root of the Merkle tree of the source addresses.
      * @custom:below The `standardPaymentReference` should not be zero (as a 32-byte sequence).
      */
     struct RequestBody {
@@ -116,6 +119,8 @@ interface IReferencedPaymentNonexistence {
         bytes32 destinationAddressHash;
         uint256 amount;
         bytes32 standardPaymentReference;
+        bool checkSourceAddresses;
+        bytes32 sourceAddressesRoot;
     }
 
     /**

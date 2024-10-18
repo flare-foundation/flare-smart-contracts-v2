@@ -4,7 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 /**
  * @custom:name IAddressValidity
  * @custom:id 0x05
- * @custom:supported BTC, DOGE, XRP, testBTC, testDOGE, testXRP
+ * @custom:supported BTC, DOGE, XRP
  * @author Flare
  * @notice An assertion whether a string represents a valid address on an external chain.
  * @custom:verification The address is checked against all validity criteria of the chain with `sourceId`.
@@ -15,6 +15,7 @@ pragma solidity >=0.7.6 <0.9;
  * - [DOGE](/specs/attestations/external-chains/address-validity/DOGE.md)
  * - [XRPL](/specs/attestations/external-chains/address-validity/XRPL.md)
  * @custom:lut `0xffffffffffffffff` ($2^{64}-1$ in hex)
+ * @custom:lutlimit `0xffffffffffffffff`, `0xffffffffffffffff`, `0xffffffffffffffff`
  */
 interface IAddressValidity {
     /**

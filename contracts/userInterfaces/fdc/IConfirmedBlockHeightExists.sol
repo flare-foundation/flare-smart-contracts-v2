@@ -4,7 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 /**
  * @custom:name IConfirmedBlockHeightExists
  * @custom:id 0x02
- * @custom:supported BTC, DOGE, XRP, testBTC, testDOGE, testXRP
+ * @custom:supported BTC, DOGE, XRP
  * @author Flare
  * @notice An assertion that a block with `blockNumber` is confirmed.
  * It also provides data to compute the block production rate in the given time range.
@@ -24,9 +24,8 @@ pragma solidity >=0.7.6 <0.9;
  * | `XRP`   | 3         | 3                       | close_time   |
  *
  *
- *
- *
  * @custom:lut `lowestQueryWindowBlockTimestamp`
+ * @custom:lutlimit `0x127500`, `0x127500`, `0x127500`
  */
 interface IConfirmedBlockHeightExists {
     /**
