@@ -4,7 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 /**
  * @custom:name IBalanceDecreasingTransaction
  * @custom:id 0x02
- * @custom:supported BTC, DOGE, XRP, testBTC, testDOGE, testXRP
+ * @custom:supported BTC, DOGE, XRP
  * @author Flare
  * @notice A detection of a transaction that either decreases the balance for some address or is
  * signed by the source address.
@@ -46,6 +46,7 @@ pragma solidity >=0.7.6 <0.9;
  * - `blockTimestamp` is the close_time of a ledger converted to unix time.
  *
  * @custom:lut `blockTimestamp`
+ * @custom:lutlimit `0x127500`, `0x127500`, `0x127500`
  */
 interface IBalanceDecreasingTransaction {
     /**

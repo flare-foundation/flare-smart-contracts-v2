@@ -4,7 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 /**
  * @custom:name IPayment
  * @custom:id 0x01
- * @custom:supported BTC, DOGE, XRP, testBTC, testDOGE, testXRP
+ * @custom:supported BTC, DOGE, XRP
  * @author Flare
  * @notice A relay of a transaction on an external chain that is considered a payment in a native currency.
  * Various blockchains support different types of native payments. For each blockchain, it is specified how a payment
@@ -24,6 +24,7 @@ pragma solidity >=0.7.6 <0.9;
  *
  * If the summary is not successfully calculated, the attestation request is rejected.
  * @custom:lut `blockTimestamp`
+ * @custom:lutlimit `0x127500`, `0x127500`, `0x127500`
  */
 interface IPayment {
     /**
@@ -89,6 +90,7 @@ interface IPayment {
      * @param blockNumber Number of the block in which the transaction is included.
      * @param blockTimestamp The timestamp of the block in which the transaction is included.
      * @param sourceAddressHash Standard address hash of the source address.
+     * @param sourceAddressesRoot The root of the Merkle tree of the source addresses.
      * @param receivingAddressHash Standard address hash of the receiving address.
      * The zero 32-byte string if there is no receivingAddress (if `status` is not success).
      * @param intendedReceivingAddressHash Standard address hash of the intended receiving address.
@@ -108,6 +110,7 @@ interface IPayment {
         uint64 blockNumber;
         uint64 blockTimestamp;
         bytes32 sourceAddressHash;
+        bytes32 sourceAddressesRoot;
         bytes32 receivingAddressHash;
         bytes32 intendedReceivingAddressHash;
         int256 spentAmount;

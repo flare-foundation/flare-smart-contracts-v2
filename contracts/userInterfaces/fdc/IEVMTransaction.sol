@@ -4,7 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 /**
  * @custom:name IEVMTransaction
  * @custom:id 0x06
- * @custom:supported ETH, FLR, SGB, testETH, testFLR, testSGB
+ * @custom:supported ETH, FLR, SGB
  * @author Flare
  * @notice A relay of a transaction from an EVM chain.
  * This type is only relevant for EVM-compatible chains.
@@ -12,6 +12,7 @@ pragma solidity >=0.7.6 <0.9;
  * at least `requiredConfirmations`, the specified data is relayed.
  * If an indicated event does not exist, the request is rejected.
  * @custom:lut `timestamp`
+ * @custom:lutlimit `0x41eb00`, `0x41eb00`, `0x41eb00`
  */
 interface IEVMTransaction {
     /**
