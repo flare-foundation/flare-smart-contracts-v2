@@ -2,6 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import "./IFdcInflationConfigurations.sol";
+import "./IFdcRequestFeeConfigurations.sol";
 
 
 /**
@@ -34,4 +35,9 @@ interface IFdcHub  {
      * The offset (in seconds) for the requests to be processed during the current voting round.
      */
     function requestsOffsetSeconds() external view returns (uint8);
+
+    /**
+     * The FDC request fee configurations contract.
+     */
+    function fdcRequestFeeConfigurations() external view returns (IFdcRequestFeeConfigurations);
 }
