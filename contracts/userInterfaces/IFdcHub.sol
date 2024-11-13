@@ -9,6 +9,7 @@ import "./IFdcRequestFeeConfigurations.sol";
  * FdcHub interface.
  */
 interface IFdcHub  {
+
     // Event emitted when an attestation request is made.
     event AttestationRequest(bytes data, uint256 fee);
 
@@ -35,6 +36,11 @@ interface IFdcHub  {
      * The offset (in seconds) for the requests to be processed during the current voting round.
      */
     function requestsOffsetSeconds() external view returns (uint8);
+
+    /**
+     * The FDC inflation configurations contract.
+     */
+    function fdcInflationConfigurations() external view returns(IFdcInflationConfigurations);
 
     /**
      * The FDC request fee configurations contract.
