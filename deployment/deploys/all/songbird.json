@@ -312,5 +312,33 @@
     "addresses": [
       "0xEfF0A449290763a95ee33a6A108F5B0b1Ea06bE9"
     ]
+  },
+  {
+    "name": "FdcHub",
+    "contractName": "FdcHub.sol",
+    "addresses": [
+      "0xCfD4669a505A70c2cE85db8A1c1d14BcDE5a1a06"
+    ]
+  },
+  {
+    "name": "FdcInflationConfigurations",
+    "contractName": "FdcInflationConfigurations.sol",
+    "addresses": [
+      "0x2766f9927748Ef59aeC95B4777CcF29a77d35191"
+    ]
+  },
+  {
+    "name": "FdcRequestFeeConfigurations",
+    "contractName": "FdcRequestFeeConfigurations.sol",
+    "addresses": [
+      "0x8998a3b85350aA4CA5f55cD80ab1f7C9C0ddf02C"
+    ]
+  },
+  {
+    "name": "FdcVerification",
+    "contractName": "FdcVerification.sol",
+    "addresses": [
+      "0xd283afC5A67E2d4Bc700b5B640328Bda22450621"
+    ]
   }
 ]
