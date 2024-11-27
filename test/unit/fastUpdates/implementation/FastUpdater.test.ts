@@ -247,7 +247,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
     }
   });
 
-  describe("Tests with 1000 feeds", async () => {
+  describe(`Tests with ${NUM_FEEDS} feeds`, async () => {
     beforeEach(async () => {
       await fastUpdatesConfiguration.addFeeds(
         FEED_IDS.slice(0, NUM_FEEDS / 2).map(id => {

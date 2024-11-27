@@ -177,8 +177,8 @@ test-unit-forge:
 coverage-hardhat:
   image: node:18
   needs: []
-  timeout: 20 minutes
-  tags: [ flarenetwork-md ]
+  timeout: 30 minutes
+  tags: [ flarenetwork-lg ]
   cache: [ !reference [.partials, cache-nodejs] ]
   before_script:
   - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR 1>/dev/null
