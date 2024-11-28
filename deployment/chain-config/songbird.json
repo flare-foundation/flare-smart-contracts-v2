@@ -133,9 +133,12 @@
             "inflationShare": 10000,
             "minRewardedTurnoutBIPS": 5000,
             "mode": 2,
-            "primaryBandRewardSharePPM": 700000,
-            "secondaryBandWidthPPMs": [400, 500, 100, 150, 200, 200, 200, 200, 200, 150, 200, 100, 100, 100, 100, 100, 100, 100, 400,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            "primaryBandRewardSharePPM": 400000,
+            "secondaryBandWidthPPMs": [
+                1150, 900, 500, 1150, 900, 1150, 1600, 1150, 1150, 500, 900, 900, 900, 500, 900, 900, 100, 100, 900, 500,
+                900, 900, 900, 500, 900, 1150, 100, 900, 1150, 1600, 900, 900, 1600, 1600, 1150, 1150, 1600, 1150, 900, 1150,
+                1600, 900, 900, 1150, 1150, 1150, 1150, 1150, 1150, 1150, 100
+            ]
         }
     ],
 
@@ -143,23 +146,16 @@
         {
             "oldContract": false,
             "contractName": "FtsoRewardOffersManager",
-            "sharingBIPS": 3500,
+            "sharingBIPS": 7000,
             "topUpType": 1,
             "topUpFactorx100": 0
         },
         {
             "oldContract": false,
             "contractName": "FastUpdateIncentiveManager",
-            "sharingBIPS": 1500,
+            "sharingBIPS": 3000,
             "topUpType": 1,
             "topUpFactorx100": 0
-        },
-        {
-            "oldContract": true,
-            "contractName": "FtsoRewardManager",
-            "sharingBIPS": 5000,
-            "topUpType": 0,
-            "topUpFactorx100": 400
         }
     ],
 
@@ -168,11 +164,6 @@
             "oldContract": true,
             "contractName": "Inflation",
             "gasLimit": 3000000
-        },
-        {
-            "oldContract": true,
-            "contractName": "FtsoManager",
-            "gasLimit": 40000000
         },
         {
             "oldContract": false,
