@@ -127,14 +127,15 @@
                 {"category": 1, "name": "FET/USD"},
                 {"category": 1, "name": "RENDER/USD"},
                 {"category": 1, "name": "NOT/USD"},
-                {"category": 1, "name": "RUNE/USD"}
+                {"category": 1, "name": "RUNE/USD"},
+                {"category": 1, "name": "USDX/USD"}
             ],
             "inflationShare": 10000,
             "minRewardedTurnoutBIPS": 5000,
             "mode": 2,
             "primaryBandRewardSharePPM": 700000,
             "secondaryBandWidthPPMs": [400, 500, 100, 150, 200, 200, 200, 200, 200, 150, 200, 100, 100, 100, 100, 100, 100, 100, 400,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         }
     ],
 
@@ -256,7 +257,8 @@
         {"feedId": {"category": 1, "name": "FET/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "RENDER/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "NOT/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
-        {"feedId": {"category": 1, "name": "RUNE/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
+        {"feedId": {"category": 1, "name": "RUNE/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "USDX/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
     ],
     "defaultFeeWei": "1",
     "ftsoProxies": [
@@ -289,6 +291,44 @@
 
     "fdcProtocolId": 200,
     "fdcRequestsOffsetSeconds": 0,
-    "fdcRequestFees": [],
-    "fdcInflationConfigurations": []
+    "fdcRequestFees": [
+        {"attestationType": "AddressValidity", "source": "XRP", "feeWei": "1000000000000000000"},
+        {"attestationType": "AddressValidity", "source": "BTC", "feeWei": "1000000000000000000"},
+        {"attestationType": "AddressValidity", "source": "DOGE", "feeWei": "1000000000000000000"},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "XRP", "feeWei": "1000000000000000000"},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "BTC", "feeWei": "1000000000000000000"},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "DOGE", "feeWei": "1000000000000000000"},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "XRP", "feeWei": "1000000000000000000"},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "BTC", "feeWei": "1000000000000000000"},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "DOGE", "feeWei": "1000000000000000000"},
+        {"attestationType": "Payment", "source": "XRP", "feeWei": "1000000000000000000"},
+        {"attestationType": "Payment", "source": "BTC", "feeWei": "1000000000000000000"},
+        {"attestationType": "Payment", "source": "DOGE", "feeWei": "1000000000000000000"},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "XRP", "feeWei": "1000000000000000000"},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "BTC", "feeWei": "1000000000000000000"},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "DOGE", "feeWei": "1000000000000000000"},
+        {"attestationType": "EVMTransaction", "source": "ETH", "feeWei": "1000000000000000000"},
+        {"attestationType": "EVMTransaction", "source": "FLR", "feeWei": "1000000000000000000"},
+        {"attestationType": "EVMTransaction", "source": "SGB", "feeWei": "1000000000000000000"}
+    ],
+    "fdcInflationConfigurations": [
+        {"attestationType": "AddressValidity", "source": "XRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "AddressValidity", "source": "BTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "AddressValidity", "source": "DOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "XRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "BTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "DOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "XRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "BTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "DOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "Payment", "source": "XRP", "inflationShare": 20000, "minRequestsThreshold": 5, "mode": 0},
+        {"attestationType": "Payment", "source": "BTC", "inflationShare": 20000, "minRequestsThreshold": 5, "mode": 0},
+        {"attestationType": "Payment", "source": "DOGE", "inflationShare": 20000, "minRequestsThreshold": 5, "mode": 0},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "XRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "BTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "DOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "EVMTransaction", "source": "ETH", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "EVMTransaction", "source": "FLR", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "EVMTransaction", "source": "SGB", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0}
+    ]
 }
