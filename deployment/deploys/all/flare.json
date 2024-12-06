@@ -130,7 +130,8 @@
     "name": "PollingFtso",
     "contractName": "PollingFtso.sol",
     "addresses": [
-      "0xbB907038933d0711e9018C9DC31121C146F2A5a0"
+      "0xbB907038933d0711e9018C9DC31121C146F2A5a0",
+      "0x84e6790c97B48195161f899d3C509711e267B391"
     ]
   },
   {
