@@ -334,6 +334,44 @@
 
     "fdcProtocolId": 200,
     "fdcRequestsOffsetSeconds": 0,
-    "fdcRequestFees": [],
-    "fdcInflationConfigurations": []
+    "fdcRequestFees": [
+        {"attestationType": "AddressValidity", "source": "testXRP", "feeWei": "1000"},
+        {"attestationType": "AddressValidity", "source": "testBTC", "feeWei": "1000"},
+        {"attestationType": "AddressValidity", "source": "testDOGE", "feeWei": "1000"},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "testXRP", "feeWei": "1000"},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "testBTC", "feeWei": "1000"},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "testDOGE", "feeWei": "1000"},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "testXRP", "feeWei": "1000"},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "testBTC", "feeWei": "1000"},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "testDOGE", "feeWei": "1000"},
+        {"attestationType": "Payment", "source": "testXRP", "feeWei": "1000"},
+        {"attestationType": "Payment", "source": "testBTC", "feeWei": "1000"},
+        {"attestationType": "Payment", "source": "testDOGE", "feeWei": "1000"},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "testXRP", "feeWei": "1000"},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "testBTC", "feeWei": "1000"},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "testDOGE", "feeWei": "1000"},
+        {"attestationType": "EVMTransaction", "source": "testETH", "feeWei": "1000"},
+        {"attestationType": "EVMTransaction", "source": "testFLR", "feeWei": "1000"},
+        {"attestationType": "EVMTransaction", "source": "testSGB", "feeWei": "1000"}
+    ],
+    "fdcInflationConfigurations": [
+        {"attestationType": "AddressValidity", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "AddressValidity", "source": "testBTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "AddressValidity", "source": "testDOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "testBTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "BalanceDecreasingTransaction", "source": "testDOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "testBTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ConfirmedBlockHeightExists", "source": "testDOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "Payment", "source": "testXRP", "inflationShare": 20000, "minRequestsThreshold": 5, "mode": 0},
+        {"attestationType": "Payment", "source": "testBTC", "inflationShare": 20000, "minRequestsThreshold": 5, "mode": 0},
+        {"attestationType": "Payment", "source": "testDOGE", "inflationShare": 20000, "minRequestsThreshold": 5, "mode": 0},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "testBTC", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "ReferencedPaymentNonexistence", "source": "testDOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "EVMTransaction", "source": "testETH", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "EVMTransaction", "source": "testFLR", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "EVMTransaction", "source": "testSGB", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0}
+    ]
 }
