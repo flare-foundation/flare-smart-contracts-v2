@@ -1226,7 +1226,10 @@ contract Relay is IIRelay {
                                 )
                             )
 
-                            // Here we setup M_5 to be 0/false while on M_6 we have Merkle root
+                            // Here we setup M_5 to value of isSecureRandom from message
+                            // while in M_6 we have Merkle root
+                            // Note that the value of isSecureRandom outside the random
+                            // generating protocol is meaningless.
                             // These two fields are used for the emitted event
                             mstore(add(memPtrFor, M_5_isSecureRandom), 
                                 structValue(
@@ -1326,8 +1329,9 @@ contract Relay is IIRelay {
                             return(0,0)
                         } // if protocolId == stateData.randomNumberProtocolId
                     } // if protocolId > 0
-                    // this return should never happen as particular cases are handled above
-                    return(0,0)
+                    // this should never happen as particular cases are handled above and returns 
+                    // are done from there
+                    revertWithMessage(mload(0x40), "This should never happen", 24)
                 }
             } // for
 
