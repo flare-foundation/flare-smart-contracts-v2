@@ -138,24 +138,34 @@
             "inflationShare": 10000,
             "minRewardedTurnoutBIPS": 5000,
             "mode": 2,
-            "primaryBandRewardSharePPM": 700000,
-            "secondaryBandWidthPPMs": [400, 500, 50, 50, 50, 150, 50, 100, 100, 50, 100, 100, 100, 100, 100, 100, 100, 100, 400,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            "primaryBandRewardSharePPM": 400000,
+            "secondaryBandWidthPPMs": [
+                1150, 900, 500, 1150, 900, 1150, 1600, 1150, 1150, 500, 900, 900, 900, 500, 900, 900, 100, 100, 900, 500,
+                900, 900, 900, 500, 900, 1150, 100, 900, 1150, 1600, 900, 900, 1600, 1600, 1150, 1150, 1600, 1150, 900, 1150,
+                1600, 900, 900, 1150, 1150, 1150, 1150, 1150, 1150, 1150
+            ]
         }
     ],
 
     "inflationReceivers": [
         {
             "oldContract": true,
-            "contractName": "FtsoRewardManager",
-            "sharingBIPS": 7000,
-            "topUpType": 0,
-            "topUpFactorx100": 400
-        },
-        {
-            "oldContract": true,
             "contractName": "ValidatorRewardManager",
             "sharingBIPS": 3000,
+            "topUpType": 1,
+            "topUpFactorx100": 1
+        },
+        {
+            "oldContract": false,
+            "contractName": "FtsoRewardOffersManager",
+            "sharingBIPS": 4900,
+            "topUpType": 1,
+            "topUpFactorx100": 0
+        },
+        {
+            "oldContract": false,
+            "contractName": "FastUpdateIncentiveManager",
+            "sharingBIPS": 2100,
             "topUpType": 1,
             "topUpFactorx100": 0
         }
@@ -202,7 +212,7 @@
         "0xbe653c54df337f13fcb726101388f4a4803049f3",
         "0xb5Dd6cA7b14bd7d2B6E296983D0AA0D373979CFE"
     ],
-    "maintainer": "0xbe653c54df337f13fcb726101388f4a4803049f3",
+    "maintainer": "0xb5Dd6cA7b14bd7d2B6E296983D0AA0D373979CFE",
     "votingDelaySeconds": 0,
     "votingPeriodSeconds": 172800,
     "thresholdConditionBIPS": 6600,
@@ -212,13 +222,13 @@
     "pChainStakeMirrorMaxDurationDays": 365,
     "pChainStakeMirrorMinAmountNAT": 50000,
     "pChainStakeMirrorMaxAmountNAT": 200000000,
-    "baseSampleSize": "0x01000000000000000000000000000000",
-    "baseRange": "0x00000800000000000000000000000000",
+    "baseSampleSize": "0x01800000000000000000000000000000",
+    "baseRange": "0x00000C00000000000000000000000000",
     "sampleIncreaseLimit": "0x00100000000000000000000000000000",
-    "rangeIncreaseLimit": "0x00008000000000000000000000000000",
+    "rangeIncreaseLimit": "0x00003C00000000000000000000000000",
     "sampleSizeIncreasePriceWei": 1425,
-    "rangeIncreasePriceNAT": 1000000,
-    "incentiveOfferDurationBlocks": 8,
+    "rangeIncreasePriceNAT": 200000,
+    "incentiveOfferDurationBlocks": 17,
     "submissionWindowBlocks": 10,
     "feedConfigurations": [
         {"feedId": {"category": 1, "name": "FLR/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
