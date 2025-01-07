@@ -257,10 +257,10 @@
     "baseSampleSize": "0x01000000000000000000000000000000",
     "baseRange": "0x00000800000000000000000000000000",
     "sampleIncreaseLimit": "0x00100000000000000000000000000000",
-    "rangeIncreaseLimit": "0x00008000000000000000000000000000",
+    "rangeIncreaseLimit": "0x00005000000000000000000000000000",
     "sampleSizeIncreasePriceWei": 4275,
-    "rangeIncreasePriceNAT": 3000000,
-    "incentiveOfferDurationBlocks": 8,
+    "rangeIncreasePriceNAT": 200000,
+    "incentiveOfferDurationBlocks": 30,
     "submissionWindowBlocks": 10,
     "feedConfigurations": [
         {"feedId": {"category": 1, "name": "FLR/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
