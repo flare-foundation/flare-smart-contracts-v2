@@ -233,5 +233,15 @@
     "name": "VoterWhitelister",
     "contractName": "VoterWhitelisterProxy.sol",
     "address": "0x6b9d022224c11446Ad7D373F5BaF6271200FdA1f"
+  },
+  {
+    "name": "VoterPreRegistry",
+    "contractName": "VoterPreRegistry.sol",
+    "address": "0xD9e8Ee56CB5A06f2070A2793bf76C5dFb3fc3D52"
+  },
+  {
+    "name": "PollingManagementGroup",
+    "contractName": "PollingManagementGroup.sol",
+    "address": "0x4CBEE91ed327e41d1AfcDF7AA99d2696c8D56849"
   }
 ]

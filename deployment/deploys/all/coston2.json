@@ -382,5 +382,19 @@
     "addresses": [
       "0x075bf301fF07C4920e5261f93a0609640F53487D"
     ]
+  },
+  {
+    "name": "VoterPreRegistry",
+    "contractName": "VoterPreRegistry.sol",
+    "addresses": [
+      "0x47469Af25c253B4fb9b2a207BF4069574C6CcBd7"
+    ]
+  },
+  {
+    "name": "PollingManagementGroup",
+    "contractName": "PollingManagementGroup.sol",
+    "addresses": [
+      "0x142a8DbC8410deFd989dA27177986ac66aE9fCA8"
+    ]
   }
 ]

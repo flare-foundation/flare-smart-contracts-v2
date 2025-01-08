@@ -218,6 +218,13 @@
     "thresholdConditionBIPS": 6600,
     "majorityConditionBIPS": 5000,
     "proposalFeeValueNAT": 100,
+    "addAfterRewardedEpochs": 20,
+    "addAfterNotChilledEpochs": 20,
+    "removeAfterNotRewardedEpochs": 2,
+    "removeAfterEligibleProposals": 4,
+    "removeAfterNonParticipatingProposals": 2,
+    "removeForDays": 7,
+
     "pChainStakeMirrorMinDurationDays": 14,
     "pChainStakeMirrorMaxDurationDays": 365,
     "pChainStakeMirrorMinAmountNAT": 50000,
@@ -311,7 +318,7 @@
     "rNatFundingAddress": "0x0000000000000000000000000000000000000000",
     "rNatFundedByIncentivePool": true,
 
-"fdcProtocolId": 200,
+    "fdcProtocolId": 200,
     "fdcRequestsOffsetSeconds": 0,
     "fdcRequestFees": [
         {"attestationType": "AddressValidity", "source": "XRP", "feeWei": "1000000000000000000"},

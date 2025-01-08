@@ -7,7 +7,7 @@ import "../interface/IIFlareSystemsManager.sol";
 import "../interface/IIRewardEpochSwitchoverTrigger.sol";
 
 /**
- * RewardOffersManagerBase contrat.
+ * RewardOffersManagerBase contract.
  *
  * This contract is used to manage the reward offers and receive the inflation.
  * It is used by the Flare system to trigger the reward offers.

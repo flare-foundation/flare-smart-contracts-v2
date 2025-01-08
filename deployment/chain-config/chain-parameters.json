@@ -266,6 +266,14 @@
         "$schema": {
             "type": "string"
         },
+        "addAfterNotChilledEpochs": {
+            "description": "Number of last consecutive epochs in which data provider should not be chilled in order to be accepted to the management group.",
+            "type": "integer"
+        },
+        "addAfterRewardedEpochs": {
+            "description": "Number of last epochs with initialised rewards in which data provider needs to earn rewards in order to be accepted to the management group.",
+            "type": "integer"
+        },
         "baseRange": {
             "description": "The base range.",
             "type": "string"
@@ -436,7 +444,7 @@
             "type": "array"
         },
         "maintainer": {
-            "description": "Address of maintainer of PollingFtso contract.",
+            "description": "Address of maintainer of PollingManagementGroup contract.",
             "type": "string"
         },
         "majorityConditionBIPS": {
@@ -542,6 +550,22 @@
             "description": "The increase of the threshold in BIPS for relaying the merkle root with the old signing policy (must be more than 100%).",
             "type": "integer"
         },
+        "removeAfterEligibleProposals": {
+            "description": "Number of last relevant proposals to check for not voting. Proposal is relevant if quorum was achieved and voting has ended.",
+            "type": "integer"
+        },
+        "removeAfterNonParticipatingProposals": {
+            "description": "In how many of removeAfterEligibleProposals proposals should data provider not participate (vote) in order to be eligible for removal from the management group.",
+            "type": "integer"
+        },
+        "removeAfterNotRewardedEpochs": {
+            "description": "Number of last epochs with initialised rewards in which data provider should not earn rewards in order to be eligible for removal from the management group.",
+            "type": "integer"
+        },
+        "removeForDays": {
+            "description": "Number of days for which member is removed from the management group.",
+            "type": "integer"
+        },
         "rewardEpochDurationInVotingEpochs": {
             "description": "The duration of a reward epoch in voting epochs.",
             "type": "integer"
@@ -632,6 +656,8 @@
         }
     },
     "required": [
+        "addAfterNotChilledEpochs",
+        "addAfterRewardedEpochs",
         "baseRange",
         "baseSampleSize",
         "decimalsUpdateOffset",
@@ -692,6 +718,10 @@
         "rangeIncreaseLimit",
         "rangeIncreasePriceNAT",
         "relayThresholdIncreaseBIPS",
+        "removeAfterEligibleProposals",
+        "removeAfterNonParticipatingProposals",
+        "removeAfterNotRewardedEpochs",
+        "removeForDays",
         "rewardEpochDurationInVotingEpochs",
         "rewardExpiryOffsetSeconds",
         "rewardManagerId",

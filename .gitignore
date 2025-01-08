@@ -5,6 +5,7 @@ db
 
 ## Test deploys info
 deployment/deploys/scdev.json
+deployment/deploys/all/scdev.json
 deployment/deploys/initialRewardEpochId.txt
 
 # Foundry files

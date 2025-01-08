@@ -21,7 +21,7 @@ import { RelayContract, RelayInstance } from '../../typechain-truffle/contracts/
 import { RewardManagerContract, RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
 import { FlareSystemsManagerContract, FlareSystemsManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager';
 import { PollingFoundationContract } from '../../typechain-truffle/contracts/governance/implementation/PollingFoundation';
-import { PollingFtsoContract } from '../../typechain-truffle/contracts/governance/implementation/PollingFtso';
+import { PollingManagementGroupContract } from '../../typechain-truffle/contracts/governance/implementation/PollingManagementGroup';
 import { ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance } from '../../typechain-truffle/contracts/staking/implementation/ValidatorRewardOffersManager';
 import { FastUpdateIncentiveManagerContract, FastUpdateIncentiveManagerInstance } from '../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdateIncentiveManager';
 import { FastUpdaterContract } from '../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdater';
@@ -34,10 +34,16 @@ import { PriceSubmitterProxyContract } from '../../typechain-truffle/contracts/f
 import { VoterWhitelisterProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/VoterWhitelisterProxy';
 import { FtsoRewardManagerProxyContract, FtsoRewardManagerProxyInstance } from '../../typechain-truffle/contracts/fscV1/implementation/FtsoRewardManagerProxy';
 import { EntityManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/EntityManager';
+import { VoterRegistryContract } from '../../typechain-truffle/contracts/protocol/implementation/VoterRegistry';
+import { VoterPreRegistryContract } from '../../typechain-truffle/contracts/protocol/implementation/VoterPreRegistry';
 
-let fs = require('fs');
-
-export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContracts: Contracts, contracts: Contracts, parameters: ChainParameters, quiet: boolean = false) {
+export async function redeployContracts(
+  hre: HardhatRuntimeEnvironment,
+  oldContracts: Contracts,
+  contracts: Contracts,
+  parameters: ChainParameters,
+  quiet: boolean = false
+) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
   const BN = web3.utils.toBN;
@@ -51,7 +57,7 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   const Relay: RelayContract = artifacts.require("Relay");
   const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
   const PollingFoundation: PollingFoundationContract = artifacts.require("PollingFoundation");
-  const PollingFtso: PollingFtsoContract = artifacts.require("PollingFtso");
+  const PollingManagementGroup: PollingManagementGroupContract = artifacts.require("PollingManagementGroup");
   const ValidatorRewardOffersManager: ValidatorRewardOffersManagerContract = artifacts.require("ValidatorRewardOffersManager");
   const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = artifacts.require("PChainStakeMirrorVerifier");
   const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract = artifacts.require("FastUpdateIncentiveManager");
@@ -69,6 +75,8 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
   const FtsoRewardManagerProxy: FtsoRewardManagerProxyContract = artifacts.require("FtsoRewardManagerProxy");
   const EntityManager: EntityManagerContract = artifacts.require("EntityManager");
+  const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
+  const VoterPreRegistry: VoterPreRegistryContract = artifacts.require("VoterPreRegistry");
 
   let validatorRewardOffersManager: ValidatorRewardOffersManagerInstance;
   let pChainStakeMirrorVerifier: PChainStakeMirrorVerifierInstance;
@@ -100,6 +108,7 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
 
   const flareSystemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER));
   const submission = contracts.getContractAddress(Contracts.SUBMISSION);
+  const entityManager = contracts.getContractAddress(Contracts.ENTITY_MANAGER);
   const voterRegistry = contracts.getContractAddress(Contracts.VOTER_REGISTRY);
   const ftsoFeedPublisher = contracts.getContractAddress(Contracts.FTSO_FEED_PUBLISHER);
   const flareSystemsCalculator = contracts.getContractAddress(Contracts.FLARE_SYSTEMS_CALCULATOR);
@@ -168,21 +177,30 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   );
   spewNewContractInfo(contracts, null, PollingFoundation.contractName, `PollingFoundation.sol`, pollingFoundation.address, quiet);
 
-  const pollingFtso = await PollingFtso.new(
+  const pollingManagementGroup = await PollingManagementGroup.new(
     governanceSettings,
     deployerAccount.address,
     deployerAccount.address // tmp address updater
   );
-  await pollingFtso.setMaintainer(deployerAccount.address);
-  await pollingFtso.setParameters( // can be called only from maintainer address
+  await pollingManagementGroup.setMaintainer(deployerAccount.address); // tmp maintainer
+  await pollingManagementGroup.setParameters( // can be called only from maintainer address
     parameters.votingDelaySeconds,
     parameters.votingPeriodSeconds,
     parameters.thresholdConditionBIPS,
     parameters.majorityConditionBIPS,
-    BN(parameters.proposalFeeValueNAT).mul(BN(10).pow(BN(18)))
+    BN(parameters.proposalFeeValueNAT).mul(BN(10).pow(BN(18))),
+    parameters.addAfterRewardedEpochs,
+    parameters.addAfterNotChilledEpochs,
+    parameters.removeAfterNotRewardedEpochs,
+    parameters.removeAfterEligibleProposals,
+    parameters.removeAfterNonParticipatingProposals,
+    parameters.removeForDays
   );
-  await pollingFtso.setMaintainer(parameters.maintainer);
-  spewNewContractInfo(contracts, null, PollingFtso.contractName, `PollingFtso.sol`, pollingFtso.address, quiet);
+  await pollingManagementGroup.setMaintainer(parameters.maintainer);
+  spewNewContractInfo(contracts, null, PollingManagementGroup.contractName, `PollingManagementGroup.sol`, pollingManagementGroup.address, quiet);
+
+  const voterPreRegistry = await VoterPreRegistry.new(deployerAccount.address); // tmp address updater
+  spewNewContractInfo(contracts, null, VoterPreRegistry.contractName, `VoterPreRegistry.sol`, voterPreRegistry.address, quiet);
 
   if (parameters.pChainStakeEnabled) {
     validatorRewardOffersManager = await ValidatorRewardOffersManager.new(
@@ -327,9 +345,14 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
     [addressUpdater, flareSystemsManager.address, supply, submission, governanceVotePower]
   );
 
-  await pollingFtso.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.VOTER_REGISTRY]),
-    [addressUpdater, flareSystemsManager.address, voterRegistry]
+  await pollingManagementGroup.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.VOTER_REGISTRY, Contracts.REWARD_MANAGER, Contracts.ENTITY_MANAGER]),
+    [addressUpdater, flareSystemsManager.address, voterRegistry, rewardManager.address, entityManager]
+  );
+
+  await voterPreRegistry.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.VOTER_REGISTRY, Contracts.ENTITY_MANAGER]),
+    [addressUpdater, flareSystemsManager.address, voterRegistry, entityManager]
   );
 
   if (parameters.pChainStakeEnabled) {
@@ -388,8 +411,11 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   );
 
   if (initialDeploy) {
-    const entityManager = await EntityManager.at(contracts.getContractAddress(Contracts.ENTITY_MANAGER));
-    await entityManager.setPublicKeyVerifier(fastUpdater.address);
+    const entityManagerContract = await EntityManager.at(entityManager);
+    await entityManagerContract.setPublicKeyVerifier(fastUpdater.address);
+    await flareSystemsManager.setVoterRegistrationTriggerContract(voterPreRegistry.address);
+    const voterRegistryContract = await VoterRegistry.at(voterRegistry);
+    await voterRegistryContract.setSystemRegistrationContractAddress(voterPreRegistry.address);
     // cannot add feeds to fast updater, we need first finalizations
   } else {
     // reset feeds
@@ -434,7 +460,7 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
 
   // Switch to production mode
   await pollingFoundation.switchToProductionMode();
-  await pollingFtso.switchToProductionMode();
+  await pollingManagementGroup.switchToProductionMode();
   if (parameters.pChainStakeEnabled) {
     await validatorRewardOffersManager!.switchToProductionMode();
   }
@@ -449,9 +475,8 @@ export async function redeployContracts(hre: HardhatRuntimeEnvironment, oldContr
   await feeCalculator.switchToProductionMode();
   await ftsoManagerProxy.switchToProductionMode();
 
+  contracts.serialize();
   if (!quiet) {
-    console.error("Contracts in JSON:");
-    console.log(contracts.serialize());
     console.error("Deploy complete.");
   }
 
