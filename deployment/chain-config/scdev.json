@@ -176,6 +176,13 @@
     "thresholdConditionBIPS": 6600,
     "majorityConditionBIPS": 5000,
     "proposalFeeValueNAT": 100,
+    "addAfterRewardedEpochs": 20,
+    "addAfterNotChilledEpochs": 20,
+    "removeAfterNotRewardedEpochs": 2,
+    "removeAfterEligibleProposals": 4,
+    "removeAfterNonParticipatingProposals": 2,
+    "removeForDays": 7,
+
     "pChainStakeMirrorMinDurationDays": 14,
     "pChainStakeMirrorMaxDurationDays": 365,
     "pChainStakeMirrorMinAmountNAT": 50000,

@@ -107,11 +107,8 @@ export async function deployFdcContracts(
   await fdcInflationConfigurations.switchToProductionMode();
   await fdcRequestFeeConfigurations.switchToProductionMode();
 
+  contracts.serialize();
   if (!quiet) {
-    console.error("FdcHub contract address: ", fdcHub.address);
-    console.error("FdcInflationConfigurations contract address: ", fdcInflationConfigurations.address);
-    console.error("FdcRequestFeeConfigurations contract address: ", fdcRequestFeeConfigurations.address);
-    console.log(contracts.serialize());
     console.error("Deploy complete.");
   }
 

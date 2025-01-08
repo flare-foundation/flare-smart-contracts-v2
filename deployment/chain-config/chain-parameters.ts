@@ -285,10 +285,10 @@ export interface ChainParameters {
     proposers: string[];
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Polling Ftso
+    // Polling Management Group
 
     /**
-     * Address of maintainer of PollingFtso contract.
+     * Address of maintainer of PollingManagementGroup contract.
      */
     maintainer: string;
 
@@ -316,6 +316,35 @@ export interface ChainParameters {
      * Cost of creating proposal (in NAT). It is paid by the proposer.
      */
     proposalFeeValueNAT: integer;
+
+    /**
+     * Number of last epochs with initialised rewards in which data provider needs to earn rewards in order to be accepted to the management group.
+     */
+    addAfterRewardedEpochs: integer;
+
+    /**
+     * Number of last consecutive epochs in which data provider should not be chilled in order to be accepted to the management group.
+     */
+    addAfterNotChilledEpochs: integer;
+
+    /**
+     * Number of last epochs with initialised rewards in which data provider should not earn rewards in order to be eligible for removal from the management group.
+     */
+    removeAfterNotRewardedEpochs: integer;
+
+    /**
+     * Number of last relevant proposals to check for not voting. Proposal is relevant if quorum was achieved and voting has ended.
+     */
+    removeAfterEligibleProposals: integer;
+    /**
+     * In how many of removeAfterEligibleProposals proposals should data provider not participate (vote) in order to be eligible for removal from the management group.
+     */
+    removeAfterNonParticipatingProposals: integer;
+
+    /**
+     * Number of days for which member is removed from the management group.
+     */
+    removeForDays: integer;
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // P-chain stake mirror verifier

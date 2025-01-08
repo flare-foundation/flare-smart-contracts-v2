@@ -71,6 +71,11 @@ interface IRewardManager is RewardsV2Interface {
     function initialiseWeightBasedClaims(RewardClaimWithProof[] calldata _proofs) external;
 
     /**
+     * Returns the reward manager id.
+     */
+    function rewardManagerId() external view returns (uint256);
+
+    /**
      * Returns the number of weight based claims that have been initialised.
      * @param _rewardEpochId Reward epoch id.
      */

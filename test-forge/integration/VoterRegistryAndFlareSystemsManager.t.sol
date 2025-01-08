@@ -8,6 +8,7 @@ import "../../contracts/protocol/implementation/FlareSystemsCalculator.sol";
 import "../../contracts/protocol/implementation/FlareSystemsManager.sol";
 import "../mock/MockNodePossessionVerification.sol";
 import "../mock/MockPublicKeyVerification.sol";
+import "../../../../contracts/protocol/implementation/VoterPreRegistry.sol";
 
 // solhint-disable-next-line max-states-count
 contract VoterRegistryAndFlareSystemsManagerTest is Test {
@@ -28,6 +29,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     MockPublicKeyVerification private mockPublicKeyVerification;
     MockNodePossessionVerification private mockNodePossessionVerification;
     FlareSystemsManager private flareSystemsManager;
+    VoterPreRegistry private voterPreRegistry;
 
     // for flare systems manager
     address private mockRelay;
@@ -89,13 +91,11 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         bytes32 publicKeyPart2,
         uint256 registrationWeight
     );
-
     event VotePowerBlockSelected(
         uint24 indexed rewardEpochId,   // Reward epoch id
         uint64 votePowerBlock,          // Vote power block for given reward epoch
         uint64 timestamp                // Timestamp when this happened
     );
-
     event SigningPolicySigned(
         uint24 indexed rewardEpochId,           // Reward epoch id
         address indexed signingPolicyAddress,   // Address which signed this
@@ -103,7 +103,6 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         uint64 timestamp,                       // Timestamp when this happened
         bool thresholdReached                   // Indicates if signing threshold was reached
     );
-
     event UptimeVoteSigned(
         uint24 indexed rewardEpochId,           // Reward epoch id
         address indexed signingPolicyAddress,   // Address which signed this
@@ -112,6 +111,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         uint64 timestamp,                       // Timestamp when this happened
         bool thresholdReached                   // Indicates if signing threshold was reached
     );
+    event VoterPreRegistered(address indexed voter, uint256 indexed rewardEpochId);
 
     function setUp() public {
         vm.warp(1000);
@@ -182,6 +182,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             initialSettings
         );
 
+        voterPreRegistry = new VoterPreRegistry(addressUpdater);
+
         //// update contract addresses
         mockFlareSystemsManager = makeAddr("flareSystemsManager");
         mockWNatDelegationFee = makeAddr("wNatDelegationFee");
@@ -220,6 +222,18 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         contractAddresses[4] = mockRewardManager;
         contractAddresses[5] = mockCleanupBlockNumberManager;
         flareSystemsManager.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        contractNameHashes = new bytes32[](4);
+        contractAddresses = new address[](4);
+        contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
+        contractNameHashes[1] = keccak256(abi.encode("FlareSystemsManager"));
+        contractNameHashes[2] = keccak256(abi.encode("EntityManager"));
+        contractNameHashes[3] = keccak256(abi.encode("VoterRegistry"));
+        contractAddresses[0] = addressUpdater;
+        contractAddresses[1] = address(flareSystemsManager);
+        contractAddresses[2] = address(entityManager);
+        contractAddresses[3] = address(voterRegistry);
+        voterPreRegistry.updateContractAddresses(contractNameHashes, contractAddresses);
 
         contractNameHashes = new bytes32[](7);
         contractAddresses = new address[](7);
@@ -1308,6 +1322,132 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         flareSystemsManager.signNewSigningPolicy(5, newSigningPolicyHash, signatureFSM);
     }
 
+    function testX() public {
+        _registerAddressesAndNodes();
+        // set voter registration trigger contract on FSM
+        vm.prank(governance);
+        flareSystemsManager.setVoterRegistrationTriggerContract(voterPreRegistry);
+        // set system registration contract on voter registry
+        vm.prank(governance);
+        voterRegistry.setSystemRegistrationContractAddress(address(voterPreRegistry));
+
+        uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        vm.warp(currentTime);
+        _mockToSigningPolicyHash(1, bytes32(0));
+        vm.roll(128);
+        vm.startPrank(flareDaemon);
+        flareSystemsManager.daemonize();
+        vm.warp(currentTime + uint64(11));
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
+            abi.encode(103, true, currentTime + 1)
+        );
+        flareSystemsManager.daemonize();
+        uint256 epoch1VpBlock = flareSystemsManager.getVotePowerBlock(1);
+        assertEq(epoch1VpBlock, 125);
+        vm.stopPrank();
+
+        _setVotePowers(epoch1VpBlock);
+
+        initialVotersRegistrationWeight = new uint256[](4);
+        initialVotersRegistrationWeight[0] = _calculateWeight(100);
+        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 20);
+        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 30 + 40);
+        initialVotersRegistrationWeight[3] = _calculateWeight(200 + 40 + 50 + 60);
+
+        vm.prank(governance);
+        calculator.enablePChainStakeMirror();
+        assertEq(calculator.pChainStakeMirrorEnabled(), true);
+        vm.prank(addressUpdater);
+        calculator.updateContractAddresses(contractNameHashes, contractAddresses);
+        assertEq(address(calculator.pChainStakeMirror()), mockPChainStakeMirror);
+
+        vm.prank(governance);
+        voterRegistry.setMaxVoters(4);
+        for (uint256 i = 0; i < initialVoters.length; i++) {
+            signature = _createSigningPolicyAddressSignature(i, 1);
+            vm.expectEmit();
+            emit VoterRegistered(
+                initialVoters[i],
+                uint24(1),
+                initialSigningPolicyAddresses[i],
+                initialSubmitAddresses[i],
+                initialSubmitSignaturesAddresses[i],
+                initialPublicKeyParts1[i],
+                initialPublicKeyParts2[i],
+                initialVotersRegistrationWeight[i]
+            );
+            voterRegistry.registerVoter(initialVoters[i], signature);
+        }
+
+        address[] memory registeredAddresses = voterRegistry.getRegisteredVoters(1);
+        assertEq(registeredAddresses.length, 4);
+
+        // create signing policy snapshot
+        _createSigningPolicySnapshot();
+
+        // move to the reward epoch 1
+        newSigningPolicyHash = keccak256("signingPolicyHash1");
+        _mockToSigningPolicyHash(1, newSigningPolicyHash);
+        vm.warp(block.timestamp + 5400);
+        vm.roll(block.number + 100);
+        vm.prank(flareDaemon);
+        flareSystemsManager.daemonize();
+        assertEq(flareSystemsManager.getCurrentRewardEpochId(), 1);
+
+        uint256 currentEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        // pre-register voters
+        for (uint256 i = 0; i < initialVoters.length; i++) {
+            signature = _createSigningPolicyAddressSignature(i, currentEpochId + 1);
+            emit VoterPreRegistered(initialVoters[i], 11 + 1);
+            voterPreRegistry.preRegisterVoter(initialVoters[i], signature);
+        }
+        registeredAddresses = voterRegistry.getRegisteredVoters(2);
+        assertEq(registeredAddresses.length, 0);
+
+        // move to registration period
+        currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
+        vm.warp(currentTime);
+        _mockToSigningPolicyHash(2, bytes32(0));
+        vm.startPrank(flareDaemon);
+        flareSystemsManager.daemonize();
+        assertEq(voterRegistry.newSigningPolicyInitializationStartBlockNumber(1), 128);
+        vm.warp(currentTime + uint64(11));
+        vm.mockCall(
+            mockRelay,
+            abi.encodeWithSelector(RandomNumberV2Interface.getRandomNumber.selector),
+            abi.encode(55, true, currentTime + 1)
+        );
+        _setVotePowers(block.number - 55);
+        initialVotersRegistrationWeight = new uint256[](4);
+        initialVotersRegistrationWeight[0] = _calculateWeight(100);
+        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 20);
+        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 30 + 40);
+        initialVotersRegistrationWeight[3] = _calculateWeight(200 + 40 + 50 + 60);
+        for (uint256 i = 0; i < initialVoters.length; i++) {
+        vm.expectEmit();
+        emit VoterRegistered(
+                initialVoters[i],
+                uint24(2),
+                initialSigningPolicyAddresses[i],
+                initialSubmitAddresses[i],
+                initialSubmitSignaturesAddresses[i],
+                initialPublicKeyParts1[i],
+                initialPublicKeyParts2[i],
+                initialVotersRegistrationWeight[i]
+            );
+        }
+        // trigger voter registration
+        flareSystemsManager.daemonize();
+        // all four voters should be registered
+        registeredAddresses = voterRegistry.getRegisteredVoters(2);
+        assertEq(registeredAddresses.length, 4);
+    }
+
+
+    ////////
+
     function _registerAddressesAndNodes() private {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             // register voters' addresses, public keys and node IDs
@@ -1389,7 +1529,6 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             );
         }
     }
-
 
     ///// helper functions
     function _createInitialVoters(uint256 _num) internal {

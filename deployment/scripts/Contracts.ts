@@ -12,8 +12,23 @@ export class Contract {
   }
 }
 
+export class ContractList {
+  name: string;
+  contractName: string;
+  addresses: string[];
+
+  constructor(name: string, contractName: string, addresses: string[]) {
+    this.name = name;
+    this.contractName = contractName;
+    this.addresses = addresses;
+  }
+}
+
 export class Contracts {
   private contracts: Map<string, Contract>;
+  private contractsAll: Map<string, ContractList>;
+  private filePath?: string;
+  private allFilePath?: string;
 
   public static readonly GOVERNANCE_SETTINGS = "GovernanceSettings";
   public static readonly ADDRESS_UPDATER = "AddressUpdater";
@@ -46,7 +61,7 @@ export class Contracts {
   public static readonly FLARE_ASSET_REGISTRY = "FlareAssetRegistry";
   public static readonly WNAT_REGISTRY_PROVIDER = "WNatRegistryProvider";
   public static readonly FLARE_CONTRACT_REGISTRY = "FlareContractRegistry";
-  public static readonly POLLING_FTSO = "PollingFtso";
+  public static readonly POLLING_MANAGEMENT_GROUP = "PollingManagementGroup";
   public static readonly ADDRESS_BINDER = "AddressBinder";
   public static readonly P_CHAIN_STAKE_MIRROR_MULTI_SIG_VOTING = "PChainStakeMirrorMultiSigVoting";
   public static readonly P_CHAIN_STAKE_MIRROR_VERIFIER = "PChainStakeMirrorVerifier";
@@ -76,26 +91,33 @@ export class Contracts {
   constructor() {
     // Maps a contract name to a Contract object
     this.contracts = new Map<string, Contract>();
+    this.contractsAll = new Map<string, ContractList>();
   }
 
-  deserializeFile(filePath: string) {
+  deserializeFile(filePath: string, all: boolean = false) {
+    if (all) {
+      this.allFilePath = filePath;
+    } else {
+      this.filePath = filePath;
+    }
     const fs = require("fs");
     if (!fs.existsSync(filePath)) return;
     const contractsJson = fs.readFileSync(filePath);
     if (contractsJson.length == 0) return;
-    this.deserializeJson(contractsJson);
+    this.deserializeJson(contractsJson, all);
   }
 
-  async deserialize(stream: Readable) {
-    const contractsJson = await this.readStream(stream);
-    this.deserializeJson(contractsJson);
-  }
-
-  deserializeJson(contractsJson: string) {
+  deserializeJson(contractsJson: string, all: boolean = false) {
     const parsedContracts = JSON.parse(contractsJson);
-    parsedContracts.forEach((contract: { name: string; contractName: string, address: string; }) => {
-      this.contracts.set(contract.name, contract);
-    })
+    if (all) {
+      parsedContracts.forEach((contract: { name: string; contractName: string, addresses: string[]; }) => {
+        this.contractsAll.set(contract.name, new ContractList(contract.name, contract.contractName, contract.addresses));
+      })
+    } else {
+      parsedContracts.forEach((contract: { name: string; contractName: string, address: string; }) => {
+        this.contracts.set(contract.name, contract);
+      })
+    }
   }
 
   allContracts(): Contract[] {
@@ -121,17 +143,29 @@ export class Contracts {
     return contractsMap;
   }
 
-  async readStream(stream: Readable) {
-    const chunks = [];
-    for await (const chunk of stream) chunks.push(chunk);
-    return Buffer.concat(chunks).toString('utf-8');
-  }
-
   add(contract: Contract) {
-    this.contracts.set(contract.name, contract);
+    if (this.filePath) {
+      this.contracts.set(contract.name, contract);
+    }
+    if (this.allFilePath) {
+      let contractList = this.contractsAll.get(contract.name);
+      if (contractList == null) {
+        contractList = { name: contract.name, contractName: contract.contractName, addresses: [] };
+        this.contractsAll.set(contract.name, contractList);
+      }
+      if (!contractList.addresses.includes(contract.address)) {
+        contractList.addresses.push(contract.address);
+      }
+    }
   }
 
-  serialize(): string {
-    return JSON.stringify(this.allContracts(), null, 2);
+  serialize() {
+    const fs = require("fs");
+    if (this.filePath) {
+      fs.writeFileSync(this.filePath, JSON.stringify(Array.from(this.contracts.values()), null, 2));
+    }
+    if (this.allFilePath) {
+      fs.writeFileSync(this.allFilePath, JSON.stringify(Array.from(this.contractsAll.values()), null, 2));
+    }
   }
 }

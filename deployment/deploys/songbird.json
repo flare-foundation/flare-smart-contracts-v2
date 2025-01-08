@@ -233,5 +233,10 @@
     "name": "FdcVerification",
     "contractName": "FdcVerification.sol",
     "address": "0xd283afC5A67E2d4Bc700b5B640328Bda22450621"
+  },
+  {
+    "name": "VoterPreRegistry",
+    "contractName": "VoterPreRegistry.sol",
+    "address": "0x9Ba9A142FD5B2953667B03dB40D1d77c83F225a2"
   }
 ]

@@ -13,7 +13,13 @@ import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
 
-export async function deploySubmissionContract(hre: HardhatRuntimeEnvironment, oldContracts: Contracts, parameters: ChainParameters, quiet: boolean = false) {
+export async function deploySubmissionContract(
+  hre: HardhatRuntimeEnvironment,
+  oldContracts: Contracts,
+  contracts: Contracts,
+  parameters: ChainParameters,
+  quiet: boolean = false
+) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
   const BN = web3.utils.toBN;
@@ -22,8 +28,6 @@ export async function deploySubmissionContract(hre: HardhatRuntimeEnvironment, o
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
-  // Define repository for created contracts
-  const contracts = new Contracts();
 
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.submissionDeployerPrivateKey);
@@ -46,9 +50,8 @@ export async function deploySubmissionContract(hre: HardhatRuntimeEnvironment, o
   spewNewContractInfo(contracts, null, Submission.contractName, `Submission.sol`, submission.address, quiet);
 
 
+  contracts.serialize();
   if (!quiet) {
-    console.error("Contracts in JSON:");
-    console.log(contracts.serialize());
     console.error("Deploy complete.");
   }
 

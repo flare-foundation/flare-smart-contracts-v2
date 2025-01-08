@@ -15,7 +15,7 @@ import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typech
 import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
 import { FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
 import { PollingFoundationContract, PollingFoundationInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingFoundation';
-import { PollingFtsoContract, PollingFtsoInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingFtso';
+import { PollingManagementGroupContract, PollingManagementGroupInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingManagementGroup';
 import { CChainStakeContract, CChainStakeInstance } from '../../typechain-truffle/contracts/mock/CChainStake';
 import { GovernanceVotePowerContract } from '../../typechain-truffle/contracts/mock/GovernanceVotePower';
 import { PChainStakeMirrorContract } from '../../typechain-truffle/contracts/mock/PChainStakeMirror';
@@ -63,7 +63,7 @@ const FtsoFeedIdConverter: FtsoFeedIdConverterContract = artifacts.require("Ftso
 const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.require("CleanupBlockNumberManager");
 const ValidatorRewardOffersManager: ValidatorRewardOffersManagerContract = artifacts.require("ValidatorRewardOffersManager");
 const PollingFoundation: PollingFoundationContract = artifacts.require("PollingFoundation");
-const PollingFtso: PollingFtsoContract = artifacts.require("PollingFtso");
+const PollingManagementGroup: PollingManagementGroupContract = artifacts.require("PollingManagementGroup");
 
 type PChainStake = {
     txId: string,
@@ -127,7 +127,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let cleanupBlockNumberManager: CleanupBlockNumberManagerInstance;
     let pollingFoundation: PollingFoundationInstance;
     let supplyMock: MockContractInstance;
-    let pollingFtso: PollingFtsoInstance;
+    let pollingManagementGroup: PollingManagementGroupInstance;
 
     let initialSigningPolicy: ISigningPolicy;
     let newSigningPolicy: ISigningPolicy;
@@ -350,7 +350,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         pollingFoundation = await PollingFoundation.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, [accounts[10], accounts[11]]);
         supplyMock = await MockContract.new();
 
-        pollingFtso = await PollingFtso.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
+        pollingManagementGroup = await PollingManagementGroup.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
 
         await flareSystemsCalculator.enablePChainStakeMirror();
         await rewardManager.enablePChainStakeMirror();
@@ -412,9 +412,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.SUPPLY, Contracts.SUBMISSION, Contracts.GOVERNANCE_VOTE_POWER]),
             [ADDRESS_UPDATER, flareSystemsManager.address, supplyMock.address, submission.address, governanceVotePower.address], { from: ADDRESS_UPDATER });
 
-        await pollingFtso.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.FLARE_SYSTEMS_MANAGER]),
-            [ADDRESS_UPDATER, voterRegistry.address, flareSystemsManager.address], { from: ADDRESS_UPDATER });
+        await pollingManagementGroup.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.ENTITY_MANAGER]),
+            [ADDRESS_UPDATER, voterRegistry.address, flareSystemsManager.address, rewardManager.address, entityManager.address], { from: ADDRESS_UPDATER });
 
         // set reward offers manager list
         await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, validatorRewardOffersManager.address]);
@@ -455,9 +455,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             }
         );
 
-        // set polling ftso maintainer and parameters
-        await pollingFtso.setMaintainer(accounts[10]);
-        await pollingFtso.setParameters(3600, 3600, 5000, 5000, 100, { from: accounts[10] });
+        // set polling management group maintainer and parameters
+        await pollingManagementGroup.setMaintainer(accounts[10]);
+        await pollingManagementGroup.setParameters(3600, 3600, 5000, 5000, 100, 20, 20, 2, 4, 2, 7, { from: accounts[10] });
 
         // offer some rewards
         await ftsoRewardOffersManager.offerRewards(1, [
@@ -989,23 +989,25 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         expect(state.toString()).to.equals("2");
     });
 
-    it("Should create new PollingFtso proposal and vote on it", async () => {
+    it("Should create new PollingManagementGroup proposal and vote on it", async () => {
+        // change management group members
+        await pollingManagementGroup.changeManagementGroupMembers(registeredCAddresses, [], { from: accounts[10] });
         const proposalId = toBN(1);
-        let tx = await pollingFtso.propose("Proposal", { value: toBN(100), from: registeredCAddresses[0] });
-        expectEvent(tx, "FtsoProposalCreated", { proposalId: proposalId, proposer: registeredCAddresses[0] });
+        let tx = await pollingManagementGroup.propose("Proposal", { value: toBN(100), from: registeredCAddresses[0] });
+        expectEvent(tx, "ManagementGroupProposalCreated", { proposalId: proposalId, proposer: registeredCAddresses[0] });
 
         // advance one hour to the voting period
         await time.increase(3600);
 
         // voting
-        await pollingFtso.castVote(proposalId, 1, { from: registeredCAddresses[0] });
-        await pollingFtso.castVote(proposalId, 1, { from: registeredCAddresses[1] });
-        await pollingFtso.castVote(proposalId, 0, { from: registeredCAddresses[2] });
+        await pollingManagementGroup.castVote(proposalId, 1, { from: registeredCAddresses[0] });
+        await pollingManagementGroup.castVote(proposalId, 1, { from: registeredCAddresses[1] });
+        await pollingManagementGroup.castVote(proposalId, 0, { from: registeredCAddresses[2] });
 
         // advance to the end of the voting period
         await time.increase(3600);
 
-        let state = await pollingFtso.state(proposalId);
+        let state = await pollingManagementGroup.state(proposalId);
         expect(state.toString()).to.equals("4");
     });
 

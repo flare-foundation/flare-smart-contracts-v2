@@ -566,9 +566,8 @@ export async function deployContracts(
     await supply.addTokenPool(rewardManager.address, 0);
   }
 
+  contracts.serialize();
   if (!quiet) {
-    console.error("Contracts in JSON:");
-    console.log(contracts.serialize());
     console.error("Deploy complete.");
   }
 

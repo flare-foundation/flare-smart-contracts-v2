@@ -2,7 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 
-interface IPollingFtso {
+interface IPollingManagementGroup {
 
     /**
      * Struct holding the information about proposal properties.
@@ -16,7 +16,10 @@ interface IPollingFtso {
         uint256 voteEndTime;                // end time of voting window (in seconds from epoch)
         uint256 thresholdConditionBIPS;     // percentage in BIPS of the total vote power required for proposal quorum
         uint256 majorityConditionBIPS;      // percentage in BIPS of the proper relation between FOR and AGAINST votes
-        uint256 totalWeight;                // total weight of all eligible voters
+        mapping(address => bool) isEligible;// flag if an address is eligible to cast a vote in a proposal
+        uint256 noOfEligibleMembers;        // number of addresses that can vote in the proposal
+        bool accept;                        // if true proposal is of the acceptance type
+                                            // otherwise it is of the rejection type
     }
 
     /**
@@ -51,16 +54,16 @@ interface IPollingFtso {
     /**
      * Event emitted when a proposal is created.
      */
-    event FtsoProposalCreated(
+    event ManagementGroupProposalCreated(
         uint256 indexed proposalId,
-        uint256 indexed rewardEpochId,
         address proposer,
         string description,
         uint256 voteStartTime,
         uint256 voteEndTime,
-        uint256 threshold,
+        uint256 thresholdConditionBIPS,
         uint256 majorityConditionBIPS,
-        uint256 totalWeight
+        address[] eligibleMembers,
+        bool accept
     );
 
     /**
@@ -87,8 +90,25 @@ interface IPollingFtso {
         uint256 votingPeriodSeconds,
         uint256 thresholdConditionBIPS,
         uint256 majorityConditionBIPS,
-        uint256 proposalFeeValueWei
+        uint256 proposalFeeValueWei,
+        uint256 addAfterRewardedEpochs,
+        uint256 addAfterNotChilledEpochs,
+        uint256 removeAfterNotRewardedEpochs,
+        uint256 removeAfterEligibleProposals,
+        uint256 removeAfterNonParticipatingProposals,
+        uint256 removeForDays
     );
+
+    /**
+     * @notice Event emitted when management group member is added
+     */
+    event ManagementGroupMemberAdded(address addedMember);
+
+    /**
+     * @notice Event emitted when management group member is removed
+     */
+    event ManagementGroupMemberRemoved(address removedMember);
+
 
     /**
      * Event emitted when maintainer is set.
@@ -101,25 +121,6 @@ interface IPollingFtso {
     event ProxyVoterSet(address account, address proxyVoter);
 
     /**
-     * Sets (or changes) contract's parameters. It is called after deployment of the contract
-     * and every time one of the parameters changes.
-     * @param _votingDelaySeconds Period between proposal creation and start of the vote, in seconds.
-     * @param _votingPeriodSeconds Length of voting period, in seconds.
-     * @param _thresholdConditionBIPS Share of total vote power (in BIPS) required to participate in vote
-     * for proposal to pass.
-     * @param _majorityConditionBIPS Share of participating vote power (in BIPS) required to vote in favor.
-     * @param _proposalFeeValueWei Fee value (in wei) that proposer must pay to submit a proposal.
-     */
-    function setParameters(
-        uint256 _votingDelaySeconds,
-        uint256 _votingPeriodSeconds,
-        uint256 _thresholdConditionBIPS,
-        uint256 _majorityConditionBIPS,
-        uint256 _proposalFeeValueWei
-    )
-    external;
-
-    /**
      * Cancels an existing proposal.
      * @param _proposalId Unique identifier of a proposal.
      * Emits a ProposalCanceled event.
@@ -130,7 +131,7 @@ interface IPollingFtso {
      * Creates a new proposal.
      * @param _description String description of the proposal.
      * @return _proposalId Unique identifier of the proposal.
-     * Emits a FtsoProposalCreated event.
+     * Emits a ManagementGroupProposalCreated event.
      */
     function propose(
         string memory _description
@@ -152,6 +153,18 @@ interface IPollingFtso {
     function setProxyVoter(address _proxyVoter) external;
 
     /**
+     * Adds `msg.sender` to the management group if voter fulfills all conditions and is not already a member.
+     * If `msg.sender` is proxy of some voter (and is not a member of the group), adding voter.
+     */
+    function addMember() external;
+
+    /**
+     * Removes a member from the management group who no longer fulfills the conditions.
+     * @param _voter Voter to be remove from the management group.
+     */
+    function removeMember(address _voter) external;
+
+    /**
      * Returns the current state of a proposal.
      * @param _proposalId Id of the proposal.
      * @return ProposalState enum.
@@ -169,28 +182,28 @@ interface IPollingFtso {
     /**
      * Returns information about the specified proposal.
      * @param _proposalId Id of the proposal.
-     * @return _rewardEpochId Reward epoch id.
      * @return _description Description of the proposal.
      * @return _proposer Address of the proposal submitter.
+     * @return _accept True if the proposal is acceptance based, false if rejection based.
      * @return _voteStartTime Start time (in seconds from epoch) of the proposal voting.
      * @return _voteEndTime End time (in seconds from epoch) of the proposal voting.
      * @return _thresholdConditionBIPS Number of votes (voter power) cast required for the proposal to pass.
      * @return _majorityConditionBIPS Number of FOR votes, as a percentage in BIPS of the.
-     * @return _totalWeight Total weight of all eligible voters.
+     * @return _noOfEligibleMembers Number of eligible voters.
      */
     function getProposalInfo(
         uint256 _proposalId
     )
         external view
         returns (
-            uint256 _rewardEpochId,
             string memory _description,
             address _proposer,
+            bool _accept,
             uint256 _voteStartTime,
             uint256 _voteEndTime,
             uint256 _thresholdConditionBIPS,
             uint256 _majorityConditionBIPS,
-            uint256 _totalWeight
+            uint256 _noOfEligibleMembers
         );
 
     /**
@@ -241,4 +254,10 @@ interface IPollingFtso {
      */
     function canVote(address _account, uint256 _proposalId) external view returns (bool);
 
+    /**
+     * Returns whether a voter is member of the management group.
+     * @param _voter Address of the queried voter.
+     * @return True if the queried voter is member, false otherwise.
+     */
+    function isMember(address _voter) external view returns (bool);
 }

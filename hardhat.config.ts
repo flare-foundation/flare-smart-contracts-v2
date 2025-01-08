@@ -115,6 +115,9 @@ function getChainConfigParameters(chainConfig: string | undefined) {
 function readContracts(network: string, filePath?: string): Contracts {
   const contracts = new Contracts();
   contracts.deserializeFile(filePath || `deployment/deploys/${network}.json`);
+  if (filePath == null) {
+    contracts.deserializeFile(`deployment/deploys/all/${network}.json`, true);
+  }
   return contracts;
 }
 
@@ -214,7 +217,8 @@ task("deploy-submission-contract", "Deploy submission contract")
     if (parameters) {
       const network = process.env.CHAIN_CONFIG!;
       const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
-      await deploySubmissionContract(hre, oldContracts, parameters, args.quiet);
+      const contracts = readContracts(network);
+      await deploySubmissionContract(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
       throw Error("CHAIN_CONFIG environment variable not set.");
     }
