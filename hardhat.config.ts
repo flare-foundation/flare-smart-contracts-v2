@@ -25,6 +25,7 @@ import { redeployContracts } from "./deployment/scripts/redeploy-contracts";
 import { registerPublicKeys } from "./deployment/tasks/register-public-keys";
 import { deployFdcContracts } from "./deployment/scripts/deploy-fdc-contracts";
 import { redeployRelay } from "./deployment/scripts/redeploy-relay";
+import { deployTeeContracts } from "./deployment/scripts/deploy-tee-contracts";
 import fs from "fs";
 import { HardhatNetworkAccountUserConfig } from "hardhat/types";
 // Importing standalone simple library to surpass warnings in mock contracts and in mock contract imports
@@ -352,6 +353,23 @@ task("deploy-fdc", "Deploy FDC contracts")
       const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
       const contracts = readContracts(network);
       await deployFdcContracts(hre, oldContracts, contracts, parameters, args.quiet);
+    } else {
+      throw Error("CHAIN_CONFIG environment variable not set.");
+    }
+  });
+
+task("deploy-tee", "Deploy TEE contracts")
+  .addFlag("quiet", "Suppress console output")
+  .setAction(async (args, hre, runSuper) => {
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
+    }
+    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+    if (parameters) {
+      const network = process.env.CHAIN_CONFIG!;
+      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+      const contracts = readContracts(network);
+      await deployTeeContracts(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
       throw Error("CHAIN_CONFIG environment variable not set.");
     }
