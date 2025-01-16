@@ -90,11 +90,6 @@
     "address": "0xc8294a2335C6c45de827121090ce4Ba9977907D2"
   },
   {
-    "name": "PollingFtso",
-    "contractName": "PollingFtso.sol",
-    "address": "0x84e6790c97B48195161f899d3C509711e267B391"
-  },
-  {
     "name": "ValidatorRewardOffersManager",
     "contractName": "ValidatorRewardOffersManager.sol",
     "address": "0xaCEC47042DE9E4645401e828f6b445605841Fd52"
@@ -258,5 +253,10 @@
     "name": "VoterPreRegistry",
     "contractName": "VoterPreRegistry.sol",
     "address": "0xeFDBf6F31Aa46c62414Aee82aF43036d16885b48"
+  },
+  {
+    "name": "PollingManagementGroup",
+    "contractName": "PollingManagementGroup.sol",
+    "address": "0x55233A9Ed066621e02b166C416f804b04ee4a03a"
   }
 ]

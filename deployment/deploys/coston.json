@@ -110,11 +110,6 @@
     "address": "0x2E6E089da48214C955aD1f8f88ac19EBE1ca5eFC"
   },
   {
-    "name": "PollingFtso",
-    "contractName": "PollingFtso.sol",
-    "address": "0xAB53139CcEb08b2b2C030F80FC036d1063d9e606"
-  },
-  {
     "name": "FeeCalculator",
     "contractName": "FeeCalculator.sol",
     "address": "0x08e0CBdc9173e537208CEAd8c38f263517f54F22"

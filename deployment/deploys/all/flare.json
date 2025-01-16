@@ -365,5 +365,12 @@
     "addresses": [
       "0xeFDBf6F31Aa46c62414Aee82aF43036d16885b48"
     ]
+  },
+  {
+    "name": "PollingManagementGroup",
+    "contractName": "PollingManagementGroup.sol",
+    "addresses": [
+      "0x55233A9Ed066621e02b166C416f804b04ee4a03a"
+    ]
   }
 ]
