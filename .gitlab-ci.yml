@@ -63,7 +63,8 @@ scanner-slither:
   - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
   - rm -f ./slither.json ./slither_badge.json
   script:
-  - slither . --json=./slither.json 2>/dev/null || true; node scripts/slither-parse.js ./slither.json
+  - slither . --json=./slither.json || true
+  - node scripts/slither-parse.js ./slither.json
   artifacts:
     when: always
     expire_in: 7 days

@@ -90,11 +90,6 @@
     "address": "0x6D7ca85Cb3451b772B87EBB32A9E5cFc500BfA94"
   },
   {
-    "name": "PollingFtso",
-    "contractName": "PollingFtso.sol",
-    "address": "0x0f86aD3D5a910Bd0D6A73f7c256bDae1A8Ff7563"
-  },
-  {
     "name": "ValidatorRewardOffersManager",
     "contractName": "ValidatorRewardOffersManager.sol",
     "address": "0xb0B93eb5ef1a15A12F68f824Ab7d21fe5d876983"
