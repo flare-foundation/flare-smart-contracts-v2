@@ -153,7 +153,8 @@
                 {"category": 1, "name": "FET/USD"},
                 {"category": 1, "name": "RENDER/USD"},
                 {"category": 1, "name": "NOT/USD"},
-                {"category": 1, "name": "RUNE/USD"}
+                {"category": 1, "name": "RUNE/USD"},
+                {"category": 1, "name": "TRUMP/USD"}
             ],
             "inflationShare": 10000,
             "minRewardedTurnoutBIPS": 5000,
@@ -162,7 +163,7 @@
             "secondaryBandWidthPPMs": [
                 1150, 900, 500, 1150, 900, 1150, 1600, 1150, 1150, 500, 900, 900, 900, 500, 900, 900, 100, 100, 900, 500,
                 900, 900, 900, 500, 900, 1150, 100, 900, 1150, 1600, 900, 900, 1600, 1600, 1150, 1150, 1600, 1150, 900, 1150,
-                1600, 900, 900, 1150, 1150, 1150, 1150, 1150, 1150, 1150
+                1600, 900, 900, 1150, 1150, 1150, 1150, 1150, 1150, 1150, 1600
             ]
         }
     ],
@@ -308,7 +309,8 @@
         {"feedId": {"category": 1, "name": "FET/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "RENDER/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "NOT/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
-        {"feedId": {"category": 1, "name": "RUNE/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
+        {"feedId": {"category": 1, "name": "RUNE/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "TRUMP/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
     ],
     "defaultFeeWei": "1",
     "ftsoProxies": [
