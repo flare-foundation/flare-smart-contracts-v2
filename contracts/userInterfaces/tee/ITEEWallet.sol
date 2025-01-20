@@ -31,10 +31,11 @@ interface ITEEWallet {
     );
 
     /**
-     * Payment instruction method. Can only be called by the payment initiator.
-     * If payment is instructed, emits a PaymentInstructed event.
+     * Payment instruction method.
+     * Emits a PaymentInstructed event.
+     * Can only be called by the payment initiator.
      * @param _paymentInstruction The payment instruction.
-     * @return True if the payment is instructed, false otherwise.
+     * @return _sequenceNumber The sequence number of the payment instruction.
      */
-    function pay(PaymentInstruction calldata _paymentInstruction) external returns (bool);
+    function pay(PaymentInstruction calldata _paymentInstruction) external returns (uint256 _sequenceNumber);
 }

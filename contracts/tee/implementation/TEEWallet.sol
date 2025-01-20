@@ -12,9 +12,11 @@ import "./TEEConfig.sol";
  */
 contract TEEWallet is ITEEWallet, Governed, AddressUpdatable {
 
+    /// Flare Systems Manager contract.
     IFlareSystemsManager public flareSystemsManager;
+    /// TEEConfig contract.
     ITEEConfig public teeConfig;
-
+    /// Next sequence number for wallet id.
     mapping(bytes32 walletId => uint256) public sequenceNumbers;
 
 
@@ -36,25 +38,22 @@ contract TEEWallet is ITEEWallet, Governed, AddressUpdatable {
     /**
      * @inheritdoc ITEEWallet
      */
-    function pay(PaymentInstruction calldata _paymentInstruction) external returns (bool) {
+    function pay(PaymentInstruction calldata _paymentInstruction) external returns (uint256 _sequenceNumber) {
         bytes32 walletId = _paymentInstruction.walletId;
         ITEEConfig.Wallet memory wallet = teeConfig.getWallet(walletId);
-        if (msg.sender != wallet.paymentInitiator) {
-            return false;
-        }
-        uint256 sequenceNumber = sequenceNumbers[walletId]++;
+        require(msg.sender == wallet.paymentInitiator, "only payment initiator");
+        _sequenceNumber = sequenceNumbers[walletId]++;
         emit PaymentInstructed(
             walletId,
             flareSystemsManager.getCurrentRewardEpochId(),
             wallet.walletAddress,
             _paymentInstruction.paymentAddress,
-            sequenceNumber,
+            _sequenceNumber,
             _paymentInstruction.value,
             _paymentInstruction.initialFee,
             _paymentInstruction.paymentReference,
             wallet.teeMachines
         );
-        return true;
     }
 
     /**

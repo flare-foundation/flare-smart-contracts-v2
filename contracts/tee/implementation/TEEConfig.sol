@@ -11,8 +11,10 @@ import "../../userInterfaces/tee/ITEEConfig.sol";
 contract TEEConfig is ITEEConfig, Governed, AddressUpdatable {
 
     uint256 internal id = 0;
+    mapping(bytes32 walletId => Wallet) private wallets;
+
+    /// TEE machines are registered in the TEE registry.
     ITEERegistry public teeRegistry;
-    mapping(bytes32 walletId => Wallet) public wallets;
 
     /**
      * Constructor.
