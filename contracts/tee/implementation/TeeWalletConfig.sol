@@ -3,18 +3,18 @@ pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
-import "../../userInterfaces/tee/ITEEConfig.sol";
+import "../../userInterfaces/tee/ITeeWalletConfig.sol";
 
 /**
- * TEEConfig is used for project configurations using TEE machines.
+ * TeeWalletConfig is used for project configurations using TEE machines.
  */
-contract TEEConfig is ITEEConfig, Governed, AddressUpdatable {
+contract TeeWalletConfig is ITeeWalletConfig, Governed, AddressUpdatable {
 
     uint256 internal id = 0;
-    mapping(bytes32 walletId => Wallet) private wallets;
+    mapping(bytes32 walletId => TeeWallet) private wallets;
 
     /// TEE machines are registered in the TEE registry.
-    ITEERegistry public teeRegistry;
+    ITeeRegistry public teeRegistry;
 
     /**
      * Constructor.
@@ -38,29 +38,29 @@ contract TEEConfig is ITEEConfig, Governed, AddressUpdatable {
         wallets[_walletId].walletAdmin = msg.sender;
     }
 
-    function addTEEMachineToWallet(bytes32 _walletId, ITEERegistry.TEEMachine calldata _teeMachine) external {
-        require(teeRegistry.isRegisteredTEEMachine(_teeMachine), "TEE machine is not registered");
-        Wallet storage wallet = wallets[_walletId];
+    function addTEEMachineToWallet(bytes32 _walletId, ITeeRegistry.TeeMachine calldata _teeMachine) external {
+        require(teeRegistry.isRegisteredTeeMachine(_teeMachine), "TEE machine is not registered");
+        TeeWallet storage wallet = wallets[_walletId];
         require(wallet.walletAdmin == msg.sender, "only wallet admin can add TEE machine");
         wallet.teeMachines.push(_teeMachine);
     }
 
     function setWalletAddress(bytes32 _walletId, string calldata _walletAddress) external {
-        Wallet storage wallet = wallets[_walletId];
+        TeeWallet storage wallet = wallets[_walletId];
         require(wallet.walletAdmin == msg.sender, "only wallet admin can set wallet address");
         wallet.walletAddress = _walletAddress;
     }
 
     function setPaymentInitiator(bytes32 _walletId, address _paymentInitiator) external {
-        Wallet storage wallet = wallets[_walletId];
+        TeeWallet storage wallet = wallets[_walletId];
         require(wallet.walletAdmin == msg.sender, "only wallet admin can set payment initiator");
         wallet.paymentInitiator = _paymentInitiator;
     }
 
     /**
-     * @inheritdoc ITEEConfig
+     * @inheritdoc ITeeWalletConfig
      */
-    function getWallet(bytes32 _walletId) external view returns (Wallet memory) {
+    function getWallet(bytes32 _walletId) external view returns (TeeWallet memory) {
         return wallets[_walletId];
     }
 
@@ -73,6 +73,6 @@ contract TEEConfig is ITEEConfig, Governed, AddressUpdatable {
     )
         internal override
     {
-        teeRegistry = ITEERegistry(_getContractAddress(_contractNameHashes, _contractAddresses, "TEERegistry"));
+        teeRegistry = ITeeRegistry(_getContractAddress(_contractNameHashes, _contractAddresses, "TeeRegistry"));
     }
 }

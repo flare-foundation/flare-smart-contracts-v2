@@ -3,14 +3,14 @@ pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
-import "../../userInterfaces/tee/ITEERegistry.sol";
+import "../../userInterfaces/tee/ITeeRegistry.sol";
 
 /**
- * TEERegistry is used for registration of TEE machines.
+ * TeeRegistry is used for registration of TEE machines.
  */
-contract TEERegistry is ITEERegistry, Governed, AddressUpdatable {
+contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
 
-    TEEMachine[] private teeMachines;
+    TeeMachine[] private teeMachines;
 
     /**
      * Constructor.
@@ -31,20 +31,20 @@ contract TEERegistry is ITEERegistry, Governed, AddressUpdatable {
      * Register a list of TEE machines.
      * @param _teeMachines List of TEE machines.
      */
-    function registerTEEMachines(TEEMachine[] calldata _teeMachines) external onlyGovernance {
+    function registerTeeMachines(TeeMachine[] calldata _teeMachines) external onlyGovernance {
         for (uint256 i = 0; i < _teeMachines.length; i++) {
-            _registerTEEMachine(_teeMachines[i]);
+            _registerTeeMachine(_teeMachines[i]);
         }
     }
 
     /**
-     * @inheritdoc ITEERegistry
+     * @inheritdoc ITeeRegistry
      */
-    function isRegisteredTEEMachine(TEEMachine calldata _teeMachine) external view returns (bool) {
+    function isRegisteredTeeMachine(TeeMachine calldata _teeMachine) external view returns (bool) {
         for (uint256 i = 0; i < teeMachines.length; i++) {
-            TEEMachine storage teeMachine = teeMachines[i];
+            TeeMachine storage teeMachine = teeMachines[i];
             if (teeMachine.publicKey == _teeMachine.publicKey &&
-                _keccak256AbiEncode(teeMachine.IPAddress) == _keccak256AbiEncode(_teeMachine.IPAddress)) {
+                _keccak256AbiEncode(teeMachine.ipAddress) == _keccak256AbiEncode(_teeMachine.ipAddress)) {
                 return true;
             }
         }
@@ -52,9 +52,9 @@ contract TEERegistry is ITEERegistry, Governed, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc ITEERegistry
+     * @inheritdoc ITeeRegistry
      */
-    function getTEEMachines() external view returns (TEEMachine[] memory) {
+    function getTeeMachines() external view returns (TeeMachine[] memory) {
         return teeMachines;
     }
 
@@ -62,16 +62,16 @@ contract TEERegistry is ITEERegistry, Governed, AddressUpdatable {
      * Register a TEE machine.
      * @param _teeMachine The TEE machine.
      */
-    function _registerTEEMachine(TEEMachine calldata _teeMachine) internal {
+    function _registerTeeMachine(TeeMachine calldata _teeMachine) internal {
         for (uint256 i = 0; i < teeMachines.length; i++) {
-            TEEMachine storage teeMachine = teeMachines[i];
+            TeeMachine storage teeMachine = teeMachines[i];
             require(teeMachine.publicKey != _teeMachine.publicKey &&
-                _keccak256AbiEncode(teeMachine.IPAddress) != _keccak256AbiEncode(_teeMachine.IPAddress),
+                _keccak256AbiEncode(teeMachine.ipAddress) != _keccak256AbiEncode(_teeMachine.ipAddress),
                 "TEE machine already registered"
             );
         }
         teeMachines.push(_teeMachine);
-        emit TEEMachineRegistered(_teeMachine.publicKey, _teeMachine.IPAddress);
+        emit TeeMachineRegistered(_teeMachine.publicKey, _teeMachine.ipAddress);
     }
 
     /**

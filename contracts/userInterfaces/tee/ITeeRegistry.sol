@@ -2,27 +2,27 @@
 pragma solidity >=0.7.6 <0.9;
 
 /**
- * TEERegistry interface.
+ * TeeRegistry interface.
  */
-interface ITEERegistry {
+interface ITeeRegistry {
 
-    struct TEEMachine {
+    struct TeeMachine {
         bytes32 publicKey;
-        string IPAddress;
+        string ipAddress;
     }
 
-    event TEEMachineRegistered(bytes32 indexed publicKey, string indexed IPAddress);
+    event TeeMachineRegistered(bytes32 indexed publicKey, string indexed ipAddress);
 
     /**
      * Returns info if the TEE machine is registered.
      * @param _teeMachine The TEE machine.
      * @return True if the TEE machine is registered, false otherwise.
      */
-    function isRegisteredTEEMachine(TEEMachine calldata _teeMachine) external view returns (bool);
+    function isRegisteredTeeMachine(TeeMachine calldata _teeMachine) external view returns (bool);
 
     /**
      * Returns all registered TEE machines.
      * @return All registered TEE machines.
      */
-    function getTEEMachines() external view returns (TEEMachine[] memory);
+    function getTeeMachines() external view returns (TeeMachine[] memory);
 }

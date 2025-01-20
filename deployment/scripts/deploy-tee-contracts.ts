@@ -6,9 +6,9 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from "./deploy-utils";
-import { TEERegistryContract } from "../../typechain-truffle/contracts/tee/implementation/TEERegistry";
-import { TEEConfigContract } from "../../typechain-truffle/contracts/tee/implementation/TEEConfig";
-import { TEEWalletContract } from "../../typechain-truffle/contracts/tee/implementation/TEEWallet";
+import { TeeRegistryContract } from "../../typechain-truffle/contracts/tee/implementation/TeeRegistry";
+import { TeeWalletConfigContract } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletConfig";
+import { TeeWalletManagerContract } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletManager";
 
 export async function deployTeeContracts(
   hre: HardhatRuntimeEnvironment,
@@ -20,9 +20,9 @@ export async function deployTeeContracts(
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
 
-  const TeeRegistry: TEERegistryContract = artifacts.require("TeeRegistry");
-  const TeeConfig: TEEConfigContract = artifacts.require("TeeConfig");
-  const TeeWallet: TEEWalletContract = artifacts.require("TeeWallet");
+  const TeeRegistry: TeeRegistryContract = artifacts.require("TeeRegistry");
+  const TeeWalletConfig: TeeWalletConfigContract = artifacts.require("TeeWalletConfig");
+  const TeeWalletManager: TeeWalletManagerContract = artifacts.require("TeeWalletManager");
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
@@ -42,31 +42,31 @@ export async function deployTeeContracts(
 
   // deploy contracts
   const teeRegistry = await TeeRegistry.new(governanceSettings, deployerAccount.address, deployerAccount.address);
-  spewNewContractInfo(contracts, null, TeeRegistry.contractName, `TEERegistry.sol`, teeRegistry.address, quiet);
+  spewNewContractInfo(contracts, null, TeeRegistry.contractName, `TeeRegistry.sol`, teeRegistry.address, quiet);
 
-  const teeConfig = await TeeConfig.new(governanceSettings, deployerAccount.address, deployerAccount.address);
-  spewNewContractInfo(contracts, null, TeeConfig.contractName, `TEEConfig.sol`, teeConfig.address, quiet);
+  const teeWalletConfig = await TeeWalletConfig.new(governanceSettings, deployerAccount.address, deployerAccount.address);
+  spewNewContractInfo(contracts, null, TeeWalletConfig.contractName, `TeeWalletConfig.sol`, teeWalletConfig.address, quiet);
 
-  const teeWallet = await TeeWallet.new(governanceSettings, deployerAccount.address, deployerAccount.address);
-  spewNewContractInfo(contracts, null, TeeWallet.contractName, `TEEWallet.sol`, teeWallet.address, quiet);
+  const teeWalletManager = await TeeWalletManager.new(governanceSettings, deployerAccount.address, deployerAccount.address);
+  spewNewContractInfo(contracts, null, TeeWalletManager.contractName, `TeeWalletManager.sol`, teeWalletManager.address, quiet);
 
   // update contract addresses
   await teeRegistry.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER]),
     [addressUpdater]);
 
-  await teeConfig.updateContractAddresses(
+  await teeWalletConfig.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY]),
     [addressUpdater, teeRegistry.address]);
 
-  await teeWallet.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_CONFIG, Contracts.FLARE_SYSTEMS_MANAGER]),
-    [addressUpdater, teeConfig.address, flareSystemsManager]);
+  await teeWalletManager.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_CONFIG, Contracts.FLARE_SYSTEMS_MANAGER]),
+    [addressUpdater, teeWalletConfig.address, flareSystemsManager]);
 
   // switch to production mode
   await teeRegistry.switchToProductionMode();
-  await teeConfig.switchToProductionMode();
-  await teeWallet.switchToProductionMode();
+  await teeWalletConfig.switchToProductionMode();
+  await teeWalletManager.switchToProductionMode();
 
   contracts.serialize();
   if (!quiet) {

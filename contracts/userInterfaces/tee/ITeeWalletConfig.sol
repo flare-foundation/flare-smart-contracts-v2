@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./ITEERegistry.sol";
+import "./ITeeRegistry.sol";
 
 /**
- * TEEConfig interface.
+ * TeeWalletConfig interface.
  */
-interface ITEEConfig {
+interface ITeeWalletConfig {
 
-    struct Wallet {
+    struct TeeWallet {
         address walletAdmin;
         string walletAddress;
         address paymentInitiator;
-        ITEERegistry.TEEMachine[] teeMachines;
+        ITeeRegistry.TeeMachine[] teeMachines;
     }
 
     /**
@@ -20,5 +20,5 @@ interface ITEEConfig {
      * @param _walletId The wallet ID.
      * @return The wallet.
      */
-    function getWallet(bytes32 _walletId) external view returns (Wallet memory);
+    function getWallet(bytes32 _walletId) external view returns (TeeWallet memory);
 }

@@ -4,20 +4,21 @@ pragma solidity 0.8.20;
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../userInterfaces/tee/ITEEWallet.sol";
-import "./TEEConfig.sol";
+import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import "../../userInterfaces/tee/ITeeWalletConfig.sol";
+
 
 /**
- * TEEWallet is a contract used for instructing TEE based wallets payments.
+ * TeeWalletManager is a contract used for instructing TEE based wallets payments.
  */
-contract TEEWallet is ITEEWallet, Governed, AddressUpdatable {
+contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
 
     /// Flare Systems Manager contract.
     IFlareSystemsManager public flareSystemsManager;
-    /// TEEConfig contract.
-    ITEEConfig public teeConfig;
-    /// Next sequence number for wallet id.
-    mapping(bytes32 walletId => uint256) public sequenceNumbers;
+    /// TeeWalletConfig contract.
+    ITeeWalletConfig public teeWalletConfig;
+    /// Tx counter.
+    mapping(bytes32 walletId => uint256) public txCounter;
 
 
     /**
@@ -36,13 +37,13 @@ contract TEEWallet is ITEEWallet, Governed, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc ITEEWallet
+     * @inheritdoc ITeeWalletManager
      */
     function pay(PaymentInstruction calldata _paymentInstruction) external returns (uint256 _sequenceNumber) {
         bytes32 walletId = _paymentInstruction.walletId;
-        ITEEConfig.Wallet memory wallet = teeConfig.getWallet(walletId);
+        ITeeWalletConfig.TeeWallet memory wallet = teeWalletConfig.getWallet(walletId);
         require(msg.sender == wallet.paymentInitiator, "only payment initiator");
-        _sequenceNumber = sequenceNumbers[walletId]++;
+        _sequenceNumber = txCounter[walletId]++;
         emit PaymentInstructed(
             walletId,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -65,7 +66,8 @@ contract TEEWallet is ITEEWallet, Governed, AddressUpdatable {
     )
         internal override
     {
-        teeConfig = ITEEConfig(_getContractAddress(_contractNameHashes, _contractAddresses, "TEEConfig"));
+        teeWalletConfig = ITeeWalletConfig(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletConfig"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }

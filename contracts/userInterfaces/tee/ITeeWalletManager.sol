@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./ITEERegistry.sol";
+import "./ITeeRegistry.sol";
 
 /**
- * TEEWallet interface.
+ * TeeWalletManager interface.
  */
-interface ITEEWallet {
+interface ITeeWalletManager {
 
     /// Payment instruction structure
     struct PaymentInstruction {
@@ -27,7 +27,7 @@ interface ITEEWallet {
         uint256 value,
         uint256 initialFee,
         bytes32 paymentReference,
-        ITEERegistry.TEEMachine[] teeMachines
+        ITeeRegistry.TeeMachine[] teeMachines
     );
 
     /**
