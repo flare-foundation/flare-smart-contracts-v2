@@ -45,6 +45,7 @@
         {"feedId": {"category": 1, "name":"ETH/USD"}, "decimals": 3},
         {"feedId": {"category": 3, "name":"XAU/USD"}, "decimals": 3},
         {"feedId": {"category": 1, "name":"MKR/USD"}, "decimals": 3},
+        {"feedId": {"category": 1, "name":"PAXG/USD"}, "decimals": 3},
         {"feedId": {"category": 3, "name":"XPT/USD"}, "decimals": 4},
         {"feedId": {"category": 1, "name":"TAO/USD"}, "decimals": 4},
         {"feedId": {"category": 1, "name":"BNB/USD"}, "decimals": 4},
@@ -56,6 +57,8 @@
         {"feedId": {"category": 1, "name":"XLM/USD"}, "decimals": 6},
         {"feedId": {"category": 1, "name":"XDC/USD"}, "decimals": 6},
         {"feedId": {"category": 1, "name":"FLR/USD"}, "decimals": 6},
+        {"feedId": {"category": 1, "name":"JOULE/USD"}, "decimals": 6},
+        {"feedId": {"category": 1, "name":"PENGU/USD"}, "decimals": 6},
         {"feedId": {"category": 1, "name":"SGB/USD"}, "decimals": 7},
         {"feedId": {"category": 1, "name":"NOT/USD"}, "decimals": 7},
         {"feedId": {"category": 1, "name":"1000SATS/USD"}, "decimals": 8},
@@ -155,7 +158,13 @@
                 {"category": 1, "name": "NOT/USD"},
                 {"category": 1, "name": "RUNE/USD"},
                 {"category": 1, "name": "USDX/USD"},
-                {"category": 1, "name": "TRUMP/USD"}
+                {"category": 1, "name": "TRUMP/USD"},
+                {"category": 1, "name": "JOULE/USD"},
+                {"category": 1, "name": "HBAR/USD"},
+                {"category": 1, "name": "PENGU/USD"},
+                {"category": 1, "name": "HYPE/USD"},
+                {"category": 1, "name": "APT/USD"},
+                {"category": 1, "name": "PAXG/USD"}
             ],
             "inflationShare": 10000,
             "minRewardedTurnoutBIPS": 5000,
@@ -164,12 +173,11 @@
             "secondaryBandWidthPPMs": [
                 1150, 900, 500, 1150, 900, 1150, 1600, 1150, 1150, 500, 900, 900, 900, 500, 900, 900, 100, 100, 900, 500,
                 900, 900, 900, 500, 900, 1150, 100, 900, 1150, 1600, 900, 900, 1600, 1600, 1150, 1150, 1600, 1150, 900, 1150,
-                1600, 900, 900, 1150, 1150, 1150, 1150, 1150, 1150, 1150, 100, 1600
+                1600, 900, 900, 1150, 1150, 1150, 1150, 1150, 1150, 1150, 100, 1600, 1600, 1150, 1600, 1150, 900, 500
             ]
         },
         {
             "feedIds": [
-                {"category": 1, "name": "HBAR/USD"},
                 {"category": 1, "name": "VET/USD"},
                 {"category": 1, "name": "RNDR/USD"},
                 {"category": 1, "name": "STRK/USD"},
@@ -178,7 +186,6 @@
                 {"category": 1, "name": "BEAM/USD"},
                 {"category": 1, "name": "IMX/USD"},
                 {"category": 1, "name": "STX/USD"},
-                {"category": 1, "name": "APT/USD"},
                 {"category": 1, "name": "OP/USD"},
                 {"category": 1, "name": "INJ/USD"},
                 {"category": 1, "name": "TIA/USD"},
@@ -195,7 +202,7 @@
             "minRewardedTurnoutBIPS": 5000,
             "mode": 2,
             "primaryBandRewardSharePPM": 400000,
-            "secondaryBandWidthPPMs": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            "secondaryBandWidthPPMs": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         }
     ],
 
@@ -343,7 +350,11 @@
         {"feedId": {"category": 1, "name": "NOT/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "RUNE/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "USDX/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
-        {"feedId": {"category": 1, "name": "TRUMP/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
+        {"feedId": {"category": 1, "name": "TRUMP/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "JOULE/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "PENGU/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "HYPE/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "PAXG/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
     ],
     "defaultFeeWei": "1",
     "ftsoProxies": [
