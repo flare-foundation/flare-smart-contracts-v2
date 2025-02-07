@@ -165,7 +165,7 @@ test-unit-forge:
   extends: .test-node-sc
   timeout: 10 minutes
   tags: [ flarenetwork-md ]
-  image: ghcr.io/foundry-rs/foundry
+  image: ghcr.io/foundry-rs/foundry:stable
   before_script:
   - forge install
   script:
@@ -219,7 +219,7 @@ coverage-forge-node_modules:
     - node_modules.sol.zip
 
 coverage-forge:
-  image: ghcr.io/foundry-rs/foundry
+  image: ghcr.io/foundry-rs/foundry:stable
   needs:
   - job: coverage-forge-node_modules
     artifacts: true
