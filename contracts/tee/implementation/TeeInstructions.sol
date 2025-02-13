@@ -9,7 +9,7 @@ import "../../userInterfaces/tee/ITeeInstructions.sol";
  * TeeInstructions is used for issuing instructions (emitting events)
  * that data providers are listening to perform operations on TEE machines.
  */
-contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
+abstract contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
 
     /**
      * Constructor.
