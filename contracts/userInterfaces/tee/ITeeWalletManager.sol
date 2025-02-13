@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
+import "./ITeeRegistry.sol";
+
 /**
  * TeeWalletManager interface.
  */
@@ -30,7 +32,7 @@ interface ITeeWalletManager {
      * @param _walletId The wallet id.
      * @return _receivingTees The receiving tees.
      */
-    function receivingTees(bytes32 _walletId) external view returns (address[] memory _receivingTees);
+    function receivingTees(bytes32 _walletId) external view returns (ITeeRegistry.TeeMachine[] memory _receivingTees);
 
     /**
      * Returns the wallet owner.
