@@ -155,7 +155,7 @@ interface IFlareSystemsManager is ProtocolsV2Interface {
         returns(uint16);
 
     /**
-     * Returns voter rgistration data for given reward epoch id.
+     * Returns voter registration data for given reward epoch id.
      * @param _rewardEpochId Reward epoch id.
      * @return _votePowerBlock Vote power block.
      * @return _enabled Indicates if voter registration is enabled.

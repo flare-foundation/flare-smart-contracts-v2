@@ -9,7 +9,7 @@ import "../../userInterfaces/tee/ITeeWalletManager.sol";
 /**
  * TeeWalletManager is used for wallet configurations on TEE machines.
  */
-contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
+abstract contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
 
     struct TeeWalletState {
         address owner;
