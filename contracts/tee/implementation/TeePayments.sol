@@ -3,10 +3,11 @@ pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
+import "../../userInterfaces/LTS/ProtocolsV2Interface.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
 import "../../userInterfaces/tee/ITeePayments.sol";
-
+import "../../userInterfaces/tee/ITeeRegistry.sol";
+import "../../userInterfaces/tee/ITeeInstructions.sol";
 
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.
@@ -17,7 +18,8 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         uint64 nonce;
         uint64 subNonce;
         uint64 batchEndTs;
-        uint64 batchRewardEpochId;
+        uint24 batchRewardEpochId;
+        uint40 batchCounter;
     }
 
     struct WalletSettings {
@@ -30,6 +32,9 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         uint96 maxControlFee;
     }
 
+    bytes32 internal constant PAY = bytes32("PAY");
+    bytes32 internal constant REISSUE = bytes32("REISSUE");
+
     uint64 public immutable maxBatchSize;
     uint64 public immutable maxBatchDurationSeconds;
     bytes32 public immutable opType;
@@ -37,11 +42,14 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     mapping(bytes32 walletId => WalletState) private states;
     mapping(bytes32 walletId => WalletSettings) private settings;
     mapping(bytes32 walletId => string) private senderAddresses;
+    mapping(bytes32 walletId => mapping(uint64 nonce => bytes32)) private hashes;
 
     /// Flare Systems Manager contract.
-    IFlareSystemsManager public flareSystemsManager;
+    ProtocolsV2Interface public flareSystemsManager;
     /// TeeWalletManager contract.
     ITeeWalletManager public teeWalletManager;
+    /// TeeInstructions contract.
+    ITeeInstructions public teeInstructions;
 
 
     /**
@@ -68,9 +76,170 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     /**
      * @inheritdoc ITeePayments
      */
-    function send(bytes32 _walletId, PaymentInstruction calldata _paymentInstruction)
-        external returns (uint256 _subNonce) {
+    function send(
+        bytes32 _walletId,
+        PaymentInstruction calldata _paymentInstruction
+    )
+        external returns(uint256)
+    {
+        (address submitAddress, ITeeWalletManager.WalletStatus walletStatus, bytes32 walletOpType) =
+            teeWalletManager.getTeeWalletInfo(_walletId);
+        require(submitAddress == msg.sender, "only submit address");
+        require(walletStatus == ITeeWalletManager.WalletStatus.CONFIRMED, "only confirmed state");
+        require(walletOpType == opType, "wrong opType");
 
+        WalletState storage state = states[_walletId];
+        WalletSettings memory setting = settings[_walletId];
+        // check if new batch is needed
+        if (state.batchEndTs < block.timestamp || state.batchCounter == setting.batchSize) {
+            state.batchEndTs = uint64(block.timestamp) + setting.batchDurationSeconds;
+            state.batchRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+            state.batchCounter = 1;
+            state.nonce += 1;
+            hashes[_walletId][state.nonce - 1] = keccak256(abi.encode(
+                _paymentInstruction,
+                state.subNonce
+            ));
+        } else {
+            state.batchCounter += 1;
+            hashes[_walletId][state.nonce - 1] = keccak256(abi.encode(
+                hashes[_walletId][state.nonce - 1],
+                _paymentInstruction,
+                state.subNonce
+            ));
+        }
+
+        PaymentInstructionMessage memory message = PaymentInstructionMessage(
+            _walletId,
+            senderAddresses[_walletId],
+            _paymentInstruction.recipientAddress,
+            _paymentInstruction.amount,
+            _paymentInstruction.paymentReference,
+            state.nonce - 1,
+            state.subNonce,
+            setting.maxFee,
+            setting.maxFeeTolerancePPM,
+            state.batchEndTs
+        );
+        state.subNonce += 1;
+
+        ITeeRegistry.TeeMachine[] memory receivingTees = teeWalletManager.receivingTees(_walletId);
+
+        bytes32 instructionId = keccak256(abi.encode(PAY, _walletId, message.nonce));
+        teeInstructions.send(
+            instructionId,
+            receivingTees,
+            state.batchRewardEpochId,
+            walletOpType,
+            PAY,
+            abi.encode(message)
+        );
+        return message.subNonce;
+    }
+
+    /**
+     * @inheritdoc ITeePayments
+     */
+    function reissue(
+        bytes32 _walletId,
+        uint64 _nonce,
+        uint64 _firstSubNonce,
+        PaymentInstruction[] calldata _paymentInstructions,
+        uint96 _fee,
+        bool _nullify
+    ) external {
+        WalletSettings memory setting = settings[_walletId];
+        require(_fee <= setting.maxControlFee, "fee higher than maxControlFee");
+        WalletState memory state = states[_walletId];
+        // check if batch has ended
+        require(_nonce + 1 < state.nonce || _nonce + 1 == state.nonce && block.timestamp > state.batchEndTs,
+            "batch hasn't yet ended");
+        // check if hash matches
+        bytes32 batchHash = keccak256(abi.encode(_paymentInstructions[0], _firstSubNonce));
+        for (uint256 i = 1; i < _paymentInstructions.length; ++i) {
+            batchHash = keccak256(abi.encode(
+                batchHash,
+                _paymentInstructions[i],
+                _firstSubNonce + i
+            ));
+        }
+        require(hashes[_walletId][_nonce] == batchHash, "batch hash mismatch");
+
+        ITeeRegistry.TeeMachine[] memory receivingTees = teeWalletManager.receivingTees(_walletId);
+        string memory senderAddress = senderAddresses[_walletId];
+
+        // reissue batch
+        for (uint256 i = 0; i < _paymentInstructions.length; ++i) {
+            PaymentInstructionMessage memory message = PaymentInstructionMessage(
+                _walletId,
+                senderAddress,
+                _paymentInstructions[i].recipientAddress,
+                _paymentInstructions[i].amount,
+                _paymentInstructions[i].paymentReference,
+                _nonce,
+                _firstSubNonce + i,
+                _fee,
+                setting.maxFeeTolerancePPM,
+                block.timestamp
+            );
+            if (_nullify) {
+                message.amount = 0;
+                message.recipientAddress = senderAddress;
+            }
+            bytes32 instructionId = keccak256(abi.encode(REISSUE, _walletId, _nonce));
+            // linter thinks this is a multiple send of native tokens
+            // solhint-disable-next-line multiple-sends
+            teeInstructions.send(
+                instructionId,
+                receivingTees,
+                flareSystemsManager.getCurrentRewardEpochId(),
+                opType,
+                REISSUE,
+                abi.encode(message)
+            );
+        }
+    }
+
+    /**
+     * @inheritdoc ITeePayments
+     */
+    function setControlAddress(bytes32 _walletId, address _controlAddress) external {
+        require(teeWalletManager.getWalletOwner(_walletId) == msg.sender, "only wallet owner");
+        settings[_walletId].controlAddress = _controlAddress;
+    }
+
+    /**
+     * @inheritdoc ITeePayments
+     */
+    function setFees(
+        bytes32 _walletId,
+        uint96 _maxFee,
+        uint32 _maxFeeTolerancePPM,
+        uint96 _maxControlFee
+    )
+        external
+    {
+        require(teeWalletManager.getWalletOwner(_walletId) == msg.sender, "only wallet owner");
+        WalletSettings storage setting = settings[_walletId];
+        setting.maxFee = _maxFee;
+        setting.maxFeeTolerancePPM = _maxFeeTolerancePPM;
+        setting.maxControlFee = _maxControlFee;
+    }
+
+    /**
+     * @inheritdoc ITeePayments
+     */
+    function setBatchSettings(
+        bytes32 _walletId,
+        uint64 _batchSize,
+        uint64 _batchDurationSeconds
+    )
+        external
+    {
+        require(teeWalletManager.getWalletOwner(_walletId) == msg.sender, "only wallet owner");
+        WalletSettings storage setting = settings[_walletId];
+        setting.batchSize = _batchSize;
+        setting.batchDurationSeconds = _batchDurationSeconds;
     }
 
 
@@ -85,7 +254,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     {
         teeWalletManager = ITeeWalletManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
-        flareSystemsManager = IFlareSystemsManager(
+        flareSystemsManager = ProtocolsV2Interface(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 }

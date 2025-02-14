@@ -47,6 +47,7 @@ interface ITeePayments {
      * Can only be called by the control address.
      * @param _walletId The wallet id.
      * @param _nonce Batch nonce of the payment instruction to be reissued.
+     * @param _firstSubNonce SubNonce of the first transaction in the batch.
      * @param _paymentInstruction The payment instruction.
      * @param _fee The new (usually bumped) fee.
      * @param _nullify If true, nullification transaction should be issued instead.
@@ -54,6 +55,7 @@ interface ITeePayments {
     function reissue(
         bytes32 _walletId,
         uint64 _nonce,
+        uint64 _firstSubNonce,
         PaymentInstruction[] calldata _paymentInstruction,
         uint96 _fee,
         bool _nullify

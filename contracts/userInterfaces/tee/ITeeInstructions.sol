@@ -36,4 +36,18 @@ interface ITeeInstructions {
         bytes memory _message
     )
         external;
+
+    /**
+     Registers an opType contract.
+     Can only be called by the governance.
+     * @param _opTypeContract The functionality contract.
+     */
+    function registerOpTypeContract(address _opTypeContract) external;
+
+    /**
+     Unregisters an opType contract.
+     Can only be called by the governance.
+     * @param _opTypeContract The functionality contract.
+     */
+    function unregisterOpTypeContract(address _opTypeContract) external;
 }
