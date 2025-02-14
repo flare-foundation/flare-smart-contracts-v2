@@ -32,8 +32,8 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         uint96 maxControlFee;
     }
 
-    bytes32 internal constant PAY = bytes32("PAY");
-    bytes32 internal constant REISSUE = bytes32("REISSUE");
+    bytes32 public constant PAY = bytes32("PAY");
+    bytes32 public constant REISSUE = bytes32("REISSUE");
 
     uint64 public immutable maxBatchSize;
     uint64 public immutable maxBatchDurationSeconds;
