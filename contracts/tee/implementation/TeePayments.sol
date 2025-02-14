@@ -11,7 +11,7 @@ import "../../userInterfaces/tee/ITeePayments.sol";
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.
  */
-contract TeePayments is ITeePayments, Governed, AddressUpdatable {
+abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
 
     struct WalletState {
         uint64 nonce;
@@ -68,7 +68,8 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     /**
      * @inheritdoc ITeePayments
      */
-    function pay(PaymentInstruction calldata _paymentInstruction) external returns (uint256 _subNonce) {
+    function send(bytes32 _walletId, PaymentInstruction calldata _paymentInstruction)
+        external returns (uint256 _subNonce) {
 
     }
 

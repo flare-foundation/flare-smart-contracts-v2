@@ -9,27 +9,30 @@ import "./ITeeRegistry.sol";
 interface ITeeInstructions {
 
     event TeeInstructionsSent (
-        bytes32 indexed indexHash,
+        bytes32 indexed instructionId,
         ITeeRegistry.TeeMachine[] teeMachines,
         uint256 rewardEpochId,
         bytes32 opType,
+        bytes32 instruction,
         bytes message
     );
 
     /**
      * Send instructions to the TEE machines.
      * Emits a TeeInstructionsSent event.
-     * @param _indexHash The index hash.
+     * @param _instructionId The instruction ID.
      * @param _teeMachines The TEE machines.
      * @param _rewardEpochId The reward epoch ID.
      * @param _opType The operation type.
+     * @param _instruction The instruction.
      * @param _message The message.
      */
     function send(
-        bytes32 _indexHash,
+        bytes32 _instructionId,
         ITeeRegistry.TeeMachine[] memory _teeMachines,
         uint256 _rewardEpochId,
         bytes32 _opType,
+        bytes32 _instruction,
         bytes memory _message
     )
         external;

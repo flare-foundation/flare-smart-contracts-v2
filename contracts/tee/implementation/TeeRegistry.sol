@@ -8,7 +8,7 @@ import "../../userInterfaces/tee/ITeeRegistry.sol";
 /**
  * TeeRegistry is used for registration of TEE machines.
  */
-contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
+abstract contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
 
     struct TeeState {
         address owner;
@@ -28,7 +28,6 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     mapping(address teeId => TeeState) private teeStates;
     mapping(bytes32 codeHash => TeeVersion) private codeHashPlatforms;
     mapping(uint256 version => bytes32[]) private versionOpTypes; // utf8 encoded operation type
-
 
     /**
      * Constructor.
