@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
-import "../../userInterfaces/LTS/ProtocolsV2Interface.sol";
+import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
 import "../../userInterfaces/tee/ITeePayments.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
@@ -45,7 +45,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     mapping(bytes32 walletId => mapping(uint64 nonce => bytes32)) private hashes;
 
     /// Flare Systems Manager contract.
-    ProtocolsV2Interface public flareSystemsManager;
+    IFlareSystemsManager public flareSystemsManager;
     /// TeeWalletManager contract.
     ITeeWalletManager public teeWalletManager;
     /// TeeInstructions contract.
@@ -85,8 +85,8 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         (address submitAddress, ITeeWalletManager.WalletStatus walletStatus, bytes32 walletOpType) =
             teeWalletManager.getTeeWalletInfo(_walletId);
         require(submitAddress == msg.sender, "only submit address");
-        require(walletStatus == ITeeWalletManager.WalletStatus.CONFIRMED, "only confirmed state");
-        require(walletOpType == opType, "wrong opType");
+        require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION, "only production status");
+        require(walletOpType == opType, "wrong op type");
 
         WalletState storage state = states[_walletId];
         WalletSettings memory setting = settings[_walletId];
@@ -95,13 +95,12 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
             state.batchEndTs = uint64(block.timestamp) + setting.batchDurationSeconds;
             state.batchRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
             state.batchCounter = 1;
-            state.nonce += 1;
-            hashes[_walletId][state.nonce - 1] = keccak256(abi.encode(
+            hashes[_walletId][state.nonce++] = keccak256(abi.encode(
                 _paymentInstruction,
                 state.subNonce
             ));
         } else {
-            state.batchCounter += 1;
+            ++state.batchCounter;
             hashes[_walletId][state.nonce - 1] = keccak256(abi.encode(
                 hashes[_walletId][state.nonce - 1],
                 _paymentInstruction,
@@ -121,7 +120,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
             setting.maxFeeTolerancePPM,
             state.batchEndTs
         );
-        state.subNonce += 1;
+        ++state.subNonce;
 
         ITeeRegistry.TeeMachine[] memory receivingTees = teeWalletManager.receivingTees(_walletId);
 
@@ -254,7 +253,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     {
         teeWalletManager = ITeeWalletManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
-        flareSystemsManager = ProtocolsV2Interface(
+        flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 }
