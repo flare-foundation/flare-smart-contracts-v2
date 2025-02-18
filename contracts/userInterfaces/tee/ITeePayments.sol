@@ -39,7 +39,7 @@ interface ITeePayments {
         bytes32 _walletId,
         PaymentInstruction calldata _paymentInstruction
     )
-        external
+        external payable
         returns (uint256 _subNonce);
 
     /**
@@ -60,7 +60,7 @@ interface ITeePayments {
         uint96 _fee,
         bool _nullify
     )
-        external;
+        external payable;
 
     /**
      * Method for setting the control address.
@@ -71,6 +71,18 @@ interface ITeePayments {
     function setControlAddress(
         bytes32 _walletId,
         address _controlAddress
+    )
+        external;
+
+    /**
+     * Method for setting the sender address.
+     * Can only be called by the wallet owner.
+     * @param _walletId The wallet id.
+     * @param _senderAddress The new sender address.
+     */
+    function setSenderAddress(
+        bytes32 _walletId,
+        string calldata _senderAddress
     )
         external;
 

@@ -13,8 +13,8 @@ import "../../utils/lib/AddressSet.sol";
 contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
         using AddressSet for AddressSet.State;
 
-    /// List of opType contracts.
-    AddressSet.State internal opTypeContracts;
+    /// List of instruction initiator contracts.
+    AddressSet.State internal instructionInitiatorContracts;
 
     /**
      * Constructor.
@@ -34,20 +34,6 @@ contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
     /**
      * @inheritdoc ITeeInstructions
      */
-    function registerOpTypeContract(address _opTypeContract) external override onlyGovernance {
-        opTypeContracts.add(_opTypeContract);
-    }
-
-    /**
-     * @inheritdoc ITeeInstructions
-     */
-    function unregisterOpTypeContract(address _opTypeContract) external override onlyGovernance {
-        opTypeContracts.remove(_opTypeContract);
-    }
-
-    /**
-     * @inheritdoc ITeeInstructions
-     */
     function send(
         bytes32 _instructionId,
         ITeeRegistry.TeeMachine[] memory _teeMachines,
@@ -62,12 +48,39 @@ contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
     }
 
     /**
-     * Returns opTypes contracts.
+     Registers an instruction initiator contracts.
+     * @param _instructionInitiatorContracts The functionality contract.
+     * @dev Only governance can call this method.
      */
-    function getOpTypeContracts() external view returns(address[] memory) {
-        return opTypeContracts.list;
+    function registerInstructionInitiatorContracts(
+        address[] calldata _instructionInitiatorContracts
+    )
+        external onlyGovernance
+    {
+        instructionInitiatorContracts.addAll(_instructionInitiatorContracts);
     }
 
+    /**
+     Registers an instruction initiator contracts.
+     * @param _instructionInitiatorContracts The functionality contract.
+     * @dev Only governance can call this method.
+     */
+    function unregisterInstructionInitiatorContracts(
+        address[] calldata _instructionInitiatorContracts
+    )
+        external onlyGovernance
+    {
+        for (uint256 i = 0; i < _instructionInitiatorContracts.length; ++i) {
+            instructionInitiatorContracts.remove(_instructionInitiatorContracts[i]);
+        }
+    }
+
+    /**
+     * @inheritdoc ITeeInstructions
+     */
+    function getInstructionInitiatorContracts() external view returns(address[] memory) {
+        return instructionInitiatorContracts.list;
+    }
 
     /**
      * @inheritdoc AddressUpdatable
