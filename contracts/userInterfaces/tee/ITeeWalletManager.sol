@@ -99,7 +99,7 @@ interface ITeeWalletManager {
      * @param _status The wallet status.
      * @param _opType The wallet operation type.
      */
-    function getTeeWalletInfo(bytes32 _walletId) external view returns (
+    function getWalletInfo(bytes32 _walletId) external view returns (
         address _submitAddress,
         WalletStatus _status,
         bytes32 _opType

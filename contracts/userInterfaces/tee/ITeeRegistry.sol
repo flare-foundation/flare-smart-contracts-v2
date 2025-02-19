@@ -6,7 +6,9 @@ pragma solidity >=0.7.6 <0.9;
  */
 interface ITeeRegistry {
 
-    enum TeeStatus {INITIALIZED, PRODUCTION, PAUSED, PAUSED_FOR_UPGRADE}
+    enum TeeStatus {INITIALIZED, PRODUCTION, PAUSED, PAUSED_FOR_UPGRADE, REPLICATING}
+
+    enum AvailabilityStatus {OK, OBSOLETE, DATA_MISMATCH, DOWN}
 
     struct TeeMachine {
         address teeId;
@@ -16,8 +18,30 @@ interface ITeeRegistry {
     struct TeeMachineWithAttestationData {
         address teeId;
         string url;
-        bytes32 platform;
         bytes32 codeHash;
+        bytes32 platform;
+    }
+
+    struct AvailabilityCheckRequest {
+        address teeId;
+        string url;
+        bytes32 codeHash;
+        bytes32 platform;
+        uint256 timestamp;
+    }
+
+    struct AvailabilityCheckResponse {
+        address teeId;
+        string url;
+        bytes32 codeHash;
+        bytes32 platform;
+        uint256 timestamp;
+        AvailabilityStatus status;
+    }
+
+    struct ReplicateTeeMachine {
+        TeeMachineWithAttestationData oldTeeMachine;
+        TeeMachineWithAttestationData newTeeMachine;
     }
 
     function getTeeMachineStatus(address _teeId)

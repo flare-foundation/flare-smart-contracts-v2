@@ -11,7 +11,7 @@ import "../../utils/lib/AddressSet.sol";
  * that data providers are listening to perform operations on TEE machines.
  */
 contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
-        using AddressSet for AddressSet.State;
+    using AddressSet for AddressSet.State;
 
     /// List of instruction initiator contracts.
     AddressSet.State internal instructionInitiatorContracts;
@@ -42,7 +42,7 @@ contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
         bytes32 _instruction,
         bytes memory _message
     )
-        external payable override
+        external payable
     {
         emit TeeInstructionsSent(_instructionId, _teeMachines, _rewardEpochId, _opType, _instruction, _message);
     }

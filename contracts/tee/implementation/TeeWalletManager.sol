@@ -44,7 +44,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     bytes32 public constant KEY_CUSTODIAN_RESTORE = bytes32("KEY_CUSTODIAN_RESTORE");
 
 
-    uint256 internal count = 0;
+    uint256 public walletCounter = 0;
     mapping(bytes32 walletId => TeeWalletState) private wallets;
     mapping(bytes32 walletId => address) public proposedWalletOwner;
 
@@ -85,7 +85,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         returns (bytes32 _walletId)
     {
         require(_multisigThreshold > 0, "invalid multisig threshold");
-        _walletId = keccak256(abi.encode(msg.sender, ++count));
+        _walletId = keccak256(abi.encode(msg.sender, ++walletCounter));
         TeeWalletState storage wallet = wallets[_walletId];
         assert(wallet.owner == address(0)); // should never revert
         wallet.owner = msg.sender;
@@ -100,12 +100,12 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         address _teeId,
         bytes32 _walletId
     )
-        external onlyOwner(_walletId)
+        external payable
+        onlyOwner(_walletId)
     {
-        require(teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
-            "tee machine not available");
+        _checkTeeStatus(_teeId);
         TeeWalletState storage wallet = wallets[_walletId];
-        require(wallet.status == WalletStatus.INITIALIZED, "wallet not in status initialized");
+        _checkWalletStatus(wallet.status, WalletStatus.INITIALIZED);
         require(teeRegistry.isOpTypeSupported(_teeId, wallet.opType), "op type not supported");
         uint64 keyId = wallet.keyIdCounter++;
         KeyGenerate memory keyGenerate = KeyGenerate({
@@ -117,7 +117,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         bytes32 instructionId = keccak256(abi.encode(KEY_GENERATE, _walletId, keyId));
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
-        teeInstructions.sendInstructions(
+        teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -128,6 +128,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     }
 
     function confirmKey(
+        address _teeId,
         bytes32 _walletId,
         uint64 _keyId,
         bytes calldata _publicKey,
@@ -138,6 +139,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         TeeWalletState storage wallet = wallets[_walletId];
         require(wallet.keyIdCounter > _keyId, "invalid key id");
         require(_publicKey.length > 0, "invalid public key");
+        require(teeRegistry.isOpTypeSupported(_teeId, wallet.opType), "op type not supported");
         bytes32 messageHash = keccak256(abi.encode(_walletId, _keyId, _publicKey));
         address teeId = ECDSA.recover(
             MessageHashUtils.toEthSignedMessageHash(messageHash),
@@ -145,7 +147,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             _signature.r,
             _signature.s
         );
-        require(teeRegistry.isOpTypeSupported(teeId, wallet.opType), "op type not supported");
+        require(teeId == _teeId, "invalid signature");
 
         KeyDefinition storage keyDefinition = wallet.keyDefinitions[_keyId];
         // add tee id to existing key definition
@@ -162,7 +164,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             return;
         }
         // new key definition can only be added if wallet is in status initialized
-        require(wallet.status == WalletStatus.INITIALIZED, "wallet not in status initialized");
+        _checkWalletStatus(wallet.status, WalletStatus.INITIALIZED);
         // add new key id
         wallet.keyIds.push(_keyId);
         // set public key and add tee id
@@ -175,7 +177,8 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         bytes32 _walletId,
         uint64 _keyId
     )
-        external onlyOwner(_walletId)
+        external payable
+        onlyOwner(_walletId)
     {
         // should not check for tee machine status here
         // as might want to delete key even if tee machine is not available
@@ -206,7 +209,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         bytes32 instructionId = keccak256(abi.encode(KEY_DELETE, _walletId, _keyId));
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
-        teeInstructions.sendInstructions(
+        teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -223,15 +226,12 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         uint256 _shamirThreshold,
         address[] calldata _backupTeeIds
     )
-        external onlyOwnerOrBackupManager(_walletId)
+        external payable
+        onlyOwnerOrBackupManager(_walletId)
     {
         require(_shamirThreshold > 0 && _shamirThreshold <= _backupTeeIds.length, "invalid shamir threshold");
-        require(teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
-            "tee machine not available");
-        for(uint256 i = 0; i < _backupTeeIds.length; i++) {
-            require(teeRegistry.getTeeMachineStatus(_backupTeeIds[i]) == ITeeRegistry.TeeStatus.PRODUCTION,
-                "tee machine not available");
-        }
+        _checkTeeStatus(_teeId);
+        _checkTeeStatuses(_backupTeeIds);
         TeeWalletState storage wallet = wallets[_walletId];
         KeyDefinition storage keyDefinition = wallet.keyDefinitions[_keyId];
         require(keyDefinition.publicKey.length > 0, "key id not found on tee machine");
@@ -253,7 +253,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             teeId: keyMachineBackup.teeMachine.teeId,
             url: keyMachineBackup.teeMachine.url
         });
-        teeInstructions.sendInstructions(
+        teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -270,14 +270,11 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         uint256 _backupId,
         address[] calldata _backupTeeIds
     )
-        external onlyOwnerOrBackupManager(_walletId)
+        external payable
+        onlyOwnerOrBackupManager(_walletId)
     {
-        require(teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
-            "tee machine not available");
-        for(uint256 i = 0; i < _backupTeeIds.length; i++) {
-            require(teeRegistry.getTeeMachineStatus(_backupTeeIds[i]) == ITeeRegistry.TeeStatus.PRODUCTION,
-                "tee machine not available");
-        }
+        _checkTeeStatus(_teeId);
+        _checkTeeStatuses(_backupTeeIds);
         TeeWalletState storage wallet = wallets[_walletId];
         require(wallet.keyIdCounter > _keyId, "invalid key id");
         require(wallet.keyDefinitions[_keyId].machineBackupCounter > _backupId, "invalid backup id");
@@ -299,7 +296,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             teeId: keyMachineRestore.teeMachine.teeId,
             url: keyMachineRestore.teeMachine.url
         });
-        teeInstructions.sendInstructions(
+        teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -315,12 +312,10 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         uint256 _backupId,
         address[] calldata _teeIds
     )
-        external onlyOwner(_walletId)
+        external payable
+        onlyOwner(_walletId)
     {
-        for(uint256 i = 0; i < _teeIds.length; i++) {
-            require(teeRegistry.getTeeMachineStatus(_teeIds[i]) == ITeeRegistry.TeeStatus.PRODUCTION,
-                "tee machine not available");
-        }
+        _checkTeeStatuses(_teeIds);
         TeeWalletState storage wallet = wallets[_walletId];
         require(wallet.keyIdCounter > _keyId, "invalid key id");
         require(wallet.keyDefinitions[_keyId].machineBackupCounter > _backupId, "invalid backup id");
@@ -335,7 +330,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         for (uint256 i = 0; i < _teeIds.length; i++) {
             teeMachines[i] = teeRegistry.getTeeMachine(_teeIds[i]);
         }
-        teeInstructions.sendInstructions(
+        teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -352,14 +347,12 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         uint256 _shamirThreshold,
         bytes[] calldata _custodianPublicKeys
     )
-        external onlyOwner(_walletId)
+        external payable
+        onlyOwner(_walletId)
     {
         require(_shamirThreshold > 0 && _shamirThreshold <= _custodianPublicKeys.length, "invalid shamir threshold");
-        require(teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
-            "tee machine not available");
-        for(uint256 i = 0; i < _custodianPublicKeys.length; i++) {
-            require(_custodianPublicKeys[i].length > 0, "invalid custodian public key");
-        }
+        _checkTeeStatus(_teeId);
+        _checkCustodianPublicKeys(_custodianPublicKeys);
         TeeWalletState storage wallet = wallets[_walletId];
         KeyDefinition storage keyDefinition = wallet.keyDefinitions[_keyId];
         require(keyDefinition.publicKey.length > 0, "key id not found on tee machine");
@@ -375,7 +368,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             keccak256(abi.encode(KEY_CUSTODIAN_BACKUP, _walletId, _keyId, keyCustodianBackup.backupId));
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
-        teeInstructions.sendInstructions(
+        teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -392,13 +385,11 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         uint256 _backupId,
         bytes[] calldata _custodianPublicKeys
     )
-        external onlyOwner(_walletId)
+        external payable
+        onlyOwner(_walletId)
     {
-        require(teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
-            "tee machine not available");
-        for(uint256 i = 0; i < _custodianPublicKeys.length; i++) {
-            require(_custodianPublicKeys[i].length > 0, "invalid custodian public key");
-        }
+        _checkTeeStatus(_teeId);
+        _checkCustodianPublicKeys(_custodianPublicKeys);
         TeeWalletState storage wallet = wallets[_walletId];
         require(wallet.keyIdCounter > _keyId, "invalid key id");
         require(wallet.keyDefinitions[_keyId].custodianBackupCounter > _backupId, "invalid backup id");
@@ -414,7 +405,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         bytes32 instructionId = keccak256(abi.encode(KEY_CUSTODIAN_RESTORE, _walletId, _keyId, _backupId));
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
-        teeInstructions.sendInstructions(
+        teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -449,7 +440,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     function pauseWallet(bytes32 _walletId)
         external onlyOwner(_walletId)
     {
-        require(wallets[_walletId].status == WalletStatus.PRODUCTION, "wallet not in status production");
+        _checkWalletStatus(wallets[_walletId].status, WalletStatus.PRODUCTION);
         wallets[_walletId].status = WalletStatus.PAUSED;
     }
 
@@ -477,10 +468,17 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         return wallets[_walletId].owner;
     }
 
+    function getWalletBackupManager(bytes32 _walletId)
+        external view
+        returns (address _backupManager)
+    {
+        return wallets[_walletId].backupManager;
+    }
+
     /**
      * @inheritdoc ITeeWalletManager
      */
-    function getTeeWalletInfo(bytes32 _walletId)
+    function getWalletInfo(bytes32 _walletId)
         external view
         returns (
             address _submitAddress,
@@ -492,6 +490,32 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         return (wallet.submitAddress, wallet.status, wallet.opType);
     }
 
+    function getWalletKeysInfo(bytes32 _walletId)
+        external view
+        returns (uint64 _multisigThreshold, uint256[] memory _keyIds, uint64 _counter)
+    {
+        TeeWalletState storage wallet = wallets[_walletId];
+        return (wallet.multisigThreshold, wallet.keyIds, wallet.keyIdCounter);
+    }
+
+    function getWalletKeyInfo(bytes32 _walletId, uint64 _keyId)
+        external view
+        returns (
+            uint64 _machineBackupCounter,
+            uint64 _custodianBackupCounter,
+            bytes memory _publicKey,
+            address[] memory _teeIds
+        )
+    {
+        KeyDefinition storage keyDefinition = wallets[_walletId].keyDefinitions[_keyId];
+        return (
+            keyDefinition.machineBackupCounter,
+            keyDefinition.custodianBackupCounter,
+            keyDefinition.publicKey,
+            keyDefinition.teeIds
+        );
+    }
+
     /**
      * @inheritdoc ITeeWalletManager
      */
@@ -500,7 +524,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         returns (ITeeRegistry.TeeMachine[] memory _receivingTees)
     {
         TeeWalletState storage wallet = wallets[_walletId];
-        require(wallet.status == WalletStatus.PRODUCTION, "wallet not in status production");
+        _checkWalletStatus(wallet.status, WalletStatus.PRODUCTION);
         uint256 countTees = 0;
         for (uint256 i = 0; i < wallet.keyIds.length; i++) {
             countTees += wallet.keyDefinitions[wallet.keyIds[i]].teeIds.length;
@@ -521,7 +545,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
                 threshold++;
             }
         }
-        require(threshold >= wallet.multisigThreshold, "not enough tees available");
+        require(threshold >= wallet.multisigThreshold, "not enough keys/tees available");
         _receivingTees = new ITeeRegistry.TeeMachine[](countTees);
         for (uint256 i = 0; i < countTees; i++) {
             _receivingTees[i] = teeRegistry.getTeeMachine(teeMachines[i]);
@@ -542,5 +566,34 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
+    }
+
+    function _checkTeeStatus(address _teeId)
+        internal view
+    {
+        require(teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
+            "tee machine not available");
+    }
+
+    function _checkTeeStatuses(address[] memory _teeIds)
+        internal view
+    {
+        for(uint256 i = 0; i < _teeIds.length; i++) {
+            _checkTeeStatus(_teeIds[i]);
+        }
+    }
+
+    function _checkWalletStatus(WalletStatus _actualStatus, WalletStatus _expectedStatus)
+        internal pure
+    {
+        require(_actualStatus == _expectedStatus, "invalid wallet status");
+    }
+
+    function _checkCustodianPublicKeys(bytes[] memory _custodianPublicKeys)
+        internal pure
+    {
+        for(uint256 i = 0; i < _custodianPublicKeys.length; i++) {
+            require(_custodianPublicKeys[i].length > 0, "invalid custodian public key"); // TODO
+        }
     }
 }

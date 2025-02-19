@@ -88,7 +88,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     {
         // TODO check fee
         (address submitAddress, ITeeWalletManager.WalletStatus walletStatus, bytes32 walletOpType) =
-            teeWalletManager.getTeeWalletInfo(_walletId);
+            teeWalletManager.getWalletInfo(_walletId);
         require(submitAddress == msg.sender, "only submit address");
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION, "wallet not in production");
 
@@ -161,13 +161,12 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         // TODO check fee
         string memory senderAddress = senderAddresses[_walletId];
         require(bytes(senderAddress).length > 0, "sender address not set");
-        (, ITeeWalletManager.WalletStatus walletStatus, ) =
-            teeWalletManager.getTeeWalletInfo(_walletId);
+        (, ITeeWalletManager.WalletStatus walletStatus, ) = teeWalletManager.getWalletInfo(_walletId);
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION, "wallet not in production");
         WalletSettings memory setting = settings[_walletId];
         require(msg.sender == setting.controlAddress, "only control address");
         require(_fee <= setting.maxControlFee, "fee higher than max control fee");
-         WalletState memory state = states[_walletId];
+        WalletState memory state = states[_walletId];
         // check if batch has ended
         require(_nonce + 1 < state.nonce || _nonce + 1 == state.nonce && block.timestamp > state.batchEndTs,
             "batch hasn't yet ended");
@@ -267,7 +266,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         external onlyWalletOwner(_walletId)
     {
         require(bytes(senderAddresses[_walletId]).length == 0, "sender address already set");
-        (, ITeeWalletManager.WalletStatus walletStatus, ) = teeWalletManager.getTeeWalletInfo(_walletId);
+        (, ITeeWalletManager.WalletStatus walletStatus, ) = teeWalletManager.getWalletInfo(_walletId);
         require(walletStatus != ITeeWalletManager.WalletStatus.INITIALIZED, "only production or paused status");
         require(settings[_walletId].maxFee > 0, "fees not set");
         senderAddresses[_walletId] = _senderAddress;
