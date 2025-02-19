@@ -27,7 +27,7 @@ interface ITeeInstructions {
      * @param _instruction The instruction.
      * @param _message The message.
      */
-    function send(
+    function sendInstructions(
         bytes32 _instructionId,
         ITeeRegistry.TeeMachine[] memory _teeMachines,
         uint256 _rewardEpochId,
@@ -35,7 +35,7 @@ interface ITeeInstructions {
         bytes32 _instruction,
         bytes memory _message
     )
-        external;
+        external payable;
 
 
     /**

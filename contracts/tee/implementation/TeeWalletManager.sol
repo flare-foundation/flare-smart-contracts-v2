@@ -117,7 +117,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         bytes32 instructionId = keccak256(abi.encode(KEY_GENERATE, _walletId, keyId));
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
-        teeInstructions.send(
+        teeInstructions.sendInstructions(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -206,7 +206,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         bytes32 instructionId = keccak256(abi.encode(KEY_DELETE, _walletId, _keyId));
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
-        teeInstructions.send(
+        teeInstructions.sendInstructions(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -253,7 +253,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             teeId: keyMachineBackup.teeMachine.teeId,
             url: keyMachineBackup.teeMachine.url
         });
-        teeInstructions.send(
+        teeInstructions.sendInstructions(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -299,7 +299,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             teeId: keyMachineRestore.teeMachine.teeId,
             url: keyMachineRestore.teeMachine.url
         });
-        teeInstructions.send(
+        teeInstructions.sendInstructions(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -335,7 +335,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         for (uint256 i = 0; i < _teeIds.length; i++) {
             teeMachines[i] = teeRegistry.getTeeMachine(_teeIds[i]);
         }
-        teeInstructions.send(
+        teeInstructions.sendInstructions(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -375,7 +375,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             keccak256(abi.encode(KEY_CUSTODIAN_BACKUP, _walletId, _keyId, keyCustodianBackup.backupId));
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
-        teeInstructions.send(
+        teeInstructions.sendInstructions(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
@@ -414,7 +414,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         bytes32 instructionId = keccak256(abi.encode(KEY_CUSTODIAN_RESTORE, _walletId, _keyId, _backupId));
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
-        teeInstructions.send(
+        teeInstructions.sendInstructions(
             instructionId,
             teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),

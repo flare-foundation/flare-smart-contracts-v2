@@ -34,7 +34,7 @@ contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
     /**
      * @inheritdoc ITeeInstructions
      */
-    function send(
+    function sendInstructions(
         bytes32 _instructionId,
         ITeeRegistry.TeeMachine[] memory _teeMachines,
         uint256 _rewardEpochId,
@@ -42,7 +42,7 @@ contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
         bytes32 _instruction,
         bytes memory _message
     )
-        external override
+        external payable override
     {
         emit TeeInstructionsSent(_instructionId, _teeMachines, _rewardEpochId, _opType, _instruction, _message);
     }

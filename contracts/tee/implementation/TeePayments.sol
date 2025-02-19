@@ -134,7 +134,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         ITeeRegistry.TeeMachine[] memory receivingTees = teeWalletManager.receivingTees(_walletId);
 
         bytes32 instructionId = keccak256(abi.encode(PAY, _walletId, message.nonce));
-        teeInstructions.send(
+        teeInstructions.sendInstructions(
             instructionId,
             receivingTees,
             state.batchRewardEpochId,
@@ -203,9 +203,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
                 message.recipientAddress = senderAddress;
             }
             bytes32 instructionId = keccak256(abi.encode(REISSUE, _walletId, _nonce));
-            // linter thinks this is a multiple send of native tokens
-            // solhint-disable-next-line multiple-sends
-            teeInstructions.send(
+            teeInstructions.sendInstructions(
                 instructionId,
                 receivingTees,
                 flareSystemsManager.getCurrentRewardEpochId(),
