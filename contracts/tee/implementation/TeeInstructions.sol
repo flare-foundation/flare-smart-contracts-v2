@@ -14,7 +14,7 @@ contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
     using AddressSet for AddressSet.State;
 
     /// List of instruction initiator contracts.
-    AddressSet.State internal instructionInitiatorContracts;
+    AddressSet.State internal instructionInitiators;
 
     /**
      * Constructor.
@@ -48,38 +48,38 @@ contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
     }
 
     /**
-     Registers an instruction initiator contracts.
-     * @param _instructionInitiatorContracts The functionality contract.
+     Registers instruction initiator contracts.
+     * @param _instructionInitiators List of contracts to register.
      * @dev Only governance can call this method.
      */
-    function registerInstructionInitiatorContracts(
-        address[] calldata _instructionInitiatorContracts
+    function registerInstructionInitiators(
+        address[] calldata _instructionInitiators
     )
         external onlyGovernance
     {
-        instructionInitiatorContracts.addAll(_instructionInitiatorContracts);
+        instructionInitiators.addAll(_instructionInitiators);
     }
 
     /**
-     Registers an instruction initiator contracts.
-     * @param _instructionInitiatorContracts The functionality contract.
+     Unregisters instruction initiator contracts.
+     * @param _instructionInitiators List of contracts to unregister.
      * @dev Only governance can call this method.
      */
-    function unregisterInstructionInitiatorContracts(
-        address[] calldata _instructionInitiatorContracts
+    function unregisterInstructionInitiators(
+        address[] calldata _instructionInitiators
     )
         external onlyGovernance
     {
-        for (uint256 i = 0; i < _instructionInitiatorContracts.length; ++i) {
-            instructionInitiatorContracts.remove(_instructionInitiatorContracts[i]);
+        for (uint256 i = 0; i < _instructionInitiators.length; ++i) {
+            instructionInitiators.remove(_instructionInitiators[i]);
         }
     }
 
     /**
      * @inheritdoc ITeeInstructions
      */
-    function getInstructionInitiatorContracts() external view returns(address[] memory) {
-        return instructionInitiatorContracts.list;
+    function getInstructionInitiators() external view returns(address[] memory) {
+        return instructionInitiators.list;
     }
 
     /**

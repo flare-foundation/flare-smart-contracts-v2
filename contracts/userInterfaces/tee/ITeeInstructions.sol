@@ -41,5 +41,5 @@ interface ITeeInstructions {
     /**
      * Returns the list of instruction initiator contracts.
      */
-    function getInstructionInitiatorContracts() external view returns (address[] memory);
+    function getInstructionInitiators() external view returns (address[] memory);
 }
