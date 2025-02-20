@@ -553,6 +553,16 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     }
 
     /**
+     * @inheritdoc ITeeWalletManager
+     */
+    function getWalletStatus(bytes32 _walletId)
+        external view
+        returns (WalletStatus _status)
+    {
+        return wallets[_walletId].status;
+    }
+
+    /**
      * @inheritdoc AddressUpdatable
      */
     function _updateContractAddresses(

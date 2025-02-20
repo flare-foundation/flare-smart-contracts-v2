@@ -80,7 +80,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     /**
      * @inheritdoc ITeePayments
      */
-    function send(
+    function pay(
         bytes32 _walletId,
         PaymentInstruction calldata _paymentInstruction
     )
@@ -96,7 +96,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         require(bytes(senderAddresses[_walletId]).length > 0, "sender address not set");
 
         WalletState storage state = states[_walletId];
-        WalletSettings memory setting = settings[_walletId];
+        WalletSettings storage setting = settings[_walletId];
         uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         // check if new batch is needed
         if (state.batchEndTs < block.timestamp || state.batchCounter >= setting.batchSize ||
@@ -134,7 +134,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         ITeeRegistry.TeeMachine[] memory receivingTees = teeWalletManager.receivingTees(_walletId);
 
         bytes32 instructionId = keccak256(abi.encode(PAY, _walletId, message.nonce));
-        teeInstructions.sendInstructions(
+        teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             receivingTees,
             state.batchRewardEpochId,
@@ -161,12 +161,12 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         // TODO check fee
         string memory senderAddress = senderAddresses[_walletId];
         require(bytes(senderAddress).length > 0, "sender address not set");
-        (, ITeeWalletManager.WalletStatus walletStatus, ) = teeWalletManager.getWalletInfo(_walletId);
+        ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION, "wallet not in production");
-        WalletSettings memory setting = settings[_walletId];
+        WalletSettings storage setting = settings[_walletId];
         require(msg.sender == setting.controlAddress, "only control address");
         require(_fee <= setting.maxControlFee, "fee higher than max control fee");
-        WalletState memory state = states[_walletId];
+        WalletState storage state = states[_walletId];
         // check if batch has ended
         require(_nonce + 1 < state.nonce || _nonce + 1 == state.nonce && block.timestamp > state.batchEndTs,
             "batch hasn't yet ended");
@@ -182,7 +182,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         require(hashes[_walletId][_nonce] == batchHash, "batch hash mismatch");
 
         ITeeRegistry.TeeMachine[] memory receivingTees = teeWalletManager.receivingTees(_walletId);
-
+        uint32 maxFeeTolerancePPM = setting.maxFeeTolerancePPM;
         // reissue batch
         for (uint256 i = 0; i < _paymentInstructions.length; ++i) {
             PaymentInstructionMessage memory message = PaymentInstructionMessage(
@@ -194,7 +194,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
                 _nonce,
                 _firstSubNonce + i,
                 _fee,
-                setting.maxFeeTolerancePPM,
+                maxFeeTolerancePPM,
                 block.timestamp
             );
             if (_nullify) {
@@ -202,7 +202,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
                 message.recipientAddress = senderAddress;
             }
             bytes32 instructionId = keccak256(abi.encode(REISSUE, _walletId, _nonce));
-            teeInstructions.sendInstructions(
+            teeInstructions.sendInstructions{value: msg.value}(
                 instructionId,
                 receivingTees,
                 flareSystemsManager.getCurrentRewardEpochId(),
@@ -266,7 +266,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         external onlyWalletOwner(_walletId)
     {
         require(bytes(senderAddresses[_walletId]).length == 0, "sender address already set");
-        (, ITeeWalletManager.WalletStatus walletStatus, ) = teeWalletManager.getWalletInfo(_walletId);
+        ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
         require(walletStatus != ITeeWalletManager.WalletStatus.INITIALIZED, "only production or paused status");
         require(settings[_walletId].maxFee > 0, "fees not set");
         senderAddresses[_walletId] = _senderAddress;

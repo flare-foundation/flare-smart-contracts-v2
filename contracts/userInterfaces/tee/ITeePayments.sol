@@ -35,7 +35,7 @@ interface ITeePayments {
      * @param _paymentInstruction The payment instruction.
      * @return _subNonce The sequence number of the payment instruction.
      */
-    function send(
+    function pay(
         bytes32 _walletId,
         PaymentInstruction calldata _paymentInstruction
     )

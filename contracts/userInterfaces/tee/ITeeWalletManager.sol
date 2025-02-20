@@ -112,4 +112,11 @@ interface ITeeWalletManager {
      * @return _receivingTees The receiving tees.
      */
     function receivingTees(bytes32 _walletId) external view returns (ITeeRegistry.TeeMachine[] memory _receivingTees);
+
+    /**
+     * Returns wallet's status.
+     * @param _walletId The wallet id.
+     * @param _status The wallet status.
+     */
+    function getWalletStatus(bytes32 _walletId) external view returns (WalletStatus _status);
 }
