@@ -39,6 +39,10 @@ interface ITeeRegistry {
         AvailabilityStatus status;
     }
 
+    struct PauseForUpgrade {
+        address teeId;
+    }
+
     struct ReplicateTeeMachine {
         TeeMachineWithAttestationData oldTeeMachine;
         TeeMachineWithAttestationData newTeeMachine;

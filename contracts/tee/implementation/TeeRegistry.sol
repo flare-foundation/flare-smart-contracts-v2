@@ -45,9 +45,10 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
 
     AddressSet.State private activeTeeIds;
     mapping(address teeId => TeeState) private teeStates;
-    mapping(bytes32 codeHash => TeeVersion) private codeHashPlatforms;
+    mapping(bytes32 codeHash => TeeVersion) private codeHashToVersion;
     mapping(uint256 version => bytes32[]) private versionOpTypes; // utf8 encoded operation types (XRP, BTC, FDC, etc.)
-    mapping(address oldTeeId => address newTeeId) private replications;
+    mapping(uint256 version => bytes32) private versionToCodeHash;
+    mapping(address oldTeeId => address newTeeId) public replications;
 
     modifier onlyOwner(address _teeId) {
         require(teeStates[_teeId].owner == msg.sender, "only owner");
@@ -70,6 +71,8 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
+        require(_availabilityCheckValidityDurationSeconds >= 1 minutes, "invalid duration");
+        require(_minSupportedVersion > 0, "invalid version");
         pauseBeforeUpgradeMinDurationSeconds = _pauseBeforeUpgradeMinDurationSeconds;
         availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
         minSupportedVersion = _minSupportedVersion;
@@ -84,7 +87,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         external payable
     {
         require(teeStates[_teeId].owner == address(0), "tee already registered");
-        require(codeHashPlatforms[_codeHash].version >= minSupportedVersion, "version not supported");
+        _checkVersionSupported(_codeHash);
         require(_isSupportedPlatform(_codeHash, _platform), "platform not supported");
 
         teeStates[_teeId] = TeeState({
@@ -114,19 +117,31 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         TeeState storage teeState;
         address newTeeId = replications[_teeId];
         if (newTeeId != address(0)) {
-            // use data from new tee in case of replication - old tee in status paused for upgrade
+            // use data from new tee in case of replication
+            // old tee in status PAUSED_FOR_UPGRADE, new tee in status REPLICATING
             teeState = teeStates[newTeeId];
         } else {
             teeState = teeStates[_teeId];
+            // there is no need to check availability for _teeId:
+            // if status is PAUSED_FOR_UPGRADE and replication is not in progress, tee status cannot change
+            // if status is REPLICATING => availability check should be triggered for old tee id
+            TeeStatus status = teeState.status;
+            require(status != TeeStatus.PAUSED_FOR_UPGRADE && status != TeeStatus.REPLICATING, "invalid tee status");
         }
         require(teeState.owner != address(0), "tee not found");
         TeeMachine memory teeMachine;
         if (_teeId == _testOnTeeId || (newTeeId != address(0) && newTeeId == _testOnTeeId)) {
-            // testing on upgraded tee should use old tee id and new url
+            // if newTeeId != address(0) we allow testing on new tee url using old tee id to confirm replication
+            // else teeState.status is not PAUSED_FOR_UPGRADE nor REPLICATING (checked above)
             teeMachine = TeeMachine({ teeId: _teeId, url: teeState.url });
         } else {
-            require(teeStates[_testOnTeeId].status == TeeStatus.PRODUCTION, "invalid test tee");
-            teeMachine = TeeMachine({ teeId: _testOnTeeId, url: teeStates[_testOnTeeId].url });
+            TeeState storage testTeeState = teeStates[_testOnTeeId];
+            require(testTeeState.owner != address(0), "test tee not found");
+            // cannot test on tee in status PAUSED_FOR_UPGRADE as machine does not process requests
+            // cannot test on tee in status REPLICATING as machine tee id might be changed already
+            TeeStatus status = testTeeState.status;
+            require(status != TeeStatus.PAUSED_FOR_UPGRADE && status != TeeStatus.REPLICATING, "invalid tee status");
+            teeMachine = TeeMachine({ teeId: _testOnTeeId, url: testTeeState.url });
         }
 
         _triggerAvailabilityCheck(
@@ -145,33 +160,27 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     )
         external onlyOwner(_teeId)
     {
-        _validateAvailabilityCheckTs(_teeId, _availabilityCheckTs);
-        TeeStatus status = teeStates[_teeId].status;
-        require(status == TeeStatus.INITIALIZED || status == TeeStatus.PAUSED, "invalid tee status");
         TeeState storage teeState = teeStates[_teeId];
-        AvailabilityCheckResponse memory availabilityCheck = AvailabilityCheckResponse({
-            teeId: _teeId,
-            url: teeState.url,
-            codeHash: teeState.codeHash,
-            platform: teeState.platform,
-            timestamp: _availabilityCheckTs,
-            status: AvailabilityStatus.OK
-        });
-        bytes32 messageHash = keccak256(abi.encode(availabilityCheck));
-        uint256 rewardEpochId = relay.verifyCustomSignature(_relayMessage, messageHash);
-        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        require(rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId,
-            "too old signing policy");
+        TeeStatus status = teeState.status;
+        require(status == TeeStatus.INITIALIZED || status == TeeStatus.PAUSED, "invalid tee status");
+        _checkVersionSupported(teeState.codeHash);
+        _validateAvailabilityCheckTs(_teeId, _availabilityCheckTs);
+        _validateAvailabilityCheckResponse(_teeId, teeState.url, teeState.codeHash, teeState.platform,
+            _availabilityCheckTs, AvailabilityStatus.OK, _relayMessage);
 
         teeState.status = TeeStatus.PRODUCTION;
         teeState.lastStatusChangeTs = uint64(block.timestamp);
         activeTeeIds.add(_teeId);
     }
 
-    function pause(address _teeId) external onlyOwner(_teeId) {
-        require(teeStates[_teeId].status == TeeStatus.PRODUCTION, "invalid tee status");
-        teeStates[_teeId].status = TeeStatus.PAUSED;
-        teeStates[_teeId].lastStatusChangeTs = uint64(block.timestamp);
+    function pause(address _teeId) external {
+        TeeState storage teeState = teeStates[_teeId];
+        require(teeState.status == TeeStatus.PRODUCTION, "invalid tee status");
+        require(msg.sender == teeState.owner || codeHashToVersion[teeState.codeHash].version < minSupportedVersion,
+            "only owner or too old version");
+
+        teeState.status = TeeStatus.PAUSED;
+        teeState.lastStatusChangeTs = uint64(block.timestamp);
         activeTeeIds.remove(_teeId);
     }
 
@@ -187,19 +196,8 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         require(teeState.status == TeeStatus.PRODUCTION, "invalid tee status");
         require(_status != AvailabilityStatus.OK, "invalid availability status");
         _validateAvailabilityCheckTs(_teeId, _availabilityCheckTs);
-        AvailabilityCheckResponse memory availabilityCheck = AvailabilityCheckResponse({
-            teeId: _teeId,
-            url: teeState.url,
-            codeHash: teeState.codeHash,
-            platform: teeState.platform,
-            timestamp: _availabilityCheckTs,
-            status: _status
-        });
-        bytes32 messageHash = keccak256(abi.encode(availabilityCheck));
-        uint256 rewardEpochId = relay.verifyCustomSignature(_relayMessage, messageHash);
-        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        require(rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId,
-            "too old signing policy");
+        _validateAvailabilityCheckResponse(_teeId, teeState.url, teeState.codeHash, teeState.platform,
+            _availabilityCheckTs, _status, _relayMessage);
 
         teeState.status = TeeStatus.PAUSED;
         teeState.lastStatusChangeTs = uint64(block.timestamp);
@@ -210,28 +208,24 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         external payable
         onlyOwner(_teeId)
     {
-        require(teeStates[_teeId].status == TeeStatus.PAUSED ||
-            teeStates[_teeId].status == TeeStatus.PAUSED_FOR_UPGRADE, "invalid tee status");
-        if (teeStates[_teeId].status == TeeStatus.PAUSED) {
-            require(teeStates[_teeId].lastStatusChangeTs + pauseBeforeUpgradeMinDurationSeconds < block.timestamp,
+        TeeState storage teeState = teeStates[_teeId];
+        TeeStatus status = teeState.status;
+        require(status == TeeStatus.PAUSED || status == TeeStatus.PAUSED_FOR_UPGRADE, "invalid tee status");
+        if (status == TeeStatus.PAUSED) {
+            require(teeState.lastStatusChangeTs + pauseBeforeUpgradeMinDurationSeconds < block.timestamp,
                 "pause for upgrade too soon");
-            teeStates[_teeId].status = TeeStatus.PAUSED_FOR_UPGRADE;
-            teeStates[_teeId].lastStatusChangeTs = uint64(block.timestamp);
+            teeState.status = TeeStatus.PAUSED_FOR_UPGRADE;
+            teeState.lastStatusChangeTs = uint64(block.timestamp);
         }
 
         bytes32 instructionId = keccak256(abi.encode(PAUSE_FOR_UPGRADE, _teeId));
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
-        teeMachines[0] = ITeeRegistry.TeeMachine({
-            teeId: _teeId,
-            url: teeStates[_teeId].url
-        });
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
-            teeMachines,
+            _getTeeMachines(TeeMachine({ teeId: _teeId, url: teeState.url })),
             flareSystemsManager.getCurrentRewardEpochId(),
             REG_OP_TYPE,
             PAUSE_FOR_UPGRADE,
-            abi.encode(_teeId)
+            abi.encode(PauseForUpgrade({ teeId: _teeId }))
         );
     }
 
@@ -250,21 +244,11 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         require(newTeeState.status == TeeStatus.INITIALIZED ||
             (replications[_oldTeeId] == _newTeeId && newTeeState.status == TeeStatus.REPLICATING), // retry
             "invalid new tee status");
+        _checkVersionSupported(newTeeState.codeHash);
         require(_getTeeVersion(_newTeeId) >= _getTeeVersion(_oldTeeId), "new tee version too old");
         _validateAvailabilityCheckTs(_newTeeId, _availabilityCheckTs);
-        AvailabilityCheckResponse memory availabilityCheck = AvailabilityCheckResponse({
-            teeId: _newTeeId,
-            url: newTeeState.url,
-            codeHash: newTeeState.codeHash,
-            platform: newTeeState.platform,
-            timestamp: _availabilityCheckTs,
-            status: AvailabilityStatus.OK
-        });
-        bytes32 messageHash = keccak256(abi.encode(availabilityCheck));
-        uint256 rewardEpochId = relay.verifyCustomSignature(_relayMessage, messageHash);
-        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        require(rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId,
-            "too old signing policy");
+        _validateAvailabilityCheckResponse(_newTeeId, newTeeState.url, newTeeState.codeHash, newTeeState.platform,
+            _availabilityCheckTs, AvailabilityStatus.OK, _relayMessage);
 
         replications[_oldTeeId] = _newTeeId;
         newTeeState.status = TeeStatus.REPLICATING;
@@ -280,14 +264,9 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             "platforms not supported");
 
         bytes32 instructionId = keccak256(abi.encode(REPLICATE_FROM, _oldTeeId, _newTeeId));
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
-        teeMachines[0] = ITeeRegistry.TeeMachine({
-            teeId: _newTeeId,
-            url: newTeeState.url
-        });
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
-            teeMachines,
+            _getTeeMachines(ITeeRegistry.TeeMachine({ teeId: _newTeeId, url: newTeeState.url })),
             flareSystemsManager.getCurrentRewardEpochId(),
             REG_OP_TYPE,
             REPLICATE_FROM,
@@ -305,34 +284,51 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         onlyOwner(_oldTeeId)
         onlyOwner(_newTeeId)
     {
+        TeeState storage oldTeeState = teeStates[_oldTeeId];
+        require(oldTeeState.status == TeeStatus.PAUSED_FOR_UPGRADE, "invalid old tee status");
+        TeeState storage newTeeState = teeStates[_newTeeId];
+        require(newTeeState.status == TeeStatus.REPLICATING, "invalid new tee status");
         // in case multiple replications are triggered only the last one can be confirmed
-        require(teeStates[_oldTeeId].status == TeeStatus.PAUSED_FOR_UPGRADE, "invalid old tee status");
-        require(teeStates[_newTeeId].status == TeeStatus.REPLICATING, "invalid new tee status");
         require(replications[_oldTeeId] == _newTeeId, "replication not valid");
+        _checkVersionSupported(newTeeState.codeHash);
         _validateAvailabilityCheckTs(_newTeeId, _availabilityCheckTs);
-        AvailabilityCheckResponse memory availabilityCheck = AvailabilityCheckResponse({
-            teeId: _oldTeeId,
-            url: teeStates[_newTeeId].url,
-            codeHash: teeStates[_newTeeId].codeHash,
-            platform: teeStates[_newTeeId].platform,
-            timestamp: _availabilityCheckTs,
-            status: AvailabilityStatus.OK
-        });
+        _validateAvailabilityCheckResponse(_oldTeeId, newTeeState.url, newTeeState.codeHash, newTeeState.platform,
+            _availabilityCheckTs, AvailabilityStatus.OK, _relayMessage);
 
-        bytes32 messageHash = keccak256(abi.encode(availabilityCheck));
-        uint256 rewardEpochId = relay.verifyCustomSignature(_relayMessage, messageHash);
-        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        require(rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId,
-            "too old signing policy");
-
-        teeStates[_oldTeeId].status = TeeStatus.PRODUCTION;
-        teeStates[_oldTeeId].lastStatusChangeTs = uint64(block.timestamp);
-        teeStates[_oldTeeId].codeHash = teeStates[_newTeeId].codeHash;
-        teeStates[_oldTeeId].platform = teeStates[_newTeeId].platform;
-        teeStates[_oldTeeId].url = teeStates[_newTeeId].url;
+        oldTeeState.status = TeeStatus.PRODUCTION;
+        oldTeeState.lastStatusChangeTs = uint64(block.timestamp);
+        oldTeeState.codeHash = newTeeState.codeHash;
+        oldTeeState.platform = newTeeState.platform;
+        oldTeeState.url = newTeeState.url;
         delete replications[_oldTeeId];
         delete teeStates[_newTeeId];
         activeTeeIds.add(_oldTeeId);
+    }
+
+    function setMinSupportedVersion(uint256 _minSupportedVersion) external onlyGovernance {
+        require(_minSupportedVersion > minSupportedVersion && _minSupportedVersion <= latestVersion,
+            "invalid version");
+        minSupportedVersion = _minSupportedVersion;
+    }
+
+    function addNewTeeVersion(
+        uint256 _version,
+        bytes32 _codeHash,
+        bytes32[] calldata _platforms, // utf8 encoded platforms
+        bytes32[] calldata _opTypes // utf8 encoded operation types (XRP, BTC, FDC, etc.)
+    )
+        external onlyGovernance
+    {
+        require(_version > latestVersion, "version too old");
+        require(_codeHash != bytes32(0), "invalid code hash");
+        require(codeHashToVersion[_codeHash].version == 0, "code hash already registered");
+        latestVersion = _version;
+        codeHashToVersion[_codeHash] = TeeVersion({
+            version: _version,
+            platforms: _platforms
+        });
+        versionToCodeHash[_version] = _codeHash;
+        versionOpTypes[_version] = _opTypes;
     }
 
     function setPauseBeforeUpgradeMinDurationSeconds(uint256 _pauseBeforeUpgradeMinDurationSeconds)
@@ -340,6 +336,14 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         onlyGovernance
     {
         pauseBeforeUpgradeMinDurationSeconds = _pauseBeforeUpgradeMinDurationSeconds;
+    }
+
+    function setAvailabilityCheckValidityDurationSeconds(uint256 _availabilityCheckValidityDurationSeconds)
+        external
+        onlyGovernance
+    {
+        require(_availabilityCheckValidityDurationSeconds >= 1 minutes, "invalid duration");
+        availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
     }
 
     /**
@@ -371,11 +375,35 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         require(bytes(_teeMachine.url).length > 0, "tee not found");
     }
 
+    function getTeeMachineVersion(address _teeId) external view returns(uint256 _version) {
+        _version = _getTeeVersion(_teeId);
+        require(_version != 0, "tee not found");
+    }
+
+    function getActiveTeeIds() external view returns(address[] memory) {
+        return activeTeeIds.list;
+    }
+
+    function getVersionInfo(uint256 _version)
+        external view
+        returns(bytes32 _codeHash, bytes32[] memory _platforms, bytes32[] memory _opTypes)
+    {
+        _codeHash = versionToCodeHash[_version];
+        require(_codeHash != bytes32(0), "invalid version");
+        TeeVersion storage teeVersion = codeHashToVersion[_codeHash];
+        _platforms = teeVersion.platforms;
+        _opTypes = versionOpTypes[_version];
+    }
+
+    function getCodeHashVersion(bytes32 _codeHash) external view returns(uint256 _version) {
+        _version = codeHashToVersion[_codeHash].version;
+        require(_version != 0, "invalid code hash");
+    }
     /**
      * @inheritdoc ITeeRegistry
      */
     function isOpTypeSupported(address _teeId, bytes32 _opType) external view returns(bool) {
-        bytes32[] storage opTypes = versionOpTypes[codeHashPlatforms[teeStates[_teeId].codeHash].version];
+        bytes32[] storage opTypes = versionOpTypes[_getTeeVersion(_teeId)];
         for (uint256 i = 0; i < opTypes.length; i++) {
             if (opTypes[i] == _opType) {
                 return true;
@@ -397,6 +425,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
+        relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
     function _triggerAvailabilityCheck(
@@ -416,16 +445,40 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             timestamp: block.timestamp
         });
         bytes32 instructionId = keccak256(abi.encode(AVAILABILITY_CHECK, _teeId));
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
-        teeMachines[0] = _teeMachine;
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
-            teeMachines,
+            _getTeeMachines(_teeMachine),
             flareSystemsManager.getCurrentRewardEpochId(),
             REG_OP_TYPE,
             AVAILABILITY_CHECK,
             abi.encode(availabilityCheckRequest)
         );
+    }
+
+    function _validateAvailabilityCheckResponse(
+        address _teeId,
+        string memory _teeUrl,
+        bytes32 _codeHash,
+        bytes32 _platform,
+        uint256 _availabilityCheckTs,
+        AvailabilityStatus _status,
+        bytes memory _relayMessage
+    )
+        internal
+    {
+        AvailabilityCheckResponse memory availabilityCheckResponse = AvailabilityCheckResponse({
+            teeId: _teeId,
+            url: _teeUrl,
+            codeHash: _codeHash,
+            platform: _platform,
+            timestamp: _availabilityCheckTs,
+            status: _status
+        });
+        bytes32 messageHash = keccak256(abi.encode(availabilityCheckResponse));
+        uint256 rewardEpochId = relay.verifyCustomSignature(_relayMessage, messageHash);
+        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        require(rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId,
+            "too old signing policy");
     }
 
     function _validateAvailabilityCheckTs(address _teeId, uint256 _availabilityCheckTs) internal view {
@@ -435,8 +488,12 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             "availability check validity expired");
     }
 
+    function _checkVersionSupported(bytes32 _codeHash) internal view {
+        require(codeHashToVersion[_codeHash].version >= minSupportedVersion, "version not supported");
+    }
+
     function _isSupportedPlatform(bytes32 _codeHash, bytes32 _platform) internal view returns(bool) {
-        bytes32[] storage platforms = codeHashPlatforms[_codeHash].platforms;
+        bytes32[] storage platforms = codeHashToVersion[_codeHash].platforms;
         for (uint256 i = 0; i < platforms.length; i++) {
             if (platforms[i] == _platform) {
                 return true;
@@ -446,7 +503,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     }
 
     function _getTeeVersion(address _teeId) internal view returns(uint256) {
-        return codeHashPlatforms[teeStates[_teeId].codeHash].version;
+        return codeHashToVersion[teeStates[_teeId].codeHash].version;
     }
 
     function _getTeeMachineWithAttestationData(address _teeId)
@@ -460,5 +517,14 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             codeHash: teeState.codeHash,
             platform: teeState.platform
         });
+    }
+
+    function _getTeeMachines(TeeMachine memory _teeMachine)
+        internal pure
+        returns(ITeeRegistry.TeeMachine[] memory)
+    {
+        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
+        teeMachines[0] = _teeMachine;
+        return teeMachines;
     }
 }
