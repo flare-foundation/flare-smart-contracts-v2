@@ -12,11 +12,13 @@ interface ITeeRegistry {
 
     struct TeeMachine {
         address teeId;
+        address owner;
         string url;
     }
 
     struct TeeMachineWithAttestationData {
         address teeId;
+        address owner;
         string url;
         bytes32 codeHash;
         bytes32 platform;

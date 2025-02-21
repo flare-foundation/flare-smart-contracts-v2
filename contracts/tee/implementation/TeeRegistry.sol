@@ -49,6 +49,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     mapping(uint256 version => bytes32[]) private versionOpTypes; // utf8 encoded operation types (XRP, BTC, FDC, etc.)
     mapping(uint256 version => bytes32) private versionToCodeHash;
     mapping(address oldTeeId => address newTeeId) public replications;
+    mapping(address teeId => address) public proposedTeeOwner;
 
     modifier onlyOwner(address _teeId) {
         require(teeStates[_teeId].owner == msg.sender, "only owner");
@@ -100,7 +101,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         });
 
         _triggerAvailabilityCheck(
-            TeeMachine({ teeId: _teeId, url: _url }),
+            TeeMachine({ teeId: _teeId, owner: msg.sender, url: _url }),
             _teeId,
             _url,
             _codeHash,
@@ -133,7 +134,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         if (_teeId == _testOnTeeId || (newTeeId != address(0) && newTeeId == _testOnTeeId)) {
             // if newTeeId != address(0) we allow testing on new tee url using old tee id to confirm replication
             // else teeState.status is not PAUSED_FOR_UPGRADE nor REPLICATING (checked above)
-            teeMachine = TeeMachine({ teeId: _teeId, url: teeState.url });
+            teeMachine = TeeMachine({ teeId: _teeId, owner: teeState.owner, url: teeState.url });
         } else {
             TeeState storage testTeeState = teeStates[_testOnTeeId];
             require(testTeeState.owner != address(0), "test tee not found");
@@ -141,7 +142,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             // cannot test on tee in status REPLICATING as machine tee id might be changed already
             TeeStatus status = testTeeState.status;
             require(status != TeeStatus.PAUSED_FOR_UPGRADE && status != TeeStatus.REPLICATING, "invalid tee status");
-            teeMachine = TeeMachine({ teeId: _testOnTeeId, url: testTeeState.url });
+            teeMachine = TeeMachine({ teeId: _testOnTeeId, owner: testTeeState.owner, url: testTeeState.url });
         }
 
         _triggerAvailabilityCheck(
@@ -221,7 +222,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         bytes32 instructionId = keccak256(abi.encode(PAUSE_FOR_UPGRADE, _teeId));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
-            _getTeeMachines(TeeMachine({ teeId: _teeId, url: teeState.url })),
+            _getTeeMachines(TeeMachine({ teeId: _teeId, owner: msg.sender, url: teeState.url })),
             flareSystemsManager.getCurrentRewardEpochId(),
             REG_OP_TYPE,
             PAUSE_FOR_UPGRADE,
@@ -266,7 +267,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         bytes32 instructionId = keccak256(abi.encode(REPLICATE_FROM, _oldTeeId, _newTeeId));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
-            _getTeeMachines(ITeeRegistry.TeeMachine({ teeId: _newTeeId, url: newTeeState.url })),
+            _getTeeMachines(ITeeRegistry.TeeMachine({ teeId: _newTeeId, owner: msg.sender, url: newTeeState.url })),
             flareSystemsManager.getCurrentRewardEpochId(),
             REG_OP_TYPE,
             REPLICATE_FROM,
@@ -303,6 +304,20 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         delete replications[_oldTeeId];
         delete teeStates[_newTeeId];
         activeTeeIds.add(_oldTeeId);
+    }
+
+    function proposeNewOwner(address _teeId, address _newOwner)
+        external onlyOwner(_teeId)
+    {
+        proposedTeeOwner[_teeId] = _newOwner;
+    }
+
+    function confirmOwnership(address _teeId)
+        external
+    {
+        require(proposedTeeOwner[_teeId] == msg.sender, "only proposed owner");
+        teeStates[_teeId].owner = msg.sender;
+        delete proposedTeeOwner[_teeId];
     }
 
     function setMinSupportedVersion(uint256 _minSupportedVersion) external onlyGovernance {
@@ -360,6 +375,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         TeeState storage teeState = teeStates[_teeId];
         _teeMachine = TeeMachine({
             teeId: _teeId,
+            owner: teeState.owner,
             url: teeState.url
         });
         require(bytes(_teeMachine.url).length > 0, "tee not found");
@@ -513,6 +529,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         TeeState storage teeState = teeStates[_teeId];
         return TeeMachineWithAttestationData({
             teeId: _teeId,
+            owner: teeState.owner,
             url: teeState.url,
             codeHash: teeState.codeHash,
             platform: teeState.platform

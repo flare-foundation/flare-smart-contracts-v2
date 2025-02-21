@@ -183,7 +183,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
 
         ITeeRegistry.TeeMachine[] memory receivingTees = teeWalletManager.receivingTees(_walletId);
         uint32 maxFeeTolerancePPM = setting.maxFeeTolerancePPM;
-        uint64 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         // reissue batch
         uint256 remainingAmount = msg.value;
         uint256 amount;

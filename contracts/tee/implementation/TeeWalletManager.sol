@@ -25,6 +25,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         uint64 multisigThreshold; // number of signatures required - k out of n
         uint256[] keyIds; // n
         mapping(uint256 keyId => KeyDefinition) keyDefinitions;
+        uint256 feeFactor;
     }
 
     struct KeyDefinition {
@@ -134,7 +135,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         bytes calldata _publicKey,
         Signature calldata _signature
     )
-        external onlyOwner(_walletId)
+        external onlyOwnerOrBackupManager(_walletId)
     {
         TeeWalletState storage wallet = wallets[_walletId];
         require(wallet.keyIdCounter > _keyId, "invalid key id");
@@ -149,9 +150,10 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         );
         require(teeId == _teeId, "invalid signature");
 
+        wallet.feeFactor++;
         KeyDefinition storage keyDefinition = wallet.keyDefinitions[_keyId];
-        // add tee id to existing key definition
         if (keyDefinition.publicKey.length > 0) {
+            // add tee id to existing key definition
             require(keccak256(keyDefinition.publicKey) == keccak256(_publicKey), "invalid public key");
             address[] storage keyDefinitionTeeIds = keyDefinition.teeIds;
             for (uint256 i = 0; i < keyDefinitionTeeIds.length; i++) {
@@ -161,15 +163,15 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             }
             // tee id not found, add it
             keyDefinitionTeeIds.push(teeId);
-            return;
+        } else {
+            // new key definition can only be added if wallet is in status initialized
+            _checkWalletStatus(wallet.status, WalletStatus.INITIALIZED);
+            // add new key id
+            wallet.keyIds.push(_keyId);
+            // set public key and add tee id
+            keyDefinition.publicKey = _publicKey;
+            keyDefinition.teeIds.push(teeId);
         }
-        // new key definition can only be added if wallet is in status initialized
-        _checkWalletStatus(wallet.status, WalletStatus.INITIALIZED);
-        // add new key id
-        wallet.keyIds.push(_keyId);
-        // set public key and add tee id
-        keyDefinition.publicKey = _publicKey;
-        keyDefinition.teeIds.push(teeId);
     }
 
     function deleteKey(
@@ -198,9 +200,11 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             if (index < length) { // delete tee id
                 keyDefinition.teeIds[index] = keyDefinition.teeIds[keyDefinition.teeIds.length - 1];
                 keyDefinition.teeIds.pop();
+                wallet.feeFactor--;
             }
         }
 
+        // trigger key delete instruction (even if no tee id found - retry)
         KeyDelete memory keyDelete = KeyDelete({
             teeId: _teeId,
             walletId: _walletId,
@@ -251,6 +255,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = ITeeRegistry.TeeMachine({
             teeId: keyMachineBackup.teeMachine.teeId,
+            owner: keyMachineBackup.teeMachine.owner,
             url: keyMachineBackup.teeMachine.url
         });
         teeInstructions.sendInstructions{value: msg.value}(
@@ -294,6 +299,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = ITeeRegistry.TeeMachine({
             teeId: keyMachineRestore.teeMachine.teeId,
+            owner: keyMachineRestore.teeMachine.owner,
             url: keyMachineRestore.teeMachine.url
         });
         teeInstructions.sendInstructions{value: msg.value}(
@@ -456,6 +462,13 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         require(proposedWalletOwner[_walletId] == msg.sender, "only proposed owner");
         wallets[_walletId].owner = msg.sender;
         delete proposedWalletOwner[_walletId];
+    }
+
+    function getFeeFactor(bytes32 _walletId)
+        external view
+        returns (uint256 _feeFactor)
+    {
+        return wallets[_walletId].feeFactor;
     }
 
     /**

@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
+import "../../protocol/interface/IIRewardManager.sol";
 import "../../utils/lib/AddressSet.sol";
 
 /**
@@ -12,6 +13,9 @@ import "../../utils/lib/AddressSet.sol";
  */
 contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
     using AddressSet for AddressSet.State;
+
+    /// The RewardManager contract.
+    IIRewardManager public rewardManager;
 
     /// List of instruction initiator contracts.
     AddressSet.State internal instructionInitiators;
@@ -37,14 +41,23 @@ contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
     function sendInstructions(
         bytes32 _instructionId,
         ITeeRegistry.TeeMachine[] memory _teeMachines,
-        uint256 _rewardEpochId,
+        uint24 _rewardEpochId,
         bytes32 _opType,
-        bytes32 _instruction,
+        bytes32 _opCommand,
         bytes memory _message
     )
         external payable
     {
-        emit TeeInstructionsSent(_instructionId, _teeMachines, _rewardEpochId, _opType, _instruction, _message);
+        emit TeeInstructionsSent(
+            _instructionId,
+            _rewardEpochId,
+            _teeMachines,
+            _opType,
+            _opCommand,
+            _message,
+            msg.value
+        );
+        rewardManager.receiveRewards{value: msg.value} (_rewardEpochId, false);
     }
 
     /**
@@ -91,5 +104,6 @@ contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
     )
         internal override
     {
+        rewardManager = IIRewardManager(_getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
     }
 }

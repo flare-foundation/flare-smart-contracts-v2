@@ -10,11 +10,12 @@ interface ITeeInstructions {
 
     event TeeInstructionsSent (
         bytes32 indexed instructionId,
+        uint24 indexed rewardEpochId,
         ITeeRegistry.TeeMachine[] teeMachines,
-        uint256 rewardEpochId,
         bytes32 opType,
         bytes32 instruction,
-        bytes message
+        bytes message,
+        uint256 fee
     );
 
     /**
@@ -24,15 +25,15 @@ interface ITeeInstructions {
      * @param _teeMachines The TEE machines.
      * @param _rewardEpochId The reward epoch ID.
      * @param _opType The operation type.
-     * @param _instruction The instruction.
+     * @param _opCommand The operation command.
      * @param _message The message.
      */
     function sendInstructions(
         bytes32 _instructionId,
         ITeeRegistry.TeeMachine[] memory _teeMachines,
-        uint256 _rewardEpochId,
+        uint24 _rewardEpochId,
         bytes32 _opType,
-        bytes32 _instruction,
+        bytes32 _opCommand,
         bytes memory _message
     )
         external payable;
