@@ -38,7 +38,6 @@ interface ITeeInstructions {
     )
         external payable;
 
-
     /**
      * Returns the list of instruction initiator contracts.
      */

@@ -116,7 +116,14 @@ interface ITeeWalletManager {
     /**
      * Returns wallet's status.
      * @param _walletId The wallet id.
-     * @param _status The wallet status.
+     * @param _status The status.
      */
     function getWalletStatus(bytes32 _walletId) external view returns (WalletStatus _status);
+
+    /**
+     * Returns wallet's fee factor.
+     * @param _walletId The wallet id.
+     * @param _feeFactor The fee factor.
+     */
+    function getFeeFactor(bytes32 _walletId) external view returns (uint256 _feeFactor);
 }
