@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
+import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/IRelay.sol";
@@ -35,6 +36,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     bytes32 public constant REPLICATE_FROM = bytes32("REPLICATE_FROM");
 
     ITeeInstructions public teeInstructions;
+    ITeeFeeCalculator public teeFeeCalculator;
     IFlareSystemsManager public flareSystemsManager;
     IRelay public relay;
 
@@ -89,7 +91,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     {
         require(teeStates[_teeId].owner == address(0), "tee already registered");
         _checkVersionSupported(_codeHash);
-        require(_isSupportedPlatform(_codeHash, _platform), "platform not supported");
+        require(_isSupportedPlatform(_platform, codeHashToVersion[_codeHash].platforms), "platform not supported");
 
         teeStates[_teeId] = TeeState({
             owner: msg.sender,
@@ -218,6 +220,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             teeState.status = TeeStatus.PAUSED_FOR_UPGRADE;
             teeState.lastStatusChangeTs = uint64(block.timestamp);
         }
+        _checkFee(TO_PAUSE_FOR_UPGRADE, _teeId);
 
         bytes32 instructionId = keccak256(abi.encode(TO_PAUSE_FOR_UPGRADE, _teeId));
         teeInstructions.sendInstructions{value: msg.value}(
@@ -250,6 +253,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         _validateAvailabilityCheckTs(_newTeeId, _availabilityCheckTs);
         _validateAvailabilityCheckResponse(_newTeeId, newTeeState.url, newTeeState.codeHash, newTeeState.platform,
             _availabilityCheckTs, AvailabilityStatus.OK, _relayMessage);
+        _checkFee(REPLICATE_FROM, _newTeeId);
 
         replications[_oldTeeId] = _newTeeId;
         newTeeState.status = TeeStatus.REPLICATING;
@@ -258,10 +262,15 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             oldTeeMachine: _getTeeMachineWithAttestationData(_oldTeeId),
             newTeeMachine: _getTeeMachineWithAttestationData(_newTeeId)
         });
-        require(_isSupportedPlatform(
-            replicateTeeMachine.oldTeeMachine.codeHash, replicateTeeMachine.newTeeMachine.platform) &&
+        require(
             _isSupportedPlatform(
-                replicateTeeMachine.newTeeMachine.codeHash, replicateTeeMachine.oldTeeMachine.platform),
+                replicateTeeMachine.newTeeMachine.platform,
+                codeHashToVersion[replicateTeeMachine.oldTeeMachine.codeHash].platforms
+            ) &&
+            _isSupportedPlatform(
+                replicateTeeMachine.oldTeeMachine.platform,
+                codeHashToVersion[replicateTeeMachine.newTeeMachine.codeHash].platforms
+            ),
             "platforms not supported");
 
         bytes32 instructionId = keccak256(abi.encode(REPLICATE_FROM, _oldTeeId, _newTeeId));
@@ -391,6 +400,29 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         require(bytes(_teeMachine.url).length > 0, "tee not found");
     }
 
+    /**
+     * @inheritdoc ITeeRegistry
+     */
+    function arePlatformsCompatible(address _teeId, address[] calldata _backupTeeIds)
+        external view returns(bool)
+    {
+        TeeState storage teeState = teeStates[_teeId];
+        bytes32 platform = teeState.platform;
+        bytes32[] storage platforms = codeHashToVersion[teeState.codeHash].platforms;
+        for (uint256 i = 0; i < _backupTeeIds.length; i++) {
+            TeeState storage backupTeeState = teeStates[_backupTeeIds[i]];
+            // check if backup tee platform is compatible with main tee
+            if (!_isSupportedPlatform(backupTeeState.platform, platforms)) {
+                return false;
+            }
+            // check if main tee platform is compatible with backup tee
+            if (!_isSupportedPlatform(platform, codeHashToVersion[backupTeeState.codeHash].platforms)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     function getTeeMachineVersion(address _teeId) external view returns(uint256 _version) {
         _version = _getTeeVersion(_teeId);
         require(_version != 0, "tee not found");
@@ -439,6 +471,8 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     {
         teeInstructions = ITeeInstructions(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
+        teeFeeCalculator = ITeeFeeCalculator(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
@@ -453,6 +487,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     )
         internal
     {
+        _checkFee(AVAILABILITY_CHECK, _teeMachine.teeId);
         AvailabilityCheckRequest memory availabilityCheckRequest = AvailabilityCheckRequest({
             teeId: _teeId,
             url: _teeUrl,
@@ -508,10 +543,9 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         require(codeHashToVersion[_codeHash].version >= minSupportedVersion, "version not supported");
     }
 
-    function _isSupportedPlatform(bytes32 _codeHash, bytes32 _platform) internal view returns(bool) {
-        bytes32[] storage platforms = codeHashToVersion[_codeHash].platforms;
-        for (uint256 i = 0; i < platforms.length; i++) {
-            if (platforms[i] == _platform) {
+    function _isSupportedPlatform(bytes32 _platform, bytes32[] storage _platforms) internal view returns(bool) {
+        for (uint256 i = 0; i < _platforms.length; i++) {
+            if (_platforms[i] == _platform) {
                 return true;
             }
         }
@@ -534,6 +568,18 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             codeHash: teeState.codeHash,
             platform: teeState.platform
         });
+    }
+
+    function _checkFee(
+        bytes32 _opCommand,
+        address _teeId
+    )
+        internal view
+    {
+        address[] memory teeIds = new address[](1);
+        teeIds[0] = _teeId;
+        require(msg.value >= teeFeeCalculator.calculateFeeByTeeIds(REG_OP_TYPE, _opCommand, teeIds, new address[](0)),
+            "fee too low");
     }
 
     function _getTeeMachines(TeeMachine memory _teeMachine)

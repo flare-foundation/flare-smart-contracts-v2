@@ -80,7 +80,7 @@ contract TeeFeeCalculator is Governed, AddressUpdatable, ITeeFeeCalculator {
     )
         external view returns (uint256)
     {
-        return operationFee[_opType][_opCommand] * _teeIds.length * _backupTeeIds.length;
+        return operationFee[_opType][_opCommand] * (_teeIds.length + _backupTeeIds.length);
     }
 
     /**

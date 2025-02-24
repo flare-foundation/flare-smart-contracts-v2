@@ -62,6 +62,9 @@ interface ITeeRegistry {
         external view
         returns (TeeMachineWithAttestationData memory);
 
+    function arePlatformsCompatible(address _teeId, address[] calldata _backupTeeIds)
+        external view returns(bool);
+
     function isOpTypeSupported(address _teeId, bytes32 _opType)
         external view
         returns (bool);
