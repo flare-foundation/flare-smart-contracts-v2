@@ -8,6 +8,7 @@ import "../../userInterfaces/tee/ITeeWalletManager.sol";
 import "../../userInterfaces/tee/ITeePayments.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
+import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.
@@ -50,6 +51,8 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     ITeeWalletManager public teeWalletManager;
     /// TeeInstructions contract.
     ITeeInstructions public teeInstructions;
+    /// TeeFeeCalculator contract.
+    ITeeFeeCalculator public teeFeeCalculator;
 
     modifier onlyWalletOwner(bytes32 _walletId) {
         require(teeWalletManager.getWalletOwner(_walletId) == msg.sender, "only wallet owner");
@@ -86,7 +89,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     )
         external payable returns(uint256)
     {
-        // TODO check fee
+        require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, PAY, _walletId), "fee too low");
         (address submitAddress, ITeeWalletManager.WalletStatus walletStatus, bytes32 walletOpType) =
             teeWalletManager.getWalletInfo(_walletId);
         require(submitAddress == msg.sender, "only submit address");
@@ -158,7 +161,8 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     )
         external payable
     {
-        // TODO check fee
+        require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, PAY, _walletId)
+            * _paymentInstructions.length, "fee too low");
         string memory senderAddress = senderAddresses[_walletId];
         require(bytes(senderAddress).length > 0, "sender address not set");
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
@@ -277,7 +281,6 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         senderAddresses[_walletId] = _senderAddress;
     }
 
-
     /**
      * @inheritdoc AddressUpdatable
      */
@@ -291,5 +294,7 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
+        teeFeeCalculator = ITeeFeeCalculator(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
     }
 }

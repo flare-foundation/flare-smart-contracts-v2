@@ -115,5 +115,4 @@ interface ITeePayments {
         uint64 _batchDurationSeconds
     )
         external;
-
 }
