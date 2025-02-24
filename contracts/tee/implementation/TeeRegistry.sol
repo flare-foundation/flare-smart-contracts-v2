@@ -31,7 +31,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
 
     bytes32 public constant REG_OP_TYPE = bytes32("REG");
     bytes32 public constant AVAILABILITY_CHECK = bytes32("AVAILABILITY_CHECK");
-    bytes32 public constant PAUSE_FOR_UPGRADE = bytes32("PAUSE_FOR_UPGRADE");
+    bytes32 public constant TO_PAUSE_FOR_UPGRADE = bytes32("TO_PAUSE_FOR_UPGRADE");
     bytes32 public constant REPLICATE_FROM = bytes32("REPLICATE_FROM");
 
     ITeeInstructions public teeInstructions;
@@ -219,13 +219,13 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             teeState.lastStatusChangeTs = uint64(block.timestamp);
         }
 
-        bytes32 instructionId = keccak256(abi.encode(PAUSE_FOR_UPGRADE, _teeId));
+        bytes32 instructionId = keccak256(abi.encode(TO_PAUSE_FOR_UPGRADE, _teeId));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _getTeeMachines(TeeMachine({ teeId: _teeId, owner: msg.sender, url: teeState.url })),
             flareSystemsManager.getCurrentRewardEpochId(),
             REG_OP_TYPE,
-            PAUSE_FOR_UPGRADE,
+            TO_PAUSE_FOR_UPGRADE,
             abi.encode(PauseForUpgrade({ teeId: _teeId }))
         );
     }
