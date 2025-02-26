@@ -13,7 +13,7 @@ import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.
  */
-abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
+contract TeePayments is ITeePayments, Governed, AddressUpdatable {
 
     struct WalletState {
         uint64 nonce;
@@ -31,6 +31,16 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
 
         address controlAddress;
         uint96 maxControlFee;
+    }
+
+    struct ReissueTempState {
+        string senderAddress;
+        ITeeRegistry.TeeMachine[] receivingTees;
+        uint32 maxFeeTolerancePPM;
+        uint24 currentRewardEpochId;
+        bytes32 instructionId;
+        uint256 remainingAmount;
+        uint256 amount;
     }
 
     bytes32 public constant PAY = bytes32("PAY");
@@ -163,10 +173,11 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     {
         require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, PAY, _walletId)
             * _paymentInstructions.length, "fee too low");
-        string memory senderAddress = senderAddresses[_walletId];
-        require(bytes(senderAddress).length > 0, "sender address not set");
-        ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
-        require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION, "wallet not in production");
+        ReissueTempState memory tempState;
+        tempState.senderAddress = senderAddresses[_walletId];
+        require(bytes(tempState.senderAddress).length > 0, "sender address not set");
+        require(teeWalletManager.getWalletStatus(_walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
+            "wallet not in production");
         WalletSettings storage setting = settings[_walletId];
         require(msg.sender == setting.controlAddress, "only control address");
         require(_fee <= setting.maxControlFee, "fee higher than max control fee");
@@ -185,36 +196,35 @@ abstract contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         }
         require(hashes[_walletId][_nonce] == batchHash, "batch hash mismatch");
 
-        ITeeRegistry.TeeMachine[] memory receivingTees = teeWalletManager.receivingTees(_walletId);
-        uint32 maxFeeTolerancePPM = setting.maxFeeTolerancePPM;
-        uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        tempState.receivingTees = teeWalletManager.receivingTees(_walletId);
+        tempState.maxFeeTolerancePPM = setting.maxFeeTolerancePPM;
+        tempState.currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        tempState.instructionId = keccak256(abi.encode(REISSUE, _walletId, _nonce));
         // reissue batch
-        uint256 remainingAmount = msg.value;
-        uint256 amount;
+        tempState.remainingAmount = msg.value;
         for (uint256 i = 0; i < _paymentInstructions.length; ++i) {
             PaymentInstructionMessage memory message = PaymentInstructionMessage(
                 _walletId,
-                senderAddress,
+                tempState.senderAddress,
                 _paymentInstructions[i].recipientAddress,
                 _paymentInstructions[i].amount,
                 _paymentInstructions[i].paymentReference,
                 _nonce,
                 _firstSubNonce + i,
                 _fee,
-                maxFeeTolerancePPM,
+                tempState.maxFeeTolerancePPM,
                 block.timestamp
             );
             if (_nullify) {
                 message.amount = 0;
-                message.recipientAddress = senderAddress;
+                message.recipientAddress = tempState.senderAddress;
             }
-            bytes32 instructionId = keccak256(abi.encode(REISSUE, _walletId, _nonce));
-            amount = remainingAmount / (_paymentInstructions.length - i);
-            remainingAmount -= amount;
-            teeInstructions.sendInstructions{value: amount}(
-                instructionId,
-                receivingTees,
-                currentRewardEpochId,
+            tempState.amount = tempState.remainingAmount / (_paymentInstructions.length - i);
+            tempState.remainingAmount -= tempState.amount;
+            teeInstructions.sendInstructions{value: tempState.amount}(
+                tempState.instructionId,
+                tempState.receivingTees,
+                tempState.currentRewardEpochId,
                 opType,
                 REISSUE,
                 abi.encode(message)
