@@ -20,8 +20,7 @@ contract TeeFeeCalculator is Governed, AddressUpdatable, ITeeFeeCalculator {
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
-        address _addressUpdater,
-        uint256 _defaultFee
+        address _addressUpdater
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {

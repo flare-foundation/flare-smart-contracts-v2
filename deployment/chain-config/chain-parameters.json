@@ -260,6 +260,52 @@
                 "voter"
             ],
             "type": "object"
+        },
+        "TeeOperationFee": {
+            "additionalProperties": false,
+            "properties": {
+                "feeWei": {
+                    "description": "The fee per operation type + command. In Wei.",
+                    "type": "string"
+                },
+                "opCommand": {
+                    "description": "The operation command.",
+                    "type": "string"
+                },
+                "opType": {
+                    "description": "The operation type.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "feeWei",
+                "opCommand",
+                "opType"
+            ],
+            "type": "object"
+        },
+        "TeePaymentConfiguration": {
+            "additionalProperties": false,
+            "properties": {
+                "maxBatchDurationSeconds": {
+                    "description": "Max batch duration in seconds.",
+                    "type": "integer"
+                },
+                "maxBatchSize": {
+                    "description": "Max batch size.",
+                    "type": "integer"
+                },
+                "opType": {
+                    "description": "Payment operation type - XRP, BTC, DOGE,...",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "maxBatchDurationSeconds",
+                "maxBatchSize",
+                "opType"
+            ],
+            "type": "object"
         }
     },
     "properties": {
@@ -622,6 +668,36 @@
             "description": "The minimal duration of uptime vote submission phase in seconds (e.g. 10 minutes).",
             "type": "integer"
         },
+        "teeAvailabilityCheckValidityDurationSeconds": {
+            "description": "The availability check validity duration, in seconds (e.g. 10 minutes).",
+            "type": "integer"
+        },
+        "teeMinSupportedVersion": {
+            "description": "The minimal supported version of TEE.",
+            "type": "integer"
+        },
+        "teeOperationFees": {
+            "description": "The TEE operation fees.",
+            "items": {
+                "$ref": "#/definitions/TeeOperationFee"
+            },
+            "type": "array"
+        },
+        "teeOwnersPPM": {
+            "description": "The amount of rewards that are distributed to TEE owners, in PPM (e.g. 10%).",
+            "type": "integer"
+        },
+        "teePauseBeforeUpgradeMinDurationSeconds": {
+            "description": "Minimal duration that TEE should be in status pause before pause for upgrade can be triggered, in seconds (e.g. 10 minutes).",
+            "type": "integer"
+        },
+        "teePaymentConfigurations": {
+            "description": "The TEE payment configurations.",
+            "items": {
+                "$ref": "#/definitions/TeePaymentConfiguration"
+            },
+            "type": "array"
+        },
         "testDeployment": {
             "description": "Indicates whether this is a test deployment (local, scdev, etc.)",
             "type": "boolean"
@@ -736,6 +812,12 @@
         "submissionWindowBlocks",
         "submitUptimeVoteMinDurationBlocks",
         "submitUptimeVoteMinDurationSeconds",
+        "teeAvailabilityCheckValidityDurationSeconds",
+        "teeMinSupportedVersion",
+        "teeOperationFees",
+        "teeOwnersPPM",
+        "teePauseBeforeUpgradeMinDurationSeconds",
+        "teePaymentConfigurations",
         "testDeployment",
         "thresholdConditionBIPS",
         "voterRegistrationMinDurationBlocks",

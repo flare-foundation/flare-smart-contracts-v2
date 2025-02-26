@@ -85,8 +85,11 @@ export class Contracts {
   public static readonly FDC_INFLATION_CONFIGURATIONS = "FdcInflationConfigurations";
   public static readonly FDC_REQUEST_FEE_CONFIGURATIONS = "FdcRequestFeeConfigurations";
   public static readonly TEE_REGISTRY = "TeeRegistry";
-  public static readonly TEE_WALLET_CONFIG = "TeeWalletConfig";
   public static readonly TEE_WALLET_MANAGER = "TeeWalletManager";
+  public static readonly TEE_PAYMENTS = "TeePayments";
+  public static readonly TEE_INSTRUCTIONS = "TeeInstructions";
+  public static readonly TEE_FEE_CALCULATOR = "TeeFeeCalculator";
+  public static readonly TEE_REWARD_OFFERS_MANAGER = "TeeRewardOffersManager";
 
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 

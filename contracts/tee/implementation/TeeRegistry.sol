@@ -35,8 +35,8 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     bytes32 public constant TO_PAUSE_FOR_UPGRADE = bytes32("TO_PAUSE_FOR_UPGRADE");
     bytes32 public constant REPLICATE_FROM = bytes32("REPLICATE_FROM");
 
-    ITeeInstructions public teeInstructions;
     ITeeFeeCalculator public teeFeeCalculator;
+    ITeeInstructions public teeInstructions;
     IFlareSystemsManager public flareSystemsManager;
     IRelay public relay;
 
@@ -469,10 +469,10 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     )
         internal override
     {
-        teeInstructions = ITeeInstructions(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         teeFeeCalculator = ITeeFeeCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
+        teeInstructions = ITeeInstructions(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));

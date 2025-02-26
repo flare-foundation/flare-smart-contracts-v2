@@ -7,8 +7,11 @@ import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from "./deploy-utils";
 import { TeeRegistryContract } from "../../typechain-truffle/contracts/tee/implementation/TeeRegistry";
-import { TeeWalletConfigContract } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletConfig";
 import { TeeWalletManagerContract } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletManager";
+import { TeePaymentsContract } from "../../typechain-truffle/contracts/tee/implementation/TeePayments";
+import { TeeInstructionsContract } from "../../typechain-truffle/contracts/tee/implementation/TeeInstructions";
+import { TeeFeeCalculatorContract } from "../../typechain-truffle/contracts/tee/implementation/TeeFeeCalculator";
+import { TeeRewardOffersManagerContract } from "../../typechain-truffle/contracts/tee/implementation/TeeRewardOffersManager";
 
 export async function deployTeeContracts(
   hre: HardhatRuntimeEnvironment,
@@ -21,8 +24,11 @@ export async function deployTeeContracts(
   const artifacts = hre.artifacts;
 
   const TeeRegistry: TeeRegistryContract = artifacts.require("TeeRegistry");
-  const TeeWalletConfig: TeeWalletConfigContract = artifacts.require("TeeWalletConfig");
   const TeeWalletManager: TeeWalletManagerContract = artifacts.require("TeeWalletManager");
+  const TeeFeeCalculator: TeeFeeCalculatorContract = artifacts.require("TeeFeeCalculator");
+  const TeeInstructions: TeeInstructionsContract = artifacts.require("TeeInstructions");
+  const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
+  const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
@@ -38,35 +44,110 @@ export async function deployTeeContracts(
 
   const governanceSettings = oldContracts.getContractAddress(Contracts.GOVERNANCE_SETTINGS);
   const addressUpdater = oldContracts.getContractAddress(Contracts.ADDRESS_UPDATER);
+  const inflation = oldContracts.getContractAddress(Contracts.INFLATION);
   const flareSystemsManager = contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER);
+  const relay = contracts.getContractAddress(Contracts.RELAY);
+  const rewardManager = contracts.getContractAddress(Contracts.REWARD_MANAGER);
 
   // deploy contracts
-  const teeRegistry = await TeeRegistry.new(governanceSettings, deployerAccount.address, deployerAccount.address);
+  const teeRegistry = await TeeRegistry.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address,
+    parameters.teePauseBeforeUpgradeMinDurationSeconds,
+    parameters.teeAvailabilityCheckValidityDurationSeconds,
+    parameters.teeMinSupportedVersion
+  );
   spewNewContractInfo(contracts, null, TeeRegistry.contractName, `TeeRegistry.sol`, teeRegistry.address, quiet);
 
-  const teeWalletConfig = await TeeWalletConfig.new(governanceSettings, deployerAccount.address, deployerAccount.address);
-  spewNewContractInfo(contracts, null, TeeWalletConfig.contractName, `TeeWalletConfig.sol`, teeWalletConfig.address, quiet);
-
-  const teeWalletManager = await TeeWalletManager.new(governanceSettings, deployerAccount.address, deployerAccount.address);
+  const teeWalletManager = await TeeWalletManager.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address
+  );
   spewNewContractInfo(contracts, null, TeeWalletManager.contractName, `TeeWalletManager.sol`, teeWalletManager.address, quiet);
+
+  const teeFeeCalculator = await TeeFeeCalculator.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address
+  );
+  spewNewContractInfo(contracts, null, TeeFeeCalculator.contractName, `TeeFeeCalculator.sol`, teeFeeCalculator.address, quiet);
+
+  const teeRewardOffersManager = await TeeRewardOffersManager.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address,
+    parameters.teeOwnersPPM
+  );
+  spewNewContractInfo(contracts, null, TeeRewardOffersManager.contractName, `TeeRewardOffersManager.sol`, teeRewardOffersManager.address, quiet);
+
+  const operationTypes = [];
+  const operationCommands = [];
+  const operationFees = [];
+  for (const teeOperationFee of parameters.teeOperationFees) {
+    operationTypes.push(web3.utils.utf8ToHex(teeOperationFee.opType).padEnd(66, "0"));
+    operationCommands.push(web3.utils.utf8ToHex(teeOperationFee.opCommand).padEnd(66, "0"));
+    operationFees.push(teeOperationFee.feeWei);
+  }
+  await teeFeeCalculator.setOperationFees(operationTypes, operationCommands, operationFees);
+
+  const teeInstructions = await TeeInstructions.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address
+  );
+  spewNewContractInfo(contracts, null, TeeInstructions.contractName, `TeeInstructions.sol`, teeInstructions.address, quiet);
+
+  const teePaymentsList = [];
+  for (const teePaymentConfig of parameters.teePaymentConfigurations) {
+    const teePayments = await TeePayments.new(
+      governanceSettings,
+      deployerAccount.address,
+      deployerAccount.address,
+      teePaymentConfig.maxBatchSize,
+      teePaymentConfig.maxBatchDurationSeconds,
+      web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"));
+      teePaymentsList.push(teePayments);
+    spewNewContractInfo(contracts, null, TeePayments.contractName + "_" + teePaymentConfig.opType, `TeePayments.sol`, teePayments.address, quiet);
+  }
 
   // update contract addresses
   await teeRegistry.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER]),
-    [addressUpdater]);
-
-  await teeWalletConfig.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY]),
-    [addressUpdater, teeRegistry.address]);
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+    [addressUpdater, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager, relay]);
 
   await teeWalletManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_CONFIG, Contracts.FLARE_SYSTEMS_MANAGER]),
-    [addressUpdater, teeWalletConfig.address, flareSystemsManager]);
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
+    [addressUpdater, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager]);
+
+  await teeFeeCalculator.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER]),
+    [addressUpdater, teeWalletManager.address]);
+
+  await teeInstructions.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER]),
+    [addressUpdater, rewardManager]);
+
+  await teeRewardOffersManager.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.INFLATION]),
+    [addressUpdater, rewardManager, flareSystemsManager, inflation]);
+
+  for (const teePayments of teePaymentsList) {
+    await teePayments.updateContractAddresses(
+      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.FLARE_SYSTEMS_MANAGER]),
+      [addressUpdater, teeWalletManager.address, teeFeeCalculator.address, flareSystemsManager]);
+  }
 
   // switch to production mode
   await teeRegistry.switchToProductionMode();
-  await teeWalletConfig.switchToProductionMode();
   await teeWalletManager.switchToProductionMode();
+  await teeFeeCalculator.switchToProductionMode();
+  await teeInstructions.switchToProductionMode();
+  await teeRewardOffersManager.switchToProductionMode();
+  for (const teePayments of teePaymentsList) {
+    await teePayments.switchToProductionMode();
+  }
 
   contracts.serialize();
   if (!quiet) {

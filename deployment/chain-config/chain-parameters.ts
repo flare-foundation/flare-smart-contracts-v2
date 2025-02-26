@@ -483,6 +483,38 @@ export interface ChainParameters {
      */
     fdcInflationConfigurations: FdcInflationConfiguration[];
 
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // TEE settings
+
+    /**
+     * Minimal duration that TEE should be in status pause before pause for upgrade can be triggered, in seconds (e.g. 10 minutes).
+     */
+    teePauseBeforeUpgradeMinDurationSeconds: integer;
+
+    /**
+     * The availability check validity duration, in seconds (e.g. 10 minutes).
+     */
+    teeAvailabilityCheckValidityDurationSeconds: integer;
+
+    /**
+     * The minimal supported version of TEE.
+     */
+    teeMinSupportedVersion: integer;
+
+    /**
+     * The amount of rewards that are distributed to TEE owners, in PPM (e.g. 10%).
+     */
+    teeOwnersPPM: integer;
+
+    /**
+     * The TEE operation fees.
+     */
+    teeOperationFees: TeeOperationFee[];
+
+    /**
+     * The TEE payment configurations.
+     */
+    teePaymentConfigurations: TeePaymentConfiguration[];
 }
 
 export interface FtsoInflationConfiguration {
@@ -678,4 +710,38 @@ export interface FdcInflationConfiguration {
      * Mode (additional settings interpreted on the client side off-chain).
      */
     mode: integer;
+}
+
+export interface TeePaymentConfiguration {
+    /**
+     * Payment operation type - XRP, BTC, DOGE,...
+     */
+    opType: string;
+
+    /**
+     *  Max batch size.
+     */
+    maxBatchSize: integer;
+
+    /**
+     *  Max batch duration in seconds.
+     */
+    maxBatchDurationSeconds: integer;
+}
+
+export interface TeeOperationFee {
+    /**
+     * The operation type.
+     */
+    opType: string;
+
+    /**
+     * The operation command.
+     */
+    opCommand: string;
+
+    /**
+     * The fee per operation type + command. In Wei.
+     */
+    feeWei: string;
 }
