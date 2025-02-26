@@ -221,15 +221,15 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             teeState.lastStatusChangeTs = uint64(block.timestamp);
         }
         _checkFee(TO_PAUSE_FOR_UPGRADE, _teeId);
-
-        bytes32 instructionId = keccak256(abi.encode(TO_PAUSE_FOR_UPGRADE, _teeId));
+        PauseForUpgrade memory message = PauseForUpgrade({ teeId: _teeId });
+        bytes32 instructionId = keccak256(abi.encode(REG_OP_TYPE, TO_PAUSE_FOR_UPGRADE, _teeId));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _getTeeMachines(TeeMachine({ teeId: _teeId, owner: msg.sender, url: teeState.url })),
             flareSystemsManager.getCurrentRewardEpochId(),
             REG_OP_TYPE,
             TO_PAUSE_FOR_UPGRADE,
-            abi.encode(PauseForUpgrade({ teeId: _teeId }))
+            abi.encode(message)
         );
     }
 
@@ -258,29 +258,29 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         replications[_oldTeeId] = _newTeeId;
         newTeeState.status = TeeStatus.REPLICATING;
         newTeeState.lastStatusChangeTs = uint64(block.timestamp);
-        ReplicateTeeMachine memory replicateTeeMachine = ReplicateTeeMachine({
+        ReplicateTeeMachine memory message = ReplicateTeeMachine({
             oldTeeMachine: _getTeeMachineWithAttestationData(_oldTeeId),
             newTeeMachine: _getTeeMachineWithAttestationData(_newTeeId)
         });
         require(
             _isSupportedPlatform(
-                replicateTeeMachine.newTeeMachine.platform,
-                codeHashToVersion[replicateTeeMachine.oldTeeMachine.codeHash].platforms
+                message.newTeeMachine.platform,
+                codeHashToVersion[message.oldTeeMachine.codeHash].platforms
             ) &&
             _isSupportedPlatform(
-                replicateTeeMachine.oldTeeMachine.platform,
-                codeHashToVersion[replicateTeeMachine.newTeeMachine.codeHash].platforms
+                message.oldTeeMachine.platform,
+                codeHashToVersion[message.newTeeMachine.codeHash].platforms
             ),
             "platforms not supported");
 
-        bytes32 instructionId = keccak256(abi.encode(REPLICATE_FROM, _oldTeeId, _newTeeId));
+        bytes32 instructionId = keccak256(abi.encode(REG_OP_TYPE, REPLICATE_FROM, _oldTeeId, _newTeeId));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _getTeeMachines(ITeeRegistry.TeeMachine({ teeId: _newTeeId, owner: msg.sender, url: newTeeState.url })),
             flareSystemsManager.getCurrentRewardEpochId(),
             REG_OP_TYPE,
             REPLICATE_FROM,
-            abi.encode(replicateTeeMachine)
+            abi.encode(message)
         );
     }
 
@@ -488,21 +488,21 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         internal
     {
         _checkFee(AVAILABILITY_CHECK, _teeMachine.teeId);
-        AvailabilityCheckRequest memory availabilityCheckRequest = AvailabilityCheckRequest({
+        AvailabilityCheckRequest memory message = AvailabilityCheckRequest({
             teeId: _teeId,
             url: _teeUrl,
             codeHash: _codeHash,
             platform: _platform,
             timestamp: block.timestamp
         });
-        bytes32 instructionId = keccak256(abi.encode(AVAILABILITY_CHECK, _teeId));
+        bytes32 instructionId = keccak256(abi.encode(REG_OP_TYPE, AVAILABILITY_CHECK, _teeId, block.timestamp));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _getTeeMachines(_teeMachine),
             flareSystemsManager.getCurrentRewardEpochId(),
             REG_OP_TYPE,
             AVAILABILITY_CHECK,
-            abi.encode(availabilityCheckRequest)
+            abi.encode(message)
         );
     }
 

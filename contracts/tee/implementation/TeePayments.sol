@@ -146,12 +146,12 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
 
         ITeeRegistry.TeeMachine[] memory receivingTees = teeWalletManager.receivingTees(_walletId);
 
-        bytes32 instructionId = keccak256(abi.encode(PAY, _walletId, message.nonce));
+        bytes32 instructionId = keccak256(abi.encode(opType, PAY, _walletId, message.nonce));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             receivingTees,
             state.batchRewardEpochId,
-            walletOpType,
+            opType,
             PAY,
             abi.encode(message)
         );
@@ -199,7 +199,7 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         tempState.receivingTees = teeWalletManager.receivingTees(_walletId);
         tempState.maxFeeTolerancePPM = setting.maxFeeTolerancePPM;
         tempState.currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        tempState.instructionId = keccak256(abi.encode(REISSUE, _walletId, _nonce));
+        tempState.instructionId = keccak256(abi.encode(opType, REISSUE, _walletId, _nonce));
         // reissue batch
         tempState.remainingAmount = msg.value;
         for (uint256 i = 0; i < _paymentInstructions.length; ++i) {
