@@ -13,7 +13,7 @@ interface ITeeInstructions {
         uint24 indexed rewardEpochId,
         ITeeRegistry.TeeMachine[] teeMachines,
         bytes32 opType,
-        bytes32 instruction,
+        bytes32 opCommand,
         bytes message,
         uint256 fee
     );
