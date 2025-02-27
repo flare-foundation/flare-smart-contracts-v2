@@ -712,7 +712,9 @@ for (const teePaymentConfig of teePaymentConfigurations) {
       Contracts.FAST_UPDATES_CONFIGURATION,
       Contracts.FTSO_FEED_PUBLISHER,
       Contracts.FEE_CALCULATOR]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, fastUpdateIncentiveManager.address, voterRegistry.address, fastUpdatesConfiguration.address, mockContract.address, feeCalculator.address], { from: ADDRESS_UPDATER_ADDR });
+    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, fastUpdateIncentiveManager.address, voterRegistry.address, fastUpdatesConfiguration.address, mockContract.address, feeCalculator.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await fastUpdatesConfiguration.updateContractAddresses(
     encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FAST_UPDATER]),
@@ -724,7 +726,9 @@ for (const teePaymentConfig of teePaymentConfigurations) {
     encodeContractNames(hre.web3, [
       Contracts.ADDRESS_UPDATER,
       Contracts.FAST_UPDATES_CONFIGURATION]),
-    [ADDRESS_UPDATER_ADDR, fastUpdatesConfiguration.address], { from: ADDRESS_UPDATER_ADDR });
+    [ADDRESS_UPDATER_ADDR, fastUpdatesConfiguration.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await fdcHub.updateContractAddresses(
     encodeContractNames(hre.web3, [
@@ -747,29 +751,45 @@ for (const teePaymentConfig of teePaymentConfigurations) {
 
   await teeRegistry.updateContractAddresses(
     encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-    [ADDRESS_UPDATER_ADDR, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, relay.address], { from: ADDRESS_UPDATER_ADDR });
+    [ADDRESS_UPDATER_ADDR, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, relay.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await teeWalletManager.updateContractAddresses(
     encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
+    [ADDRESS_UPDATER_ADDR, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await teeFeeCalculator.updateContractAddresses(
     encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, teeWalletManager.address], { from: ADDRESS_UPDATER_ADDR });
+    [ADDRESS_UPDATER_ADDR, teeWalletManager.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await teeInstructions.updateContractAddresses(
     encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, rewardManager.address], { from: ADDRESS_UPDATER_ADDR });
+    [ADDRESS_UPDATER_ADDR, rewardManager.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   await teeRewardOffersManager.updateContractAddresses(
     encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.INFLATION]),
-    [ADDRESS_UPDATER_ADDR, rewardManager.address, flareSystemsManager.address, INFLATION_ADDR], { from: ADDRESS_UPDATER_ADDR });
+    [ADDRESS_UPDATER_ADDR, rewardManager.address, flareSystemsManager.address, INFLATION_ADDR],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
 
   for (const teePayments of teePaymentsList) {
     await teePayments.updateContractAddresses(
       encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.FLARE_SYSTEMS_MANAGER]),
-      [ADDRESS_UPDATER_ADDR, teeWalletManager.address, teeFeeCalculator.address, flareSystemsManager.address], { from: ADDRESS_UPDATER_ADDR });
+      [ADDRESS_UPDATER_ADDR, teeWalletManager.address, teeFeeCalculator.address, flareSystemsManager.address],
+      { from: ADDRESS_UPDATER_ADDR }
+    );
   }
+
+  await teeInstructions.registerInstructionInitiators([teeRegistry.address, teeWalletManager.address, ...teePaymentsList.map(teePayments => teePayments.address)],
+    { from: governanceAccount.address }
+  );
 
   // set reward offers manager list
   await rewardManager.setRewardOffersManagerList([
@@ -777,11 +797,12 @@ for (const teePaymentConfig of teePaymentConfigurations) {
     fastUpdateIncentiveManager.address,
     fdcHub.address,
     teeRewardOffersManager.address,
-    teeInstructions.address,
-  ]);
+    teeInstructions.address],
+    { from: governanceAccount.address }
+  );
 
   // set initial reward data
-  await rewardManager.setInitialRewardData();
+  await rewardManager.setInitialRewardData({ from: governanceAccount.address });
 
   // send some inflation funds
   const inflationFunds = hre.web3.utils.toWei("200000");
@@ -890,8 +911,8 @@ for (const teePaymentConfig of teePaymentConfigurations) {
     { from: governanceAccount.address }
   );
 
-  await entityManager.setNodePossessionVerifier(nodePossessionmockContract.address); // mock verifier
-  await entityManager.setPublicKeyVerifier(fastUpdater.address);
+  await entityManager.setNodePossessionVerifier(nodePossessionmockContract.address, { from: governanceAccount.address }); // mock verifier
+  await entityManager.setPublicKeyVerifier(fastUpdater.address, { from: governanceAccount.address });
 
   await pChainStakeMirror.setCleanerContract(CLEANER_CONTRACT_ADDR, { from: governanceAccount.address });
   await pChainStakeMirror.activate({ from: governanceAccount.address });

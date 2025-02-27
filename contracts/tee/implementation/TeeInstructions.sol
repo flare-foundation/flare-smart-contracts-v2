@@ -48,6 +48,7 @@ contract TeeInstructions is ITeeInstructions, Governed, AddressUpdatable {
     )
         external payable
     {
+        require(instructionInitiators.index[msg.sender] != 0, "only instruction initiators");
         emit TeeInstructionsSent(
             _instructionId,
             _rewardEpochId,

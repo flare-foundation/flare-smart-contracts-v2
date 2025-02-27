@@ -139,6 +139,8 @@ export async function deployTeeContracts(
       [addressUpdater, teeWalletManager.address, teeFeeCalculator.address, flareSystemsManager]);
   }
 
+  await teeInstructions.registerInstructionInitiators([teeRegistry.address, teeWalletManager.address, ...teePaymentsList.map(teePayments => teePayments.address)]);
+
   // switch to production mode
   await teeRegistry.switchToProductionMode();
   await teeWalletManager.switchToProductionMode();
