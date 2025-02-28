@@ -115,4 +115,34 @@ interface ITeePayments {
         uint64 _batchDurationSeconds
     )
         external;
+
+    /**
+     * Returns wallet's sender address.
+     * @param _walletId The wallet id.
+     * @return _senderAddress The wallet owner.
+     */
+    function getSenderAddress(bytes32 _walletId) external view returns (string memory _senderAddress);
+
+    /**
+     * Returns wallet's settings.
+     * @param _walletId The wallet id.
+     * @return _batchSize The batch size.
+     * @return _batchDurationSeconds The batch duration in seconds.
+     * @return _maxFee The maximum fee.
+     * @return _maxFeeTolerancePPM The maximum fee tolerance, in parts per million.
+     * @return _controlAddress The control address.
+     * @return _maxControlFee The maximum control fee.
+     */
+    function getWalletSettings(
+        bytes32 _walletId
+    )
+        external view
+        returns(
+            uint64 _batchSize,
+            uint64 _batchDurationSeconds,
+            uint96 _maxFee,
+            uint32 _maxFeeTolerancePPM,
+            address _controlAddress,
+            uint96 _maxControlFee
+        );
 }

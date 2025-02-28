@@ -291,6 +291,32 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         senderAddresses[_walletId] = _senderAddress;
     }
 
+    function getSenderAddress(bytes32 _walletId) external view returns(string memory) {
+        return senderAddresses[_walletId];
+    }
+
+    function getWalletSettings(
+        bytes32 _walletId
+    )
+        external view
+        returns(
+            uint64 _batchSize,
+            uint64 _batchDurationSeconds,
+            uint96 _maxFee,
+            uint32 _maxFeeTolerancePPM,
+            address _controlAddress,
+            uint96 _maxControlFee
+        )
+    {
+        WalletSettings storage setting = settings[_walletId];
+        _batchSize = setting.batchSize;
+        _batchDurationSeconds = setting.batchDurationSeconds;
+        _maxFee = setting.maxFee;
+        _maxFeeTolerancePPM = setting.maxFeeTolerancePPM;
+        _controlAddress = setting.controlAddress;
+        _maxControlFee = setting.maxControlFee;
+    }
+
     /**
      * @inheritdoc AddressUpdatable
      */

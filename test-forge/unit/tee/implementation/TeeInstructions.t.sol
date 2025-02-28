@@ -5,7 +5,6 @@ import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeeInstructions.sol";
 import "../../../../contracts/protocol/implementation/RewardManager.sol";
 
-
 contract TeeInstructionsTest is Test {
 
     TeeInstructions private teeInstructions;

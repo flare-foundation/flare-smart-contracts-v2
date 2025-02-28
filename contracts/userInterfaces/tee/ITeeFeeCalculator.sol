@@ -12,7 +12,7 @@ interface ITeeFeeCalculator {
     event OperationFeeSet(
         bytes32 opType,
         bytes32 opCommand,
-        uint256 operationFee
+        uint256 fee
     );
 
     /**
