@@ -46,6 +46,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     bytes32 public constant KEY_CUSTODIAN_RESTORE = bytes32("KEY_CUSTODIAN_RESTORE");
 
 
+    uint256 public confirmKeyValidityDurationSeconds;
     uint256 public walletCounter = 0;
     mapping(bytes32 walletId => TeeWalletState) private wallets;
     mapping(bytes32 walletId => address) public proposedWalletOwner;
@@ -58,13 +59,12 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     IFlareSystemsManager public flareSystemsManager;
 
     modifier onlyOwner(bytes32 _walletId) {
-        require(wallets[_walletId].owner == msg.sender, "only owner");
+        _checkOnlyOwner(_walletId);
         _;
     }
 
     modifier onlyOwnerOrBackupManager(bytes32 _walletId) {
-        require(wallets[_walletId].owner == msg.sender || wallets[_walletId].backupManager == msg.sender,
-            "only owner or backup manager");
+        _checkOnlyOwnerOrBackupManager(_walletId);
         _;
     }
 
@@ -77,10 +77,13 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
-        address _addressUpdater
+        address _addressUpdater,
+        uint256 _confirmKeyValidityDurationSeconds
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
+        require(_confirmKeyValidityDurationSeconds > 0, "invalid confirm key validity duration");
+        confirmKeyValidityDurationSeconds = _confirmKeyValidityDurationSeconds;
     }
 
     function initializeWallet(bytes32 _opType, uint64 _multisigThreshold)
@@ -134,6 +137,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         bytes32 _walletId,
         uint64 _keyId,
         bytes calldata _publicKey,
+        uint64 _timestamp,
         Signature calldata _signature
     )
         external onlyOwnerOrBackupManager(_walletId)
@@ -142,7 +146,10 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         require(wallet.keyIdCounter > _keyId, "invalid key id");
         require(_publicKey.length > 0, "invalid public key");
         require(teeRegistry.isOpTypeSupported(_teeId, wallet.opType), "op type not supported");
-        bytes32 messageHash = keccak256(abi.encode(_walletId, _keyId, _publicKey));
+        require(_timestamp < block.timestamp, "timestamp in the future");
+        require(_timestamp + confirmKeyValidityDurationSeconds > block.timestamp,
+            "confirm key validity expired");
+        bytes32 messageHash = keccak256(abi.encode(_walletId, _keyId, _publicKey, _timestamp));
         address teeId = ECDSA.recover(
             MessageHashUtils.toEthSignedMessageHash(messageHash),
             _signature.v,
@@ -462,6 +469,13 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         delete proposedWalletOwner[_walletId];
     }
 
+    function setConfirmKeyValidityDurationSeconds(uint256 _confirmKeyValidityDurationSeconds)
+        external onlyGovernance
+    {
+        require(_confirmKeyValidityDurationSeconds > 0, "invalid confirm key validity duration");
+        confirmKeyValidityDurationSeconds = _confirmKeyValidityDurationSeconds;
+    }
+
     /**
      * @inheritdoc ITeeWalletManager
      */
@@ -646,6 +660,19 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
         return teeMachines;
+    }
+
+    function _checkOnlyOwner(bytes32 _walletId)
+        internal view
+    {
+        require(wallets[_walletId].owner == msg.sender, "only owner");
+    }
+
+    function _checkOnlyOwnerOrBackupManager(bytes32 _walletId)
+        internal view
+    {
+        require(wallets[_walletId].owner == msg.sender || wallets[_walletId].backupManager == msg.sender,
+            "only owner or backup manager");
     }
 
     function _checkWalletStatus(WalletStatus _actualStatus, WalletStatus _expectedStatus)
