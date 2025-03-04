@@ -216,8 +216,8 @@
   },
   {
     "name": "FtsoV2",
-    "contractName": "FtsoV2.sol",
-    "address": "0xB18d3A5e5A85C65cE47f977D7F486B79F99D3d32"
+    "contractName": "FtsoV2Proxy.sol",
+    "address": "0x7BDE3Df0624114eDB3A67dFe6753e62f4e7c1d20"
   },
   {
     "name": "PriceSubmitter",
@@ -258,5 +258,15 @@
     "name": "PollingManagementGroup",
     "contractName": "PollingManagementGroup.sol",
     "address": "0x55233A9Ed066621e02b166C416f804b04ee4a03a"
+  },
+  {
+    "name": "FtsoV2Implementation",
+    "contractName": "FtsoV2.sol",
+    "address": "0x15f816C9F9b0e80F684C88534c29cd618Be32342"
+  },
+  {
+    "name": "SFlrCustomFeed",
+    "contractName": "SFlrCustomFeed.sol",
+    "address": "0xD1002F3820ad32145b868aD889eC7753E3944c8D"
   }
 ]

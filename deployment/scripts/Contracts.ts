@@ -152,6 +152,8 @@ export class Contracts {
       if (contractList == null) {
         contractList = { name: contract.name, contractName: contract.contractName, addresses: [] };
         this.contractsAll.set(contract.name, contractList);
+      } else {
+        contractList.contractName = contract.contractName;
       }
       if (!contractList.addresses.includes(contract.address)) {
         contractList.addresses.push(contract.address);

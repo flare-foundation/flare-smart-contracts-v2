@@ -103,7 +103,7 @@
             "additionalProperties": false,
             "properties": {
                 "category": {
-                    "description": "The feed category (0 - none, 1 - crypto, 2 - FX, 3 - commodity, 4 - stock, ...).",
+                    "description": "The feed category (super category and type).\nsuper category: 0 (0x00) - 31 (0x1f) normal, 32 (0x20) - 63 (0x3f) custom, ...\ntype: 0 - none, 1 - crypto, 2 - FX, 3 - commodity, 4 - stock,...\ne.g. 1 (0x01) - normal crypto, 33 (0x21) - custom crypto,...",
                     "type": "integer"
                 },
                 "name": {
