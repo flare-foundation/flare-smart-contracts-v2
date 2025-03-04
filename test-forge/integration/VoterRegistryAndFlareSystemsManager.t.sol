@@ -8,7 +8,7 @@ import "../../contracts/protocol/implementation/FlareSystemsCalculator.sol";
 import "../../contracts/protocol/implementation/FlareSystemsManager.sol";
 import "../mock/MockNodePossessionVerification.sol";
 import "../mock/MockPublicKeyVerification.sol";
-import "../../../../contracts/protocol/implementation/VoterPreRegistry.sol";
+import "../../contracts/protocol/implementation/VoterPreRegistry.sol";
 
 // solhint-disable-next-line max-states-count
 contract VoterRegistryAndFlareSystemsManagerTest is Test {

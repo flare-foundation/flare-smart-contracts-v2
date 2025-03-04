@@ -611,7 +611,10 @@ export interface FlareDaemonizedContract {
 
 export interface FeedId {
     /**
-     * The feed category (0 - none, 1 - crypto, 2 - FX, 3 - commodity, 4 - stock, ...).
+     * The feed category (super category and type).
+     * super category: 0 (0x00) - 31 (0x1f) normal, 32 (0x20) - 63 (0x3f) custom, ...
+     * type: 0 - none, 1 - crypto, 2 - FX, 3 - commodity, 4 - stock,...
+     * e.g. 1 (0x01) - normal crypto, 33 (0x21) - custom crypto,...
      */
     category: integer;
 

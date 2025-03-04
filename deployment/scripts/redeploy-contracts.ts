@@ -11,7 +11,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
-import { PChainStakeMirrorVerifierContract, PChainStakeMirrorVerifierInstance } from '../../typechain-truffle/contracts/mock/PChainStakeMirrorVerifier';
+import { PChainStakeMirrorVerifierContract, PChainStakeMirrorVerifierInstance } from '../../typechain-truffle/contracts/staking/implementation/PChainStakeMirrorVerifier';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
 import { RNatContract } from '../../typechain-truffle/contracts/rNat/implementation/RNat';
 import { RNatAccountContract } from '../../typechain-truffle/contracts/rNat/implementation/RNatAccount';
@@ -30,12 +30,14 @@ import { FeeCalculatorContract } from '../../typechain-truffle/contracts/fastUpd
 import { FtsoManagerProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/FtsoManagerProxy';
 import { FtsoProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/FtsoProxy';
 import { FtsoV2Contract } from '../../typechain-truffle/contracts/protocol/implementation/FtsoV2';
+import { FtsoV2ProxyContract } from '../../typechain-truffle/contracts/protocol/implementation/FtsoV2Proxy';
 import { PriceSubmitterProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/PriceSubmitterProxy';
 import { VoterWhitelisterProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/VoterWhitelisterProxy';
 import { FtsoRewardManagerProxyContract, FtsoRewardManagerProxyInstance } from '../../typechain-truffle/contracts/fscV1/implementation/FtsoRewardManagerProxy';
 import { EntityManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/EntityManager';
 import { VoterRegistryContract } from '../../typechain-truffle/contracts/protocol/implementation/VoterRegistry';
 import { VoterPreRegistryContract } from '../../typechain-truffle/contracts/protocol/implementation/VoterPreRegistry';
+import { SFlrCustomFeedContract } from '../../typechain-truffle/contracts/customFeeds/implementation/SFlrCustomFeed.sol/SFlrCustomFeed';
 
 export async function redeployContracts(
   hre: HardhatRuntimeEnvironment,
@@ -69,7 +71,8 @@ export async function redeployContracts(
   const RNatAccount: RNatAccountContract = artifacts.require("RNatAccount");
   const FtsoManagerProxy: FtsoManagerProxyContract = artifacts.require("FtsoManagerProxy");
   const FtsoProxy: FtsoProxyContract = artifacts.require("FtsoProxy");
-  const FtsoV2: FtsoV2Contract = artifacts.require("FtsoV2");
+  const FtsoV2Implementation: FtsoV2Contract = artifacts.require("FtsoV2");
+  const FtsoV2Proxy: FtsoV2ProxyContract = artifacts.require("FtsoV2Proxy");
   const PriceSubmitterProxy: PriceSubmitterProxyContract = artifacts.require("PriceSubmitterProxy");
   const VoterWhitelisterProxy: VoterWhitelisterProxyContract = artifacts.require("VoterWhitelisterProxy");
   const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
@@ -77,6 +80,7 @@ export async function redeployContracts(
   const EntityManager: EntityManagerContract = artifacts.require("EntityManager");
   const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
   const VoterPreRegistry: VoterPreRegistryContract = artifacts.require("VoterPreRegistry");
+  const SFlrCustomFeed: SFlrCustomFeedContract = artifacts.require("SFlrCustomFeed");
 
   let validatorRewardOffersManager: ValidatorRewardOffersManagerInstance;
   let pChainStakeMirrorVerifier: PChainStakeMirrorVerifierInstance;
@@ -324,10 +328,19 @@ export async function redeployContracts(
     spewNewContractInfo(contracts, null, `FTSO ${ftso.symbol}`, `FtsoProxy.sol`, ftsoProxy.address, quiet);
   }
 
-  const ftsoV2 = await FtsoV2.new(
-    deployerAccount.address // tmp address updater
+  // ftso v2 implementation
+  const ftsoV2Implementation = await FtsoV2Implementation.new();
+  spewNewContractInfo(contracts, null, "FtsoV2Implementation", `FtsoV2.sol`, ftsoV2Implementation.address, quiet);
+  // ftso v2 proxy
+  const ftsoV2Proxy = await FtsoV2Proxy.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address, // tmp address updater
+    ftsoV2Implementation.address
   );
-  spewNewContractInfo(contracts, null, FtsoV2.contractName, `FtsoV2.sol`, ftsoV2.address, quiet);
+  // ftso v2
+  const ftsoV2 = await FtsoV2Implementation.at(ftsoV2Proxy.address);
+  spewNewContractInfo(contracts, null, "FtsoV2", `FtsoV2Proxy.sol`, ftsoV2Proxy.address, quiet);
 
   const priceSubmitterProxy = await PriceSubmitterProxy.new(
     deployerAccount.address // tmp address updater
@@ -401,14 +414,24 @@ export async function redeployContracts(
   );
 
   await ftsoV2.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FAST_UPDATER, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.RELAY]),
-    [addressUpdater, fastUpdater.address, fastUpdatesConfiguration.address, relay.address]
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FAST_UPDATER, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.FEE_CALCULATOR, Contracts.RELAY]),
+    [addressUpdater, fastUpdater.address, fastUpdatesConfiguration.address, feeCalculator.address, relay.address]
   );
 
   await priceSubmitterProxy.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY, Contracts.FTSO_REGISTRY, Contracts.FTSO_MANAGER, Contracts.VOTER_WHITELISTER]),
     [addressUpdater, relay.address, oldContracts.getContractAddress(Contracts.FTSO_REGISTRY), ftsoManagerProxy.address, voterWhitelisterProxy.address]
   );
+
+  if (hre.network.name === "flare") {
+    const sFlrCustomFeed = await SFlrCustomFeed.new(
+      FtsoConfigurations.encodeFeedId({"category": 33, "name": "sFLR/USD"}),
+      FtsoConfigurations.encodeFeedId({"category": 1, "name": "FLR/USD"}),
+      oldContracts.getContractAddress(Contracts.FLARE_CONTRACT_REGISTRY),
+      "0x12e605bc104e93B45e1aD99F9e555f659051c2BB");
+      spewNewContractInfo(contracts, null, "SFlrCustomFeed", `SFlrCustomFeed.sol`, sFlrCustomFeed.address, quiet);
+      await ftsoV2.addCustomFeeds([sFlrCustomFeed.address]);
+  }
 
   if (initialDeploy) {
     const entityManagerContract = await EntityManager.at(entityManager);
@@ -420,7 +443,11 @@ export async function redeployContracts(
   } else {
     // reset feeds
     const numberOfFeeds = await fastUpdatesConfiguration.getNumberOfFeeds();
-    await fastUpdater.resetFeeds([...Array(numberOfFeeds.toNumber()).keys()])
+    await fastUpdater.resetFeeds([...Array(numberOfFeeds.toNumber()).keys()]);
+
+    await ftsoV2.changeFeedIds([
+      {oldFeedId: FtsoConfigurations.encodeFeedId({"category": 1, "name": "MATIC/USD"}), newFeedId: FtsoConfigurations.encodeFeedId({category: 1, name: "POL/USD"})}]
+    );
   }
 
   // set reward offers manager list
@@ -474,6 +501,7 @@ export async function redeployContracts(
   await fastUpdater.switchToProductionMode();
   await feeCalculator.switchToProductionMode();
   await ftsoManagerProxy.switchToProductionMode();
+  await ftsoV2.switchToProductionMode();
 
   contracts.serialize();
   if (!quiet) {

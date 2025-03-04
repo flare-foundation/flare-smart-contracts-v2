@@ -336,9 +336,10 @@
   },
   {
     "name": "FtsoV2",
-    "contractName": "FtsoV2.sol",
+    "contractName": "FtsoV2Proxy.sol",
     "addresses": [
-      "0x3d893C53D9e8056135C26C8c638B76C8b60Df726"
+      "0x3d893C53D9e8056135C26C8c638B76C8b60Df726",
+      "0xC4e9c78EA53db782E28f28Fdf80BaF59336B304d"
     ]
   },
   {
@@ -395,6 +396,13 @@
     "contractName": "PollingManagementGroup.sol",
     "addresses": [
       "0x142a8DbC8410deFd989dA27177986ac66aE9fCA8"
+    ]
+  },
+  {
+    "name": "FtsoV2Implementation",
+    "contractName": "FtsoV2.sol",
+    "addresses": [
+      "0xA9E744A9dfA9177196816C9B92791065655c74aB"
     ]
   }
 ]
