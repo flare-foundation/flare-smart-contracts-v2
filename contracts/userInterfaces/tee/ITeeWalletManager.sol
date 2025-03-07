@@ -34,51 +34,6 @@ interface ITeeWalletManager {
         uint256 keyId;
     }
 
-    struct KeyMachineBackup {
-        ITeeRegistry.TeeMachineWithAttestationData teeMachine;
-        bytes32 walletId;
-        uint256 keyId;
-        uint256 backupId;
-        uint256 shamirThreshold;
-        ITeeRegistry.TeeMachineWithAttestationData[] backupTeeMachines;
-    }
-
-    struct KeyMachineRestore {
-        ITeeRegistry.TeeMachineWithAttestationData teeMachine;
-        bytes32 walletId;
-        uint256 keyId;
-        uint256 backupId;
-        bytes32 opType;
-        bytes publicKey;
-        ITeeRegistry.TeeMachineWithAttestationData[] backupTeeMachines;
-    }
-
-    struct KeyMachineBackupRemove {
-        address[] teeIds;
-        bytes32 walletId;
-        uint256 keyId;
-        uint256 backupId;
-    }
-
-    struct KeyCustodianBackup {
-        address teeId;
-        bytes32 walletId;
-        uint256 keyId;
-        uint256 backupId;
-        uint256 shamirThreshold;
-        bytes[] custodianPublicKeys;
-    }
-
-    struct KeyCustodianRestore {
-        address teeId;
-        bytes32 walletId;
-        uint256 keyId;
-        uint256 backupId;
-        bytes32 opType;
-        bytes publicKey;
-        bytes[] custodianPublicKeys;
-    }
-
     event WalletCreated(
         bytes32 indexed walletId,
         address indexed owner,
@@ -86,11 +41,106 @@ interface ITeeWalletManager {
     );
 
     /**
+     * Initializes the wallet.
+     * @param _opType The wallet operation type.
+     * @param _multisigThreshold The multisig threshold.
+     * @return _walletId The wallet id.
+     */
+    function initializeWallet(bytes32 _opType, uint64 _multisigThreshold)
+        external payable
+        returns (bytes32 _walletId);
+
+    /**
+     * Adds a key to the wallet - triggers a key generation process.
+     * @param _teeId The tee id.
+     * @param _walletId The wallet id.
+     * @return _keyId The key id.
+     */
+    function addKey(address _teeId, bytes32 _walletId) external payable returns (uint64 _keyId);
+
+    /**
+     * Deletes a key from the wallet - triggers a key deletion process.
+     * @param _teeId The tee id.
+     * @param _walletId The wallet id.
+     * @param _keyId The key id.
+     */
+    function deleteKey(address _teeId, bytes32 _walletId, uint64 _keyId) external payable;
+
+    /**
+     * Sets the wallet's submit address.
+     * @param _walletId The wallet id.
+     * @param _submitAddress The wallet submit address.
+     */
+    function setSubmitAddress(bytes32 _walletId, address _submitAddress) external;
+
+    /**
+     * Sets the wallet backup manager.
+     * @param _walletId The wallet id.
+     * @param _backupManager The wallet backup manager.
+     */
+    function setWalletBackupManager(bytes32 _walletId, address _backupManager) external;
+
+    /**
+     * Enables the wallet.
+     * @param _walletId The wallet id.
+     */
+    function enableWallet(bytes32 _walletId) external;
+
+    /**
+     * Pauses the wallet.
+     * @param _walletId The wallet id.
+     */
+    function pauseWallet(bytes32 _walletId) external;
+
+    /**
+     * Proposes a new owner for the wallet. The new owner needs to confirm the ownership.
+     * @param _walletId The wallet id.
+     * @param _newOwner The new owner.
+     */
+    function proposeNewOwner(bytes32 _walletId, address _newOwner) external;
+
+    /**
+     * Confirms the ownership of the wallet after the old owner has proposed a new owner.
+     * @param _walletId The wallet id.
+     */
+    function confirmOwnership(bytes32 _walletId) external;
+
+    /**
      * Returns the wallet owner.
      * @param _walletId The wallet id.
      * @return _walletOwner The wallet owner.
      */
     function getWalletOwner(bytes32 _walletId) external view returns (address _walletOwner);
+
+    /**
+     * Returns the wallet backup manager.
+     * @param _walletId The wallet id.
+     * @return _backupManager The wallet backup manager.
+     */
+    function getWalletBackupManager(bytes32 _walletId) external view returns (address _backupManager);
+
+    /**
+     * Returns the wallet operation type.
+     * @param _walletId The wallet id.
+     * @return _opType The wallet operation type.
+     */
+    function getWalletOpType(bytes32 _walletId) external view returns (bytes32 _opType);
+
+    /**
+     * Returns the list of tee ids that hold the wallet key.
+     * @param _walletId The wallet id.
+     * @param _keyId The key id.
+     * @return _teeIds The list of tee ids.
+     */
+    function getWalletKeyTeeIds(bytes32 _walletId, uint64 _keyId) external view returns (address[] memory _teeIds);
+
+    /**
+     * Returns the public key of the wallet key.
+     * @param _walletId The wallet id.
+     * @param _keyId The key id.
+     * @return _publicKey The public key.
+     */
+    function getWalletKeyPublicKey(bytes32 _walletId, uint64 _keyId) external view returns (bytes memory _publicKey);
 
     /**
      * Returns information about the tee wallet.
@@ -104,6 +154,17 @@ interface ITeeWalletManager {
         WalletStatus _status,
         bytes32 _opType
     );
+
+    /**
+     * Returns information about the wallet keys.
+     * @param _walletId The wallet id.
+     * @param _multisigThreshold The multisig threshold.
+     * @param _keyIds The key ids.
+     * @param _counter The counter.
+     */
+    function getWalletKeysInfo(bytes32 _walletId)
+        external view
+        returns (uint64 _multisigThreshold, uint256[] memory _keyIds, uint64 _counter);
 
     /**
      * Returns wallet's receiving tees.
@@ -126,4 +187,10 @@ interface ITeeWalletManager {
      * @param _feeFactor The fee factor.
      */
     function getFeeFactor(bytes32 _walletId) external view returns (uint256 _feeFactor);
+
+    /**
+     * Returns supported operation types.
+     * @return _supportedOpTypes The supported operation types.
+     */
+    function getSupportedOpTypes() external view returns (bytes32[] memory _supportedOpTypes);
 }

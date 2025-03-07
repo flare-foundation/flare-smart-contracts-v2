@@ -450,6 +450,7 @@
 
     "teePauseBeforeUpgradeMinDurationSeconds": 600,
     "teeAvailabilityCheckValidityDurationSeconds": 600,
+    "confirmKeyValidityDurationSeconds": 600,
     "teeMinSupportedVersion": 1,
     "teeOwnersPPM": 100000,
     "teeOperationFees": [

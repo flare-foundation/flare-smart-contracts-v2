@@ -497,6 +497,11 @@ export interface ChainParameters {
     teeAvailabilityCheckValidityDurationSeconds: integer;
 
     /**
+     * The confirm key validity duration, in seconds (e.g. 10 minutes).
+     */
+    confirmKeyValidityDurationSeconds: integer;
+
+    /**
      * The minimal supported version of TEE.
      */
     teeMinSupportedVersion: integer;

@@ -328,6 +328,10 @@
             "description": "The base sample size.",
             "type": "string"
         },
+        "confirmKeyValidityDurationSeconds": {
+            "description": "The confirm key validity duration, in seconds (e.g. 10 minutes).",
+            "type": "integer"
+        },
         "decimalsUpdateOffset": {
             "description": "Feed decimals update timelock measured in reward epochs (must be more than 1, e.g. 3).",
             "type": "integer"
@@ -736,6 +740,7 @@
         "addAfterRewardedEpochs",
         "baseRange",
         "baseSampleSize",
+        "confirmKeyValidityDurationSeconds",
         "decimalsUpdateOffset",
         "defaultDecimals",
         "defaultFeePercentageBIPS",
