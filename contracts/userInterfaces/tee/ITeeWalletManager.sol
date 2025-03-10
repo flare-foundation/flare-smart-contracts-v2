@@ -59,12 +59,20 @@ interface ITeeWalletManager {
     function addKey(address _teeId, bytes32 _walletId) external payable returns (uint64 _keyId);
 
     /**
-     * Deletes a key from the wallet - triggers a key deletion process.
+     * Deletes key from the tee machine - triggers a key deletion process.
      * @param _teeId The tee id.
      * @param _walletId The wallet id.
      * @param _keyId The key id.
      */
     function deleteKey(address _teeId, bytes32 _walletId, uint64 _keyId) external payable;
+
+
+    /**
+     * For given wallet id and key id cleans up all tee machines that are not in production status.
+     * @param _walletId The wallet id.
+     * @param _keyId The key id.
+     */
+    function cleanUpTeeIds(bytes32 _walletId, uint64 _keyId) external;
 
     /**
      * Sets the wallet's submit address.

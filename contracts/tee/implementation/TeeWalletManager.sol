@@ -172,15 +172,15 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             require(keccak256(keyDefinition.publicKey) == keccak256(_publicKey), "invalid public key");
             address[] storage keyDefinitionTeeIds = keyDefinition.teeIds;
             for (uint256 i = 0; i < keyDefinitionTeeIds.length; i++) {
-                if (keyDefinitionTeeIds[i] == teeId) {
-                    revert("tee id already added");
-                }
+                require(keyDefinitionTeeIds[i] != teeId, "tee id already added");
             }
             // tee id not found, add it
             keyDefinitionTeeIds.push(teeId);
         } else {
             // new key definition can only be added if wallet is in status initialized
             _checkWalletStatus(wallet.status, WalletStatus.INITIALIZED);
+            // new key definition can only be added by the owner
+            _checkOnlyOwner(_walletId);
             // add new key id
             wallet.keyIds.push(_keyId);
             // set public key and add tee id
@@ -200,12 +200,12 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         external payable
         onlyOwner(_walletId)
     {
-        // should not check for tee machine status here
-        // as might want to delete key even if tee machine is not available
+        _checkTeeStatus(_teeId);
         TeeWalletState storage wallet = wallets[_walletId];
         require(wallet.keyIdCounter > _keyId, "invalid key id");
         KeyDefinition storage keyDefinition = wallet.keyDefinitions[_keyId];
         require(keyDefinition.publicKey.length > 0, "invalid key id");
+        _checkFee(KEY_DELETE, _teeId, new address[](0));
         // delete tee id from key definition if exists
         uint256 length = keyDefinition.teeIds.length;
         if (length > 0) {
@@ -216,31 +216,51 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
                 }
             }
             if (index < length) { // delete tee id
-                keyDefinition.teeIds[index] = keyDefinition.teeIds[keyDefinition.teeIds.length - 1];
+                keyDefinition.teeIds[index] = keyDefinition.teeIds[length - 1];
                 keyDefinition.teeIds.pop();
                 wallet.feeFactor--;
             }
         }
 
         // trigger key delete instruction (even if no tee id found, but machine is in production status - retry)
-        if (teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION) {
-            _checkFee(KEY_DELETE, _teeId, new address[](0));
-            KeyDelete memory message = KeyDelete({
-                teeId: _teeId,
-                walletId: _walletId,
-                keyId: _keyId
-            });
-            bytes32 instructionId = keccak256(abi.encode(WALLET_OP_TYPE, KEY_DELETE, _walletId, _keyId));
-            teeInstructions.sendInstructions{value: msg.value}(
-                instructionId,
-                _getTeeMachines(_teeId),
-                flareSystemsManager.getCurrentRewardEpochId(),
-                WALLET_OP_TYPE,
-                KEY_DELETE,
-                abi.encode(message)
-            );
-        } else {
-            require(msg.value == 0, "msg.value should be 0");
+        KeyDelete memory message = KeyDelete({
+            teeId: _teeId,
+            walletId: _walletId,
+            keyId: _keyId
+        });
+        bytes32 instructionId = keccak256(abi.encode(WALLET_OP_TYPE, KEY_DELETE, _walletId, _keyId));
+        teeInstructions.sendInstructions{value: msg.value}(
+            instructionId,
+            _getTeeMachines(_teeId),
+            flareSystemsManager.getCurrentRewardEpochId(),
+            WALLET_OP_TYPE,
+            KEY_DELETE,
+            abi.encode(message)
+        );
+    }
+
+    /**
+     * @inheritdoc ITeeWalletManager
+     */
+    function cleanUpTeeIds(
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        external
+        onlyOwnerOrBackupManager(_walletId)
+    {
+        TeeWalletState storage wallet = wallets[_walletId];
+        KeyDefinition storage keyDefinition = wallet.keyDefinitions[_keyId];
+        require(wallet.keyIdCounter > _keyId, "invalid key id");
+        require(keyDefinition.publicKey.length > 0, "invalid key id");
+        address[] storage teeIds = keyDefinition.teeIds;
+        for (uint256 i = teeIds.length; i > 0; i--) {
+            if (teeRegistry.getTeeMachineStatus(teeIds[i - 1]) != ITeeRegistry.TeeStatus.PRODUCTION) {
+                // delete tee id from key definition
+                teeIds[i - 1] = teeIds[teeIds.length - 1];
+                teeIds.pop();
+                wallet.feeFactor--;
+            }
         }
     }
 
