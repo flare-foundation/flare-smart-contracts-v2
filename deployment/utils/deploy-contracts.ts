@@ -75,6 +75,8 @@ import {
   systemSettings,
   getSigningPolicyHash,
   FTSO_PROTOCOL_ID,
+  TEE_PAYMENT_CONFIGURATIONS,
+  TEE_OPERATION_FEES,
 } from "../tasks/run-simulation";
 import { getLogger } from "./logger";
 import { testDeployGovernanceSettings } from "./contract-helpers";
@@ -451,31 +453,6 @@ export async function deployContracts(
   const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(governanceSettings.address, governanceAccount.address);
 
   // TEE
-  const teePaymentConfigurations = [
-    {opType: "XRP", maxBatchSize: 1, maxBatchDurationSeconds: 0},
-    {opType: "BTC", maxBatchSize: 10, maxBatchDurationSeconds: 600},
-    {opType: "DOGE", maxBatchSize: 10, maxBatchDurationSeconds: 60}
-  ];
-
-  const teeOperationFees = [
-    {opType: "REG", opCommand: "AVAILABILITY_CHECK", feeWei: "1"},
-    {opType: "REG", opCommand: "TO_PAUSE_FOR_UPGRADE", feeWei: "1"},
-    {opType: "REG", opCommand: "REPLICATE_FROM", feeWei: "1"},
-    {opType: "WALLET", opCommand: "KEY_GENERATE", feeWei: "1"},
-    {opType: "WALLET", opCommand: "KEY_DELETE", feeWei: "1"},
-    {opType: "WALLET", opCommand: "KEY_MACHINE_BACKUP", feeWei: "1"},
-    {opType: "WALLET", opCommand: "KEY_MACHINE_RESTORE", feeWei: "1"},
-    {opType: "WALLET", opCommand: "KEY_MACHINE_BACKUP_REMOVE", feeWei: "1"},
-    {opType: "WALLET", opCommand: "KEY_CUSTODIAN_BACKUP", feeWei: "1"},
-    {opType: "WALLET", opCommand: "KEY_CUSTODIAN_RESTORE", feeWei: "1"},
-    {opType: "XRP", opCommand: "PAY", feeWei: "1"},
-    {opType: "XRP", opCommand: "REISSUE", feeWei: "1"},
-    {opType: "BTC", opCommand: "PAY", feeWei: "1"},
-    {opType: "BTC", opCommand: "REISSUE", feeWei: "1"},
-    {opType: "DOGE", opCommand: "PAY", feeWei: "1"},
-    {opType: "DOGE", opCommand: "REISSUE", feeWei: "1"}
-  ];
-
   const teeRegistry = await TeeRegistry.new(
     governanceSettings.address,
     governanceAccount.address,
@@ -486,7 +463,7 @@ export async function deployContracts(
   );
 
   const teeWalletOpTypes = [];
-  for (const teePaymentConfig of teePaymentConfigurations) {
+  for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
     teeWalletOpTypes.push(web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"));
   }
   const teeWalletManager = await TeeWalletManager.new(
@@ -519,7 +496,7 @@ export async function deployContracts(
   const operationTypes = [];
   const operationCommands = [];
   const operationFees = [];
-  for (const teeOperationFee of teeOperationFees) {
+  for (const teeOperationFee of TEE_OPERATION_FEES) {
     operationTypes.push(web3.utils.utf8ToHex(teeOperationFee.opType).padEnd(66, "0"));
     operationCommands.push(web3.utils.utf8ToHex(teeOperationFee.opCommand).padEnd(66, "0"));
     operationFees.push(teeOperationFee.feeWei);
@@ -533,7 +510,7 @@ export async function deployContracts(
   );
 
   const teePaymentsList = [];
-  for (const teePaymentConfig of teePaymentConfigurations) {
+  for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
     const teePayments = await TeePayments.new(
       governanceSettings.address,
       governanceAccount.address,
@@ -998,11 +975,15 @@ export async function deployContracts(
 }
 
 export function serializeDeployedContractsAddresses(contracts: DeployedContracts, fname: string) {
-  type ContractWithAddress = { address: string; constructor: { contractName: string } };
-  const result: Record<string, string> = {};
-  Object.values(contracts).forEach((contract) => {
-    const c = contract as ContractWithAddress;
-    result[c.constructor.contractName] = c.address;
+  const result: any = {};
+  Object.entries(contracts).forEach(([name, data]) => {
+    if (data instanceof Array) {
+      for (let i = 0; i < data.length; i++) {
+        result[`${data[i].constructor.contractName}_${i}`] = data[i].address;
+      }
+    } else {
+      result[data.constructor.contractName] = data.address;
+    }
   });
   fs.writeFileSync(fname, JSON.stringify(result, null, 2));
 }

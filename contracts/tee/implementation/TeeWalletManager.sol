@@ -144,8 +144,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         bytes32 _walletId,
         uint64 _keyId,
         bytes calldata _publicKey,
-        uint64 _timestamp,
-        Signature calldata _signature
+        bytes calldata /* _proof */
     )
         external onlyOwnerOrBackupManager(_walletId)
     {
@@ -153,17 +152,19 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         require(wallet.keyIdCounter > _keyId, "invalid key id");
         require(_publicKey.length > 0, "invalid public key");
         require(teeRegistry.isOpTypeSupported(_teeId, wallet.opType), "op type not supported");
-        require(_timestamp < block.timestamp, "timestamp in the future");
-        require(_timestamp + confirmKeyValidityDurationSeconds > block.timestamp,
-            "confirm key validity expired");
-        bytes32 messageHash = keccak256(abi.encode(_walletId, _keyId, _publicKey, _timestamp));
-        address teeId = ECDSA.recover(
-            MessageHashUtils.toEthSignedMessageHash(messageHash),
-            _signature.v,
-            _signature.r,
-            _signature.s
-        );
-        require(teeId == _teeId, "invalid signature");
+
+        // TODO validate proof
+        // require(_timestamp < block.timestamp, "timestamp in the future");
+        // require(_timestamp + confirmKeyValidityDurationSeconds > block.timestamp,
+        //     "confirm key validity expired");
+        // bytes32 messageHash = keccak256(abi.encode(_walletId, _keyId, _publicKey, _timestamp));
+        // address teeId = ECDSA.recover(
+        //     MessageHashUtils.toEthSignedMessageHash(messageHash),
+        //     _signature.v,
+        //     _signature.r,
+        //     _signature.s
+        // );
+        // require(teeId == _teeId, "invalid signature");
 
         wallet.feeFactor++;
         KeyDefinition storage keyDefinition = wallet.keyDefinitions[_keyId];
@@ -172,10 +173,10 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             require(keccak256(keyDefinition.publicKey) == keccak256(_publicKey), "invalid public key");
             address[] storage keyDefinitionTeeIds = keyDefinition.teeIds;
             for (uint256 i = 0; i < keyDefinitionTeeIds.length; i++) {
-                require(keyDefinitionTeeIds[i] != teeId, "tee id already added");
+                require(keyDefinitionTeeIds[i] != _teeId, "tee id already added");
             }
             // tee id not found, add it
-            keyDefinitionTeeIds.push(teeId);
+            keyDefinitionTeeIds.push(_teeId);
         } else {
             // new key definition can only be added if wallet is in status initialized
             _checkWalletStatus(wallet.status, WalletStatus.INITIALIZED);
@@ -185,7 +186,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             wallet.keyIds.push(_keyId);
             // set public key and add tee id
             keyDefinition.publicKey = _publicKey;
-            keyDefinition.teeIds.push(teeId);
+            keyDefinition.teeIds.push(_teeId);
         }
     }
 

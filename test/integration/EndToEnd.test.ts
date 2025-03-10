@@ -9,20 +9,30 @@ import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfiguratio
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { RelayMessage } from '../../scripts/libs/protocol/RelayMessage';
 import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
-import {
-    AddressBinderInstance, EntityManagerInstance, FtsoFeedIdConverterContract, FtsoFeedIdConverterInstance, FtsoFeedPublisherContract, FtsoFeedPublisherInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance,
-    MockContractContract, FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance, FtsoInflationConfigurationsContract,
-    FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance, PollingFoundationContract,
-    PollingFoundationInstance, PollingManagementGroupContract, PollingManagementGroupInstance,
-    CChainStakeContract, CChainStakeInstance, GovernanceVotePowerContract, PChainStakeMirrorContract,
-    EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsCalculatorInstance,
-    FlareSystemsManagerContract, FlareSystemsManagerInstance, PChainStakeMirrorVerifierContract,
-    RelayContract, RelayInstance, RewardManagerInstance, SubmissionContract, SubmissionInstance,
-    VoterRegistryContract, VoterRegistryInstance, WNatDelegationFeeContract, WNatDelegationFeeInstance,
-    ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance,
-    AddressBinderContract, CleanupBlockNumberManagerContract, CleanupBlockNumberManagerInstance,
-    WNatContract, VPContractContract
-} from '../../typechain-truffle';
+import { AddressBinderInstance, EntityManagerInstance, FtsoFeedIdConverterContract, FtsoFeedIdConverterInstance, FtsoFeedPublisherContract, FtsoFeedPublisherInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance } from '../../typechain-truffle';
+import { MockContractContract } from '../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract';
+import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
+import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
+import { FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
+import { PollingFoundationContract, PollingFoundationInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingFoundation';
+import { PollingManagementGroupContract, PollingManagementGroupInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingManagementGroup';
+import { CChainStakeContract, CChainStakeInstance } from '../../typechain-truffle/contracts/mock/CChainStake';
+import { GovernanceVotePowerContract } from '../../typechain-truffle/contracts/mock/GovernanceVotePower';
+import { PChainStakeMirrorContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/PChainStakeMirror';
+import { EntityManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/EntityManager';
+import { FlareSystemsCalculatorContract, FlareSystemsCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsCalculator';
+import { FlareSystemsManagerContract, FlareSystemsManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager';
+import { PChainStakeMirrorVerifierContract } from '../../typechain-truffle/contracts/staking/implementation/PChainStakeMirrorVerifier';
+import { RelayContract, RelayInstance } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
+import { RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
+import { SubmissionContract, SubmissionInstance } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
+import { VoterRegistryContract, VoterRegistryInstance } from '../../typechain-truffle/contracts/protocol/implementation/VoterRegistry';
+import { WNatDelegationFeeContract, WNatDelegationFeeInstance } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
+import { ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance } from '../../typechain-truffle/contracts/staking/implementation/ValidatorRewardOffersManager';
+import { AddressBinderContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressBinder';
+import { CleanupBlockNumberManagerContract, CleanupBlockNumberManagerInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/CleanupBlockNumberManager';
+import { VPContractContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/VPContract';
+import { WNatContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/WNat';
 import { generateSignatures } from '../unit/protocol/coding/coding-helpers';
 import { getTestFile } from "../utils/constants";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';

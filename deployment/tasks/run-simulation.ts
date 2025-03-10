@@ -65,10 +65,42 @@ const OFFERS = [
   },
 ];
 
+export const TEE_PAYMENT_CONFIGURATIONS = [
+  {opType: "XRP", maxBatchSize: 1, maxBatchDurationSeconds: 0},
+  {opType: "BTC", maxBatchSize: 10, maxBatchDurationSeconds: 600},
+  {opType: "DOGE", maxBatchSize: 10, maxBatchDurationSeconds: 60}
+];
+
+export const TEE_OPERATION_FEES = [
+  {opType: "REG", opCommand: "AVAILABILITY_CHECK", feeWei: "1"},
+  {opType: "REG", opCommand: "TO_PAUSE_FOR_UPGRADE", feeWei: "1"},
+  {opType: "REG", opCommand: "REPLICATE_FROM", feeWei: "1"},
+  {opType: "WALLET", opCommand: "KEY_GENERATE", feeWei: "1"},
+  {opType: "WALLET", opCommand: "KEY_DELETE", feeWei: "1"},
+  {opType: "WALLET", opCommand: "KEY_MACHINE_BACKUP", feeWei: "1"},
+  {opType: "WALLET", opCommand: "KEY_MACHINE_RESTORE", feeWei: "1"},
+  {opType: "WALLET", opCommand: "KEY_MACHINE_BACKUP_REMOVE", feeWei: "1"},
+  {opType: "WALLET", opCommand: "KEY_CUSTODIAN_BACKUP", feeWei: "1"},
+  {opType: "WALLET", opCommand: "KEY_CUSTODIAN_RESTORE", feeWei: "1"},
+  {opType: "XRP", opCommand: "PAY", feeWei: "1"},
+  {opType: "XRP", opCommand: "REISSUE", feeWei: "1"},
+  {opType: "BTC", opCommand: "PAY", feeWei: "1"},
+  {opType: "BTC", opCommand: "REISSUE", feeWei: "1"},
+  {opType: "DOGE", opCommand: "PAY", feeWei: "1"},
+  {opType: "DOGE", opCommand: "REISSUE", feeWei: "1"}
+];
+
+let SKIP_VOTER_REGISTRATION_SET: Set<string>;
+let SKIP_SIGNING_POLICY_SIGNING_SET: Set<string>;
+let SKIP_VOTING_EPOCH_ACTIONS: boolean;
+let SKIP_FINALIZATIONS: boolean;
+let TEE_CODE_HASH: string;
+let TEE_IDS: string[];
+let TEE_URLS: string[];
+let TEE_PLATFORMS: string[];
+
 function processEnv() {
-  const SKIP_VOTER_REGISTRATION_SET = new Set<string>();
-  const SKIP_SIGNING_POLICY_SIGNING_SET = new Set<string>();
-  let SKIP_VOTING_EPOCH_ACTIONS = false;
+  SKIP_VOTER_REGISTRATION_SET = new Set<string>();
   if (process.env.SKIP_VOTER_REGISTRATION_SET) {
     process.env.SKIP_VOTER_REGISTRATION_SET.split(",").forEach(x => {
       if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
@@ -77,6 +109,7 @@ function processEnv() {
     });
   }
 
+  SKIP_SIGNING_POLICY_SIGNING_SET = new Set<string>();
   if (process.env.SKIP_SIGNING_POLICY_SIGNING_SET) {
     process.env.SKIP_SIGNING_POLICY_SIGNING_SET.split(",").forEach(x => {
       if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
@@ -85,27 +118,51 @@ function processEnv() {
     });
   }
 
+  SKIP_VOTING_EPOCH_ACTIONS = false;
   if (process.env.SKIP_VOTING_EPOCH_ACTIONS) {
     console.log("Skipping voting epoch actions");
     SKIP_VOTING_EPOCH_ACTIONS = true;
   }
 
-  let SKIP_FINALIZATIONS = false;
+  SKIP_FINALIZATIONS = false;
   if (process.env.SKIP_FINALIZATIONS) {
     console.log("Skipping finalizations");
     SKIP_FINALIZATIONS = true;
   }
 
-  return {
-    SKIP_VOTER_REGISTRATION_SET,
-    SKIP_SIGNING_POLICY_SIGNING_SET,
-    SKIP_VOTING_EPOCH_ACTIONS,
-    SKIP_FINALIZATIONS,
-  };
-}
+  TEE_CODE_HASH = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2";
+  if (process.env.TEE_CODE_HASH) {
+    TEE_CODE_HASH = process.env.TEE_CODE_HASH.trim();
+  }
 
-const { SKIP_VOTER_REGISTRATION_SET, SKIP_SIGNING_POLICY_SIGNING_SET, SKIP_VOTING_EPOCH_ACTIONS, SKIP_FINALIZATIONS } =
-  processEnv();
+  TEE_IDS = [];
+  if (process.env.TEE_IDS) {
+    process.env.TEE_IDS.split(",").forEach(x => {
+      if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
+        TEE_IDS.push(x.trim().toLowerCase());
+      }
+    });
+  }
+
+  TEE_URLS = [];
+  if (process.env.TEE_URLS) {
+    process.env.TEE_URLS.split(",").forEach(x => {
+      TEE_URLS.push(x.trim().toLowerCase());
+    });
+  }
+
+  TEE_PLATFORMS = [];
+  if (process.env.TEE_PLATFORMS) {
+    process.env.TEE_PLATFORMS.split(",").forEach(x => {
+      TEE_PLATFORMS.push(x.trim());
+    });
+  }
+
+  if(TEE_IDS.length != TEE_URLS.length || TEE_IDS.length != TEE_PLATFORMS.length) {
+    console.error("ERRORRrr")
+    throw new Error("TEE_IDS, TEE_URLS and TEE_PLATFORMS must have the same length");
+  }
+}
 
 export const systemSettings = function (now: number) {
   return {
@@ -156,7 +213,7 @@ class EventStore {
 
 /**
  * Deploys smart contracts and runs a real-time simulation of voting and signing policy definition protocols.
- * Also incluses an embedded indexer recorting all transactions and events to a local SQLite database.
+ * Also includes an embedded indexer recording all transactions and events to a local SQLite database.
  *
  * Usage:
  *```
@@ -178,6 +235,7 @@ class EventStore {
  * Note: This is still a work in progress and might be buggy.
  */
 export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys: HardhatNetworkAccountUserConfig[], voterCount: number) {
+  processEnv();
   if (!fs.existsSync(SIMULATION_DUMP_FOLDER)) {
     fs.mkdirSync(SIMULATION_DUMP_FOLDER);
   }
@@ -192,6 +250,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   // Account 0 is reserved for governance, 1-5 for contract address use, 10+ for voters.
   const accounts = privateKeys.map(x => hre.web3.eth.accounts.privateKeyToAccount(x.privateKey));
   const governanceAccount = accounts[0];
+  const teeOwnerAccount = accounts[1];
 
   const [c, rewardEpochStart, initialSigningPolicy] = await deployContracts(accounts, hre, governanceAccount);
   serializeDeployedContractsAddresses(c, DEPLOY_ADDRESSES_FILE);
@@ -259,6 +318,30 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     )
   );
   logger.info(`Epoch settings written to ${SETTINGS_FILE_LOCATION}`);
+
+  // TEE
+  logger.info(`TEE_CODE_HASH: ${TEE_CODE_HASH}`);
+  const supportedPlatforms = [web3.utils.utf8ToHex("GOOGLE_TDX").padEnd(66, "0"), web3.utils.utf8ToHex("GOOGLE_AMD").padEnd(66, "0")]
+  const opTypes = [];
+  for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
+    opTypes.push(web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"));
+  }
+  await c.teeRegistry.addNewTeeVersion(1, TEE_CODE_HASH, supportedPlatforms, opTypes, { from: governanceAccount.address });
+
+  logger.info(`Registering TEEs with owner address: ${teeOwnerAccount.address}`);
+  logger.info(`TEE_IDS: ${TEE_IDS}`);
+  logger.info(`TEE_URLS: ${TEE_URLS}`);
+  logger.info(`TEE_PLATFORMS: ${TEE_PLATFORMS}`);
+  for (let i = 0; i < TEE_IDS.length; i++) {
+    await c.teeRegistry.register(
+      TEE_IDS[i],
+      TEE_URLS[i],
+      TEE_CODE_HASH,
+      web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
+      { from: teeOwnerAccount.address }
+    );
+    await c.teeRegistry.toProduction(TEE_IDS[i], "0x", { from: teeOwnerAccount.address }); // TODO proof
+  }
 
   const signingPolicies = new Map<number, ISigningPolicy>();
   signingPolicies.set(initialSigningPolicy.rewardEpochId, initialSigningPolicy);
