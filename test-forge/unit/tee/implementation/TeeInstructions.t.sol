@@ -118,7 +118,7 @@ contract TeeInstructionsTest is Test {
     }
 
     function testSendInstructionsRevert() public {
-        vm.expectRevert("only instruction initiator contracts");
+        vm.expectRevert("only instruction initiators");
         teeInstructions.sendInstructions(
             bytes32(0),
             new ITeeRegistry.TeeMachine[](0),
