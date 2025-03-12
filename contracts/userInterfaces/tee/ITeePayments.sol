@@ -79,10 +79,12 @@ interface ITeePayments {
      * Can only be called by the wallet owner.
      * @param _walletId The wallet id.
      * @param _senderAddress The new sender address.
+     * @param _initialNonce The initial nonce.
      */
-    function setSenderAddress(
+    function setSenderAddressAndInitialNonce(
         bytes32 _walletId,
-        string calldata _senderAddress
+        string calldata _senderAddress,
+        uint64 _initialNonce
     )
         external;
 
