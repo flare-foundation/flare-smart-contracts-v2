@@ -494,7 +494,7 @@ const config: HardhatUserConfig = {
       allowBlocksWithSameTimestamp: true,
     },
     local: {
-      url: "http://127.0.0.1:8545",
+      url: process.env.LOCAL_RPC || "http://127.0.0.1:8545",
       chainId: 31337,
     },
   },
