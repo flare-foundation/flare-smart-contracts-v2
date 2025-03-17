@@ -21,6 +21,7 @@ contract AddressHistoryTest is Test {
         }
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function testSetAddressInPastFail() public {
         vm.expectRevert();
 
@@ -119,6 +120,7 @@ contract AddressHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 0);
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function testCleanAndAddressAt() public {
         vm.roll(120);
 

@@ -39,6 +39,7 @@ contract NodesHistoryTest is Test {
         );
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function testAddNodeInPastFail() public {
         vm.expectRevert();
 
@@ -159,6 +160,7 @@ contract NodesHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 0);
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function testCleanAndNodeAt() public {
         vm.roll(300);
 
