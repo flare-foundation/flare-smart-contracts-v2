@@ -24,6 +24,7 @@ contract PublicKeyHistoryTest is Test {
         }
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function testSetPublicKeyInPastFail() public {
         vm.expectRevert();
 
@@ -145,6 +146,7 @@ contract PublicKeyHistoryTest is Test {
         assertEq(checkPointHistoryState.startIndex, 0);
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function testCleanAndPublicKeyAt() public {
         vm.roll(120);
 

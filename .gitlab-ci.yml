@@ -167,8 +167,11 @@ test-unit-forge:
   timeout: 10 minutes
   tags: [ flarenetwork-md ]
   image: ghcr.io/foundry-rs/foundry:stable
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
   before_script:
-  - forge install
+  - X=$(mktemp -d) && cp -R . "$X" && mv $X ./test-unit-forge &&  cd ./test-unit-forge && chown -R $(whoami) .
+  - forge install --no-commit
   script:
   - forge test -vvv
 
@@ -206,18 +209,17 @@ coverage-forge-node_modules:
   needs: []
   image: node:18
   timeout: 7 minutes
+  variables:
+    DEBIAN_FRONTEND: noninteractive
   before_script:
-  - apt-get update -y 1>/dev/null
-  - apt-get install -y zip 1>/dev/null
+  - apt-get update -y && apt-get install -y rsync
   script:
-  - |
-    set -o pipefail
-    yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR 1>/dev/null
-    find node_modules -name '*.sol' | xargs zip node_modules.sol.zip
+  - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
+  - rsync -zarvm --include "*/" --include="*.sol" --exclude="*" node_modules/ node_modules.sol
   artifacts:
     expire_in: 5 minutes
     paths:
-    - node_modules.sol.zip
+    - node_modules.sol
 
 coverage-forge:
   image: ghcr.io/foundry-rs/foundry:stable
@@ -226,11 +228,15 @@ coverage-forge:
     artifacts: true
   tags: [ flarenetwork-md ]
   timeout: 10 minutes
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
   before_script:
-  - forge install
-  - unzip node_modules.sol.zip
+  - X=$(mktemp -d) && cp -R . "$X" && mv $X ./coverage-forge &&  cd ./coverage-forge && chown -R $(whoami) .
+  - mv node_modules.sol node_modules
+  - forge install --no-commit
+  - forge build
   script:
-  - forge coverage --report summary --report lcov
+  - forge coverage --report summary --report lcov && cp lcov.info ../lcov.info
   artifacts:
     expire_in: 30 days
     paths:
