@@ -5,10 +5,10 @@ import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
+
 /**
  * TeeFeeCalculator is used for calculating fees for TEE operations.
  */
-
 contract TeeFeeCalculator is Governed, AddressUpdatable, ITeeFeeCalculator {
 
     /// The TeeWalletManager contract.

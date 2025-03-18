@@ -8,13 +8,6 @@ import "./ITeeRegistry.sol";
  */
 interface ITeeWalletBackupManager {
 
-    /// Signature structure
-    struct Signature {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
     struct KeyMachineBackup {
         ITeeRegistry.TeeMachineWithAttestationData teeMachine;
         bytes32 walletId;

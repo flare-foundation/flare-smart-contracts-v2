@@ -38,6 +38,7 @@ export const REWARD_EPOCH_DURATION_IN_SEC = REWARD_EPOCH_DURATION_IN_VOTING_EPOC
 
 export const FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
 const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
+const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
 export function bigIntReplacer(key: string, value: unknown): unknown {
   if (typeof value === "bigint") {
@@ -332,6 +333,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   logger.info(`TEE_IDS: ${TEE_IDS}`);
   logger.info(`TEE_URLS: ${TEE_URLS}`);
   logger.info(`TEE_PLATFORMS: ${TEE_PLATFORMS}`);
+  const rewardEpochId = (await c.flareSystemsManager.getCurrentRewardEpochId()).toString();
   for (let i = 0; i < TEE_IDS.length; i++) {
     await c.teeRegistry.register(
       TEE_IDS[i],
@@ -340,7 +342,31 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
       web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
       { from: teeOwnerAccount.address }
     );
-    await c.teeRegistry.toProduction(TEE_IDS[i], "0x", { from: teeOwnerAccount.address }); // TODO proof
+    await time.increase(1);
+    const proof = {
+      relayMessage: "0x", // TODO
+      teeSignatures: [],
+      data: {
+        attestationType: ZERO_BYTES32, // TODO
+        sourceId: ZERO_BYTES32, // TODO
+        thresholdBIPS: "0",
+        timestamp: (await time.latest()-1).toString(),
+        requestBody: {
+          teeMachine: {
+            teeId: TEE_IDS[i],
+            owner: teeOwnerAccount.address,
+            url: TEE_URLS[i],
+            codeHash: TEE_CODE_HASH,
+            platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
+          },
+          rewardEpochId: rewardEpochId,
+        },
+        responseBody: {
+          status: "0"
+        }
+      }
+    }
+    await c.teeRegistry.toProduction(proof, { from: teeOwnerAccount.address }); // TODO proof
   }
 
   const signingPolicies = new Map<number, ISigningPolicy>();

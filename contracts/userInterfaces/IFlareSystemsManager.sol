@@ -2,18 +2,12 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { ProtocolsV2Interface } from "./LTS/ProtocolsV2Interface.sol";
+import { Signature }" from ./ISignature.sol";
 
 /**
  * FlareSystemsManager interface.
  */
 interface IFlareSystemsManager is ProtocolsV2Interface {
-
-    /// Signature structure
-    struct Signature {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
 
     /// Number of weight based claims structure
     struct NumberOfWeightBasedClaims {

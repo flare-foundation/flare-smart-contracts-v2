@@ -7,7 +7,9 @@ import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import "../../userInterfaces/tee/ITeeKeyExistence.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
+import "../../userInterfaces/IRelay.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -52,6 +54,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     ITeeFeeCalculator public teeFeeCalculator;
     ITeeInstructions public teeInstructions;
     IFlareSystemsManager public flareSystemsManager;
+    IRelay public relay;
 
     modifier onlyOwner(bytes32 _walletId) {
         _checkOnlyOwner(_walletId);
@@ -140,53 +143,55 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     }
 
     function confirmKey(
-        address _teeId,
-        bytes32 _walletId,
-        uint64 _keyId,
-        bytes calldata _publicKey,
-        bytes calldata /* _proof */
+        ITeeKeyExistence.Proof calldata _proof
     )
-        external onlyOwnerOrBackupManager(_walletId)
+        external onlyOwnerOrBackupManager(_proof.data.requestBody.walletId)
     {
-        TeeWalletState storage wallet = wallets[_walletId];
-        require(wallet.keyIdCounter > _keyId, "invalid key id");
-        require(_publicKey.length > 0, "invalid public key");
-        require(teeRegistry.isOpTypeSupported(_teeId, wallet.opType), "op type not supported");
+        bytes32 walletId = _proof.data.requestBody.walletId;
+        uint256 keyId = _proof.data.requestBody.keyId;
+        TeeWalletState storage wallet = wallets[walletId];
+        require(wallet.keyIdCounter > keyId, "invalid key id");
+        require(_proof.data.responseBody.publicKey.length > 0, "invalid public key");
+        address teeId = _proof.data.requestBody.teeId;
+        require(teeRegistry.isOpTypeSupported(teeId, wallet.opType), "op type not supported");
+        require(_proof.data.thresholdBIPS == 0, "random threshold not supported");
 
+        uint256 timestamp = _proof.data.timestamp;
+        require(timestamp < block.timestamp, "timestamp in the future");
+        require(timestamp + confirmKeyValidityDurationSeconds > block.timestamp,
+            "confirm key validity expired");
         // TODO validate proof
-        // require(_timestamp < block.timestamp, "timestamp in the future");
-        // require(_timestamp + confirmKeyValidityDurationSeconds > block.timestamp,
-        //     "confirm key validity expired");
-        // bytes32 messageHash = keccak256(abi.encode(_walletId, _keyId, _publicKey, _timestamp));
-        // address teeId = ECDSA.recover(
-        //     MessageHashUtils.toEthSignedMessageHash(messageHash),
-        //     _signature.v,
-        //     _signature.r,
-        //     _signature.s
-        // );
-        // require(teeId == _teeId, "invalid signature");
+        // bytes32 dataHash = keccak256(abi.encode(_proof.data));
+        // // 1 byte (protocolId=1), 4 bytes (votingRoundId=0), 1 byte (isSecureRandom=false), 32 bytes (dataHash)
+        // bytes memory relayMessage = bytes.concat(bytes1(uint8(1)), bytes5(0), dataHash);
+        // bytes32 messageHash = keccak256(relayMessage);
+        // uint256 rewardEpochId = relay.verifyCustomSignature(_proof.relayMessage, messageHash);
+        // uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        // require(rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId,
+        //     "too old signing policy");
 
         wallet.feeFactor++;
-        KeyDefinition storage keyDefinition = wallet.keyDefinitions[_keyId];
+        KeyDefinition storage keyDefinition = wallet.keyDefinitions[keyId];
         if (keyDefinition.publicKey.length > 0) {
             // add tee id to existing key definition
-            require(keccak256(keyDefinition.publicKey) == keccak256(_publicKey), "invalid public key");
+            require(keccak256(keyDefinition.publicKey) == keccak256(_proof.data.responseBody.publicKey),
+                "invalid public key");
             address[] storage keyDefinitionTeeIds = keyDefinition.teeIds;
             for (uint256 i = 0; i < keyDefinitionTeeIds.length; i++) {
-                require(keyDefinitionTeeIds[i] != _teeId, "tee id already added");
+                require(keyDefinitionTeeIds[i] != teeId, "tee id already added");
             }
             // tee id not found, add it
-            keyDefinitionTeeIds.push(_teeId);
+            keyDefinitionTeeIds.push(teeId);
         } else {
             // new key definition can only be added if wallet is in status initialized
             _checkWalletStatus(wallet.status, WalletStatus.INITIALIZED);
             // new key definition can only be added by the owner
-            _checkOnlyOwner(_walletId);
+            _checkOnlyOwner(walletId);
             // add new key id
-            wallet.keyIds.push(_keyId);
+            wallet.keyIds.push(keyId);
             // set public key and add tee id
-            keyDefinition.publicKey = _publicKey;
-            keyDefinition.teeIds.push(_teeId);
+            keyDefinition.publicKey = _proof.data.responseBody.publicKey;
+            keyDefinition.teeIds.push(teeId);
         }
     }
 
@@ -271,6 +276,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     function setSubmitAddress(bytes32 _walletId, address _submitAddress)
         external onlyOwner(_walletId)
     {
+        require(wallets[_walletId].submitAddress == address(0), "submit address already set");
         wallets[_walletId].submitAddress = _submitAddress;
     }
 
@@ -501,6 +507,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
+        relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
     function _checkTeeStatus(address _teeId)

@@ -78,7 +78,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     bytes20[] private voter3RegisteredNodesAtVpBlock;
     uint256[] private voter3RegisteredPChainVPAtVpBlock;
     Signature private signature;
-    IFlareSystemsManager.Signature private signatureFSM;
+    Signature private signatureFSM;
 
     bytes32 private newSigningPolicyHash;
     bytes32 private signedMessageHash;
@@ -677,13 +677,13 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(newSigningPolicyHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[0], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectRevert("invalid signing policy address");
         flareSystemsManager.signNewSigningPolicy(1, newSigningPolicyHash, signatureFSM);
 
         // voter signs with its identity address -> should revert
         (v, r, s) = vm.sign(initialVotersPK[0], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectRevert("invalid signing policy address");
         flareSystemsManager.signNewSigningPolicy(1, newSigningPolicyHash, signatureFSM);
 
@@ -821,7 +821,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         bytes32 messageHash = keccak256(abi.encode(1, uptimeHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[0], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectRevert("sign uptime vote not started yet");
         flareSystemsManager.signUptimeVote(1, uptimeHash, signatureFSM);
 
@@ -854,13 +854,13 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         //// sign uptime vote
         // voter0 can't sign because it is not registered for reward epoch 1
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[0], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectRevert("voter not registered");
         flareSystemsManager.signUptimeVote(1, uptimeHash, signatureFSM);
 
         // voter 1 signs
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[1], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.UptimeVoteSigned(
             1,
@@ -875,12 +875,12 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         // voter3 can't sign because its signing policy address was not registered
         // before new signing policy initialization start block number
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[3], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectRevert("invalid signing policy address");
         flareSystemsManager.signUptimeVote(1, uptimeHash, signatureFSM);
 
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         flareSystemsManager.signUptimeVote(1, uptimeHash, signatureFSM);
 
         // can't yet sign rewards, because new signing policy (for epoch 2) is not yet signed
@@ -891,7 +891,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         messageHash = keccak256(abi.encode(1, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectRevert("signing policy not signed yet");
         flareSystemsManager.signRewards(1, noOfWeightBasedClaims, rewardsHash, signatureFSM);
 
@@ -901,7 +901,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         // voter2 signs
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.SigningPolicySigned(
             2,
@@ -917,7 +917,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         messageHash = keccak256(abi.encode(1, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         flareSystemsManager.signRewards(1, noOfWeightBasedClaims, rewardsHash, signatureFSM);
         assertEq(flareSystemsManager.rewardsHash(1), rewardsHash);
 
@@ -925,7 +925,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         flareSystemsManager.signRewards(1, noOfWeightBasedClaims, rewardsHash, signatureFSM);
 
         (v, r, s) = vm.sign(initialVotersPK[3], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectRevert("rewards hash already signed");
         flareSystemsManager.signRewards(1, noOfWeightBasedClaims, rewardsHash, signatureFSM);
 
@@ -985,11 +985,11 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(newSigningPolicyHash);
 
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[0], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         flareSystemsManager.signNewSigningPolicy(3, newSigningPolicyHash, signatureFSM);
 
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[1], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.SigningPolicySigned(
             3,
@@ -1002,7 +1002,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         // voter3 now has registered its signing policy address and can sign with it
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[3], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.SigningPolicySigned(
             3,
@@ -1065,12 +1065,12 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         messageHash = keccak256(abi.encode(2, uptimeHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         flareSystemsManager.signUptimeVote(2, uptimeHash, signatureFSM);
         assertEq(flareSystemsManager.uptimeVoteHash(2), bytes32(0));
 
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[3], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         flareSystemsManager.signUptimeVote(2, uptimeHash, signatureFSM);
         assertEq(flareSystemsManager.uptimeVoteHash(2), uptimeHash);
 
@@ -1080,12 +1080,12 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         messageHash = keccak256(abi.encode(2, keccak256(abi.encode(noOfWeightBasedClaims)), rewardsHash));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         flareSystemsManager.signRewards(2, noOfWeightBasedClaims, rewardsHash, signatureFSM);
         assertEq(flareSystemsManager.rewardsHash(2), bytes32(0));
 
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[3], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         flareSystemsManager.signRewards(2, noOfWeightBasedClaims, rewardsHash, signatureFSM);
         assertEq(flareSystemsManager.rewardsHash(2), rewardsHash);
 
@@ -1187,7 +1187,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(newSigningPolicyHash);
 
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[1], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.SigningPolicySigned(
             4,
@@ -1199,12 +1199,12 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         flareSystemsManager.signNewSigningPolicy(4, newSigningPolicyHash, signatureFSM);
 
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectRevert("voter not registered");
         flareSystemsManager.signNewSigningPolicy(4, newSigningPolicyHash, signatureFSM);
 
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[3], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.SigningPolicySigned(
             4,
@@ -1258,7 +1258,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(newSigningPolicyHash);
 
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[0], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.SigningPolicySigned(
             5,
@@ -1271,12 +1271,12 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         // voter1 changed its signing policy address
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[1], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectRevert("invalid signing policy address");
         flareSystemsManager.signNewSigningPolicy(5, newSigningPolicyHash, signatureFSM);
 
         (v, r, s) = vm.sign(newSigningPolicyPK, signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.SigningPolicySigned(
             5,
@@ -1288,7 +1288,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         flareSystemsManager.signNewSigningPolicy(5, newSigningPolicyHash, signatureFSM);
 
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[3], signedMessageHash);
-        signatureFSM = IFlareSystemsManager.Signature(v, r, s);
+        signatureFSM = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.SigningPolicySigned(
             5,

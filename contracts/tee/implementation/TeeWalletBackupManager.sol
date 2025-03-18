@@ -182,6 +182,8 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         onlyOwner(_walletId)
     {
         require(_shamirThreshold > 0 && _shamirThreshold <= _custodianPublicKeys.length, "invalid shamir threshold");
+        require(teeWalletManager.getWalletStatus(_walletId) == ITeeWalletManager.WalletStatus.INITIALIZED,
+            "wallet not in status initialized");
         _checkTeeStatus(_teeId);
         _checkCustodianPublicKeys(_custodianPublicKeys);
         _checkKeyAvailable(_teeId, teeWalletManager.getWalletKeyTeeIds(_walletId, _keyId));

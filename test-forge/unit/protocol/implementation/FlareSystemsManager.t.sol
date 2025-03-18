@@ -809,7 +809,7 @@ contract FlareSystemsManagerTest is Test {
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
 
         vm.expectRevert("new signing policy hash invalid");
         flareSystemsManager.signNewSigningPolicy(1, newSigningPolicyHash, signature);
@@ -843,7 +843,7 @@ contract FlareSystemsManagerTest is Test {
         bytes32 messageHash = newSigningPolicyHash;
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
 
 
         // move in time and voter0 signs
@@ -898,7 +898,7 @@ contract FlareSystemsManagerTest is Test {
         vm.warp(signPolicyStartTs + 12);
         vm.roll(signPolicyStartBlock + 13);
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
@@ -927,7 +927,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -952,7 +952,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -989,7 +989,7 @@ contract FlareSystemsManagerTest is Test {
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1015,7 +1015,7 @@ contract FlareSystemsManagerTest is Test {
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
@@ -1041,7 +1041,7 @@ contract FlareSystemsManagerTest is Test {
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
 
         vm.expectRevert("epoch not ended yet");
         flareSystemsManager.submitUptimeVote(1, nodeIds, signature);
@@ -1076,7 +1076,7 @@ contract FlareSystemsManagerTest is Test {
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
 
         vm.expectRevert("submit uptime vote already ended");
         flareSystemsManager.submitUptimeVote(1, nodeIds, signature);
@@ -1108,7 +1108,7 @@ contract FlareSystemsManagerTest is Test {
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1),
@@ -1127,7 +1127,7 @@ contract FlareSystemsManagerTest is Test {
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
 
         vm.expectRevert("epoch not ended yet");
         flareSystemsManager.signUptimeVote(0, uptimeHash, signature);
@@ -1138,7 +1138,7 @@ contract FlareSystemsManagerTest is Test {
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
 
         vm.expectRevert("uptime vote hash zero");
         flareSystemsManager.signUptimeVote(0, bytes32(0), signature);
@@ -1172,7 +1172,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1227,7 +1227,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1239,7 +1239,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter1 signs; threshold (500) is reached
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
@@ -1289,7 +1289,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1330,7 +1330,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1349,7 +1349,7 @@ contract FlareSystemsManagerTest is Test {
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
 
         vm.expectRevert("rewards hash zero");
         flareSystemsManager.signRewards(1, noOfWeightBasedClaims, bytes32(0), signature);
@@ -1364,7 +1364,7 @@ contract FlareSystemsManagerTest is Test {
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
 
         vm.expectRevert("epoch not ended yet");
         flareSystemsManager.signRewards(1, noOfWeightBasedClaims, rewardsHash, signature);
@@ -1382,7 +1382,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1392,7 +1392,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter1 signs; threshold (500) is reached
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
@@ -1443,7 +1443,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1453,7 +1453,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter1 signs; threshold (500) is reached
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
@@ -1511,7 +1511,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1521,7 +1521,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter1 signs; threshold (500) is reached
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
@@ -1556,11 +1556,11 @@ contract FlareSystemsManagerTest is Test {
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (v, r, s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         flareSystemsManager.signUptimeVote(1, uptimeHash, signature);
 
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.UptimeVoteSigned(1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
         flareSystemsManager.signUptimeVote(1, uptimeHash, signature);
@@ -1579,7 +1579,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (v, r, s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.RewardsSigned(1, signingAddresses[0], voters[0],
             rewardsHash, noOfWeightBasedClaims, uint64(block.timestamp), false);
@@ -1589,7 +1589,7 @@ contract FlareSystemsManagerTest is Test {
         vm.roll(block.number + 321);
         // voter1 signs
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.RewardsSigned(1, signingAddresses[1], voters[1],
             rewardsHash, noOfWeightBasedClaims, uint64(block.timestamp), true);
@@ -1636,7 +1636,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1646,7 +1646,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter1 signs; threshold (500) is reached
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
@@ -1681,11 +1681,11 @@ contract FlareSystemsManagerTest is Test {
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (v, r, s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         flareSystemsManager.signUptimeVote(1, uptimeHash, signature);
 
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.UptimeVoteSigned(1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
         flareSystemsManager.signUptimeVote(1, uptimeHash, signature);
@@ -1700,7 +1700,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (v, r, s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         flareSystemsManager.signRewards(1, noOfWeightBasedClaims, rewardsHash, signature);
 
         // should revert when trying to sign again
@@ -1726,7 +1726,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1736,7 +1736,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter1 signs; threshold (500) is reached
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
@@ -1773,11 +1773,11 @@ contract FlareSystemsManagerTest is Test {
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
 
         (v, r, s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         flareSystemsManager.signUptimeVote(1, uptimeHash, signature);
 
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.expectEmit();
         emit IFlareSystemsManager.UptimeVoteSigned(1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
         flareSystemsManager.signUptimeVote(1, uptimeHash, signature);
@@ -1792,7 +1792,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (v, r, s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1834,7 +1834,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1844,7 +1844,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter1 signs; threshold (500) is reached
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
@@ -1931,7 +1931,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signingAddressesPk[0], signedMessageHash);
-        IFlareSystemsManager.Signature memory signature = IFlareSystemsManager.Signature(v, r, s);
+        Signature memory signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[0]),
@@ -1941,7 +1941,7 @@ contract FlareSystemsManagerTest is Test {
 
         // voter1 signs; threshold (500) is reached
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
-        signature = IFlareSystemsManager.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.mockCall(
             mockVoterRegistry,
             abi.encodeWithSelector(IIVoterRegistry.getVoterWithNormalisedWeight.selector, 1, signingAddresses[1]),
