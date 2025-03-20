@@ -328,10 +328,6 @@
             "description": "The base sample size.",
             "type": "string"
         },
-        "confirmKeyValidityDurationSeconds": {
-            "description": "The confirm key validity duration, in seconds (e.g. 10 minutes).",
-            "type": "integer"
-        },
         "decimalsUpdateOffset": {
             "description": "Feed decimals update timelock measured in reward epochs (must be more than 1, e.g. 3).",
             "type": "integer"
@@ -410,6 +406,14 @@
                 "$ref": "#/definitions/FlareDaemonizedContract"
             },
             "type": "array"
+        },
+        "ftdcDefaultNumberOfTees": {
+            "description": "The default number of TEEs used in FTDC.",
+            "type": "integer"
+        },
+        "ftdcMinThresholdBIPS": {
+            "description": "The minimal threshold for FTDC in BIPS (e.g. 30%).",
+            "type": "integer"
         },
         "ftsoInflationConfigurations": {
             "description": "The inflation configurations for the FTSO protocol.",
@@ -676,6 +680,10 @@
             "description": "The availability check validity duration, in seconds (e.g. 10 minutes).",
             "type": "integer"
         },
+        "teeConfirmKeyValidityDurationSeconds": {
+            "description": "The confirm key validity duration, in seconds (e.g. 10 minutes).",
+            "type": "integer"
+        },
         "teeMinSupportedVersion": {
             "description": "The minimal supported version of TEE.",
             "type": "integer"
@@ -740,7 +748,6 @@
         "addAfterRewardedEpochs",
         "baseRange",
         "baseSampleSize",
-        "confirmKeyValidityDurationSeconds",
         "decimalsUpdateOffset",
         "defaultDecimals",
         "defaultFeePercentageBIPS",
@@ -757,6 +764,8 @@
         "firstRewardEpochStartVotingRoundId",
         "firstVotingRoundStartTs",
         "flareDaemonizedContracts",
+        "ftdcDefaultNumberOfTees",
+        "ftdcMinThresholdBIPS",
         "ftsoInflationConfigurations",
         "ftsoProtocolId",
         "ftsoProxies",
@@ -818,6 +827,7 @@
         "submitUptimeVoteMinDurationBlocks",
         "submitUptimeVoteMinDurationSeconds",
         "teeAvailabilityCheckValidityDurationSeconds",
+        "teeConfirmKeyValidityDurationSeconds",
         "teeMinSupportedVersion",
         "teeOperationFees",
         "teeOwnersPPM",

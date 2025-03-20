@@ -4,6 +4,8 @@ pragma solidity >=0.7.6 <0.9;
 import "./ITeeRegistry.sol";
 import "../ISignature.sol";
 
+bytes32 constant TEE_KEY_EXISTENCE_ATTESTATION_TYPE = bytes32("TeeKeyExistence");
+
 interface ITeeKeyExistence {
 
     /**

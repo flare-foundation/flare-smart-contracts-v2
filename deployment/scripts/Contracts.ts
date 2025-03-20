@@ -91,6 +91,7 @@ export class Contracts {
   public static readonly TEE_INSTRUCTIONS = "TeeInstructions";
   public static readonly TEE_FEE_CALCULATOR = "TeeFeeCalculator";
   public static readonly TEE_REWARD_OFFERS_MANAGER = "TeeRewardOffersManager";
+  public static readonly TEE_DATA_CONNECTOR = "TeeDataConnector";
 
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 

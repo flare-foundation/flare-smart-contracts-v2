@@ -38,6 +38,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         address[] teeIds;
     }
 
+    bytes32 public constant TEE_SOURCE_ID = bytes32("TEE");
     bytes32 public constant WALLET_OP_TYPE = bytes32("WALLET");
     bytes32 public constant KEY_GENERATE = bytes32("KEY_GENERATE");
     bytes32 public constant KEY_DELETE = bytes32("KEY_DELETE");
@@ -71,6 +72,8 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
      * @param _governanceSettings The address of the GovernanceSettings contract.
      * @param _initialGovernance The initial governance address.
      * @param _addressUpdater The address of the AddressUpdater contract.
+     * @param _supportedOpTypes The supported operation types.
+     * @param _confirmKeyValidityDurationSeconds The confirm key validity duration in seconds.
      */
     constructor(
         IGovernanceSettings _governanceSettings,
@@ -155,6 +158,8 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         address teeId = _proof.data.requestBody.teeId;
         require(teeRegistry.isOpTypeSupported(teeId, wallet.opType), "op type not supported");
         require(_proof.data.thresholdBIPS == 0, "random threshold not supported");
+        require(_proof.data.attestationType == TEE_KEY_EXISTENCE_ATTESTATION_TYPE, "invalid attestation type");
+        require(_proof.data.sourceId == TEE_SOURCE_ID, "invalid source id");
 
         uint256 timestamp = _proof.data.timestamp;
         require(timestamp < block.timestamp, "timestamp in the future");

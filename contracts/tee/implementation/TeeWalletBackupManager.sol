@@ -155,12 +155,12 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
             backupId: _backupId,
             teeIds: _teeIds
         });
-        bytes32 instructionId =
-            keccak256(abi.encode(WALLET_OP_TYPE, KEY_MACHINE_BACKUP_REMOVE, _walletId, _keyId, _backupId));
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](_teeIds.length);
         for (uint256 i = 0; i < _teeIds.length; i++) {
             teeMachines[i] = teeRegistry.getTeeMachine(_teeIds[i]);
         }
+        bytes32 instructionId =
+            keccak256(abi.encode(WALLET_OP_TYPE, KEY_MACHINE_BACKUP_REMOVE, _walletId, _keyId, _backupId));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             teeMachines,

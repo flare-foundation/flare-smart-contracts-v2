@@ -499,7 +499,7 @@ export interface ChainParameters {
     /**
      * The confirm key validity duration, in seconds (e.g. 10 minutes).
      */
-    confirmKeyValidityDurationSeconds: integer;
+    teeConfirmKeyValidityDurationSeconds: integer;
 
     /**
      * The minimal supported version of TEE.
@@ -520,6 +520,16 @@ export interface ChainParameters {
      * The TEE payment configurations.
      */
     teePaymentConfigurations: TeePaymentConfiguration[];
+
+    /**
+     * The minimal threshold for FTDC in BIPS (e.g. 30%).
+     */
+    ftdcMinThresholdBIPS: integer;
+
+    /**
+     * The default number of TEEs used in FTDC.
+     */
+    ftdcDefaultNumberOfTees: integer;
 }
 
 export interface FtsoInflationConfiguration {

@@ -4,6 +4,9 @@ pragma solidity >=0.7.6 <0.9;
 import "./ITeeRegistry.sol";
 import "../ISignature.sol";
 
+
+bytes32 constant TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE = bytes32("TeeAvailabilityCheck");
+
 interface ITeeAvailabilityCheck {
 
     enum AvailabilityCheckStatus { OK, OBSOLETE, DATA_MISMATCH, DOWN }
@@ -53,7 +56,8 @@ interface ITeeAvailabilityCheck {
 
     /**
      * @notice Request body for ITeeAvailabilityCheck attestation type
-     * @param addressStr Address to be verified.
+     * @param teeMachine TEE machine with attestation data.
+     * @param rewardEpochId Reward epoch id.
      */
     struct RequestBody {
         ITeeRegistry.TeeMachineWithAttestationData teeMachine;

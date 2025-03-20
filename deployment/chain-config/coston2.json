@@ -425,11 +425,10 @@
 
     "teePauseBeforeUpgradeMinDurationSeconds": 600,
     "teeAvailabilityCheckValidityDurationSeconds": 600,
-    "confirmKeyValidityDurationSeconds": 600,
+    "teeConfirmKeyValidityDurationSeconds": 600,
     "teeMinSupportedVersion": 1,
     "teeOwnersPPM": 100000,
     "teeOperationFees": [
-        {"opType": "REG", "opCommand": "AVAILABILITY_CHECK", "feeWei": "1"},
         {"opType": "REG", "opCommand": "TO_PAUSE_FOR_UPGRADE", "feeWei": "1"},
         {"opType": "REG", "opCommand": "REPLICATE_FROM", "feeWei": "1"},
         {"opType": "WALLET", "opCommand": "KEY_GENERATE", "feeWei": "1"},
@@ -444,11 +443,14 @@
         {"opType": "BTC", "opCommand": "PAY", "feeWei": "1"},
         {"opType": "BTC", "opCommand": "REISSUE", "feeWei": "1"},
         {"opType": "DOGE", "opCommand": "PAY", "feeWei": "1"},
-        {"opType": "DOGE", "opCommand": "REISSUE", "feeWei": "1"}
+        {"opType": "DOGE", "opCommand": "REISSUE", "feeWei": "1"},
+        {"opType": "FTDC", "opCommand": "PROVE", "feeWei": "1"}
     ],
     "teePaymentConfigurations": [
         {"opType": "XRP", "maxBatchSize": 1, "maxBatchDurationSeconds": 0},
         {"opType": "BTC", "maxBatchSize": 10, "maxBatchDurationSeconds": 600},
         {"opType": "DOGE", "maxBatchSize": 10, "maxBatchDurationSeconds": 60}
-    ]
+    ],
+    "ftdcMinThresholdBIPS": 3000,
+    "ftdcDefaultNumberOfTees": 2
 }

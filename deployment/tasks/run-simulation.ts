@@ -37,6 +37,8 @@ const VOTING_EPOCH_DURATION_SEC = 20;
 export const REWARD_EPOCH_DURATION_IN_SEC = REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS * VOTING_EPOCH_DURATION_SEC;
 
 export const FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
+export const TEE_SOURCE_ID = "TEE";
+
 const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
 const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -73,7 +75,6 @@ export const TEE_PAYMENT_CONFIGURATIONS = [
 ];
 
 export const TEE_OPERATION_FEES = [
-  {opType: "REG", opCommand: "AVAILABILITY_CHECK", feeWei: "1"},
   {opType: "REG", opCommand: "TO_PAUSE_FOR_UPGRADE", feeWei: "1"},
   {opType: "REG", opCommand: "REPLICATE_FROM", feeWei: "1"},
   {opType: "WALLET", opCommand: "KEY_GENERATE", feeWei: "1"},
@@ -88,7 +89,8 @@ export const TEE_OPERATION_FEES = [
   {opType: "BTC", opCommand: "PAY", feeWei: "1"},
   {opType: "BTC", opCommand: "REISSUE", feeWei: "1"},
   {opType: "DOGE", opCommand: "PAY", feeWei: "1"},
-  {opType: "DOGE", opCommand: "REISSUE", feeWei: "1"}
+  {opType: "DOGE", opCommand: "REISSUE", feeWei: "1"},
+  {opType: "FTDC", opCommand: "PROVE", feeWei: "1"}
 ];
 
 let SKIP_VOTER_REGISTRATION_SET: Set<string>;
@@ -340,15 +342,15 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
       TEE_URLS[i],
       TEE_CODE_HASH,
       web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
-      { from: teeOwnerAccount.address }
+      { value: "2", from: teeOwnerAccount.address }
     );
     await time.increase(1);
     const proof = {
       relayMessage: "0x", // TODO
       teeSignatures: [],
       data: {
-        attestationType: ZERO_BYTES32, // TODO
-        sourceId: ZERO_BYTES32, // TODO
+        attestationType: web3.utils.utf8ToHex("TeeAvailabilityCheck").padEnd(66, "0"),
+        sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
         thresholdBIPS: "0",
         timestamp: (await time.latest()-1).toString(),
         requestBody: {
@@ -366,7 +368,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
         }
       }
     }
-    await c.teeRegistry.toProduction(proof, { from: teeOwnerAccount.address }); // TODO proof
+    await c.teeRegistry.toProduction(proof, { from: teeOwnerAccount.address });
   }
 
   const signingPolicies = new Map<number, ISigningPolicy>();

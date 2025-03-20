@@ -14,8 +14,7 @@ contract TeeFeeCalculator is Governed, AddressUpdatable, ITeeFeeCalculator {
     /// The TeeWalletManager contract.
     ITeeWalletManager public teeWalletManager;
 
-    mapping(bytes32 opType => mapping(bytes32 opCommand => uint256))
-            internal operationFee;
+    mapping(bytes32 opType => mapping(bytes32 opCommand => uint256 fee)) internal operationFee;
 
     constructor(
         IGovernanceSettings _governanceSettings,

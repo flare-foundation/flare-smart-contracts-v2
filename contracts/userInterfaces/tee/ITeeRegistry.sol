@@ -24,23 +24,6 @@ interface ITeeRegistry {
         bytes32 platform;
     }
 
-    struct AvailabilityCheckRequest {
-        address teeId;
-        string url;
-        bytes32 codeHash;
-        bytes32 platform;
-        uint256 timestamp;
-    }
-
-    struct AvailabilityCheckResponse {
-        address teeId;
-        string url;
-        bytes32 codeHash;
-        bytes32 platform;
-        uint256 timestamp;
-        AvailabilityStatus status;
-    }
-
     struct PauseForUpgrade {
         address teeId;
     }
@@ -50,21 +33,58 @@ interface ITeeRegistry {
         TeeMachineWithAttestationData newTeeMachine;
     }
 
+    /**
+     * Get the status of a TEE machine, if replication is in progress it will return the status of the new TEE machine.
+     * @param _teeId The TEE machine address.
+     * @return The status of the TEE machine.
+     */
     function getTeeMachineStatus(address _teeId)
         external view
         returns (TeeStatus);
 
+    /**
+     * Get TEE machine basic data, if replication is in progress it will return the data of the new TEE machine.
+     * @param _teeId The TEE machine address.
+     * @return The TEE machine data.
+     */
     function getTeeMachine(address _teeId)
         external view
         returns (TeeMachine memory);
 
+    /**
+     * Get TEE machine attestation data, if replication is in progress it will return the data of the new TEE machine.
+     * @param _teeId The TEE machine address.
+     * @return The TEE machine data.
+     */
     function getTeeMachineWithAttestationData(address _teeId)
         external view
         returns (TeeMachineWithAttestationData memory);
 
-    function arePlatformsCompatible(address _teeId, address[] calldata _backupTeeIds)
-        external view returns(bool);
+    /**
+     * Returns random active TEE machine ids.
+     * @param _count The number of TEE machine ids to return.
+     * @return The list of TEE machine ids.
+     */
+    function getRandomTeeIds(uint256 _count)
+        external view
+        returns(address[] memory);
 
+    /**
+     * Checks if the TEE machine platforms are compatible.
+     * @param _teeId The TEE machine id.
+     * @param _backupTeeIds The backup TEE machine ids.
+     * @return True if the platforms are compatible.
+     */
+    function arePlatformsCompatible(address _teeId, address[] calldata _backupTeeIds)
+        external view
+        returns(bool);
+
+    /**
+     * Checks if operation type is supported on the TEE machine.
+     * @param _teeId The TEE machine id.
+     * @param _opType The operation type.
+     * @return True if the operation type is supported.
+     */
     function isOpTypeSupported(address _teeId, bytes32 _opType)
         external view
         returns (bool);
