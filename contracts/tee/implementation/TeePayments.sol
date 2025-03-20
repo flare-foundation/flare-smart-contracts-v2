@@ -250,6 +250,8 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     )
         external onlyWalletOwner(_walletId)
     {
+        require(_batchSize <= maxBatchSize, "batch size too high");
+        require(_batchDurationSeconds <= maxBatchDurationSeconds, "batch duration too high");
         WalletSettings storage setting = settings[_walletId];
         setting.batchSize = _batchSize;
         setting.batchDurationSeconds = _batchDurationSeconds;
