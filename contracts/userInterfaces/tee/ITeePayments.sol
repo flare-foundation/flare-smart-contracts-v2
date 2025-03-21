@@ -28,6 +28,24 @@ interface ITeePayments {
         uint256 batchEndTs;
     }
 
+    event BatchSettingsSet(
+        bytes32 indexed walletId,
+        uint64 batchSize,
+        uint64 batchDurationSeconds
+    );
+
+    event FeesSet(
+        bytes32 indexed walletId,
+        uint96 maxFee,
+        uint32 maxFeeTolerancePPM,
+        uint96 maxControlFee
+    );
+
+    event ControlAddressSet(
+        bytes32 indexed walletId,
+        address controlAddress
+    );
+
     /**
      * Payment instruction method.
      * Can only be called by the submit address.

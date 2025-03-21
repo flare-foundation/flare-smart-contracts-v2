@@ -235,9 +235,14 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     /**
      * @inheritdoc ITeePayments
      */
-    function setControlAddress(bytes32 _walletId, address _controlAddress) external {
-        require(teeWalletManager.getWalletOwner(_walletId) == msg.sender, "only wallet owner");
+    function setControlAddress(
+        bytes32 _walletId,
+        address _controlAddress
+    )
+        external onlyWalletOwner(_walletId)
+    {
         settings[_walletId].controlAddress = _controlAddress;
+        emit ControlAddressSet(_walletId, _controlAddress);
     }
 
     /**
@@ -255,6 +260,7 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         WalletSettings storage setting = settings[_walletId];
         setting.batchSize = _batchSize;
         setting.batchDurationSeconds = _batchDurationSeconds;
+        emit BatchSettingsSet(_walletId, _batchSize, _batchDurationSeconds);
     }
 
     /**
@@ -271,10 +277,10 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         WalletSettings storage setting = settings[_walletId];
         require(_maxFee <= _maxControlFee, "max fee higher than max control fee");
         require(_maxFee > 0, "max fee zero");
-        require(_maxControlFee > 0, "max control fee zero");
         setting.maxFee = _maxFee;
         setting.maxFeeTolerancePPM = _maxFeeTolerancePPM;
         setting.maxControlFee = _maxControlFee;
+        emit FeesSet(_walletId, _maxFee, _maxFeeTolerancePPM, _maxControlFee);
     }
 
     /**
