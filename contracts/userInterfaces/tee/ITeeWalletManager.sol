@@ -2,6 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import "./ITeeRegistry.sol";
+import "./ITeeKeyExistence.sol";
 
 /**
  * TeeWalletManager interface.
@@ -52,13 +53,21 @@ interface ITeeWalletManager {
     function addKey(address _teeId, bytes32 _walletId) external payable returns (uint64 _keyId);
 
     /**
+     * Confirms the key generation.
+     * @param _proof The key existence proof.
+     */
+    function confirmKey(
+        ITeeKeyExistence.Proof calldata _proof
+    )
+        external;
+
+    /**
      * Deletes key from the tee machine - triggers a key deletion process.
      * @param _teeId The tee id.
      * @param _walletId The wallet id.
      * @param _keyId The key id.
      */
     function deleteKey(address _teeId, bytes32 _walletId, uint64 _keyId) external payable;
-
 
     /**
      * For given wallet id and key id cleans up all tee machines that are not in production status.
@@ -68,7 +77,7 @@ interface ITeeWalletManager {
     function cleanUpTeeIds(bytes32 _walletId, uint64 _keyId) external;
 
     /**
-     * Sets the wallet's submit address.
+     * Sets the wallet's submit address (can only be set once).
      * @param _walletId The wallet id.
      * @param _submitAddress The wallet submit address.
      */
@@ -142,6 +151,14 @@ interface ITeeWalletManager {
      * @return _publicKey The public key.
      */
     function getWalletKeyPublicKey(bytes32 _walletId, uint64 _keyId) external view returns (bytes memory _publicKey);
+
+    /**
+     * Returns the address of the wallet key.
+     * @param _walletId The wallet id.
+     * @param _keyId The key id.
+     * @return _addressStr The address.
+     */
+    function getWalletKeyAddress(bytes32 _walletId, uint64 _keyId) external view returns (string memory _addressStr);
 
     /**
      * Returns information about the tee wallet.

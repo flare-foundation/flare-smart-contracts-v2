@@ -27,12 +27,15 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
     mapping(bytes32 walletId => mapping(uint256 keyId => uint256)) private machineBackupCounter;
     mapping(bytes32 walletId => mapping(uint256 keyId => uint256)) private custodianBackupCounter;
 
-
-    /// TEE machines are registered in the TEE registry.
+    /// TEE registry contract.
     ITeeRegistry public teeRegistry;
+    /// TEE wallet manager contract.
     ITeeWalletManager public teeWalletManager;
+    /// TEE fee calculator contract.
     ITeeFeeCalculator public teeFeeCalculator;
+    /// TEE instructions contract.
     ITeeInstructions public teeInstructions;
+    /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
 
     modifier onlyOwner(bytes32 _walletId) {
@@ -59,6 +62,9 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     { }
 
+    /**
+     * @inheritdoc ITeeWalletBackupManager
+     */
     function machineBackup(
         address _teeId,
         bytes32 _walletId,
@@ -98,6 +104,9 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         );
     }
 
+    /**
+     * @inheritdoc ITeeWalletBackupManager
+     */
     function machineRestore(
         address _teeId,
         bytes32 _walletId,
@@ -137,6 +146,9 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         );
     }
 
+    /**
+     * @inheritdoc ITeeWalletBackupManager
+     */
     function machineBackupRemove(
         bytes32 _walletId,
         uint64 _keyId,

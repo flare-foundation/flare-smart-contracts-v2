@@ -471,6 +471,7 @@ export async function deployContracts(
     ADDRESS_UPDATER_ADDR,
     60,
     600,
+    3600,
     1
   );
 

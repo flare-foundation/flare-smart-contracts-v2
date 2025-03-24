@@ -7,7 +7,6 @@ import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
-import "../../userInterfaces/tee/ITeeKeyExistence.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/IRelay.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -35,6 +34,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
 
     struct KeyDefinition {
         bytes publicKey;
+        string addressStr;
         address[] teeIds;
     }
 
@@ -43,18 +43,22 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     bytes32 public constant KEY_GENERATE = bytes32("KEY_GENERATE");
     bytes32 public constant KEY_DELETE = bytes32("KEY_DELETE");
 
-    uint256 public confirmKeyValidityDurationSeconds;
+    uint256 public keyExistenceProofValiditySeconds;
     uint256 public walletCounter = 0;
     mapping(bytes32 walletId => TeeWalletState) private wallets;
     mapping(bytes32 walletId => address) public proposedWalletOwner;
 
     EnumerableSet.Bytes32Set private supportedOpTypes;
 
-    /// TEE machines are registered in the TEE registry.
+    /// TEE registry contract.
     ITeeRegistry public teeRegistry;
+    /// TEE fee calculator contract.
     ITeeFeeCalculator public teeFeeCalculator;
+    /// TEE instructions contract.
     ITeeInstructions public teeInstructions;
+    /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
+    /// Relay contract.
     IRelay public relay;
 
     modifier onlyOwner(bytes32 _walletId) {
@@ -73,23 +77,22 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
      * @param _initialGovernance The initial governance address.
      * @param _addressUpdater The address of the AddressUpdater contract.
      * @param _supportedOpTypes The supported operation types.
-     * @param _confirmKeyValidityDurationSeconds The confirm key validity duration in seconds.
+     * @param _keyExistenceProofValiditySeconds The key existence proof validity duration (in seconds).
      */
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
         bytes32[] memory _supportedOpTypes,
-        uint256 _confirmKeyValidityDurationSeconds
+        uint256 _keyExistenceProofValiditySeconds
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
-        require(_confirmKeyValidityDurationSeconds > 0, "invalid confirm key validity duration");
         for (uint256 i = 0; i < _supportedOpTypes.length; i++) {
             require(_supportedOpTypes[i] != bytes32(0), "invalid op type");
             supportedOpTypes.add(_supportedOpTypes[i]);
         }
-        confirmKeyValidityDurationSeconds = _confirmKeyValidityDurationSeconds;
+        _setKeyExistenceProofValidity(_keyExistenceProofValiditySeconds);
     }
 
     /**
@@ -145,6 +148,9 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         );
     }
 
+    /**
+     * @inheritdoc ITeeWalletManager
+     */
     function confirmKey(
         ITeeKeyExistence.Proof calldata _proof
     )
@@ -163,8 +169,8 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
 
         uint256 timestamp = _proof.data.timestamp;
         require(timestamp < block.timestamp, "timestamp in the future");
-        require(timestamp + confirmKeyValidityDurationSeconds > block.timestamp,
-            "confirm key validity expired");
+        require(timestamp + keyExistenceProofValiditySeconds > block.timestamp,
+            "key existence proof expired");
         // TODO validate proof
         // bytes32 dataHash = keccak256(abi.encode(_proof.data));
         // // 1 byte (protocolId=1), 4 bytes (votingRoundId=0), 1 byte (isSecureRandom=false), 32 bytes (dataHash)
@@ -179,8 +185,14 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         KeyDefinition storage keyDefinition = wallet.keyDefinitions[keyId];
         if (keyDefinition.publicKey.length > 0) {
             // add tee id to existing key definition
-            require(keccak256(keyDefinition.publicKey) == keccak256(_proof.data.responseBody.publicKey),
-                "invalid public key");
+            require(
+                keccak256(keyDefinition.publicKey) == keccak256(_proof.data.responseBody.publicKey),
+                "invalid public key"
+            );
+            require(
+                keccak256(bytes(keyDefinition.addressStr)) == keccak256(bytes(_proof.data.responseBody.addressStr)),
+                "invalid address"
+            );
             address[] storage keyDefinitionTeeIds = keyDefinition.teeIds;
             for (uint256 i = 0; i < keyDefinitionTeeIds.length; i++) {
                 require(keyDefinitionTeeIds[i] != teeId, "tee id already added");
@@ -196,6 +208,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             wallet.keyIds.push(keyId);
             // set public key and add tee id
             keyDefinition.publicKey = _proof.data.responseBody.publicKey;
+            keyDefinition.addressStr = _proof.data.responseBody.addressStr;
             keyDefinition.teeIds.push(teeId);
         }
     }
@@ -337,6 +350,11 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         delete proposedWalletOwner[_walletId];
     }
 
+    /**
+     * Add supported operation types.
+     * @param _opTypes The operation types to add.
+     * Can only be called by the governance.
+     */
     function addSupportedOpTypes(bytes32[] memory _opTypes)
         external onlyGovernance
     {
@@ -346,12 +364,28 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         }
     }
 
+    /**
+     * Remove supported operation types.
+     * @param _opTypes The operation types to remove.
+     * Can only be called by the governance.
+     */
     function removeSupportedOpTypes(bytes32[] memory _opTypes)
         external onlyGovernance
     {
         for (uint256 i = 0; i < _opTypes.length; i++) {
             supportedOpTypes.remove(_opTypes[i]);
         }
+    }
+
+    /**
+     * Set the key existence proof validity duration.
+     * @param _keyExistenceProofValiditySeconds The key existence proof validity duration (in seconds).
+     * Can only be called by the governance.
+     */
+    function setKeyExistenceProofValiditySeconds(uint256 _keyExistenceProofValiditySeconds)
+        external onlyGovernance
+    {
+        _setKeyExistenceProofValidity(_keyExistenceProofValiditySeconds);
     }
 
     /**
@@ -428,6 +462,16 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         returns (bytes memory _publicKey)
     {
         return wallets[_walletId].keyDefinitions[_keyId].publicKey;
+    }
+
+    /**
+     * @inheritdoc ITeeWalletManager
+     */
+    function getWalletKeyAddress(bytes32 _walletId, uint64 _keyId)
+        external view
+        returns (string memory _addressStr)
+    {
+        return wallets[_walletId].keyDefinitions[_keyId].addressStr;
     }
 
     /**
@@ -513,6 +557,12 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
+    }
+
+    function _setKeyExistenceProofValidity(uint256 _keyExistenceProofValiditySeconds) internal {
+        require(_keyExistenceProofValiditySeconds >= 1 minutes && _keyExistenceProofValiditySeconds <= 1 days,
+            "invalid duration");
+        keyExistenceProofValiditySeconds = _keyExistenceProofValiditySeconds;
     }
 
     function _checkTeeStatus(address _teeId)

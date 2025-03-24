@@ -7,7 +7,6 @@ import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/tee/ITeeDataConnector.sol";
-import "../../userInterfaces/tee/ITeeAvailabilityCheck.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/IRelay.sol";
 import "../../utils/lib/AddressSet.sol";
@@ -20,7 +19,8 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
 
     struct TeeState {
         address owner;
-        TeeStatus status; // 0: initialized, 1: production, 2: paused, 3: paused_for_upgrade
+        TeeStatus status; // 0: initialized, 1: production, 2: paused, 3: paused_for_upgrade, 4: replicating
+        uint64 availabilityCheckValidityEndTs;
         uint64 lastStatusChangeTs;
         bytes32 codeHash;
         bytes32 platform; // utf8 encoded
@@ -37,23 +37,36 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     bytes32 public constant TO_PAUSE_FOR_UPGRADE = bytes32("TO_PAUSE_FOR_UPGRADE");
     bytes32 public constant REPLICATE_FROM = bytes32("REPLICATE_FROM");
 
+    /// TEE fee calculator contract.
     ITeeFeeCalculator public teeFeeCalculator;
+    /// TEE instructions contract.
     ITeeInstructions public teeInstructions;
+    /// TEE data connector contract.
     ITeeDataConnector public teeDataConnector;
+    /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
+    /// Relay contract.
     IRelay public relay;
 
+    /// The minimum supported version.
     uint256 public minSupportedVersion;
+    /// The latest version.
     uint256 public latestVersion;
+    /// The minimum duration (in paused status) before a TEE machine can be upgraded.
     uint256 public pauseBeforeUpgradeMinDurationSeconds;
+    /// The duration for which an availability check proof is valid.
+    uint256 public availabilityCheckProofValiditySeconds;
+    /// The TEE availability check validity duration, in seconds.
+    /// In order to receive rewards, TEE must be checked for availability at least once in this period.
     uint256 public availabilityCheckValidityDurationSeconds;
 
     AddressSet.State private activeTeeIds;
     mapping(address teeId => TeeState) private teeStates;
     mapping(bytes32 codeHash => TeeVersion) private codeHashToVersion;
-    mapping(uint256 version => bytes32[]) private versionOpTypes; // utf8 encoded operation types (XRP, BTC, FDC, etc.)
+    mapping(uint256 version => bytes32[]) private versionOpTypes; // utf8 encoded operation types (XRP, BTC, etc.)
     mapping(uint256 version => bytes32) private versionToCodeHash;
     mapping(address oldTeeId => address newTeeId) public replications;
+    /// Proposed new TEE owner.
     mapping(address teeId => address) public proposedTeeOwner;
 
     modifier onlyOwner(address _teeId) {
@@ -66,8 +79,9 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
      * @param _governanceSettings The address of the GovernanceSettings contract.
      * @param _initialGovernance The initial governance address.
      * @param _addressUpdater The address of the AddressUpdater contract.
-     * @param _pauseBeforeUpgradeMinDurationSeconds The minimum duration before a tee can be paused for upgrade.
-     * @param _availabilityCheckValidityDurationSeconds The duration for which an availability check is valid.
+     * @param _pauseBeforeUpgradeMinDurationSeconds The minimum duration (paused status) before a tee can be upgraded.
+     * @param _availabilityCheckProofValiditySeconds The duration for which an availability check proof is valid.
+     * @param _availabilityCheckValidityDurationSeconds The duration for which the availability of a tee is valid.
      * @param _minSupportedVersion The minimum supported version.
      */
     constructor(
@@ -75,18 +89,22 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         address _initialGovernance,
         address _addressUpdater,
         uint256 _pauseBeforeUpgradeMinDurationSeconds,
+        uint256 _availabilityCheckProofValiditySeconds,
         uint256 _availabilityCheckValidityDurationSeconds,
         uint256 _minSupportedVersion
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
-        require(_availabilityCheckValidityDurationSeconds >= 1 minutes, "invalid duration");
+        _setPauseBeforeUpgradeMinDuration(_pauseBeforeUpgradeMinDurationSeconds);
+        _setAvailabilityCheckProofValidity(_availabilityCheckProofValiditySeconds);
+        _setAvailabilityCheckValidityDuration(_availabilityCheckValidityDurationSeconds);
         require(_minSupportedVersion > 0, "invalid version");
-        pauseBeforeUpgradeMinDurationSeconds = _pauseBeforeUpgradeMinDurationSeconds;
-        availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
         minSupportedVersion = _minSupportedVersion;
     }
 
+    /**
+     * @inheritdoc ITeeRegistry
+     */
     function register(
         address _teeId,
         string calldata _url,
@@ -102,6 +120,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         teeStates[_teeId] = TeeState({
             owner: msg.sender,
             status: TeeStatus.INITIALIZED,
+            availabilityCheckValidityEndTs: 0,
             lastStatusChangeTs: uint64(block.timestamp),
             codeHash: _codeHash,
             platform: _platform,
@@ -111,6 +130,9 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         _triggerAvailabilityCheck(_teeId, _teeId);
     }
 
+    /**
+     * @inheritdoc ITeeRegistry
+     */
     function triggerAvailabilityCheck(
         address _teeId,
         address _testOnTeeId
@@ -120,6 +142,9 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         _triggerAvailabilityCheck(_teeId, _testOnTeeId);
     }
 
+    /**
+     * @inheritdoc ITeeRegistry
+     */
     function toProduction(
         ITeeAvailabilityCheck.Proof calldata _proof
     )
@@ -136,23 +161,58 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         _validateAvailabilityCheckResponse(teeState, _proof);
 
         teeState.status = TeeStatus.PRODUCTION;
+        uint64 endTs = uint64(_proof.data.timestamp + availabilityCheckValidityDurationSeconds);
+        if (endTs > teeState.availabilityCheckValidityEndTs) {
+            teeState.availabilityCheckValidityEndTs = endTs;
+            emit AvailabilityCheckValidityExtended(teeId, endTs);
+        }
         teeState.lastStatusChangeTs = uint64(block.timestamp);
         activeTeeIds.add(teeId);
     }
 
+    /**
+     * @inheritdoc ITeeRegistry
+     */
+    function confirmAvailability(
+        ITeeAvailabilityCheck.Proof calldata _proof
+    )
+         external
+    {
+        address teeId = _proof.data.requestBody.teeMachine.teeId;
+        TeeState storage teeState = teeStates[teeId];
+        require(teeState.status == TeeStatus.PRODUCTION, "invalid tee status");
+        require(_proof.data.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
+            "invalid availability status");
+        _checkVersionSupported(teeState.codeHash);
+        _validateAvailabilityCheckTs(teeId, _proof.data.timestamp);
+        _validateAvailabilityCheckResponse(teeState, _proof);
+
+        uint64 endTs = uint64(_proof.data.timestamp + availabilityCheckValidityDurationSeconds);
+        if (endTs > teeState.availabilityCheckValidityEndTs) {
+            teeState.availabilityCheckValidityEndTs = endTs;
+            emit AvailabilityCheckValidityExtended(teeId, endTs);
+        }
+    }
+
+    /**
+     * @inheritdoc ITeeRegistry
+     */
     function pause(address _teeId)
         external
     {
         TeeState storage teeState = teeStates[_teeId];
         require(teeState.status == TeeStatus.PRODUCTION, "invalid tee status");
         require(msg.sender == teeState.owner || codeHashToVersion[teeState.codeHash].version < minSupportedVersion,
-            "only owner or too old version");
+            "only owner or obsolete version");
 
         teeState.status = TeeStatus.PAUSED;
         teeState.lastStatusChangeTs = uint64(block.timestamp);
         activeTeeIds.remove(_teeId);
     }
 
+    /**
+     * @inheritdoc ITeeRegistry
+     */
     function pauseWithProof(
         ITeeAvailabilityCheck.Proof calldata _proof
     )
@@ -171,6 +231,9 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         activeTeeIds.remove(teeId);
     }
 
+    /**
+     * @inheritdoc ITeeRegistry
+     */
     function toPauseForUpgrade(address _teeId)
         external payable
         onlyOwner(_teeId)
@@ -197,6 +260,9 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         );
     }
 
+    /**
+     * @inheritdoc ITeeRegistry
+     */
     function replicateFrom(
         address _oldTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof
@@ -249,11 +315,14 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         );
     }
 
+    /**
+     * @inheritdoc ITeeRegistry
+     */
     function confirmReplicate(
         address _newTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof
     )
-        external payable
+        external
         onlyOwner(_proof.data.requestBody.teeMachine.teeId)
         onlyOwner(_newTeeId)
     {
@@ -272,6 +341,9 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         _validateAvailabilityCheckResponse(newTeeState, _proof);
 
         oldTeeState.status = TeeStatus.PRODUCTION;
+        uint64 endTs = uint64(_proof.data.timestamp + availabilityCheckValidityDurationSeconds);
+        oldTeeState.availabilityCheckValidityEndTs = endTs;
+        emit AvailabilityCheckValidityExtended(oldTeeId, endTs);
         oldTeeState.lastStatusChangeTs = uint64(block.timestamp);
         oldTeeState.codeHash = newTeeState.codeHash;
         oldTeeState.platform = newTeeState.platform;
@@ -281,12 +353,18 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         activeTeeIds.add(oldTeeId);
     }
 
+    /**
+     * @inheritdoc ITeeRegistry
+     */
     function proposeNewOwner(address _teeId, address _newOwner)
         external onlyOwner(_teeId)
     {
         proposedTeeOwner[_teeId] = _newOwner;
     }
 
+    /**
+     * @inheritdoc ITeeRegistry
+     */
     function confirmOwnership(address _teeId)
         external
     {
@@ -295,6 +373,11 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         delete proposedTeeOwner[_teeId];
     }
 
+    /**
+     * Set the minimum supported version.
+     * @param _minSupportedVersion The minimum supported version.
+     * Can only be called by the governance.
+     */
     function setMinSupportedVersion(uint256 _minSupportedVersion)
         external onlyGovernance
     {
@@ -303,6 +386,14 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         minSupportedVersion = _minSupportedVersion;
     }
 
+    /**
+     * Add a new TEE version.
+     * @param _version The version number.
+     * @param _codeHash The code hash.
+     * @param _platforms The supported platforms.
+     * @param _opTypes The supported operation types.
+     * Can only be called by the governance.
+     */
     function addNewTeeVersion(
         uint256 _version,
         bytes32 _codeHash,
@@ -311,7 +402,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     )
         external onlyGovernance
     {
-        require(_version > latestVersion, "version too old");
+        require(_version > latestVersion, "invalid version");
         require(_codeHash != bytes32(0), "invalid code hash");
         require(codeHashToVersion[_codeHash].version == 0, "code hash already registered");
         latestVersion = _version;
@@ -323,17 +414,37 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         versionOpTypes[_version] = _opTypes;
     }
 
+    /**
+     * Set the minimum duration before a TEE can be paused for upgrade.
+     * @param _pauseBeforeUpgradeMinDurationSeconds The minimum duration in seconds.
+     * Can only be called by the governance.
+     */
     function setPauseBeforeUpgradeMinDurationSeconds(uint256 _pauseBeforeUpgradeMinDurationSeconds)
         external onlyGovernance
     {
-        pauseBeforeUpgradeMinDurationSeconds = _pauseBeforeUpgradeMinDurationSeconds;
+        _setPauseBeforeUpgradeMinDuration(_pauseBeforeUpgradeMinDurationSeconds);
     }
 
+    /**
+     * Set the duration for which an availability check proof is valid.
+     * @param _availabilityCheckProofValiditySeconds The duration in seconds.
+     * Can only be called by the governance.
+     */
+    function setAvailabilityCheckProofValiditySeconds(uint256 _availabilityCheckProofValiditySeconds)
+        external onlyGovernance
+    {
+        _setAvailabilityCheckProofValidity(_availabilityCheckProofValiditySeconds);
+    }
+
+    /**
+     * Set the duration for which the availability check validity is extended.
+     * @param _availabilityCheckValidityDurationSeconds The duration in seconds.
+     * Can only be called by the governance.
+     */
     function setAvailabilityCheckValidityDurationSeconds(uint256 _availabilityCheckValidityDurationSeconds)
         external onlyGovernance
     {
-        require(_availabilityCheckValidityDurationSeconds >= 1 minutes, "invalid duration");
-        availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
+        _setAvailabilityCheckValidityDuration(_availabilityCheckValidityDurationSeconds);
     }
 
     /**
@@ -376,7 +487,10 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     /**
      * @inheritdoc ITeeRegistry
      */
-    function getRandomTeeIds(uint256 _count) external view returns(address[] memory _teeIds) {
+    function getRandomTeeIds(uint256 _count)
+        external view
+        returns(address[] memory _teeIds)
+    {
         uint256 length = activeTeeIds.list.length;
         require (_count <= length, "too many tee ids requested");
         (uint256 randomNumber,,) = relay.getRandomNumber();
@@ -405,7 +519,8 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
      * @inheritdoc ITeeRegistry
      */
     function arePlatformsCompatible(address _teeId, address[] calldata _backupTeeIds)
-        external view returns(bool)
+        external view
+        returns(bool)
     {
         TeeState storage teeState = teeStates[_teeId];
         bytes32 platform = teeState.platform;
@@ -424,15 +539,30 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         return true;
     }
 
-    function getTeeMachineVersion(address _teeId) external view returns(uint256 _version) {
+    /**
+     * @inheritdoc ITeeRegistry
+     */
+    function getTeeMachineVersion(address _teeId)
+        external view
+        returns(uint256 _version)
+    {
         _version = _getTeeVersion(_teeId);
         require(_version != 0, "tee not found");
     }
 
-    function getActiveTeeIds() external view returns(address[] memory) {
+    /**
+     * @inheritdoc ITeeRegistry
+     */
+    function getActiveTeeIds()
+        external view
+        returns(address[] memory)
+    {
         return activeTeeIds.list;
     }
 
+    /**
+     * @inheritdoc ITeeRegistry
+     */
     function getVersionInfo(uint256 _version)
         external view
         returns(bytes32 _codeHash, bytes32[] memory _platforms, bytes32[] memory _opTypes)
@@ -444,14 +574,24 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         _opTypes = versionOpTypes[_version];
     }
 
-    function getCodeHashVersion(bytes32 _codeHash) external view returns(uint256 _version) {
-        _version = codeHashToVersion[_codeHash].version;
-        require(_version != 0, "invalid code hash");
-    }
     /**
      * @inheritdoc ITeeRegistry
      */
-    function isOpTypeSupported(address _teeId, bytes32 _opType) external view returns(bool) {
+    function getCodeHashVersion(bytes32 _codeHash)
+        external view
+        returns(uint256 _version)
+    {
+        _version = codeHashToVersion[_codeHash].version;
+        require(_version != 0, "invalid code hash");
+    }
+
+    /**
+     * @inheritdoc ITeeRegistry
+     */
+    function isOpTypeSupported(address _teeId, bytes32 _opType)
+        external view
+        returns(bool)
+    {
         bytes32[] storage opTypes = versionOpTypes[_getTeeVersion(_teeId)];
         for (uint256 i = 0; i < opTypes.length; i++) {
             if (opTypes[i] == _opType) {
@@ -504,6 +644,24 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         );
     }
 
+    function _setPauseBeforeUpgradeMinDuration(uint256 _pauseBeforeUpgradeMinDurationSeconds) internal {
+        require(_pauseBeforeUpgradeMinDurationSeconds >= 1 minutes &&
+            _pauseBeforeUpgradeMinDurationSeconds <= 1 days, "invalid duration");
+        pauseBeforeUpgradeMinDurationSeconds = _pauseBeforeUpgradeMinDurationSeconds;
+    }
+
+    function _setAvailabilityCheckProofValidity(uint256 _availabilityCheckProofValiditySeconds) internal {
+        require(_availabilityCheckProofValiditySeconds >= 1 minutes &&
+            _availabilityCheckProofValiditySeconds <= 1 days, "invalid duration");
+        availabilityCheckProofValiditySeconds = _availabilityCheckProofValiditySeconds;
+    }
+
+    function _setAvailabilityCheckValidityDuration(uint256 _availabilityCheckValidityDurationSeconds) internal {
+        require(_availabilityCheckValidityDurationSeconds >= 1 hours &&
+            _availabilityCheckValidityDurationSeconds <= 365 days, "invalid duration");
+        availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
+    }
+
     function _validateAvailabilityCheckResponse(
         TeeState storage teeState,
         ITeeAvailabilityCheck.Proof calldata _proof
@@ -533,7 +691,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         require(_availabilityCheckTs < block.timestamp, "availability check timestamp in the future");
         require(_availabilityCheckTs >= teeStates[_teeId].lastStatusChangeTs,
             "availability check timestamp too old");
-        require(_availabilityCheckTs + availabilityCheckValidityDurationSeconds > block.timestamp,
+        require(_availabilityCheckTs + availabilityCheckProofValiditySeconds > block.timestamp,
             "availability check validity expired");
     }
 

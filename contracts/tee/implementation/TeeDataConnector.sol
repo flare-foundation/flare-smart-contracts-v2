@@ -11,7 +11,7 @@ import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/IFdcRequestFeeConfigurations.sol";
 
 /**
- * TeeDataConnector contract.
+ * TeeDataConnector is used for requesting FTDC attestations.
  */
 contract TeeDataConnector is ITeeDataConnector, Governed, AddressUpdatable {
 
@@ -19,14 +19,20 @@ contract TeeDataConnector is ITeeDataConnector, Governed, AddressUpdatable {
     bytes32 public constant FTDC_OP_TYPE = bytes32("FTDC");
     bytes32 public constant PROVE = bytes32("PROVE");
 
-    /// The RewardManager contract.
+    /// TEE registry contract.
     ITeeRegistry public teeRegistry;
+    /// TEE fee calculator contract.
     ITeeFeeCalculator public teeFeeCalculator;
+    /// TEE instructions contract.
     ITeeInstructions public teeInstructions;
+    /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
+    /// FDC request fee configurations contract.
     IFdcRequestFeeConfigurations public fdcRequestFeeConfigurations;
 
+    /// The minimum threshold in BIPS.
     uint16 public minThresholdBIPS;
+    /// The default number of TEEs used for attestation.
     uint8 public defaultNumberOfTees;
 
     /**
@@ -48,6 +54,9 @@ contract TeeDataConnector is ITeeDataConnector, Governed, AddressUpdatable {
         _setDefaultNumberOfTees(_defaultNumberOfTees);
     }
 
+    /**
+     * @inheritdoc ITeeDataConnector
+     */
     function requestAttestation(
         uint16 _thresholdBIPS,
         uint256 _numberOfTees,
@@ -100,10 +109,20 @@ contract TeeDataConnector is ITeeDataConnector, Governed, AddressUpdatable {
         );
     }
 
+    /**
+     * Sets the minimum threshold in BIPS.
+     * @param _minThresholdBIPS The minimum threshold in BIPS.
+     * Can only be called by the governance.
+     */
     function setMinThresholdBIPS(uint16 _minThresholdBIPS) external onlyGovernance {
         _setMinThresholdBIPS(_minThresholdBIPS);
     }
 
+    /**
+     * Sets the default number of TEEs used for attestation.
+     * @param _defaultNumberOfTees The default number of TEEs.
+     * Can only be called by the governance.
+     */
     function setDefaultNumberOfTees(uint8 _defaultNumberOfTees) external onlyGovernance {
         _setDefaultNumberOfTees(_defaultNumberOfTees);
     }

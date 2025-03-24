@@ -17,6 +17,13 @@ interface ITeeDataConnector {
     event MinThresholdBIPSSet(uint16 minThresholdBIPS);
     event DefaultNumberOfTeesSet(uint8 defaultNumberOfTees);
 
+    /**
+     * Requests an attestation.
+     * @param _thresholdBIPS The threshold in BIPS.
+     * @param _numberOfTees The number of TEEs.
+     * @param _teeIds The TEE ids.
+     * @param _attestationRequest The attestation request.
+     */
     function requestAttestation(
         uint16 _thresholdBIPS,
         uint256 _numberOfTees,

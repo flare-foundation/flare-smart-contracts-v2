@@ -11,7 +11,7 @@ import "../../userInterfaces/tee/ITeeWalletManager.sol";
  */
 contract TeeFeeCalculator is Governed, AddressUpdatable, ITeeFeeCalculator {
 
-    /// The TeeWalletManager contract.
+    /// TEE wallet manager contract.
     ITeeWalletManager public teeWalletManager;
 
     mapping(bytes32 opType => mapping(bytes32 opCommand => uint256 fee)) internal operationFee;

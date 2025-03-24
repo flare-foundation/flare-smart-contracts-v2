@@ -60,6 +60,7 @@ export async function deployTeeContracts(
     deployerAccount.address,
     deployerAccount.address,
     parameters.teePauseBeforeUpgradeMinDurationSeconds,
+    parameters.teeAvailabilityCheckProofValiditySeconds,
     parameters.teeAvailabilityCheckValidityDurationSeconds,
     parameters.teeMinSupportedVersion
   );
@@ -74,7 +75,7 @@ export async function deployTeeContracts(
     deployerAccount.address,
     deployerAccount.address,
     teeWalletOpTypes,
-    parameters.teeAvailabilityCheckValidityDurationSeconds
+    parameters.teeKeyExistenceProofValiditySeconds
   );
   spewNewContractInfo(contracts, null, TeeWalletManager.contractName, `TeeWalletManager.sol`, teeWalletManager.address, quiet);
 

@@ -676,12 +676,16 @@
             "description": "The minimal duration of uptime vote submission phase in seconds (e.g. 10 minutes).",
             "type": "integer"
         },
-        "teeAvailabilityCheckValidityDurationSeconds": {
-            "description": "The availability check validity duration, in seconds (e.g. 10 minutes).",
+        "teeAvailabilityCheckProofValiditySeconds": {
+            "description": "The availability check proof validity duration, in seconds (e.g. 10 minutes).",
             "type": "integer"
         },
-        "teeConfirmKeyValidityDurationSeconds": {
-            "description": "The confirm key validity duration, in seconds (e.g. 10 minutes).",
+        "teeAvailabilityCheckValidityDurationSeconds": {
+            "description": "The TEE availability check validity duration, in seconds (e.g. 1 day).\nIn order to receive rewards, TEE must be checked for availability at least once in this period.",
+            "type": "integer"
+        },
+        "teeKeyExistenceProofValiditySeconds": {
+            "description": "The key existence proof validity duration, in seconds (e.g. 10 minutes).",
             "type": "integer"
         },
         "teeMinSupportedVersion": {
@@ -826,8 +830,9 @@
         "submissionWindowBlocks",
         "submitUptimeVoteMinDurationBlocks",
         "submitUptimeVoteMinDurationSeconds",
+        "teeAvailabilityCheckProofValiditySeconds",
         "teeAvailabilityCheckValidityDurationSeconds",
-        "teeConfirmKeyValidityDurationSeconds",
+        "teeKeyExistenceProofValiditySeconds",
         "teeMinSupportedVersion",
         "teeOperationFees",
         "teeOwnersPPM",
