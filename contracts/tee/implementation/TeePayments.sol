@@ -104,14 +104,13 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
             teeWalletManager.getWalletInfo(_walletId);
         require(submitAddress == msg.sender, "only submit address");
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION, "wallet not in production");
-
         require(walletOpType == opType, "wrong op type");
         require(bytes(senderAddresses[_walletId]).length > 0, "sender address not set");
 
         WalletState storage state = states[_walletId];
         WalletSettings storage setting = settings[_walletId];
         uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        // check if new batch is needed
+        // check if new batch should be started
         if (state.batchEndTs < block.timestamp || state.batchCounter >= setting.batchSize ||
             currentRewardEpochId > state.batchRewardEpochId) {
             state.batchRewardEpochId = currentRewardEpochId;
@@ -171,6 +170,7 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     )
         external payable
     {
+        require(_paymentInstructions.length > 0, "no payment instructions");
         require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, PAY, _walletId)
             * _paymentInstructions.length, "fee too low");
         ReissueTempState memory tempState;
@@ -342,5 +342,7 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         teeFeeCalculator = ITeeFeeCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
+        teeInstructions = ITeeInstructions(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
     }
 }

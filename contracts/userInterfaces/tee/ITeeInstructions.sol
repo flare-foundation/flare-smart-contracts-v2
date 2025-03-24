@@ -8,7 +8,7 @@ import "./ITeeRegistry.sol";
  */
 interface ITeeInstructions {
 
-    event TeeInstructionsSent (
+    event TeeInstructionsSent(
         bytes32 indexed instructionId,
         uint24 indexed rewardEpochId,
         ITeeRegistry.TeeMachine[] teeMachines,
