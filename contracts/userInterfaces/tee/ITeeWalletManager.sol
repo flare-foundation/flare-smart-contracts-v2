@@ -53,6 +53,19 @@ interface ITeeWalletManager {
     function addKey(address _teeId, bytes32 _walletId) external payable returns (uint64 _keyId);
 
     /**
+     * Requests a key existence attestation.
+     * @param _teeId The tee id.
+     * @param _walletId The wallet id.
+     * @param _keyId The key id.
+     */
+    function requestKeyExistenceAttestation(
+        address _teeId,
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        external payable;
+
+    /**
      * Confirms the key generation.
      * @param _proof The key existence proof.
      */

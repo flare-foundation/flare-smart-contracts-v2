@@ -53,11 +53,11 @@ interface ITeeRegistry {
         external payable;
 
     /**
-     * Trigger availability check for a TEE machine.
+     * Request availability check attestation for a TEE machine.
      * @param _teeId The TEE machine id.
      * @param _testOnTeeId The TEE machine id to test on.
      */
-    function triggerAvailabilityCheck(
+    function requestAvailabilityCheckAttestation(
         address _teeId,
         address _testOnTeeId
     )

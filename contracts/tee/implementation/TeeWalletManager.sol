@@ -3,10 +3,11 @@ pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
+import "../../userInterfaces/tee/ITeeWalletManager.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
-import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import "../../userInterfaces/tee/ITeeDataConnector.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/IRelay.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -56,6 +57,8 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     ITeeFeeCalculator public teeFeeCalculator;
     /// TEE instructions contract.
     ITeeInstructions public teeInstructions;
+    /// TEE data connector contract.
+    ITeeDataConnector public teeDataConnector;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
     /// Relay contract.
@@ -145,6 +148,37 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             WALLET_OP_TYPE,
             KEY_GENERATE,
             abi.encode(message)
+        );
+    }
+
+    /**
+     * @inheritdoc ITeeWalletManager
+     */
+    function requestKeyExistenceAttestation(
+        address _teeId,
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        external payable
+    {
+        _checkTeeStatus(_teeId);
+        TeeWalletState storage wallet = wallets[_walletId];
+        require(wallet.keyIdCounter > _keyId, "invalid key id");
+        require(teeRegistry.isOpTypeSupported(_teeId, wallet.opType), "op type not supported");
+        ITeeKeyExistence.RequestBody memory requestBody = ITeeKeyExistence.RequestBody({
+            teeId: _teeId,
+            walletId: _walletId,
+            keyId: _keyId,
+            opType: wallet.opType
+        });
+        address[] memory teeIds = new address[](1);
+        teeIds[0] = _teeId;
+
+        teeDataConnector.requestAttestation{value: msg.value}(
+            0,
+            0,
+            teeIds,
+            bytes.concat(TEE_KEY_EXISTENCE_ATTESTATION_TYPE, TEE_SOURCE_ID, abi.encode(requestBody))
         );
     }
 
@@ -554,6 +588,8 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
         teeInstructions = ITeeInstructions(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
+        teeDataConnector = ITeeDataConnector(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeDataConnector"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));

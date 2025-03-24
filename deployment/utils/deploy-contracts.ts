@@ -771,8 +771,8 @@ export async function deployContracts(
   );
 
   await teeWalletManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-    [ADDRESS_UPDATER_ADDR, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, relay.address],
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.TEE_DATA_CONNECTOR, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+    [ADDRESS_UPDATER_ADDR, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, teeDataConnector.address, flareSystemsManager.address, relay.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 

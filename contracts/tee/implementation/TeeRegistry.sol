@@ -127,19 +127,19 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             url: _url
         });
 
-        _triggerAvailabilityCheck(_teeId, _teeId);
+        _requestAvailabilityCheckAttestation(_teeId, _teeId);
     }
 
     /**
      * @inheritdoc ITeeRegistry
      */
-    function triggerAvailabilityCheck(
+    function requestAvailabilityCheckAttestation(
         address _teeId,
         address _testOnTeeId
     )
         external payable
     {
-        _triggerAvailabilityCheck(_teeId, _testOnTeeId);
+        _requestAvailabilityCheckAttestation(_teeId, _testOnTeeId);
     }
 
     /**
@@ -621,7 +621,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
-    function _triggerAvailabilityCheck(
+    function _requestAvailabilityCheckAttestation(
         address _teeId,
         address _testOnTeeId
     )
