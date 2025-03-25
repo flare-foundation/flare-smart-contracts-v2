@@ -172,8 +172,8 @@ export async function deployTeeContracts(
 
   for (const teePayments of teePaymentsList) {
     await teePayments.updateContractAddresses(
-      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.FLARE_SYSTEMS_MANAGER]),
-      [addressUpdater, teeWalletManager.address, teeFeeCalculator.address, flareSystemsManager]);
+      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
+      [addressUpdater, teeWalletManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager]);
   }
 
   await teeInstructions.registerInstructionInitiators([

@@ -808,8 +808,8 @@ export async function deployContracts(
 
   for (const teePayments of teePaymentsList) {
     await teePayments.updateContractAddresses(
-      encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.FLARE_SYSTEMS_MANAGER]),
-      [ADDRESS_UPDATER_ADDR, teeWalletManager.address, teeFeeCalculator.address, flareSystemsManager.address],
+      encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
+      [ADDRESS_UPDATER_ADDR, teeWalletManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address],
       { from: ADDRESS_UPDATER_ADDR }
     );
   }
