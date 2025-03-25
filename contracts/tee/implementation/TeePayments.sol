@@ -54,6 +54,7 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
     mapping(bytes32 walletId => WalletSettings) private settings;
     mapping(bytes32 walletId => string) private senderAddresses;
     mapping(bytes32 walletId => mapping(uint64 nonce => bytes32)) private hashes;
+    mapping(bytes32 walletId => mapping(uint64 nonce => uint256)) private reissueCounter;
 
     /// Flare Systems Manager contract.
     IFlareSystemsManager public flareSystemsManager;
@@ -199,7 +200,8 @@ contract TeePayments is ITeePayments, Governed, AddressUpdatable {
         tempState.receivingTees = teeWalletManager.receivingTees(_walletId);
         tempState.maxFeeTolerancePPM = setting.maxFeeTolerancePPM;
         tempState.currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        tempState.instructionId = keccak256(abi.encode(opType, REISSUE, _walletId, _nonce));
+        uint256 reissueNumber = reissueCounter[_walletId][_nonce]++;
+        tempState.instructionId = keccak256(abi.encode(opType, REISSUE, _walletId, _nonce, reissueNumber));
         // reissue batch
         tempState.remainingAmount = msg.value;
         for (uint256 i = 0; i < _paymentInstructions.length; ++i) {
