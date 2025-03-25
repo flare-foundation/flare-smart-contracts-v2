@@ -766,7 +766,7 @@ contract TeePaymentsTest is Test {
         teePayments.setControlAddress(walletId, controlAddress);
         vm.stopPrank();
         vm.prank(controlAddress);
-        bytes32 instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11));
+        bytes32 instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11, 0));
         ITeePayments.PaymentInstructionMessage memory message1 = ITeePayments.PaymentInstructionMessage(
             walletId,
             senderAddress,
@@ -816,7 +816,7 @@ contract TeePaymentsTest is Test {
         // reissue also batch with nonce 13
         paymentInstructions = new ITeePayments.PaymentInstruction[](1);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref4"));
-        instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 13));
+        instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 13, 0));
         message1 = ITeePayments.PaymentInstructionMessage(
             walletId,
             senderAddress,
@@ -862,7 +862,7 @@ contract TeePaymentsTest is Test {
         teePayments.setControlAddress(walletId, controlAddress);
         vm.stopPrank();
         vm.prank(controlAddress);
-        bytes32 instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11));
+        bytes32 instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11, 0));
         ITeePayments.PaymentInstructionMessage memory message1 = ITeePayments.PaymentInstructionMessage(
             walletId,
             senderAddress,
@@ -908,6 +908,92 @@ contract TeePaymentsTest is Test {
             127 // 253 - 126 = 127
         );
         teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, 150, true);
+    }
+
+    // should reissue batch with nonce 11 twice
+    function testReissueTwice() public {
+              testPay3();
+        ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
+        paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
+        paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        // set fees and control address
+        vm.startPrank(walletOwner);
+        teePayments.setFees(walletId, 100, 1000, 200);
+        teePayments.setControlAddress(walletId, controlAddress);
+        vm.stopPrank();
+        vm.prank(controlAddress);
+        bytes32 instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11, 0));
+        ITeePayments.PaymentInstructionMessage memory message1 = ITeePayments.PaymentInstructionMessage(
+            walletId,
+            senderAddress,
+            "recipientAddress",
+            100,
+            bytes32("ref1"),
+            11, // nonce
+            0, // subNonce
+            150, // fee
+            1000,
+            block.timestamp
+        );
+        ITeePayments.PaymentInstructionMessage memory message2 = ITeePayments.PaymentInstructionMessage(
+            walletId,
+            senderAddress,
+            "recipientAddress",
+            100,
+            bytes32("ref2"),
+            11, // nonce
+            1, // subNonce
+            150, // fee
+            1000,
+            block.timestamp
+        );
+        vm.expectEmit();
+        emit TeeInstructionsSent(
+            instructionId,
+            11,
+            _mockReceivingTees(),
+            opType,
+            REISSUE,
+            abi.encode(message1),
+            126 // floor(253/2) = 126; value: 253 = 2*123 (fee) + 7
+        );
+        vm.expectEmit();
+        emit TeeInstructionsSent(
+            instructionId,
+            11,
+            _mockReceivingTees(),
+            opType,
+            REISSUE,
+            abi.encode(message2),
+            127 // 253 - 126 = 127
+        );
+        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, 150, false);
+
+        // reissue again; instructionId changes
+        instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11, 1));
+        vm.expectEmit();
+        emit TeeInstructionsSent(
+            instructionId,
+            11,
+            _mockReceivingTees(),
+            opType,
+            REISSUE,
+            abi.encode(message1),
+            126
+        );
+        vm.expectEmit();
+        emit TeeInstructionsSent(
+            instructionId,
+            11,
+            _mockReceivingTees(),
+            opType,
+            REISSUE,
+            abi.encode(message2),
+            127
+        );
+        vm.prank(controlAddress);
+        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, 150, false);
     }
 
     //// mocks and helpers ////
