@@ -32,11 +32,6 @@ export const SIMULATION_ACCOUNTS_FILE = `${SIMULATION_DUMP_FOLDER}/simulation-ac
 export const MEMORY_DATABASE_FILE = `${SIMULATION_DUMP_FOLDER}/indexer.db`;
 
 export const TIMELOCK_SEC = 3600;
-const REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 5;
-const VOTING_EPOCH_DURATION_SEC = 20;
-export const REWARD_EPOCH_DURATION_IN_SEC = REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS * VOTING_EPOCH_DURATION_SEC;
-
-export const FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
 export const TEE_SOURCE_ID = "TEE";
 
 const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
@@ -93,6 +88,8 @@ export const TEE_OPERATION_FEES = [
   {opType: "FTDC", opCommand: "PROVE", feeWei: "1"}
 ];
 
+let VOTING_EPOCH_DURATION_SEC: number;
+let REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS: number;
 let SKIP_VOTER_REGISTRATION_SET: Set<string>;
 let SKIP_SIGNING_POLICY_SIGNING_SET: Set<string>;
 let SKIP_VOTING_EPOCH_ACTIONS: boolean;
@@ -103,6 +100,16 @@ let TEE_URLS: string[];
 let TEE_PLATFORMS: string[];
 
 function processEnv() {
+  VOTING_EPOCH_DURATION_SEC = 20;
+  if (process.env.VOTING_EPOCH_DURATION_SEC) {
+    VOTING_EPOCH_DURATION_SEC = parseInt(process.env.VOTING_EPOCH_DURATION_SEC);
+  }
+
+  REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 5;
+  if (process.env.REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS) {
+    REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = parseInt(process.env.REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS);
+  }
+
   SKIP_VOTER_REGISTRATION_SET = new Set<string>();
   if (process.env.SKIP_VOTER_REGISTRATION_SET) {
     process.env.SKIP_VOTER_REGISTRATION_SET.split(",").forEach(x => {
@@ -165,6 +172,10 @@ function processEnv() {
     console.error("ERRORRrr")
     throw new Error("TEE_IDS, TEE_URLS and TEE_PLATFORMS must have the same length");
   }
+}
+
+export const rewardEpochDurationSeconds = function() {
+  return VOTING_EPOCH_DURATION_SEC * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
 }
 
 export const systemSettings = function (now: number) {
@@ -863,7 +874,7 @@ async function defineInitialSigningPolicy(
   await runOfferRewards(c, epochSettings, undefined, 1);
 
   await time.increaseTo(
-    rewardEpochStart + (REWARD_EPOCH_DURATION_IN_SEC - epochSettings.newSigningPolicyInitializationStartSeconds)
+    rewardEpochStart + (rewardEpochDurationSeconds() - epochSettings.newSigningPolicyInitializationStartSeconds)
   );
 
   const response = await c.flareDaemon.trigger({ gas: 20000000 });
@@ -889,7 +900,7 @@ async function defineInitialSigningPolicy(
 
   await time.increaseTo(
     rewardEpochStart +
-      (REWARD_EPOCH_DURATION_IN_SEC - Math.floor(epochSettings.newSigningPolicyInitializationStartSeconds / 2))
+      (rewardEpochDurationSeconds() - Math.floor(epochSettings.newSigningPolicyInitializationStartSeconds / 2))
   );
 
   const response2 = await c.flareDaemon.trigger({ gas: 20000000 });
@@ -904,7 +915,7 @@ async function defineInitialSigningPolicy(
 
   await time.increaseTo(
     rewardEpochStart +
-      (REWARD_EPOCH_DURATION_IN_SEC -
+      (rewardEpochDurationSeconds() -
         Math.floor(epochSettings.newSigningPolicyInitializationStartSeconds / 2) +
         epochSettings.voterRegistrationMinDurationSeconds +
         5)

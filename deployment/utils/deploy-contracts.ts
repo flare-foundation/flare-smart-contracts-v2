@@ -70,14 +70,13 @@ import { Account } from "web3-core";
 import {
   TIMELOCK_SEC,
   encodeContractNames,
-  REWARD_EPOCH_DURATION_IN_SEC,
-  FIRST_REWARD_EPOCH_VOTING_ROUND_ID,
   systemSettings,
   getSigningPolicyHash,
   FTSO_PROTOCOL_ID,
   TEE_PAYMENT_CONFIGURATIONS,
   TEE_OPERATION_FEES,
   TEE_SOURCE_ID,
+  rewardEpochDurationSeconds,
 } from "../tasks/run-simulation";
 import { getLogger } from "./logger";
 import { testDeployGovernanceSettings } from "./contract-helpers";
@@ -275,7 +274,7 @@ export async function deployContracts(
   await pChainStakeMirror.activate();
 
   // Set time to previous reward epoch start.
-  await time.increaseTo(Math.floor(Date.now() / 1000) - REWARD_EPOCH_DURATION_IN_SEC + 1);
+  await time.increaseTo(Math.floor(Date.now() / 1000) - rewardEpochDurationSeconds() + 1);
 
   const rewardEpochStart = await time.latest();
 
@@ -307,9 +306,10 @@ export async function deployContracts(
     100
   );
 
+  const settings = systemSettings(rewardEpochStart);
   const initialSigningPolicy: ISigningPolicy = {
     rewardEpochId: 0,
-    startVotingRoundId: FIRST_REWARD_EPOCH_VOTING_ROUND_ID,
+    startVotingRoundId: settings.firstRewardEpochStartVotingRoundId,
     threshold: initialThreshold,
     seed: web3.utils.keccak256("123"),
     voters: initialVoters,
@@ -322,7 +322,6 @@ export async function deployContracts(
     initialRewardEpochThreshold: initialThreshold,
   };
 
-  const settings = systemSettings(rewardEpochStart);
   const flareSystemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.new(
     governanceSettings.address,
     governanceAccount.address,
@@ -919,7 +918,7 @@ export async function deployContracts(
     const getCurrentFeed = getCurrentFeedSelector + encodedFeedId.slice(2);
     const feed = web3.eth.abi.encodeParameters(
       ["tuple(uint32,bytes21,int32,uint16,int8)"], // IFtsoFeedPublisher.Feed (uint32 votingRoundId, bytes21 id, int32 value, uint16 turnoutBIPS, int8 decimals)
-      [[FIRST_REWARD_EPOCH_VOTING_ROUND_ID, FEED_IDS[i], ANCHOR_FEEDS[i], 6000, DECIMALS[i]]]
+      [[settings.firstRewardEpochStartVotingRoundId, FEED_IDS[i], ANCHOR_FEEDS[i], 6000, DECIMALS[i]]]
     );
     await mockContract.givenCalldataReturn(getCurrentFeed, feed);
   }
