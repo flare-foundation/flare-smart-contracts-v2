@@ -2,6 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import "./ITeeRegistry.sol";
+import "./ITeeWalletManager.sol";
 
 /**
  * TeePayments interface.
@@ -17,6 +18,7 @@ interface ITeePayments {
 
     struct PaymentInstructionMessage {
         bytes32 walletId;
+        ITeeWalletManager.TeeIdKeyIdPair[] teeIdKeyIdPairs;
         string senderAddress;
         string recipientAddress;
         uint256 amount;

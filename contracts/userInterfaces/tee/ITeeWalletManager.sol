@@ -10,9 +10,15 @@ import "./ITeeKeyExistence.sol";
 interface ITeeWalletManager {
 
     enum WalletStatus {
+        CREATED,
         INITIALIZED,
         PRODUCTION,
         PAUSED
+    }
+
+    struct PublicKey {
+        bytes32 x;
+        bytes32 y;
     }
 
     struct KeyGenerate {
@@ -20,6 +26,11 @@ interface ITeeWalletManager {
         bytes32 walletId;
         uint256 keyId;
         bytes32 opType;
+        bytes baseSettings;
+        PublicKey[] adminsPublicKeys;
+        uint256 adminsThreshold;
+        address[] cosigners;
+        uint256 cosignersThreshold;
     }
 
     struct KeyDelete {
@@ -28,21 +39,84 @@ interface ITeeWalletManager {
         uint256 keyId;
     }
 
+    struct TeeIdKeyIdPair {
+        address teeId;
+        uint256 keyId;
+    }
+
     event WalletCreated(
+        bytes32 indexed projectId,
         bytes32 indexed walletId,
-        address indexed owner,
-        bytes32 opType
+        uint64 multisigThreshold
+    );
+
+    event WalletInitialized(
+        bytes32 indexed walletId
     );
 
     /**
-     * Initializes the wallet.
-     * @param _opType The wallet operation type.
+     * Creates the wallet for the project.
+     * @param _projectId The project id.
      * @param _multisigThreshold The multisig threshold.
      * @return _walletId The wallet id.
      */
-    function initializeWallet(bytes32 _opType, uint64 _multisigThreshold)
-        external payable
+    function createWallet(
+        bytes32 _projectId,
+        uint64 _multisigThreshold
+    )
+        external
         returns (bytes32 _walletId);
+
+    /**
+     * Sets the wallet admins.
+     * @param _walletId The wallet id.
+     * @param _adminsPublicKeys The wallet admins public keys.
+     * @param _adminsThreshold The wallet admins threshold.
+     */
+    function setAdmins(
+        bytes32 _walletId,
+        PublicKey[] calldata _adminsPublicKeys,
+        uint64 _adminsThreshold
+    )
+        external;
+
+    /**
+     * Confirms the admin.
+     * @param _walletId The wallet id.
+     */
+    function confirmAdmin(bytes32 _walletId)
+        external;
+
+    /**
+     * Sets the wallet cosigners.
+     * @param _walletId The wallet id.
+     * @param _cosigners The wallet cosigners.
+     * @param _cosignersThreshold The wallet cosigners threshold.
+     */
+    function setCosigners(
+        bytes32 _walletId,
+        address[] calldata _cosigners,
+        uint64 _cosignersThreshold
+    )
+        external;
+
+    /**
+     * Confirms the cosigner.
+     * @param _walletId The wallet id.
+     */
+    function confirmCosigner(bytes32 _walletId)
+        external;
+
+    /**
+     * Closes the wallet initialization and enables adding keys.
+     * All admins and cosigners need to be set and confirmed.
+     * They cannot be changed after this call.
+     * @param _walletId The wallet id.
+     */
+    function closeWalletInitialization(
+        bytes32 _walletId
+    )
+        external;
 
     /**
      * Adds a key to the wallet - triggers a key generation process.
@@ -90,20 +164,6 @@ interface ITeeWalletManager {
     function cleanUpTeeIds(bytes32 _walletId, uint64 _keyId) external;
 
     /**
-     * Sets the wallet's submit address (can only be set once).
-     * @param _walletId The wallet id.
-     * @param _submitAddress The wallet submit address.
-     */
-    function setSubmitAddress(bytes32 _walletId, address _submitAddress) external;
-
-    /**
-     * Sets the wallet backup manager.
-     * @param _walletId The wallet id.
-     * @param _backupManager The wallet backup manager.
-     */
-    function setWalletBackupManager(bytes32 _walletId, address _backupManager) external;
-
-    /**
      * Enables the wallet.
      * @param _walletId The wallet id.
      */
@@ -116,38 +176,11 @@ interface ITeeWalletManager {
     function pauseWallet(bytes32 _walletId) external;
 
     /**
-     * Proposes a new owner for the wallet. The new owner needs to confirm the ownership.
+     * Returns wallet project id.
      * @param _walletId The wallet id.
-     * @param _newOwner The new owner.
+     * @return _projectId The project id.
      */
-    function proposeNewOwner(bytes32 _walletId, address _newOwner) external;
-
-    /**
-     * Confirms the ownership of the wallet after the old owner has proposed a new owner.
-     * @param _walletId The wallet id.
-     */
-    function confirmOwnership(bytes32 _walletId) external;
-
-    /**
-     * Returns the wallet owner.
-     * @param _walletId The wallet id.
-     * @return _walletOwner The wallet owner.
-     */
-    function getWalletOwner(bytes32 _walletId) external view returns (address _walletOwner);
-
-    /**
-     * Returns the wallet backup manager.
-     * @param _walletId The wallet id.
-     * @return _backupManager The wallet backup manager.
-     */
-    function getWalletBackupManager(bytes32 _walletId) external view returns (address _backupManager);
-
-    /**
-     * Returns the wallet operation type.
-     * @param _walletId The wallet id.
-     * @return _opType The wallet operation type.
-     */
-    function getWalletOpType(bytes32 _walletId) external view returns (bytes32 _opType);
+    function getWalletProjectId(bytes32 _walletId) external view returns (bytes32 _projectId);
 
     /**
      * Returns the list of tee ids that hold the wallet key.
@@ -174,19 +207,6 @@ interface ITeeWalletManager {
     function getWalletKeyAddress(bytes32 _walletId, uint64 _keyId) external view returns (string memory _addressStr);
 
     /**
-     * Returns information about the tee wallet.
-     * @param _walletId The wallet id.
-     * @param _submitAddress The submit address.
-     * @param _status The wallet status.
-     * @param _opType The wallet operation type.
-     */
-    function getWalletInfo(bytes32 _walletId) external view returns (
-        address _submitAddress,
-        WalletStatus _status,
-        bytes32 _opType
-    );
-
-    /**
      * Returns information about the wallet keys.
      * @param _walletId The wallet id.
      * @param _multisigThreshold The multisig threshold.
@@ -198,12 +218,15 @@ interface ITeeWalletManager {
         returns (uint64 _multisigThreshold, uint256[] memory _keyIds, uint64 _counter);
 
     /**
-     * Returns wallet's receiving tees.
+     * Returns wallet's receiving tees and keys.
      * Reverts if not enough receiving tees are available or wallet is not in production status.
      * @param _walletId The wallet id.
      * @return _receivingTees The receiving tees.
+     * @return _teeIdKeyIdPairs The tee id and key id pairs.
      */
-    function receivingTees(bytes32 _walletId) external view returns (ITeeRegistry.TeeMachine[] memory _receivingTees);
+    function receivingTeesAndKeys(bytes32 _walletId)
+        external view
+        returns (ITeeRegistry.TeeMachine[] memory _receivingTees, TeeIdKeyIdPair[] memory _teeIdKeyIdPairs);
 
     /**
      * Returns wallet's status.
@@ -224,4 +247,13 @@ interface ITeeWalletManager {
      * @return _supportedOpTypes The supported operation types.
      */
     function getSupportedOpTypes() external view returns (bytes32[] memory _supportedOpTypes);
+
+    /**
+     * Checks if operation type is supported on TEE wallet manager.
+     * @param _opType The operation type.
+     * @return True if the operation type is supported.
+     */
+    function isOpTypeSupported(bytes32 _opType)
+        external view
+        returns (bool);
 }

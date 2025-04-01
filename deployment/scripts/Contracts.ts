@@ -85,6 +85,7 @@ export class Contracts {
   public static readonly FDC_INFLATION_CONFIGURATIONS = "FdcInflationConfigurations";
   public static readonly FDC_REQUEST_FEE_CONFIGURATIONS = "FdcRequestFeeConfigurations";
   public static readonly TEE_REGISTRY = "TeeRegistry";
+  public static readonly TEE_WALLET_PROJECT_MANAGER = "TeeWalletProjectManager";
   public static readonly TEE_WALLET_MANAGER = "TeeWalletManager";
   public static readonly TEE_WALLET_BACKUP_MANAGER = "TeeWalletBackupManager";
   public static readonly TEE_PAYMENTS = "TeePayments";

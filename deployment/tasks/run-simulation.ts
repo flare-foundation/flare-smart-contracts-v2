@@ -66,7 +66,8 @@ const OFFERS = [
 export const TEE_PAYMENT_CONFIGURATIONS = [
   {opType: "XRP", maxBatchSize: 1, maxBatchDurationSeconds: 0},
   {opType: "BTC", maxBatchSize: 10, maxBatchDurationSeconds: 600},
-  {opType: "DOGE", maxBatchSize: 10, maxBatchDurationSeconds: 60}
+  {opType: "DOGE", maxBatchSize: 10, maxBatchDurationSeconds: 60},
+  {opType: "EVM", maxBatchSize: 1, maxBatchDurationSeconds: 0},
 ];
 
 export const TEE_OPERATION_FEES = [
@@ -77,14 +78,16 @@ export const TEE_OPERATION_FEES = [
   {opType: "WALLET", opCommand: "KEY_MACHINE_BACKUP", feeWei: "1"},
   {opType: "WALLET", opCommand: "KEY_MACHINE_RESTORE", feeWei: "1"},
   {opType: "WALLET", opCommand: "KEY_MACHINE_BACKUP_REMOVE", feeWei: "1"},
-  {opType: "WALLET", opCommand: "KEY_CUSTODIAN_BACKUP", feeWei: "1"},
-  {opType: "WALLET", opCommand: "KEY_CUSTODIAN_RESTORE", feeWei: "1"},
+  {opType: "WALLET", opCommand: "KEY_DATA_PROVIDER_RESTORE_INIT", feeWei: "1"},
+  {opType: "WALLET", opCommand: "KEY_DATA_PROVIDER_RESTORE", feeWei: "1"},
   {opType: "XRP", opCommand: "PAY", feeWei: "1"},
   {opType: "XRP", opCommand: "REISSUE", feeWei: "1"},
   {opType: "BTC", opCommand: "PAY", feeWei: "1"},
   {opType: "BTC", opCommand: "REISSUE", feeWei: "1"},
   {opType: "DOGE", opCommand: "PAY", feeWei: "1"},
   {opType: "DOGE", opCommand: "REISSUE", feeWei: "1"},
+  {opType: "EVM", opCommand: "PAY", feeWei: "1"},
+  {opType: "EVM", opCommand: "REISSUE", feeWei: "1"},
   {opType: "FTDC", opCommand: "PROVE", feeWei: "1"}
 ];
 
