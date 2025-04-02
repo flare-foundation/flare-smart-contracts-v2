@@ -10,5 +10,5 @@ interface TeePaymentsStructs {
 
     function paymentInstructionMessageStruct(ITeePayments.PaymentInstructionMessage calldata) external;
 
-    function baseSettingsEVMStruct(ITeePaymentsEVM.BaseSettingsEVM calldata) external;
+    function opTypeConstantsEVMStruct(ITeePaymentsEVM.OpTypeConstantsEVM calldata) external;
 }

@@ -8,7 +8,7 @@ import "./ITeePayments.sol";
  */
 interface ITeePaymentsEVM is ITeePayments {
 
-    struct BaseSettingsEVM{
+    struct OpTypeConstantsEVM{
         uint256 chainId;
     }
 

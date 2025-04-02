@@ -58,12 +58,12 @@ contract TeePaymentsEVM is ITeePaymentsEVM, TeePayments {
     }
 
     /**
-     * @inheritdoc IITeeWalletBaseSettings
+     * @inheritdoc IITeeWalletOpTypeConstants
      */
-    function getBaseSettings(bytes32 _walletId) external view override returns(bytes memory) {
+    function getOpTypeConstants(bytes32 _walletId) external view override returns(bytes memory) {
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         uint256 chainId = projectChainId[projectId];
         require(chainId > 0, "chainId not set");
-        return abi.encode(ITeePaymentsEVM.BaseSettingsEVM(chainId));
+        return abi.encode(ITeePaymentsEVM.OpTypeConstantsEVM(chainId));
     }
 }

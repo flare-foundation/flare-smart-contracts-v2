@@ -26,7 +26,7 @@ interface ITeeWalletManager {
         bytes32 walletId;
         uint256 keyId;
         bytes32 opType;
-        bytes baseSettings;
+        bytes opTypeConstants;
         PublicKey[] adminsPublicKeys;
         uint256 adminsThreshold;
         address[] cosigners;

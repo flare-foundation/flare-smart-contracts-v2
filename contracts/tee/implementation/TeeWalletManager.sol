@@ -11,7 +11,7 @@ import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/tee/ITeeDataConnector.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/IRelay.sol";
-import "../interface/IITeeWalletBaseSettings.sol";
+import "../interface/IITeeWalletOpTypeConstants.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -56,8 +56,8 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     mapping(bytes32 walletId => TeeWalletState) private wallets;
 
     EnumerableSet.Bytes32Set private supportedOpTypes;
-    /// Mapping of operation types to additional data providers.
-    mapping(bytes32 opType => IITeeWalletBaseSettings) public baseSettingsProviders;
+    /// Mapping of operation type to operation type constants provider.
+    mapping(bytes32 opType => IITeeWalletOpTypeConstants) public opTypeConstantsProviders;
 
     /// TEE registry contract.
     ITeeRegistry public teeRegistry;
@@ -242,8 +242,8 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         _checkWalletStatus(wallet.status, WalletStatus.INITIALIZED);
         bytes32 opType = teeWalletProjectManager.getOpType(wallet.projectId);
         require(teeRegistry.isOpTypeSupported(_teeId, opType), "op type not supported");
-        IITeeWalletBaseSettings baseSettingsProvider = baseSettingsProviders[opType];
-        require(address(baseSettingsProvider) != address(0), "op type not supported");
+        IITeeWalletOpTypeConstants opTypeConstantsProvider = opTypeConstantsProviders[opType];
+        require(address(opTypeConstantsProvider) != address(0), "op type not supported");
         _checkFee(KEY_GENERATE, _teeId, new address[](0));
         _keyId = wallet.keyIdCounter++;
         KeyGenerate memory message = KeyGenerate({
@@ -251,7 +251,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             walletId: _walletId,
             keyId: _keyId,
             opType: opType,
-            baseSettings: baseSettingsProvider.getBaseSettings(_walletId),
+            opTypeConstants: opTypeConstantsProvider.getOpTypeConstants(_walletId),
             adminsPublicKeys: wallet.adminsPublicKeys,
             adminsThreshold: wallet.adminsThreshold,
             cosigners: wallet.cosigners,
@@ -468,18 +468,18 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     }
 
     /**
-     * Add supported operation types.
-     * @param _baseSettingsProviders The base settings providers for the operation types.
+     * Add supported operation types and their constants providers.
+     * @param _opTypeConstantsProviders The operation type constants providers for the operation types.
      * Can only be called by the governance.
      */
-    function addSupportedOpTypes(IITeeWalletBaseSettings[] calldata _baseSettingsProviders)
+    function addSupportedOpTypes(IITeeWalletOpTypeConstants[] calldata _opTypeConstantsProviders)
         external onlyGovernance
     {
-        for (uint256 i = 0; i < _baseSettingsProviders.length; i++) {
-            IITeeWalletBaseSettings baseSettingsProvider = _baseSettingsProviders[i];
-            bytes32 opType = baseSettingsProvider.opType();
+        for (uint256 i = 0; i < _opTypeConstantsProviders.length; i++) {
+            IITeeWalletOpTypeConstants opTypeConstantsProvider = _opTypeConstantsProviders[i];
+            bytes32 opType = opTypeConstantsProvider.opType();
             supportedOpTypes.add(opType);
-            baseSettingsProviders[opType] = baseSettingsProvider;
+            opTypeConstantsProviders[opType] = opTypeConstantsProvider;
         }
     }
 
@@ -493,7 +493,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     {
         for (uint256 i = 0; i < _opTypes.length; i++) {
             supportedOpTypes.remove(_opTypes[i]);
-            delete baseSettingsProviders[_opTypes[i]];
+            delete opTypeConstantsProviders[_opTypes[i]];
         }
     }
 

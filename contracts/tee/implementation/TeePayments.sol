@@ -10,12 +10,12 @@ import "../../userInterfaces/tee/ITeePayments.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
-import "../interface/IITeeWalletBaseSettings.sol";
+import "../interface/IITeeWalletOpTypeConstants.sol";
 
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.
  */
-contract TeePayments is ITeePayments, IITeeWalletBaseSettings, Governed, AddressUpdatable {
+contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, AddressUpdatable {
 
     struct WalletState {
         uint64 nonce;
@@ -344,9 +344,9 @@ contract TeePayments is ITeePayments, IITeeWalletBaseSettings, Governed, Address
     }
 
     /**
-     * @inheritdoc IITeeWalletBaseSettings
+     * @inheritdoc IITeeWalletOpTypeConstants
      */
-    function getBaseSettings(bytes32 _walletId) external view virtual returns(bytes memory) {
+    function getOpTypeConstants(bytes32 _walletId) external view virtual returns(bytes memory) {
         // return empty bytes
     }
 
