@@ -508,11 +508,6 @@ export interface ChainParameters {
     teeKeyExistenceProofValiditySeconds: integer;
 
     /**
-     * The minimal supported version of TEE.
-     */
-    teeMinSupportedVersion: integer;
-
-    /**
      * The amount of rewards that are distributed to TEE owners, in PPM (e.g. 10%).
      */
     teeOwnersPPM: integer;

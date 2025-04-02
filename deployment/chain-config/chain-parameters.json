@@ -688,10 +688,6 @@
             "description": "The key existence proof validity duration, in seconds (e.g. 10 minutes).",
             "type": "integer"
         },
-        "teeMinSupportedVersion": {
-            "description": "The minimal supported version of TEE.",
-            "type": "integer"
-        },
         "teeOperationFees": {
             "description": "The TEE operation fees.",
             "items": {
@@ -833,7 +829,6 @@
         "teeAvailabilityCheckProofValiditySeconds",
         "teeAvailabilityCheckValidityDurationSeconds",
         "teeKeyExistenceProofValiditySeconds",
-        "teeMinSupportedVersion",
         "teeOperationFees",
         "teeOwnersPPM",
         "teePauseBeforeUpgradeMinDurationSeconds",

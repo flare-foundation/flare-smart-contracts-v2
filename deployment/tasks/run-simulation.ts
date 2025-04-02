@@ -268,6 +268,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   const accounts = privateKeys.map(x => hre.web3.eth.accounts.privateKeyToAccount(x.privateKey));
   const governanceAccount = accounts[0];
   const teeOwnerAccount = accounts[1];
+  const teeGovernanceSigners = [accounts[2], accounts[3], accounts[4], accounts[5]];
+  const teeGovernanceSignersThreshold = 3;
 
   const [c, rewardEpochStart, initialSigningPolicy] = await deployContracts(accounts, hre, governanceAccount);
   serializeDeployedContractsAddresses(c, DEPLOY_ADDRESSES_FILE);
@@ -337,13 +339,13 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   logger.info(`Epoch settings written to ${SETTINGS_FILE_LOCATION}`);
 
   // TEE
+  logger.info(`Setting TEE governance ${teeGovernanceSigners.map(x => x.address)} with threshold ${teeGovernanceSignersThreshold}`);
+  await c.teeVersionManager.setNewTeeGovernance(teeGovernanceSigners.map(x => x.address), teeGovernanceSignersThreshold, { from: governanceAccount.address });
+  const governanceHash = await c.teeVersionManager.latestTeeGovernanceHash();
+
   logger.info(`TEE_CODE_HASH: ${TEE_CODE_HASH}`);
   const supportedPlatforms = [web3.utils.utf8ToHex("GOOGLE_TDX").padEnd(66, "0"), web3.utils.utf8ToHex("GOOGLE_AMD").padEnd(66, "0")]
-  const opTypes = [];
-  for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
-    opTypes.push(web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"));
-  }
-  await c.teeRegistry.addNewTeeVersion(1, TEE_CODE_HASH, supportedPlatforms, opTypes, { from: governanceAccount.address });
+  await c.teeVersionManager.addNewTeeVersion(governanceHash, "v0.1.0", TEE_CODE_HASH, supportedPlatforms, { from: governanceAccount.address });
 
   logger.info(`Registering TEEs with owner address: ${teeOwnerAccount.address}`);
   logger.info(`TEE_IDS: ${TEE_IDS}`);

@@ -80,7 +80,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         require(_shamirThreshold > 0 && _shamirThreshold <= _backupTeeIds.length, "invalid shamir threshold");
         _checkTeeStatus(_teeId);
         _checkTeeStatuses(_backupTeeIds);
-        require(teeRegistry.arePlatformsCompatible(_teeId, _backupTeeIds), "platforms not compatible");
+        require(teeRegistry.areTeeMachinesCompatible(_teeId, _backupTeeIds), "tee machines not compatible");
         require(_isKeyAvailable(_teeId, _walletId, _keyId), "key not available");
         _checkFee(KEY_MACHINE_BACKUP, _teeId, _backupTeeIds);
         KeyMachineBackup memory message = KeyMachineBackup({
@@ -125,8 +125,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         _checkTeeStatuses(_backupTeeIds);
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         bytes32 opType = teeWalletProjectManager.getOpType(projectId);
-        _checkOpTypeSupported(_teeId, opType);
-        require(teeRegistry.arePlatformsCompatible(_teeId, _backupTeeIds), "platforms not compatible");
+        require(teeRegistry.areTeeMachinesCompatible(_teeId, _backupTeeIds), "tee machines not compatible");
         _checkFee(KEY_MACHINE_RESTORE, _teeId, _backupTeeIds);
         KeyMachineRestore memory message = KeyMachineRestore({
             teeMachine: teeRegistry.getTeeMachineWithAttestationData(_teeId),
@@ -255,7 +254,6 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         require(!_isKeyAvailable(_teeId, _walletId, _keyId), "key already available");
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         bytes32 opType = teeWalletProjectManager.getOpType(projectId);
-        _checkOpTypeSupported(_teeId, opType);
         bytes memory publicKey = teeWalletManager.getWalletKeyPublicKey(_walletId, _keyId);
         require(publicKey.length > 0, "key not confirmed");
         _checkFee(_opCommand, _teeId, new address[](0));
@@ -347,11 +345,5 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
             teeWalletProjectManager.getBackupManager(projectId) == msg.sender,
             "only owner or backup manager"
         );
-    }
-
-    function _checkOpTypeSupported(address _teeId, bytes32 _opType)
-        internal view
-    {
-        require(teeRegistry.isOpTypeSupported(_teeId, _opType), "op type not supported");
     }
 }

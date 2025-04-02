@@ -241,7 +241,6 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         TeeWalletState storage wallet = wallets[_walletId];
         _checkWalletStatus(wallet.status, WalletStatus.INITIALIZED);
         bytes32 opType = teeWalletProjectManager.getOpType(wallet.projectId);
-        require(teeRegistry.isOpTypeSupported(_teeId, opType), "op type not supported");
         IITeeWalletOpTypeConstants opTypeConstantsProvider = opTypeConstantsProviders[opType];
         require(address(opTypeConstantsProvider) != address(0), "op type not supported");
         _checkFee(KEY_GENERATE, _teeId, new address[](0));
@@ -282,7 +281,6 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         TeeWalletState storage wallet = wallets[_walletId];
         require(wallet.keyIdCounter > _keyId, "invalid key id");
         bytes32 opType = teeWalletProjectManager.getOpType(wallet.projectId);
-        require(teeRegistry.isOpTypeSupported(_teeId, opType), "op type not supported");
         ITeeKeyExistence.RequestBody memory requestBody = ITeeKeyExistence.RequestBody({
             teeId: _teeId,
             walletId: _walletId,
@@ -314,8 +312,6 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         require(wallet.keyIdCounter > keyId, "invalid key id");
         require(_proof.data.responseBody.publicKey.length > 0, "invalid public key");
         address teeId = _proof.data.requestBody.teeId;
-        bytes32 opType = teeWalletProjectManager.getOpType(wallet.projectId);
-        require(teeRegistry.isOpTypeSupported(teeId, opType), "op type not supported");
         require(_proof.data.thresholdBIPS == 0, "random threshold not supported");
         require(_proof.data.attestationType == TEE_KEY_EXISTENCE_ATTESTATION_TYPE, "invalid attestation type");
         require(_proof.data.sourceId == TEE_SOURCE_ID, "invalid source id");

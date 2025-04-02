@@ -185,18 +185,9 @@ interface ITeeRegistry {
      * @param _backupTeeIds The backup TEE machine ids.
      * @return True if the platforms are compatible.
      */
-    function arePlatformsCompatible(address _teeId, address[] calldata _backupTeeIds)
+    function areTeeMachinesCompatible(address _teeId, address[] calldata _backupTeeIds)
         external view
         returns(bool);
-
-    /**
-     * Get the TEE machine version.
-     * @param _teeId The TEE machine id.
-     * @return The TEE machine version.
-     */
-    function getTeeMachineVersion(address _teeId)
-        external view
-        returns(uint256);
 
     /**
      * Get active TEE machine ids.
@@ -205,34 +196,4 @@ interface ITeeRegistry {
     function getActiveTeeIds()
         external view
         returns(address[] memory);
-
-    /**
-     * Get the version info.
-     * @param _version The version.
-     * @return _codeHash The code hash.
-     * @return _platforms The supported platforms.
-     * @return _opTypes The supported operation types.
-     */
-    function getVersionInfo(uint256 _version)
-        external view
-        returns(bytes32 _codeHash, bytes32[] memory _platforms, bytes32[] memory _opTypes);
-
-    /**
-     * Get the version of the code hash.
-     * @param _codeHash The code hash.
-     * @return The version.
-     */
-    function getCodeHashVersion(bytes32 _codeHash)
-        external view
-        returns(uint256);
-
-    /**
-     * Checks if operation type is supported on the TEE machine.
-     * @param _teeId The TEE machine id.
-     * @param _opType The operation type.
-     * @return True if the operation type is supported.
-     */
-    function isOpTypeSupported(address _teeId, bytes32 _opType)
-        external view
-        returns (bool);
 }

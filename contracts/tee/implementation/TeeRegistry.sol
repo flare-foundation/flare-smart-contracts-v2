@@ -3,6 +3,7 @@ pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
+import "../../userInterfaces/tee/ITeeVersionManager.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
@@ -27,16 +28,13 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         string url;
     }
 
-    struct TeeVersion {
-        uint256 version;
-        bytes32[] platforms; // utf8 encoded platform
-    }
-
     bytes32 public constant TEE_SOURCE_ID = bytes32("TEE");
     bytes32 public constant REG_OP_TYPE = bytes32("REG");
     bytes32 public constant TO_PAUSE_FOR_UPGRADE = bytes32("TO_PAUSE_FOR_UPGRADE");
     bytes32 public constant REPLICATE_FROM = bytes32("REPLICATE_FROM");
 
+    /// TEE version manager contract.
+    ITeeVersionManager public teeVersionManager;
     /// TEE fee calculator contract.
     ITeeFeeCalculator public teeFeeCalculator;
     /// TEE instructions contract.
@@ -48,10 +46,6 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     /// Relay contract.
     IRelay public relay;
 
-    /// The minimum supported version.
-    uint256 public minSupportedVersion;
-    /// The latest version.
-    uint256 public latestVersion;
     /// The minimum duration (in paused status) before a TEE machine can be upgraded.
     uint256 public pauseBeforeUpgradeMinDurationSeconds;
     /// The duration for which an availability check proof is valid.
@@ -62,9 +56,6 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
 
     AddressSet.State private activeTeeIds;
     mapping(address teeId => TeeState) private teeStates;
-    mapping(bytes32 codeHash => TeeVersion) private codeHashToVersion;
-    mapping(uint256 version => bytes32[]) private versionOpTypes; // utf8 encoded operation types (XRP, BTC, etc.)
-    mapping(uint256 version => bytes32) private versionToCodeHash;
     mapping(address oldTeeId => address newTeeId) public replications;
     /// Proposed new TEE owner.
     mapping(address teeId => address) public proposedTeeOwner;
@@ -82,7 +73,6 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
      * @param _pauseBeforeUpgradeMinDurationSeconds The minimum duration (paused status) before a tee can be upgraded.
      * @param _availabilityCheckProofValiditySeconds The duration for which an availability check proof is valid.
      * @param _availabilityCheckValidityDurationSeconds The duration for which the availability of a tee is valid.
-     * @param _minSupportedVersion The minimum supported version.
      */
     constructor(
         IGovernanceSettings _governanceSettings,
@@ -90,16 +80,13 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         address _addressUpdater,
         uint256 _pauseBeforeUpgradeMinDurationSeconds,
         uint256 _availabilityCheckProofValiditySeconds,
-        uint256 _availabilityCheckValidityDurationSeconds,
-        uint256 _minSupportedVersion
+        uint256 _availabilityCheckValidityDurationSeconds
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
         _setPauseBeforeUpgradeMinDuration(_pauseBeforeUpgradeMinDurationSeconds);
         _setAvailabilityCheckProofValidity(_availabilityCheckProofValiditySeconds);
         _setAvailabilityCheckValidityDuration(_availabilityCheckValidityDurationSeconds);
-        require(_minSupportedVersion > 0, "invalid version");
-        minSupportedVersion = _minSupportedVersion;
     }
 
     /**
@@ -114,8 +101,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         external payable
     {
         require(teeStates[_teeId].owner == address(0), "tee already registered");
-        _checkVersionSupported(_codeHash);
-        require(_isSupportedPlatform(_platform, codeHashToVersion[_codeHash].platforms), "platform not supported");
+        _checkCodeHashPlatformSupported(_codeHash, _platform);
 
         teeStates[_teeId] = TeeState({
             owner: msg.sender,
@@ -156,7 +142,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         require(status == TeeStatus.INITIALIZED || status == TeeStatus.PAUSED, "invalid tee status");
         require(_proof.data.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
             "invalid availability status");
-        _checkVersionSupported(teeState.codeHash);
+        _checkCodeHashPlatformSupported(teeState.codeHash, teeState.platform);
         _validateAvailabilityCheckTs(teeId, _proof.data.timestamp);
         _validateAvailabilityCheckResponse(teeState, _proof);
 
@@ -183,7 +169,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         require(teeState.status == TeeStatus.PRODUCTION, "invalid tee status");
         require(_proof.data.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
             "invalid availability status");
-        _checkVersionSupported(teeState.codeHash);
+        _checkCodeHashPlatformSupported(teeState.codeHash, teeState.platform);
         _validateAvailabilityCheckTs(teeId, _proof.data.timestamp);
         _validateAvailabilityCheckResponse(teeState, _proof);
 
@@ -202,8 +188,9 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     {
         TeeState storage teeState = teeStates[_teeId];
         require(teeState.status == TeeStatus.PRODUCTION, "invalid tee status");
-        require(msg.sender == teeState.owner || codeHashToVersion[teeState.codeHash].version < minSupportedVersion,
-            "only owner or obsolete version");
+        require(msg.sender == teeState.owner ||
+            teeVersionManager.codeHashPlatformDisabled(teeState.codeHash, teeState.platform),
+            "only owner or disabled version");
 
         teeState.status = TeeStatus.PAUSED;
         teeState.lastStatusChangeTs = uint64(block.timestamp);
@@ -280,8 +267,8 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         require(newTeeState.status == TeeStatus.INITIALIZED ||
             (replications[_oldTeeId] == newTeeId && newTeeState.status == TeeStatus.REPLICATING), // retry
             "invalid new tee status");
-        _checkVersionSupported(newTeeState.codeHash);
-        require(_getTeeVersion(newTeeId) >= _getTeeVersion(_oldTeeId), "new tee version too old");
+        _checkCodeHashPlatformSupported(newTeeState.codeHash, newTeeState.platform);
+        require(_areTeeMachinesCompatible(oldTeeState, newTeeState), "tee machines not compatible");
         _validateAvailabilityCheckTs(newTeeId, _proof.data.timestamp);
         _validateAvailabilityCheckResponse(newTeeState, _proof);
         _checkFee(REPLICATE_FROM, newTeeId);
@@ -293,16 +280,6 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             oldTeeMachine: _getTeeMachineWithAttestationData(_oldTeeId, oldTeeState),
             newTeeMachine: _getTeeMachineWithAttestationData(newTeeId, newTeeState)
         });
-        require(
-            _isSupportedPlatform(
-                message.newTeeMachine.platform,
-                codeHashToVersion[message.oldTeeMachine.codeHash].platforms
-            ) &&
-            _isSupportedPlatform(
-                message.oldTeeMachine.platform,
-                codeHashToVersion[message.newTeeMachine.codeHash].platforms
-            ),
-            "platforms not supported");
 
         bytes32 instructionId = keccak256(abi.encode(REG_OP_TYPE, REPLICATE_FROM, _oldTeeId, newTeeId));
         teeInstructions.sendInstructions{value: msg.value}(
@@ -335,7 +312,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         require(newTeeState.status == TeeStatus.REPLICATING, "invalid new tee status");
         // in case multiple replications are triggered only the last one can be confirmed
         require(replications[oldTeeId] == _newTeeId, "replication not valid");
-        _checkVersionSupported(newTeeState.codeHash);
+        _checkCodeHashPlatformSupported(newTeeState.codeHash, newTeeState.platform);
 
         _validateAvailabilityCheckTs(_newTeeId, _proof.data.timestamp);
         _validateAvailabilityCheckResponse(newTeeState, _proof);
@@ -371,80 +348,6 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         require(proposedTeeOwner[_teeId] == msg.sender, "only proposed owner");
         teeStates[_teeId].owner = msg.sender;
         delete proposedTeeOwner[_teeId];
-    }
-
-    /**
-     * Set the minimum supported version.
-     * @param _minSupportedVersion The minimum supported version.
-     * Can only be called by the governance.
-     */
-    function setMinSupportedVersion(uint256 _minSupportedVersion)
-        external onlyGovernance
-    {
-        require(_minSupportedVersion > minSupportedVersion && _minSupportedVersion <= latestVersion,
-            "invalid version");
-        minSupportedVersion = _minSupportedVersion;
-    }
-
-    /**
-     * Add a new TEE version.
-     * @param _version The version number.
-     * @param _codeHash The code hash.
-     * @param _platforms The supported platforms.
-     * @param _opTypes The supported operation types.
-     * Can only be called by the governance.
-     */
-    function addNewTeeVersion(
-        uint256 _version,
-        bytes32 _codeHash,
-        bytes32[] calldata _platforms, // utf8 encoded platforms
-        bytes32[] calldata _opTypes // utf8 encoded operation types (XRP, BTC, FDC, etc.)
-    )
-        external onlyGovernance
-    {
-        require(_version > latestVersion, "invalid version");
-        require(_codeHash != bytes32(0), "invalid code hash");
-        require(codeHashToVersion[_codeHash].version == 0, "code hash already registered");
-        latestVersion = _version;
-        codeHashToVersion[_codeHash] = TeeVersion({
-            version: _version,
-            platforms: _platforms
-        });
-        versionToCodeHash[_version] = _codeHash;
-        versionOpTypes[_version] = _opTypes;
-    }
-
-    /**
-     * Set the minimum duration before a TEE can be paused for upgrade.
-     * @param _pauseBeforeUpgradeMinDurationSeconds The minimum duration in seconds.
-     * Can only be called by the governance.
-     */
-    function setPauseBeforeUpgradeMinDurationSeconds(uint256 _pauseBeforeUpgradeMinDurationSeconds)
-        external onlyGovernance
-    {
-        _setPauseBeforeUpgradeMinDuration(_pauseBeforeUpgradeMinDurationSeconds);
-    }
-
-    /**
-     * Set the duration for which an availability check proof is valid.
-     * @param _availabilityCheckProofValiditySeconds The duration in seconds.
-     * Can only be called by the governance.
-     */
-    function setAvailabilityCheckProofValiditySeconds(uint256 _availabilityCheckProofValiditySeconds)
-        external onlyGovernance
-    {
-        _setAvailabilityCheckProofValidity(_availabilityCheckProofValiditySeconds);
-    }
-
-    /**
-     * Set the duration for which the availability check validity is extended.
-     * @param _availabilityCheckValidityDurationSeconds The duration in seconds.
-     * Can only be called by the governance.
-     */
-    function setAvailabilityCheckValidityDurationSeconds(uint256 _availabilityCheckValidityDurationSeconds)
-        external onlyGovernance
-    {
-        _setAvailabilityCheckValidityDuration(_availabilityCheckValidityDurationSeconds);
     }
 
     /**
@@ -518,36 +421,17 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     /**
      * @inheritdoc ITeeRegistry
      */
-    function arePlatformsCompatible(address _teeId, address[] calldata _backupTeeIds)
+    function areTeeMachinesCompatible(address _teeId, address[] calldata _backupTeeIds)
         external view
         returns(bool)
     {
         TeeState storage teeState = teeStates[_teeId];
-        bytes32 platform = teeState.platform;
-        bytes32[] storage platforms = codeHashToVersion[teeState.codeHash].platforms;
         for (uint256 i = 0; i < _backupTeeIds.length; i++) {
-            TeeState storage backupTeeState = teeStates[_backupTeeIds[i]];
-            // check if backup tee platform is compatible with main tee
-            if (!_isSupportedPlatform(backupTeeState.platform, platforms)) {
-                return false;
-            }
-            // check if main tee platform is compatible with backup tee
-            if (!_isSupportedPlatform(platform, codeHashToVersion[backupTeeState.codeHash].platforms)) {
+            if (!_areTeeMachinesCompatible(teeState, teeStates[_backupTeeIds[i]])) {
                 return false;
             }
         }
         return true;
-    }
-
-    /**
-     * @inheritdoc ITeeRegistry
-     */
-    function getTeeMachineVersion(address _teeId)
-        external view
-        returns(uint256 _version)
-    {
-        _version = _getTeeVersion(_teeId);
-        require(_version != 0, "tee not found");
     }
 
     /**
@@ -561,47 +445,6 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc ITeeRegistry
-     */
-    function getVersionInfo(uint256 _version)
-        external view
-        returns(bytes32 _codeHash, bytes32[] memory _platforms, bytes32[] memory _opTypes)
-    {
-        _codeHash = versionToCodeHash[_version];
-        require(_codeHash != bytes32(0), "invalid version");
-        TeeVersion storage teeVersion = codeHashToVersion[_codeHash];
-        _platforms = teeVersion.platforms;
-        _opTypes = versionOpTypes[_version];
-    }
-
-    /**
-     * @inheritdoc ITeeRegistry
-     */
-    function getCodeHashVersion(bytes32 _codeHash)
-        external view
-        returns(uint256 _version)
-    {
-        _version = codeHashToVersion[_codeHash].version;
-        require(_version != 0, "invalid code hash");
-    }
-
-    /**
-     * @inheritdoc ITeeRegistry
-     */
-    function isOpTypeSupported(address _teeId, bytes32 _opType)
-        external view
-        returns(bool)
-    {
-        bytes32[] storage opTypes = versionOpTypes[_getTeeVersion(_teeId)];
-        for (uint256 i = 0; i < opTypes.length; i++) {
-            if (opTypes[i] == _opType) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
      * @inheritdoc AddressUpdatable
      */
     function _updateContractAddresses(
@@ -610,6 +453,8 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     )
         internal override
     {
+        teeVersionManager = ITeeVersionManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeVersionManager"));
         teeFeeCalculator = ITeeFeeCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
         teeInstructions = ITeeInstructions(
@@ -695,23 +540,6 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             "availability check validity expired");
     }
 
-    function _checkVersionSupported(bytes32 _codeHash) internal view {
-        require(codeHashToVersion[_codeHash].version >= minSupportedVersion, "version not supported");
-    }
-
-    function _isSupportedPlatform(bytes32 _platform, bytes32[] storage _platforms) internal view returns(bool) {
-        for (uint256 i = 0; i < _platforms.length; i++) {
-            if (_platforms[i] == _platform) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function _getTeeVersion(address _teeId) internal view returns(uint256) {
-        return codeHashToVersion[teeStates[_teeId].codeHash].version;
-    }
-
     function _getTeeState(address _teeId) internal view returns(TeeState storage _teeState) {
         address teeId = replications[_teeId];
         _teeState = teeId != address(0) ? teeStates[teeId] : teeStates[_teeId];
@@ -729,6 +557,27 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             codeHash: teeState.codeHash,
             platform: teeState.platform
         });
+    }
+
+    function _checkCodeHashPlatformSupported(
+        bytes32 _codeHash,
+        bytes32 _platform
+    )
+        internal view
+    {
+        require(teeVersionManager.isCodeHashPlatformSupported(_codeHash, _platform),
+            "code hash or platform not supported");
+    }
+
+    function _areTeeMachinesCompatible(
+        TeeState storage _teeState1,
+        TeeState storage _teeState2
+    )
+        internal view
+        returns(bool)
+    {
+        return teeVersionManager.isCodeHashPlatformSupported(_teeState1.codeHash, _teeState2.platform) &&
+            teeVersionManager.isCodeHashPlatformSupported(_teeState2.codeHash, _teeState1.platform);
     }
 
     function _checkFee(
