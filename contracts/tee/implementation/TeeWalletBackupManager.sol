@@ -191,7 +191,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
     /**
      * @inheritdoc ITeeWalletBackupManager
      */
-    function dataProviderRestoreInit(
+    function backupRestoreInit(
         address _teeId,
         bytes32 _walletId,
         uint64 _keyId,
@@ -200,13 +200,13 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         external payable
         onlyOwnerOrBackupManager(_walletId)
     {
-        _dataProviderRestore(_teeId, _walletId, _keyId, _rewardEpochId, KEY_DATA_PROVIDER_RESTORE_INIT);
+        _backupRestore(_teeId, _walletId, _keyId, _rewardEpochId, KEY_DATA_PROVIDER_RESTORE_INIT);
     }
 
     /**
      * @inheritdoc ITeeWalletBackupManager
      */
-    function dataProviderRestore(
+    function backupRestore(
         address _teeId,
         bytes32 _walletId,
         uint64 _keyId,
@@ -215,7 +215,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         external payable
         onlyOwnerOrBackupManager(_walletId)
     {
-        _dataProviderRestore(_teeId, _walletId, _keyId, _rewardEpochId, KEY_DATA_PROVIDER_RESTORE);
+        _backupRestore(_teeId, _walletId, _keyId, _rewardEpochId, KEY_DATA_PROVIDER_RESTORE);
     }
 
     /**
@@ -240,7 +240,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 
-    function _dataProviderRestore(
+    function _backupRestore(
         address _teeId,
         bytes32 _walletId,
         uint64 _keyId,

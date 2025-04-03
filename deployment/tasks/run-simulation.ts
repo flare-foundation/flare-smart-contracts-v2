@@ -340,8 +340,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
 
   // TEE
   logger.info(`Setting TEE governance ${teeGovernanceSigners.map(x => x.address)} with threshold ${teeGovernanceSignersThreshold}`);
-  await c.teeVersionManager.setNewTeeGovernance(teeGovernanceSigners.map(x => x.address), teeGovernanceSignersThreshold, { from: governanceAccount.address });
-  const governanceHash = await c.teeVersionManager.latestTeeGovernanceHash();
+  await c.teeGovernance.setNewTeeGovernance(teeGovernanceSigners.map(x => x.address), teeGovernanceSignersThreshold, { from: governanceAccount.address });
+  const governanceHash = await c.teeGovernance.latestTeeGovernanceHash();
 
   logger.info(`TEE_CODE_HASH: ${TEE_CODE_HASH}`);
   const supportedPlatforms = [web3.utils.utf8ToHex("GOOGLE_TDX").padEnd(66, "0"), web3.utils.utf8ToHex("GOOGLE_AMD").padEnd(66, "0")]

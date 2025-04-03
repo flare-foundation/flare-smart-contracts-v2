@@ -100,7 +100,7 @@ interface ITeeWalletBackupManager {
      * @param _keyId The key id.
      * @param _rewardEpochId The reward epoch id.
      */
-    function dataProviderRestoreInit(
+    function backupRestoreInit(
         address _teeId,
         bytes32 _walletId,
         uint64 _keyId,
@@ -111,13 +111,13 @@ interface ITeeWalletBackupManager {
     /**
      * Triggers a wallet key restore (decryption) from data providers backup created at given reward epoch.
      * All shamir shares have to be uploaded to the tee machine before calling this function.
-     * The process is initiated by calling `dataProvidersRestoreInit` first.
+     * The process is initiated by calling `backupRestoreInit` first.
      * @param _teeId The tee id.
      * @param _walletId The wallet id.
      * @param _keyId The key id.
      * @param _rewardEpochId The reward epoch id.
      */
-    function dataProviderRestore(
+    function backupRestore(
         address _teeId,
         bytes32 _walletId,
         uint64 _keyId,

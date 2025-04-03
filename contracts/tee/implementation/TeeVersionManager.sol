@@ -4,16 +4,12 @@ pragma solidity 0.8.20;
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeeVersionManager.sol";
+import "../../userInterfaces/tee/ITeeGovernance.sol";
 
 /**
  * TeeVersionManager is used for managing TEE versions.
  */
 contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
-
-    struct TeeVersionGovernance {
-        address[] signers;
-        uint256 signersThreshold;
-    }
 
     struct TeeVersion {
         string version;
@@ -21,12 +17,12 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         bytes32[] platforms; // utf8 encoded platform
     }
 
+    /// The TEE governance contract.
+    ITeeGovernance public teeGovernance;
+
     mapping(bytes32 codeHash => TeeVersion) private codeHashToVersion;
-    mapping(bytes32 governanceHash => TeeVersionGovernance) private governanceHashToGovernance;
     /// Disabled code hash and platform mapping.
     mapping(bytes32 codeHash => mapping(bytes32 platform => bool)) public codeHashPlatformDisabled;
-    /// The latest TEE governance hash.
-    bytes32 public latestTeeGovernanceHash;
 
     /**
      * Constructor.
@@ -41,27 +37,6 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
-    }
-
-    /**
-     * Sets new TEE governance.
-     * @param _signers The new governance signers.
-     * @param _signersThreshold The new governance signers threshold.
-     * Can only be called by the governance.
-     */
-    function setNewTeeGovernance(
-        address[] calldata _signers,
-        uint256 _signersThreshold
-    )
-        external onlyGovernance
-    {
-        require(_signers.length > 0, "no signers");
-        require(_signersThreshold > 0 && _signersThreshold <= _signers.length, "invalid threshold");
-        latestTeeGovernanceHash = keccak256(abi.encode(_signers, _signersThreshold));
-        governanceHashToGovernance[latestTeeGovernanceHash] = TeeVersionGovernance({
-            signers: _signers,
-            signersThreshold: _signersThreshold
-        });
     }
 
     /**
@@ -83,7 +58,7 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         require(_codeHash != bytes32(0), "code hash zero");
         require(_platforms.length > 0, "no platforms");
         require(bytes(codeHashToVersion[_codeHash].version).length == 0, "version already exists");
-        require(governanceHashToGovernance[_governanceHash].signersThreshold > 0, "invalid governance hash");
+        require(teeGovernance.isGovernanceHashValid(_governanceHash), "invalid governance hash");
 
         codeHashToVersion[_codeHash] = TeeVersion({
             governanceHash: _governanceHash,
@@ -124,31 +99,6 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the governance for the given governance hash.
-     * @param _governanceHash The governance hash.
-     * @return _signers The governance signers.
-     * @return _signersThreshold The governance signers threshold.
-     */
-    function getTeeGovernance(bytes32 _governanceHash)
-        external view
-        returns(address[] memory _signers, uint256 _signersThreshold)
-    {
-        return _getGovernance(_governanceHash);
-    }
-
-    /**
-     * Returns the latest governance.
-     * @return _signers The latest governance signers.
-     * @return _signersThreshold The latest governance signers threshold.
-     */
-    function getLatestTeeGovernance()
-        external view
-        returns(address[] memory _signers, uint256 _signersThreshold)
-    {
-        return _getGovernance(latestTeeGovernanceHash);
-    }
-
-    /**
      * Returns the code hash info (governance hash, version and platforms).
      * @param _codeHash The code hash.
      * @return _governanceHash The governance hash.
@@ -165,6 +115,9 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         _platforms = codeHashToVersion[_codeHash].platforms;
     }
 
+    /**
+     * @inheritdoc ITeeVersionManager
+     */
     function isCodeHashPlatformSupported(
         bytes32 _codeHash,
         bytes32 _platform
@@ -196,15 +149,6 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
     )
         internal override
     {
-
-    }
-
-    function _getGovernance(bytes32 _governanceHash)
-        internal view
-        returns(address[] memory _signers, uint256 _signersThreshold)
-    {
-        _signersThreshold = governanceHashToGovernance[_governanceHash].signersThreshold;
-        require(_signersThreshold > 0, "invalid governance hash");
-        _signers = governanceHashToGovernance[_governanceHash].signers;
+        teeGovernance = ITeeGovernance(_getContractAddress(_contractNameHashes, _contractAddresses, "TeeGovernance"));
     }
 }

@@ -17,6 +17,8 @@ import { TeeDataConnectorContract } from "../../typechain-truffle/contracts/tee/
 import { TeePaymentsEVMContract } from "../../typechain-truffle/contracts/tee/implementation/TeePaymentsEVM";
 import { TeeWalletProjectManagerContract } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletProjectManager";
 import { TeeVersionManagerContract } from "../../typechain-truffle/contracts/tee/implementation/TeeVersionManager";
+import { tee } from "../../typechain/contracts";
+import { TeeGovernanceContract } from "../../typechain-truffle/contracts/tee/implementation/TeeGovernance";
 
 export async function deployTeeContracts(
   hre: HardhatRuntimeEnvironment,
@@ -28,6 +30,8 @@ export async function deployTeeContracts(
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
 
+  // Import contract artifacts
+  const TeeGovernance: TeeGovernanceContract = artifacts.require("TeeGovernance");
   const TeeVersionManager: TeeVersionManagerContract = artifacts.require("TeeVersionManager");
   const TeeRegistry: TeeRegistryContract = artifacts.require("TeeRegistry");
   const TeeWalletProjectManager: TeeWalletProjectManagerContract = artifacts.require("TeeWalletProjectManager");
@@ -61,6 +65,13 @@ export async function deployTeeContracts(
   const fdcRequestFeeConfigurations = contracts.getContractAddress(Contracts.FDC_REQUEST_FEE_CONFIGURATIONS);
 
   // deploy contracts
+  const teeGovernance = await TeeGovernance.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address
+  );
+  spewNewContractInfo(contracts, null, TeeGovernance.contractName, `TeeGovernance.sol`, teeGovernance.address, quiet);
+
   const teeVersionManager = await TeeVersionManager.new(
     governanceSettings,
     deployerAccount.address,
@@ -158,9 +169,13 @@ export async function deployTeeContracts(
   }
 
   // update contract addresses
-  await teeVersionManager.updateContractAddresses(
+  await teeGovernance.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER]),
     [addressUpdater]);
+
+  await teeVersionManager.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_GOVERNANCE]),
+    [addressUpdater, teeGovernance.address]);
 
   await teeRegistry.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.TEE_DATA_CONNECTOR, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
@@ -214,6 +229,7 @@ export async function deployTeeContracts(
   ]);
 
   // switch to production mode
+  await teeGovernance.switchToProductionMode();
   await teeVersionManager.switchToProductionMode();
   await teeRegistry.switchToProductionMode();
   await teeWalletProjectManager.switchToProductionMode();
