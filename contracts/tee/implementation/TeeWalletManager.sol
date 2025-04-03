@@ -603,7 +603,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         for (uint256 i = 0; i < wallet.keyIds.length; i++) {
             bool keyAvailable = false;
             uint256 keyId = wallet.keyIds[i];
-            KeyDefinition storage keyDefinition = wallet.keyDefinitions[wallet.keyIds[i]];
+            KeyDefinition storage keyDefinition = wallet.keyDefinitions[keyId];
             for (uint256 j = 0; j < keyDefinition.teeIds.length; j++) {
                 if (teeRegistry.getTeeMachineStatus(keyDefinition.teeIds[j]) == ITeeRegistry.TeeStatus.PRODUCTION) {
                     keyAvailable = true;

@@ -94,6 +94,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
         require(_maxBatchSize > 0, "max batch size zero");
+        require(_opType != bytes32(0), "op type zero");
         maxBatchSize = _maxBatchSize;
         maxBatchDurationSeconds = _maxBatchDurationSeconds;
         opType = _opType;
