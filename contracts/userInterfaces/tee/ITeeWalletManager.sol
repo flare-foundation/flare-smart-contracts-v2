@@ -193,6 +193,15 @@ interface ITeeWalletManager {
         returns (ITeeRegistry.TeeMachine[] memory _receivingTees, TeeIdKeyIdPair[] memory _teeIdKeyIdPairs);
 
     /**
+     * Returns the list of wallet ids for the project.
+     * @param _projectId The project id.
+     * @return _walletIds The list of wallet ids.
+     */
+    function getProjectWalletIds(bytes32 _projectId)
+        external view
+        returns (bytes32[] memory _walletIds);
+
+    /**
      * Returns wallet project id.
      * @param _walletId The wallet id.
      * @return _projectId The project id.

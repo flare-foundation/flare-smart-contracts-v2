@@ -54,6 +54,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     uint256 public keyExistenceProofValiditySeconds;
     uint256 public walletCounter = 0;
     mapping(bytes32 walletId => TeeWalletState) private wallets;
+    mapping(bytes32 projectId => bytes32[] walletIds) private projectWallets;
 
     EnumerableSet.Bytes32Set private supportedOpTypes;
     /// Mapping of operation type to operation type constants provider.
@@ -117,6 +118,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         _walletId = keccak256(abi.encode(msg.sender, ++walletCounter));
         TeeWalletState storage wallet = wallets[_walletId];
         assert(wallet.projectId == bytes32(0)); // should never revert
+        projectWallets[_projectId].push(_walletId);
         wallet.projectId = _projectId;
         wallet.status = WalletStatus.CREATED;
         wallet.multisigThreshold = _multisigThreshold;
@@ -559,6 +561,16 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         external onlyGovernance
     {
         _setKeyExistenceProofValidity(_keyExistenceProofValiditySeconds);
+    }
+
+    /**
+     * @inheritdoc ITeeWalletManager
+     */
+     function getProjectWalletIds(bytes32 _projectId)
+        external view
+        returns (bytes32[] memory _walletIds)
+    {
+        return projectWallets[_projectId];
     }
 
     /**
