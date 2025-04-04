@@ -463,6 +463,63 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         wallet.status = WalletStatus.PAUSED;
     }
 
+     /**
+     * @inheritdoc ITeeWalletManager
+     */
+    function receivingTeesAndKeys(bytes32 _walletId)
+        external
+        returns (ITeeRegistry.TeeMachine[] memory _receivingTees, TeeIdKeyIdPair[] memory _teeIdKeyIdPairs)
+    {
+        TeeWalletState storage wallet = wallets[_walletId];
+        _checkWalletStatus(wallet.status, WalletStatus.PRODUCTION);
+        uint256 keyIdsLength = wallet.keyIds.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < keyIdsLength; i++) {
+            count += wallet.keyDefinitions[wallet.keyIds[i]].teeIds.length;
+        }
+        uint256[] memory unavailableKeyIds = new uint256[](keyIdsLength);
+        address[] memory teeMachines = new address[](count);
+        uint256[] memory keyIds = new uint256[](count);
+        count = 0;
+        uint256 threshold = 0;
+        uint256 unavailableKeyIdsCounter = 0;
+        for (uint256 i = 0; i < keyIdsLength; i++) {
+            bool keyAvailable = false;
+            uint256 keyId = wallet.keyIds[i];
+            KeyDefinition storage keyDefinition = wallet.keyDefinitions[keyId];
+            for (uint256 j = 0; j < keyDefinition.teeIds.length; j++) {
+                if (teeRegistry.getTeeMachineStatus(keyDefinition.teeIds[j]) == ITeeRegistry.TeeStatus.PRODUCTION) {
+                    keyAvailable = true;
+                    teeMachines[count] = keyDefinition.teeIds[j];
+                    keyIds[count] = keyId;
+                    count++;
+                }
+            }
+            if (keyAvailable) {
+                threshold++;
+            } else {
+                unavailableKeyIds[unavailableKeyIdsCounter++] = keyId;
+            }
+        }
+        require(threshold >= wallet.multisigThreshold, "not enough keys/tees available");
+        _receivingTees = new ITeeRegistry.TeeMachine[](count);
+        _teeIdKeyIdPairs = new TeeIdKeyIdPair[](count);
+        for (uint256 i = 0; i < count; i++) {
+            _receivingTees[i] = teeRegistry.getTeeMachine(teeMachines[i]);
+            _teeIdKeyIdPairs[i] = TeeIdKeyIdPair({
+                teeId: teeMachines[i],
+                keyId: keyIds[i]
+            });
+        }
+        if (unavailableKeyIdsCounter > 0) {
+            uint256[] memory unavailableKeyIdsTrimmed = new uint256[](unavailableKeyIdsCounter);
+            for (uint256 i = 0; i < unavailableKeyIdsCounter; i++) {
+                unavailableKeyIdsTrimmed[i] = unavailableKeyIds[i];
+            }
+            emit WalletKeysNotAvailable(_walletId, unavailableKeyIdsTrimmed);
+        }
+    }
+
     /**
      * Add supported operation types and their constants providers.
      * @param _opTypeConstantsProviders The operation type constants providers for the operation types.
@@ -581,51 +638,6 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         TeeWalletState storage wallet = wallets[_walletId];
         _cosigners = wallet.cosigners;
         _cosignersThreshold = wallet.cosignersThreshold;
-    }
-
-    /**
-     * @inheritdoc ITeeWalletManager
-     */
-    function receivingTeesAndKeys(bytes32 _walletId)
-        external view
-        returns (ITeeRegistry.TeeMachine[] memory _receivingTees, TeeIdKeyIdPair[] memory _teeIdKeyIdPairs)
-    {
-        TeeWalletState storage wallet = wallets[_walletId];
-        _checkWalletStatus(wallet.status, WalletStatus.PRODUCTION);
-        uint256 count = 0;
-        for (uint256 i = 0; i < wallet.keyIds.length; i++) {
-            count += wallet.keyDefinitions[wallet.keyIds[i]].teeIds.length;
-        }
-        address[] memory teeMachines = new address[](count);
-        uint256[] memory keyIds = new uint256[](count);
-        count = 0;
-        uint256 threshold = 0;
-        for (uint256 i = 0; i < wallet.keyIds.length; i++) {
-            bool keyAvailable = false;
-            uint256 keyId = wallet.keyIds[i];
-            KeyDefinition storage keyDefinition = wallet.keyDefinitions[keyId];
-            for (uint256 j = 0; j < keyDefinition.teeIds.length; j++) {
-                if (teeRegistry.getTeeMachineStatus(keyDefinition.teeIds[j]) == ITeeRegistry.TeeStatus.PRODUCTION) {
-                    keyAvailable = true;
-                    teeMachines[count] = keyDefinition.teeIds[j];
-                    keyIds[count] = keyId;
-                    count++;
-                }
-            }
-            if (keyAvailable) {
-                threshold++;
-            }
-        }
-        require(threshold >= wallet.multisigThreshold, "not enough keys/tees available");
-        _receivingTees = new ITeeRegistry.TeeMachine[](count);
-        _teeIdKeyIdPairs = new TeeIdKeyIdPair[](count);
-        for (uint256 i = 0; i < count; i++) {
-            _receivingTees[i] = teeRegistry.getTeeMachine(teeMachines[i]);
-            _teeIdKeyIdPairs[i] = TeeIdKeyIdPair({
-                teeId: teeMachines[i],
-                keyId: keyIds[i]
-            });
-        }
     }
 
     /**

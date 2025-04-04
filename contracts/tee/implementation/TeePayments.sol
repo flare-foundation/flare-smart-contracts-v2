@@ -111,6 +111,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
     {
         (bytes32 walletId, bytes32 walletOpType, address submitAddress) =
             teeWalletProjectManager.getDefaultWalletInfo(_projectId);
+        require(walletId != bytes32(0), "default wallet not set");
         require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(walletOpType, PAY, walletId), "fee too low");
         require(submitAddress == msg.sender, "only submit address");
         require(walletOpType == opType, "wrong op type");

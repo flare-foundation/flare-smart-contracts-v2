@@ -54,6 +54,11 @@ interface ITeeWalletManager {
         bytes32 indexed walletId
     );
 
+    event WalletKeysNotAvailable(
+        bytes32 indexed walletId,
+        uint256[] keyIds
+    );
+
     /**
      * Creates the wallet for the project.
      * @param _projectId The project id.
@@ -176,6 +181,18 @@ interface ITeeWalletManager {
     function pauseWallet(bytes32 _walletId) external;
 
     /**
+     * Returns wallet's receiving tees and keys.
+     * Reverts if not enough receiving tees are available or wallet is not in production status.
+     * @param _walletId The wallet id.
+     * @return _receivingTees The receiving tees.
+     * @return _teeIdKeyIdPairs The tee id and key id pairs.
+     * NOTE: If all keys are not available (e.g. some TEEs being down), `WalletKeysNotAvailable` event is emitted.
+     */
+    function receivingTeesAndKeys(bytes32 _walletId)
+        external
+        returns (ITeeRegistry.TeeMachine[] memory _receivingTees, TeeIdKeyIdPair[] memory _teeIdKeyIdPairs);
+
+    /**
      * Returns wallet project id.
      * @param _walletId The wallet id.
      * @return _projectId The project id.
@@ -216,17 +233,6 @@ interface ITeeWalletManager {
     function getWalletKeysInfo(bytes32 _walletId)
         external view
         returns (uint64 _multisigThreshold, uint256[] memory _keyIds, uint64 _counter);
-
-    /**
-     * Returns wallet's receiving tees and keys.
-     * Reverts if not enough receiving tees are available or wallet is not in production status.
-     * @param _walletId The wallet id.
-     * @return _receivingTees The receiving tees.
-     * @return _teeIdKeyIdPairs The tee id and key id pairs.
-     */
-    function receivingTeesAndKeys(bytes32 _walletId)
-        external view
-        returns (ITeeRegistry.TeeMachine[] memory _receivingTees, TeeIdKeyIdPair[] memory _teeIdKeyIdPairs);
 
     /**
      * Returns wallet's status.
