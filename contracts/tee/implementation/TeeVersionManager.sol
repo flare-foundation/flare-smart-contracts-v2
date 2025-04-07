@@ -5,16 +5,38 @@ import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeeVersionManager.sol";
 import "../../userInterfaces/tee/ITeeGovernance.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * TeeVersionManager is used for managing TEE versions.
  */
 contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
+    using EnumerableSet for EnumerableSet.Bytes32Set;
 
     struct TeeVersion {
         string version;
         bytes32 governanceHash;
-        bytes32[] platforms; // utf8 encoded platform
+        EnumerableSet.Bytes32Set platforms;
+    }
+
+    struct TeeUpgradePathState {
+        TeeUpgradePath upgradePath;
+        mapping(bytes32 sourceTeeNodeVersionHash => bool) sourceTeeNodeVersionExists;
+        mapping(bytes32 targetTeeNodeVersionHash => bool) targetTeeNodeVersionExists;
+    }
+
+    struct TeeUpgrade {
+        bytes32 sourceTeeGovernanceHash;
+        Signature[] sourceTeeGovernanceSignatures;
+        mapping(address => bool) sourceTeeGovernanceSigners;
+        bytes32 targetTeeGovernanceHash;
+        Signature[] targetTeeGovernanceSignatures;
+        mapping(address => bool) targetTeeGovernanceSigners;
+        TeeUpgradePathState[] upgradePaths;
+        bool upgradeFinalized;
+        bool upgradeSigned;
     }
 
     /// The TEE governance contract.
@@ -23,6 +45,14 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
     mapping(bytes32 codeHash => TeeVersion) private codeHashToVersion;
     /// Disabled code hash and platform mapping.
     mapping(bytes32 codeHash => mapping(bytes32 platform => bool)) public codeHashPlatformDisabled;
+
+    /// TEE upgrade mapping.
+    TeeUpgrade[] private teeUpgrades;
+
+    modifier onlyValidTeeUpgradeId(uint256 _teeUpgradeId) {
+        require(_teeUpgradeId < teeUpgrades.length, "invalid upgrade id");
+        _;
+    }
 
     /**
      * Constructor.
@@ -37,6 +67,95 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
+    }
+
+    /**
+     * Creates a new TEE upgrade.
+     * @param _sourceTeeGovernanceHash The source TEE governance hash.
+     * @param _targetTeeGovernanceHash The target TEE governance hash.
+     * @return _teeUpgradeId The TEE upgrade id.
+     * Can only be called by the governance.
+     */
+    function createNewTeeUpgrade(bytes32 _sourceTeeGovernanceHash, bytes32 _targetTeeGovernanceHash)
+        external onlyImmediateGovernance returns(uint256 _teeUpgradeId)
+    {
+        require(teeGovernance.isGovernanceHashValid(_sourceTeeGovernanceHash), "invalid from governance hash");
+        require(teeGovernance.isGovernanceHashValid(_targetTeeGovernanceHash), "invalid to governance hash");
+
+        _teeUpgradeId = teeUpgrades.length;
+        TeeUpgrade storage upgrade = teeUpgrades.push();
+        upgrade.sourceTeeGovernanceHash = _sourceTeeGovernanceHash;
+        upgrade.targetTeeGovernanceHash = _targetTeeGovernanceHash;
+        emit TeeUpgradeStarted(_teeUpgradeId, _sourceTeeGovernanceHash, _targetTeeGovernanceHash);
+    }
+
+    /**
+     * Adds TEE upgrade paths.
+     * @param _teeUpgradeId The TEE upgrade id.
+     * @param _upgradePaths The TEE upgrade paths.
+     * Can only be called by the governance.
+     */
+    function addTeeUpgradePaths(
+        uint256 _teeUpgradeId,
+        TeeUpgradePath[] calldata _upgradePaths
+    )
+        external onlyImmediateGovernance onlyValidTeeUpgradeId(_teeUpgradeId)
+    {
+        require(!teeUpgrades[_teeUpgradeId].upgradeFinalized, "upgrade already finalized");
+        require(_upgradePaths.length > 0, "no upgrade paths");
+
+        TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
+        bytes32 sourceTeeGovernanceHash = teeUpgrade.sourceTeeGovernanceHash;
+        bytes32 targetTeeGovernanceHash = teeUpgrade.targetTeeGovernanceHash;
+
+        for (uint256 i = 0; i < _upgradePaths.length; i++) {
+            TeeUpgradePath calldata upgradePath = _upgradePaths[i];
+            require(upgradePath.sourceVersions.length > 0, "no source versions");
+            require(upgradePath.targetVersions.length > 0, "no target versions");
+            TeeUpgradePathState storage upgradePathState = teeUpgrade.upgradePaths.push();
+            for (uint256 j = 0; j < upgradePath.sourceVersions.length; j++) {
+                TeeNodeVersion calldata sourceVersion = upgradePath.sourceVersions[j];
+                require(codeHashToVersion[sourceVersion.codeHash].platforms.contains(sourceVersion.platform),
+                    "source codeHash and platform not supported");
+                require(codeHashToVersion[sourceVersion.codeHash].governanceHash == sourceTeeGovernanceHash,
+                    "source governance hash mismatch");
+                bytes32 sourceVersionHash = keccak256(abi.encode(sourceVersion));
+                require(!upgradePathState.sourceTeeNodeVersionExists[sourceVersionHash],
+                    "source version already exists");
+                upgradePathState.sourceTeeNodeVersionExists[sourceVersionHash] = true;
+                upgradePathState.upgradePath.sourceVersions.push(sourceVersion);
+            }
+            for (uint256 j = 0; j < upgradePath.targetVersions.length; j++) {
+                TeeNodeVersion calldata targetVersion = upgradePath.targetVersions[j];
+                require(codeHashToVersion[targetVersion.codeHash].platforms.contains(targetVersion.platform),
+                    "target codeHash and platform not supported");
+                require(codeHashToVersion[targetVersion.codeHash].governanceHash == targetTeeGovernanceHash,
+                    "target governance hash mismatch");
+                bytes32 targetVersionHash = keccak256(abi.encode(targetVersion));
+                require(!upgradePathState.targetTeeNodeVersionExists[targetVersionHash],
+                    "target version already exists");
+                upgradePathState.targetTeeNodeVersionExists[targetVersionHash] = true;
+                upgradePathState.upgradePath.targetVersions.push(targetVersion);
+            }
+            emit TeeUpgradePathAdded(_teeUpgradeId, upgradePath);
+        }
+    }
+
+    /**
+     * Finalizes the TEE upgrade and makes it ready for signing.
+     * @param _teeUpgradeId The TEE upgrade id.
+     * Can only be called by the governance.
+     */
+    function finalizeTeeUpgrade(
+        uint256 _teeUpgradeId
+    )
+        external onlyImmediateGovernance onlyValidTeeUpgradeId(_teeUpgradeId)
+    {
+        TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
+        require(!teeUpgrade.upgradeFinalized, "upgrade already finalized");
+        require(teeUpgrade.upgradePaths.length > 0, "no upgrade paths");
+        teeUpgrade.upgradeFinalized = true;
+        emit TeeUpgradeFinalized(_teeUpgradeId);
     }
 
     /**
@@ -57,14 +176,15 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         require(bytes(_version).length > 0, "version empty");
         require(_codeHash != bytes32(0), "code hash zero");
         require(_platforms.length > 0, "no platforms");
-        require(bytes(codeHashToVersion[_codeHash].version).length == 0, "version already exists");
+        require(codeHashToVersion[_codeHash].governanceHash == bytes32(0), "version already exists");
         require(teeGovernance.isGovernanceHashValid(_governanceHash), "invalid governance hash");
 
-        codeHashToVersion[_codeHash] = TeeVersion({
-            governanceHash: _governanceHash,
-            version: _version,
-            platforms: _platforms
-        });
+        TeeVersion storage teeVersion = codeHashToVersion[_codeHash];
+        teeVersion.version = _version;
+        teeVersion.governanceHash = _governanceHash;
+        for (uint256 i = 0; i < _platforms.length; i++) {
+            require(teeVersion.platforms.add(_platforms[i]), "platform already exists");
+        }
     }
 
     /**
@@ -80,7 +200,7 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         external onlyImmediateGovernance
     {
         require(codeHashToVersion[_codeHash].governanceHash != bytes32(0), "invalid code hash");
-        bytes32[] memory platforms = codeHashToVersion[_codeHash].platforms;
+        bytes32[] memory platforms = codeHashToVersion[_codeHash].platforms.values();
         if (_platform != bytes32(0)) {
             for (uint256 i = 0; i < platforms.length; i++) {
                 if (platforms[i] == _platform) {
@@ -99,11 +219,65 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
     }
 
     /**
-     * Returns the code hash info (governance hash, version and platforms).
-     * @param _codeHash The code hash.
-     * @return _governanceHash The governance hash.
-     * @return _version The version.
-     * @return _platforms The supported platforms.
+     * @inheritdoc ITeeVersionManager
+     */
+   function signTeeUpgrade(
+        uint256 _teeUpgradeId,
+        Signature calldata _signature
+    )
+        external onlyValidTeeUpgradeId(_teeUpgradeId)
+    {
+        TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
+        require(!teeUpgrade.upgradeSigned, "upgrade already signed");
+        require(teeUpgrade.upgradeFinalized, "upgrade not finalized");
+
+        bytes32 messageHash = keccak256(abi.encode(_getTeeUpgradePaths(_teeUpgradeId)));
+        bytes32 sourceTeeGovernanceHash = teeUpgrade.sourceTeeGovernanceHash;
+        bytes32 targetTeeGovernanceHash = teeUpgrade.targetTeeGovernanceHash;
+
+        address signer = ECDSA.recover(
+            MessageHashUtils.toEthSignedMessageHash(messageHash),
+            _signature.v,
+            _signature.r,
+            _signature.s
+        );
+
+        uint256 sourceTeeGovernanceThreshold = teeGovernance.getTeeGovernanceThreshold(sourceTeeGovernanceHash);
+        // check if we need more signatures and the signer is an source TEE governance signer
+        if (teeUpgrade.sourceTeeGovernanceSignatures.length < sourceTeeGovernanceThreshold &&
+            teeGovernance.isTeeGovernanceSigner(sourceTeeGovernanceHash, signer))
+        {
+            // add the signer to the source TEE governance signers if not already added
+            if (!teeUpgrade.sourceTeeGovernanceSigners[signer]) {
+                teeUpgrade.sourceTeeGovernanceSigners[signer] = true;
+                teeUpgrade.sourceTeeGovernanceSignatures.push(_signature);
+            }
+        }
+
+        uint256 targetTeeGovernanceThreshold = teeGovernance.getTeeGovernanceThreshold(targetTeeGovernanceHash);
+        // check if we need more signatures and the signer is a target TEE governance signer
+        if (teeUpgrade.targetTeeGovernanceSignatures.length < targetTeeGovernanceThreshold &&
+            teeGovernance.isTeeGovernanceSigner(targetTeeGovernanceHash, signer))
+        {
+            // add the signer to the target TEE governance signers if not already added
+            if (!teeUpgrade.targetTeeGovernanceSigners[signer]) {
+                teeUpgrade.targetTeeGovernanceSigners[signer] = true;
+                teeUpgrade.targetTeeGovernanceSignatures.push(_signature);
+            }
+        }
+
+
+        // check if the upgrade is signed by the required number of signers
+        if (teeUpgrade.sourceTeeGovernanceSignatures.length >= sourceTeeGovernanceThreshold &&
+            teeUpgrade.targetTeeGovernanceSignatures.length >= targetTeeGovernanceThreshold)
+        {
+            teeUpgrade.upgradeSigned = true;
+            emit TeeUpgradeSigned(_teeUpgradeId);
+        }
+    }
+
+    /**
+     * @inheritdoc ITeeVersionManager
      */
     function getCodeHashInfo(bytes32 _codeHash)
         external view
@@ -112,7 +286,7 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         _governanceHash = codeHashToVersion[_codeHash].governanceHash;
         require(_governanceHash != bytes32(0), "invalid code hash");
         _version = codeHashToVersion[_codeHash].version;
-        _platforms = codeHashToVersion[_codeHash].platforms;
+        _platforms = codeHashToVersion[_codeHash].platforms.values();
     }
 
     /**
@@ -128,16 +302,84 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         if (codeHashPlatformDisabled[_codeHash][_platform]) {
             return false; // platform disabled
         }
-        if(codeHashToVersion[_codeHash].governanceHash == bytes32(0)) {
-            return false; // invalid code hash
-        }
-        bytes32[] storage platforms = codeHashToVersion[_codeHash].platforms;
-        for (uint256 i = 0; i < platforms.length; i++) {
-            if (platforms[i] == _platform) {
-                return true;
+        return codeHashToVersion[_codeHash].platforms.contains(_platform);
+    }
+
+    /**
+     * @inheritdoc ITeeVersionManager
+     */
+    function isTeeUpgradePathValid(
+        uint256 _teeUpgradeId,
+        bytes32 _sourceCodeHash,
+        bytes32 _sourcePlatform,
+        bytes32 _targetCodeHash,
+        bytes32 _targetPlatform
+    )
+        external view onlyValidTeeUpgradeId(_teeUpgradeId)
+        returns(bool)
+    {
+        TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
+        require(teeUpgrade.upgradeFinalized, "upgrade not finalized");
+        bytes32 sourceVersionHash = keccak256(abi.encode(TeeNodeVersion(_sourceCodeHash, _sourcePlatform)));
+        bytes32 targetVersionHash = keccak256(abi.encode(TeeNodeVersion(_targetCodeHash, _targetPlatform)));
+        for (uint256 i = 0; i < teeUpgrade.upgradePaths.length; i++) {
+            TeeUpgradePathState storage upgradePathState = teeUpgrade.upgradePaths[i];
+            if (upgradePathState.sourceTeeNodeVersionExists[sourceVersionHash] &&
+                upgradePathState.targetTeeNodeVersionExists[targetVersionHash]) {
+                return true; // upgrade path exists
             }
         }
-        return false; // invalid platform
+        return false;
+    }
+
+    /**
+     * @inheritdoc ITeeVersionManager
+     */
+    function isTeeUpgradeFinalized(
+        uint256 _teeUpgradeId
+    )
+        external view onlyValidTeeUpgradeId(_teeUpgradeId)
+        returns(bool)
+    {
+        return teeUpgrades[_teeUpgradeId].upgradeFinalized;
+    }
+
+    /**
+     * @inheritdoc ITeeVersionManager
+     */
+    function isTeeUpgradeSigned(
+        uint256 _teeUpgradeId
+    )
+        external view onlyValidTeeUpgradeId(_teeUpgradeId)
+        returns(bool)
+    {
+        return teeUpgrades[_teeUpgradeId].upgradeSigned;
+    }
+
+    /**
+     * @inheritdoc ITeeVersionManager
+     */
+    function getTeeUpgradePaths(
+        uint256 _teeUpgradeId
+    )
+        external view onlyValidTeeUpgradeId(_teeUpgradeId)
+        returns(TeeUpgradePath[] memory upgradePaths)
+    {
+        return _getTeeUpgradePaths(_teeUpgradeId);
+    }
+
+    /**
+     * @inheritdoc ITeeVersionManager
+     */
+    function getTeeUpgradeSignatures(
+        uint256 _teeUpgradeId
+    )
+        external view onlyValidTeeUpgradeId(_teeUpgradeId)
+        returns(Signature[] memory sourceTeeGovernanceSignatures, Signature[] memory targetTeeGovernanceSignatures)
+    {
+        TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
+        sourceTeeGovernanceSignatures = teeUpgrade.sourceTeeGovernanceSignatures;
+        targetTeeGovernanceSignatures = teeUpgrade.targetTeeGovernanceSignatures;
     }
 
     /**
@@ -150,5 +392,18 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         internal override
     {
         teeGovernance = ITeeGovernance(_getContractAddress(_contractNameHashes, _contractAddresses, "TeeGovernance"));
+    }
+
+    function _getTeeUpgradePaths(
+        uint256 _teeUpgradeId
+    )
+        internal view
+        returns(TeeUpgradePath[] memory _upgradePaths)
+    {
+        TeeUpgradePathState[] storage teeUpgradePaths = teeUpgrades[_teeUpgradeId].upgradePaths;
+        _upgradePaths = new TeeUpgradePath[](teeUpgradePaths.length);
+        for (uint256 i = 0; i < _upgradePaths.length; i++) {
+            _upgradePaths[i] = teeUpgradePaths[i].upgradePath;
+        }
     }
 }

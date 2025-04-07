@@ -2,6 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import "./ITeeAvailabilityCheck.sol";
+import "./ITeeVersionManager.sol";
 
 /**
  * TeeRegistry interface.
@@ -33,6 +34,9 @@ interface ITeeRegistry {
     struct ReplicateTeeMachine {
         TeeMachineWithAttestationData oldTeeMachine;
         TeeMachineWithAttestationData newTeeMachine;
+        ITeeVersionManager.TeeUpgradePath[] upgradePaths;
+        Signature[] sourceSignatures;
+        Signature[] targetSignatures;
     }
 
     event AvailabilityCheckValidityExtended(address indexed teeId, uint256 endTs);
@@ -109,10 +113,12 @@ interface ITeeRegistry {
      * Replicate a TEE machine. Can only be called by the TEE machine owner.
      * @param _oldTeeId The old TEE machine id.
      * @param _proof The availability check proof for the new TEE machine.
+     * @param _teeUpgradeId The TEE upgrade id.
      */
     function replicateFrom(
         address _oldTeeId,
-        ITeeAvailabilityCheck.Proof calldata _proof
+        ITeeAvailabilityCheck.Proof calldata _proof,
+        uint256 _teeUpgradeId
     )
         external payable;
 

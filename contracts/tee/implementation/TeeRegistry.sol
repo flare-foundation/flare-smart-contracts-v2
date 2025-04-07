@@ -252,7 +252,8 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
      */
     function replicateFrom(
         address _oldTeeId,
-        ITeeAvailabilityCheck.Proof calldata _proof
+        ITeeAvailabilityCheck.Proof calldata _proof,
+        uint256 _teeUpgradeId
     )
         external payable
         onlyOwner(_oldTeeId)
@@ -272,13 +273,23 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         _validateAvailabilityCheckTs(newTeeId, _proof.data.timestamp);
         _validateAvailabilityCheckResponse(newTeeState, _proof);
         _checkFee(REPLICATE_FROM, newTeeId);
+        require(teeVersionManager.isTeeUpgradePathValid(
+            _teeUpgradeId, oldTeeState.codeHash, oldTeeState.platform, newTeeState.codeHash, newTeeState.platform),
+            "invalid tee upgrade path");
+        require(teeVersionManager.isTeeUpgradeSigned(_teeUpgradeId), "tee upgrade not signed");
+
+        (Signature[] memory sourceSignatures, Signature[] memory targetSignatures) =
+            teeVersionManager.getTeeUpgradeSignatures(_teeUpgradeId);
 
         replications[_oldTeeId] = newTeeId;
         newTeeState.status = TeeStatus.REPLICATING;
         newTeeState.lastStatusChangeTs = uint64(block.timestamp);
         ReplicateTeeMachine memory message = ReplicateTeeMachine({
             oldTeeMachine: _getTeeMachineWithAttestationData(_oldTeeId, oldTeeState),
-            newTeeMachine: _getTeeMachineWithAttestationData(newTeeId, newTeeState)
+            newTeeMachine: _getTeeMachineWithAttestationData(newTeeId, newTeeState),
+            upgradePaths: teeVersionManager.getTeeUpgradePaths(_teeUpgradeId),
+            sourceSignatures: sourceSignatures,
+            targetSignatures: targetSignatures
         });
 
         bytes32 instructionId = keccak256(abi.encode(REG_OP_TYPE, REPLICATE_FROM, _oldTeeId, newTeeId));

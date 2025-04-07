@@ -4,14 +4,16 @@ pragma solidity 0.8.20;
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeeGovernance.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * TeeGovernance is used for managing TEE governance.
  */
 contract TeeGovernance is ITeeGovernance, Governed, AddressUpdatable {
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     struct TeeGovernanceState {
-        address[] signers;
+        EnumerableSet.AddressSet signers;
         uint256 signersThreshold;
     }
 
@@ -48,11 +50,42 @@ contract TeeGovernance is ITeeGovernance, Governed, AddressUpdatable {
     {
         require(_signers.length > 0, "no signers");
         require(_signersThreshold > 0 && _signersThreshold <= _signers.length, "invalid threshold");
-        latestTeeGovernanceHash = keccak256(abi.encode(_signers, _signersThreshold));
-        governanceHashToTeeGovernance[latestTeeGovernanceHash] = TeeGovernanceState({
-            signers: _signers,
-            signersThreshold: _signersThreshold
-        });
+        bytes32 governanceHash = keccak256(abi.encode(_signers, _signersThreshold));
+        emit NewTeeGovernanceSet(governanceHash, _signers, _signersThreshold);
+        latestTeeGovernanceHash = governanceHash;
+        TeeGovernanceState storage teeGovernance = governanceHashToTeeGovernance[governanceHash];
+        if (teeGovernance.signersThreshold > 0) {
+            return; // already set - just update the latest governance hash
+        }
+        teeGovernance.signersThreshold = _signersThreshold;
+        for (uint256 i = 0; i < _signers.length; i++) {
+            require(teeGovernance.signers.add(_signers[i]), "signer already exists");
+        }
+    }
+
+    /**
+     * @inheritdoc ITeeGovernance
+     */
+    function getTeeGovernanceThreshold(
+        bytes32 _governanceHash
+    )
+        external view
+        returns (uint256)
+    {
+        return governanceHashToTeeGovernance[_governanceHash].signersThreshold;
+    }
+
+    /**
+     * @inheritdoc ITeeGovernance
+     */
+    function isTeeGovernanceSigner(
+        bytes32 _governanceHash,
+        address _signer
+    )
+        external view
+        returns (bool)
+    {
+        return governanceHashToTeeGovernance[_governanceHash].signers.contains(_signer);
     }
 
     /**
@@ -105,6 +138,6 @@ contract TeeGovernance is ITeeGovernance, Governed, AddressUpdatable {
     {
         _signersThreshold = governanceHashToTeeGovernance[_governanceHash].signersThreshold;
         require(_signersThreshold > 0, "invalid governance hash");
-        _signers = governanceHashToTeeGovernance[_governanceHash].signers;
+        _signers = governanceHashToTeeGovernance[_governanceHash].signers.values();
     }
 }
