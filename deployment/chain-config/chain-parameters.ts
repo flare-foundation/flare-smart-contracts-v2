@@ -531,6 +531,11 @@ export interface ChainParameters {
      * The default number of TEEs used in FTDC.
      */
     ftdcDefaultNumberOfTees: integer;
+
+    /**
+     *  The supported FTDC requests fee configurations.
+     */
+    ftdcRequestFees: FtdcRequestFee[];
 }
 
 export interface FtsoInflationConfiguration {
@@ -758,6 +763,23 @@ export interface TeeOperationFee {
 
     /**
      * The fee per operation type + command. In Wei.
+     */
+    feeWei: string;
+}
+
+export interface FtdcRequestFee {
+    /**
+     * The attestation type.
+     */
+    attestationType: string;
+
+    /**
+     * The source.
+     */
+    source: string;
+
+    /**
+     * The fee per request. In Wei.
      */
     feeWei: string;
 }

@@ -8,7 +8,7 @@ import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../userInterfaces/IFdcRequestFeeConfigurations.sol";
+import "../../userInterfaces/tee/IFtdcRequestFeeConfigurations.sol";
 
 /**
  * TeeDataConnector is used for requesting FTDC attestations.
@@ -27,8 +27,8 @@ contract TeeDataConnector is ITeeDataConnector, Governed, AddressUpdatable {
     ITeeInstructions public teeInstructions;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
-    /// FDC request fee configurations contract.
-    IFdcRequestFeeConfigurations public fdcRequestFeeConfigurations;
+    /// FTDC request fee configurations contract.
+    IFtdcRequestFeeConfigurations public ftdcRequestFeeConfigurations;
 
     /// The minimum threshold in BIPS.
     uint16 public minThresholdBIPS;
@@ -82,7 +82,7 @@ contract TeeDataConnector is ITeeDataConnector, Governed, AddressUpdatable {
             }
         }
         uint256 fee = teeFeeCalculator.calculateFeeByTeeIds(FTDC_OP_TYPE, PROVE, _teeIds, new address[](0)) +
-            fdcRequestFeeConfigurations.getRequestFee(_attestationRequest);
+            ftdcRequestFeeConfigurations.getRequestFee(_attestationRequest);
         require(msg.value >= fee, "fee to low");
         FtdcProve memory message = FtdcProve({
             teeMachines: new ITeeRegistry.TeeMachineWithAttestationData[](_teeIds.length),
@@ -144,8 +144,8 @@ contract TeeDataConnector is ITeeDataConnector, Governed, AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
-        fdcRequestFeeConfigurations = IFdcRequestFeeConfigurations(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FdcRequestFeeConfigurations"));
+        ftdcRequestFeeConfigurations = IFtdcRequestFeeConfigurations(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcRequestFeeConfigurations"));
     }
 
     function _setMinThresholdBIPS(uint16 _minThresholdBIPS) internal {

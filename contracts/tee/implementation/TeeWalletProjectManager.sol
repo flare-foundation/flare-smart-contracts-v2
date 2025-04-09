@@ -124,11 +124,11 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, Governed, AddressU
     /**
      * @inheritdoc ITeeWalletProjectManager
      */
-    function getOpType(bytes32 _walletId)
+    function getOpType(bytes32 _projectId)
         external view
         returns (bytes32 _opType)
     {
-        return projects[_walletId].opType;
+        return projects[_projectId].opType;
     }
 
     /**

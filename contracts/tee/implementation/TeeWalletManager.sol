@@ -743,7 +743,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
 
     function _getTeeMachines(address _teeId)
         internal view
-        returns(ITeeRegistry.TeeMachine[] memory)
+        returns (ITeeRegistry.TeeMachine[] memory)
     {
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = teeRegistry.getTeeMachine(_teeId);

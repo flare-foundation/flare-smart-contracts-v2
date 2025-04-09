@@ -140,6 +140,29 @@
             ],
             "type": "object"
         },
+        "FtdcRequestFee": {
+            "additionalProperties": false,
+            "properties": {
+                "attestationType": {
+                    "description": "The attestation type.",
+                    "type": "string"
+                },
+                "feeWei": {
+                    "description": "The fee per request. In Wei.",
+                    "type": "string"
+                },
+                "source": {
+                    "description": "The source.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "attestationType",
+                "feeWei",
+                "source"
+            ],
+            "type": "object"
+        },
         "FtsoInflationConfiguration": {
             "additionalProperties": false,
             "properties": {
@@ -414,6 +437,13 @@
         "ftdcMinThresholdBIPS": {
             "description": "The minimal threshold for FTDC in BIPS (e.g. 30%).",
             "type": "integer"
+        },
+        "ftdcRequestFees": {
+            "description": "The supported FTDC requests fee configurations.",
+            "items": {
+                "$ref": "#/definitions/FtdcRequestFee"
+            },
+            "type": "array"
         },
         "ftsoInflationConfigurations": {
             "description": "The inflation configurations for the FTSO protocol.",
@@ -766,6 +796,7 @@
         "flareDaemonizedContracts",
         "ftdcDefaultNumberOfTees",
         "ftdcMinThresholdBIPS",
+        "ftdcRequestFees",
         "ftsoInflationConfigurations",
         "ftsoProtocolId",
         "ftsoProxies",
