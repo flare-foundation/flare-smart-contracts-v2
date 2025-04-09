@@ -317,6 +317,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
         require(settings[_walletId].maxFee > 0, "fees not set");
         senderAddresses[_walletId] = _senderAddress;
         states[_walletId].nonce = _initialNonce;
+        emit SenderAddressSet(_walletId, _senderAddress, _initialNonce);
     }
 
     function getSenderAddress(bytes32 _walletId) external view returns(string memory) {

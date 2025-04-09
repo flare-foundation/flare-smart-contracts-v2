@@ -2,7 +2,6 @@
 pragma solidity >=0.7.6 <0.9;
 
 import "./ITeeAvailabilityCheck.sol";
-import "./ITeeVersionManager.sol";
 
 /**
  * TeeRegistry interface.
@@ -34,12 +33,39 @@ interface ITeeRegistry {
     struct ReplicateTeeMachine {
         TeeMachineWithAttestationData oldTeeMachine;
         TeeMachineWithAttestationData newTeeMachine;
-        ITeeVersionManager.TeeUpgradePath[] upgradePaths;
-        Signature[] sourceSignatures;
-        Signature[] targetSignatures;
     }
 
     event AvailabilityCheckValidityExtended(address indexed teeId, uint256 endTs);
+
+    event TeeMachineRegistered(
+        address indexed teeId,
+        address indexed owner,
+        string url,
+        bytes32 codeHash,
+        bytes32 platform
+    );
+
+    event TeeMachinePutIntoProduction(
+        address indexed teeId
+    );
+
+    event TeeMachinePaused(
+        address indexed teeId
+    );
+
+    event TeeMachinePausedForUpgrade(
+        address indexed teeId
+    );
+
+    event TeeMachineReplicationTriggered(
+        address indexed oldTeeId,
+        address indexed newTeeId
+    );
+
+    event TeeMachineReplicationConfirmed(
+        address indexed oldTeeId,
+        address indexed newTeeId
+    );
 
     /**
      * Register a new TEE machine. It also triggers availability check.

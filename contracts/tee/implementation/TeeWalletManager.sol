@@ -115,7 +115,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     {
         require(teeWalletProjectManager.getOwner(_projectId) == msg.sender, "only owner");
         require(_multisigThreshold > 0, "invalid multisig threshold");
-        _walletId = keccak256(abi.encode(msg.sender, ++walletCounter));
+        _walletId = keccak256(abi.encode("WALLET", msg.sender, ++walletCounter));
         TeeWalletState storage wallet = wallets[_walletId];
         assert(wallet.projectId == bytes32(0)); // should never revert
         projectWallets[_projectId].push(_walletId);
@@ -151,6 +151,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             wallet.adminsPublicKeys.push(_adminsPublicKeys[i]);
         }
         wallet.adminsThreshold = _adminsThreshold;
+        emit WalletAdminsSet(_walletId, _adminsPublicKeys, _adminsThreshold);
     }
 
     /**
@@ -165,6 +166,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             address adminAddress = _getAddress(wallet.adminsPublicKeys[i]);
             if (adminAddress == msg.sender) {
                 wallet.adminConfirmations[msg.sender] = true;
+                emit WalletAdminConfirmed(_walletId, msg.sender);
                 return;
             }
         }
@@ -187,6 +189,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         _checkWalletStatus(wallet.status, WalletStatus.CREATED);
         wallet.cosigners = _cosigners;
         wallet.cosignersThreshold = _cosignersThreshold;
+        emit WalletCosignersSet(_walletId, _cosigners, _cosignersThreshold);
     }
 
     /**
@@ -200,6 +203,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         for (uint256 i = 0; i < wallet.cosigners.length; i++) {
             if (wallet.cosigners[i] == msg.sender) {
                 wallet.cosignerConfirmations[msg.sender] = true;
+                emit WalletCosignerConfirmed(_walletId, msg.sender);
                 return;
             }
         }
@@ -247,6 +251,9 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         require(address(opTypeConstantsProvider) != address(0), "op type not supported");
         _checkFee(KEY_GENERATE, _teeId, new address[](0));
         _keyId = wallet.keyIdCounter++;
+
+        emit WalletKeyAdded(_teeId, _walletId, _keyId);
+
         KeyGenerate memory message = KeyGenerate({
             teeId: _teeId,
             walletId: _walletId,
@@ -362,6 +369,13 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             keyDefinition.addressStr = _proof.data.responseBody.addressStr;
             keyDefinition.teeIds.push(teeId);
         }
+        emit WalletKeyConfirmed(
+            teeId,
+            walletId,
+            keyId,
+            _proof.data.responseBody.publicKey,
+            _proof.data.responseBody.addressStr
+        );
     }
 
     /**
@@ -396,6 +410,8 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
                 wallet.feeFactor--;
             }
         }
+
+        emit WalletKeyDeleted(_teeId, _walletId, _keyId);
 
         // trigger key delete instruction (even if no tee id found, but machine is in production status - retry)
         KeyDelete memory message = KeyDelete({
@@ -452,6 +468,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             require(wallet.keyIds.length >= wallet.multisigThreshold, "not enough keys");
         }
         wallet.status = WalletStatus.PRODUCTION;
+        emit WalletEnabled(_walletId);
     }
 
     /**
@@ -463,6 +480,7 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         TeeWalletState storage wallet = wallets[_walletId];
         _checkWalletStatus(wallet.status, WalletStatus.PRODUCTION);
         wallet.status = WalletStatus.PAUSED;
+        emit WalletPaused(_walletId);
     }
 
      /**

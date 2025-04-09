@@ -38,6 +38,22 @@ import { getTestFile } from "../utils/constants";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
 import * as util from "../utils/key-to-address";
 import { encodeContractNames, findRequiredEvent, toBN } from '../utils/test-helpers';
+import { TeeGovernanceContract, TeeGovernanceInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeGovernance';
+import { TeeVersionManagerContract, TeeVersionManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeVersionManager';
+import { TeeRegistryContract, TeeRegistryInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeRegistry';
+import { TeeWalletProjectManagerContract, TeeWalletProjectManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeWalletProjectManager';
+import { TeeWalletManagerContract, TeeWalletManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeWalletManager';
+import { TeeWalletBackupManagerContract, TeeWalletBackupManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeWalletBackupManager';
+import { TeeFeeCalculatorContract, TeeFeeCalculatorInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeFeeCalculator';
+import { TeeInstructionsContract, TeeInstructionsInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeInstructions';
+import { TeeRewardOffersManagerContract, TeeRewardOffersManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeRewardOffersManager';
+import { TeeDataConnectorContract, TeeDataConnectorInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeDataConnector';
+import { TeePaymentsContract, TeePaymentsInstance } from '../../typechain-truffle/contracts/tee/implementation/TeePayments';
+import { TeePaymentsEVMContract, TeePaymentsEVMInstance } from '../../typechain-truffle/contracts/tee/implementation/TeePaymentsEVM';
+import { TEE_OPERATION_FEES, TEE_SOURCE_ID } from '../../deployment/tasks/run-simulation';
+import { findRequiredEvent } from '../../deployment/utils/contract-helpers';
+import { requiredEventArgsFrom } from '../utils/Web3EventDecoder';
+import { TeeInstructions } from '../../typechain';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -64,6 +80,18 @@ const CleanupBlockNumberManager: CleanupBlockNumberManagerContract = artifacts.r
 const ValidatorRewardOffersManager: ValidatorRewardOffersManagerContract = artifacts.require("ValidatorRewardOffersManager");
 const PollingFoundation: PollingFoundationContract = artifacts.require("PollingFoundation");
 const PollingManagementGroup: PollingManagementGroupContract = artifacts.require("PollingManagementGroup");
+const TeeGovernance: TeeGovernanceContract = artifacts.require("TeeGovernance");
+const TeeVersionManager: TeeVersionManagerContract = artifacts.require("TeeVersionManager");
+const TeeRegistry: TeeRegistryContract = artifacts.require("TeeRegistry");
+const TeeWalletProjectManager: TeeWalletProjectManagerContract = artifacts.require("TeeWalletProjectManager");
+const TeeWalletManager: TeeWalletManagerContract = artifacts.require("TeeWalletManager");
+const TeeWalletBackupManager: TeeWalletBackupManagerContract = artifacts.require("TeeWalletBackupManager");
+const TeeFeeCalculator: TeeFeeCalculatorContract = artifacts.require("TeeFeeCalculator");
+const TeeInstructions: TeeInstructionsContract = artifacts.require("TeeInstructions");
+const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
+const TeeDataConnector: TeeDataConnectorContract = artifacts.require("TeeDataConnector");
+const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
+const TeePaymentsEVM: TeePaymentsEVMContract = artifacts.require("TeePaymentsEVM");
 
 type PChainStake = {
     txId: string,
@@ -101,6 +129,27 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
     const FTSO_PROTOCOL_ID = 100;
     const REWARD_MANAGER_ID = 0;
+    const TEE_CODE_HASH = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2";
+    const TEE_PLATFORMS = ["GOOGLE_TDX", "GOOGLE_AMD"];
+    const TEE_OWNERS = [accounts[101], accounts[102]];
+    const TEE_IDS = [accounts[20], accounts[21]];
+    const TEE_URLS = ["127.0.0.1:1234", "127.0.0.1:1235"];
+    const TEE_WALLET_OWNERS = [accounts[103], accounts[104]];
+    const TEE_WALLET_SUBMIT_ADDRESSES = [accounts[105], accounts[106]];
+    const TEE_WALLET_CONTROL_ADDRESSES = [accounts[130], accounts[131]];
+
+    const PROJECT1_ID = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+        ["string", "address", "uint256"],
+        ["PROJECT", TEE_WALLET_OWNERS[0], 1]));
+    const WALLET1_ID = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+        ["string", "address", "uint256"],
+        ["WALLET", TEE_WALLET_OWNERS[0], 1]));
+    const PROJECT2_ID = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+        ["string", "address", "uint256"],
+        ["PROJECT", TEE_WALLET_OWNERS[1], 2]));
+    const WALLET2_ID = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+        ["string", "address", "uint256"],
+        ["WALLET", TEE_WALLET_OWNERS[1], 2]));
 
     let wNat: WNatInstance;
     let pChainStakeMirror: PChainStakeMirrorInstance;
@@ -108,6 +157,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     let addressBinder: AddressBinderInstance;
     let pChainStakeMirrorVerifierInterface: PChainStakeMirrorVerifierInstance;
     let verifierMock: MockContractInstance;
+    let ftdcRequestFeeConfigurationsMock: MockContractInstance;
 
     let governanceSettings: GovernanceSettingsInstance;
     let entityManager: EntityManagerInstance;
@@ -130,6 +180,21 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     let pollingFoundation: PollingFoundationInstance;
     let supplyMock: MockContractInstance;
     let pollingManagementGroup: PollingManagementGroupInstance;
+    let teeGovernance: TeeGovernanceInstance;
+    let teeVersionManager: TeeVersionManagerInstance;
+    let teeRegistry: TeeRegistryInstance;
+    let teeWalletProjectManager: TeeWalletProjectManagerInstance;
+    let teeWalletManager: TeeWalletManagerInstance;
+    let teeWalletBackupManager: TeeWalletBackupManagerInstance;
+    let teeFeeCalculator: TeeFeeCalculatorInstance;
+    let teeInstructions: TeeInstructionsInstance;
+    let teeRewardOffersManager: TeeRewardOffersManagerInstance;
+    let teeDataConnector: TeeDataConnectorInstance;
+    let teePayments: TeePaymentsInstance;
+    let teePaymentsEVM: TeePaymentsEVMInstance;
+
+    let teeGovernanceSigners: string[] = [accounts[50], accounts[51], accounts[52], accounts[53], accounts[54], accounts[55]];
+    let teeGovernanceSignersThreshold = 3;
 
     let initialSigningPolicy: ISigningPolicy;
     let newSigningPolicy: ISigningPolicy;
@@ -207,6 +272,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         addressBinder = await AddressBinder.new();
         pChainStakeMirrorVerifierInterface = await PChainStakeMirrorVerifier.new(accounts[5], accounts[6], 10, 1000, 5, 5000);
         verifierMock = await MockContract.new();
+        ftdcRequestFeeConfigurationsMock = await MockContract.new();
 
         // set values
         weightsGwei = [1000, 500, 100, 50];
@@ -365,6 +431,30 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
         pollingManagementGroup = await PollingManagementGroup.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
 
+        teeGovernance = await TeeGovernance.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
+        teeVersionManager = await TeeVersionManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
+        teeRegistry = await TeeRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 60, 600, 3600);
+        teeWalletProjectManager = await TeeWalletProjectManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
+        teeWalletManager = await TeeWalletManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 600);
+        teeWalletBackupManager = await TeeWalletBackupManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
+        teeFeeCalculator = await TeeFeeCalculator.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
+        teeRewardOffersManager = await TeeRewardOffersManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100000); // 10%
+        teeDataConnector = await TeeDataConnector.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 30, 1);
+        teeInstructions = await TeeInstructions.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
+
+        const operationTypes = [];
+        const operationCommands = [];
+        const operationFees = [];
+        for (const teeOperationFee of TEE_OPERATION_FEES) {
+            operationTypes.push(web3.utils.utf8ToHex(teeOperationFee.opType).padEnd(66, "0"));
+            operationCommands.push(web3.utils.utf8ToHex(teeOperationFee.opCommand).padEnd(66, "0"));
+            operationFees.push(teeOperationFee.feeWei);
+        }
+        await teeFeeCalculator.setOperationFees(operationTypes, operationCommands, operationFees);
+
+        teePayments = await TeePayments.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 1, 0, web3.utils.utf8ToHex("XRP").padEnd(66, "0"));
+        teePaymentsEVM = await TeePaymentsEVM.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 1, 0, web3.utils.utf8ToHex("EVM").padEnd(66, "0"));
+
         await flareSystemsCalculator.enablePChainStakeMirror();
         await rewardManager.enablePChainStakeMirror();
 
@@ -429,8 +519,61 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.ENTITY_MANAGER]),
             [ADDRESS_UPDATER, voterRegistry.address, flareSystemsManager.address, rewardManager.address, entityManager.address], { from: ADDRESS_UPDATER });
 
+        await teeGovernance.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER]),
+            [ADDRESS_UPDATER], { from: ADDRESS_UPDATER });
+
+        await teeVersionManager.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_GOVERNANCE]),
+            [ADDRESS_UPDATER, teeGovernance.address], { from: ADDRESS_UPDATER });
+
+        await teeRegistry.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.TEE_DATA_CONNECTOR, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+            [ADDRESS_UPDATER, teeVersionManager.address, teeFeeCalculator.address, teeInstructions.address, teeDataConnector.address, flareSystemsManager.address, relay.address], { from: ADDRESS_UPDATER });
+
+        await teeWalletProjectManager.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER]),
+            [ADDRESS_UPDATER, teeWalletManager.address], { from: ADDRESS_UPDATER });
+
+        await teeWalletManager.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.TEE_DATA_CONNECTOR, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+            [ADDRESS_UPDATER, teeRegistry.address, teeWalletProjectManager.address, teeFeeCalculator.address, teeInstructions.address, teeDataConnector.address, flareSystemsManager.address, relay.address], { from: ADDRESS_UPDATER });
+
+        await teeWalletBackupManager.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
+            [ADDRESS_UPDATER, teeRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address], { from: ADDRESS_UPDATER });
+
+        await teeFeeCalculator.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER]),
+            [ADDRESS_UPDATER, teeWalletManager.address],{ from: ADDRESS_UPDATER });
+
+        await teeInstructions.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER]),
+            [ADDRESS_UPDATER, rewardManager.address], { from: ADDRESS_UPDATER });
+
+        await teeRewardOffersManager.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.INFLATION]),
+            [ADDRESS_UPDATER, rewardManager.address, flareSystemsManager.address, INFLATION], { from: ADDRESS_UPDATER });
+
+        await teeDataConnector.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FTDC_REQUEST_FEE_CONFIGURATIONS]),
+            [ADDRESS_UPDATER, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, ftdcRequestFeeConfigurationsMock.address], { from: ADDRESS_UPDATER });
+
+        await teePayments.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
+            [ADDRESS_UPDATER, teeWalletProjectManager.address, teeWalletManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address], { from: ADDRESS_UPDATER });
+
+        await teePaymentsEVM.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
+            [ADDRESS_UPDATER, teeWalletProjectManager.address, teeWalletManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address], { from: ADDRESS_UPDATER });
+
+        // set supported operation types
+        await teeWalletManager.addSupportedOpTypes([teePayments.address, teePaymentsEVM.address]);
+        // register instructions initiators
+        await teeInstructions.registerInstructionInitiators([teeRegistry.address, teeWalletManager.address, teeWalletBackupManager.address, teeDataConnector.address, teePayments.address, teePaymentsEVM.address]);
+
         // set reward offers manager list
-        await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, validatorRewardOffersManager.address]);
+        await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, validatorRewardOffersManager.address, teeRewardOffersManager.address, teeInstructions.address]);
 
         // set initial reward data
         await rewardManager.setInitialRewardData();
@@ -443,8 +586,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         await validatorRewardOffersManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION });
         await validatorRewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION });
 
+        await teeRewardOffersManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION });
+        await teeRewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION });
+
         // set reward epoch switchover trigger contracts
-        await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address, validatorRewardOffersManager.address]);
+        await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts([ftsoRewardOffersManager.address, validatorRewardOffersManager.address, teeRewardOffersManager.address]);
 
         // set ftso configurations
         await ftsoInflationConfigurations.addFtsoConfiguration(
@@ -1034,4 +1180,406 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         expect(state.toString()).to.equals("4");
     });
 
+    it("Should set new TEE governance", async () => {
+        await teeGovernance.setNewTeeGovernance(teeGovernanceSigners, teeGovernanceSignersThreshold);
+
+        const governanceHash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
+            ["address[]", "uint256"],
+            [teeGovernanceSigners, teeGovernanceSignersThreshold]));
+
+        expect(await teeGovernance.latestTeeGovernanceHash()).to.be.equal(governanceHash);
+        const governance = await teeGovernance.getTeeGovernance(governanceHash);
+        expect(governance[0]).to.be.deep.equal(teeGovernanceSigners);
+        expect(governance[1].toNumber()).to.be.equal(teeGovernanceSignersThreshold);
+        expect(await teeGovernance.getTeeGovernanceThreshold(governanceHash)).to.be.equal(teeGovernanceSignersThreshold);
+    });
+
+    it("Should add new TEE node version", async () => {
+        const governanceHash = await teeGovernance.latestTeeGovernanceHash();
+        const supportedPlatforms = TEE_PLATFORMS.map(platform => web3.utils.utf8ToHex(platform).padEnd(66, "0"));
+        await teeVersionManager.addNewTeeVersion(governanceHash, "v0.1.0", TEE_CODE_HASH, supportedPlatforms);
+
+        const codeHashInfo = await teeVersionManager.getCodeHashInfo(TEE_CODE_HASH);
+        expect(codeHashInfo[0]).to.be.equal(governanceHash);
+        expect(codeHashInfo[1]).to.be.equal("v0.1.0");
+        expect(codeHashInfo[2]).to.be.deep.equal(supportedPlatforms);
+    });
+
+    it("Should register new TEE machines", async () => {
+        assert(TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
+        for (let i = 0; i < TEE_URLS.length; i++) {
+            const tx = await teeRegistry.register(
+                TEE_IDS[i],
+                TEE_URLS[i],
+                TEE_CODE_HASH,
+                web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
+                { value: "2", from: TEE_OWNERS[i] }
+            );
+            expectEvent(tx, "TeeMachineRegistered", {
+                teeId: TEE_IDS[i],
+                owner: TEE_OWNERS[i],
+                url: TEE_URLS[i],
+                codeHash: TEE_CODE_HASH,
+                platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0")
+            });
+
+            const event = requiredEventArgsFrom(tx, teeInstructions, "TeeInstructionsSent") as any;
+            expect(event.rewardEpochId).to.be.equal("2");
+            expect(event.opType).to.be.equal(web3.utils.utf8ToHex("FTDC").padEnd(66, "0"));
+            expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("PROVE").padEnd(66, "0"));
+            // TODO check why expectEvent.inTransaction is not working
+            // await expectEvent.inTransaction(response.tx, teeInstructions, 'TeeInstructionsSent', {
+            //     rewardEpochId: "2",
+            //     opType: web3.utils.utf8ToHex("FTDC").padEnd(66, "0"),
+            //     opCommand: web3.utils.utf8ToHex("PROVE").padEnd(66, "0")
+            // });
+        }
+    });
+
+    it("Should put new TEE machines in production", async () => {
+        const rewardEpochId = 2;
+        assert(TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
+        for (let i = 0; i < TEE_URLS.length; i++) {
+            const proof = {
+                relayMessage: "0x", // TODO
+                teeSignatures: [],
+                data: {
+                    attestationType: web3.utils.utf8ToHex("TeeAvailabilityCheck").padEnd(66, "0"),
+                    sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
+                    thresholdBIPS: "0",
+                    timestamp: (await time.latest()).toString(),
+                    requestBody: {
+                        teeMachine: {
+                        teeId: TEE_IDS[i],
+                        owner: TEE_OWNERS[i],
+                        url: TEE_URLS[i],
+                        codeHash: TEE_CODE_HASH,
+                        platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
+                        },
+                        rewardEpochId: rewardEpochId,
+                    },
+                    responseBody: {
+                        status: "0"
+                    }
+                }
+            }
+            await time.increase(1);
+            let tx = await teeRegistry.toProduction(proof, { from: TEE_OWNERS[i] });
+            expectEvent(tx, "TeeMachinePutIntoProduction", {
+                teeId: TEE_IDS[i]
+            });
+        }
+    });
+
+    it("Should create new TEE projects", async () => {
+        assert(TEE_WALLET_SUBMIT_ADDRESSES.length >= 2 && TEE_WALLET_OWNERS.length >= 2, "At least 2 owners and submit addresses are required");
+
+        let tx = await teeWalletProjectManager.createProject(
+            web3.utils.utf8ToHex("XRP").padEnd(66, "0"),
+            TEE_WALLET_SUBMIT_ADDRESSES[0],
+            { from: TEE_WALLET_OWNERS[0] }
+        );
+        expectEvent(tx, "ProjectCreated", {
+            projectId: PROJECT1_ID,
+            opType: web3.utils.utf8ToHex("XRP").padEnd(66, "0"),
+            owner: TEE_WALLET_OWNERS[0],
+            submitAddress: TEE_WALLET_SUBMIT_ADDRESSES[0]
+        });
+
+        tx = await teeWalletProjectManager.createProject(
+            web3.utils.utf8ToHex("EVM").padEnd(66, "0"),
+            TEE_WALLET_SUBMIT_ADDRESSES[1],
+            { from: TEE_WALLET_OWNERS[1] }
+        );
+        expectEvent(tx, "ProjectCreated", {
+            projectId: PROJECT2_ID,
+            opType: web3.utils.utf8ToHex("EVM").padEnd(66, "0"),
+            owner: TEE_WALLET_OWNERS[1],
+            submitAddress: TEE_WALLET_SUBMIT_ADDRESSES[1]
+        });
+    });
+
+    it("Should create TEE wallets and initialize them", async () => {
+        // create wallet for project 1
+        let tx = await teeWalletManager.createWallet(PROJECT1_ID, 2, { from: TEE_WALLET_OWNERS[0] });
+        expectEvent(tx, "WalletCreated", {
+            walletId: WALLET1_ID,
+            projectId: PROJECT1_ID,
+            multisigThreshold: "2"
+        });
+        let [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[10].privateKey.slice(2));
+        let [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[11].privateKey.slice(2));
+
+        const adminsPublicKeys1 = [{x : x1, y : y1}, {x : x2, y : y2}];
+        tx = await teeWalletManager.setAdmins(WALLET1_ID, adminsPublicKeys1, 2, { from: TEE_WALLET_OWNERS[0] });
+        expectEvent(tx, "WalletAdminsSet", {
+            walletId: WALLET1_ID,
+            adminsThreshold: "2"
+        });
+        expectEvent(await teeWalletManager.confirmAdmin(WALLET1_ID, { from: accounts[10] }), "WalletAdminConfirmed", {
+            walletId: WALLET1_ID,
+            admin: accounts[10]
+        });
+        expectEvent(await teeWalletManager.confirmAdmin(WALLET1_ID, { from: accounts[11] }), "WalletAdminConfirmed", {
+            walletId: WALLET1_ID,
+            admin: accounts[11]
+        });
+        tx = await teeWalletManager.closeWalletInitialization(WALLET1_ID, { from: TEE_WALLET_OWNERS[0] });
+        expectEvent(tx, "WalletInitialized", {
+            walletId: WALLET1_ID
+        });
+
+        // create wallet for project 2
+        expectEvent(await teePaymentsEVM.setChainId(PROJECT2_ID, 14, { from: TEE_WALLET_OWNERS[1] }), "ChainIdSet", {
+            projectId: PROJECT2_ID,
+            chainId: "14"
+        });
+        tx = await teeWalletManager.createWallet(PROJECT2_ID, 1, { from: TEE_WALLET_OWNERS[1] });
+        expectEvent(tx, "WalletCreated", {
+            walletId: WALLET2_ID,
+            projectId: PROJECT2_ID,
+            multisigThreshold: "1"
+        });
+        [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[12].privateKey.slice(2));
+        [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[13].privateKey.slice(2));
+
+        const adminsPublicKeys2 = [{x : x1, y : y1}, {x : x2, y : y2}];
+        tx = await teeWalletManager.setAdmins(WALLET2_ID, adminsPublicKeys2, 1, { from: TEE_WALLET_OWNERS[1] });
+        expectEvent(tx, "WalletAdminsSet", {
+            walletId: WALLET2_ID,
+            adminsThreshold: "1"
+        });
+        expectEvent(await teeWalletManager.confirmAdmin(WALLET2_ID, { from: accounts[12] }), "WalletAdminConfirmed", {
+            walletId: WALLET2_ID,
+            admin: accounts[12]
+        });
+        expectEvent(await teeWalletManager.confirmAdmin(WALLET2_ID, { from: accounts[13] }), "WalletAdminConfirmed", {
+            walletId: WALLET2_ID,
+            admin: accounts[13]
+        });
+        tx = await teeWalletManager.setCosigners(WALLET2_ID, [accounts[14]], 1, { from: TEE_WALLET_OWNERS[1] });
+        expectEvent(tx, "WalletCosignersSet", {
+            walletId: WALLET2_ID,
+            cosignersThreshold: "1"
+        });
+        expectEvent(await teeWalletManager.confirmCosigner(WALLET2_ID, { from: accounts[14] }), "WalletCosignerConfirmed", {
+            walletId: WALLET2_ID,
+            cosigner: accounts[14]
+        });
+        tx = await teeWalletManager.closeWalletInitialization(WALLET2_ID, { from: TEE_WALLET_OWNERS[1] });
+        expectEvent(tx, "WalletInitialized", {
+            walletId: WALLET2_ID
+        });
+    });
+
+    it("Should add keys to TEE wallets and confirm them", async () => {
+        const xrpPublicKeys = ["0x03D11FBF992FCC3C7326E323687C234866E400229EA81C73EE4D0DBC1AB5DB22D3", "0x03FE12E21F5B2298FFC9A260A95F5031071E9E0778257276E47BB9A0C27CF6C5AD", "0x03353D8A544503E0F4D6686379B82D64ED1537CB2961FA1193F57B3E8E17F82980"];
+        const xrpAddresses = ["rE5KBHjE7cHFUfHazonUcX9cKv7R519uyR", "rDagTyzXeYLZPe2fLbKYG9n7rCTQd3D2No", "r3uuriD2ARqLqZnEbk5sWzvjuD3zyVQEU1"];
+
+        for (let i = 0; i < xrpPublicKeys.length; i++) {
+            let tx = await teeWalletManager.addKey(TEE_IDS[i%2], WALLET1_ID, { value: "10", from: TEE_WALLET_OWNERS[0] });
+            const event = requiredEventArgsFrom(tx, teeInstructions, "TeeInstructionsSent") as any;
+            expect(event.rewardEpochId).to.be.equal("2");
+            expect(event.opType).to.be.equal(web3.utils.utf8ToHex("WALLET").padEnd(66, "0"));
+            expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("KEY_GENERATE").padEnd(66, "0"));
+
+            const proof = {
+                relayMessage: "0x", // TODO
+                teeSignatures: [],
+                data: {
+                    attestationType: web3.utils.utf8ToHex("TeeKeyExistence").padEnd(66, "0"),
+                    sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
+                    thresholdBIPS: "0",
+                    timestamp: (await time.latest()).toString(),
+                    requestBody: {
+                        teeId: TEE_IDS[i%2],
+                        walletId: WALLET1_ID,
+                        keyId: i.toString(),
+                        opType: web3.utils.utf8ToHex("XRP").padEnd(66, "0")
+                    },
+                    responseBody: {
+                        publicKey: xrpPublicKeys[i],
+                        addressStr: xrpAddresses[i]
+                    }
+                }
+            }
+
+            await time.increase(1);
+            tx = await teeWalletManager.confirmKey(proof, { from: TEE_WALLET_OWNERS[0] });
+            expectEvent(tx, "WalletKeyConfirmed", {
+                teeId: TEE_IDS[i%2],
+                walletId: WALLET1_ID,
+                keyId: i.toString(),
+                publicKey: xrpPublicKeys[i],
+                addressStr: xrpAddresses[i]
+            });
+        }
+
+        for (let i = 0; i < 4; i++) {
+            let tx = await teeWalletManager.addKey(TEE_IDS[i%2], WALLET2_ID, { value: "10", from: TEE_WALLET_OWNERS[1] });
+            const event = requiredEventArgsFrom(tx, teeInstructions, "TeeInstructionsSent") as any;
+            expect(event.rewardEpochId).to.be.equal("2");
+            expect(event.opType).to.be.equal(web3.utils.utf8ToHex("WALLET").padEnd(66, "0"));
+            expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("KEY_GENERATE").padEnd(66, "0"));
+
+            let prvKey = privateKeys[50+i].privateKey.slice(2);
+            let prvkeyBuffer = Buffer.from(prvKey, 'hex');
+            let [x, y] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
+            let publicKey = "0x" + util.encodePublicKey(x, y, false).toString('hex');
+            let addressStr = toChecksumAddress("0x" + util.publicKeyToEthereumAddress(x, y).toString('hex'));
+
+            const proof = {
+                relayMessage: "0x", // TODO
+                teeSignatures: [],
+                data: {
+                    attestationType: web3.utils.utf8ToHex("TeeKeyExistence").padEnd(66, "0"),
+                    sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
+                    thresholdBIPS: "0",
+                    timestamp: (await time.latest()).toString(),
+                    requestBody: {
+                        teeId: TEE_IDS[i%2],
+                        walletId: WALLET2_ID,
+                        keyId: i.toString(),
+                        opType: web3.utils.utf8ToHex("EVM").padEnd(66, "0")
+                    },
+                    responseBody: {
+                        publicKey: publicKey,
+                        addressStr: addressStr
+                    }
+                }
+            }
+
+            await time.increase(1);
+            tx = await teeWalletManager.confirmKey(proof, { from: TEE_WALLET_OWNERS[1] });
+            expectEvent(tx, "WalletKeyConfirmed", {
+                teeId: TEE_IDS[i%2],
+                walletId: WALLET2_ID,
+                keyId: i.toString(),
+                publicKey: publicKey,
+                addressStr: addressStr
+            });
+        }
+    });
+
+    it("Should enable TEE wallets", async () => {
+        let tx = await teeWalletManager.enableWallet(WALLET1_ID, { from: TEE_WALLET_OWNERS[0] });
+        expectEvent(tx, "WalletEnabled", {
+            walletId: WALLET1_ID
+        });
+
+        tx = await teeWalletManager.enableWallet(WALLET2_ID, { from: TEE_WALLET_OWNERS[1] });
+        expectEvent(tx, "WalletEnabled", {
+            walletId: WALLET2_ID
+        });
+    });
+
+    it("Should set default TEE wallets", async () => {
+        let tx = await teeWalletProjectManager.setDefaultWallet(PROJECT1_ID, WALLET1_ID, { from: TEE_WALLET_OWNERS[0] });
+        expectEvent(tx, "DefaultWalletSet", {
+            projectId: PROJECT1_ID,
+            walletId: WALLET1_ID
+        });
+
+        tx = await teeWalletProjectManager.setDefaultWallet(PROJECT2_ID, WALLET2_ID, { from: TEE_WALLET_OWNERS[1] });
+        expectEvent(tx, "DefaultWalletSet", {
+            projectId: PROJECT2_ID,
+            walletId: WALLET2_ID
+        });
+    });
+
+    it("Should set TEE payment wallet settings", async () => {
+        // set wallet 1 settings
+        let tx = await teePayments.setBatchSettings(WALLET1_ID, 1, 0, { from: TEE_WALLET_OWNERS[0] });
+        expectEvent(tx, "BatchSettingsSet", {
+            walletId: WALLET1_ID,
+            batchSize: "1",
+            batchDurationSeconds: "0"
+        });
+
+        tx = await teePayments.setFees(WALLET1_ID, 1000, 100, 10000, { from: TEE_WALLET_OWNERS[0] });
+        expectEvent(tx, "FeesSet", {
+            walletId: WALLET1_ID,
+            maxFee: "1000",
+            maxFeeTolerancePPM: "100",
+            maxControlFee: "10000"
+        });
+
+        tx = await teePayments.setControlAddress(WALLET1_ID, TEE_WALLET_CONTROL_ADDRESSES[0], { from: TEE_WALLET_OWNERS[0] });
+        expectEvent(tx, "ControlAddressSet", {
+            walletId: WALLET1_ID,
+            controlAddress: TEE_WALLET_CONTROL_ADDRESSES[0],
+        });
+
+        tx = await teePayments.setSenderAddressAndInitialNonce(WALLET1_ID, "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh", 2, { from: TEE_WALLET_OWNERS[0] });
+        expectEvent(tx, "SenderAddressSet", {
+            walletId: WALLET1_ID,
+            senderAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
+            initialNonce: "2"
+        });
+
+        // set wallet 2 settings
+        let tx2 = await teePaymentsEVM.setBatchSettings(WALLET2_ID, 1, 0, { from: TEE_WALLET_OWNERS[1] });
+        expectEvent(tx2, "BatchSettingsSet", {
+            walletId: WALLET2_ID,
+            batchSize: "1",
+            batchDurationSeconds: "0"
+        });
+        tx2 = await teePaymentsEVM.setFees(WALLET2_ID, 100000, 1000, 10000000, { from: TEE_WALLET_OWNERS[1] });
+        expectEvent(tx2, "FeesSet", {
+            walletId: WALLET2_ID,
+            maxFee: "100000",
+            maxFeeTolerancePPM: "1000",
+            maxControlFee: "10000000"
+        });
+        tx2 = await teePaymentsEVM.setControlAddress(WALLET2_ID, TEE_WALLET_CONTROL_ADDRESSES[1], { from: TEE_WALLET_OWNERS[1] });
+        expectEvent(tx2, "ControlAddressSet", {
+            walletId: WALLET2_ID,
+            controlAddress: TEE_WALLET_CONTROL_ADDRESSES[1],
+        });
+        tx2 = await teePaymentsEVM.setSenderAddressAndInitialNonce(WALLET2_ID, accounts[200], 1, { from: TEE_WALLET_OWNERS[1] });
+        expectEvent(tx2, "SenderAddressSet", {
+            walletId: WALLET2_ID,
+            senderAddress: accounts[200],
+            initialNonce: "1"
+        });
+    });
+
+    it("Should trigger TEE wallet payments", async () => {
+        let tx = await teePayments.pay(PROJECT1_ID,
+            { recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B", amount: "500", paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a" },
+            { value: "10", from: TEE_WALLET_SUBMIT_ADDRESSES[0] });
+        const event = requiredEventArgsFrom(tx, teeInstructions, "TeeInstructionsSent") as any;
+        expect(event.rewardEpochId).to.be.equal("2");
+        expect(event.opType).to.be.equal(web3.utils.utf8ToHex("XRP").padEnd(66, "0"));
+        expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("PAY").padEnd(66, "0"));
+
+        let tx2 = await teePaymentsEVM.pay(PROJECT2_ID,
+            { recipientAddress: accounts[150], amount: "1500", paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797" },
+            { value: "10", from: TEE_WALLET_SUBMIT_ADDRESSES[1] });
+        const event2 = requiredEventArgsFrom(tx2, teeInstructions, "TeeInstructionsSent") as any;
+        expect(event2.rewardEpochId).to.be.equal("2");
+        expect(event2.opType).to.be.equal(web3.utils.utf8ToHex("EVM").padEnd(66, "0"));
+        expect(event2.opCommand).to.be.equal(web3.utils.utf8ToHex("PAY").padEnd(66, "0"));
+    });
+
+    it("Should trigger TEE wallet reissue payments", async () => {
+        await time.increase(1);
+        let tx = await teePayments.reissue(WALLET1_ID, 2, 0,
+            [{ recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B", amount: "500", paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a" }],
+            10000, false,
+            { value: "10", from: TEE_WALLET_CONTROL_ADDRESSES[0] });
+        const event = requiredEventArgsFrom(tx, teeInstructions, "TeeInstructionsSent") as any;
+        expect(event.rewardEpochId).to.be.equal("2");
+        expect(event.opType).to.be.equal(web3.utils.utf8ToHex("XRP").padEnd(66, "0"));
+        expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("REISSUE").padEnd(66, "0"));
+
+        let tx2 = await teePaymentsEVM.reissue(WALLET2_ID, 1, 0,
+            [{ recipientAddress: accounts[150], amount: "1500", paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797" }],
+            5000000, false,
+            { value: "10", from: TEE_WALLET_CONTROL_ADDRESSES[1] });
+        const event2 = requiredEventArgsFrom(tx2, teeInstructions, "TeeInstructionsSent") as any;
+        expect(event2.rewardEpochId).to.be.equal("2");
+        expect(event2.opType).to.be.equal(web3.utils.utf8ToHex("EVM").padEnd(66, "0"));
+        expect(event2.opCommand).to.be.equal(web3.utils.utf8ToHex("REISSUE").padEnd(66, "0"));
+    });
 });

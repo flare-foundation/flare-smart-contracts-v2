@@ -114,6 +114,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         });
 
         _requestAvailabilityCheckAttestation(_teeId, _teeId);
+        emit TeeMachineRegistered(_teeId, msg.sender, _url, _codeHash, _platform);
     }
 
     /**
@@ -154,6 +155,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         }
         teeState.lastStatusChangeTs = uint64(block.timestamp);
         activeTeeIds.add(teeId);
+        emit TeeMachinePutIntoProduction(teeId);
     }
 
     /**
@@ -195,6 +197,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         teeState.status = TeeStatus.PAUSED;
         teeState.lastStatusChangeTs = uint64(block.timestamp);
         activeTeeIds.remove(_teeId);
+        emit TeeMachinePaused(_teeId);
     }
 
     /**
@@ -216,6 +219,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         teeState.status = TeeStatus.PAUSED;
         teeState.lastStatusChangeTs = uint64(block.timestamp);
         activeTeeIds.remove(teeId);
+        emit TeeMachinePaused(teeId);
     }
 
     /**
@@ -245,6 +249,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             TO_PAUSE_FOR_UPGRADE,
             abi.encode(message)
         );
+        emit TeeMachinePausedForUpgrade(_teeId);
     }
 
     /**
@@ -278,18 +283,12 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             "invalid tee upgrade path");
         require(teeVersionManager.isTeeUpgradeSigned(_teeUpgradeId), "tee upgrade not signed");
 
-        (Signature[] memory sourceSignatures, Signature[] memory targetSignatures) =
-            teeVersionManager.getTeeUpgradeSignatures(_teeUpgradeId);
-
         replications[_oldTeeId] = newTeeId;
         newTeeState.status = TeeStatus.REPLICATING;
         newTeeState.lastStatusChangeTs = uint64(block.timestamp);
         ReplicateTeeMachine memory message = ReplicateTeeMachine({
             oldTeeMachine: _getTeeMachineWithAttestationData(_oldTeeId, oldTeeState),
-            newTeeMachine: _getTeeMachineWithAttestationData(newTeeId, newTeeState),
-            upgradePaths: teeVersionManager.getTeeUpgradePaths(_teeUpgradeId),
-            sourceSignatures: sourceSignatures,
-            targetSignatures: targetSignatures
+            newTeeMachine: _getTeeMachineWithAttestationData(newTeeId, newTeeState)
         });
 
         bytes32 instructionId = keccak256(abi.encode(REG_OP_TYPE, REPLICATE_FROM, _oldTeeId, newTeeId));
@@ -301,6 +300,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             REPLICATE_FROM,
             abi.encode(message)
         );
+        emit TeeMachineReplicationTriggered(_oldTeeId, newTeeId);
     }
 
     /**
@@ -339,6 +339,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         delete replications[oldTeeId];
         delete teeStates[_newTeeId];
         activeTeeIds.add(oldTeeId);
+        emit TeeMachineReplicationConfirmed(oldTeeId, _newTeeId);
     }
 
     /**

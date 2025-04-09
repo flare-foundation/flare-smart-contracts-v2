@@ -50,7 +50,57 @@ interface ITeeWalletManager {
         uint64 multisigThreshold
     );
 
+    event WalletAdminsSet(
+        bytes32 indexed walletId,
+        PublicKey[] adminsPublicKeys,
+        uint64 adminsThreshold
+    );
+
+    event WalletAdminConfirmed(
+        bytes32 indexed walletId,
+        address indexed admin
+    );
+
+    event WalletCosignersSet(
+        bytes32 indexed walletId,
+        address[] cosigners,
+        uint64 cosignersThreshold
+    );
+
+    event WalletCosignerConfirmed(
+        bytes32 indexed walletId,
+        address indexed cosigner
+    );
+
     event WalletInitialized(
+        bytes32 indexed walletId
+    );
+
+    event WalletKeyAdded(
+        address indexed teeId,
+        bytes32 indexed walletId,
+        uint256 indexed keyId
+    );
+
+    event WalletKeyConfirmed(
+        address indexed teeId,
+        bytes32 indexed walletId,
+        uint256 indexed keyId,
+        bytes publicKey,
+        string addressStr
+    );
+
+    event WalletKeyDeleted(
+        address indexed teeId,
+        bytes32 indexed walletId,
+        uint256 indexed keyId
+    );
+
+    event WalletEnabled(
+        bytes32 indexed walletId
+    );
+
+    event WalletPaused(
         bytes32 indexed walletId
     );
 

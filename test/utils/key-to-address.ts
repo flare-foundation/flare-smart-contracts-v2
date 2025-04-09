@@ -13,6 +13,13 @@ export function privateKeyToPublicKeyPair(privateKey: Buffer): Buffer[] {
   return [x, y];
 }
 
+export function privateKeyToPublicKeyPairString(privateKey: string): string[] {
+  const keyPair = ec.keyFromPrivate(privateKey).getPublic();
+  const x = keyPair.getX().toBuffer(undefined, 32);
+  const y = keyPair.getY().toBuffer(undefined, 32);
+  return [`0x${x.toString('hex')}`, `0x${y.toString('hex')}`];
+}
+
 export function compressPublicKey(x: Buffer, y: Buffer): Buffer {
   const prefix = ((new BN(y)).isEven()) ? 0x02 : 0x03;
   const out = new Uint8Array(33);

@@ -57,7 +57,7 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, Governed, AddressU
     {
         require(teeWalletManager.isOpTypeSupported(_opType), "op type not supported");
         require(_submitAddress != address(0), "submit address zero");
-        _projectId = keccak256(abi.encode(msg.sender, ++projectCounter));
+        _projectId = keccak256(abi.encode("PROJECT", msg.sender, ++projectCounter));
         TeeWalletProjectState storage project = projects[_projectId];
         assert(project.owner == address(0)); // should never revert
         project.owner = msg.sender;

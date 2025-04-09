@@ -48,6 +48,12 @@ interface ITeePayments {
         address controlAddress
     );
 
+    event SenderAddressSet(
+        bytes32 indexed walletId,
+        string senderAddress,
+        uint64 initialNonce
+    );
+
     /**
      * Payment instruction method.
      * Can only be called by the submit address.
