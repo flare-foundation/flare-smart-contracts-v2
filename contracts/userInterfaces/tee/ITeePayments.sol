@@ -30,6 +30,13 @@ interface ITeePayments {
         uint256 batchEndTs;
     }
 
+    struct SetPaymentLimits {
+        bytes32 walletId;
+        ITeeWalletManager.TeeIdKeyIdPair[] teeIdKeyIdPairs;
+        uint256 transactionLimit;
+        uint256 dailyLimit;
+    }
+
     event BatchSettingsSet(
         bytes32 indexed walletId,
         uint64 batchSize,
@@ -57,11 +64,13 @@ interface ITeePayments {
     /**
      * Payment instruction method.
      * Can only be called by the submit address.
+     * @param _projectId The project id.
      * @param _walletId The wallet id.
      * @param _paymentInstruction The payment instruction.
      * @return _subNonce The sequence number of the payment instruction.
      */
     function pay(
+        bytes32 _projectId,
         bytes32 _walletId,
         PaymentInstruction calldata _paymentInstruction
     )
@@ -143,6 +152,20 @@ interface ITeePayments {
         uint64 _batchDurationSeconds
     )
         external;
+
+    /**
+     * Set payment limits instruction method.
+     * Can only be called by the wallet owner address.
+     * @param _walletId The wallet id.
+     * @param _transactionLimit The transaction limit.
+     * @param _dailyLimit The daily limit.
+     */
+    function setPaymentLimits(
+        bytes32 _walletId,
+        uint256 _transactionLimit,
+        uint256 _dailyLimit
+    )
+        external payable;
 
     /**
      * Returns wallet's sender address.

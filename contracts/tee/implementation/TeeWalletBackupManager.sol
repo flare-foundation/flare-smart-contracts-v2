@@ -26,6 +26,12 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
     bytes32 public constant KEY_DATA_PROVIDER_RESTORE = bytes32("KEY_DATA_PROVIDER_RESTORE");
 
     mapping(bytes32 walletId => mapping(uint256 keyId => uint256)) private machineBackupCounter;
+    mapping(bytes32 walletId => mapping(uint256 keyId =>
+        mapping(uint256 backupId => uint256))) private machineRestoreCounter;
+    mapping(bytes32 walletId => mapping(uint256 keyId =>
+        mapping(uint256 backupId => uint256))) private machineBackupRemoveCounter;
+    mapping(bytes32 walletId => mapping(uint256 keyId =>
+        mapping (bytes32 opCommand => uint256))) private dataProviderRestoreCounter;
 
     /// TEE registry contract.
     ITeeRegistry public teeRegistry;
@@ -123,8 +129,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         require(!_isKeyAvailable(_teeId, _walletId, _keyId), "key already available");
         _checkTeeStatus(_teeId);
         _checkTeeStatuses(_backupTeeIds);
-        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        bytes32 opType = teeWalletProjectManager.getOpType(projectId);
+        bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_walletId));
         require(teeRegistry.areTeeMachinesCompatible(_teeId, _backupTeeIds), "tee machines not compatible");
         _checkFee(KEY_MACHINE_RESTORE, _teeId, _backupTeeIds);
         KeyMachineRestore memory message = KeyMachineRestore({
@@ -140,7 +145,10 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
             message.backupTeeMachines[i] = teeRegistry.getTeeMachineWithAttestationData(_backupTeeIds[i]);
         }
         bytes32 instructionId =
-            keccak256(abi.encode(WALLET_OP_TYPE, KEY_MACHINE_RESTORE, _walletId, _keyId, _backupId));
+            keccak256(abi.encode(
+                WALLET_OP_TYPE, KEY_MACHINE_RESTORE, _walletId, _keyId, _backupId,
+                machineRestoreCounter[_walletId][_keyId][_backupId]++
+            ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _getTeeMachines(_teeId),
@@ -177,7 +185,10 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
             teeMachines[i] = teeRegistry.getTeeMachine(_teeIds[i]);
         }
         bytes32 instructionId =
-            keccak256(abi.encode(WALLET_OP_TYPE, KEY_MACHINE_BACKUP_REMOVE, _walletId, _keyId, _backupId));
+            keccak256(abi.encode(
+                WALLET_OP_TYPE, KEY_MACHINE_BACKUP_REMOVE, _walletId, _keyId,
+                _backupId, machineBackupRemoveCounter[_walletId][_keyId][_backupId]++
+            ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             teeMachines,
@@ -265,7 +276,10 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
             publicKey: publicKey,
             rewardEpochId: _rewardEpochId
         });
-        bytes32 instructionId = keccak256(abi.encode(WALLET_OP_TYPE, _opCommand, _walletId, _keyId, _rewardEpochId));
+        bytes32 instructionId = keccak256(abi.encode(
+            WALLET_OP_TYPE, _opCommand, _walletId, _keyId, _rewardEpochId,
+            dataProviderRestoreCounter[_walletId][_keyId][_opCommand]++
+        ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _getTeeMachines(_teeId),

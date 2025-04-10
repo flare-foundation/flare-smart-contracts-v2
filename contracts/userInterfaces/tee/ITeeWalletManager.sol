@@ -44,6 +44,12 @@ interface ITeeWalletManager {
         uint256 keyId;
     }
 
+    struct SetPausingAddresses {
+        bytes32 walletId;
+        ITeeWalletManager.TeeIdKeyIdPair[] teeIdKeyIdPairs;
+        address[] pausingAddresses;
+    }
+
     event WalletCreated(
         bytes32 indexed projectId,
         bytes32 indexed walletId,
@@ -230,9 +236,21 @@ interface ITeeWalletManager {
      */
     function pauseWallet(bytes32 _walletId) external;
 
+    //  /**
+    //  * Set pausing addresses instruction method.
+    //  * Can only be called by the wallet owner address.
+    //  * @param _walletId The wallet id.
+    //  * @param _pausingAddresses The pausing addresses.
+    //  */
+    // function setPausingAddresses(
+    //     bytes32 _walletId,
+    //     address[] calldata _pausingAddresses
+    // )
+    //     external payable;
+
     /**
      * Returns wallet's receiving tees and keys.
-     * Reverts if not enough receiving tees are available or wallet is not in production status.
+     * Reverts if not enough receiving tees are available.
      * @param _walletId The wallet id.
      * @return _receivingTees The receiving tees.
      * @return _teeIdKeyIdPairs The tee id and key id pairs.

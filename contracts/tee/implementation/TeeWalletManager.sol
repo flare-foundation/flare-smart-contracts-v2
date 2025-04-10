@@ -50,11 +50,14 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     bytes32 public constant WALLET_OP_TYPE = bytes32("WALLET");
     bytes32 public constant KEY_GENERATE = bytes32("KEY_GENERATE");
     bytes32 public constant KEY_DELETE = bytes32("KEY_DELETE");
+    bytes32 public constant SET_PAUSING_ADDRESSES = bytes32("SET_PAUSING_ADDRESSES");
 
     uint256 public keyExistenceProofValiditySeconds;
     uint256 public walletCounter = 0;
     mapping(bytes32 walletId => TeeWalletState) private wallets;
     mapping(bytes32 projectId => bytes32[] walletIds) private projectWallets;
+    mapping(bytes32 walletId => mapping(uint256 keyId => uint256)) private keyDeleteCounter;
+    mapping (bytes32 walletId => uint256) private setPausingAddressesCounter;
 
     EnumerableSet.Bytes32Set private supportedOpTypes;
     /// Mapping of operation type to operation type constants provider.
@@ -419,7 +422,9 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
             walletId: _walletId,
             keyId: _keyId
         });
-        bytes32 instructionId = keccak256(abi.encode(WALLET_OP_TYPE, KEY_DELETE, _walletId, _keyId));
+        bytes32 instructionId = keccak256(abi.encode(
+            WALLET_OP_TYPE, KEY_DELETE, _walletId, _keyId, keyDeleteCounter[_walletId][_keyId]++
+        ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _getTeeMachines(_teeId),
@@ -491,7 +496,6 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
         returns (ITeeRegistry.TeeMachine[] memory _receivingTees, TeeIdKeyIdPair[] memory _teeIdKeyIdPairs)
     {
         TeeWalletState storage wallet = wallets[_walletId];
-        _checkWalletStatus(wallet.status, WalletStatus.PRODUCTION);
         uint256 keyIdsLength = wallet.keyIds.length;
         uint256 count = 0;
         for (uint256 i = 0; i < keyIdsLength; i++) {
@@ -580,6 +584,40 @@ contract TeeWalletManager is ITeeWalletManager, Governed, AddressUpdatable {
     {
         _setKeyExistenceProofValidity(_keyExistenceProofValiditySeconds);
     }
+
+    // /**
+    //  * @inheritdoc ITeeWalletManager
+    //  */
+    // function setPausingAddresses(
+    //     bytes32 _walletId,
+    //     address[] calldata _pausingAddresses
+    // )
+    //     external payable onlyOwner(_walletId)
+    // {
+    //     require(_pausingAddresses.length > 0, "addresses length zero");
+    //     require(wallets[_walletId].status == WalletStatus.PRODUCTION ||
+    //         wallets[_walletId].status == WalletStatus.PAUSED, "only production or paused status");
+    //     (ITeeRegistry.TeeMachine[] memory receivingTees,TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
+    //         this.receivingTeesAndKeys(_walletId);
+
+    //     SetPausingAddresses memory message = SetPausingAddresses({
+    //         walletId: _walletId,
+    //         teeIdKeyIdPairs: teeIdKeyIdPairs,
+    //         pausingAddresses: _pausingAddresses
+    //     });
+    //     bytes32 opType = teeWalletProjectManager.getOpType(wallets[_walletId].projectId);
+    //     bytes32 instructionId = keccak256(abi.encode(
+    //         opType, SET_PAUSING_ADDRESSES, _walletId, setPausingAddressesCounter[_walletId]++
+    //     ));
+    //     teeInstructions.sendInstructions{value: msg.value}(
+    //         instructionId,
+    //         receivingTees,
+    //         flareSystemsManager.getCurrentRewardEpochId(),
+    //         opType,
+    //         SET_PAUSING_ADDRESSES,
+    //         abi.encode(message)
+    //     );
+    // }
 
     /**
      * @inheritdoc ITeeWalletManager

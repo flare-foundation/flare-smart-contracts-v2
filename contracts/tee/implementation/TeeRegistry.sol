@@ -59,6 +59,8 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     mapping(address oldTeeId => address newTeeId) public replications;
     /// Proposed new TEE owner.
     mapping(address teeId => address) public proposedTeeOwner;
+    mapping(address teeId => uint256) private pauseForUpgradeCounter;
+    mapping(address oldTeeId => uint256) private replicateCounter;
 
     modifier onlyOwner(address _teeId) {
         require(teeStates[_teeId].owner == msg.sender, "only owner");
@@ -240,7 +242,9 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         }
         _checkFee(TO_PAUSE_FOR_UPGRADE, _teeId);
         PauseForUpgrade memory message = PauseForUpgrade({ teeId: _teeId });
-        bytes32 instructionId = keccak256(abi.encode(REG_OP_TYPE, TO_PAUSE_FOR_UPGRADE, _teeId));
+        bytes32 instructionId = keccak256(
+            abi.encode(REG_OP_TYPE, TO_PAUSE_FOR_UPGRADE, _teeId, pauseForUpgradeCounter[_teeId]++)
+        );
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _getTeeMachines(TeeMachine({ teeId: _teeId, owner: msg.sender, url: teeState.url })),
@@ -291,10 +295,15 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             newTeeMachine: _getTeeMachineWithAttestationData(newTeeId, newTeeState)
         });
 
-        bytes32 instructionId = keccak256(abi.encode(REG_OP_TYPE, REPLICATE_FROM, _oldTeeId, newTeeId));
+        bytes32 instructionId = keccak256(abi.encode(
+            REG_OP_TYPE, REPLICATE_FROM, _oldTeeId, newTeeId,
+                replicateCounter[_oldTeeId]++
+        ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
-            _getTeeMachines(ITeeRegistry.TeeMachine({ teeId: newTeeId, owner: msg.sender, url: newTeeState.url })),
+            _getTeeMachines(ITeeRegistry.TeeMachine(
+                { teeId: newTeeId, owner: msg.sender, url: newTeeState.url }
+            )),
             flareSystemsManager.getCurrentRewardEpochId(),
             REG_OP_TYPE,
             REPLICATE_FROM,

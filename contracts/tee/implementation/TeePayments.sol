@@ -48,6 +48,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
 
     bytes32 public constant PAY = bytes32("PAY");
     bytes32 public constant REISSUE = bytes32("REISSUE");
+    bytes32 public constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
 
     uint64 public immutable maxBatchSize;
     uint64 public immutable maxBatchDurationSeconds;
@@ -58,6 +59,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
     mapping(bytes32 walletId => string) private senderAddresses;
     mapping(bytes32 walletId => mapping(uint64 nonce => bytes32)) private hashes;
     mapping(bytes32 walletId => mapping(uint64 nonce => uint256)) private reissueCounter;
+    mapping(bytes32 walletId => uint256) private setLimitsCounter;
 
     /// Flare Systems Manager contract.
     IFlareSystemsManager public flareSystemsManager;
@@ -105,16 +107,22 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
      */
     function pay(
         bytes32 _projectId,
+        bytes32 _walletId,
         PaymentInstruction calldata _paymentInstruction
     )
-        external payable returns(uint256)
+        external payable returns (uint256)
     {
         (bytes32 walletId, bytes32 walletOpType, address submitAddress) =
             teeWalletProjectManager.getDefaultWalletInfo(_projectId);
-        require(walletId != bytes32(0), "default wallet not set");
-        require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(walletOpType, PAY, walletId), "fee too low");
         require(submitAddress == msg.sender, "only submit address");
         require(walletOpType == opType, "wrong op type");
+        if (_walletId != bytes32(0)) {
+            require(teeWalletManager.getWalletProjectId(_walletId) == _projectId, "wrong project id");
+            walletId = _walletId;
+        } else {
+            require(walletId != bytes32(0), "default wallet not set");
+        }
+        require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(walletOpType, PAY, walletId), "fee too low");
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(walletId);
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION, "wallet not in production");
         require(bytes(senderAddresses[walletId]).length > 0, "sender address not set");
@@ -144,19 +152,19 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
         (ITeeRegistry.TeeMachine[] memory receivingTees, ITeeWalletManager.TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
             teeWalletManager.receivingTeesAndKeys(walletId);
 
-        PaymentInstructionMessage memory message = PaymentInstructionMessage(
-            walletId,
-            teeIdKeyIdPairs,
-            senderAddresses[walletId],
-            _paymentInstruction.recipientAddress,
-            _paymentInstruction.amount,
-            _paymentInstruction.paymentReference,
-            state.nonce - 1,
-            state.subNonce,
-            setting.maxFee,
-            setting.maxFeeTolerancePPM,
-            state.batchEndTs
-        );
+        PaymentInstructionMessage memory message = PaymentInstructionMessage({
+            walletId: walletId,
+            teeIdKeyIdPairs: teeIdKeyIdPairs,
+            senderAddress: senderAddresses[walletId],
+            recipientAddress: _paymentInstruction.recipientAddress,
+            amount: _paymentInstruction.amount,
+            paymentReference: _paymentInstruction.paymentReference,
+            nonce: state.nonce - 1,
+            subNonce: state.subNonce,
+            maxFee: setting.maxFee,
+            maxFeeTolerancePPM: setting.maxFeeTolerancePPM,
+            batchEndTs: state.batchEndTs
+        });
         ++state.subNonce;
 
         bytes32 instructionId = keccak256(abi.encode(opType, PAY, walletId, message.nonce));
@@ -218,19 +226,19 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
         // reissue batch
         tempState.remainingAmount = msg.value;
         for (uint256 i = 0; i < _paymentInstructions.length; ++i) {
-            PaymentInstructionMessage memory message = PaymentInstructionMessage(
-                _walletId,
-                tempState.teeIdKeyIdPairs,
-                tempState.senderAddress,
-                _paymentInstructions[i].recipientAddress,
-                _paymentInstructions[i].amount,
-                _paymentInstructions[i].paymentReference,
-                _nonce,
-                _firstSubNonce + i,
-                _fee,
-                tempState.maxFeeTolerancePPM,
-                block.timestamp
-            );
+            PaymentInstructionMessage memory message = PaymentInstructionMessage({
+                walletId: _walletId,
+                teeIdKeyIdPairs: tempState.teeIdKeyIdPairs,
+                senderAddress: tempState.senderAddress,
+                recipientAddress: _paymentInstructions[i].recipientAddress,
+                amount: _paymentInstructions[i].amount,
+                paymentReference: _paymentInstructions[i].paymentReference,
+                nonce: _nonce,
+                subNonce: _firstSubNonce + i,
+                maxFee: _fee,
+                maxFeeTolerancePPM: tempState.maxFeeTolerancePPM,
+                batchEndTs: block.timestamp
+            });
             if (_nullify) {
                 message.amount = 0;
                 message.recipientAddress = tempState.senderAddress;
@@ -318,6 +326,44 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
         senderAddresses[_walletId] = _senderAddress;
         states[_walletId].nonce = _initialNonce;
         emit SenderAddressSet(_walletId, _senderAddress, _initialNonce);
+    }
+
+    /**
+     * @inheritdoc ITeePayments
+     */
+    function setPaymentLimits(
+        bytes32 _walletId,
+        uint256 _transactionLimit,
+        uint256 _dailyLimit
+    )
+        external payable onlyWalletOwner(_walletId)
+    {
+        require(_dailyLimit >= _transactionLimit, "daily limit lower than transaction limit");
+        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
+        require(teeWalletProjectManager.getOpType(projectId) == opType, "wrong op type");
+        ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
+        require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
+            walletStatus == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
+        (ITeeRegistry.TeeMachine[] memory receivingTees, ITeeWalletManager.TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
+            teeWalletManager.receivingTeesAndKeys(_walletId);
+
+        SetPaymentLimits memory message = SetPaymentLimits({
+            walletId: _walletId,
+            teeIdKeyIdPairs: teeIdKeyIdPairs,
+            transactionLimit: _transactionLimit,
+            dailyLimit: _dailyLimit
+        });
+        bytes32 instructionId = keccak256(abi.encode(
+            opType, SET_PAYMENT_LIMITS, _walletId, setLimitsCounter[_walletId]++
+        ));
+        teeInstructions.sendInstructions{value: msg.value}(
+            instructionId,
+            receivingTees,
+            flareSystemsManager.getCurrentRewardEpochId(),
+            opType,
+            SET_PAYMENT_LIMITS,
+            abi.encode(message)
+        );
     }
 
     function getSenderAddress(bytes32 _walletId) external view returns(string memory) {
