@@ -296,20 +296,21 @@ contract TeePaymentsTest is Test {
 
     //// pay tests ////
     function testPayRevertFeeTooLow() public {
+        vm.prank(submitAddress);
         vm.expectRevert("fee too low");
-        teePayments.pay{value: fee - 1}(projectId, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee - 1}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
     function testPayRevertOnlySubmitAddress() public {
         vm.expectRevert("only submit address");
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
     function testPayRevertWalletNotInProduction() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.INITIALIZED);
         vm.prank(submitAddress);
         vm.expectRevert("wallet not in production");
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
     function testPayRevertWrongOpType() public {
@@ -317,14 +318,14 @@ contract TeePaymentsTest is Test {
         _mockCalculateFeeByWalletId(walletId, bytes32("WRONG"), PAY, fee);
         vm.prank(submitAddress);
         vm.expectRevert("wrong op type");
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
     function testPayRevertSenderAddressNotSet() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(submitAddress);
         vm.expectRevert("sender address not set");
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
     // batch duration is not set (default is 0)
@@ -363,7 +364,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             fee
         );
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
 
         // create new payment instruction; new batch should be created
         instructionId = keccak256(abi.encode(opType, PAY, walletId, 12));
@@ -391,7 +392,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             fee
         );
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref2")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref2")));
     }
 
     // batch duration is > 0 but batch size is 1
@@ -434,7 +435,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             fee
         );
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
 
         // create new payment instruction; new batch should be created
         instructionId = keccak256(abi.encode(opType, PAY, walletId, 12));
@@ -462,7 +463,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             fee
         );
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref2")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref2")));
     }
 
     // batch duration is > 0 and batch size is > 1
@@ -505,7 +506,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             fee
         );
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
 
         // create new payment instruction
         instructionId = keccak256(abi.encode(opType, PAY, walletId, 11));
@@ -533,7 +534,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             fee
         );
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref2")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref2")));
 
         // create new payment instruction; new batch should be created
         instructionId = keccak256(abi.encode(opType, PAY, walletId, 12));
@@ -561,7 +562,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             fee
         );
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref3")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref3")));
 
         // move to the end of batch
         vm.warp(500 + 301);
@@ -591,7 +592,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             fee
         );
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref4")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref4")));
 
         // one transactions in batch 2, end batch time is not yet reached, new reward epoch started
         // new batch should be created
@@ -621,7 +622,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             fee
         );
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref5")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref5")));
     }
 
     // two transactions in batch with nonce 10
@@ -664,7 +665,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             fee
         );
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
 
         // create new payment instruction
         instructionId = keccak256(abi.encode(opType, PAY, walletId, 11));
@@ -692,7 +693,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             fee
         );
-        teePayments.pay{value: fee}(projectId, _createPaymentInstruction(bytes32("ref2")));
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref2")));
     }
 
     //// reissue tests ////

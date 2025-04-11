@@ -11,11 +11,12 @@ import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../interface/IITeeWalletOpTypeConstants.sol";
+import "./TeeWalletSettings.sol";
 
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.
  */
-contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, AddressUpdatable {
+contract TeePayments is ITeePayments, Governed, TeeWalletSettings {
 
     struct WalletState {
         uint64 nonce;
@@ -52,7 +53,6 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
 
     uint64 public immutable maxBatchSize;
     uint64 public immutable maxBatchDurationSeconds;
-    bytes32 public immutable opType;
 
     mapping(bytes32 walletId => WalletState) private states;
     mapping(bytes32 walletId => WalletSettings) private settings;
@@ -61,17 +61,8 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
     mapping(bytes32 walletId => mapping(uint64 nonce => uint256)) private reissueCounter;
     mapping(bytes32 walletId => uint256) private setLimitsCounter;
 
-    /// Flare Systems Manager contract.
-    IFlareSystemsManager public flareSystemsManager;
-    /// TeeWalletProjectManager contract.
-    ITeeWalletProjectManager public teeWalletProjectManager;
-    /// TeeWalletManager contract.
-    ITeeWalletManager public teeWalletManager;
-    /// TeeInstructions contract.
-    ITeeInstructions public teeInstructions;
     /// TeeFeeCalculator contract.
     ITeeFeeCalculator public teeFeeCalculator;
-
 
     modifier onlyWalletOwner(bytes32 _walletId) {
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
@@ -93,13 +84,12 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
         uint64 _maxBatchDurationSeconds,
         bytes32 _opType
     )
-        Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
+        Governed(_governanceSettings, _initialGovernance) TeeWalletSettings(_addressUpdater, _opType)
     {
         require(_maxBatchSize > 0, "max batch size zero");
         require(_opType != bytes32(0), "op type zero");
         maxBatchSize = _maxBatchSize;
         maxBatchDurationSeconds = _maxBatchDurationSeconds;
-        opType = _opType;
     }
 
     /**
@@ -395,7 +385,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
     /**
      * @inheritdoc IITeeWalletOpTypeConstants
      */
-    function getOpTypeConstants(bytes32 _walletId) external view virtual returns(bytes memory) {
+    function getOpTypeConstants(bytes32 _walletId) external view virtual override returns(bytes memory) {
         // return empty bytes
     }
 
@@ -408,15 +398,8 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants, Governed, Addr
     )
         internal override
     {
-        flareSystemsManager = IFlareSystemsManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
-        teeWalletProjectManager = ITeeWalletProjectManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
-        teeWalletManager = ITeeWalletManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
+        super._updateContractAddresses(_contractNameHashes, _contractAddresses);
         teeFeeCalculator = ITeeFeeCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
-        teeInstructions = ITeeInstructions(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
     }
 }
