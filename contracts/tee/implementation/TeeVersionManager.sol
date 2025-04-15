@@ -35,7 +35,7 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         Signature[] targetTeeGovernanceSignatures;
         mapping(address => bool) targetTeeGovernanceSigners;
         TeeUpgradePathState[] upgradePaths;
-        bool upgradeFinalized;
+        bytes32 messageHash; // keccak256(abi.encode(upgrade paths)), set when upgrade is finalized -> enables signing
         bool upgradeSigned;
     }
 
@@ -101,7 +101,7 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
     )
         external onlyImmediateGovernance onlyValidTeeUpgradeId(_teeUpgradeId)
     {
-        require(!teeUpgrades[_teeUpgradeId].upgradeFinalized, "upgrade already finalized");
+        require(teeUpgrades[_teeUpgradeId].messageHash == bytes32(0), "upgrade already finalized");
         require(_upgradePaths.length > 0, "no upgrade paths");
 
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
@@ -152,9 +152,9 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         external onlyImmediateGovernance onlyValidTeeUpgradeId(_teeUpgradeId)
     {
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
-        require(!teeUpgrade.upgradeFinalized, "upgrade already finalized");
+        require(teeUpgrade.messageHash == bytes32(0), "upgrade already finalized");
         require(teeUpgrade.upgradePaths.length > 0, "no upgrade paths");
-        teeUpgrade.upgradeFinalized = true;
+        teeUpgrade.messageHash = keccak256(abi.encode(_getTeeUpgradePaths(_teeUpgradeId)));
         emit TeeUpgradeFinalized(_teeUpgradeId);
     }
 
@@ -229,14 +229,13 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
     {
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
         require(!teeUpgrade.upgradeSigned, "upgrade already signed");
-        require(teeUpgrade.upgradeFinalized, "upgrade not finalized");
+        require(teeUpgrade.messageHash != bytes32(0), "upgrade not finalized");
 
-        bytes32 messageHash = keccak256(abi.encode(_getTeeUpgradePaths(_teeUpgradeId)));
         bytes32 sourceTeeGovernanceHash = teeUpgrade.sourceTeeGovernanceHash;
         bytes32 targetTeeGovernanceHash = teeUpgrade.targetTeeGovernanceHash;
 
         address signer = ECDSA.recover(
-            MessageHashUtils.toEthSignedMessageHash(messageHash),
+            MessageHashUtils.toEthSignedMessageHash(teeUpgrade.messageHash),
             _signature.v,
             _signature.r,
             _signature.s
@@ -319,7 +318,7 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         returns(bool)
     {
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
-        require(teeUpgrade.upgradeFinalized, "upgrade not finalized");
+        require(teeUpgrade.messageHash != bytes32(0), "upgrade not finalized");
         bytes32 sourceVersionHash = keccak256(abi.encode(TeeNodeVersion(_sourceCodeHash, _sourcePlatform)));
         bytes32 targetVersionHash = keccak256(abi.encode(TeeNodeVersion(_targetCodeHash, _targetPlatform)));
         for (uint256 i = 0; i < teeUpgrade.upgradePaths.length; i++) {
@@ -341,7 +340,7 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         external view onlyValidTeeUpgradeId(_teeUpgradeId)
         returns(bool)
     {
-        return teeUpgrades[_teeUpgradeId].upgradeFinalized;
+        return teeUpgrades[_teeUpgradeId].messageHash != bytes32(0);
     }
 
     /**
@@ -354,6 +353,16 @@ contract TeeVersionManager is ITeeVersionManager, Governed, AddressUpdatable {
         returns(bool)
     {
         return teeUpgrades[_teeUpgradeId].upgradeSigned;
+    }
+
+    /**
+     * @inheritdoc ITeeVersionManager
+     */
+    function getTeeUpgradesCount()
+        external view
+        returns(uint256)
+    {
+        return teeUpgrades.length;
     }
 
     /**

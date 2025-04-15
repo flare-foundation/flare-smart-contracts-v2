@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import "./ITeeIdKeyIdPair.sol";
 
-interface IITeeWalletOpTypeSettings {
+interface ITeeWalletOpTypeSettings {
 
     struct SetPausingAddresses {
         bytes32 walletId;
-        ITeeWalletManager.TeeIdKeyIdPair[] teeIdKeyIdPairs;
+        TeeIdKeyIdPair[] teeIdKeyIdPairs;
         address[] pausingAddresses;
     }
 
@@ -23,4 +23,9 @@ interface IITeeWalletOpTypeSettings {
     )
         external payable;
 
+    /**
+     * Returns the wallet operation type.
+     * @return _opType The operation type.
+     */
+    function opType() external view returns (bytes32);
 }

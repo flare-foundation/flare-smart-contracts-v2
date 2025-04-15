@@ -1,22 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../userInterfaces/tee/ITeeWalletManager.sol";
-import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
 import "../../userInterfaces/tee/ITeePayments.sol";
-import "../../userInterfaces/tee/ITeeRegistry.sol";
-import "../../userInterfaces/tee/ITeeInstructions.sol";
-import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
-import "../interface/IITeeWalletOpTypeConstants.sol";
-import "./TeeWalletSettings.sol";
+import "./TeeWalletConstantsAndSettings.sol";
 
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.
  */
-contract TeePayments is ITeePayments, Governed, TeeWalletSettings {
+contract TeePayments is ITeePayments, Governed, TeeWalletConstantsAndSettings {
 
     struct WalletState {
         uint64 nonce;
@@ -38,8 +30,8 @@ contract TeePayments is ITeePayments, Governed, TeeWalletSettings {
 
     struct ReissueTempState {
         string senderAddress;
-        ITeeWalletManager.TeeIdKeyIdPair[] teeIdKeyIdPairs;
-        ITeeRegistry.TeeMachine[] receivingTees;
+        TeeIdKeyIdPair[] teeIdKeyIdPairs;
+        ITeeRegistry.TeeMachine[] teeMachines;
         uint32 maxFeeTolerancePPM;
         uint24 currentRewardEpochId;
         bytes32 instructionId;
@@ -61,8 +53,6 @@ contract TeePayments is ITeePayments, Governed, TeeWalletSettings {
     mapping(bytes32 walletId => mapping(uint64 nonce => uint256)) private reissueCounter;
     mapping(bytes32 walletId => uint256) private setLimitsCounter;
 
-    /// TeeFeeCalculator contract.
-    ITeeFeeCalculator public teeFeeCalculator;
 
     modifier onlyWalletOwner(bytes32 _walletId) {
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
@@ -84,7 +74,7 @@ contract TeePayments is ITeePayments, Governed, TeeWalletSettings {
         uint64 _maxBatchDurationSeconds,
         bytes32 _opType
     )
-        Governed(_governanceSettings, _initialGovernance) TeeWalletSettings(_addressUpdater, _opType)
+        Governed(_governanceSettings, _initialGovernance) TeeWalletConstantsAndSettings(_addressUpdater, _opType)
     {
         require(_maxBatchSize > 0, "max batch size zero");
         require(_opType != bytes32(0), "op type zero");
@@ -139,8 +129,8 @@ contract TeePayments is ITeePayments, Governed, TeeWalletSettings {
             ));
         }
 
-        (ITeeRegistry.TeeMachine[] memory receivingTees, ITeeWalletManager.TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
-            teeWalletManager.receivingTeesAndKeys(walletId);
+        (ITeeRegistry.TeeMachine[] memory teeMachines, TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
+            teeWalletKeyManager.receivingTeesAndKeys(walletId);
 
         PaymentInstructionMessage memory message = PaymentInstructionMessage({
             walletId: walletId,
@@ -157,10 +147,12 @@ contract TeePayments is ITeePayments, Governed, TeeWalletSettings {
         });
         ++state.subNonce;
 
-        bytes32 instructionId = keccak256(abi.encode(opType, PAY, walletId, message.nonce));
+        bytes32 instructionId = keccak256(abi.encode(
+            opType, PAY, walletId, message.nonce
+        ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
-            receivingTees,
+            teeMachines,
             state.batchRewardEpochId,
             opType,
             PAY,
@@ -208,11 +200,13 @@ contract TeePayments is ITeePayments, Governed, TeeWalletSettings {
         }
         require(hashes[_walletId][_nonce] == batchHash, "batch hash mismatch");
 
-        (tempState.receivingTees, tempState.teeIdKeyIdPairs) = teeWalletManager.receivingTeesAndKeys(_walletId);
+        (tempState.teeMachines, tempState.teeIdKeyIdPairs) = teeWalletKeyManager.receivingTeesAndKeys(_walletId);
         tempState.maxFeeTolerancePPM = setting.maxFeeTolerancePPM;
         tempState.currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         uint256 reissueNumber = reissueCounter[_walletId][_nonce]++;
-        tempState.instructionId = keccak256(abi.encode(opType, REISSUE, _walletId, _nonce, reissueNumber));
+        tempState.instructionId = keccak256(abi.encode(
+            opType, REISSUE, _walletId, _nonce, reissueNumber
+        ));
         // reissue batch
         tempState.remainingAmount = msg.value;
         for (uint256 i = 0; i < _paymentInstructions.length; ++i) {
@@ -237,7 +231,7 @@ contract TeePayments is ITeePayments, Governed, TeeWalletSettings {
             tempState.remainingAmount -= tempState.amount;
             teeInstructions.sendInstructions{value: tempState.amount}(
                 tempState.instructionId,
-                tempState.receivingTees,
+                tempState.teeMachines,
                 tempState.currentRewardEpochId,
                 opType,
                 REISSUE,
@@ -334,8 +328,10 @@ contract TeePayments is ITeePayments, Governed, TeeWalletSettings {
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
             walletStatus == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
-        (ITeeRegistry.TeeMachine[] memory receivingTees, ITeeWalletManager.TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
-            teeWalletManager.receivingTeesAndKeys(_walletId);
+        require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, SET_PAYMENT_LIMITS, _walletId),
+            "fee too low");
+        (ITeeRegistry.TeeMachine[] memory teeMachines, TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
+            teeWalletKeyManager.receivingTeesAndKeys(_walletId);
 
         SetPaymentLimits memory message = SetPaymentLimits({
             walletId: _walletId,
@@ -348,7 +344,7 @@ contract TeePayments is ITeePayments, Governed, TeeWalletSettings {
         ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
-            receivingTees,
+            teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
             opType,
             SET_PAYMENT_LIMITS,
@@ -399,7 +395,5 @@ contract TeePayments is ITeePayments, Governed, TeeWalletSettings {
         internal override
     {
         super._updateContractAddresses(_contractNameHashes, _contractAddresses);
-        teeFeeCalculator = ITeeFeeCalculator(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
     }
 }

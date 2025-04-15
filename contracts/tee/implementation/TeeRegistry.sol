@@ -7,7 +7,8 @@ import "../../userInterfaces/tee/ITeeVersionManager.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
-import "../../userInterfaces/tee/ITeeDataConnector.sol";
+import "../../userInterfaces/ftdc/IFtdcHub.sol";
+import "../../userInterfaces/ftdc/IFtdcVerification.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/IRelay.sol";
 import "../../utils/lib/AddressSet.sol";
@@ -39,8 +40,10 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     ITeeFeeCalculator public teeFeeCalculator;
     /// TEE instructions contract.
     ITeeInstructions public teeInstructions;
-    /// TEE data connector contract.
-    ITeeDataConnector public teeDataConnector;
+    /// Flare TEE data connector contract.
+    IFtdcHub public ftdcHub;
+    /// FTDC verification contract.
+    IFtdcVerification public ftdcVerification;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
     /// Relay contract.
@@ -242,9 +245,9 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         }
         _checkFee(TO_PAUSE_FOR_UPGRADE, _teeId);
         PauseForUpgrade memory message = PauseForUpgrade({ teeId: _teeId });
-        bytes32 instructionId = keccak256(
-            abi.encode(REG_OP_TYPE, TO_PAUSE_FOR_UPGRADE, _teeId, pauseForUpgradeCounter[_teeId]++)
-        );
+        bytes32 instructionId = keccak256(abi.encode(
+            REG_OP_TYPE, TO_PAUSE_FOR_UPGRADE, _teeId, pauseForUpgradeCounter[_teeId]++
+        ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _getTeeMachines(TeeMachine({ teeId: _teeId, owner: msg.sender, url: teeState.url })),
@@ -296,14 +299,11 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         });
 
         bytes32 instructionId = keccak256(abi.encode(
-            REG_OP_TYPE, REPLICATE_FROM, _oldTeeId, newTeeId,
-                replicateCounter[_oldTeeId]++
+            REG_OP_TYPE, REPLICATE_FROM, _oldTeeId, newTeeId, replicateCounter[_oldTeeId]++
         ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
-            _getTeeMachines(ITeeRegistry.TeeMachine(
-                { teeId: newTeeId, owner: msg.sender, url: newTeeState.url }
-            )),
+            _getTeeMachines(ITeeRegistry.TeeMachine({ teeId: newTeeId, owner: msg.sender, url: newTeeState.url })),
             flareSystemsManager.getCurrentRewardEpochId(),
             REG_OP_TYPE,
             REPLICATE_FROM,
@@ -480,8 +480,10 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
         teeInstructions = ITeeInstructions(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
-        teeDataConnector = ITeeDataConnector(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeDataConnector"));
+        ftdcHub = IFtdcHub(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcHub"));
+        ftdcVerification = IFtdcVerification(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcVerification"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
@@ -502,7 +504,7 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         address[] memory teeIds = new address[](1);
         teeIds[0] = _testOnTeeId;
 
-        teeDataConnector.requestAttestation{value: msg.value}(
+        ftdcHub.requestAttestation{value: msg.value}(
             0,
             0,
             teeIds,
@@ -541,16 +543,14 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         require(_proof.data.requestBody.teeMachine.platform == teeState.platform, "platform mismatch");
         require(_proof.data.attestationType == TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE, "invalid attestation type");
         require(_proof.data.sourceId == TEE_SOURCE_ID, "invalid source id");
-        // TODO validate proof
-        // bytes32 dataHash = keccak256(abi.encode(_proof.data));
-        // // 1 byte (protocolId=1), 4 bytes (votingRoundId=0), 1 byte (isSecureRandom=false), 32 bytes (dataHash)
-        // bytes memory relayMessage = bytes.concat(bytes1(uint8(1)), bytes5(0), dataHash);
-        // bytes32 messageHash = keccak256(relayMessage);
-        // uint256 rewardEpochId = relay.verifyCustomSignature(_proof.relayMessage, messageHash);
-        // uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        // require(_proof.data.requestBody.rewardEpochId == rewardEpochId &&
-        //     (rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId),
-        //     "too old signing policy");
+        uint256 rewardEpochId = ftdcVerification.verifySigningPolicySignatures(
+            _proof.relayMessage,
+            keccak256(abi.encode(_proof.data))
+        );
+        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        require(_proof.data.requestBody.rewardEpochId == rewardEpochId &&
+            (rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId),
+            "too old signing policy");
     }
 
     function _validateAvailabilityCheckTs(address _teeId, uint256 _availabilityCheckTs) internal view {

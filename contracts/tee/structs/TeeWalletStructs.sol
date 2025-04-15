@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 import "../../userInterfaces/tee/ITeeWalletBackupManager.sol";
+import "../../userInterfaces/tee/ITeeWalletOpTypeSettings.sol";
 
 
 interface TeeWalletManagerStructs {
 
-    function keyGenerateStruct(ITeeWalletManager.KeyGenerate calldata) external;
+    function keyGenerateStruct(ITeeWalletKeyManager.KeyGenerate calldata) external;
 
-    function keyDeleteStruct(ITeeWalletManager.KeyDelete calldata) external;
+    function keyDeleteStruct(ITeeWalletKeyManager.KeyDelete calldata) external;
 
     function keyMachineBackupStruct(ITeeWalletBackupManager.KeyMachineBackup calldata) external;
 
@@ -18,4 +19,6 @@ interface TeeWalletManagerStructs {
     function keyMachineBackupRemoveStruct(ITeeWalletBackupManager.KeyMachineBackupRemove calldata) external;
 
     function keyDataProviderRestoreStruct(ITeeWalletBackupManager.KeyDataProviderRestore calldata) external;
+
+    function setPausingAddressesStruct(ITeeWalletOpTypeSettings.SetPausingAddresses calldata) external;
 }

@@ -128,6 +128,14 @@ interface ITeeVersionManager {
         returns(bool);
 
     /**
+     * Returns TEE upgrades count.
+     * @return The TEE upgrades count.
+     */
+    function getTeeUpgradesCount()
+        external view
+        returns(uint256);
+
+    /**
      * Returns the TEE upgrade paths for the given TEE upgrade id.
      * @param _teeUpgradeId The TEE upgrade id.
      * @return upgradePaths List of TEE upgrade paths.

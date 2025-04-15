@@ -89,13 +89,14 @@ export class Contracts {
   public static readonly TEE_REGISTRY = "TeeRegistry";
   public static readonly TEE_WALLET_PROJECT_MANAGER = "TeeWalletProjectManager";
   public static readonly TEE_WALLET_MANAGER = "TeeWalletManager";
+  public static readonly TEE_WALLET_KEY_MANAGER = "TeeWalletKeyManager";
   public static readonly TEE_WALLET_BACKUP_MANAGER = "TeeWalletBackupManager";
-  public static readonly TEE_PAYMENTS = "TeePayments";
   public static readonly TEE_INSTRUCTIONS = "TeeInstructions";
   public static readonly TEE_FEE_CALCULATOR = "TeeFeeCalculator";
   public static readonly TEE_REWARD_OFFERS_MANAGER = "TeeRewardOffersManager";
-  public static readonly TEE_DATA_CONNECTOR = "TeeDataConnector";
+  public static readonly FTDC_HUB = "FtdcHub";
   public static readonly FTDC_REQUEST_FEE_CONFIGURATIONS = "FtdcRequestFeeConfigurations";
+  public static readonly FTDC_VERIFICATION = "FtdcVerification";
 
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 

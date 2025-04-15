@@ -3,17 +3,17 @@ pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
-import "../../userInterfaces/tee/ITeeDataConnector.sol";
+import "../../userInterfaces/ftdc/IFtdcHub.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../userInterfaces/tee/IFtdcRequestFeeConfigurations.sol";
+import "../../userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
 
 /**
- * TeeDataConnector is used for requesting FTDC attestations.
+ * FtdcHub is used for requesting FTDC attestations.
  */
-contract TeeDataConnector is ITeeDataConnector, Governed, AddressUpdatable {
+contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
 
     uint256 internal constant MAX_BIPS = 1e4;
     bytes32 public constant FTDC_OP_TYPE = bytes32("FTDC");
@@ -35,6 +35,8 @@ contract TeeDataConnector is ITeeDataConnector, Governed, AddressUpdatable {
     /// The default number of TEEs used for attestation.
     uint8 public defaultNumberOfTees;
 
+    uint256 private attestationRequestCounter;
+
     /**
      * Constructor.
      * @param _governanceSettings The address of the GovernanceSettings contract.
@@ -55,7 +57,7 @@ contract TeeDataConnector is ITeeDataConnector, Governed, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc ITeeDataConnector
+     * @inheritdoc IFtdcHub
      */
     function requestAttestation(
         uint16 _thresholdBIPS,
@@ -98,7 +100,9 @@ contract TeeDataConnector is ITeeDataConnector, Governed, AddressUpdatable {
                 url: message.teeMachines[i].url
             });
         }
-        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, _attestationRequest)); // TODO
+        bytes32 instructionId = keccak256(abi.encode(
+            FTDC_OP_TYPE, PROVE, _attestationRequest, attestationRequestCounter++ // TODO
+        ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             teeMachines,

@@ -4,15 +4,15 @@ pragma solidity 0.8.20;
 import "../../governance/implementation/Governed.sol";
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
-import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 
 /**
  * TeeFeeCalculator is used for calculating fees for TEE operations.
  */
 contract TeeFeeCalculator is Governed, AddressUpdatable, ITeeFeeCalculator {
 
-    /// TEE wallet manager contract.
-    ITeeWalletManager public teeWalletManager;
+    /// TEE wallet key manager contract.
+    ITeeWalletKeyManager public teeWalletKeyManager;
 
     mapping(bytes32 opType => mapping(bytes32 opCommand => uint256 fee)) internal operationFee;
 
@@ -63,7 +63,7 @@ contract TeeFeeCalculator is Governed, AddressUpdatable, ITeeFeeCalculator {
     )
         external view returns (uint256)
     {
-        return operationFee[_opType][_opCommand] * teeWalletManager.getFeeFactor(_walletId);
+        return operationFee[_opType][_opCommand] * teeWalletKeyManager.getFeeFactor(_walletId);
     }
 
     /**
@@ -90,8 +90,8 @@ contract TeeFeeCalculator is Governed, AddressUpdatable, ITeeFeeCalculator {
     )
         internal override
     {
-        teeWalletManager = ITeeWalletManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
+        teeWalletKeyManager = ITeeWalletKeyManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
     }
 
 }

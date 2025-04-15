@@ -95,7 +95,7 @@ contract TeeFeeCalculatorTest is Test {
         bytes32 walletId = bytes32("walletId");
         vm.mockCall(
             mockTeeWalletManager,
-            abi.encodeWithSelector(ITeeWalletManager.getFeeFactor.selector, walletId),
+            abi.encodeWithSelector(ITeeWalletKeyManager.getFeeFactor.selector, walletId),
             abi.encode(feeFactor)
         );
 

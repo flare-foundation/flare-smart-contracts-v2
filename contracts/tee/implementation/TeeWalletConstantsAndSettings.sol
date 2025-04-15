@@ -2,19 +2,24 @@
 pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../tee/interface/IITeeWalletOpTypeConstants.sol";
-import "../../tee/interface/IITeeWalletOpTypeSettings.sol";
+import "../interface/IITeeWalletConstantsAndSettings.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
+import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 
-abstract contract TeeWalletSettings is IITeeWalletOpTypeConstants, IITeeWalletOpTypeSettings, AddressUpdatable {
+abstract contract TeeWalletConstantsAndSettings is IITeeWalletConstantsAndSettings, AddressUpdatable {
 
     /// TeeWalletProjectManager contract.
     ITeeWalletProjectManager public teeWalletProjectManager;
     /// TeeWalletManager contract.
     ITeeWalletManager public teeWalletManager;
+    /// TeeWalletKeyManager contract.
+    ITeeWalletKeyManager public teeWalletKeyManager;
+    /// TeeFeeCalculator contract.
+    ITeeFeeCalculator public teeFeeCalculator;
     /// TeeInstructions contract.
     ITeeInstructions public teeInstructions;
     /// Flare systems manager contract.
@@ -39,7 +44,7 @@ abstract contract TeeWalletSettings is IITeeWalletOpTypeConstants, IITeeWalletOp
     }
 
     /**
-     * @inheritdoc IITeeWalletOpTypeSettings
+     * @inheritdoc ITeeWalletOpTypeSettings
      */
     function setPausingAddresses(
         bytes32 _walletId,
@@ -53,9 +58,10 @@ abstract contract TeeWalletSettings is IITeeWalletOpTypeConstants, IITeeWalletOp
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
             walletStatus == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
-
-        (ITeeRegistry.TeeMachine[] memory receivingTees, ITeeWalletManager.TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
-            teeWalletManager.receivingTeesAndKeys(_walletId);
+        require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, SET_PAUSING_ADDRESSES, _walletId),
+            "fee too low");
+        (ITeeRegistry.TeeMachine[] memory teeMachines, TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
+            teeWalletKeyManager.receivingTeesAndKeys(_walletId);
 
         SetPausingAddresses memory message = SetPausingAddresses({
             walletId: _walletId,
@@ -67,7 +73,7 @@ abstract contract TeeWalletSettings is IITeeWalletOpTypeConstants, IITeeWalletOp
         ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
-            receivingTees,
+            teeMachines,
             flareSystemsManager.getCurrentRewardEpochId(),
             opType,
             SET_PAUSING_ADDRESSES,
@@ -89,14 +95,18 @@ abstract contract TeeWalletSettings is IITeeWalletOpTypeConstants, IITeeWalletOp
     )
         internal virtual override
     {
-        flareSystemsManager = IFlareSystemsManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         teeWalletProjectManager = ITeeWalletProjectManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
         teeWalletManager = ITeeWalletManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
+        teeWalletKeyManager = ITeeWalletKeyManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
+        teeFeeCalculator = ITeeFeeCalculator(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
         teeInstructions = ITeeInstructions(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
+        flareSystemsManager = IFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 }
 

@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./ITeeRegistry.sol";
-import "./ITeeWalletManager.sol";
+import "./ITeeWalletOpTypeSettings.sol";
 
 /**
  * TeePayments interface.
  */
-interface ITeePayments {
+interface ITeePayments is ITeeWalletOpTypeSettings {
 
     /// Payment instruction structure
     struct PaymentInstruction {
@@ -18,7 +17,7 @@ interface ITeePayments {
 
     struct PaymentInstructionMessage {
         bytes32 walletId;
-        ITeeWalletManager.TeeIdKeyIdPair[] teeIdKeyIdPairs;
+        TeeIdKeyIdPair[] teeIdKeyIdPairs;
         string senderAddress;
         string recipientAddress;
         uint256 amount;
@@ -32,7 +31,7 @@ interface ITeePayments {
 
     struct SetPaymentLimits {
         bytes32 walletId;
-        ITeeWalletManager.TeeIdKeyIdPair[] teeIdKeyIdPairs;
+        TeeIdKeyIdPair[] teeIdKeyIdPairs;
         uint256 transactionLimit;
         uint256 dailyLimit;
     }

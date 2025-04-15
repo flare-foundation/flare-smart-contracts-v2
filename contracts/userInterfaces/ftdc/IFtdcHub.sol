@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./ITeeRegistry.sol";
+import "../tee/ITeeRegistry.sol";
 
 /**
- * TeeDataConnector interface.
+ * FtdcHub interface.
  */
-interface ITeeDataConnector {
+interface IFtdcHub {
 
     struct FtdcProve {
         ITeeRegistry.TeeMachineWithAttestationData[] teeMachines;

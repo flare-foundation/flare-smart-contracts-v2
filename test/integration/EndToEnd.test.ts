@@ -43,17 +43,19 @@ import { TeeVersionManagerContract, TeeVersionManagerInstance } from '../../type
 import { TeeRegistryContract, TeeRegistryInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeRegistry';
 import { TeeWalletProjectManagerContract, TeeWalletProjectManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeWalletProjectManager';
 import { TeeWalletManagerContract, TeeWalletManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeWalletManager';
+import { TeeWalletKeyManagerContract, TeeWalletKeyManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeWalletKeyManager';
 import { TeeWalletBackupManagerContract, TeeWalletBackupManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeWalletBackupManager';
 import { TeeFeeCalculatorContract, TeeFeeCalculatorInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeFeeCalculator';
 import { TeeInstructionsContract, TeeInstructionsInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeInstructions';
 import { TeeRewardOffersManagerContract, TeeRewardOffersManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeRewardOffersManager';
-import { TeeDataConnectorContract, TeeDataConnectorInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeDataConnector';
 import { TeePaymentsContract, TeePaymentsInstance } from '../../typechain-truffle/contracts/tee/implementation/TeePayments';
 import { TeePaymentsEVMContract, TeePaymentsEVMInstance } from '../../typechain-truffle/contracts/tee/implementation/TeePaymentsEVM';
 import { TEE_OPERATION_FEES, TEE_SOURCE_ID } from '../../deployment/tasks/run-simulation';
-import { findRequiredEvent } from '../../deployment/utils/contract-helpers';
 import { requiredEventArgsFrom } from '../utils/Web3EventDecoder';
 import { TeeInstructions } from '../../typechain';
+import { FtdcHubContract, FtdcHubInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcHub';
+import { FtdcRequestFeeConfigurationsContract, FtdcRequestFeeConfigurationsInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations';
+import { FtdcVerificationMockContract, FtdcVerificationMockInstance } from '../../typechain-truffle/contracts/ftdc/mock/FtdcVerificationMock';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -85,13 +87,16 @@ const TeeVersionManager: TeeVersionManagerContract = artifacts.require("TeeVersi
 const TeeRegistry: TeeRegistryContract = artifacts.require("TeeRegistry");
 const TeeWalletProjectManager: TeeWalletProjectManagerContract = artifacts.require("TeeWalletProjectManager");
 const TeeWalletManager: TeeWalletManagerContract = artifacts.require("TeeWalletManager");
+const TeeWalletKeyManager: TeeWalletKeyManagerContract = artifacts.require("TeeWalletKeyManager");
 const TeeWalletBackupManager: TeeWalletBackupManagerContract = artifacts.require("TeeWalletBackupManager");
 const TeeFeeCalculator: TeeFeeCalculatorContract = artifacts.require("TeeFeeCalculator");
 const TeeInstructions: TeeInstructionsContract = artifacts.require("TeeInstructions");
 const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
-const TeeDataConnector: TeeDataConnectorContract = artifacts.require("TeeDataConnector");
 const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
 const TeePaymentsEVM: TeePaymentsEVMContract = artifacts.require("TeePaymentsEVM");
+const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
+const FtdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
+const FtdcVerification: FtdcVerificationMockContract = artifacts.require("FtdcVerificationMock");
 
 type PChainStake = {
     txId: string,
@@ -157,7 +162,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     let addressBinder: AddressBinderInstance;
     let pChainStakeMirrorVerifierInterface: PChainStakeMirrorVerifierInstance;
     let verifierMock: MockContractInstance;
-    let ftdcRequestFeeConfigurationsMock: MockContractInstance;
 
     let governanceSettings: GovernanceSettingsInstance;
     let entityManager: EntityManagerInstance;
@@ -185,13 +189,16 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     let teeRegistry: TeeRegistryInstance;
     let teeWalletProjectManager: TeeWalletProjectManagerInstance;
     let teeWalletManager: TeeWalletManagerInstance;
+    let teeWalletKeyManager: TeeWalletKeyManagerInstance;
     let teeWalletBackupManager: TeeWalletBackupManagerInstance;
     let teeFeeCalculator: TeeFeeCalculatorInstance;
     let teeInstructions: TeeInstructionsInstance;
     let teeRewardOffersManager: TeeRewardOffersManagerInstance;
-    let teeDataConnector: TeeDataConnectorInstance;
     let teePayments: TeePaymentsInstance;
     let teePaymentsEVM: TeePaymentsEVMInstance;
+    let ftdcHub: FtdcHubInstance;
+    let ftdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsInstance;
+    let ftdcVerification: FtdcVerificationMockInstance;
 
     let teeGovernanceSigners: string[] = [accounts[50], accounts[51], accounts[52], accounts[53], accounts[54], accounts[55]];
     let teeGovernanceSignersThreshold = 3;
@@ -272,7 +279,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         addressBinder = await AddressBinder.new();
         pChainStakeMirrorVerifierInterface = await PChainStakeMirrorVerifier.new(accounts[5], accounts[6], 10, 1000, 5, 5000);
         verifierMock = await MockContract.new();
-        ftdcRequestFeeConfigurationsMock = await MockContract.new();
 
         // set values
         weightsGwei = [1000, 500, 100, 50];
@@ -435,11 +441,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         teeVersionManager = await TeeVersionManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
         teeRegistry = await TeeRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 60, 600, 3600);
         teeWalletProjectManager = await TeeWalletProjectManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
-        teeWalletManager = await TeeWalletManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 600);
+        teeWalletManager = await TeeWalletManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
+        teeWalletKeyManager = await TeeWalletKeyManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 600);
         teeWalletBackupManager = await TeeWalletBackupManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
         teeFeeCalculator = await TeeFeeCalculator.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
         teeRewardOffersManager = await TeeRewardOffersManager.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100000); // 10%
-        teeDataConnector = await TeeDataConnector.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 30, 1);
         teeInstructions = await TeeInstructions.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER);
 
         const operationTypes = [];
@@ -454,6 +460,19 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
         teePayments = await TeePayments.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 1, 0, web3.utils.utf8ToHex("XRP").padEnd(66, "0"));
         teePaymentsEVM = await TeePaymentsEVM.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 1, 0, web3.utils.utf8ToHex("EVM").padEnd(66, "0"));
+
+        ftdcHub = await FtdcHub.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 3000, 1);
+        ftdcRequestFeeConfigurations = await FtdcRequestFeeConfigurations.new(governanceSettings.address, accounts[0]);
+        ftdcVerification = await FtdcVerification.new(ADDRESS_UPDATER);
+        // Set the FTDC request fee configurations
+        const ftdc_attestationTypes = ["TeeAvailabilityCheck", "TeeKeyExistence"];
+        for (const attestationType of ftdc_attestationTypes) {
+            await ftdcRequestFeeConfigurations.setTypeAndSourceFee(
+                web3.utils.utf8ToHex(attestationType).padEnd(66, "0"),
+                web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
+                "1"
+            );
+        }
 
         await flareSystemsCalculator.enablePChainStakeMirror();
         await rewardManager.enablePChainStakeMirror();
@@ -528,24 +547,28 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             [ADDRESS_UPDATER, teeGovernance.address], { from: ADDRESS_UPDATER });
 
         await teeRegistry.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.TEE_DATA_CONNECTOR, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-            [ADDRESS_UPDATER, teeVersionManager.address, teeFeeCalculator.address, teeInstructions.address, teeDataConnector.address, flareSystemsManager.address, relay.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+            [ADDRESS_UPDATER, teeVersionManager.address, teeFeeCalculator.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager.address, relay.address], { from: ADDRESS_UPDATER });
 
         await teeWalletProjectManager.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER]),
             [ADDRESS_UPDATER, teeWalletManager.address], { from: ADDRESS_UPDATER });
 
         await teeWalletManager.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.TEE_DATA_CONNECTOR, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-            [ADDRESS_UPDATER, teeRegistry.address, teeWalletProjectManager.address, teeFeeCalculator.address, teeInstructions.address, teeDataConnector.address, flareSystemsManager.address, relay.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER]),
+            [ADDRESS_UPDATER, teeWalletProjectManager.address, teeWalletKeyManager.address], { from: ADDRESS_UPDATER });
+
+        await teeWalletKeyManager.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER]),
+            [ADDRESS_UPDATER, teeRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeFeeCalculator.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager.address], { from: ADDRESS_UPDATER });
 
         await teeWalletBackupManager.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
-            [ADDRESS_UPDATER, teeRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
+            [ADDRESS_UPDATER, teeRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address], { from: ADDRESS_UPDATER });
 
         await teeFeeCalculator.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER]),
-            [ADDRESS_UPDATER, teeWalletManager.address],{ from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_KEY_MANAGER]),
+            [ADDRESS_UPDATER, teeWalletKeyManager.address],{ from: ADDRESS_UPDATER });
 
         await teeInstructions.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER]),
@@ -555,22 +578,26 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.INFLATION]),
             [ADDRESS_UPDATER, rewardManager.address, flareSystemsManager.address, INFLATION], { from: ADDRESS_UPDATER });
 
-        await teeDataConnector.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FTDC_REQUEST_FEE_CONFIGURATIONS]),
-            [ADDRESS_UPDATER, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, ftdcRequestFeeConfigurationsMock.address], { from: ADDRESS_UPDATER });
-
         await teePayments.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
-            [ADDRESS_UPDATER, teeWalletProjectManager.address, teeWalletManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
+            [ADDRESS_UPDATER, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address], { from: ADDRESS_UPDATER });
 
         await teePaymentsEVM.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
-            [ADDRESS_UPDATER, teeWalletProjectManager.address, teeWalletManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
+            [ADDRESS_UPDATER, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address], { from: ADDRESS_UPDATER });
+
+        await ftdcHub.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FTDC_REQUEST_FEE_CONFIGURATIONS]),
+            [ADDRESS_UPDATER, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, ftdcRequestFeeConfigurations.address], { from: ADDRESS_UPDATER });
+
+        await ftdcVerification.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.RELAY]),
+            [ADDRESS_UPDATER, teeRegistry.address, relay.address], { from: ADDRESS_UPDATER });
 
         // set supported operation types
         await teeWalletManager.addSupportedOpTypes([teePayments.address, teePaymentsEVM.address]);
         // register instructions initiators
-        await teeInstructions.registerInstructionInitiators([teeRegistry.address, teeWalletManager.address, teeWalletBackupManager.address, teeDataConnector.address, teePayments.address, teePaymentsEVM.address]);
+        await teeInstructions.registerInstructionInitiators([teeRegistry.address, teeWalletManager.address, teeWalletKeyManager.address, teeWalletBackupManager.address, teePayments.address, teePaymentsEVM.address, ftdcHub.address]);
 
         // set reward offers manager list
         await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, validatorRewardOffersManager.address, teeRewardOffersManager.address, teeInstructions.address]);
@@ -1301,11 +1328,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
     it("Should create TEE wallets and initialize them", async () => {
         // create wallet for project 1
-        let tx = await teeWalletManager.createWallet(PROJECT1_ID, 2, { from: TEE_WALLET_OWNERS[0] });
+        let tx = await teeWalletManager.createWallet(PROJECT1_ID, { from: TEE_WALLET_OWNERS[0] });
         expectEvent(tx, "WalletCreated", {
             walletId: WALLET1_ID,
-            projectId: PROJECT1_ID,
-            multisigThreshold: "2"
+            projectId: PROJECT1_ID
         });
         let [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[10].privateKey.slice(2));
         let [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[11].privateKey.slice(2));
@@ -1334,11 +1360,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             projectId: PROJECT2_ID,
             chainId: "14"
         });
-        tx = await teeWalletManager.createWallet(PROJECT2_ID, 1, { from: TEE_WALLET_OWNERS[1] });
+        tx = await teeWalletManager.createWallet(PROJECT2_ID, { from: TEE_WALLET_OWNERS[1] });
         expectEvent(tx, "WalletCreated", {
             walletId: WALLET2_ID,
-            projectId: PROJECT2_ID,
-            multisigThreshold: "1"
+            projectId: PROJECT2_ID
         });
         [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[12].privateKey.slice(2));
         [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[13].privateKey.slice(2));
@@ -1372,16 +1397,30 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         });
     });
 
+    it("Should set wallet multisig threshold", async () => {
+        let tx = await teeWalletKeyManager.setMultisigThreshold(WALLET1_ID, 2, { from: TEE_WALLET_OWNERS[0] });
+        expectEvent(tx, "WalletMultisigThresholdSet", {
+            walletId: WALLET1_ID,
+            multisigThreshold: "2"
+        });
+        tx = await teeWalletKeyManager.setMultisigThreshold(WALLET2_ID, 1, { from: TEE_WALLET_OWNERS[1] });
+        expectEvent(tx, "WalletMultisigThresholdSet", {
+            walletId: WALLET2_ID,
+            multisigThreshold: "1"
+        });
+    });
+
     it("Should add keys to TEE wallets and confirm them", async () => {
         const xrpPublicKeys = ["0x03D11FBF992FCC3C7326E323687C234866E400229EA81C73EE4D0DBC1AB5DB22D3", "0x03FE12E21F5B2298FFC9A260A95F5031071E9E0778257276E47BB9A0C27CF6C5AD", "0x03353D8A544503E0F4D6686379B82D64ED1537CB2961FA1193F57B3E8E17F82980"];
         const xrpAddresses = ["rE5KBHjE7cHFUfHazonUcX9cKv7R519uyR", "rDagTyzXeYLZPe2fLbKYG9n7rCTQd3D2No", "r3uuriD2ARqLqZnEbk5sWzvjuD3zyVQEU1"];
 
         for (let i = 0; i < xrpPublicKeys.length; i++) {
-            let tx = await teeWalletManager.addKey(TEE_IDS[i%2], WALLET1_ID, { value: "10", from: TEE_WALLET_OWNERS[0] });
+            let tx = await teeWalletKeyManager.addKey(TEE_IDS[i%2], WALLET1_ID, { value: "10", from: TEE_WALLET_OWNERS[0] });
             const event = requiredEventArgsFrom(tx, teeInstructions, "TeeInstructionsSent") as any;
             expect(event.rewardEpochId).to.be.equal("2");
             expect(event.opType).to.be.equal(web3.utils.utf8ToHex("WALLET").padEnd(66, "0"));
             expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("KEY_GENERATE").padEnd(66, "0"));
+
 
             const proof = {
                 relayMessage: "0x", // TODO
@@ -1403,9 +1442,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                     }
                 }
             }
-
+            // mock
+            await ftdcVerification.setSigningTeeIds([TEE_IDS[i%2]]);
             await time.increase(1);
-            tx = await teeWalletManager.confirmKey(proof, { from: TEE_WALLET_OWNERS[0] });
+            tx = await teeWalletKeyManager.confirmKey(proof, { from: TEE_WALLET_OWNERS[0] });
             expectEvent(tx, "WalletKeyConfirmed", {
                 teeId: TEE_IDS[i%2],
                 walletId: WALLET1_ID,
@@ -1416,7 +1456,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         }
 
         for (let i = 0; i < 4; i++) {
-            let tx = await teeWalletManager.addKey(TEE_IDS[i%2], WALLET2_ID, { value: "10", from: TEE_WALLET_OWNERS[1] });
+            let tx = await teeWalletKeyManager.addKey(TEE_IDS[i%2], WALLET2_ID, { value: "10", from: TEE_WALLET_OWNERS[1] });
             const event = requiredEventArgsFrom(tx, teeInstructions, "TeeInstructionsSent") as any;
             expect(event.rewardEpochId).to.be.equal("2");
             expect(event.opType).to.be.equal(web3.utils.utf8ToHex("WALLET").padEnd(66, "0"));
@@ -1448,9 +1488,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                     }
                 }
             }
-
+            // mock
+            await ftdcVerification.setSigningTeeIds([TEE_IDS[i%2]]);
             await time.increase(1);
-            tx = await teeWalletManager.confirmKey(proof, { from: TEE_WALLET_OWNERS[1] });
+            tx = await teeWalletKeyManager.confirmKey(proof, { from: TEE_WALLET_OWNERS[1] });
             expectEvent(tx, "WalletKeyConfirmed", {
                 teeId: TEE_IDS[i%2],
                 walletId: WALLET2_ID,

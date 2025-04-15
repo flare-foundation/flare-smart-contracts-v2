@@ -8,10 +8,9 @@ import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * TeeWalletBackupManager is used for wallet keys' backups.
@@ -39,6 +38,8 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
     ITeeWalletProjectManager public teeWalletProjectManager;
     /// TEE wallet manager contract.
     ITeeWalletManager public teeWalletManager;
+    /// TEE wallet key manager contract.
+    ITeeWalletKeyManager public teeWalletKeyManager;
     /// TEE fee calculator contract.
     ITeeFeeCalculator public teeFeeCalculator;
     /// TEE instructions contract.
@@ -100,8 +101,9 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         for (uint256 i = 0; i < _backupTeeIds.length; i++) {
             message.backupTeeMachines[i] = teeRegistry.getTeeMachineWithAttestationData(_backupTeeIds[i]);
         }
-        bytes32 instructionId =
-            keccak256(abi.encode(WALLET_OP_TYPE, KEY_MACHINE_BACKUP, _walletId, _keyId, message.backupId));
+        bytes32 instructionId = keccak256(abi.encode(
+            WALLET_OP_TYPE, KEY_MACHINE_BACKUP, _walletId, _keyId, message.backupId
+        ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _getTeeMachines(_teeId),
@@ -138,17 +140,16 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
             keyId: _keyId,
             backupId: _backupId,
             opType: opType,
-            publicKey: teeWalletManager.getWalletKeyPublicKey(_walletId, _keyId),
+            publicKey: teeWalletKeyManager.getWalletKeyPublicKey(_walletId, _keyId),
             backupTeeMachines: new ITeeRegistry.TeeMachineWithAttestationData[](_backupTeeIds.length)
         });
         for (uint256 i = 0; i < _backupTeeIds.length; i++) {
             message.backupTeeMachines[i] = teeRegistry.getTeeMachineWithAttestationData(_backupTeeIds[i]);
         }
-        bytes32 instructionId =
-            keccak256(abi.encode(
-                WALLET_OP_TYPE, KEY_MACHINE_RESTORE, _walletId, _keyId, _backupId,
-                machineRestoreCounter[_walletId][_keyId][_backupId]++
-            ));
+        bytes32 instructionId = keccak256(abi.encode(
+            WALLET_OP_TYPE, KEY_MACHINE_RESTORE, _walletId, _keyId, _backupId,
+            machineRestoreCounter[_walletId][_keyId][_backupId]++
+        ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _getTeeMachines(_teeId),
@@ -184,11 +185,10 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         for (uint256 i = 0; i < _teeIds.length; i++) {
             teeMachines[i] = teeRegistry.getTeeMachine(_teeIds[i]);
         }
-        bytes32 instructionId =
-            keccak256(abi.encode(
-                WALLET_OP_TYPE, KEY_MACHINE_BACKUP_REMOVE, _walletId, _keyId,
-                _backupId, machineBackupRemoveCounter[_walletId][_keyId][_backupId]++
-            ));
+        bytes32 instructionId = keccak256(abi.encode(
+            WALLET_OP_TYPE, KEY_MACHINE_BACKUP_REMOVE, _walletId, _keyId, _backupId,
+            machineBackupRemoveCounter[_walletId][_keyId][_backupId]++
+        ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             teeMachines,
@@ -239,10 +239,12 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         internal override
     {
         teeRegistry = ITeeRegistry(_getContractAddress(_contractNameHashes, _contractAddresses, "TeeRegistry"));
-        teeWalletManager = ITeeWalletManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
         teeWalletProjectManager = ITeeWalletProjectManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
+        teeWalletManager = ITeeWalletManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
+        teeWalletKeyManager = ITeeWalletKeyManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
         teeFeeCalculator = ITeeFeeCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
         teeInstructions = ITeeInstructions(
@@ -265,7 +267,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
         require(!_isKeyAvailable(_teeId, _walletId, _keyId), "key already available");
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         bytes32 opType = teeWalletProjectManager.getOpType(projectId);
-        bytes memory publicKey = teeWalletManager.getWalletKeyPublicKey(_walletId, _keyId);
+        bytes memory publicKey = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, _keyId);
         require(publicKey.length > 0, "key not confirmed");
         _checkFee(_opCommand, _teeId, new address[](0));
         KeyDataProviderRestore memory message = KeyDataProviderRestore({
@@ -277,7 +279,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
             rewardEpochId: _rewardEpochId
         });
         bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, _opCommand, _walletId, _keyId, _rewardEpochId,
+            WALLET_OP_TYPE, _opCommand, _walletId, _keyId,
             dataProviderRestoreCounter[_walletId][_keyId][_opCommand]++
         ));
         teeInstructions.sendInstructions{value: msg.value}(
@@ -291,7 +293,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, Governed, AddressUpd
     }
 
     function _isKeyAvailable(address _teeId, bytes32 _walletId, uint64 _keyId) internal view returns(bool) {
-        address[] memory teeIds = teeWalletManager.getWalletKeyTeeIds(_walletId, _keyId);
+        address[] memory teeIds = teeWalletKeyManager.getWalletKeyTeeIds(_walletId, _keyId);
         for(uint256 i = 0; i < teeIds.length; i++) {
             if (teeIds[i] == _teeId) {
                 return true;
