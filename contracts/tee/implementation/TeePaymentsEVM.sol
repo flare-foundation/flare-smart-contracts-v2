@@ -51,10 +51,10 @@ contract TeePaymentsEVM is ITeePaymentsEVM, TeePayments {
     /**
      * @inheritdoc ITeePaymentsEVM
      */
-    function getChainId(bytes32 _walletId)
+    function getChainId(bytes32 _projectId)
         external view returns(uint256)
     {
-        return projectChainId[_walletId];
+        return projectChainId[_projectId];
     }
 
     /**

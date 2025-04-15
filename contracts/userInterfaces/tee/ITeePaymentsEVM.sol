@@ -18,18 +18,18 @@ interface ITeePaymentsEVM is ITeePayments {
     );
 
     /**
-     * Sets the chain id for the wallet.
-     * @param _walletId The wallet id.
+     * Sets the chain id for the project.
+     * @param _projectId The project id.
      * @param _chainId The chain id.
      */
-    function setChainId(bytes32 _walletId, uint256 _chainId)
+    function setChainId(bytes32 _projectId, uint256 _chainId)
         external;
 
     /**
-     * Returns the chain id for the wallet.
-     * @param _walletId The wallet id.
+     * Returns the chain id for the project.
+     * @param _projectId The project id.
      * @return The chain id.
      */
-    function getChainId(bytes32 _walletId)
+    function getChainId(bytes32 _projectId)
         external view returns(uint256);
 }

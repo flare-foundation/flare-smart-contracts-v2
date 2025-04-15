@@ -328,6 +328,13 @@ contract TeePaymentsTest is Test {
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
+    function testPayRevertDefaultWalletNotSet() public {
+        _mockGetDefaultWalletInfo(projectId, bytes32(0), submitAddress, opType);
+        vm.prank(submitAddress);
+        vm.expectRevert("default wallet not set");
+        teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
+    }
+
     // batch duration is not set (default is 0)
     function testPay1() public {
         (ITeeRegistry.TeeMachine[] memory receivingTees,
@@ -694,6 +701,93 @@ contract TeePaymentsTest is Test {
             fee
         );
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref2")));
+    }
+
+    // pay from not default wallet
+    function testPay5() public {
+        (ITeeRegistry.TeeMachine[] memory receivingTees,
+            ITeeWalletManager.TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
+        bytes32 walletId2 = bytes32("walletId2");
+        vm.mockCall(
+            mockTeeWalletManager,
+            abi.encodeWithSelector(ITeeWalletManager.getWalletStatus.selector, walletId2),
+            abi.encode(ITeeWalletManager.WalletStatus.PRODUCTION)
+        );
+        _mockGetWalletProjectId(walletId2, projectId);
+        _mockCalculateFeeByWalletId(walletId2, opType, PAY, fee);
+        vm.startPrank(walletOwner);
+        teePayments.setFees(walletId2, 100, 1000, 200);
+        teePayments.setSenderAddressAndInitialNonce(walletId2, senderAddress, 11);
+        vm.stopPrank();
+        // create payment instruction
+        bytes32 instructionId = keccak256(abi.encode(opType, PAY, walletId2, 11));
+        ITeePayments.PaymentInstructionMessage memory message = ITeePayments.PaymentInstructionMessage(
+            walletId2,
+            teeIdKeyIdPairs,
+            senderAddress,
+            "recipientAddress",
+            100,
+            bytes32("ref1"),
+            11, // nonce
+            0, // subNonce
+            100,
+            1000,
+            500 + 0
+        );
+        vm.prank(submitAddress);
+        vm.expectEmit();
+        emit TeeInstructionsSent(
+            instructionId,
+            10,
+            receivingTees,
+            opType,
+            PAY,
+            abi.encode(message),
+            fee
+        );
+        teePayments.pay{value: fee}(projectId, walletId2, _createPaymentInstruction(bytes32("ref1")));
+
+        // create new payment instruction; new batch should be created
+        instructionId = keccak256(abi.encode(opType, PAY, walletId2, 12));
+        message = ITeePayments.PaymentInstructionMessage(
+            walletId2,
+            teeIdKeyIdPairs,
+            senderAddress,
+            "recipientAddress",
+            100,
+            bytes32("ref2"),
+            12, // nonce
+            1, // subNonce
+            100,
+            1000,
+            500 + 0
+        );
+        vm.prank(submitAddress);
+        vm.expectEmit();
+        emit TeeInstructionsSent(
+            instructionId,
+            10,
+            receivingTees,
+            opType,
+            PAY,
+            abi.encode(message),
+            fee
+        );
+        teePayments.pay{value: fee}(projectId, walletId2, _createPaymentInstruction(bytes32("ref2")));
+    }
+
+    function testPayRevertWrongProjectId() public {
+        bytes32 walletId2 = bytes32("walletId2");
+        bytes32 projectId2 = bytes32("projectId2");
+        vm.mockCall(
+            mockTeeWalletManager,
+            abi.encodeWithSelector(ITeeWalletManager.getWalletStatus.selector, walletId2),
+            abi.encode(ITeeWalletManager.WalletStatus.PRODUCTION)
+        );
+        _mockGetWalletProjectId(walletId2, projectId2);
+        vm.prank(submitAddress);
+        vm.expectRevert("wrong project id");
+        teePayments.pay{value: fee} (projectId, walletId2, _createPaymentInstruction(bytes32("ref1")));
     }
 
     //// reissue tests ////
