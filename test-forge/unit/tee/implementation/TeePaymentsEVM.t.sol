@@ -4,12 +4,12 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeePaymentsEVM.sol";
 import "../../../../contracts/tee/implementation/TeeInstructions.sol";
-import "../../../../contracts/tee/implementation/TeePaymentsEVMProxy.sol";
+import "../../../../contracts/tee/implementation/TeePaymentsProxy.sol";
 
 contract TeePaymentsEVMTest is Test {
 
     TeePaymentsEVM private teePaymentsEVM;
-    TeePaymentsEVMProxy private teePaymentsEVMProxy;
+    TeePaymentsProxy private teePaymentsProxy;
     TeePaymentsEVM private teePaymentsEVMImpl;
     address private mockTeeWalletManager;
     address private mockFSM;
@@ -45,7 +45,7 @@ contract TeePaymentsEVMTest is Test {
         mockTeeWalletKeyManager = makeAddr("teeWalletKeyManager");
 
         teePaymentsEVMImpl = new TeePaymentsEVM();
-        teePaymentsEVMProxy = new TeePaymentsEVMProxy(
+        teePaymentsProxy = new TeePaymentsProxy(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
@@ -54,7 +54,7 @@ contract TeePaymentsEVMTest is Test {
             opType,
             address(teePaymentsEVMImpl)
         );
-        teePaymentsEVM = TeePaymentsEVM(address(teePaymentsEVMProxy));
+        teePaymentsEVM = TeePaymentsEVM(address(teePaymentsProxy));
 
         walletId = bytes32("walletId");
         walletOwner = makeAddr("walletOwner");

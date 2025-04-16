@@ -21,7 +21,7 @@ import { TeeWalletKeyManagerContract } from "../../typechain-truffle/contracts/t
 import { FtdcHubContract } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcHub";
 import { FtdcRequestFeeConfigurationsContract } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations";
 import { FtdcVerificationContract } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification";
-import { TeeGovernanceProxyContract, TeeInstructionsProxyContract, TeePaymentsEVMProxyContract, TeePaymentsProxyContract, TeeRegistryProxyContract, TeeVersionManagerProxyContract, TeeWalletBackupManagerProxyContract, TeeWalletKeyManagerProxyContract, TeeWalletManagerProxyContract, TeeWalletProjectManagerProxyContract } from "../../typechain-truffle";
+import { TeeGovernanceProxyContract, TeeInstructionsProxyContract, TeePaymentsProxyContract, TeeRegistryProxyContract, TeeVersionManagerProxyContract, TeeWalletBackupManagerProxyContract, TeeWalletKeyManagerProxyContract, TeeWalletManagerProxyContract, TeeWalletProjectManagerProxyContract } from "../../typechain-truffle";
 
 export async function deployTeeContracts(
   hre: HardhatRuntimeEnvironment,
@@ -52,10 +52,9 @@ export async function deployTeeContracts(
   const TeeInstructions: TeeInstructionsContract = artifacts.require("TeeInstructions");
   const TeeInstructionsProxy: TeeInstructionsProxyContract = artifacts.require("TeeInstructionsProxy");
   const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
-  const TeePayments: TeePaymentsProxyContract = artifacts.require("TeePayments");
-  const TeePaymentsProxy: TeePaymentsContract = artifacts.require("TeePaymentsProxy");
+  const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
+  const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
   const TeePaymentsEVM: TeePaymentsEVMContract = artifacts.require("TeePaymentsEVM");
-  const TeePaymentsEVMProxy: TeePaymentsEVMProxyContract = artifacts.require("TeePaymentsEVMProxy");
   const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
   const FtdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
   const FtdcVerification: FtdcVerificationContract = artifacts.require("FtdcVerification");
@@ -201,10 +200,9 @@ export async function deployTeeContracts(
   for (const teePaymentConfig of parameters.teePaymentConfigurations) {
     const isEVM = teePaymentConfig.opType === "EVM";
     const Contract = isEVM ? TeePaymentsEVM : TeePayments;
-    const ContractProxy = isEVM ? TeePaymentsEVMProxy : TeePaymentsProxy;
     const teePaymentsImpl = await Contract.new();
     spewNewContractInfo(contracts, null, Contract.contractName + "_" + teePaymentConfig.opType + "Implementation", `TeePayments${isEVM ? "EVM" : ""}.sol`, teePaymentsImpl.address, quiet);
-    const teePaymentsProxy = await ContractProxy.new(
+    const teePaymentsProxy = await TeePaymentsProxy.new(
       governanceSettings,
       deployerAccount.address,
       deployerAccount.address,

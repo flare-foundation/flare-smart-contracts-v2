@@ -53,7 +53,6 @@ import {
   SubmissionContract,
   SubmissionInstance,
   TeeInstructionsProxyContract,
-  TeePaymentsEVMProxyContract,
   TeePaymentsProxyContract,
   TeeVersionManagerProxyContract,
   TeeWalletBackupManagerProxyContract,
@@ -227,7 +226,6 @@ export async function deployContracts(
   const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
   const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
   const TeePaymentsEVM: TeePaymentsEVMContract = artifacts.require("TeePaymentsEVM");
-  const TeePaymentsEVMProxy: TeePaymentsEVMProxyContract = artifacts.require("TeePaymentsEVMProxy");
   const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
   const FtdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
   const FtdcVerification: FtdcVerificationMockContract = artifacts.require("FtdcVerificationMock");
@@ -597,9 +595,8 @@ export async function deployContracts(
   for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
     const isEVM = teePaymentConfig.opType === "EVM";
     const Contract = isEVM ? TeePaymentsEVM : TeePayments;
-    const ContractProxy = isEVM ? TeePaymentsEVMProxy : TeePaymentsProxy;
     const teePaymentsImpl = await Contract.new();
-    const teePaymentsProxy = await ContractProxy.new(
+    const teePaymentsProxy = await TeePaymentsProxy.new(
       governanceSettings.address,
       governanceAccount.address,
       ADDRESS_UPDATER_ADDR,

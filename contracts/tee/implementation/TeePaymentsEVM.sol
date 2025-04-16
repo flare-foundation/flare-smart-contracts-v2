@@ -19,30 +19,6 @@ contract TeePaymentsEVM is ITeePaymentsEVM, TeePayments {
     { }
 
     /**
-     * Proxyable initialization method. Can be called only once, from the proxy constructor
-     * (single call is assured by GovernedBase.initialise).
-     */
-    function initialize(
-        IGovernanceSettings _governanceSettings,
-        address _initialGovernance,
-        address _addressUpdater,
-        uint64 _maxBatchSize,
-        uint64 _maxBatchDurationSeconds,
-        bytes32 _opType
-    )
-        external override
-    {
-        _initialize(
-            _governanceSettings,
-            _initialGovernance,
-            _addressUpdater,
-            _maxBatchSize,
-            _maxBatchDurationSeconds,
-            _opType
-        );
-    }
-
-    /**
      * @inheritdoc ITeePaymentsEVM
      */
     function setChainId(bytes32 _projectId, uint256 _chainId)

@@ -83,14 +83,14 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
     )
         external virtual
     {
-        _initialize(
-            _governanceSettings,
-            _initialGovernance,
-            _addressUpdater,
-            _maxBatchSize,
-            _maxBatchDurationSeconds,
-            _opType
-        );
+        require(_maxBatchSize > 0, "max batch size zero");
+        require(_opType != bytes32(0), "op type zero");
+
+        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        TeeWalletConstantsAndSettings.setOpTypeAndAddressUpdater(_addressUpdater, _opType);
+
+        maxBatchSize = _maxBatchSize;
+        maxBatchDurationSeconds = _maxBatchDurationSeconds;
     }
 
     /**
@@ -430,26 +430,5 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
         internal override
     {
         super._updateContractAddresses(_contractNameHashes, _contractAddresses);
-    }
-
-
-    function _initialize(
-        IGovernanceSettings _governanceSettings,
-        address _initialGovernance,
-        address _addressUpdater,
-        uint64 _maxBatchSize,
-        uint64 _maxBatchDurationSeconds,
-        bytes32 _opType
-    )
-        internal
-    {
-        require(_maxBatchSize > 0, "max batch size zero");
-        require(_opType != bytes32(0), "op type zero");
-
-        GovernedBase.initialise(_governanceSettings, _initialGovernance);
-        TeeWalletConstantsAndSettings.setOpTypeAndAddressUpdater(_addressUpdater, _opType);
-
-        maxBatchSize = _maxBatchSize;
-        maxBatchDurationSeconds = _maxBatchDurationSeconds;
     }
 }

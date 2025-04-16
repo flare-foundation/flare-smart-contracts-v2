@@ -9,7 +9,7 @@ import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfiguratio
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { RelayMessage } from '../../scripts/libs/protocol/RelayMessage';
 import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
-import { AddressBinderInstance, EntityManagerInstance, FtsoFeedIdConverterContract, FtsoFeedIdConverterInstance, FtsoFeedPublisherContract, FtsoFeedPublisherInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, TeeGovernanceProxyInstance, TeeInstructionsProxyInstance, TeePaymentsEVMProxyInstance, TeePaymentsProxyInstance, TeeRegistryProxyInstance, TeeVersionManagerProxyContract, TeeWalletBackupManagerProxyInstance, TeeWalletKeyManagerProxyInstance, TeeWalletManagerProxyInstance, TeeWalletProjectManagerProxyInstance, WNatInstance } from '../../typechain-truffle';
+import { AddressBinderInstance, EntityManagerInstance, FtsoFeedIdConverterContract, FtsoFeedIdConverterInstance, FtsoFeedPublisherContract, FtsoFeedPublisherInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, TeeGovernanceProxyInstance, TeeInstructionsProxyInstance, TeePaymentsProxyInstance, TeeRegistryProxyInstance, TeeVersionManagerProxyContract, TeeWalletBackupManagerProxyInstance, TeeWalletKeyManagerProxyInstance, TeeWalletManagerProxyInstance, TeeWalletProjectManagerProxyInstance, WNatInstance } from '../../typechain-truffle';
 import { MockContractContract } from '../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract';
 import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
 import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
@@ -103,7 +103,6 @@ const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require
 const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
 const TeePaymentsProxy: TeePaymentsProxyInstance = artifacts.require("TeePaymentsProxy");
 const TeePaymentsEVM: TeePaymentsEVMContract = artifacts.require("TeePaymentsEVM");
-const TeePaymentsEVMProxy: TeePaymentsEVMProxyInstance = artifacts.require("TeePaymentsEVMProxy");
 const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
 const FtdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
 const FtdcVerification: FtdcVerificationMockContract = artifacts.require("FtdcVerificationMock");
@@ -215,7 +214,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     let teePayments: TeePaymentsInstance;
     let teePaymentsProxy: TeePaymentsProxyInstance;
     let teePaymentsEVM: TeePaymentsEVMInstance;
-    let teePaymentsEVMProxy: TeePaymentsEVMProxyInstance;
     let ftdcHub: FtdcHubInstance;
     let ftdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsInstance;
     let ftdcVerification: FtdcVerificationMockInstance;
@@ -508,8 +506,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         teePayments = await TeePayments.at(teePaymentsProxy.address);
 
         const teePaymentsEVMImpl: TeePaymentsEVMInstance = await TeePaymentsEVM.new();
-        teePaymentsEVMProxy = await TeePaymentsEVMProxy.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 1, 0, web3.utils.utf8ToHex("EVM").padEnd(66, "0"), teePaymentsEVMImpl.address);
-        teePaymentsEVM = await TeePaymentsEVM.at(teePaymentsEVMProxy.address);
+        teePaymentsProxy = await TeePaymentsProxy.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 1, 0, web3.utils.utf8ToHex("EVM").padEnd(66, "0"), teePaymentsEVMImpl.address);
+        teePaymentsEVM = await TeePaymentsEVM.at(teePaymentsProxy.address);
 
         ftdcHub = await FtdcHub.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 3000, 1);
         ftdcRequestFeeConfigurations = await FtdcRequestFeeConfigurations.new(governanceSettings.address, accounts[0]);
