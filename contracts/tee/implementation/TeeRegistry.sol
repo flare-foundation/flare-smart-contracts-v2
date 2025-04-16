@@ -157,7 +157,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
             "invalid availability status");
         _checkCodeHashPlatformSupported(teeState.codeHash, teeState.platform);
         _validateAvailabilityCheckTs(teeId, _proof.data.timestamp);
-        _validateAvailabilityCheckResponse(teeState, _proof);
+        _validateAvailabilityCheckProof(teeState, _proof);
 
         teeState.status = TeeStatus.PRODUCTION;
         uint64 endTs = uint64(_proof.data.timestamp + availabilityCheckValidityDurationSeconds);
@@ -185,7 +185,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
             "invalid availability status");
         _checkCodeHashPlatformSupported(teeState.codeHash, teeState.platform);
         _validateAvailabilityCheckTs(teeId, _proof.data.timestamp);
-        _validateAvailabilityCheckResponse(teeState, _proof);
+        _validateAvailabilityCheckProof(teeState, _proof);
 
         uint64 endTs = uint64(_proof.data.timestamp + availabilityCheckValidityDurationSeconds);
         if (endTs > teeState.availabilityCheckValidityEndTs) {
@@ -226,7 +226,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         require(_proof.data.responseBody.status != ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
             "invalid availability status");
         _validateAvailabilityCheckTs(teeId, _proof.data.timestamp);
-        _validateAvailabilityCheckResponse(teeState, _proof);
+        _validateAvailabilityCheckProof(teeState, _proof);
 
         teeState.status = TeeStatus.PAUSED;
         teeState.lastStatusChangeTs = uint64(block.timestamp);
@@ -290,7 +290,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         _checkCodeHashPlatformSupported(newTeeState.codeHash, newTeeState.platform);
         require(_areTeeMachinesCompatible(oldTeeState, newTeeState), "tee machines not compatible");
         _validateAvailabilityCheckTs(newTeeId, _proof.data.timestamp);
-        _validateAvailabilityCheckResponse(newTeeState, _proof);
+        _validateAvailabilityCheckProof(newTeeState, _proof);
         _checkFee(REPLICATE_FROM, newTeeId);
         require(teeVersionManager.isTeeUpgradePathValid(
             _teeUpgradeId, oldTeeState.codeHash, oldTeeState.platform, newTeeState.codeHash, newTeeState.platform),
@@ -342,7 +342,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         _checkCodeHashPlatformSupported(newTeeState.codeHash, newTeeState.platform);
 
         _validateAvailabilityCheckTs(_newTeeId, _proof.data.timestamp);
-        _validateAvailabilityCheckResponse(newTeeState, _proof);
+        _validateAvailabilityCheckProof(newTeeState, _proof);
 
         oldTeeState.status = TeeStatus.PRODUCTION;
         uint64 endTs = uint64(_proof.data.timestamp + availabilityCheckValidityDurationSeconds);
@@ -530,6 +530,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         TeeMachineWithAttestationData memory teeMachine = _getTeeMachineWithAttestationData(_teeId, teeState);
         ITeeAvailabilityCheck.RequestBody memory requestBody = ITeeAvailabilityCheck.RequestBody({
             teeMachine: teeMachine,
+            teeGovernanceHash: teeVersionManager.getTeeGovernanceHash(teeState.codeHash),
             rewardEpochId: flareSystemsManager.getCurrentRewardEpochId()
         });
         address[] memory teeIds = new address[](1);
@@ -561,7 +562,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
     }
 
-    function _validateAvailabilityCheckResponse(
+    function _validateAvailabilityCheckProof(
         TeeState storage teeState,
         ITeeAvailabilityCheck.Proof calldata _proof
     )
@@ -572,6 +573,8 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
             "url mismatch");
         require(_proof.data.requestBody.teeMachine.codeHash == teeState.codeHash, "code hash mismatch");
         require(_proof.data.requestBody.teeMachine.platform == teeState.platform, "platform mismatch");
+        require(_proof.data.requestBody.teeGovernanceHash == teeVersionManager.getTeeGovernanceHash(teeState.codeHash),
+            "tee governance hash mismatch");
         require(_proof.data.attestationType == TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE, "invalid attestation type");
         require(_proof.data.sourceId == TEE_SOURCE_ID, "invalid source id");
         uint256 rewardEpochId = ftdcVerification.verifySigningPolicySignatures(

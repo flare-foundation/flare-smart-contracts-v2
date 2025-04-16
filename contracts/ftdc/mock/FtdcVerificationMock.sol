@@ -43,10 +43,10 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
      * @inheritdoc IFtdcVerification
      */
     function verifySigningPolicySignatures(
-        bytes calldata _relayMessage,
-        bytes32 _messageHash
+        bytes calldata /*_relayMessage*/,
+        bytes32 /*_messageHash*/
     )
-        external returns (uint256 _rewardEpochId)
+        external view returns (uint256 _rewardEpochId)
     {
         // no verification
         // always return the latest reward epoch id
@@ -57,8 +57,8 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
      * @inheritdoc IFtdcVerification
      */
     function verifyTeeSignatures(
-        Signature[] calldata _signatures,
-        bytes32 _messageHash
+        Signature[] calldata /*_signatures*/,
+        bytes32 /*_messageHash*/
     )
         external view returns(address[] memory _signingTeeIds)
     {

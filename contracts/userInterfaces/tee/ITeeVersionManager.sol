@@ -63,6 +63,15 @@ interface ITeeVersionManager {
         returns(bool);
 
     /**
+     * Returns the governance hash for the given code hash.
+     * @param _codeHash The code hash.
+     * @return _governanceHash The governance hash.
+     */
+    function getTeeGovernanceHash(bytes32 _codeHash)
+        external view
+        returns(bytes32 _governanceHash);
+
+    /**
      * Returns the code hash info (governance hash, version and platforms).
      * @param _codeHash The code hash.
      * @return _governanceHash The governance hash.

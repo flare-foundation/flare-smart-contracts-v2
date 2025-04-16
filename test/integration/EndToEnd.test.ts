@@ -1314,6 +1314,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     });
 
     it("Should put new TEE machines in production", async () => {
+        const governanceHash = await teeGovernance.latestTeeGovernanceHash();
         const rewardEpochId = 2;
         assert(TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
         for (let i = 0; i < TEE_URLS.length; i++) {
@@ -1327,12 +1328,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                     timestamp: (await time.latest()).toString(),
                     requestBody: {
                         teeMachine: {
-                        teeId: TEE_IDS[i],
-                        owner: TEE_OWNERS[i],
-                        url: TEE_URLS[i],
-                        codeHash: TEE_CODE_HASH,
-                        platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
+                            teeId: TEE_IDS[i],
+                            owner: TEE_OWNERS[i],
+                            url: TEE_URLS[i],
+                            codeHash: TEE_CODE_HASH,
+                            platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
                         },
+                        teeGovernanceHash: governanceHash,
                         rewardEpochId: rewardEpochId,
                     },
                     responseBody: {
@@ -1483,11 +1485,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                     requestBody: {
                         teeId: TEE_IDS[i%2],
                         walletId: WALLET1_ID,
-                        keyId: i.toString(),
-                        opType: web3.utils.utf8ToHex("XRP").padEnd(66, "0")
+                        keyId: i.toString()
                     },
                     responseBody: {
+                        opType: web3.utils.utf8ToHex("XRP").padEnd(66, "0"),
                         publicKey: xrpPublicKeys[i],
+                        restored: false,
                         addressStr: xrpAddresses[i]
                     }
                 }
@@ -1529,11 +1532,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                     requestBody: {
                         teeId: TEE_IDS[i%2],
                         walletId: WALLET2_ID,
-                        keyId: i.toString(),
-                        opType: web3.utils.utf8ToHex("EVM").padEnd(66, "0")
+                        keyId: i.toString()
                     },
                     responseBody: {
+                        opType: web3.utils.utf8ToHex("EVM").padEnd(66, "0"),
                         publicKey: publicKey,
+                        restored: false,
                         addressStr: addressStr
                     }
                 }

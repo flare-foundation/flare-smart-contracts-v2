@@ -56,22 +56,24 @@ interface ITeeKeyExistence {
      * @param teeId TEE id.
      * @param walletId Wallet id.
      * @param keyId Key id.
-     * @param opType Operation type of a wallet.
      */
     struct RequestBody {
         address teeId;
         bytes32 walletId;
         uint256 keyId;
-        bytes32 opType;
     }
 
     /**
      * @notice Response body for ITeeKeyExistence attestation type
+     * @param opType Operation type of a wallet.
      * @param publicKey Public key of the address.
+     * @param restored True if the key was restored, false if generated on the TEE machine.
      * @param addressStr Address for the public key.
      */
     struct ResponseBody {
+        bytes32 opType;
         bytes publicKey;
+        bool restored;
         string addressStr;
     }
 }

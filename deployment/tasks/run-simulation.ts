@@ -377,6 +377,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
             codeHash: TEE_CODE_HASH,
             platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
           },
+          teeGovernanceHash: governanceHash,
           rewardEpochId: rewardEpochId,
         },
         responseBody: {

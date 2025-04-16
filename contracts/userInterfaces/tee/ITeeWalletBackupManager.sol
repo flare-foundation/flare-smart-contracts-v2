@@ -54,7 +54,7 @@ interface ITeeWalletBackupManager {
     function machineBackup(
         address _teeId,
         bytes32 _walletId,
-        uint64 _keyId,
+        uint256 _keyId,
         uint256 _shamirThreshold,
         address[] calldata _backupTeeIds
     )
@@ -71,7 +71,7 @@ interface ITeeWalletBackupManager {
     function machineRestore(
         address _teeId,
         bytes32 _walletId,
-        uint64 _keyId,
+        uint256 _keyId,
         uint256 _backupId,
         address[] calldata _backupTeeIds
     )
@@ -86,7 +86,7 @@ interface ITeeWalletBackupManager {
      */
     function machineBackupRemove(
         bytes32 _walletId,
-        uint64 _keyId,
+        uint256 _keyId,
         uint256 _backupId,
         address[] calldata _teeIds
     )
@@ -103,7 +103,7 @@ interface ITeeWalletBackupManager {
     function backupRestoreInit(
         address _teeId,
         bytes32 _walletId,
-        uint64 _keyId,
+        uint256 _keyId,
         uint24 _rewardEpochId
     )
         external payable;
@@ -120,7 +120,7 @@ interface ITeeWalletBackupManager {
     function backupRestore(
         address _teeId,
         bytes32 _walletId,
-        uint64 _keyId,
+        uint256 _keyId,
         uint24 _rewardEpochId
     )
         external payable;

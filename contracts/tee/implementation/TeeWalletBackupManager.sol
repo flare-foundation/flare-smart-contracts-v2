@@ -88,7 +88,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     function machineBackup(
         address _teeId,
         bytes32 _walletId,
-        uint64 _keyId,
+        uint256 _keyId,
         uint256 _shamirThreshold,
         address[] calldata _backupTeeIds
     )
@@ -131,7 +131,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     function machineRestore(
         address _teeId,
         bytes32 _walletId,
-        uint64 _keyId,
+        uint256 _keyId,
         uint256 _backupId,
         address[] calldata _backupTeeIds
     )
@@ -176,7 +176,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
      */
     function machineBackupRemove(
         bytes32 _walletId,
-        uint64 _keyId,
+        uint256 _keyId,
         uint256 _backupId,
         address[] calldata _teeIds
     )
@@ -216,7 +216,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     function backupRestoreInit(
         address _teeId,
         bytes32 _walletId,
-        uint64 _keyId,
+        uint256 _keyId,
         uint24 _rewardEpochId
     )
         external payable
@@ -231,7 +231,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     function backupRestore(
         address _teeId,
         bytes32 _walletId,
-        uint64 _keyId,
+        uint256 _keyId,
         uint24 _rewardEpochId
     )
         external payable
@@ -291,7 +291,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     function _backupRestore(
         address _teeId,
         bytes32 _walletId,
-        uint64 _keyId,
+        uint256 _keyId,
         uint24 _rewardEpochId,
         bytes32 _opCommand
     )
@@ -327,7 +327,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
         );
     }
 
-    function _isKeyAvailable(address _teeId, bytes32 _walletId, uint64 _keyId) internal view returns(bool) {
+    function _isKeyAvailable(address _teeId, bytes32 _walletId, uint256 _keyId) internal view returns(bool) {
         address[] memory teeIds = teeWalletKeyManager.getWalletKeyTeeIds(_walletId, _keyId);
         for(uint256 i = 0; i < teeIds.length; i++) {
             if (teeIds[i] == _teeId) {

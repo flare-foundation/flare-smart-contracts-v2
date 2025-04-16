@@ -287,6 +287,17 @@ contract TeeVersionManager is ITeeVersionManager, GovernedProxyImplementation, A
     /**
      * @inheritdoc ITeeVersionManager
      */
+    function getTeeGovernanceHash(bytes32 _codeHash)
+        external view
+        returns(bytes32 _governanceHash)
+    {
+        _governanceHash = codeHashToVersion[_codeHash].governanceHash;
+        require(_governanceHash != bytes32(0), "invalid code hash");
+    }
+
+    /**
+     * @inheritdoc ITeeVersionManager
+     */
     function getCodeHashInfo(bytes32 _codeHash)
         external view
         returns(bytes32 _governanceHash, string memory _version, bytes32[] memory _platforms)

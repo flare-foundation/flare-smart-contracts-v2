@@ -61,6 +61,7 @@ interface ITeeAvailabilityCheck {
      */
     struct RequestBody {
         ITeeRegistry.TeeMachineWithAttestationData teeMachine;
+        bytes32 teeGovernanceHash;
         uint24 rewardEpochId;
     }
 

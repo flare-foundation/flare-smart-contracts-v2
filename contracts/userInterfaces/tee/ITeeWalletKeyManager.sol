@@ -95,7 +95,7 @@ interface ITeeWalletKeyManager {
     function requestKeyExistenceAttestation(
         address _teeId,
         bytes32 _walletId,
-        uint64 _keyId
+        uint256 _keyId
     )
         external payable;
 
@@ -114,14 +114,14 @@ interface ITeeWalletKeyManager {
      * @param _walletId The wallet id.
      * @param _keyId The key id.
      */
-    function deleteKey(address _teeId, bytes32 _walletId, uint64 _keyId) external payable;
+    function deleteKey(address _teeId, bytes32 _walletId, uint256 _keyId) external payable;
 
     /**
      * For given wallet id and key id cleans up all tee machines that are not in production status.
      * @param _walletId The wallet id.
      * @param _keyId The key id.
      */
-    function cleanUpTeeIds(bytes32 _walletId, uint64 _keyId) external;
+    function cleanUpTeeIds(bytes32 _walletId, uint256 _keyId) external;
 
     /**
      * Returns wallet's receiving tees and keys.
@@ -141,7 +141,7 @@ interface ITeeWalletKeyManager {
      * @param _keyId The key id.
      * @return _teeIds The list of tee ids.
      */
-    function getWalletKeyTeeIds(bytes32 _walletId, uint64 _keyId) external view returns (address[] memory _teeIds);
+    function getWalletKeyTeeIds(bytes32 _walletId, uint256 _keyId) external view returns (address[] memory _teeIds);
 
     /**
      * Returns the public key of the wallet key.
@@ -149,7 +149,7 @@ interface ITeeWalletKeyManager {
      * @param _keyId The key id.
      * @return _publicKey The public key.
      */
-    function getWalletKeyPublicKey(bytes32 _walletId, uint64 _keyId) external view returns (bytes memory _publicKey);
+    function getWalletKeyPublicKey(bytes32 _walletId, uint256 _keyId) external view returns (bytes memory _publicKey);
 
     /**
      * Returns the address of the wallet key.
@@ -157,7 +157,7 @@ interface ITeeWalletKeyManager {
      * @param _keyId The key id.
      * @return _addressStr The address.
      */
-    function getWalletKeyAddress(bytes32 _walletId, uint64 _keyId) external view returns (string memory _addressStr);
+    function getWalletKeyAddress(bytes32 _walletId, uint256 _keyId) external view returns (string memory _addressStr);
 
     /**
      * Returns information about the wallet keys.
