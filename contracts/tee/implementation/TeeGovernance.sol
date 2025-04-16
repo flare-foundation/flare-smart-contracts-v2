@@ -5,11 +5,13 @@ import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeeGovernance.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "../../governance/implementation/GovernedProxyImplementation.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * TeeGovernance is used for managing TEE governance.
  */
-contract TeeGovernance is ITeeGovernance, Governed, AddressUpdatable {
+contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     struct TeeGovernanceState {
@@ -22,18 +24,25 @@ contract TeeGovernance is ITeeGovernance, Governed, AddressUpdatable {
     bytes32 public latestTeeGovernanceHash;
 
     /**
-     * Constructor.
-     * @param _governanceSettings The address of the GovernanceSettings contract.
-     * @param _initialGovernance The initial governance address.
-     * @param _addressUpdater The address of the AddressUpdater contract.
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor(
+    constructor()
+        GovernedProxyImplementation() AddressUpdatable(address(0))
+    { }
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     */
+    function initialize(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater
     )
-        Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
+        external
     {
+        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
     }
 
     /**
@@ -119,6 +128,30 @@ contract TeeGovernance is ITeeGovernance, Governed, AddressUpdatable {
     {
         return governanceHashToTeeGovernance[_governanceHash].signersThreshold > 0;
     }
+
+    /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
+
+    function implementation() external view returns (address) {
+        return ERC1967Utils.getImplementation();
+    }
+
+    /**
+     * @inheritdoc UUPSUpgradeable
+     * @dev Only governance can call this method.
+     */
+    function upgradeToAndCall(address newImplementation, bytes memory data)
+        public payable override
+        onlyGovernance
+        onlyProxy
+    {
+        super.upgradeToAndCall(newImplementation, data);
+    }
+
+    /**
+     * Unused. just to present to satisfy UUPSUpgradeable requirement.
+     * The real check is in onlyGovernance modifier on upgradeTo and upgradeToAndCall.
+     */
+    function _authorizeUpgrade(address newImplementation) internal override {}
 
     /**
      * @inheritdoc AddressUpdatable

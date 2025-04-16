@@ -52,6 +52,14 @@ import {
   RewardManagerInstance,
   SubmissionContract,
   SubmissionInstance,
+  TeeInstructionsProxyContract,
+  TeePaymentsEVMProxyContract,
+  TeePaymentsProxyContract,
+  TeeVersionManagerProxyContract,
+  TeeWalletBackupManagerProxyContract,
+  TeeWalletKeyManagerProxyContract,
+  TeeWalletManagerProxyContract,
+  TeeWalletProjectManagerProxyContract,
   TestableFlareDaemonContract,
   TestableFlareDaemonInstance,
   VPContractContract,
@@ -97,6 +105,8 @@ import { TeeWalletKeyManagerContract, TeeWalletKeyManagerInstance } from "../../
 import { FtdcHubContract, FtdcHubInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcHub";
 import { FtdcRequestFeeConfigurationsInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations";
 import { FtdcVerificationMockContract, FtdcVerificationMockInstance } from "../../typechain-truffle/contracts/ftdc/mock/FtdcVerificationMock";
+import { TeeGovernanceProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeGovernanceProxy";
+import { TeeRegistryProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeRegistryProxy";
 
 export interface DeployedContracts {
   readonly flareDaemon: TestableFlareDaemonInstance;
@@ -197,17 +207,27 @@ export async function deployContracts(
   const FeeCalculator = hre.artifacts.require("FeeCalculator") as FeeCalculatorContract;
 
   const TeeGovernance: TeeGovernanceContract = await artifacts.require("TeeGovernance");
+  const TeeGovernanceProxy: TeeGovernanceProxyContract = await artifacts.require("TeeGovernanceProxy");
   const TeeVersionManager: TeeVersionManagerContract = artifacts.require("TeeVersionManager");
+  const TeeVersionManagerProxy: TeeVersionManagerProxyContract = await artifacts.require("TeeVersionManagerProxy");
   const TeeRegistry: TeeRegistryContract = artifacts.require("TeeRegistry");
+  const TeeRegistryProxy: TeeRegistryProxyContract = await artifacts.require("TeeRegistryProxy");
   const TeeWalletProjectManager: TeeWalletProjectManagerContract = artifacts.require("TeeWalletProjectManager");
+  const TeeWalletProjectManagerProxy: TeeWalletProjectManagerProxyContract = await artifacts.require("TeeWalletProjectManagerProxy");
   const TeeWalletManager: TeeWalletManagerContract = artifacts.require("TeeWalletManager");
+  const TeeWalletManagerProxy: TeeWalletManagerProxyContract = await artifacts.require("TeeWalletManagerProxy");
   const TeeWalletKeyManager: TeeWalletKeyManagerContract = await artifacts.require("TeeWalletKeyManager");
+  const TeeWalletKeyManagerProxy: TeeWalletKeyManagerProxyContract = await artifacts.require("TeeWalletKeyManagerProxy");
   const TeeWalletBackupManager: TeeWalletBackupManagerContract = artifacts.require("TeeWalletBackupManager");
+  const TeeWalletBackupManagerProxy: TeeWalletBackupManagerProxyContract = await artifacts.require("TeeWalletBackupManagerProxy");
   const TeeFeeCalculator: TeeFeeCalculatorContract = artifacts.require("TeeFeeCalculator");
   const TeeInstructions: TeeInstructionsContract = artifacts.require("TeeInstructions");
+  const TeeInstructionsProxy: TeeInstructionsProxyContract = artifacts.require("TeeInstructionsProxy");
   const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
   const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
+  const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
   const TeePaymentsEVM: TeePaymentsEVMContract = artifacts.require("TeePaymentsEVM");
+  const TeePaymentsEVMProxy: TeePaymentsEVMProxyContract = artifacts.require("TeePaymentsEVMProxy");
   const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
   const FtdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
   const FtdcVerification: FtdcVerificationMockContract = artifacts.require("FtdcVerificationMock");
@@ -474,51 +494,72 @@ export async function deployContracts(
   const fdcInflationConfigurations = await FdcInflationConfigurations.new(governanceSettings.address, governanceAccount.address, ADDRESS_UPDATER_ADDR);
   const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(governanceSettings.address, governanceAccount.address);
 
-  const teeGovernance = await TeeGovernance.new(
+  const teeGovernanceImpl = await TeeGovernance.new();
+  const teeGovernanceProxy = await TeeGovernanceProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR
-  );
+    ADDRESS_UPDATER_ADDR,
+    teeGovernanceImpl.address
+  )
+  const teeGovernance = await TeeGovernance.at(teeGovernanceProxy.address);
 
-  const teeVersionManager = await TeeVersionManager.new(
+  const teeVersionImpl = await TeeVersionManager.new();
+  const teeVersionManagerProxy = await TeeVersionManagerProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR
+    ADDRESS_UPDATER_ADDR,
+    teeVersionImpl.address
   );
+  const teeVersionManager= await TeeVersionManager.at(teeVersionManagerProxy.address);
 
-  const teeRegistry = await TeeRegistry.new(
+  const teeRegistryImpl = await TeeRegistry.new();
+  const teeRegistryProxy = await TeeRegistryProxy.new(
     governanceSettings.address,
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
     60,
     600,
-    3600
+    3600,
+    teeRegistryImpl.address
   );
+  const teeRegistry = await TeeRegistry.at(teeRegistryProxy.address);
 
-  const teeWalletProjectManager = await TeeWalletProjectManager.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    ADDRESS_UPDATER_ADDR
-  );
-
-  const teeWalletManager = await TeeWalletManager.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    ADDRESS_UPDATER_ADDR
-  );
-
-  const teeWalletKeyManager = await TeeWalletKeyManager.new(
+  const teeWalletProjectManagerImpl = await TeeWalletProjectManager.new();
+  const teeWalletProjectManagerProxy = await TeeWalletProjectManagerProxy.new(
     governanceSettings.address,
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
-    600
+    teeWalletProjectManagerImpl.address
   );
+  const teeWalletProjectManager = await TeeWalletProjectManager.at(teeWalletProjectManagerProxy.address);
 
-  const teeWalletBackupManager = await TeeWalletBackupManager.new(
+  const teeWalletManagerImpl = await TeeWalletManager.new();
+  const teeWalletManagerProxy = await TeeWalletManagerProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR
+    ADDRESS_UPDATER_ADDR,
+    teeWalletManagerImpl.address
   );
+  const teeWalletManager = await TeeWalletManager.at(teeWalletManagerProxy.address);
+
+  const teeWalletKeyManagerImpl = await TeeWalletKeyManager.new();
+  const teeWalletKeyManagerProxy = await TeeWalletKeyManagerProxy.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    600,
+    teeWalletKeyManagerImpl.address
+  );
+  const teeWalletKeyManager = await TeeWalletKeyManager.at(teeWalletKeyManagerProxy.address);
+
+  const teeWalletBackupManagerImpl = await TeeWalletBackupManager.new();
+  const teeWalletBackupManagerProxy = await TeeWalletBackupManagerProxy.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    teeWalletBackupManagerImpl.address
+  );
+  const teeWalletBackupManager = await TeeWalletBackupManager.at(teeWalletBackupManagerProxy.address);
 
   const teeFeeCalculator = await TeeFeeCalculator.new(
     governanceSettings.address,
@@ -543,24 +584,31 @@ export async function deployContracts(
   }
   await teeFeeCalculator.setOperationFees(operationTypes, operationCommands, operationFees, { from: governanceAccount.address });
 
-  const teeInstructions = await TeeInstructions.new(
+  const teeInstructionsImpl = await TeeInstructions.new();
+  const teeInstructionsProxy = await TeeInstructionsProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR
+    ADDRESS_UPDATER_ADDR,
+    teeInstructionsImpl.address
   );
+  const teeInstructions = await TeeInstructions.at(teeInstructionsProxy.address);
 
   const teePaymentsList = [];
   for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
     const isEVM = teePaymentConfig.opType === "EVM";
     const Contract = isEVM ? TeePaymentsEVM : TeePayments;
-    const teePayments = await Contract.new(
+    const ContractProxy = isEVM ? TeePaymentsEVMProxy : TeePaymentsProxy;
+    const teePaymentsImpl = await Contract.new();
+    const teePaymentsProxy = await ContractProxy.new(
       governanceSettings.address,
       governanceAccount.address,
       ADDRESS_UPDATER_ADDR,
       teePaymentConfig.maxBatchSize,
       teePaymentConfig.maxBatchDurationSeconds,
-      web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0")
+      web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
+      teePaymentsImpl.address
     );
+    const teePayments = await Contract.at(teePaymentsProxy.address);
     teePaymentsList.push(teePayments);
   }
 

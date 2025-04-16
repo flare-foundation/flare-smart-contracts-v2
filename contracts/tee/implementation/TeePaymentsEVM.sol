@@ -12,12 +12,17 @@ contract TeePaymentsEVM is ITeePaymentsEVM, TeePayments {
     mapping(bytes32 projectId => uint256) private projectChainId;
 
     /**
-     * Constructor.
-     * @param _governanceSettings The address of the GovernanceSettings contract.
-     * @param _initialGovernance The initial governance address.
-     * @param _addressUpdater The address of the AddressUpdater contract.
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor(
+    constructor()
+        TeePayments()
+    { }
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     */
+    function initialize(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
@@ -25,15 +30,17 @@ contract TeePaymentsEVM is ITeePaymentsEVM, TeePayments {
         uint64 _maxBatchDurationSeconds,
         bytes32 _opType
     )
-        TeePayments(
+        external override
+    {
+        _initialize(
             _governanceSettings,
             _initialGovernance,
             _addressUpdater,
             _maxBatchSize,
             _maxBatchDurationSeconds,
             _opType
-        )
-    { }
+        );
+    }
 
     /**
      * @inheritdoc ITeePaymentsEVM

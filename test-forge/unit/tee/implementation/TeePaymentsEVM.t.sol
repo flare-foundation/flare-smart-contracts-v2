@@ -4,10 +4,13 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeePaymentsEVM.sol";
 import "../../../../contracts/tee/implementation/TeeInstructions.sol";
+import "../../../../contracts/tee/implementation/TeePaymentsEVMProxy.sol";
 
 contract TeePaymentsEVMTest is Test {
 
     TeePaymentsEVM private teePaymentsEVM;
+    TeePaymentsEVMProxy private teePaymentsEVMProxy;
+    TeePaymentsEVM private teePaymentsEVMImpl;
     address private mockTeeWalletManager;
     address private mockFSM;
     address private mockTeeFeeCalculator;
@@ -15,6 +18,7 @@ contract TeePaymentsEVMTest is Test {
     TeeInstructions private teeInstructions;
     address private mockRewardManager;
     address private mockTeeWalletProjectManager;
+    address private mockTeeWalletKeyManager;
 
     address private governance;
     address private addressUpdater;
@@ -38,15 +42,19 @@ contract TeePaymentsEVMTest is Test {
         mockTeeInstructions = makeAddr("teeInstructions");
         mockRewardManager = makeAddr("rewardManager");
         mockTeeWalletProjectManager = makeAddr("teeWalletProjectManager");
+        mockTeeWalletKeyManager = makeAddr("teeWalletKeyManager");
 
-        teePaymentsEVM = new TeePaymentsEVM(
+        teePaymentsEVMImpl = new TeePaymentsEVM();
+        teePaymentsEVMProxy = new TeePaymentsEVMProxy(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
             5, // max batch size
             300, // max batch duration seconds
-            opType
+            opType,
+            address(teePaymentsEVMImpl)
         );
+        teePaymentsEVM = TeePaymentsEVM(address(teePaymentsEVMProxy));
 
         walletId = bytes32("walletId");
         walletOwner = makeAddr("walletOwner");
@@ -55,20 +63,22 @@ contract TeePaymentsEVMTest is Test {
         _mockGetOwner(projectId, walletOwner);
 
         vm.prank(addressUpdater);
-        contractNameHashes = new bytes32[](6);
-        contractAddresses = new address[](6);
+        contractNameHashes = new bytes32[](7);
+        contractAddresses = new address[](7);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("TeeWalletManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("TeeFeeCalculator"));
         contractNameHashes[4] = keccak256(abi.encode("TeeInstructions"));
         contractNameHashes[5] = keccak256(abi.encode("TeeWalletProjectManager"));
+        contractNameHashes[6] = keccak256(abi.encode("TeeWalletKeyManager"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockTeeWalletManager;
         contractAddresses[2] = mockFSM;
         contractAddresses[3] = mockTeeFeeCalculator;
         contractAddresses[4] = mockTeeInstructions;
         contractAddresses[5] = mockTeeWalletProjectManager;
+        contractAddresses[6] = mockTeeWalletKeyManager;
         teePaymentsEVM.updateContractAddresses(contractNameHashes, contractAddresses);
     }
 

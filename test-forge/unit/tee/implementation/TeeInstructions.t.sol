@@ -4,10 +4,13 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeeInstructions.sol";
 import "../../../../contracts/protocol/implementation/RewardManager.sol";
+import "../../../../contracts/tee/implementation/TeeInstructionsProxy.sol"; 
 
 contract TeeInstructionsTest is Test {
 
     TeeInstructions private teeInstructions;
+    TeeInstructions private teeInstructionsImpl;
+    TeeInstructionsProxy private teeInstructionsProxy;
 
     address private governance;
     address private addressUpdater;
@@ -30,11 +33,14 @@ contract TeeInstructionsTest is Test {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
 
-        teeInstructions = new TeeInstructions(
+        teeInstructionsImpl = new TeeInstructions();
+        teeInstructionsProxy = new TeeInstructionsProxy(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
-            addressUpdater
+            addressUpdater,
+            address(teeInstructionsImpl)
         );
+        teeInstructions = TeeInstructions(address(teeInstructionsProxy));
 
         rewardManager = new RewardManager(
             IGovernanceSettings(makeAddr("governanceSettings")),

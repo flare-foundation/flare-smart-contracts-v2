@@ -12,6 +12,7 @@ contract TeeFeeCalculatorTest is Test {
     address private governance;
     address private addressUpdater;
     address private mockTeeWalletManager;
+    address private mockTeeWalletKeyManager;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -32,14 +33,17 @@ contract TeeFeeCalculatorTest is Test {
             addressUpdater
         );
         mockTeeWalletManager = makeAddr("mockTeeWalletManager");
+        mockTeeWalletKeyManager = makeAddr("mockTeeWalletKeyManager");
 
         vm.prank(addressUpdater);
-        contractNameHashes = new bytes32[](2);
-        contractAddresses = new address[](2);
+        contractNameHashes = new bytes32[](3);
+        contractAddresses = new address[](3);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("TeeWalletManager"));
+        contractNameHashes[2] = keccak256(abi.encode("TeeWalletKeyManager"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockTeeWalletManager;
+        contractAddresses[2] = mockTeeWalletKeyManager;
         teeFeeCalculator.updateContractAddresses(contractNameHashes, contractAddresses);
     }
 
@@ -94,7 +98,7 @@ contract TeeFeeCalculatorTest is Test {
         uint256 feeFactor = 8;
         bytes32 walletId = bytes32("walletId");
         vm.mockCall(
-            mockTeeWalletManager,
+            mockTeeWalletKeyManager,
             abi.encodeWithSelector(ITeeWalletKeyManager.getFeeFactor.selector, walletId),
             abi.encode(feeFactor)
         );

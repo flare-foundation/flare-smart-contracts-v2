@@ -5,11 +5,14 @@ import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import "../../governance/implementation/GovernedProxyImplementation.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * TeeWalletProjectManager is used for project configurations of TEE wallets.
  */
-contract TeeWalletProjectManager is ITeeWalletProjectManager, Governed, AddressUpdatable {
+contract TeeWalletProjectManager is ITeeWalletProjectManager, GovernedProxyImplementation,
+    AddressUpdatable, UUPSUpgradeable {
 
     struct TeeWalletProjectState {
         address owner;
@@ -32,18 +35,26 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, Governed, AddressU
     }
 
     /**
-     * Constructor.
-     * @param _governanceSettings The address of the GovernanceSettings contract.
-     * @param _initialGovernance The initial governance address.
-     * @param _addressUpdater The address of the AddressUpdater contract.
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor(
+    constructor()
+        GovernedProxyImplementation() AddressUpdatable(address(0))
+    { }
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     */
+    function initialize(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater
     )
-        Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
-    { }
+        external
+    {
+        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
+    }
 
     /**
      * @inheritdoc ITeeWalletProjectManager
@@ -163,6 +174,30 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, Governed, AddressU
         _opType = project.opType;
         _submitAddress = project.submitAddress;
     }
+
+    /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
+
+    function implementation() external view returns (address) {
+        return ERC1967Utils.getImplementation();
+    }
+
+    /**
+     * @inheritdoc UUPSUpgradeable
+     * @dev Only governance can call this method.
+     */
+    function upgradeToAndCall(address newImplementation, bytes memory data)
+        public payable override
+        onlyGovernance
+        onlyProxy
+    {
+        super.upgradeToAndCall(newImplementation, data);
+    }
+
+    /**
+     * Unused. just to present to satisfy UUPSUpgradeable requirement.
+     * The real check is in onlyGovernance modifier on upgradeTo and upgradeToAndCall.
+     */
+    function _authorizeUpgrade(address newImplementation) internal override {}
 
     /**
      * @inheritdoc AddressUpdatable

@@ -4,11 +4,13 @@ pragma solidity 0.8.20;
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeePayments.sol";
 import "./TeeWalletConstantsAndSettings.sol";
+import "../../governance/implementation/GovernedProxyImplementation.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.
  */
-contract TeePayments is ITeePayments, Governed, TeeWalletConstantsAndSettings {
+contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletConstantsAndSettings, UUPSUpgradeable {
 
     struct WalletState {
         uint64 nonce;
@@ -43,8 +45,8 @@ contract TeePayments is ITeePayments, Governed, TeeWalletConstantsAndSettings {
     bytes32 public constant REISSUE = bytes32("REISSUE");
     bytes32 public constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
 
-    uint64 public immutable maxBatchSize;
-    uint64 public immutable maxBatchDurationSeconds;
+    uint64 public maxBatchSize;
+    uint64 public maxBatchDurationSeconds;
 
     mapping(bytes32 walletId => WalletState) private states;
     mapping(bytes32 walletId => WalletSettings) private settings;
@@ -61,12 +63,17 @@ contract TeePayments is ITeePayments, Governed, TeeWalletConstantsAndSettings {
     }
 
     /**
-     * Constructor.
-     * @param _governanceSettings The address of the GovernanceSettings contract.
-     * @param _initialGovernance The initial governance address.
-     * @param _addressUpdater The address of the AddressUpdater contract.
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor(
+    constructor()
+        GovernedProxyImplementation() TeeWalletConstantsAndSettings(address(0), bytes32(0))
+    { }
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     */
+    function initialize(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
@@ -74,12 +81,16 @@ contract TeePayments is ITeePayments, Governed, TeeWalletConstantsAndSettings {
         uint64 _maxBatchDurationSeconds,
         bytes32 _opType
     )
-        Governed(_governanceSettings, _initialGovernance) TeeWalletConstantsAndSettings(_addressUpdater, _opType)
+        external virtual
     {
-        require(_maxBatchSize > 0, "max batch size zero");
-        require(_opType != bytes32(0), "op type zero");
-        maxBatchSize = _maxBatchSize;
-        maxBatchDurationSeconds = _maxBatchDurationSeconds;
+        _initialize(
+            _governanceSettings,
+            _initialGovernance,
+            _addressUpdater,
+            _maxBatchSize,
+            _maxBatchDurationSeconds,
+            _opType
+        );
     }
 
     /**
@@ -385,6 +396,30 @@ contract TeePayments is ITeePayments, Governed, TeeWalletConstantsAndSettings {
         // return empty bytes
     }
 
+    /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
+
+    function implementation() external view returns (address) {
+        return ERC1967Utils.getImplementation();
+    }
+
+    /**
+     * @inheritdoc UUPSUpgradeable
+     * @dev Only governance can call this method.
+     */
+    function upgradeToAndCall(address newImplementation, bytes memory data)
+        public payable override
+        onlyGovernance
+        onlyProxy
+    {
+        super.upgradeToAndCall(newImplementation, data);
+    }
+
+    /**
+     * Unused. just to present to satisfy UUPSUpgradeable requirement.
+     * The real check is in onlyGovernance modifier on upgradeTo and upgradeToAndCall.
+     */
+    function _authorizeUpgrade(address newImplementation) internal override {}
+
     /**
      * @inheritdoc AddressUpdatable
      */
@@ -395,5 +430,26 @@ contract TeePayments is ITeePayments, Governed, TeeWalletConstantsAndSettings {
         internal override
     {
         super._updateContractAddresses(_contractNameHashes, _contractAddresses);
+    }
+
+
+    function _initialize(
+        IGovernanceSettings _governanceSettings,
+        address _initialGovernance,
+        address _addressUpdater,
+        uint64 _maxBatchSize,
+        uint64 _maxBatchDurationSeconds,
+        bytes32 _opType
+    )
+        internal
+    {
+        require(_maxBatchSize > 0, "max batch size zero");
+        require(_opType != bytes32(0), "op type zero");
+
+        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        TeeWalletConstantsAndSettings.setOpTypeAndAddressUpdater(_addressUpdater, _opType);
+
+        maxBatchSize = _maxBatchSize;
+        maxBatchDurationSeconds = _maxBatchDurationSeconds;
     }
 }

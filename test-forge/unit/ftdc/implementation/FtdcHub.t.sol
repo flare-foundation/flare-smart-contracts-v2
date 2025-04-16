@@ -2,18 +2,21 @@
 pragma solidity 0.8.20;
 
 import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeeDataConnector.sol";
+import "../../../../contracts/ftdc/implementation/FtdcHub.sol";
 import "../../../../contracts/tee/implementation/TeeInstructions.sol";
+import "../../../../contracts/tee/implementation/TeeInstructionsProxy.sol";
 
-contract TeeDataConnectorTest is Test {
+contract FtdcHubTest is Test {
 
-    TeeDataConnector private teeDataConnector;
+    FtdcHub private ftdcHub;
 
     address private governance;
     address private addressUpdater;
     address private mockTeeRegistry;
     address private mockTeeFeeCalculator;
     TeeInstructions private teeInstructions;
+    TeeInstructions private teeInstructionsImpl;
+    TeeInstructionsProxy private teeInstructionsProxy;
     address private mockFlareSystemsManager;
     address private mockFtdcRequestFeeConfigurations;
     address private mockRewardManager;
@@ -47,7 +50,7 @@ contract TeeDataConnectorTest is Test {
         addressUpdater = makeAddr("addressUpdater");
         minThresholdBIPS = 2000;
         defaultNumberOfTees = 1;
-        teeDataConnector = new TeeDataConnector(
+        ftdcHub = new FtdcHub(
             IGovernanceSettings(address(this)),
             governance,
             addressUpdater,
@@ -55,11 +58,14 @@ contract TeeDataConnectorTest is Test {
             defaultNumberOfTees
         );
 
-        teeInstructions = new TeeInstructions(
-            IGovernanceSettings(makeAddr("governanceSettings")),
+        teeInstructionsImpl = new TeeInstructions();
+        teeInstructionsProxy = new TeeInstructionsProxy(
+            IGovernanceSettings(address(this)),
             governance,
-            addressUpdater
+            addressUpdater,
+            address(teeInstructionsImpl)
         );
+        teeInstructions = TeeInstructions(address(teeInstructionsProxy));
 
         mockTeeRegistry = makeAddr("mockTeeRegistry");
         mockTeeFeeCalculator = makeAddr("mockTeeFeeCalculator");
@@ -83,7 +89,7 @@ contract TeeDataConnectorTest is Test {
         contractNameHashes[5] = keccak256(abi.encode("FtdcRequestFeeConfigurations"));
         contractAddresses[5] = mockFtdcRequestFeeConfigurations;
         vm.prank(addressUpdater);
-        teeDataConnector.updateContractAddresses(contractNameHashes, contractAddresses);
+        ftdcHub.updateContractAddresses(contractNameHashes, contractAddresses);
 
         vm.prank(addressUpdater);
         contractNameHashes = new bytes32[](2);
@@ -97,7 +103,7 @@ contract TeeDataConnectorTest is Test {
         // set data connector contract as instruction initiator on TeeInstructions
         vm.prank(governance);
         address[] memory instructionInitiators = new address[](1);
-        instructionInitiators[0] = address(teeDataConnector);
+        instructionInitiators[0] = address(ftdcHub);
         teeInstructions.registerInstructionInitiators(instructionInitiators);
         _mockReceiveRewards();
 
@@ -118,55 +124,55 @@ contract TeeDataConnectorTest is Test {
 
     function testSetMinThresholdBIPS() public {
         uint16 newMinThresholdBIPS = 3000;
-        assertEq(teeDataConnector.minThresholdBIPS(), minThresholdBIPS);
+        assertEq(ftdcHub.minThresholdBIPS(), minThresholdBIPS);
         vm.prank(governance);
-        teeDataConnector.setMinThresholdBIPS(newMinThresholdBIPS);
-        assertEq(teeDataConnector.minThresholdBIPS(), newMinThresholdBIPS);
+        ftdcHub.setMinThresholdBIPS(newMinThresholdBIPS);
+        assertEq(ftdcHub.minThresholdBIPS(), newMinThresholdBIPS);
     }
 
     function testSetMinThresholdBIPSRevert() public {
         vm.prank(governance);
         vm.expectRevert("min threshold invalid");
-        teeDataConnector.setMinThresholdBIPS(0);
+        ftdcHub.setMinThresholdBIPS(0);
 
         vm.prank(governance);
         vm.expectRevert("min threshold invalid");
-        teeDataConnector.setMinThresholdBIPS(1e4 + 1);
+        ftdcHub.setMinThresholdBIPS(1e4 + 1);
 
         vm.expectRevert("only governance");
-        teeDataConnector.setMinThresholdBIPS(3000);
+        ftdcHub.setMinThresholdBIPS(3000);
     }
 
     function testDefaultNumberOfTees() public {
         uint8 newDefaultNumberOfTees = 5;
-        assertEq(teeDataConnector.defaultNumberOfTees(), defaultNumberOfTees);
+        assertEq(ftdcHub.defaultNumberOfTees(), defaultNumberOfTees);
         vm.prank(governance);
-        teeDataConnector.setDefaultNumberOfTees(newDefaultNumberOfTees);
-        assertEq(teeDataConnector.defaultNumberOfTees(), newDefaultNumberOfTees);
+        ftdcHub.setDefaultNumberOfTees(newDefaultNumberOfTees);
+        assertEq(ftdcHub.defaultNumberOfTees(), newDefaultNumberOfTees);
     }
 
     function testDefaultNumberOfTeesRevert() public {
         vm.prank(governance);
         vm.expectRevert("default number of tees zero");
-        teeDataConnector.setDefaultNumberOfTees(0);
+        ftdcHub.setDefaultNumberOfTees(0);
 
         vm.expectRevert("only governance");
-        teeDataConnector.setDefaultNumberOfTees(5);
+        ftdcHub.setDefaultNumberOfTees(5);
     }
 
     function testRequestAttestationRevertThresholdInvalid() public {
         vm.expectRevert("threshold invalid");
-        teeDataConnector.requestAttestation(minThresholdBIPS - 1, 1, new address[](0), "");
+        ftdcHub.requestAttestation(minThresholdBIPS - 1, 1, new address[](0), "");
 
         vm.expectRevert("threshold invalid");
-        teeDataConnector.requestAttestation(1e4 + 1, 1, new address[](0), "");
+        ftdcHub.requestAttestation(1e4 + 1, 1, new address[](0), "");
     }
 
     function testRequestAttestationRevertTeesInvalid() public {
         vm.expectRevert("numberOfTees and teeIds invalid");
         teeIds = new address[](1);
         teeIds[0] = makeAddr("teeId");
-        teeDataConnector.requestAttestation(minThresholdBIPS, 2, teeIds, "");
+        ftdcHub.requestAttestation(minThresholdBIPS, 2, teeIds, "");
     }
 
     function testRequestAttestationRevertTeeNotAvailable() public {
@@ -175,7 +181,7 @@ contract TeeDataConnectorTest is Test {
         teeIds = new address[](1);
         teeIds[0] = teeId;
         vm.expectRevert("tee machine not available");
-        teeDataConnector.requestAttestation(minThresholdBIPS, 1, teeIds, "");
+        ftdcHub.requestAttestation(minThresholdBIPS, 1, teeIds, "");
     }
 
     function testRequestAttestationRevertFeeTooLow() public {
@@ -185,7 +191,7 @@ contract TeeDataConnectorTest is Test {
         teeIds[0] = teeId;
         _mockCalculateFeeByTeeIds(teeIds, 15);
         vm.expectRevert("fee to low");
-        teeDataConnector.requestAttestation{value: requestFee + 15 - 1} (minThresholdBIPS, 1, teeIds, "");
+        ftdcHub.requestAttestation{value: requestFee + 15 - 1} (minThresholdBIPS, 1, teeIds, "");
     }
 
     // list of teeIds provided
@@ -198,11 +204,11 @@ contract TeeDataConnectorTest is Test {
         _mockCalculateFeeByTeeIds(teeIdsForFee, 15);
         _mockGetCurrentRewardEpochId(123);
         bytes memory attestationRequest = "attestationRequest";
-        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, attestationRequest));
+        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, attestationRequest, 0));
         (ITeeRegistry.TeeMachine[] memory teeMachines,
             ITeeRegistry.TeeMachineWithAttestationData[] memory teeMachinesWithAttestationData) = _getTeeMachines(2);
 
-        ITeeDataConnector.FtdcProve memory message = ITeeDataConnector.FtdcProve({
+        IFtdcHub.FtdcProve memory message = IFtdcHub.FtdcProve({
             teeMachines: teeMachinesWithAttestationData,
             thresholdBIPS: minThresholdBIPS,
             attestationRequest: attestationRequest
@@ -217,7 +223,7 @@ contract TeeDataConnectorTest is Test {
             abi.encode(message),
             requestFee + 15
         );
-        teeDataConnector.requestAttestation{value: requestFee + 15} (minThresholdBIPS, 0, teeIds, attestationRequest);
+        ftdcHub.requestAttestation{value: requestFee + 15} (minThresholdBIPS, 0, teeIds, attestationRequest);
     }
 
     // list of teeIds not provided and number is also not (it will take default)
@@ -238,11 +244,11 @@ contract TeeDataConnectorTest is Test {
         _mockCalculateFeeByTeeIds(teeIdsForFee, 15);
         _mockGetCurrentRewardEpochId(123);
         bytes memory attestationRequest = "attestationRequest";
-        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, attestationRequest));
+        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, attestationRequest, 0));
         (ITeeRegistry.TeeMachine[] memory teeMachines,
             ITeeRegistry.TeeMachineWithAttestationData[] memory teeMachinesWithAttestationData) = _getTeeMachines(1);
 
-        ITeeDataConnector.FtdcProve memory message = ITeeDataConnector.FtdcProve({
+        IFtdcHub.FtdcProve memory message = IFtdcHub.FtdcProve({
             teeMachines: teeMachinesWithAttestationData,
             thresholdBIPS: minThresholdBIPS,
             attestationRequest: attestationRequest
@@ -257,7 +263,7 @@ contract TeeDataConnectorTest is Test {
             abi.encode(message),
             requestFee + 15
         );
-        teeDataConnector.requestAttestation{value: requestFee + 15} (
+        ftdcHub.requestAttestation{value: requestFee + 15} (
             minThresholdBIPS, 0, new address[](0), attestationRequest
         );
     }
@@ -280,11 +286,11 @@ contract TeeDataConnectorTest is Test {
         _mockCalculateFeeByTeeIds(teeIdsForFee, 15);
         _mockGetCurrentRewardEpochId(123);
         bytes memory attestationRequest = "attestationRequest";
-        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, attestationRequest));
+        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, attestationRequest, 0));
         (ITeeRegistry.TeeMachine[] memory teeMachines,
             ITeeRegistry.TeeMachineWithAttestationData[] memory teeMachinesWithAttestationData) = _getTeeMachines(2);
 
-        ITeeDataConnector.FtdcProve memory message = ITeeDataConnector.FtdcProve({
+        IFtdcHub.FtdcProve memory message = IFtdcHub.FtdcProve({
             teeMachines: teeMachinesWithAttestationData,
             thresholdBIPS: minThresholdBIPS,
             attestationRequest: attestationRequest
@@ -299,7 +305,7 @@ contract TeeDataConnectorTest is Test {
             abi.encode(message),
             requestFee + 15
         );
-        teeDataConnector.requestAttestation{value: requestFee + 15} (
+        ftdcHub.requestAttestation{value: requestFee + 15} (
             minThresholdBIPS, 2, new address[](0), attestationRequest
         );
     }

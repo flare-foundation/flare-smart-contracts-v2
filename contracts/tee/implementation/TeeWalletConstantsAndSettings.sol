@@ -25,7 +25,7 @@ abstract contract TeeWalletConstantsAndSettings is IITeeWalletConstantsAndSettin
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
 
-    bytes32 public immutable opType;
+    bytes32 public opType;
     bytes32 public constant SET_PAUSING_ADDRESSES = bytes32("SET_PAUSING_ADDRESSES");
 
     mapping (bytes32 walletId => uint256) private setPausingAddressesCounter;
@@ -40,7 +40,7 @@ abstract contract TeeWalletConstantsAndSettings is IITeeWalletConstantsAndSettin
     )
         AddressUpdatable(_addressUpdater)
     {
-        opType = _opType;
+        setOpTypeAndAddressUpdater(_addressUpdater, _opType);
     }
 
     /**
@@ -85,6 +85,11 @@ abstract contract TeeWalletConstantsAndSettings is IITeeWalletConstantsAndSettin
      * @inheritdoc IITeeWalletOpTypeConstants
      */
     function getOpTypeConstants(bytes32 _walletId) external view virtual returns(bytes memory);
+
+    function setOpTypeAndAddressUpdater(address _addressUpdater, bytes32 _opType) internal {
+        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
+        opType = _opType;
+    }
 
     /**
      * @inheritdoc AddressUpdatable

@@ -13,11 +13,13 @@ import "../../userInterfaces/ftdc/IFtdcHub.sol";
 import "../../userInterfaces/ftdc/IFtdcVerification.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../interface/IITeeWalletOpTypeConstants.sol";
+import "../../governance/implementation/GovernedProxyImplementation.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * TeeWalletKeyManager contract used for wallet keys configuration on TEE machines.
  */
-contract TeeWalletKeyManager is ITeeWalletKeyManager, Governed, AddressUpdatable {
+contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable {
 
     struct TeeWalletKeysState {
         uint256 keyIdCounter;
@@ -70,20 +72,27 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, Governed, AddressUpdatable
     }
 
     /**
-     * Constructor.
-     * @param _governanceSettings The address of the GovernanceSettings contract.
-     * @param _initialGovernance The initial governance address.
-     * @param _addressUpdater The address of the AddressUpdater contract.
-     * @param _keyExistenceProofValiditySeconds The key existence proof validity duration (in seconds).
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor(
+    constructor()
+        GovernedProxyImplementation() AddressUpdatable(address(0))
+    { }
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     */
+    function initialize(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
         uint256 _keyExistenceProofValiditySeconds
     )
-        Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
+        external
     {
+        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
+
         _setKeyExistenceProofValidity(_keyExistenceProofValiditySeconds);
     }
 
@@ -453,6 +462,30 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, Governed, AddressUpdatable
     {
         return walletKeys[_walletId].keyDefinitions[_keyId].teeIds;
     }
+
+    /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
+
+    function implementation() external view returns (address) {
+        return ERC1967Utils.getImplementation();
+    }
+
+    /**
+     * @inheritdoc UUPSUpgradeable
+     * @dev Only governance can call this method.
+     */
+    function upgradeToAndCall(address newImplementation, bytes memory data)
+        public payable override
+        onlyGovernance
+        onlyProxy
+    {
+        super.upgradeToAndCall(newImplementation, data);
+    }
+
+    /**
+     * Unused. just to present to satisfy UUPSUpgradeable requirement.
+     * The real check is in onlyGovernance modifier on upgradeTo and upgradeToAndCall.
+     */
+    function _authorizeUpgrade(address newImplementation) internal override {}
 
     /**
      * @inheritdoc AddressUpdatable

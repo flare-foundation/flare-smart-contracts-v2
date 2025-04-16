@@ -12,11 +12,13 @@ import "../../userInterfaces/ftdc/IFtdcVerification.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/IRelay.sol";
 import "../../utils/lib/AddressSet.sol";
+import "../../governance/implementation/GovernedProxyImplementation.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * TeeRegistry is used for registration of TEE machines.
  */
-contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
+contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable {
     using AddressSet for AddressSet.State;
 
     struct TeeState {
@@ -71,15 +73,17 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     }
 
     /**
-     * Constructor.
-     * @param _governanceSettings The address of the GovernanceSettings contract.
-     * @param _initialGovernance The initial governance address.
-     * @param _addressUpdater The address of the AddressUpdater contract.
-     * @param _pauseBeforeUpgradeMinDurationSeconds The minimum duration (paused status) before a tee can be upgraded.
-     * @param _availabilityCheckProofValiditySeconds The duration for which an availability check proof is valid.
-     * @param _availabilityCheckValidityDurationSeconds The duration for which the availability of a tee is valid.
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor(
+    constructor()
+        GovernedProxyImplementation() AddressUpdatable(address(0))
+    { }
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     */
+    function initialize(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
@@ -87,8 +91,11 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
         uint256 _availabilityCheckProofValiditySeconds,
         uint256 _availabilityCheckValidityDurationSeconds
     )
-        Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
+        external
     {
+        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
+
         _setPauseBeforeUpgradeMinDuration(_pauseBeforeUpgradeMinDurationSeconds);
         _setAvailabilityCheckProofValidity(_availabilityCheckProofValiditySeconds);
         _setAvailabilityCheckValidityDuration(_availabilityCheckValidityDurationSeconds);
@@ -464,6 +471,30 @@ contract TeeRegistry is ITeeRegistry, Governed, AddressUpdatable {
     {
         return activeTeeIds.list;
     }
+
+    /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
+
+    function implementation() external view returns (address) {
+        return ERC1967Utils.getImplementation();
+    }
+
+    /**
+     * @inheritdoc UUPSUpgradeable
+     * @dev Only governance can call this method.
+     */
+    function upgradeToAndCall(address newImplementation, bytes memory data)
+        public payable override
+        onlyGovernance
+        onlyProxy
+    {
+        super.upgradeToAndCall(newImplementation, data);
+    }
+
+    /**
+     * Unused. just to present to satisfy UUPSUpgradeable requirement.
+     * The real check is in onlyGovernance modifier on upgradeTo and upgradeToAndCall.
+     */
+    function _authorizeUpgrade(address newImplementation) internal override {}
 
     /**
      * @inheritdoc AddressUpdatable

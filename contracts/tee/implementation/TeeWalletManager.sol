@@ -7,11 +7,13 @@ import "../interface/IITeeWalletManager.sol";
 import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
 import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 import "../interface/IITeeWalletConstantsAndSettings.sol";
+import "../../governance/implementation/GovernedProxyImplementation.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * TeeWalletManager contract used for wallet configuration on chain.
  */
-contract TeeWalletManager is IITeeWalletManager, Governed, AddressUpdatable {
+contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable {
 
     struct TeeWalletState {
         bytes32 projectId;
@@ -45,18 +47,25 @@ contract TeeWalletManager is IITeeWalletManager, Governed, AddressUpdatable {
     }
 
     /**
-     * Constructor.
-     * @param _governanceSettings The address of the GovernanceSettings contract.
-     * @param _initialGovernance The initial governance address.
-     * @param _addressUpdater The address of the AddressUpdater contract.
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor(
+    constructor()
+        GovernedProxyImplementation() AddressUpdatable(address(0))
+    { }
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     */
+    function initialize(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater
     )
-        Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
+        external
     {
+        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
     }
 
     /**
@@ -340,6 +349,31 @@ contract TeeWalletManager is IITeeWalletManager, Governed, AddressUpdatable {
     {
         return address(opTypeConstantsProviders[_opType]) != address(0);
     }
+
+    /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
+
+    function implementation() external view returns (address) {
+        return ERC1967Utils.getImplementation();
+    }
+
+    /**
+     * @inheritdoc UUPSUpgradeable
+     * @dev Only governance can call this method.
+     */
+    function upgradeToAndCall(address newImplementation, bytes memory data)
+        public payable override
+        onlyGovernance
+        onlyProxy
+    {
+        super.upgradeToAndCall(newImplementation, data);
+    }
+
+    /**
+     * Unused. just to present to satisfy UUPSUpgradeable requirement.
+     * The real check is in onlyGovernance modifier on upgradeTo and upgradeToAndCall.
+     */
+    function _authorizeUpgrade(address newImplementation) internal override {}
+
 
     /**
      * @inheritdoc AddressUpdatable
