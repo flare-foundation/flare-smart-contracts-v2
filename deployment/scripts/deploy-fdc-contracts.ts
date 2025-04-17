@@ -10,7 +10,8 @@ import {
   FdcHubContract,
   FdcInflationConfigurationsContract,
   FdcRequestFeeConfigurationsContract,
-  FdcVerificationContract
+  FdcVerificationContract,
+  FdcVerificationProxyContract
 } from "../../typechain-truffle";
 import { spewNewContractInfo } from "./deploy-utils";
 import { FdcVerificationProxyContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcVerificationProxy";
