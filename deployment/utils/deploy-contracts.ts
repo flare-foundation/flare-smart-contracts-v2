@@ -103,9 +103,10 @@ import { TeeGovernanceContract, TeeGovernanceInstance } from "../../typechain-tr
 import { TeeWalletKeyManagerContract, TeeWalletKeyManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletKeyManager";
 import { FtdcHubContract, FtdcHubInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcHub";
 import { FtdcRequestFeeConfigurationsInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations";
-import { FtdcVerificationMockContract, FtdcVerificationMockInstance } from "../../typechain-truffle/contracts/ftdc/mock/FtdcVerificationMock";
+import { FtdcVerificationMockContract } from "../../typechain-truffle/contracts/ftdc/mock/FtdcVerificationMock";
 import { TeeGovernanceProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeGovernanceProxy";
 import { TeeRegistryProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeRegistryProxy";
+import { FtdcVerificationContract, FtdcVerificationInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification";
 
 export interface DeployedContracts {
   readonly flareDaemon: TestableFlareDaemonInstance;
@@ -150,7 +151,7 @@ export interface DeployedContracts {
   readonly teePayments: (TeePaymentsEVMInstance | TeePaymentsInstance)[];
   readonly ftdcHub: FtdcHubInstance;
   readonly ftdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsInstance;
-  readonly ftdcVerification: FtdcVerificationMockInstance;
+  readonly ftdcVerification: FtdcVerificationInstance;
 }
 
 const logger = getLogger("contracts");
@@ -228,7 +229,8 @@ export async function deployContracts(
   const TeePaymentsEVM: TeePaymentsEVMContract = artifacts.require("TeePaymentsEVM");
   const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
   const FtdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
-  const FtdcVerification: FtdcVerificationMockContract = artifacts.require("FtdcVerificationMock");
+  const FtdcVerificationMock: FtdcVerificationMockContract = artifacts.require("FtdcVerificationMock");
+  const FtdcVerification: FtdcVerificationContract = artifacts.require("FtdcVerification");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
@@ -622,9 +624,7 @@ export async function deployContracts(
     governanceAccount.address
   );
 
-  const ftdcVerification = await FtdcVerification.new(
-    ADDRESS_UPDATER_ADDR
-  );
+  const ftdcVerification = await FtdcVerification.at((await FtdcVerificationMock.new(ADDRESS_UPDATER_ADDR)).address); // TODO: remove mock contract
 
   // Set the FTDC request fee configurations
   const ftdc_attestationTypes = ["TeeAvailabilityCheck", "TeeKeyExistence"];

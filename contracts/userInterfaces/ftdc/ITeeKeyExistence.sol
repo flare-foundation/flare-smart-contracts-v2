@@ -60,7 +60,7 @@ interface ITeeKeyExistence {
     struct RequestBody {
         address teeId;
         bytes32 walletId;
-        uint256 keyId;
+        uint64 keyId;
     }
 
     /**

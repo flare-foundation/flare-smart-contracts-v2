@@ -32,6 +32,7 @@ abstract contract TeeWalletConstantsAndSettings is IITeeWalletConstantsAndSettin
 
     /**
      * Constructor.
+     * @param _addressUpdater The address updater contract.
      * @param _opType The operation type.
      */
     constructor(
@@ -40,7 +41,7 @@ abstract contract TeeWalletConstantsAndSettings is IITeeWalletConstantsAndSettin
     )
         AddressUpdatable(_addressUpdater)
     {
-        setOpTypeAndAddressUpdater(_addressUpdater, _opType);
+        opType = _opType;
     }
 
     /**

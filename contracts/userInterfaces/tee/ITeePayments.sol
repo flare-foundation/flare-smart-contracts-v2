@@ -22,11 +22,11 @@ interface ITeePayments is ITeeWalletOpTypeSettings {
         string recipientAddress;
         uint256 amount;
         bytes32 paymentReference;
-        uint256 nonce;
-        uint256 subNonce;
+        uint64 nonce;
+        uint64 subNonce;
         uint256 maxFee;
-        uint256 maxFeeTolerancePPM;
-        uint256 batchEndTs;
+        uint32 maxFeeTolerancePPM;
+        uint64 batchEndTs;
     }
 
     struct SetPaymentLimits {
@@ -66,6 +66,7 @@ interface ITeePayments is ITeeWalletOpTypeSettings {
      * @param _projectId The project id.
      * @param _walletId The wallet id.
      * @param _paymentInstruction The payment instruction.
+     * @return _nonce The batch nonce of the payment instruction.
      * @return _subNonce The sequence number of the payment instruction.
      */
     function pay(
@@ -74,25 +75,25 @@ interface ITeePayments is ITeeWalletOpTypeSettings {
         PaymentInstruction calldata _paymentInstruction
     )
         external payable
-        returns (uint256 _subNonce);
+        returns (uint64 _nonce, uint64 _subNonce);
 
     /**
      * Payment reissuance method.
      * Can only be called by the control address.
      * @param _walletId The wallet id.
-     * @param _nonce Batch nonce of the payment instruction to be reissued.
-     * @param _firstSubNonce SubNonce of the first transaction in the batch.
-     * @param _paymentInstruction The payment instruction.
+     * @param _nonce Batch nonce of the payment instructions to be reissued.
+     * @param _firstSubNonce SubNonce of the first payment instruction in the batch.
+     * @param _paymentInstructions List of the payment instructions.
      * @param _fee The new (usually bumped) fee.
-     * @param _nullify If true, nullification transaction should be issued instead.
+     * @param _nullify List of nullification flags for the payment instructions.
      */
     function reissue(
         bytes32 _walletId,
         uint64 _nonce,
         uint64 _firstSubNonce,
-        PaymentInstruction[] calldata _paymentInstruction,
+        PaymentInstruction[] calldata _paymentInstructions,
         uint96 _fee,
-        bool _nullify
+        bool[] calldata _nullify
     )
         external payable;
 

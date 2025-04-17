@@ -152,7 +152,7 @@ interface ITeeWalletManager {
      */
     function getWalletAdminsAndThreshold(bytes32 _walletId)
         external view
-        returns (PublicKey[] memory _adminsPublicKeys, uint256 _adminsThreshold);
+        returns (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold);
 
     /**
      * Returns wallet's cosigners and threshold.
@@ -162,7 +162,7 @@ interface ITeeWalletManager {
      */
     function getWalletCosignersAndThreshold(bytes32 _walletId)
         external view
-        returns (address[] memory _cosigners, uint256 _cosignersThreshold);
+        returns (address[] memory _cosigners, uint64 _cosignersThreshold);
 
     /**
      * Returns wallet's status.

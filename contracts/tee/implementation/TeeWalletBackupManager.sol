@@ -27,12 +27,12 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     bytes32 public constant KEY_DATA_PROVIDER_RESTORE_INIT = bytes32("KEY_DATA_PROVIDER_RESTORE_INIT");
     bytes32 public constant KEY_DATA_PROVIDER_RESTORE = bytes32("KEY_DATA_PROVIDER_RESTORE");
 
-    mapping(bytes32 walletId => mapping(uint256 keyId => uint256)) private machineBackupCounter;
-    mapping(bytes32 walletId => mapping(uint256 keyId =>
-        mapping(uint256 backupId => uint256))) private machineRestoreCounter;
-    mapping(bytes32 walletId => mapping(uint256 keyId =>
-        mapping(uint256 backupId => uint256))) private machineBackupRemoveCounter;
-    mapping(bytes32 walletId => mapping(uint256 keyId =>
+    mapping(bytes32 walletId => mapping(uint64 keyId => uint64)) private machineBackupCounter;
+    mapping(bytes32 walletId => mapping(uint64 keyId =>
+        mapping(uint64 backupId => uint256))) private machineRestoreCounter;
+    mapping(bytes32 walletId => mapping(uint64 keyId =>
+        mapping(uint64 backupId => uint256))) private machineBackupRemoveCounter;
+    mapping(bytes32 walletId => mapping(uint64 keyId =>
         mapping (bytes32 opCommand => uint256))) private dataProviderRestoreCounter;
 
     /// TEE registry contract.
@@ -88,8 +88,8 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     function machineBackup(
         address _teeId,
         bytes32 _walletId,
-        uint256 _keyId,
-        uint256 _shamirThreshold,
+        uint64 _keyId,
+        uint64 _shamirThreshold,
         address[] calldata _backupTeeIds
     )
         external payable
@@ -131,8 +131,8 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     function machineRestore(
         address _teeId,
         bytes32 _walletId,
-        uint256 _keyId,
-        uint256 _backupId,
+        uint64 _keyId,
+        uint64 _backupId,
         address[] calldata _backupTeeIds
     )
         external payable
@@ -176,8 +176,8 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
      */
     function machineBackupRemove(
         bytes32 _walletId,
-        uint256 _keyId,
-        uint256 _backupId,
+        uint64 _keyId,
+        uint64 _backupId,
         address[] calldata _teeIds
     )
         external payable
@@ -216,7 +216,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     function backupRestoreInit(
         address _teeId,
         bytes32 _walletId,
-        uint256 _keyId,
+        uint64 _keyId,
         uint24 _rewardEpochId
     )
         external payable
@@ -231,7 +231,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     function backupRestore(
         address _teeId,
         bytes32 _walletId,
-        uint256 _keyId,
+        uint64 _keyId,
         uint24 _rewardEpochId
     )
         external payable
@@ -291,7 +291,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     function _backupRestore(
         address _teeId,
         bytes32 _walletId,
-        uint256 _keyId,
+        uint64 _keyId,
         uint24 _rewardEpochId,
         bytes32 _opCommand
     )
@@ -327,7 +327,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
         );
     }
 
-    function _isKeyAvailable(address _teeId, bytes32 _walletId, uint256 _keyId) internal view returns(bool) {
+    function _isKeyAvailable(address _teeId, bytes32 _walletId, uint64 _keyId) internal view returns(bool) {
         address[] memory teeIds = teeWalletKeyManager.getWalletKeyTeeIds(_walletId, _keyId);
         for(uint256 i = 0; i < teeIds.length; i++) {
             if (teeIds[i] == _teeId) {

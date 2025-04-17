@@ -59,7 +59,8 @@ interface ITeeRegistry {
 
     event TeeMachineReplicationTriggered(
         address indexed oldTeeId,
-        address indexed newTeeId
+        address indexed newTeeId,
+        uint256 teeUpgradeId
     );
 
     event TeeMachineReplicationConfirmed(

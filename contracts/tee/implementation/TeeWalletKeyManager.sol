@@ -22,10 +22,10 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable {
 
     struct TeeWalletKeysState {
-        uint256 keyIdCounter;
-        uint256 multisigThreshold; // number of signatures required - k out of n
-        uint256[] keyIds; // n
-        mapping(uint256 keyId => KeyDefinition) keyDefinitions;
+        uint64 keyIdCounter;
+        uint64 multisigThreshold; // number of signatures required - k out of n
+        uint64[] keyIds; // n
+        mapping(uint64 keyId => KeyDefinition) keyDefinitions;
         uint256 feeFactor;
     }
 
@@ -42,7 +42,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
 
     uint256 public keyExistenceProofValiditySeconds;
     mapping(bytes32 walletId => TeeWalletKeysState) private walletKeys;
-    mapping(bytes32 walletId => mapping(uint256 keyId => uint256)) private keyDeleteCounter;
+    mapping(bytes32 walletId => mapping(uint64 keyId => uint256)) private keyDeleteCounter;
 
     /// TEE registry contract.
     ITeeRegistry public teeRegistry;
@@ -101,7 +101,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
      */
     function setMultisigThreshold(
         bytes32 _walletId,
-        uint256 _multisigThreshold
+        uint64 _multisigThreshold
     )
         external onlyOwner(_walletId)
     {
@@ -122,7 +122,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     )
         external payable
         onlyOwner(_walletId)
-        returns (uint256 _keyId)
+        returns (uint64 _keyId)
     {
         _checkTeeStatus(_teeId);
         TeeWalletKeysState storage keys = walletKeys[_walletId];
@@ -132,9 +132,9 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
 
         emit WalletKeyAdded(_teeId, _walletId, _keyId);
 
-        (PublicKey[] memory adminsPublicKeys, uint256 adminsThreshold) =
+        (PublicKey[] memory adminsPublicKeys, uint64 adminsThreshold) =
             teeWalletManager.getWalletAdminsAndThreshold(_walletId);
-        (address[] memory cosigners, uint256 cosignersThreshold) =
+        (address[] memory cosigners, uint64 cosignersThreshold) =
             teeWalletManager.getWalletCosignersAndThreshold(_walletId);
 
         KeyGenerate memory message = KeyGenerate({
@@ -167,7 +167,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     function requestKeyExistenceAttestation(
         address _teeId,
         bytes32 _walletId,
-        uint256 _keyId
+        uint64 _keyId
     )
         external payable
     {
@@ -199,7 +199,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
         external onlyOwnerOrBackupManager(_proof.data.requestBody.walletId)
     {
         bytes32 walletId = _proof.data.requestBody.walletId;
-        uint256 keyId = _proof.data.requestBody.keyId;
+        uint64 keyId = _proof.data.requestBody.keyId;
         TeeWalletKeysState storage keys = walletKeys[walletId];
 
         require(keys.keyIdCounter > keyId, "invalid key id");
@@ -255,7 +255,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     function deleteKey(
         address _teeId,
         bytes32 _walletId,
-        uint256 _keyId
+        uint64 _keyId
     )
         external payable
         onlyOwner(_walletId)
@@ -308,7 +308,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
      */
     function cleanUpTeeIds(
         bytes32 _walletId,
-        uint256 _keyId
+        uint64 _keyId
     )
         external
         onlyOwnerOrBackupManager(_walletId)
@@ -341,15 +341,15 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
         for (uint256 i = 0; i < keyIdsLength; i++) {
             count += keys.keyDefinitions[keys.keyIds[i]].teeIds.length;
         }
-        uint256[] memory unavailableKeyIds = new uint256[](keyIdsLength);
+        uint64[] memory unavailableKeyIds = new uint64[](keyIdsLength);
         address[] memory teeMachines = new address[](count);
-        uint256[] memory keyIds = new uint256[](count);
+        uint64[] memory keyIds = new uint64[](count);
         count = 0;
         uint256 threshold = 0;
         uint256 unavailableKeyIdsCounter = 0;
         for (uint256 i = 0; i < keyIdsLength; i++) {
             bool keyAvailable = false;
-            uint256 keyId = keys.keyIds[i];
+            uint64 keyId = keys.keyIds[i];
             KeyDefinition storage keyDefinition = keys.keyDefinitions[keyId];
             for (uint256 j = 0; j < keyDefinition.teeIds.length; j++) {
                 if (teeRegistry.getTeeMachineStatus(keyDefinition.teeIds[j]) == ITeeRegistry.TeeStatus.PRODUCTION) {
@@ -376,7 +376,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
             });
         }
         if (unavailableKeyIdsCounter > 0) {
-            uint256[] memory unavailableKeyIdsTrimmed = new uint256[](unavailableKeyIdsCounter);
+            uint64[] memory unavailableKeyIdsTrimmed = new uint64[](unavailableKeyIdsCounter);
             for (uint256 i = 0; i < unavailableKeyIdsCounter; i++) {
                 unavailableKeyIdsTrimmed[i] = unavailableKeyIds[i];
             }
@@ -410,7 +410,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
      */
     function getWalletKeysInfo(bytes32 _walletId)
         external view
-        returns (uint256 _multisigThreshold, uint256[] memory _keyIds, uint256 _counter)
+        returns (uint64 _multisigThreshold, uint64[] memory _keyIds, uint64 _counter)
     {
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         return (keys.multisigThreshold, keys.keyIds, keys.keyIdCounter);
@@ -419,7 +419,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     /**
      * @inheritdoc ITeeWalletKeyManager
      */
-    function getWalletKeyPublicKey(bytes32 _walletId, uint256 _keyId)
+    function getWalletKeyPublicKey(bytes32 _walletId, uint64 _keyId)
         external view
         returns (bytes memory _publicKey)
     {
@@ -429,7 +429,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     /**
      * @inheritdoc ITeeWalletKeyManager
      */
-    function getWalletKeyAddress(bytes32 _walletId, uint256 _keyId)
+    function getWalletKeyAddress(bytes32 _walletId, uint64 _keyId)
         external view
         returns (string memory _addressStr)
     {
@@ -439,7 +439,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     /**
      * @inheritdoc ITeeWalletKeyManager
      */
-    function getWalletKeyTeeIds(bytes32 _walletId, uint256 _keyId)
+    function getWalletKeyTeeIds(bytes32 _walletId, uint64 _keyId)
         external view
         returns (address[] memory _teeIds)
     {

@@ -36,9 +36,11 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
         ITeeRegistry.TeeMachine[] teeMachines;
         uint32 maxFeeTolerancePPM;
         uint24 currentRewardEpochId;
+        uint256 reissueNumber;
         bytes32 instructionId;
         uint256 remainingAmount;
         uint256 amount;
+        PaymentInstructionMessage message;
     }
 
     bytes32 public constant PAY = bytes32("PAY");
@@ -101,7 +103,7 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
         bytes32 _walletId,
         PaymentInstruction calldata _paymentInstruction
     )
-        external payable returns (uint256)
+        external payable returns (uint64 _nonce, uint64 _subNonce)
     {
         (bytes32 walletId, bytes32 walletOpType, address submitAddress) =
             teeWalletProjectManager.getDefaultWalletInfo(_projectId);
@@ -169,7 +171,7 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
             PAY,
             abi.encode(message)
         );
-        return message.subNonce;
+        return (message.nonce, message.subNonce);
     }
 
     /**
@@ -181,11 +183,12 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
         uint64 _firstSubNonce,
         PaymentInstruction[] calldata _paymentInstructions,
         uint96 _fee,
-        bool _nullify
+        bool[] calldata _nullify
     )
         external payable
     {
         require(_paymentInstructions.length > 0, "no payment instructions");
+        require(_paymentInstructions.length == _nullify.length, "lengths mismatch");
         require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, REISSUE, _walletId)
             * _paymentInstructions.length, "fee too low");
         ReissueTempState memory tempState;
@@ -214,14 +217,14 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
         (tempState.teeMachines, tempState.teeIdKeyIdPairs) = teeWalletKeyManager.receivingTeesAndKeys(_walletId);
         tempState.maxFeeTolerancePPM = setting.maxFeeTolerancePPM;
         tempState.currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        uint256 reissueNumber = reissueCounter[_walletId][_nonce]++;
+        tempState.reissueNumber = reissueCounter[_walletId][_nonce]++;
         tempState.instructionId = keccak256(abi.encode(
-            opType, REISSUE, _walletId, _nonce, reissueNumber
+            opType, REISSUE, _walletId, _nonce, tempState.reissueNumber
         ));
         // reissue batch
         tempState.remainingAmount = msg.value;
-        for (uint256 i = 0; i < _paymentInstructions.length; ++i) {
-            PaymentInstructionMessage memory message = PaymentInstructionMessage({
+        for (uint64 i = 0; i < _paymentInstructions.length; ++i) {
+            tempState.message = PaymentInstructionMessage({
                 walletId: _walletId,
                 teeIdKeyIdPairs: tempState.teeIdKeyIdPairs,
                 senderAddress: tempState.senderAddress,
@@ -232,11 +235,11 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
                 subNonce: _firstSubNonce + i,
                 maxFee: _fee,
                 maxFeeTolerancePPM: tempState.maxFeeTolerancePPM,
-                batchEndTs: block.timestamp
+                batchEndTs: uint64(block.timestamp)
             });
-            if (_nullify) {
-                message.amount = 0;
-                message.recipientAddress = tempState.senderAddress;
+            if (_nullify[i]) {
+                tempState.message.amount = 0;
+                tempState.message.recipientAddress = tempState.senderAddress;
             }
             tempState.amount = tempState.remainingAmount / (_paymentInstructions.length - i);
             tempState.remainingAmount -= tempState.amount;
@@ -246,7 +249,7 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
                 tempState.currentRewardEpochId,
                 opType,
                 REISSUE,
-                abi.encode(message)
+                abi.encode(tempState.message)
             );
         }
     }

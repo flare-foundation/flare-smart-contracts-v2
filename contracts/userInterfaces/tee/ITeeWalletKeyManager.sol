@@ -14,36 +14,36 @@ interface ITeeWalletKeyManager {
     struct KeyGenerate {
         address teeId;
         bytes32 walletId;
-        uint256 keyId;
+        uint64 keyId;
         bytes32 opType;
         bytes opTypeConstants;
         PublicKey[] adminsPublicKeys;
-        uint256 adminsThreshold;
+        uint64 adminsThreshold;
         address[] cosigners;
-        uint256 cosignersThreshold;
+        uint64 cosignersThreshold;
     }
 
     struct KeyDelete {
         address teeId;
         bytes32 walletId;
-        uint256 keyId;
+        uint64 keyId;
     }
 
     event WalletMultisigThresholdSet(
         bytes32 indexed walletId,
-        uint256 multisigThreshold
+        uint64 multisigThreshold
     );
 
     event WalletKeyAdded(
         address indexed teeId,
         bytes32 indexed walletId,
-        uint256 indexed keyId
+        uint64 indexed keyId
     );
 
     event WalletKeyConfirmed(
         address indexed teeId,
         bytes32 indexed walletId,
-        uint256 indexed keyId,
+        uint64 indexed keyId,
         bytes publicKey,
         string addressStr
     );
@@ -51,7 +51,7 @@ interface ITeeWalletKeyManager {
     event WalletKeyDeleted(
         address indexed teeId,
         bytes32 indexed walletId,
-        uint256 indexed keyId
+        uint64 indexed keyId
     );
 
     event WalletEnabled(
@@ -64,7 +64,7 @@ interface ITeeWalletKeyManager {
 
     event WalletKeysNotAvailable(
         bytes32 indexed walletId,
-        uint256[] keyIds
+        uint64[] keyIds
     );
 
     /**
@@ -74,7 +74,7 @@ interface ITeeWalletKeyManager {
      */
     function setMultisigThreshold(
         bytes32 _walletId,
-        uint256 _multisigThreshold
+        uint64 _multisigThreshold
     )
         external;
 
@@ -84,7 +84,7 @@ interface ITeeWalletKeyManager {
      * @param _walletId The wallet id.
      * @return _keyId The key id.
      */
-    function addKey(address _teeId, bytes32 _walletId) external payable returns (uint256 _keyId);
+    function addKey(address _teeId, bytes32 _walletId) external payable returns (uint64 _keyId);
 
     /**
      * Requests a key existence attestation.
@@ -95,7 +95,7 @@ interface ITeeWalletKeyManager {
     function requestKeyExistenceAttestation(
         address _teeId,
         bytes32 _walletId,
-        uint256 _keyId
+        uint64 _keyId
     )
         external payable;
 
@@ -114,14 +114,14 @@ interface ITeeWalletKeyManager {
      * @param _walletId The wallet id.
      * @param _keyId The key id.
      */
-    function deleteKey(address _teeId, bytes32 _walletId, uint256 _keyId) external payable;
+    function deleteKey(address _teeId, bytes32 _walletId, uint64 _keyId) external payable;
 
     /**
      * For given wallet id and key id cleans up all tee machines that are not in production status.
      * @param _walletId The wallet id.
      * @param _keyId The key id.
      */
-    function cleanUpTeeIds(bytes32 _walletId, uint256 _keyId) external;
+    function cleanUpTeeIds(bytes32 _walletId, uint64 _keyId) external;
 
     /**
      * Returns wallet's receiving tees and keys.
@@ -141,7 +141,7 @@ interface ITeeWalletKeyManager {
      * @param _keyId The key id.
      * @return _teeIds The list of tee ids.
      */
-    function getWalletKeyTeeIds(bytes32 _walletId, uint256 _keyId) external view returns (address[] memory _teeIds);
+    function getWalletKeyTeeIds(bytes32 _walletId, uint64 _keyId) external view returns (address[] memory _teeIds);
 
     /**
      * Returns the public key of the wallet key.
@@ -149,7 +149,7 @@ interface ITeeWalletKeyManager {
      * @param _keyId The key id.
      * @return _publicKey The public key.
      */
-    function getWalletKeyPublicKey(bytes32 _walletId, uint256 _keyId) external view returns (bytes memory _publicKey);
+    function getWalletKeyPublicKey(bytes32 _walletId, uint64 _keyId) external view returns (bytes memory _publicKey);
 
     /**
      * Returns the address of the wallet key.
@@ -157,18 +157,18 @@ interface ITeeWalletKeyManager {
      * @param _keyId The key id.
      * @return _addressStr The address.
      */
-    function getWalletKeyAddress(bytes32 _walletId, uint256 _keyId) external view returns (string memory _addressStr);
+    function getWalletKeyAddress(bytes32 _walletId, uint64 _keyId) external view returns (string memory _addressStr);
 
     /**
      * Returns information about the wallet keys.
      * @param _walletId The wallet id.
      * @param _multisigThreshold The multisig threshold.
      * @param _keyIds The key ids.
-     * @param _counter The counter.
+     * @param _counter The counter - number of `addKey` calls.
      */
     function getWalletKeysInfo(bytes32 _walletId)
         external view
-        returns (uint256 _multisigThreshold, uint256[] memory _keyIds, uint256 _counter);
+        returns (uint64 _multisigThreshold, uint64[] memory _keyIds, uint64 _counter);
 
     /**
      * Returns wallet's fee factor.

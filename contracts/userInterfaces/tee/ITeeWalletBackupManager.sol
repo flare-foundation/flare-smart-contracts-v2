@@ -11,17 +11,17 @@ interface ITeeWalletBackupManager {
     struct KeyMachineBackup {
         ITeeRegistry.TeeMachineWithAttestationData teeMachine;
         bytes32 walletId;
-        uint256 keyId;
-        uint256 backupId;
-        uint256 shamirThreshold;
+        uint64 keyId;
+        uint64 backupId;
+        uint64 shamirThreshold;
         ITeeRegistry.TeeMachineWithAttestationData[] backupTeeMachines;
     }
 
     struct KeyMachineRestore {
         ITeeRegistry.TeeMachineWithAttestationData teeMachine;
         bytes32 walletId;
-        uint256 keyId;
-        uint256 backupId;
+        uint64 keyId;
+        uint64 backupId;
         bytes32 opType;
         bytes publicKey;
         ITeeRegistry.TeeMachineWithAttestationData[] backupTeeMachines;
@@ -30,14 +30,14 @@ interface ITeeWalletBackupManager {
     struct KeyMachineBackupRemove {
         address[] teeIds;
         bytes32 walletId;
-        uint256 keyId;
-        uint256 backupId;
+        uint64 keyId;
+        uint64 backupId;
     }
 
     struct KeyDataProviderRestore {
         address teeId;
         bytes32 walletId;
-        uint256 keyId;
+        uint64 keyId;
         bytes32 opType;
         bytes publicKey;
         uint24 rewardEpochId;
@@ -54,8 +54,8 @@ interface ITeeWalletBackupManager {
     function machineBackup(
         address _teeId,
         bytes32 _walletId,
-        uint256 _keyId,
-        uint256 _shamirThreshold,
+        uint64 _keyId,
+        uint64 _shamirThreshold,
         address[] calldata _backupTeeIds
     )
         external payable;
@@ -71,8 +71,8 @@ interface ITeeWalletBackupManager {
     function machineRestore(
         address _teeId,
         bytes32 _walletId,
-        uint256 _keyId,
-        uint256 _backupId,
+        uint64 _keyId,
+        uint64 _backupId,
         address[] calldata _backupTeeIds
     )
         external payable;
@@ -86,8 +86,8 @@ interface ITeeWalletBackupManager {
      */
     function machineBackupRemove(
         bytes32 _walletId,
-        uint256 _keyId,
-        uint256 _backupId,
+        uint64 _keyId,
+        uint64 _backupId,
         address[] calldata _teeIds
     )
         external payable;
@@ -103,7 +103,7 @@ interface ITeeWalletBackupManager {
     function backupRestoreInit(
         address _teeId,
         bytes32 _walletId,
-        uint256 _keyId,
+        uint64 _keyId,
         uint24 _rewardEpochId
     )
         external payable;
@@ -120,7 +120,7 @@ interface ITeeWalletBackupManager {
     function backupRestore(
         address _teeId,
         bytes32 _walletId,
-        uint256 _keyId,
+        uint64 _keyId,
         uint24 _rewardEpochId
     )
         external payable;

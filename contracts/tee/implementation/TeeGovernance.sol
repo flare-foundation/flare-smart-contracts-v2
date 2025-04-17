@@ -16,7 +16,7 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
 
     struct TeeGovernanceState {
         EnumerableSet.AddressSet signers;
-        uint256 signersThreshold;
+        uint64 signersThreshold;
     }
 
     mapping(bytes32 governanceHash => TeeGovernanceState) private governanceHashToTeeGovernance;
@@ -53,7 +53,7 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
      */
     function setNewTeeGovernance(
         address[] calldata _signers,
-        uint256 _signersThreshold
+        uint64 _signersThreshold
     )
         external onlyGovernance
     {
@@ -79,7 +79,7 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
         bytes32 _governanceHash
     )
         external view
-        returns (uint256)
+        returns (uint64)
     {
         return governanceHashToTeeGovernance[_governanceHash].signersThreshold;
     }
@@ -102,7 +102,7 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
      */
     function getTeeGovernance(bytes32 _governanceHash)
         external view
-        returns(address[] memory _signers, uint256 _signersThreshold)
+        returns(address[] memory _signers, uint64 _signersThreshold)
     {
         return _getGovernance(_governanceHash);
     }
@@ -112,7 +112,7 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
      */
     function getLatestTeeGovernance()
         external view
-        returns(address[] memory _signers, uint256 _signersThreshold)
+        returns(address[] memory _signers, uint64 _signersThreshold)
     {
         return _getGovernance(latestTeeGovernanceHash);
     }
@@ -167,7 +167,7 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
 
     function _getGovernance(bytes32 _governanceHash)
         internal view
-        returns(address[] memory _signers, uint256 _signersThreshold)
+        returns(address[] memory _signers, uint64 _signersThreshold)
     {
         _signersThreshold = governanceHashToTeeGovernance[_governanceHash].signersThreshold;
         require(_signersThreshold > 0, "invalid governance hash");

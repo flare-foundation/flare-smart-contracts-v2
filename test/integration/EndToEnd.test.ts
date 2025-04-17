@@ -1659,7 +1659,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         await time.increase(1);
         let tx = await teePayments.reissue(WALLET1_ID, 2, 0,
             [{ recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B", amount: "500", paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a" }],
-            10000, false,
+            10000, [false],
             { value: "10", from: TEE_WALLET_CONTROL_ADDRESSES[0] });
         const event = requiredEventArgsFrom(tx, teeInstructions, "TeeInstructionsSent") as any;
         expect(event.rewardEpochId).to.be.equal("2");
@@ -1668,7 +1668,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
         let tx2 = await teePaymentsEVM.reissue(WALLET2_ID, 1, 0,
             [{ recipientAddress: accounts[150], amount: "1500", paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797" }],
-            5000000, false,
+            5000000, [false],
             { value: "10", from: TEE_WALLET_CONTROL_ADDRESSES[1] });
         const event2 = requiredEventArgsFrom(tx2, teeInstructions, "TeeInstructionsSent") as any;
         expect(event2.rewardEpochId).to.be.equal("2");

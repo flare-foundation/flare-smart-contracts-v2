@@ -250,7 +250,7 @@ contract TeeVersionManager is ITeeVersionManager, GovernedProxyImplementation, A
             _signature.s
         );
 
-        uint256 sourceTeeGovernanceThreshold = teeGovernance.getTeeGovernanceThreshold(sourceTeeGovernanceHash);
+        uint64 sourceTeeGovernanceThreshold = teeGovernance.getTeeGovernanceThreshold(sourceTeeGovernanceHash);
         // check if we need more signatures and the signer is an source TEE governance signer
         if (teeUpgrade.sourceTeeGovernanceSignatures.length < sourceTeeGovernanceThreshold &&
             teeGovernance.isTeeGovernanceSigner(sourceTeeGovernanceHash, signer))
@@ -262,7 +262,7 @@ contract TeeVersionManager is ITeeVersionManager, GovernedProxyImplementation, A
             }
         }
 
-        uint256 targetTeeGovernanceThreshold = teeGovernance.getTeeGovernanceThreshold(targetTeeGovernanceHash);
+        uint64 targetTeeGovernanceThreshold = teeGovernance.getTeeGovernanceThreshold(targetTeeGovernanceHash);
         // check if we need more signatures and the signer is a target TEE governance signer
         if (teeUpgrade.targetTeeGovernanceSignatures.length < targetTeeGovernanceThreshold &&
             teeGovernance.isTeeGovernanceSigner(targetTeeGovernanceHash, signer))

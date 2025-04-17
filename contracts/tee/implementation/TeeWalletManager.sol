@@ -19,10 +19,10 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
         bytes32 projectId;
         WalletStatus status;
         PublicKey[] adminsPublicKeys;
-        uint256 adminsThreshold;
+        uint64 adminsThreshold;
         mapping(address admin => bool) adminConfirmations;
         address[] cosigners;
-        uint256 cosignersThreshold;
+        uint64 cosignersThreshold;
         mapping(address cosigner => bool) cosignerConfirmations;
     }
 
@@ -205,7 +205,7 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
         require(status == WalletStatus.INITIALIZED || status == WalletStatus.PAUSED, "invalid wallet status");
         if (status == WalletStatus.INITIALIZED) {
             // check if wallet multisig threshold is set and keys are added + confirmed
-            (uint256 multisigThreshold, uint256[] memory keyIds, ) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
+            (uint64 multisigThreshold, uint64[] memory keyIds, ) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
             require(multisigThreshold > 0, "multisig threshold not set");
             require(keyIds.length >= multisigThreshold, "not enough keys");
         }
@@ -301,7 +301,7 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
      */
     function getWalletAdminsAndThreshold(bytes32 _walletId)
         external view
-        returns (PublicKey[] memory _adminsPublicKeys, uint256 _adminsThreshold)
+        returns (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold)
     {
         TeeWalletState storage wallet = wallets[_walletId];
         _adminsPublicKeys = wallet.adminsPublicKeys;
@@ -313,7 +313,7 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
      */
     function getWalletCosignersAndThreshold(bytes32 _walletId)
         external view
-        returns (address[] memory _cosigners, uint256 _cosignersThreshold)
+        returns (address[] memory _cosigners, uint64 _cosignersThreshold)
     {
         TeeWalletState storage wallet = wallets[_walletId];
         _cosigners = wallet.cosigners;

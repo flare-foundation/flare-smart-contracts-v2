@@ -316,7 +316,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
             REPLICATE_FROM,
             abi.encode(message)
         );
-        emit TeeMachineReplicationTriggered(_oldTeeId, newTeeId);
+        emit TeeMachineReplicationTriggered(_oldTeeId, newTeeId, _teeUpgradeId);
     }
 
     /**

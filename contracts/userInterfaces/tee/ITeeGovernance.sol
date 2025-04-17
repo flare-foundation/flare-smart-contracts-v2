@@ -9,7 +9,7 @@ interface ITeeGovernance {
     event NewTeeGovernanceSet(
         bytes32 indexed governanceHash,
         address[] signers,
-        uint256 signersThreshold
+        uint64 signersThreshold
     );
 
     /**
@@ -26,7 +26,7 @@ interface ITeeGovernance {
         bytes32 _governanceHash
     )
         external view
-        returns (uint256);
+        returns (uint64);
 
     /**
      * Returns true if the given address is a TEE governance signer for the given governance hash.
@@ -49,7 +49,7 @@ interface ITeeGovernance {
      */
     function getTeeGovernance(bytes32 _governanceHash)
         external view
-        returns(address[] memory _signers, uint256 _signersThreshold);
+        returns(address[] memory _signers, uint64 _signersThreshold);
 
     /**
      * Returns the latest governance.
@@ -58,7 +58,7 @@ interface ITeeGovernance {
      */
     function getLatestTeeGovernance()
         external view
-        returns(address[] memory _signers, uint256 _signersThreshold);
+        returns(address[] memory _signers, uint64 _signersThreshold);
 
     /**
      * Checks if the governance hash is valid.
