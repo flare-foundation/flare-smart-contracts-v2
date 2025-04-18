@@ -33,6 +33,7 @@ contract TeePaymentsTest is Test {
     bytes32 private immutable opType = bytes32("opType");
     bytes32 public constant PAY = bytes32("PAY");
     bytes32 public constant REISSUE = bytes32("REISSUE");
+    bytes32 private constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
     bytes32 private walletId = bytes32("walletId");
     address private walletOwner = makeAddr("walletOwner");
     string private senderAddress = "senderAddress";
@@ -128,35 +129,38 @@ contract TeePaymentsTest is Test {
         // fund the submit address and the control address
         vm.deal(submitAddress, 1 ether);
         vm.deal(controlAddress, 1 ether);
+        vm.deal(walletOwner, 1 ether);
 
         // move time to 500 seconds
         vm.warp(500);
     }
 
     //// settings tests ////
-    // function testDeployRevertMaxBatchSize() public {
-    //     vm.expectRevert("max batch size zero");
-    //     new TeePayments(
-    //         IGovernanceSettings(makeAddr("governanceSettings")),
-    //         governance,
-    //         addressUpdater,
-    //         0, // max batch size
-    //         300, // max batch duration seconds
-    //         opType
-    //     );
-    // }
+    function testDeployRevertMaxBatchSize() public {
+        vm.expectRevert("max batch size zero");
+         new TeePaymentsProxy(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            0, // max batch size
+            300, // max batch duration seconds
+            opType,
+            address(teePaymentsImpl)
+        );
+    }
 
-    // function testDeployRevertOpType() public {
-    //     vm.expectRevert("op type zero");
-    //     new TeePayments(
-    //         IGovernanceSettings(makeAddr("governanceSettings")),
-    //         governance,
-    //         addressUpdater,
-    //         5, // max batch size
-    //         300, // max batch duration seconds
-    //         bytes32(0) // op type
-    //     );
-    // }
+    function testDeployRevertOpType() public {
+        vm.expectRevert("op type zero");
+        new TeePaymentsProxy(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            5, // max batch size
+            300, // max batch duration seconds
+            bytes32(0), // op type
+            address(teePaymentsImpl)
+        );
+    }
 
     function testSetBatchSettings() public {
         (uint64 batchSize, uint64 batchDurationSeconds, , , , ) = teePayments.getWalletSettings(walletId);
@@ -309,6 +313,70 @@ contract TeePaymentsTest is Test {
     function testGetOpTypeConstants() public {
         bytes memory opTypeConstants = teePayments.getOpTypeConstants(walletId);
         assertEq(opTypeConstants, "");
+    }
+
+    function testSetPaymentLimits() public {
+        _mockGetOpType(opType);
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        _mockCalculateFeeByWalletId(walletId, opType, SET_PAYMENT_LIMITS, 987);
+        (ITeeRegistry.TeeMachine[] memory receivingTees,
+            TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
+        uint256 transactionLimit = 1000;
+        uint256 dailyLimit = 10000;
+        bytes32 instructionId = keccak256(abi.encode(opType, SET_PAYMENT_LIMITS, walletId, 0));
+        ITeePayments.SetPaymentLimits memory message = ITeePayments.SetPaymentLimits(
+            walletId,
+            teeIdKeyIdPairs,
+            transactionLimit,
+            dailyLimit
+        );
+        vm.prank(walletOwner);
+        vm.expectEmit();
+        emit TeeInstructionsSent(
+            instructionId,
+            10,
+            receivingTees,
+            opType,
+            SET_PAYMENT_LIMITS,
+            abi.encode(message),
+            988
+        );
+        teePayments.setPaymentLimits{value: 988}(walletId, transactionLimit, dailyLimit);
+    }
+
+    function testSetPaymentLimitsRevertDailyLower() public {
+        vm.prank(walletOwner);
+        vm.expectRevert("daily limit lower than transaction limit");
+        teePayments.setPaymentLimits{value: 988}(walletId, 1000, 500);
+    }
+
+    function testSetPaymentLimitsRevertOnlyWalletOwner() public {
+        vm.expectRevert("only wallet owner");
+        teePayments.setPaymentLimits(walletId, 1000, 10000);
+    }
+
+    function testSetPaymentLimitsRevertWrongStatus() public {
+        _mockGetOpType(opType);
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.INITIALIZED);
+        vm.prank(walletOwner);
+        vm.expectRevert("only production or paused status");
+        teePayments.setPaymentLimits(walletId, 1000, 10000);
+    }
+
+    function testSetPaymentLimitsWrongOpType() public {
+        _mockGetOpType(bytes32("WRONG"));
+        vm.prank(walletOwner);
+        vm.expectRevert("wrong op type");
+        teePayments.setPaymentLimits(walletId, 1000, 10000);
+    }
+
+    function testSetPaymentLimitsRevertFeeTooLow() public {
+        _mockGetOpType(opType);
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        _mockCalculateFeeByWalletId(walletId, opType, SET_PAYMENT_LIMITS, 986);
+        vm.prank(walletOwner);
+        vm.expectRevert("fee too low");
+        teePayments.setPaymentLimits{value: 1}(walletId, 1000, 10000);
     }
 
     //// pay tests ////
@@ -810,23 +878,31 @@ contract TeePaymentsTest is Test {
     //// reissue tests ////
     function testReissueRevertNoPaymentInstructions() public {
         vm.expectRevert("no payment instructions");
-        teePayments.reissue(walletId, 1, 1, new ITeePayments.PaymentInstruction[](0), 200, false);
+        bool[] memory nullify = new bool[](1);
+        nullify[0] = false;
+        teePayments.reissue(walletId, 1, 1, new ITeePayments.PaymentInstruction[](0), 200, nullify);
     }
 
     function testReissueRevertFeeTooLow() public {
         ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = false;
+        nullify[1] = false;
         vm.expectRevert("fee too low");
-        teePayments.reissue{value: fee * 2 - 1} (walletId, 1, 1, paymentInstructions, 199, false);
+        teePayments.reissue{value: fee * 2 - 1} (walletId, 1, 1, paymentInstructions, 199, nullify);
     }
 
     function testReissueRevertSenderAddressNotSet() public {
         ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = false;
+        nullify[1] = false;
         vm.expectRevert("sender address not set");
-        teePayments.reissue{value: fee * 2} (walletId, 1, 1, paymentInstructions, 200, false);
+        teePayments.reissue{value: fee * 2} (walletId, 1, 1, paymentInstructions, 200, nullify);
     }
 
     function testReissueRevertNotInProduction() public {
@@ -834,13 +910,16 @@ contract TeePaymentsTest is Test {
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PAUSED);
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = false;
+        nullify[1] = false;
         // set fees and sender address
         vm.startPrank(walletOwner);
         teePayments.setFees(walletId, 100, 1000, 200);
         teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 10);
         vm.stopPrank();
         vm.expectRevert("wallet not in production");
-        teePayments.reissue{value: fee * 2} (walletId, 1, 1, paymentInstructions, 200, false);
+        teePayments.reissue{value: fee * 2} (walletId, 1, 1, paymentInstructions, 200, nullify);
     }
 
     function testReissueRevertOnlyControlAddress() public {
@@ -848,13 +927,16 @@ contract TeePaymentsTest is Test {
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = false;
+        nullify[1] = false;
         // set fees and sender address
         vm.startPrank(walletOwner);
         teePayments.setFees(walletId, 100, 1000, 200);
         teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 10);
         vm.stopPrank();
         vm.expectRevert("only control address");
-        teePayments.reissue{value: fee * 2} (walletId, 1, 1, paymentInstructions, 200, false);
+        teePayments.reissue{value: fee * 2} (walletId, 1, 1, paymentInstructions, 200, nullify);
     }
 
     function testReissueRevertFeeTooHigh() public {
@@ -862,6 +944,9 @@ contract TeePaymentsTest is Test {
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = false;
+        nullify[1] = false;
         // set fees, sender address and control address
         vm.startPrank(walletOwner);
         teePayments.setFees(walletId, 100, 1000, 200);
@@ -870,7 +955,7 @@ contract TeePaymentsTest is Test {
         vm.stopPrank();
         vm.prank(controlAddress);
         vm.expectRevert("fee higher than max control fee");
-        teePayments.reissue{value: fee * 2} (walletId, 1, 1, paymentInstructions, 2001, false);
+        teePayments.reissue{value: fee * 2} (walletId, 1, 1, paymentInstructions, 2001, nullify);
     }
 
     // current batch nonce is 11 (state.nonce is 12)
@@ -880,6 +965,9 @@ contract TeePaymentsTest is Test {
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = false;
+        nullify[1] = false;
         // set fees and control address
         vm.startPrank(walletOwner);
         teePayments.setFees(walletId, 100, 1000, 200);
@@ -888,7 +976,7 @@ contract TeePaymentsTest is Test {
         vm.prank(controlAddress);
         // batch with nonce 11 is not yet finished
         vm.expectRevert("batch hasn't yet ended");
-        teePayments.reissue{value: fee * 2} (walletId, 11, 0, paymentInstructions, 150, false);
+        teePayments.reissue{value: fee * 2} (walletId, 11, 0, paymentInstructions, 150, nullify);
     }
 
     function testReissueRevertHashMismatch1() public {
@@ -897,6 +985,9 @@ contract TeePaymentsTest is Test {
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref3")); // wrong reference
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = false;
+        nullify[1] = false;
         // set fees and control address
         vm.startPrank(walletOwner);
         teePayments.setFees(walletId, 100, 1000, 200);
@@ -905,7 +996,7 @@ contract TeePaymentsTest is Test {
         vm.prank(controlAddress);
         // batch with nonce 11 is finished
         vm.expectRevert("batch hash mismatch");
-        teePayments.reissue{value: fee * 2} (walletId, 11, 0, paymentInstructions, 150, false);
+        teePayments.reissue{value: fee * 2} (walletId, 11, 0, paymentInstructions, 150, nullify);
     }
 
     function testReissueRevertHashMismatch2() public {
@@ -914,6 +1005,9 @@ contract TeePaymentsTest is Test {
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref3")); // wrong reference
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = false;
+        nullify[1] = false;
         // set fees and control address
         vm.startPrank(walletOwner);
         teePayments.setFees(walletId, 100, 1000, 200);
@@ -923,7 +1017,26 @@ contract TeePaymentsTest is Test {
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
         vm.expectRevert("batch hash mismatch");
-        teePayments.reissue{value: fee * 2 + 6} (walletId, 11, 0, paymentInstructions, 150, false);
+        teePayments.reissue{value: fee * 2 + 6} (walletId, 11, 0, paymentInstructions, 150, nullify);
+    }
+
+    function testReissueRevertLengthsMismatch() public {
+        testPay4();
+        ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
+        paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
+        paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        bool[] memory nullify = new bool[](1);
+        // set fees and control address
+        vm.startPrank(walletOwner);
+        teePayments.setFees(walletId, 100, 1000, 200);
+        teePayments.setControlAddress(walletId, controlAddress);
+        vm.stopPrank();
+        vm.prank(controlAddress);
+        // batch with nonce 11 not yet finished but batch end timestamp passed
+        vm.warp(500 + 301);
+        vm.expectRevert("lengths mismatch");
+        teePayments.reissue{value: fee * 2 + 6} (walletId, 11, 0, paymentInstructions, 150, nullify);
     }
 
     function testReissue1() public {
@@ -932,6 +1045,9 @@ contract TeePaymentsTest is Test {
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = false;
+        nullify[1] = false;
         // set fees and control address
         vm.startPrank(walletOwner);
         teePayments.setFees(walletId, 100, 1000, 200);
@@ -952,7 +1068,7 @@ contract TeePaymentsTest is Test {
             0, // subNonce
             150, // fee
             1000,
-            block.timestamp
+            uint64(block.timestamp)
         );
         ITeePayments.PaymentInstructionMessage memory message2 = ITeePayments.PaymentInstructionMessage(
             walletId,
@@ -965,7 +1081,7 @@ contract TeePaymentsTest is Test {
             1, // subNonce
             150, // fee
             1000,
-            block.timestamp
+            uint64(block.timestamp)
         );
         vm.expectEmit();
         emit TeeInstructionsSent(
@@ -987,11 +1103,13 @@ contract TeePaymentsTest is Test {
             abi.encode(message2),
             127 // 253 - 126 = 127
         );
-        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, 150, false);
+        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, 150, nullify);
 
         // reissue also batch with nonce 13
         paymentInstructions = new ITeePayments.PaymentInstruction[](1);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref4"));
+        nullify = new bool[](1);
+        nullify[0] = false;
         instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 13, 0));
         message1 = ITeePayments.PaymentInstructionMessage(
             walletId,
@@ -1004,7 +1122,7 @@ contract TeePaymentsTest is Test {
             3, // subNonce
             150, // fee
             1000,
-            block.timestamp
+            uint64(block.timestamp)
         );
         vm.expectEmit();
         emit TeeInstructionsSent(
@@ -1017,14 +1135,14 @@ contract TeePaymentsTest is Test {
             123
         );
         vm.prank(controlAddress);
-        teePayments.reissue{value: fee} (walletId, 13, 3, paymentInstructions, 150, false);
+        teePayments.reissue{value: fee} (walletId, 13, 3, paymentInstructions, 150, nullify);
 
         // try reissue batch with nonce 14; batch is not yet finished
         paymentInstructions = new ITeePayments.PaymentInstruction[](1);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref5"));
         vm.prank(controlAddress);
         vm.expectRevert("batch hasn't yet ended");
-        teePayments.reissue{value: fee} (walletId, 14, 4, paymentInstructions, 150, false);
+        teePayments.reissue{value: fee} (walletId, 14, 4, paymentInstructions, 150, nullify);
     }
 
     function testReissueNullify() public {
@@ -1042,6 +1160,9 @@ contract TeePaymentsTest is Test {
         bytes32 instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11, 0));
         (ITeeRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = true;
+        nullify[1] = false;
         ITeePayments.PaymentInstructionMessage memory message1 = ITeePayments.PaymentInstructionMessage(
             walletId,
             teeIdKeyIdPairs,
@@ -1053,20 +1174,20 @@ contract TeePaymentsTest is Test {
             0, // subNonce
             150,
             1000,
-            block.timestamp
+            uint64(block.timestamp)
         );
         ITeePayments.PaymentInstructionMessage memory message2 = ITeePayments.PaymentInstructionMessage(
             walletId,
             teeIdKeyIdPairs,
             senderAddress,
-            senderAddress, // recipient is sender address
-            0, // amount = 0
+            "recipientAddress",
+            100,
             bytes32("ref2"),
             11, // nonce
             1, // subNonce
             150, // fee
             1000,
-            block.timestamp
+            uint64(block.timestamp)
         );
         vm.expectEmit();
         emit TeeInstructionsSent(
@@ -1088,12 +1209,12 @@ contract TeePaymentsTest is Test {
             abi.encode(message2),
             127 // 253 - 126 = 127
         );
-        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, 150, true);
+        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, 150, nullify);
     }
 
     // should reissue batch with nonce 11 twice
     function testReissueTwice() public {
-              testPay3();
+        testPay3();
         ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
@@ -1107,6 +1228,9 @@ contract TeePaymentsTest is Test {
         bytes32 instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11, 0));
         (ITeeRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = false;
+        nullify[1] = false;
         ITeePayments.PaymentInstructionMessage memory message1 = ITeePayments.PaymentInstructionMessage(
             walletId,
             teeIdKeyIdPairs,
@@ -1118,7 +1242,7 @@ contract TeePaymentsTest is Test {
             0, // subNonce
             150, // fee
             1000,
-            block.timestamp
+            uint64(block.timestamp)
         );
         ITeePayments.PaymentInstructionMessage memory message2 = ITeePayments.PaymentInstructionMessage(
             walletId,
@@ -1131,7 +1255,7 @@ contract TeePaymentsTest is Test {
             1, // subNonce
             150, // fee
             1000,
-            block.timestamp
+            uint64(block.timestamp)
         );
         vm.expectEmit();
         emit TeeInstructionsSent(
@@ -1153,7 +1277,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message2),
             127 // 253 - 126 = 127
         );
-        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, 150, false);
+        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, 150, nullify);
 
         // reissue again; instructionId changes
         instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11, 1));
@@ -1178,7 +1302,45 @@ contract TeePaymentsTest is Test {
             127
         );
         vm.prank(controlAddress);
-        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, 150, false);
+        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, 150, nullify);
+    }
+
+    //// Proxy upgrade
+    function testUpgradeProxy() public {
+        assertEq(teePayments.maxBatchSize(), 5);
+        assertEq(teePayments.implementation(), address(teePaymentsImpl));
+        // upgrade
+        TeePayments newTeePaymentsImpl = new TeePayments();
+        vm.prank(governance);
+        teePayments.upgradeToAndCall(address(newTeePaymentsImpl), bytes(""));
+        // check
+        assertEq(teePayments.implementation(), address(newTeePaymentsImpl));
+        assertEq(teePayments.governance(), governance);
+        assertEq(teePayments.maxBatchSize(), 5);
+    }
+
+    function testUpgradeProxyRevertOnlyGovernance() public {
+        TeePayments newTeePaymentsImpl = new TeePayments();
+        vm.expectRevert("only governance");
+        teePayments.upgradeToAndCall(address(newTeePaymentsImpl), bytes(""));
+    }
+
+    // should revert if trying to initialize again
+    // revert in GovernedBase.initialise
+    function testUpgradeProxyAndInitializeRevert() public {
+        TeePayments newTeePaymentsImpl = new TeePayments();
+        vm.prank(governance);
+        vm.expectRevert("initialised != false");
+        teePayments.upgradeToAndCall(address(newTeePaymentsImpl), abi.encodeCall(
+            TeePayments.initialize, (
+                IGovernanceSettings(makeAddr("governanceSettings")),
+                governance,
+                addressUpdater,
+                6,
+                400,
+                opType
+            )
+        ));
     }
 
     //// mocks and helpers ////
@@ -1294,6 +1456,14 @@ contract TeePaymentsTest is Test {
             mockRewardManager,
             abi.encodeWithSelector(IIRewardManager.receiveRewards.selector),
             abi.encode()
+        );
+    }
+
+    function _mockGetOpType(bytes32 _opType) internal {
+        vm.mockCall(
+            mockTeeWalletProjectManager,
+            abi.encodeWithSelector(ITeeWalletProjectManager.getOpType.selector, projectId),
+            abi.encode(_opType)
         );
     }
 
