@@ -369,8 +369,8 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
     }
 
     /**
-     * Unused. just to present to satisfy UUPSUpgradeable requirement.
-     * The real check is in onlyGovernance modifier on upgradeTo and upgradeToAndCall.
+     * Unused. Present just to satisfy UUPSUpgradeable requirement.
+     * The real check is in onlyGovernance modifier on upgradeToAndCall.
      */
     function _authorizeUpgrade(address newImplementation) internal override {}
 
