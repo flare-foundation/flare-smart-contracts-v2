@@ -109,12 +109,13 @@ interface ITeeGovernance {
 
     /**
      * Returns the latest TEE pause addresses.
+     * @return _nonce The nonce of the latest TEE pause addresses.
      * @return _pauseAddresses The latest TEE pause addresses.
      * @return _signatures The signatures of the latest TEE pause addresses list signed by TEE governance signers.
      */
     function getLatestTeePauseAddresses()
         external view
-        returns (address[] memory _pauseAddresses, Signature[] memory _signatures);
+        returns (uint256 _nonce, address[] memory _pauseAddresses, Signature[] memory _signatures);
 
     /**
      * Checks if the given address is a TEE pause addresses signer.

@@ -195,6 +195,7 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
         external view
         returns (address[] memory _pauseAddresses, Signature[] memory _signatures)
     {
+        require(_nonce < nextPauseAddressesNonce, "invalid nonce");
         return _getTeePauseAddresses(_nonce);
     }
 
@@ -203,10 +204,11 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
      */
     function getLatestTeePauseAddresses()
         external view
-        returns (address[] memory _pauseAddresses, Signature[] memory _signatures)
+        returns (uint256 _nonce, address[] memory _pauseAddresses, Signature[] memory _signatures)
     {
         require(nextPauseAddressesNonce > 0, "pause addresses not set");
-        return _getTeePauseAddresses(nextPauseAddressesNonce - 1);
+        _nonce = nextPauseAddressesNonce - 1;
+        (_pauseAddresses, _signatures) =  _getTeePauseAddresses(_nonce);
     }
 
     /**
@@ -286,7 +288,6 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
         internal view
         returns (address[] memory _pauseAddresses, Signature[] memory _signatures)
     {
-        require(_nonce < nextPauseAddressesNonce, "invalid nonce");
         TeePauseAddressesState storage teePauseAddresses = nonceToTeePauseAddresses[_nonce];
         _pauseAddresses = teePauseAddresses.pauseAddresses.values();
         _signatures = teePauseAddresses.signatures;
