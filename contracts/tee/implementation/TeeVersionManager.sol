@@ -250,11 +250,8 @@ contract TeeVersionManager is ITeeVersionManager, GovernedProxyImplementation, A
             _signature.s
         );
 
-        uint64 sourceTeeGovernanceThreshold = teeGovernance.getTeeGovernanceThreshold(sourceTeeGovernanceHash);
-        // check if we need more signatures and the signer is an source TEE governance signer
-        if (teeUpgrade.sourceTeeGovernanceSignatures.length < sourceTeeGovernanceThreshold &&
-            teeGovernance.isTeeGovernanceSigner(sourceTeeGovernanceHash, signer))
-        {
+        // check if the signer is an source TEE governance signer
+        if (teeGovernance.isTeeGovernanceSigner(sourceTeeGovernanceHash, signer)) {
             // add the signer to the source TEE governance signers if not already added
             if (!teeUpgrade.sourceTeeGovernanceSigners[signer]) {
                 teeUpgrade.sourceTeeGovernanceSigners[signer] = true;
@@ -262,11 +259,8 @@ contract TeeVersionManager is ITeeVersionManager, GovernedProxyImplementation, A
             }
         }
 
-        uint64 targetTeeGovernanceThreshold = teeGovernance.getTeeGovernanceThreshold(targetTeeGovernanceHash);
-        // check if we need more signatures and the signer is a target TEE governance signer
-        if (teeUpgrade.targetTeeGovernanceSignatures.length < targetTeeGovernanceThreshold &&
-            teeGovernance.isTeeGovernanceSigner(targetTeeGovernanceHash, signer))
-        {
+        // check if the signer is a target TEE governance signer
+        if (teeGovernance.isTeeGovernanceSigner(targetTeeGovernanceHash, signer)) {
             // add the signer to the target TEE governance signers if not already added
             if (!teeUpgrade.targetTeeGovernanceSigners[signer]) {
                 teeUpgrade.targetTeeGovernanceSigners[signer] = true;
@@ -274,8 +268,13 @@ contract TeeVersionManager is ITeeVersionManager, GovernedProxyImplementation, A
             }
         }
 
+        if (teeUpgrade.upgradeSigned) {
+            return; // already signed
+        }
 
         // check if the upgrade is signed by the required number of signers
+        uint64 sourceTeeGovernanceThreshold = teeGovernance.getTeeGovernanceThreshold(sourceTeeGovernanceHash);
+        uint64 targetTeeGovernanceThreshold = teeGovernance.getTeeGovernanceThreshold(targetTeeGovernanceHash);
         if (teeUpgrade.sourceTeeGovernanceSignatures.length >= sourceTeeGovernanceThreshold &&
             teeUpgrade.targetTeeGovernanceSignatures.length >= targetTeeGovernanceThreshold)
         {

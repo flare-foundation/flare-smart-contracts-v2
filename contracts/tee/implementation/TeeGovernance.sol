@@ -7,6 +7,8 @@ import "../../userInterfaces/tee/ITeeGovernance.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../../governance/implementation/GovernedProxyImplementation.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * TeeGovernance is used for managing TEE governance.
@@ -19,9 +21,20 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
         uint64 signersThreshold;
     }
 
-    mapping(bytes32 governanceHash => TeeGovernanceState) private governanceHashToTeeGovernance;
+    struct TeePauseAddressesState {
+        EnumerableSet.AddressSet pauseAddresses;
+        bytes32 pauseAddressesHash;
+        mapping(address => bool) signers;
+        Signature[] signatures;
+    }
+
+    /// Next nonce for pause addresses.
+    uint256 public nextPauseAddressesNonce;
+    mapping(uint256 nonce => TeePauseAddressesState) private nonceToTeePauseAddresses;
+    mapping(address signer => bool) private teePauseAddressesSigner; // any TEE governance signer
     /// The latest TEE governance hash.
     bytes32 public latestTeeGovernanceHash;
+    mapping(bytes32 governanceHash => TeeGovernanceState) private governanceHashToTeeGovernance;
 
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
@@ -69,7 +82,50 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
         teeGovernance.signersThreshold = _signersThreshold;
         for (uint256 i = 0; i < _signers.length; i++) {
             require(teeGovernance.signers.add(_signers[i]), "signer already exists");
+            teePauseAddressesSigner[_signers[i]] = true;
         }
+    }
+
+    /**
+     * Sets new TEE pause addresses.
+     * @param _pauseAddresses The list of new pause addresses, can be empty.
+     * Can only be called by the governance.
+     */
+    function setTeePauseAddresses(address[] calldata _pauseAddresses)
+        external
+        onlyGovernance
+    {
+        uint256 nonce = nextPauseAddressesNonce++;
+        TeePauseAddressesState storage teePauseAddresses = nonceToTeePauseAddresses[nonce];
+        for (uint256 i = 0; i < _pauseAddresses.length; i++) {
+            require(teePauseAddresses.pauseAddresses.add(_pauseAddresses[i]), "pause address already exists");
+        }
+        teePauseAddresses.pauseAddressesHash = keccak256(abi.encode("TEE_PAUSE_ADDRESSES", nonce, _pauseAddresses));
+        emit NewPauseAddressesSet(nonce, _pauseAddresses);
+    }
+
+    /**
+     * @inheritdoc ITeeGovernance
+     */
+    function signTeePauseAddresses(
+        uint256 _nonce,
+        Signature calldata _signature
+    )
+        external
+    {
+        require(_nonce < nextPauseAddressesNonce, "invalid nonce");
+        TeePauseAddressesState storage teePauseAddresses = nonceToTeePauseAddresses[_nonce];
+        address signer = ECDSA.recover(
+            MessageHashUtils.toEthSignedMessageHash(teePauseAddresses.pauseAddressesHash),
+            _signature.v,
+            _signature.r,
+            _signature.s
+        );
+        require(teePauseAddressesSigner[signer], "not a signer");
+        require(!teePauseAddresses.signers[signer], "already signed");
+        teePauseAddresses.signers[signer] = true;
+        teePauseAddresses.signatures.push(_signature);
+        emit NewPauseAddressesSigned(_nonce, signer, _signature);
     }
 
     /**
@@ -114,6 +170,7 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
         external view
         returns(address[] memory _signers, uint64 _signersThreshold)
     {
+        require(latestTeeGovernanceHash != bytes32(0), "governance not set");
         return _getGovernance(latestTeeGovernanceHash);
     }
 
@@ -127,6 +184,55 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
         returns (bool)
     {
         return governanceHashToTeeGovernance[_governanceHash].signersThreshold > 0;
+    }
+
+    /**
+     * @inheritdoc ITeeGovernance
+     */
+    function getTeePauseAddresses(
+        uint256 _nonce
+    )
+        external view
+        returns (address[] memory _pauseAddresses, Signature[] memory _signatures)
+    {
+        return _getTeePauseAddresses(_nonce);
+    }
+
+    /**
+     * @inheritdoc ITeeGovernance
+     */
+    function getLatestTeePauseAddresses()
+        external view
+        returns (address[] memory _pauseAddresses, Signature[] memory _signatures)
+    {
+        require(nextPauseAddressesNonce > 0, "pause addresses not set");
+        return _getTeePauseAddresses(nextPauseAddressesNonce - 1);
+    }
+
+    /**
+     * @inheritdoc ITeeGovernance
+     */
+    function isTeePauseAddressesSigner(
+        address _signer
+    )
+        external view
+        returns (bool)
+    {
+        return teePauseAddressesSigner[_signer];
+    }
+
+    /**
+     * @inheritdoc ITeeGovernance
+     */
+    function hasSignedTeePauseAddresses(
+        uint256 _nonce,
+        address _signer
+    )
+        external view
+        returns (bool)
+    {
+        require(_nonce < nextPauseAddressesNonce, "invalid nonce");
+        return nonceToTeePauseAddresses[_nonce].signers[_signer];
     }
 
     /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
@@ -172,5 +278,17 @@ contract TeeGovernance is ITeeGovernance, GovernedProxyImplementation, AddressUp
         _signersThreshold = governanceHashToTeeGovernance[_governanceHash].signersThreshold;
         require(_signersThreshold > 0, "invalid governance hash");
         _signers = governanceHashToTeeGovernance[_governanceHash].signers.values();
+    }
+
+    function _getTeePauseAddresses(
+        uint256 _nonce
+    )
+        internal view
+        returns (address[] memory _pauseAddresses, Signature[] memory _signatures)
+    {
+        require(_nonce < nextPauseAddressesNonce, "invalid nonce");
+        TeePauseAddressesState storage teePauseAddresses = nonceToTeePauseAddresses[_nonce];
+        _pauseAddresses = teePauseAddresses.pauseAddresses.values();
+        _signatures = teePauseAddresses.signatures;
     }
 }
