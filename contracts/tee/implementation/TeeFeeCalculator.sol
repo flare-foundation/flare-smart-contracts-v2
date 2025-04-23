@@ -49,7 +49,7 @@ contract TeeFeeCalculator is Governed, AddressUpdatable, ITeeFeeCalculator {
     /**
      * @inheritdoc ITeeFeeCalculator
      */
-    function getOperationFee(bytes32 _opType, bytes32 _opCommand) external view override returns (uint256) {
+    function getOperationFee(bytes32 _opType, bytes32 _opCommand) external view returns (uint256) {
         return operationFee[_opType][_opCommand];
     }
 

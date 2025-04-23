@@ -4,6 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 import "../../userInterfaces/tee/ITeeWalletBackupManager.sol";
 import "../../userInterfaces/tee/ITeeWalletOpTypeSettings.sol";
+import "../../userInterfaces/tee/ITeeWalletManager.sol";
 
 
 interface TeeWalletManagerStructs {
@@ -20,5 +21,5 @@ interface TeeWalletManagerStructs {
 
     function keyDataProviderRestoreStruct(ITeeWalletBackupManager.KeyDataProviderRestore calldata) external;
 
-    function setPausingAddressesStruct(ITeeWalletOpTypeSettings.SetPausingAddresses calldata) external;
+    function setPausingAddressesStruct(ITeeWalletManager.SetPausingAddresses calldata) external;
 }

@@ -2,6 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import "../IPublicKey.sol";
+import "./ITeeIdKeyIdPair.sol";
 
 /**
  * TeeWalletManager interface.
@@ -13,6 +14,22 @@ interface ITeeWalletManager {
         INITIALIZED,
         PRODUCTION,
         PAUSED
+    }
+    struct SetPausingAddresses {
+        bytes32 walletId;
+        TeeIdKeyIdPair[] teeIdKeyIdPairs;
+        address[] pausingAddresses;
+    }
+
+    struct ResumeKeyData {
+        uint64 keyId;
+        address teeId;
+        bytes32 nonce;
+    }
+
+    struct Resume {
+        bytes32 walletId;
+        ResumeKeyData[] keysData;
     }
 
     event WalletCreated(
@@ -127,6 +144,29 @@ interface ITeeWalletManager {
      */
     function pauseWallet(bytes32 _walletId) external;
 
+    /**
+     * Set pausing addresses (for pausing keys) instruction method.
+     * Can only be called by the wallet owner address.
+     * @param _walletId The wallet id.
+     * @param _pausingAddresses The pausing addresses.
+     */
+    function setPausingAddresses(
+        bytes32 _walletId,
+        address[] calldata _pausingAddresses
+    )
+        external payable;
+
+    /**
+     * Resume paused keys instruction method.
+     * Can only be called by the wallet owner address.
+     * @param _walletId The wallet id.
+     * @param _keysData The list of keys's data.
+     */
+    function resume(
+        bytes32 _walletId,
+        ResumeKeyData[] calldata _keysData
+    )
+        external payable;
 
     /**
      * Returns the list of wallet ids for the project.

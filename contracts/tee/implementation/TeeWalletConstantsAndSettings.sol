@@ -26,9 +26,6 @@ abstract contract TeeWalletConstantsAndSettings is IITeeWalletConstantsAndSettin
     IFlareSystemsManager public flareSystemsManager;
 
     bytes32 public opType;
-    bytes32 public constant SET_PAUSING_ADDRESSES = bytes32("SET_PAUSING_ADDRESSES");
-
-    mapping (bytes32 walletId => uint256) private setPausingAddressesCounter;
 
     /**
      * Constructor.
@@ -42,44 +39,6 @@ abstract contract TeeWalletConstantsAndSettings is IITeeWalletConstantsAndSettin
         AddressUpdatable(_addressUpdater)
     {
         opType = _opType;
-    }
-
-    /**
-     * @inheritdoc ITeeWalletOpTypeSettings
-     */
-    function setPausingAddresses(
-        bytes32 _walletId,
-        address[] calldata _pausingAddresses
-    )
-        external payable
-    {
-        require(_pausingAddresses.length > 0, "addresses length zero");
-        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        require(teeWalletProjectManager.getOwner(projectId) == msg.sender, "only wallet owner");
-        ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
-        require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
-            walletStatus == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
-        require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, SET_PAUSING_ADDRESSES, _walletId),
-            "fee too low");
-        (ITeeRegistry.TeeMachine[] memory teeMachines, TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
-            teeWalletKeyManager.receivingTeesAndKeys(_walletId);
-
-        SetPausingAddresses memory message = SetPausingAddresses({
-            walletId: _walletId,
-            teeIdKeyIdPairs: teeIdKeyIdPairs,
-            pausingAddresses: _pausingAddresses
-        });
-        bytes32 instructionId = keccak256(abi.encode(
-            opType, SET_PAUSING_ADDRESSES, _walletId, setPausingAddressesCounter[_walletId]++
-        ));
-        teeInstructions.sendInstructions{value: msg.value}(
-            instructionId,
-            teeMachines,
-            flareSystemsManager.getCurrentRewardEpochId(),
-            opType,
-            SET_PAUSING_ADDRESSES,
-            abi.encode(message)
-        );
     }
 
     /**

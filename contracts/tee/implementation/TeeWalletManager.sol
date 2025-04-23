@@ -9,6 +9,10 @@ import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 import "../interface/IITeeWalletConstantsAndSettings.sol";
 import "../../governance/implementation/GovernedProxyImplementation.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
+import "../../userInterfaces/IFlareSystemsManager.sol";
+import "../../userInterfaces/tee/ITeeInstructions.sol";
+import "../../userInterfaces/tee/ITeeRegistry.sol";
 
 /**
  * TeeWalletManager contract used for wallet configuration on chain.
@@ -27,6 +31,9 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
     }
 
     uint256 constant private P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
+    bytes32 public constant WALLET_OP_TYPE = bytes32("WALLET");
+    bytes32 public constant SET_PAUSING_ADDRESSES = bytes32("SET_PAUSING_ADDRESSES");
+    bytes32 public constant RESUME = bytes32("RESUME");
 
     uint256 public walletCounter = 0;
     mapping(bytes32 walletId => TeeWalletState) private wallets;
@@ -36,10 +43,21 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
     /// Mapping of operation type to operation type constants provider.
     mapping(bytes32 opType => IITeeWalletConstantsAndSettings) public opTypeConstantsProviders;
 
+    mapping (bytes32 walletId => uint256) private setPausingAddressesCounter;
+    mapping (bytes32 walletId => uint256) private resumeCounter;
+
     /// TEE wallet project manager contract.
     ITeeWalletProjectManager public teeWalletProjectManager;
     /// TEE wallet key manager contract.
     ITeeWalletKeyManager public teeWalletKeyManager;
+    /// TeeFeeCalculator contract.
+    ITeeFeeCalculator public teeFeeCalculator;
+    /// Flare systems manager contract.
+    IFlareSystemsManager public flareSystemsManager;
+    /// TeeInstructions contract.
+    ITeeInstructions public teeInstructions;
+    /// TEE registry contract.
+    ITeeRegistry public teeRegistry;
 
     modifier onlyOwner(bytes32 _walletId) {
         _checkOnlyOwner(_walletId);
@@ -265,6 +283,90 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
     }
 
     /**
+     * @inheritdoc ITeeWalletManager
+     */
+    function setPausingAddresses(
+        bytes32 _walletId,
+        address[] calldata _pausingAddresses
+    )
+        external payable
+    {
+        require(_pausingAddresses.length > 0, "addresses length zero");
+        bytes32 projectId = wallets[_walletId].projectId;
+        require(teeWalletProjectManager.getOwner(projectId) == msg.sender, "only wallet owner");
+        ITeeWalletManager.WalletStatus walletStatus = wallets[_walletId].status;
+        require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
+            walletStatus == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
+        require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, _walletId),
+            "fee too low");
+        (ITeeRegistry.TeeMachine[] memory teeMachines, TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
+            teeWalletKeyManager.receivingTeesAndKeys(_walletId);
+
+        SetPausingAddresses memory message = SetPausingAddresses({
+            walletId: _walletId,
+            teeIdKeyIdPairs: teeIdKeyIdPairs,
+            pausingAddresses: _pausingAddresses
+        });
+        bytes32 instructionId = keccak256(abi.encode(
+            WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, _walletId, setPausingAddressesCounter[_walletId]++
+        ));
+        teeInstructions.sendInstructions{value: msg.value}(
+            instructionId,
+            teeMachines,
+            flareSystemsManager.getCurrentRewardEpochId(),
+            WALLET_OP_TYPE,
+            SET_PAUSING_ADDRESSES,
+            abi.encode(message)
+        );
+    }
+
+    /**
+     * @inheritdoc ITeeWalletManager
+     */
+    function resume(
+        bytes32 _walletId,
+        ResumeKeyData[] calldata _keysData
+    )
+        external payable onlyOwner(_walletId)
+    {
+        require(wallets[_walletId].status == ITeeWalletManager.WalletStatus.PRODUCTION ||
+            wallets[_walletId].status == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
+
+        uint256 numOfKeys = _keysData.length;
+        address[] memory teeIds = new address[](numOfKeys);
+        for (uint256 i = 0; i < numOfKeys; i++) {
+            teeIds[i] = _keysData[i].teeId;
+        }
+        require(msg.value >= teeFeeCalculator.calculateFeeByTeeIds
+            (WALLET_OP_TYPE, RESUME, teeIds, new address[](0)), "fee too low");
+
+        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](numOfKeys);
+        (, , uint64 keyIdCounter) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
+        for (uint256 i = 0; i < numOfKeys; i++) {
+            require(keyIdCounter > _keysData[i].keyId, "invalid key id");
+            require(teeRegistry.getTeeMachineStatus(_keysData[i].teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
+                "tee machine not available");
+            teeMachines[i] = teeRegistry.getTeeMachine(_keysData[i].teeId);
+        }
+
+        Resume memory message = Resume({
+            walletId: _walletId,
+            keysData: _keysData
+        });
+        bytes32 instructionId = keccak256(abi.encode(
+            WALLET_OP_TYPE, RESUME, _walletId, resumeCounter[_walletId]++
+        ));
+        teeInstructions.sendInstructions{value: msg.value}(
+            instructionId,
+            teeMachines,
+            flareSystemsManager.getCurrentRewardEpochId(),
+            WALLET_OP_TYPE,
+            RESUME,
+            abi.encode(message)
+        );
+    }
+
+    /**
      * @inheritdoc IITeeWalletOpTypeConstants
      */
     function getOpTypeConstants(bytes32 _walletId) external view virtual returns(bytes memory) {
@@ -388,6 +490,14 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
         teeWalletKeyManager = ITeeWalletKeyManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
+        teeFeeCalculator = ITeeFeeCalculator(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
+        flareSystemsManager = IFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
+        teeInstructions = ITeeInstructions(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
+        teeRegistry = ITeeRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeRegistry"));
     }
 
     function _checkOnlyOwner(bytes32 _walletId)

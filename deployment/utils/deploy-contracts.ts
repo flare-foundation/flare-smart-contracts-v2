@@ -883,8 +883,8 @@ export async function deployContracts(
   );
 
   await teeWalletManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, teeWalletProjectManager.address, teeWalletKeyManager.address],
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.TEE_REGISTRY]),
+    [ADDRESS_UPDATER_ADDR, teeWalletProjectManager.address, teeWalletKeyManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, teeRegistry.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
