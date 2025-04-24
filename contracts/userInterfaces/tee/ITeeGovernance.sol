@@ -14,23 +14,23 @@ interface ITeeGovernance {
         uint64 signersThreshold
     );
 
-    event NewPauseAddressesSet(
+    event NewPausingAddressesSet(
         uint256 indexed nonce,
-        address[] pauseAddresses
+        address[] pausingAddresses
     );
 
-    event NewPauseAddressesSigned(
+    event NewPausingAddressesSigned(
         uint256 indexed nonce,
         address indexed signer,
         Signature signature
     );
 
     /**
-     * Signs pause addresses.
-     * @param _nonce The nonce of the pause addresses.
-     * @param _signature The signature of the TEE pause addresses list.
+     * Signs pausing addresses.
+     * @param _nonce The nonce of the pausing addresses.
+     * @param _signature The signature of the TEE pausing addresses list.
      */
-    function signTeePauseAddresses(
+    function signTeePausingAddresses(
         uint256 _nonce,
         Signature calldata _signature
     )
@@ -96,45 +96,45 @@ interface ITeeGovernance {
         returns (bool);
 
     /**
-     * Returns the TEE pause addresses for the given nonce.
+     * Returns the TEE pausing addresses for the given nonce.
      * @param _nonce The nonce.
-     * @return _pauseAddresses The TEE pause addresses.
-     * @return _signatures The signatures of the TEE pause addresses list signed by TEE governance signers.
+     * @return _pausingAddresses The TEE pausing addresses.
+     * @return _signatures The signatures of the TEE pausing addresses list signed by TEE governance signers.
      */
-    function getTeePauseAddresses(
+    function getTeePausingAddresses(
         uint256 _nonce
     )
         external view
-        returns (address[] memory _pauseAddresses, Signature[] memory _signatures);
+        returns (address[] memory _pausingAddresses, Signature[] memory _signatures);
 
     /**
-     * Returns the latest TEE pause addresses.
-     * @return _nonce The nonce of the latest TEE pause addresses.
-     * @return _pauseAddresses The latest TEE pause addresses.
-     * @return _signatures The signatures of the latest TEE pause addresses list signed by TEE governance signers.
+     * Returns the latest TEE pausing addresses.
+     * @return _nonce The nonce of the latest TEE pausing addresses.
+     * @return _pausingAddresses The latest TEE pausing addresses.
+     * @return _signatures The signatures of the latest TEE pausing addresses list signed by TEE governance signers.
      */
-    function getLatestTeePauseAddresses()
+    function getLatestTeePausingAddresses()
         external view
-        returns (uint256 _nonce, address[] memory _pauseAddresses, Signature[] memory _signatures);
+        returns (uint256 _nonce, address[] memory _pausingAddresses, Signature[] memory _signatures);
 
     /**
-     * Checks if the given address is a TEE pause addresses signer.
+     * Checks if the given address is a TEE pausing addresses signer.
      * @param _signer The address to check.
-     * @return True if the address is a TEE pause addresses signer, false otherwise.
+     * @return True if the address is a TEE pausing addresses signer, false otherwise.
      */
-    function isTeePauseAddressesSigner(
+    function isTeePausingAddressesSigner(
         address _signer
     )
         external view
         returns (bool);
 
     /**
-     * Checks if the given address has signed a TEE pause addresses for the given nonce.
+     * Checks if the given address has signed a TEE pausing addresses for the given nonce.
      * @param _nonce The nonce.
      * @param _signer The address to check.
-     * @return True if the address has signed a TEE pause addresses for the given nonce, false otherwise.
+     * @return True if the address has signed a TEE pausing addresses for the given nonce, false otherwise.
      */
-    function hasSignedTeePauseAddresses(
+    function hasSignedTeePausingAddresses(
         uint256 _nonce,
         address _signer
     )

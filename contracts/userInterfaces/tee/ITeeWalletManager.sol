@@ -148,7 +148,7 @@ interface ITeeWalletManager {
      * Set pausing addresses (for pausing keys) instruction method.
      * Can only be called by the wallet owner address.
      * @param _walletId The wallet id.
-     * @param _pausingAddresses The pausing addresses.
+     * @param _pausingAddresses The list of pausing addresses, can be empty.
      */
     function setPausingAddresses(
         bytes32 _walletId,
