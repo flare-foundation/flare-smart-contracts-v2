@@ -11,8 +11,9 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 /**
  * TeeWalletProjectManager is used for project configurations of TEE wallets.
  */
-contract TeeWalletProjectManager is ITeeWalletProjectManager, GovernedProxyImplementation,
-    AddressUpdatable, UUPSUpgradeable {
+contract TeeWalletProjectManager is ITeeWalletProjectManager,
+    GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable
+{
 
     struct TeeWalletProjectState {
         address owner;

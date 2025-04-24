@@ -6,7 +6,7 @@ import "../../governance/implementation/Governed.sol";
 import "../interface/IITeeWalletManager.sol";
 import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
 import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
-import "../interface/IITeeWalletConstantsAndSettings.sol";
+import "../interface/IITeeWalletOpTypeConstants.sol";
 import "../../governance/implementation/GovernedProxyImplementation.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
@@ -41,23 +41,23 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
 
     bytes32[] private supportedOpTypes;
     /// Mapping of operation type to operation type constants provider.
-    mapping(bytes32 opType => IITeeWalletConstantsAndSettings) public opTypeConstantsProviders;
+    mapping(bytes32 opType => IITeeWalletOpTypeConstants) public opTypeConstantsProviders;
 
     mapping (bytes32 walletId => uint256) private setPausingAddressesCounter;
     mapping (bytes32 walletId => uint256) private resumeCounter;
 
+    /// TEE registry contract.
+    ITeeRegistry public teeRegistry;
     /// TEE wallet project manager contract.
     ITeeWalletProjectManager public teeWalletProjectManager;
     /// TEE wallet key manager contract.
     ITeeWalletKeyManager public teeWalletKeyManager;
     /// TeeFeeCalculator contract.
     ITeeFeeCalculator public teeFeeCalculator;
-    /// Flare systems manager contract.
-    IFlareSystemsManager public flareSystemsManager;
     /// TeeInstructions contract.
     ITeeInstructions public teeInstructions;
-    /// TEE registry contract.
-    ITeeRegistry public teeRegistry;
+    /// Flare systems manager contract.
+    IFlareSystemsManager public flareSystemsManager;
 
     modifier onlyOwner(bytes32 _walletId) {
         _checkOnlyOwner(_walletId);
@@ -249,12 +249,12 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
      * @param _opTypeConstantsProviders The operation type constants providers for the operation types.
      * Can only be called by the governance.
      */
-    function addSupportedOpTypes(IITeeWalletConstantsAndSettings[] calldata _opTypeConstantsProviders)
+    function addSupportedOpTypes(IITeeWalletOpTypeConstants[] calldata _opTypeConstantsProviders)
         external onlyGovernance
     {
         for (uint256 i = 0; i < _opTypeConstantsProviders.length; i++) {
-            IITeeWalletConstantsAndSettings opTypeConstantsProvider = _opTypeConstantsProviders[i];
-            bytes32 opType = opTypeConstantsProvider.opType();
+            IITeeWalletOpTypeConstants opTypeConstantsProvider = _opTypeConstantsProviders[i];
+            bytes32 opType = opTypeConstantsProvider.getOpType();
             if (address(opTypeConstantsProviders[opType]) == address(0)) {
                 supportedOpTypes.push(opType);
             }
@@ -289,11 +289,8 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
         bytes32 _walletId,
         address[] calldata _pausingAddresses
     )
-        external payable
+        external payable onlyOwner(_walletId)
     {
-        require(_pausingAddresses.length > 0, "addresses length zero");
-        bytes32 projectId = wallets[_walletId].projectId;
-        require(teeWalletProjectManager.getOwner(projectId) == msg.sender, "only wallet owner");
         ITeeWalletManager.WalletStatus walletStatus = wallets[_walletId].status;
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
             walletStatus == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
@@ -329,8 +326,9 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
     )
         external payable onlyOwner(_walletId)
     {
-        require(wallets[_walletId].status == ITeeWalletManager.WalletStatus.PRODUCTION ||
-            wallets[_walletId].status == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
+        ITeeWalletManager.WalletStatus walletStatus = wallets[_walletId].status;
+        require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
+            walletStatus == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
 
         uint256 numOfKeys = _keysData.length;
         address[] memory teeIds = new address[](numOfKeys);
@@ -367,13 +365,13 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
     }
 
     /**
-     * @inheritdoc IITeeWalletOpTypeConstants
+     * @inheritdoc IITeeWalletManager
      */
     function getOpTypeConstants(bytes32 _walletId) external view virtual returns(bytes memory) {
         bytes32 projectId = wallets[_walletId].projectId;
         require(projectId != bytes32(0), "wallet not found");
         bytes32 opType = teeWalletProjectManager.getOpType(projectId);
-        IITeeWalletConstantsAndSettings opTypeConstantsProvider = opTypeConstantsProviders[opType];
+        IITeeWalletOpTypeConstants opTypeConstantsProvider = opTypeConstantsProviders[opType];
         require(address(opTypeConstantsProvider) != address(0), "operation type not supported");
         return opTypeConstantsProvider.getOpTypeConstants(_walletId);
     }
@@ -486,18 +484,18 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
     )
         internal override
     {
+        teeRegistry = ITeeRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeRegistry"));
         teeWalletProjectManager = ITeeWalletProjectManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
         teeWalletKeyManager = ITeeWalletKeyManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
         teeFeeCalculator = ITeeFeeCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
-        flareSystemsManager = IFlareSystemsManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         teeInstructions = ITeeInstructions(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
-        teeRegistry = ITeeRegistry(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeRegistry"));
+        flareSystemsManager = IFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 
     function _checkOnlyOwner(bytes32 _walletId)

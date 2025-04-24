@@ -41,9 +41,16 @@ contract TeePaymentsEVM is ITeePaymentsEVM, TeePayments {
     }
 
     /**
+     * @inheritdoc ITeePayments
+     */
+    function getOpType() external view virtual override(ITeePayments, TeePayments) returns(bytes32) {
+        return opType;
+    }
+
+    /**
      * @inheritdoc IITeeWalletOpTypeConstants
      */
-    function getOpTypeConstants(bytes32 _walletId) external view override returns(bytes memory) {
+    function getOpTypeConstants(bytes32 _walletId) external view virtual override returns(bytes memory) {
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         uint256 chainId = projectChainId[projectId];
         require(chainId > 0, "chainId not set");

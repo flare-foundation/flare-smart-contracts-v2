@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./ITeeWalletOpTypeSettings.sol";
+import "./ITeeIdKeyIdPair.sol";
 
 /**
  * TeePayments interface.
  */
-interface ITeePayments is ITeeWalletOpTypeSettings {
+interface ITeePayments {
 
     /// Payment instruction structure
     struct PaymentInstruction {
@@ -166,6 +166,12 @@ interface ITeePayments is ITeeWalletOpTypeSettings {
         uint256 _dailyLimit
     )
         external payable;
+
+    /**
+     * Returns the wallet operation type.
+     * @return _opType The operation type.
+     */
+    function getOpType() external view returns (bytes32);
 
     /**
      * Returns wallet's sender address.

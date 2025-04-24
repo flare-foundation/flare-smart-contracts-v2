@@ -9,7 +9,7 @@ import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 /**
  * TeeFeeCalculator is used for calculating fees for TEE operations.
  */
-contract TeeFeeCalculator is Governed, AddressUpdatable, ITeeFeeCalculator {
+contract TeeFeeCalculator is ITeeFeeCalculator, Governed, AddressUpdatable {
 
     /// TEE wallet key manager contract.
     ITeeWalletKeyManager public teeWalletKeyManager;

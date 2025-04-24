@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
+import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeePayments.sol";
-import "./TeeWalletConstantsAndSettings.sol";
+import "../interface/IITeeWalletOpTypeConstants.sol";
+import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
+import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
+import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
+import "../../userInterfaces/tee/ITeeInstructions.sol";
+import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../governance/implementation/GovernedProxyImplementation.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.
  */
-contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletConstantsAndSettings, UUPSUpgradeable {
+contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
+    GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable
+{
 
     struct WalletState {
         uint64 nonce;
@@ -47,6 +56,8 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
     bytes32 public constant REISSUE = bytes32("REISSUE");
     bytes32 public constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
 
+
+    bytes32 internal opType;
     uint64 public maxBatchSize;
     uint64 public maxBatchDurationSeconds;
 
@@ -57,6 +68,18 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
     mapping(bytes32 walletId => mapping(uint64 nonce => uint256)) private reissueCounter;
     mapping(bytes32 walletId => uint256) private setLimitsCounter;
 
+    /// TeeWalletProjectManager contract.
+    ITeeWalletProjectManager public teeWalletProjectManager;
+    /// TeeWalletManager contract.
+    ITeeWalletManager public teeWalletManager;
+    /// TeeWalletKeyManager contract.
+    ITeeWalletKeyManager public teeWalletKeyManager;
+    /// TeeFeeCalculator contract.
+    ITeeFeeCalculator public teeFeeCalculator;
+    /// TeeInstructions contract.
+    ITeeInstructions public teeInstructions;
+    /// Flare systems manager contract.
+    IFlareSystemsManager public flareSystemsManager;
 
     modifier onlyWalletOwner(bytes32 _walletId) {
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
@@ -68,7 +91,7 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
     constructor()
-        GovernedProxyImplementation() TeeWalletConstantsAndSettings(address(0), bytes32(0))
+        GovernedProxyImplementation() AddressUpdatable(address(0))
     { }
 
     /**
@@ -89,10 +112,11 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
         require(_opType != bytes32(0), "op type zero");
 
         GovernedBase.initialise(_governanceSettings, _initialGovernance);
-        TeeWalletConstantsAndSettings.setOpTypeAndAddressUpdater(_addressUpdater, _opType);
+        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
 
         maxBatchSize = _maxBatchSize;
         maxBatchDurationSeconds = _maxBatchDurationSeconds;
+        opType = _opType;
     }
 
     /**
@@ -366,10 +390,23 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
         );
     }
 
+    /**
+     * @inheritdoc ITeePayments
+     */
+    function getOpType() external view virtual override(ITeePayments, IITeeWalletOpTypeConstants) returns(bytes32) {
+        return opType;
+    }
+
+    /**
+     * @inheritdoc ITeePayments
+     */
     function getSenderAddress(bytes32 _walletId) external view returns(string memory) {
         return senderAddresses[_walletId];
     }
 
+    /**
+     * @inheritdoc ITeePayments
+     */
     function getWalletSettings(
         bytes32 _walletId
     )
@@ -430,8 +467,19 @@ contract TeePayments is ITeePayments, GovernedProxyImplementation, TeeWalletCons
         bytes32[] memory _contractNameHashes,
         address[] memory _contractAddresses
     )
-        internal override
+        internal virtual override
     {
-        super._updateContractAddresses(_contractNameHashes, _contractAddresses);
+        teeWalletProjectManager = ITeeWalletProjectManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
+        teeWalletManager = ITeeWalletManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
+        teeWalletKeyManager = ITeeWalletKeyManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
+        teeFeeCalculator = ITeeFeeCalculator(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
+        teeInstructions = ITeeInstructions(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
+        flareSystemsManager = IFlareSystemsManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 }

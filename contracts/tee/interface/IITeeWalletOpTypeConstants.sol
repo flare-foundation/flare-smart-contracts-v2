@@ -4,6 +4,12 @@ pragma solidity >=0.7.6 <0.9;
 interface IITeeWalletOpTypeConstants {
 
     /**
+     * Returns the wallet operation type.
+     * @return _opType The operation type.
+     */
+    function getOpType() external view returns (bytes32);
+
+    /**
      * Returns the required operation type constants.
      * @param _walletId The wallet id.
      * @return The abi encoded operation type constants.
