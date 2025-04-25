@@ -59,6 +59,10 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     /// In order to receive rewards, TEE must be checked for availability at least once in this period.
     uint256 public availabilityCheckValidityDurationSeconds;
 
+    /// registration availability check cosigners and their threshold
+    AddressSet.State private cosigners;
+    uint256 private cosignersThreshold;
+
     AddressSet.State private activeTeeIds;
     mapping(address teeId => TeeState) private teeStates;
     mapping(address oldTeeId => address newTeeId) public replications;
@@ -68,7 +72,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     mapping(address oldTeeId => uint256) private replicateCounter;
 
     modifier onlyOwner(address _teeId) {
-        require(teeStates[_teeId].owner == msg.sender, "only owner");
+        _checkOnlyOwner(_teeId);
         _;
     }
 
@@ -153,9 +157,8 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         TeeState storage teeState = teeStates[teeId];
         TeeStatus status = teeState.status;
         require(status == TeeStatus.INITIALIZED || status == TeeStatus.PAUSED, "invalid tee status");
-        require(_proof.data.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            "invalid availability status");
         _checkCodeHashPlatformSupported(teeState.codeHash, teeState.platform);
+        _validateAvailabilityCheckStatus(_proof.data.responseBody.status);
         _validateAvailabilityCheckTs(teeId, _proof.data.timestamp);
         _validateAvailabilityCheckProof(teeState, _proof);
 
@@ -180,10 +183,9 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     {
         address teeId = _proof.data.requestBody.teeMachine.teeId;
         TeeState storage teeState = teeStates[teeId];
-        require(teeState.status == TeeStatus.PRODUCTION, "invalid tee status");
-        require(_proof.data.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            "invalid availability status");
+        _checkTeeStatus(teeState.status, TeeStatus.PRODUCTION);
         _checkCodeHashPlatformSupported(teeState.codeHash, teeState.platform);
+        _validateAvailabilityCheckStatus(_proof.data.responseBody.status);
         _validateAvailabilityCheckTs(teeId, _proof.data.timestamp);
         _validateAvailabilityCheckProof(teeState, _proof);
 
@@ -201,7 +203,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         external
     {
         TeeState storage teeState = teeStates[_teeId];
-        require(teeState.status == TeeStatus.PRODUCTION, "invalid tee status");
+        _checkTeeStatus(teeState.status, TeeStatus.PRODUCTION);
         require(msg.sender == teeState.owner ||
             teeVersionManager.codeHashPlatformDisabled(teeState.codeHash, teeState.platform),
             "only owner or disabled version");
@@ -222,9 +224,9 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     {
         address teeId = _proof.data.requestBody.teeMachine.teeId;
         TeeState storage teeState = teeStates[teeId];
-        require(teeState.status == TeeStatus.PRODUCTION, "invalid tee status");
+        _checkTeeStatus(teeState.status, TeeStatus.PRODUCTION);
         require(_proof.data.responseBody.status != ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            "invalid availability status");
+            "AC status invalid");
         _validateAvailabilityCheckTs(teeId, _proof.data.timestamp);
         _validateAvailabilityCheckProof(teeState, _proof);
 
@@ -255,11 +257,11 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         bytes32 instructionId = keccak256(abi.encode(
             REG_OP_TYPE, TO_PAUSE_FOR_UPGRADE, _teeId, pauseForUpgradeCounter[_teeId]++
         ));
-        teeInstructions.sendInstructions{value: msg.value}(
+        _sendInstructions(
             instructionId,
-            _getTeeMachines(TeeMachine({ teeId: _teeId, owner: msg.sender, url: teeState.url })),
-            flareSystemsManager.getCurrentRewardEpochId(),
-            REG_OP_TYPE,
+            _teeId,
+            msg.sender,
+            teeState.url,
             TO_PAUSE_FOR_UPGRADE,
             abi.encode(message)
         );
@@ -279,22 +281,21 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         onlyOwner(_proof.data.requestBody.teeMachine.teeId)
     {
         address newTeeId = _proof.data.requestBody.teeMachine.teeId;
-        require(_proof.data.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            "invalid availability status");
         TeeState storage oldTeeState = teeStates[_oldTeeId];
-        require(oldTeeState.status == TeeStatus.PAUSED_FOR_UPGRADE, "invalid old tee status");
+        _checkTeeStatus(oldTeeState.status, TeeStatus.PAUSED_FOR_UPGRADE);
         TeeState storage newTeeState = teeStates[newTeeId];
         require(newTeeState.status == TeeStatus.INITIALIZED ||
             (replications[_oldTeeId] == newTeeId && newTeeState.status == TeeStatus.REPLICATING), // retry
-            "invalid new tee status");
+            "invalid tee status");
         _checkCodeHashPlatformSupported(newTeeState.codeHash, newTeeState.platform);
         require(_areTeeMachinesCompatible(oldTeeState, newTeeState), "tee machines not compatible");
+        _validateAvailabilityCheckStatus(_proof.data.responseBody.status);
         _validateAvailabilityCheckTs(newTeeId, _proof.data.timestamp);
         _validateAvailabilityCheckProof(newTeeState, _proof);
         _checkFee(REPLICATE_FROM, newTeeId);
         require(teeVersionManager.isTeeUpgradePathValid(
             _teeUpgradeId, oldTeeState.codeHash, oldTeeState.platform, newTeeState.codeHash, newTeeState.platform),
-            "invalid tee upgrade path");
+            "invalid upgrade path");
         require(teeVersionManager.isTeeUpgradeSigned(_teeUpgradeId), "tee upgrade not signed");
 
         replications[_oldTeeId] = newTeeId;
@@ -308,11 +309,11 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         bytes32 instructionId = keccak256(abi.encode(
             REG_OP_TYPE, REPLICATE_FROM, _oldTeeId, newTeeId, replicateCounter[_oldTeeId]++
         ));
-        teeInstructions.sendInstructions{value: msg.value}(
+        _sendInstructions(
             instructionId,
-            _getTeeMachines(ITeeRegistry.TeeMachine({ teeId: newTeeId, owner: msg.sender, url: newTeeState.url })),
-            flareSystemsManager.getCurrentRewardEpochId(),
-            REG_OP_TYPE,
+            newTeeId,
+            msg.sender,
+            newTeeState.url,
             REPLICATE_FROM,
             abi.encode(message)
         );
@@ -331,16 +332,15 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         onlyOwner(_newTeeId)
     {
         address oldTeeId = _proof.data.requestBody.teeMachine.teeId;
-        require(_proof.data.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            "invalid availability status");
         TeeState storage oldTeeState = teeStates[oldTeeId];
-        require(oldTeeState.status == TeeStatus.PAUSED_FOR_UPGRADE, "invalid old tee status");
+        _checkTeeStatus(oldTeeState.status, TeeStatus.PAUSED_FOR_UPGRADE);
         TeeState storage newTeeState = teeStates[_newTeeId];
-        require(newTeeState.status == TeeStatus.REPLICATING, "invalid new tee status");
+        _checkTeeStatus(newTeeState.status, TeeStatus.REPLICATING);
         // in case multiple replications are triggered only the last one can be confirmed
         require(replications[oldTeeId] == _newTeeId, "replication not valid");
         _checkCodeHashPlatformSupported(newTeeState.codeHash, newTeeState.platform);
 
+        _validateAvailabilityCheckStatus(_proof.data.responseBody.status);
         _validateAvailabilityCheckTs(_newTeeId, _proof.data.timestamp);
         _validateAvailabilityCheckProof(newTeeState, _proof);
 
@@ -365,6 +365,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         external onlyOwner(_teeId)
     {
         proposedTeeOwner[_teeId] = _newOwner;
+        emit NewOwnerProposed(_teeId, msg.sender, _newOwner);
     }
 
     /**
@@ -376,6 +377,46 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         require(proposedTeeOwner[_teeId] == msg.sender, "only proposed owner");
         teeStates[_teeId].owner = msg.sender;
         delete proposedTeeOwner[_teeId];
+        emit NewOwnerConfirmed(_teeId, msg.sender);
+    }
+
+    /**
+     * Sets the FTDC cosigners and their threshold used for the TEE machine registration.
+     * @param _cosigners The cosigners.
+     * @param _cosignersThreshold The cosigners threshold.
+     */
+    function setCosigners(
+        address[] calldata _cosigners,
+        uint256 _cosignersThreshold
+    )
+        external onlyGovernance
+    {
+        require(
+            _cosigners.length >= _cosignersThreshold &&
+            (_cosigners.length == 0 || _cosignersThreshold > 0),
+            "invalid threshold"
+        );
+        for (uint256 i = 0; i < _cosigners.length; i++) {
+            require(_cosigners[i] != address(0), "invalid cosigner");
+            // check for duplicates
+            for (uint256 j = 0; j < i; j++) {
+                require(_cosigners[j] != _cosigners[i], "duplicated cosigner");
+            }
+        }
+        cosigners.replaceAll(_cosigners);
+        cosignersThreshold = _cosignersThreshold;
+        emit CosignersSet(_cosigners, _cosignersThreshold);
+    }
+
+    /**
+     * @inheritdoc ITeeRegistry
+     */
+    function getCosigners()
+        external view
+        returns(address[] memory _cosigners, uint256 _cosignersThreshold)
+    {
+        _cosigners = cosigners.list;
+        _cosignersThreshold = cosignersThreshold;
     }
 
     /**
@@ -423,7 +464,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         returns(address[] memory _teeIds)
     {
         uint256 length = activeTeeIds.list.length;
-        require (_count <= length, "too many tee ids requested");
+        require (_count <= length, "too many");
         (uint256 randomNumber,,) = relay.getRandomNumber();
 
         // Reservoir sampling
@@ -449,17 +490,11 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     /**
      * @inheritdoc ITeeRegistry
      */
-    function areTeeMachinesCompatible(address _teeId, address[] calldata _backupTeeIds)
+    function areTeeMachinesCompatible(address _teeId1, address _teeId2)
         external view
         returns(bool)
     {
-        TeeState storage teeState = teeStates[_teeId];
-        for (uint256 i = 0; i < _backupTeeIds.length; i++) {
-            if (!_areTeeMachinesCompatible(teeState, teeStates[_backupTeeIds[i]])) {
-                return false;
-            }
-        }
-        return true;
+        return _areTeeMachinesCompatible(teeStates[_teeId1], teeStates[_teeId2]);
     }
 
     /**
@@ -536,63 +571,103 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         address[] memory teeIds = new address[](1);
         teeIds[0] = _testOnTeeId;
 
+        address[] memory registrationCosigners = new address[](0);
+        uint256 registrationCosignersThreshold = 0;
+        if (teeState.status == TeeStatus.INITIALIZED) {
+            registrationCosigners = cosigners.list;
+            registrationCosignersThreshold = cosignersThreshold;
+        }
+
         ftdcHub.requestAttestation{value: msg.value}(
             0,
             0,
             teeIds,
+            registrationCosigners,
+            registrationCosignersThreshold,
             bytes.concat(TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE, TEE_SOURCE_ID, abi.encode(requestBody))
         );
     }
 
     function _setPauseBeforeUpgradeMinDuration(uint256 _pauseBeforeUpgradeMinDurationSeconds) internal {
-        require(_pauseBeforeUpgradeMinDurationSeconds >= 1 minutes &&
-            _pauseBeforeUpgradeMinDurationSeconds <= 1 days, "invalid duration");
+        _validateDuration(_pauseBeforeUpgradeMinDurationSeconds, 1 minutes, 1 days);
         pauseBeforeUpgradeMinDurationSeconds = _pauseBeforeUpgradeMinDurationSeconds;
     }
 
     function _setAvailabilityCheckProofValidity(uint256 _availabilityCheckProofValiditySeconds) internal {
-        require(_availabilityCheckProofValiditySeconds >= 1 minutes &&
-            _availabilityCheckProofValiditySeconds <= 1 days, "invalid duration");
+        _validateDuration(_availabilityCheckProofValiditySeconds, 1 minutes, 1 days);
         availabilityCheckProofValiditySeconds = _availabilityCheckProofValiditySeconds;
     }
 
     function _setAvailabilityCheckValidityDuration(uint256 _availabilityCheckValidityDurationSeconds) internal {
-        require(_availabilityCheckValidityDurationSeconds >= 1 hours &&
-            _availabilityCheckValidityDurationSeconds <= 365 days, "invalid duration");
+        _validateDuration(_availabilityCheckValidityDurationSeconds, 1 hours, 365 days);
         availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
     }
 
     function _validateAvailabilityCheckProof(
-        TeeState storage teeState,
+        TeeState storage _teeState,
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         internal
     {
-        require(_proof.data.thresholdBIPS == 0, "random threshold not supported");
-        require(keccak256(bytes(_proof.data.requestBody.teeMachine.url)) == keccak256(bytes(teeState.url)),
-            "url mismatch");
-        require(_proof.data.requestBody.teeMachine.codeHash == teeState.codeHash, "code hash mismatch");
-        require(_proof.data.requestBody.teeMachine.platform == teeState.platform, "platform mismatch");
-        require(_proof.data.requestBody.teeGovernanceHash == teeVersionManager.getTeeGovernanceHash(teeState.codeHash),
-            "tee governance hash mismatch");
-        require(_proof.data.attestationType == TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE, "invalid attestation type");
-        require(_proof.data.sourceId == TEE_SOURCE_ID, "invalid source id");
-        uint256 rewardEpochId = ftdcVerification.verifySigningPolicySignatures(
-            _proof.relayMessage,
-            keccak256(abi.encode(_proof.data))
+        require(
+            _proof.data.thresholdBIPS == 0 &&
+            _proof.data.attestationType == TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE &&
+            _proof.data.sourceId == TEE_SOURCE_ID,
+            "invalid attestation"
         );
+        require(
+            keccak256(bytes(_proof.data.requestBody.teeMachine.url)) == keccak256(bytes(_teeState.url)) &&
+            _proof.data.requestBody.teeMachine.codeHash == _teeState.codeHash &&
+            _proof.data.requestBody.teeMachine.platform == _teeState.platform &&
+            _proof.data.requestBody.teeGovernanceHash == teeVersionManager.getTeeGovernanceHash(_teeState.codeHash),
+            "invalid request body"
+        );
+        bytes32 messageHash = keccak256(abi.encode(_proof.data));
+        uint256 rewardEpochId = ftdcVerification.verifySigningPolicySignatures(_proof.relayMessage, messageHash);
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         require(_proof.data.requestBody.rewardEpochId == rewardEpochId &&
             (rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId),
             "too old signing policy");
+        // additionally check cosigners in case of initial availability check
+        if (_teeState.status == TeeStatus.INITIALIZED && cosignersThreshold > 0) {
+            address[] memory registrationCosigners =
+                ftdcVerification.verifyCosignerSignatures(_proof.cosignerSignatures, messageHash);
+            require(registrationCosigners.length >= cosignersThreshold, "cosigners threshold not met");
+            for (uint256 i = 0; i < registrationCosigners.length; i++) {
+                require(cosigners.index[registrationCosigners[i]] != 0, "invalid cosigner");
+            }
+        }
+    }
+
+    function _sendInstructions(
+        bytes32 _instructionId,
+        address _teeId,
+        address _owner,
+        string memory _url,
+        bytes32 _opCommand,
+        bytes memory _message
+    )
+        internal
+    {
+        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
+        teeMachines[0] = TeeMachine({ teeId: _teeId, owner: _owner, url: _url });
+        teeInstructions.sendInstructions{value: msg.value}(
+            _instructionId,
+            teeMachines,
+            flareSystemsManager.getCurrentRewardEpochId(),
+            REG_OP_TYPE,
+            _opCommand,
+            _message
+        );
     }
 
     function _validateAvailabilityCheckTs(address _teeId, uint256 _availabilityCheckTs) internal view {
-        require(_availabilityCheckTs < block.timestamp, "availability check timestamp in the future");
-        require(_availabilityCheckTs >= teeStates[_teeId].lastStatusChangeTs,
-            "availability check timestamp too old");
-        require(_availabilityCheckTs + availabilityCheckProofValiditySeconds > block.timestamp,
-            "availability check validity expired");
+        require(
+            _availabilityCheckTs < block.timestamp &&
+            _availabilityCheckTs + availabilityCheckProofValiditySeconds > block.timestamp &&
+            _availabilityCheckTs >= teeStates[_teeId].lastStatusChangeTs,
+            "AC timestamp invalid"
+        );
     }
 
     function _getTeeState(address _teeId) internal view returns(TeeState storage _teeState) {
@@ -601,16 +676,16 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         require(_teeState.owner != address(0), "tee not found");
     }
 
-    function _getTeeMachineWithAttestationData(address _teeId, TeeState storage teeState)
+    function _getTeeMachineWithAttestationData(address _teeId, TeeState storage _teeState)
         internal view
         returns(TeeMachineWithAttestationData memory)
     {
         return TeeMachineWithAttestationData({
             teeId: _teeId,
-            owner: teeState.owner,
-            url: teeState.url,
-            codeHash: teeState.codeHash,
-            platform: teeState.platform
+            owner: _teeState.owner,
+            url: _teeState.url,
+            codeHash: _teeState.codeHash,
+            platform: _teeState.platform
         });
     }
 
@@ -621,7 +696,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         internal view
     {
         require(teeVersionManager.isCodeHashPlatformSupported(_codeHash, _platform),
-            "code hash or platform not supported");
+            "version not supported");
     }
 
     function _areTeeMachinesCompatible(
@@ -647,12 +722,31 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
             "fee too low");
     }
 
-    function _getTeeMachines(TeeMachine memory _teeMachine)
+    function _checkOnlyOwner(address _teeId) internal view {
+        require(msg.sender == teeStates[_teeId].owner, "only owner");
+    }
+
+    function _checkTeeStatus(TeeStatus _actualStatus, TeeStatus _expectedStatus)
         internal pure
-        returns(ITeeRegistry.TeeMachine[] memory)
     {
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
-        teeMachines[0] = _teeMachine;
-        return teeMachines;
+        require(_actualStatus == _expectedStatus, "invalid tee status");
+    }
+
+    function _validateAvailabilityCheckStatus(
+        ITeeAvailabilityCheck.AvailabilityCheckStatus _status
+    )
+        internal pure
+    {
+        require(_status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK, "AC status invalid");
+    }
+
+    function _validateDuration(
+        uint256 _duration,
+        uint256 _minDuration,
+        uint256 _maxDuration
+    )
+        internal pure
+    {
+        require(_minDuration <= _duration && _duration <= _maxDuration, "invalid duration");
     }
 }

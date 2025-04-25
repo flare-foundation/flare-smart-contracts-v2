@@ -365,11 +365,14 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     const proof = {
       relayMessage: "0x", // TODO
       teeSignatures: [],
+      cosignerSignatures: [],
       data: {
         attestationType: web3.utils.utf8ToHex("TeeAvailabilityCheck").padEnd(66, "0"),
         sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
         thresholdBIPS: "0",
         timestamp: (await time.latest()-1).toString(),
+        cosigners: [],
+        cosignersThreshold: "0",
         requestBody: {
           teeMachine: {
             teeId: TEE_IDS[i],

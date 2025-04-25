@@ -11,6 +11,8 @@ interface IFtdcHub {
     struct FtdcProve {
         ITeeRegistry.TeeMachineWithAttestationData[] teeMachines;
         uint16 thresholdBIPS;
+        address[] cosigners;
+        uint256 cosignersThreshold;
         bytes attestationRequest;
     }
 
@@ -19,15 +21,19 @@ interface IFtdcHub {
 
     /**
      * Requests an attestation.
-     * @param _thresholdBIPS The threshold in BIPS.
-     * @param _numberOfTees The number of TEEs.
-     * @param _teeIds The TEE ids.
+     * @param _thresholdBIPS The threshold in BIPS (optional).
+     * @param _numberOfTees The number of TEEs (optional).
+     * @param _teeIds The TEE ids (optional).
+     * @param _cosigners The cosigners (optional).
+     * @param _cosignersThreshold The cosigners threshold - must be 0 if cosigners are not provided.
      * @param _attestationRequest The attestation request.
      */
     function requestAttestation(
         uint16 _thresholdBIPS,
         uint256 _numberOfTees,
         address[] memory _teeIds,
+        address[] memory _cosigners,
+        uint256 _cosignersThreshold,
         bytes calldata _attestationRequest
     )
         external payable;

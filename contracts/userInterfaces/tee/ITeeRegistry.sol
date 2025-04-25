@@ -35,7 +35,26 @@ interface ITeeRegistry {
         TeeMachineWithAttestationData newTeeMachine;
     }
 
-    event AvailabilityCheckValidityExtended(address indexed teeId, uint256 endTs);
+    event CosignersSet(
+        address[] cosigners,
+        uint256 cosignersThreshold
+    );
+
+    event NewOwnerProposed(
+        address indexed teeId,
+        address indexed oldOwner,
+        address indexed newOwner
+    );
+
+    event NewOwnerConfirmed(
+        address indexed teeId,
+        address indexed newOwner
+    );
+
+    event AvailabilityCheckValidityExtended(
+        address indexed teeId,
+        uint256 endTs
+    );
 
     event TeeMachineRegistered(
         address indexed teeId,
@@ -177,6 +196,15 @@ interface ITeeRegistry {
         external;
 
     /**
+     * Returns the list of FTDC cosigners and their threshold used for the TEE machine registration.
+     * @return _cosigners The list of cosigners.
+     * @return _cosignersThreshold The cosigners threshold.
+     */
+    function getCosigners()
+        external view
+        returns(address[] memory _cosigners, uint256 _cosignersThreshold);
+
+    /**
      * Get the status of a TEE machine, if replication is in progress it will return the status of the new TEE machine.
      * @param _teeId The TEE machine id.
      * @return The status of the TEE machine.
@@ -214,11 +242,11 @@ interface ITeeRegistry {
 
     /**
      * Checks if the TEE machine platforms are compatible.
-     * @param _teeId The TEE machine id.
-     * @param _backupTeeIds The backup TEE machine ids.
+     * @param _teeId1 The first TEE machine id.
+     * @param _teeId2 The second TEE machine id.
      * @return True if the platforms are compatible.
      */
-    function areTeeMachinesCompatible(address _teeId, address[] calldata _backupTeeIds)
+    function areTeeMachinesCompatible(address _teeId1, address _teeId2)
         external view
         returns(bool);
 

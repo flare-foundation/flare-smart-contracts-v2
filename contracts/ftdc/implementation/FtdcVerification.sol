@@ -62,9 +62,34 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
             );
             require(teeRegistry.getTeeMachineStatus(teeId) == ITeeRegistry.TeeStatus.PRODUCTION, "TEE not active");
             for (uint256 j = 0; j < i; j++) {
-                require(_signingTeeIds[j] != teeId, "duplicate TEE id");
+                require(_signingTeeIds[j] != teeId, "duplicated TEE id");
             }
             _signingTeeIds[i] = teeId;
+        }
+    }
+
+    /**
+     * @inheritdoc IFtdcVerification
+     */
+    function verifyCosignerSignatures(
+        Signature[] calldata _signatures,
+        bytes32 _messageHash
+    )
+        external pure returns(address[] memory _cosigners)
+    {
+        _cosigners = new address[](_signatures.length);
+        for (uint256 i = 0; i < _signatures.length; i++) {
+            Signature calldata signature = _signatures[i];
+            address cosigner = ECDSA.recover(
+                MessageHashUtils.toEthSignedMessageHash(_messageHash),
+                signature.v,
+                signature.r,
+                signature.s
+            );
+            for (uint256 j = 0; j < i; j++) {
+                require(_cosigners[j] != cosigner, "duplicated cosigner");
+            }
+            _cosigners[i] = cosigner;
         }
     }
 

@@ -63,6 +63,8 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
         uint16 _thresholdBIPS,
         uint256 _numberOfTees,
         address[] memory _teeIds,
+        address[] memory _cosigners,
+        uint256 _cosignersThreshold,
         bytes calldata _attestationRequest
     )
         external payable
@@ -71,6 +73,7 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
             "threshold invalid");
         require(_numberOfTees == 0 || _teeIds.length == 0 || _numberOfTees == _teeIds.length,
             "numberOfTees and teeIds invalid");
+        require(_cosigners.length >= _cosignersThreshold, "cosigners threshold invalid");
         if (_teeIds.length == 0) {
             if (_numberOfTees == 0) {
                 _numberOfTees = defaultNumberOfTees;
@@ -89,6 +92,8 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
         FtdcProve memory message = FtdcProve({
             teeMachines: new ITeeRegistry.TeeMachineWithAttestationData[](_teeIds.length),
             thresholdBIPS: _thresholdBIPS,
+            cosigners: _cosigners,
+            cosignersThreshold: _cosignersThreshold,
             attestationRequest: _attestationRequest
         });
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](_teeIds.length);

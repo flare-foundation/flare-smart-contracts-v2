@@ -98,7 +98,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
         require(_shamirThreshold > 0 && _shamirThreshold <= _backupTeeIds.length, "invalid shamir threshold");
         _checkTeeStatus(_teeId);
         _checkTeeStatuses(_backupTeeIds);
-        require(teeRegistry.areTeeMachinesCompatible(_teeId, _backupTeeIds), "tee machines not compatible");
+        _checkTeeMachinesCompatibility(_teeId, _backupTeeIds);
         require(_isKeyAvailable(_teeId, _walletId, _keyId), "key not available");
         _checkFee(KEY_MACHINE_BACKUP, _teeId, _backupTeeIds);
         KeyMachineBackup memory message = KeyMachineBackup({
@@ -143,7 +143,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
         _checkTeeStatus(_teeId);
         _checkTeeStatuses(_backupTeeIds);
         bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_walletId));
-        require(teeRegistry.areTeeMachinesCompatible(_teeId, _backupTeeIds), "tee machines not compatible");
+        _checkTeeMachinesCompatibility(_teeId, _backupTeeIds);
         _checkFee(KEY_MACHINE_RESTORE, _teeId, _backupTeeIds);
         KeyMachineRestore memory message = KeyMachineRestore({
             teeMachine: teeRegistry.getTeeMachineWithAttestationData(_teeId),
@@ -396,5 +396,16 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
             teeWalletProjectManager.getBackupManager(projectId) == msg.sender,
             "only owner or backup manager"
         );
+    }
+
+    function _checkTeeMachinesCompatibility(
+        address _teeId,
+        address[] memory _backupTeeIds
+    )
+        internal view
+    {
+        for(uint256 i = 0; i < _backupTeeIds.length; i++) {
+            require(teeRegistry.areTeeMachinesCompatible(_teeId, _backupTeeIds[i]), "tee machines not compatible");
+        }
     }
 }

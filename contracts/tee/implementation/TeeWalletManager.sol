@@ -118,7 +118,13 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
         require(_adminsPublicKeys.length >= _adminsThreshold, "not enough admins");
         require(_adminsThreshold > 0, "invalid admins threshold");
         for (uint256 i = 0; i < _adminsPublicKeys.length; i++) {
-            _checkPublicKeyValidity(_adminsPublicKeys[i]);
+            PublicKey calldata pk = _adminsPublicKeys[i];
+            // check public key validity
+            _checkPublicKeyValidity(pk);
+            // check for duplicates
+            for (uint256 j = 0; j < i; j++) {
+                require(_adminsPublicKeys[j].x != pk.x || _adminsPublicKeys[j].y != pk.y, "duplicated public key");
+            }
         }
         TeeWalletState storage wallet = wallets[_walletId];
         _checkWalletStatus(wallet.status, WalletStatus.CREATED);
@@ -163,10 +169,20 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
     )
         external onlyOwner(_walletId)
     {
-        require(_cosigners.length >= _cosignersThreshold, "not enough cosigners");
-        require(_cosigners.length == 0 || _cosignersThreshold > 0, "invalid cosigners threshold");
+        require(
+            _cosigners.length >= _cosignersThreshold &&
+            (_cosigners.length == 0 || _cosignersThreshold > 0),
+            "invalid threshold"
+        );
         TeeWalletState storage wallet = wallets[_walletId];
         _checkWalletStatus(wallet.status, WalletStatus.CREATED);
+        for (uint256 i = 0; i < _cosigners.length; i++) {
+            require(_cosigners[i] != address(0), "invalid cosigner");
+            // check for duplicates
+            for (uint256 j = 0; j < i; j++) {
+                require(_cosigners[j] != _cosigners[i], "duplicated cosigner");
+            }
+        }
         wallet.cosigners = _cosigners;
         wallet.cosignersThreshold = _cosignersThreshold;
         emit WalletCosignersSet(_walletId, _cosigners, _cosignersThreshold);

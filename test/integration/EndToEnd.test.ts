@@ -1319,11 +1319,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             const proof = {
                 relayMessage: "0x", // TODO
                 teeSignatures: [],
+                cosignerSignatures: [],
                 data: {
                     attestationType: web3.utils.utf8ToHex("TeeAvailabilityCheck").padEnd(66, "0"),
                     sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
                     thresholdBIPS: "0",
                     timestamp: (await time.latest()).toString(),
+                    cosigners: [],
+                    cosignersThreshold: "0",
                     requestBody: {
                         teeMachine: {
                             teeId: TEE_IDS[i],
@@ -1475,11 +1478,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             const proof = {
                 relayMessage: "0x", // TODO
                 teeSignatures: [],
+                cosignerSignatures: [],
                 data: {
                     attestationType: web3.utils.utf8ToHex("TeeKeyExistence").padEnd(66, "0"),
                     sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
                     thresholdBIPS: "0",
                     timestamp: (await time.latest()).toString(),
+                    cosigners: [],
+                    cosignersThreshold: "0",
                     requestBody: {
                         teeId: TEE_IDS[i%2],
                         walletId: WALLET1_ID,
@@ -1522,11 +1528,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             const proof = {
                 relayMessage: "0x", // TODO
                 teeSignatures: [],
+                cosignerSignatures: [],
                 data: {
                     attestationType: web3.utils.utf8ToHex("TeeKeyExistence").padEnd(66, "0"),
                     sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
                     thresholdBIPS: "0",
                     timestamp: (await time.latest()).toString(),
+                    cosigners: [],
+                    cosignersThreshold: "0",
                     requestBody: {
                         teeId: TEE_IDS[i%2],
                         walletId: WALLET2_ID,

@@ -29,6 +29,8 @@ interface ITeeAvailabilityCheck {
      * @param sourceId Extracted from the request.
      * @param thresholdBIPS Extracted from the request (event).
      * @param timestamp Extracted from the request (block timestamp).
+     * @param cosigners Extracted from the request (event).
+     * @param cosignersThreshold Extracted from the request (event).
      * @param requestBody Extracted from the request.
      * @param responseBody Data defining the response. The verification rules for the construction of the
      * response body and the type are defined per specific `attestationType`.
@@ -38,6 +40,8 @@ interface ITeeAvailabilityCheck {
         bytes32 sourceId;
         uint16 thresholdBIPS;
         uint64 timestamp;
+        address[] cosigners;
+        uint256 cosignersThreshold;
         RequestBody requestBody;
         ResponseBody responseBody;
     }
@@ -46,11 +50,13 @@ interface ITeeAvailabilityCheck {
      * @notice Toplevel proof
      * @param relayMessage Relay message used for verification on the relay contract - signatures of data providers.
      * @param teeSignatures Signatures of the TEEs.
+     * @param cosignerSignatures Signatures of the cosigners.
      * @param data Attestation response.
      */
     struct Proof {
         bytes relayMessage;
         Signature[] teeSignatures;
+        Signature[] cosignerSignatures;
         Response data;
     }
 

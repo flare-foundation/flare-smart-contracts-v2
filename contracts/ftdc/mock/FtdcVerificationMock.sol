@@ -71,6 +71,31 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
     }
 
     /**
+     * @inheritdoc IFtdcVerification
+     */
+    function verifyCosignerSignatures(
+        Signature[] calldata _signatures,
+        bytes32 _messageHash
+    )
+        external pure returns(address[] memory _cosigners)
+    {
+        _cosigners = new address[](_signatures.length);
+        for (uint256 i = 0; i < _signatures.length; i++) {
+            Signature calldata signature = _signatures[i];
+            address cosigner = ECDSA.recover(
+                MessageHashUtils.toEthSignedMessageHash(_messageHash),
+                signature.v,
+                signature.r,
+                signature.s
+            );
+            for (uint256 j = 0; j < i; j++) {
+                require(_cosigners[j] != cosigner, "duplicated cosigner");
+            }
+            _cosigners[i] = cosigner;
+        }
+    }
+
+    /**
      * Implementation of the AddressUpdatable abstract method.
      * @dev It can be overridden if other contracts are needed.
      */

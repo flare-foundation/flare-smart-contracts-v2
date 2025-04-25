@@ -186,6 +186,8 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
             0,
             0,
             teeIds,
+            new address[](0),
+            0,
             bytes.concat(TEE_KEY_EXISTENCE_ATTESTATION_TYPE, TEE_SOURCE_ID, abi.encode(requestBody))
         );
     }
@@ -505,13 +507,16 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     function _validateKeyExistenceProof(ITeeKeyExistence.Proof calldata _proof)
         internal
     {
+        require(
+            _proof.data.thresholdBIPS == 0 &&
+            _proof.data.attestationType == TEE_KEY_EXISTENCE_ATTESTATION_TYPE &&
+            _proof.data.sourceId == TEE_SOURCE_ID,
+            "invalid attestation"
+        );
         require(_proof.data.responseBody.publicKey.length > 0, "invalid public key");
         bytes32 walletId = _proof.data.requestBody.walletId;
         bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(walletId));
         require(_proof.data.responseBody.opType == opType, "invalid op type");
-        require(_proof.data.thresholdBIPS == 0, "random threshold not supported");
-        require(_proof.data.attestationType == TEE_KEY_EXISTENCE_ATTESTATION_TYPE, "invalid attestation type");
-        require(_proof.data.sourceId == TEE_SOURCE_ID, "invalid source id");
 
         // response must be signed by the tee machine, so that it confirms the key existence
         address[] memory teeIds = ftdcVerification.verifyTeeSignatures(

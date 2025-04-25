@@ -162,17 +162,17 @@ contract FtdcHubTest is Test {
 
     function testRequestAttestationRevertThresholdInvalid() public {
         vm.expectRevert("threshold invalid");
-        ftdcHub.requestAttestation(minThresholdBIPS - 1, 1, new address[](0), "");
+        ftdcHub.requestAttestation(minThresholdBIPS - 1, 1, new address[](0), new address[](0), 0, "");
 
         vm.expectRevert("threshold invalid");
-        ftdcHub.requestAttestation(1e4 + 1, 1, new address[](0), "");
+        ftdcHub.requestAttestation(1e4 + 1, 1, new address[](0), new address[](0), 0, "");
     }
 
     function testRequestAttestationRevertTeesInvalid() public {
         vm.expectRevert("numberOfTees and teeIds invalid");
         teeIds = new address[](1);
         teeIds[0] = makeAddr("teeId");
-        ftdcHub.requestAttestation(minThresholdBIPS, 2, teeIds, "");
+        ftdcHub.requestAttestation(minThresholdBIPS, 2, teeIds, new address[](0), 0, "");
     }
 
     function testRequestAttestationRevertTeeNotAvailable() public {
@@ -181,7 +181,7 @@ contract FtdcHubTest is Test {
         teeIds = new address[](1);
         teeIds[0] = teeId;
         vm.expectRevert("tee machine not available");
-        ftdcHub.requestAttestation(minThresholdBIPS, 1, teeIds, "");
+        ftdcHub.requestAttestation(minThresholdBIPS, 1, teeIds, new address[](0), 0, "");
     }
 
     function testRequestAttestationRevertFeeTooLow() public {
@@ -191,7 +191,7 @@ contract FtdcHubTest is Test {
         teeIds[0] = teeId;
         _mockCalculateFeeByTeeIds(teeIds, 15);
         vm.expectRevert("fee to low");
-        ftdcHub.requestAttestation{value: requestFee + 15 - 1} (minThresholdBIPS, 1, teeIds, "");
+        ftdcHub.requestAttestation{value: requestFee + 15 - 1} (minThresholdBIPS, 1, teeIds, new address[](0), 0, "");
     }
 
     // list of teeIds provided
@@ -211,6 +211,8 @@ contract FtdcHubTest is Test {
         IFtdcHub.FtdcProve memory message = IFtdcHub.FtdcProve({
             teeMachines: teeMachinesWithAttestationData,
             thresholdBIPS: minThresholdBIPS,
+            cosigners: new address[](0),
+            cosignersThreshold: 0,
             attestationRequest: attestationRequest
         });
         vm.expectEmit();
@@ -223,7 +225,9 @@ contract FtdcHubTest is Test {
             abi.encode(message),
             requestFee + 15
         );
-        ftdcHub.requestAttestation{value: requestFee + 15} (minThresholdBIPS, 0, teeIds, attestationRequest);
+        ftdcHub.requestAttestation{value: requestFee + 15} (
+            minThresholdBIPS, 0, teeIds, new address[](0), 0, attestationRequest
+        );
     }
 
     // list of teeIds not provided and number is also not (it will take default)
@@ -251,6 +255,8 @@ contract FtdcHubTest is Test {
         IFtdcHub.FtdcProve memory message = IFtdcHub.FtdcProve({
             teeMachines: teeMachinesWithAttestationData,
             thresholdBIPS: minThresholdBIPS,
+            cosigners: new address[](0),
+            cosignersThreshold: 0,
             attestationRequest: attestationRequest
         });
         vm.expectEmit();
@@ -264,7 +270,7 @@ contract FtdcHubTest is Test {
             requestFee + 15
         );
         ftdcHub.requestAttestation{value: requestFee + 15} (
-            minThresholdBIPS, 0, new address[](0), attestationRequest
+            minThresholdBIPS, 0, new address[](0), new address[](0), 0, attestationRequest
         );
     }
 
@@ -293,6 +299,8 @@ contract FtdcHubTest is Test {
         IFtdcHub.FtdcProve memory message = IFtdcHub.FtdcProve({
             teeMachines: teeMachinesWithAttestationData,
             thresholdBIPS: minThresholdBIPS,
+            cosigners: new address[](0),
+            cosignersThreshold: 0,
             attestationRequest: attestationRequest
         });
         vm.expectEmit();
@@ -306,7 +314,7 @@ contract FtdcHubTest is Test {
             requestFee + 15
         );
         ftdcHub.requestAttestation{value: requestFee + 15} (
-            minThresholdBIPS, 2, new address[](0), attestationRequest
+            minThresholdBIPS, 2, new address[](0), new address[](0), 0, attestationRequest
         );
     }
 
