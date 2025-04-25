@@ -353,9 +353,8 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
         require(msg.value >= teeFeeCalculator.calculateFeeByTeeIds(WALLET_OP_TYPE, RESUME, teeIds), "fee too low");
 
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](numOfKeys);
-        (, uint64 memory keyIds, uint64 keyIdCounter) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
+        (, uint64[] memory keyIds, ) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
         for (uint256 i = 0; i < numOfKeys; i++) {
-            require(keyIdCounter > _keysData[i].keyId, "invalid key id");
             bool found = false;
             for (uint256 j = 0; j < keyIds.length; j++) {
                 if (keyIds[j] == _keysData[i].keyId) {
