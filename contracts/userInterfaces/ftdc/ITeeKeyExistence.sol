@@ -3,6 +3,7 @@ pragma solidity >=0.7.6 <0.9;
 
 import "../tee/ITeeRegistry.sol";
 import "../ISignature.sol";
+import "../IPublicKey.sol";
 
 bytes32 constant TEE_KEY_EXISTENCE_ATTESTATION_TYPE = bytes32("TeeKeyExistence");
 
@@ -75,11 +76,25 @@ interface ITeeKeyExistence {
      * @param publicKey Public key of the address.
      * @param restored True if the key was restored, false if generated on the TEE machine.
      * @param addressStr Address for the public key.
+     * @param adminsPublicKeys Public keys of the admins.
+     * @param adminsThreshold Admins threshold.
+     * @param cosigners Cosigners of the wallet.
+     * @param cosignersThreshold Cosigners threshold.
+     * @param opTypeConstants Operation type constants.
+     * @param pausingAddresses Addresses that can pause the wallet.
+     * @param opTypeSettings Operation type settings.
      */
     struct ResponseBody {
         bytes32 opType;
         bytes publicKey;
         bool restored;
         string addressStr;
+        PublicKey[] adminsPublicKeys;
+        uint64 adminsThreshold;
+        address[] cosigners;
+        uint64 cosignersThreshold;
+        bytes opTypeConstants;
+        address[] pausingAddresses;
+        bytes opTypeSettings;
     }
 }

@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../tee/ITeeRegistry.sol";
-
 /**
  * FtdcHub interface.
  */
 interface IFtdcHub {
 
     struct FtdcProve {
-        ITeeRegistry.TeeMachineWithAttestationData[] teeMachines;
+        address[] teeIds;
         uint16 thresholdBIPS;
         address[] cosigners;
         uint64 cosignersThreshold;

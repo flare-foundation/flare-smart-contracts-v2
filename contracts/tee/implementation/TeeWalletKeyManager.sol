@@ -105,7 +105,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     )
         external onlyOwner(_walletId)
     {
-        require(_multisigThreshold > 0, "invalid multisig threshold");
+        require(_multisigThreshold > 0, "invalid threshold");
         _checkWalletStatus(_walletId, ITeeWalletManager.WalletStatus.INITIALIZED);
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         keys.multisigThreshold = _multisigThreshold;
@@ -151,14 +151,8 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
         bytes32 instructionId = keccak256(abi.encode(
             WALLET_OP_TYPE, KEY_GENERATE, _walletId, _keyId
         ));
-        teeInstructions.sendInstructions{value: msg.value}(
-            instructionId,
-            _getTeeMachines(_teeId),
-            flareSystemsManager.getCurrentRewardEpochId(),
-            WALLET_OP_TYPE,
-            KEY_GENERATE,
-            abi.encode(message)
-        );
+
+        _sendInstructions(instructionId, _teeId, KEY_GENERATE, abi.encode(message));
     }
 
     /**
@@ -264,7 +258,6 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     {
         _checkTeeStatus(_teeId);
         TeeWalletKeysState storage keys = walletKeys[_walletId];
-        require(keys.keyIdCounter > _keyId, "invalid key id");
         KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
         require(keyDefinition.publicKey.length > 0, "invalid key id");
         _checkFee(KEY_DELETE, _teeId);
@@ -295,14 +288,8 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
         bytes32 instructionId = keccak256(abi.encode(
             WALLET_OP_TYPE, KEY_DELETE, _walletId, _keyId, keyDeleteCounter[_walletId][_keyId]++
         ));
-        teeInstructions.sendInstructions{value: msg.value}(
-            instructionId,
-            _getTeeMachines(_teeId),
-            flareSystemsManager.getCurrentRewardEpochId(),
-            WALLET_OP_TYPE,
-            KEY_DELETE,
-            abi.encode(message)
-        );
+
+        _sendInstructions(instructionId, _teeId, KEY_DELETE, abi.encode(message));
     }
 
     /**
@@ -316,7 +303,6 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
         onlyOwnerOrBackupManager(_walletId)
     {
         TeeWalletKeysState storage keys = walletKeys[_walletId];
-        require(keys.keyIdCounter > _keyId, "invalid key id");
         KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
         require(keyDefinition.publicKey.length > 0, "invalid key id");
         address[] storage teeIds = keyDefinition.teeIds;
@@ -367,7 +353,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
                 unavailableKeyIds[unavailableKeyIdsCounter++] = keyId;
             }
         }
-        require(threshold >= keys.multisigThreshold, "not enough keys/tees available");
+        require(threshold >= keys.multisigThreshold, "threshold not met");
         _receivingTees = new ITeeRegistry.TeeMachine[](count);
         _teeIdKeyIdPairs = new TeeIdKeyIdPair[](count);
         for (uint256 i = 0; i < count; i++) {
@@ -499,8 +485,10 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     }
 
     function _setKeyExistenceProofValidity(uint256 _keyExistenceProofValiditySeconds) internal {
-        require(_keyExistenceProofValiditySeconds >= 1 minutes && _keyExistenceProofValiditySeconds <= 1 days,
-            "invalid duration");
+        require(
+            _keyExistenceProofValiditySeconds >= 1 minutes && _keyExistenceProofValiditySeconds <= 1 days,
+            "invalid duration"
+        );
         keyExistenceProofValiditySeconds = _keyExistenceProofValiditySeconds;
     }
 
@@ -513,10 +501,36 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
             _proof.data.sourceId == TEE_SOURCE_ID,
             "invalid attestation"
         );
+
         require(_proof.data.responseBody.publicKey.length > 0, "invalid public key");
         bytes32 walletId = _proof.data.requestBody.walletId;
         bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(walletId));
         require(_proof.data.responseBody.opType == opType, "invalid op type");
+
+        (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold) =
+            teeWalletManager.getWalletAdminsAndThreshold(walletId);
+        require(_proof.data.responseBody.adminsPublicKeys.length == _adminsPublicKeys.length, "lengths mismatch");
+        require(_proof.data.responseBody.adminsThreshold == _adminsThreshold, "invalid threshold");
+        for (uint256 i = 0; i < _adminsPublicKeys.length; i++) {
+            require(
+                _proof.data.responseBody.adminsPublicKeys[i].x == _adminsPublicKeys[i].x &&
+                _proof.data.responseBody.adminsPublicKeys[i].y == _adminsPublicKeys[i].y,
+                "invalid public key"
+            );
+        }
+        (address[] memory _cosigners, uint64 _cosignersThreshold) =
+            teeWalletManager.getWalletCosignersAndThreshold(walletId);
+        require(_proof.data.responseBody.cosigners.length == _cosigners.length, "lengths mismatch");
+        require(_proof.data.responseBody.cosignersThreshold == _cosignersThreshold, "invalid threshold");
+        for (uint256 i = 0; i < _cosigners.length; i++) {
+            require(_proof.data.responseBody.cosigners[i] == _cosigners[i], "invalid address");
+        }
+
+        bytes memory opTypeConstants = teeWalletManager.getOpTypeConstants(walletId);
+        require(
+            keccak256(_proof.data.responseBody.opTypeConstants) == keccak256(opTypeConstants),
+            "invalid op type constants"
+        );
 
         // response must be signed by the tee machine, so that it confirms the key existence
         address[] memory teeIds = ftdcVerification.verifyTeeSignatures(
@@ -534,11 +548,34 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
             "too old signing policy");
     }
 
-    function _validateKeyExistenceTs(uint256 _timestamp)
+    function _sendInstructions(
+        bytes32 _instructionId,
+        address _teeId,
+        bytes32 _opCommand,
+        bytes memory _message
+    )
+        internal
+    {
+        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
+        teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
+        teeInstructions.sendInstructions{value: msg.value}(
+            _instructionId,
+            teeMachines,
+            flareSystemsManager.getCurrentRewardEpochId(),
+            WALLET_OP_TYPE,
+            _opCommand,
+            _message
+        );
+    }
+
+    function _validateKeyExistenceTs(uint256 _keyExistenceTs)
         internal view
     {
-        require(_timestamp < block.timestamp, "timestamp in the future");
-        require(_timestamp + keyExistenceProofValiditySeconds > block.timestamp, "key existence proof expired");
+        require(
+            _keyExistenceTs < block.timestamp &&
+            _keyExistenceTs + keyExistenceProofValiditySeconds > block.timestamp,
+            "timestamp invalid"
+        );
     }
 
     function _checkTeeStatus(address _teeId)
@@ -556,19 +593,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     {
         address[] memory teeIds = new address[](1);
         teeIds[0] = _teeId;
-        require(
-            msg.value >= teeFeeCalculator.calculateFeeByTeeIds(WALLET_OP_TYPE, _opCommand, teeIds, new address[](0)),
-            "fee too low"
-        );
-    }
-
-    function _getTeeMachines(address _teeId)
-        internal view
-        returns (ITeeRegistry.TeeMachine[] memory)
-    {
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
-        teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
-        return teeMachines;
+        require(msg.value >= teeFeeCalculator.calculateFeeByTeeIds(WALLET_OP_TYPE, _opCommand, teeIds), "fee too low");
     }
 
     function _checkOnlyOwner(bytes32 _walletId)

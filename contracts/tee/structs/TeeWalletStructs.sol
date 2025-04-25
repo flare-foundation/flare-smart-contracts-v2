@@ -12,12 +12,6 @@ interface TeeWalletManagerStructs {
 
     function keyDeleteStruct(ITeeWalletKeyManager.KeyDelete calldata) external;
 
-    function keyMachineBackupStruct(ITeeWalletBackupManager.KeyMachineBackup calldata) external;
-
-    function keyMachineRestoreStruct(ITeeWalletBackupManager.KeyMachineRestore calldata) external;
-
-    function keyMachineBackupRemoveStruct(ITeeWalletBackupManager.KeyMachineBackupRemove calldata) external;
-
     function keyDataProviderRestoreStruct(ITeeWalletBackupManager.KeyDataProviderRestore calldata) external;
 
     function setPausingAddressesStruct(ITeeWalletManager.SetPausingAddresses calldata) external;

@@ -170,8 +170,7 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
         external onlyOwner(_walletId)
     {
         require(
-            _cosigners.length >= _cosignersThreshold &&
-            (_cosigners.length == 0 || _cosignersThreshold > 0),
+            _cosigners.length >= _cosignersThreshold && (_cosigners.length == 0 || _cosignersThreshold > 0),
             "invalid threshold"
         );
         TeeWalletState storage wallet = wallets[_walletId];
@@ -351,8 +350,7 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
         for (uint256 i = 0; i < numOfKeys; i++) {
             teeIds[i] = _keysData[i].teeId;
         }
-        require(msg.value >= teeFeeCalculator.calculateFeeByTeeIds
-            (WALLET_OP_TYPE, RESUME, teeIds, new address[](0)), "fee too low");
+        require(msg.value >= teeFeeCalculator.calculateFeeByTeeIds(WALLET_OP_TYPE, RESUME, teeIds), "fee too low");
 
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](numOfKeys);
         (, uint64 memory keyIds, uint64 keyIdCounter) = teeWalletKeyManager.getWalletKeysInfo(_walletId);

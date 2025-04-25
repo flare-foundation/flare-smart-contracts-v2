@@ -69,10 +69,14 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
     )
         external payable
     {
-        require(_thresholdBIPS == 0 || (minThresholdBIPS <= _thresholdBIPS && _thresholdBIPS <= MAX_BIPS),
-            "threshold invalid");
-        require(_numberOfTees == 0 || _teeIds.length == 0 || _numberOfTees == _teeIds.length,
-            "numberOfTees and teeIds invalid");
+        require(
+            _thresholdBIPS == 0 || (minThresholdBIPS <= _thresholdBIPS && _thresholdBIPS <= MAX_BIPS),
+            "threshold invalid"
+        );
+        require(
+            _numberOfTees == 0 || _teeIds.length == 0 || _numberOfTees == _teeIds.length,
+            "numberOfTees and teeIds invalid"
+        );
         require(_cosigners.length >= _cosignersThreshold, "cosigners threshold invalid");
         if (_teeIds.length == 0) {
             if (_numberOfTees == 0) {
@@ -83,14 +87,15 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
             // check tee status
             for (uint256 i = 0; i < _teeIds.length; i++) {
                 require(teeRegistry.getTeeMachineStatus(_teeIds[i]) != ITeeRegistry.TeeStatus.PAUSED_FOR_UPGRADE,
-                    "tee machine not available");
+                    "tee machine not available"
+                );
             }
         }
-        uint256 fee = teeFeeCalculator.calculateFeeByTeeIds(FTDC_OP_TYPE, PROVE, _teeIds, new address[](0)) +
+        uint256 fee = teeFeeCalculator.calculateFeeByTeeIds(FTDC_OP_TYPE, PROVE, _teeIds) +
             ftdcRequestFeeConfigurations.getRequestFee(_attestationRequest);
         require(msg.value >= fee, "fee to low");
         FtdcProve memory message = FtdcProve({
-            teeMachines: new ITeeRegistry.TeeMachineWithAttestationData[](_teeIds.length),
+            teeIds: _teeIds,
             thresholdBIPS: _thresholdBIPS,
             cosigners: _cosigners,
             cosignersThreshold: _cosignersThreshold,
@@ -98,12 +103,7 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
         });
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](_teeIds.length);
         for (uint256 i = 0; i < _teeIds.length; i++) {
-            message.teeMachines[i] = teeRegistry.getTeeMachineWithAttestationData(_teeIds[i]);
-            teeMachines[i] = ITeeRegistry.TeeMachine({
-                teeId: _teeIds[i],
-                owner: message.teeMachines[i].owner,
-                url: message.teeMachines[i].url
-            });
+            teeMachines[i] = teeRegistry.getTeeMachine(_teeIds[i]);
         }
         bytes32 instructionId = keccak256(abi.encode(
             FTDC_OP_TYPE, PROVE, _attestationRequest, attestationRequestCounter++ // TODO

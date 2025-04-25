@@ -244,6 +244,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         decimals: number;
     };
 
+    let [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[10].privateKey.slice(2));
+    let [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[11].privateKey.slice(2));
+    const adminsPublicKeys1 = [{x : x1, y : y1}, {x : x2, y : y2}];
+    [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[12].privateKey.slice(2));
+    [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[13].privateKey.slice(2));
+    const adminsPublicKeys2 = [{x : x1, y : y1}, {x : x2, y : y2}];
+
+    let tempSigningPolicyEncoded: string;
+
     const RANDOM_ROOT = web3.utils.keccak256("root");
     const RANDOM_ROOT2 = web3.utils.keccak256("root2");
 
@@ -1328,13 +1337,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                     cosigners: [],
                     cosignersThreshold: "0",
                     requestBody: {
-                        teeMachine: {
-                            teeId: TEE_IDS[i],
-                            owner: TEE_OWNERS[i],
-                            url: TEE_URLS[i],
-                            codeHash: TEE_CODE_HASH,
-                            platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
-                        },
+                        teeId: TEE_IDS[i],
+                        url: TEE_URLS[i],
+                        codeHash: TEE_CODE_HASH,
+                        platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
                         teeGovernanceHash: governanceHash,
                         rewardEpochId: rewardEpochId,
                     },
@@ -1386,10 +1392,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             walletId: WALLET1_ID,
             projectId: PROJECT1_ID
         });
-        let [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[10].privateKey.slice(2));
-        let [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[11].privateKey.slice(2));
 
-        const adminsPublicKeys1 = [{x : x1, y : y1}, {x : x2, y : y2}];
         tx = await teeWalletManager.setAdmins(WALLET1_ID, adminsPublicKeys1, 2, { from: TEE_WALLET_OWNERS[0] });
         expectEvent(tx, "WalletAdminsSet", {
             walletId: WALLET1_ID,
@@ -1418,10 +1421,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             walletId: WALLET2_ID,
             projectId: PROJECT2_ID
         });
-        [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[12].privateKey.slice(2));
-        [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[13].privateKey.slice(2));
 
-        const adminsPublicKeys2 = [{x : x1, y : y1}, {x : x2, y : y2}];
         tx = await teeWalletManager.setAdmins(WALLET2_ID, adminsPublicKeys2, 1, { from: TEE_WALLET_OWNERS[1] });
         expectEvent(tx, "WalletAdminsSet", {
             walletId: WALLET2_ID,
@@ -1495,7 +1495,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                         opType: web3.utils.utf8ToHex("XRP").padEnd(66, "0"),
                         publicKey: xrpPublicKeys[i],
                         restored: false,
-                        addressStr: xrpAddresses[i]
+                        addressStr: xrpAddresses[i],
+                        adminsPublicKeys: adminsPublicKeys1,
+                        adminsThreshold: "2",
+                        cosigners: [],
+                        cosignersThreshold: "0",
+                        opTypeConstants: "0x",
+                        pausingAddresses: [],
+                        opTypeSettings: "0x"
                     }
                 }
             }
@@ -1511,6 +1518,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 addressStr: xrpAddresses[i]
             });
         }
+
+        const opTypeConstants = web3.eth.abi.encodeParameters(["uint256"], [14]);
 
         for (let i = 0; i < 4; i++) {
             let tx = await teeWalletKeyManager.addKey(TEE_IDS[i%2], WALLET2_ID, { value: "10", from: TEE_WALLET_OWNERS[1] });
@@ -1545,7 +1554,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                         opType: web3.utils.utf8ToHex("EVM").padEnd(66, "0"),
                         publicKey: publicKey,
                         restored: false,
-                        addressStr: addressStr
+                        addressStr: addressStr,
+                        adminsPublicKeys: adminsPublicKeys2,
+                        adminsThreshold: "1",
+                        cosigners: [accounts[14]],
+                        cosignersThreshold: "1",
+                        opTypeConstants: opTypeConstants,
+                        pausingAddresses: [],
+                        opTypeSettings: "0x"
                     }
                 }
             }

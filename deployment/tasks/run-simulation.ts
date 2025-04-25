@@ -374,13 +374,10 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
         cosigners: [],
         cosignersThreshold: "0",
         requestBody: {
-          teeMachine: {
-            teeId: TEE_IDS[i],
-            owner: teeOwnerAccount.address,
-            url: TEE_URLS[i],
-            codeHash: TEE_CODE_HASH,
-            platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
-          },
+          teeId: TEE_IDS[i],
+          url: TEE_URLS[i],
+          codeHash: TEE_CODE_HASH,
+          platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
           teeGovernanceHash: governanceHash,
           rewardEpochId: rewardEpochId,
         },

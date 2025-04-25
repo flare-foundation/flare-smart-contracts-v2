@@ -118,8 +118,8 @@ contract FtdcHubTest is Test {
         urls[0] = "url1";
         urls[1] = "url2";
 
-        _mockGetTeeMachineWithAttestationData(teeIds[0], owners[0], urls[0]);
-        _mockGetTeeMachineWithAttestationData(teeIds[1], owners[1], urls[1]);
+        _mockGetTeeMachine(teeIds[0], owners[0], urls[0]);
+        _mockGetTeeMachine(teeIds[1], owners[1], urls[1]);
     }
 
     function testSetMinThresholdBIPS() public {
@@ -205,11 +205,10 @@ contract FtdcHubTest is Test {
         _mockGetCurrentRewardEpochId(123);
         bytes memory attestationRequest = "attestationRequest";
         bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, attestationRequest, 0));
-        (ITeeRegistry.TeeMachine[] memory teeMachines,
-            ITeeRegistry.TeeMachineWithAttestationData[] memory teeMachinesWithAttestationData) = _getTeeMachines(2);
+        (ITeeRegistry.TeeMachine[] memory teeMachines, address[] memory teeMachineIds) = _getTeeMachines(2);
 
         IFtdcHub.FtdcProve memory message = IFtdcHub.FtdcProve({
-            teeMachines: teeMachinesWithAttestationData,
+            teeIds: teeMachineIds,
             thresholdBIPS: minThresholdBIPS,
             cosigners: new address[](0),
             cosignersThreshold: 0,
@@ -249,11 +248,10 @@ contract FtdcHubTest is Test {
         _mockGetCurrentRewardEpochId(123);
         bytes memory attestationRequest = "attestationRequest";
         bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, attestationRequest, 0));
-        (ITeeRegistry.TeeMachine[] memory teeMachines,
-            ITeeRegistry.TeeMachineWithAttestationData[] memory teeMachinesWithAttestationData) = _getTeeMachines(1);
+        (ITeeRegistry.TeeMachine[] memory teeMachines, address[] memory teeMachineIds) = _getTeeMachines(1);
 
         IFtdcHub.FtdcProve memory message = IFtdcHub.FtdcProve({
-            teeMachines: teeMachinesWithAttestationData,
+            teeIds: teeMachineIds,
             thresholdBIPS: minThresholdBIPS,
             cosigners: new address[](0),
             cosignersThreshold: 0,
@@ -293,11 +291,10 @@ contract FtdcHubTest is Test {
         _mockGetCurrentRewardEpochId(123);
         bytes memory attestationRequest = "attestationRequest";
         bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, attestationRequest, 0));
-        (ITeeRegistry.TeeMachine[] memory teeMachines,
-            ITeeRegistry.TeeMachineWithAttestationData[] memory teeMachinesWithAttestationData) = _getTeeMachines(2);
+        (ITeeRegistry.TeeMachine[] memory teeMachines, address[] memory teeMachineIds) = _getTeeMachines(2);
 
         IFtdcHub.FtdcProve memory message = IFtdcHub.FtdcProve({
-            teeMachines: teeMachinesWithAttestationData,
+            teeIds: teeMachineIds,
             thresholdBIPS: minThresholdBIPS,
             cosigners: new address[](0),
             cosignersThreshold: 0,
@@ -337,8 +334,7 @@ contract FtdcHubTest is Test {
                 ITeeFeeCalculator.calculateFeeByTeeIds.selector,
                 FTDC_OP_TYPE,
                 PROVE,
-                _teeIds,
-                new address[](0)
+                _teeIds
             ),
             abi.encode(_fee)
         );
@@ -352,19 +348,17 @@ contract FtdcHubTest is Test {
         );
     }
 
-    function _mockGetTeeMachineWithAttestationData(address _teeId, address _owner, string memory _url) internal {
+    function _mockGetTeeMachine(address _teeId, address _owner, string memory _url) internal {
         vm.mockCall(
             mockTeeRegistry,
             abi.encodeWithSelector(
-                ITeeRegistry.getTeeMachineWithAttestationData.selector,
+                ITeeRegistry.getTeeMachine.selector,
                 _teeId
             ),
-            abi.encode(ITeeRegistry.TeeMachineWithAttestationData({
+            abi.encode(ITeeRegistry.TeeMachine({
                 teeId: _teeId,
                 owner: _owner,
-                url: _url,
-                codeHash: bytes32(0),
-                platform: bytes32(0)
+                url: _url
             }))
         );
     }
@@ -389,12 +383,11 @@ contract FtdcHubTest is Test {
 
     function _getTeeMachines(uint256 _num) internal view returns (
         ITeeRegistry.TeeMachine[] memory,
-        ITeeRegistry.TeeMachineWithAttestationData[] memory
+        address[] memory
     ) {
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](_num);
 
-        ITeeRegistry.TeeMachineWithAttestationData[] memory teeMachinesWithAttestationData =
-            new ITeeRegistry.TeeMachineWithAttestationData[](_num);
+        address[] memory teeMachineIds = new address[](_num);
 
         for (uint256 i = 0; i < _num; i++) {
             teeMachines[i] = ITeeRegistry.TeeMachine({
@@ -403,15 +396,10 @@ contract FtdcHubTest is Test {
                 url: urls[i]
             });
 
-            teeMachinesWithAttestationData[i] = ITeeRegistry.TeeMachineWithAttestationData({
-                teeId: teeIds[i],
-                owner: owners[i],
-                url: urls[i],
-                codeHash: bytes32(0),
-                platform: bytes32(0)
-            });
+            teeMachineIds[i] = teeIds[i];
         }
-        return (teeMachines, teeMachinesWithAttestationData);
+
+        return (teeMachines, teeMachineIds);
 
     }
 

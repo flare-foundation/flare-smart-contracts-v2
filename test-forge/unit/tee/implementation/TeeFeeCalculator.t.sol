@@ -115,18 +115,15 @@ contract TeeFeeCalculatorTest is Test {
         testSetOperationFees();
 
         address[] memory teeIds = new address[](2);
-        address[] memory backupTeeIds = new address[](2);
         teeIds[0] = makeAddr("teeId1");
         teeIds[1] = makeAddr("teeId2");
-        backupTeeIds[0] = makeAddr("backupTeeId1");
-        backupTeeIds[1] = makeAddr("backupTeeId2");
 
-        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("XRP"), bytes32("PAY"), teeIds, backupTeeIds),
-            100 * (teeIds.length + backupTeeIds.length));
-        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("BTC"), bytes32("REISSUE"), teeIds, backupTeeIds),
-            200 * (teeIds.length + backupTeeIds.length));
+        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("XRP"), bytes32("PAY"), teeIds),
+            100 * teeIds.length);
+        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("BTC"), bytes32("REISSUE"), teeIds),
+            200 * teeIds.length);
         // no fee set
-        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("BTC"), bytes32("PAY"), teeIds, backupTeeIds), 0);
+        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("BTC"), bytes32("PAY"), teeIds), 0);
     }
 
 }

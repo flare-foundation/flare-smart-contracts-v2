@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../tee/ITeeRegistry.sol";
 import "../ISignature.sol";
-
 
 bytes32 constant TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE = bytes32("TeeAvailabilityCheck");
 
@@ -62,11 +60,18 @@ interface ITeeAvailabilityCheck {
 
     /**
      * @notice Request body for ITeeAvailabilityCheck attestation type
-     * @param teeMachine TEE machine with attestation data.
+     * @param teeId Id of the TEE.
+     * @param url URL of the TEE.
+     * @param codeHash Code hash of the TEE.
+     * @param platform Platform of the TEE.
+     * @param teeGovernanceHash Hash of the TEE governance.
      * @param rewardEpochId Reward epoch id.
      */
     struct RequestBody {
-        ITeeRegistry.TeeMachineWithAttestationData teeMachine;
+        address teeId;
+        string url;
+        bytes32 codeHash;
+        bytes32 platform;
         bytes32 teeGovernanceHash;
         uint24 rewardEpochId;
     }

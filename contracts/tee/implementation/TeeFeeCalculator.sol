@@ -72,13 +72,12 @@ contract TeeFeeCalculator is ITeeFeeCalculator, Governed, AddressUpdatable {
     function calculateFeeByTeeIds(
         bytes32 _opType,
         bytes32 _opCommand,
-        address[] memory _teeIds,
-        address[] memory _backupTeeIds
+        address[] memory _teeIds
 
     )
         external view returns (uint256)
     {
-        return operationFee[_opType][_opCommand] * (_teeIds.length + _backupTeeIds.length);
+        return operationFee[_opType][_opCommand] * _teeIds.length;
     }
 
     /**

@@ -21,17 +21,9 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     AddressUpdatable, UUPSUpgradeable {
 
     bytes32 public constant WALLET_OP_TYPE = bytes32("WALLET");
-    bytes32 public constant KEY_MACHINE_BACKUP = bytes32("KEY_MACHINE_BACKUP");
-    bytes32 public constant KEY_MACHINE_RESTORE = bytes32("KEY_MACHINE_RESTORE");
-    bytes32 public constant KEY_MACHINE_BACKUP_REMOVE = bytes32("KEY_MACHINE_BACKUP_REMOVE");
     bytes32 public constant KEY_DATA_PROVIDER_RESTORE_INIT = bytes32("KEY_DATA_PROVIDER_RESTORE_INIT");
     bytes32 public constant KEY_DATA_PROVIDER_RESTORE = bytes32("KEY_DATA_PROVIDER_RESTORE");
 
-    mapping(bytes32 walletId => mapping(uint64 keyId => uint64)) private machineBackupCounter;
-    mapping(bytes32 walletId => mapping(uint64 keyId =>
-        mapping(uint64 backupId => uint256))) private machineRestoreCounter;
-    mapping(bytes32 walletId => mapping(uint64 keyId =>
-        mapping(uint64 backupId => uint256))) private machineBackupRemoveCounter;
     mapping(bytes32 walletId => mapping(uint64 keyId =>
         mapping (bytes32 opCommand => uint256))) private dataProviderRestoreCounter;
 
@@ -49,11 +41,6 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     ITeeInstructions public teeInstructions;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
-
-    modifier onlyOwner(bytes32 _walletId) {
-        _checkOnlyOwner(_walletId);
-        _;
-    }
 
     modifier onlyOwnerOrBackupManager(bytes32 _walletId) {
         _checkOnlyOwnerOrBackupManager(_walletId);
@@ -80,134 +67,6 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     {
         GovernedBase.initialise(_governanceSettings, _initialGovernance);
         AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
-    }
-
-    /**
-     * @inheritdoc ITeeWalletBackupManager
-     */
-    function machineBackup(
-        address _teeId,
-        bytes32 _walletId,
-        uint64 _keyId,
-        uint64 _shamirThreshold,
-        address[] calldata _backupTeeIds
-    )
-        external payable
-        onlyOwnerOrBackupManager(_walletId)
-    {
-        require(_shamirThreshold > 0 && _shamirThreshold <= _backupTeeIds.length, "invalid shamir threshold");
-        _checkTeeStatus(_teeId);
-        _checkTeeStatuses(_backupTeeIds);
-        _checkTeeMachinesCompatibility(_teeId, _backupTeeIds);
-        require(_isKeyAvailable(_teeId, _walletId, _keyId), "key not available");
-        _checkFee(KEY_MACHINE_BACKUP, _teeId, _backupTeeIds);
-        KeyMachineBackup memory message = KeyMachineBackup({
-            teeMachine: teeRegistry.getTeeMachineWithAttestationData(_teeId),
-            walletId: _walletId,
-            keyId: _keyId,
-            backupId: machineBackupCounter[_walletId][_keyId]++,
-            shamirThreshold: _shamirThreshold,
-            backupTeeMachines: new ITeeRegistry.TeeMachineWithAttestationData[](_backupTeeIds.length)
-        });
-        for (uint256 i = 0; i < _backupTeeIds.length; i++) {
-            message.backupTeeMachines[i] = teeRegistry.getTeeMachineWithAttestationData(_backupTeeIds[i]);
-        }
-        bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, KEY_MACHINE_BACKUP, _walletId, _keyId, message.backupId
-        ));
-        teeInstructions.sendInstructions{value: msg.value}(
-            instructionId,
-            _getTeeMachines(_teeId),
-            flareSystemsManager.getCurrentRewardEpochId(),
-            WALLET_OP_TYPE,
-            KEY_MACHINE_BACKUP,
-            abi.encode(message)
-        );
-    }
-
-    /**
-     * @inheritdoc ITeeWalletBackupManager
-     */
-    function machineRestore(
-        address _teeId,
-        bytes32 _walletId,
-        uint64 _keyId,
-        uint64 _backupId,
-        address[] calldata _backupTeeIds
-    )
-        external payable
-        onlyOwnerOrBackupManager(_walletId)
-    {
-        require(machineBackupCounter[_walletId][_keyId] > _backupId, "invalid key or backup id");
-        require(!_isKeyAvailable(_teeId, _walletId, _keyId), "key already available");
-        _checkTeeStatus(_teeId);
-        _checkTeeStatuses(_backupTeeIds);
-        bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_walletId));
-        _checkTeeMachinesCompatibility(_teeId, _backupTeeIds);
-        _checkFee(KEY_MACHINE_RESTORE, _teeId, _backupTeeIds);
-        KeyMachineRestore memory message = KeyMachineRestore({
-            teeMachine: teeRegistry.getTeeMachineWithAttestationData(_teeId),
-            walletId: _walletId,
-            keyId: _keyId,
-            backupId: _backupId,
-            opType: opType,
-            publicKey: teeWalletKeyManager.getWalletKeyPublicKey(_walletId, _keyId),
-            backupTeeMachines: new ITeeRegistry.TeeMachineWithAttestationData[](_backupTeeIds.length)
-        });
-        for (uint256 i = 0; i < _backupTeeIds.length; i++) {
-            message.backupTeeMachines[i] = teeRegistry.getTeeMachineWithAttestationData(_backupTeeIds[i]);
-        }
-        bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, KEY_MACHINE_RESTORE, _walletId, _keyId, _backupId,
-            machineRestoreCounter[_walletId][_keyId][_backupId]++
-        ));
-        teeInstructions.sendInstructions{value: msg.value}(
-            instructionId,
-            _getTeeMachines(_teeId),
-            flareSystemsManager.getCurrentRewardEpochId(),
-            WALLET_OP_TYPE,
-            KEY_MACHINE_RESTORE,
-            abi.encode(message)
-        );
-    }
-
-    /**
-     * @inheritdoc ITeeWalletBackupManager
-     */
-    function machineBackupRemove(
-        bytes32 _walletId,
-        uint64 _keyId,
-        uint64 _backupId,
-        address[] calldata _teeIds
-    )
-        external payable
-        onlyOwner(_walletId)
-    {
-        require(machineBackupCounter[_walletId][_keyId] > _backupId, "invalid key or backup id");
-        _checkTeeStatuses(_teeIds);
-        _checkFee(KEY_MACHINE_BACKUP_REMOVE, _teeIds, new address[](0));
-        KeyMachineBackupRemove memory message = KeyMachineBackupRemove({
-            walletId: _walletId,
-            keyId: _keyId,
-            backupId: _backupId,
-            teeIds: _teeIds
-        });
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](_teeIds.length);
-        for (uint256 i = 0; i < _teeIds.length; i++) {
-            teeMachines[i] = teeRegistry.getTeeMachine(_teeIds[i]);
-        }
-        bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, KEY_MACHINE_BACKUP_REMOVE, _walletId, _keyId, _backupId,
-            machineBackupRemoveCounter[_walletId][_keyId][_backupId]++
-        ));
-        teeInstructions.sendInstructions{value: msg.value}(
-            instructionId,
-            teeMachines,
-            flareSystemsManager.getCurrentRewardEpochId(),
-            WALLET_OP_TYPE,
-            KEY_MACHINE_BACKUP_REMOVE,
-            abi.encode(message)
-        );
     }
 
     /**
@@ -304,7 +163,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
         bytes32 opType = teeWalletProjectManager.getOpType(projectId);
         bytes memory publicKey = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, _keyId);
         require(publicKey.length > 0, "key not confirmed");
-        _checkFee(_opCommand, _teeId, new address[](0));
+        _checkFee(_opCommand, _teeId);
         KeyDataProviderRestore memory message = KeyDataProviderRestore({
             teeId: _teeId,
             walletId: _walletId,
@@ -359,32 +218,13 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
 
     function _checkFee(
         bytes32 _opCommand,
-        address _teeId,
-        address[] memory _backupTeeIds
+        address _teeId
     )
         internal view
     {
         address[] memory teeIds = new address[](1);
         teeIds[0] = _teeId;
-        _checkFee(_opCommand, teeIds, _backupTeeIds);
-    }
-
-    function _checkFee(
-        bytes32 _opCommand,
-        address[] memory _teeIds,
-        address[] memory _backupTeeIds
-    )
-        internal view
-    {
-        require(msg.value >= teeFeeCalculator.calculateFeeByTeeIds(WALLET_OP_TYPE, _opCommand, _teeIds, _backupTeeIds),
-            "fee too low");
-    }
-
-    function _checkOnlyOwner(bytes32 _walletId)
-        internal view
-    {
-        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        require(teeWalletProjectManager.getOwner(projectId) == msg.sender, "only owner");
+        require(msg.value >= teeFeeCalculator.calculateFeeByTeeIds(WALLET_OP_TYPE, _opCommand, teeIds), "fee too low");
     }
 
     function _checkOnlyOwnerOrBackupManager(bytes32 _walletId)
@@ -396,16 +236,5 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
             teeWalletProjectManager.getBackupManager(projectId) == msg.sender,
             "only owner or backup manager"
         );
-    }
-
-    function _checkTeeMachinesCompatibility(
-        address _teeId,
-        address[] memory _backupTeeIds
-    )
-        internal view
-    {
-        for(uint256 i = 0; i < _backupTeeIds.length; i++) {
-            require(teeRegistry.areTeeMachinesCompatible(_teeId, _backupTeeIds[i]), "tee machines not compatible");
-        }
     }
 }

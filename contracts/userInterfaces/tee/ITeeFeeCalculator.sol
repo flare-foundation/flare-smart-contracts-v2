@@ -42,19 +42,16 @@ interface ITeeFeeCalculator {
         external view returns (uint256 _fee);
 
     /**
-     * Calculates the fee for the operation, list of tee ids that will receive
-     instructions and list of tee ids where backup shares are/will be stored.
+     * Calculates the fee for the operation and list of tee ids that will receive instructions.
      * @param _opType The operation type.
      * @param _opCommand The operation command.
      * @param _teeIds The list of tee ids that will receive instructions.
-     * @param _backupTeeIds The list of tee ids where backup shares are/will be stored.
      * @return _fee The calculated fee.
      */
     function calculateFeeByTeeIds(
         bytes32 _opType,
         bytes32 _opCommand,
-        address[] memory _teeIds,
-        address[] memory _backupTeeIds
+        address[] memory _teeIds
     )
         external view returns (uint256 _fee);
 
