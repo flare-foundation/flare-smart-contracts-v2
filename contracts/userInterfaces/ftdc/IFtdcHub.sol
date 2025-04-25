@@ -12,7 +12,7 @@ interface IFtdcHub {
         ITeeRegistry.TeeMachineWithAttestationData[] teeMachines;
         uint16 thresholdBIPS;
         address[] cosigners;
-        uint256 cosignersThreshold;
+        uint64 cosignersThreshold;
         bytes attestationRequest;
     }
 
@@ -33,7 +33,7 @@ interface IFtdcHub {
         uint256 _numberOfTees,
         address[] memory _teeIds,
         address[] memory _cosigners,
-        uint256 _cosignersThreshold,
+        uint64 _cosignersThreshold,
         bytes calldata _attestationRequest
     )
         external payable;

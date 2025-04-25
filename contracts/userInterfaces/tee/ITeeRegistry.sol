@@ -37,7 +37,7 @@ interface ITeeRegistry {
 
     event CosignersSet(
         address[] cosigners,
-        uint256 cosignersThreshold
+        uint64 cosignersThreshold
     );
 
     event NewOwnerProposed(
@@ -202,7 +202,7 @@ interface ITeeRegistry {
      */
     function getCosigners()
         external view
-        returns(address[] memory _cosigners, uint256 _cosignersThreshold);
+        returns(address[] memory _cosigners, uint64 _cosignersThreshold);
 
     /**
      * Get the status of a TEE machine, if replication is in progress it will return the status of the new TEE machine.

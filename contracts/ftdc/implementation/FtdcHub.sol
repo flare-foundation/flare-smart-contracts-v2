@@ -64,7 +64,7 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
         uint256 _numberOfTees,
         address[] memory _teeIds,
         address[] memory _cosigners,
-        uint256 _cosignersThreshold,
+        uint64 _cosignersThreshold,
         bytes calldata _attestationRequest
     )
         external payable

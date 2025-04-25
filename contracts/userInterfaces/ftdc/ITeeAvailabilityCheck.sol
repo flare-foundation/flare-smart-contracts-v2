@@ -41,7 +41,7 @@ interface ITeeAvailabilityCheck {
         uint16 thresholdBIPS;
         uint64 timestamp;
         address[] cosigners;
-        uint256 cosignersThreshold;
+        uint64 cosignersThreshold;
         RequestBody requestBody;
         ResponseBody responseBody;
     }
