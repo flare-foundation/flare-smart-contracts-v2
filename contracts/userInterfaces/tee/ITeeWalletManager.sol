@@ -17,6 +17,7 @@ interface ITeeWalletManager {
     }
     struct SetPausingAddresses {
         bytes32 walletId;
+        uint256 nonce;
         TeeIdKeyIdPair[] teeIdKeyIdPairs;
         address[] pausingAddresses;
     }
@@ -24,7 +25,7 @@ interface ITeeWalletManager {
     struct ResumeKeyData {
         uint64 keyId;
         address teeId;
-        bytes32 nonce;
+        uint256 nonce;
     }
 
     struct Resume {

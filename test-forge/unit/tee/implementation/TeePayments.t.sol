@@ -326,6 +326,7 @@ contract TeePaymentsTest is Test {
         bytes32 instructionId = keccak256(abi.encode(opType, SET_PAYMENT_LIMITS, walletId, 0));
         ITeePayments.SetPaymentLimits memory message = ITeePayments.SetPaymentLimits(
             walletId,
+            0,
             teeIdKeyIdPairs,
             transactionLimit,
             dailyLimit

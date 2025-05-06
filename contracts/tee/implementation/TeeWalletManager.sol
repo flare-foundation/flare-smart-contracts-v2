@@ -314,13 +314,15 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
         (ITeeRegistry.TeeMachine[] memory teeMachines, TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
             teeWalletKeyManager.receivingTeesAndKeys(_walletId);
 
+        uint256 nonce = setPausingAddressesCounter[_walletId]++;
         SetPausingAddresses memory message = SetPausingAddresses({
             walletId: _walletId,
+            nonce: nonce,
             teeIdKeyIdPairs: teeIdKeyIdPairs,
             pausingAddresses: _pausingAddresses
         });
         bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, _walletId, setPausingAddressesCounter[_walletId]++
+            WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, _walletId, nonce
         ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,

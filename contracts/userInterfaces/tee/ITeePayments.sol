@@ -31,6 +31,7 @@ interface ITeePayments {
 
     struct SetPaymentLimits {
         bytes32 walletId;
+        uint256 nonce;
         TeeIdKeyIdPair[] teeIdKeyIdPairs;
         uint256 transactionLimit;
         uint256 dailyLimit;

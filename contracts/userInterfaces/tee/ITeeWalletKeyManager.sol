@@ -27,6 +27,7 @@ interface ITeeWalletKeyManager {
         address teeId;
         bytes32 walletId;
         uint64 keyId;
+        uint256 nonce;
     }
 
     event WalletMultisigThresholdSet(
@@ -134,6 +135,21 @@ interface ITeeWalletKeyManager {
     function receivingTeesAndKeys(bytes32 _walletId)
         external
         returns (ITeeRegistry.TeeMachine[] memory _teeMachines, TeeIdKeyIdPair[] memory _teeIdKeyIdPairs);
+
+    /**
+     * Increases the key nonce for the given tee id and wallet id.
+     * @param _teeId The tee id.
+     * @param _walletId The wallet id.
+     * @param _keyId The key id.
+     * @return _nonce The new nonce.
+     */
+    function increaseKeyNonce(
+        address _teeId,
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        external
+        returns (uint256 _nonce);
 
     /**
      * Returns the list of tee ids that hold the wallet key.

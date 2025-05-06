@@ -21,11 +21,9 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     AddressUpdatable, UUPSUpgradeable {
 
     bytes32 public constant WALLET_OP_TYPE = bytes32("WALLET");
-    bytes32 public constant KEY_DATA_PROVIDER_RESTORE_INIT = bytes32("KEY_DATA_PROVIDER_RESTORE_INIT");
     bytes32 public constant KEY_DATA_PROVIDER_RESTORE = bytes32("KEY_DATA_PROVIDER_RESTORE");
 
-    mapping(bytes32 walletId => mapping(uint64 keyId =>
-        mapping (bytes32 opCommand => uint256))) private dataProviderRestoreCounter;
+    mapping(bytes32 walletId => mapping(uint64 keyId => uint256)) private dataProviderRestoreCounter;
 
     /// TEE registry contract.
     ITeeRegistry public teeRegistry;
@@ -72,31 +70,45 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     /**
      * @inheritdoc ITeeWalletBackupManager
      */
-    function backupRestoreInit(
-        address _teeId,
-        bytes32 _walletId,
-        uint64 _keyId,
-        uint24 _rewardEpochId
-    )
-        external payable
-        onlyOwnerOrBackupManager(_walletId)
-    {
-        _backupRestore(_teeId, _walletId, _keyId, _rewardEpochId, KEY_DATA_PROVIDER_RESTORE_INIT);
-    }
-
-    /**
-     * @inheritdoc ITeeWalletBackupManager
-     */
     function backupRestore(
         address _teeId,
         bytes32 _walletId,
         uint64 _keyId,
-        uint24 _rewardEpochId
+        uint24 _rewardEpochId,
+        string calldata _backupUrl
     )
         external payable
         onlyOwnerOrBackupManager(_walletId)
     {
-        _backupRestore(_teeId, _walletId, _keyId, _rewardEpochId, KEY_DATA_PROVIDER_RESTORE);
+        require(_rewardEpochId <= flareSystemsManager.getCurrentRewardEpochId(), "invalid reward epoch id");
+        _checkTeeStatus(_teeId);
+        require(!_isKeyAvailable(_teeId, _walletId, _keyId), "key already available");
+        bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_walletId));
+        bytes memory publicKey = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, _keyId);
+        require(publicKey.length > 0, "key not confirmed");
+        _checkFee(KEY_DATA_PROVIDER_RESTORE, _teeId);
+        KeyDataProviderRestore memory message = KeyDataProviderRestore({
+            teeId: _teeId,
+            walletId: _walletId,
+            keyId: _keyId,
+            nonce: teeWalletKeyManager.increaseKeyNonce(_teeId, _walletId, _keyId),
+            opType: opType,
+            publicKey: publicKey,
+            rewardEpochId: _rewardEpochId,
+            backupUrl: _backupUrl
+        });
+        bytes32 instructionId = keccak256(abi.encode(
+            WALLET_OP_TYPE, KEY_DATA_PROVIDER_RESTORE, _walletId, _keyId,
+            dataProviderRestoreCounter[_walletId][_keyId]++
+        ));
+        teeInstructions.sendInstructions{value: msg.value}(
+            instructionId,
+            _getTeeMachines(_teeId),
+            flareSystemsManager.getCurrentRewardEpochId(),
+            WALLET_OP_TYPE,
+            KEY_DATA_PROVIDER_RESTORE,
+            abi.encode(message)
+        );
     }
 
     /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
@@ -145,45 +157,6 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
-    }
-
-    function _backupRestore(
-        address _teeId,
-        bytes32 _walletId,
-        uint64 _keyId,
-        uint24 _rewardEpochId,
-        bytes32 _opCommand
-    )
-        internal
-    {
-        require(_rewardEpochId <= flareSystemsManager.getCurrentRewardEpochId(), "invalid reward epoch id");
-        _checkTeeStatus(_teeId);
-        require(!_isKeyAvailable(_teeId, _walletId, _keyId), "key already available");
-        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        bytes32 opType = teeWalletProjectManager.getOpType(projectId);
-        bytes memory publicKey = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, _keyId);
-        require(publicKey.length > 0, "key not confirmed");
-        _checkFee(_opCommand, _teeId);
-        KeyDataProviderRestore memory message = KeyDataProviderRestore({
-            teeId: _teeId,
-            walletId: _walletId,
-            keyId: _keyId,
-            opType: opType,
-            publicKey: publicKey,
-            rewardEpochId: _rewardEpochId
-        });
-        bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, _opCommand, _walletId, _keyId,
-            dataProviderRestoreCounter[_walletId][_keyId][_opCommand]++
-        ));
-        teeInstructions.sendInstructions{value: msg.value}(
-            instructionId,
-            _getTeeMachines(_teeId),
-            flareSystemsManager.getCurrentRewardEpochId(),
-            WALLET_OP_TYPE,
-            _opCommand,
-            abi.encode(message)
-        );
     }
 
     function _isKeyAvailable(address _teeId, bytes32 _walletId, uint64 _keyId) internal view returns(bool) {

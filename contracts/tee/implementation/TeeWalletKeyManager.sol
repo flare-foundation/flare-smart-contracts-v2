@@ -32,6 +32,7 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     struct KeyDefinition {
         bytes publicKey;
         string addressStr;
+        mapping(address teeId => uint256 nonce) nonces;
         address[] teeIds;
     }
 
@@ -283,7 +284,8 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
         KeyDelete memory message = KeyDelete({
             teeId: _teeId,
             walletId: _walletId,
-            keyId: _keyId
+            keyId: _keyId,
+            nonce: ++keyDefinition.nonces[_teeId]
         });
         bytes32 instructionId = keccak256(abi.encode(
             WALLET_OP_TYPE, KEY_DELETE, _walletId, _keyId, keyDeleteCounter[_walletId][_keyId]++
@@ -381,6 +383,23 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
         external onlyGovernance
     {
         _setKeyExistenceProofValidity(_keyExistenceProofValiditySeconds);
+    }
+
+    /**
+     * @inheritdoc ITeeWalletKeyManager
+     */
+    function increaseKeyNonce(
+        address _teeId,
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        external
+        returns (uint256 _nonce)
+    {
+        TeeWalletKeysState storage keys = walletKeys[_walletId];
+        KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
+        require(keyDefinition.publicKey.length > 0, "invalid key id");
+        return ++keyDefinition.nonces[_teeId];
     }
 
     /**

@@ -371,14 +371,16 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         (ITeeRegistry.TeeMachine[] memory teeMachines, TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
             teeWalletKeyManager.receivingTeesAndKeys(_walletId);
 
+        uint256 nonce = setLimitsCounter[_walletId]++;
         SetPaymentLimits memory message = SetPaymentLimits({
             walletId: _walletId,
+            nonce: nonce,
             teeIdKeyIdPairs: teeIdKeyIdPairs,
             transactionLimit: _transactionLimit,
             dailyLimit: _dailyLimit
         });
         bytes32 instructionId = keccak256(abi.encode(
-            opType, SET_PAYMENT_LIMITS, _walletId, setLimitsCounter[_walletId]++
+            opType, SET_PAYMENT_LIMITS, _walletId, nonce
         ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,

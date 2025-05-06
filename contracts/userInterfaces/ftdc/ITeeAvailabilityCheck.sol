@@ -60,7 +60,8 @@ interface ITeeAvailabilityCheck {
 
     /**
      * @notice Request body for ITeeAvailabilityCheck attestation type
-     * @param teeId Id of the TEE.
+     * @param teeId Id of the TEE machine, copied from the old TEE machine in case of replication.
+     * @param initialTeeId Id of the TEE machine generated at the machine startup, it never changes.
      * @param url URL of the TEE.
      * @param codeHash Code hash of the TEE.
      * @param platform Platform of the TEE.
@@ -69,6 +70,7 @@ interface ITeeAvailabilityCheck {
      */
     struct RequestBody {
         address teeId;
+        address initialTeeId;
         string url;
         bytes32 codeHash;
         bytes32 platform;

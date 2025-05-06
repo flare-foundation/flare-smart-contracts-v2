@@ -1338,6 +1338,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                     cosignersThreshold: "0",
                     requestBody: {
                         teeId: TEE_IDS[i],
+                        initialTeeId: TEE_IDS[i],
                         url: TEE_URLS[i],
                         codeHash: TEE_CODE_HASH,
                         platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),

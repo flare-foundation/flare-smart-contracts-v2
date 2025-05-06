@@ -75,10 +75,6 @@ export const TEE_OPERATION_FEES = [
   {opType: "REG", opCommand: "REPLICATE_FROM", feeWei: "1"},
   {opType: "WALLET", opCommand: "KEY_GENERATE", feeWei: "1"},
   {opType: "WALLET", opCommand: "KEY_DELETE", feeWei: "1"},
-  {opType: "WALLET", opCommand: "KEY_MACHINE_BACKUP", feeWei: "1"},
-  {opType: "WALLET", opCommand: "KEY_MACHINE_RESTORE", feeWei: "1"},
-  {opType: "WALLET", opCommand: "KEY_MACHINE_BACKUP_REMOVE", feeWei: "1"},
-  {opType: "WALLET", opCommand: "KEY_DATA_PROVIDER_RESTORE_INIT", feeWei: "1"},
   {opType: "WALLET", opCommand: "KEY_DATA_PROVIDER_RESTORE", feeWei: "1"},
   {opType: "XRP", opCommand: "PAY", feeWei: "1"},
   {opType: "XRP", opCommand: "REISSUE", feeWei: "1"},
@@ -375,6 +371,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
         cosignersThreshold: "0",
         requestBody: {
           teeId: TEE_IDS[i],
+          initialTeeId: TEE_IDS[i],
           url: TEE_URLS[i],
           codeHash: TEE_CODE_HASH,
           platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),

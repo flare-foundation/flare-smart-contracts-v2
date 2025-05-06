@@ -22,6 +22,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     using AddressSet for AddressSet.State;
 
     struct TeeState {
+        address initialTeeId;
         address owner;
         TeeStatus status; // 0: initialized, 1: production, 2: paused, 3: paused_for_upgrade, 4: replicating
         uint64 availabilityCheckValidityEndTs;
@@ -120,6 +121,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         _checkCodeHashPlatformSupported(_codeHash, _platform);
 
         teeStates[_teeId] = TeeState({
+            initialTeeId: _teeId,
             owner: msg.sender,
             status: TeeStatus.INITIALIZED,
             availabilityCheckValidityEndTs: 0,
@@ -248,7 +250,10 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
             teeState.lastStatusChangeTs = block.timestamp;
         }
         _checkFee(TO_PAUSE_FOR_UPGRADE, _teeId);
-        PauseForUpgrade memory message = PauseForUpgrade({ teeId: _teeId });
+        PauseForUpgrade memory message = PauseForUpgrade({
+            teeId: _teeId,
+            initialTeeId: teeState.initialTeeId
+        });
         bytes32 instructionId = keccak256(abi.encode(
             REG_OP_TYPE, TO_PAUSE_FOR_UPGRADE, _teeId, pauseForUpgradeCounter[_teeId]++
         ));
@@ -328,35 +333,36 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
      * @inheritdoc ITeeRegistry
      */
     function confirmReplicate(
-        address _newTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         external
         onlyOwner(_proof.data.requestBody.teeId)
-        onlyOwner(_newTeeId)
+        onlyOwner(_proof.data.requestBody.initialTeeId)
     {
         address oldTeeId = _proof.data.requestBody.teeId;
+        address newTeeId = _proof.data.requestBody.initialTeeId;
         TeeState storage oldTeeState = teeStates[oldTeeId];
         _checkTeeStatus(oldTeeState.status, TeeStatus.PAUSED_FOR_UPGRADE);
-        TeeState storage newTeeState = teeStates[_newTeeId];
+        TeeState storage newTeeState = teeStates[newTeeId];
         _checkTeeStatus(newTeeState.status, TeeStatus.REPLICATING);
         // in case multiple replications are triggered only the last one can be confirmed
-        require(replications[oldTeeId] == _newTeeId, "replication not valid");
+        require(replications[oldTeeId] == newTeeId, "replication not valid");
         _checkCodeHashPlatformSupported(newTeeState.codeHash, newTeeState.platform);
 
         _validateAvailabilityCheckStatus(_proof.data.responseBody.status);
-        _validateAvailabilityCheckTs(_newTeeId, _proof.data.timestamp);
+        _validateAvailabilityCheckTs(newTeeId, _proof.data.timestamp);
         _validateAvailabilityCheckProof(newTeeState, _proof);
         _extendAvailabilityCheckValidity(oldTeeId, oldTeeState, _proof.data.timestamp);
+        oldTeeState.initialTeeId = newTeeId;
         oldTeeState.status = TeeStatus.PRODUCTION;
         oldTeeState.lastStatusChangeTs = block.timestamp;
         oldTeeState.codeHash = newTeeState.codeHash;
         oldTeeState.platform = newTeeState.platform;
         oldTeeState.url = newTeeState.url;
         delete replications[oldTeeId];
-        delete teeStates[_newTeeId];
+        delete teeStates[newTeeId];
         activeTeeIds.add(oldTeeId);
-        emit TeeMachineReplicationConfirmed(oldTeeId, _newTeeId);
+        emit TeeMachineReplicationConfirmed(oldTeeId, newTeeId);
     }
 
     /**
@@ -564,6 +570,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         TeeState storage teeState = _getTeeState(_teeId);
         ITeeAvailabilityCheck.RequestBody memory requestBody = ITeeAvailabilityCheck.RequestBody({
             teeId: _teeId,
+            initialTeeId: teeState.initialTeeId,
             url: teeState.url,
             platform: teeState.platform,
             codeHash: teeState.codeHash,
@@ -621,6 +628,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
             keccak256(bytes(_proof.data.requestBody.url)) == keccak256(bytes(_teeState.url)) &&
             _proof.data.requestBody.codeHash == _teeState.codeHash &&
             _proof.data.requestBody.platform == _teeState.platform &&
+            _proof.data.requestBody.initialTeeId == _teeState.initialTeeId &&
             _proof.data.requestBody.teeGovernanceHash == teeVersionManager.getTeeGovernanceHash(_teeState.codeHash),
             "invalid request body"
         );
