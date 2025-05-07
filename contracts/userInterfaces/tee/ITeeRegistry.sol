@@ -20,6 +20,7 @@ interface ITeeRegistry {
 
     struct TeeMachineWithAttestationData {
         address teeId;
+        address initialTeeId;
         string url;
         bytes32 codeHash;
         bytes32 platform;

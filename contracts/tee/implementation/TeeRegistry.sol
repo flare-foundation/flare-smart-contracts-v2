@@ -708,6 +708,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     {
         return TeeMachineWithAttestationData({
             teeId: _teeId,
+            initialTeeId: _teeState.initialTeeId,
             url: _teeState.url,
             codeHash: _teeState.codeHash,
             platform: _teeState.platform
