@@ -72,34 +72,35 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
      */
     function backupRestore(
         address _teeId,
-        bytes32 _walletId,
-        uint64 _keyId,
-        uint24 _rewardEpochId,
+        BackupId calldata _backupId,
         string calldata _backupUrl
     )
         external payable
-        onlyOwnerOrBackupManager(_walletId)
+        onlyOwnerOrBackupManager(_backupId.walletId)
     {
-        require(_rewardEpochId <= flareSystemsManager.getCurrentRewardEpochId(), "invalid reward epoch id");
-        _checkTeeStatus(_teeId);
-        require(!_isKeyAvailable(_teeId, _walletId, _keyId), "key already available");
-        bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_walletId));
-        bytes memory publicKey = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, _keyId);
+        require(teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
+            "tee machine not available");
+        require(
+            teeRegistry.getTeeMachineStatus(_backupId.teeId) != ITeeRegistry.TeeStatus.INITIALIZED,
+            "invalid tee machine"
+        );
+        require(!_isKeyAvailable(_teeId, _backupId.walletId, _backupId.keyId), "key already available");
+        bytes memory publicKey = teeWalletKeyManager.getWalletKeyPublicKey(_backupId.walletId, _backupId.keyId);
         require(publicKey.length > 0, "key not confirmed");
+        require(keccak256(publicKey) == keccak256(_backupId.publicKey), "invalid public key");
+        bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_backupId.walletId));
+        require(opType == _backupId.opType, "invalid op type");
+        require(_backupId.rewardEpochId <= flareSystemsManager.getCurrentRewardEpochId(), "invalid reward epoch id");
         _checkFee(KEY_DATA_PROVIDER_RESTORE, _teeId);
         KeyDataProviderRestore memory message = KeyDataProviderRestore({
             teeId: _teeId,
-            walletId: _walletId,
-            keyId: _keyId,
-            nonce: teeWalletKeyManager.increaseKeyNonce(_teeId, _walletId, _keyId),
-            opType: opType,
-            publicKey: publicKey,
-            rewardEpochId: _rewardEpochId,
-            backupUrl: _backupUrl
+            backupId: _backupId,
+            backupUrl: _backupUrl,
+            nonce: teeWalletKeyManager.increaseKeyNonce(_teeId, _backupId.walletId, _backupId.keyId)
         });
         bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, KEY_DATA_PROVIDER_RESTORE, _walletId, _keyId,
-            dataProviderRestoreCounter[_walletId][_keyId]++
+            WALLET_OP_TYPE, KEY_DATA_PROVIDER_RESTORE, _backupId.walletId, _backupId.keyId,
+            dataProviderRestoreCounter[_backupId.walletId][_backupId.keyId]++
         ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
@@ -176,17 +177,6 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
         teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
         return teeMachines;
-    }
-
-    function _checkTeeStatus(address _teeId) internal view {
-        require(teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
-            "tee machine not available");
-    }
-
-    function _checkTeeStatuses(address[] memory _teeIds) internal view {
-        for(uint256 i = 0; i < _teeIds.length; i++) {
-            _checkTeeStatus(_teeIds[i]);
-        }
     }
 
     function _checkFee(
