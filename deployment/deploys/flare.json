@@ -268,5 +268,10 @@
     "name": "SFlrCustomFeed",
     "contractName": "SFlrCustomFeed.sol",
     "address": "0xD1002F3820ad32145b868aD889eC7753E3944c8D"
+  },
+  {
+    "name": "USDTSwapper",
+    "contractName": "USDTSwapper.sol",
+    "address": "0xa33EebB9Da61095a8bE132B6AA5CaDF30D7BE947"
   }
 ]
