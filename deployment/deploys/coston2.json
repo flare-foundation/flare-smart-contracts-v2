@@ -263,5 +263,10 @@
     "name": "FtsoV2Implementation",
     "contractName": "FtsoV2.sol",
     "address": "0xA9E744A9dfA9177196816C9B92791065655c74aB"
+  },
+  {
+    "name": "USDTSwapper",
+    "contractName": "USDTSwapper.sol",
+    "address": "0x0B70c0C7A242d4f81D85e9C8384C8AB1593851Cb"
   }
 ]

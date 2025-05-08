@@ -8,7 +8,7 @@ import "../../../mock/IWNatMock.sol";
 import "flare-smart-contracts/contracts/token/interface/IIVPContract.sol";
 import "flare-smart-contracts/contracts/token/interface/IIGovernanceVotePower.sol";
 import "../../../../contracts/userInterfaces/ICChainStake.sol";
-import "../../../mock/ERC20Mock.sol";
+import "../../../../contracts/mock/ERC20Mock.sol";
 
 contract RNatTest is Test {
 
@@ -1004,7 +1004,7 @@ contract RNatTest is Test {
     function testTransferExternalToken() public {
         testClaimRewards1();
         address delAccAddr = address(rNat.getRNatAccount(rewardRecipients1[0]));
-        ERC20Mock token = new ERC20Mock("XTOK", "XToken");
+        ERC20Mock token = new ERC20Mock("XTOK", "XToken", 18);
 
         // Mint tokens
         token.mintAmount(delAccAddr, 100);

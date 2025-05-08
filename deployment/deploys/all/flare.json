@@ -387,5 +387,13 @@
     "addresses": [
       "0xD1002F3820ad32145b868aD889eC7753E3944c8D"
     ]
+  },
+  {
+    "name": "USDTSwapper",
+    "contractName": "USDTSwapper.sol",
+    "addresses": [
+      "0xF51b848fd3fe825398514473BA366E6653EFc142",
+      "0xa33EebB9Da61095a8bE132B6AA5CaDF30D7BE947"
+    ]
   }
 ]
