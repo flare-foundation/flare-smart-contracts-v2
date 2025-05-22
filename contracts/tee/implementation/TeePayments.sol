@@ -30,25 +30,21 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
     }
 
     struct WalletSettings {
-        uint96 maxFee;
-        uint32 maxFeeTolerancePPM;
+        uint128 minFee;
         uint64 batchSize;
         uint64 batchDurationSeconds;
-
-        address controlAddress;
-        uint96 maxControlFee;
     }
 
     struct ReissueTempState {
         string senderAddress;
         TeeIdKeyIdPair[] teeIdKeyIdPairs;
         ITeeRegistry.TeeMachine[] teeMachines;
-        uint32 maxFeeTolerancePPM;
         uint24 currentRewardEpochId;
         uint256 reissueNumber;
         bytes32 instructionId;
         uint256 remainingAmount;
         uint256 amount;
+        uint256 minFee;
         PaymentInstructionMessage message;
     }
 
@@ -142,10 +138,12 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(walletOpType, PAY, walletId), "fee too low");
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(walletId);
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION, "wallet not in production");
-        require(bytes(senderAddresses[walletId]).length > 0, "sender address not set");
+        string memory senderAddress = senderAddresses[walletId];
+        require(bytes(senderAddress).length > 0, "sender address not set");
 
         WalletState storage state = states[walletId];
         WalletSettings storage setting = settings[walletId];
+        require(_paymentInstruction.fee >= setting.minFee, "fee too low");
         uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         // check if new batch should be started
         if (state.batchEndTs < block.timestamp || state.batchCounter >= setting.batchSize ||
@@ -172,14 +170,13 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         PaymentInstructionMessage memory message = PaymentInstructionMessage({
             walletId: walletId,
             teeIdKeyIdPairs: teeIdKeyIdPairs,
-            senderAddress: senderAddresses[walletId],
+            senderAddress: senderAddress,
             recipientAddress: _paymentInstruction.recipientAddress,
             amount: _paymentInstruction.amount,
+            fee: _paymentInstruction.fee,
             paymentReference: _paymentInstruction.paymentReference,
             nonce: state.nonce - 1,
             subNonce: state.subNonce,
-            maxFee: setting.maxFee,
-            maxFeeTolerancePPM: setting.maxFeeTolerancePPM,
             batchEndTs: state.batchEndTs
         });
         ++state.subNonce;
@@ -206,30 +203,39 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         uint64 _nonce,
         uint64 _firstSubNonce,
         PaymentInstruction[] calldata _paymentInstructions,
-        uint96 _fee,
+        uint256[] calldata _fees,
         bool[] calldata _nullify
     )
         external payable
     {
         require(_paymentInstructions.length > 0, "no payment instructions");
-        require(_paymentInstructions.length == _nullify.length, "lengths mismatch");
-        require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, REISSUE, _walletId)
-            * _paymentInstructions.length, "fee too low");
+        require(_paymentInstructions.length == _fees.length && _fees.length == _nullify.length, "lengths mismatch");
+        require(
+            msg.sender == teeWalletProjectManager.getSubmitAddress(teeWalletManager.getWalletProjectId(_walletId)),
+            "only submit address"
+        );
+        require(
+            msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, REISSUE, _walletId) *
+            _paymentInstructions.length,
+            "fee too low"
+        );
         ReissueTempState memory tempState;
         tempState.senderAddress = senderAddresses[_walletId];
         require(bytes(tempState.senderAddress).length > 0, "sender address not set");
-        require(teeWalletManager.getWalletStatus(_walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
-            "wallet not in production");
-        WalletSettings storage setting = settings[_walletId];
-        require(msg.sender == setting.controlAddress, "only control address");
-        require(_fee <= setting.maxControlFee, "fee higher than max control fee");
+        require(
+            teeWalletManager.getWalletStatus(_walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
+            "wallet not in production"
+        );
         WalletState storage state = states[_walletId];
         // check if batch has ended
-        require(_nonce + 1 < state.nonce || _nonce + 1 == state.nonce && block.timestamp > state.batchEndTs,
-            "batch hasn't yet ended");
+        require(
+            _nonce + 1 < state.nonce ||
+            _nonce + 1 == state.nonce && block.timestamp > state.batchEndTs,
+            "batch hasn't yet ended"
+        );
         // check if hash matches
         bytes32 batchHash = keccak256(abi.encode(_paymentInstructions[0], _firstSubNonce));
-        for (uint256 i = 1; i < _paymentInstructions.length; ++i) {
+        for (uint256 i = 1; i < _paymentInstructions.length; i++) {
             batchHash = keccak256(abi.encode(
                 batchHash,
                 _paymentInstructions[i],
@@ -239,7 +245,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         require(hashes[_walletId][_nonce] == batchHash, "batch hash mismatch");
 
         (tempState.teeMachines, tempState.teeIdKeyIdPairs) = teeWalletKeyManager.receivingTeesAndKeys(_walletId);
-        tempState.maxFeeTolerancePPM = setting.maxFeeTolerancePPM;
+        tempState.minFee = settings[_walletId].minFee;
         tempState.currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         tempState.reissueNumber = reissueCounter[_walletId][_nonce]++;
         tempState.instructionId = keccak256(abi.encode(
@@ -247,18 +253,18 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         ));
         // reissue batch
         tempState.remainingAmount = msg.value;
-        for (uint64 i = 0; i < _paymentInstructions.length; ++i) {
+        for (uint64 i = 0; i < _paymentInstructions.length; i++) {
+            require(_fees[i] >= tempState.minFee, "fee too low");
             tempState.message = PaymentInstructionMessage({
                 walletId: _walletId,
                 teeIdKeyIdPairs: tempState.teeIdKeyIdPairs,
                 senderAddress: tempState.senderAddress,
                 recipientAddress: _paymentInstructions[i].recipientAddress,
                 amount: _paymentInstructions[i].amount,
+                fee: _fees[i],
                 paymentReference: _paymentInstructions[i].paymentReference,
                 nonce: _nonce,
                 subNonce: _firstSubNonce + i,
-                maxFee: _fee,
-                maxFeeTolerancePPM: tempState.maxFeeTolerancePPM,
                 batchEndTs: uint64(block.timestamp)
             });
             if (_nullify[i]) {
@@ -276,19 +282,6 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
                 abi.encode(tempState.message)
             );
         }
-    }
-
-    /**
-     * @inheritdoc ITeePayments
-     */
-    function setControlAddress(
-        bytes32 _walletId,
-        address _controlAddress
-    )
-        external onlyWalletOwner(_walletId)
-    {
-        settings[_walletId].controlAddress = _controlAddress;
-        emit ControlAddressSet(_walletId, _controlAddress);
     }
 
     /**
@@ -313,21 +306,16 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
     /**
      * @inheritdoc ITeePayments
      */
-    function setFees(
+    function setMinFee(
         bytes32 _walletId,
-        uint96 _maxFee,
-        uint32 _maxFeeTolerancePPM,
-        uint96 _maxControlFee
+        uint128 _minFee
     )
         external onlyWalletOwner(_walletId)
     {
         WalletSettings storage setting = settings[_walletId];
-        require(_maxFee <= _maxControlFee, "max fee higher than max control fee");
-        require(_maxFee > 0, "max fee zero");
-        setting.maxFee = _maxFee;
-        setting.maxFeeTolerancePPM = _maxFeeTolerancePPM;
-        setting.maxControlFee = _maxControlFee;
-        emit FeesSet(_walletId, _maxFee, _maxFeeTolerancePPM, _maxControlFee);
+        require(_minFee > 0, "min fee zero");
+        setting.minFee = _minFee;
+        emit MinFeeSet(_walletId, _minFee);
     }
 
     /**
@@ -342,9 +330,12 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
     {
         require(bytes(senderAddresses[_walletId]).length == 0, "sender address already set");
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
-        require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
-            walletStatus == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
-        require(settings[_walletId].maxFee > 0, "fees not set");
+        require(
+            walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
+            walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
+            "only production or paused status"
+        );
+        require(settings[_walletId].minFee > 0, "min fee not set");
         senderAddresses[_walletId] = _senderAddress;
         states[_walletId].nonce = _initialNonce;
         emit SenderAddressSet(_walletId, _senderAddress, _initialNonce);
@@ -364,10 +355,15 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         require(teeWalletProjectManager.getOpType(projectId) == opType, "wrong op type");
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
-        require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
-            walletStatus == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
-        require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, SET_PAYMENT_LIMITS, _walletId),
-            "fee too low");
+        require(
+            walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
+            walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
+            "only production or paused status"
+        );
+        require(
+            msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, SET_PAYMENT_LIMITS, _walletId),
+            "fee too low"
+        );
         (ITeeRegistry.TeeMachine[] memory teeMachines, TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
             teeWalletKeyManager.receivingTeesAndKeys(_walletId);
 
@@ -409,26 +405,33 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
     /**
      * @inheritdoc ITeePayments
      */
-    function getWalletSettings(
+    function getBatchSettings(
         bytes32 _walletId
     )
         external view
         returns(
             uint64 _batchSize,
-            uint64 _batchDurationSeconds,
-            uint96 _maxFee,
-            uint32 _maxFeeTolerancePPM,
-            address _controlAddress,
-            uint96 _maxControlFee
+            uint64 _batchDurationSeconds
         )
     {
         WalletSettings storage setting = settings[_walletId];
         _batchSize = setting.batchSize;
         _batchDurationSeconds = setting.batchDurationSeconds;
-        _maxFee = setting.maxFee;
-        _maxFeeTolerancePPM = setting.maxFeeTolerancePPM;
-        _controlAddress = setting.controlAddress;
-        _maxControlFee = setting.maxControlFee;
+    }
+
+    /**
+     * @inheritdoc ITeePayments
+     */
+    function getMinFee(
+        bytes32 _walletId
+    )
+        external view
+        returns (
+            uint128 _minFee
+        )
+    {
+        WalletSettings storage setting = settings[_walletId];
+        _minFee = setting.minFee;
     }
 
     /**

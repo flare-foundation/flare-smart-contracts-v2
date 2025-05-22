@@ -492,20 +492,15 @@ export interface ChainParameters {
     teePauseBeforeUpgradeMinDurationSeconds: integer;
 
     /**
-     * The availability check proof validity duration, in seconds (e.g. 10 minutes).
-     */
-    teeAvailabilityCheckProofValiditySeconds: integer;
-
-    /**
      * The TEE availability check validity duration, in seconds (e.g. 1 day).
      * In order to receive rewards, TEE must be checked for availability at least once in this period.
      */
     teeAvailabilityCheckValidityDurationSeconds: integer;
 
     /**
-     * The key existence proof validity duration, in seconds (e.g. 10 minutes).
+     * The TEE challenge validity duration (used for TEE availability check), in seconds (e.g. 30 minutes).
      */
-    teeKeyExistenceProofValiditySeconds: integer;
+    teeChallengeValidityDurationSeconds: integer;
 
     /**
      * The amount of rewards that are distributed to TEE owners, in PPM (e.g. 10%).

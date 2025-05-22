@@ -8,7 +8,7 @@ import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
-import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
+import "../interface/IITeeWalletKeyManager.sol";
 import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../governance/implementation/GovernedProxyImplementation.sol";
@@ -32,7 +32,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     /// TEE wallet manager contract.
     ITeeWalletManager public teeWalletManager;
     /// TEE wallet key manager contract.
-    ITeeWalletKeyManager public teeWalletKeyManager;
+    IITeeWalletKeyManager public teeWalletKeyManager;
     /// TEE fee calculator contract.
     ITeeFeeCalculator public teeFeeCalculator;
     /// TEE instructions contract.
@@ -78,8 +78,10 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
         external payable
         onlyOwnerOrBackupManager(_backupId.walletId)
     {
-        require(teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
-            "tee machine not available");
+        require(
+            teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
+            "tee machine not available"
+        );
         require(
             teeRegistry.getTeeMachineStatus(_backupId.teeId) != ITeeRegistry.TeeStatus.INITIALIZED,
             "invalid tee machine"
@@ -150,7 +152,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
         teeWalletManager = ITeeWalletManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
-        teeWalletKeyManager = ITeeWalletKeyManager(
+        teeWalletKeyManager = IITeeWalletKeyManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
         teeFeeCalculator = ITeeFeeCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));

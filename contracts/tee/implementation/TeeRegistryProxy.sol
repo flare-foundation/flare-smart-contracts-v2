@@ -11,8 +11,6 @@ contract TeeRegistryProxy is ERC1967Proxy {
         address _initialGovernance,
         address _addressUpdater,
         uint256 _pauseBeforeUpgradeMinDurationSeconds,
-        uint256 _availabilityCheckProofValiditySeconds,
-        uint256 _availabilityCheckValidityDurationSeconds,
         address _implementationAddress
     )
         ERC1967Proxy(_implementationAddress,
@@ -22,9 +20,7 @@ contract TeeRegistryProxy is ERC1967Proxy {
                     _governanceSettings,
                     _initialGovernance,
                     _addressUpdater,
-                    _pauseBeforeUpgradeMinDurationSeconds,
-                    _availabilityCheckProofValiditySeconds,
-                    _availabilityCheckValidityDurationSeconds
+                    _pauseBeforeUpgradeMinDurationSeconds
                 )
             )
         )

@@ -12,6 +12,7 @@ interface ITeePayments {
     struct PaymentInstruction {
         string recipientAddress;
         uint256 amount;
+        uint256 fee;
         bytes32 paymentReference;
     }
 
@@ -21,11 +22,10 @@ interface ITeePayments {
         string senderAddress;
         string recipientAddress;
         uint256 amount;
+        uint256 fee;
         bytes32 paymentReference;
         uint64 nonce;
         uint64 subNonce;
-        uint256 maxFee;
-        uint32 maxFeeTolerancePPM;
         uint64 batchEndTs;
     }
 
@@ -43,16 +43,9 @@ interface ITeePayments {
         uint64 batchDurationSeconds
     );
 
-    event FeesSet(
+    event MinFeeSet(
         bytes32 indexed walletId,
-        uint96 maxFee,
-        uint32 maxFeeTolerancePPM,
-        uint96 maxControlFee
-    );
-
-    event ControlAddressSet(
-        bytes32 indexed walletId,
-        address controlAddress
+        uint128 minFee
     );
 
     event SenderAddressSet(
@@ -80,12 +73,12 @@ interface ITeePayments {
 
     /**
      * Payment reissuance method.
-     * Can only be called by the control address.
+     * Can only be called by the submit address.
      * @param _walletId The wallet id.
      * @param _nonce Batch nonce of the payment instructions to be reissued.
      * @param _firstSubNonce SubNonce of the first payment instruction in the batch.
      * @param _paymentInstructions List of the payment instructions.
-     * @param _fee The new (usually bumped) fee.
+     * @param _fees List of fees for the payment instructions.
      * @param _nullify List of nullification flags for the payment instructions.
      */
     function reissue(
@@ -93,22 +86,10 @@ interface ITeePayments {
         uint64 _nonce,
         uint64 _firstSubNonce,
         PaymentInstruction[] calldata _paymentInstructions,
-        uint96 _fee,
+        uint256[] calldata _fees,
         bool[] calldata _nullify
     )
         external payable;
-
-    /**
-     * Method for setting the control address.
-     * Can only be called by the wallet owner.
-     * @param _walletId The wallet id.
-     * @param _controlAddress The new control address.
-     */
-    function setControlAddress(
-        bytes32 _walletId,
-        address _controlAddress
-    )
-        external;
 
     /**
      * Method for setting the sender address.
@@ -125,18 +106,14 @@ interface ITeePayments {
         external;
 
     /**
-    * Method for setting the fees.
+    * Method for setting the minimum fee.
     * Can only be called by the wallet owner.
     * @param _walletId The wallet id.
-    * @param _maxFee The maximum fee.
-    * @param _maxFeeTolerancePPM The maximum fee tolerance, in parts per million.
-    * @param _maxControlFee The maximum control fee.
+    * @param _minFee The minimum fee.
     */
-    function setFees(
+    function setMinFee(
         bytes32 _walletId,
-        uint96 _maxFee,
-        uint32 _maxFeeTolerancePPM,
-        uint96 _maxControlFee
+        uint128 _minFee
     )
         external;
 
@@ -182,25 +159,30 @@ interface ITeePayments {
     function getSenderAddress(bytes32 _walletId) external view returns (string memory _senderAddress);
 
     /**
-     * Returns wallet's settings.
+     * Returns wallet's batch settings.
      * @param _walletId The wallet id.
      * @return _batchSize The batch size.
      * @return _batchDurationSeconds The batch duration in seconds.
-     * @return _maxFee The maximum fee.
-     * @return _maxFeeTolerancePPM The maximum fee tolerance, in parts per million.
-     * @return _controlAddress The control address.
-     * @return _maxControlFee The maximum control fee.
      */
-    function getWalletSettings(
+    function getBatchSettings(
         bytes32 _walletId
     )
         external view
         returns(
             uint64 _batchSize,
-            uint64 _batchDurationSeconds,
-            uint96 _maxFee,
-            uint32 _maxFeeTolerancePPM,
-            address _controlAddress,
-            uint96 _maxControlFee
+            uint64 _batchDurationSeconds
+        );
+
+    /**
+     * Returns wallet's minimum fee.
+     * @param _walletId The wallet id.
+     * @return _minFee The minimum fee.
+     */
+    function getMinFee(
+        bytes32 _walletId
+    )
+        external view
+        returns (
+            uint128 _minFee
         );
 }

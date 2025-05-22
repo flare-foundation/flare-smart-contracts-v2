@@ -140,12 +140,12 @@ contract TeeInstructionsTest is Test {
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](2);
         teeMachines[0] = ITeeRegistry.TeeMachine({
             teeId: makeAddr("teeId1"),
-            owner: makeAddr("owner1"),
+            teeProxyId: makeAddr("teeProxyId1"),
             url: "url1"
         });
         teeMachines[1] = ITeeRegistry.TeeMachine({
             teeId: makeAddr("teeId2"),
-            owner: makeAddr("owner2"),
+            teeProxyId: makeAddr("teeProxyId2"),
             url: "url2"
         });
         vm.mockCall(

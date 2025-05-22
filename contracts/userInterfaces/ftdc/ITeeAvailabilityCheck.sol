@@ -8,6 +8,7 @@ bytes32 constant TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE = bytes32("TeeAvailabil
 interface ITeeAvailabilityCheck {
 
     enum AvailabilityCheckStatus { OK, OBSOLETE, DATA_MISMATCH, DOWN }
+    enum TeeMachineStatus { ACTIVE, PAUSED, PAUSED_FOR_UPGRADE }
 
     /**
      * @notice Toplevel request
@@ -67,6 +68,7 @@ interface ITeeAvailabilityCheck {
      * @param platform Platform of the TEE.
      * @param teeGovernanceHash Hash of the TEE governance.
      * @param rewardEpochId Reward epoch id.
+     * @param challenge Challenge used for TEE attestation request.
      */
     struct RequestBody {
         address teeId;
@@ -76,13 +78,18 @@ interface ITeeAvailabilityCheck {
         bytes32 platform;
         bytes32 teeGovernanceHash;
         uint24 rewardEpochId;
+        uint256 challenge;
     }
 
     /**
      * @notice Response body for ITeeAvailabilityCheck attestation type
      * @param status Status of the availability check.
+     * @param machineStatus Status of the TEE machine.
+     * @param teeTimestamp Timestamp of the TEE machine.
      */
     struct ResponseBody {
         AvailabilityCheckStatus status;
+        TeeMachineStatus machineStatus;
+        uint64 teeTimestamp;
     }
 }

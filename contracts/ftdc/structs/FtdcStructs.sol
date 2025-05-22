@@ -3,7 +3,6 @@ pragma solidity >=0.7.6 <0.9;
 
 import "../../userInterfaces/ftdc/IFtdcHub.sol";
 import "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
-import "../../userInterfaces/ftdc/ITeeKeyExistence.sol";
 
 
 interface TeeDataConnectorStructs {
@@ -13,8 +12,4 @@ interface TeeDataConnectorStructs {
     function availabilityCheckRequestStruct(ITeeAvailabilityCheck.Request calldata) external;
     function availabilityCheckResponseStruct(ITeeAvailabilityCheck.Response calldata) external;
     function availabilityCheckProofStruct(ITeeAvailabilityCheck.Proof calldata) external;
-
-    function keyExistenceRequestStruct(ITeeKeyExistence.Request calldata) external;
-    function keyExistenceResponseStruct(ITeeKeyExistence.Response calldata) external;
-    function keyExistenceProofStruct(ITeeKeyExistence.Proof calldata) external;
 }

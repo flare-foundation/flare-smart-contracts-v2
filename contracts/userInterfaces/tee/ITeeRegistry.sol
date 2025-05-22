@@ -8,13 +8,11 @@ import "../ftdc/ITeeAvailabilityCheck.sol";
  */
 interface ITeeRegistry {
 
-    enum TeeStatus {INITIALIZED, PRODUCTION, PAUSED, PAUSED_FOR_UPGRADE, REPLICATING}
-
-    enum AvailabilityStatus {OK, OBSOLETE, DATA_MISMATCH, DOWN}
+    enum TeeStatus { INITIALIZED, PRODUCTION, PAUSED_WITH_PROOF, PAUSED, PAUSED_FOR_UPGRADE, REPLICATING }
 
     struct TeeMachine {
         address teeId;
-        address owner;
+        address teeProxyId;
         string url;
     }
 
@@ -36,9 +34,8 @@ interface ITeeRegistry {
         TeeMachineWithAttestationData newTeeMachine;
     }
 
-    event CosignersSet(
-        address[] cosigners,
-        uint64 cosignersThreshold
+    event PauseBeforeUpgradeMinDurationSecondsSet(
+        uint256 pauseBeforeUpgradeMinDurationSeconds
     );
 
     event NewOwnerProposed(
@@ -52,13 +49,9 @@ interface ITeeRegistry {
         address indexed newOwner
     );
 
-    event AvailabilityCheckValidityExtended(
-        address indexed teeId,
-        uint256 endTs
-    );
-
     event TeeMachineRegistered(
         address indexed teeId,
+        address indexed teeProxyId,
         address indexed owner,
         string url,
         bytes32 codeHash,
@@ -88,29 +81,25 @@ interface ITeeRegistry {
         address indexed newTeeId
     );
 
+    event TeeProxyIdSet(
+        address indexed teeId,
+        address indexed teeProxyId
+    );
+
     /**
      * Register a new TEE machine. It also triggers availability check.
      * @param _teeId The TEE machine id.
+     * @param _teeProxyId The TEE proxy id.
      * @param _url The TEE machine URL.
      * @param _codeHash The TEE machine code hash.
      * @param _platform The TEE machine platform.
      */
     function register(
         address _teeId,
+        address _teeProxyId,
         string calldata _url,
         bytes32 _codeHash,
         bytes32 _platform
-    )
-        external payable;
-
-    /**
-     * Request availability check attestation for a TEE machine.
-     * @param _teeId The TEE machine id.
-     * @param _testOnTeeId The TEE machine id to test on.
-     */
-    function requestAvailabilityCheckAttestation(
-        address _teeId,
-        address _testOnTeeId
     )
         external payable;
 
@@ -119,15 +108,6 @@ interface ITeeRegistry {
      * @param _proof The availability check proof.
      */
     function toProduction(
-        ITeeAvailabilityCheck.Proof calldata _proof
-    )
-        external;
-
-    /**
-     * Extend the availability check validity.
-     * @param _proof The availability check proof.
-     */
-    function confirmAvailability(
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         external;
@@ -195,13 +175,12 @@ interface ITeeRegistry {
         external;
 
     /**
-     * Returns the list of FTDC cosigners and their threshold used for the TEE machine registration.
-     * @return _cosigners The list of cosigners.
-     * @return _cosignersThreshold The cosigners threshold.
+     * Set TEE proxy id. Can only be called by the TEE machine owner.
+     * @param _teeId The TEE machine id.
+     * @param _teeProxyId The TEE proxy id.
      */
-    function getCosigners()
-        external view
-        returns(address[] memory _cosigners, uint64 _cosignersThreshold);
+    function setTeeProxyId(address _teeId, address _teeProxyId)
+        external;
 
     /**
      * Get the status of a TEE machine, if replication is in progress it will return the status of the new TEE machine.
@@ -211,6 +190,15 @@ interface ITeeRegistry {
     function getTeeMachineStatus(address _teeId)
         external view
         returns (TeeStatus);
+
+    /**
+     * Get the owner of a TEE machine.
+     * @param _teeId The TEE machine id.
+     * @return The owner address.
+     */
+    function getTeeMachineOwner(address _teeId)
+        external view
+        returns (address);
 
     /**
      * Get TEE machine basic data, if replication is in progress it will return the data of the new TEE machine.

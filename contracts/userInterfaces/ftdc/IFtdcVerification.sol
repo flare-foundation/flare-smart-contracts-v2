@@ -21,6 +21,18 @@ interface IFtdcVerification {
         external returns (uint256 _rewardEpochId);
 
     /**
+     * Verifies the TEE signature.
+     * @param _signature The TEE signature to verify.
+     * @param _messageHash The message hash to verify.
+     * @return _signingTeeId The TEE id of the signing TEE machine.
+     */
+    function verifyTeeSignature(
+        Signature calldata _signature,
+        bytes32 _messageHash
+    )
+        external view returns (address _signingTeeId);
+
+    /**
      * Verifies the TEE signatures.
      * @param _signatures The TEE signatures to verify.
      * @param _messageHash The message hash to verify.

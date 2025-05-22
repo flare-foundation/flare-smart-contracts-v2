@@ -45,6 +45,24 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
     /**
      * @inheritdoc IFtdcVerification
      */
+    function verifyTeeSignature(
+        Signature calldata _signature,
+        bytes32 _messageHash
+    )
+        external view returns (address _signingTeeId)
+    {
+        _signingTeeId = ECDSA.recover(
+            MessageHashUtils.toEthSignedMessageHash(_messageHash),
+            _signature.v,
+            _signature.r,
+            _signature.s
+        );
+        require(teeRegistry.getTeeMachineStatus(_signingTeeId) == ITeeRegistry.TeeStatus.PRODUCTION, "TEE not active");
+    }
+
+    /**
+     * @inheritdoc IFtdcVerification
+     */
     function verifyTeeSignatures(
         Signature[] calldata _signatures,
         bytes32 _messageHash

@@ -124,25 +124,37 @@ contract TeeVersionManager is ITeeVersionManager, GovernedProxyImplementation, A
             TeeUpgradePathState storage upgradePathState = teeUpgrade.upgradePaths.push();
             for (uint256 j = 0; j < upgradePath.sourceVersions.length; j++) {
                 TeeNodeVersion calldata sourceVersion = upgradePath.sourceVersions[j];
-                require(codeHashToVersion[sourceVersion.codeHash].platforms.contains(sourceVersion.platform),
-                    "source codeHash and platform not supported");
-                require(codeHashToVersion[sourceVersion.codeHash].governanceHash == sourceTeeGovernanceHash,
-                    "source governance hash mismatch");
+                require(
+                    codeHashToVersion[sourceVersion.codeHash].platforms.contains(sourceVersion.platform),
+                    "source codeHash and platform not supported"
+                );
+                require(
+                    codeHashToVersion[sourceVersion.codeHash].governanceHash == sourceTeeGovernanceHash,
+                    "source governance hash mismatch"
+                );
                 bytes32 sourceVersionHash = keccak256(abi.encode(sourceVersion));
-                require(!upgradePathState.sourceTeeNodeVersionExists[sourceVersionHash],
-                    "source version already exists");
+                require(
+                    !upgradePathState.sourceTeeNodeVersionExists[sourceVersionHash],
+                    "source version already exists"
+                );
                 upgradePathState.sourceTeeNodeVersionExists[sourceVersionHash] = true;
                 upgradePathState.upgradePath.sourceVersions.push(sourceVersion);
             }
             for (uint256 j = 0; j < upgradePath.targetVersions.length; j++) {
                 TeeNodeVersion calldata targetVersion = upgradePath.targetVersions[j];
-                require(codeHashToVersion[targetVersion.codeHash].platforms.contains(targetVersion.platform),
-                    "target codeHash and platform not supported");
-                require(codeHashToVersion[targetVersion.codeHash].governanceHash == targetTeeGovernanceHash,
-                    "target governance hash mismatch");
+                require(
+                    codeHashToVersion[targetVersion.codeHash].platforms.contains(targetVersion.platform),
+                    "target codeHash and platform not supported"
+                );
+                require(
+                    codeHashToVersion[targetVersion.codeHash].governanceHash == targetTeeGovernanceHash,
+                    "target governance hash mismatch"
+                );
                 bytes32 targetVersionHash = keccak256(abi.encode(targetVersion));
-                require(!upgradePathState.targetTeeNodeVersionExists[targetVersionHash],
-                    "target version already exists");
+                require(
+                    !upgradePathState.targetTeeNodeVersionExists[targetVersionHash],
+                    "target version already exists"
+                );
                 upgradePathState.targetTeeNodeVersionExists[targetVersionHash] = true;
                 upgradePathState.upgradePath.targetVersions.push(targetVersion);
             }

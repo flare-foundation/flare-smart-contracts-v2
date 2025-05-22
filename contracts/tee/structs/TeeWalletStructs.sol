@@ -6,11 +6,17 @@ import "../../userInterfaces/tee/ITeeWalletBackupManager.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
 
 
-interface TeeWalletManagerStructs {
+interface TeeWalletStructs {
 
     function keyGenerateStruct(ITeeWalletKeyManager.KeyGenerate calldata) external;
 
     function keyDeleteStruct(ITeeWalletKeyManager.KeyDelete calldata) external;
+
+    function keyConfigConstantsStruct(ITeeWalletKeyManager.KeyConfigConstants calldata) external;
+
+    function keyConfigSettingsStruct(ITeeWalletKeyManager.KeyConfigSettings calldata) external;
+
+    function keyExistenceStruct(ITeeWalletKeyManager.KeyExistence calldata) external;
 
     function keyDataProviderRestoreStruct(ITeeWalletBackupManager.KeyDataProviderRestore calldata) external;
 

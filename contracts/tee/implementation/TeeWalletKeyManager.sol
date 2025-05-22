@@ -4,22 +4,23 @@ pragma solidity 0.8.20;
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../interface/IITeeWalletManager.sol";
-import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
+import "../interface/IITeeWalletKeyManager.sol";
 import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
+import "../../userInterfaces/tee/ITeeWalletBackupManager.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
-import "../../userInterfaces/ftdc/IFtdcHub.sol";
-import "../../userInterfaces/ftdc/IFtdcVerification.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../interface/IITeeWalletOpTypeConstants.sol";
 import "../../governance/implementation/GovernedProxyImplementation.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * TeeWalletKeyManager contract used for wallet keys configuration on TEE machines.
  */
-contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable {
+contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable {
 
     struct TeeWalletKeysState {
         uint64 keyIdCounter;
@@ -41,7 +42,6 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     bytes32 public constant KEY_GENERATE = bytes32("KEY_GENERATE");
     bytes32 public constant KEY_DELETE = bytes32("KEY_DELETE");
 
-    uint256 public keyExistenceProofValiditySeconds;
     mapping(bytes32 walletId => TeeWalletKeysState) private walletKeys;
     mapping(bytes32 walletId => mapping(uint64 keyId => uint256)) private keyDeleteCounter;
 
@@ -51,14 +51,12 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     ITeeWalletProjectManager public teeWalletProjectManager;
     /// TEE wallet manager contract.
     IITeeWalletManager public teeWalletManager;
+    /// TEE wallet backup manager contract.
+    ITeeWalletBackupManager public teeWalletBackupManager;
     /// TEE fee calculator contract.
     ITeeFeeCalculator public teeFeeCalculator;
     /// TEE instructions contract.
     ITeeInstructions public teeInstructions;
-    /// Flare TEE data connector contract.
-    IFtdcHub public ftdcHub;
-    /// FTDC verification contract.
-    IFtdcVerification public ftdcVerification;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
 
@@ -69,6 +67,11 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
 
     modifier onlyOwnerOrBackupManager(bytes32 _walletId) {
         _checkOnlyOwnerOrBackupManager(_walletId);
+        _;
+    }
+
+    modifier onlyTeeWalletBackupManager {
+        require(msg.sender == address(teeWalletBackupManager), "only backup manager");
         _;
     }
 
@@ -86,15 +89,12 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     function initialize(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
-        address _addressUpdater,
-        uint256 _keyExistenceProofValiditySeconds
+        address _addressUpdater
     )
         external
     {
         GovernedBase.initialise(_governanceSettings, _initialGovernance);
         AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
-
-        _setKeyExistenceProofValidity(_keyExistenceProofValiditySeconds);
     }
 
     /**
@@ -143,11 +143,13 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
             walletId: _walletId,
             keyId: _keyId,
             opType: teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_walletId)),
-            opTypeConstants: teeWalletManager.getOpTypeConstants(_walletId),
-            adminsPublicKeys: adminsPublicKeys,
-            adminsThreshold: adminsThreshold,
-            cosigners: cosigners,
-            cosignersThreshold: cosignersThreshold
+            configConstants: KeyConfigConstants({
+                adminsPublicKeys: adminsPublicKeys,
+                adminsThreshold: adminsThreshold,
+                cosigners: cosigners,
+                cosignersThreshold: cosignersThreshold,
+                opTypeConstants: teeWalletManager.getOpTypeConstants(_walletId)
+            })
         });
         bytes32 instructionId = keccak256(abi.encode(
             WALLET_OP_TYPE, KEY_GENERATE, _walletId, _keyId
@@ -159,60 +161,44 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     /**
      * @inheritdoc ITeeWalletKeyManager
      */
-    function requestKeyExistenceAttestation(
-        address _teeId,
-        bytes32 _walletId,
-        uint64 _keyId
-    )
-        external payable
-    {
-        _checkTeeStatus(_teeId);
-        TeeWalletKeysState storage keys = walletKeys[_walletId];
-        require(keys.keyIdCounter > _keyId, "invalid key id");
-        ITeeKeyExistence.RequestBody memory requestBody = ITeeKeyExistence.RequestBody({
-            teeId: _teeId,
-            walletId: _walletId,
-            keyId: _keyId
-        });
-        address[] memory teeIds = new address[](1);
-        teeIds[0] = _teeId;
-
-        ftdcHub.requestAttestation{value: msg.value}(
-            0,
-            0,
-            teeIds,
-            new address[](0),
-            0,
-            bytes.concat(TEE_KEY_EXISTENCE_ATTESTATION_TYPE, TEE_SOURCE_ID, abi.encode(requestBody))
-        );
-    }
-
-    /**
-     * @inheritdoc ITeeWalletKeyManager
-     */
     function confirmKey(
-        ITeeKeyExistence.Proof calldata _proof
+        KeyExistence calldata _proof,
+        Signature calldata _teeSignature
     )
-        external onlyOwnerOrBackupManager(_proof.data.requestBody.walletId)
+        external onlyOwnerOrBackupManager(_proof.walletId)
     {
-        bytes32 walletId = _proof.data.requestBody.walletId;
-        uint64 keyId = _proof.data.requestBody.keyId;
+        _checkTeeStatus(_proof.teeId);
+        bytes32 walletId = _proof.walletId;
+        uint64 keyId = _proof.keyId;
         TeeWalletKeysState storage keys = walletKeys[walletId];
-
         require(keys.keyIdCounter > keyId, "invalid key id");
-        _validateKeyExistenceTs(_proof.data.timestamp);
-        _validateKeyExistenceProof(_proof);
-
-        address teeId = _proof.data.requestBody.teeId;
         KeyDefinition storage keyDefinition = keys.keyDefinitions[keyId];
+        // check nonce
+        require(_proof.nonce == keyDefinition.nonces[_proof.teeId], "invalid nonce");
+        // check op type
+        bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(walletId));
+        require(_proof.opType == opType, "invalid op type");
+        // check config constants
+        _validateKeyExistenceConfigConstants(walletId, _proof.configConstants);
+        // check TEE signature
+        address teeId = ECDSA.recover(
+            MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(_proof))),
+            _teeSignature.v,
+            _teeSignature.r,
+            _teeSignature.s
+        );
+        require(teeId == _proof.teeId, "invalid tee signature");
+
+
+        // add TEE id to the key definition
         if (keyDefinition.publicKey.length > 0) {
             // add tee id to existing key definition
             require(
-                keccak256(keyDefinition.publicKey) == keccak256(_proof.data.responseBody.publicKey),
+                keccak256(keyDefinition.publicKey) == keccak256(_proof.publicKey),
                 "invalid public key"
             );
             require(
-                keccak256(bytes(keyDefinition.addressStr)) == keccak256(bytes(_proof.data.responseBody.addressStr)),
+                keccak256(bytes(keyDefinition.addressStr)) == keccak256(bytes(_proof.addressStr)),
                 "invalid address"
             );
             address[] storage keyDefinitionTeeIds = keyDefinition.teeIds;
@@ -222,17 +208,19 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
             // tee id not found, add it
             keyDefinitionTeeIds.push(teeId);
         } else {
+            require(_proof.publicKey.length > 0, "invalid public key");
+            require(bytes(_proof.addressStr).length > 0, "invalid address");
             // new key definition can only be added if wallet is in status initialized
             _checkWalletStatus(walletId, ITeeWalletManager.WalletStatus.INITIALIZED);
             // new key definition can only be added by the owner
             _checkOnlyOwner(walletId);
             // check that key is generated on the tee machine
-            require(!_proof.data.responseBody.restored, "key restored");
+            require(!_proof.restored, "key restored");
             // add new key id
             keys.keyIds.push(keyId);
             // set public key, address and add tee id
-            keyDefinition.publicKey = _proof.data.responseBody.publicKey;
-            keyDefinition.addressStr = _proof.data.responseBody.addressStr;
+            keyDefinition.publicKey = _proof.publicKey;
+            keyDefinition.addressStr = _proof.addressStr;
             keyDefinition.teeIds.push(teeId);
         }
         keys.feeFactor++;
@@ -241,8 +229,8 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
             teeId,
             walletId,
             keyId,
-            _proof.data.responseBody.publicKey,
-            _proof.data.responseBody.addressStr
+            _proof.publicKey,
+            _proof.addressStr
         );
     }
 
@@ -375,25 +363,14 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
     }
 
     /**
-     * Set the key existence proof validity duration.
-     * @param _keyExistenceProofValiditySeconds The key existence proof validity duration (in seconds).
-     * Can only be called by the governance.
-     */
-    function setKeyExistenceProofValiditySeconds(uint256 _keyExistenceProofValiditySeconds)
-        external onlyGovernance
-    {
-        _setKeyExistenceProofValidity(_keyExistenceProofValiditySeconds);
-    }
-
-    /**
-     * @inheritdoc ITeeWalletKeyManager
+     * @inheritdoc IITeeWalletKeyManager
      */
     function increaseKeyNonce(
         address _teeId,
         bytes32 _walletId,
         uint64 _keyId
     )
-        external
+        external onlyTeeWalletBackupManager
         returns (uint256 _nonce)
     {
         TeeWalletKeysState storage keys = walletKeys[_walletId];
@@ -491,80 +468,14 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
         teeWalletManager = IITeeWalletManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
+        teeWalletBackupManager = ITeeWalletBackupManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletBackupManager"));
         teeFeeCalculator = ITeeFeeCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
         teeInstructions = ITeeInstructions(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
-        ftdcHub = IFtdcHub(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcHub"));
-        ftdcVerification = IFtdcVerification(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcVerification"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
-    }
-
-    function _setKeyExistenceProofValidity(uint256 _keyExistenceProofValiditySeconds) internal {
-        require(
-            _keyExistenceProofValiditySeconds >= 1 minutes && _keyExistenceProofValiditySeconds <= 1 days,
-            "invalid duration"
-        );
-        keyExistenceProofValiditySeconds = _keyExistenceProofValiditySeconds;
-    }
-
-    function _validateKeyExistenceProof(ITeeKeyExistence.Proof calldata _proof)
-        internal
-    {
-        require(
-            _proof.data.thresholdBIPS == 0 &&
-            _proof.data.attestationType == TEE_KEY_EXISTENCE_ATTESTATION_TYPE &&
-            _proof.data.sourceId == TEE_SOURCE_ID,
-            "invalid attestation"
-        );
-
-        require(_proof.data.responseBody.publicKey.length > 0, "invalid public key");
-        bytes32 walletId = _proof.data.requestBody.walletId;
-        bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(walletId));
-        require(_proof.data.responseBody.opType == opType, "invalid op type");
-
-        (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold) =
-            teeWalletManager.getWalletAdminsAndThreshold(walletId);
-        require(_proof.data.responseBody.adminsPublicKeys.length == _adminsPublicKeys.length, "lengths mismatch");
-        require(_proof.data.responseBody.adminsThreshold == _adminsThreshold, "invalid threshold");
-        for (uint256 i = 0; i < _adminsPublicKeys.length; i++) {
-            require(
-                _proof.data.responseBody.adminsPublicKeys[i].x == _adminsPublicKeys[i].x &&
-                _proof.data.responseBody.adminsPublicKeys[i].y == _adminsPublicKeys[i].y,
-                "invalid public key"
-            );
-        }
-        (address[] memory _cosigners, uint64 _cosignersThreshold) =
-            teeWalletManager.getWalletCosignersAndThreshold(walletId);
-        require(_proof.data.responseBody.cosigners.length == _cosigners.length, "lengths mismatch");
-        require(_proof.data.responseBody.cosignersThreshold == _cosignersThreshold, "invalid threshold");
-        for (uint256 i = 0; i < _cosigners.length; i++) {
-            require(_proof.data.responseBody.cosigners[i] == _cosigners[i], "invalid address");
-        }
-
-        bytes memory opTypeConstants = teeWalletManager.getOpTypeConstants(walletId);
-        require(
-            keccak256(_proof.data.responseBody.opTypeConstants) == keccak256(opTypeConstants),
-            "invalid op type constants"
-        );
-
-        // response must be signed by the tee machine, so that it confirms the key existence
-        address[] memory teeIds = ftdcVerification.verifyTeeSignatures(
-            _proof.teeSignatures,
-            keccak256(abi.encode(_proof.data))
-        );
-        require(teeIds.length == 1 && teeIds[0] == _proof.data.requestBody.teeId, "invalid tee signature");
-        // check that the relay message is signed by the signing policy
-        uint256 rewardEpochId = ftdcVerification.verifySigningPolicySignatures(
-            _proof.relayMessage,
-            keccak256(abi.encode(_proof.data))
-        );
-        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        require(rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId,
-            "too old signing policy");
     }
 
     function _sendInstructions(
@@ -587,21 +498,42 @@ contract TeeWalletKeyManager is ITeeWalletKeyManager, GovernedProxyImplementatio
         );
     }
 
-    function _validateKeyExistenceTs(uint256 _keyExistenceTs)
+    function _validateKeyExistenceConfigConstants(bytes32 _walletId, KeyConfigConstants calldata _configConstants)
         internal view
     {
+        (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold) =
+            teeWalletManager.getWalletAdminsAndThreshold(_walletId);
+        require(_configConstants.adminsPublicKeys.length == _adminsPublicKeys.length, "lengths mismatch");
+        require(_configConstants.adminsThreshold == _adminsThreshold, "invalid threshold");
+        for (uint256 i = 0; i < _adminsPublicKeys.length; i++) {
+            require(
+                _configConstants.adminsPublicKeys[i].x == _adminsPublicKeys[i].x &&
+                _configConstants.adminsPublicKeys[i].y == _adminsPublicKeys[i].y,
+                "invalid public key"
+            );
+        }
+        (address[] memory _cosigners, uint64 _cosignersThreshold) =
+            teeWalletManager.getWalletCosignersAndThreshold(_walletId);
+        require(_configConstants.cosigners.length == _cosigners.length, "lengths mismatch");
+        require(_configConstants.cosignersThreshold == _cosignersThreshold, "invalid threshold");
+        for (uint256 i = 0; i < _cosigners.length; i++) {
+            require(_configConstants.cosigners[i] == _cosigners[i], "invalid address");
+        }
+
+        bytes memory opTypeConstants = teeWalletManager.getOpTypeConstants(_walletId);
         require(
-            _keyExistenceTs < block.timestamp &&
-            _keyExistenceTs + keyExistenceProofValiditySeconds > block.timestamp,
-            "timestamp invalid"
+            keccak256(_configConstants.opTypeConstants) == keccak256(opTypeConstants),
+            "invalid op type constants"
         );
     }
 
     function _checkTeeStatus(address _teeId)
         internal view
     {
-        require(teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
-            "tee machine not available");
+        require(
+            teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
+            "tee machine not available"
+        );
     }
 
     function _checkFee(

@@ -4,11 +4,10 @@ pragma solidity 0.8.20;
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeeVersionManager.sol";
+import "../../userInterfaces/tee/ITeeVerification.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
-import "../../userInterfaces/ftdc/IFtdcHub.sol";
-import "../../userInterfaces/ftdc/IFtdcVerification.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/IRelay.sol";
 import "../../utils/lib/AddressSet.sol";
@@ -24,8 +23,8 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     struct TeeState {
         address initialTeeId;
         address owner;
+        address teeProxyId; // address of the TEE proxy
         TeeStatus status; // 0: initialized, 1: production, 2: paused, 3: paused_for_upgrade, 4: replicating
-        uint64 availabilityCheckValidityEndTs;
         uint256 lastStatusChangeTs;
         bytes32 codeHash;
         bytes32 platform; // utf8 encoded
@@ -39,14 +38,12 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
 
     /// TEE version manager contract.
     ITeeVersionManager public teeVersionManager;
+    /// TEE verification contract.
+    ITeeVerification public teeVerification;
     /// TEE fee calculator contract.
     ITeeFeeCalculator public teeFeeCalculator;
     /// TEE instructions contract.
     ITeeInstructions public teeInstructions;
-    /// Flare TEE data connector contract.
-    IFtdcHub public ftdcHub;
-    /// FTDC verification contract.
-    IFtdcVerification public ftdcVerification;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
     /// Relay contract.
@@ -54,15 +51,6 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
 
     /// The minimum duration (in paused status) before a TEE machine can be upgraded.
     uint256 public pauseBeforeUpgradeMinDurationSeconds;
-    /// The duration for which an availability check proof is valid.
-    uint256 public availabilityCheckProofValiditySeconds;
-    /// The TEE availability check validity duration, in seconds.
-    /// In order to receive rewards, TEE must be checked for availability at least once in this period.
-    uint256 public availabilityCheckValidityDurationSeconds;
-
-    /// registration availability check cosigners and their threshold
-    AddressSet.State private cosigners;
-    uint64 private cosignersThreshold;
 
     AddressSet.State private activeTeeIds;
     mapping(address teeId => TeeState) private teeStates;
@@ -92,18 +80,13 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
-        uint256 _pauseBeforeUpgradeMinDurationSeconds,
-        uint256 _availabilityCheckProofValiditySeconds,
-        uint256 _availabilityCheckValidityDurationSeconds
+        uint256 _pauseBeforeUpgradeMinDurationSeconds
     )
         external
     {
         GovernedBase.initialise(_governanceSettings, _initialGovernance);
         AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
-
-        _setPauseBeforeUpgradeMinDuration(_pauseBeforeUpgradeMinDurationSeconds);
-        _setAvailabilityCheckProofValidity(_availabilityCheckProofValiditySeconds);
-        _setAvailabilityCheckValidityDuration(_availabilityCheckValidityDurationSeconds);
+        _setPauseBeforeUpgradeMinDurationSeconds(_pauseBeforeUpgradeMinDurationSeconds);
     }
 
     /**
@@ -111,40 +94,32 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
      */
     function register(
         address _teeId,
+        address _teeProxyId,
         string calldata _url,
         bytes32 _codeHash,
         bytes32 _platform
     )
         external payable
     {
+        require(_teeId != address(0), "invalid tee id");
+        require(_teeProxyId != address(0), "invalid tee proxy id");
+        require(bytes(_url).length > 0, "invalid url");
         require(teeStates[_teeId].owner == address(0), "already registered");
         _checkCodeHashPlatformSupported(_codeHash, _platform);
 
         teeStates[_teeId] = TeeState({
             initialTeeId: _teeId,
             owner: msg.sender,
+            teeProxyId: _teeProxyId,
             status: TeeStatus.INITIALIZED,
-            availabilityCheckValidityEndTs: 0,
             lastStatusChangeTs: block.timestamp,
             codeHash: _codeHash,
             platform: _platform,
             url: _url
         });
 
-        _requestAvailabilityCheckAttestation(_teeId, _teeId);
-        emit TeeMachineRegistered(_teeId, msg.sender, _url, _codeHash, _platform);
-    }
-
-    /**
-     * @inheritdoc ITeeRegistry
-     */
-    function requestAvailabilityCheckAttestation(
-        address _teeId,
-        address _testOnTeeId
-    )
-        external payable
-    {
-        _requestAvailabilityCheckAttestation(_teeId, _testOnTeeId);
+        teeVerification.requestTeeAttestation(_teeId);
+        emit TeeMachineRegistered(_teeId, _teeProxyId, msg.sender, _url, _codeHash, _platform);
     }
 
     /**
@@ -153,43 +128,27 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     function toProduction(
         ITeeAvailabilityCheck.Proof calldata _proof
     )
-        external onlyOwner(_proof.data.requestBody.teeId)
+        external
     {
         ITeeAvailabilityCheck.Response calldata data = _proof.data;
         address teeId = data.requestBody.teeId;
         TeeState storage teeState = teeStates[teeId];
         TeeStatus status = teeState.status;
-        require(status == TeeStatus.INITIALIZED || status == TeeStatus.PAUSED, "invalid tee status");
+        require(
+            status == TeeStatus.PAUSED_WITH_PROOF ||
+            (status == TeeStatus.INITIALIZED || status == TeeStatus.PAUSED) && msg.sender == teeState.owner,
+            "invalid tee status"
+        );
         _checkCodeHashPlatformSupported(teeState.codeHash, teeState.platform);
-        _validateAvailabilityCheckStatus(data.responseBody.status);
+        _validateAvailabilityCheckStatuses(data.responseBody.status, data.responseBody.machineStatus);
         _validateAvailabilityCheckTs(teeId, data.timestamp);
-        _validateAvailabilityCheckProof(teeState, _proof);
+        teeVerification.verifyAvailabilityCheckProof(_proof);
 
-        _extendAvailabilityCheckValidity(teeId, teeState, data.timestamp);
         teeState.status = TeeStatus.PRODUCTION;
         teeState.lastStatusChangeTs = block.timestamp;
         activeTeeIds.add(teeId);
+        teeVerification.confirmAvailability(_proof);
         emit TeeMachinePutIntoProduction(teeId);
-    }
-
-    /**
-     * @inheritdoc ITeeRegistry
-     */
-    function confirmAvailability(
-        ITeeAvailabilityCheck.Proof calldata _proof
-    )
-         external
-    {
-        ITeeAvailabilityCheck.Response calldata data = _proof.data;
-        address teeId = data.requestBody.teeId;
-        TeeState storage teeState = teeStates[teeId];
-        _checkTeeStatus(teeState.status, TeeStatus.PRODUCTION);
-        _checkCodeHashPlatformSupported(teeState.codeHash, teeState.platform);
-        _validateAvailabilityCheckStatus(data.responseBody.status);
-        _validateAvailabilityCheckTs(teeId, data.timestamp);
-        _validateAvailabilityCheckProof(teeState, _proof);
-
-        _extendAvailabilityCheckValidity(teeId, teeState, data.timestamp);
     }
 
     /**
@@ -199,7 +158,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         external
     {
         TeeState storage teeState = teeStates[_teeId];
-        _checkTeeStatus(teeState.status, TeeStatus.PRODUCTION);
+        _checkTeeStatus(teeState.status, TeeStatus.PRODUCTION, TeeStatus.PAUSED_WITH_PROOF);
         require(
             msg.sender == teeState.owner ||
             teeVersionManager.codeHashPlatformDisabled(teeState.codeHash, teeState.platform),
@@ -225,13 +184,14 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         TeeState storage teeState = teeStates[teeId];
         _checkTeeStatus(teeState.status, TeeStatus.PRODUCTION);
         require(
-            data.responseBody.status != ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
+            data.responseBody.status != ITeeAvailabilityCheck.AvailabilityCheckStatus.OK ||
+            data.responseBody.machineStatus != ITeeAvailabilityCheck.TeeMachineStatus.ACTIVE,
             "AC status invalid"
         );
         _validateAvailabilityCheckTs(teeId, data.timestamp);
-        _validateAvailabilityCheckProof(teeState, _proof);
+        teeVerification.verifyAvailabilityCheckProof(_proof);
 
-        teeState.status = TeeStatus.PAUSED;
+        teeState.status = TeeStatus.PAUSED_WITH_PROOF;
         teeState.lastStatusChangeTs = block.timestamp;
         activeTeeIds.remove(teeId);
         emit TeeMachinePaused(teeId);
@@ -246,7 +206,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     {
         TeeState storage teeState = teeStates[_teeId];
         TeeStatus status = teeState.status;
-        require(status == TeeStatus.PAUSED || status == TeeStatus.PAUSED_FOR_UPGRADE, "invalid tee status");
+        _checkTeeStatus(teeState.status, TeeStatus.PAUSED, TeeStatus.PAUSED_FOR_UPGRADE);
         if (status == TeeStatus.PAUSED) {
             require(teeState.lastStatusChangeTs + pauseBeforeUpgradeMinDurationSeconds < block.timestamp, "too soon");
             teeState.status = TeeStatus.PAUSED_FOR_UPGRADE;
@@ -264,7 +224,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
             REG_OP_TYPE, TO_PAUSE_FOR_UPGRADE, _teeId, pauseForUpgradeCounter[_teeId]++
         ));
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
-        teeMachines[0] = TeeMachine({ teeId: _teeId, owner: msg.sender, url: teeState.url });
+        teeMachines[0] = TeeMachine({ teeId: _teeId, teeProxyId: teeState.teeProxyId, url: teeState.url });
         _sendInstructions(
             instructionId,
             teeMachines,
@@ -298,9 +258,9 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         );
         _checkCodeHashPlatformSupported(newTeeState.codeHash, newTeeState.platform);
         require(_areTeeMachinesCompatible(oldTeeState, newTeeState), "tees not compatible");
-        _validateAvailabilityCheckStatus(data.responseBody.status);
+        _validateAvailabilityCheckStatuses(data.responseBody.status, data.responseBody.machineStatus);
         _validateAvailabilityCheckTs(newTeeId, data.timestamp);
-        _validateAvailabilityCheckProof(newTeeState, _proof);
+        teeVerification.verifyAvailabilityCheckProof(_proof);
         address[] memory teeIds = new address[](2);
         teeIds[0] = _oldTeeId;
         teeIds[1] = newTeeId;
@@ -330,8 +290,8 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
             REG_OP_TYPE, REPLICATE_FROM, _oldTeeId, newTeeId, counter
         ));
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](2);
-        teeMachines[0] = TeeMachine({ teeId: _oldTeeId, owner: msg.sender, url: message.oldTeeMachine.url });
-        teeMachines[1] = TeeMachine({ teeId: newTeeId, owner: msg.sender, url: message.newTeeMachine.url });
+        teeMachines[0] = TeeMachine({ teeId: _oldTeeId, teeProxyId: oldTeeState.teeProxyId, url: oldTeeState.url });
+        teeMachines[1] = TeeMachine({ teeId: newTeeId, teeProxyId: newTeeState.teeProxyId, url: newTeeState.url });
         _sendInstructions(
             instructionId,
             teeMachines,
@@ -362,19 +322,20 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         require(replications[oldTeeId] == newTeeId, "replication not valid");
         _checkCodeHashPlatformSupported(newTeeState.codeHash, newTeeState.platform);
 
-        _validateAvailabilityCheckStatus(data.responseBody.status);
+        _validateAvailabilityCheckStatuses(data.responseBody.status, data.responseBody.machineStatus);
         _validateAvailabilityCheckTs(newTeeId, data.timestamp);
-        _validateAvailabilityCheckProof(newTeeState, _proof);
-        _extendAvailabilityCheckValidity(oldTeeId, oldTeeState, data.timestamp);
+        teeVerification.verifyAvailabilityCheckProof(_proof);
         oldTeeState.initialTeeId = newTeeId; // same as newTeeState.initialTeeId
         oldTeeState.status = TeeStatus.PRODUCTION;
         oldTeeState.lastStatusChangeTs = block.timestamp;
+        oldTeeState.teeProxyId = newTeeState.teeProxyId;
         oldTeeState.codeHash = newTeeState.codeHash;
         oldTeeState.platform = newTeeState.platform;
         oldTeeState.url = newTeeState.url;
         delete replications[oldTeeId];
         delete teeStates[newTeeId];
         activeTeeIds.add(oldTeeId);
+        teeVerification.confirmAvailability(_proof);
         emit TeeMachineReplicationConfirmed(oldTeeId, newTeeId);
     }
 
@@ -401,41 +362,27 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     }
 
     /**
-     * Sets the FTDC cosigners and their threshold used for the TEE machine registration.
-     * @param _cosigners The cosigners.
-     * @param _cosignersThreshold The cosigners threshold.
+     * @inheritdoc ITeeRegistry
      */
-    function setCosigners(
-        address[] calldata _cosigners,
-        uint64 _cosignersThreshold
-    )
-        external onlyGovernance
+    function setTeeProxyId(address _teeId, address _teeProxyId)
+        external onlyOwner(_teeId)
     {
-        require(
-            _cosigners.length >= _cosignersThreshold && (_cosigners.length == 0 || _cosignersThreshold > 0),
-            "invalid threshold"
-        );
-        for (uint256 i = 0; i < _cosigners.length; i++) {
-            require(_cosigners[i] != address(0), "invalid cosigner");
-            // check for duplicates
-            for (uint256 j = 0; j < i; j++) {
-                require(_cosigners[j] != _cosigners[i], "duplicated cosigner");
-            }
-        }
-        cosigners.replaceAll(_cosigners);
-        cosignersThreshold = _cosignersThreshold;
-        emit CosignersSet(_cosigners, _cosignersThreshold);
+        require(_teeProxyId != address(0), "invalid tee proxy id");
+        TeeState storage teeState = teeStates[_teeId];
+        teeState.teeProxyId = _teeProxyId;
+        emit TeeProxyIdSet(_teeId, _teeProxyId);
     }
 
     /**
-     * @inheritdoc ITeeRegistry
+     * Sets the minimum duration (in paused status) before a TEE machine can be upgraded.
+     * @param _pauseBeforeUpgradeMinDurationSeconds The minimum duration in seconds.
      */
-    function getCosigners()
-        external view
-        returns(address[] memory _cosigners, uint64 _cosignersThreshold)
+    function setPauseBeforeUpgradeMinDurationSeconds(
+        uint256 _pauseBeforeUpgradeMinDurationSeconds
+    )
+        external onlyGovernance
     {
-        _cosigners = cosigners.list;
-        _cosignersThreshold = cosignersThreshold;
+        _setPauseBeforeUpgradeMinDurationSeconds(_pauseBeforeUpgradeMinDurationSeconds);
     }
 
     /**
@@ -452,6 +399,17 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     /**
      * @inheritdoc ITeeRegistry
      */
+    function getTeeMachineOwner(address _teeId)
+        external view
+        returns(address)
+    {
+        TeeState storage teeState = _getTeeState(_teeId);
+        return teeState.owner;
+    }
+
+    /**
+     * @inheritdoc ITeeRegistry
+     */
     function getTeeMachine(address _teeId)
         external view
         returns(TeeMachine memory _teeMachine)
@@ -459,7 +417,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         TeeState storage teeState = _getTeeState(_teeId);
         _teeMachine = TeeMachine({
             teeId: _teeId,
-            owner: teeState.owner,
+            teeProxyId: teeState.teeProxyId,
             url: teeState.url
         });
     }
@@ -561,111 +519,25 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     {
         teeVersionManager = ITeeVersionManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeVersionManager"));
+        teeVerification = ITeeVerification(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeVerification"));
         teeFeeCalculator = ITeeFeeCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
         teeInstructions = ITeeInstructions(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
-        ftdcHub = IFtdcHub(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcHub"));
-        ftdcVerification = IFtdcVerification(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcVerification"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
-    function _requestAvailabilityCheckAttestation(
-        address _teeId,
-        address _testOnTeeId
+    function _setPauseBeforeUpgradeMinDurationSeconds(
+        uint256 _pauseBeforeUpgradeMinDurationSeconds
     )
         internal
     {
-        address teeId = replications[_teeId];
-        TeeState storage teeState = teeId != address(0) ? teeStates[teeId] : teeStates[_teeId];
-        require(teeState.initialTeeId != address(0), "tee not found");
-        ITeeAvailabilityCheck.RequestBody memory requestBody = ITeeAvailabilityCheck.RequestBody({
-            teeId: _teeId,
-            initialTeeId: teeState.initialTeeId,
-            url: teeState.url,
-            platform: teeState.platform,
-            codeHash: teeState.codeHash,
-            teeGovernanceHash: teeVersionManager.getTeeGovernanceHash(teeState.codeHash),
-            rewardEpochId: flareSystemsManager.getCurrentRewardEpochId()
-        });
-        address[] memory teeIds = new address[](1);
-        teeIds[0] = _testOnTeeId;
-
-        address[] memory registrationCosigners = new address[](0);
-        uint64 registrationCosignersThreshold = 0;
-        if (teeState.status == TeeStatus.INITIALIZED) {
-            registrationCosigners = cosigners.list;
-            registrationCosignersThreshold = cosignersThreshold;
-        }
-
-        ftdcHub.requestAttestation{value: msg.value}(
-            0,
-            0,
-            teeIds,
-            registrationCosigners,
-            registrationCosignersThreshold,
-            bytes.concat(TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE, TEE_SOURCE_ID, abi.encode(requestBody))
-        );
-    }
-
-    function _setPauseBeforeUpgradeMinDuration(uint256 _pauseBeforeUpgradeMinDurationSeconds) internal {
         _validateDuration(_pauseBeforeUpgradeMinDurationSeconds, 1 minutes, 1 days);
         pauseBeforeUpgradeMinDurationSeconds = _pauseBeforeUpgradeMinDurationSeconds;
-    }
-
-    function _setAvailabilityCheckProofValidity(uint256 _availabilityCheckProofValiditySeconds) internal {
-        _validateDuration(_availabilityCheckProofValiditySeconds, 1 minutes, 1 days);
-        availabilityCheckProofValiditySeconds = _availabilityCheckProofValiditySeconds;
-    }
-
-    function _setAvailabilityCheckValidityDuration(uint256 _availabilityCheckValidityDurationSeconds) internal {
-        _validateDuration(_availabilityCheckValidityDurationSeconds, 1 hours, 365 days);
-        availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
-    }
-
-    function _validateAvailabilityCheckProof(
-        TeeState storage _teeState,
-        ITeeAvailabilityCheck.Proof calldata _proof
-    )
-        internal
-    {
-        ITeeAvailabilityCheck.Response calldata data = _proof.data;
-        require(
-            data.thresholdBIPS == 0 &&
-            data.attestationType == TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE &&
-            data.sourceId == TEE_SOURCE_ID,
-            "invalid attestation"
-        );
-        ITeeAvailabilityCheck.RequestBody calldata requestBody = data.requestBody;
-        require(
-            keccak256(bytes(requestBody.url)) == keccak256(bytes(_teeState.url)) &&
-            requestBody.codeHash == _teeState.codeHash &&
-            requestBody.platform == _teeState.platform &&
-            requestBody.initialTeeId == _teeState.initialTeeId &&
-            requestBody.teeGovernanceHash == teeVersionManager.getTeeGovernanceHash(_teeState.codeHash),
-            "invalid request body"
-        );
-        bytes32 messageHash = keccak256(abi.encode(data));
-        uint256 rewardEpochId = ftdcVerification.verifySigningPolicySignatures(_proof.relayMessage, messageHash);
-        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        require(
-            requestBody.rewardEpochId == rewardEpochId &&
-            (rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId),
-            "too old signing policy"
-        );
-        // additionally check cosigners in case of initial availability check
-        if (_teeState.status == TeeStatus.INITIALIZED && cosignersThreshold > 0) {
-            address[] memory registrationCosigners =
-                ftdcVerification.verifyCosignerSignatures(_proof.cosignerSignatures, messageHash);
-            require(registrationCosigners.length >= cosignersThreshold, "cosigners threshold not met");
-            for (uint256 i = 0; i < registrationCosigners.length; i++) {
-                require(cosigners.index[registrationCosigners[i]] != 0, "invalid cosigner");
-            }
-        }
+        emit PauseBeforeUpgradeMinDurationSecondsSet(_pauseBeforeUpgradeMinDurationSeconds);
     }
 
     function _sendInstructions(
@@ -686,31 +558,13 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         );
     }
 
-    function _extendAvailabilityCheckValidity(
-        address _teeId,
-        TeeState storage _teeState,
-        uint256 _availabilityCheckTs
-    )
-        internal
-    {
-        uint256 endTs = _availabilityCheckTs + availabilityCheckValidityDurationSeconds;
-        if (endTs > _teeState.availabilityCheckValidityEndTs) {
-            _teeState.availabilityCheckValidityEndTs = uint64(endTs);
-            emit AvailabilityCheckValidityExtended(_teeId, endTs);
-        }
-    }
-
     function _validateAvailabilityCheckTs(address _teeId, uint256 _availabilityCheckTs) internal view {
-        require(
-            _availabilityCheckTs < block.timestamp &&
-            _availabilityCheckTs + availabilityCheckProofValiditySeconds > block.timestamp &&
-            _availabilityCheckTs >= teeStates[_teeId].lastStatusChangeTs,
-            "AC timestamp invalid"
-        );
+        require(_availabilityCheckTs >= teeStates[_teeId].lastStatusChangeTs, "AC timestamp invalid");
     }
 
     function _getTeeState(address _teeId) internal view returns(TeeState storage _teeState) {
-        _teeState = teeStates[_teeId];
+        address teeId = replications[_teeId];
+        _teeState = teeId != address(0) ? teeStates[teeId] : teeStates[_teeId];
         require(_teeState.owner != address(0), "tee not found");
     }
 
@@ -766,12 +620,23 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         require(_actualStatus == _expectedStatus, "invalid tee status");
     }
 
-    function _validateAvailabilityCheckStatus(
-        ITeeAvailabilityCheck.AvailabilityCheckStatus _status
+    function _checkTeeStatus(TeeStatus _actualStatus, TeeStatus _expectedStatus1, TeeStatus _expectedStatus2)
+        internal pure
+    {
+        require(_actualStatus == _expectedStatus1 || _actualStatus == _expectedStatus2, "invalid tee status");
+    }
+
+    function _validateAvailabilityCheckStatuses(
+        ITeeAvailabilityCheck.AvailabilityCheckStatus _status,
+        ITeeAvailabilityCheck.TeeMachineStatus _machineStatus
     )
         internal pure
     {
-        require(_status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK, "AC status invalid");
+        require(
+            _status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK &&
+            _machineStatus == ITeeAvailabilityCheck.TeeMachineStatus.ACTIVE,
+            "AC status invalid"
+        );
     }
 
     function _validateDuration(

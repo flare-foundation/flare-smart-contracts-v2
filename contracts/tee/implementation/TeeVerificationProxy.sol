@@ -3,22 +3,26 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
-import "./TeeWalletKeyManager.sol";
+import "./TeeVerification.sol";
 
-contract TeeWalletKeyManagerProxy is ERC1967Proxy {
+contract TeeVerificationProxy is ERC1967Proxy {
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
+        uint256 _availabilityCheckValidityDurationSeconds,
+        uint256 _challengeValidityDurationSeconds,
         address _implementationAddress
     )
         ERC1967Proxy(_implementationAddress,
             abi.encodeCall(
-                TeeWalletKeyManager.initialize,
+                TeeVerification.initialize,
                 (
                     _governanceSettings,
                     _initialGovernance,
-                    _addressUpdater
+                    _addressUpdater,
+                    _availabilityCheckValidityDurationSeconds,
+                    _challengeValidityDurationSeconds
                 )
             )
         )

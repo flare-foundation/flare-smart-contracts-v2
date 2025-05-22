@@ -107,6 +107,8 @@ import { FtdcVerificationMockContract } from "../../typechain-truffle/contracts/
 import { TeeGovernanceProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeGovernanceProxy";
 import { TeeRegistryProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeRegistryProxy";
 import { FtdcVerificationContract, FtdcVerificationInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification";
+import { TeeVerificationContract, TeeVerificationInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeVerification";
+import { TeeVerificationProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeVerificationProxy";
 
 export interface DeployedContracts {
   readonly flareDaemon: TestableFlareDaemonInstance;
@@ -140,6 +142,7 @@ export interface DeployedContracts {
   readonly fdcHub: FdcHubInstance;
   readonly teeGovernance: TeeGovernanceInstance;
   readonly teeVersionManager: TeeVersionManagerInstance;
+  readonly teeVerification: TeeVerificationInstance;
   readonly teeRegistry: TeeRegistryInstance;
   readonly teeWalletProjectManager: TeeWalletProjectManagerInstance;
   readonly teeWalletManager: TeeWalletManagerInstance;
@@ -210,6 +213,8 @@ export async function deployContracts(
   const TeeGovernanceProxy: TeeGovernanceProxyContract = await artifacts.require("TeeGovernanceProxy");
   const TeeVersionManager: TeeVersionManagerContract = artifacts.require("TeeVersionManager");
   const TeeVersionManagerProxy: TeeVersionManagerProxyContract = await artifacts.require("TeeVersionManagerProxy");
+  const TeeVerification: TeeVerificationContract = artifacts.require("TeeVerification");
+  const TeeVerificationProxy: TeeVerificationProxyContract = await artifacts.require("TeeVerificationProxy");
   const TeeRegistry: TeeRegistryContract = artifacts.require("TeeRegistry");
   const TeeRegistryProxy: TeeRegistryProxyContract = await artifacts.require("TeeRegistryProxy");
   const TeeWalletProjectManager: TeeWalletProjectManagerContract = artifacts.require("TeeWalletProjectManager");
@@ -510,7 +515,18 @@ export async function deployContracts(
     ADDRESS_UPDATER_ADDR,
     teeVersionImpl.address
   );
-  const teeVersionManager= await TeeVersionManager.at(teeVersionManagerProxy.address);
+  const teeVersionManager = await TeeVersionManager.at(teeVersionManagerProxy.address);
+
+  const teeVerificationImpl = await TeeVerification.new();
+  const teeVerificationProxy = await TeeVerificationProxy.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ADDRESS_UPDATER_ADDR,
+    3600,
+    600,
+    teeVerificationImpl.address
+  );
+  const teeVerification = await TeeVerification.at(teeVerificationProxy.address);
 
   const teeRegistryImpl = await TeeRegistry.new();
   const teeRegistryProxy = await TeeRegistryProxy.new(
@@ -518,8 +534,6 @@ export async function deployContracts(
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
     60,
-    600,
-    3600,
     teeRegistryImpl.address
   );
   const teeRegistry = await TeeRegistry.at(teeRegistryProxy.address);
@@ -547,7 +561,6 @@ export async function deployContracts(
     governanceSettings.address,
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
-    600,
     teeWalletKeyManagerImpl.address
   );
   const teeWalletKeyManager = await TeeWalletKeyManager.at(teeWalletKeyManagerProxy.address);
@@ -870,9 +883,15 @@ export async function deployContracts(
     { from: ADDRESS_UPDATER_ADDR }
   );
 
+  await teeVerification.updateContractAddresses(
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+    [ADDRESS_UPDATER_ADDR, teeVersionManager.address, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager.address, relay.address],
+    { from: ADDRESS_UPDATER_ADDR }
+  );
+
   await teeRegistry.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-    [ADDRESS_UPDATER_ADDR, teeVersionManager.address, teeFeeCalculator.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager.address, relay.address],
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_VERIFICATION, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+    [ADDRESS_UPDATER_ADDR, teeVersionManager.address, teeVerification.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, relay.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -889,8 +908,8 @@ export async function deployContracts(
   );
 
   await teeWalletKeyManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, teeRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeFeeCalculator.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager.address],
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_BACKUP_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER]),
+    [ADDRESS_UPDATER_ADDR, teeRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeWalletBackupManager.address, teeFeeCalculator.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -944,6 +963,7 @@ export async function deployContracts(
   );
 
   await teeInstructions.registerInstructionInitiators([
+    teeVerification.address,
     teeRegistry.address,
     teeWalletManager.address,
     teeWalletKeyManager.address,
@@ -1095,6 +1115,7 @@ export async function deployContracts(
     `  FdcHub: ${fdcHub.address},\n` +
     `  TeeGovernance: ${teeGovernance.address},\n` +
     `  TeeVersionManager: ${teeVersionManager.address},\n` +
+    `  TeeVerification: ${teeVerification.address},\n` +
     `  TeeRegistry: ${teeRegistry.address},\n` +
     `  TeeWalletProjectManager: ${teeWalletProjectManager.address},\n` +
     `  TeeWalletManager: ${teeWalletManager.address},\n` +
@@ -1138,6 +1159,7 @@ export async function deployContracts(
     fdcHub,
     teeGovernance,
     teeVersionManager,
+    teeVerification,
     teeRegistry,
     teeWalletProjectManager,
     teeWalletManager,

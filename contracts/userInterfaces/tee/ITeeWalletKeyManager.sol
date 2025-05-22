@@ -4,23 +4,48 @@ pragma solidity >=0.7.6 <0.9;
 import "./ITeeRegistry.sol";
 import "../IPublicKey.sol";
 import "./ITeeIdKeyIdPair.sol";
-import "../ftdc/ITeeKeyExistence.sol";
 
 /**
  * TeeWalletKeyManager interface.
  */
 interface ITeeWalletKeyManager {
 
+    enum TeeKeyStatus { PAUSED, ACTIVE }
+
     struct KeyGenerate {
         address teeId;
         bytes32 walletId;
         uint64 keyId;
         bytes32 opType;
-        bytes opTypeConstants;
+        KeyConfigConstants configConstants;
+    }
+
+    struct KeyConfigConstants {
         PublicKey[] adminsPublicKeys;
         uint64 adminsThreshold;
         address[] cosigners;
         uint64 cosignersThreshold;
+        bytes opTypeConstants;
+    }
+
+    struct KeyConfigSettings {
+        address[] pausingAddresses;
+        bytes opTypeSettings;
+    }
+
+    struct KeyExistence {
+        address teeId;
+        bytes32 walletId;
+        uint64 keyId;
+        bytes32 opType;
+        bytes publicKey;
+        uint256 nonce;
+        uint256 pauseNonce;
+        TeeKeyStatus status;
+        bool restored;
+        string addressStr;
+        KeyConfigConstants configConstants;
+        KeyConfigSettings configSettings;
     }
 
     struct KeyDelete {
@@ -88,24 +113,13 @@ interface ITeeWalletKeyManager {
     function addKey(address _teeId, bytes32 _walletId) external payable returns (uint64 _keyId);
 
     /**
-     * Requests a key existence attestation.
-     * @param _teeId The tee id.
-     * @param _walletId The wallet id.
-     * @param _keyId The key id.
-     */
-    function requestKeyExistenceAttestation(
-        address _teeId,
-        bytes32 _walletId,
-        uint64 _keyId
-    )
-        external payable;
-
-    /**
      * Confirms the key generation.
      * @param _proof The key existence proof.
+     * @param _teeSignature The TEE machine signature of the key existence proof.
      */
     function confirmKey(
-        ITeeKeyExistence.Proof calldata _proof
+        KeyExistence calldata _proof,
+        Signature calldata _teeSignature
     )
         external;
 
@@ -135,21 +149,6 @@ interface ITeeWalletKeyManager {
     function receivingTeesAndKeys(bytes32 _walletId)
         external
         returns (ITeeRegistry.TeeMachine[] memory _teeMachines, TeeIdKeyIdPair[] memory _teeIdKeyIdPairs);
-
-    /**
-     * Increases the key nonce for the given tee id and wallet id.
-     * @param _teeId The tee id.
-     * @param _walletId The wallet id.
-     * @param _keyId The key id.
-     * @return _nonce The new nonce.
-     */
-    function increaseKeyNonce(
-        address _teeId,
-        bytes32 _walletId,
-        uint64 _keyId
-    )
-        external
-        returns (uint256 _nonce);
 
     /**
      * Returns the list of tee ids that hold the wallet key.

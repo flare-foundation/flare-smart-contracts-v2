@@ -56,6 +56,27 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
     /**
      * @inheritdoc IFtdcVerification
      */
+    function verifyTeeSignature(
+        Signature calldata /*_signature*/,
+        bytes32 /*_messageHash*/
+    )
+        external view returns (address _signingTeeId)
+    {
+        address[] memory teeIds;
+        // no verification
+        if (returnActiveTeeIds) {
+            teeIds = teeRegistry.getActiveTeeIds();
+        } else {
+            teeIds = signingTeeIds.list;
+        }
+        if (teeIds.length > 0) {
+            _signingTeeId = teeIds[0];
+        }
+    }
+
+    /**
+     * @inheritdoc IFtdcVerification
+     */
     function verifyTeeSignatures(
         Signature[] calldata /*_signatures*/,
         bytes32 /*_messageHash*/

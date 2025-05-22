@@ -23,6 +23,7 @@ import { MockDBIndexer } from "../utils/indexer/MockDBIndexer";
 import { getLogger } from "../utils/logger";
 import { Sign, Signature, SortitionKey, generateSortitionKey, ParseSortitionKey } from "../../test/utils/sortition";
 import { sha256 } from "ethers";
+import { requiredEventArgsFrom } from "../../test/utils/Web3EventDecoder";
 
 // Simulation config
 export const SIMULATION_DUMP_FOLDER = "./sim";
@@ -95,6 +96,7 @@ let SKIP_VOTING_EPOCH_ACTIONS: boolean;
 let SKIP_FINALIZATIONS: boolean;
 let TEE_CODE_HASH: string;
 let TEE_IDS: string[];
+let TEE_PROXY_IDS: string[];
 let TEE_URLS: string[];
 let TEE_PLATFORMS: string[];
 
@@ -153,6 +155,15 @@ function processEnv() {
     });
   }
 
+  TEE_PROXY_IDS = [];
+  if (process.env.TEE_PROXY_IDS) {
+    process.env.TEE_PROXY_IDS.split(",").forEach(x => {
+      if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
+        TEE_PROXY_IDS.push(x.trim().toLowerCase());
+      }
+    });
+  }
+
   TEE_URLS = [];
   if (process.env.TEE_URLS) {
     process.env.TEE_URLS.split(",").forEach(x => {
@@ -167,9 +178,9 @@ function processEnv() {
     });
   }
 
-  if(TEE_IDS.length != TEE_URLS.length || TEE_IDS.length != TEE_PLATFORMS.length) {
+  if(TEE_IDS.length != TEE_URLS.length || TEE_IDS.length != TEE_PROXY_IDS.length || TEE_IDS.length != TEE_PLATFORMS.length) {
     console.error("ERRORRrr")
-    throw new Error("TEE_IDS, TEE_URLS and TEE_PLATFORMS must have the same length");
+    throw new Error("TEE_IDS, TEE_PROXY_IDS, TEE_URLS and TEE_PLATFORMS must have the same length");
   }
 }
 
@@ -346,18 +357,21 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
 
   logger.info(`Registering TEEs with owner address: ${teeOwnerAccount.address}`);
   logger.info(`TEE_IDS: ${TEE_IDS}`);
+  logger.info(`TEE_PROXY_IDS: ${TEE_PROXY_IDS}`);
   logger.info(`TEE_URLS: ${TEE_URLS}`);
   logger.info(`TEE_PLATFORMS: ${TEE_PLATFORMS}`);
   const rewardEpochId = (await c.flareSystemsManager.getCurrentRewardEpochId()).toString();
   for (let i = 0; i < TEE_IDS.length; i++) {
-    await c.teeRegistry.register(
+    const tx = await c.teeRegistry.register(
       TEE_IDS[i],
+      TEE_PROXY_IDS[i],
       TEE_URLS[i],
       TEE_CODE_HASH,
       web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
       { value: "2", from: teeOwnerAccount.address }
     );
-    await time.increase(1);
+    const event = requiredEventArgsFrom(tx, c.teeVerification, "TeeAttestationRequested") as any;
+    await time.increase(2);
     const proof = {
       relayMessage: "0x", // TODO
       teeSignatures: [],
@@ -377,9 +391,12 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
           platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
           teeGovernanceHash: governanceHash,
           rewardEpochId: rewardEpochId,
+          challenge: event.challenge.toString()
         },
         responseBody: {
-          status: "0"
+          status: "0",
+          machineStatus: "0",
+          teeTimestamp: (await time.latest()-1).toString()
         }
       }
     }

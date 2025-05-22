@@ -309,8 +309,10 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
         ITeeWalletManager.WalletStatus walletStatus = wallets[_walletId].status;
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
             walletStatus == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
-        require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, _walletId),
-            "fee too low");
+        require(
+            msg.value >= teeFeeCalculator.calculateFeeByWalletId(WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, _walletId),
+            "fee too low"
+        );
         (ITeeRegistry.TeeMachine[] memory teeMachines, TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
             teeWalletKeyManager.receivingTeesAndKeys(_walletId);
 
@@ -344,8 +346,11 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
         external payable onlyOwner(_walletId)
     {
         ITeeWalletManager.WalletStatus walletStatus = wallets[_walletId].status;
-        require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
-            walletStatus == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
+        require(
+            walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
+            walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
+            "only production or paused status"
+        );
 
         uint256 numOfKeys = _keysData.length;
         address[] memory teeIds = new address[](numOfKeys);
@@ -365,8 +370,10 @@ contract TeeWalletManager is IITeeWalletManager, GovernedProxyImplementation, Ad
                 }
             }
             require(found, "wrong key id");
-            require(teeRegistry.getTeeMachineStatus(_keysData[i].teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
-                "tee machine not available");
+            require(
+                teeRegistry.getTeeMachineStatus(_keysData[i].teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
+                "tee machine not available"
+            );
             teeMachines[i] = teeRegistry.getTeeMachine(_keysData[i].teeId);
         }
 

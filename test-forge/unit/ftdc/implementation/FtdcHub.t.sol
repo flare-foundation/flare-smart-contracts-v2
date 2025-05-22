@@ -32,7 +32,6 @@ contract FtdcHubTest is Test {
     uint256 private requestFee = 10;
 
     address[] private teeIds;
-    address[] private owners;
     string[] private urls;
 
     event TeeInstructionsSent(
@@ -109,17 +108,14 @@ contract FtdcHubTest is Test {
 
         _mockGetRequestFee();
         teeIds = new address[](2);
-        owners = new address[](2);
         urls = new string[](2);
         teeIds[0] = makeAddr("teeId1");
         teeIds[1] = makeAddr("teeId2");
-        owners[0] = makeAddr("owner1");
-        owners[1] = makeAddr("owner2");
         urls[0] = "url1";
         urls[1] = "url2";
 
-        _mockGetTeeMachine(teeIds[0], owners[0], urls[0]);
-        _mockGetTeeMachine(teeIds[1], owners[1], urls[1]);
+        _mockGetTeeMachine(teeIds[0], urls[0]);
+        _mockGetTeeMachine(teeIds[1], urls[1]);
     }
 
     function testSetMinThresholdBIPS() public {
@@ -348,7 +344,7 @@ contract FtdcHubTest is Test {
         );
     }
 
-    function _mockGetTeeMachine(address _teeId, address _owner, string memory _url) internal {
+    function _mockGetTeeMachine(address _teeId, string memory _url) internal {
         vm.mockCall(
             mockTeeRegistry,
             abi.encodeWithSelector(
@@ -357,7 +353,7 @@ contract FtdcHubTest is Test {
             ),
             abi.encode(ITeeRegistry.TeeMachine({
                 teeId: _teeId,
-                owner: _owner,
+                teeProxyId: _teeId, // for testing purposes
                 url: _url
             }))
         );
@@ -392,7 +388,7 @@ contract FtdcHubTest is Test {
         for (uint256 i = 0; i < _num; i++) {
             teeMachines[i] = ITeeRegistry.TeeMachine({
                 teeId: teeIds[i],
-                owner: owners[i],
+                teeProxyId: teeIds[i], // for testing purposes
                 url: urls[i]
             });
 
