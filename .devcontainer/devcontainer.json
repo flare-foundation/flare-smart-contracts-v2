@@ -1,0 +1,28 @@
+{
+	"name": "Gitpod",
+	"build": {
+        "context": ".",
+        "dockerfile": "Dockerfile"
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/docker-outside-of-docker": {
+            "installDockerBuildx": true
+        },
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "18"
+        }
+    },
+    "postStartCommand": [
+        "yarn install --frozen-lockfile && yarn run compile",
+        "sudo apt-get update && sudo apt-get install -y python3-pip && pip3 install slither-analyzer --break-system-packages",
+        "rm -f ./slither.json ./slither_badge.json"
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "redhat.vscode-yaml",
+                "gitlab.gitlab-workflow"
+            ]
+        }
+    }
+}
