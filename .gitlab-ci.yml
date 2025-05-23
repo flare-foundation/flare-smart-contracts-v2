@@ -170,8 +170,8 @@ test-unit-forge:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   before_script:
-  - X=$(mktemp -d) && cp -R . "$X" && mv $X ./test-unit-forge &&  cd ./test-unit-forge && chown -R $(whoami) .
-  - forge install --no-commit
+  - forge install --no-git
+  - forge build
   script:
   - forge test -vvv
 
@@ -231,12 +231,11 @@ coverage-forge:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   before_script:
-  - X=$(mktemp -d) && cp -R . "$X" && mv $X ./coverage-forge &&  cd ./coverage-forge && chown -R $(whoami) .
   - mv node_modules.sol node_modules
-  - forge install --no-commit
+  - forge install --no-git
   - forge build
   script:
-  - forge coverage --report summary --report lcov && cp lcov.info ../lcov.info
+  - forge coverage --report summary --report lcov
   artifacts:
     expire_in: 30 days
     paths:
