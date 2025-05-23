@@ -17,11 +17,13 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 /**
  * TeeWalletBackupManager is used for wallet keys' backups.
  */
-contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImplementation,
-    AddressUpdatable, UUPSUpgradeable {
+contract TeeWalletBackupManager is ITeeWalletBackupManager,
+    GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable
+{
 
     bytes32 public constant WALLET_OP_TYPE = bytes32("WALLET");
     bytes32 public constant KEY_DATA_PROVIDER_RESTORE = bytes32("KEY_DATA_PROVIDER_RESTORE");
+    bytes32 public constant KEY_DATA_PROVIDER_RESTORE_TEST = bytes32("KEY_DATA_PROVIDER_RESTORE_TEST");
 
     mapping(bytes32 walletId => mapping(uint64 keyId => uint256)) private dataProviderRestoreCounter;
 
@@ -73,7 +75,8 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
     function backupRestore(
         address _teeId,
         BackupId calldata _backupId,
-        string calldata _backupUrl
+        string calldata _backupUrl,
+        bool _test
     )
         external payable
         onlyOwnerOrBackupManager(_backupId.walletId)
@@ -93,15 +96,20 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
         bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_backupId.walletId));
         require(opType == _backupId.opType, "invalid op type");
         require(_backupId.rewardEpochId <= flareSystemsManager.getCurrentRewardEpochId(), "invalid reward epoch id");
-        _checkFee(KEY_DATA_PROVIDER_RESTORE, _teeId);
+        bytes32 opCommand = _test ? KEY_DATA_PROVIDER_RESTORE_TEST : KEY_DATA_PROVIDER_RESTORE;
+        _checkFee(opCommand, _teeId);
+        // restored flag in TeeKeyExistence proof will always be set to true after this call
+        // in case of a test restore, nonce should be 0, so that the key cannot be confirmed on-chain
+        // in case of a actual restore, nonce should be increased to prevent replay attacks
+        // and to allow the key to be confirmed on-chain
         KeyDataProviderRestore memory message = KeyDataProviderRestore({
             teeId: _teeId,
             backupId: _backupId,
             backupUrl: _backupUrl,
-            nonce: teeWalletKeyManager.increaseKeyNonce(_teeId, _backupId.walletId, _backupId.keyId)
+            nonce: _test ? 0 : teeWalletKeyManager.increaseKeyNonce(_teeId, _backupId.walletId, _backupId.keyId)
         });
         bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, KEY_DATA_PROVIDER_RESTORE, _backupId.walletId, _backupId.keyId,
+            WALLET_OP_TYPE, opCommand, _backupId.walletId, _backupId.keyId,
             dataProviderRestoreCounter[_backupId.walletId][_backupId.keyId]++
         ));
         teeInstructions.sendInstructions{value: msg.value}(
@@ -109,7 +117,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, GovernedProxyImpleme
             _getTeeMachines(_teeId),
             flareSystemsManager.getCurrentRewardEpochId(),
             WALLET_OP_TYPE,
-            KEY_DATA_PROVIDER_RESTORE,
+            opCommand,
             abi.encode(message)
         );
     }

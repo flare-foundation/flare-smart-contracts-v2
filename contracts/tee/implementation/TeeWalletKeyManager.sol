@@ -37,7 +37,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
         address[] teeIds;
     }
 
-    bytes32 public constant TEE_SOURCE_ID = bytes32("TEE");
     bytes32 public constant WALLET_OP_TYPE = bytes32("WALLET");
     bytes32 public constant KEY_GENERATE = bytes32("KEY_GENERATE");
     bytes32 public constant KEY_DELETE = bytes32("KEY_DELETE");
@@ -189,9 +188,10 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
         );
         require(teeId == _proof.teeId, "invalid tee signature");
 
-
         // add TEE id to the key definition
         if (keyDefinition.publicKey.length > 0) {
+            // check that key is restored on the tee machine
+            require(_proof.nonce > 0 && _proof.restored, "key not restored on TEE machine");
             // add tee id to existing key definition
             require(
                 keccak256(keyDefinition.publicKey) == keccak256(_proof.publicKey),
@@ -215,7 +215,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
             // new key definition can only be added by the owner
             _checkOnlyOwner(walletId);
             // check that key is generated on the tee machine
-            require(!_proof.restored, "key restored");
+            require(_proof.nonce == 0 && !_proof.restored, "key not generated on TEE machine");
             // add new key id
             keys.keyIds.push(keyId);
             // set public key, address and add tee id

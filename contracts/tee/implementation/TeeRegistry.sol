@@ -31,7 +31,6 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         string url;
     }
 
-    bytes32 public constant TEE_SOURCE_ID = bytes32("TEE");
     bytes32 public constant REG_OP_TYPE = bytes32("REG");
     bytes32 public constant TO_PAUSE_FOR_UPGRADE = bytes32("TO_PAUSE_FOR_UPGRADE");
     bytes32 public constant REPLICATE_FROM = bytes32("REPLICATE_FROM");
@@ -118,7 +117,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
             url: _url
         });
 
-        teeVerification.requestTeeAttestation(_teeId);
+        teeVerification.requestTeeAttestation{value: msg.value}(_teeId);
         emit TeeMachineRegistered(_teeId, _teeProxyId, msg.sender, _url, _codeHash, _platform);
     }
 
@@ -477,11 +476,16 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     /**
      * @inheritdoc ITeeRegistry
      */
-    function getActiveTeeIds()
+    function getActiveTees()
         external view
-        returns(address[] memory)
+        returns(address[] memory _teeIds, string[] memory _urls)
     {
-        return activeTeeIds.list;
+        _teeIds = activeTeeIds.list;
+        uint256 length = _teeIds.length;
+        _urls = new string[](length);
+        for (uint256 i = 0; i < length; i++) {
+            _urls[i] = teeStates[_teeIds[i]].url;
+        }
     }
 
     /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////

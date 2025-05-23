@@ -238,10 +238,11 @@ interface ITeeRegistry {
         returns(bool);
 
     /**
-     * Get active TEE machine ids.
-     * @return The list of active TEE machine ids.
+     * Get active TEE machines.
+     * @return _teeIds The list of TEE machine ids.
+     * @return _urls The list of TEE machine URLs.
      */
-    function getActiveTeeIds()
+    function getActiveTees()
         external view
-        returns(address[] memory);
+        returns(address[] memory _teeIds, string[] memory _urls);
 }

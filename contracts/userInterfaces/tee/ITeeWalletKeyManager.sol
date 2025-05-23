@@ -39,6 +39,7 @@ interface ITeeWalletKeyManager {
         uint64 keyId;
         bytes32 opType;
         bytes publicKey;
+        bytes proofOfPossession;
         uint256 nonce;
         uint256 pauseNonce;
         TeeKeyStatus status;

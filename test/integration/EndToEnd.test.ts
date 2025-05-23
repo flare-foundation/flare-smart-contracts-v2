@@ -1506,6 +1506,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 keyId: i.toString(),
                 opType: web3.utils.utf8ToHex("XRP").padEnd(66, "0"),
                 publicKey: xrpPublicKeys[i],
+                proofOfPossession: "0x",
                 nonce: "0",
                 pauseNonce: "0",
                 status: "0",
@@ -1566,6 +1567,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 keyId: i.toString(),
                 opType: web3.utils.utf8ToHex("EVM").padEnd(66, "0"),
                 publicKey: publicKey,
+                proofOfPossession: "0x",
                 nonce: "0",
                 pauseNonce: "0",
                 status: "0",
@@ -1719,115 +1721,120 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 const KeyExistanceStruct = {
     "components": [
         {
-        "internalType": "address",
-        "name": "teeId",
-        "type": "address"
+            "internalType": "address",
+            "name": "teeId",
+            "type": "address"
         },
         {
-        "internalType": "bytes32",
-        "name": "walletId",
-        "type": "bytes32"
+            "internalType": "bytes32",
+            "name": "walletId",
+            "type": "bytes32"
         },
         {
-        "internalType": "uint64",
-        "name": "keyId",
-        "type": "uint64"
+            "internalType": "uint64",
+            "name": "keyId",
+            "type": "uint64"
         },
         {
-        "internalType": "bytes32",
-        "name": "opType",
-        "type": "bytes32"
+            "internalType": "bytes32",
+            "name": "opType",
+            "type": "bytes32"
         },
         {
-        "internalType": "bytes",
-        "name": "publicKey",
-        "type": "bytes"
+            "internalType": "bytes",
+            "name": "publicKey",
+            "type": "bytes"
         },
         {
-        "internalType": "uint256",
-        "name": "nonce",
-        "type": "uint256"
+            "internalType": "bytes",
+            "name": "proofOfPossession",
+            "type": "bytes"
         },
         {
-        "internalType": "uint256",
-        "name": "pauseNonce",
-        "type": "uint256"
+            "internalType": "uint256",
+            "name": "nonce",
+            "type": "uint256"
         },
         {
-        "internalType": "enum ITeeWalletKeyManager.TeeKeyStatus",
-        "name": "status",
-        "type": "uint8"
+            "internalType": "uint256",
+            "name": "pauseNonce",
+            "type": "uint256"
         },
         {
-        "internalType": "bool",
-        "name": "restored",
-        "type": "bool"
+            "internalType": "enum ITeeWalletKeyManager.TeeKeyStatus",
+            "name": "status",
+            "type": "uint8"
         },
         {
-        "internalType": "string",
-        "name": "addressStr",
-        "type": "string"
+            "internalType": "bool",
+            "name": "restored",
+            "type": "bool"
         },
         {
-        "components": [
-            {
+            "internalType": "string",
+            "name": "addressStr",
+            "type": "string"
+        },
+        {
             "components": [
+            {
+                "components": [
                 {
-                "internalType": "bytes32",
-                "name": "x",
-                "type": "bytes32"
+                    "internalType": "bytes32",
+                    "name": "x",
+                    "type": "bytes32"
                 },
                 {
-                "internalType": "bytes32",
-                "name": "y",
-                "type": "bytes32"
+                    "internalType": "bytes32",
+                    "name": "y",
+                    "type": "bytes32"
                 }
-            ],
-            "internalType": "struct PublicKey[]",
-            "name": "adminsPublicKeys",
-            "type": "tuple[]"
+                ],
+                "internalType": "struct PublicKey[]",
+                "name": "adminsPublicKeys",
+                "type": "tuple[]"
             },
             {
-            "internalType": "uint64",
-            "name": "adminsThreshold",
-            "type": "uint64"
+                "internalType": "uint64",
+                "name": "adminsThreshold",
+                "type": "uint64"
             },
             {
-            "internalType": "address[]",
-            "name": "cosigners",
-            "type": "address[]"
+                "internalType": "address[]",
+                "name": "cosigners",
+                "type": "address[]"
             },
             {
-            "internalType": "uint64",
-            "name": "cosignersThreshold",
-            "type": "uint64"
+                "internalType": "uint64",
+                "name": "cosignersThreshold",
+                "type": "uint64"
             },
             {
-            "internalType": "bytes",
-            "name": "opTypeConstants",
-            "type": "bytes"
+                "internalType": "bytes",
+                "name": "opTypeConstants",
+                "type": "bytes"
             }
-        ],
-        "internalType": "struct ITeeWalletKeyManager.KeyConfigConstants",
-        "name": "configConstants",
-        "type": "tuple"
+            ],
+            "internalType": "struct ITeeWalletKeyManager.KeyConfigConstants",
+            "name": "configConstants",
+            "type": "tuple"
         },
         {
-        "components": [
+            "components": [
             {
-            "internalType": "address[]",
-            "name": "pausingAddresses",
-            "type": "address[]"
+                "internalType": "address[]",
+                "name": "pausingAddresses",
+                "type": "address[]"
             },
             {
-            "internalType": "bytes",
-            "name": "opTypeSettings",
-            "type": "bytes"
+                "internalType": "bytes",
+                "name": "opTypeSettings",
+                "type": "bytes"
             }
-        ],
-        "internalType": "struct ITeeWalletKeyManager.KeyConfigSettings",
-        "name": "configSettings",
-        "type": "tuple"
+            ],
+            "internalType": "struct ITeeWalletKeyManager.KeyConfigSettings",
+            "name": "configSettings",
+            "type": "tuple"
         }
     ],
     "internalType": "struct ITeeWalletKeyManager.KeyExistence",
