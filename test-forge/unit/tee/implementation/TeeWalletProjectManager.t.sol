@@ -10,6 +10,7 @@ contract TeeWalletProjectManagerTest is Test {
     TeeWalletProjectManager private teeWalletProjectManagerImpl;
     TeeWalletProjectManagerProxy private teeWalletProjectManagerProxy;
 
+    address private mockTeeOwnerAllowlist;
     address private mockTeeWalletManager;
     address private governance;
     address private addressUpdater;
@@ -48,6 +49,7 @@ contract TeeWalletProjectManagerTest is Test {
     function setUp() public {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
+        mockTeeOwnerAllowlist = makeAddr("mockTeeOwnerAllowlist");
         mockTeeWalletManager = makeAddr("mockTeeWalletManager");
 
         teeWalletProjectManagerImpl = new TeeWalletProjectManager();
@@ -60,12 +62,14 @@ contract TeeWalletProjectManagerTest is Test {
         teeWalletProjectManager = TeeWalletProjectManager(address(teeWalletProjectManagerProxy));
 
         vm.prank(addressUpdater);
-        contractNameHashes = new bytes32[](2);
-        contractAddresses = new address[](2);
+        contractNameHashes = new bytes32[](3);
+        contractAddresses = new address[](3);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractAddresses[0] = address(addressUpdater);
-        contractNameHashes[1] = keccak256(abi.encode("TeeWalletManager"));
-        contractAddresses[1] = address(mockTeeWalletManager);
+        contractNameHashes[1] = keccak256(abi.encode("TeeOwnerAllowlist"));
+        contractAddresses[1] = address(mockTeeOwnerAllowlist);
+        contractNameHashes[2] = keccak256(abi.encode("TeeWalletManager"));
+        contractAddresses[2] = address(mockTeeWalletManager);
         teeWalletProjectManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
         submitAddress1 = makeAddr("submitAddress1");
@@ -75,17 +79,29 @@ contract TeeWalletProjectManagerTest is Test {
         projectOwner1 = makeAddr("projectOwner");
         projectOwner2 = makeAddr("projectOwner2");
         defaultWalletId = keccak256(abi.encode("defaultWalletId"));
+        _mockIsTeeWalletProjectOwnerAllowed(projectOwner1, true);
+        _mockIsTeeWalletProjectOwnerAllowed(projectOwner2, true);
     }
 
     function testCreateProjectRevertWrongOpType() public {
         bytes32 opType = keccak256(abi.encode("wrongOpType"));
         _mockIsOpTypeSupported(opType, false);
+        vm.prank(projectOwner1);
         vm.expectRevert("op type not supported");
         teeWalletProjectManager.createProject(opType, submitAddress1);
     }
 
+    function testCreateProjectRevertOwnerNotAllowed() public {
+        _mockIsOpTypeSupported(opType1, true);
+        _mockIsTeeWalletProjectOwnerAllowed(projectOwner1, false);
+        vm.prank(projectOwner1);
+        vm.expectRevert("owner not allowed");
+        teeWalletProjectManager.createProject(opType1, submitAddress1);
+    }
+
     function testCreateProjectRevertSubmitAddressZero() public {
         _mockIsOpTypeSupported(opType1, true);
+        vm.prank(projectOwner1);
         vm.expectRevert("submit address zero");
         teeWalletProjectManager.createProject(opType1, address(0));
     }
@@ -202,11 +218,22 @@ contract TeeWalletProjectManagerTest is Test {
         testCreateProject();
         bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
         address newOwner = makeAddr("newOwner");
+        _mockIsTeeWalletProjectOwnerAllowed(newOwner, true);
         vm.prank(projectOwner1);
         vm.expectEmit();
         emit NewOwnerProposed(projectId1, newOwner);
         teeWalletProjectManager.proposeNewOwner(projectId1, newOwner);
         assertEq(newOwner, teeWalletProjectManager.proposedProjectOwner(projectId1));
+    }
+
+    function testProposeNewOwnerRevertOwnerNotAllowed() public {
+        testCreateProject();
+        bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
+        address newOwner = makeAddr("newOwner");
+        _mockIsTeeWalletProjectOwnerAllowed(newOwner, false);
+        vm.prank(projectOwner1);
+        vm.expectRevert("owner not allowed");
+        teeWalletProjectManager.proposeNewOwner(projectId1, newOwner);
     }
 
     function testConfirmOwnership() public {
@@ -220,11 +247,21 @@ contract TeeWalletProjectManagerTest is Test {
         assertEq(newOwner, teeWalletProjectManager.getOwner(projectId1));
     }
 
-    function testConfirmOwnershipRevert() public {
+    function testConfirmOwnershipRevertOnlyProposedOwner() public {
         testProposeNewOwner();
         bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
         vm.prank(projectOwner2);
         vm.expectRevert("only proposed owner");
+        teeWalletProjectManager.confirmOwnership(projectId1);
+    }
+
+    function testConfirmOwnershipRevertOwnerNotAllowed() public {
+        testProposeNewOwner();
+        bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
+        address newOwner = makeAddr("newOwner");
+        _mockIsTeeWalletProjectOwnerAllowed(newOwner, false);
+        vm.prank(newOwner);
+        vm.expectRevert("owner not allowed");
         teeWalletProjectManager.confirmOwnership(projectId1);
     }
 
@@ -263,6 +300,17 @@ contract TeeWalletProjectManagerTest is Test {
                 addressUpdater
             )
         ));
+    }
+
+    function _mockIsTeeWalletProjectOwnerAllowed(address _owner, bool _isAllowed) internal {
+        vm.mockCall(
+            mockTeeOwnerAllowlist,
+            abi.encodeWithSelector(
+                ITeeOwnerAllowlist.isAllowedTeeWalletProjectOwner.selector,
+                _owner
+            ),
+            abi.encode(_isAllowed)
+        );
     }
 
     function _mockIsOpTypeSupported(bytes32 _opType, bool _isSupported) internal {

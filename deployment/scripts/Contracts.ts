@@ -84,6 +84,7 @@ export class Contracts {
   public static readonly FDC_HUB = "FdcHub";
   public static readonly FDC_INFLATION_CONFIGURATIONS = "FdcInflationConfigurations";
   public static readonly FDC_REQUEST_FEE_CONFIGURATIONS = "FdcRequestFeeConfigurations";
+  public static readonly TEE_OWNER_ALLOWLIST = "TeeOwnerAllowlist";
   public static readonly TEE_GOVERNANCE = "TeeGovernance";
   public static readonly TEE_VERSION_MANAGER = "TeeVersionManager";
   public static readonly TEE_VERIFICATION = "TeeVerification";

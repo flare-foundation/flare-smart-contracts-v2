@@ -409,7 +409,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref1"),
             11, // nonce
-            0, // subNonce
+            11, // subNonce
             500 + 0
         );
         vm.prank(submitAddress);
@@ -436,7 +436,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref2"),
             12, // nonce
-            1, // subNonce
+            12, // subNonce
             500 + 0
         );
         vm.prank(submitAddress);
@@ -478,7 +478,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref1"),
             11, // nonce
-            0, // subNonce
+            11, // subNonce
             500 + 300
         );
         vm.prank(submitAddress);
@@ -505,7 +505,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref2"),
             12, // nonce
-            1, // subNonce
+            12, // subNonce
             500 + 300
         );
         vm.prank(submitAddress);
@@ -547,7 +547,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref1"),
             11, // nonce
-            0, // subNonce
+            11, // subNonce
             500 + 300
         );
         vm.prank(submitAddress);
@@ -574,7 +574,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref2"),
             11, // nonce
-            1, // subNonce
+            12, // subNonce
             500 + 300
         );
         vm.prank(submitAddress);
@@ -601,7 +601,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref3"),
             12, // nonce
-            2, // subNonce
+            13, // subNonce
             500 + 300
         );
         vm.prank(submitAddress);
@@ -630,7 +630,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref4"),
             13, // nonce
-            3, // subNonce
+            14, // subNonce
             500 + 301 + 300 // batch end time
         );
         vm.prank(submitAddress);
@@ -659,7 +659,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref5"),
             14, // nonce
-            4, // subNonce
+            15, // subNonce
             500 + 301 + 300
         );
         vm.prank(submitAddress);
@@ -701,7 +701,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref1"),
             11, // nonce
-            0, // subNonce
+            11, // subNonce
             500 + 300
         );
         vm.prank(submitAddress);
@@ -728,7 +728,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref2"),
             11, // nonce
-            1, // subNonce
+            12, // subNonce
             500 + 300
         );
         vm.prank(submitAddress);
@@ -772,7 +772,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref1"),
             11, // nonce
-            0, // subNonce
+            11, // subNonce
             500 + 0
         );
         vm.prank(submitAddress);
@@ -799,7 +799,7 @@ contract TeePaymentsTest is Test {
             10,
             bytes32("ref2"),
             12, // nonce
-            1, // subNonce
+            12, // subNonce
             500 + 0
         );
         vm.prank(submitAddress);
@@ -931,7 +931,7 @@ contract TeePaymentsTest is Test {
         vm.prank(submitAddress);
         // batch with nonce 11 is not yet finished
         vm.expectRevert("batch hasn't yet ended");
-        teePayments.reissue{value: fee * 2} (walletId, 11, 0, paymentInstructions, fees, nullify);
+        teePayments.reissue{value: fee * 2} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 
     function testReissueRevertHashMismatch1() public {
@@ -953,7 +953,7 @@ contract TeePaymentsTest is Test {
         vm.prank(submitAddress);
         // batch with nonce 11 is finished
         vm.expectRevert("batch hash mismatch");
-        teePayments.reissue{value: fee * 2} (walletId, 11, 0, paymentInstructions, fees, nullify);
+        teePayments.reissue{value: fee * 2} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 
     function testReissueRevertHashMismatch2() public {
@@ -976,7 +976,7 @@ contract TeePaymentsTest is Test {
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
         vm.expectRevert("batch hash mismatch");
-        teePayments.reissue{value: fee * 2 + 6} (walletId, 11, 0, paymentInstructions, fees, nullify);
+        teePayments.reissue{value: fee * 2 + 6} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 
     function testReissueRevertLengthsMismatch() public {
@@ -997,7 +997,7 @@ contract TeePaymentsTest is Test {
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
         vm.expectRevert("lengths mismatch");
-        teePayments.reissue{value: fee * 2 + 6} (walletId, 11, 0, paymentInstructions, fees, nullify);
+        teePayments.reissue{value: fee * 2 + 6} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 
     function testReissue1() public {
@@ -1029,7 +1029,7 @@ contract TeePaymentsTest is Test {
             150,
             bytes32("ref1"),
             11, // nonce
-            0, // subNonce
+            11, // subNonce
             uint64(block.timestamp)
         );
         ITeePayments.PaymentInstructionMessage memory message2 = ITeePayments.PaymentInstructionMessage(
@@ -1041,7 +1041,7 @@ contract TeePaymentsTest is Test {
             150,
             bytes32("ref2"),
             11, // nonce
-            1, // subNonce
+            12, // subNonce
             uint64(block.timestamp)
         );
         vm.expectEmit();
@@ -1064,7 +1064,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message2),
             127 // 253 - 126 = 127
         );
-        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, fees, nullify);
+        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 11, paymentInstructions, fees, nullify);
 
         // reissue also batch with nonce 13
         paymentInstructions = new ITeePayments.PaymentInstruction[](1);
@@ -1083,7 +1083,7 @@ contract TeePaymentsTest is Test {
             150,
             bytes32("ref4"),
             13, // nonce
-            3, // subNonce
+            14, // subNonce
             uint64(block.timestamp)
         );
         vm.expectEmit();
@@ -1097,14 +1097,14 @@ contract TeePaymentsTest is Test {
             123
         );
         vm.prank(submitAddress);
-        teePayments.reissue{value: fee} (walletId, 13, 3, paymentInstructions, fees, nullify);
+        teePayments.reissue{value: fee} (walletId, 13, 14, paymentInstructions, fees, nullify);
 
         // try reissue batch with nonce 14; batch is not yet finished
         paymentInstructions = new ITeePayments.PaymentInstruction[](1);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref5"));
         vm.prank(submitAddress);
         vm.expectRevert("batch hasn't yet ended");
-        teePayments.reissue{value: fee} (walletId, 14, 4, paymentInstructions, fees, nullify);
+        teePayments.reissue{value: fee} (walletId, 14, 15, paymentInstructions, fees, nullify);
     }
 
     function testReissueNullify() public {
@@ -1136,7 +1136,7 @@ contract TeePaymentsTest is Test {
             150,
             bytes32("ref1"),
             11, // nonce
-            0, // subNonce
+            11, // subNonce
             uint64(block.timestamp)
         );
         ITeePayments.PaymentInstructionMessage memory message2 = ITeePayments.PaymentInstructionMessage(
@@ -1148,7 +1148,7 @@ contract TeePaymentsTest is Test {
             150,
             bytes32("ref2"),
             11, // nonce
-            1, // subNonce
+            12, // subNonce
             uint64(block.timestamp)
         );
         vm.expectEmit();
@@ -1171,7 +1171,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message2),
             127 // 253 - 126 = 127
         );
-        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, fees, nullify);
+        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 
     // should reissue batch with nonce 11 twice
@@ -1204,7 +1204,7 @@ contract TeePaymentsTest is Test {
             150,
             bytes32("ref1"),
             11, // nonce
-            0, // subNonce
+            11, // subNonce
             uint64(block.timestamp)
         );
         ITeePayments.PaymentInstructionMessage memory message2 = ITeePayments.PaymentInstructionMessage(
@@ -1216,7 +1216,7 @@ contract TeePaymentsTest is Test {
             150,
             bytes32("ref2"),
             11, // nonce
-            1, // subNonce
+            12, // subNonce
             uint64(block.timestamp)
         );
         vm.expectEmit();
@@ -1239,7 +1239,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message2),
             127 // 253 - 126 = 127
         );
-        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, fees, nullify);
+        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 11, paymentInstructions, fees, nullify);
 
         // reissue again; instructionId changes
         instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11, 1));
@@ -1264,7 +1264,7 @@ contract TeePaymentsTest is Test {
             127
         );
         vm.prank(submitAddress);
-        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 0, paymentInstructions, fees, nullify);
+        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 
     //// Proxy upgrade

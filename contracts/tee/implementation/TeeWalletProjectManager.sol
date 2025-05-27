@@ -4,6 +4,7 @@ pragma solidity 0.8.20;
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
+import "../../userInterfaces/tee/ITeeOwnerAllowlist.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
 import "../../governance/implementation/GovernedProxyImplementation.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -27,6 +28,8 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager,
     mapping(bytes32 projectId => TeeWalletProjectState) private projects;
     mapping(bytes32 projectId => address) public proposedProjectOwner;
 
+    /// TEE owner allowlist contract.
+    ITeeOwnerAllowlist public teeOwnerAllowlist;
     /// TEE wallet manager contract.
     ITeeWalletManager public teeWalletManager;
 
@@ -67,6 +70,7 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager,
         external
         returns (bytes32 _projectId)
     {
+        require(teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(msg.sender), "owner not allowed");
         require(teeWalletManager.isOpTypeSupported(_opType), "op type not supported");
         require(_submitAddress != address(0), "submit address zero");
         _projectId = keccak256(abi.encode("PROJECT", msg.sender, ++projectCounter));
@@ -107,6 +111,10 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager,
     function proposeNewOwner(bytes32 _projectId, address _newOwner)
         external onlyOwner(_projectId)
     {
+        require(
+            _newOwner == address(0) || teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(_newOwner),
+            "owner not allowed"
+        );
         proposedProjectOwner[_projectId] = _newOwner;
         emit NewOwnerProposed(_projectId, _newOwner);
     }
@@ -117,6 +125,7 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager,
     function confirmOwnership(bytes32 _projectId)
         external
     {
+        require(teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(msg.sender), "owner not allowed");
         require(proposedProjectOwner[_projectId] == msg.sender, "only proposed owner");
         projects[_projectId].owner = msg.sender;
         delete proposedProjectOwner[_projectId];
@@ -209,6 +218,8 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager,
     )
         internal override
     {
+        teeOwnerAllowlist = ITeeOwnerAllowlist(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeOwnerAllowlist"));
         teeWalletManager = ITeeWalletManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
     }

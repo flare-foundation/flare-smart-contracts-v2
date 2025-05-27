@@ -338,6 +338,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         require(settings[_walletId].minFee > 0, "min fee not set");
         senderAddresses[_walletId] = _senderAddress;
         states[_walletId].nonce = _initialNonce;
+        states[_walletId].subNonce = _initialNonce;
         emit SenderAddressSet(_walletId, _senderAddress, _initialNonce);
     }
 

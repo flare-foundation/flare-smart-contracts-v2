@@ -3,6 +3,7 @@ pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
+import "../../userInterfaces/tee/ITeeOwnerAllowlist.sol";
 import "../../userInterfaces/tee/ITeeVersionManager.sol";
 import "../../userInterfaces/tee/ITeeVerification.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
@@ -35,6 +36,8 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     bytes32 public constant TO_PAUSE_FOR_UPGRADE = bytes32("TO_PAUSE_FOR_UPGRADE");
     bytes32 public constant REPLICATE_FROM = bytes32("REPLICATE_FROM");
 
+    /// TEE owner allowlist contract.
+    ITeeOwnerAllowlist public teeOwnerAllowlist;
     /// TEE version manager contract.
     ITeeVersionManager public teeVersionManager;
     /// TEE verification contract.
@@ -100,6 +103,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     )
         external payable
     {
+        require(teeOwnerAllowlist.isAllowedTeeMachineOwner(msg.sender), "owner not allowed");
         require(_teeId != address(0), "invalid tee id");
         require(_teeProxyId != address(0), "invalid tee proxy id");
         require(bytes(_url).length > 0, "invalid url");
@@ -344,6 +348,10 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     function proposeNewOwner(address _teeId, address _newOwner)
         external onlyOwner(_teeId)
     {
+        require(
+            _newOwner == address(0) || teeOwnerAllowlist.isAllowedTeeMachineOwner(_newOwner),
+            "owner not allowed"
+        );
         proposedTeeOwner[_teeId] = _newOwner;
         emit NewOwnerProposed(_teeId, msg.sender, _newOwner);
     }
@@ -354,6 +362,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     function confirmOwnership(address _teeId)
         external
     {
+        require(teeOwnerAllowlist.isAllowedTeeMachineOwner(msg.sender), "owner not allowed");
         require(proposedTeeOwner[_teeId] == msg.sender, "only proposed owner");
         teeStates[_teeId].owner = msg.sender;
         delete proposedTeeOwner[_teeId];
@@ -521,6 +530,8 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     )
         internal override
     {
+        teeOwnerAllowlist = ITeeOwnerAllowlist(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeOwnerAllowlist"));
         teeVersionManager = ITeeVersionManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeVersionManager"));
         teeVerification = ITeeVerification(

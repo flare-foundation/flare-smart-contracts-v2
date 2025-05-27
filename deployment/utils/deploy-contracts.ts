@@ -109,6 +109,7 @@ import { TeeRegistryProxyContract } from "../../typechain-truffle/contracts/tee/
 import { FtdcVerificationContract, FtdcVerificationInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification";
 import { TeeVerificationContract, TeeVerificationInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeVerification";
 import { TeeVerificationProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeVerificationProxy";
+import { TeeOwnerAllowlistContract, TeeOwnerAllowlistInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlist";
 
 export interface DeployedContracts {
   readonly flareDaemon: TestableFlareDaemonInstance;
@@ -140,6 +141,7 @@ export interface DeployedContracts {
   readonly nodePossessionVerifier: NodePossessionVerifierInstance;
   readonly feeCalculator: FeeCalculatorInstance;
   readonly fdcHub: FdcHubInstance;
+  readonly teeOwnerAllowlist: TeeOwnerAllowlistInstance;
   readonly teeGovernance: TeeGovernanceInstance;
   readonly teeVersionManager: TeeVersionManagerInstance;
   readonly teeVerification: TeeVerificationInstance;
@@ -209,6 +211,8 @@ export async function deployContracts(
   const FastUpdatesConfiguration = hre.artifacts.require("FastUpdatesConfiguration") as FastUpdatesConfigurationContract;
   const FeeCalculator = hre.artifacts.require("FeeCalculator") as FeeCalculatorContract;
 
+
+  const TeeOwnerAllowlist: TeeOwnerAllowlistContract = artifacts.require("TeeOwnerAllowlist");
   const TeeGovernance: TeeGovernanceContract = await artifacts.require("TeeGovernance");
   const TeeGovernanceProxy: TeeGovernanceProxyContract = await artifacts.require("TeeGovernanceProxy");
   const TeeVersionManager: TeeVersionManagerContract = artifacts.require("TeeVersionManager");
@@ -498,6 +502,11 @@ export async function deployContracts(
   const fdcHub = await FdcHub.new(governanceSettings.address, governanceAccount.address, ADDRESS_UPDATER_ADDR, 30);
   const fdcInflationConfigurations = await FdcInflationConfigurations.new(governanceSettings.address, governanceAccount.address, ADDRESS_UPDATER_ADDR);
   const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(governanceSettings.address, governanceAccount.address);
+
+  const teeOwnerAllowlist = await TeeOwnerAllowlist.new(
+    governanceSettings.address,
+    governanceAccount.address
+  );
 
   const teeGovernanceImpl = await TeeGovernance.new();
   const teeGovernanceProxy = await TeeGovernanceProxy.new(
@@ -890,14 +899,14 @@ export async function deployContracts(
   );
 
   await teeRegistry.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_VERIFICATION, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-    [ADDRESS_UPDATER_ADDR, teeVersionManager.address, teeVerification.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, relay.address],
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_OWNER_ALLOWLIST, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_VERIFICATION, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+    [ADDRESS_UPDATER_ADDR, teeOwnerAllowlist.address, teeVersionManager.address, teeVerification.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, relay.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
   await teeWalletProjectManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, teeWalletManager.address],
+    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_OWNER_ALLOWLIST, Contracts.TEE_WALLET_MANAGER]),
+    [ADDRESS_UPDATER_ADDR, teeOwnerAllowlist.address, teeWalletManager.address],
     { from: ADDRESS_UPDATER_ADDR }
   );
 
@@ -971,6 +980,9 @@ export async function deployContracts(
     ...teePaymentsList.map(teePayments => teePayments.address),
     ftdcHub.address,
   ], { from: governanceAccount.address });
+
+  await teeOwnerAllowlist.allowAllTeeMachineOwners({ from: governanceAccount.address });
+  await teeOwnerAllowlist.allowAllTeeWalletProjectOwners({ from: governanceAccount.address });
 
   // set reward offers manager list
   await rewardManager.setRewardOffersManagerList([
@@ -1157,6 +1169,7 @@ export async function deployContracts(
     nodePossessionVerifier,
     feeCalculator,
     fdcHub,
+    teeOwnerAllowlist,
     teeGovernance,
     teeVersionManager,
     teeVerification,

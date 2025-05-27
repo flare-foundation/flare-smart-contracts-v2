@@ -24,6 +24,7 @@ import { FtdcVerificationContract } from "../../typechain-truffle/contracts/ftdc
 import { TeeGovernanceProxyContract, TeeInstructionsProxyContract, TeePaymentsProxyContract, TeeRegistryProxyContract, TeeVersionManagerProxyContract, TeeWalletBackupManagerProxyContract, TeeWalletKeyManagerProxyContract, TeeWalletManagerProxyContract, TeeWalletProjectManagerProxyContract } from "../../typechain-truffle";
 import { TeeVerificationContract } from "../../typechain-truffle/contracts/tee/implementation/TeeVerification";
 import { TeeVerificationProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeVerificationProxy";
+import { TeeOwnerAllowlistContract } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlist";
 
 export async function deployTeeContracts(
   hre: HardhatRuntimeEnvironment,
@@ -36,6 +37,7 @@ export async function deployTeeContracts(
   const artifacts = hre.artifacts;
 
   // Import contract artifacts
+  const TeeOwnerAllowlist: TeeOwnerAllowlistContract = artifacts.require("TeeOwnerAllowlist");
   const TeeGovernance: TeeGovernanceContract = artifacts.require("TeeGovernance");
   const TeeGovernanceProxy: TeeGovernanceProxyContract = artifacts.require("TeeGovernanceProxy");
   const TeeVersionManager: TeeVersionManagerContract = artifacts.require("TeeVersionManager");
@@ -83,6 +85,12 @@ export async function deployTeeContracts(
   const rewardManager = contracts.getContractAddress(Contracts.REWARD_MANAGER);
 
   // deploy contracts
+  const teeOwnerAllowlist = await TeeOwnerAllowlist.new(
+    governanceSettings,
+    deployerAccount.address
+  );
+  spewNewContractInfo(contracts, null, "TeeOwnerAllowlist", `TeeOwnerAllowlist.sol`, teeOwnerAllowlist.address, quiet);
+
   const teeGovernanceImpl = await TeeGovernance.new();
   spewNewContractInfo(contracts, null, "TeeGovernanceImplementation", `TeeGovernance.sol`, teeGovernanceImpl.address, quiet);
   const teeGovernanceProxy = await TeeGovernanceProxy.new(
@@ -264,12 +272,12 @@ export async function deployTeeContracts(
     [addressUpdater, teeVersionManager.address, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager, relay]);
 
   await teeRegistry.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_VERIFICATION, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-    [addressUpdater, teeVersionManager.address, teeVerification.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager, relay]);
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_OWNER_ALLOWLIST, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_VERIFICATION, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+    [addressUpdater, teeOwnerAllowlist.address, teeVersionManager.address, teeVerification.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager, relay]);
 
   await teeWalletProjectManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_MANAGER]),
-    [addressUpdater, teeWalletManager.address]);
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_OWNER_ALLOWLIST, Contracts.TEE_WALLET_MANAGER]),
+    [addressUpdater, teeOwnerAllowlist.address, teeWalletManager.address]);
 
   await teeWalletManager.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.TEE_REGISTRY]),
@@ -337,6 +345,7 @@ export async function deployTeeContracts(
   }
 
   // switch to production mode
+  await teeOwnerAllowlist.switchToProductionMode();
   await teeVerification.switchToProductionMode();
   await teeGovernance.switchToProductionMode();
   await teeVersionManager.switchToProductionMode();
