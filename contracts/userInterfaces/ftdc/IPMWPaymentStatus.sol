@@ -76,11 +76,13 @@ interface IPMWPaymentStatus {
      * @param amount Amount in minimal units that should be send.
      * @param fee Fee in minimal units that should be paid for the transaction.
      * @param paymentInstruction Payment instruction message as emitted on-chain.
-     * @param status Success status of the transaction: 0 - success, 1 - failed by sender's fault,
+     * @param transactionStatus Success status of the transaction: 0 - success, 1 - failed by sender's fault,
      * 2 - failed by receiver's fault.
-     * @param blockchainRevertStatus Revert reason from the blockchain, if available.
+     * @param revertReason Revert reason from the blockchain, if transaction status is not success.
      * @param receivedAmount Amount in minimal units received by the receiving address.
-     * @param spentAmount Amount in minimal units spent by the source address.
+     * @param transactionFee Total fee in minimal units used for the transaction.
+     * In the case of batch payments, all proofs for different sub-nonces would have the same transaction fee value.
+     * @param transactionId ID of the payment transaction.
      * @param blockNumber Number of the block in which the transaction is included.
      * @param blockTimestamp The timestamp of the block in which the transaction is included.
      */
@@ -90,10 +92,11 @@ interface IPMWPaymentStatus {
         uint256 amount;
         uint256 fee;
         bytes32 paymentReference;
-        uint8 status;
-        string blockchainRevertStatus;
-        int256 receivedAmount;
-        int256 spentAmount;
+        uint8 transactionStatus;
+        string revertReason;
+        uint256 receivedAmount;
+        uint256 transactionFee;
+        bytes32 transactionId;
         uint64 blockNumber;
         uint64 blockTimestamp;
     }
