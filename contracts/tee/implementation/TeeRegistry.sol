@@ -145,7 +145,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         _checkCodeHashPlatformSupported(teeState.codeHash, teeState.platform);
         _validateAvailabilityCheckStatuses(data.responseBody.status, data.responseBody.machineStatus);
         _validateAvailabilityCheckTs(teeId, data.timestamp);
-        teeVerification.verifyAvailabilityCheckProof(_proof);
+        require(teeVerification.verifyAvailabilityCheckProof(_proof), "invalid response data");
 
         teeState.status = TeeStatus.PRODUCTION;
         teeState.lastStatusChangeTs = block.timestamp;
@@ -186,13 +186,14 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         address teeId = data.requestBody.teeId;
         TeeState storage teeState = teeStates[teeId];
         _checkTeeStatus(teeState.status, TeeStatus.PRODUCTION);
+        bool responseDataValid = teeVerification.verifyAvailabilityCheckProof(_proof);
         require(
+            !responseDataValid ||
             data.responseBody.status != ITeeAvailabilityCheck.AvailabilityCheckStatus.OK ||
             data.responseBody.machineStatus != ITeeAvailabilityCheck.TeeMachineStatus.ACTIVE,
-            "AC status invalid"
+            "invalid response data or AC status"
         );
         _validateAvailabilityCheckTs(teeId, data.timestamp);
-        teeVerification.verifyAvailabilityCheckProof(_proof);
 
         teeState.status = TeeStatus.PAUSED_WITH_PROOF;
         teeState.lastStatusChangeTs = block.timestamp;
@@ -263,7 +264,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         require(_areTeeMachinesCompatible(oldTeeState, newTeeState), "tees not compatible");
         _validateAvailabilityCheckStatuses(data.responseBody.status, data.responseBody.machineStatus);
         _validateAvailabilityCheckTs(newTeeId, data.timestamp);
-        teeVerification.verifyAvailabilityCheckProof(_proof);
+        require(teeVerification.verifyAvailabilityCheckProof(_proof), "invalid response data");
         address[] memory teeIds = new address[](2);
         teeIds[0] = _oldTeeId;
         teeIds[1] = newTeeId;
@@ -312,11 +313,11 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
     )
         external
         onlyOwner(_proof.data.requestBody.teeId)
-        onlyOwner(_proof.data.requestBody.initialTeeId)
+        onlyOwner(_proof.data.responseBody.initialTeeId)
     {
         ITeeAvailabilityCheck.Response calldata data = _proof.data;
         address oldTeeId = data.requestBody.teeId;
-        address newTeeId = data.requestBody.initialTeeId;
+        address newTeeId = data.responseBody.initialTeeId;
         TeeState storage oldTeeState = teeStates[oldTeeId];
         _checkTeeStatus(oldTeeState.status, TeeStatus.PAUSED_FOR_UPGRADE);
         TeeState storage newTeeState = teeStates[newTeeId];
@@ -327,7 +328,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
 
         _validateAvailabilityCheckStatuses(data.responseBody.status, data.responseBody.machineStatus);
         _validateAvailabilityCheckTs(newTeeId, data.timestamp);
-        teeVerification.verifyAvailabilityCheckProof(_proof);
+        require(teeVerification.verifyAvailabilityCheckProof(_proof), "invalid response data");
         oldTeeState.initialTeeId = newTeeId; // same as newTeeState.initialTeeId
         oldTeeState.status = TeeStatus.PRODUCTION;
         oldTeeState.lastStatusChangeTs = block.timestamp;
@@ -650,7 +651,7 @@ contract TeeRegistry is ITeeRegistry, GovernedProxyImplementation, AddressUpdata
         require(
             _status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK &&
             _machineStatus == ITeeAvailabilityCheck.TeeMachineStatus.ACTIVE,
-            "AC status invalid"
+            "invalid AC status"
         );
     }
 

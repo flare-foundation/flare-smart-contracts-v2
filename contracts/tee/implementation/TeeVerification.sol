@@ -22,7 +22,6 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 contract TeeVerification is ITeeVerification, GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable {
     using AddressSet for AddressSet.State;
 
-
     bytes32 public constant TEE_SOURCE_ID = bytes32("TEE");
     bytes32 public constant REG_OP_TYPE = bytes32("REG");
     bytes32 public constant TEE_ATTESTATION = bytes32("TEE_ATTESTATION");
@@ -144,16 +143,10 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         external payable
     {
         require(challengeTs[_teeId] + challengeValidityDurationSeconds > block.timestamp, "challenge expired");
-        ITeeRegistry.TeeMachineWithAttestationData memory teeMachine =
-            teeRegistry.getTeeMachineWithAttestationData(_teeId);
+        ITeeRegistry.TeeMachine memory teeMachine = teeRegistry.getTeeMachine(_teeId);
         ITeeAvailabilityCheck.RequestBody memory requestBody = ITeeAvailabilityCheck.RequestBody({
             teeId: _teeId,
-            initialTeeId: teeMachine.initialTeeId,
             url: teeMachine.url,
-            platform: teeMachine.platform,
-            codeHash: teeMachine.codeHash,
-            teeGovernanceHash: teeVersionManager.getTeeGovernanceHash(teeMachine.codeHash),
-            rewardEpochId: flareSystemsManager.getCurrentRewardEpochId(),
             challenge: challenges[_teeId]
         });
 
@@ -198,9 +191,9 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         require(
             data.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK &&
             data.responseBody.machineStatus == ITeeAvailabilityCheck.TeeMachineStatus.ACTIVE,
-            "AC status invalid"
+            "invalid AC status"
         );
-        _verifyAvailabilityCheckProof(teeMachine, status, _proof);
+        require(_verifyAvailabilityCheckProof(teeMachine, status, _proof), "invalid response data");
 
         // extend the availability check validity
         uint256 endTs = data.timestamp + availabilityCheckValidityDurationSeconds;
@@ -218,12 +211,13 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         external
+        returns(bool)
     {
         address teeId = _proof.data.requestBody.teeId;
         ITeeRegistry.TeeStatus status = teeRegistry.getTeeMachineStatus(teeId);
         ITeeRegistry.TeeMachineWithAttestationData memory teeMachine =
             teeRegistry.getTeeMachineWithAttestationData(teeId);
-        _verifyAvailabilityCheckProof(teeMachine, status, _proof);
+        return _verifyAvailabilityCheckProof(teeMachine, status, _proof);
     }
 
     /**
@@ -368,6 +362,7 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         internal
+        returns(bool)
     {
         ITeeAvailabilityCheck.Response calldata data = _proof.data;
         require(
@@ -382,10 +377,6 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         require(challengeTs[teeId] + challengeValidityDurationSeconds > block.timestamp, "challenge expired");
         require(
             keccak256(bytes(requestBody.url)) == keccak256(bytes(_teeMachine.url)) &&
-            requestBody.codeHash == _teeMachine.codeHash &&
-            requestBody.platform == _teeMachine.platform &&
-            requestBody.initialTeeId == _teeMachine.initialTeeId &&
-            requestBody.teeGovernanceHash == teeVersionManager.getTeeGovernanceHash(_teeMachine.codeHash) &&
             requestBody.challenge == challenges[teeId],
             "invalid request body"
         );
@@ -393,9 +384,8 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         uint256 rewardEpochId = ftdcVerification.verifySigningPolicySignatures(_proof.relayMessage, messageHash);
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         require(
-            requestBody.rewardEpochId == rewardEpochId &&
-            (rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId),
-            "too old signing policy"
+            rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId,
+            "invalid signing policy"
         );
         // additionally check cosigners in case of initial availability check
         if (_status == ITeeRegistry.TeeStatus.INITIALIZED && cosignersThreshold > 0) {
@@ -406,6 +396,14 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
                 require(cosigners.index[registrationCosigners[i]] != 0, "invalid cosigner");
             }
         }
+        // check response body data validity
+        ITeeAvailabilityCheck.ResponseBody calldata responseBody = data.responseBody;
+        rewardEpochId = responseBody.rewardEpochId;
+        return responseBody.codeHash == _teeMachine.codeHash &&
+            responseBody.platform == _teeMachine.platform &&
+            responseBody.initialTeeId == _teeMachine.initialTeeId &&
+            responseBody.teeGovernanceHash == teeVersionManager.getTeeGovernanceHash(_teeMachine.codeHash) &&
+            (rewardEpochId == currentRewardEpochId || rewardEpochId == currentRewardEpochId + 1);
     }
 
     function _validateDuration(

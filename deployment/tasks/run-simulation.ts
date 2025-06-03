@@ -393,18 +393,18 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
         cosignersThreshold: "0",
         requestBody: {
           teeId: TEE_IDS[i],
-          initialTeeId: TEE_IDS[i],
           url: TEE_URLS[i],
-          codeHash: TEE_CODE_HASH,
-          platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
-          teeGovernanceHash: governanceHash,
-          rewardEpochId: rewardEpochId,
           challenge: event.challenge.toString()
         },
         responseBody: {
           status: "0",
           machineStatus: "0",
-          teeTimestamp: (await time.latest()-1).toString()
+          teeTimestamp: (await time.latest()-1).toString(),
+          initialTeeId: TEE_IDS[i],
+          codeHash: TEE_CODE_HASH,
+          platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
+          teeGovernanceHash: governanceHash,
+          rewardEpochId: rewardEpochId
         }
       }
     }

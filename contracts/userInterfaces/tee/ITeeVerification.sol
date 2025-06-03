@@ -67,11 +67,13 @@ interface ITeeVerification {
     /**
      * Validate the availability check proof.
      * @param _proof The availability check proof.
+     * @return _responseDataValid True if the response data is valid, false otherwise.
      */
     function verifyAvailabilityCheckProof(
         ITeeAvailabilityCheck.Proof calldata _proof
     )
-        external;
+        external
+        returns(bool _responseDataValid);
 
     /**
      * Returns the list of FTDC cosigners and their threshold used for the TEE machine registration.

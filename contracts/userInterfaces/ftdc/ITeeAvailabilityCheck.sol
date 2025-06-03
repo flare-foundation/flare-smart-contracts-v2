@@ -7,7 +7,7 @@ bytes32 constant TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE = bytes32("TeeAvailabil
 
 interface ITeeAvailabilityCheck {
 
-    enum AvailabilityCheckStatus { OK, OBSOLETE, DATA_MISMATCH, DOWN }
+    enum AvailabilityCheckStatus { OK, OBSOLETE, DOWN }
     enum TeeMachineStatus { ACTIVE, PAUSED, PAUSED_FOR_UPGRADE }
 
     /**
@@ -62,22 +62,12 @@ interface ITeeAvailabilityCheck {
     /**
      * @notice Request body for ITeeAvailabilityCheck attestation type
      * @param teeId Id of the TEE machine, copied from the old TEE machine in case of replication.
-     * @param initialTeeId Id of the TEE machine generated at the machine startup, it never changes.
      * @param url URL of the TEE.
-     * @param codeHash Code hash of the TEE.
-     * @param platform Platform of the TEE.
-     * @param teeGovernanceHash Hash of the TEE governance.
-     * @param rewardEpochId Reward epoch id.
      * @param challenge Challenge used for TEE attestation request.
      */
     struct RequestBody {
         address teeId;
-        address initialTeeId;
         string url;
-        bytes32 codeHash;
-        bytes32 platform;
-        bytes32 teeGovernanceHash;
-        uint24 rewardEpochId;
         uint256 challenge;
     }
 
@@ -86,10 +76,20 @@ interface ITeeAvailabilityCheck {
      * @param status Status of the availability check.
      * @param machineStatus Status of the TEE machine.
      * @param teeTimestamp Timestamp of the TEE machine.
+     * @param initialTeeId Id of the TEE machine generated at the machine startup, it never changes.
+     * @param codeHash Code hash of the TEE.
+     * @param platform Platform of the TEE.
+     * @param teeGovernanceHash Hash of the TEE governance.
+     * @param rewardEpochId Reward epoch id.
      */
     struct ResponseBody {
         AvailabilityCheckStatus status;
         TeeMachineStatus machineStatus;
         uint64 teeTimestamp;
+        address initialTeeId;
+        bytes32 codeHash;
+        bytes32 platform;
+        bytes32 teeGovernanceHash;
+        uint24 rewardEpochId;
     }
 }
