@@ -143,7 +143,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
 
         WalletState storage state = states[walletId];
         WalletSettings storage setting = settings[walletId];
-        require(_paymentInstruction.fee >= setting.minFee, "fee too low");
+        require(_paymentInstruction.fee >= setting.minFee, "fee below min fee");
         uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         // check if new batch should be started
         if (state.batchEndTs < block.timestamp || state.batchCounter >= setting.batchSize ||
@@ -254,7 +254,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         // reissue batch
         tempState.remainingAmount = msg.value;
         for (uint64 i = 0; i < _paymentInstructions.length; i++) {
-            require(_fees[i] >= tempState.minFee, "fee too low");
+            require(_fees[i] >= tempState.minFee, "fee below min fee");
             tempState.message = PaymentInstructionMessage({
                 walletId: _walletId,
                 teeIdKeyIdPairs: tempState.teeIdKeyIdPairs,

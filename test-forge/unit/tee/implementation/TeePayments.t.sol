@@ -119,6 +119,7 @@ contract TeePaymentsTest is Test {
         _mockGetSubmitAddress(projectId, submitAddress);
         _mockGetCurrentRewardEpochId(10);
         _mockReceiveRewards();
+        _mockGetOpType(opType);
 
         // set tee payments contract as instruction initiator on TeeInstructions
         vm.prank(governance);
@@ -282,8 +283,11 @@ contract TeePaymentsTest is Test {
         assertEq(opTypeConstants, "");
     }
 
+    function testGetOpType() public {
+        assertEq(teePayments.getOpType(), opType);
+    }
+
     function testSetPaymentLimits() public {
-        _mockGetOpType(opType);
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         _mockCalculateFeeByWalletId(walletId, opType, SET_PAYMENT_LIMITS, 987);
         (ITeeRegistry.TeeMachine[] memory receivingTees,
@@ -324,7 +328,6 @@ contract TeePaymentsTest is Test {
     }
 
     function testSetPaymentLimitsRevertWrongStatus() public {
-        _mockGetOpType(opType);
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.INITIALIZED);
         vm.prank(walletOwner);
         vm.expectRevert("only production or paused status");
@@ -339,7 +342,6 @@ contract TeePaymentsTest is Test {
     }
 
     function testSetPaymentLimitsRevertFeeTooLow() public {
-        _mockGetOpType(opType);
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         _mockCalculateFeeByWalletId(walletId, opType, SET_PAYMENT_LIMITS, 986);
         vm.prank(walletOwner);
@@ -830,6 +832,17 @@ contract TeePaymentsTest is Test {
         teePayments.pay{value: fee} (projectId, walletId2, _createPaymentInstruction(bytes32("ref1")));
     }
 
+    function testPayRevertFeeBelowMinFee() public {
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        vm.startPrank(walletOwner);
+        teePayments.setMinFee(walletId, 1000);
+        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 11);
+        vm.stopPrank();
+        vm.prank(submitAddress);
+        vm.expectRevert("fee below min fee");
+        teePayments.pay{value: 999}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
+    }
+
     //// reissue tests ////
     function testReissueRevertNoPaymentInstructions() public {
         vm.expectRevert("no payment instructions");
@@ -1267,6 +1280,24 @@ contract TeePaymentsTest is Test {
         teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 
+    function testReissueRevertFeeBelowMinFee() public {
+testPay3();
+        ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
+        paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
+        paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        uint256[] memory fees = new uint256[](2);
+        fees[0] = 150;
+        fees[1] = 8;
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = false;
+        nullify[1] = false;
+        // set min fee
+        vm.prank(submitAddress);
+        vm.expectRevert("fee below min fee");
+        teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 11, paymentInstructions, fees, nullify);
+    }
+
     //// Proxy upgrade
     function testUpgradeProxy() public {
         assertEq(teePayments.maxBatchSize(), 5);
@@ -1287,7 +1318,6 @@ contract TeePaymentsTest is Test {
         teePayments.upgradeToAndCall(address(newTeePaymentsImpl), bytes(""));
     }
 
-    // should revert if trying to initialize again
     // revert in GovernedBase.initialise
     function testUpgradeProxyAndInitializeRevert() public {
         TeePayments newTeePaymentsImpl = new TeePayments();
