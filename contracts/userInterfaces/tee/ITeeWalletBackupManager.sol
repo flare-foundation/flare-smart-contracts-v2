@@ -22,6 +22,7 @@ interface ITeeWalletBackupManager {
         bytes32 opType;
         bytes publicKey;
         uint24 rewardEpochId;
+        uint256 randomNonce;
     }
 
     /**
