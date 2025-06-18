@@ -2,7 +2,6 @@
 pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/IRelay.sol";
 import "../../userInterfaces/IFdcVerification.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
