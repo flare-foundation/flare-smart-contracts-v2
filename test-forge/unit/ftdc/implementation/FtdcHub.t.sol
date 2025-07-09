@@ -47,7 +47,7 @@ contract FtdcHubTest is Test {
     function setUp() public {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
-        minThresholdBIPS = 2000;
+        minThresholdBIPS = 5000;
         defaultNumberOfTees = 1;
         ftdcHub = new FtdcHub(
             IGovernanceSettings(address(this)),
@@ -106,7 +106,7 @@ contract FtdcHubTest is Test {
         teeInstructions.registerInstructionInitiators(instructionInitiators);
         _mockReceiveRewards();
 
-        _mockGetRequestFee();
+        _mockGetTypeAndSourceFee();
         teeIds = new address[](2);
         urls = new string[](2);
         teeIds[0] = makeAddr("teeId1");
@@ -158,17 +158,17 @@ contract FtdcHubTest is Test {
 
     function testRequestAttestationRevertThresholdInvalid() public {
         vm.expectRevert("threshold invalid");
-        ftdcHub.requestAttestation(minThresholdBIPS - 1, 1, new address[](0), new address[](0), 0, "");
+        ftdcHub.requestAttestation(minThresholdBIPS - 1, 1, new address[](0), new address[](0), 0, "", "", "");
 
         vm.expectRevert("threshold invalid");
-        ftdcHub.requestAttestation(1e4 + 1, 1, new address[](0), new address[](0), 0, "");
+        ftdcHub.requestAttestation(1e4 + 1, 1, new address[](0), new address[](0), 0, "", "", "");
     }
 
     function testRequestAttestationRevertTeesInvalid() public {
         vm.expectRevert("numberOfTees and teeIds invalid");
         teeIds = new address[](1);
         teeIds[0] = makeAddr("teeId");
-        ftdcHub.requestAttestation(minThresholdBIPS, 2, teeIds, new address[](0), 0, "");
+        ftdcHub.requestAttestation(minThresholdBIPS, 2, teeIds, new address[](0), 0, "", "", "");
     }
 
     function testRequestAttestationRevertTeeNotAvailable() public {
@@ -177,7 +177,7 @@ contract FtdcHubTest is Test {
         teeIds = new address[](1);
         teeIds[0] = teeId;
         vm.expectRevert("tee machine not available");
-        ftdcHub.requestAttestation(minThresholdBIPS, 1, teeIds, new address[](0), 0, "");
+        ftdcHub.requestAttestation(minThresholdBIPS, 1, teeIds, new address[](0), 0, "", "", "");
     }
 
     function testRequestAttestationRevertFeeTooLow() public {
@@ -187,7 +187,9 @@ contract FtdcHubTest is Test {
         teeIds[0] = teeId;
         _mockCalculateFeeByTeeIds(teeIds, 15);
         vm.expectRevert("fee to low");
-        ftdcHub.requestAttestation{value: requestFee + 15 - 1} (minThresholdBIPS, 1, teeIds, new address[](0), 0, "");
+        ftdcHub.requestAttestation{value: requestFee + 15 - 1} (
+            minThresholdBIPS, 1, teeIds, new address[](0), 0, "", "", ""
+        );
     }
 
     // list of teeIds provided
@@ -199,29 +201,33 @@ contract FtdcHubTest is Test {
         teeIdsForFee[1] = teeIds[1];
         _mockCalculateFeeByTeeIds(teeIdsForFee, 15);
         _mockGetCurrentRewardEpochId(123);
+        bytes32 attestationType = "PMWPaymentStatus";
+        bytes32 sourceId = "XRP";
         bytes memory attestationRequest = "attestationRequest";
-        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, attestationRequest, 0));
-        (ITeeRegistry.TeeMachine[] memory teeMachines, address[] memory teeMachineIds) = _getTeeMachines(2);
+        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, 0));
 
-        IFtdcHub.FtdcProve memory message = IFtdcHub.FtdcProve({
-            teeIds: teeMachineIds,
-            thresholdBIPS: minThresholdBIPS,
-            cosigners: new address[](0),
-            cosignersThreshold: 0,
-            attestationRequest: attestationRequest
+        IFtdcHub.FtdcAttestationRequest memory message = IFtdcHub.FtdcAttestationRequest({
+            header: IFtdcHub.FtdcRequestHeader({
+                attestationType: attestationType,
+                sourceId: sourceId,
+                thresholdBIPS: minThresholdBIPS,
+                cosigners: new address[](0),
+                cosignersThreshold: 0
+            }),
+            requestBody: attestationRequest
         });
         vm.expectEmit();
         emit TeeInstructionsSent(
             instructionId,
             123,
-            teeMachines,
+            _getTeeMachines(2),
             FTDC_OP_TYPE,
             PROVE,
             abi.encode(message),
             requestFee + 15
         );
         ftdcHub.requestAttestation{value: requestFee + 15} (
-            minThresholdBIPS, 0, teeIds, new address[](0), 0, attestationRequest
+            minThresholdBIPS, 0, teeIds, new address[](0), 0, attestationType, sourceId, attestationRequest
         );
     }
 
@@ -242,29 +248,33 @@ contract FtdcHubTest is Test {
 
         _mockCalculateFeeByTeeIds(teeIdsForFee, 15);
         _mockGetCurrentRewardEpochId(123);
+        bytes32 attestationType = "PMWPaymentStatus";
+        bytes32 sourceId = "XRP";
         bytes memory attestationRequest = "attestationRequest";
-        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, attestationRequest, 0));
-        (ITeeRegistry.TeeMachine[] memory teeMachines, address[] memory teeMachineIds) = _getTeeMachines(1);
+        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, 0));
 
-        IFtdcHub.FtdcProve memory message = IFtdcHub.FtdcProve({
-            teeIds: teeMachineIds,
-            thresholdBIPS: minThresholdBIPS,
-            cosigners: new address[](0),
-            cosignersThreshold: 0,
-            attestationRequest: attestationRequest
+        IFtdcHub.FtdcAttestationRequest memory message = IFtdcHub.FtdcAttestationRequest({
+            header: IFtdcHub.FtdcRequestHeader({
+                attestationType: attestationType,
+                sourceId: sourceId,
+                thresholdBIPS: minThresholdBIPS,
+                cosigners: new address[](0),
+                cosignersThreshold: 0
+            }),
+            requestBody: attestationRequest
         });
         vm.expectEmit();
         emit TeeInstructionsSent(
             instructionId,
             123,
-            teeMachines,
+            _getTeeMachines(1),
             FTDC_OP_TYPE,
             PROVE,
             abi.encode(message),
             requestFee + 15
         );
         ftdcHub.requestAttestation{value: requestFee + 15} (
-            minThresholdBIPS, 0, new address[](0), new address[](0), 0, attestationRequest
+            minThresholdBIPS, 0, new address[](0), new address[](0), 0, attestationType, sourceId, attestationRequest
         );
     }
 
@@ -285,29 +295,33 @@ contract FtdcHubTest is Test {
         teeIdsForFee[1] = teeIds[1];
         _mockCalculateFeeByTeeIds(teeIdsForFee, 15);
         _mockGetCurrentRewardEpochId(123);
+        bytes32 attestationType = "PMWPaymentStatus";
+        bytes32 sourceId = "XRP";
         bytes memory attestationRequest = "attestationRequest";
-        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, attestationRequest, 0));
-        (ITeeRegistry.TeeMachine[] memory teeMachines, address[] memory teeMachineIds) = _getTeeMachines(2);
+        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, 0));
 
-        IFtdcHub.FtdcProve memory message = IFtdcHub.FtdcProve({
-            teeIds: teeMachineIds,
-            thresholdBIPS: minThresholdBIPS,
-            cosigners: new address[](0),
-            cosignersThreshold: 0,
-            attestationRequest: attestationRequest
+        IFtdcHub.FtdcAttestationRequest memory message = IFtdcHub.FtdcAttestationRequest({
+            header: IFtdcHub.FtdcRequestHeader({
+                attestationType: attestationType,
+                sourceId: sourceId,
+                thresholdBIPS: minThresholdBIPS,
+                cosigners: new address[](0),
+                cosignersThreshold: 0
+            }),
+            requestBody: attestationRequest
         });
         vm.expectEmit();
         emit TeeInstructionsSent(
             instructionId,
             123,
-            teeMachines,
+            _getTeeMachines(2),
             FTDC_OP_TYPE,
             PROVE,
             abi.encode(message),
             requestFee + 15
         );
         ftdcHub.requestAttestation{value: requestFee + 15} (
-            minThresholdBIPS, 2, new address[](0), new address[](0), 0, attestationRequest
+            minThresholdBIPS, 2, new address[](0), new address[](0), 0, attestationType, sourceId, attestationRequest
         );
     }
 
@@ -336,10 +350,10 @@ contract FtdcHubTest is Test {
         );
     }
 
-    function _mockGetRequestFee() internal {
+    function _mockGetTypeAndSourceFee() internal {
         vm.mockCall(
             mockFtdcRequestFeeConfigurations,
-            abi.encodeWithSelector(IFtdcRequestFeeConfigurations.getRequestFee.selector),
+            abi.encodeWithSelector(IFtdcRequestFeeConfigurations.getTypeAndSourceFee.selector),
             abi.encode(requestFee)
         );
     }
@@ -377,26 +391,15 @@ contract FtdcHubTest is Test {
         );
     }
 
-    function _getTeeMachines(uint256 _num) internal view returns (
-        ITeeRegistry.TeeMachine[] memory,
-        address[] memory
-    ) {
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](_num);
-
-        address[] memory teeMachineIds = new address[](_num);
+    function _getTeeMachines(uint256 _num) internal view returns (ITeeRegistry.TeeMachine[] memory _teeMachines) {
+        _teeMachines = new ITeeRegistry.TeeMachine[](_num);
 
         for (uint256 i = 0; i < _num; i++) {
-            teeMachines[i] = ITeeRegistry.TeeMachine({
+            _teeMachines[i] = ITeeRegistry.TeeMachine({
                 teeId: teeIds[i],
                 teeProxyId: teeIds[i], // for testing purposes
                 url: urls[i]
             });
-
-            teeMachineIds[i] = teeIds[i];
         }
-
-        return (teeMachines, teeMachineIds);
-
     }
-
 }

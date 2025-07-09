@@ -6,15 +6,17 @@ import "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
 import "../../userInterfaces/ftdc/IPMWPaymentStatus.sol";
 
 
-interface TeeDataConnectorStructs {
+interface FtdcStructs {
 
-    function ftdcProveStruct(IFtdcHub.FtdcProve calldata) external;
+    function ftdcRequestHeaderStruct(IFtdcHub.FtdcRequestHeader calldata) external;
+    function ftdcAttestationRequestStruct(IFtdcHub.FtdcAttestationRequest calldata) external;
+    function ftdcResponseHeaderStruct(IFtdcHub.FtdcResponseHeader calldata) external;
 
-    function availabilityCheckRequestStruct(ITeeAvailabilityCheck.Request calldata) external;
-    function availabilityCheckResponseStruct(ITeeAvailabilityCheck.Response calldata) external;
+    function availabilityCheckRequestBodyStruct(ITeeAvailabilityCheck.RequestBody calldata) external;
+    function availabilityCheckResponseBodyStruct(ITeeAvailabilityCheck.ResponseBody calldata) external;
     function availabilityCheckProofStruct(ITeeAvailabilityCheck.Proof calldata) external;
 
-    function pmwPaymentStatusRequestStruct(IPMWPaymentStatus.Request calldata) external;
-    function pmwPaymentStatusResponseStruct(IPMWPaymentStatus.Response calldata) external;
+    function pmwPaymentStatusRequestBodyStruct(IPMWPaymentStatus.RequestBody calldata) external;
+    function pmwPaymentStatusResponseBodyStruct(IPMWPaymentStatus.ResponseBody calldata) external;
     function pmwPaymentStatusProofStruct(IPMWPaymentStatus.Proof calldata) external;
 }

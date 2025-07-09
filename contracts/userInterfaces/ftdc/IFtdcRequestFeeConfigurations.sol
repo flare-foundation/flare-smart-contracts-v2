@@ -14,9 +14,11 @@ interface IFtdcRequestFeeConfigurations  {
     event TypeAndSourceFeeRemoved(bytes32 indexed attestationType, bytes32 indexed source);
 
     /**
-     * Method to get the base fee for an attestation request. It reverts if the request is not supported.
-     * @param _data ABI encoded attestation request
+     * Method to get the base fee for a type and source pair. It reverts if the pair is not supported.
+     * @param _type The type of the attestation.
+     * @param _source The source of the attestation.
+     * @return The fee for the type and source pair.
      */
-    function getRequestFee(bytes calldata _data) external view returns (uint256);
+    function getTypeAndSourceFee(bytes32 _type, bytes32 _source) external view returns (uint256);
 
 }

@@ -12,7 +12,7 @@ import "../../governance/implementation/Governed.sol";
 contract FtdcRequestFeeConfigurations is Governed, IFtdcRequestFeeConfigurations {
 
     /// Mapping of type and source to fee.
-    mapping(bytes32 typeAndSource => uint256 fee) public typeAndSourceFees;
+    mapping(bytes32 typeAndSource => uint256 fee) private typeAndSourceFees;
 
     /**
     * Constructor.
@@ -88,8 +88,8 @@ contract FtdcRequestFeeConfigurations is Governed, IFtdcRequestFeeConfigurations
     /**
     * @inheritdoc IFtdcRequestFeeConfigurations
     */
-    function getRequestFee(bytes calldata _data) external view returns (uint256 _fee) {
-        _fee = _getBaseFee(_data);
+    function getTypeAndSourceFee(bytes32 _type, bytes32 _source) external view returns (uint256 _fee) {
+        _fee = typeAndSourceFees[_joinTypeAndSource(_type, _source)];
         require(_fee > 0, "Type and source combination not supported");
     }
 
@@ -112,23 +112,6 @@ contract FtdcRequestFeeConfigurations is Governed, IFtdcRequestFeeConfigurations
         require(typeAndSourceFees[_joinTypeAndSource(_type, _source)] > 0, "Fee not set");
         delete typeAndSourceFees[_joinTypeAndSource(_type, _source)];
         emit TypeAndSourceFeeRemoved(_type, _source);
-    }
-
-    /**
-     * Calculates the base fee for an attestation request.
-     */
-    function _getBaseFee(bytes calldata _data) internal view returns (uint256) {
-        require(_data.length >= 64, "Request data too short, should at least specify type and source");
-        bytes32 _type = abi.decode(_data[:32], (bytes32));
-        bytes32 _source = abi.decode(_data[32:64], (bytes32));
-        return _getTypeAndSourceFee(_type, _source);
-    }
-
-    /**
-     * Returns the fee for a given type and source.
-     */
-    function _getTypeAndSourceFee(bytes32 _type, bytes32 _source) internal view returns (uint256 _fee) {
-        _fee = typeAndSourceFees[_joinTypeAndSource(_type, _source)];
     }
 
     /**

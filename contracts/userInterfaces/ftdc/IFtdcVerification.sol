@@ -9,13 +9,25 @@ import "../ISignature.sol";
 interface IFtdcVerification {
 
     /**
+     * Ftdc signatures.
+     * @param signingPolicySignatures Signatures of signing policy in a format as used on the relay contract.
+     * @param teeSignatures Signatures of the TEEs.
+     * @param cosignerSignatures Signatures of the cosigners.
+     */
+    struct FtdcSignatures {
+        bytes signingPolicySignatures;
+        Signature[] teeSignatures;
+        Signature[] cosignerSignatures;
+    }
+
+    /**
      * Verifies the signing policy signatures.
-     * @param _relayMessage The relay message to verify.
+     * @param _signingPolicySignatures The signing policy signatures to verify ("relay message" format).
      * @param _messageHash The message hash to verify.
      * @return _rewardEpochId The reward epoch id of the signing policy.
      */
     function verifySigningPolicySignatures(
-        bytes calldata _relayMessage,
+        bytes calldata _signingPolicySignatures,
         bytes32 _messageHash
     )
         external returns (uint256 _rewardEpochId);

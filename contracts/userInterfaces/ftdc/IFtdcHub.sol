@@ -6,12 +6,26 @@ pragma solidity >=0.7.6 <0.9;
  */
 interface IFtdcHub {
 
-    struct FtdcProve {
-        address[] teeIds;
+    struct FtdcRequestHeader {
+        bytes32 attestationType;
+        bytes32 sourceId;
         uint16 thresholdBIPS;
         address[] cosigners;
         uint64 cosignersThreshold;
-        bytes attestationRequest;
+    }
+
+    struct FtdcAttestationRequest {
+        FtdcRequestHeader header;
+        bytes requestBody;
+    }
+
+    struct FtdcResponseHeader {
+        bytes32 attestationType;
+        bytes32 sourceId;
+        uint16 thresholdBIPS;
+        address[] cosigners;
+        uint64 cosignersThreshold;
+        uint64 timestamp;
     }
 
     event MinThresholdBIPSSet(uint16 minThresholdBIPS);
@@ -24,7 +38,9 @@ interface IFtdcHub {
      * @param _teeIds The TEE ids (optional).
      * @param _cosigners The cosigners (optional).
      * @param _cosignersThreshold The cosigners threshold - must be 0 if cosigners are not provided.
-     * @param _attestationRequest The attestation request.
+     * @param _attestationType The attestation type.
+     * @param _sourceId The source id.
+     * @param _requestBody The request body.
      */
     function requestAttestation(
         uint16 _thresholdBIPS,
@@ -32,7 +48,9 @@ interface IFtdcHub {
         address[] memory _teeIds,
         address[] memory _cosigners,
         uint64 _cosignersThreshold,
-        bytes calldata _attestationRequest
+        bytes32 _attestationType,
+        bytes32 _sourceId,
+        bytes calldata _requestBody
     )
         external payable;
 }

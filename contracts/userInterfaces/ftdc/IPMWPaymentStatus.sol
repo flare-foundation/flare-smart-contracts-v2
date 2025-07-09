@@ -2,63 +2,25 @@
 pragma solidity >=0.7.6 <0.9;
 
 import "../ISignature.sol";
-import "../tee/ITeePayments.sol";
+import "../ftdc/IFtdcHub.sol";
+import "../ftdc/IFtdcVerification.sol";
 
 bytes32 constant PMW_PAYMENT_STATUS_ATTESTATION_TYPE = bytes32("PMWPaymentStatus");
 
 interface IPMWPaymentStatus {
 
     /**
-     * @notice Toplevel request
-     * @param attestationType ID of the attestation type.
-     * @param sourceId Id of the data source.
-     * @param requestBody Data defining the request. Type and interpretation is determined by the `attestationType`.
+     * Proof for PMWPaymentStatus attestation type
      */
-    struct Request {
-        bytes32 attestationType;
-        bytes32 sourceId;
-        RequestBody requestBody;
-    }
-
-    /**
-     * @notice Toplevel response
-     * @param attestationType Extracted from the request.
-     * @param sourceId Extracted from the request.
-     * @param thresholdBIPS Extracted from the request (event).
-     * @param timestamp Extracted from the request (block timestamp).
-     * @param cosigners Extracted from the request (event).
-     * @param cosignersThreshold Extracted from the request (event).
-     * @param requestBody Extracted from the request.
-     * @param responseBody Data defining the response. The verification rules for the construction of the
-     * response body and the type are defined per specific `attestationType`.
-     */
-    struct Response {
-        bytes32 attestationType;
-        bytes32 sourceId;
-        uint16 thresholdBIPS;
-        uint64 timestamp;
-        address[] cosigners;
-        uint64 cosignersThreshold;
+    struct Proof {
+        IFtdcVerification.FtdcSignatures signatures;
+        IFtdcHub.FtdcResponseHeader header;
         RequestBody requestBody;
         ResponseBody responseBody;
     }
 
     /**
-     * @notice Toplevel proof
-     * @param relayMessage Relay message used for verification on the relay contract - signatures of data providers.
-     * @param teeSignatures Signatures of the TEEs.
-     * @param cosignerSignatures Signatures of the cosigners.
-     * @param data Attestation response.
-     */
-    struct Proof {
-        bytes relayMessage;
-        Signature[] teeSignatures;
-        Signature[] cosignerSignatures;
-        Response data;
-    }
-
-    /**
-     * @notice Request body for PMWPaymentStatus attestation type
+     * Request body for PMWPaymentStatus attestation type
      * @param walletId Wallet ID for which the payment status is requested.
      * @param nonce Nonce of the payment instruction (batch).
      * @param subNonce Sub-nonce of the payment instruction.
@@ -70,7 +32,7 @@ interface IPMWPaymentStatus {
     }
 
     /**
-     * @notice Response body for PMWPaymentStatus attestation type
+     * Response body for PMWPaymentStatus attestation type
      * @param senderAddress Sender address.
      * @param recipientAddress Recipient address.
      * @param amount Amount in minimal units that should be send.

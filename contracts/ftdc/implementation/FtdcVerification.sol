@@ -32,14 +32,14 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
      * @inheritdoc IFtdcVerification
      */
     function verifySigningPolicySignatures(
-        bytes calldata _relayMessage,
+        bytes calldata _signingPolicySignatures,
         bytes32 _messageHash
     )
         external returns (uint256 _rewardEpochId)
     {
         // 1 byte (protocolId=1), 4 bytes (votingRoundId=0), 1 byte (isSecureRandom=false), 32 bytes (messageHash)
         bytes memory customMessage = bytes.concat(bytes1(uint8(1)), bytes5(0), _messageHash);
-        return relay.verifyCustomSignature(_relayMessage, keccak256(customMessage));
+        return relay.verifyCustomSignature(_signingPolicySignatures, keccak256(customMessage));
     }
 
     /**

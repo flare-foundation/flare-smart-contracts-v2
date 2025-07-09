@@ -1356,31 +1356,33 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         assert(TEE_URLS.length === challenges.length && TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
         for (let i = 0; i < TEE_URLS.length; i++) {
             const proof = {
-                relayMessage: "0x", // TODO
-                teeSignatures: [],
-                cosignerSignatures: [],
-                data: {
+                signatures: {
+                    signingPolicySignatures: "0x", // TODO
+                    teeSignatures: [],
+                    cosignerSignatures: [],
+                },
+                header: {
                     attestationType: web3.utils.utf8ToHex("TeeAvailabilityCheck").padEnd(66, "0"),
                     sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
                     thresholdBIPS: "0",
                     timestamp: (await time.latest()).toString(),
                     cosigners: [],
                     cosignersThreshold: "0",
-                    requestBody: {
-                        teeId: TEE_IDS[i],
-                        url: TEE_URLS[i],
-                        challenge: challenges[i].toString()
-                    },
-                    responseBody: {
-                        status: "0",
-                        machineStatus: "0",
-                        teeTimestamp: (await time.latest()).toString(),
-                        initialTeeId: TEE_IDS[i],
-                        codeHash: TEE_CODE_HASH,
-                        platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
-                        teeGovernanceHash: governanceHash,
-                        rewardEpochId: rewardEpochId
-                    }
+                },
+                requestBody: {
+                    teeId: TEE_IDS[i],
+                    url: TEE_URLS[i],
+                    challenge: challenges[i].toString()
+                },
+                responseBody: {
+                    status: "0",
+                    machineStatus: "0",
+                    teeTimestamp: (await time.latest()).toString(),
+                    initialTeeId: TEE_IDS[i],
+                    codeHash: TEE_CODE_HASH,
+                    platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
+                    teeGovernanceHash: governanceHash,
+                    rewardEpochId: rewardEpochId
                 }
             }
             await time.increase(1);

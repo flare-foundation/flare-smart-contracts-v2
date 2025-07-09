@@ -381,31 +381,33 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     const event = requiredEventArgsFrom(tx, c.teeVerification, "TeeAttestationRequested") as any;
     await time.increase(2);
     const proof = {
-      relayMessage: "0x", // TODO
-      teeSignatures: [],
-      cosignerSignatures: [],
-      data: {
+      signatures: {
+        signingPolicySignatures: "0x", // TODO
+        teeSignatures: [],
+        cosignerSignatures: [],
+      },
+      header: {
         attestationType: web3.utils.utf8ToHex("TeeAvailabilityCheck").padEnd(66, "0"),
         sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
         thresholdBIPS: "0",
         timestamp: (await time.latest()-1).toString(),
         cosigners: [],
         cosignersThreshold: "0",
-        requestBody: {
-          teeId: TEE_IDS[i],
-          url: TEE_URLS[i],
-          challenge: event.challenge.toString()
-        },
-        responseBody: {
-          status: "0",
-          machineStatus: "0",
-          teeTimestamp: (await time.latest()-1).toString(),
-          initialTeeId: TEE_IDS[i],
-          codeHash: TEE_CODE_HASH,
-          platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
-          teeGovernanceHash: governanceHash,
-          rewardEpochId: rewardEpochId
-        }
+      },
+      requestBody: {
+        teeId: TEE_IDS[i],
+        url: TEE_URLS[i],
+        challenge: event.challenge.toString()
+      },
+      responseBody: {
+        status: "0",
+        machineStatus: "0",
+        teeTimestamp: (await time.latest()-1).toString(),
+        initialTeeId: TEE_IDS[i],
+        codeHash: TEE_CODE_HASH,
+        platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
+        teeGovernanceHash: governanceHash,
+        rewardEpochId: rewardEpochId
       }
     }
     await c.teeRegistry.toProduction(proof, { from: teeOwnerAccount.address });

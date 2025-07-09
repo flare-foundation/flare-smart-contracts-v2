@@ -65,7 +65,9 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
         address[] memory _teeIds,
         address[] memory _cosigners,
         uint64 _cosignersThreshold,
-        bytes calldata _attestationRequest
+        bytes32 _attestationType,
+        bytes32 _sourceId,
+        bytes calldata _requestBody
     )
         external payable
     {
@@ -78,6 +80,8 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
             "numberOfTees and teeIds invalid"
         );
         require(_cosigners.length >= _cosignersThreshold, "cosigners threshold invalid");
+        require(_thresholdBIPS == 0 || _thresholdBIPS >= MAX_BIPS / 2 ||
+            _cosignersThreshold > _cosigners.length / 2, "multiple responses possible");
         if (_teeIds.length == 0) {
             if (_numberOfTees == 0) {
                 _numberOfTees = defaultNumberOfTees;
@@ -92,21 +96,24 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
             }
         }
         uint256 fee = teeFeeCalculator.calculateFeeByTeeIds(FTDC_OP_TYPE, PROVE, _teeIds) +
-            ftdcRequestFeeConfigurations.getRequestFee(_attestationRequest);
+            ftdcRequestFeeConfigurations.getTypeAndSourceFee(_attestationType, _sourceId);
         require(msg.value >= fee, "fee to low");
-        FtdcProve memory message = FtdcProve({
-            teeIds: _teeIds,
-            thresholdBIPS: _thresholdBIPS,
-            cosigners: _cosigners,
-            cosignersThreshold: _cosignersThreshold,
-            attestationRequest: _attestationRequest
+        FtdcAttestationRequest memory message = FtdcAttestationRequest({
+            header: FtdcRequestHeader({
+                attestationType: _attestationType,
+                sourceId: _sourceId,
+                thresholdBIPS: _thresholdBIPS,
+                cosigners: _cosigners,
+                cosignersThreshold: _cosignersThreshold
+            }),
+            requestBody: _requestBody
         });
         ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](_teeIds.length);
         for (uint256 i = 0; i < _teeIds.length; i++) {
             teeMachines[i] = teeRegistry.getTeeMachine(_teeIds[i]);
         }
         bytes32 instructionId = keccak256(abi.encode(
-            FTDC_OP_TYPE, PROVE, _attestationRequest, attestationRequestCounter++ // TODO
+            FTDC_OP_TYPE, PROVE, attestationRequestCounter++ // TODO
         ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
