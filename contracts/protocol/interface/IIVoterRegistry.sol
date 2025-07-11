@@ -9,14 +9,7 @@ import { IVoterRegistry } from "../../userInterfaces/IVoterRegistry.sol";
 interface IIVoterRegistry is IVoterRegistry {
 
     /**
-     * Enables automatic voter registration triggered by system registration contract.
-     * @param _voter The voter address.
-     * @dev Only system registration contract can call this method.
-     */
-    function systemRegistration(address _voter) external;
-
-    /**
-     * Sets new signing policy initialisation start block number for a given reward epoch.
+     * Sets new signing policy initialization start block number for a given reward epoch.
      * @param _rewardEpochId The reward epoch id.
      * @dev Only FlareSystemsManager contract can call this method.
      */

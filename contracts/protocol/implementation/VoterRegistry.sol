@@ -54,20 +54,12 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     /// The FlareSystemsCalculator contract.
     IIFlareSystemsCalculator public flareSystemsCalculator;
 
-    /// The address of the system registration contract.
-    address public systemRegistrationContractAddress;
     /// Indicates if the voter must have the public key set when registering.
     bool public publicKeyRequired;
 
     /// Only FlareSystemsManager contract can call this method.
     modifier onlyFlareSystemsManager {
         require(msg.sender == address(flareSystemsManager), "only flare system manager");
-        _;
-    }
-
-    /// Only system registration contract can call this method.
-    modifier onlySystemRegistrationContract {
-        require(msg.sender == systemRegistrationContractAddress, "only system registration contract");
         _;
     }
 
@@ -140,16 +132,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
         require(signingPolicyAddress == voterAddresses.signingPolicyAddress, "invalid signature");
         // register voter
-        _registerVoter(_voter, rewardEpochId, voterAddresses);
-    }
-
-    /**
-     * @inheritdoc IIVoterRegistry
-     */
-    function systemRegistration(address _voter) external onlySystemRegistrationContract {
-        (uint24 rewardEpochId, IIEntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
-        // register voter
-        _registerVoter(_voter, rewardEpochId, voterAddresses);
+        _registerVoter(_voter, rewardEpochId, _signature, voterAddresses);
     }
 
     /**
@@ -183,14 +166,6 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         require(_maxVoters <= UINT16_MAX, "_maxVoters too high");
         require(_maxVoters >= flareSystemsManager.signingPolicyMinNumberOfVoters(), "_maxVoters too low");
         maxVoters = _maxVoters;
-    }
-
-    /**
-     * Sets system registration contract.
-     * @dev Only governance can call this method.
-     */
-    function setSystemRegistrationContractAddress(address _systemRegistrationContractAddress) external onlyGovernance {
-        systemRegistrationContractAddress = _systemRegistrationContractAddress;
     }
 
     /**
@@ -528,22 +503,18 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      * Request to register `_voter` account - implementation.
      * @param _voter The voter address.
      * @param _rewardEpochId The reward epoch id.
+     * @param _signature The signature with the signing policy address.
      * @param _voterAddresses The voter's addresses.
      */
     function _registerVoter(
         address _voter,
         uint24 _rewardEpochId,
+        Signature calldata _signature,
         IIEntityManager.VoterAddresses memory _voterAddresses
     )
         internal
     {
-        (uint256 votePowerBlock, bool enabled) = flareSystemsManager.getVoterRegistrationData(_rewardEpochId);
-        require(votePowerBlock != 0, "vote power block zero");
-        require(enabled, "voter registration not enabled");
-        require(entityManager.getDelegationAddressOfAt(_voter, votePowerBlock) != _voter,
-            "delegation address not set");
-        uint256 weight = flareSystemsCalculator.calculateRegistrationWeight(_voter, _rewardEpochId, votePowerBlock);
-        require(weight > 0, "voter weight zero");
+        uint256 weight = _getVoterWeight(_voter, _rewardEpochId);
 
         (bytes32 publicKeyPart1, bytes32 publicKeyPart2) =
             entityManager.getPublicKeyOfAt(_voter, newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
@@ -599,8 +570,34 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
             _voterAddresses.submitSignaturesAddress,
             publicKeyPart1,
             publicKeyPart2,
-            weight
+            weight,
+            _signature
         );
+    }
+
+    /**
+     * Returns the weight of a voter for a given reward epoch.
+     * @param _voter The voter address.
+     * @param _rewardEpochId The reward epoch id.
+     * @return _weight The registration weight of the voter.
+     */
+    function _getVoterWeight(
+        address _voter,
+        uint24 _rewardEpochId
+    )
+        internal
+        returns (uint256 _weight)
+    {
+        // get vote power block and check if voter registration is enabled
+        (uint256 votePowerBlock, bool enabled) = flareSystemsManager.getVoterRegistrationData(_rewardEpochId);
+        require(votePowerBlock != 0, "vote power block zero");
+        require(enabled, "voter registration not enabled");
+        // check if delegation address is set (not the same as voter address)
+        require(entityManager.getDelegationAddressOfAt(_voter, votePowerBlock) != _voter,
+            "delegation address not set");
+        // calculate registration weight
+        _weight = flareSystemsCalculator.calculateRegistrationWeight(_voter, _rewardEpochId, votePowerBlock);
+        require(_weight > 0, "voter weight zero");
     }
 
     /**

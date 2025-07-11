@@ -446,8 +446,6 @@ export async function redeployContracts(
     const entityManagerContract = await EntityManager.at(entityManager);
     await entityManagerContract.setPublicKeyVerifier(fastUpdater.address);
     await flareSystemsManager.setVoterRegistrationTriggerContract(voterPreRegistry.address);
-    const voterRegistryContract = await VoterRegistry.at(voterRegistry);
-    await voterRegistryContract.setSystemRegistrationContractAddress(voterPreRegistry.address);
     // cannot add feeds to fast updater, we need first finalizations
   } else {
     // reset feeds

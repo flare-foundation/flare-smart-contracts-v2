@@ -28,7 +28,8 @@ interface IVoterRegistry {
         address submitSignaturesAddress,
         bytes32 publicKeyPart1,
         bytes32 publicKeyPart2,
-        uint256 registrationWeight
+        uint256 registrationWeight,
+        Signature signature
     );
 
     /**

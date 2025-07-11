@@ -53,7 +53,8 @@ contract VoterRegistryTest is Test {
         address submitSignaturesAddress,
         bytes32 publicKeyPart1,
         bytes32 publicKeyPart2,
-        uint256 registrationWeight
+        uint256 registrationWeight,
+        Signature signature
     );
 
     function setUp() public {
@@ -466,7 +467,8 @@ contract VoterRegistryTest is Test {
             initialSubmitSignaturesAddresses[0],
             initialPublicKeyParts1[0],
             initialPublicKeyParts2[0],
-            initialVotersWeights[0]
+            initialVotersWeights[0],
+            signature
         );
         voterRegistry.registerVoter(initialVoters[0], signature);
     }
@@ -542,7 +544,8 @@ contract VoterRegistryTest is Test {
                 initialSubmitSignaturesAddresses[i],
                 initialPublicKeyParts1[i],
                 initialPublicKeyParts2[i],
-                initialVotersWeights[i]
+                initialVotersWeights[i],
+                signature
             );
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
@@ -580,7 +583,8 @@ contract VoterRegistryTest is Test {
             initialSubmitSignaturesAddresses[0],
             initialPublicKeyParts1[0],
             initialPublicKeyParts2[0],
-            initialVotersWeights[0]
+            initialVotersWeights[0],
+            signature
         );
         voterRegistry.registerVoter(initialVoters[0], signature);
 
@@ -605,7 +609,8 @@ contract VoterRegistryTest is Test {
             initialSubmitSignaturesAddresses[2],
             bytes32("123"),
             bytes32(0),
-            initialVotersWeights[2]
+            initialVotersWeights[2],
+            signature
         );
         voterRegistry.registerVoter(initialVoters[2], signature);
     }
@@ -732,7 +737,8 @@ contract VoterRegistryTest is Test {
             initialSubmitSignaturesAddresses[3],
             initialPublicKeyParts1[3],
             initialPublicKeyParts2[3],
-            initialVotersWeights[3]
+            initialVotersWeights[3],
+            signature
         );
         voterRegistry.registerVoter(initialVoters[3], signature);
     }
@@ -786,7 +792,8 @@ contract VoterRegistryTest is Test {
             initialSubmitSignaturesAddresses[1],
             initialPublicKeyParts1[1],
             initialPublicKeyParts2[1],
-            initialVotersWeights[1]
+            initialVotersWeights[1],
+            signature
         );
         voterRegistry.registerVoter(initialVoters[1], signature);
 
@@ -994,43 +1001,6 @@ contract VoterRegistryTest is Test {
         assertEq(key2, bytes32(0));
         assertEq(normWeight, uint16(initialVotersWeights[1] * UINT16_MAX / sum));
         assertEq(normWeightSum, uint16(initialVotersWeights[0] * UINT16_MAX / sum));
-    }
-
-    function testSystemRegistration() public {
-        vm.prank(governance);
-        assertEq(voterRegistry.systemRegistrationContractAddress(), address(0));
-
-        address mockSystemRegistrationContractAddress = makeAddr("systemRegistration");
-        vm.prank(governance);
-        voterRegistry.setSystemRegistrationContractAddress(mockSystemRegistrationContractAddress);
-        assertEq(voterRegistry.systemRegistrationContractAddress(), mockSystemRegistrationContractAddress);
-
-        // register voters
-        _mockGetCurrentEpochId(0);
-        _mockGetVoterAddressesAt();
-        _mockGetDelegationAddressOfAt();
-        _mockGetPublicKeyOfAt();
-        _mockGetVoterRegistrationData(10, true);
-        _mockVoterWeights();
-        vm.prank(mockFlareSystemsManager);
-        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
-
-        vm.startPrank(mockSystemRegistrationContractAddress);
-        for (uint256 i = 0; i < initialVoters.length; i++) {
-            vm.expectEmit();
-            emit VoterRegistered(
-                initialVoters[i],
-                uint24(1),
-                initialSigningPolicyAddresses[i],
-                initialSubmitAddresses[i],
-                initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
-                initialVotersWeights[i]
-            );
-            voterRegistry.systemRegistration(initialVoters[i]);
-        }
-        vm.stopPrank();
     }
 
     function testGetRegisteredVotersAndRegistrationWeights() public {

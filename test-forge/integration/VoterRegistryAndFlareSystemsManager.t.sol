@@ -98,7 +98,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         address submitSignaturesAddress,
         bytes32 publicKeyPart1,
         bytes32 publicKeyPart2,
-        uint256 registrationWeight
+        uint256 registrationWeight,
+        Signature signature
     );
     event VotePowerBlockSelected(
         uint24 indexed rewardEpochId,   // Reward epoch id
@@ -327,7 +328,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 initialSubmitSignaturesAddresses[i],
                 initialPublicKeyParts1[i],
                 initialPublicKeyParts2[i],
-                initialVotersRegistrationWeight[i]
+                initialVotersRegistrationWeight[i],
+                signature
             );
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
@@ -441,7 +443,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 initialSubmitSignaturesAddresses[i],
                 initialPublicKeyParts1[i],
                 initialPublicKeyParts2[i],
-                initialVotersRegistrationWeight[i]
+                initialVotersRegistrationWeight[i],
+                signature
             );
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
@@ -619,7 +622,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 initialSubmitSignaturesAddresses[i],
                 initialPublicKeyParts1[i],
                 initialPublicKeyParts2[i],
-                initialVotersRegistrationWeight[i]
+                initialVotersRegistrationWeight[i],
+                signature
             );
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
@@ -758,7 +762,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 initialSubmitSignaturesAddresses[i],
                 initialPublicKeyParts1[i],
                 initialPublicKeyParts2[i],
-                initialVotersRegistrationWeight[i]
+                initialVotersRegistrationWeight[i],
+                signature
             );
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
@@ -974,7 +979,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                     initialSubmitSignaturesAddresses[i],
                     initialPublicKeyParts1[i],
                     initialPublicKeyParts2[i],
-                    initialVotersRegistrationWeight[i]
+                    initialVotersRegistrationWeight[i],
+                    signature
                 );
             }
             voterRegistry.registerVoter(initialVoters[i], signature);
@@ -1143,7 +1149,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                     initialSubmitSignaturesAddresses[i],
                     initialPublicKeyParts1[i],
                     initialPublicKeyParts2[i],
-                    initialVotersRegistrationWeight[i]
+                    initialVotersRegistrationWeight[i],
+                    signature
                 );
             } else if (i != 3) {
                 emit VoterRegistered(
@@ -1154,7 +1161,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                     initialSubmitSignaturesAddresses[i],
                     initialPublicKeyParts1[i],
                     initialPublicKeyParts2[i],
-                    initialVotersRegistrationWeight[i]
+                    initialVotersRegistrationWeight[i],
+                    signature
                 );
             } else {
                 emit VoterRegistered(
@@ -1165,7 +1173,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                     initialSubmitSignaturesAddresses[i],
                     initialPublicKeyParts1[i],
                     initialPublicKeyParts2[i],
-                    initialVotersRegistrationWeight[i]
+                    initialVotersRegistrationWeight[i],
+                    signature
                 );
             }
             voterRegistry.registerVoter(initialVoters[i], signature);
@@ -1336,9 +1345,6 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         // set voter registration trigger contract on FSM
         vm.prank(governance);
         flareSystemsManager.setVoterRegistrationTriggerContract(voterPreRegistry);
-        // set system registration contract on voter registry
-        vm.prank(governance);
-        voterRegistry.setSystemRegistrationContractAddress(address(voterPreRegistry));
 
         uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
@@ -1385,7 +1391,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 initialSubmitSignaturesAddresses[i],
                 initialPublicKeyParts1[i],
                 initialPublicKeyParts2[i],
-                initialVotersRegistrationWeight[i]
+                initialVotersRegistrationWeight[i],
+                signature
             );
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
@@ -1435,8 +1442,9 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         initialVotersRegistrationWeight[2] = _calculateWeight(200 + 30 + 40);
         initialVotersRegistrationWeight[3] = _calculateWeight(200 + 40 + 50 + 60);
         for (uint256 i = 0; i < initialVoters.length; i++) {
-        vm.expectEmit();
-        emit VoterRegistered(
+            signature = _createSigningPolicyAddressSignature(i, currentEpochId + 1);
+            vm.expectEmit();
+            emit VoterRegistered(
                 initialVoters[i],
                 uint24(2),
                 initialSigningPolicyAddresses[i],
@@ -1444,7 +1452,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 initialSubmitSignaturesAddresses[i],
                 initialPublicKeyParts1[i],
                 initialPublicKeyParts2[i],
-                initialVotersRegistrationWeight[i]
+                initialVotersRegistrationWeight[i],
+                signature
             );
         }
         // trigger voter registration
