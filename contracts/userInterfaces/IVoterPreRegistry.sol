@@ -39,4 +39,12 @@ interface IVoterPreRegistry {
      * @return _signature The voter's signature.
      */
     function getVoterSignature(uint256 _rewardEpochId, address _voter) external view returns (Signature memory);
+
+    /**
+     * Returns voter's signature for a given reward epoch and voter address, reverts if not pre-registered.
+     * @param _rewardEpochId The reward epoch id.
+     * @param _voter The voter address.
+     * @return _signature The voter's signature.
+     */
+    function getVoterSignature(uint24 _rewardEpochId, address _voter) external view returns (Signature memory);
 }

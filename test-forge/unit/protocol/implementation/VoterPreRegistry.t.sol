@@ -147,6 +147,7 @@ contract VoterPreRegistryTest is Test {
         vm.expectEmit();
         emit IVoterPreRegistry.VoterPreRegistered(initialVoters[0], 11);
 
+
         voterPreRegistry.preRegisterVoter(initialVoters[0], signature);
         Signature memory signature2 = voterPreRegistry.getVoterSignature(11, initialVoters[0]);
         assertEq(signature2.v, signature.v);
