@@ -61,6 +61,7 @@ import { TeeVerificationContract, TeeVerificationInstance } from '../../typechai
 import { TeeVerificationProxyContract, TeeVerificationProxyInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeVerificationProxy';
 import { ECDSASignature } from '../../scripts/libs/protocol/ECDSASignature';
 import { TeeOwnerAllowlistContract, TeeOwnerAllowlistInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlist";
+import { latest } from "@nomicfoundation/hardhat-network-helpers/dist/src/helpers/time";
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -487,7 +488,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         teeVersionManager = await TeeVersionManager.at(teeVersionManagerProxy.address);
 
         const teeVerificationImpl = await TeeVerification.new();
-        teeVerificationProxy = await TeeVerificationProxy.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 3600, 600, teeVerificationImpl.address);
+        teeVerificationProxy = await TeeVerificationProxy.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 3600, 10, 600, teeVerificationImpl.address);
         teeVerification = await TeeVerification.at(teeVerificationProxy.address);
 
         const teeRegistryImpl: TeeRegistryInstance = await TeeRegistry.new();
@@ -540,7 +541,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         ftdcRequestFeeConfigurations = await FtdcRequestFeeConfigurations.new(governanceSettings.address, accounts[0]);
         ftdcVerification = await FtdcVerification.new(ADDRESS_UPDATER);
         // Set the FTDC request fee configurations
-        const ftdc_attestationTypes = ["TeeAvailabilityCheck", "TeeKeyExistence"];
+        const ftdc_attestationTypes = ["TeeAvailabilityCheck", "PMWPaymentStatus"];
         for (const attestationType of ftdc_attestationTypes) {
             await ftdcRequestFeeConfigurations.setTypeAndSourceFee(
                 web3.utils.utf8ToHex(attestationType).padEnd(66, "0"),
@@ -1382,7 +1383,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                     codeHash: TEE_CODE_HASH,
                     platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
                     teeGovernanceHash: governanceHash,
-                    rewardEpochId: rewardEpochId
+                    initialSigningPolicyId: rewardEpochId,
+                    lastSigningPolicyId: rewardEpochId
                 }
             }
             await time.increase(1);

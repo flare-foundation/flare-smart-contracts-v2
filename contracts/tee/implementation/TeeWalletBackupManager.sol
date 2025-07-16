@@ -98,7 +98,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager,
         require(_backupId.rewardEpochId <= flareSystemsManager.getCurrentRewardEpochId(), "invalid reward epoch id");
         bytes32 opCommand = _test ? KEY_DATA_PROVIDER_RESTORE_TEST : KEY_DATA_PROVIDER_RESTORE;
         _checkFee(opCommand, _teeId);
-        // restored flag in TeeKeyExistence proof will always be set to true after this call
+        // restored flag in KeyExistence proof will always be set to true after this call
         // in case of a test restore, nonce should be 0, so that the key cannot be confirmed on-chain
         // in case of a actual restore, nonce should be increased to prevent replay attacks
         // and to allow the key to be confirmed on-chain

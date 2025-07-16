@@ -22,6 +22,11 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 contract TeeVerification is ITeeVerification, GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable {
     using AddressSet for AddressSet.State;
 
+    struct AvailabilityCheckValidity {
+        uint64 endTs;
+        uint24 lastSigningPolicyId;
+    }
+
     bytes32 public constant TEE_SOURCE_ID = bytes32("TEE");
     bytes32 public constant REG_OP_TYPE = bytes32("REG");
     bytes32 public constant TEE_ATTESTATION = bytes32("TEE_ATTESTATION");
@@ -45,16 +50,21 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
 
     /// The TEE availability check validity duration, in seconds.
     /// In order to receive rewards, TEE must be checked for availability at least once in this period.
-    uint256 private availabilityCheckValidityDurationSeconds;
+    uint64 private availabilityCheckValidityDurationSeconds;
+    /// The signing policy validity duration, in reward epochs.
+    /// Used when extending availability or putting tee machine into production:
+    /// - in case of registration, the check is done for the initial signing policy,
+    /// - in other cases, the check is done for the last confirmed signing policy.
+    uint64 private signingPolicyValidityDurationInRewardEpochs;
     /// Challenge (also availability check proof) validity duration, in seconds.
     /// New challenge can be requested only if the previous one has expired.
-    uint256 private challengeValidityDurationSeconds;
+    uint64 private challengeValidityDurationSeconds;
 
     /// registration availability check cosigners and their threshold
     AddressSet.State private cosigners;
     uint64 private cosignersThreshold;
 
-    mapping(address teeId => uint256) private availabilityCheckValidityEndTs;
+    mapping(address teeId => AvailabilityCheckValidity) private availabilityCheckValidity;
     mapping(address teeId => uint256) private challenges;
     mapping(address teeId => uint256) private challengeTs;
 
@@ -73,8 +83,9 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
-        uint256 _availabilityCheckValidityDurationSeconds,
-        uint256 _challengeValidityDurationSeconds
+        uint64 _availabilityCheckValidityDurationSeconds,
+        uint24 _signingPolicyValidityDurationInRewardEpochs,
+        uint64 _challengeValidityDurationSeconds
     )
         external
     {
@@ -82,6 +93,7 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
         _updateSettings(
             _availabilityCheckValidityDurationSeconds,
+            _signingPolicyValidityDurationInRewardEpochs,
             _challengeValidityDurationSeconds
         );
     }
@@ -183,23 +195,33 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         ITeeRegistry.TeeStatus status = teeRegistry.getTeeMachineStatus(teeId);
         require(status == ITeeRegistry.TeeStatus.PRODUCTION, "tee machine not available");
 
-        ITeeRegistry.TeeMachineWithAttestationData memory teeMachine =
-            teeRegistry.getTeeMachineWithAttestationData(teeId);
-        require(
-            teeVersionManager.isCodeHashPlatformSupported(teeMachine.codeHash, teeMachine.platform),
-            "version not supported"
-        );
         require(
             _proof.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK &&
             _proof.responseBody.machineStatus == ITeeAvailabilityCheck.TeeMachineStatus.ACTIVE,
             "invalid AC status"
         );
-        require(_verifyAvailabilityCheckProof(teeMachine, status, _proof), "invalid response data");
+
+        // if called from the registry, checks were already done
+        // otherwise, we need to verify the proof and check the TEE version and platform
+        if (msg.sender != address(teeRegistry)) {
+            ITeeRegistry.TeeMachineWithAttestationData memory teeMachine =
+                teeRegistry.getTeeMachineWithAttestationData(teeId);
+            require(
+                teeVersionManager.isCodeHashPlatformSupported(teeMachine.codeHash, teeMachine.platform),
+                "version not supported"
+            );
+            require(
+                _verifyAvailabilityCheckProof(teeMachine, status, _proof),
+                "invalid response data"
+            );
+        }
 
         // extend the availability check validity
-        uint256 endTs = _proof.header.timestamp + availabilityCheckValidityDurationSeconds;
-        if (endTs > availabilityCheckValidityEndTs[teeId]) {
-            availabilityCheckValidityEndTs[teeId] = endTs;
+        uint64 endTs = _proof.header.timestamp + availabilityCheckValidityDurationSeconds;
+        AvailabilityCheckValidity storage validity = availabilityCheckValidity[teeId];
+        if (endTs > validity.endTs) {
+            validity.endTs = endTs;
+            validity.lastSigningPolicyId = _proof.responseBody.lastSigningPolicyId;
             address owner = teeRegistry.getTeeMachineOwner(teeId);
             emit AvailabilityCheckValidityExtended(teeId, owner, endTs);
         }
@@ -252,16 +274,19 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
      * Update the settings of the TeeAvailability contract.
      * @param _availabilityCheckValidityDurationSeconds The TEE availability check validity duration, in seconds.
      * In order to receive rewards, TEE must be checked for availability at least once in this period.
+     * @param _signingPolicyValidityDurationInRewardEpochs The signing policy validity duration, in reward epochs.
      * @param _challengeValidityDurationSeconds Challenge validity duration, in seconds.
      */
     function updateSettings(
-        uint256 _availabilityCheckValidityDurationSeconds,
-        uint256 _challengeValidityDurationSeconds
+        uint64 _availabilityCheckValidityDurationSeconds,
+        uint24 _signingPolicyValidityDurationInRewardEpochs,
+        uint64 _challengeValidityDurationSeconds
     )
         external onlyGovernance
     {
         _updateSettings(
             _availabilityCheckValidityDurationSeconds,
+            _signingPolicyValidityDurationInRewardEpochs,
             _challengeValidityDurationSeconds
         );
     }
@@ -342,17 +367,21 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
     }
 
     function _updateSettings(
-        uint256 _availabilityCheckValidityDurationSeconds,
-        uint256 _challengeValidityDurationSeconds
+        uint64 _availabilityCheckValidityDurationSeconds,
+        uint24 _signingPolicyValidityDurationInRewardEpochs,
+        uint64 _challengeValidityDurationSeconds
     )
         internal
     {
         _validateDuration(_availabilityCheckValidityDurationSeconds, 1 hours, 365 days);
+        _validateDuration(_signingPolicyValidityDurationInRewardEpochs, 1, 100);
         _validateDuration(_challengeValidityDurationSeconds, 1 minutes, 1 days);
         availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
+        signingPolicyValidityDurationInRewardEpochs = _signingPolicyValidityDurationInRewardEpochs;
         challengeValidityDurationSeconds = _challengeValidityDurationSeconds;
         emit SettingsUpdated(
             _availabilityCheckValidityDurationSeconds,
+            _signingPolicyValidityDurationInRewardEpochs,
             _challengeValidityDurationSeconds
         );
     }
@@ -393,6 +422,20 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
             rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId,
             "invalid signing policy"
         );
+        if (_status == ITeeRegistry.TeeStatus.INITIALIZED) {
+            // in case of registration, we additionally check initial signing policy
+            require(
+                _proof.responseBody.initialSigningPolicyId <= currentRewardEpochId &&
+                _isSigningPolicyValid(_proof.responseBody.initialSigningPolicyId, currentRewardEpochId),
+                "invalid initial signing policy"
+            );
+        } else {
+            // for other statuses, we check the last availability check signing policy
+            require(
+                _isSigningPolicyValid(availabilityCheckValidity[teeId].lastSigningPolicyId, currentRewardEpochId),
+                "availability check validity expired"
+            );
+        }
         // additionally check cosigners in case of initial availability check
         if (_status == ITeeRegistry.TeeStatus.INITIALIZED && cosignersThreshold > 0) {
             address[] memory registrationCosigners =
@@ -404,12 +447,22 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         }
         // check response body data validity
         ITeeAvailabilityCheck.ResponseBody calldata responseBody = _proof.responseBody;
-        rewardEpochId = responseBody.rewardEpochId;
+        uint256 lastSigningPolicyId = responseBody.lastSigningPolicyId;
         return responseBody.codeHash == _teeMachine.codeHash &&
             responseBody.platform == _teeMachine.platform &&
             responseBody.initialTeeId == _teeMachine.initialTeeId &&
             responseBody.teeGovernanceHash == teeVersionManager.getTeeGovernanceHash(_teeMachine.codeHash) &&
-            (rewardEpochId == currentRewardEpochId || rewardEpochId == currentRewardEpochId + 1);
+            (lastSigningPolicyId == currentRewardEpochId || lastSigningPolicyId == currentRewardEpochId + 1);
+    }
+
+    function _isSigningPolicyValid(
+        uint256 _signingPolicyId,
+        uint256 _currentRewardEpochId
+    )
+        internal view
+        returns(bool)
+    {
+        return _signingPolicyId + signingPolicyValidityDurationInRewardEpochs >= _currentRewardEpochId;
     }
 
     function _validateDuration(

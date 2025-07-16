@@ -736,6 +736,10 @@
             },
             "type": "array"
         },
+        "teeSigningPolicyValidityDurationInRewardEpochs": {
+            "description": "The signing policy validity duration, in reward epochs (e.g. 10).\nUsed when extending availability or putting tee machine into production:\n- in case of registration, the check is done for the initial signing policy,\n- in other cases, the check is done for the last confirmed signing policy.",
+            "type": "integer"
+        },
         "testDeployment": {
             "description": "Indicates whether this is a test deployment (local, scdev, etc.)",
             "type": "boolean"
@@ -859,6 +863,7 @@
         "teeOwnersPPM",
         "teePauseBeforeUpgradeMinDurationSeconds",
         "teePaymentConfigurations",
+        "teeSigningPolicyValidityDurationInRewardEpochs",
         "testDeployment",
         "thresholdConditionBIPS",
         "voterRegistrationMinDurationBlocks",

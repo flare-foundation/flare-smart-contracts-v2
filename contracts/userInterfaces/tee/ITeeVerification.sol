@@ -15,8 +15,9 @@ interface ITeeVerification {
     }
 
     event SettingsUpdated(
-        uint256 availabilityCheckValidityDurationSeconds,
-        uint256 challengeValidityDurationSeconds
+        uint64 availabilityCheckValidityDurationSeconds,
+        uint24 signingPolicyValidityDurationInRewardEpochs,
+        uint64 challengeValidityDurationSeconds
     );
 
     event CosignersSet(

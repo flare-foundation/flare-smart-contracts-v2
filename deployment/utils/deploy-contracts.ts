@@ -532,6 +532,7 @@ export async function deployContracts(
     governanceAccount.address,
     ADDRESS_UPDATER_ADDR,
     3600,
+    10,
     600,
     teeVerificationImpl.address
   );
@@ -649,7 +650,7 @@ export async function deployContracts(
   const ftdcVerification = await FtdcVerification.at((await FtdcVerificationMock.new(ADDRESS_UPDATER_ADDR)).address); // TODO: remove mock contract
 
   // Set the FTDC request fee configurations
-  const ftdc_attestationTypes = ["TeeAvailabilityCheck", "TeeKeyExistence"];
+  const ftdc_attestationTypes = ["TeeAvailabilityCheck", "PMWPaymentStatus"];
   for (const attestationType of ftdc_attestationTypes) {
     await ftdcRequestFeeConfigurations.setTypeAndSourceFee(
       web3.utils.utf8ToHex(attestationType).padEnd(66, "0"),

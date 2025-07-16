@@ -10,8 +10,9 @@ contract TeeVerificationProxy is ERC1967Proxy {
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
-        uint256 _availabilityCheckValidityDurationSeconds,
-        uint256 _challengeValidityDurationSeconds,
+        uint64 _availabilityCheckValidityDurationSeconds,
+        uint24 _signingPolicyValidityDurationInRewardEpochs,
+        uint64 _challengeValidityDurationSeconds,
         address _implementationAddress
     )
         ERC1967Proxy(_implementationAddress,
@@ -22,6 +23,7 @@ contract TeeVerificationProxy is ERC1967Proxy {
                     _initialGovernance,
                     _addressUpdater,
                     _availabilityCheckValidityDurationSeconds,
+                    _signingPolicyValidityDurationInRewardEpochs,
                     _challengeValidityDurationSeconds
                 )
             )

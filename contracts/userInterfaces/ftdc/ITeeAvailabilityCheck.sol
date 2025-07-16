@@ -43,7 +43,8 @@ interface ITeeAvailabilityCheck {
      * @param codeHash Code hash of the TEE.
      * @param platform Platform of the TEE.
      * @param teeGovernanceHash Hash of the TEE governance.
-     * @param rewardEpochId Reward epoch id.
+     * @param initialSigningPolicyId Id of the initial signing policy set on the TEE machine, it never changes.
+     * @param lastSigningPolicyId Id of the last signing policy relayed to the TEE machine.
      */
     struct ResponseBody {
         AvailabilityCheckStatus status;
@@ -53,6 +54,7 @@ interface ITeeAvailabilityCheck {
         bytes32 codeHash;
         bytes32 platform;
         bytes32 teeGovernanceHash;
-        uint24 rewardEpochId;
+        uint24 initialSigningPolicyId;
+        uint24 lastSigningPolicyId;
     }
 }

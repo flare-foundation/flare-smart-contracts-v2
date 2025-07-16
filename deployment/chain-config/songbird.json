@@ -1,4 +1,5 @@
 {
+    "$schema": "./chain-parameters.json",
     "testDeployment": false,
     "submissionDeployerPrivateKey": "<use .env: SUBMISSION_DEPLOYER_PRIVATE_KEY>",
     "deployerPrivateKey": "<use .env: DEPLOYER_PRIVATE_KEY>",
@@ -370,6 +371,7 @@
 
     "teePauseBeforeUpgradeMinDurationSeconds": 600,
     "teeAvailabilityCheckValidityDurationSeconds": 302400,
+    "teeSigningPolicyValidityDurationInRewardEpochs": 10,
     "teeChallengeValidityDurationSeconds": 600,
     "teeOwnersPPM": 100000,
     "teeOperationFees": [
@@ -403,5 +405,9 @@
         {"opType": "EVM", "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
     ],
     "ftdcMinThresholdBIPS": 3000,
-    "ftdcDefaultNumberOfTees": 2
+    "ftdcDefaultNumberOfTees": 2,
+    "ftdcRequestFees": [
+        {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "feeWei": "1000000000000000000"},
+        {"attestationType": "PMWPaymentStatus", "source": "TEE", "feeWei": "1000000000000000000"}
+    ]
 }

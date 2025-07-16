@@ -498,6 +498,14 @@ export interface ChainParameters {
     teeAvailabilityCheckValidityDurationSeconds: integer;
 
     /**
+     * The signing policy validity duration, in reward epochs (e.g. 10).
+     * Used when extending availability or putting tee machine into production:
+     * - in case of registration, the check is done for the initial signing policy,
+     * - in other cases, the check is done for the last confirmed signing policy.
+     */
+    teeSigningPolicyValidityDurationInRewardEpochs: integer;
+
+    /**
      * The TEE challenge validity duration (used for TEE availability check), in seconds (e.g. 30 minutes).
      */
     teeChallengeValidityDurationSeconds: integer;

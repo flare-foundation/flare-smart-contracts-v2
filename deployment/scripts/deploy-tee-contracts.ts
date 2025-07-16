@@ -120,6 +120,7 @@ export async function deployTeeContracts(
     deployerAccount.address,
     deployerAccount.address,
     parameters.teeAvailabilityCheckValidityDurationSeconds,
+    parameters.teeSigningPolicyValidityDurationInRewardEpochs,
     parameters.teeChallengeValidityDurationSeconds,
     teeVerificationImpl.address
   );
