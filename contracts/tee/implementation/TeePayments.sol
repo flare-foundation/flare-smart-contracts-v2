@@ -2,7 +2,6 @@
 pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeePayments.sol";
 import "../interface/IITeeWalletOpTypeConstants.sol";
 import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";

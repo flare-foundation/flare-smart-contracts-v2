@@ -1,5 +1,3 @@
-import type { BytesLike } from "ethers";
-import { sha256 } from "ethers";
 import { constants, expectEvent, expectRevert, time } from '@openzeppelin/test-helpers';
 import { toChecksumAddress } from 'ethereumjs-util';
 import { Contracts } from '../../deployment/scripts/Contracts';
@@ -51,7 +49,7 @@ import { TeeInstructionsContract, TeeInstructionsInstance } from '../../typechai
 import { TeeRewardOffersManagerContract, TeeRewardOffersManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeRewardOffersManager';
 import { TeePaymentsContract, TeePaymentsInstance } from '../../typechain-truffle/contracts/tee/implementation/TeePayments';
 import { TeePaymentsEVMContract, TeePaymentsEVMInstance } from '../../typechain-truffle/contracts/tee/implementation/TeePaymentsEVM';
-import { TEE_OPERATION_FEES, TEE_SOURCE_ID } from '../../deployment/tasks/run-simulation';
+import { TEE_OPERATION_FEES, TEE_SOURCE_ID, TeeMachineState } from '../../deployment/tasks/run-simulation';
 import { requiredEventArgsFrom } from '../utils/Web3EventDecoder';
 import { TeeInstructions } from '../../typechain';
 import { FtdcHubContract, FtdcHubInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcHub';
@@ -61,7 +59,8 @@ import { TeeVerificationContract, TeeVerificationInstance } from '../../typechai
 import { TeeVerificationProxyContract, TeeVerificationProxyInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeVerificationProxy';
 import { ECDSASignature } from '../../scripts/libs/protocol/ECDSASignature';
 import { TeeOwnerAllowlistContract, TeeOwnerAllowlistInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlist";
-import { latest } from "@nomicfoundation/hardhat-network-helpers/dist/src/helpers/time";
+import { TeeStateVerifierContract, TeeStateVerifierInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeStateVerifier';
+import { TeeStateVerifierProxyContract, TeeStateVerifierProxyInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeStateVerifierProxy';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -95,6 +94,8 @@ const TeeVersionManager: TeeVersionManagerContract = artifacts.require("TeeVersi
 const TeeVersionManagerProxy: TeeVersionManagerProxyContract = artifacts.require("TeeVersionManagerProxy");
 const TeeVerification: TeeVerificationContract = artifacts.require("TeeVerification");
 const TeeVerificationProxy: TeeVerificationProxyContract = artifacts.require("TeeVerificationProxy");
+const TeeStateVerifier: TeeStateVerifierContract = artifacts.require("TeeStateVerifier");
+const TeeStateVerifierProxy: TeeStateVerifierProxyContract = artifacts.require("TeeStateVerifierProxy");
 const TeeRegistry: TeeRegistryContract = artifacts.require("TeeRegistry");
 const TeeRegistryProxy: TeeRegistryProxyInstance = artifacts.require("TeeRegistryProxy");
 const TeeWalletProjectManager: TeeWalletProjectManagerContract = artifacts.require("TeeWalletProjectManager");
@@ -209,6 +210,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     let teeVersionManagerProxy: TeeVersionManagerInstance;
     let teeVerification: TeeVerificationInstance;
     let teeVerificationProxy: TeeVerificationProxyInstance;
+    let teeStateVerifier: TeeStateVerifierInstance;
+    let teeStateVerifierProxy: TeeStateVerifierProxyInstance;
     let teeRegistry: TeeRegistryInstance;
     let teeRegistryProxy: TeeRegistryProxyInstance;
     let teeWalletProjectManager: TeeWalletProjectManagerInstance;
@@ -491,6 +494,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         teeVerificationProxy = await TeeVerificationProxy.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 3600, 10, 600, teeVerificationImpl.address);
         teeVerification = await TeeVerification.at(teeVerificationProxy.address);
 
+        const teeStateVerifierImpl = await TeeStateVerifier.new();
+        teeStateVerifierProxy = await TeeStateVerifierProxy.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, teeStateVerifierImpl.address);
+        teeStateVerifier = await TeeStateVerifier.at(teeStateVerifierProxy.address);
+
         const teeRegistryImpl: TeeRegistryInstance = await TeeRegistry.new();
         teeRegistryProxy = await TeeRegistryProxy.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 60, teeRegistryImpl.address);
         teeRegistry = await TeeRegistry.at(teeRegistryProxy.address);
@@ -623,8 +630,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             [ADDRESS_UPDATER, teeGovernance.address], { from: ADDRESS_UPDATER });
 
         await teeVerification.updateContractAddresses(
-            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-            [ADDRESS_UPDATER, teeVersionManager.address, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager.address, relay.address], { from: ADDRESS_UPDATER });
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_STATE_VERIFIER, Contracts.TEE_INSTRUCTIONS, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+            [ADDRESS_UPDATER, teeVersionManager.address, teeRegistry.address, teeFeeCalculator.address, teeStateVerifier.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager.address, relay.address], { from: ADDRESS_UPDATER });
+
+        await teeStateVerifier.updateContractAddresses(
+            encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_REGISTRY]),
+            [ADDRESS_UPDATER, teeVersionManager.address, teeRegistry.address], { from: ADDRESS_UPDATER });
 
         await teeRegistry.updateContractAddresses(
             encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_OWNER_ALLOWLIST, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_VERIFICATION, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
@@ -1356,6 +1367,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         const rewardEpochId = 2;
         assert(TEE_URLS.length === challenges.length && TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
         for (let i = 0; i < TEE_URLS.length; i++) {
+            const state = {
+                status: "0",
+                initialTeeId: TEE_IDS[i],
+                teeGovernanceHash: governanceHash,
+                nonce: 0,
+                pauseNonce: 0
+            };
+            const stateString = web3.eth.abi.encodeParameters([TeeMachineState],[state]);
             const proof = {
                 signatures: {
                     signingPolicySignatures: "0x", // TODO
@@ -1377,15 +1396,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 },
                 responseBody: {
                     status: "0",
-                    machineStatus: "0",
                     teeTimestamp: (await time.latest()).toString(),
-                    initialTeeId: TEE_IDS[i],
                     codeHash: TEE_CODE_HASH,
                     platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
-                    teeGovernanceHash: governanceHash,
                     initialSigningPolicyId: rewardEpochId,
-                    lastSigningPolicyId: rewardEpochId
-                }
+                    lastSigningPolicyId: rewardEpochId,
+                    stateHash: web3.utils.keccak256(stateString)
+                },
+                state: stateString
             }
             await time.increase(1);
             let tx = await teeRegistry.toProduction(proof, { from: TEE_OWNERS[i] });

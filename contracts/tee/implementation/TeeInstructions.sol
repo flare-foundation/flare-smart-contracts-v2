@@ -2,7 +2,6 @@
 pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../protocol/interface/IIRewardManager.sol";
 import "../../utils/lib/AddressSet.sol";

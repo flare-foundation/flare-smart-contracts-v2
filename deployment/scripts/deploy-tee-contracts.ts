@@ -25,6 +25,8 @@ import { TeeGovernanceProxyContract, TeeInstructionsProxyContract, TeePaymentsPr
 import { TeeVerificationContract } from "../../typechain-truffle/contracts/tee/implementation/TeeVerification";
 import { TeeVerificationProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeVerificationProxy";
 import { TeeOwnerAllowlistContract } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlist";
+import { TeeStateVerifierContract } from "../../typechain-truffle/contracts/tee/implementation/TeeStateVerifier";
+import { TeeStateVerifierProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeStateVerifierProxy";
 
 export async function deployTeeContracts(
   hre: HardhatRuntimeEnvironment,
@@ -44,6 +46,8 @@ export async function deployTeeContracts(
   const TeeVersionManagerProxy: TeeVersionManagerProxyContract = artifacts.require("TeeVersionManagerProxy");
   const TeeVerification: TeeVerificationContract = artifacts.require("TeeVerification");
   const TeeVerificationProxy: TeeVerificationProxyContract = artifacts.require("TeeVerificationProxy");
+  const TeeStateVerifier: TeeStateVerifierContract = artifacts.require("TeeStateVerifier");
+  const TeeStateVerifierProxy: TeeStateVerifierProxyContract = artifacts.require("TeeStateVerifierProxy");
   const TeeRegistry: TeeRegistryContract = artifacts.require("TeeRegistry");
   const TeeRegistryProxy: TeeRegistryProxyContract = artifacts.require("TeeRegistryProxy");
   const TeeWalletProjectManager: TeeWalletProjectManagerContract = artifacts.require("TeeWalletProjectManager");
@@ -126,6 +130,17 @@ export async function deployTeeContracts(
   );
   const teeVerification = await TeeVerification.at(teeVerificationProxy.address);
   spewNewContractInfo(contracts, null, TeeVerification.contractName, `TeeVerificationProxy.sol`, teeVerificationProxy.address, quiet);
+
+  const teeStateVerifierImpl = await TeeStateVerifier.new();
+  spewNewContractInfo(contracts, null, "TeeStateVerifierImplementation", `TeeStateVerifier.sol`, teeStateVerifierImpl.address, quiet);
+  const teeStateVerifierProxy = await TeeStateVerifierProxy.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address,
+    teeStateVerifierImpl.address
+  );
+  const teeStateVerifier = await TeeStateVerifier.at(teeStateVerifierProxy.address);
+  spewNewContractInfo(contracts, null, TeeStateVerifier.contractName, `TeeStateVerifierProxy.sol`, teeStateVerifierProxy.address, quiet);
 
   const teeRegistryImpl = await TeeRegistryProxy.new();
   spewNewContractInfo(contracts, null, "TeeRegistryImplementation", `TeeRegistry.sol`, teeRegistryImpl.address, quiet);
@@ -269,8 +284,12 @@ export async function deployTeeContracts(
     [addressUpdater, teeGovernance.address]);
 
   await teeVerification.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-    [addressUpdater, teeVersionManager.address, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager, relay]);
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_STATE_VERIFIER, Contracts.TEE_INSTRUCTIONS, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+    [addressUpdater, teeVersionManager.address, teeRegistry.address, teeFeeCalculator.address, teeStateVerifier.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager, relay]);
+
+  await teeStateVerifier.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_REGISTRY]),
+    [addressUpdater, teeVersionManager.address, teeRegistry.address]);
 
   await teeRegistry.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_OWNER_ALLOWLIST, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_VERIFICATION, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
@@ -348,6 +367,7 @@ export async function deployTeeContracts(
   // switch to production mode
   await teeOwnerAllowlist.switchToProductionMode();
   await teeVerification.switchToProductionMode();
+  await teeStateVerifier.switchToProductionMode();
   await teeGovernance.switchToProductionMode();
   await teeVersionManager.switchToProductionMode();
   await teeRegistry.switchToProductionMode();

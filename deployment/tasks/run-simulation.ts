@@ -380,6 +380,14 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     );
     const event = requiredEventArgsFrom(tx, c.teeVerification, "TeeAttestationRequested") as any;
     await time.increase(2);
+    const state = {
+        status: "0",
+        initialTeeId: TEE_IDS[i],
+        teeGovernanceHash: governanceHash,
+        nonce: 0,
+        pauseNonce: 0
+    };
+    const stateString = web3.eth.abi.encodeParameters([TeeMachineState],[state]);
     const proof = {
       signatures: {
         signingPolicySignatures: "0x", // TODO
@@ -401,15 +409,14 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
       },
       responseBody: {
         status: "0",
-        machineStatus: "0",
         teeTimestamp: (await time.latest()-1).toString(),
-        initialTeeId: TEE_IDS[i],
         codeHash: TEE_CODE_HASH,
         platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
-        teeGovernanceHash: governanceHash,
         initialSigningPolicyId: rewardEpochId,
-        lastSigningPolicyId: rewardEpochId
-      }
+        lastSigningPolicyId: rewardEpochId,
+        stateHash: web3.utils.keccak256(stateString)
+      },
+      state: stateString
     }
     await c.teeRegistry.toProduction(proof, { from: teeOwnerAccount.address });
   }
@@ -1027,3 +1034,36 @@ export function encodeString(text: string, web3: Web3): string {
 export function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {
   return SigningPolicy.hash(signingPolicy);
 }
+
+export const TeeMachineState = {
+    "components": [
+        {
+            "internalType": "enum IITeeStateVerifier.TeeMachineStatus",
+            "name": "status",
+            "type": "uint8"
+        },
+        {
+            "internalType": "address",
+            "name": "initialTeeId",
+            "type": "address"
+        },
+        {
+            "internalType": "bytes32",
+            "name": "teeGovernanceHash",
+            "type": "bytes32"
+        },
+        {
+            "internalType": "uint256",
+            "name": "nonce",
+            "type": "uint256"
+        },
+        {
+            "internalType": "uint256",
+            "name": "pauseNonce",
+            "type": "uint256"
+        }
+    ],
+    "internalType": "struct IITeeStateVerifier.TeeMachineState",
+    "name": "",
+    "type": "tuple"
+};

@@ -151,9 +151,11 @@ interface ITeeRegistry {
 
     /**
      * Confirm the replication of a TEE machine. Can only be called by the TEE machines owner.
+     * @param _newTeeId The new TEE machine id.
      * @param _proof The availability check proof for the new TEE machine with the old TEE id.
      */
     function confirmReplicate(
+        address _newTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         external;

@@ -2,11 +2,11 @@
 pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/tee/ITeeVersionManager.sol";
 import "../../userInterfaces/tee/ITeeVerification.sol";
 import "../../userInterfaces/tee/ITeeRegistry.sol";
 import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
+import "../../userInterfaces/tee/ITeeStateVerifier.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/ftdc/IFtdcHub.sol";
 import "../../userInterfaces/ftdc/IFtdcVerification.sol";
@@ -37,6 +37,8 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
     ITeeRegistry public teeRegistry;
     /// TEE fee calculator contract.
     ITeeFeeCalculator public teeFeeCalculator;
+    /// TEE state verifier contract.
+    ITeeStateVerifier public teeStateVerifier;
     /// TEE instructions contract.
     ITeeInstructions public teeInstructions;
     /// Flare TEE data connector contract.
@@ -196,8 +198,7 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         require(status == ITeeRegistry.TeeStatus.PRODUCTION, "tee machine not available");
 
         require(
-            _proof.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK &&
-            _proof.responseBody.machineStatus == ITeeAvailabilityCheck.TeeMachineStatus.ACTIVE,
+            _proof.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
             "invalid AC status"
         );
 
@@ -355,6 +356,8 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeRegistry"));
         teeFeeCalculator = ITeeFeeCalculator(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
+        teeStateVerifier = ITeeStateVerifier(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeStateVerifier"));
         teeInstructions = ITeeInstructions(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         ftdcHub = IFtdcHub(
@@ -447,11 +450,11 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         }
         // check response body data validity
         ITeeAvailabilityCheck.ResponseBody calldata responseBody = _proof.responseBody;
+        require(keccak256(_proof.state) == responseBody.stateHash, "invalid state hash");
         uint256 lastSigningPolicyId = responseBody.lastSigningPolicyId;
         return responseBody.codeHash == _teeMachine.codeHash &&
             responseBody.platform == _teeMachine.platform &&
-            responseBody.initialTeeId == _teeMachine.initialTeeId &&
-            responseBody.teeGovernanceHash == teeVersionManager.getTeeGovernanceHash(_teeMachine.codeHash) &&
+            teeStateVerifier.verifyTeeMachineState(teeId, _proof.state) &&
             (lastSigningPolicyId == currentRewardEpochId || lastSigningPolicyId == currentRewardEpochId + 1);
     }
 
