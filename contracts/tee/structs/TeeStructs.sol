@@ -6,20 +6,25 @@ interface TeeStructs {
     struct TeeInstruction {
         bytes32 instructionId;
         address teeId;
-        uint64 timestamp;
-        uint24 rewardEpochId;
+        uint32 timestamp;
+        uint32 rewardEpochId;
         bytes32 opType;
         bytes32 opCommand;
         bytes originalMessage;
         bytes additionalFixedMessage;
     }
 
+    struct PublicKey {
+        bytes32 x;
+        bytes32 y;
+    }
+
     struct Attestation {
         bytes32 challenge;
-        address teeId;
-        uint24 initialSigningPolicyId;
+        PublicKey publicKey;
+        uint32 initialSigningPolicyId;
         bytes32 initialSigningPolicyHash;
-        uint24 lastSigningPolicyId;
+        uint32 lastSigningPolicyId;
         bytes32 lastSigningPolicyHash;
         bytes32 stateHash;
         uint64 teeTimestamp;
@@ -32,28 +37,25 @@ interface TeeStructs {
     struct VoteSequenceInit {
         bytes32 instructionId;
         bytes32 instructionHash;
-        uint24 rewardEpochId;
+        uint32 rewardEpochId;
         address teeId;
     }
 
     struct VoteSequenceNext {
         bytes32 voteHash;
-        uint64 sequence;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
+        uint64 sequence;        
+        bytes signature;
         bytes32 additionalVariableMessageHash;
         uint64 timestamp;
     }
 
     struct VoteReceipt {
-        bytes32 voteHash;
+        bytes32 instructionHash;
         uint64 sequence;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
+        bytes signature;
         bytes32 additionalVariableMessageHash;
         uint64 timestamp;
+        bytes32 voteHash;
     }
 
     function teeInstructionStruct(TeeInstruction calldata) external;
