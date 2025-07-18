@@ -61,8 +61,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     address[] private initialSubmitAddresses;
     address[] private initialSubmitSignaturesAddresses;
     address[] private initialSigningPolicyAddresses;
-    bytes32[] private initialPublicKeyParts1;
-    bytes32[] private initialPublicKeyParts2;
+    PublicKey[] private initialPublicKeys;
     bytes20[][] private initialNodeIds;
     uint256[] private initialVotersRegistrationWeight;
     IEntityManager.VoterAddresses[] private initialVotersRegisteredAddresses;
@@ -88,16 +87,15 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     bytes private certificateRawTest;
     bytes private signatureTest;
 
-    event BeneficiaryChilled(bytes20 indexed beneficiary, uint256 untilRewardEpochId);
-    event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId);
+    event BeneficiaryChilled(bytes20 indexed beneficiary, uint32 untilRewardEpochId);
+    event VoterRemoved(address indexed voter, uint32 indexed rewardEpochId);
     event VoterRegistered(
         address indexed voter,
-        uint24 indexed rewardEpochId,
+        uint32 indexed rewardEpochId,
         address indexed signingPolicyAddress,
         address submitAddress,
         address submitSignaturesAddress,
-        bytes32 publicKeyPart1,
-        bytes32 publicKeyPart2,
+        PublicKey publicKey,
         uint256 registrationWeight,
         IVoterRegistry.Signature signature
     );
@@ -121,7 +119,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         uint64 timestamp,                       // Timestamp when this happened
         bool thresholdReached                   // Indicates if signing threshold was reached
     );
-    event VoterPreRegistered(address indexed voter, uint256 indexed rewardEpochId);
+    event VoterPreRegistered(address indexed voter, uint32 indexed rewardEpochId);
 
     function setUp() public {
         vm.warp(1000);
@@ -326,8 +324,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
+                initialPublicKeys[i],
                 initialVotersRegistrationWeight[i],
                 signature
             );
@@ -441,8 +438,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
+                initialPublicKeys[i],
                 initialVotersRegistrationWeight[i],
                 signature
             );
@@ -513,8 +509,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             entityManager.proposeSigningPolicyAddress(initialSigningPolicyAddresses[i]);
             if (i == 0) {
                 entityManager.registerPublicKey(
-                    initialPublicKeyParts1[i],
-                    initialPublicKeyParts2[i],
+                    initialPublicKeys[i].x,
+                    initialPublicKeys[i].y,
                     validPublicKeyData
                 );
             }
@@ -620,8 +616,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
+                initialPublicKeys[i],
                 initialVotersRegistrationWeight[i],
                 signature
             );
@@ -760,8 +755,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
+                initialPublicKeys[i],
                 initialVotersRegistrationWeight[i],
                 signature
             );
@@ -977,8 +971,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                     initialSigningPolicyAddresses[i],
                     initialSubmitAddresses[i],
                     initialSubmitSignaturesAddresses[i],
-                    initialPublicKeyParts1[i],
-                    initialPublicKeyParts2[i],
+                    initialPublicKeys[i],
                     initialVotersRegistrationWeight[i],
                     signature
                 );
@@ -1147,8 +1140,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                     newSigningPolicyAddress,
                     initialSubmitAddresses[i],
                     initialSubmitSignaturesAddresses[i],
-                    initialPublicKeyParts1[i],
-                    initialPublicKeyParts2[i],
+                    initialPublicKeys[i],
                     initialVotersRegistrationWeight[i],
                     signature
                 );
@@ -1159,8 +1151,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                     initialSigningPolicyAddresses[i],
                     initialSubmitAddresses[i],
                     initialSubmitSignaturesAddresses[i],
-                    initialPublicKeyParts1[i],
-                    initialPublicKeyParts2[i],
+                    initialPublicKeys[i],
                     initialVotersRegistrationWeight[i],
                     signature
                 );
@@ -1171,8 +1162,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                     initialSigningPolicyAddresses[i],
                     newSubmitAddress,
                     initialSubmitSignaturesAddresses[i],
-                    initialPublicKeyParts1[i],
-                    initialPublicKeyParts2[i],
+                    initialPublicKeys[i],
                     initialVotersRegistrationWeight[i],
                     signature
                 );
@@ -1389,8 +1379,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
+                initialPublicKeys[i],
                 initialVotersRegistrationWeight[i],
                 signature
             );
@@ -1450,8 +1439,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
+                initialPublicKeys[i],
                 initialVotersRegistrationWeight[i],
                 signature
             );
@@ -1477,8 +1465,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             entityManager.proposeSigningPolicyAddress(initialSigningPolicyAddresses[i]);
             if (i == 0) {
                 entityManager.registerPublicKey(
-                    initialPublicKeyParts1[i],
-                    initialPublicKeyParts2[i],
+                    initialPublicKeys[i].x,
+                    initialPublicKeys[i].y,
                     validPublicKeyData
                 );
             }
@@ -1574,11 +1562,11 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
             // public keys
             if (i == 0) {
-                initialPublicKeyParts1.push(keccak256(abi.encode("publicKey1")));
-                initialPublicKeyParts2.push(keccak256(abi.encode("publicKey2")));
+                initialPublicKeys.push(
+                    PublicKey(keccak256(abi.encode("publicKey1")), keccak256(abi.encode("publicKey2")))
+                );
             } else {
-                initialPublicKeyParts1.push(bytes32(0));
-                initialPublicKeyParts2.push(bytes32(0));
+                initialPublicKeys.push();
             }
 
             initialNodeIds.push(new bytes20[](i));

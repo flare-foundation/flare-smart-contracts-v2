@@ -43,16 +43,15 @@ contract VoterRegistryTest is Test {
 
     uint256 private constant UINT16_MAX = type(uint16).max;
 
-    event BeneficiaryChilled(bytes20 indexed beneficiary, uint256 untilRewardEpochId);
-    event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId);
+    event BeneficiaryChilled(bytes20 indexed beneficiary, uint32 untilRewardEpochId);
+    event VoterRemoved(address indexed voter, uint32 indexed rewardEpochId);
     event VoterRegistered(
         address indexed voter,
-        uint24 indexed rewardEpochId,
+        uint32 indexed rewardEpochId,
         address indexed signingPolicyAddress,
         address submitAddress,
         address submitSignaturesAddress,
-        bytes32 publicKeyPart1,
-        bytes32 publicKeyPart2,
+        PublicKey publicKey,
         uint256 registrationWeight,
         IVoterRegistry.Signature signature
     );
@@ -465,8 +464,7 @@ contract VoterRegistryTest is Test {
             initialSigningPolicyAddresses[0],
             initialSubmitAddresses[0],
             initialSubmitSignaturesAddresses[0],
-            initialPublicKeyParts1[0],
-            initialPublicKeyParts2[0],
+            PublicKey(initialPublicKeyParts1[0], initialPublicKeyParts2[0]),
             initialVotersWeights[0],
             signature
         );
@@ -542,8 +540,7 @@ contract VoterRegistryTest is Test {
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
+                PublicKey(initialPublicKeyParts1[i], initialPublicKeyParts2[i]),
                 initialVotersWeights[i],
                 signature
             );
@@ -581,8 +578,7 @@ contract VoterRegistryTest is Test {
             initialSigningPolicyAddresses[0],
             initialSubmitAddresses[0],
             initialSubmitSignaturesAddresses[0],
-            initialPublicKeyParts1[0],
-            initialPublicKeyParts2[0],
+            PublicKey(initialPublicKeyParts1[0], initialPublicKeyParts2[0]),
             initialVotersWeights[0],
             signature
         );
@@ -607,8 +603,7 @@ contract VoterRegistryTest is Test {
             initialSigningPolicyAddresses[2],
             initialSubmitAddresses[2],
             initialSubmitSignaturesAddresses[2],
-            bytes32("123"),
-            bytes32(0),
+            PublicKey(bytes32("123"), bytes32(0)),
             initialVotersWeights[2],
             signature
         );
@@ -735,8 +730,7 @@ contract VoterRegistryTest is Test {
             initialSigningPolicyAddresses[3],
             initialSubmitAddresses[3],
             initialSubmitSignaturesAddresses[3],
-            initialPublicKeyParts1[3],
-            initialPublicKeyParts2[3],
+            PublicKey(initialPublicKeyParts1[3], initialPublicKeyParts2[3]),
             initialVotersWeights[3],
             signature
         );
@@ -790,8 +784,7 @@ contract VoterRegistryTest is Test {
             initialSigningPolicyAddresses[1],
             initialSubmitAddresses[1],
             initialSubmitSignaturesAddresses[1],
-            initialPublicKeyParts1[1],
-            initialPublicKeyParts2[1],
+            PublicKey(initialPublicKeyParts1[1], initialPublicKeyParts2[1]),
             initialVotersWeights[1],
             signature
         );

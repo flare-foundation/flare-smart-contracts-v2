@@ -92,7 +92,7 @@ contract FlareSystemsCalculator is Governed, AddressUpdatable, IIFlareSystemsCal
      */
     function calculateRegistrationWeight(
         address _voter,
-        uint24 _rewardEpochId,
+        uint32 _rewardEpochId,
         uint256 _votePowerBlockNumber
     )
         external onlyVoterRegistry

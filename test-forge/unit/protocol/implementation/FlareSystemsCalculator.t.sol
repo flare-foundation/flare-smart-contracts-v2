@@ -26,7 +26,7 @@ contract FlareSystemsCalculatorTest is Test {
 
     event VoterRegistrationInfo(
         address indexed voter,
-        uint24 indexed rewardEpochId,
+        uint32 indexed rewardEpochId,
         address delegationAddress,
         uint16 delegationFeeBIPS,
         uint256 wNatWeight,

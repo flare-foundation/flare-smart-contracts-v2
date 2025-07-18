@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
+import "./IPublicKey.sol";
+import "./ISignature.sol";
+
 /**
  * VoterRegistry interface.
  */
@@ -14,20 +17,19 @@ interface IVoterRegistry {
     }
 
     /// Event emitted when a beneficiary (c-chain address or node id) is chilled.
-    event BeneficiaryChilled(bytes20 indexed beneficiary, uint256 untilRewardEpochId);
+    event BeneficiaryChilled(bytes20 indexed beneficiary, uint32 untilRewardEpochId);
 
     /// Event emitted when a voter is removed.
-    event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId);
+    event VoterRemoved(address indexed voter, uint32 indexed rewardEpochId);
 
     /// Event emitted when a voter is registered.
     event VoterRegistered(
         address indexed voter,
-        uint24 indexed rewardEpochId,
+        uint32 indexed rewardEpochId,
         address indexed signingPolicyAddress,
         address submitAddress,
         address submitSignaturesAddress,
-        bytes32 publicKeyPart1,
-        bytes32 publicKeyPart2,
+        PublicKey publicKey,
         uint256 registrationWeight,
         Signature signature
     );

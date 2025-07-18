@@ -6,10 +6,10 @@ import { IIVoterRegistry } from "../protocol/interface/IIVoterRegistry.sol";
 interface IVoterPreRegistry {
 
     /// Event emitted when a voter is pre-registered.
-    event VoterPreRegistered(address indexed voter, uint256 indexed rewardEpochId);
+    event VoterPreRegistered(address indexed voter, uint32 indexed rewardEpochId);
 
     /// Event emitted when a voter registration failed.
-    event VoterRegistrationFailed(address indexed voter, uint256 indexed rewardEpochId);
+    event VoterRegistrationFailed(address indexed voter, uint32 indexed rewardEpochId);
 
     /**
      * Pre-register voter to enable it to be registered by the system.
@@ -22,14 +22,14 @@ interface IVoterPreRegistry {
      * Returns the list of pre-registered voters for a given reward epoch.
      * @param _rewardEpochId The reward epoch id.
      */
-    function getPreRegisteredVoters(uint24 _rewardEpochId) external view returns (address[] memory);
+    function getPreRegisteredVoters(uint256 _rewardEpochId) external view returns (address[] memory);
 
     /**
      * Returns true if a voter was (is currently) pre-registered in a given reward epoch.
      * @param _voter The voter address.
      * @param _rewardEpochId The reward epoch id.
      */
-    function isVoterPreRegistered(uint24 _rewardEpochId, address _voter) external view returns (bool);
+    function isVoterPreRegistered(uint256 _rewardEpochId, address _voter) external view returns (bool);
 
     /**
      * Returns voter's signature for a given reward epoch and voter address, reverts if not pre-registered.
@@ -37,10 +37,5 @@ interface IVoterPreRegistry {
      * @param _voter The voter address.
      * @return _signature The voter's signature.
      */
-    function getVoterSignature(
-        uint24 _rewardEpochId,
-        address _voter
-    )
-        external view
-        returns (IIVoterRegistry.Signature memory);
+    function getVoterSignature(uint256 _rewardEpochId, address _voter) external view returns (Signature memory);
 }

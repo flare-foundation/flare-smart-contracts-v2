@@ -42,7 +42,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     // mapping: rewardEpochId => list of registered voters and their weights
     mapping(uint256 rewardEpochId => VotersAndWeights) internal register;
 
-    // mapping: rewardEpochId => block number of new signing policy initialisation start
+    // mapping: rewardEpochId => block number of new signing policy initialization start
     /// Snapshot of the voters' addresses for a given reward epoch.
     mapping(uint256 rewardEpochId => uint256) public newSigningPolicyInitializationStartBlockNumber;
 
@@ -125,7 +125,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      * @inheritdoc IVoterRegistry
      */
     function registerVoter(address _voter, Signature calldata _signature) external {
-        (uint24 rewardEpochId, IIEntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
+        (uint32 rewardEpochId, IIEntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
         // check signature
         bytes32 messageHash = keccak256(abi.encode(rewardEpochId, _voter));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
@@ -143,14 +143,14 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      */
     function chill(
         bytes20[] calldata _beneficiaryList,
-        uint256 _noOfRewardEpochs
+        uint32 _noOfRewardEpochs
     )
         external onlyGovernance
         returns(
-            uint256 _untilRewardEpochId
+            uint32 _untilRewardEpochId
         )
     {
-        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        uint32 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         _untilRewardEpochId = currentRewardEpochId + _noOfRewardEpochs + 1;
         for(uint256 i = 0; i < _beneficiaryList.length; i++) {
             chilledUntilRewardEpochId[_beneficiaryList[i]] = _untilRewardEpochId;
@@ -508,7 +508,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      */
     function _registerVoter(
         address _voter,
-        uint24 _rewardEpochId,
+        uint32 _rewardEpochId,
         Signature calldata _signature,
         IIEntityManager.VoterAddresses memory _voterAddresses
     )
@@ -516,9 +516,9 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     {
         uint256 weight = _getVoterWeight(_voter, _rewardEpochId);
 
-        (bytes32 publicKeyPart1, bytes32 publicKeyPart2) =
+        (bytes32 publicKeyX, bytes32 publicKeyY) =
             entityManager.getPublicKeyOfAt(_voter, newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
-        if (publicKeyRequired && publicKeyPart1 == bytes32(0) && publicKeyPart2 == bytes32(0)) {
+        if (publicKeyRequired && publicKeyX == bytes32(0) && publicKeyY == bytes32(0)) {
             revert("public key required");
         }
 
@@ -568,8 +568,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
             _voterAddresses.signingPolicyAddress,
             _voterAddresses.submitAddress,
             _voterAddresses.submitSignaturesAddress,
-            publicKeyPart1,
-            publicKeyPart2,
+            PublicKey(publicKeyX, publicKeyY),
             weight,
             _signature
         );
@@ -583,7 +582,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      */
     function _getVoterWeight(
         address _voter,
-        uint24 _rewardEpochId
+        uint32 _rewardEpochId
     )
         internal
         returns (uint256 _weight)
@@ -609,7 +608,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     function _getRegistrationData(address _voter)
         internal view
         returns(
-            uint24 _rewardEpochId,
+            uint32 _rewardEpochId,
             IIEntityManager.VoterAddresses memory _voterAddresses
         )
     {

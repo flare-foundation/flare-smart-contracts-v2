@@ -34,28 +34,26 @@ contract VoterPreRegistryTest is Test {
     address[] private initialSubmitAddresses;
     address[] private initialSubmitSignaturesAddresses;
     address[] private initialSigningPolicyAddresses;
-    bytes32[] private initialPublicKeyParts1;
-    bytes32[] private initialPublicKeyParts2;
+    PublicKey[] private initialPublicKeys;
     bytes20[][] private initialNodeIds;
     IEntityManager.VoterAddresses[] private initialVotersRegisteredAddresses;
     uint256[] private initialVotersWeights;
 
     uint256 private constant UINT16_MAX = type(uint16).max;
 
-    event VoterPreRegistered(address indexed voter, uint256 indexed rewardEpochId);
-    event VoterRegistrationFailed(address indexed voter, uint256 indexed rewardEpochId);
+    event VoterPreRegistered(address indexed voter, uint32 indexed rewardEpochId);
+    event VoterRegistrationFailed(address indexed voter, uint32 indexed rewardEpochId);
     event VoterRegistered(
         address indexed voter,
-        uint24 indexed rewardEpochId,
+        uint32 indexed rewardEpochId,
         address indexed signingPolicyAddress,
         address submitAddress,
         address submitSignaturesAddress,
-        bytes32 publicKeyPart1,
-        bytes32 publicKeyPart2,
+        PublicKey publicKey,
         uint256 registrationWeight,
         IVoterRegistry.Signature signature
     );
-    event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId);
+    event VoterRemoved(address indexed voter, uint32 indexed rewardEpochId);
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -229,8 +227,7 @@ contract VoterPreRegistryTest is Test {
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
+                initialPublicKeys[i],
                 initialVotersWeights[i],
                 initialVotersSignatures[i]
             );
@@ -265,12 +262,11 @@ contract VoterPreRegistryTest is Test {
             vm.expectEmit();
             emit VoterRegistered(
                 initialVoters[i],
-                uint24(11),
+                11,
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
+                initialPublicKeys[i],
                 initialVotersWeights[i],
                 initialVotersSignatures[i]
             );
@@ -319,12 +315,11 @@ contract VoterPreRegistryTest is Test {
             vm.expectEmit();
             emit VoterRegistered(
                 initialVoters[i],
-                uint24(11),
+                11,
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
+                initialPublicKeys[i],
                 initialVotersWeights[i],
                 initialVotersSignatures[i]
             );
@@ -430,11 +425,11 @@ contract VoterPreRegistryTest is Test {
 
             // public keys
             if (i == 0) {
-                initialPublicKeyParts1.push(keccak256(abi.encode("publicKey1")));
-                initialPublicKeyParts2.push(keccak256(abi.encode("publicKey2")));
+                initialPublicKeys.push(
+                    PublicKey(keccak256(abi.encode("publicKey1")), keccak256(abi.encode("publicKey2")))
+                );
             } else {
-                initialPublicKeyParts1.push(bytes32(0));
-                initialPublicKeyParts2.push(bytes32(0));
+                initialPublicKeys.push();
             }
 
             initialNodeIds.push(new bytes20[](i));
@@ -469,7 +464,7 @@ contract VoterPreRegistryTest is Test {
             vm.mockCall(
                 mockEntityManager,
                 abi.encodeWithSelector(IEntityManager.getPublicKeyOfAt.selector, initialVoters[i]),
-                abi.encode(initialPublicKeyParts1[i], initialPublicKeyParts2[i])
+                abi.encode(initialPublicKeys[i].x, initialPublicKeys[i].y)
             );
         }
     }

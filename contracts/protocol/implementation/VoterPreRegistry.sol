@@ -111,7 +111,7 @@ contract VoterPreRegistry is AddressUpdatable, IIVoterRegistrationTrigger, IVote
     /**
      * @inheritdoc IVoterPreRegistry
      */
-    function getPreRegisteredVoters(uint24 _rewardEpochId) external view returns (address[] memory _voters) {
+    function getPreRegisteredVoters(uint256 _rewardEpochId) external view returns (address[] memory _voters) {
         PreRegistryState storage state = preRegisteredVoters[_rewardEpochId];
         uint256 length = state.list.length;
         _voters = new address[](length);
@@ -123,20 +123,14 @@ contract VoterPreRegistry is AddressUpdatable, IIVoterRegistrationTrigger, IVote
     /**
      * @inheritdoc IVoterPreRegistry
      */
-    function isVoterPreRegistered(uint24 _rewardEpochId, address _voter) external view returns (bool) {
+    function isVoterPreRegistered(uint256 _rewardEpochId, address _voter) external view returns (bool) {
         return preRegisteredVoters[_rewardEpochId].index[_voter] != 0;
     }
 
     /**
      * @inheritdoc IVoterPreRegistry
      */
-    function getVoterSignature(
-        uint24 _rewardEpochId,
-        address _voter
-    )
-        external view
-        returns (IVoterRegistry.Signature memory)
-    {
+    function getVoterSignature(uint256 _rewardEpochId, address _voter) external view returns (Signature memory) {
         uint256 index = preRegisteredVoters[_rewardEpochId].index[_voter];
         require(index != 0, "voter not pre-registered");
         VoterWithSignature storage preRegisteredVoter = preRegisteredVoters[_rewardEpochId].list[index - 1];
