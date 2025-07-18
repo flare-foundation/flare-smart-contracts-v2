@@ -1,22 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
+import "../../userInterfaces/IPublicKey.sol";
+
 interface TeeStructs {
 
-    struct TeeInstruction {
+    struct Instruction {
         bytes32 instructionId;
         address teeId;
-        uint32 timestamp;
+        uint64 timestamp;
         uint32 rewardEpochId;
         bytes32 opType;
         bytes32 opCommand;
         bytes originalMessage;
         bytes additionalFixedMessage;
-    }
-
-    struct PublicKey {
-        bytes32 x;
-        bytes32 y;
     }
 
     struct Attestation {
@@ -43,7 +40,7 @@ interface TeeStructs {
 
     struct VoteSequenceNext {
         bytes32 voteHash;
-        uint64 sequence;        
+        uint64 sequence;
         bytes signature;
         bytes32 additionalVariableMessageHash;
         uint64 timestamp;
@@ -58,7 +55,7 @@ interface TeeStructs {
         bytes32 voteHash;
     }
 
-    function teeInstructionStruct(TeeInstruction calldata) external;
+    function instructionStruct(Instruction calldata) external;
     function attestationStruct(Attestation calldata) external;
     function pmwStateStruct(PMWState calldata) external;
     function voteSequenceInitStruct(VoteSequenceInit calldata) external;

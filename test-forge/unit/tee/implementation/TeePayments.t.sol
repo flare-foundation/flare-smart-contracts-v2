@@ -43,7 +43,7 @@ contract TeePaymentsTest is Test {
 
     event TeeInstructionsSent(
         bytes32 indexed instructionId,
-        uint24 indexed rewardEpochId,
+        uint32 indexed rewardEpochId,
         ITeeRegistry.TeeMachine[] teeMachines,
         bytes32 opType,
         bytes32 opCommand,
