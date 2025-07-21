@@ -30,7 +30,7 @@ interface ITeeAvailabilityCheck {
     struct RequestBody {
         address teeId;
         string url;
-        uint256 challenge;
+        bytes32 challenge;
     }
 
     /**
@@ -48,8 +48,8 @@ interface ITeeAvailabilityCheck {
         uint64 teeTimestamp;
         bytes32 codeHash;
         bytes32 platform;
-        uint24 initialSigningPolicyId;
-        uint24 lastSigningPolicyId;
+        uint32 initialSigningPolicyId;
+        uint32 lastSigningPolicyId;
         bytes32 stateHash;
     }
 }

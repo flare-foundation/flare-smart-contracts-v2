@@ -11,7 +11,7 @@ interface ITeeVerification {
 
     struct TeeAttestation {
         ITeeRegistry.TeeMachineWithAttestationData teeMachine;
-        uint256 challenge;
+        bytes32 challenge;
     }
 
     event SettingsUpdated(
@@ -27,7 +27,7 @@ interface ITeeVerification {
 
     event TeeAttestationRequested(
         address indexed teeId,
-        uint256 challenge
+        bytes32 challenge
     );
 
     event AvailabilityCheckValidityExtended(

@@ -24,7 +24,7 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
 
     struct AvailabilityCheckValidity {
         uint64 endTs;
-        uint24 lastSigningPolicyId;
+        uint32 lastSigningPolicyId;
     }
 
     bytes32 public constant TEE_SOURCE_ID = bytes32("TEE");
@@ -67,7 +67,7 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
     uint64 private cosignersThreshold;
 
     mapping(address teeId => AvailabilityCheckValidity) private availabilityCheckValidity;
-    mapping(address teeId => uint256) private challenges;
+    mapping(address teeId => bytes32) private challenges;
     mapping(address teeId => uint256) private challengeTs;
 
     /**
@@ -117,12 +117,12 @@ contract TeeVerification is ITeeVerification, GovernedProxyImplementation, Addre
         );
 
         // get or update the challenge
-        uint256 challenge;
+        bytes32 challenge;
         if (challengeTs[_teeId] + challengeValidityDurationSeconds > block.timestamp) {
             challenge = challenges[_teeId];
         } else {
             (uint256 randomNumber,,) = relay.getRandomNumber();
-            challenge = uint256(keccak256(abi.encode(_teeId, block.timestamp, randomNumber)));
+            challenge = keccak256(abi.encode(_teeId, block.timestamp, randomNumber));
             challenges[_teeId] = challenge;
             challengeTs[_teeId] = block.timestamp;
         }
