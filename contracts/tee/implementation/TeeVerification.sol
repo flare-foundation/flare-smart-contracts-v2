@@ -423,11 +423,10 @@ contract TeeVerification is ITeeVerification, TeeBase {
         }
         // check response body data validity
         ITeeAvailabilityCheck.ResponseBody calldata responseBody = _proof.responseBody;
-        require(keccak256(abi.encode(_proof.state)) == responseBody.stateHash, "invalid state hash");
         uint256 lastSigningPolicyId = responseBody.lastSigningPolicyId;
         uint256 extensionId = teeMachineRegistry.getExtensionId(teeId);
         ITeeExtensionStateVerifier teeStateVerifier = teeExtensionRegistry.getTeeExtensionStateVerifier(extensionId);
-        ITeeAvailabilityCheck.TeeState calldata state = _proof.state;
+        ITeeAvailabilityCheck.TeeState calldata state = responseBody.state;
         return responseBody.codeHash == _teeMachine.codeHash &&
             responseBody.platform == _teeMachine.platform &&
             (lastSigningPolicyId == currentRewardEpochId || lastSigningPolicyId == currentRewardEpochId + 1) &&

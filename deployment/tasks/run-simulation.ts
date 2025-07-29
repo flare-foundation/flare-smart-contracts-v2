@@ -414,9 +414,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
         platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
         initialSigningPolicyId: rewardEpochId,
         lastSigningPolicyId: rewardEpochId,
-        stateHash: web3.utils.keccak256(web3.eth.abi.encodeParameters([TeeState],[teeState]))
+        state: teeState
       },
-      state: teeState
     }
     await c.teeMachineRegistry.toProduction(proof, { from: teeOwnerAccount.address });
   }
@@ -1034,31 +1033,3 @@ export function encodeString(text: string, web3: Web3): string {
 export function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {
   return SigningPolicy.hash(signingPolicy);
 }
-
-export const TeeState = {
-  "components": [
-    {
-      "internalType": "bytes",
-      "name": "systemState",
-      "type": "bytes"
-    },
-    {
-      "internalType": "bytes32",
-      "name": "systemStateVersion",
-      "type": "bytes32"
-    },
-    {
-      "internalType": "bytes",
-      "name": "state",
-      "type": "bytes"
-    },
-    {
-      "internalType": "bytes32",
-      "name": "stateVersion",
-      "type": "bytes32"
-    }
-  ],
-  "internalType": "struct ITeeAvailabilityCheck.TeeState",
-  "name": "",
-  "type": "tuple"
-};

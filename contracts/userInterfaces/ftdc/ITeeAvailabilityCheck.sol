@@ -28,7 +28,6 @@ interface ITeeAvailabilityCheck {
         IFtdcHub.FtdcResponseHeader header;
         RequestBody requestBody;
         ResponseBody responseBody;
-        TeeState state;
     }
 
     /**
@@ -51,7 +50,7 @@ interface ITeeAvailabilityCheck {
      * @param platform Platform of the TEE.
      * @param initialSigningPolicyId Id of the initial signing policy set on the TEE machine, it never changes.
      * @param lastSigningPolicyId Id of the last signing policy relayed to the TEE machine.
-     * @param stateHash Hash of the TEE machine state.
+     * @param state TEE machine state.
      */
     struct ResponseBody {
         AvailabilityCheckStatus status;
@@ -60,6 +59,6 @@ interface ITeeAvailabilityCheck {
         bytes32 platform;
         uint32 initialSigningPolicyId;
         uint32 lastSigningPolicyId;
-        bytes32 stateHash;
+        TeeState state;
     }
 }

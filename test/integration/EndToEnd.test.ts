@@ -49,7 +49,7 @@ import { TeeInstructionsContract, TeeInstructionsInstance } from '../../typechai
 import { TeeRewardOffersManagerContract, TeeRewardOffersManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeRewardOffersManager';
 import { TeePaymentsContract, TeePaymentsInstance } from '../../typechain-truffle/contracts/tee/implementation/TeePayments';
 import { TeePaymentsEVMContract, TeePaymentsEVMInstance } from '../../typechain-truffle/contracts/tee/implementation/TeePaymentsEVM';
-import { TEE_OPERATION_FEES, TEE_SOURCE_ID, TeeState } from '../../deployment/tasks/run-simulation';
+import { TEE_OPERATION_FEES, TEE_SOURCE_ID } from '../../deployment/tasks/run-simulation';
 import { requiredEventArgsFrom } from '../utils/Web3EventDecoder';
 import { AddressUpdater, TeeInstructions } from '../../typechain';
 import { FtdcHubContract, FtdcHubInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcHub';
@@ -1414,9 +1414,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                     platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
                     initialSigningPolicyId: rewardEpochId,
                     lastSigningPolicyId: rewardEpochId,
-                    stateHash: web3.utils.keccak256(web3.eth.abi.encodeParameters([TeeState],[teeState]))
+                    state: teeState
                 },
-                state: teeState
             }
             await time.increase(1);
             let tx = await teeMachineRegistry.toProduction(proof, { from: TEE_OWNERS[i] });

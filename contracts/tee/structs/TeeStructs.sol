@@ -2,6 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import "../../userInterfaces/IPublicKey.sol";
+import "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
 
 interface TeeStructs {
 
@@ -23,7 +24,7 @@ interface TeeStructs {
         bytes32 initialSigningPolicyHash;
         uint32 lastSigningPolicyId;
         bytes32 lastSigningPolicyHash;
-        bytes32 stateHash;
+        ITeeAvailabilityCheck.TeeState state;
         uint64 teeTimestamp;
     }
 
