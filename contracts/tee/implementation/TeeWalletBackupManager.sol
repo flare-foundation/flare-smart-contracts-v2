@@ -88,6 +88,10 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
         require(keccak256(publicKey) == keccak256(_backupId.publicKey), "invalid public key");
         bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_backupId.walletId));
         require(opType == _backupId.opType, "invalid op type");
+        require(
+            teeMachineRegistry.getInitialSigningPolicyId(_teeId) <= _backupId.rewardEpochId,
+            "unsupported reward epoch id"
+        );
         require(_backupId.rewardEpochId <= flareSystemsManager.getCurrentRewardEpochId(), "invalid reward epoch id");
         bytes32 opCommand = _test ? KEY_DATA_PROVIDER_RESTORE_TEST : KEY_DATA_PROVIDER_RESTORE;
         // restored flag in KeyExistence proof will always be set to true after this call

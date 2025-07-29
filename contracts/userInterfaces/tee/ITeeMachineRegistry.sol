@@ -145,6 +145,15 @@ interface ITeeMachineRegistry {
         returns (address);
 
     /**
+     * Get initial signing policy id of a TEE machine.
+     * @param _teeId The TEE machine id.
+     * @return The initial signing policy id.
+     */
+    function getInitialSigningPolicyId(address _teeId)
+        external view
+        returns (uint32);
+
+    /**
      * Get TEE machine basic data, if replication is in progress it will return the data of the new TEE machine.
      * @param _teeId The TEE machine id.
      * @return The TEE machine data.

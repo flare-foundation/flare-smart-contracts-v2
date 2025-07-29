@@ -19,6 +19,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     struct TeeMachineState {
         uint256 extensionId;
         address initialTeeId;
+        uint32 initialSigningPolicyId;
         address owner;
         address teeProxyId; // address of the TEE proxy
         TeeStatus status;
@@ -98,6 +99,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         teeMachineStates[_teeId] = TeeMachineState({
             extensionId: _extensionId,
             initialTeeId: _teeId,
+            initialSigningPolicyId: 0, // temporary value, will be set when TEE machine is put into production
             owner: msg.sender,
             teeProxyId: _teeProxyId,
             status: TeeStatus.INITIALIZED,
@@ -131,6 +133,9 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         _validateAvailabilityCheckStatus(_proof.responseBody.status);
         _validateAvailabilityCheckTs(teeId, _proof.header.timestamp);
         require(teeVerification.verifyAvailabilityCheckProof(_proof), "invalid response data");
+        if(status == TeeStatus.INITIALIZED) {
+            state.initialSigningPolicyId = _proof.responseBody.initialSigningPolicyId;
+        }
 
         state.status = TeeStatus.PRODUCTION;
         state.lastStatusChangeTs = block.timestamp;
@@ -268,6 +273,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         _validateAvailabilityCheckTs(_newTeeId, _proof.header.timestamp);
         // copy TEE machine data from new TEE machine to old TEE machine
         oldState.initialTeeId = newState.initialTeeId;
+        oldState.initialSigningPolicyId = newState.initialSigningPolicyId;
         oldState.teeProxyId = newState.teeProxyId;
         oldState.codeHash = newState.codeHash;
         oldState.platform = newState.platform;
@@ -305,6 +311,17 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     {
         TeeMachineState storage state = _getTeeMachineState(_teeId);
         return state.owner;
+    }
+
+    /**
+     * @inheritdoc ITeeMachineRegistry
+     */
+    function getInitialSigningPolicyId(address _teeId)
+        external view
+        returns (uint32)
+    {
+        TeeMachineState storage state = _getTeeMachineState(_teeId);
+        return state.initialSigningPolicyId;
     }
 
     /**

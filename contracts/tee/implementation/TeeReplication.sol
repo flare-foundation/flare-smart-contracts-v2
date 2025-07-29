@@ -197,6 +197,13 @@ contract TeeReplication is ITeeReplication, TeeBase {
     }
 
     /**
+     * @inheritdoc ITeeReplication
+     */
+    function getReplicatingTeeId(address _oldTeeId) external view returns(address) {
+        return replications[_oldTeeId];
+    }
+
+    /**
      * @inheritdoc AddressUpdatable
      */
     function _updateContractAddresses(

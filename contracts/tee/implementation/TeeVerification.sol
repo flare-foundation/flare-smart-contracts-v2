@@ -6,6 +6,7 @@ import "../interface/IITeeSystemStateVerifier.sol";
 import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import "../../userInterfaces/tee/ITeeVerification.sol";
 import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import "../../userInterfaces/tee/ITeeReplication.sol";
 import "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import "../../userInterfaces/ftdc/IFtdcHub.sol";
 import "../../userInterfaces/ftdc/IFtdcVerification.sol";
@@ -34,6 +35,8 @@ contract TeeVerification is ITeeVerification, TeeBase {
     ITeeMachineRegistry public teeMachineRegistry;
     /// TEE system state verifier contract.
     IITeeSystemStateVerifier public teeSystemStateVerifier;
+    /// TEE replication contract.
+    ITeeReplication public teeReplication;
     /// Flare TEE data connector contract.
     IFtdcHub public ftdcHub;
     /// FTDC verification contract.
@@ -98,7 +101,6 @@ contract TeeVerification is ITeeVerification, TeeBase {
     )
         external payable
     {
-        // get or update the challenge
         bytes32 challenge;
         if (challengeTs[_teeId] + challengeValidityDurationSeconds > block.timestamp) {
             challenge = challenges[_teeId];
@@ -109,18 +111,25 @@ contract TeeVerification is ITeeVerification, TeeBase {
             challengeTs[_teeId] = block.timestamp;
         }
 
+        address attestingTeeId = _getAttestingTeeId(_teeId);
+
+        ITeeMachineRegistry.TeeMachineWithAttestationData memory teeMachine =
+            teeMachineRegistry.getTeeMachineWithAttestationData(attestingTeeId);
+        // set the TEE id to the one we are requesting attestation for, can only differ in case of active replication
+        teeMachine.teeId = _teeId;
+
         TeeAttestation memory message = TeeAttestation({
-            teeMachine: teeMachineRegistry.getTeeMachineWithAttestationData(_teeId),
+            teeMachine: teeMachine,
             challenge: challenge
         });
         bytes32 instructionId = keccak256(abi.encode(
             REG_OP_TYPE, TEE_ATTESTATION, _teeId, challenge
         ));
         address[] memory teeIds = new address[](1);
-        teeIds[0] = _teeId;
+        teeIds[0] = attestingTeeId;
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             instructionId,
-            teeMachineRegistry.getExtensionId(_teeId),
+            teeMachineRegistry.getExtensionId(attestingTeeId),
             teeIds,
             REG_OP_TYPE,
             TEE_ATTESTATION,
@@ -140,7 +149,8 @@ contract TeeVerification is ITeeVerification, TeeBase {
     {
         require(challengeTs[_teeId] + challengeValidityDurationSeconds > block.timestamp, "challenge expired");
         require(teeMachineRegistry.getExtensionId(_testOnTeeId) == 0, "invalid extension");
-        ITeeMachineRegistry.TeeMachine memory teeMachine = teeMachineRegistry.getTeeMachine(_teeId);
+        address attestingTeeId = _getAttestingTeeId(_teeId);
+        ITeeMachineRegistry.TeeMachine memory teeMachine = teeMachineRegistry.getTeeMachine(attestingTeeId);
         ITeeAvailabilityCheck.RequestBody memory requestBody = ITeeAvailabilityCheck.RequestBody({
             teeId: _teeId,
             url: teeMachine.url,
@@ -317,6 +327,8 @@ contract TeeVerification is ITeeVerification, TeeBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
         teeSystemStateVerifier = IITeeSystemStateVerifier(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeSystemStateVerifier"));
+        teeReplication = ITeeReplication(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeReplication"));
         ftdcHub = IFtdcHub(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcHub"));
         ftdcVerification = IFtdcVerification(
@@ -390,7 +402,11 @@ contract TeeVerification is ITeeVerification, TeeBase {
                 "invalid initial signing policy"
             );
         } else {
-            // for other statuses, we check the last availability check signing policy
+            // for other statuses, we check the initial and last availability check signing policy
+            require(
+                _proof.responseBody.initialSigningPolicyId == teeMachineRegistry.getInitialSigningPolicyId(teeId),
+                "invalid initial signing policy"
+            );
             require(
                 _isSigningPolicyValid(availabilityCheckValidity[teeId].lastSigningPolicyId, currentRewardEpochId),
                 "availability check validity expired"
@@ -428,6 +444,18 @@ contract TeeVerification is ITeeVerification, TeeBase {
         returns(bool)
     {
         return _signingPolicyId + signingPolicyValidityDurationInRewardEpochs >= _currentRewardEpochId;
+    }
+
+    function _getAttestingTeeId(address _teeId)
+        internal view
+        returns(address _attestingTeeId)
+    {
+        // TEE machines in status PAUSED_FOR_UPGRADE does not require attestation
+        _attestingTeeId = teeReplication.getReplicatingTeeId(_teeId);
+        if (_attestingTeeId == address(0)) {
+            // if no replication, use the original TEE id for attestation
+            _attestingTeeId = _teeId;
+        }
     }
 
     function _validateDuration(

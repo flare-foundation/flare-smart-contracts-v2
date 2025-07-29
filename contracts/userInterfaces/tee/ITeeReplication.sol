@@ -69,4 +69,11 @@ interface ITeeReplication {
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         external;
+
+    /**
+     * Returns the TEE machine id that is replicating the given old TEE machine id.
+     * @param _oldTeeId The old TEE machine id.
+     * @return The new TEE machine id that is replicating the old TEE machine id.
+     */
+    function getReplicatingTeeId(address _oldTeeId) external view returns(address);
 }
