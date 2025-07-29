@@ -21,4 +21,8 @@ interface TeeWalletStructs {
     function keyDataProviderRestoreStruct(ITeeWalletBackupManager.KeyDataProviderRestore calldata) external;
 
     function backupIdStruct(ITeeWalletBackupManager.BackupId calldata) external;
+
+    function setPausingAddressesStruct(ITeeWalletManager.SetPausingAddresses calldata) external;
+
+    function resumeStruct(ITeeWalletManager.Resume calldata) external;
 }
