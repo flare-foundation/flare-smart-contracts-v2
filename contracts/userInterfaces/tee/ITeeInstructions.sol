@@ -1,37 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./ITeeRegistry.sol";
-
 /**
  * TeeInstructions interface.
  */
 interface ITeeInstructions {
 
-    event TeeInstructionsSent(
-        bytes32 indexed instructionId,
-        uint32 indexed rewardEpochId,
-        ITeeRegistry.TeeMachine[] teeMachines,
-        bytes32 opType,
-        bytes32 opCommand,
-        bytes message,
-        uint256 fee
-    );
-
     /**
      * Send instructions to the TEE machines.
-     * Emits a TeeInstructionsSent event.
      * @param _instructionId The instruction ID.
-     * @param _teeMachines The TEE machines.
-     * @param _rewardEpochId The reward epoch ID.
+     * @param _teeIds The TEE machine IDs to which the instructions are sent.
      * @param _opType The operation type.
      * @param _opCommand The operation command.
      * @param _message The message.
      */
     function sendInstructions(
         bytes32 _instructionId,
-        ITeeRegistry.TeeMachine[] memory _teeMachines,
-        uint24 _rewardEpochId,
+        address[] memory _teeIds,
         bytes32 _opType,
         bytes32 _opCommand,
         bytes memory _message

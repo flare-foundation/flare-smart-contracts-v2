@@ -1,25 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../utils/implementation/AddressUpdatable.sol";
+import "./TeeBase.sol";
 import "../../userInterfaces/tee/ITeePayments.sol";
-import "../interface/IITeeWalletOpTypeConstants.sol";
+import "../../userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
 import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
 import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
-import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../governance/implementation/GovernedProxyImplementation.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.
  */
-contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
-    GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable
-{
-
+contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase {
     struct WalletState {
         uint64 nonce;
         uint64 subNonce;
@@ -37,8 +31,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
     struct ReissueTempState {
         string senderAddress;
         TeeIdKeyIdPair[] teeIdKeyIdPairs;
-        ITeeRegistry.TeeMachine[] teeMachines;
-        uint24 currentRewardEpochId;
+        address[] teeIds;
         uint256 reissueNumber;
         bytes32 instructionId;
         uint256 remainingAmount;
@@ -69,8 +62,6 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
     ITeeWalletManager public teeWalletManager;
     /// TeeWalletKeyManager contract.
     ITeeWalletKeyManager public teeWalletKeyManager;
-    /// TeeFeeCalculator contract.
-    ITeeFeeCalculator public teeFeeCalculator;
     /// TeeInstructions contract.
     ITeeInstructions public teeInstructions;
     /// Flare systems manager contract.
@@ -85,9 +76,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor()
-        GovernedProxyImplementation() AddressUpdatable(address(0))
-    { }
+    constructor() TeeBase() {}
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
@@ -106,8 +95,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         require(_maxBatchSize > 0, "max batch size zero");
         require(_opType != bytes32(0), "op type zero");
 
-        GovernedBase.initialise(_governanceSettings, _initialGovernance);
-        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
+        TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
 
         maxBatchSize = _maxBatchSize;
         maxBatchDurationSeconds = _maxBatchDurationSeconds;
@@ -134,7 +122,6 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         } else {
             require(walletId != bytes32(0), "default wallet not set");
         }
-        require(msg.value >= teeFeeCalculator.calculateFeeByWalletId(walletOpType, PAY, walletId), "fee too low");
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(walletId);
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION, "wallet not in production");
         string memory senderAddress = senderAddresses[walletId];
@@ -163,8 +150,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
             ));
         }
 
-        (ITeeRegistry.TeeMachine[] memory teeMachines, TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
-            teeWalletKeyManager.receivingTeesAndKeys(walletId);
+        TeeIdKeyIdPair[] memory teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(walletId);
 
         PaymentInstructionMessage memory message = PaymentInstructionMessage({
             walletId: walletId,
@@ -185,8 +171,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
-            teeMachines,
-            state.batchRewardEpochId,
+            _toTeeIds(teeIdKeyIdPairs),
             opType,
             PAY,
             abi.encode(message)
@@ -213,11 +198,6 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
             msg.sender == teeWalletProjectManager.getSubmitAddress(teeWalletManager.getWalletProjectId(_walletId)),
             "only submit address"
         );
-        require(
-            msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, REISSUE, _walletId) *
-            _paymentInstructions.length,
-            "fee too low"
-        );
         ReissueTempState memory tempState;
         tempState.senderAddress = senderAddresses[_walletId];
         require(bytes(tempState.senderAddress).length > 0, "sender address not set");
@@ -243,9 +223,9 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         }
         require(hashes[_walletId][_nonce] == batchHash, "batch hash mismatch");
 
-        (tempState.teeMachines, tempState.teeIdKeyIdPairs) = teeWalletKeyManager.receivingTeesAndKeys(_walletId);
+        tempState.teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(_walletId);
+        tempState.teeIds = _toTeeIds(tempState.teeIdKeyIdPairs);
         tempState.minFee = settings[_walletId].minFee;
-        tempState.currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         tempState.reissueNumber = reissueCounter[_walletId][_nonce]++;
         tempState.instructionId = keccak256(abi.encode(
             opType, REISSUE, _walletId, _nonce, tempState.reissueNumber
@@ -274,8 +254,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
             tempState.remainingAmount -= tempState.amount;
             teeInstructions.sendInstructions{value: tempState.amount}(
                 tempState.instructionId,
-                tempState.teeMachines,
-                tempState.currentRewardEpochId,
+                tempState.teeIds,
                 opType,
                 REISSUE,
                 abi.encode(tempState.message)
@@ -360,12 +339,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
             walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
             "only production or paused status"
         );
-        require(
-            msg.value >= teeFeeCalculator.calculateFeeByWalletId(opType, SET_PAYMENT_LIMITS, _walletId),
-            "fee too low"
-        );
-        (ITeeRegistry.TeeMachine[] memory teeMachines, TeeIdKeyIdPair[] memory teeIdKeyIdPairs) =
-            teeWalletKeyManager.receivingTeesAndKeys(_walletId);
+        TeeIdKeyIdPair[] memory teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(_walletId);
 
         uint256 nonce = setLimitsCounter[_walletId]++;
         SetPaymentLimits memory message = SetPaymentLimits({
@@ -380,8 +354,7 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
         ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
-            teeMachines,
-            flareSystemsManager.getCurrentRewardEpochId(),
+            _toTeeIds(teeIdKeyIdPairs),
             opType,
             SET_PAYMENT_LIMITS,
             abi.encode(message)
@@ -391,7 +364,10 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
     /**
      * @inheritdoc ITeePayments
      */
-    function getOpType() external view virtual override(ITeePayments, IITeeWalletOpTypeConstants) returns(bytes32) {
+    function getOpType()
+        external view virtual override(ITeePayments, ITeeWalletProjectOpTypeConstants)
+        returns(bytes32)
+    {
         return opType;
     }
 
@@ -435,35 +411,11 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
     }
 
     /**
-     * @inheritdoc IITeeWalletOpTypeConstants
+     * @inheritdoc ITeeWalletProjectOpTypeConstants
      */
-    function getOpTypeConstants(bytes32 _walletId) external view virtual override returns(bytes memory) {
+    function getOpTypeConstants(bytes32 _projectId) external view virtual override returns(bytes memory) {
         // return empty bytes
     }
-
-    /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
-
-    function implementation() external view returns (address) {
-        return ERC1967Utils.getImplementation();
-    }
-
-    /**
-     * @inheritdoc UUPSUpgradeable
-     * @dev Only governance can call this method.
-     */
-    function upgradeToAndCall(address newImplementation, bytes memory data)
-        public payable override
-        onlyGovernance
-        onlyProxy
-    {
-        super.upgradeToAndCall(newImplementation, data);
-    }
-
-    /**
-     * Unused. Present just to satisfy UUPSUpgradeable requirement.
-     * The real check is in onlyGovernance modifier on upgradeToAndCall.
-     */
-    function _authorizeUpgrade(address newImplementation) internal override {}
 
     /**
      * @inheritdoc AddressUpdatable
@@ -480,11 +432,21 @@ contract TeePayments is ITeePayments, IITeeWalletOpTypeConstants,
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
         teeWalletKeyManager = ITeeWalletKeyManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
-        teeFeeCalculator = ITeeFeeCalculator(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
         teeInstructions = ITeeInstructions(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
+    }
+
+    function _toTeeIds(
+        TeeIdKeyIdPair[] memory _teeIdKeyIdPairs
+    )
+        internal pure
+        returns(address[] memory _teeIds)
+    {
+        _teeIds = new address[](_teeIdKeyIdPairs.length);
+        for (uint256 i = 0; i < _teeIdKeyIdPairs.length; i++) {
+            _teeIds[i] = _teeIdKeyIdPairs[i].teeId;
+        }
     }
 }

@@ -71,8 +71,8 @@ contract TeeFeeCalculatorTest is Test {
         bytes32[] memory opTypes = new bytes32[](2);
         bytes32[] memory opCommands = new bytes32[](2);
         uint256[] memory fees = new uint256[](2);
-        opTypes[0] = bytes32("XRP");
-        opTypes[1] = bytes32("BTC");
+        opTypes[0] = bytes32("F_XRP");
+        opTypes[1] = bytes32("F_BTC");
         opCommands[0] = bytes32("PAY");
         opCommands[1] = bytes32("REISSUE");
         fees[0] = 100;
@@ -103,12 +103,12 @@ contract TeeFeeCalculatorTest is Test {
             abi.encode(feeFactor)
         );
 
-        assertEq(teeFeeCalculator.calculateFeeByWalletId(bytes32("XRP"), bytes32("PAY"), walletId),
+        assertEq(teeFeeCalculator.calculateFeeByWalletId(bytes32("F_XRP"), bytes32("PAY"), walletId),
             100 * feeFactor);
-        assertEq(teeFeeCalculator.calculateFeeByWalletId(bytes32("BTC"), bytes32("REISSUE"), walletId),
+        assertEq(teeFeeCalculator.calculateFeeByWalletId(bytes32("F_BTC"), bytes32("REISSUE"), walletId),
             200 * feeFactor);
         // no fee set
-        assertEq(teeFeeCalculator.calculateFeeByWalletId(bytes32("BTC"), bytes32("PAY"), walletId), 0);
+        assertEq(teeFeeCalculator.calculateFeeByWalletId(bytes32("F_BTC"), bytes32("PAY"), walletId), 0);
     }
 
     function testCalculateFeeByTeeIds() public {
@@ -118,12 +118,12 @@ contract TeeFeeCalculatorTest is Test {
         teeIds[0] = makeAddr("teeId1");
         teeIds[1] = makeAddr("teeId2");
 
-        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("XRP"), bytes32("PAY"), teeIds),
+        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("F_XRP"), bytes32("PAY"), teeIds),
             100 * teeIds.length);
-        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("BTC"), bytes32("REISSUE"), teeIds),
+        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("F_BTC"), bytes32("REISSUE"), teeIds),
             200 * teeIds.length);
         // no fee set
-        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("BTC"), bytes32("PAY"), teeIds), 0);
+        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("F_BTC"), bytes32("PAY"), teeIds), 0);
     }
 
 }

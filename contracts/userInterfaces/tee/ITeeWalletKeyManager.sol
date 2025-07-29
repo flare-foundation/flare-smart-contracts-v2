@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./ITeeRegistry.sol";
+import "./ITeeMachineRegistry.sol";
 import "../IPublicKey.sol";
 import "./ITeeIdKeyIdPair.sol";
 
@@ -143,13 +143,12 @@ interface ITeeWalletKeyManager {
      * Returns wallet's receiving tees and keys.
      * Reverts if not enough receiving tees are available.
      * @param _walletId The wallet id.
-     * @return _teeMachines The receiving tee machines.
      * @return _teeIdKeyIdPairs The tee id and key id pairs.
      * NOTE: If all keys are not available (e.g. some TEEs being down), `WalletKeysNotAvailable` event is emitted.
      */
     function receivingTeesAndKeys(bytes32 _walletId)
         external
-        returns (ITeeRegistry.TeeMachine[] memory _teeMachines, TeeIdKeyIdPair[] memory _teeIdKeyIdPairs);
+        returns (TeeIdKeyIdPair[] memory _teeIdKeyIdPairs);
 
     /**
      * Returns the list of tee ids that hold the wallet key.
@@ -185,11 +184,4 @@ interface ITeeWalletKeyManager {
     function getWalletKeysInfo(bytes32 _walletId)
         external view
         returns (uint64 _multisigThreshold, uint64[] memory _keyIds, uint64 _counter);
-
-    /**
-     * Returns wallet's fee factor.
-     * @param _walletId The wallet id.
-     * @param _feeFactor The fee factor.
-     */
-    function getFeeFactor(bytes32 _walletId) external view returns (uint256 _feeFactor);
 }

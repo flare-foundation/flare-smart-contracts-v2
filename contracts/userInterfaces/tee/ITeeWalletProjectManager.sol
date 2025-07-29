@@ -9,6 +9,7 @@ interface ITeeWalletProjectManager {
     event ProjectCreated(
         bytes32 indexed projectId,
         address indexed owner,
+        uint256 extensionId,
         bytes32 opType,
         address submitAddress
     );
@@ -34,12 +35,14 @@ interface ITeeWalletProjectManager {
     );
 
     /**
-     * Creates the project that can be used for wallet creation.
+     * Creates the project that can be used for wallet creation on specified extension.
+     * @param _extensionId The id of the extension.
      * @param _opType The project/wallet operation type.
      * @param _submitAddress The project/wallet submit address.
      * @return _projectId The project id.
      */
     function createProject(
+        uint256 _extensionId,
         bytes32 _opType,
         address _submitAddress
     )
@@ -111,4 +114,12 @@ interface ITeeWalletProjectManager {
     function getDefaultWalletInfo(bytes32 _projectId)
         external view
         returns (bytes32 _walletId, bytes32 _opType, address _submitAddress);
+
+    /**
+     * Returns the required operation type constants.
+     * @param _projectId The project id.
+     * @return The ABI encoded operation type constants.
+     * NOTE: Should revert if the required operation type constants are not set.
+     */
+    function getOpTypeConstants(bytes32 _projectId) external view returns(bytes memory);
 }

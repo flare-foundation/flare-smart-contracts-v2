@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/tee/ITeeRegistry.sol";
+import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import "../../userInterfaces/tee/ITeeReplication.sol";
 
 
-interface TeeRegistryStructs {
+interface TeeMachineRegistryStructs {
 
-    function teeMachineStruct(ITeeRegistry.TeeMachine calldata) external;
+    function teeMachineStruct(ITeeMachineRegistry.TeeMachine calldata) external;
 
-    function teeMachineWithAttestationDataStruct(ITeeRegistry.TeeMachineWithAttestationData calldata) external;
+    function teeMachineWithAttestationDataStruct(ITeeMachineRegistry.TeeMachineWithAttestationData calldata) external;
 
-    function pauseForUpgradeStruct(ITeeRegistry.PauseForUpgrade calldata) external;
+    function pauseForUpgradeStruct(ITeeReplication.PauseForUpgrade calldata) external;
 
-    function replicateTeeMachineStruct(ITeeRegistry.ReplicateTeeMachine calldata) external;
+    function replicateTeeMachineStruct(ITeeReplication.ReplicateTeeMachine calldata) external;
 }

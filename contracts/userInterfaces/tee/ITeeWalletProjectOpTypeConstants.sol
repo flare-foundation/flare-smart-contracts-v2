@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-interface IITeeWalletOpTypeConstants {
+interface ITeeWalletProjectOpTypeConstants {
 
     /**
-     * Returns the wallet operation type.
+     * Returns the operation type.
      * @return _opType The operation type.
      */
     function getOpType() external view returns (bytes32);
 
     /**
      * Returns the required operation type constants.
-     * @param _walletId The wallet id.
+     * @param _projectId The project id.
      * @return The ABI encoded operation type constants.
      * NOTE: Should revert if the required operation type constants are not set.
      */
-    function getOpTypeConstants(bytes32 _walletId) external view returns(bytes memory);
+    function getOpTypeConstants(bytes32 _projectId) external view returns(bytes memory);
 }

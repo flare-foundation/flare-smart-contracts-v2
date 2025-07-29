@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./ITeeRegistry.sol";
+import "./ITeeMachineRegistry.sol";
 
 /**
  * TeeFeeCalculator interface.
  */
 interface ITeeFeeCalculator {
+
+    /// Event emitted when default fee is set.
+    event DefaultFeeSet(
+        uint256 defaultFee
+    );
 
     /// Event emitted when operation fee is set.
     event OperationFeeSet(
@@ -14,6 +19,12 @@ interface ITeeFeeCalculator {
         bytes32 opCommand,
         uint256 fee
     );
+
+    /**
+     * Returns the default fee.
+     * @return The default fee.
+     */
+    function getDefaultFee() external view returns (uint256);
 
     /**
      * Returns the operation's fee.
@@ -26,20 +37,6 @@ interface ITeeFeeCalculator {
         bytes32 _opCommand
     )
         external view returns (uint256 _operationFee);
-
-    /**
-     * Calculates the fee for the operation and wallet id.
-     * @param _opType The operation type.
-     * @param _opCommand The operation command.
-     * @param _walletId The wallet id.
-     * @return _fee The calculated fee.
-     */
-    function calculateFeeByWalletId(
-        bytes32 _opType,
-        bytes32 _opCommand,
-        bytes32 _walletId
-    )
-        external view returns (uint256 _fee);
 
     /**
      * Calculates the fee for the operation and list of tee ids that will receive instructions.

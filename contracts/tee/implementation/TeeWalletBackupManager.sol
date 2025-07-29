@@ -1,43 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../utils/implementation/AddressUpdatable.sol";
+import "./TeeBase.sol";
+import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import "../../userInterfaces/tee/ITeeWalletBackupManager.sol";
-import "../../userInterfaces/tee/ITeeRegistry.sol";
-import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
-import "../../userInterfaces/tee/ITeeInstructions.sol";
+import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import "../../userInterfaces/tee/ITeeWalletManager.sol";
 import "../interface/IITeeWalletKeyManager.sol";
 import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../governance/implementation/GovernedProxyImplementation.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * TeeWalletBackupManager is used for wallet keys' backups.
  */
-contract TeeWalletBackupManager is ITeeWalletBackupManager,
-    GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable
-{
+contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
 
-    bytes32 public constant WALLET_OP_TYPE = bytes32("WALLET");
+    bytes32 public constant WALLET_OP_TYPE = bytes32("F_WALLET");
     bytes32 public constant KEY_DATA_PROVIDER_RESTORE = bytes32("KEY_DATA_PROVIDER_RESTORE");
     bytes32 public constant KEY_DATA_PROVIDER_RESTORE_TEST = bytes32("KEY_DATA_PROVIDER_RESTORE_TEST");
 
     mapping(bytes32 walletId => mapping(uint64 keyId => uint256)) private dataProviderRestoreCounter;
 
-    /// TEE registry contract.
-    ITeeRegistry public teeRegistry;
+    /// TEE extension registry contract.
+    ITeeExtensionRegistry public teeExtensionRegistry;
+    /// TEE machine registry contract.
+    ITeeMachineRegistry public teeMachineRegistry;
     /// TEE wallet project manager contract.
     ITeeWalletProjectManager public teeWalletProjectManager;
     /// TEE wallet manager contract.
     ITeeWalletManager public teeWalletManager;
     /// TEE wallet key manager contract.
     IITeeWalletKeyManager public teeWalletKeyManager;
-    /// TEE fee calculator contract.
-    ITeeFeeCalculator public teeFeeCalculator;
-    /// TEE instructions contract.
-    ITeeInstructions public teeInstructions;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
 
@@ -49,9 +42,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager,
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor()
-        GovernedProxyImplementation() AddressUpdatable(address(0))
-    { }
+    constructor() TeeBase() {}
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
@@ -64,8 +55,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager,
     )
         external
     {
-        GovernedBase.initialise(_governanceSettings, _initialGovernance);
-        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
+        TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
     }
 
     /**
@@ -81,12 +71,16 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager,
         onlyOwnerOrBackupManager(_backupId.walletId)
     {
         require(
-            teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
+            teeMachineRegistry.getTeeMachineStatus(_teeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
             "tee machine not available"
         );
         require(
-            teeRegistry.getTeeMachineStatus(_backupId.teeId) != ITeeRegistry.TeeStatus.INITIALIZED,
+            teeMachineRegistry.getTeeMachineStatus(_backupId.teeId) != ITeeMachineRegistry.TeeStatus.INITIALIZED,
             "invalid tee machine"
+        );
+        require(
+            teeMachineRegistry.getExtensionId(_teeId) == teeMachineRegistry.getExtensionId(_backupId.teeId),
+            "invalid tee machine extension"
         );
         require(!_isKeyAvailable(_teeId, _backupId.walletId, _backupId.keyId), "key already available");
         bytes memory publicKey = teeWalletKeyManager.getWalletKeyPublicKey(_backupId.walletId, _backupId.keyId);
@@ -96,7 +90,6 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager,
         require(opType == _backupId.opType, "invalid op type");
         require(_backupId.rewardEpochId <= flareSystemsManager.getCurrentRewardEpochId(), "invalid reward epoch id");
         bytes32 opCommand = _test ? KEY_DATA_PROVIDER_RESTORE_TEST : KEY_DATA_PROVIDER_RESTORE;
-        _checkFee(opCommand, _teeId);
         // restored flag in KeyExistence proof will always be set to true after this call
         // in case of a test restore, nonce should be 0, so that the key cannot be confirmed on-chain
         // in case of a actual restore, nonce should be increased to prevent replay attacks
@@ -111,39 +104,17 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager,
             WALLET_OP_TYPE, opCommand, _backupId.walletId, _backupId.keyId,
             dataProviderRestoreCounter[_backupId.walletId][_backupId.keyId]++
         ));
-        teeInstructions.sendInstructions{value: msg.value}(
+        address[] memory teeIds = new address[](1);
+        teeIds[0] = _teeId;
+        teeExtensionRegistry.sendInstructions{value: msg.value}(
             instructionId,
-            _getTeeMachines(_teeId),
-            flareSystemsManager.getCurrentRewardEpochId(),
+            teeMachineRegistry.getExtensionId(teeIds[0]),
+            teeIds,
             WALLET_OP_TYPE,
             opCommand,
             abi.encode(message)
         );
     }
-
-    /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
-
-    function implementation() external view returns (address) {
-        return ERC1967Utils.getImplementation();
-    }
-
-    /**
-     * @inheritdoc UUPSUpgradeable
-     * @dev Only governance can call this method.
-     */
-    function upgradeToAndCall(address newImplementation, bytes memory data)
-        public payable override
-        onlyGovernance
-        onlyProxy
-    {
-        super.upgradeToAndCall(newImplementation, data);
-    }
-
-    /**
-     * Unused. Present just to satisfy UUPSUpgradeable requirement.
-     * The real check is in onlyGovernance modifier on upgradeToAndCall.
-     */
-    function _authorizeUpgrade(address newImplementation) internal override {}
 
     /**
      * @inheritdoc AddressUpdatable
@@ -154,17 +125,16 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager,
     )
         internal override
     {
-        teeRegistry = ITeeRegistry(_getContractAddress(_contractNameHashes, _contractAddresses, "TeeRegistry"));
+        teeExtensionRegistry = ITeeExtensionRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
+        teeMachineRegistry = ITeeMachineRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
         teeWalletProjectManager = ITeeWalletProjectManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
         teeWalletManager = ITeeWalletManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
         teeWalletKeyManager = IITeeWalletKeyManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
-        teeFeeCalculator = ITeeFeeCalculator(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
-        teeInstructions = ITeeInstructions(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
@@ -177,26 +147,6 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager,
             }
         }
         return false;
-    }
-
-    function _getTeeMachines(address _teeId)
-        internal view
-        returns(ITeeRegistry.TeeMachine[] memory)
-    {
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
-        teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
-        return teeMachines;
-    }
-
-    function _checkFee(
-        bytes32 _opCommand,
-        address _teeId
-    )
-        internal view
-    {
-        address[] memory teeIds = new address[](1);
-        teeIds[0] = _teeId;
-        require(msg.value >= teeFeeCalculator.calculateFeeByTeeIds(WALLET_OP_TYPE, _opCommand, teeIds), "fee too low");
     }
 
     function _checkOnlyOwnerOrBackupManager(bytes32 _walletId)

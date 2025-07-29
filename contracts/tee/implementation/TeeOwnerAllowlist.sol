@@ -1,102 +1,159 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../governance/implementation/Governed.sol";
+import "./TeeBase.sol";
 import "../../userInterfaces/tee/ITeeOwnerAllowlist.sol";
+import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import "../../utils/lib/AddressSet.sol";
 
 /**
  * TeeOwnerAllowlist is used for allowlisting TEE machine owners and TEE wallet project owners.
  */
-contract TeeOwnerAllowlist is ITeeOwnerAllowlist, Governed {
+contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
     using AddressSet for AddressSet.State;
 
-    AddressSet.State private allowedTeeMachineOwners;
-    AddressSet.State private allowedTeeWalletProjectOwners;
+    mapping(uint256 extensionId => AddressSet.State) private allowedTeeMachineOwners;
+    mapping(uint256 extensionId => AddressSet.State) private allowedTeeWalletProjectOwners;
 
-    bool public allTeeMachineOwnersAllowed = false;
-    bool public allTeeWalletProjectOwnersAllowed = false;
+    mapping(uint256 extensionId => bool) public allTeeMachineOwnersAllowed;
+    mapping(uint256 extensionId => bool) public allTeeWalletProjectOwnersAllowed;
 
-    constructor(
-        IGovernanceSettings _governanceSettings,
-        address _initialGovernance
-    )
-        Governed(_governanceSettings, _initialGovernance)
-    {
-        // do nothing
+    ITeeExtensionRegistry public teeExtensionRegistry;
+
+    modifier onlyExtensionOwner(uint256 _extensionId) {
+        require(
+            msg.sender == teeExtensionRegistry.getExtensionOwner(_extensionId),
+            "only extension owner"
+        );
+        _;
     }
 
     /**
-     * Adds a list of allowed TEE machine owners.
-     * @param _owners The list of addresses to add to the allowlist.
-     * @dev Only governance can call this method.
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
+     */
+    constructor() TeeBase() { }
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     */
+    function initialize(
+        IGovernanceSettings _governanceSettings,
+        address _initialGovernance,
+        address _addressUpdater
+    )
+        external
+    {
+        TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
+    }
+
+    /**
+     * @inheritdoc ITeeOwnerAllowlist
      */
     function addAllowedTeeMachineOwners(
+        uint256 _extensionId,
         address[] memory _owners
     )
-        external onlyGovernance
+        external onlyExtensionOwner(_extensionId)
     {
-        allowedTeeMachineOwners.addAll(_owners);
-        emit AllowedTeeMachineOwnersAdded(_owners);
+        allowedTeeMachineOwners[_extensionId].addAll(_owners);
+        emit AllowedTeeMachineOwnersAdded(_extensionId, _owners);
     }
 
     /**
-     * Adds a list of allowed TEE wallet project owners.
-     * @param _owners The list of addresses to add to the allowlist.
-     * @dev Only governance can call this method.
+     * @inheritdoc ITeeOwnerAllowlist
      */
     function addAllowedTeeWalletProjectOwners(
+        uint256 _extensionId,
         address[] memory _owners
     )
-        external onlyGovernance
+        external onlyExtensionOwner(_extensionId)
     {
-        allowedTeeWalletProjectOwners.addAll(_owners);
-        emit AllowedTeeWalletProjectOwnersAdded(_owners);
+        allowedTeeWalletProjectOwners[_extensionId].addAll(_owners);
+        emit AllowedTeeWalletProjectOwnersAdded(_extensionId, _owners);
     }
 
     /**
-     * Allows all addresses to be TEE machine owners.
-     * @dev Only governance can call this method.
+     * @inheritdoc ITeeOwnerAllowlist
      */
-    function allowAllTeeMachineOwners()
-        external onlyGovernance
+    function allowAllTeeMachineOwners(
+        uint256 _extensionId
+    )
+        external onlyExtensionOwner(_extensionId)
     {
-        allTeeMachineOwnersAllowed = true;
-        emit AllTeeMachineOwnersAllowed();
+        allTeeMachineOwnersAllowed[_extensionId] = true;
+        emit AllTeeMachineOwnersAllowed(_extensionId);
     }
 
     /**
-     * Allows all addresses to be TEE wallet project owners.
-     * @dev Only governance can call this method.
+     * @inheritdoc ITeeOwnerAllowlist
      */
-    function allowAllTeeWalletProjectOwners()
-        external onlyGovernance
+    function allowAllTeeWalletProjectOwners(
+        uint256 _extensionId
+    )
+        external onlyExtensionOwner(_extensionId)
     {
-        allTeeWalletProjectOwnersAllowed = true;
-        emit AllTeeWalletProjectOwnersAllowed();
+        allTeeWalletProjectOwnersAllowed[_extensionId] = true;
+        emit AllTeeWalletProjectOwnersAllowed(_extensionId);
+    }
+
+    /**
+     * @inheritdoc ITeeOwnerAllowlist
+     */
+    function getAllowedTeeMachineOwners(uint256 _extensionId)
+        external view
+        returns (address[] memory)
+    {
+        return allowedTeeMachineOwners[_extensionId].list;
+    }
+
+    /**
+     * @inheritdoc ITeeOwnerAllowlist
+     */
+    function getAllowedTeeWalletProjectOwners(uint256 _extensionId)
+        external view
+        returns (address[] memory)
+    {
+        return allowedTeeWalletProjectOwners[_extensionId].list;
     }
 
     /**
      * @inheritdoc ITeeOwnerAllowlist
      */
     function isAllowedTeeMachineOwner(
+        uint256 _extensionId,
         address _owner
     )
         external view
         returns (bool _isAllowed)
     {
-        return allTeeMachineOwnersAllowed || allowedTeeMachineOwners.index[_owner] != 0;
+        return allTeeMachineOwnersAllowed[_extensionId] || allowedTeeMachineOwners[_extensionId].index[_owner] != 0;
     }
 
     /**
      * @inheritdoc ITeeOwnerAllowlist
      */
     function isAllowedTeeWalletProjectOwner(
+        uint256 _extensionId,
         address _owner
     )
         external view
         returns (bool _isAllowed)
     {
-        return allTeeWalletProjectOwnersAllowed || allowedTeeWalletProjectOwners.index[_owner] != 0;
+        return allTeeWalletProjectOwnersAllowed[_extensionId] ||
+            allowedTeeWalletProjectOwners[_extensionId].index[_owner] != 0;
+    }
+
+    /**
+     * @inheritdoc AddressUpdatable
+     */
+    function _updateContractAddresses(
+        bytes32[] memory _contractNameHashes,
+        address[] memory _contractAddresses
+    )
+        internal override
+    {
+        teeExtensionRegistry = ITeeExtensionRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
     }
 }

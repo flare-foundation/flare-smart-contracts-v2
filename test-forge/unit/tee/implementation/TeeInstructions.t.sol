@@ -22,7 +22,7 @@ contract TeeInstructionsTest is Test {
     event TeeInstructionsSent (
         bytes32 indexed instructionId,
         uint32 indexed rewardEpochId,
-        ITeeRegistry.TeeMachine[] teeMachines,
+        ITeeMachineRegistry.TeeMachine[] teeMachines,
         bytes32 opType,
         bytes32 opCommand,
         bytes message,
@@ -127,7 +127,7 @@ contract TeeInstructionsTest is Test {
         vm.expectRevert("only instruction initiators");
         teeInstructions.sendInstructions(
             bytes32(0),
-            new ITeeRegistry.TeeMachine[](0),
+            new ITeeMachineRegistry.TeeMachine[](0),
             0,
             bytes32(0),
             bytes32(0),
@@ -137,13 +137,13 @@ contract TeeInstructionsTest is Test {
 
     function testSendInstructions() public {
         testRegisterInstructionInitiators();
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](2);
-        teeMachines[0] = ITeeRegistry.TeeMachine({
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](2);
+        teeMachines[0] = ITeeMachineRegistry.TeeMachine({
             teeId: makeAddr("teeId1"),
             teeProxyId: makeAddr("teeProxyId1"),
             url: "url1"
         });
-        teeMachines[1] = ITeeRegistry.TeeMachine({
+        teeMachines[1] = ITeeMachineRegistry.TeeMachine({
             teeId: makeAddr("teeId2"),
             teeProxyId: makeAddr("teeProxyId2"),
             url: "url2"

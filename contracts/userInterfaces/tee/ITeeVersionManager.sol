@@ -19,6 +19,7 @@ interface ITeeVersionManager {
     }
 
     event TeeUpgradeStarted(
+        uint256 indexed extensionId,
         uint256 indexed teeUpgradeId,
         bytes32 sourceTeeGovernanceHash,
         bytes32 targetTeeGovernanceHash
@@ -37,8 +38,6 @@ interface ITeeVersionManager {
         uint256 indexed teeUpgradeId
     );
 
-    event CodeHashPlatformDisabled(bytes32 indexed codeHash, bytes32 platform);
-
     /**
      * Signs the TEE upgrade.
      * @param _teeUpgradeId The TEE upgrade id.
@@ -51,53 +50,9 @@ interface ITeeVersionManager {
         external;
 
     /**
-     * Get the info if the code hash and platform pair is disabled.
-     * @param _codeHash The code hash.
-     * @param _platform The platform.
-     */
-    function codeHashPlatformDisabled(
-        bytes32 _codeHash,
-        bytes32 _platform
-    )
-        external view
-        returns(bool);
-
-    /**
-     * Returns the governance hash for the given code hash.
-     * @param _codeHash The code hash.
-     * @return _governanceHash The governance hash.
-     */
-    function getTeeGovernanceHash(bytes32 _codeHash)
-        external view
-        returns(bytes32 _governanceHash);
-
-    /**
-     * Returns the code hash info (governance hash, version and platforms).
-     * @param _codeHash The code hash.
-     * @return _governanceHash The governance hash.
-     * @return _version The version.
-     * @return _platforms The supported platforms.
-     */
-    function getCodeHashInfo(bytes32 _codeHash)
-        external view
-        returns(bytes32 _governanceHash, string memory _version, bytes32[] memory _platforms);
-
-    /**
-     * Checks if the code hash and platform are supported.
-     * @param _codeHash The code hash.
-     * @param _platform The platform.
-     * @return True if the code hash and platform are supported, false otherwise.
-     */
-    function isCodeHashPlatformSupported(
-        bytes32 _codeHash,
-        bytes32 _platform
-    )
-        external view
-        returns(bool);
-
-    /**
      * Checks if the upgrade path is valid for the given tee upgrade id.
      * @param _teeUpgradeId The tee upgrade id.
+     * @param _extensionId The id of the extension.
      * @param _sourceCodeHash The source code hash.
      * @param _sourcePlatform The source platform.
      * @param _targetCodeHash The target code hash.
@@ -106,6 +61,7 @@ interface ITeeVersionManager {
      */
     function isTeeUpgradePathValid(
         uint256 _teeUpgradeId,
+        uint256 _extensionId,
         bytes32 _sourceCodeHash,
         bytes32 _sourcePlatform,
         bytes32 _targetCodeHash,

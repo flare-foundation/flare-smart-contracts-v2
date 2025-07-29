@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./ITeeRegistry.sol";
+import "./ITeeMachineRegistry.sol";
 import "../ftdc/ITeeAvailabilityCheck.sol";
 
 /**
@@ -10,7 +10,7 @@ import "../ftdc/ITeeAvailabilityCheck.sol";
 interface ITeeVerification {
 
     struct TeeAttestation {
-        ITeeRegistry.TeeMachineWithAttestationData teeMachine;
+        ITeeMachineRegistry.TeeMachineWithAttestationData teeMachine;
         bytes32 challenge;
     }
 

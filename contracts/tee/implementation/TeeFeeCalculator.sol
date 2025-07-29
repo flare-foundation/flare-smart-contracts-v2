@@ -9,20 +9,22 @@ import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 /**
  * TeeFeeCalculator is used for calculating fees for TEE operations.
  */
-contract TeeFeeCalculator is ITeeFeeCalculator, Governed, AddressUpdatable {
+contract TeeFeeCalculator is ITeeFeeCalculator, Governed {
 
-    /// TEE wallet key manager contract.
-    ITeeWalletKeyManager public teeWalletKeyManager;
+    /// Default fee for operations.
+    uint256 private defaultFee;
 
     mapping(bytes32 opType => mapping(bytes32 opCommand => uint256 fee)) internal operationFee;
 
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
-        address _addressUpdater
+        uint256 _defaultFee
     )
-        Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
+        Governed(_governanceSettings, _initialGovernance)
     {
+        defaultFee = _defaultFee;
+        emit DefaultFeeSet(_defaultFee);
     }
 
     /**
@@ -47,23 +49,27 @@ contract TeeFeeCalculator is ITeeFeeCalculator, Governed, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc ITeeFeeCalculator
+     * Sets the default fee.
+     * @param _defaultFee The new default fee.
+     * @dev Only governance can call this method.
      */
-    function getOperationFee(bytes32 _opType, bytes32 _opCommand) external view returns (uint256) {
-        return operationFee[_opType][_opCommand];
+    function setDefaultFee(uint256 _defaultFee) external onlyGovernance {
+        defaultFee = _defaultFee;
+        emit DefaultFeeSet(_defaultFee);
     }
 
     /**
      * @inheritdoc ITeeFeeCalculator
      */
-    function calculateFeeByWalletId(
-        bytes32 _opType,
-        bytes32 _opCommand,
-        bytes32 _walletId
-    )
-        external view returns (uint256)
-    {
-        return operationFee[_opType][_opCommand] * teeWalletKeyManager.getFeeFactor(_walletId);
+    function getDefaultFee() external view returns (uint256) {
+        return defaultFee;
+    }
+
+    /**
+     * @inheritdoc ITeeFeeCalculator
+     */
+    function getOperationFee(bytes32 _opType, bytes32 _opCommand) external view returns (uint256) {
+        return operationFee[_opType][_opCommand];
     }
 
     /**
@@ -75,22 +81,12 @@ contract TeeFeeCalculator is ITeeFeeCalculator, Governed, AddressUpdatable {
         address[] memory _teeIds
 
     )
-        external view returns (uint256)
+        external view returns (uint256 _fee)
     {
-        return operationFee[_opType][_opCommand] * _teeIds.length;
+        _fee = operationFee[_opType][_opCommand];
+        if (_fee == 0) {
+            _fee = defaultFee;
+        }
+        _fee *= _teeIds.length;
     }
-
-    /**
-     * @inheritdoc AddressUpdatable
-     */
-    function _updateContractAddresses(
-        bytes32[] memory _contractNameHashes,
-        address[] memory _contractAddresses
-    )
-        internal override
-    {
-        teeWalletKeyManager = ITeeWalletKeyManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
-    }
-
 }

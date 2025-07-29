@@ -2,7 +2,7 @@
 pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/tee/ITeeRegistry.sol";
+import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import "../../userInterfaces/IRelay.sol";
 import "../../userInterfaces/ftdc/IFtdcVerification.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -15,8 +15,8 @@ import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
  */
 contract FtdcVerification is IFtdcVerification, AddressUpdatable {
 
-    /// The TEE registry contract.
-    ITeeRegistry public teeRegistry;
+    /// The TEE machine registry contract.
+    ITeeMachineRegistry public teeMachineRegistry;
     /// The Relay contract.
     IRelay public relay;
 
@@ -57,7 +57,10 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
             _signature.r,
             _signature.s
         );
-        require(teeRegistry.getTeeMachineStatus(_signingTeeId) == ITeeRegistry.TeeStatus.PRODUCTION, "TEE not active");
+        require(
+            teeMachineRegistry.getTeeMachineStatus(_signingTeeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
+            "TEE not active"
+        );
     }
 
     /**
@@ -78,7 +81,10 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
                 signature.r,
                 signature.s
             );
-            require(teeRegistry.getTeeMachineStatus(teeId) == ITeeRegistry.TeeStatus.PRODUCTION, "TEE not active");
+            require(
+                teeMachineRegistry.getTeeMachineStatus(teeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
+                "TEE not active"
+            );
             for (uint256 j = 0; j < i; j++) {
                 require(_signingTeeIds[j] != teeId, "duplicated TEE id");
             }
@@ -121,7 +127,8 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
     )
         internal virtual override
     {
-        teeRegistry = ITeeRegistry(_getContractAddress(_contractNameHashes, _contractAddresses, "TeeRegistry"));
+        teeMachineRegistry = ITeeMachineRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 }

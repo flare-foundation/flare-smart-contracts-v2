@@ -211,19 +211,4 @@ interface ITeeWalletManager {
      * @param _status The status.
      */
     function getWalletStatus(bytes32 _walletId) external view returns (WalletStatus _status);
-
-    /**
-     * Returns supported operation types.
-     * @return _supportedOpTypes The supported operation types.
-     */
-    function getSupportedOpTypes() external view returns (bytes32[] memory _supportedOpTypes);
-
-    /**
-     * Checks if operation type is supported on TEE wallet manager.
-     * @param _opType The operation type.
-     * @return True if the operation type is supported.
-     */
-    function isOpTypeSupported(bytes32 _opType)
-        external view
-        returns (bool);
 }

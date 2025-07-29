@@ -12,6 +12,7 @@ interface FtdcStructs {
     function ftdcAttestationRequestStruct(IFtdcHub.FtdcAttestationRequest calldata) external;
     function ftdcResponseHeaderStruct(IFtdcHub.FtdcResponseHeader calldata) external;
 
+    function availabilityCheckTeeStateStruct(ITeeAvailabilityCheck.TeeState calldata) external;
     function availabilityCheckRequestBodyStruct(ITeeAvailabilityCheck.RequestBody calldata) external;
     function availabilityCheckResponseBodyStruct(ITeeAvailabilityCheck.ResponseBody calldata) external;
     function availabilityCheckProofStruct(ITeeAvailabilityCheck.Proof calldata) external;

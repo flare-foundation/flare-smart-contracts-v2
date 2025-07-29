@@ -2,7 +2,7 @@
 pragma solidity 0.8.20;
 
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/tee/ITeeRegistry.sol";
+import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import "../../userInterfaces/IRelay.sol";
 import "../../userInterfaces/ftdc/IFtdcVerification.sol";
 import "../../utils/lib/AddressSet.sol";
@@ -17,8 +17,8 @@ import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
     using AddressSet for AddressSet.State;
 
-    /// The TEE registry contract.
-    ITeeRegistry public teeRegistry;
+    /// The TEE machine registry contract.
+    ITeeMachineRegistry public teeMachineRegistry;
     /// The Relay contract.
     IRelay public relay;
 
@@ -65,7 +65,7 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
         address[] memory teeIds;
         // no verification
         if (returnActiveTeeIds) {
-            (teeIds,) = teeRegistry.getActiveTees();
+            (teeIds,) = teeMachineRegistry.getActiveTees(0);
         } else {
             teeIds = signingTeeIds.list;
         }
@@ -85,7 +85,7 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
     {
         // no verification
         if (returnActiveTeeIds) {
-            (_signingTeeIds,) = teeRegistry.getActiveTees();
+            (_signingTeeIds,) = teeMachineRegistry.getActiveTees(0);
         } else {
             _signingTeeIds = signingTeeIds.list;
         }
@@ -126,7 +126,8 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
     )
         internal virtual override
     {
-        teeRegistry = ITeeRegistry(_getContractAddress(_contractNameHashes, _contractAddresses, "TeeRegistry"));
+        teeMachineRegistry = ITeeMachineRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 }

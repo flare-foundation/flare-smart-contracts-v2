@@ -3,9 +3,9 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
-import "./TeeStateVerifier.sol";
+import "./TeeOwnerAllowlist.sol";
 
-contract TeeStateVerifierProxy is ERC1967Proxy {
+contract TeeOwnerAllowlistProxy is ERC1967Proxy {
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
@@ -14,7 +14,7 @@ contract TeeStateVerifierProxy is ERC1967Proxy {
     )
         ERC1967Proxy(_implementationAddress,
             abi.encodeCall(
-                TeeStateVerifier.initialize,
+                TeeOwnerAllowlist.initialize,
                 (
                     _governanceSettings,
                     _initialGovernance,

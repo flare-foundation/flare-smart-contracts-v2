@@ -11,6 +11,16 @@ interface ITeeAvailabilityCheck {
     enum AvailabilityCheckStatus { OK, OBSOLETE, DOWN }
 
     /**
+     * State of the TEE machine
+     */
+    struct TeeState {
+        bytes systemState;
+        bytes32 systemStateVersion;
+        bytes state;
+        bytes32 stateVersion;
+    }
+
+    /**
      * Proof for TeeAvailabilityCheck attestation type
      */
     struct Proof {
@@ -18,7 +28,7 @@ interface ITeeAvailabilityCheck {
         IFtdcHub.FtdcResponseHeader header;
         RequestBody requestBody;
         ResponseBody responseBody;
-        bytes state; // ABI encoded state
+        TeeState state;
     }
 
     /**

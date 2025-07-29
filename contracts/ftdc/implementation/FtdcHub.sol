@@ -4,10 +4,10 @@ pragma solidity 0.8.20;
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../governance/implementation/Governed.sol";
 import "../../userInterfaces/ftdc/IFtdcHub.sol";
-import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
-import "../../userInterfaces/tee/ITeeRegistry.sol";
+import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
+import "../../protocol/interface/IIRewardManager.sol";
 import "../../userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
 
 /**
@@ -16,17 +16,17 @@ import "../../userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
 contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
 
     uint256 internal constant MAX_BIPS = 1e4;
-    bytes32 public constant FTDC_OP_TYPE = bytes32("FTDC");
+    bytes32 public constant FTDC_OP_TYPE = bytes32("F_FTDC");
     bytes32 public constant PROVE = bytes32("PROVE");
 
-    /// TEE registry contract.
-    ITeeRegistry public teeRegistry;
-    /// TEE fee calculator contract.
-    ITeeFeeCalculator public teeFeeCalculator;
+    /// TEE machine registry contract.
+    ITeeMachineRegistry public teeMachineRegistry;
     /// TEE instructions contract.
     ITeeInstructions public teeInstructions;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
+    /// Reward manager contract.
+    IIRewardManager public rewardManager;
     /// FTDC request fee configurations contract.
     IFtdcRequestFeeConfigurations public ftdcRequestFeeConfigurations;
 
@@ -86,18 +86,13 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
             if (_numberOfTees == 0) {
                 _numberOfTees = defaultNumberOfTees;
             }
-            _teeIds = teeRegistry.getRandomTeeIds(_numberOfTees);
-        } else {
-            // check tee status
-            for (uint256 i = 0; i < _teeIds.length; i++) {
-                require(teeRegistry.getTeeMachineStatus(_teeIds[i]) != ITeeRegistry.TeeStatus.PAUSED_FOR_UPGRADE,
-                    "tee machine not available"
-                );
-            }
+            _teeIds = teeMachineRegistry.getRandomTeeIds(0, _numberOfTees);
         }
-        uint256 fee = teeFeeCalculator.calculateFeeByTeeIds(FTDC_OP_TYPE, PROVE, _teeIds) +
-            ftdcRequestFeeConfigurations.getTypeAndSourceFee(_attestationType, _sourceId);
+        // Send the fee to the reward manager.
+        uint256 fee = ftdcRequestFeeConfigurations.getTypeAndSourceFee(_attestationType, _sourceId);
         require(msg.value >= fee, "fee to low");
+        rewardManager.receiveRewards{value: fee}(flareSystemsManager.getCurrentRewardEpochId(), false);
+        // Create the attestation request message.
         FtdcAttestationRequest memory message = FtdcAttestationRequest({
             header: FtdcRequestHeader({
                 attestationType: _attestationType,
@@ -108,17 +103,12 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
             }),
             requestBody: _requestBody
         });
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](_teeIds.length);
-        for (uint256 i = 0; i < _teeIds.length; i++) {
-            teeMachines[i] = teeRegistry.getTeeMachine(_teeIds[i]);
-        }
         bytes32 instructionId = keccak256(abi.encode(
             FTDC_OP_TYPE, PROVE, attestationRequestCounter++ // TODO
         ));
-        teeInstructions.sendInstructions{value: msg.value}(
+        teeInstructions.sendInstructions{value: msg.value - fee}(
             instructionId,
-            teeMachines,
-            flareSystemsManager.getCurrentRewardEpochId(),
+            _teeIds,
             FTDC_OP_TYPE,
             PROVE,
             abi.encode(message)
@@ -152,14 +142,14 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
     )
         internal override
     {
-        teeRegistry = ITeeRegistry(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeRegistry"));
-        teeFeeCalculator = ITeeFeeCalculator(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
+        teeMachineRegistry = ITeeMachineRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
         teeInstructions = ITeeInstructions(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
+        rewardManager = IIRewardManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
         ftdcRequestFeeConfigurations = IFtdcRequestFeeConfigurations(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcRequestFeeConfigurations"));
     }

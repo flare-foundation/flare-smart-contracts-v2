@@ -1,32 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../interface/IITeeWalletManager.sol";
+import "./TeeBase.sol";
 import "../interface/IITeeWalletKeyManager.sol";
+import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
+import "../../userInterfaces/tee/ITeeWalletManager.sol";
 import "../../userInterfaces/tee/ITeeWalletBackupManager.sol";
-import "../../userInterfaces/tee/ITeeRegistry.sol";
-import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
-import "../../userInterfaces/tee/ITeeInstructions.sol";
+import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../interface/IITeeWalletOpTypeConstants.sol";
-import "../../governance/implementation/GovernedProxyImplementation.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * TeeWalletKeyManager contract used for wallet keys configuration on TEE machines.
  */
-contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable {
+contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
 
     struct TeeWalletKeysState {
         uint64 keyIdCounter;
         uint64 multisigThreshold; // number of signatures required - k out of n
         uint64[] keyIds; // n
         mapping(uint64 keyId => KeyDefinition) keyDefinitions;
-        uint256 feeFactor;
     }
 
     struct KeyDefinition {
@@ -36,25 +31,23 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
         address[] teeIds;
     }
 
-    bytes32 public constant WALLET_OP_TYPE = bytes32("WALLET");
+    bytes32 public constant WALLET_OP_TYPE = bytes32("F_WALLET");
     bytes32 public constant KEY_GENERATE = bytes32("KEY_GENERATE");
     bytes32 public constant KEY_DELETE = bytes32("KEY_DELETE");
 
     mapping(bytes32 walletId => TeeWalletKeysState) private walletKeys;
     mapping(bytes32 walletId => mapping(uint64 keyId => uint256)) private keyDeleteCounter;
 
-    /// TEE registry contract.
-    ITeeRegistry public teeRegistry;
+    /// TEE extension registry contract.
+    ITeeExtensionRegistry public teeExtensionRegistry;
+    /// TEE machine registry contract.
+    ITeeMachineRegistry public teeMachineRegistry;
     /// TEE wallet project manager contract.
     ITeeWalletProjectManager public teeWalletProjectManager;
     /// TEE wallet manager contract.
-    IITeeWalletManager public teeWalletManager;
+    ITeeWalletManager public teeWalletManager;
     /// TEE wallet backup manager contract.
     ITeeWalletBackupManager public teeWalletBackupManager;
-    /// TEE fee calculator contract.
-    ITeeFeeCalculator public teeFeeCalculator;
-    /// TEE instructions contract.
-    ITeeInstructions public teeInstructions;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
 
@@ -76,9 +69,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor()
-        GovernedProxyImplementation() AddressUpdatable(address(0))
-    { }
+    constructor() TeeBase() {}
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
@@ -91,8 +82,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
     )
         external
     {
-        GovernedBase.initialise(_governanceSettings, _initialGovernance);
-        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
+        TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
     }
 
     /**
@@ -126,7 +116,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
         _checkTeeStatus(_teeId);
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         _checkWalletStatus(_walletId, ITeeWalletManager.WalletStatus.INITIALIZED);
-        _checkFee(KEY_GENERATE, _teeId);
         _keyId = keys.keyIdCounter++;
 
         emit WalletKeyAdded(_teeId, _walletId, _keyId);
@@ -136,17 +125,18 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
         (address[] memory cosigners, uint64 cosignersThreshold) =
             teeWalletManager.getWalletCosignersAndThreshold(_walletId);
 
+        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         KeyGenerate memory message = KeyGenerate({
             teeId: _teeId,
             walletId: _walletId,
             keyId: _keyId,
-            opType: teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_walletId)),
+            opType: teeWalletProjectManager.getOpType(projectId),
             configConstants: KeyConfigConstants({
                 adminsPublicKeys: adminsPublicKeys,
                 adminsThreshold: adminsThreshold,
                 cosigners: cosigners,
                 cosignersThreshold: cosignersThreshold,
-                opTypeConstants: teeWalletManager.getOpTypeConstants(_walletId)
+                opTypeConstants: teeWalletProjectManager.getOpTypeConstants(projectId)
             })
         });
         bytes32 instructionId = keccak256(abi.encode(
@@ -222,7 +212,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
             keyDefinition.addressStr = _proof.addressStr;
             keyDefinition.teeIds.push(teeId);
         }
-        keys.feeFactor++;
 
         emit WalletKeyConfirmed(
             teeId,
@@ -248,7 +237,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
         require(keyDefinition.publicKey.length > 0, "invalid key id");
-        _checkFee(KEY_DELETE, _teeId);
         // delete tee id from key definition if exists
         uint256 length = keyDefinition.teeIds.length;
         if (length > 0) {
@@ -261,7 +249,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
             if (index < length) { // delete tee id
                 keyDefinition.teeIds[index] = keyDefinition.teeIds[length - 1];
                 keyDefinition.teeIds.pop();
-                keys.feeFactor--;
             }
         }
 
@@ -296,11 +283,10 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
         require(keyDefinition.publicKey.length > 0, "invalid key id");
         address[] storage teeIds = keyDefinition.teeIds;
         for (uint256 i = teeIds.length; i > 0; i--) {
-            if (teeRegistry.getTeeMachineStatus(teeIds[i - 1]) != ITeeRegistry.TeeStatus.PRODUCTION) {
+            if (teeMachineRegistry.getTeeMachineStatus(teeIds[i - 1]) != ITeeMachineRegistry.TeeStatus.PRODUCTION) {
                 // delete tee id from key definition
                 teeIds[i - 1] = teeIds[teeIds.length - 1];
                 teeIds.pop();
-                keys.feeFactor--;
             }
         }
     }
@@ -310,7 +296,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
      */
     function receivingTeesAndKeys(bytes32 _walletId)
         external
-        returns (ITeeRegistry.TeeMachine[] memory _receivingTees, TeeIdKeyIdPair[] memory _teeIdKeyIdPairs)
+        returns (TeeIdKeyIdPair[] memory _teeIdKeyIdPairs)
     {
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         uint256 keyIdsLength = keys.keyIds.length;
@@ -319,7 +305,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
             count += keys.keyDefinitions[keys.keyIds[i]].teeIds.length;
         }
         uint64[] memory unavailableKeyIds = new uint64[](keyIdsLength);
-        address[] memory teeMachines = new address[](count);
+        address[] memory teeIds = new address[](count);
         uint64[] memory keyIds = new uint64[](count);
         count = 0;
         uint256 threshold = 0;
@@ -329,9 +315,10 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
             uint64 keyId = keys.keyIds[i];
             KeyDefinition storage keyDefinition = keys.keyDefinitions[keyId];
             for (uint256 j = 0; j < keyDefinition.teeIds.length; j++) {
-                if (teeRegistry.getTeeMachineStatus(keyDefinition.teeIds[j]) == ITeeRegistry.TeeStatus.PRODUCTION) {
+                ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(keyDefinition.teeIds[j]);
+                if (status == ITeeMachineRegistry.TeeStatus.PRODUCTION) {
                     keyAvailable = true;
-                    teeMachines[count] = keyDefinition.teeIds[j];
+                    teeIds[count] = keyDefinition.teeIds[j];
                     keyIds[count] = keyId;
                     count++;
                 }
@@ -343,12 +330,10 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
             }
         }
         require(threshold >= keys.multisigThreshold, "threshold not met");
-        _receivingTees = new ITeeRegistry.TeeMachine[](count);
         _teeIdKeyIdPairs = new TeeIdKeyIdPair[](count);
         for (uint256 i = 0; i < count; i++) {
-            _receivingTees[i] = teeRegistry.getTeeMachine(teeMachines[i]);
             _teeIdKeyIdPairs[i] = TeeIdKeyIdPair({
-                teeId: teeMachines[i],
+                teeId: teeIds[i],
                 keyId: keyIds[i]
             });
         }
@@ -376,16 +361,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
         KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
         require(keyDefinition.publicKey.length > 0, "invalid key id");
         return ++keyDefinition.nonces[_teeId];
-    }
-
-    /**
-     * @inheritdoc ITeeWalletKeyManager
-     */
-    function getFeeFactor(bytes32 _walletId)
-        external view
-        returns (uint256 _feeFactor)
-    {
-        return walletKeys[_walletId].feeFactor;
     }
 
     /**
@@ -429,30 +404,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
         return walletKeys[_walletId].keyDefinitions[_keyId].teeIds;
     }
 
-    /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
-
-    function implementation() external view returns (address) {
-        return ERC1967Utils.getImplementation();
-    }
-
-    /**
-     * @inheritdoc UUPSUpgradeable
-     * @dev Only governance can call this method.
-     */
-    function upgradeToAndCall(address newImplementation, bytes memory data)
-        public payable override
-        onlyGovernance
-        onlyProxy
-    {
-        super.upgradeToAndCall(newImplementation, data);
-    }
-
-    /**
-     * Unused. Present just to satisfy UUPSUpgradeable requirement.
-     * The real check is in onlyGovernance modifier on upgradeToAndCall.
-     */
-    function _authorizeUpgrade(address newImplementation) internal override {}
-
     /**
      * @inheritdoc AddressUpdatable
      */
@@ -462,17 +413,16 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
     )
         internal override
     {
-        teeRegistry = ITeeRegistry(_getContractAddress(_contractNameHashes, _contractAddresses, "TeeRegistry"));
+        teeExtensionRegistry = ITeeExtensionRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
+        teeMachineRegistry = ITeeMachineRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
         teeWalletProjectManager = ITeeWalletProjectManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
-        teeWalletManager = IITeeWalletManager(
+        teeWalletManager = ITeeWalletManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
         teeWalletBackupManager = ITeeWalletBackupManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletBackupManager"));
-        teeFeeCalculator = ITeeFeeCalculator(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeFeeCalculator"));
-        teeInstructions = ITeeInstructions(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
@@ -485,12 +435,12 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
     )
         internal
     {
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](1);
-        teeMachines[0] = teeRegistry.getTeeMachine(_teeId);
-        teeInstructions.sendInstructions{value: msg.value}(
+        address[] memory teeIds = new address[](1);
+        teeIds[0] = _teeId;
+        teeExtensionRegistry.sendInstructions{value: msg.value}(
             _instructionId,
-            teeMachines,
-            flareSystemsManager.getCurrentRewardEpochId(),
+            teeMachineRegistry.getExtensionId(_teeId),
+            teeIds,
             WALLET_OP_TYPE,
             _opCommand,
             _message
@@ -519,7 +469,8 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
             require(_configConstants.cosigners[i] == _cosigners[i], "invalid address");
         }
 
-        bytes memory opTypeConstants = teeWalletManager.getOpTypeConstants(_walletId);
+        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
+        bytes memory opTypeConstants = teeWalletProjectManager.getOpTypeConstants(projectId);
         require(
             keccak256(_configConstants.opTypeConstants) == keccak256(opTypeConstants),
             "invalid op type constants"
@@ -530,20 +481,9 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, GovernedProxyImplementati
         internal view
     {
         require(
-            teeRegistry.getTeeMachineStatus(_teeId) == ITeeRegistry.TeeStatus.PRODUCTION,
+            teeMachineRegistry.getTeeMachineStatus(_teeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
             "tee machine not available"
         );
-    }
-
-    function _checkFee(
-        bytes32 _opCommand,
-        address _teeId
-    )
-        internal view
-    {
-        address[] memory teeIds = new address[](1);
-        teeIds[0] = _teeId;
-        require(msg.value >= teeFeeCalculator.calculateFeeByTeeIds(WALLET_OP_TYPE, _opCommand, teeIds), "fee too low");
     }
 
     function _checkOnlyOwner(bytes32 _walletId)

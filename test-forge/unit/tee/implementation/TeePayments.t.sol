@@ -44,7 +44,7 @@ contract TeePaymentsTest is Test {
     event TeeInstructionsSent(
         bytes32 indexed instructionId,
         uint32 indexed rewardEpochId,
-        ITeeRegistry.TeeMachine[] teeMachines,
+        ITeeMachineRegistry.TeeMachine[] teeMachines,
         bytes32 opType,
         bytes32 opCommand,
         bytes message,
@@ -290,7 +290,7 @@ contract TeePaymentsTest is Test {
     function testSetPaymentLimits() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         _mockCalculateFeeByWalletId(walletId, opType, SET_PAYMENT_LIMITS, 987);
-        (ITeeRegistry.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         uint256 transactionLimit = 1000;
         uint256 dailyLimit = 10000;
@@ -392,7 +392,7 @@ contract TeePaymentsTest is Test {
 
     // batch duration is not set (default is 0)
     function testPay1() public {
-        (ITeeRegistry.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         // set sender address
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
@@ -461,7 +461,7 @@ contract TeePaymentsTest is Test {
         vm.prank(walletOwner);
         teePayments.setBatchSettings(walletId, 1, 300);
 
-        (ITeeRegistry.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         // set sender address
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
@@ -530,7 +530,7 @@ contract TeePaymentsTest is Test {
         vm.prank(walletOwner);
         teePayments.setBatchSettings(walletId, 2, 300);
 
-        (ITeeRegistry.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         // set sender address
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
@@ -684,7 +684,7 @@ contract TeePaymentsTest is Test {
         vm.prank(walletOwner);
         teePayments.setBatchSettings(walletId, 2, 300);
 
-        (ITeeRegistry.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         // set sender address
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
@@ -749,7 +749,7 @@ contract TeePaymentsTest is Test {
 
     // pay from not default wallet
     function testPay5() public {
-        (ITeeRegistry.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         bytes32 walletId2 = bytes32("walletId2");
         vm.mockCall(
@@ -1030,7 +1030,7 @@ contract TeePaymentsTest is Test {
         teePayments.setMinFee(walletId, 10);
         vm.stopPrank();
         vm.prank(submitAddress);
-        (ITeeRegistry.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         bytes32 instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11, 0));
         ITeePayments.PaymentInstructionMessage memory message1 = ITeePayments.PaymentInstructionMessage(
@@ -1132,7 +1132,7 @@ contract TeePaymentsTest is Test {
         vm.stopPrank();
         vm.prank(submitAddress);
         bytes32 instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11, 0));
-        (ITeeRegistry.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         uint256[] memory fees = new uint256[](2);
         fees[0] = 150;
@@ -1200,7 +1200,7 @@ contract TeePaymentsTest is Test {
         vm.stopPrank();
         vm.prank(submitAddress);
         bytes32 instructionId = keccak256(abi.encode(opType, REISSUE, walletId, 11, 0));
-        (ITeeRegistry.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         uint256[] memory fees = new uint256[](2);
         fees[0] = 150;
@@ -1429,13 +1429,13 @@ testPay3();
     }
 
     function _mockReceivingTeesAndKeys() internal returns (
-        ITeeRegistry.TeeMachine[] memory,
+        ITeeMachineRegistry.TeeMachine[] memory,
         TeeIdKeyIdPair[] memory _teeIdKeyIdPairs
     ) {
-        ITeeRegistry.TeeMachine[] memory receivingTees = new ITeeRegistry.TeeMachine[](1);
+        ITeeMachineRegistry.TeeMachine[] memory receivingTees = new ITeeMachineRegistry.TeeMachine[](1);
         TeeIdKeyIdPair[] memory teeIdKeyIdPairs =
             new TeeIdKeyIdPair[](1);
-        receivingTees[0] = ITeeRegistry.TeeMachine({
+        receivingTees[0] = ITeeMachineRegistry.TeeMachine({
             teeId: makeAddr("teeId"),
             teeProxyId: makeAddr("teeProxyId"),
             url: "teeUrl"

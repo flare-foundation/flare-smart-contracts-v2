@@ -27,10 +27,6 @@ interface TeeStructs {
         uint64 teeTimestamp;
     }
 
-    struct PMWState {
-        uint256 status;
-    }
-
     struct VoteSequenceInit {
         bytes32 instructionId;
         bytes32 instructionHash;
@@ -57,7 +53,6 @@ interface TeeStructs {
 
     function instructionStruct(Instruction calldata) external;
     function attestationStruct(Attestation calldata) external;
-    function pmwStateStruct(PMWState calldata) external;
     function voteSequenceInitStruct(VoteSequenceInit calldata) external;
     function voteSequenceNextStruct(VoteSequenceNext calldata) external;
     function voteReceiptStruct(VoteReceipt calldata) external;

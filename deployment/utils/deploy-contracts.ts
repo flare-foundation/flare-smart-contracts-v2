@@ -76,7 +76,6 @@ import { Contracts } from "../scripts/Contracts";
 import { Account } from "web3-core";
 import {
   TIMELOCK_SEC,
-  encodeContractNames,
   systemSettings,
   getSigningPolicyHash,
   FTSO_PROTOCOL_ID,
@@ -89,7 +88,7 @@ import { getLogger } from "./logger";
 import { testDeployGovernanceSettings } from "./contract-helpers";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 import { RelayInitialConfig } from "./RelayInitialConfig";
-import { TeeRegistryContract, TeeRegistryInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeRegistry";
+import { TeeMachineRegistryContract, TeeMachineRegistryInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeMachineRegistry";
 import { TeeWalletManagerContract, TeeWalletManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletManager";
 import { TeeFeeCalculatorContract, TeeFeeCalculatorInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeFeeCalculator";
 import { TeeInstructionsContract, TeeInstructionsInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeInstructions";
@@ -105,15 +104,22 @@ import { FtdcHubContract, FtdcHubInstance } from "../../typechain-truffle/contra
 import { FtdcRequestFeeConfigurationsInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations";
 import { FtdcVerificationMockContract } from "../../typechain-truffle/contracts/ftdc/mock/FtdcVerificationMock";
 import { TeeGovernanceProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeGovernanceProxy";
-import { TeeRegistryProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeRegistryProxy";
+import { TeeMachineRegistryProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeMachineRegistryProxy";
 import { FtdcVerificationContract, FtdcVerificationInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification";
 import { TeeVerificationContract, TeeVerificationInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeVerification";
 import { TeeVerificationProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeVerificationProxy";
 import { TeeOwnerAllowlistContract, TeeOwnerAllowlistInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlist";
-import { TeeStateVerifierProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeStateVerifierProxy";
-import { TeeStateVerifierContract, TeeStateVerifierInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeStateVerifier";
+import { TeeSystemStateVerifierProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeSystemStateVerifierProxy";
+import { TeeSystemStateVerifierContract, TeeSystemStateVerifierInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeSystemStateVerifier";
+import { AddressUpdaterContract, AddressUpdaterInstance } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressUpdater";
+import { TeeOwnerAllowlistProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlistProxy";
+import { TeeExtensionRegistryContract, TeeExtensionRegistryInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeExtensionRegistry";
+import { TeeExtensionRegistryProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeExtensionRegistryProxy";
+import { TeeReplicationContract, TeeReplicationInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeReplication";
+import { TeeReplicationProxyContract } from "../../typechain-truffle/contracts/tee/implementation/TeeReplicationProxy";
 
 export interface DeployedContracts {
+  readonly addressUpdater: AddressUpdaterInstance;
   readonly flareDaemon: TestableFlareDaemonInstance;
   readonly pChainStakeMirror: PChainStakeMirrorInstance;
   readonly cChainStake: CChainStakeInstance;
@@ -146,9 +152,11 @@ export interface DeployedContracts {
   readonly teeOwnerAllowlist: TeeOwnerAllowlistInstance;
   readonly teeGovernance: TeeGovernanceInstance;
   readonly teeVersionManager: TeeVersionManagerInstance;
+  readonly teeReplication: TeeReplicationInstance;
+  readonly teeExtensionRegistry: TeeExtensionRegistryInstance;
   readonly teeVerification: TeeVerificationInstance;
-  readonly teeStateVerifier: TeeStateVerifierInstance;
-  readonly teeRegistry: TeeRegistryInstance;
+  readonly teeSystemStateVerifier: TeeSystemStateVerifierInstance;
+  readonly teeMachineRegistry: TeeMachineRegistryInstance;
   readonly teeWalletProjectManager: TeeWalletProjectManagerInstance;
   readonly teeWalletManager: TeeWalletManagerInstance;
   readonly teeWalletKeyManager: TeeWalletKeyManagerInstance;
@@ -169,12 +177,10 @@ export async function deployContracts(
   hre: HardhatRuntimeEnvironment,
   governanceAccount: Account
 ): Promise<[DeployedContracts, number, ISigningPolicy]> {
-  const ADDRESS_UPDATER_ADDR = accounts[1].address;
-  const CLEANER_CONTRACT_ADDR = accounts[2].address;
-  const CLEANUP_BLOCK_NUMBER_MANAGER_ADDR = accounts[3].address;
-  const MULTI_SIG_VOTING_ADDR = accounts[4].address;
-  const RELAY_ADDR = accounts[5].address;
-  const CLAIM_SETUP_MANAGER_ADDR = accounts[5].address;
+  const CLEANER_CONTRACT_ADDR = accounts[1].address;
+  const MULTI_SIG_VOTING_ADDR = accounts[2].address;
+  const RELAY_ADDR = accounts[3].address;
+  const CLAIM_SETUP_MANAGER_ADDR = accounts[4].address;
   const FTSO_REWARD_MANAGER_ADDR = accounts[5].address;
   const INFLATION_ADDR = accounts[5].address;
 
@@ -216,24 +222,29 @@ export async function deployContracts(
 
 
   const TeeOwnerAllowlist: TeeOwnerAllowlistContract = artifacts.require("TeeOwnerAllowlist");
-  const TeeGovernance: TeeGovernanceContract = await artifacts.require("TeeGovernance");
-  const TeeGovernanceProxy: TeeGovernanceProxyContract = await artifacts.require("TeeGovernanceProxy");
+  const TeeOwnerAllowlistProxy: TeeOwnerAllowlistProxyContract = artifacts.require("TeeOwnerAllowlistProxy");
+  const TeeGovernance: TeeGovernanceContract = artifacts.require("TeeGovernance");
+  const TeeGovernanceProxy: TeeGovernanceProxyContract = artifacts.require("TeeGovernanceProxy");
   const TeeVersionManager: TeeVersionManagerContract = artifacts.require("TeeVersionManager");
-  const TeeVersionManagerProxy: TeeVersionManagerProxyContract = await artifacts.require("TeeVersionManagerProxy");
+  const TeeVersionManagerProxy: TeeVersionManagerProxyContract = artifacts.require("TeeVersionManagerProxy");
+  const TeeReplication: TeeReplicationContract = artifacts.require("TeeReplication");
+  const TeeReplicationProxy: TeeReplicationProxyContract = artifacts.require("TeeReplicationProxy");
+  const TeeExtensionRegistry: TeeExtensionRegistryContract = artifacts.require("TeeExtensionRegistry");
+  const TeeExtensionRegistryProxy: TeeExtensionRegistryProxyContract = artifacts.require("TeeExtensionRegistryProxy");
   const TeeVerification: TeeVerificationContract = artifacts.require("TeeVerification");
-  const TeeVerificationProxy: TeeVerificationProxyContract = await artifacts.require("TeeVerificationProxy");
-  const TeeStateVerifier: TeeStateVerifierContract = artifacts.require("TeeStateVerifier");
-  const TeeStateVerifierProxy: TeeStateVerifierProxyContract = artifacts.require("TeeStateVerifierProxy");
-  const TeeRegistry: TeeRegistryContract = artifacts.require("TeeRegistry");
-  const TeeRegistryProxy: TeeRegistryProxyContract = await artifacts.require("TeeRegistryProxy");
+  const TeeVerificationProxy: TeeVerificationProxyContract = artifacts.require("TeeVerificationProxy");
+  const TeeSystemStateVerifier: TeeSystemStateVerifierContract = artifacts.require("TeeSystemStateVerifier");
+  const TeeSystemStateVerifierProxy: TeeSystemStateVerifierProxyContract = artifacts.require("TeeSystemStateVerifierProxy");
+  const TeeMachineRegistry: TeeMachineRegistryContract = artifacts.require("TeeMachineRegistry");
+  const TeeMachineRegistryProxy: TeeMachineRegistryProxyContract = artifacts.require("TeeMachineRegistryProxy");
   const TeeWalletProjectManager: TeeWalletProjectManagerContract = artifacts.require("TeeWalletProjectManager");
-  const TeeWalletProjectManagerProxy: TeeWalletProjectManagerProxyContract = await artifacts.require("TeeWalletProjectManagerProxy");
+  const TeeWalletProjectManagerProxy: TeeWalletProjectManagerProxyContract = artifacts.require("TeeWalletProjectManagerProxy");
   const TeeWalletManager: TeeWalletManagerContract = artifacts.require("TeeWalletManager");
-  const TeeWalletManagerProxy: TeeWalletManagerProxyContract = await artifacts.require("TeeWalletManagerProxy");
-  const TeeWalletKeyManager: TeeWalletKeyManagerContract = await artifacts.require("TeeWalletKeyManager");
-  const TeeWalletKeyManagerProxy: TeeWalletKeyManagerProxyContract = await artifacts.require("TeeWalletKeyManagerProxy");
+  const TeeWalletManagerProxy: TeeWalletManagerProxyContract = artifacts.require("TeeWalletManagerProxy");
+  const TeeWalletKeyManager: TeeWalletKeyManagerContract = artifacts.require("TeeWalletKeyManager");
+  const TeeWalletKeyManagerProxy: TeeWalletKeyManagerProxyContract = artifacts.require("TeeWalletKeyManagerProxy");
   const TeeWalletBackupManager: TeeWalletBackupManagerContract = artifacts.require("TeeWalletBackupManager");
-  const TeeWalletBackupManagerProxy: TeeWalletBackupManagerProxyContract = await artifacts.require("TeeWalletBackupManagerProxy");
+  const TeeWalletBackupManagerProxy: TeeWalletBackupManagerProxyContract = artifacts.require("TeeWalletBackupManagerProxy");
   const TeeFeeCalculator: TeeFeeCalculatorContract = artifacts.require("TeeFeeCalculator");
   const TeeInstructions: TeeInstructionsContract = artifacts.require("TeeInstructions");
   const TeeInstructionsProxy: TeeInstructionsProxyContract = artifacts.require("TeeInstructionsProxy");
@@ -248,22 +259,6 @@ export async function deployContracts(
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
-  const pChainStakeMirror: PChainStakeMirrorInstance = await PChainStakeMirror.new(
-    governanceAccount.address,
-    governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
-    2
-  );
-  const cChainStake = await CChainStake.new(
-    governanceAccount.address,
-    governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
-    0,
-    100,
-    10000000000,
-    50
-  );
-
   const governanceSettings = await testDeployGovernanceSettings(
     hre.artifacts,
     governanceAccount.address,
@@ -271,6 +266,28 @@ export async function deployContracts(
     [governanceAccount.address],
     hre.network
   );
+
+  const addressUpdatableContracts = [];
+  const addressUpdater: AddressUpdaterInstance = await AddressUpdater.new(governanceAccount.address);
+
+  const pChainStakeMirror: PChainStakeMirrorInstance = await PChainStakeMirror.new(
+    governanceAccount.address,
+    governanceAccount.address,
+    addressUpdater.address,
+    2
+  );
+  addressUpdatableContracts.push(pChainStakeMirror.address);
+
+  const cChainStake = await CChainStake.new(
+    governanceAccount.address,
+    governanceAccount.address,
+    addressUpdater.address,
+    0,
+    100,
+    10000000000,
+    50
+  );
+  addressUpdatableContracts.push(cChainStake.address);
 
   const wNat = await WNat.new(governanceAccount.address, "Wrapped NAT", "WNAT");
   const ftsoFeedIdConverter = await FtsoFeedIdConverter.new();
@@ -288,11 +305,11 @@ export async function deployContracts(
   const flareDaemon = await TestableFlareDaemon.new();
   await flareDaemon.initialiseFixedAddress();
   const genesisGovernance = await flareDaemon.governance();
-  await flareDaemon.setAddressUpdater(ADDRESS_UPDATER_ADDR, { from: genesisGovernance });
+  await flareDaemon.setAddressUpdater(addressUpdater.address, { from: genesisGovernance });
   const nodePossessionVerifier = await NodePossessionVerifier.new();
-  const nodePossessionmockContract = await MockContract.new();
   await cChainStake.setCleanerContract(CLEANER_CONTRACT_ADDR, { from: governanceAccount.address });
   await cChainStake.activate();
+  addressUpdatableContracts.push(flareDaemon.address);
 
   const addressBinder: AddressBinderInstance = await AddressBinder.new();
   const pChainStakeMirrorVerifier = await PChainStakeMirrorVerifier.new(
@@ -305,24 +322,6 @@ export async function deployContracts(
   );
 
   const mockContract = await MockContract.new();
-
-  await pChainStakeMirror.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.ADDRESS_BINDER,
-      Contracts.GOVERNANCE_VOTE_POWER,
-      Contracts.CLEANUP_BLOCK_NUMBER_MANAGER,
-      Contracts.P_CHAIN_STAKE_MIRROR_VERIFIER,
-    ]),
-    [
-      ADDRESS_UPDATER_ADDR,
-      addressBinder.address,
-      governanceVotePower.address,
-      CLEANUP_BLOCK_NUMBER_MANAGER_ADDR,
-      mockContract.address,
-    ],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
 
   await pChainStakeMirror.setCleanerContract(CLEANER_CONTRACT_ADDR);
   await pChainStakeMirror.activate();
@@ -341,7 +340,7 @@ export async function deployContracts(
   const voterRegistry = await VoterRegistry.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     100,
     0,
     0,
@@ -349,16 +348,18 @@ export async function deployContracts(
     initialVoters,
     initialWeights
   );
+  addressUpdatableContracts.push(voterRegistry.address);
 
   const flareSystemsCalculator = await FlareSystemsCalculator.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     2500,
     200,
     100,
     100
   );
+  addressUpdatableContracts.push(flareSystemsCalculator.address);
 
   const settings = systemSettings(rewardEpochStart);
   const initialSigningPolicy: ISigningPolicy = {
@@ -379,7 +380,7 @@ export async function deployContracts(
   const flareSystemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     flareDaemon.address,
     settings.updatableSettings,
     settings.firstVotingRoundStartTs,
@@ -388,14 +389,16 @@ export async function deployContracts(
     settings.rewardEpochDurationInVotingEpochs,
     initialSettings
   );
+  addressUpdatableContracts.push(flareSystemsManager.address);
 
   const rewardManager = await RewardManager.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     ZERO_ADDRESS,
     0
   );
+  addressUpdatableContracts.push(rewardManager.address);
 
   const relayInitialConfig: RelayInitialConfig = {
     initialRewardEpochId: initialSigningPolicy.rewardEpochId,
@@ -421,11 +424,13 @@ export async function deployContracts(
   const submission = await Submission.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     false
   );
+  addressUpdatableContracts.push(submission.address);
 
-  const wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER_ADDR, 2, 2000);
+  const wNatDelegationFee = await WNatDelegationFee.new(addressUpdater.address, 2, 2000);
+  addressUpdatableContracts.push(wNatDelegationFee.address);
 
   const ftsoInflationConfigurations = await FtsoInflationConfigurations.new(
     governanceSettings.address,
@@ -435,14 +440,15 @@ export async function deployContracts(
   const ftsoRewardOffersManager = await FtsoRewardOffersManager.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     100
   );
+  addressUpdatableContracts.push(ftsoRewardOffersManager.address);
 
   const ftsoFeedDecimals = await FtsoFeedDecimals.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     2,
     5,
     0,
@@ -451,26 +457,29 @@ export async function deployContracts(
       { feedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "ETH/USD" }), decimals: 3 },
     ]
   );
+  addressUpdatableContracts.push(ftsoFeedDecimals.address);
 
   const ftsoFeedPublisher = await FtsoFeedPublisher.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     FTSO_PROTOCOL_ID,
     200
   );
+  addressUpdatableContracts.push(ftsoFeedPublisher.address);
 
   const cleanupBlockNumberManager = await CleanupBlockNumberManager.new(
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     "FlareSystemsManager"
   );
+  addressUpdatableContracts.push(cleanupBlockNumberManager.address);
 
   // FAST UPDATES
   const fastUpdateIncentiveManager = await FastUpdateIncentiveManager.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     "0x01000000000000000000000000000000",
     "0x00000800000000000000000000000000",
     "0x00100000000000000000000000000000",
@@ -479,137 +488,178 @@ export async function deployContracts(
     (10n ** 24n).toString(),
     8
   );
+  addressUpdatableContracts.push(fastUpdateIncentiveManager.address);
 
   const fastUpdater = await FastUpdater.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     flareDaemon.address,
     settings.firstVotingRoundStartTs,
     settings.votingEpochDurationSeconds,
     10
   );
+  addressUpdatableContracts.push(fastUpdater.address);
 
   const fastUpdatesConfiguration = await FastUpdatesConfiguration.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR
+    addressUpdater.address
   );
+  addressUpdatableContracts.push(fastUpdatesConfiguration.address);
 
   const feeCalculator = await FeeCalculator.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     "1"
   );
+  addressUpdatableContracts.push(feeCalculator.address);
 
   // FDC
-  const fdcHub = await FdcHub.new(governanceSettings.address, governanceAccount.address, ADDRESS_UPDATER_ADDR, 30);
-  const fdcInflationConfigurations = await FdcInflationConfigurations.new(governanceSettings.address, governanceAccount.address, ADDRESS_UPDATER_ADDR);
+  const fdcHub = await FdcHub.new(governanceSettings.address, governanceAccount.address, addressUpdater.address, 30);
+  addressUpdatableContracts.push(fdcHub.address);
+  const fdcInflationConfigurations = await FdcInflationConfigurations.new(governanceSettings.address, governanceAccount.address, addressUpdater.address);
+  addressUpdatableContracts.push(fdcInflationConfigurations.address);
   const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(governanceSettings.address, governanceAccount.address);
 
-  const teeOwnerAllowlist = await TeeOwnerAllowlist.new(
+  const teeOwnerAllowlistImpl = await TeeOwnerAllowlist.new();
+  const teeOwnerAllowlistProxy = await TeeOwnerAllowlistProxy.new(
     governanceSettings.address,
-    governanceAccount.address
+    governanceAccount.address,
+    addressUpdater.address,
+    teeOwnerAllowlistImpl.address
   );
+  const teeOwnerAllowlist = await TeeOwnerAllowlist.at(teeOwnerAllowlistProxy.address);
+  addressUpdatableContracts.push(teeOwnerAllowlist.address);
 
   const teeGovernanceImpl = await TeeGovernance.new();
   const teeGovernanceProxy = await TeeGovernanceProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     teeGovernanceImpl.address
   )
   const teeGovernance = await TeeGovernance.at(teeGovernanceProxy.address);
+  addressUpdatableContracts.push(teeGovernance.address);
 
-  const teeVersionImpl = await TeeVersionManager.new();
+  const teeVersionManagerImpl = await TeeVersionManager.new();
   const teeVersionManagerProxy = await TeeVersionManagerProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
-    teeVersionImpl.address
+    addressUpdater.address,
+    teeVersionManagerImpl.address
   );
   const teeVersionManager = await TeeVersionManager.at(teeVersionManagerProxy.address);
+  addressUpdatableContracts.push(teeVersionManager.address);
+
+  const teeReplicationImpl = await TeeReplication.new();
+  const teeReplicationProxy = await TeeReplicationProxy.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    addressUpdater.address,
+    60,
+    teeReplicationImpl.address
+  );
+  const teeReplication = await TeeReplication.at(teeReplicationProxy.address);
+  addressUpdatableContracts.push(teeReplication.address);
+
+  const teeExtensionRegistryImpl = await TeeExtensionRegistry.new();
+  const teeExtensionRegistryProxy = await TeeExtensionRegistryProxy.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    addressUpdater.address,
+    teeExtensionRegistryImpl.address
+  );
+  const teeExtensionRegistry = await TeeExtensionRegistry.at(teeExtensionRegistryProxy.address);
+  addressUpdatableContracts.push(teeExtensionRegistry.address);
 
   const teeVerificationImpl = await TeeVerification.new();
   const teeVerificationProxy = await TeeVerificationProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     3600,
     10,
     600,
     teeVerificationImpl.address
   );
   const teeVerification = await TeeVerification.at(teeVerificationProxy.address);
+  addressUpdatableContracts.push(teeVerification.address);
 
-  const teeStateVerifierImpl = await TeeStateVerifier.new();
-  const teeStateVerifierProxy = await TeeStateVerifierProxy.new(
+  const teeSystemStateVerifierImpl = await TeeSystemStateVerifier.new();
+  const teeSystemStateVerifierProxy = await TeeSystemStateVerifierProxy.new(
    governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
-    teeStateVerifierImpl.address
+    addressUpdater.address,
+    teeSystemStateVerifierImpl.address
   );
-  const teeStateVerifier = await TeeStateVerifier.at(teeStateVerifierProxy.address);
+  const teeSystemStateVerifier = await TeeSystemStateVerifier.at(teeSystemStateVerifierProxy.address);
+  addressUpdatableContracts.push(teeSystemStateVerifier.address);
 
-  const teeRegistryImpl = await TeeRegistry.new();
-  const teeRegistryProxy = await TeeRegistryProxy.new(
+  const teeMachineRegistryImpl = await TeeMachineRegistry.new();
+  const teeMachineRegistryProxy = await TeeMachineRegistryProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
-    60,
-    teeRegistryImpl.address
+    addressUpdater.address,
+    teeMachineRegistryImpl.address
   );
-  const teeRegistry = await TeeRegistry.at(teeRegistryProxy.address);
+  const teeMachineRegistry = await TeeMachineRegistry.at(teeMachineRegistryProxy.address);
+  addressUpdatableContracts.push(teeMachineRegistry.address);
 
   const teeWalletProjectManagerImpl = await TeeWalletProjectManager.new();
   const teeWalletProjectManagerProxy = await TeeWalletProjectManagerProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     teeWalletProjectManagerImpl.address
   );
   const teeWalletProjectManager = await TeeWalletProjectManager.at(teeWalletProjectManagerProxy.address);
+  addressUpdatableContracts.push(teeWalletProjectManager.address);
 
   const teeWalletManagerImpl = await TeeWalletManager.new();
   const teeWalletManagerProxy = await TeeWalletManagerProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     teeWalletManagerImpl.address
   );
   const teeWalletManager = await TeeWalletManager.at(teeWalletManagerProxy.address);
+  addressUpdatableContracts.push(teeWalletManager.address);
 
   const teeWalletKeyManagerImpl = await TeeWalletKeyManager.new();
   const teeWalletKeyManagerProxy = await TeeWalletKeyManagerProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     teeWalletKeyManagerImpl.address
   );
   const teeWalletKeyManager = await TeeWalletKeyManager.at(teeWalletKeyManagerProxy.address);
+  addressUpdatableContracts.push(teeWalletKeyManager.address);
 
   const teeWalletBackupManagerImpl = await TeeWalletBackupManager.new();
   const teeWalletBackupManagerProxy = await TeeWalletBackupManagerProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     teeWalletBackupManagerImpl.address
   );
   const teeWalletBackupManager = await TeeWalletBackupManager.at(teeWalletBackupManagerProxy.address);
+  addressUpdatableContracts.push(teeWalletBackupManager.address);
 
   const teeFeeCalculator = await TeeFeeCalculator.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR
+    1
   );
 
   const teeRewardOffersManager = await TeeRewardOffersManager.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     100000 // 10%
   );
+  addressUpdatableContracts.push(teeRewardOffersManager.address);
 
   const operationTypes = [];
   const operationCommands = [];
@@ -625,10 +675,11 @@ export async function deployContracts(
   const teeInstructionsProxy = await TeeInstructionsProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     teeInstructionsImpl.address
   );
   const teeInstructions = await TeeInstructions.at(teeInstructionsProxy.address);
+  addressUpdatableContracts.push(teeInstructions.address);
 
   const teePaymentsList = [];
   for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
@@ -638,7 +689,7 @@ export async function deployContracts(
     const teePaymentsProxy = await TeePaymentsProxy.new(
       governanceSettings.address,
       governanceAccount.address,
-      ADDRESS_UPDATER_ADDR,
+      addressUpdater.address,
       teePaymentConfig.maxBatchSize,
       teePaymentConfig.maxBatchDurationSeconds,
       web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
@@ -646,22 +697,25 @@ export async function deployContracts(
     );
     const teePayments = await Contract.at(teePaymentsProxy.address);
     teePaymentsList.push(teePayments);
+    addressUpdatableContracts.push(teePayments.address);
   }
 
   // FTDC
   const ftdcHub = await FtdcHub.new(
     governanceSettings.address,
     governanceAccount.address,
-    ADDRESS_UPDATER_ADDR,
+    addressUpdater.address,
     3000,
     1
   );
+  addressUpdatableContracts.push(ftdcHub.address);
   const ftdcRequestFeeConfigurations = await FtdcRequestFeeConfigurations.new(
     governanceSettings.address,
     governanceAccount.address
   );
 
-  const ftdcVerification = await FtdcVerification.at((await FtdcVerificationMock.new(ADDRESS_UPDATER_ADDR)).address); // TODO: remove mock contract
+  const ftdcVerification = await FtdcVerification.at((await FtdcVerificationMock.new(addressUpdater.address)).address); // TODO: remove mock contract
+  addressUpdatableContracts.push(ftdcVerification.address);
 
   // Set the FTDC request fee configurations
   const ftdc_attestationTypes = ["TeeAvailabilityCheck", "PMWPaymentStatus"];
@@ -678,332 +732,128 @@ export async function deployContracts(
   await rewardManager.enablePChainStakeMirror({ from: governanceAccount.address });
 
   // SET CONTRACT ADDRESSES
-  await flareDaemon.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.INFLATION]),
-    [ADDRESS_UPDATER_ADDR, INFLATION_ADDR],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await pChainStakeMirror.updateContractAddresses(
-    encodeContractNames(hre.web3, [
+  await addressUpdater.update(
+    [
       Contracts.ADDRESS_UPDATER,
+      Contracts.INFLATION,
       Contracts.ADDRESS_BINDER,
       Contracts.GOVERNANCE_VOTE_POWER,
       Contracts.CLEANUP_BLOCK_NUMBER_MANAGER,
       Contracts.P_CHAIN_STAKE_MIRROR_VERIFIER,
-    ]),
-    [
-      ADDRESS_UPDATER_ADDR,
-      addressBinder.address,
-      governanceVotePower.address,
-      CLEANUP_BLOCK_NUMBER_MANAGER_ADDR,
-      mockContract.address,
-    ],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await cChainStake.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.GOVERNANCE_VOTE_POWER,
-      Contracts.CLEANUP_BLOCK_NUMBER_MANAGER,
-    ]),
-    [ADDRESS_UPDATER_ADDR, governanceVotePower.address, CLEANUP_BLOCK_NUMBER_MANAGER_ADDR],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await voterRegistry.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
       Contracts.FLARE_SYSTEMS_MANAGER,
       Contracts.ENTITY_MANAGER,
       Contracts.FLARE_SYSTEMS_CALCULATOR,
-    ]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, entityManager.address, flareSystemsCalculator.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await flareSystemsCalculator.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEMS_MANAGER,
-      Contracts.ENTITY_MANAGER,
       Contracts.WNAT_DELEGATION_FEE,
       Contracts.VOTER_REGISTRY,
       Contracts.P_CHAIN_STAKE_MIRROR,
       Contracts.WNAT,
-    ]),
+      Contracts.SUBMISSION,
+      Contracts.RELAY,
+      Contracts.REWARD_MANAGER,
+      Contracts.CLAIM_SETUP_MANAGER,
+      Contracts.FTSO_REWARD_MANAGER,
+      Contracts.FTSO_INFLATION_CONFIGURATIONS,
+      Contracts.FTSO_FEED_DECIMALS,
+      Contracts.FAST_UPDATER,
+      Contracts.FAST_UPDATES_CONFIGURATION,
+      Contracts.FAST_UPDATE_INCENTIVE_MANAGER,
+      Contracts.FTSO_FEED_PUBLISHER,
+      Contracts.FEE_CALCULATOR,
+      Contracts.FDC_INFLATION_CONFIGURATIONS,
+      Contracts.FDC_REQUEST_FEE_CONFIGURATIONS,
+      Contracts.TEE_GOVERNANCE,
+      Contracts.TEE_VERSION_MANAGER,
+      Contracts.TEE_EXTENSION_REGISTRY,
+      Contracts.TEE_MACHINE_REGISTRY,
+      Contracts.TEE_FEE_CALCULATOR,
+      Contracts.TEE_SYSTEM_STATE_VERIFIER,
+      Contracts.TEE_INSTRUCTIONS,
+      Contracts.FTDC_HUB,
+      Contracts.FTDC_VERIFICATION,
+      Contracts.FTDC_REQUEST_FEE_CONFIGURATIONS,
+      Contracts.TEE_REWARD_OFFERS_MANAGER,
+      Contracts.TEE_VERIFICATION,
+      Contracts.TEE_OWNER_ALLOWLIST,
+      Contracts.TEE_WALLET_MANAGER,
+      Contracts.TEE_WALLET_PROJECT_MANAGER,
+      Contracts.TEE_WALLET_KEY_MANAGER,
+      Contracts.TEE_WALLET_BACKUP_MANAGER,
+      Contracts.TEE_REPLICATION
+    ],
     [
-      ADDRESS_UPDATER_ADDR,
+      addressUpdater.address,
+      INFLATION_ADDR,
+      addressBinder.address,
+      governanceVotePower.address,
+      cleanupBlockNumberManager.address,
+      mockContract.address,
       flareSystemsManager.address,
       entityManager.address,
+      flareSystemsCalculator.address,
       wNatDelegationFee.address,
       voterRegistry.address,
       pChainStakeMirror.address,
       wNat.address,
-    ],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await flareSystemsManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.VOTER_REGISTRY,
-      Contracts.SUBMISSION,
-      Contracts.RELAY,
-      Contracts.REWARD_MANAGER,
-      Contracts.CLEANUP_BLOCK_NUMBER_MANAGER,
-    ]),
-    [
-      ADDRESS_UPDATER_ADDR,
-      voterRegistry.address,
       submission.address,
       relay.address,
       rewardManager.address,
-      cleanupBlockNumberManager.address,
-    ],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await rewardManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.VOTER_REGISTRY,
-      Contracts.CLAIM_SETUP_MANAGER,
-      Contracts.FLARE_SYSTEMS_MANAGER,
-      Contracts.FLARE_SYSTEMS_CALCULATOR,
-      Contracts.P_CHAIN_STAKE_MIRROR,
-      Contracts.WNAT,
-      Contracts.FTSO_REWARD_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, voterRegistry.address, CLAIM_SETUP_MANAGER_ADDR, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror.address, wNat.address, FTSO_REWARD_MANAGER_ADDR],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await submission.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, relay.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await wNatDelegationFee.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await ftsoRewardOffersManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEMS_MANAGER,
-      Contracts.REWARD_MANAGER,
-      Contracts.FTSO_INFLATION_CONFIGURATIONS,
-      Contracts.FTSO_FEED_DECIMALS,
-      Contracts.INFLATION,
-    ]),
-    [
-      ADDRESS_UPDATER_ADDR,
-      flareSystemsManager.address,
-      rewardManager.address,
+      CLAIM_SETUP_MANAGER_ADDR,
+      FTSO_REWARD_MANAGER_ADDR,
       ftsoInflationConfigurations.address,
       ftsoFeedDecimals.address,
-      INFLATION_ADDR,
-    ],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await ftsoFeedDecimals.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await ftsoFeedPublisher.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.RELAY]),
-    [ADDRESS_UPDATER_ADDR, relay.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await cleanupBlockNumberManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await fastUpdateIncentiveManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEMS_MANAGER,
-      Contracts.FAST_UPDATER,
-      Contracts.FAST_UPDATES_CONFIGURATION,
-      Contracts.REWARD_MANAGER,
-      Contracts.INFLATION,
-    ]),
-    [
-      ADDRESS_UPDATER_ADDR,
-      flareSystemsManager.address,
       fastUpdater.address,
       fastUpdatesConfiguration.address,
-      rewardManager.address,
-      INFLATION_ADDR,
+      fastUpdateIncentiveManager.address,
+      mockContract.address,
+      feeCalculator.address,
+      fdcInflationConfigurations.address,
+      fdcRequestFeeConfigurations.address,
+      teeGovernance.address,
+      teeVersionManager.address,
+      teeExtensionRegistry.address,
+      teeMachineRegistry.address,
+      teeFeeCalculator.address,
+      teeSystemStateVerifier.address,
+      teeInstructions.address,
+      ftdcHub.address,
+      ftdcVerification.address,
+      ftdcRequestFeeConfigurations.address,
+      teeRewardOffersManager.address,
+      teeVerification.address,
+      teeOwnerAllowlist.address,
+      teeWalletManager.address,
+      teeWalletProjectManager.address,
+      teeWalletKeyManager.address,
+      teeWalletBackupManager.address,
+      teeReplication.address
     ],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await fastUpdater.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEMS_MANAGER,
-      Contracts.FAST_UPDATE_INCENTIVE_MANAGER,
-      Contracts.VOTER_REGISTRY,
-      Contracts.FAST_UPDATES_CONFIGURATION,
-      Contracts.FTSO_FEED_PUBLISHER,
-      Contracts.FEE_CALCULATOR]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, fastUpdateIncentiveManager.address, voterRegistry.address, fastUpdatesConfiguration.address, mockContract.address, feeCalculator.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await fastUpdatesConfiguration.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FAST_UPDATER]),
-    [ADDRESS_UPDATER_ADDR, fastUpdater.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await feeCalculator.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.FAST_UPDATES_CONFIGURATION]),
-    [ADDRESS_UPDATER_ADDR, fastUpdatesConfiguration.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await fdcHub.updateContractAddresses(
-    encodeContractNames(hre.web3, [
-      Contracts.ADDRESS_UPDATER,
-      Contracts.FLARE_SYSTEMS_MANAGER,
-      Contracts.REWARD_MANAGER,
-      Contracts.INFLATION,
-      Contracts.FDC_INFLATION_CONFIGURATIONS,
-      Contracts.FDC_REQUEST_FEE_CONFIGURATIONS
-    ]),
-    [ADDRESS_UPDATER_ADDR, flareSystemsManager.address, rewardManager.address, INFLATION_ADDR, fdcInflationConfigurations.address, fdcRequestFeeConfigurations.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await fdcInflationConfigurations.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.FDC_REQUEST_FEE_CONFIGURATIONS]),
-    [ADDRESS_UPDATER_ADDR, fdcRequestFeeConfigurations.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeGovernance.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER]),
-    [ADDRESS_UPDATER_ADDR],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeVersionManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_GOVERNANCE]),
-    [ADDRESS_UPDATER_ADDR, teeGovernance.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeVerification.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_STATE_VERIFIER, Contracts.TEE_INSTRUCTIONS, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-    [ADDRESS_UPDATER_ADDR, teeVersionManager.address, teeRegistry.address, teeFeeCalculator.address, teeStateVerifier.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager.address, relay.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeStateVerifier.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_REGISTRY]),
-    [ADDRESS_UPDATER_ADDR, teeVersionManager.address, teeRegistry.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeRegistry.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_OWNER_ALLOWLIST, Contracts.TEE_VERSION_MANAGER, Contracts.TEE_VERIFICATION, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-    [ADDRESS_UPDATER_ADDR, teeOwnerAllowlist.address, teeVersionManager.address, teeVerification.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, relay.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeWalletProjectManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_OWNER_ALLOWLIST, Contracts.TEE_WALLET_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, teeOwnerAllowlist.address, teeWalletManager.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeWalletManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.TEE_REGISTRY]),
-    [ADDRESS_UPDATER_ADDR, teeWalletProjectManager.address, teeWalletKeyManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, teeRegistry.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeWalletKeyManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_BACKUP_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, teeRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeWalletBackupManager.address, teeFeeCalculator.address, teeInstructions.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeWalletBackupManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, teeRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeFeeCalculator.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_KEY_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, teeWalletKeyManager.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeInstructions.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER]),
-    [ADDRESS_UPDATER_ADDR, rewardManager.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeRewardOffersManager.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.INFLATION]),
-    [ADDRESS_UPDATER_ADDR, rewardManager.address, flareSystemsManager.address, INFLATION_ADDR],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  for (const teePayments of teePaymentsList) {
-    await teePayments.updateContractAddresses(
-      encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
-      [ADDRESS_UPDATER_ADDR, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address],
-      { from: ADDRESS_UPDATER_ADDR }
-    );
-  }
-
-  await ftdcHub.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.TEE_FEE_CALCULATOR, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FTDC_REQUEST_FEE_CONFIGURATIONS]),
-    [ADDRESS_UPDATER_ADDR, teeRegistry.address, teeFeeCalculator.address, teeInstructions.address, flareSystemsManager.address, ftdcRequestFeeConfigurations.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await ftdcVerification.updateContractAddresses(
-    encodeContractNames(hre.web3, [Contracts.ADDRESS_UPDATER, Contracts.TEE_REGISTRY, Contracts.RELAY]),
-    [ADDRESS_UPDATER_ADDR, teeRegistry.address, relay.address],
-    { from: ADDRESS_UPDATER_ADDR }
-  );
-
-  await teeWalletManager.addSupportedOpTypes(
-    teePaymentsList.map(teePayments => teePayments.address),
+    addressUpdatableContracts,
     { from: governanceAccount.address }
   );
 
+  await teeExtensionRegistry.addOrUpdateSupportedOpTypes(
+    0, teePaymentsList.map(teePayments => teePayments.address),
+    { from: governanceAccount.address }
+  );
+
+  await teeExtensionRegistry.setExtensionContracts(0,
+    ZERO_ADDRESS,
+    teeInstructions.address,
+    { from: governanceAccount.address }
+  )
+
+  await teeExtensionRegistry.registerSystemInstructionInitiators(
+    [teeVerification.address, teeWalletManager.address, teeWalletKeyManager.address, teeWalletBackupManager.address, teeReplication.address],
+    { from: governanceAccount.address }
+  )
+
   await teeInstructions.registerInstructionInitiators([
-    teeVerification.address,
-    teeRegistry.address,
-    teeWalletManager.address,
-    teeWalletKeyManager.address,
-    teeWalletBackupManager.address,
     ...teePaymentsList.map(teePayments => teePayments.address),
     ftdcHub.address,
   ], { from: governanceAccount.address });
 
-  await teeOwnerAllowlist.allowAllTeeMachineOwners({ from: governanceAccount.address });
-  await teeOwnerAllowlist.allowAllTeeWalletProjectOwners({ from: governanceAccount.address });
+  await teeOwnerAllowlist.allowAllTeeMachineOwners(0, { from: governanceAccount.address });
+  await teeOwnerAllowlist.allowAllTeeWalletProjectOwners(0, { from: governanceAccount.address });
 
   // set reward offers manager list
   await rewardManager.setRewardOffersManagerList([
@@ -1011,7 +861,8 @@ export async function deployContracts(
     fastUpdateIncentiveManager.address,
     fdcHub.address,
     teeRewardOffersManager.address,
-    teeInstructions.address],
+    teeExtensionRegistry.address,
+    ftdcHub.address],
     { from: governanceAccount.address }
   );
 
@@ -1125,7 +976,7 @@ export async function deployContracts(
     { from: governanceAccount.address }
   );
 
-  await entityManager.setNodePossessionVerifier(nodePossessionmockContract.address, { from: governanceAccount.address }); // mock verifier
+  await entityManager.setNodePossessionVerifier(mockContract.address, { from: governanceAccount.address }); // mock verifier
   await entityManager.setPublicKeyVerifier(fastUpdater.address, { from: governanceAccount.address });
 
   await pChainStakeMirror.setCleanerContract(CLEANER_CONTRACT_ADDR, { from: governanceAccount.address });
@@ -1146,21 +997,19 @@ export async function deployContracts(
     `  Relay: ${relay.address},\n` +
     `  FastUpdater: ${fastUpdater.address},\n` +
     `  FdcHub: ${fdcHub.address},\n` +
-    `  TeeGovernance: ${teeGovernance.address},\n` +
-    `  TeeVersionManager: ${teeVersionManager.address},\n` +
-    `  TeeVerification: ${teeVerification.address},\n` +
-    `  TeeRegistry: ${teeRegistry.address},\n` +
+    `  TeeExtensionRegistry: ${teeExtensionRegistry.address},\n` +
+    `  TeeMachineRegistry: ${teeMachineRegistry.address},\n` +
     `  TeeWalletProjectManager: ${teeWalletProjectManager.address},\n` +
     `  TeeWalletManager: ${teeWalletManager.address},\n` +
     `  TeeWalletKeyManager: ${teeWalletKeyManager.address},\n` +
     `  TeeWalletBackupManager: ${teeWalletBackupManager.address},\n` +
-    `  TeeInstructions: ${teeInstructions.address},\n` +
     `  FtdcHub: ${ftdcHub.address},\n`
   );
 
   logger.info(`Current network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
   const contracts: DeployedContracts = {
+    addressUpdater,
     flareDaemon,
     pChainStakeMirror,
     cChainStake,
@@ -1194,8 +1043,10 @@ export async function deployContracts(
     teeGovernance,
     teeVersionManager,
     teeVerification,
-    teeStateVerifier,
-    teeRegistry,
+    teeReplication,
+    teeExtensionRegistry,
+    teeSystemStateVerifier,
+    teeMachineRegistry,
     teeWalletProjectManager,
     teeWalletManager,
     teeWalletKeyManager,

@@ -4,9 +4,9 @@ pragma solidity >=0.7.6 <0.9;
 import "../ftdc/ITeeAvailabilityCheck.sol";
 
 /**
- * TeeRegistry interface.
+ * TeeMachineRegistry interface.
  */
-interface ITeeRegistry {
+interface ITeeMachineRegistry {
 
     enum TeeStatus { INITIALIZED, PRODUCTION, PAUSED_WITH_PROOF, PAUSED, PAUSED_FOR_UPGRADE, REPLICATING }
 
@@ -24,20 +24,6 @@ interface ITeeRegistry {
         bytes32 platform;
     }
 
-    struct PauseForUpgrade {
-        address teeId;
-        address initialTeeId;
-    }
-
-    struct ReplicateTeeMachine {
-        TeeMachineWithAttestationData oldTeeMachine;
-        TeeMachineWithAttestationData newTeeMachine;
-    }
-
-    event PauseBeforeUpgradeMinDurationSecondsSet(
-        uint256 pauseBeforeUpgradeMinDurationSeconds
-    );
-
     event NewOwnerProposed(
         address indexed teeId,
         address indexed oldOwner,
@@ -53,6 +39,7 @@ interface ITeeRegistry {
         address indexed teeId,
         address indexed teeProxyId,
         address indexed owner,
+        uint256 extensionId,
         string url,
         bytes32 codeHash,
         bytes32 platform
@@ -66,21 +53,6 @@ interface ITeeRegistry {
         address indexed teeId
     );
 
-    event TeeMachinePausedForUpgrade(
-        address indexed teeId
-    );
-
-    event TeeMachineReplicationTriggered(
-        address indexed oldTeeId,
-        address indexed newTeeId,
-        uint256 teeUpgradeId
-    );
-
-    event TeeMachineReplicationConfirmed(
-        address indexed oldTeeId,
-        address indexed newTeeId
-    );
-
     event TeeProxyIdSet(
         address indexed teeId,
         address indexed teeProxyId
@@ -88,6 +60,7 @@ interface ITeeRegistry {
 
     /**
      * Register a new TEE machine. It also triggers availability check.
+     * @param _extensionId The id of the extension.
      * @param _teeId The TEE machine id.
      * @param _teeProxyId The TEE proxy id.
      * @param _url The TEE machine URL.
@@ -95,6 +68,7 @@ interface ITeeRegistry {
      * @param _platform The TEE machine platform.
      */
     function register(
+        uint256 _extensionId,
         address _teeId,
         address _teeProxyId,
         string calldata _url,
@@ -124,38 +98,6 @@ interface ITeeRegistry {
      * @param _proof The availability check proof.
      */
     function pauseWithProof(
-        ITeeAvailabilityCheck.Proof calldata _proof
-    )
-        external;
-
-    /**
-     * Pause a TEE machine for upgrade. It has to be paused for long enough time first.
-     * Can only be called by the TEE machine owner.
-     * @param _teeId The TEE machine id.
-     */
-    function toPauseForUpgrade(address _teeId)
-        external payable;
-
-    /**
-     * Replicate a TEE machine. Can only be called by the TEE machine owner.
-     * @param _oldTeeId The old TEE machine id.
-     * @param _proof The availability check proof for the new TEE machine.
-     * @param _teeUpgradeId The TEE upgrade id.
-     */
-    function replicateFrom(
-        address _oldTeeId,
-        ITeeAvailabilityCheck.Proof calldata _proof,
-        uint256 _teeUpgradeId
-    )
-        external payable;
-
-    /**
-     * Confirm the replication of a TEE machine. Can only be called by the TEE machines owner.
-     * @param _newTeeId The new TEE machine id.
-     * @param _proof The availability check proof for the new TEE machine with the old TEE id.
-     */
-    function confirmReplicate(
-        address _newTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         external;
@@ -222,29 +164,40 @@ interface ITeeRegistry {
 
     /**
      * Returns random active TEE machine ids.
+     * @param _extensionId The id of the extension.
      * @param _count The number of TEE machine ids to return.
      * @return The list of TEE machine ids.
      */
-    function getRandomTeeIds(uint256 _count)
+    function getRandomTeeIds(uint256 _extensionId, uint256 _count)
         external view
         returns(address[] memory);
 
-    /**
-     * Checks if the TEE machine platforms are compatible.
-     * @param _teeId1 The first TEE machine id.
-     * @param _teeId2 The second TEE machine id.
-     * @return True if the platforms are compatible.
-     */
-    function areTeeMachinesCompatible(address _teeId1, address _teeId2)
-        external view
-        returns(bool);
 
     /**
      * Get active TEE machines.
+     * @param _extensionId The id of the extension.
      * @return _teeIds The list of TEE machine ids.
      * @return _urls The list of TEE machine URLs.
      */
-    function getActiveTees()
+    function getActiveTees(uint256 _extensionId)
         external view
         returns(address[] memory _teeIds, string[] memory _urls);
+
+    /**
+     * Get the extension id for a TEE machine.
+     * @param _teeId The TEE machine id.
+     * @return The extension id.
+     */
+    function getExtensionId(address _teeId)
+        external view
+        returns (uint256);
+
+    /**
+     * Get the last status change timestamp for a TEE machine.
+     * @param _teeId The TEE machine id.
+     * @return The last status change timestamp.
+     */
+    function getLastStatusChangeTs(address _teeId)
+        external view
+        returns (uint256);
 }

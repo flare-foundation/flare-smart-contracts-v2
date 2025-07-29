@@ -11,7 +11,7 @@ contract TeeWalletManagerTest is Test {
 
     uint256 constant private P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
     bytes32 constant private SET_PAUSING_ADDRESSES = bytes32("SET_PAUSING_ADDRESSES");
-    bytes32 public constant WALLET_OP_TYPE = bytes32("WALLET");
+    bytes32 public constant WALLET_OP_TYPE = bytes32("F_WALLET");
     bytes32 public constant RESUME = bytes32("RESUME");
 
     TeeWalletManager private teeWalletManager;
@@ -22,7 +22,7 @@ contract TeeWalletManagerTest is Test {
     TeeInstructions private teeInstructionsImpl;
     TeeInstructionsProxy private teeInstructionsProxy;
 
-    address private mockTeeRegistry;
+    address private mockTeeMachineRegistry;
     address private mockTeeWalletProjectManager;
     address private mockTeeWalletKeyManager;
     address private mockFSM;
@@ -42,7 +42,7 @@ contract TeeWalletManagerTest is Test {
     event TeeInstructionsSent(
         bytes32 indexed instructionId,
         uint32 indexed rewardEpochId,
-        ITeeRegistry.TeeMachine[] teeMachines,
+        ITeeMachineRegistry.TeeMachine[] teeMachines,
         bytes32 opType,
         bytes32 opCommand,
         bytes message,
@@ -70,7 +70,7 @@ contract TeeWalletManagerTest is Test {
         mockTeeWalletProjectManager = makeAddr("teeWalletProjectManager");
         mockTeeWalletKeyManager = makeAddr("teeWalletKeyManager");
         mockFSM = makeAddr("flareSystemsManager");
-        mockTeeRegistry = makeAddr("teeRegistry");
+        mockTeeMachineRegistry = makeAddr("teeMachineRegistry");
         mockRewardManager = makeAddr("rewardManager");
         mockTeeFeeCalculator = makeAddr("teeFeeCalculator");
         teeInstructionsImpl = new TeeInstructions();
@@ -95,14 +95,14 @@ contract TeeWalletManagerTest is Test {
         contractNameHashes = new bytes32[](7);
         contractAddresses = new address[](7);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("TeeRegistry"));
+        contractNameHashes[1] = keccak256(abi.encode("TeeMachineRegistry"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[3] = keccak256(abi.encode("TeeFeeCalculator"));
         contractNameHashes[4] = keccak256(abi.encode("TeeInstructions"));
         contractNameHashes[5] = keccak256(abi.encode("TeeWalletProjectManager"));
         contractNameHashes[6] = keccak256(abi.encode("TeeWalletKeyManager"));
         contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = mockTeeRegistry;
+        contractAddresses[1] = mockTeeMachineRegistry;
         contractAddresses[2] = mockFSM;
         contractAddresses[3] = mockTeeFeeCalculator;
         contractAddresses[4] = address(teeInstructions);
@@ -528,7 +528,7 @@ contract TeeWalletManagerTest is Test {
     function testSetPausingAddresses() public {
         testEnableWallet();
         _mockCalculateFeeByWalletId(walletId, WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, 1234);
-        (ITeeRegistry.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         address[] memory pausingAddresses = new address[](2);
         pausingAddresses[0] = makeAddr("pausingAddress1");
@@ -635,7 +635,7 @@ contract TeeWalletManagerTest is Test {
         keyIds[0] = 1;
         keyIds[1] = 2;
         _mockGetWalletKeysInfo(walletId, 2, keyIds);
-        _mockGetTeeMachineStatus(ITeeRegistry.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PRODUCTION);
         bytes32 instructionId = keccak256(abi.encode(
             WALLET_OP_TYPE, RESUME, walletId, 0
         ));
@@ -644,7 +644,7 @@ contract TeeWalletManagerTest is Test {
             walletId,
             keysData
         );
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](keysData.length);
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](keysData.length);
         teeMachines[0] = _mockGetTeeMachine(makeAddr("tee1"));
         teeMachines[1] = _mockGetTeeMachine(makeAddr("tee2"));
         vm.prank(projectOwner);
@@ -698,9 +698,9 @@ contract TeeWalletManagerTest is Test {
         keyIds[0] = 1;
         keyIds[1] = 2;
         _mockGetWalletKeysInfo(walletId, 2, keyIds);
-        _mockGetTeeMachineStatus(ITeeRegistry.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PRODUCTION);
         _mockCalculateFeeByTeeIds(teeIds, WALLET_OP_TYPE, RESUME, 1234);
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](keysData.length);
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](keysData.length);
         teeMachines[0] = _mockGetTeeMachine(makeAddr("tee1"));
         teeMachines[1] = _mockGetTeeMachine(makeAddr("tee2"));
         vm.prank(projectOwner);
@@ -730,9 +730,9 @@ contract TeeWalletManagerTest is Test {
         keyIds[0] = 1;
         keyIds[1] = 3;
         _mockGetWalletKeysInfo(walletId, 2, keyIds);
-        _mockGetTeeMachineStatus(ITeeRegistry.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PRODUCTION);
         _mockCalculateFeeByTeeIds(teeIds, WALLET_OP_TYPE, RESUME, 1234);
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](keysData.length);
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](keysData.length);
         teeMachines[0] = _mockGetTeeMachine(makeAddr("tee1"));
         teeMachines[1] = _mockGetTeeMachine(makeAddr("tee2"));
         vm.prank(projectOwner);
@@ -762,9 +762,9 @@ contract TeeWalletManagerTest is Test {
         keyIds[0] = 1;
         keyIds[1] = 2;
         _mockGetWalletKeysInfo(walletId, 2, keyIds);
-        _mockGetTeeMachineStatus(ITeeRegistry.TeeStatus.PAUSED);
+        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PAUSED);
         _mockCalculateFeeByTeeIds(teeIds, WALLET_OP_TYPE, RESUME, 1234);
-        ITeeRegistry.TeeMachine[] memory teeMachines = new ITeeRegistry.TeeMachine[](keysData.length);
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](keysData.length);
         teeMachines[0] = _mockGetTeeMachine(makeAddr("tee1"));
         teeMachines[1] = _mockGetTeeMachine(makeAddr("tee2"));
         vm.prank(projectOwner);
@@ -830,13 +830,13 @@ contract TeeWalletManagerTest is Test {
     }
 
     function _mockReceivingTeesAndKeys() internal returns (
-        ITeeRegistry.TeeMachine[] memory,
+        ITeeMachineRegistry.TeeMachine[] memory,
         TeeIdKeyIdPair[] memory _teeIdKeyIdPairs
     ) {
-        ITeeRegistry.TeeMachine[] memory receivingTees = new ITeeRegistry.TeeMachine[](1);
+        ITeeMachineRegistry.TeeMachine[] memory receivingTees = new ITeeMachineRegistry.TeeMachine[](1);
         TeeIdKeyIdPair[] memory teeIdKeyIdPairs =
             new TeeIdKeyIdPair[](1);
-        receivingTees[0] = ITeeRegistry.TeeMachine({
+        receivingTees[0] = ITeeMachineRegistry.TeeMachine({
             teeId: makeAddr("teeId"),
             teeProxyId: makeAddr("teeProxyId"),
             url: "teeUrl"
@@ -869,25 +869,25 @@ contract TeeWalletManagerTest is Test {
         );
     }
 
-    function _mockGetTeeMachineStatus(ITeeRegistry.TeeStatus _status) internal {
+    function _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus _status) internal {
         vm.mockCall(
-            mockTeeRegistry,
-            abi.encodeWithSelector(ITeeRegistry.getTeeMachineStatus.selector),
+            mockTeeMachineRegistry,
+            abi.encodeWithSelector(ITeeMachineRegistry.getTeeMachineStatus.selector),
             abi.encode(_status)
         );
     }
 
     function _mockGetTeeMachine(
         address _teeId
-    ) internal  returns (ITeeRegistry.TeeMachine memory) {
-        ITeeRegistry.TeeMachine memory teeMachine = ITeeRegistry.TeeMachine({
+    ) internal  returns (ITeeMachineRegistry.TeeMachine memory) {
+        ITeeMachineRegistry.TeeMachine memory teeMachine = ITeeMachineRegistry.TeeMachine({
             teeId: _teeId,
             teeProxyId: makeAddr("teeProxyId"),
             url: "url"
         });
         vm.mockCall(
-            mockTeeRegistry,
-            abi.encodeWithSelector(ITeeRegistry.getTeeMachine.selector, _teeId),
+            mockTeeMachineRegistry,
+            abi.encodeWithSelector(ITeeMachineRegistry.getTeeMachine.selector, _teeId),
             abi.encode(teeMachine)
         );
         return teeMachine;

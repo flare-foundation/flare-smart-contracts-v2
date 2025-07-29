@@ -1,32 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../utils/implementation/AddressUpdatable.sol";
+import "./TeeBase.sol";
 import "../../userInterfaces/tee/ITeeInstructions.sol";
-import "../../protocol/interface/IIRewardManager.sol";
+import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import "../../utils/lib/AddressSet.sol";
-import "../../governance/implementation/GovernedProxyImplementation.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /**
  * TeeInstructions is used for issuing instructions (emitting events)
  * that data providers are listening to perform operations on TEE machines.
  */
-contract TeeInstructions is ITeeInstructions, GovernedProxyImplementation, AddressUpdatable, UUPSUpgradeable {
+contract TeeInstructions is ITeeInstructions, TeeBase {
     using AddressSet for AddressSet.State;
-
-    /// The RewardManager contract.
-    IIRewardManager public rewardManager;
 
     /// List of instruction initiator contracts.
     AddressSet.State internal instructionInitiators;
 
+    // TEE extension registry contract.
+    ITeeExtensionRegistry public teeExtensionRegistry;
+
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor()
-        GovernedProxyImplementation() AddressUpdatable(address(0))
-    { }
+    constructor() TeeBase() {}
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
@@ -39,8 +35,7 @@ contract TeeInstructions is ITeeInstructions, GovernedProxyImplementation, Addre
     )
         external
     {
-        GovernedBase.initialise(_governanceSettings, _initialGovernance);
-        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
+        TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
     }
 
     /**
@@ -48,8 +43,7 @@ contract TeeInstructions is ITeeInstructions, GovernedProxyImplementation, Addre
      */
     function sendInstructions(
         bytes32 _instructionId,
-        ITeeRegistry.TeeMachine[] memory _teeMachines,
-        uint24 _rewardEpochId,
+        address[] memory _teeIds,
         bytes32 _opType,
         bytes32 _opCommand,
         bytes memory _message
@@ -57,20 +51,18 @@ contract TeeInstructions is ITeeInstructions, GovernedProxyImplementation, Addre
         external payable
     {
         require(instructionInitiators.index[msg.sender] != 0, "only instruction initiators");
-        emit TeeInstructionsSent(
+        teeExtensionRegistry.sendInstructions{value: msg.value}(
             _instructionId,
-            _rewardEpochId,
-            _teeMachines,
+            0,
+            _teeIds,
             _opType,
             _opCommand,
-            _message,
-            msg.value
+            _message
         );
-        rewardManager.receiveRewards{value: msg.value} (_rewardEpochId, false);
     }
 
     /**
-     Registers instruction initiator contracts.
+     * Registers instruction initiator contracts.
      * @param _instructionInitiators List of contracts to register.
      * @dev Only governance can call this method.
      */
@@ -83,7 +75,7 @@ contract TeeInstructions is ITeeInstructions, GovernedProxyImplementation, Addre
     }
 
     /**
-     Unregisters instruction initiator contracts.
+     * Unregisters instruction initiator contracts.
      * @param _instructionInitiators List of contracts to unregister.
      * @dev Only governance can call this method.
      */
@@ -104,30 +96,6 @@ contract TeeInstructions is ITeeInstructions, GovernedProxyImplementation, Addre
         return instructionInitiators.list;
     }
 
-    /////////////////////////////// UUPS UPGRADABLE ///////////////////////////////
-
-    function implementation() external view returns (address) {
-        return ERC1967Utils.getImplementation();
-    }
-
-    /**
-     * @inheritdoc UUPSUpgradeable
-     * @dev Only governance can call this method.
-     */
-    function upgradeToAndCall(address newImplementation, bytes memory data)
-        public payable override
-        onlyGovernance
-        onlyProxy
-    {
-        super.upgradeToAndCall(newImplementation, data);
-    }
-
-    /**
-     * Unused. Present just to satisfy UUPSUpgradeable requirement.
-     * The real check is in onlyGovernance modifier on upgradeToAndCall.
-     */
-    function _authorizeUpgrade(address newImplementation) internal override {}
-
     /**
      * @inheritdoc AddressUpdatable
      */
@@ -137,6 +105,7 @@ contract TeeInstructions is ITeeInstructions, GovernedProxyImplementation, Addre
     )
         internal override
     {
-        rewardManager = IIRewardManager(_getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
+        teeExtensionRegistry = ITeeExtensionRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
     }
 }

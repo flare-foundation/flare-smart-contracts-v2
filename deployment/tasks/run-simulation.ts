@@ -65,35 +65,35 @@ const OFFERS = [
 ];
 
 export const TEE_PAYMENT_CONFIGURATIONS = [
-  {opType: "XRP", maxBatchSize: 1, maxBatchDurationSeconds: 0},
-  {opType: "BTC", maxBatchSize: 10, maxBatchDurationSeconds: 600},
-  {opType: "DOGE", maxBatchSize: 10, maxBatchDurationSeconds: 60},
-  {opType: "EVM", maxBatchSize: 1, maxBatchDurationSeconds: 0},
+  {opType: "F_XRP", maxBatchSize: 1, maxBatchDurationSeconds: 0},
+  {opType: "F_BTC", maxBatchSize: 10, maxBatchDurationSeconds: 600},
+  {opType: "F_DOGE", maxBatchSize: 10, maxBatchDurationSeconds: 60},
+  {opType: "F_EVM", maxBatchSize: 1, maxBatchDurationSeconds: 0},
 ];
 
 export const TEE_OPERATION_FEES = [
-  {opType: "REG", opCommand: "TEE_ATTESTATION", feeWei: "1"},
-  {opType: "REG", opCommand: "TO_PAUSE_FOR_UPGRADE", feeWei: "1"},
-  {opType: "REG", opCommand: "REPLICATE_FROM", feeWei: "1"},
-  {opType: "WALLET", opCommand: "KEY_GENERATE", feeWei: "1"},
-  {opType: "WALLET", opCommand: "KEY_DELETE", feeWei: "1"},
-  {opType: "WALLET", opCommand: "KEY_DATA_PROVIDER_RESTORE", feeWei: "1"},
-  {opType: "WALLET", opCommand: "KEY_DATA_PROVIDER_RESTORE_TEST", feeWei: "1"},
-  {opType: "WALLET", opCommand: "SET_PAUSING_ADDRESSES", feeWei: "1"},
-  {opType: "WALLET", opCommand: "RESUME", feeWei: "1"},
-  {opType: "XRP", opCommand: "PAY", feeWei: "1"},
-  {opType: "XRP", opCommand: "REISSUE", feeWei: "1"},
-  {opType: "XRP", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
-  {opType: "BTC", opCommand: "PAY", feeWei: "1"},
-  {opType: "BTC", opCommand: "REISSUE", feeWei: "1"},
-  {opType: "BTC", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
-  {opType: "DOGE", opCommand: "PAY", feeWei: "1"},
-  {opType: "DOGE", opCommand: "REISSUE", feeWei: "1"},
-  {opType: "DOGE", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
-  {opType: "EVM", opCommand: "PAY", feeWei: "1"},
-  {opType: "EVM", opCommand: "REISSUE", feeWei: "1"},
-  {opType: "EVM", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
-  {opType: "FTDC", opCommand: "PROVE", feeWei: "1"}
+  {opType: "F_REG", opCommand: "TEE_ATTESTATION", feeWei: "1"},
+  {opType: "F_REG", opCommand: "TO_PAUSE_FOR_UPGRADE", feeWei: "1"},
+  {opType: "F_REG", opCommand: "REPLICATE_FROM", feeWei: "1"},
+  {opType: "F_WALLET", opCommand: "KEY_GENERATE", feeWei: "1"},
+  {opType: "F_WALLET", opCommand: "KEY_DELETE", feeWei: "1"},
+  {opType: "F_WALLET", opCommand: "KEY_DATA_PROVIDER_RESTORE", feeWei: "1"},
+  {opType: "F_WALLET", opCommand: "KEY_DATA_PROVIDER_RESTORE_TEST", feeWei: "1"},
+  {opType: "F_WALLET", opCommand: "SET_PAUSING_ADDRESSES", feeWei: "1"},
+  {opType: "F_WALLET", opCommand: "RESUME", feeWei: "1"},
+  {opType: "F_XRP", opCommand: "PAY", feeWei: "1"},
+  {opType: "F_XRP", opCommand: "REISSUE", feeWei: "1"},
+  {opType: "F_XRP", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
+  {opType: "F_BTC", opCommand: "PAY", feeWei: "1"},
+  {opType: "F_BTC", opCommand: "REISSUE", feeWei: "1"},
+  {opType: "F_BTC", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
+  {opType: "F_DOGE", opCommand: "PAY", feeWei: "1"},
+  {opType: "F_DOGE", opCommand: "REISSUE", feeWei: "1"},
+  {opType: "F_DOGE", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
+  {opType: "F_EVM", opCommand: "PAY", feeWei: "1"},
+  {opType: "F_EVM", opCommand: "REISSUE", feeWei: "1"},
+  {opType: "F_EVM", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
+  {opType: "F_FTDC", opCommand: "PROVE", feeWei: "1"}
 ];
 
 let VOTING_EPOCH_DURATION_SEC: number;
@@ -355,13 +355,14 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
 
   // TEE
   logger.info(`Setting TEE governance ${teeGovernanceSigners.map(x => x.address)} with threshold ${teeGovernanceSignersThreshold}`);
-  await c.teeGovernance.setNewTeeGovernance(teeGovernanceSigners.map(x => x.address), teeGovernanceSignersThreshold, { from: governanceAccount.address });
-  const governanceHash = await c.teeGovernance.latestTeeGovernanceHash();
+  await c.teeGovernance.setNewTeeGovernance(0, teeGovernanceSigners.map(x => x.address), teeGovernanceSignersThreshold, { from: governanceAccount.address });
+  const governanceHash = await c.teeGovernance.getLatestTeeGovernanceHash(0);
   logger.info(`TEE governance hash: ${governanceHash}`);
 
   logger.info(`TEE_CODE_HASH: ${TEE_CODE_HASH}`);
-  const supportedPlatforms = [web3.utils.utf8ToHex("GOOGLE_TDX").padEnd(66, "0"), web3.utils.utf8ToHex("GOOGLE_AMD").padEnd(66, "0")]
-  await c.teeVersionManager.addNewTeeVersion(governanceHash, "v0.1.0", TEE_CODE_HASH, supportedPlatforms, { from: governanceAccount.address });
+  const supportedPlatforms = [web3.utils.utf8ToHex("GCP_INTEL_TDX").padEnd(66, "0"), web3.utils.utf8ToHex("GCP_AMD_SEV").padEnd(66, "0"), web3.utils.utf8ToHex("GCP_AMD_SEV_ES").padEnd(66, "0")];
+  await c.teeExtensionRegistry.addSupportedPlatforms(supportedPlatforms, { from: governanceAccount.address });
+  await c.teeExtensionRegistry.addTeeVersion(0, "v0.1.0", TEE_CODE_HASH, supportedPlatforms, ZERO_BYTES32, { from: governanceAccount.address });
 
   logger.info(`Registering TEEs with owner address: ${teeOwnerAccount.address}`);
   logger.info(`TEE_IDS: ${TEE_IDS}`);
@@ -370,7 +371,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   logger.info(`TEE_PLATFORMS: ${TEE_PLATFORMS}`);
   const rewardEpochId = (await c.flareSystemsManager.getCurrentRewardEpochId()).toString();
   for (let i = 0; i < TEE_IDS.length; i++) {
-    const tx = await c.teeRegistry.register(
+    const tx = await c.teeMachineRegistry.register(
+      0,
       TEE_IDS[i],
       TEE_PROXY_IDS[i],
       TEE_URLS[i],
@@ -380,14 +382,12 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     );
     const event = requiredEventArgsFrom(tx, c.teeVerification, "TeeAttestationRequested") as any;
     await time.increase(2);
-    const state = {
-        status: "0",
-        initialTeeId: TEE_IDS[i],
-        teeGovernanceHash: governanceHash,
-        nonce: 0,
-        pauseNonce: 0
+    const teeState = {
+        systemState: "0x",
+        systemStateVersion: ZERO_BYTES32,
+        state: "0x",
+        stateVersion: ZERO_BYTES32
     };
-    const stateString = web3.eth.abi.encodeParameters([TeeMachineState],[state]);
     const proof = {
       signatures: {
         signingPolicySignatures: "0x", // TODO
@@ -414,11 +414,11 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
         platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
         initialSigningPolicyId: rewardEpochId,
         lastSigningPolicyId: rewardEpochId,
-        stateHash: web3.utils.keccak256(stateString)
+        stateHash: web3.utils.keccak256(web3.eth.abi.encodeParameters([TeeState],[teeState]))
       },
-      state: stateString
+      state: teeState
     }
-    await c.teeRegistry.toProduction(proof, { from: teeOwnerAccount.address });
+    await c.teeMachineRegistry.toProduction(proof, { from: teeOwnerAccount.address });
   }
 
   const signingPolicies = new Map<number, ISigningPolicy>();
@@ -1035,35 +1035,30 @@ export function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {
   return SigningPolicy.hash(signingPolicy);
 }
 
-export const TeeMachineState = {
-    "components": [
-        {
-            "internalType": "enum IITeeStateVerifier.TeeMachineStatus",
-            "name": "status",
-            "type": "uint8"
-        },
-        {
-            "internalType": "address",
-            "name": "initialTeeId",
-            "type": "address"
-        },
-        {
-            "internalType": "bytes32",
-            "name": "teeGovernanceHash",
-            "type": "bytes32"
-        },
-        {
-            "internalType": "uint256",
-            "name": "nonce",
-            "type": "uint256"
-        },
-        {
-            "internalType": "uint256",
-            "name": "pauseNonce",
-            "type": "uint256"
-        }
-    ],
-    "internalType": "struct IITeeStateVerifier.TeeMachineState",
-    "name": "",
-    "type": "tuple"
+export const TeeState = {
+  "components": [
+    {
+      "internalType": "bytes",
+      "name": "systemState",
+      "type": "bytes"
+    },
+    {
+      "internalType": "bytes32",
+      "name": "systemStateVersion",
+      "type": "bytes32"
+    },
+    {
+      "internalType": "bytes",
+      "name": "state",
+      "type": "bytes"
+    },
+    {
+      "internalType": "bytes32",
+      "name": "stateVersion",
+      "type": "bytes32"
+    }
+  ],
+  "internalType": "struct ITeeAvailabilityCheck.TeeState",
+  "name": "",
+  "type": "tuple"
 };

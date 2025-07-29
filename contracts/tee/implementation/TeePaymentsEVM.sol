@@ -14,9 +14,7 @@ contract TeePaymentsEVM is ITeePaymentsEVM, TeePayments {
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor()
-        TeePayments()
-    { }
+    constructor() TeePayments() {}
 
     /**
      * @inheritdoc ITeePaymentsEVM
@@ -48,11 +46,10 @@ contract TeePaymentsEVM is ITeePaymentsEVM, TeePayments {
     }
 
     /**
-     * @inheritdoc IITeeWalletOpTypeConstants
+     * @inheritdoc ITeeWalletProjectOpTypeConstants
      */
-    function getOpTypeConstants(bytes32 _walletId) external view virtual override returns(bytes memory) {
-        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        uint256 chainId = projectChainId[projectId];
+    function getOpTypeConstants(bytes32 _projectId) external view virtual override returns(bytes memory) {
+        uint256 chainId = projectChainId[_projectId];
         require(chainId > 0, "chainId not set");
         return abi.encode(ITeePaymentsEVM.OpTypeConstantsEVM(chainId));
     }
