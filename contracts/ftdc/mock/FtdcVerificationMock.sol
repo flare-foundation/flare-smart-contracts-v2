@@ -65,7 +65,7 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
         address[] memory teeIds;
         // no verification
         if (returnActiveTeeIds) {
-            (teeIds,) = teeMachineRegistry.getActiveTees(0);
+            (teeIds,) = teeMachineRegistry.getActiveTeeMachines(0);
         } else {
             teeIds = signingTeeIds.list;
         }
@@ -85,7 +85,7 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
     {
         // no verification
         if (returnActiveTeeIds) {
-            (_signingTeeIds,) = teeMachineRegistry.getActiveTees(0);
+            (_signingTeeIds,) = teeMachineRegistry.getActiveTeeMachines(0);
         } else {
             _signingTeeIds = signingTeeIds.list;
         }

@@ -42,7 +42,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /// Relay contract.
     IRelay public relay;
 
-    mapping(uint256 extensionId => AddressSet.State) private activeTeeIds;
+    AddressSet.State private activeTeeIds;
+    mapping(uint256 extensionId => AddressSet.State) private extensionActiveTeeIds;
     mapping(address teeId => TeeMachineState) private teeMachineStates;
     /// Proposed new TEE owner.
     mapping(address teeId => address) public proposedTeeOwner;
@@ -133,13 +134,14 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         _validateAvailabilityCheckStatus(_proof.responseBody.status);
         _validateAvailabilityCheckTs(teeId, _proof.header.timestamp);
         require(teeVerification.verifyAvailabilityCheckProof(_proof), "invalid response data");
-        if(status == TeeStatus.INITIALIZED) {
+        if (status == TeeStatus.INITIALIZED) {
             state.initialSigningPolicyId = _proof.responseBody.initialSigningPolicyId;
         }
 
         state.status = TeeStatus.PRODUCTION;
         state.lastStatusChangeTs = block.timestamp;
-        activeTeeIds[state.extensionId].add(teeId);
+        extensionActiveTeeIds[state.extensionId].add(teeId);
+        activeTeeIds.add(teeId);
         teeVerification.confirmAvailability(_proof);
         emit TeeMachinePutIntoProduction(teeId);
     }
@@ -160,7 +162,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
 
         state.status = TeeStatus.PAUSED;
         state.lastStatusChangeTs = block.timestamp;
-        activeTeeIds[state.extensionId].remove(_teeId);
+        extensionActiveTeeIds[state.extensionId].remove(_teeId);
+        activeTeeIds.remove(_teeId);
         emit TeeMachinePaused(_teeId);
     }
 
@@ -185,7 +188,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
 
         state.status = TeeStatus.PAUSED_WITH_PROOF;
         state.lastStatusChangeTs = block.timestamp;
-        activeTeeIds[state.extensionId].remove(teeId);
+        extensionActiveTeeIds[state.extensionId].remove(teeId);
+        activeTeeIds.remove(teeId);
         emit TeeMachinePaused(teeId);
     }
 
@@ -286,7 +290,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         // put TEE machine into production
         oldState.status = TeeStatus.PRODUCTION;
         oldState.lastStatusChangeTs = block.timestamp;
-        activeTeeIds[oldState.extensionId].add(oldTeeId);
+        extensionActiveTeeIds[oldState.extensionId].add(oldTeeId);
+        activeTeeIds.add(oldTeeId);
         teeVerification.confirmAvailability(_proof);
         emit TeeMachinePutIntoProduction(oldTeeId);
     }
@@ -357,7 +362,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         external view
         returns(address[] memory _teeIds)
     {
-        uint256 length = activeTeeIds[_extensionId].list.length;
+        uint256 length = extensionActiveTeeIds[_extensionId].list.length;
         require (_count <= length, "too many");
         (uint256 randomNumber,,) = relay.getRandomNumber();
 
@@ -377,18 +382,33 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         // Copy tee ids for random indices
         _teeIds = new address[](_count);
         for (uint256 i = 0; i < _count; i++) {
-            _teeIds[i] = activeTeeIds[_extensionId].list[indices[i]];
+            _teeIds[i] = extensionActiveTeeIds[_extensionId].list[indices[i]];
         }
     }
 
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function getActiveTees(uint256 _extensionId)
+    function getAllActiveTeeMachines()
         external view
         returns(address[] memory _teeIds, string[] memory _urls)
     {
-        _teeIds = activeTeeIds[_extensionId].list;
+        _teeIds = activeTeeIds.list;
+        uint256 length = _teeIds.length;
+        _urls = new string[](length);
+        for (uint256 i = 0; i < length; i++) {
+            _urls[i] = teeMachineStates[_teeIds[i]].url;
+        }
+    }
+
+    /**
+     * @inheritdoc ITeeMachineRegistry
+     */
+    function getActiveTeeMachines(uint256 _extensionId)
+        external view
+        returns(address[] memory _teeIds, string[] memory _urls)
+    {
+        _teeIds = extensionActiveTeeIds[_extensionId].list;
         uint256 length = _teeIds.length;
         _urls = new string[](length);
         for (uint256 i = 0; i < length; i++) {

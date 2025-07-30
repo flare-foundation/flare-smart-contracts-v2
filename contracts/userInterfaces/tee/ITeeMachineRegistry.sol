@@ -181,6 +181,14 @@ interface ITeeMachineRegistry {
         external view
         returns(address[] memory);
 
+    /**
+     * Get all active TEE machines.
+     * @return _teeIds The list of TEE machine ids.
+     * @return _urls The list of TEE machine URLs.
+     */
+    function getAllActiveTeeMachines()
+        external view
+        returns(address[] memory _teeIds, string[] memory _urls);
 
     /**
      * Get active TEE machines.
@@ -188,7 +196,7 @@ interface ITeeMachineRegistry {
      * @return _teeIds The list of TEE machine ids.
      * @return _urls The list of TEE machine URLs.
      */
-    function getActiveTees(uint256 _extensionId)
+    function getActiveTeeMachines(uint256 _extensionId)
         external view
         returns(address[] memory _teeIds, string[] memory _urls);
 

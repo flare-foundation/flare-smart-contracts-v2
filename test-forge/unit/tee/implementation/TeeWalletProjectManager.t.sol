@@ -317,7 +317,7 @@ contract TeeWalletProjectManagerTest is Test {
         vm.mockCall(
             mockTeeWalletManager,
             abi.encodeWithSelector(
-                ITeeExtensionRegistry.isOpTypeSupported.selector,
+                ITeeExtensionRegistry.isWalletProjectOpTypeSupported.selector,
                 _opType
             ),
             abi.encode(_isSupported)

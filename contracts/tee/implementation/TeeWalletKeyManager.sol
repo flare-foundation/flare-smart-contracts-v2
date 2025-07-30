@@ -114,8 +114,14 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         returns (uint64 _keyId)
     {
         _checkTeeStatus(_teeId);
-        TeeWalletKeysState storage keys = walletKeys[_walletId];
         _checkWalletStatus(_walletId, ITeeWalletManager.WalletStatus.INITIALIZED);
+        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
+        uint256 extensionId = teeWalletProjectManager.getExtensionId(projectId);
+        require(
+            extensionId == teeMachineRegistry.getExtensionId(_teeId),
+            "invalid extension id"
+        );
+        TeeWalletKeysState storage keys = walletKeys[_walletId];
         _keyId = keys.keyIdCounter++;
 
         emit WalletKeyAdded(_teeId, _walletId, _keyId);
@@ -125,7 +131,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         (address[] memory cosigners, uint64 cosignersThreshold) =
             teeWalletManager.getWalletCosignersAndThreshold(_walletId);
 
-        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         KeyGenerate memory message = KeyGenerate({
             teeId: _teeId,
             walletId: _walletId,
@@ -143,7 +148,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             WALLET_OP_TYPE, KEY_GENERATE, _walletId, _keyId
         ));
 
-        _sendInstructions(instructionId, _teeId, KEY_GENERATE, abi.encode(message));
+        _sendInstructions(instructionId, _teeId, extensionId, KEY_GENERATE, abi.encode(message));
     }
 
     /**
@@ -234,6 +239,12 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         onlyOwner(_walletId)
     {
         _checkTeeStatus(_teeId);
+        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
+        uint256 extensionId = teeWalletProjectManager.getExtensionId(projectId);
+        require(
+            extensionId == teeMachineRegistry.getExtensionId(_teeId),
+            "invalid extension id"
+        );
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
         require(keyDefinition.publicKey.length > 0, "invalid key id");
@@ -265,7 +276,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             WALLET_OP_TYPE, KEY_DELETE, _walletId, _keyId, keyDeleteCounter[_walletId][_keyId]++
         ));
 
-        _sendInstructions(instructionId, _teeId, KEY_DELETE, abi.encode(message));
+        _sendInstructions(instructionId, _teeId, extensionId, KEY_DELETE, abi.encode(message));
     }
 
     /**
@@ -430,6 +441,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     function _sendInstructions(
         bytes32 _instructionId,
         address _teeId,
+        uint256 _extensionId,
         bytes32 _opCommand,
         bytes memory _message
     )
@@ -439,7 +451,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         teeIds[0] = _teeId;
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             _instructionId,
-            teeMachineRegistry.getExtensionId(_teeId),
+            _extensionId,
             teeIds,
             WALLET_OP_TYPE,
             _opCommand,

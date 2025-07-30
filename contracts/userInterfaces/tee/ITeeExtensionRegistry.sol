@@ -73,30 +73,6 @@ interface ITeeExtensionRegistry {
     );
 
     /**
-     * Register a new TEE extension.
-     * @param _teeExtensionStateVerifier The TEE extension state verifier contract.
-     * @param _teeExtensionInstructionsSender The address that can send instructions to the TEE machines.
-     */
-    function register(
-        ITeeExtensionStateVerifier _teeExtensionStateVerifier,
-        address _teeExtensionInstructionsSender
-    )
-        external payable;
-
-    /**
-     * Set the extension contracts for a given extension id.
-     * @param _extensionId The id of the extension.
-     * @param _teeExtensionStateVerifier The TEE extension state verifier contract.
-     * @param _teeExtensionInstructionsSender The address that can send instructions to the TEE machines.
-     */
-    function setExtensionContracts(
-        uint256 _extensionId,
-        ITeeExtensionStateVerifier _teeExtensionStateVerifier,
-        address _teeExtensionInstructionsSender
-    )
-        external;
-
-    /**
      * Send instructions to the TEE machines.
      * Emits a TeeInstructionsSent event.
      * @param _instructionId The instruction ID.
@@ -117,6 +93,87 @@ interface ITeeExtensionRegistry {
         external payable;
 
     /**
+     * Register a new TEE extension.
+     * @param _teeExtensionStateVerifier The TEE extension state verifier contract.
+     * @param _teeExtensionInstructionsSender The address that can send instructions to the TEE machines.
+     */
+    function register(
+        ITeeExtensionStateVerifier _teeExtensionStateVerifier,
+        address _teeExtensionInstructionsSender
+    )
+        external payable;
+
+    /**
+     * Set the extension contracts for a given extension id.
+     * @param _extensionId The id of the extension.
+     * @param _teeExtensionStateVerifier The TEE extension state verifier contract.
+     * @param _teeExtensionInstructionsSender The address that can send instructions to the TEE machines.
+     * Can only be called by the extension owner.
+     */
+    function setExtensionContracts(
+        uint256 _extensionId,
+        ITeeExtensionStateVerifier _teeExtensionStateVerifier,
+        address _teeExtensionInstructionsSender
+    )
+        external;
+
+    /**
+     * Add a new TEE version.
+     * @param _extensionId The id of the extension.
+     * @param _version The version.
+     * @param _codeHash The code hash.
+     * @param _platforms The supported platforms.
+     * @param _governanceHash The governance hash.
+     * Can only be called by the extension owner.
+     */
+    function addTeeVersion(
+        uint256 _extensionId,
+        string calldata _version,
+        bytes32 _codeHash,
+        bytes32[] calldata _platforms,
+        bytes32 _governanceHash
+    )
+        external;
+
+    /**
+     * Disable a TEE code hash and platform.
+     * @param _extensionId The id of the extension.
+     * @param _codeHash The code hash.
+     * @param _platform The platform to disable. If empty, all platforms will be disabled.
+     * Can only be called by the extension owner.
+     */
+    function disableCodeHashPlatform(
+        uint256 _extensionId,
+        bytes32 _codeHash,
+        bytes32 _platform
+    )
+        external;
+
+    /**
+     * Add or update supported wallet project operation types and their constants providers.
+     * @param _extensionId The id of the extension.
+     * @param _opTypeConstantsProviders The operation type constants providers for the operation types.
+     * Can only be called by the extension owner.
+     */
+    function addOrUpdateSupportedWalletProjectOpTypes(
+        uint256 _extensionId,
+        ITeeWalletProjectOpTypeConstants[] calldata _opTypeConstantsProviders
+    )
+        external;
+
+    /**
+     * Remove supported wallet project operation types.
+     * @param _extensionId The id of the extension.
+     * @param _opTypes The operation types to remove.
+     * Can only be called by the extension owner.
+     */
+    function removeSupportedWalletProjectOpTypes(
+        uint256 _extensionId,
+        bytes32[] memory _opTypes
+    )
+        external;
+
+    /**
      * Propose a new owner for the extension. Can only be called by the current owner.
      * It is a two-step process, the new owner has to confirm the ownership.
      * @param _extensionId The id of the extension.
@@ -131,6 +188,20 @@ interface ITeeExtensionRegistry {
      */
     function confirmOwnership(uint256 _extensionId)
         external;
+
+    /**
+     * Get number of registered TEE extensions.
+     * @return The number of registered TEE extensions.
+     */
+    function extensionsCounter()
+        external view
+        returns (uint256);
+
+    /**
+     * Get system instruction initiators.
+     * @return The list of system instruction initiators.
+     */
+    function getSystemInstructionInitiators() external view returns(address[] memory);
 
     /**
      * Get the owner of a TEE extension.
@@ -160,13 +231,13 @@ interface ITeeExtensionRegistry {
         returns (address);
 
     /**
-     * Get TEE operation type constants provider for the specified extension and operation type.
+     * Get wallet project operation type constants provider for the specified extension and operation type.
      * @param _extensionId The id of the extension.
      * @param _opType The operation type.
-     * @return The TEE operation type constants provider.
+     * @return The wallet project operation type constants provider.
      * NOTE: Should revert if the operation type constants provider is not set.
      */
-    function getOpTypeConstantsProvider(
+    function getWalletProjectOpTypeConstantsProvider(
         uint256 _extensionId,
         bytes32 _opType
     )
@@ -174,19 +245,23 @@ interface ITeeExtensionRegistry {
         returns (ITeeWalletProjectOpTypeConstants);
 
     /**
-     * Returns supported operation types for the given extension.
+     * Returns supported wallet project operation types for the given extension.
      * @param _extensionId The id of the extension.
      * @return _supportedOpTypes The supported operation types.
      */
-    function getSupportedOpTypes(uint256 _extensionId) external view returns (bytes32[] memory _supportedOpTypes);
+    function getSupportedWalletProjectOpTypes(
+        uint256 _extensionId
+    )
+        external view
+        returns (bytes32[] memory _supportedOpTypes);
 
     /**
-     * Checks if operation type is supported for the given extension.
+     * Checks if wallet project operation type is supported for the given extension.
      * @param _extensionId The id of the extension.
      * @param _opType The operation type.
      * @return True if the operation type is supported.
      */
-    function isOpTypeSupported(uint256 _extensionId, bytes32 _opType)
+    function isWalletProjectOpTypeSupported(uint256 _extensionId, bytes32 _opType)
         external view
         returns (bool);
 

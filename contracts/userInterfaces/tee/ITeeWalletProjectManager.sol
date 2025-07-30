@@ -84,6 +84,13 @@ interface ITeeWalletProjectManager {
     function getOwner(bytes32 _projectId) external view returns (address _owner);
 
     /**
+     * Returns the project extension id.
+     * @param _projectId The project id.
+     * @return _extensionId The extension id.
+     */
+    function getExtensionId(bytes32 _projectId) external view returns (uint256 _extensionId);
+
+    /**
      * Returns the project operation type.
      * @param _projectId The project id.
      * @return _opType The operation type.

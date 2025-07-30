@@ -78,21 +78,28 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
             teeMachineRegistry.getTeeMachineStatus(_backupId.teeId) != ITeeMachineRegistry.TeeStatus.INITIALIZED,
             "invalid tee machine"
         );
-        require(
-            teeMachineRegistry.getExtensionId(_teeId) == teeMachineRegistry.getExtensionId(_backupId.teeId),
-            "invalid tee machine extension"
-        );
         require(!_isKeyAvailable(_teeId, _backupId.walletId, _backupId.keyId), "key already available");
         bytes memory publicKey = teeWalletKeyManager.getWalletKeyPublicKey(_backupId.walletId, _backupId.keyId);
         require(publicKey.length > 0, "key not confirmed");
         require(keccak256(publicKey) == keccak256(_backupId.publicKey), "invalid public key");
-        bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_backupId.walletId));
-        require(opType == _backupId.opType, "invalid op type");
         require(
             teeMachineRegistry.getInitialSigningPolicyId(_teeId) <= _backupId.rewardEpochId,
             "unsupported reward epoch id"
         );
-        require(_backupId.rewardEpochId <= flareSystemsManager.getCurrentRewardEpochId(), "invalid reward epoch id");
+        // backups are created at the time of relaying new signing policy,
+        // which is usually before the next reward epoch starts - so we can allow `current + 1`
+        require(
+            _backupId.rewardEpochId <= flareSystemsManager.getCurrentRewardEpochId() + 1,
+            "invalid reward epoch id"
+        );
+        bytes32 projectId = teeWalletManager.getWalletProjectId(_backupId.walletId);
+        require(teeWalletProjectManager.getOpType(projectId) == _backupId.opType, "invalid op type");
+        uint256 extensionId = teeWalletProjectManager.getExtensionId(projectId);
+        require(
+            extensionId == teeMachineRegistry.getExtensionId(_backupId.teeId) &&
+            extensionId == teeMachineRegistry.getExtensionId(_teeId),
+            "invalid extension id"
+        );
         bytes32 opCommand = _test ? KEY_DATA_PROVIDER_RESTORE_TEST : KEY_DATA_PROVIDER_RESTORE;
         // restored flag in KeyExistence proof will always be set to true after this call
         // in case of a test restore, nonce should be 0, so that the key cannot be confirmed on-chain
@@ -104,15 +111,15 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
             backupUrl: _backupUrl,
             nonce: _test ? 0 : teeWalletKeyManager.increaseKeyNonce(_teeId, _backupId.walletId, _backupId.keyId)
         });
+        uint256 counter = dataProviderRestoreCounter[_backupId.walletId][_backupId.keyId]++;
         bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, opCommand, _backupId.walletId, _backupId.keyId,
-            dataProviderRestoreCounter[_backupId.walletId][_backupId.keyId]++
+            WALLET_OP_TYPE, opCommand, _backupId.walletId, _backupId.keyId, counter
         ));
         address[] memory teeIds = new address[](1);
         teeIds[0] = _teeId;
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             instructionId,
-            teeMachineRegistry.getExtensionId(teeIds[0]),
+            extensionId,
             teeIds,
             WALLET_OP_TYPE,
             opCommand,

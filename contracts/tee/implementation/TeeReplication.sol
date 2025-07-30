@@ -141,7 +141,6 @@ contract TeeReplication is ITeeReplication, TeeBase {
         _validateAvailabilityCheckTs(newTeeId, _proof.header.timestamp);
         require(teeVerification.verifyAvailabilityCheckProof(_proof), "invalid response data");
 
-
         replications[_oldTeeId] = newTeeId;
         teeMachineRegistry.changeStatus(newTeeId, ITeeMachineRegistry.TeeStatus.REPLICATING);
 

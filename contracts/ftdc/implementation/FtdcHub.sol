@@ -87,6 +87,16 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
                 _numberOfTees = defaultNumberOfTees;
             }
             _teeIds = teeMachineRegistry.getRandomTeeIds(0, _numberOfTees);
+            // all random tee machines are in PRODUCTION status, so we don't need to check their status
+        } else {
+            // Check that the TEE machines are not paused for upgrade.
+            for (uint256 i = 0; i < _teeIds.length; i++) {
+                require(
+                    teeMachineRegistry.getTeeMachineStatus(_teeIds[i]) !=
+                        ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE,
+                    "tee machine not available"
+                );
+            }
         }
         // Send the fee to the reward manager.
         uint256 fee = ftdcRequestFeeConfigurations.getTypeAndSourceFee(_attestationType, _sourceId);

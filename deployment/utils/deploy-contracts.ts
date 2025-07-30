@@ -831,7 +831,7 @@ export async function deployContracts(
     { from: governanceAccount.address }
   );
 
-  await teeExtensionRegistry.addOrUpdateSupportedOpTypes(
+  await teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(
     0, teePaymentsList.map(teePayments => teePayments.address),
     { from: governanceAccount.address }
   );

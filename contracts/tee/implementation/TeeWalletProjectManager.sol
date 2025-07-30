@@ -14,7 +14,7 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
 
     struct TeeWalletProjectState {
         address owner;
-        uint256 extensionId; // TEE extension id
+        uint256 extensionId;
         bytes32 opType;
         address submitAddress;
         address backupManager;
@@ -68,7 +68,7 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
         returns (bytes32 _projectId)
     {
         require(teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(_extensionId, msg.sender), "owner not allowed");
-        require(teeExtensionRegistry.isOpTypeSupported(_extensionId, _opType), "op type not supported");
+        require(teeExtensionRegistry.isWalletProjectOpTypeSupported(_extensionId, _opType), "op type not supported");
         require(_submitAddress != address(0), "submit address zero");
         _projectId = keccak256(abi.encode("PROJECT", msg.sender, ++projectCounter));
         TeeWalletProjectState storage project = projects[_projectId];
@@ -147,6 +147,16 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletProjectManager
      */
+    function getExtensionId(bytes32 _projectId)
+        external view
+        returns (uint256 _extensionId)
+    {
+        return projects[_projectId].extensionId;
+    }
+
+    /**
+     * @inheritdoc ITeeWalletProjectManager
+     */
     function getOpType(bytes32 _projectId)
         external view
         returns (bytes32 _opType)
@@ -193,7 +203,7 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     function getOpTypeConstants(bytes32 _projectId) external view returns(bytes memory) {
         TeeWalletProjectState storage project = projects[_projectId];
         ITeeWalletProjectOpTypeConstants opTypeConstantsProvider =
-            teeExtensionRegistry.getOpTypeConstantsProvider(project.extensionId, project.opType);
+            teeExtensionRegistry.getWalletProjectOpTypeConstantsProvider(project.extensionId, project.opType);
         return opTypeConstantsProvider.getOpTypeConstants(_projectId);
     }
 

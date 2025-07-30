@@ -696,7 +696,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         // set extension contracts
         await teeExtensionRegistry.setExtensionContracts(0, constants.ZERO_ADDRESS, teeInstructions.address);
         // set supported operation types
-        await teeExtensionRegistry.addOrUpdateSupportedOpTypes(0, [teePayments.address, teePaymentsEVM.address]);
+        await teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(0, [teePayments.address, teePaymentsEVM.address]);
         // set supported platforms
         await teeExtensionRegistry.addSupportedPlatforms(TEE_PLATFORMS.map(platform => web3.utils.utf8ToHex(platform).padEnd(66, "0")));
         // register system instruction initiators

@@ -60,7 +60,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     EnumerableSet.Bytes32Set private supportedPlatforms;
 
     /// Extensions counter.
-    uint256 public extensionCounter;
+    uint256 public extensionsCounter;
     mapping(uint256 extensionId => TeeExtension) private extensions;
 
     /// Proposed new extension owner.
@@ -88,17 +88,63 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         external
     {
         TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
-        extensionCounter++; // Extension 0 is system-owned.
+        extensionsCounter++; // Extension 0 is system-owned.
     }
 
-    function addSupportedPlatforms(bytes32[] calldata _platforms)
-        external onlyGovernance
+    /**
+     * @inheritdoc ITeeExtensionRegistry
+     */
+    function sendInstructions(
+        bytes32 _instructionId,
+        uint256 _extensionId,
+        address[] memory _teeIds,
+        bytes32 _opType,
+        bytes32 _opCommand,
+        bytes memory _message
+    )
+        external payable
     {
-        for (uint256 i = 0; i < _platforms.length; i++) {
-            require(_platforms[i] != bytes32(0), "platform empty");
-            require(supportedPlatforms.add(_platforms[i]), "platform already exists");
-            emit PlatformAdded(_platforms[i]);
+        bool isSystemOpType = _isSystemOpType(_opType);
+        if (!systemInstructionInitiators.contains(msg.sender)) {
+            require(msg.sender == extensions[_extensionId].teeExtensionInstructionsSender, "only instructions sender");
+            require(_extensionId == 0 || !isSystemOpType, "system op type not allowed");
         }
+        require(_instructionId != bytes32(0), "instruction ID empty");
+        require(_teeIds.length > 0, "no TEE machines specified");
+        require(_opType != bytes32(0), "operation type empty");
+        require(_opCommand != bytes32(0), "operation command empty");
+        require(_message.length > 0, "message empty");
+
+        // Check fee
+        require(teeFeeCalculator.calculateFeeByTeeIds(_opType, _opCommand, _teeIds) <= msg.value, "fee too low");
+
+        // Get the TEE machines and check their status and extension id.
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](_teeIds.length);
+        for (uint256 i = 0; i < _teeIds.length; i++) {
+            if (!isSystemOpType) {
+                require(
+                    teeMachineRegistry.getTeeMachineStatus(_teeIds[i]) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
+                    "tee machine not available"
+                );
+            }
+            require(teeMachineRegistry.getExtensionId(_teeIds[i]) == _extensionId, "extension id mismatch");
+            teeMachines[i] = teeMachineRegistry.getTeeMachine(_teeIds[i]);
+        }
+
+        // send fee to the reward manager
+        uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        rewardManager.receiveRewards{value: msg.value}(currentRewardEpochId, false);
+
+        // emit the event
+        emit TeeInstructionsSent(
+            _instructionId,
+            currentRewardEpochId,
+            teeMachines,
+            _opType,
+            _opCommand,
+            _message,
+            msg.value
+        );
     }
 
     /**
@@ -111,7 +157,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         external payable
     {
         require(_teeExtensionInstructionsSender != address(0), "invalid instructions sender");
-        uint256 extensionId = extensionCounter++;
+        uint256 extensionId = extensionsCounter++;
         TeeExtension storage newExtension = extensions[extensionId];
         newExtension.owner = msg.sender;
         newExtension.teeExtensionStateVerifier = _teeExtensionStateVerifier;
@@ -139,65 +185,6 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
 
     /**
      * @inheritdoc ITeeExtensionRegistry
-     */
-    function sendInstructions(
-        bytes32 _instructionId,
-        uint256 _extensionId,
-        address[] memory _teeIds,
-        bytes32 _opType,
-        bytes32 _opCommand,
-        bytes memory _message
-    )
-        external payable
-    {
-        if(!systemInstructionInitiators.contains(msg.sender)) {
-            require(msg.sender == extensions[_extensionId].teeExtensionInstructionsSender, "only instructions sender");
-            require(_extensionId == 0 || !_isSystemOpType(_opType), "system op type not allowed");
-        }
-        require(_instructionId != bytes32(0), "instruction ID empty");
-        require(_teeIds.length > 0, "no TEE machines specified");
-        require(_opType != bytes32(0), "operation type empty");
-        require(_opCommand != bytes32(0), "operation command empty");
-        require(_message.length > 0, "message empty");
-
-        // Check fee
-        require(teeFeeCalculator.calculateFeeByTeeIds(_opType, _opCommand, _teeIds) <= msg.value, "fee too low");
-
-        // Get the TEE machines and check their status and extension ID.
-        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](_teeIds.length);
-        for (uint256 i = 0; i < _teeIds.length; i++) {
-            require(
-                teeMachineRegistry.getTeeMachineStatus(_teeIds[i]) != ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE,
-                 "TEE machine not available"
-            );
-            require(teeMachineRegistry.getExtensionId(_teeIds[i]) == _extensionId, "extension ID mismatch");
-            teeMachines[i] = teeMachineRegistry.getTeeMachine(_teeIds[i]);
-        }
-
-        // send fee to the reward manager
-        uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        rewardManager.receiveRewards{value: msg.value}(currentRewardEpochId, false);
-
-        // emit the event
-        emit TeeInstructionsSent(
-            _instructionId,
-            currentRewardEpochId,
-            teeMachines,
-            _opType,
-            _opCommand,
-            _message,
-            msg.value
-        );
-    }
-
-    /**
-     * Add a new TEE version.
-     * @param _extensionId The id of the extension.
-     * @param _version The version.
-     * @param _codeHash The code hash.
-     * @param _platforms The supported platforms.
-     * @param _governanceHash The governance hash.
-     * Can only be called by the extension owner.
      */
     function addTeeVersion(
         uint256 _extensionId,
@@ -232,11 +219,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     }
 
     /**
-     * Disable a TEE code hash and platform.
-     * @param _extensionId The id of the extension.
-     * @param _codeHash The code hash.
-     * @param _platform The platform to disable. If empty, all platforms will be disabled.
-     * Can only be called by the extension owner.
+     * @inheritdoc ITeeExtensionRegistry
      */
     function disableCodeHashPlatform(
         uint256 _extensionId,
@@ -266,12 +249,9 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     }
 
     /**
-     * Add or update supported operation types and their constants providers.
-     * @param _extensionId The id of the extension.
-     * @param _opTypeConstantsProviders The operation type constants providers for the operation types.
-     * Can only be called by the governance.
+     * @inheritdoc ITeeExtensionRegistry
      */
-    function addOrUpdateSupportedOpTypes(
+    function addOrUpdateSupportedWalletProjectOpTypes(
         uint256 _extensionId,
         ITeeWalletProjectOpTypeConstants[] calldata _opTypeConstantsProviders
     )
@@ -292,12 +272,9 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     }
 
     /**
-     * Remove supported operation types.
-     * @param _extensionId The id of the extension.
-     * @param _opTypes The operation types to remove.
-     * Can only be called by the governance.
+     * @inheritdoc ITeeExtensionRegistry
      */
-    function removeSupportedOpTypes(
+    function removeSupportedWalletProjectOpTypes(
         uint256 _extensionId,
         bytes32[] memory _opTypes
     )
@@ -342,6 +319,21 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     }
 
     /**
+     * Registers supported platforms.
+     * @param _platforms List of platforms to add.
+     * @dev Only governance can call this method.
+     */
+    function addSupportedPlatforms(bytes32[] calldata _platforms)
+        external onlyGovernance
+    {
+        for (uint256 i = 0; i < _platforms.length; i++) {
+            require(_platforms[i] != bytes32(0), "platform empty");
+            require(supportedPlatforms.add(_platforms[i]), "platform already exists");
+            emit PlatformAdded(_platforms[i]);
+        }
+    }
+
+    /**
      * Registers system instruction initiator contracts.
      * @param _instructionInitiators List of contracts to register.
      * @dev Only governance can call this method.
@@ -371,6 +363,9 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         }
     }
 
+    /**
+     * @inheritdoc ITeeExtensionRegistry
+     */
     function getSystemInstructionInitiators() external view returns(address[] memory) {
         return systemInstructionInitiators.values();
     }
@@ -408,7 +403,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function getOpTypeConstantsProvider(
+    function getWalletProjectOpTypeConstantsProvider(
         uint256 _extensionId,
         bytes32 _opType
     )
@@ -422,7 +417,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function getSupportedOpTypes(
+    function getSupportedWalletProjectOpTypes(
         uint256 _extensionId
     )
         external view
@@ -434,7 +429,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function isOpTypeSupported(
+    function isWalletProjectOpTypeSupported(
         uint256 _extensionId,
         bytes32 _opType
     )
