@@ -185,7 +185,6 @@ contract FtdcHubTest is Test {
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PRODUCTION);
         teeIds = new address[](1);
         teeIds[0] = teeId;
-        _mockCalculateFeeByTeeIds(teeIds, 15);
         vm.expectRevert("fee to low");
         ftdcHub.requestAttestation{value: requestFee + 15 - 1} (
             minThresholdBIPS, 1, teeIds, new address[](0), 0, "", "", ""
@@ -199,7 +198,6 @@ contract FtdcHubTest is Test {
         address[] memory teeIdsForFee = new address[](2);
         teeIdsForFee[0] = teeIds[0];
         teeIdsForFee[1] = teeIds[1];
-        _mockCalculateFeeByTeeIds(teeIdsForFee, 15);
         _mockGetCurrentRewardEpochId(123);
         bytes32 attestationType = "PMWPaymentStatus";
         bytes32 sourceId = "XRP";
@@ -246,7 +244,6 @@ contract FtdcHubTest is Test {
             abi.encode(teeIdsForFee)
         );
 
-        _mockCalculateFeeByTeeIds(teeIdsForFee, 15);
         _mockGetCurrentRewardEpochId(123);
         bytes32 attestationType = "PMWPaymentStatus";
         bytes32 sourceId = "XRP";
@@ -293,7 +290,6 @@ contract FtdcHubTest is Test {
         address[] memory teeIdsForFee = new address[](2);
         teeIdsForFee[0] = teeIds[0];
         teeIdsForFee[1] = teeIds[1];
-        _mockCalculateFeeByTeeIds(teeIdsForFee, 15);
         _mockGetCurrentRewardEpochId(123);
         bytes32 attestationType = "PMWPaymentStatus";
         bytes32 sourceId = "XRP";
@@ -334,19 +330,6 @@ contract FtdcHubTest is Test {
                 _teeId
             ),
             abi.encode(_status)
-        );
-    }
-
-    function _mockCalculateFeeByTeeIds(address[] memory _teeIds, uint256 _fee) internal {
-        vm.mockCall(
-            mockTeeFeeCalculator,
-            abi.encodeWithSelector(
-                ITeeFeeCalculator.calculateFeeByTeeIds.selector,
-                FTDC_OP_TYPE,
-                PROVE,
-                _teeIds
-            ),
-            abi.encode(_fee)
         );
     }
 

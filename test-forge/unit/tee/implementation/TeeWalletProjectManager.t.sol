@@ -88,7 +88,7 @@ contract TeeWalletProjectManagerTest is Test {
         _mockIsOpTypeSupported(opType, false);
         vm.prank(projectOwner1);
         vm.expectRevert("op type not supported");
-        teeWalletProjectManager.createProject(opType, submitAddress1);
+        teeWalletProjectManager.createProject(0, opType, submitAddress1);
     }
 
     function testCreateProjectRevertOwnerNotAllowed() public {
@@ -96,25 +96,25 @@ contract TeeWalletProjectManagerTest is Test {
         _mockIsTeeWalletProjectOwnerAllowed(projectOwner1, false);
         vm.prank(projectOwner1);
         vm.expectRevert("owner not allowed");
-        teeWalletProjectManager.createProject(opType1, submitAddress1);
+        teeWalletProjectManager.createProject(0, opType1, submitAddress1);
     }
 
     function testCreateProjectRevertSubmitAddressZero() public {
         _mockIsOpTypeSupported(opType1, true);
         vm.prank(projectOwner1);
         vm.expectRevert("submit address zero");
-        teeWalletProjectManager.createProject(opType1, address(0));
+        teeWalletProjectManager.createProject(0, opType1, address(0));
     }
 
     function testCreateProject() public {
         _mockIsOpTypeSupported(opType1, true);
         _mockIsOpTypeSupported(opType2, true);
         vm.prank(projectOwner1);
-        bytes32 projectId = teeWalletProjectManager.createProject(opType1, submitAddress1);
+        bytes32 projectId = teeWalletProjectManager.createProject(0, opType1, submitAddress1);
         assertEq(projectId, keccak256(abi.encode("PROJECT", projectOwner1, 1)));
 
         vm.prank(projectOwner2);
-        bytes32 projectId2 = teeWalletProjectManager.createProject(opType2, submitAddress2);
+        bytes32 projectId2 = teeWalletProjectManager.createProject(0, opType2, submitAddress2);
         assertEq(projectId2, keccak256(abi.encode("PROJECT", projectOwner2, 2)));
     }
 
@@ -317,7 +317,7 @@ contract TeeWalletProjectManagerTest is Test {
         vm.mockCall(
             mockTeeWalletManager,
             abi.encodeWithSelector(
-                ITeeWalletManager.isOpTypeSupported.selector,
+                ITeeExtensionRegistry.isOpTypeSupported.selector,
                 _opType
             ),
             abi.encode(_isSupported)

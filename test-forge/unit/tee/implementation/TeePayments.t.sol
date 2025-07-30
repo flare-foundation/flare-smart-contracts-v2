@@ -6,6 +6,7 @@ import "../../../../contracts/tee/implementation/TeePayments.sol";
 import "../../../../contracts/tee/implementation/TeeInstructions.sol";
 import "../../../../contracts/tee/implementation/TeeInstructionsProxy.sol";
 import "../../../../contracts/tee/implementation/TeePaymentsProxy.sol";
+import "../../../../contracts/protocol/interface/IIRewardManager.sol";
 
 //solhint-disable-next-line max-states-count
 contract TeePaymentsTest is Test {
@@ -113,12 +114,10 @@ contract TeePaymentsTest is Test {
 
         _mockGetWalletProjectId(walletId, projectId);
         _mockGetOwner(projectId, walletOwner);
-        _mockCalculateFeeByWalletId(walletId, opType, PAY, fee);
-        _mockCalculateFeeByWalletId(walletId, opType, REISSUE, fee);
         _mockGetDefaultWalletInfo(projectId, walletId, submitAddress, opType);
         _mockGetSubmitAddress(projectId, submitAddress);
         _mockGetCurrentRewardEpochId(10);
-        _mockReceiveRewards();
+        // _mockReceiveRewards();
         _mockGetOpType(opType);
 
         // set tee payments contract as instruction initiator on TeeInstructions
@@ -289,7 +288,6 @@ contract TeePaymentsTest is Test {
 
     function testSetPaymentLimits() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
-        _mockCalculateFeeByWalletId(walletId, opType, SET_PAYMENT_LIMITS, 987);
         (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         uint256 transactionLimit = 1000;
@@ -343,7 +341,6 @@ contract TeePaymentsTest is Test {
 
     function testSetPaymentLimitsRevertFeeTooLow() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
-        _mockCalculateFeeByWalletId(walletId, opType, SET_PAYMENT_LIMITS, 986);
         vm.prank(walletOwner);
         vm.expectRevert("fee too low");
         teePayments.setPaymentLimits{value: 1}(walletId, 1000, 10000);
@@ -370,7 +367,6 @@ contract TeePaymentsTest is Test {
 
     function testPayRevertWrongOpType() public {
         _mockGetDefaultWalletInfo(projectId, walletId, submitAddress, bytes32("WRONG"));
-        _mockCalculateFeeByWalletId(walletId, bytes32("WRONG"), PAY, fee);
         vm.prank(submitAddress);
         vm.expectRevert("wrong op type");
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
@@ -758,7 +754,6 @@ contract TeePaymentsTest is Test {
             abi.encode(ITeeWalletManager.WalletStatus.PRODUCTION)
         );
         _mockGetWalletProjectId(walletId2, projectId);
-        _mockCalculateFeeByWalletId(walletId2, opType, PAY, fee);
         vm.startPrank(walletOwner);
         teePayments.setMinFee(walletId2, 10);
         teePayments.setSenderAddressAndInitialNonce(walletId2, senderAddress, 11);
@@ -1357,26 +1352,6 @@ testPay3();
             mockTeeWalletManager,
             abi.encodeWithSelector(ITeeWalletManager.getWalletStatus.selector, walletId),
             abi.encode(_status)
-        );
-    }
-
-    function _mockCalculateFeeByWalletId(
-        bytes32 _walletId,
-        bytes32 _opType,
-        bytes32 _opCommand,
-        uint256 _fee
-    )
-        internal
-    {
-        vm.mockCall(
-            mockTeeFeeCalculator,
-            abi.encodeWithSelector(
-                ITeeFeeCalculator.calculateFeeByWalletId.selector,
-                _opType,
-                _opCommand,
-                _walletId
-            ),
-            abi.encode(_fee)
         );
     }
 

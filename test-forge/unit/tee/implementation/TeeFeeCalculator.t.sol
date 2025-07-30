@@ -10,12 +10,9 @@ contract TeeFeeCalculatorTest is Test {
     TeeFeeCalculator private teeFeeCalculator;
 
     address private governance;
-    address private addressUpdater;
     address private mockTeeWalletManager;
     address private mockTeeWalletKeyManager;
-
-    bytes32[] private contractNameHashes;
-    address[] private contractAddresses;
+    uint256 private defaultFee;
 
     event OperationFeeSet(
         bytes32 opType,
@@ -25,26 +22,14 @@ contract TeeFeeCalculatorTest is Test {
 
     function setUp() public {
         governance = makeAddr("governance");
-        addressUpdater = makeAddr("addressUpdater");
-
+        defaultFee = 1000;
         teeFeeCalculator = new TeeFeeCalculator(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
-            addressUpdater
+            defaultFee
         );
         mockTeeWalletManager = makeAddr("mockTeeWalletManager");
         mockTeeWalletKeyManager = makeAddr("mockTeeWalletKeyManager");
-
-        vm.prank(addressUpdater);
-        contractNameHashes = new bytes32[](3);
-        contractAddresses = new address[](3);
-        contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("TeeWalletManager"));
-        contractNameHashes[2] = keccak256(abi.encode("TeeWalletKeyManager"));
-        contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = mockTeeWalletManager;
-        contractAddresses[2] = mockTeeWalletKeyManager;
-        teeFeeCalculator.updateContractAddresses(contractNameHashes, contractAddresses);
     }
 
 
@@ -90,25 +75,6 @@ contract TeeFeeCalculatorTest is Test {
         assertEq(teeFeeCalculator.getOperationFee(opTypes[1], opCommands[1]), fees[1]);
         // no fee set
         assertEq(teeFeeCalculator.getOperationFee(opTypes[0], opCommands[1]), 0);
-    }
-
-    function testCalculateFeeByWalletId() public {
-        testSetOperationFees();
-
-        uint256 feeFactor = 8;
-        bytes32 walletId = bytes32("walletId");
-        vm.mockCall(
-            mockTeeWalletKeyManager,
-            abi.encodeWithSelector(ITeeWalletKeyManager.getFeeFactor.selector, walletId),
-            abi.encode(feeFactor)
-        );
-
-        assertEq(teeFeeCalculator.calculateFeeByWalletId(bytes32("F_XRP"), bytes32("PAY"), walletId),
-            100 * feeFactor);
-        assertEq(teeFeeCalculator.calculateFeeByWalletId(bytes32("F_BTC"), bytes32("REISSUE"), walletId),
-            200 * feeFactor);
-        // no fee set
-        assertEq(teeFeeCalculator.calculateFeeByWalletId(bytes32("F_BTC"), bytes32("PAY"), walletId), 0);
     }
 
     function testCalculateFeeByTeeIds() public {

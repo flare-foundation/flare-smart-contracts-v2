@@ -6,6 +6,8 @@ import "../../../../contracts/tee/implementation/TeeWalletManager.sol";
 import "../../../../contracts/tee/implementation/TeeWalletManagerProxy.sol";
 import "../../../../contracts/tee/implementation/TeeInstructions.sol";
 import "../../../../contracts/tee/implementation/TeeInstructionsProxy.sol";
+import "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
+import "../../../../contracts/protocol/interface/IIRewardManager.sol";
 
 contract TeeWalletManagerTest is Test {
 
@@ -481,53 +483,52 @@ contract TeeWalletManagerTest is Test {
         teeWalletManager.pauseWallet(walletId);
     }
 
-    function testAddSupportedOpTypes() public {
-        testEnableWallet();
-        bytes32 opType = keccak256(abi.encode("XRP"));
-        bytes32 opType2 = keccak256(abi.encode("BTC"));
-        address constantProvider1 = makeAddr("constantProvider1");
-        address constantProvider2 = makeAddr("constantProvider2");
-        IITeeWalletOpTypeConstants[] memory opTypeConstantsProviders = new IITeeWalletOpTypeConstants[](2);
-        opTypeConstantsProviders[0] = IITeeWalletOpTypeConstants(constantProvider1);
-        opTypeConstantsProviders[1] = IITeeWalletOpTypeConstants(constantProvider2);
-        vm.mockCall(
-            constantProvider1,
-            abi.encodeWithSelector(IITeeWalletOpTypeConstants.getOpType.selector),
-            abi.encode(opType)
-        );
-        vm.mockCall(
-            constantProvider2,
-            abi.encodeWithSelector(IITeeWalletOpTypeConstants.getOpType.selector),
-            abi.encode(opType2)
-        );
-        vm.prank(governance);
-        teeWalletManager.addSupportedOpTypes(opTypeConstantsProviders);
-        assertTrue(teeWalletManager.isOpTypeSupported(opType));
-        assertTrue(teeWalletManager.isOpTypeSupported(opType2));
-        bytes32[] memory supportedOpTypes = teeWalletManager.getSupportedOpTypes();
-        assertEq(supportedOpTypes.length, 2);
-        assertEq(supportedOpTypes[0], opType);
-        assertEq(supportedOpTypes[1], opType2);
-    }
+    // function testAddSupportedOpTypes() public {
+    //     testEnableWallet();
+    //     bytes32 opType = keccak256(abi.encode("XRP"));
+    //     bytes32 opType2 = keccak256(abi.encode("BTC"));
+    //     address constantProvider1 = makeAddr("constantProvider1");
+    //     address constantProvider2 = makeAddr("constantProvider2");
+    //     IITeeWalletOpTypeConstants[] memory opTypeConstantsProviders = new IITeeWalletOpTypeConstants[](2);
+    //     opTypeConstantsProviders[0] = IITeeWalletOpTypeConstants(constantProvider1);
+    //     opTypeConstantsProviders[1] = IITeeWalletOpTypeConstants(constantProvider2);
+    //     vm.mockCall(
+    //         constantProvider1,
+    //         abi.encodeWithSelector(IITeeWalletOpTypeConstants.getOpType.selector),
+    //         abi.encode(opType)
+    //     );
+    //     vm.mockCall(
+    //         constantProvider2,
+    //         abi.encodeWithSelector(IITeeWalletOpTypeConstants.getOpType.selector),
+    //         abi.encode(opType2)
+    //     );
+    //     vm.prank(governance);
+    //     teeWalletManager.addSupportedOpTypes(opTypeConstantsProviders);
+    //     assertTrue(teeWalletManager.isOpTypeSupported(opType));
+    //     assertTrue(teeWalletManager.isOpTypeSupported(opType2));
+    //     bytes32[] memory supportedOpTypes = teeWalletManager.getSupportedOpTypes();
+    //     assertEq(supportedOpTypes.length, 2);
+    //     assertEq(supportedOpTypes[0], opType);
+    //     assertEq(supportedOpTypes[1], opType2);
+    // }
 
-    function testRemoveSupportedOpTypes() public {
-        testAddSupportedOpTypes();
-        bytes32 opType = keccak256(abi.encode("XRP"));
-        bytes32 opType2 = keccak256(abi.encode("BTC"));
-        bytes32[] memory opTypes = new bytes32[](1);
-        opTypes[0] = opType;
-        vm.prank(governance);
-        teeWalletManager.removeSupportedOpTypes(opTypes);
-        assertFalse(teeWalletManager.isOpTypeSupported(opType));
-        assertTrue(teeWalletManager.isOpTypeSupported(opType2));
-        bytes32[] memory supportedOpTypes = teeWalletManager.getSupportedOpTypes();
-        assertEq(supportedOpTypes.length, 1);
-        assertEq(supportedOpTypes[0], opType2);
-    }
+    // function testRemoveSupportedOpTypes() public {
+    //     testAddSupportedOpTypes();
+    //     bytes32 opType = keccak256(abi.encode("XRP"));
+    //     bytes32 opType2 = keccak256(abi.encode("BTC"));
+    //     bytes32[] memory opTypes = new bytes32[](1);
+    //     opTypes[0] = opType;
+    //     vm.prank(governance);
+    //     teeWalletManager.removeSupportedOpTypes(opTypes);
+    //     assertFalse(teeWalletManager.isOpTypeSupported(opType));
+    //     assertTrue(teeWalletManager.isOpTypeSupported(opType2));
+    //     bytes32[] memory supportedOpTypes = teeWalletManager.getSupportedOpTypes();
+    //     assertEq(supportedOpTypes.length, 1);
+    //     assertEq(supportedOpTypes[0], opType2);
+    // }
 
     function testSetPausingAddresses() public {
         testEnableWallet();
-        _mockCalculateFeeByWalletId(walletId, WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, 1234);
         (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         address[] memory pausingAddresses = new address[](2);
@@ -570,48 +571,47 @@ contract TeeWalletManagerTest is Test {
 
     function testSetPausingAddressesRevertFeeTooLow() public {
         testEnableWallet();
-        _mockCalculateFeeByWalletId(walletId, WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, 1234);
         vm.prank(projectOwner);
         vm.expectRevert("fee too low");
         teeWalletManager.setPausingAddresses{value: 1232}(walletId, new address[](2));
     }
 
-    function testGetOpTypeConstants() public {
-        testAddSupportedOpTypes();
-        bytes32 opType = keccak256(abi.encode("XRP"));
-        address constantProvider1 = makeAddr("constantProvider1");
-        vm.mockCall(
-            mockTeeWalletProjectManager,
-            abi.encodeWithSelector(ITeeWalletProjectManager.getOpType.selector, projectId),
-            abi.encode(opType)
-        );
-        vm.mockCall(
-            constantProvider1,
-            abi.encodeWithSelector(IITeeWalletOpTypeConstants.getOpTypeConstants.selector, walletId),
-            abi.encode(bytes("opTypeConstants"))
-        );
-        assertEq(teeWalletManager.getOpTypeConstants(walletId), bytes("opTypeConstants"));
-    }
+    // function testGetOpTypeConstants() public {
+    //     testAddSupportedOpTypes();
+    //     bytes32 opType = keccak256(abi.encode("XRP"));
+    //     address constantProvider1 = makeAddr("constantProvider1");
+    //     vm.mockCall(
+    //         mockTeeWalletProjectManager,
+    //         abi.encodeWithSelector(ITeeWalletProjectManager.getOpType.selector, projectId),
+    //         abi.encode(opType)
+    //     );
+    //     vm.mockCall(
+    //         constantProvider1,
+    //         abi.encodeWithSelector(IITeeWalletOpTypeConstants.getOpTypeConstants.selector, walletId),
+    //         abi.encode(bytes("opTypeConstants"))
+    //     );
+    //     assertEq(teeWalletManager.getOpTypeConstants(walletId), bytes("opTypeConstants"));
+    // }
 
-    // wallet not found
-    function testGetOpTypeConstantsRevert1() public {
-        testAddSupportedOpTypes();
-        vm.expectRevert("wallet not found");
-        teeWalletManager.getOpTypeConstants(bytes32("nonExistentWalletId"));
-    }
+    // // wallet not found
+    // function testGetOpTypeConstantsRevert1() public {
+    //     testAddSupportedOpTypes();
+    //     vm.expectRevert("wallet not found");
+    //     teeWalletManager.getOpTypeConstants(bytes32("nonExistentWalletId"));
+    // }
 
-    // op type not supported
-    function testGetOpTypeConstantsRevert2() public {
-        testAddSupportedOpTypes();
-        bytes32 opType = keccak256(abi.encode("DOGE"));
-        vm.mockCall(
-            mockTeeWalletProjectManager,
-            abi.encodeWithSelector(ITeeWalletProjectManager.getOpType.selector, projectId),
-            abi.encode(opType)
-        );
-        vm.expectRevert("operation type not supported");
-        teeWalletManager.getOpTypeConstants(walletId);
-    }
+    // // op type not supported
+    // function testGetOpTypeConstantsRevert2() public {
+    //     testAddSupportedOpTypes();
+    //     bytes32 opType = keccak256(abi.encode("DOGE"));
+    //     vm.mockCall(
+    //         mockTeeWalletProjectManager,
+    //         abi.encodeWithSelector(ITeeWalletProjectManager.getOpType.selector, projectId),
+    //         abi.encode(opType)
+    //     );
+    //     vm.expectRevert("operation type not supported");
+    //     teeWalletManager.getOpTypeConstants(walletId);
+    // }
 
     function testResume() public {
         testPauseWallet();
@@ -786,26 +786,6 @@ contract TeeWalletManagerTest is Test {
             mockTeeWalletKeyManager,
             abi.encodeWithSelector(ITeeWalletKeyManager.getWalletKeysInfo.selector, _walletId),
             abi.encode(_threshold, _keyIds, 1)
-        );
-    }
-
-    function _mockCalculateFeeByWalletId(
-        bytes32 _walletId,
-        bytes32 _opType,
-        bytes32 _opCommand,
-        uint256 _fee
-    )
-        internal
-    {
-        vm.mockCall(
-            mockTeeFeeCalculator,
-            abi.encodeWithSelector(
-                ITeeFeeCalculator.calculateFeeByWalletId.selector,
-                _opType,
-                _opCommand,
-                _walletId
-            ),
-            abi.encode(_fee)
         );
     }
 

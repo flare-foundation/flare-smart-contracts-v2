@@ -4,7 +4,7 @@ pragma solidity 0.8.20;
 import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeeInstructions.sol";
 import "../../../../contracts/protocol/implementation/RewardManager.sol";
-import "../../../../contracts/tee/implementation/TeeInstructionsProxy.sol"; 
+import "../../../../contracts/tee/implementation/TeeInstructionsProxy.sol";
 
 contract TeeInstructionsTest is Test {
 
@@ -127,8 +127,7 @@ contract TeeInstructionsTest is Test {
         vm.expectRevert("only instruction initiators");
         teeInstructions.sendInstructions(
             bytes32(0),
-            new ITeeMachineRegistry.TeeMachine[](0),
-            0,
+            new address[](0),
             bytes32(0),
             bytes32(0),
             new bytes(0)
@@ -138,6 +137,9 @@ contract TeeInstructionsTest is Test {
     function testSendInstructions() public {
         testRegisterInstructionInitiators();
         ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](2);
+        address[] memory teeIds = new address[](2);
+        teeIds[0] = makeAddr("teeId1");
+        teeIds[1] = makeAddr("teeId2");
         teeMachines[0] = ITeeMachineRegistry.TeeMachine({
             teeId: makeAddr("teeId1"),
             teeProxyId: makeAddr("teeProxyId1"),
@@ -170,8 +172,7 @@ contract TeeInstructionsTest is Test {
         );
         teeInstructions.sendInstructions{value: fee} (
             bytes32("instructionId"),
-            teeMachines,
-            123,
+            teeIds,
             bytes32("XRPL"),
             bytes32("PAY"),
             abi.encode("message")
