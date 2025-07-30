@@ -119,7 +119,6 @@ contract TeeWalletManagerTest is Test {
         contractAddresses[1] = mockRewardManager;
         teeInstructions.updateContractAddresses(contractNameHashes, contractAddresses);
 
-        // set tee payments contract as instruction initiator on TeeInstructions
         vm.prank(governance);
         address[] memory instructionInitiators = new address[](1);
         instructionInitiators[0] = address(teeWalletManager);
@@ -898,7 +897,7 @@ contract TeeWalletManagerTest is Test {
         // call external script to get random public key coordinates
         string[] memory command = new string[](2);
         command[0] = "node";
-        command[1] = "scripts/generate-key-forge.js";
+        command[1] = "scripts/generate-key.js";
         bytes memory result = vm.ffi(command);
 
         // check if result is 64 bytes
