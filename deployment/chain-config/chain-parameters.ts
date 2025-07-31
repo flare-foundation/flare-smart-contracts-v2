@@ -487,6 +487,16 @@ export interface ChainParameters {
     // TEE settings
 
     /**
+     * List of supported TEE platforms ()
+     */
+    teeSupportedPlatforms: string[];
+
+    /**
+     * The default fee for TEE operations. In Wei.
+     */
+    teeDefaultFeeWei: string;
+
+    /**
      * Minimal duration that TEE should be in status pause before pause for upgrade can be triggered, in seconds (e.g. 10 minutes).
      */
     teePauseBeforeUpgradeMinDurationSeconds: integer;

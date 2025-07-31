@@ -56,16 +56,16 @@ import { FtdcHubContract, FtdcHubInstance } from '../../typechain-truffle/contra
 import { FtdcRequestFeeConfigurationsContract, FtdcRequestFeeConfigurationsInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations';
 import { FtdcVerificationMockContract, FtdcVerificationMockInstance } from '../../typechain-truffle/contracts/ftdc/mock/FtdcVerificationMock';
 import { TeeVerificationContract, TeeVerificationInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeVerification';
-import { TeeVerificationProxyContract } from '../../typechain-truffle/contracts/tee/implementation/TeeVerificationProxy';
+import { TeeVerificationProxyContract } from '../../typechain-truffle/contracts/tee/proxy/TeeVerificationProxy';
 import { ECDSASignature } from '../../scripts/libs/protocol/ECDSASignature';
 import { TeeOwnerAllowlistContract, TeeOwnerAllowlistInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlist";
 import { TeeSystemStateVerifierContract, TeeSystemStateVerifierInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeSystemStateVerifier';
-import { TeeSystemStateVerifierProxyContract } from '../../typechain-truffle/contracts/tee/implementation/TeeSystemStateVerifierProxy';
-import { TeeOwnerAllowlistProxyContract } from '../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlistProxy';
-import { TeeExtensionRegistryProxyContract } from '../../typechain-truffle/contracts/tee/implementation/TeeExtensionRegistryProxy';
+import { TeeSystemStateVerifierProxyContract } from '../../typechain-truffle/contracts/tee/proxy/TeeSystemStateVerifierProxy';
+import { TeeOwnerAllowlistProxyContract } from '../../typechain-truffle/contracts/tee/proxy/TeeOwnerAllowlistProxy';
+import { TeeExtensionRegistryProxyContract } from '../../typechain-truffle/contracts/tee/proxy/TeeExtensionRegistryProxy';
 import { TeeExtensionRegistryInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeExtensionRegistry';
 import { TeeReplicationContract, TeeReplicationInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeReplication';
-import { TeeReplicationProxyContract } from '../../typechain-truffle/contracts/tee/implementation/TeeReplicationProxy';
+import { TeeReplicationProxyContract } from '../../typechain-truffle/contracts/tee/proxy/TeeReplicationProxy';
 import { AddressUpdaterContract, AddressUpdaterInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressUpdater';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");

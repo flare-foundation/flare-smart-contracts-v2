@@ -2,20 +2,16 @@
 pragma solidity ^0.8.27;
 
 import "./TeeBase.sol";
-import "../../userInterfaces/tee/ITeeOwnerAllowlist.sol";
 import "../../userInterfaces/tee/ITeeVersionManager.sol";
 import "../../userInterfaces/tee/ITeeVerification.sol";
 import "../interface/IITeeMachineRegistry.sol";
 import "../../userInterfaces/tee/ITeeReplication.sol";
 import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import "../../userInterfaces/IRelay.sol";
-import "../../utils/lib/AddressSet.sol";
 
 /**
  * TeeReplication is used for replication of TEE machines.
  */
 contract TeeReplication is ITeeReplication, TeeBase {
-    using AddressSet for AddressSet.State;
 
 
     bytes32 public constant REG_OP_TYPE = bytes32("F_REG");
@@ -24,16 +20,12 @@ contract TeeReplication is ITeeReplication, TeeBase {
 
     /// TEE extension registry contract.
     ITeeExtensionRegistry public teeExtensionRegistry;
-    /// TEE owner allowlist contract.
-    ITeeOwnerAllowlist public teeOwnerAllowlist;
     /// TEE version manager contract.
     ITeeVersionManager public teeVersionManager;
     /// TEE machine registry contract.
     IITeeMachineRegistry public teeMachineRegistry;
     /// TEE verification contract.
     ITeeVerification public teeVerification;
-    /// Relay contract.
-    IRelay public relay;
 
     /// The minimum duration (in paused status) before a TEE machine can be upgraded.
     uint256 public pauseBeforeUpgradeMinDurationSeconds;
@@ -213,15 +205,12 @@ contract TeeReplication is ITeeReplication, TeeBase {
     {
         teeExtensionRegistry = ITeeExtensionRegistry(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
-        teeOwnerAllowlist = ITeeOwnerAllowlist(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeOwnerAllowlist"));
         teeVersionManager = ITeeVersionManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeVersionManager"));
         teeMachineRegistry = IITeeMachineRegistry(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
         teeVerification = ITeeVerification(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeVerification"));
-        relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
     function _setPauseBeforeUpgradeMinDurationSeconds(

@@ -714,6 +714,10 @@
             "description": "The TEE challenge validity duration (used for TEE availability check), in seconds (e.g. 30 minutes).",
             "type": "integer"
         },
+        "teeDefaultFeeWei": {
+            "description": "The default fee for TEE operations. In Wei.",
+            "type": "string"
+        },
         "teeOperationFees": {
             "description": "The TEE operation fees.",
             "items": {
@@ -739,6 +743,13 @@
         "teeSigningPolicyValidityDurationInRewardEpochs": {
             "description": "The signing policy validity duration, in reward epochs (e.g. 10).\nUsed when extending availability or putting tee machine into production:\n- in case of registration, the check is done for the initial signing policy,\n- in other cases, the check is done for the last confirmed signing policy.",
             "type": "integer"
+        },
+        "teeSupportedPlatforms": {
+            "description": "List of supported TEE platforms ()",
+            "items": {
+                "type": "string"
+            },
+            "type": "array"
         },
         "testDeployment": {
             "description": "Indicates whether this is a test deployment (local, scdev, etc.)",
@@ -859,11 +870,13 @@
         "submitUptimeVoteMinDurationSeconds",
         "teeAvailabilityCheckValidityDurationSeconds",
         "teeChallengeValidityDurationSeconds",
+        "teeDefaultFeeWei",
         "teeOperationFees",
         "teeOwnersPPM",
         "teePauseBeforeUpgradeMinDurationSeconds",
         "teePaymentConfigurations",
         "teeSigningPolicyValidityDurationInRewardEpochs",
+        "teeSupportedPlatforms",
         "testDeployment",
         "thresholdConditionBIPS",
         "voterRegistrationMinDurationBlocks",
