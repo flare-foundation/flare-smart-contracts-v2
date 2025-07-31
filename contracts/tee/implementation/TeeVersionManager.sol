@@ -266,7 +266,7 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
         returns(bool)
     {
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
-        require(_extensionId == teeUpgrade.extensionId, "invalid extension id");
+        require(_extensionId == teeUpgrade.extensionId, "extension id mismatch");
         require(teeUpgrade.messageHash != bytes32(0), "upgrade not finalized");
         bytes32 sourceVersionHash = keccak256(abi.encode(TeeNodeVersion(_sourceCodeHash, _sourcePlatform)));
         bytes32 targetVersionHash = keccak256(abi.encode(TeeNodeVersion(_targetCodeHash, _targetPlatform)));

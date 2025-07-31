@@ -242,10 +242,8 @@ contract TeeReplication is ITeeReplication, TeeBase {
     )
         internal
     {
-        uint256 extensionId = teeMachineRegistry.getExtensionId(_teeIds[0]);
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             _instructionId,
-            extensionId,
             _teeIds,
             REG_OP_TYPE,
             _opCommand,

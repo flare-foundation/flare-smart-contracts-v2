@@ -129,7 +129,6 @@ contract TeeVerification is ITeeVerification, TeeBase {
         teeIds[0] = attestingTeeId;
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             instructionId,
-            teeMachineRegistry.getExtensionId(attestingTeeId),
             teeIds,
             REG_OP_TYPE,
             TEE_ATTESTATION,

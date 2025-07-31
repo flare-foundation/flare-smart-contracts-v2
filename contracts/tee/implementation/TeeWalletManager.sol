@@ -274,7 +274,6 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         ));
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             instructionId,
-            teeMachineRegistry.getExtensionId(teeIds[0]),
             teeIds,
             WALLET_OP_TYPE,
             SET_PAUSING_ADDRESSES,
@@ -326,7 +325,6 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         ));
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             instructionId,
-            teeMachineRegistry.getExtensionId(teeIds[0]),
             teeIds,
             WALLET_OP_TYPE,
             RESUME,

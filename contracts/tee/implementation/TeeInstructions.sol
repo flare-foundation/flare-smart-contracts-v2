@@ -53,7 +53,6 @@ contract TeeInstructions is ITeeInstructions, TeeBase {
         require(instructionInitiators.index[msg.sender] != 0, "only instruction initiators");
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             _instructionId,
-            0,
             _teeIds,
             _opType,
             _opCommand,

@@ -95,7 +95,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         external onlyOwner(_walletId)
     {
         require(_multisigThreshold > 0, "invalid threshold");
-        _checkWalletStatus(_walletId, ITeeWalletManager.WalletStatus.INITIALIZED);
+        _checkWalletStatus(_walletId);
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         keys.multisigThreshold = _multisigThreshold;
 
@@ -114,12 +114,11 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         returns (uint64 _keyId)
     {
         _checkTeeStatus(_teeId);
-        _checkWalletStatus(_walletId, ITeeWalletManager.WalletStatus.INITIALIZED);
+        _checkWalletStatus(_walletId);
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        uint256 extensionId = teeWalletProjectManager.getExtensionId(projectId);
         require(
-            extensionId == teeMachineRegistry.getExtensionId(_teeId),
-            "invalid extension id"
+            teeWalletProjectManager.getExtensionId(projectId) == teeMachineRegistry.getExtensionId(_teeId),
+            "extension id mismatch"
         );
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         _keyId = keys.keyIdCounter++;
@@ -148,7 +147,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             WALLET_OP_TYPE, KEY_GENERATE, _walletId, _keyId
         ));
 
-        _sendInstructions(instructionId, _teeId, extensionId, KEY_GENERATE, abi.encode(message));
+        _sendInstructions(instructionId, _teeId, KEY_GENERATE, abi.encode(message));
     }
 
     /**
@@ -205,7 +204,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             require(_proof.publicKey.length > 0, "invalid public key");
             require(bytes(_proof.addressStr).length > 0, "invalid address");
             // new key definition can only be added if wallet is in status initialized
-            _checkWalletStatus(walletId, ITeeWalletManager.WalletStatus.INITIALIZED);
+            _checkWalletStatus(walletId);
             // new key definition can only be added by the owner
             _checkOnlyOwner(walletId);
             // check that key is generated on the tee machine
@@ -240,10 +239,9 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     {
         _checkTeeStatus(_teeId);
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        uint256 extensionId = teeWalletProjectManager.getExtensionId(projectId);
         require(
-            extensionId == teeMachineRegistry.getExtensionId(_teeId),
-            "invalid extension id"
+            teeWalletProjectManager.getExtensionId(projectId) == teeMachineRegistry.getExtensionId(_teeId),
+            "extension id mismatch"
         );
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
@@ -276,7 +274,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             WALLET_OP_TYPE, KEY_DELETE, _walletId, _keyId, keyDeleteCounter[_walletId][_keyId]++
         ));
 
-        _sendInstructions(instructionId, _teeId, extensionId, KEY_DELETE, abi.encode(message));
+        _sendInstructions(instructionId, _teeId, KEY_DELETE, abi.encode(message));
     }
 
     /**
@@ -441,7 +439,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     function _sendInstructions(
         bytes32 _instructionId,
         address _teeId,
-        uint256 _extensionId,
         bytes32 _opCommand,
         bytes memory _message
     )
@@ -451,7 +448,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         teeIds[0] = _teeId;
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             _instructionId,
-            _extensionId,
             teeIds,
             WALLET_OP_TYPE,
             _opCommand,
@@ -518,11 +514,13 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     }
 
     function _checkWalletStatus(
-        bytes32 _walletId,
-        ITeeWalletManager.WalletStatus _expectedStatus
+        bytes32 _walletId
     )
         internal view
     {
-        require(teeWalletManager.getWalletStatus(_walletId) == _expectedStatus, "invalid wallet status");
+        require(
+            teeWalletManager.getWalletStatus(_walletId) ==  ITeeWalletManager.WalletStatus.INITIALIZED,
+            "invalid wallet status"
+        );
     }
 }

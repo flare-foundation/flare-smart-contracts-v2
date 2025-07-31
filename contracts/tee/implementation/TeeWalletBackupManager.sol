@@ -98,7 +98,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
         require(
             extensionId == teeMachineRegistry.getExtensionId(_backupId.teeId) &&
             extensionId == teeMachineRegistry.getExtensionId(_teeId),
-            "invalid extension id"
+            "extension id mismatch"
         );
         bytes32 opCommand = _test ? KEY_DATA_PROVIDER_RESTORE_TEST : KEY_DATA_PROVIDER_RESTORE;
         // restored flag in KeyExistence proof will always be set to true after this call
@@ -119,7 +119,6 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
         teeIds[0] = _teeId;
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             instructionId,
-            extensionId,
             teeIds,
             WALLET_OP_TYPE,
             opCommand,

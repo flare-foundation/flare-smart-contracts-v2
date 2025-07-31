@@ -76,7 +76,6 @@ interface ITeeExtensionRegistry {
      * Send instructions to the TEE machines.
      * Emits a TeeInstructionsSent event.
      * @param _instructionId The instruction ID.
-     * @param _extensionId The id of the extension.
      * @param _teeIds The TEE machine IDs to which the instructions are sent (must all belong to the given extension).
      * @param _opType The operation type.
      * @param _opCommand The operation command.
@@ -84,7 +83,6 @@ interface ITeeExtensionRegistry {
      */
     function sendInstructions(
         bytes32 _instructionId,
-        uint256 _extensionId,
         address[] memory _teeIds,
         bytes32 _opType,
         bytes32 _opCommand,

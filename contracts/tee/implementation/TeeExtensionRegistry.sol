@@ -27,8 +27,8 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
 
     struct TeeExtension {
         address owner;
-        ITeeExtensionStateVerifier teeExtensionStateVerifier;
-        address teeExtensionInstructionsSender;
+        ITeeExtensionStateVerifier stateVerifier;
+        address instructionsSender;
 
         mapping(bytes32 codeHash => TeeVersion) codeHashToVersion;
         /// Disabled code hash and platform mapping.
@@ -96,7 +96,6 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
      */
     function sendInstructions(
         bytes32 _instructionId,
-        uint256 _extensionId,
         address[] memory _teeIds,
         bytes32 _opType,
         bytes32 _opCommand,
@@ -104,21 +103,25 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     )
         external payable
     {
-        bool isSystemOpType = _isSystemOpType(_opType);
-        if (!systemInstructionInitiators.contains(msg.sender)) {
-            require(msg.sender == extensions[_extensionId].teeExtensionInstructionsSender, "only instructions sender");
-            require(_extensionId == 0 || !isSystemOpType, "system op type not allowed");
-        }
         require(_instructionId != bytes32(0), "instruction ID empty");
         require(_teeIds.length > 0, "no TEE machines specified");
         require(_opType != bytes32(0), "operation type empty");
         require(_opCommand != bytes32(0), "operation command empty");
         require(_message.length > 0, "message empty");
+        uint256 extensionId = teeMachineRegistry.getExtensionId(_teeIds[0]);
+        for (uint256 i = 1; i < _teeIds.length; i++) {
+            require(teeMachineRegistry.getExtensionId(_teeIds[i]) == extensionId, "extension id mismatch");
+        }
+        bool isSystemOpType = _isSystemOpType(_opType);
+        if (!systemInstructionInitiators.contains(msg.sender)) {
+            require(msg.sender == extensions[extensionId].instructionsSender, "only instructions sender");
+            require(extensionId == 0 || !isSystemOpType, "system op type not allowed");
+        }
 
         // Check fee
         require(teeFeeCalculator.calculateFeeByTeeIds(_opType, _opCommand, _teeIds) <= msg.value, "fee too low");
 
-        // Get the TEE machines and check their status and extension id.
+        // Get the TEE machines and check their status.
         ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](_teeIds.length);
         for (uint256 i = 0; i < _teeIds.length; i++) {
             if (!isSystemOpType) {
@@ -127,7 +130,6 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
                     "tee machine not available"
                 );
             }
-            require(teeMachineRegistry.getExtensionId(_teeIds[i]) == _extensionId, "extension id mismatch");
             teeMachines[i] = teeMachineRegistry.getTeeMachine(_teeIds[i]);
         }
 
@@ -160,8 +162,8 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         uint256 extensionId = extensionsCounter++;
         TeeExtension storage newExtension = extensions[extensionId];
         newExtension.owner = msg.sender;
-        newExtension.teeExtensionStateVerifier = _teeExtensionStateVerifier;
-        newExtension.teeExtensionInstructionsSender = _teeExtensionInstructionsSender;
+        newExtension.stateVerifier = _teeExtensionStateVerifier;
+        newExtension.instructionsSender = _teeExtensionInstructionsSender;
         emit ExtensionRegistered(extensionId, msg.sender);
         emit ExtensionContractsSet(extensionId, _teeExtensionStateVerifier, _teeExtensionInstructionsSender);
     }
@@ -178,8 +180,8 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     {
         require(_teeExtensionInstructionsSender != address(0), "invalid instructions sender");
         TeeExtension storage extension = extensions[_extensionId];
-        extension.teeExtensionStateVerifier = _teeExtensionStateVerifier;
-        extension.teeExtensionInstructionsSender = _teeExtensionInstructionsSender;
+        extension.stateVerifier = _teeExtensionStateVerifier;
+        extension.instructionsSender = _teeExtensionInstructionsSender;
         emit ExtensionContractsSet(_extensionId, _teeExtensionStateVerifier, _teeExtensionInstructionsSender);
     }
 
@@ -387,7 +389,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         external view
         returns (ITeeExtensionStateVerifier)
     {
-        return extensions[_extensionId].teeExtensionStateVerifier;
+        return extensions[_extensionId].stateVerifier;
     }
 
     /**
@@ -397,7 +399,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         external view
         returns (address)
     {
-        return extensions[_extensionId].teeExtensionInstructionsSender;
+        return extensions[_extensionId].instructionsSender;
     }
 
     /**
