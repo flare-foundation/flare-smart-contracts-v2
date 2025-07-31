@@ -75,12 +75,7 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
     }
 
     /**
-     * Creates a new TEE upgrade.
-     * @param _extensionId The id of the extension.
-     * @param _sourceTeeGovernanceHash The source TEE governance hash.
-     * @param _targetTeeGovernanceHash The target TEE governance hash.
-     * @return _teeUpgradeId The TEE upgrade id.
-     * Can only be called by the governance.
+     * @inheritdoc ITeeVersionManager
      */
     function createNewTeeUpgrade(
         uint256 _extensionId,
@@ -107,10 +102,7 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
     }
 
     /**
-     * Adds TEE upgrade paths.
-     * @param _teeUpgradeId The TEE upgrade id.
-     * @param _upgradePaths The TEE upgrade paths.
-     * Can only be called by the governance.
+     * @inheritdoc ITeeVersionManager
      */
     function addTeeUpgradePaths(
         uint256 _teeUpgradeId,
@@ -177,14 +169,12 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
     }
 
     /**
-     * Finalizes the TEE upgrade and makes it ready for signing.
-     * @param _teeUpgradeId The TEE upgrade id.
-     * Can only be called by the governance.
+     * @inheritdoc ITeeVersionManager
      */
     function finalizeTeeUpgrade(
         uint256 _teeUpgradeId
     )
-        external onlyImmediateGovernance onlyValidTeeUpgradeId(_teeUpgradeId)
+        external onlyValidTeeUpgradeId(_teeUpgradeId) onlyExtensionOwner(teeUpgrades[_teeUpgradeId].extensionId)
     {
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
         require(teeUpgrade.messageHash == bytes32(0), "upgrade already finalized");

@@ -36,10 +36,12 @@ interface ITeeWalletProjectManager {
 
     /**
      * Creates the project that can be used for wallet creation on specified extension.
+     * Emits ProjectCreated event.
      * @param _extensionId The id of the extension.
      * @param _opType The project/wallet operation type.
      * @param _submitAddress The project/wallet submit address.
      * @return _projectId The project id.
+     * Can only be called by an allowlisted wallet project owner.
      */
     function createProject(
         uint256 _extensionId,
@@ -51,28 +53,37 @@ interface ITeeWalletProjectManager {
 
     /**
      * Sets the project backup manager.
+     * Emits BackupManagerSet event.
      * @param _projectId The project id.
      * @param _backupManager The backup manager address (can be address(0)).
+     * Can only be called by the project owner.
      */
     function setBackupManager(bytes32 _projectId, address _backupManager) external;
 
     /**
      * Sets the default wallet for the project.
+     * Emits DefaultWalletSet event.
      * @param _projectId The project id.
      * @param _walletId The wallet id.
+     * Can only be called by the project owner.
      */
     function setDefaultWallet(bytes32 _projectId, bytes32 _walletId) external;
 
     /**
-     * Proposes a new owner for the project. The new owner needs to confirm the ownership.
+     * Proposes a new owner for the project - has to be on the allowlist.
+     * It is a two-step process, the new owner has to confirm the ownership.
+     * Emits a NewOwnerProposed event.
      * @param _projectId The project id.
      * @param _newOwner The new owner.
+     * Can only be called by the current project owner.
      */
     function proposeNewOwner(bytes32 _projectId, address _newOwner) external;
 
     /**
-     * Confirms the ownership of the project after the old owner has proposed a new owner.
+     * Confirms the ownership of the project.
+     * Emits OwnershipConfirmed event.
      * @param _projectId The project id.
+     * Can only be called by the proposed new owner.
      */
     function confirmOwnership(bytes32 _projectId) external;
 

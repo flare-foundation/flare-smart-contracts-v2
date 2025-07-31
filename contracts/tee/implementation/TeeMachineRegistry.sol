@@ -164,7 +164,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         state.lastStatusChangeTs = block.timestamp;
         extensionActiveTeeIds[state.extensionId].remove(_teeId);
         activeTeeIds.remove(_teeId);
-        emit TeeMachinePaused(_teeId);
+        emit TeeMachinePaused(_teeId, false);
     }
 
     /**
@@ -190,7 +190,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         state.lastStatusChangeTs = block.timestamp;
         extensionActiveTeeIds[state.extensionId].remove(teeId);
         activeTeeIds.remove(teeId);
-        emit TeeMachinePaused(teeId);
+        emit TeeMachinePaused(teeId, true);
     }
 
     /**

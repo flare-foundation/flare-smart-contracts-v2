@@ -56,12 +56,12 @@ interface ITeePayments {
 
     /**
      * Payment instruction method.
-     * Can only be called by the submit address.
      * @param _projectId The project id.
      * @param _walletId The wallet id.
      * @param _paymentInstruction The payment instruction.
      * @return _nonce The batch nonce of the payment instruction.
      * @return _subNonce The sequence number of the payment instruction.
+     * Can only be called by the submit address of the project.
      */
     function pay(
         bytes32 _projectId,
@@ -73,13 +73,13 @@ interface ITeePayments {
 
     /**
      * Payment reissuance method.
-     * Can only be called by the submit address.
      * @param _walletId The wallet id.
      * @param _nonce Batch nonce of the payment instructions to be reissued.
      * @param _firstSubNonce SubNonce of the first payment instruction in the batch.
      * @param _paymentInstructions List of the payment instructions.
      * @param _fees List of fees for the payment instructions.
      * @param _nullify List of nullification flags for the payment instructions.
+     * Can only be called by the submit address of the project.
      */
     function reissue(
         bytes32 _walletId,
@@ -93,10 +93,11 @@ interface ITeePayments {
 
     /**
      * Method for setting the sender address.
-     * Can only be called by the wallet owner.
+     * Emits SenderAddressSet event.
      * @param _walletId The wallet id.
      * @param _senderAddress The new sender address.
      * @param _initialNonce The initial nonce.
+     * Can only be called by the wallet owner.
      */
     function setSenderAddressAndInitialNonce(
         bytes32 _walletId,
@@ -107,9 +108,10 @@ interface ITeePayments {
 
     /**
     * Method for setting the minimum fee.
-    * Can only be called by the wallet owner.
+    * Emits MinFeeSet event.
     * @param _walletId The wallet id.
     * @param _minFee The minimum fee.
+    * Can only be called by the wallet owner.
     */
     function setMinFee(
         bytes32 _walletId,
@@ -119,10 +121,11 @@ interface ITeePayments {
 
     /**
     * Method for setting the batch settings.
-    * Can only be called by the wallet owner.
+    * Emits BatchSettingsSet event.
     * @param _walletId The wallet id.
     * @param _batchSize The batch size.
     * @param _batchDurationSeconds The batch duration in seconds.
+    * Can only be called by the wallet owner.
     */
     function setBatchSettings(
         bytes32 _walletId,
@@ -133,10 +136,10 @@ interface ITeePayments {
 
     /**
      * Set payment limits instruction method.
-     * Can only be called by the wallet owner address.
      * @param _walletId The wallet id.
      * @param _transactionLimit The transaction limit.
      * @param _dailyLimit The daily limit.
+     * Can only be called by the wallet owner address.
      */
     function setPaymentLimits(
         bytes32 _walletId,

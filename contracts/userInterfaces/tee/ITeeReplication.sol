@@ -40,17 +40,20 @@ interface ITeeReplication {
 
     /**
      * Pause a TEE machine for upgrade. It has to be paused for long enough time first.
-     * Can only be called by the TEE machine owner.
+     * Emits TeeMachinePausedForUpgrade event.
      * @param _teeId The TEE machine id.
+     * Can only be called by the TEE machine owner.
      */
     function toPauseForUpgrade(address _teeId)
         external payable;
 
     /**
-     * Replicate a TEE machine. Can only be called by the TEE machine owner.
+     * Replicate a TEE machine.
+     * Emits TeeMachineReplicationTriggered event.
      * @param _oldTeeId The old TEE machine id.
      * @param _proof The availability check proof for the new TEE machine.
      * @param _teeUpgradeId The TEE upgrade id.
+     * Can only be called by the TEE machines owner.
      */
     function replicateFrom(
         address _oldTeeId,
@@ -60,9 +63,11 @@ interface ITeeReplication {
         external payable;
 
     /**
-     * Confirm the replication of a TEE machine. Can only be called by the TEE machines owner.
+     * Confirm the replication of a TEE machine.
+     * Emits TeeMachineReplicationConfirmed event.
      * @param _newTeeId The new TEE machine id.
      * @param _proof The availability check proof for the new TEE machine with the old TEE id.
+     * Can only be called by the TEE machines owner.
      */
     function confirmReplicate(
         address _newTeeId,
@@ -73,7 +78,7 @@ interface ITeeReplication {
     /**
      * Returns the TEE machine id that is replicating the given old TEE machine id.
      * @param _oldTeeId The old TEE machine id.
-     * @return The new TEE machine id that is replicating the old TEE machine id.
+     * @return The new TEE machine id that is replicating the old TEE machine id or address(0) if not found.
      */
     function getReplicatingTeeId(address _oldTeeId) external view returns(address);
 }

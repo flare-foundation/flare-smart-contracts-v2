@@ -38,6 +38,7 @@ interface ITeeVerification {
 
     /**
      * Request attestation for a TEE machine.
+     * Emits TeeAttestationRequested event.
      * @param _teeId The TEE machine id.
      */
     function requestTeeAttestation(
@@ -46,7 +47,7 @@ interface ITeeVerification {
         external payable;
 
     /**
-     * Request availability check attestation for a TEE machine.
+     * Request availability check attestation for a TEE machine - triggers FTDC availability check.
      * @param _teeId The TEE machine id.
      * @param _testOnTeeId The TEE machine id to test on.
      */
@@ -58,6 +59,7 @@ interface ITeeVerification {
 
     /**
      * Extend the availability check validity.
+     * Emits AvailabilityCheckValidityExtended event.
      * @param _proof The availability check proof.
      */
     function confirmAvailability(

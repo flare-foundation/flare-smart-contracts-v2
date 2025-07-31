@@ -164,8 +164,8 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         newExtension.owner = msg.sender;
         newExtension.stateVerifier = _teeExtensionStateVerifier;
         newExtension.instructionsSender = _teeExtensionInstructionsSender;
-        emit ExtensionRegistered(extensionId, msg.sender);
-        emit ExtensionContractsSet(extensionId, _teeExtensionStateVerifier, _teeExtensionInstructionsSender);
+        emit TeeExtensionRegistered(extensionId, msg.sender);
+        emit TeeExtensionContractsSet(extensionId, _teeExtensionStateVerifier, _teeExtensionInstructionsSender);
     }
 
     /**
@@ -182,7 +182,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         TeeExtension storage extension = extensions[_extensionId];
         extension.stateVerifier = _teeExtensionStateVerifier;
         extension.instructionsSender = _teeExtensionInstructionsSender;
-        emit ExtensionContractsSet(_extensionId, _teeExtensionStateVerifier, _teeExtensionInstructionsSender);
+        emit TeeExtensionContractsSet(_extensionId, _teeExtensionStateVerifier, _teeExtensionInstructionsSender);
     }
 
     /**
@@ -267,7 +267,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
             require(_extensionId == 0 || !_isSystemOpType(opType), "system op type not allowed");
             if (address(extension.opTypeConstantsProviders[opType]) == address(0)) {
                 extension.supportedOpTypes.push(opType);
-                emit OpTypeAdded(_extensionId, opType);
+                emit SupportedWalletProjectOpTypeAdded(_extensionId, opType);
             }
             extension.opTypeConstantsProviders[opType] = opTypeConstantsProvider;
         }
@@ -290,7 +290,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
                     supportedOpTypes[j] = supportedOpTypes[supportedOpTypes.length - 1];
                     supportedOpTypes.pop();
                     delete extension.opTypeConstantsProviders[_opTypes[i]];
-                    emit OpTypeRemoved(_extensionId, _opTypes[i]);
+                    emit SupportedWalletProjectOpTypeRemoved(_extensionId, _opTypes[i]);
                     break;
                 }
             }
@@ -321,7 +321,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     }
 
     /**
-     * Registers supported platforms.
+     * Adds supported platforms.
      * @param _platforms List of platforms to add.
      * @dev Only governance can call this method.
      */
@@ -331,7 +331,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         for (uint256 i = 0; i < _platforms.length; i++) {
             require(_platforms[i] != bytes32(0), "platform empty");
             require(supportedPlatforms.add(_platforms[i]), "platform already exists");
-            emit PlatformAdded(_platforms[i]);
+            emit SupportedPlatformAdded(_platforms[i]);
         }
     }
 

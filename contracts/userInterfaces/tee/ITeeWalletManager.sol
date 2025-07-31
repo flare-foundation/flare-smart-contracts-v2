@@ -74,8 +74,10 @@ interface ITeeWalletManager {
 
     /**
      * Creates the wallet for the project.
+     * Emits WalletCreated event.
      * @param _projectId The project id.
      * @return _walletId The wallet id.
+     * Can only be called by the project owner.
      */
     function createWallet(
         bytes32 _projectId    )
@@ -84,9 +86,11 @@ interface ITeeWalletManager {
 
     /**
      * Sets the wallet admins.
+     * Emits WalletAdminsSet event.
      * @param _walletId The wallet id.
      * @param _adminsPublicKeys The wallet admins public keys.
      * @param _adminsThreshold The wallet admins threshold.
+     * Can only be called by the wallet owner.
      */
     function setAdmins(
         bytes32 _walletId,
@@ -97,6 +101,7 @@ interface ITeeWalletManager {
 
     /**
      * Confirms the admin.
+     * Emits WalletAdminConfirmed event.
      * @param _walletId The wallet id.
      */
     function confirmAdmin(bytes32 _walletId)
@@ -104,9 +109,11 @@ interface ITeeWalletManager {
 
     /**
      * Sets the wallet cosigners.
+     * Emits WalletCosignersSet event.
      * @param _walletId The wallet id.
      * @param _cosigners The wallet cosigners.
      * @param _cosignersThreshold The wallet cosigners threshold.
+     * Can only be called by the wallet owner.
      */
     function setCosigners(
         bytes32 _walletId,
@@ -117,6 +124,7 @@ interface ITeeWalletManager {
 
     /**
      * Confirms the cosigner.
+     * Emits WalletCosignerConfirmed event.
      * @param _walletId The wallet id.
      */
     function confirmCosigner(bytes32 _walletId)
@@ -126,7 +134,9 @@ interface ITeeWalletManager {
      * Closes the wallet initialization and enables adding keys.
      * All admins and cosigners need to be set and confirmed.
      * They cannot be changed after this call.
+     * Emits WalletInitialized event.
      * @param _walletId The wallet id.
+     * Can only be called by the wallet owner.
      */
     function closeWalletInitialization(
         bytes32 _walletId
@@ -135,21 +145,25 @@ interface ITeeWalletManager {
 
     /**
      * Enables the wallet.
+     * Emits WalletEnabled event.
      * @param _walletId The wallet id.
+     * Can only be called by the wallet owner.
      */
     function enableWallet(bytes32 _walletId) external;
 
     /**
      * Pauses the wallet.
+     * Emits WalletPaused event.
      * @param _walletId The wallet id.
+     * Can only be called by the wallet owner.
      */
     function pauseWallet(bytes32 _walletId) external;
 
     /**
      * Set pausing addresses (for pausing keys) instruction method.
-     * Can only be called by the wallet owner address.
      * @param _walletId The wallet id.
      * @param _pausingAddresses The list of pausing addresses, can be empty.
+     * Can only be called by the wallet owner.
      */
     function setPausingAddresses(
         bytes32 _walletId,
@@ -159,9 +173,9 @@ interface ITeeWalletManager {
 
     /**
      * Resume paused keys instruction method.
-     * Can only be called by the wallet owner address.
      * @param _walletId The wallet id.
      * @param _keysData The list of keys's data.
+     * Can only be called by the wallet owner.
      */
     function resume(
         bytes32 _walletId,

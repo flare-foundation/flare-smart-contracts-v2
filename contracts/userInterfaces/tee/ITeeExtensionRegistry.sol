@@ -12,29 +12,28 @@ import "../ftdc/ITeeAvailabilityCheck.sol";
  */
 interface ITeeExtensionRegistry {
 
-    event ExtensionRegistered(
+    event TeeInstructionsSent(
+        bytes32 indexed instructionId,
+        uint32 indexed rewardEpochId,
+        ITeeMachineRegistry.TeeMachine[] teeMachines,
+        bytes32 opType,
+        bytes32 opCommand,
+        bytes message,
+        uint256 fee
+    );
+
+    event TeeExtensionRegistered(
         uint256 indexed extensionId,
         address indexed owner
     );
 
-    event ExtensionContractsSet(
+    event TeeExtensionContractsSet(
         uint256 indexed extensionId,
         ITeeExtensionStateVerifier indexed teeExtensionStateVerifier,
         address indexed teeExtensionInstructionsSender
     );
 
-    event NewOwnerProposed(
-        uint256 indexed extensionId,
-        address indexed oldOwner,
-        address indexed newOwner
-    );
-
-    event NewOwnerConfirmed(
-        uint256 indexed extensionId,
-        address indexed newOwner
-    );
-
-    event PlatformAdded(
+    event SupportedPlatformAdded(
         bytes32 indexed platform
     );
 
@@ -52,24 +51,25 @@ interface ITeeExtensionRegistry {
         bytes32 indexed platform
     );
 
-    event OpTypeAdded(
+    event SupportedWalletProjectOpTypeAdded(
         uint256 indexed extensionId,
         bytes32 indexed opType
     );
 
-    event OpTypeRemoved(
+    event SupportedWalletProjectOpTypeRemoved(
         uint256 indexed extensionId,
         bytes32 indexed opType
     );
 
-    event TeeInstructionsSent(
-        bytes32 indexed instructionId,
-        uint32 indexed rewardEpochId,
-        ITeeMachineRegistry.TeeMachine[] teeMachines,
-        bytes32 opType,
-        bytes32 opCommand,
-        bytes message,
-        uint256 fee
+    event NewOwnerProposed(
+        uint256 indexed extensionId,
+        address indexed oldOwner,
+        address indexed newOwner
+    );
+
+    event NewOwnerConfirmed(
+        uint256 indexed extensionId,
+        address indexed newOwner
     );
 
     /**
@@ -92,8 +92,10 @@ interface ITeeExtensionRegistry {
 
     /**
      * Register a new TEE extension.
+     * Emits TeeExtensionRegistered and TeeExtensionContractsSet event.
      * @param _teeExtensionStateVerifier The TEE extension state verifier contract.
      * @param _teeExtensionInstructionsSender The address that can send instructions to the TEE machines.
+     * Can only be called by an allowlisted TEE extension owner.
      */
     function register(
         ITeeExtensionStateVerifier _teeExtensionStateVerifier,
@@ -103,6 +105,7 @@ interface ITeeExtensionRegistry {
 
     /**
      * Set the extension contracts for a given extension id.
+     * Emits TeeExtensionContractsSet event.
      * @param _extensionId The id of the extension.
      * @param _teeExtensionStateVerifier The TEE extension state verifier contract.
      * @param _teeExtensionInstructionsSender The address that can send instructions to the TEE machines.
@@ -117,6 +120,7 @@ interface ITeeExtensionRegistry {
 
     /**
      * Add a new TEE version.
+     * Emits TeeVersionAdded event.
      * @param _extensionId The id of the extension.
      * @param _version The version.
      * @param _codeHash The code hash.
@@ -135,6 +139,7 @@ interface ITeeExtensionRegistry {
 
     /**
      * Disable a TEE code hash and platform.
+     * Emits CodeHashPlatformDisabled event.
      * @param _extensionId The id of the extension.
      * @param _codeHash The code hash.
      * @param _platform The platform to disable. If empty, all platforms will be disabled.
@@ -149,6 +154,7 @@ interface ITeeExtensionRegistry {
 
     /**
      * Add or update supported wallet project operation types and their constants providers.
+     * Emits SupportedWalletProjectOpTypeAdded event.
      * @param _extensionId The id of the extension.
      * @param _opTypeConstantsProviders The operation type constants providers for the operation types.
      * Can only be called by the extension owner.
@@ -161,6 +167,7 @@ interface ITeeExtensionRegistry {
 
     /**
      * Remove supported wallet project operation types.
+     * Emits SupportedWalletProjectOpTypeRemoved event.
      * @param _extensionId The id of the extension.
      * @param _opTypes The operation types to remove.
      * Can only be called by the extension owner.
@@ -172,17 +179,21 @@ interface ITeeExtensionRegistry {
         external;
 
     /**
-     * Propose a new owner for the extension. Can only be called by the current owner.
+     * Propose a new owner for the extension - has to be on the allowlist.
      * It is a two-step process, the new owner has to confirm the ownership.
+     * Emits NewOwnerProposed event.
      * @param _extensionId The id of the extension.
      * @param _newOwner The new owner address.
+     * Can only be called by the current TEE extension owner.
      */
     function proposeNewOwner(uint256 _extensionId, address _newOwner)
         external;
 
     /**
-     * Confirm the ownership of a TEE extension. Can only be called by the proposed new owner.
+     * Confirm the ownership of a TEE extension.
+     * Emits NewOwnerConfirmed event.
      * @param _extensionId The id of the extension.
+     * Can only be called by the proposed new owner.
      */
     function confirmOwnership(uint256 _extensionId)
         external;

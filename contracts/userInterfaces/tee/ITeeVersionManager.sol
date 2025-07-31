@@ -39,7 +39,49 @@ interface ITeeVersionManager {
     );
 
     /**
+     * Creates a new TEE upgrade.
+     * Emits TeeUpgradeStarted event.
+     * @param _extensionId The id of the extension.
+     * @param _sourceTeeGovernanceHash The source TEE governance hash.
+     * @param _targetTeeGovernanceHash The target TEE governance hash.
+     * @return _teeUpgradeId The TEE upgrade id.
+     * Can only be called by the extension owner.
+     */
+    function createNewTeeUpgrade(
+        uint256 _extensionId,
+        bytes32 _sourceTeeGovernanceHash,
+        bytes32 _targetTeeGovernanceHash
+    )
+        external
+        returns(uint256 _teeUpgradeId);
+
+    /**
+     * Adds TEE upgrade paths.
+     * Emits TeeUpgradePathAdded event for each added upgrade path.
+     * @param _teeUpgradeId The TEE upgrade id.
+     * @param _upgradePaths The TEE upgrade paths.
+     * Can only be called by the upgrade path extension owner.
+     */
+    function addTeeUpgradePaths(
+        uint256 _teeUpgradeId,
+        TeeUpgradePath[] calldata _upgradePaths
+    )
+        external;
+
+    /**
+     * Finalizes the TEE upgrade and makes it ready for signing.
+     * Emits TeeUpgradeFinalized event.
+     * @param _teeUpgradeId The TEE upgrade id.
+     * Can only be called by the upgrade path extension owner.
+     */
+    function finalizeTeeUpgrade(
+        uint256 _teeUpgradeId
+    )
+        external;
+
+    /**
      * Signs the TEE upgrade.
+     * Emits TeeUpgradeSigned event when all required signatures are collected.
      * @param _teeUpgradeId The TEE upgrade id.
      * @param _signature The signature.
      */

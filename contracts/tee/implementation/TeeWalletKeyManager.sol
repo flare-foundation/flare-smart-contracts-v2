@@ -293,6 +293,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         address[] storage teeIds = keyDefinition.teeIds;
         for (uint256 i = teeIds.length; i > 0; i--) {
             if (teeMachineRegistry.getTeeMachineStatus(teeIds[i - 1]) != ITeeMachineRegistry.TeeStatus.PRODUCTION) {
+                emit WalletKeyDeleted(teeIds[i - 1], _walletId, _keyId);
                 // delete tee id from key definition
                 teeIds[i - 1] = teeIds[teeIds.length - 1];
                 teeIds.pop();

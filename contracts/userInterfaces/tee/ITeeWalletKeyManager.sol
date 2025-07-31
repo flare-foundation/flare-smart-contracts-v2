@@ -96,6 +96,7 @@ interface ITeeWalletKeyManager {
 
     /**
      * Sets the multisig threshold for the wallet.
+     * Emits WalletMultisigThresholdSet event.
      * @param _walletId The wallet id.
      * @param _multisigThreshold The multisig threshold.
      */
@@ -107,6 +108,7 @@ interface ITeeWalletKeyManager {
 
     /**
      * Adds a key to the wallet - triggers a key generation process.
+     * Emits WalletKeyAdded event.
      * @param _teeId The tee id.
      * @param _walletId The wallet id.
      * @return _keyId The key id.
@@ -115,6 +117,7 @@ interface ITeeWalletKeyManager {
 
     /**
      * Confirms the key generation.
+     * Emits WalletKeyConfirmed event.
      * @param _proof The key existence proof.
      * @param _teeSignature The TEE machine signature of the key existence proof.
      */
@@ -126,6 +129,7 @@ interface ITeeWalletKeyManager {
 
     /**
      * Deletes key from the tee machine - triggers a key deletion process.
+     * Emits WalletKeyDeleted event.
      * @param _teeId The tee id.
      * @param _walletId The wallet id.
      * @param _keyId The key id.
@@ -134,6 +138,7 @@ interface ITeeWalletKeyManager {
 
     /**
      * For given wallet id and key id cleans up all tee machines that are not in production status.
+     * Emits WalletKeyDeleted event for each deleted tee id.
      * @param _walletId The wallet id.
      * @param _keyId The key id.
      */

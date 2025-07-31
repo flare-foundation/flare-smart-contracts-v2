@@ -29,7 +29,36 @@ interface ITeeGovernance {
     );
 
     /**
+     * Sets new TEE governance.
+     * Emits a NewTeeGovernanceSet event.
+     * @param _extensionId The id of the extension.
+     * @param _signers The new governance signers.
+     * @param _signersThreshold The new governance signers threshold.
+     * Can only be called by the extension owner.
+     */
+    function setNewTeeGovernance(
+        uint256 _extensionId,
+        address[] calldata _signers,
+        uint64 _signersThreshold
+    )
+        external;
+
+    /**
+     * Sets new TEE pausing addresses.
+     * Emits a NewPausingAddressesSet event.
+     * @param _extensionId The id of the extension.
+     * @param _pausingAddresses The list of new pausing addresses, can be empty.
+     * Can only be called the extension owner.
+     */
+    function setTeePausingAddresses(
+        uint256 _extensionId,
+        address[] calldata _pausingAddresses
+    )
+        external;
+
+    /**
      * Signs pausing addresses.
+     * Emits a NewPausingAddressesSigned event.
      * @param _extensionId The id of the extension.
      * @param _nonce The nonce of the pausing addresses.
      * @param _signature The signature of the TEE pausing addresses list.

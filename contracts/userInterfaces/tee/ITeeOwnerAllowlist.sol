@@ -13,9 +13,10 @@ interface ITeeOwnerAllowlist {
 
     /**
      * Adds a list of allowed TEE machine owners on the specified extension.
+     * Emits AllowedTeeMachineOwnersAdded event.
      * @param _extensionId The id of the extension.
      * @param _owners The list of addresses to add to the allowlist.
-     * @dev This function can only be called by the extension owner.
+     * Can only be called by the extension owner.
      */
     function addAllowedTeeMachineOwners(
         uint256 _extensionId,
@@ -25,9 +26,10 @@ interface ITeeOwnerAllowlist {
 
     /**
      * Adds a list of allowed TEE wallet project owners on the specified extension.
+     * Emits AllowedTeeWalletProjectOwnersAdded event.
      * @param _extensionId The id of the extension.
      * @param _owners The list of addresses to add to the allowlist.
-     * @dev This function can only be called by the extension owner.
+     * Can only be called by the extension owner.
      */
     function addAllowedTeeWalletProjectOwners(
         uint256 _extensionId,
@@ -37,8 +39,9 @@ interface ITeeOwnerAllowlist {
 
     /**
      * Allows all addresses to be TEE machine owners on the specified extension.
+     * Emits AllTeeMachineOwnersAllowed event.
      * @param _extensionId The id of the extension.
-     * @dev This function can only be called by the extension owner.
+     * Can only be called by the extension owner.
      */
     function allowAllTeeMachineOwners(
         uint256 _extensionId
@@ -47,8 +50,9 @@ interface ITeeOwnerAllowlist {
 
     /**
      * Allows all addresses to be TEE wallet project owners on the specified extension.
+     * Emits AllTeeWalletProjectOwnersAllowed event.
      * @param _extensionId The id of the extension.
-     * @dev This function can only be called by the extension owner.
+     * Can only be called by the extension owner.
      */
     function allowAllTeeWalletProjectOwners(
         uint256 _extensionId

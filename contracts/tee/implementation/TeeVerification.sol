@@ -240,8 +240,10 @@ contract TeeVerification is ITeeVerification, TeeBase {
 
     /**
      * Sets the FTDC cosigners and their threshold used for the TEE machine registration.
+     * Emits CosignersSet event.
      * @param _cosigners The cosigners.
      * @param _cosignersThreshold The cosigners threshold.
+     * Can only be called by the governance.
      */
     function setCosigners(
         address[] calldata _cosigners,
@@ -267,10 +269,12 @@ contract TeeVerification is ITeeVerification, TeeBase {
 
     /**
      * Update the settings of the TeeAvailability contract.
+     * Emits SettingsUpdated event.
      * @param _availabilityCheckValidityDurationSeconds The TEE availability check validity duration, in seconds.
      * In order to receive rewards, TEE must be checked for availability at least once in this period.
      * @param _signingPolicyValidityDurationInRewardEpochs The signing policy validity duration, in reward epochs.
      * @param _challengeValidityDurationSeconds Challenge validity duration, in seconds.
+     * Can only be called by the governance.
      */
     function updateSettings(
         uint64 _availabilityCheckValidityDurationSeconds,

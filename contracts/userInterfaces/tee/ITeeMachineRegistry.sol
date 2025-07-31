@@ -50,7 +50,8 @@ interface ITeeMachineRegistry {
     );
 
     event TeeMachinePaused(
-        address indexed teeId
+        address indexed teeId,
+        bool withProof
     );
 
     event TeeProxyIdSet(
@@ -60,12 +61,14 @@ interface ITeeMachineRegistry {
 
     /**
      * Register a new TEE machine. It also triggers availability check.
+     * Emits TeeMachineRegistered event.
      * @param _extensionId The id of the extension.
      * @param _teeId The TEE machine id.
      * @param _teeProxyId The TEE proxy id.
      * @param _url The TEE machine URL.
      * @param _codeHash The TEE machine code hash.
      * @param _platform The TEE machine platform.
+     * Can only be called by an allowlisted TEE machine owner.
      */
     function register(
         uint256 _extensionId,
@@ -79,7 +82,9 @@ interface ITeeMachineRegistry {
 
     /**
      * Put a TEE machine into production.
+     * Emits a TeeMachinePutIntoProduction event.
      * @param _proof The availability check proof.
+     * Can only be called by the TEE machine owner or by anyone in case TEE machine was paused with proof.
      */
     function toProduction(
         ITeeAvailabilityCheck.Proof calldata _proof
@@ -87,15 +92,19 @@ interface ITeeMachineRegistry {
         external;
 
     /**
-     * Pause a TEE machine. Can be called by the TEE machine owner or by anyone in case version is obsolete.
+     * Pause a TEE machine.
+     * Emits a TeeMachinePaused event.
      * @param _teeId The TEE machine id.
+     * Can be called by the TEE machine owner or by anyone in case version is obsolete.
      */
     function pause(address _teeId)
         external;
 
     /**
-     * Pause a TEE machine with proof. Can be called by anyone in case TEE machine is obsolete, down, ...
+     * Pause a TEE machine with proof.
+     * Emits a TeeMachinePaused event.
      * @param _proof The availability check proof.
+     * Can be called by anyone in case TEE machine is obsolete, down, ...
      */
     function pauseWithProof(
         ITeeAvailabilityCheck.Proof calldata _proof
@@ -103,25 +112,31 @@ interface ITeeMachineRegistry {
         external;
 
     /**
-     * Propose a new owner for a TEE machine. Can only be called by the TEE machine owner.
+     * Propose a new owner for a TEE machine - has to be on the allowlist.
      * It is a two-step process, the new owner has to confirm the ownership.
+     * Emits a NewOwnerProposed event.
      * @param _teeId The TEE machine id.
      * @param _newOwner The new owner address.
+     * Can only be called by the current TEE machine owner.
      */
     function proposeNewOwner(address _teeId, address _newOwner)
         external;
 
     /**
-     * Confirm the ownership of a TEE machine. Can only be called by the proposed new owner.
+     * Confirm the ownership of a TEE machine.
+     * Emits a NewOwnerConfirmed event.
      * @param _teeId The TEE machine id.
+     * Can only be called by the proposed new owner.
      */
     function confirmOwnership(address _teeId)
         external;
 
     /**
-     * Set TEE proxy id. Can only be called by the TEE machine owner.
+     * Set TEE proxy id.
+     * Emits TeeProxyIdSet event.
      * @param _teeId The TEE machine id.
      * @param _teeProxyId The TEE proxy id.
+     * Can only be called by the TEE machine owner.
      */
     function setTeeProxyId(address _teeId, address _teeProxyId)
         external;

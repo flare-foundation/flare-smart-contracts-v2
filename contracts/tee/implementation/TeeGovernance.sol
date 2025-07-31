@@ -69,10 +69,7 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
     }
 
     /**
-     * Sets new TEE governance.
-     * @param _signers The new governance signers.
-     * @param _signersThreshold The new governance signers threshold.
-     * Can only be called by the governance.
+     * @inheritdoc ITeeGovernance
      */
     function setNewTeeGovernance(
         uint256 _extensionId,
@@ -99,9 +96,7 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
     }
 
     /**
-     * Sets new TEE pausing addresses.
-     * @param _pausingAddresses The list of new pausing addresses, can be empty.
-     * Can only be called by the governance.
+     * @inheritdoc ITeeGovernance
      */
     function setTeePausingAddresses(
         uint256 _extensionId,
