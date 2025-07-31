@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.27;
 
 import "./TeePayments.sol";
 import "../../userInterfaces/tee/ITeePaymentsEVM.sol";

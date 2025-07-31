@@ -1,5 +1,5 @@
 {
-    "solidity.compileUsingRemoteVersion": "v0.8.20+commit.a1b79de6",
+    "solidity.compileUsingRemoteVersion": "v0.8.27+commit.40a35a09",
     "solidity.packageDefaultDependenciesDirectory": "node_modules",
     "[javascript]": {
         "editor.tabSize": 2
@@ -35,5 +35,5 @@
     },
     "yaml.customTags": [
       "!reference sequence"
-    ]   
+    ]
 }

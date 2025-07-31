@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.27;
 
 import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeePayments.sol";
 import "../../../../contracts/tee/implementation/TeeInstructions.sol";
-import "../../../../contracts/tee/implementation/TeeInstructionsProxy.sol";
-import "../../../../contracts/tee/implementation/TeePaymentsProxy.sol";
+import "../../../../contracts/tee/proxy/TeeInstructionsProxy.sol";
+import "../../../../contracts/tee/proxy/TeePaymentsProxy.sol";
 import "../../../../contracts/protocol/interface/IIRewardManager.sol";
 
 //solhint-disable-next-line max-states-count

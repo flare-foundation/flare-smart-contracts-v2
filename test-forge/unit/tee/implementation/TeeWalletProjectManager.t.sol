@@ -1,8 +1,9 @@
-pragma solidity 0.8.20;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.27;
 
 import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeeWalletProjectManager.sol";
-import "../../../../contracts/tee/implementation/TeeWalletProjectManagerProxy.sol";
+import "../../../../contracts/tee/proxy/TeeWalletProjectManagerProxy.sol";
 
 contract TeeWalletProjectManagerTest is Test {
 
