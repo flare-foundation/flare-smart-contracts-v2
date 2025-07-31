@@ -72,6 +72,24 @@ interface ITeeWalletManager {
         bytes32 indexed walletId
     );
 
+    error OnlyOwner();
+    error NotEnoughAdmins();
+    error InvalidAdminsThreshold();
+    error DuplicatedPublicKey(PublicKey publicKey);
+    error InvalidCosignersThreshold();
+    error InvalidCosigner(address cosigner);
+    error DuplicatedCosigner(address cosigner);
+    error AdminsNotSet();
+    error NotAllAdminsConfirmed(address admin);
+    error NotAllCosignersConfirmed(address cosigner);
+    error InvalidWalletStatus();
+    error MultisigThresholdNotSet();
+    error NotEnoughKeys();
+    error OnlyProductionOrPausedStatus();
+    error WrongKeyId();
+    error TeeMachineNotAvailable();
+    error InvalidPublicKey(PublicKey publicKey);
+
     /**
      * Creates the wallet for the project.
      * Emits WalletCreated event.

@@ -81,7 +81,7 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         external
         returns (bytes32 _walletId)
     {
-        require(teeWalletProjectManager.getOwner(_projectId) == msg.sender, "only owner");
+        require(teeWalletProjectManager.getOwner(_projectId) == msg.sender, OnlyOwner());
         _walletId = keccak256(abi.encode("WALLET", msg.sender, ++walletCounter));
         TeeWalletState storage wallet = wallets[_walletId];
         assert(wallet.projectId == bytes32(0)); // should never revert
@@ -101,15 +101,16 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     )
         external onlyOwner(_walletId)
     {
-        require(_adminsPublicKeys.length >= _adminsThreshold, "not enough admins");
-        require(_adminsThreshold > 0, "invalid admins threshold");
+        require(_adminsPublicKeys.length >= _adminsThreshold, NotEnoughAdmins());
+        require(_adminsThreshold > 0, InvalidAdminsThreshold());
         for (uint256 i = 0; i < _adminsPublicKeys.length; i++) {
             PublicKey calldata pk = _adminsPublicKeys[i];
             // check public key validity
             _checkPublicKeyValidity(pk);
             // check for duplicates
             for (uint256 j = 0; j < i; j++) {
-                require(_adminsPublicKeys[j].x != pk.x || _adminsPublicKeys[j].y != pk.y, "duplicated public key");
+                require(_adminsPublicKeys[j].x != pk.x || _adminsPublicKeys[j].y != pk.y,
+                    DuplicatedPublicKey(pk));
             }
         }
         TeeWalletState storage wallet = wallets[_walletId];
@@ -157,15 +158,15 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     {
         require(
             _cosigners.length >= _cosignersThreshold && (_cosigners.length == 0 || _cosignersThreshold > 0),
-            "invalid threshold"
+            InvalidCosignersThreshold()
         );
         TeeWalletState storage wallet = wallets[_walletId];
         _checkWalletStatus(wallet.status, WalletStatus.CREATED);
         for (uint256 i = 0; i < _cosigners.length; i++) {
-            require(_cosigners[i] != address(0), "invalid cosigner");
+            require(_cosigners[i] != address(0), InvalidCosigner(_cosigners[i]));
             // check for duplicates
             for (uint256 j = 0; j < i; j++) {
-                require(_cosigners[j] != _cosigners[i], "duplicated cosigner");
+                require(_cosigners[j] != _cosigners[i], DuplicatedCosigner(_cosigners[i]));
             }
         }
         wallet.cosigners = _cosigners;
@@ -201,12 +202,13 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     {
         TeeWalletState storage wallet = wallets[_walletId];
         _checkWalletStatus(wallet.status, WalletStatus.CREATED);
-        require(wallet.adminsPublicKeys.length > 0, "admins not set");
+        require(wallet.adminsPublicKeys.length > 0, AdminsNotSet());
         for (uint256 i = 0; i < wallet.adminsPublicKeys.length; i++) {
-            require(wallet.adminConfirmations[_getAddress(wallet.adminsPublicKeys[i])], "not all admins confirmed");
+            require(wallet.adminConfirmations[_getAddress(wallet.adminsPublicKeys[i])],
+                NotAllAdminsConfirmed(_getAddress(wallet.adminsPublicKeys[i])));
         }
         for (uint256 i = 0; i < wallet.cosigners.length; i++) {
-            require(wallet.cosignerConfirmations[wallet.cosigners[i]], "not all cosigners confirmed");
+            require(wallet.cosignerConfirmations[wallet.cosigners[i]], NotAllCosignersConfirmed(wallet.cosigners[i]));
         }
 
         wallet.status = WalletStatus.INITIALIZED;
@@ -221,12 +223,12 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     {
         TeeWalletState storage wallet = wallets[_walletId];
         WalletStatus status = wallet.status;
-        require(status == WalletStatus.INITIALIZED || status == WalletStatus.PAUSED, "invalid wallet status");
+        require(status == WalletStatus.INITIALIZED || status == WalletStatus.PAUSED, InvalidWalletStatus());
         if (status == WalletStatus.INITIALIZED) {
             // check if wallet multisig threshold is set and keys are added + confirmed
             (uint64 multisigThreshold, uint64[] memory keyIds, ) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
-            require(multisigThreshold > 0, "multisig threshold not set");
-            require(keyIds.length >= multisigThreshold, "not enough keys");
+            require(multisigThreshold > 0, MultisigThresholdNotSet());
+            require(keyIds.length >= multisigThreshold, NotEnoughKeys());
         }
         wallet.status = WalletStatus.PRODUCTION;
         emit WalletEnabled(_walletId);
@@ -255,7 +257,8 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     {
         ITeeWalletManager.WalletStatus walletStatus = wallets[_walletId].status;
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
-            walletStatus == ITeeWalletManager.WalletStatus.PAUSED, "only production or paused status");
+            walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
+            OnlyProductionOrPausedStatus());
         TeeIdKeyIdPair[] memory teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(_walletId);
         address[] memory teeIds = new address[](teeIdKeyIdPairs.length);
         for (uint256 i = 0; i < teeIdKeyIdPairs.length; i++) {
@@ -294,7 +297,7 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         require(
             walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
             walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
-            "only production or paused status"
+            OnlyProductionOrPausedStatus()
         );
 
         uint256 numOfKeys = _keysData.length;
@@ -308,10 +311,10 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
                     break;
                 }
             }
-            require(found, "wrong key id");
+            require(found, WrongKeyId());
             require(
                 teeMachineRegistry.getTeeMachineStatus(_keysData[i].teeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
-                "tee machine not available"
+                TeeMachineNotAvailable()
             );
             teeIds[i] = _keysData[i].teeId;
         }
@@ -412,7 +415,7 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         internal view
     {
         address owner = teeWalletProjectManager.getOwner(wallets[_walletId].projectId);
-        require(owner == msg.sender, "only owner");
+        require(owner == msg.sender, OnlyOwner());
     }
 
     function _getAddress(PublicKey storage _pk) internal view returns (address) {
@@ -424,7 +427,7 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     function _checkWalletStatus(WalletStatus _actualStatus, WalletStatus _expectedStatus)
         internal pure
     {
-        require(_actualStatus == _expectedStatus, "invalid wallet status");
+        require(_actualStatus == _expectedStatus, InvalidWalletStatus());
     }
 
     function _checkPublicKeyValidity(PublicKey calldata _pk) internal pure {
@@ -432,7 +435,7 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         uint256 y = uint256(_pk.y);
         require(
             x < P && x > 0 && y < P && y > 0 && mulmod(y, y, P) == addmod(mulmod(mulmod(x, x, P), x, P), 7, P),
-            "invalid public key"
+            InvalidPublicKey(_pk)
         );
     }
 }

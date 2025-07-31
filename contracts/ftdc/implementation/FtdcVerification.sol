@@ -59,7 +59,7 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
         );
         require(
             teeMachineRegistry.getTeeMachineStatus(_signingTeeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
-            "tee machine not available"
+            TeeMachineNotAvailable()
         );
     }
 
@@ -83,10 +83,10 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
             );
             require(
                 teeMachineRegistry.getTeeMachineStatus(teeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
-                "tee machine not available"
+                TeeMachineNotAvailable()
             );
             for (uint256 j = 0; j < i; j++) {
-                require(_signingTeeIds[j] != teeId, "duplicated tee id");
+                require(_signingTeeIds[j] != teeId, DuplicatedTeeId(teeId));
             }
             _signingTeeIds[i] = teeId;
         }
@@ -111,7 +111,7 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
                 signature.s
             );
             for (uint256 j = 0; j < i; j++) {
-                require(_cosigners[j] != cosigner, "duplicated cosigner");
+                require(_cosigners[j] != cosigner, DuplicatedCosigner(cosigner));
             }
             _cosigners[i] = cosigner;
         }

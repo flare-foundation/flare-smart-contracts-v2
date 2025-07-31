@@ -43,14 +43,14 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
     TeeUpgrade[] private teeUpgrades;
 
     modifier onlyValidTeeUpgradeId(uint256 _teeUpgradeId) {
-        require(_teeUpgradeId < teeUpgrades.length, "invalid upgrade id");
+        require(_teeUpgradeId < teeUpgrades.length, InvalidUpgradeId());
         _;
     }
 
     modifier onlyExtensionOwner(uint256 _extensionId) {
         require(
             msg.sender == teeExtensionRegistry.getExtensionOwner(_extensionId),
-            "only extension owner"
+            OnlyExtensionOwner()
         );
         _;
     }
@@ -87,11 +87,11 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
     {
         require(
             teeGovernance.isGovernanceHashValid(_extensionId, _sourceTeeGovernanceHash),
-            "invalid from governance hash"
+            InvalidFromGovernanceHash()
         );
         require(
             teeGovernance.isGovernanceHashValid(_extensionId, _targetTeeGovernanceHash),
-            "invalid to governance hash"
+            InvalidToGovernanceHash()
         );
 
         _teeUpgradeId = teeUpgrades.length;
@@ -110,8 +110,8 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
     )
         external onlyValidTeeUpgradeId(_teeUpgradeId) onlyExtensionOwner(teeUpgrades[_teeUpgradeId].extensionId)
     {
-        require(teeUpgrades[_teeUpgradeId].messageHash == bytes32(0), "upgrade already finalized");
-        require(_upgradePaths.length > 0, "no upgrade paths");
+        require(teeUpgrades[_teeUpgradeId].messageHash == bytes32(0), UpgradeAlreadyFinalized());
+        require(_upgradePaths.length > 0, NoUpgradePaths());
 
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
         bytes32 sourceTeeGovernanceHash = teeUpgrade.sourceTeeGovernanceHash;
@@ -119,8 +119,8 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
 
         for (uint256 i = 0; i < _upgradePaths.length; i++) {
             TeeUpgradePath calldata upgradePath = _upgradePaths[i];
-            require(upgradePath.sourceVersions.length > 0, "no source versions");
-            require(upgradePath.targetVersions.length > 0, "no target versions");
+            require(upgradePath.sourceVersions.length > 0, NoSourceVersions());
+            require(upgradePath.targetVersions.length > 0, NoTargetVersions());
             TeeUpgradePathState storage upgradePathState = teeUpgrade.upgradePaths.push();
             for (uint256 j = 0; j < upgradePath.sourceVersions.length; j++) {
                 TeeNodeVersion calldata sourceVersion = upgradePath.sourceVersions[j];
@@ -129,17 +129,17 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
                         teeUpgrade.extensionId, sourceVersion.codeHash, sourceVersion.platform) ||
                     teeExtensionRegistry.codeHashPlatformDisabled(
                         teeUpgrade.extensionId, sourceVersion.codeHash, sourceVersion.platform),
-                    "source codeHash and platform not supported"
+                    SourceCodeHashAndPlatformNotSupported()
                 );
                 require(
                     teeExtensionRegistry.getTeeGovernanceHash(teeUpgrade.extensionId, sourceVersion.codeHash) ==
                         sourceTeeGovernanceHash,
-                    "source governance hash mismatch"
+                    SourceGovernanceHashMismatch()
                 );
                 bytes32 sourceVersionHash = keccak256(abi.encode(sourceVersion));
                 require(
                     !upgradePathState.sourceTeeNodeVersionExists[sourceVersionHash],
-                    "source version already exists"
+                    SourceVersionAlreadyExists()
                 );
                 upgradePathState.sourceTeeNodeVersionExists[sourceVersionHash] = true;
                 upgradePathState.upgradePath.sourceVersions.push(sourceVersion);
@@ -149,17 +149,17 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
                 require(
                     teeExtensionRegistry.isCodeHashPlatformSupported(
                         teeUpgrade.extensionId, targetVersion.codeHash, targetVersion.platform),
-                    "target codeHash and platform not supported"
+                    TargetCodeHashAndPlatformNotSupported()
                 );
                 require(
                     teeExtensionRegistry.getTeeGovernanceHash(teeUpgrade.extensionId, targetVersion.codeHash) ==
                         targetTeeGovernanceHash,
-                    "target governance hash mismatch"
+                    TargetGovernanceHashMismatch()
                 );
                 bytes32 targetVersionHash = keccak256(abi.encode(targetVersion));
                 require(
                     !upgradePathState.targetTeeNodeVersionExists[targetVersionHash],
-                    "target version already exists"
+                    TargetVersionAlreadyExists()
                 );
                 upgradePathState.targetTeeNodeVersionExists[targetVersionHash] = true;
                 upgradePathState.upgradePath.targetVersions.push(targetVersion);
@@ -177,8 +177,8 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
         external onlyValidTeeUpgradeId(_teeUpgradeId) onlyExtensionOwner(teeUpgrades[_teeUpgradeId].extensionId)
     {
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
-        require(teeUpgrade.messageHash == bytes32(0), "upgrade already finalized");
-        require(teeUpgrade.upgradePaths.length > 0, "no upgrade paths");
+        require(teeUpgrade.messageHash == bytes32(0), UpgradeAlreadyFinalized());
+        require(teeUpgrade.upgradePaths.length > 0, NoUpgradePaths());
         teeUpgrade.messageHash = keccak256(abi.encode(_getTeeUpgradePaths(_teeUpgradeId)));
         emit TeeUpgradeFinalized(_teeUpgradeId);
     }
@@ -193,8 +193,8 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
         external onlyValidTeeUpgradeId(_teeUpgradeId)
     {
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
-        require(!teeUpgrade.upgradeSigned, "upgrade already signed");
-        require(teeUpgrade.messageHash != bytes32(0), "upgrade not finalized");
+        require(!teeUpgrade.upgradeSigned, UpgradeAlreadySigned());
+        require(teeUpgrade.messageHash != bytes32(0), UpgradeNotFinalized());
 
         bytes32 sourceTeeGovernanceHash = teeUpgrade.sourceTeeGovernanceHash;
         bytes32 targetTeeGovernanceHash = teeUpgrade.targetTeeGovernanceHash;
@@ -256,8 +256,8 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
         returns(bool)
     {
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
-        require(_extensionId == teeUpgrade.extensionId, "extension id mismatch");
-        require(teeUpgrade.messageHash != bytes32(0), "upgrade not finalized");
+        require(_extensionId == teeUpgrade.extensionId, ExtensionIdMismatch());
+        require(teeUpgrade.messageHash != bytes32(0), UpgradeNotFinalized());
         bytes32 sourceVersionHash = keccak256(abi.encode(TeeNodeVersion(_sourceCodeHash, _sourcePlatform)));
         bytes32 targetVersionHash = keccak256(abi.encode(TeeNodeVersion(_targetCodeHash, _targetPlatform)));
         for (uint256 i = 0; i < teeUpgrade.upgradePaths.length; i++) {

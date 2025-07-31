@@ -67,9 +67,9 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
         external
         returns (bytes32 _projectId)
     {
-        require(teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(_extensionId, msg.sender), "owner not allowed");
-        require(teeExtensionRegistry.isWalletProjectOpTypeSupported(_extensionId, _opType), "op type not supported");
-        require(_submitAddress != address(0), "submit address zero");
+        require(teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(_extensionId, msg.sender), OwnerNotAllowed());
+        require(teeExtensionRegistry.isWalletProjectOpTypeSupported(_extensionId, _opType), OpTypeNotSupported());
+        require(_submitAddress != address(0), SubmitAddressZero());
         _projectId = keccak256(abi.encode("PROJECT", msg.sender, ++projectCounter));
         TeeWalletProjectState storage project = projects[_projectId];
         assert(project.owner == address(0)); // should never revert
@@ -96,10 +96,11 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     function setDefaultWallet(bytes32 _projectId, bytes32 _walletId)
         external onlyOwner(_projectId)
     {
-        require(teeWalletManager.getWalletProjectId(_walletId) == _projectId, "wallet not part of the project");
+        require(teeWalletManager.getWalletProjectId(_walletId) == _projectId,
+            WalletNotPartOfProject());
         require(
             teeWalletManager.getWalletStatus(_walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
-            "wallet not production ready"
+            WalletNotProductionReady()
         );
         projects[_projectId].defaultWalletId = _walletId;
         emit DefaultWalletSet(_projectId, _walletId);
@@ -114,7 +115,7 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
         uint256 extensionId = projects[_projectId].extensionId;
         require(
             _newOwner == address(0) || teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(extensionId, _newOwner),
-            "owner not allowed"
+            OwnerNotAllowed()
         );
         proposedProjectOwner[_projectId] = _newOwner;
         emit NewOwnerProposed(_projectId, _newOwner);
@@ -127,8 +128,8 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
         external
     {
         uint256 extensionId = projects[_projectId].extensionId;
-        require(teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(extensionId, msg.sender), "owner not allowed");
-        require(proposedProjectOwner[_projectId] == msg.sender, "only proposed owner");
+        require(teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(extensionId, msg.sender), OwnerNotAllowed());
+        require(proposedProjectOwner[_projectId] == msg.sender, OnlyProposedOwner());
         projects[_projectId].owner = msg.sender;
         delete proposedProjectOwner[_projectId];
         emit OwnershipConfirmed(_projectId, msg.sender);
@@ -227,6 +228,6 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     function _checkOnlyOwner(bytes32 _projectId)
         internal view
     {
-        require(projects[_projectId].owner == msg.sender, "only owner");
+        require(projects[_projectId].owner == msg.sender, OnlyOwner());
     }
 }

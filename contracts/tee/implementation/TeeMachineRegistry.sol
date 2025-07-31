@@ -54,7 +54,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     }
 
     modifier onlyTeeReplicationContract() {
-        require(msg.sender == address(teeReplication), "only TeeReplication contract");
+        require(msg.sender == address(teeReplication), OnlyTeeReplicationContract());
         _;
     }
 
@@ -90,11 +90,11 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     )
         external payable
     {
-        require(teeOwnerAllowlist.isAllowedTeeMachineOwner(_extensionId, msg.sender), "owner not allowed");
-        require(_teeId != address(0), "invalid tee id");
-        require(_teeProxyId != address(0), "invalid tee proxy id");
-        require(bytes(_url).length > 0, "invalid url");
-        require(teeMachineStates[_teeId].owner == address(0), "already registered");
+        require(teeOwnerAllowlist.isAllowedTeeMachineOwner(_extensionId, msg.sender), OwnerNotAllowed());
+        require(_teeId != address(0), InvalidTeeId());
+        require(_teeProxyId != address(0), InvalidTeeProxyId());
+        require(bytes(_url).length > 0, InvalidUrl());
+        require(teeMachineStates[_teeId].owner == address(0), AlreadyRegistered());
         _checkCodeHashPlatformSupported(_extensionId, _codeHash, _platform);
 
         teeMachineStates[_teeId] = TeeMachineState({
@@ -128,12 +128,12 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         require(
             status == TeeStatus.PAUSED_WITH_PROOF ||
             (status == TeeStatus.INITIALIZED || status == TeeStatus.PAUSED) && msg.sender == state.owner,
-            "invalid tee status"
+            InvalidTeeStatus()
         );
         _checkCodeHashPlatformSupported(state.extensionId, state.codeHash, state.platform);
         _validateAvailabilityCheckStatus(_proof.responseBody.status);
         _validateAvailabilityCheckTs(teeId, _proof.header.timestamp);
-        require(teeVerification.verifyAvailabilityCheckProof(_proof), "invalid response data");
+        require(teeVerification.verifyAvailabilityCheckProof(_proof), InvalidResponseData());
         if (status == TeeStatus.INITIALIZED) {
             state.initialSigningPolicyId = _proof.responseBody.initialSigningPolicyId;
         }
@@ -157,7 +157,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         require(
             msg.sender == state.owner ||
             teeExtensionRegistry.codeHashPlatformDisabled(state.extensionId, state.codeHash, state.platform),
-            "only owner or disabled version"
+            OnlyOwnerOrDisabledVersion()
         );
 
         state.status = TeeStatus.PAUSED;
@@ -182,7 +182,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         require(
             !responseDataValid ||
             _proof.responseBody.status != ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            "invalid response data or AC status"
+            InvalidResponseDataOrAvailabilityCheckStatus()
         );
         _validateAvailabilityCheckTs(teeId, _proof.header.timestamp);
 
@@ -202,7 +202,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         uint256 extensionId = teeMachineStates[_teeId].extensionId;
         require(
             _newOwner == address(0) || teeOwnerAllowlist.isAllowedTeeMachineOwner(extensionId, _newOwner),
-            "owner not allowed"
+            OwnerNotAllowed()
         );
         proposedTeeOwner[_teeId] = _newOwner;
         emit NewOwnerProposed(_teeId, msg.sender, _newOwner);
@@ -215,8 +215,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         external
     {
         uint256 extensionId = teeMachineStates[_teeId].extensionId;
-        require(teeOwnerAllowlist.isAllowedTeeMachineOwner(extensionId, msg.sender), "owner not allowed");
-        require(proposedTeeOwner[_teeId] == msg.sender, "only proposed owner");
+        require(teeOwnerAllowlist.isAllowedTeeMachineOwner(extensionId, msg.sender), OwnerNotAllowed());
+        require(proposedTeeOwner[_teeId] == msg.sender, OnlyProposedOwner());
         teeMachineStates[_teeId].owner = msg.sender;
         delete proposedTeeOwner[_teeId];
         emit NewOwnerConfirmed(_teeId, msg.sender);
@@ -228,7 +228,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     function setTeeProxyId(address _teeId, address _teeProxyId)
         external onlyOwner(_teeId)
     {
-        require(_teeProxyId != address(0), "invalid tee proxy id");
+        require(_teeProxyId != address(0), InvalidTeeProxyId());
         TeeMachineState storage state = teeMachineStates[_teeId];
         state.teeProxyId = _teeProxyId;
         emit TeeProxyIdSet(_teeId, _teeProxyId);
@@ -249,7 +249,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         } else if (_newStatus == TeeStatus.PAUSED_FOR_UPGRADE) {
             _checkTeeStatus(state.status, TeeStatus.PAUSED, TeeStatus.PAUSED_FOR_UPGRADE);
         } else {
-            revert("invalid new status");
+            revert InvalidNewStatus();
         }
 
         state.status = _newStatus;
@@ -270,8 +270,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         TeeMachineState storage newState = _getTeeMachineState(_newTeeId);
         _checkTeeStatus(oldState.status, TeeStatus.PAUSED_FOR_UPGRADE);
         _checkTeeStatus(oldState.status, TeeStatus.REPLICATING);
-        require(oldState.owner == oldState.owner, "owner mismatch");
-        require(oldState.extensionId == newState.extensionId, "extension id mismatch");
+        require(oldState.owner == oldState.owner, OwnerMismatch());
+        require(oldState.extensionId == newState.extensionId, ExtensionIdMismatch());
         _checkCodeHashPlatformSupported(newState.extensionId, newState.codeHash, newState.platform);
         _validateAvailabilityCheckStatus(_proof.responseBody.status);
         _validateAvailabilityCheckTs(_newTeeId, _proof.header.timestamp);
@@ -285,7 +285,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         // delete the new TEE machine state
         delete teeMachineStates[_newTeeId];
         // verify the availability check proof for the updated TEE machine data
-        require(teeVerification.verifyAvailabilityCheckProof(_proof), "invalid response data");
+        require(teeVerification.verifyAvailabilityCheckProof(_proof), InvalidResponseData());
 
         // put TEE machine into production
         oldState.status = TeeStatus.PRODUCTION;
@@ -363,7 +363,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         returns(address[] memory _teeIds)
     {
         uint256 length = extensionActiveTeeIds[_extensionId].list.length;
-        require (_count <= length, "too many");
+        require (_count <= length, TooMany());
         (uint256 randomNumber,,) = relay.getRandomNumber();
 
         // Reservoir sampling
@@ -459,12 +459,12 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     }
 
     function _validateAvailabilityCheckTs(address _teeId, uint256 _availabilityCheckTs) internal view {
-        require(_availabilityCheckTs >= teeMachineStates[_teeId].lastStatusChangeTs, "AC timestamp invalid");
+        require(_availabilityCheckTs >= teeMachineStates[_teeId].lastStatusChangeTs, AcTimestampInvalid());
     }
 
     function _getTeeMachineState(address _teeId) internal view returns(TeeMachineState storage _state) {
         _state = teeMachineStates[_teeId];
-        require(_state.owner != address(0), "tee not found");
+        require(_state.owner != address(0), TeeNotFound());
     }
 
     function _getTeeMachineWithAttestationData(address _teeId, TeeMachineState storage _state)
@@ -489,24 +489,24 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     {
         require(
             teeExtensionRegistry.isCodeHashPlatformSupported(_extensionId, _codeHash, _platform),
-            "version not supported"
+            VersionNotSupported()
         );
     }
 
     function _checkOnlyOwner(address _teeId) internal view {
-        require(msg.sender == teeMachineStates[_teeId].owner, "only owner");
+        require(msg.sender == teeMachineStates[_teeId].owner, OnlyOwner());
     }
 
     function _checkTeeStatus(TeeStatus _actualStatus, TeeStatus _expectedStatus)
         internal pure
     {
-        require(_actualStatus == _expectedStatus, "invalid tee status");
+        require(_actualStatus == _expectedStatus, InvalidTeeStatus());
     }
 
     function _checkTeeStatus(TeeStatus _actualStatus, TeeStatus _expectedStatus1, TeeStatus _expectedStatus2)
         internal pure
     {
-        require(_actualStatus == _expectedStatus1 || _actualStatus == _expectedStatus2, "invalid tee status");
+        require(_actualStatus == _expectedStatus1 || _actualStatus == _expectedStatus2, InvalidTeeStatus());
     }
 
     function _validateAvailabilityCheckStatus(
@@ -514,7 +514,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     )
         internal pure
     {
-        require(_status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK, "invalid AC status");
+        require(_status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK, InvalidAvailabilityCheckStatus());
     }
 
     function _validateDuration(
@@ -524,6 +524,6 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     )
         internal pure
     {
-        require(_minDuration <= _duration && _duration <= _maxDuration, "invalid duration");
+        require(_minDuration <= _duration && _duration <= _maxDuration, InvalidDuration());
     }
 }

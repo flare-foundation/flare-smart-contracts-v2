@@ -44,7 +44,7 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
     modifier onlyExtensionOwner(uint256 _extensionId) {
         require(
             msg.sender == teeExtensionRegistry.getExtensionOwner(_extensionId),
-            "only extension owner"
+            OnlyExtensionOwner()
         );
         _;
     }
@@ -79,8 +79,8 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         external onlyExtensionOwner(_extensionId)
     {
         TeeExtensionState storage extensionState = extensionStates[_extensionId];
-        require(_signers.length > 0, "no signers");
-        require(_signersThreshold > 0 && _signersThreshold <= _signers.length, "invalid threshold");
+        require(_signers.length > 0, NoSigners());
+        require(_signersThreshold > 0 && _signersThreshold <= _signers.length, InvalidThreshold());
         bytes32 governanceHash = keccak256(abi.encode(_signers, _signersThreshold));
         emit NewTeeGovernanceSet(_extensionId, governanceHash, _signers, _signersThreshold);
         extensionState.latestTeeGovernanceHash = governanceHash;
@@ -90,7 +90,7 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         }
         teeGovernance.signersThreshold = _signersThreshold;
         for (uint256 i = 0; i < _signers.length; i++) {
-            require(teeGovernance.signers.add(_signers[i]), "signer already exists");
+            require(teeGovernance.signers.add(_signers[i]), SignerAlreadyExists(_signers[i]));
             extensionState.teePausingAddressesSigner[_signers[i]] = true;
         }
     }
@@ -109,7 +109,8 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         uint256 nonce = extensionState.nextPausingAddressesNonce++;
         TeePausingAddressesState storage teePausingAddresses = extensionState.nonceToTeePausingAddresses[nonce];
         for (uint256 i = 0; i < _pausingAddresses.length; i++) {
-            require(teePausingAddresses.pausingAddresses.add(_pausingAddresses[i]), "pausing address already exists");
+            require(teePausingAddresses.pausingAddresses.add(_pausingAddresses[i]),
+                PausingAddressAlreadyExists(_pausingAddresses[i]));
         }
         teePausingAddresses.pausingAddressesHash =
             keccak256(abi.encode("TEE_PAUSING_ADDRESSES", nonce, _pausingAddresses));
@@ -127,7 +128,7 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         external
     {
         TeeExtensionState storage extensionState = extensionStates[_extensionId];
-        require(_nonce < extensionState.nextPausingAddressesNonce, "invalid nonce");
+        require(_nonce < extensionState.nextPausingAddressesNonce, InvalidNonce());
         TeePausingAddressesState storage teePausingAddresses = extensionState.nonceToTeePausingAddresses[_nonce];
         address signer = ECDSA.recover(
             MessageHashUtils.toEthSignedMessageHash(teePausingAddresses.pausingAddressesHash),
@@ -135,8 +136,8 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
             _signature.r,
             _signature.s
         );
-        require(extensionState.teePausingAddressesSigner[signer], "not a signer");
-        require(!teePausingAddresses.signers[signer], "already signed");
+        require(extensionState.teePausingAddressesSigner[signer], NotASigner(signer));
+        require(!teePausingAddresses.signers[signer], AlreadySigned(signer));
         teePausingAddresses.signers[signer] = true;
         teePausingAddresses.signatures.push(_signature);
         emit NewPausingAddressesSigned(_extensionId, _nonce, signer, _signature);
@@ -204,7 +205,7 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         returns(address[] memory _signers, uint64 _signersThreshold)
     {
         bytes32 latestTeeGovernanceHash = extensionStates[_extensionId].latestTeeGovernanceHash;
-        require(latestTeeGovernanceHash != bytes32(0), "governance not set");
+        require(latestTeeGovernanceHash != bytes32(0), GovernanceNotSet());
         return _getGovernance(_extensionId, latestTeeGovernanceHash);
     }
 
@@ -231,7 +232,7 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         external view
         returns (address[] memory _pausingAddresses, Signature[] memory _signatures)
     {
-        require(_nonce < extensionStates[_extensionId].nextPausingAddressesNonce, "invalid nonce");
+        require(_nonce < extensionStates[_extensionId].nextPausingAddressesNonce, InvalidNonce());
         return _getTeePausingAddresses(_extensionId, _nonce);
     }
 
@@ -245,7 +246,7 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         returns (uint256 _nonce, address[] memory _pausingAddresses, Signature[] memory _signatures)
     {
         TeeExtensionState storage extensionState = extensionStates[_extensionId];
-        require(extensionState.nextPausingAddressesNonce > 0, "pausing addresses not set");
+        require(extensionState.nextPausingAddressesNonce > 0, PausingAddressesNotSet());
         _nonce = extensionState.nextPausingAddressesNonce - 1;
         (_pausingAddresses, _signatures) =  _getTeePausingAddresses(_extensionId, _nonce);
     }
@@ -275,7 +276,7 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         returns (bool)
     {
         TeeExtensionState storage extensionState = extensionStates[_extensionId];
-        require(_nonce < extensionState.nextPausingAddressesNonce, "invalid nonce");
+        require(_nonce < extensionState.nextPausingAddressesNonce, InvalidNonce());
         return extensionState.nonceToTeePausingAddresses[_nonce].signers[_signer];
     }
 
@@ -301,7 +302,7 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
     {
         TeeExtensionState storage extensionState = extensionStates[_extensionId];
         _signersThreshold = extensionState.governanceHashToTeeGovernance[_governanceHash].signersThreshold;
-        require(_signersThreshold > 0, "invalid governance hash");
+        require(_signersThreshold > 0, InvalidGovernanceHash());
         _signers = extensionState.governanceHashToTeeGovernance[_governanceHash].signers.values();
     }
 

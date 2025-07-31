@@ -146,8 +146,9 @@ contract TeeVerification is ITeeVerification, TeeBase {
     )
         external payable
     {
-        require(challengeTs[_teeId] + challengeValidityDurationSeconds > block.timestamp, "challenge expired");
-        require(teeMachineRegistry.getExtensionId(_testOnTeeId) == 0, "invalid extension");
+        require(challengeTs[_teeId] + challengeValidityDurationSeconds > block.timestamp,
+            ChallengeExpired(challengeTs[_teeId]));
+        require(teeMachineRegistry.getExtensionId(_testOnTeeId) == 0, InvalidExtension());
         address attestingTeeId = _getAttestingTeeId(_teeId);
         ITeeMachineRegistry.TeeMachine memory teeMachine = teeMachineRegistry.getTeeMachine(attestingTeeId);
         ITeeAvailabilityCheck.RequestBody memory requestBody = ITeeAvailabilityCheck.RequestBody({
@@ -187,11 +188,12 @@ contract TeeVerification is ITeeVerification, TeeBase {
     {
         address teeId = _proof.requestBody.teeId;
         ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(teeId);
-        require(status == ITeeMachineRegistry.TeeStatus.PRODUCTION, "tee machine not available");
+        require(status == ITeeMachineRegistry.TeeStatus.PRODUCTION,
+            TeeMachineNotAvailable());
 
         require(
             _proof.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            "invalid AC status"
+            InvalidAvailabilityCheckStatus()
         );
 
         // if called from the registry, checks were already done
@@ -203,11 +205,11 @@ contract TeeVerification is ITeeVerification, TeeBase {
             require(
                 teeExtensionRegistry.isCodeHashPlatformSupported(
                     extensionId, teeMachine.codeHash, teeMachine.platform),
-                "version not supported"
+                VersionNotSupported()
             );
             require(
                 _verifyAvailabilityCheckProof(teeMachine, status, _proof),
-                "invalid response data"
+                InvalidResponseData()
             );
         }
 
@@ -256,10 +258,10 @@ contract TeeVerification is ITeeVerification, TeeBase {
             "invalid threshold"
         );
         for (uint256 i = 0; i < _cosigners.length; i++) {
-            require(_cosigners[i] != address(0), "invalid cosigner");
+            require(_cosigners[i] != address(0), InvalidCosigner(_cosigners[i]));
             // check for duplicates
             for (uint256 j = 0; j < i; j++) {
-                require(_cosigners[j] != _cosigners[i], "duplicated cosigner");
+                require(_cosigners[j] != _cosigners[i], DuplicatedCosigner(_cosigners[i]));
             }
         }
         cosigners.replaceAll(_cosigners);
@@ -374,16 +376,18 @@ contract TeeVerification is ITeeVerification, TeeBase {
             header.thresholdBIPS == 0 &&
             header.attestationType == TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE &&
             header.sourceId == TEE_SOURCE_ID,
-            "invalid attestation"
+            InvalidAttestation()
         );
         ITeeAvailabilityCheck.RequestBody calldata requestBody = _proof.requestBody;
         address teeId = requestBody.teeId;
-        require(header.timestamp < block.timestamp && header.timestamp >= challengeTs[teeId], "AC timestamp invalid");
-        require(challengeTs[teeId] + challengeValidityDurationSeconds > block.timestamp, "challenge expired");
+        require(header.timestamp < block.timestamp && header.timestamp >= challengeTs[teeId],
+            AvailabilityCheckTimestampInvalid(challengeTs[teeId]));
+        require(challengeTs[teeId] + challengeValidityDurationSeconds > block.timestamp,
+            ChallengeExpired(challengeTs[teeId]));
         require(
             keccak256(bytes(requestBody.url)) == keccak256(bytes(_teeMachine.url)) &&
             requestBody.challenge == challenges[teeId],
-            "invalid request body"
+            InvalidRequestBody()
         );
         bytes32 messageHash = keccak256(abi.encode(
             keccak256(abi.encode(_proof.header)),
@@ -395,33 +399,34 @@ contract TeeVerification is ITeeVerification, TeeBase {
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         require(
             rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId,
-            "invalid signing policy"
+            InvalidSigningPolicy()
         );
         if (_status == ITeeMachineRegistry.TeeStatus.INITIALIZED) {
             // in case of registration, we additionally check initial signing policy
             require(
                 _proof.responseBody.initialSigningPolicyId <= currentRewardEpochId &&
                 _isSigningPolicyValid(_proof.responseBody.initialSigningPolicyId, currentRewardEpochId),
-                "invalid initial signing policy"
+                InvalidInitialSigningPolicy()
             );
         } else {
             // for other statuses, we check the initial and last availability check signing policy
             require(
                 _proof.responseBody.initialSigningPolicyId == teeMachineRegistry.getInitialSigningPolicyId(teeId),
-                "invalid initial signing policy"
+                InvalidInitialSigningPolicy()
             );
             require(
                 _isSigningPolicyValid(availabilityCheckValidity[teeId].lastSigningPolicyId, currentRewardEpochId),
-                "availability check validity expired"
+                AvailabilityCheckValidityExpired(availabilityCheckValidity[teeId].lastSigningPolicyId)
             );
         }
         // additionally check cosigners in case of initial availability check
         if (_status == ITeeMachineRegistry.TeeStatus.INITIALIZED && cosignersThreshold > 0) {
             address[] memory registrationCosigners =
                 ftdcVerification.verifyCosignerSignatures(_proof.signatures.cosignerSignatures, messageHash);
-            require(registrationCosigners.length >= cosignersThreshold, "cosigners threshold not met");
+            require(registrationCosigners.length >= cosignersThreshold,
+                CosignersThresholdNotMet());
             for (uint256 i = 0; i < registrationCosigners.length; i++) {
-                require(cosigners.index[registrationCosigners[i]] != 0, "invalid cosigner");
+                require(cosigners.index[registrationCosigners[i]] != 0, InvalidCosigner(registrationCosigners[i]));
             }
         }
         // check response body data validity
@@ -467,6 +472,6 @@ contract TeeVerification is ITeeVerification, TeeBase {
     )
         internal pure
     {
-        require(_minDuration <= _duration && _duration <= _maxDuration, "invalid duration");
+        require(_minDuration <= _duration && _duration <= _maxDuration, InvalidDuration());
     }
 }

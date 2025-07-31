@@ -72,6 +72,33 @@ interface ITeeExtensionRegistry {
         address indexed newOwner
     );
 
+    error InstructionIdEmpty();
+    error NoTeeMachinesSpecified();
+    error OperationTypeEmpty();
+    error OperationCommandEmpty();
+    error MessageEmpty();
+    error ExtensionIdMismatch();
+    error OnlyInstructionsSender();
+    error SystemOpTypeNotAllowed(bytes32 opType);
+    error FeeTooLow();
+    error TeeMachineNotAvailable();
+    error InvalidInstructionsSender();
+    error VersionEmpty();
+    error CodeHashZero();
+    error NoPlatforms();
+    error UnsupportedPlatform(bytes32 platform);
+    error VersionAlreadyExists();
+    error InvalidGovernanceHash();
+    error PlatformAlreadyExists(bytes32 platform);
+    error InvalidCodeHash();
+    error InvalidPlatform();
+    error OpTypeEmpty();
+    error OperationTypeConstantsProviderNotSet();
+    error OnlyOwner();
+    error SystemOwnedExtensionId();
+    error OnlyProposedOwner();
+    error PlatformEmpty();
+
     /**
      * Send instructions to the TEE machines.
      * Emits a TeeInstructionsSent event.

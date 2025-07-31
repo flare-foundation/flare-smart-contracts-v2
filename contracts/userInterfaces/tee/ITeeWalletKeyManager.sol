@@ -94,6 +94,26 @@ interface ITeeWalletKeyManager {
         uint64[] keyIds
     );
 
+    error OnlyBackupManager();
+    error InvalidThreshold();
+    error ExtensionIdMismatch();
+    error InvalidKeyId();
+    error InvalidNonce();
+    error InvalidOpType();
+    error InvalidTeeSignature();
+    error KeyNotRestoredOnTeeMachine();
+    error InvalidPublicKey();
+    error InvalidAddress();
+    error TeeIdAlreadyAdded();
+    error KeyNotGeneratedOnTeeMachine();
+    error ThresholdNotMet();
+    error LengthsMismatch();
+    error InvalidOpTypeConstants();
+    error TeeMachineNotAvailable();
+    error OnlyOwner();
+    error OnlyOwnerOrBackupManager();
+    error InvalidWalletStatus();
+
     /**
      * Sets the multisig threshold for the wallet.
      * Emits WalletMultisigThresholdSet event.

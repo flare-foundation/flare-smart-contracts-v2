@@ -32,6 +32,7 @@ contract TeeRewardOffersManager is RewardOffersManagerBase, ITeeRewardOffersMana
      * @param _governanceSettings The address of the GovernanceSettings contract.
      * @param _initialGovernance The initial governance address.
      * @param _addressUpdater The address of the AddressUpdater contract.
+     * @param _teeOwnersPPM The part of the rewards that goes to the TEE owners, in parts per million (PPM).
      */
     constructor(
         IGovernanceSettings _governanceSettings,
@@ -41,7 +42,7 @@ contract TeeRewardOffersManager is RewardOffersManagerBase, ITeeRewardOffersMana
     )
         RewardOffersManagerBase(_governanceSettings, _initialGovernance, _addressUpdater)
     {
-        require(_teeOwnersPPM <= PPM_MAX, "invalid value");
+        require(_teeOwnersPPM <= PPM_MAX, InvalidTeeOwnersPPMValue());
         teeOwnersPPM = _teeOwnersPPM;
     }
 
@@ -50,7 +51,7 @@ contract TeeRewardOffersManager is RewardOffersManagerBase, ITeeRewardOffersMana
      * @param _teeOwnersPPM The part of the rewards that goes to the TEE owners.
      */
     function setTeeOwnersPPM(uint24 _teeOwnersPPM) external onlyGovernance {
-        require(_teeOwnersPPM <= PPM_MAX, "invalid value");
+        require(_teeOwnersPPM <= PPM_MAX, InvalidTeeOwnersPPMValue());
         teeOwnersPPM = _teeOwnersPPM;
     }
 

@@ -6,6 +6,8 @@ pragma solidity >=0.7.6 <0.9;
  */
 interface ITeeInstructions {
 
+    error OnlyInstructionInitiator();
+
     /**
      * Send instructions to the TEE machines.
      * @param _instructionId The instruction ID.

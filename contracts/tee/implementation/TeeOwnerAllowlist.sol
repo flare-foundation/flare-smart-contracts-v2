@@ -23,7 +23,7 @@ contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
     modifier onlyExtensionOwner(uint256 _extensionId) {
         require(
             msg.sender == teeExtensionRegistry.getExtensionOwner(_extensionId),
-            "only extension owner"
+            OnlyExtensionOwner()
         );
         _;
     }

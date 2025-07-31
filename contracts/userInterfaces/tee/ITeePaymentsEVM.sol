@@ -17,6 +17,11 @@ interface ITeePaymentsEVM is ITeePayments {
         uint256 chainId
     );
 
+    error OnlyProjectOwner();
+    error ChainIdZero();
+    error ChainIdAlreadySet();
+    error ChainIdNotSet();
+
     /**
      * Sets the chain id for the project.
      * @param _projectId The project id.

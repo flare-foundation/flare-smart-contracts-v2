@@ -69,7 +69,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
 
     modifier onlyWalletOwner(bytes32 _walletId) {
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        require(teeWalletProjectManager.getOwner(projectId) == msg.sender, "only wallet owner");
+        require(teeWalletProjectManager.getOwner(projectId) == msg.sender, OnlyWalletOwner());
         _;
     }
 
@@ -92,8 +92,8 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
     )
         external virtual
     {
-        require(_maxBatchSize > 0, "max batch size zero");
-        require(_opType != bytes32(0), "op type zero");
+        require(_maxBatchSize > 0, MaxBatchSizeZero());
+        require(_opType != bytes32(0), OpTypeZero());
 
         TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
 
@@ -114,22 +114,22 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
     {
         (bytes32 walletId, bytes32 walletOpType, address submitAddress) =
             teeWalletProjectManager.getDefaultWalletInfo(_projectId);
-        require(submitAddress == msg.sender, "only submit address");
-        require(walletOpType == opType, "wrong op type");
+        require(submitAddress == msg.sender, OnlySubmitAddress());
+        require(walletOpType == opType, WrongOpType());
         if (_walletId != bytes32(0)) {
-            require(teeWalletManager.getWalletProjectId(_walletId) == _projectId, "wrong project id");
+            require(teeWalletManager.getWalletProjectId(_walletId) == _projectId, WrongProjectId());
             walletId = _walletId;
         } else {
-            require(walletId != bytes32(0), "default wallet not set");
+            require(walletId != bytes32(0), DefaultWalletNotSet());
         }
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(walletId);
-        require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION, "wallet not in production");
+        require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION, WalletNotInProduction());
         string memory senderAddress = senderAddresses[walletId];
-        require(bytes(senderAddress).length > 0, "sender address not set");
+        require(bytes(senderAddress).length > 0, SenderAddressNotSet());
 
         WalletState storage state = states[walletId];
         WalletSettings storage setting = settings[walletId];
-        require(_paymentInstruction.fee >= setting.minFee, "fee below min fee");
+        require(_paymentInstruction.fee >= setting.minFee, FeeBelowMinFee());
         uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         // check if new batch should be started
         if (state.batchEndTs < block.timestamp || state.batchCounter >= setting.batchSize ||
@@ -192,25 +192,25 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
     )
         external payable
     {
-        require(_paymentInstructions.length > 0, "no payment instructions");
-        require(_paymentInstructions.length == _fees.length && _fees.length == _nullify.length, "lengths mismatch");
+        require(_paymentInstructions.length > 0, NoPaymentInstructions());
+        require(_paymentInstructions.length == _fees.length && _fees.length == _nullify.length, LengthsMismatch());
         require(
             msg.sender == teeWalletProjectManager.getSubmitAddress(teeWalletManager.getWalletProjectId(_walletId)),
-            "only submit address"
+            OnlySubmitAddress()
         );
         ReissueTempState memory tempState;
         tempState.senderAddress = senderAddresses[_walletId];
-        require(bytes(tempState.senderAddress).length > 0, "sender address not set");
+        require(bytes(tempState.senderAddress).length > 0, SenderAddressNotSet());
         require(
             teeWalletManager.getWalletStatus(_walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
-            "wallet not in production"
+            WalletNotInProduction()
         );
         WalletState storage state = states[_walletId];
         // check if batch has ended
         require(
             _nonce + 1 < state.nonce ||
             _nonce + 1 == state.nonce && block.timestamp > state.batchEndTs,
-            "batch hasn't yet ended"
+            BatchNotYetEnded()
         );
         // check if hash matches
         bytes32 batchHash = keccak256(abi.encode(_paymentInstructions[0], _firstSubNonce));
@@ -221,7 +221,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
                 _firstSubNonce + i
             ));
         }
-        require(hashes[_walletId][_nonce] == batchHash, "batch hash mismatch");
+        require(hashes[_walletId][_nonce] == batchHash, BatchHashMismatch());
 
         tempState.teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(_walletId);
         tempState.teeIds = _toTeeIds(tempState.teeIdKeyIdPairs);
@@ -233,7 +233,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         // reissue batch
         tempState.remainingAmount = msg.value;
         for (uint64 i = 0; i < _paymentInstructions.length; i++) {
-            require(_fees[i] >= tempState.minFee, "fee below min fee");
+            require(_fees[i] >= tempState.minFee, FeeBelowMinFee());
             tempState.message = PaymentInstructionMessage({
                 walletId: _walletId,
                 teeIdKeyIdPairs: tempState.teeIdKeyIdPairs,
@@ -272,9 +272,9 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
     )
         external onlyWalletOwner(_walletId)
     {
-        require(_batchSize > 0, "batch size zero");
-        require(_batchSize <= maxBatchSize, "batch size too high");
-        require(_batchDurationSeconds <= maxBatchDurationSeconds, "batch duration too high");
+        require(_batchSize > 0, BatchSizeZero());
+        require(_batchSize <= maxBatchSize, BatchSizeTooLarge());
+        require(_batchDurationSeconds <= maxBatchDurationSeconds, BatchDurationTooLarge());
         WalletSettings storage setting = settings[_walletId];
         setting.batchSize = _batchSize;
         setting.batchDurationSeconds = _batchDurationSeconds;
@@ -291,7 +291,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         external onlyWalletOwner(_walletId)
     {
         WalletSettings storage setting = settings[_walletId];
-        require(_minFee > 0, "min fee zero");
+        require(_minFee > 0, MinFeeZero());
         setting.minFee = _minFee;
         emit MinFeeSet(_walletId, _minFee);
     }
@@ -306,14 +306,14 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
     )
         external onlyWalletOwner(_walletId)
     {
-        require(bytes(senderAddresses[_walletId]).length == 0, "sender address already set");
+        require(bytes(senderAddresses[_walletId]).length == 0, SenderAddressAlreadySet());
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
         require(
             walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
             walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
-            "only production or paused status"
+            OnlyProductionOrPausedStatus()
         );
-        require(settings[_walletId].minFee > 0, "min fee not set");
+        require(settings[_walletId].minFee > 0, MinFeeNotSet());
         senderAddresses[_walletId] = _senderAddress;
         states[_walletId].nonce = _initialNonce;
         states[_walletId].subNonce = _initialNonce;
@@ -330,14 +330,14 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
     )
         external payable onlyWalletOwner(_walletId)
     {
-        require(_dailyLimit >= _transactionLimit, "daily limit lower than transaction limit");
+        require(_dailyLimit >= _transactionLimit, DailyLimitBelowTransactionLimit());
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        require(teeWalletProjectManager.getOpType(projectId) == opType, "wrong op type");
+        require(teeWalletProjectManager.getOpType(projectId) == opType, WrongOpType());
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
         require(
             walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
             walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
-            "only production or paused status"
+            OnlyProductionOrPausedStatus()
         );
         TeeIdKeyIdPair[] memory teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(_walletId);
 

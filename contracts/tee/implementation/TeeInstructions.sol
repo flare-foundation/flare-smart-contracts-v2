@@ -50,7 +50,7 @@ contract TeeInstructions is ITeeInstructions, TeeBase {
     )
         external payable
     {
-        require(instructionInitiators.index[msg.sender] != 0, "only instruction initiators");
+        require(instructionInitiators.index[msg.sender] != 0, OnlyInstructionInitiator());
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             _instructionId,
             _teeIds,

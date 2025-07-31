@@ -13,7 +13,6 @@ import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
  */
 contract TeeReplication is ITeeReplication, TeeBase {
 
-
     bytes32 public constant REG_OP_TYPE = bytes32("F_REG");
     bytes32 public constant TO_PAUSE_FOR_UPGRADE = bytes32("TO_PAUSE_FOR_UPGRADE");
     bytes32 public constant REPLICATE_FROM = bytes32("REPLICATE_FROM");
@@ -79,7 +78,7 @@ contract TeeReplication is ITeeReplication, TeeBase {
             require(
                 teeMachineRegistry.getLastStatusChangeTs(_teeId) + pauseBeforeUpgradeMinDurationSeconds <
                 block.timestamp,
-                "too soon"
+                TooSoon()
             );
             teeMachineRegistry.changeStatus(_teeId, ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE);
         }
@@ -123,15 +122,15 @@ contract TeeReplication is ITeeReplication, TeeBase {
         require(
             newStatus == ITeeMachineRegistry.TeeStatus.INITIALIZED ||
             (replications[_oldTeeId] == newTeeId && newStatus == ITeeMachineRegistry.TeeStatus.REPLICATING), // retry
-            "invalid tee status"
+            InvalidTeeStatus()
         );
         uint256 extensionId = teeMachineRegistry.getExtensionId(_oldTeeId);
-        require(extensionId == teeMachineRegistry.getExtensionId(newTeeId), "extension mismatch");
+        require(extensionId == teeMachineRegistry.getExtensionId(newTeeId), ExtensionMismatch());
         _checkCodeHashPlatformSupported(extensionId, newTeeId);
         _checkTeeMachinesCompatible(_teeUpgradeId, extensionId, _oldTeeId, newTeeId);
         _validateAvailabilityCheckStatus(_proof.responseBody.status);
         _validateAvailabilityCheckTs(newTeeId, _proof.header.timestamp);
-        require(teeVerification.verifyAvailabilityCheckProof(_proof), "invalid response data");
+        require(teeVerification.verifyAvailabilityCheckProof(_proof), InvalidResponseData());
 
         replications[_oldTeeId] = newTeeId;
         teeMachineRegistry.changeStatus(newTeeId, ITeeMachineRegistry.TeeStatus.REPLICATING);
@@ -169,7 +168,7 @@ contract TeeReplication is ITeeReplication, TeeBase {
     {
         address oldTeeId = _proof.requestBody.teeId;
         // in case multiple replications are triggered only the last one can be confirmed
-        require(replications[oldTeeId] == _newTeeId, "replication not valid");
+        require(replications[oldTeeId] == _newTeeId, ReplicationNotValid());
         delete replications[oldTeeId];
         teeMachineRegistry.replicate(_newTeeId, _proof);
         emit TeeMachineReplicationConfirmed(oldTeeId, _newTeeId);
@@ -241,7 +240,8 @@ contract TeeReplication is ITeeReplication, TeeBase {
     }
 
     function _validateAvailabilityCheckTs(address _teeId, uint256 _availabilityCheckTs) internal view {
-        require(_availabilityCheckTs >= teeMachineRegistry.getLastStatusChangeTs(_teeId), "AC timestamp invalid");
+        require(_availabilityCheckTs >= teeMachineRegistry.getLastStatusChangeTs(_teeId),
+            AvailabilityCheckTimestampInvalid());
     }
 
     function _getTeeMachineWithAttestationData(address _teeId)
@@ -261,7 +261,7 @@ contract TeeReplication is ITeeReplication, TeeBase {
             _getTeeMachineWithAttestationData(_teeId);
         require(
             teeExtensionRegistry.isCodeHashPlatformSupported(_extensionId, teeMachine.codeHash, teeMachine.platform),
-            "version not supported"
+            VersionNotSupported()
         );
     }
 
@@ -286,13 +286,15 @@ contract TeeReplication is ITeeReplication, TeeBase {
                 newTeeMachine.codeHash,
                 newTeeMachine.platform
             ),
-            "invalid upgrade path"
+            InvalidUpgradePath()
         );
-        require(teeVersionManager.isTeeUpgradeSigned(_teeUpgradeId), "tee upgrade not signed");
+        require(teeVersionManager.isTeeUpgradeSigned(_teeUpgradeId),
+            TeeUpgradeNotSigned()
+        );
     }
 
     function _checkOnlyOwner(address _teeId) internal view {
-        require(msg.sender == teeMachineRegistry.getTeeMachineOwner(_teeId), "only owner");
+        require(msg.sender == teeMachineRegistry.getTeeMachineOwner(_teeId), OnlyMachineOwner());
     }
 
     function _checkTeeStatus(
@@ -301,7 +303,7 @@ contract TeeReplication is ITeeReplication, TeeBase {
     )
         internal pure
     {
-        require(_actualStatus == _expectedStatus, "invalid tee status");
+        require(_actualStatus == _expectedStatus, InvalidTeeStatus());
     }
 
     function _checkTeeStatus(
@@ -311,7 +313,7 @@ contract TeeReplication is ITeeReplication, TeeBase {
     )
         internal pure
     {
-        require(_actualStatus == _expectedStatus1 || _actualStatus == _expectedStatus2, "invalid tee status");
+        require(_actualStatus == _expectedStatus1 || _actualStatus == _expectedStatus2, InvalidTeeStatus());
     }
 
     function _validateAvailabilityCheckStatus(
@@ -319,7 +321,7 @@ contract TeeReplication is ITeeReplication, TeeBase {
     )
         internal pure
     {
-        require(_status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK, "invalid AC status");
+        require(_status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK, InvalidAvailabilityCheckStatus());
     }
 
     function _validateDuration(
@@ -329,6 +331,6 @@ contract TeeReplication is ITeeReplication, TeeBase {
     )
         internal pure
     {
-        require(_minDuration <= _duration && _duration <= _maxDuration, "invalid duration");
+        require(_minDuration <= _duration && _duration <= _maxDuration, InvalidDuration());
     }
 }

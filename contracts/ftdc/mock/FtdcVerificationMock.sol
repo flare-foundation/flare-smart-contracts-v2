@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity  ^0.8.27;
 
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
@@ -110,7 +110,7 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
                 signature.s
             );
             for (uint256 j = 0; j < i; j++) {
-                require(_cosigners[j] != cosigner, "duplicated cosigner");
+                require(_cosigners[j] != cosigner, DuplicatedCosigner(cosigner));
             }
             _cosigners[i] = cosigner;
         }

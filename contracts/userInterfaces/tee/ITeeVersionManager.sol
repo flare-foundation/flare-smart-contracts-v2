@@ -38,6 +38,25 @@ interface ITeeVersionManager {
         uint256 indexed teeUpgradeId
     );
 
+    error InvalidUpgradeId();
+    error OnlyExtensionOwner();
+    error InvalidFromGovernanceHash();
+    error InvalidToGovernanceHash();
+    error UpgradeAlreadyFinalized();
+    error NoUpgradePaths();
+    error NoSourceVersions();
+    error NoTargetVersions();
+    error SourceCodeHashAndPlatformNotSupported();
+    error SourceGovernanceHashMismatch();
+    error SourceVersionAlreadyExists();
+    error TargetCodeHashAndPlatformNotSupported();
+    error TargetGovernanceHashMismatch();
+    error TargetVersionAlreadyExists();
+    error UpgradePathAlreadyFinalized();
+    error UpgradeAlreadySigned();
+    error UpgradeNotFinalized();
+    error ExtensionIdMismatch();
+
     /**
      * Creates a new TEE upgrade.
      * Emits TeeUpgradeStarted event.

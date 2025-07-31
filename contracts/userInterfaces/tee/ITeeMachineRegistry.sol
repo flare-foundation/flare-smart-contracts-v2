@@ -59,6 +59,28 @@ interface ITeeMachineRegistry {
         address indexed teeProxyId
     );
 
+    error OnlyTeeReplicationContract();
+    error OwnerNotAllowed();
+    error InvalidTeeId();
+    error InvalidTeeProxyId();
+    error InvalidUrl();
+    error AlreadyRegistered();
+    error VersionNotSupported();
+    error InvalidTeeStatus();
+    error InvalidResponseDataOrAvailabilityCheckStatus();
+    error OnlyOwnerOrDisabledVersion();
+    error OnlyProposedOwner();
+    error OwnerMismatch();
+    error ExtensionIdMismatch();
+    error TooMany();
+    error AcTimestampInvalid();
+    error TeeNotFound();
+    error InvalidNewStatus();
+    error InvalidAvailabilityCheckStatus();
+    error InvalidDuration();
+    error OnlyOwner();
+    error InvalidResponseData();
+
     /**
      * Register a new TEE machine. It also triggers availability check.
      * Emits TeeMachineRegistered event.

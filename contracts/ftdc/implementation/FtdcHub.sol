@@ -73,15 +73,15 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
     {
         require(
             _thresholdBIPS == 0 || (minThresholdBIPS <= _thresholdBIPS && _thresholdBIPS <= MAX_BIPS),
-            "threshold invalid"
+            ThresholdInvalid()
         );
         require(
             _numberOfTees == 0 || _teeIds.length == 0 || _numberOfTees == _teeIds.length,
-            "numberOfTees and teeIds invalid"
+            NumberOfTeesAndTeeIdsInvalid()
         );
-        require(_cosigners.length >= _cosignersThreshold, "cosigners threshold invalid");
+        require(_cosigners.length >= _cosignersThreshold, CosignersThresholdInvalid());
         require(_thresholdBIPS == 0 || _thresholdBIPS >= MAX_BIPS / 2 ||
-            _cosignersThreshold > _cosigners.length / 2, "multiple responses possible");
+            _cosignersThreshold > _cosigners.length / 2, MultipleResponsesPossible());
         if (_teeIds.length == 0) {
             if (_numberOfTees == 0) {
                 _numberOfTees = defaultNumberOfTees;
@@ -94,13 +94,13 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
                 require(
                     teeMachineRegistry.getTeeMachineStatus(_teeIds[i]) !=
                         ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE,
-                    "tee machine not available"
+                    TeeMachineNotAvailable()
                 );
             }
         }
         // Send the fee to the reward manager.
         uint256 fee = ftdcRequestFeeConfigurations.getTypeAndSourceFee(_attestationType, _sourceId);
-        require(msg.value >= fee, "fee to low");
+        require(msg.value >= fee, FeeTooLow());
         //slither-disable-next-line arbitrary-send-eth
         rewardManager.receiveRewards{value: fee}(flareSystemsManager.getCurrentRewardEpochId(), false);
         // Create the attestation request message.

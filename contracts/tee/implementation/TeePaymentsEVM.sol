@@ -22,9 +22,9 @@ contract TeePaymentsEVM is ITeePaymentsEVM, TeePayments {
     function setChainId(bytes32 _projectId, uint256 _chainId)
         external
     {
-        require(teeWalletProjectManager.getOwner(_projectId) == msg.sender, "only project owner");
-        require(_chainId > 0, "chainId zero");
-        require(projectChainId[_projectId] == 0, "chainId already set");
+        require(teeWalletProjectManager.getOwner(_projectId) == msg.sender, OnlyProjectOwner());
+        require(_chainId > 0, ChainIdZero());
+        require(projectChainId[_projectId] == 0, ChainIdAlreadySet());
         projectChainId[_projectId] = _chainId;
         emit ChainIdSet(_projectId, _chainId);
     }
@@ -50,7 +50,7 @@ contract TeePaymentsEVM is ITeePaymentsEVM, TeePayments {
      */
     function getOpTypeConstants(bytes32 _projectId) external view virtual override returns(bytes memory) {
         uint256 chainId = projectChainId[_projectId];
-        require(chainId > 0, "chainId not set");
+        require(chainId > 0, ChainIdNotSet());
         return abi.encode(ITeePaymentsEVM.OpTypeConstantsEVM(chainId));
     }
 }

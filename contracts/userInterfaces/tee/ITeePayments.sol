@@ -54,6 +54,29 @@ interface ITeePayments {
         uint64 initialNonce
     );
 
+    error OnlyWalletOwner();
+    error MaxBatchSizeZero();
+    error OpTypeZero();
+    error OnlySubmitAddress();
+    error WrongOpType();
+    error WrongProjectId();
+    error DefaultWalletNotSet();
+    error WalletNotInProduction();
+    error SenderAddressNotSet();
+    error FeeBelowMinFee();
+    error NoPaymentInstructions();
+    error LengthsMismatch();
+    error BatchNotYetEnded();
+    error BatchHashMismatch();
+    error BatchSizeZero();
+    error BatchSizeTooLarge();
+    error BatchDurationTooLarge();
+    error MinFeeZero();
+    error SenderAddressAlreadySet();
+    error OnlyProductionOrPausedStatus();
+    error MinFeeNotSet();
+    error DailyLimitBelowTransactionLimit();
+
     /**
      * Payment instruction method.
      * @param _projectId The project id.

@@ -25,6 +25,17 @@ interface ITeeWalletBackupManager {
         uint256 randomNonce;
     }
 
+    error TeeMachineNotAvailable();
+    error InvalidTeeMachine();
+    error KeyAlreadyAvailable();
+    error KeyNotConfirmed();
+    error InvalidPublicKey();
+    error UnsupportedRewardEpochId();
+    error InvalidRewardEpochId();
+    error InvalidOpType();
+    error ExtensionIdMismatch();
+    error OnlyOwnerOrBackupManager();
+
     /**
      * Triggers a wallet key restore by data providers and wallet admins from given backup id.
      * @param _teeId The tee id on which the wallet key will be restored.

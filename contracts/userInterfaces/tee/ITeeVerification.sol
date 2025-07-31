@@ -36,6 +36,24 @@ interface ITeeVerification {
         uint256 endTs
     );
 
+    error ChallengeExpired(uint256 challengeTs);
+    error InvalidExtension();
+    error TeeMachineNotAvailable();
+    error InvalidAvailabilityCheckStatus();
+    error VersionNotSupported();
+    error InvalidResponseData();
+    error InvalidThreshold();
+    error InvalidCosigner(address cosigner);
+    error DuplicatedCosigner(address cosigner);
+    error InvalidAttestation();
+    error AvailabilityCheckTimestampInvalid(uint256 challengeTs);
+    error InvalidRequestBody();
+    error InvalidSigningPolicy();
+    error InvalidInitialSigningPolicy();
+    error AvailabilityCheckValidityExpired(uint32 lastSigningPolicyId);
+    error CosignersThresholdNotMet();
+    error InvalidDuration();
+
     /**
      * Request attestation for a TEE machine.
      * Emits TeeAttestationRequested event.

@@ -72,33 +72,33 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
     {
         require(
             teeMachineRegistry.getTeeMachineStatus(_teeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
-            "tee machine not available"
+            TeeMachineNotAvailable()
         );
         require(
             teeMachineRegistry.getTeeMachineStatus(_backupId.teeId) != ITeeMachineRegistry.TeeStatus.INITIALIZED,
-            "invalid tee machine"
+            InvalidTeeMachine()
         );
-        require(!_isKeyAvailable(_teeId, _backupId.walletId, _backupId.keyId), "key already available");
+        require(!_isKeyAvailable(_teeId, _backupId.walletId, _backupId.keyId), KeyAlreadyAvailable());
         bytes memory publicKey = teeWalletKeyManager.getWalletKeyPublicKey(_backupId.walletId, _backupId.keyId);
-        require(publicKey.length > 0, "key not confirmed");
-        require(keccak256(publicKey) == keccak256(_backupId.publicKey), "invalid public key");
+        require(publicKey.length > 0, KeyNotConfirmed());
+        require(keccak256(publicKey) == keccak256(_backupId.publicKey), InvalidPublicKey());
         require(
             teeMachineRegistry.getInitialSigningPolicyId(_teeId) <= _backupId.rewardEpochId,
-            "unsupported reward epoch id"
+            UnsupportedRewardEpochId()
         );
         // backups are created at the time of relaying new signing policy,
         // which is usually before the next reward epoch starts - so we can allow `current + 1`
         require(
             _backupId.rewardEpochId <= flareSystemsManager.getCurrentRewardEpochId() + 1,
-            "invalid reward epoch id"
+            InvalidRewardEpochId()
         );
         bytes32 projectId = teeWalletManager.getWalletProjectId(_backupId.walletId);
-        require(teeWalletProjectManager.getOpType(projectId) == _backupId.opType, "invalid op type");
+        require(teeWalletProjectManager.getOpType(projectId) == _backupId.opType, InvalidOpType());
         uint256 extensionId = teeWalletProjectManager.getExtensionId(projectId);
         require(
             extensionId == teeMachineRegistry.getExtensionId(_backupId.teeId) &&
             extensionId == teeMachineRegistry.getExtensionId(_teeId),
-            "extension id mismatch"
+            ExtensionIdMismatch()
         );
         bytes32 opCommand = _test ? KEY_DATA_PROVIDER_RESTORE_TEST : KEY_DATA_PROVIDER_RESTORE;
         // restored flag in KeyExistence proof will always be set to true after this call
@@ -166,7 +166,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
         require(
             teeWalletProjectManager.getOwner(projectId) == msg.sender ||
             teeWalletProjectManager.getBackupManager(projectId) == msg.sender,
-            "only owner or backup manager"
+            OnlyOwnerOrBackupManager()
         );
     }
 }

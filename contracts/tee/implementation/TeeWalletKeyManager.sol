@@ -62,7 +62,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     }
 
     modifier onlyTeeWalletBackupManager {
-        require(msg.sender == address(teeWalletBackupManager), "only backup manager");
+        require(msg.sender == address(teeWalletBackupManager), OnlyBackupManager());
         _;
     }
 
@@ -94,7 +94,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     )
         external onlyOwner(_walletId)
     {
-        require(_multisigThreshold > 0, "invalid threshold");
+        require(_multisigThreshold > 0, InvalidThreshold());
         _checkWalletStatus(_walletId);
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         keys.multisigThreshold = _multisigThreshold;
@@ -118,7 +118,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         require(
             teeWalletProjectManager.getExtensionId(projectId) == teeMachineRegistry.getExtensionId(_teeId),
-            "extension id mismatch"
+            ExtensionIdMismatch()
         );
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         _keyId = keys.keyIdCounter++;
@@ -163,13 +163,13 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         bytes32 walletId = _proof.walletId;
         uint64 keyId = _proof.keyId;
         TeeWalletKeysState storage keys = walletKeys[walletId];
-        require(keys.keyIdCounter > keyId, "invalid key id");
+        require(keys.keyIdCounter > keyId, InvalidKeyId());
         KeyDefinition storage keyDefinition = keys.keyDefinitions[keyId];
         // check nonce
-        require(_proof.nonce == keyDefinition.nonces[_proof.teeId], "invalid nonce");
+        require(_proof.nonce == keyDefinition.nonces[_proof.teeId], InvalidNonce());
         // check op type
         bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(walletId));
-        require(_proof.opType == opType, "invalid op type");
+        require(_proof.opType == opType, InvalidOpType());
         // check config constants
         _validateKeyExistenceConfigConstants(walletId, _proof.configConstants);
         // check TEE signature
@@ -179,36 +179,36 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             _teeSignature.r,
             _teeSignature.s
         );
-        require(teeId == _proof.teeId, "invalid tee signature");
+        require(teeId == _proof.teeId, InvalidTeeSignature());
 
         // add TEE id to the key definition
         if (keyDefinition.publicKey.length > 0) {
             // check that key is restored on the tee machine
-            require(_proof.nonce > 0 && _proof.restored, "key not restored on TEE machine");
+            require(_proof.nonce > 0 && _proof.restored, KeyNotRestoredOnTeeMachine());
             // add tee id to existing key definition
             require(
                 keccak256(keyDefinition.publicKey) == keccak256(_proof.publicKey),
-                "invalid public key"
+                InvalidPublicKey()
             );
             require(
                 keccak256(bytes(keyDefinition.addressStr)) == keccak256(bytes(_proof.addressStr)),
-                "invalid address"
+                InvalidAddress()
             );
             address[] storage keyDefinitionTeeIds = keyDefinition.teeIds;
             for (uint256 i = 0; i < keyDefinitionTeeIds.length; i++) {
-                require(keyDefinitionTeeIds[i] != teeId, "tee id already added");
+                require(keyDefinitionTeeIds[i] != teeId, TeeIdAlreadyAdded());
             }
             // tee id not found, add it
             keyDefinitionTeeIds.push(teeId);
         } else {
-            require(_proof.publicKey.length > 0, "invalid public key");
-            require(bytes(_proof.addressStr).length > 0, "invalid address");
+            require(_proof.publicKey.length > 0, InvalidPublicKey());
+            require(bytes(_proof.addressStr).length > 0, InvalidAddress());
             // new key definition can only be added if wallet is in status initialized
             _checkWalletStatus(walletId);
             // new key definition can only be added by the owner
             _checkOnlyOwner(walletId);
             // check that key is generated on the tee machine
-            require(_proof.nonce == 0 && !_proof.restored, "key not generated on TEE machine");
+            require(_proof.nonce == 0 && !_proof.restored, KeyNotGeneratedOnTeeMachine());
             // add new key id
             keys.keyIds.push(keyId);
             // set public key, address and add tee id
@@ -241,11 +241,11 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         require(
             teeWalletProjectManager.getExtensionId(projectId) == teeMachineRegistry.getExtensionId(_teeId),
-            "extension id mismatch"
+            ExtensionIdMismatch()
         );
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
-        require(keyDefinition.publicKey.length > 0, "invalid key id");
+        require(keyDefinition.publicKey.length > 0, InvalidKeyId());
         // delete tee id from key definition if exists
         uint256 length = keyDefinition.teeIds.length;
         if (length > 0) {
@@ -289,7 +289,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     {
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
-        require(keyDefinition.publicKey.length > 0, "invalid key id");
+        require(keyDefinition.publicKey.length > 0, InvalidKeyId());
         address[] storage teeIds = keyDefinition.teeIds;
         for (uint256 i = teeIds.length; i > 0; i--) {
             if (teeMachineRegistry.getTeeMachineStatus(teeIds[i - 1]) != ITeeMachineRegistry.TeeStatus.PRODUCTION) {
@@ -339,7 +339,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
                 unavailableKeyIds[unavailableKeyIdsCounter++] = keyId;
             }
         }
-        require(threshold >= keys.multisigThreshold, "threshold not met");
+        require(threshold >= keys.multisigThreshold, ThresholdNotMet());
         _teeIdKeyIdPairs = new TeeIdKeyIdPair[](count);
         for (uint256 i = 0; i < count; i++) {
             _teeIdKeyIdPairs[i] = TeeIdKeyIdPair({
@@ -369,7 +369,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     {
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
-        require(keyDefinition.publicKey.length > 0, "invalid key id");
+        require(keyDefinition.publicKey.length > 0, InvalidKeyId());
         return ++keyDefinition.nonces[_teeId];
     }
 
@@ -461,28 +461,28 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     {
         (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold) =
             teeWalletManager.getWalletAdminsAndThreshold(_walletId);
-        require(_configConstants.adminsPublicKeys.length == _adminsPublicKeys.length, "lengths mismatch");
-        require(_configConstants.adminsThreshold == _adminsThreshold, "invalid threshold");
+        require(_configConstants.adminsPublicKeys.length == _adminsPublicKeys.length, LengthsMismatch());
+        require(_configConstants.adminsThreshold == _adminsThreshold, InvalidThreshold());
         for (uint256 i = 0; i < _adminsPublicKeys.length; i++) {
             require(
                 _configConstants.adminsPublicKeys[i].x == _adminsPublicKeys[i].x &&
                 _configConstants.adminsPublicKeys[i].y == _adminsPublicKeys[i].y,
-                "invalid public key"
+                InvalidPublicKey()
             );
         }
         (address[] memory _cosigners, uint64 _cosignersThreshold) =
             teeWalletManager.getWalletCosignersAndThreshold(_walletId);
-        require(_configConstants.cosigners.length == _cosigners.length, "lengths mismatch");
-        require(_configConstants.cosignersThreshold == _cosignersThreshold, "invalid threshold");
+        require(_configConstants.cosigners.length == _cosigners.length, LengthsMismatch());
+        require(_configConstants.cosignersThreshold == _cosignersThreshold, InvalidThreshold());
         for (uint256 i = 0; i < _cosigners.length; i++) {
-            require(_configConstants.cosigners[i] == _cosigners[i], "invalid address");
+            require(_configConstants.cosigners[i] == _cosigners[i], InvalidAddress());
         }
 
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         bytes memory opTypeConstants = teeWalletProjectManager.getOpTypeConstants(projectId);
         require(
             keccak256(_configConstants.opTypeConstants) == keccak256(opTypeConstants),
-            "invalid op type constants"
+            InvalidOpTypeConstants()
         );
     }
 
@@ -491,7 +491,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     {
         require(
             teeMachineRegistry.getTeeMachineStatus(_teeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
-            "tee machine not available"
+            TeeMachineNotAvailable()
         );
     }
 
@@ -500,7 +500,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     {
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         address owner = teeWalletProjectManager.getOwner(projectId);
-        require(owner == msg.sender, "only owner");
+        require(owner == msg.sender, OnlyOwner());
     }
 
     function _checkOnlyOwnerOrBackupManager(bytes32 _walletId)
@@ -510,7 +510,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         require(
             teeWalletProjectManager.getOwner(projectId) == msg.sender ||
             teeWalletProjectManager.getBackupManager(projectId) == msg.sender,
-            "only owner or backup manager"
+            OnlyOwnerOrBackupManager()
         );
     }
 
@@ -521,7 +521,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     {
         require(
             teeWalletManager.getWalletStatus(_walletId) ==  ITeeWalletManager.WalletStatus.INITIALIZED,
-            "invalid wallet status"
+            InvalidWalletStatus()
         );
     }
 }

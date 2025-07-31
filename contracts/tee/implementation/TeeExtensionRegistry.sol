@@ -103,23 +103,23 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     )
         external payable
     {
-        require(_instructionId != bytes32(0), "instruction ID empty");
-        require(_teeIds.length > 0, "no TEE machines specified");
-        require(_opType != bytes32(0), "operation type empty");
-        require(_opCommand != bytes32(0), "operation command empty");
-        require(_message.length > 0, "message empty");
+        require(_instructionId != bytes32(0), InstructionIdEmpty());
+        require(_teeIds.length > 0, NoTeeMachinesSpecified());
+        require(_opType != bytes32(0), OperationTypeEmpty());
+        require(_opCommand != bytes32(0), OperationCommandEmpty());
+        require(_message.length > 0, MessageEmpty());
         uint256 extensionId = teeMachineRegistry.getExtensionId(_teeIds[0]);
         for (uint256 i = 1; i < _teeIds.length; i++) {
-            require(teeMachineRegistry.getExtensionId(_teeIds[i]) == extensionId, "extension id mismatch");
+            require(teeMachineRegistry.getExtensionId(_teeIds[i]) == extensionId, ExtensionIdMismatch());
         }
         bool isSystemOpType = _isSystemOpType(_opType);
         if (!systemInstructionInitiators.contains(msg.sender)) {
-            require(msg.sender == extensions[extensionId].instructionsSender, "only instructions sender");
-            require(extensionId == 0 || !isSystemOpType, "system op type not allowed");
+            require(msg.sender == extensions[extensionId].instructionsSender, OnlyInstructionsSender());
+            require(extensionId == 0 || !isSystemOpType, SystemOpTypeNotAllowed(_opType));
         }
 
         // Check fee
-        require(teeFeeCalculator.calculateFeeByTeeIds(_opType, _opCommand, _teeIds) <= msg.value, "fee too low");
+        require(teeFeeCalculator.calculateFeeByTeeIds(_opType, _opCommand, _teeIds) <= msg.value, FeeTooLow());
 
         // Get the TEE machines and check their status.
         ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](_teeIds.length);
@@ -127,7 +127,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
             if (!isSystemOpType) {
                 require(
                     teeMachineRegistry.getTeeMachineStatus(_teeIds[i]) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
-                    "tee machine not available"
+                    TeeMachineNotAvailable()
                 );
             }
             teeMachines[i] = teeMachineRegistry.getTeeMachine(_teeIds[i]);
@@ -158,7 +158,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     )
         external payable
     {
-        require(_teeExtensionInstructionsSender != address(0), "invalid instructions sender");
+        require(_teeExtensionInstructionsSender != address(0), InvalidInstructionsSender());
         uint256 extensionId = extensionsCounter++;
         TeeExtension storage newExtension = extensions[extensionId];
         newExtension.owner = msg.sender;
@@ -178,7 +178,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     )
         external onlyOwner(_extensionId)
     {
-        require(_teeExtensionInstructionsSender != address(0), "invalid instructions sender");
+        require(_teeExtensionInstructionsSender != address(0), InvalidInstructionsSender());
         TeeExtension storage extension = extensions[_extensionId];
         extension.stateVerifier = _teeExtensionStateVerifier;
         extension.instructionsSender = _teeExtensionInstructionsSender;
@@ -197,24 +197,24 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     )
         external onlyOwner(_extensionId)
     {
-        require(bytes(_version).length > 0, "version empty");
-        require(_codeHash != bytes32(0), "code hash zero");
-        require(_platforms.length > 0, "no platforms");
+        require(bytes(_version).length > 0, VersionEmpty());
+        require(_codeHash != bytes32(0), CodeHashZero());
+        require(_platforms.length > 0, NoPlatforms());
         for (uint256 i = 0; i < _platforms.length; i++) {
-            require(supportedPlatforms.contains(_platforms[i]), "unsupported platform");
+            require(supportedPlatforms.contains(_platforms[i]), UnsupportedPlatform(_platforms[i]));
         }
         TeeExtension storage extension = extensions[_extensionId];
-        require(extension.codeHashToVersion[_codeHash].platforms.length() == 0, "version already exists");
+        require(extension.codeHashToVersion[_codeHash].platforms.length() == 0, VersionAlreadyExists());
 
         require(
             _governanceHash == bytes32(0) || teeGovernance.getLatestTeeGovernanceHash(_extensionId) == _governanceHash,
-            "invalid governance hash"
+            InvalidGovernanceHash()
         );
 
         TeeVersion storage teeVersion = extension.codeHashToVersion[_codeHash];
         teeVersion.version = _version;
         for (uint256 i = 0; i < _platforms.length; i++) {
-            require(teeVersion.platforms.add(_platforms[i]), "platform already exists");
+            require(teeVersion.platforms.add(_platforms[i]), PlatformAlreadyExists(_platforms[i]));
         }
         teeVersion.governanceHash = _governanceHash;
         emit TeeVersionAdded(_extensionId, _codeHash, _version, _platforms, _governanceHash);
@@ -231,7 +231,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         external onlyOwner(_extensionId)
     {
         TeeExtension storage extension = extensions[_extensionId];
-        require(extension.codeHashToVersion[_codeHash].platforms.length() > 0, "invalid code hash");
+        require(extension.codeHashToVersion[_codeHash].platforms.length() > 0, InvalidCodeHash());
         bytes32[] memory platforms = extension.codeHashToVersion[_codeHash].platforms.values();
         if (_platform != bytes32(0)) {
             for (uint256 i = 0; i < platforms.length; i++) {
@@ -241,7 +241,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
                     return;
                 }
             }
-            revert("invalid platform");
+            revert InvalidPlatform();
         } else {
             for (uint256 i = 0; i < platforms.length; i++) {
                 extension.codeHashPlatformDisabled[_codeHash][platforms[i]] = true;
@@ -263,8 +263,8 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         for (uint256 i = 0; i < _opTypeConstantsProviders.length; i++) {
             ITeeWalletProjectOpTypeConstants opTypeConstantsProvider = _opTypeConstantsProviders[i];
             bytes32 opType = opTypeConstantsProvider.getOpType();
-            require(opType != bytes32(0), "op type empty");
-            require(_extensionId == 0 || !_isSystemOpType(opType), "system op type not allowed");
+            require(opType != bytes32(0), OpTypeEmpty());
+            require(_extensionId == 0 || !_isSystemOpType(opType), SystemOpTypeNotAllowed(opType));
             if (address(extension.opTypeConstantsProviders[opType]) == address(0)) {
                 extension.supportedOpTypes.push(opType);
                 emit SupportedWalletProjectOpTypeAdded(_extensionId, opType);
@@ -303,7 +303,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     function proposeNewOwner(uint256 _extensionId, address _newOwner)
         external onlyOwner(_extensionId)
     {
-        require(_extensionId != 0, "system-owned extension id");
+        require(_extensionId != 0, SystemOwnedExtensionId());
         proposedExtensionOwner[_extensionId] = _newOwner;
         emit NewOwnerProposed(_extensionId, msg.sender, _newOwner);
     }
@@ -314,7 +314,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     function confirmOwnership(uint256 _extensionId)
         external
     {
-        require(proposedExtensionOwner[_extensionId] == msg.sender, "only proposed owner");
+        require(proposedExtensionOwner[_extensionId] == msg.sender, OnlyProposedOwner());
         extensions[_extensionId].owner = msg.sender;
         delete proposedExtensionOwner[_extensionId];
         emit NewOwnerConfirmed(_extensionId, msg.sender);
@@ -329,8 +329,8 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         external onlyGovernance
     {
         for (uint256 i = 0; i < _platforms.length; i++) {
-            require(_platforms[i] != bytes32(0), "platform empty");
-            require(supportedPlatforms.add(_platforms[i]), "platform already exists");
+            require(_platforms[i] != bytes32(0), PlatformEmpty());
+            require(supportedPlatforms.add(_platforms[i]), PlatformAlreadyExists(_platforms[i]));
             emit SupportedPlatformAdded(_platforms[i]);
         }
     }
@@ -413,7 +413,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         returns (ITeeWalletProjectOpTypeConstants _opTypeConstantsProvider)
     {
         _opTypeConstantsProvider = extensions[_extensionId].opTypeConstantsProviders[_opType];
-        require(address(_opTypeConstantsProvider) != address(0), "operation type constants provider not set");
+        require(address(_opTypeConstantsProvider) != address(0), OperationTypeConstantsProviderNotSet());
     }
 
     /**

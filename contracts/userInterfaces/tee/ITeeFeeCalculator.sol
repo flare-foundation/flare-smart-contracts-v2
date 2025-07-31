@@ -20,6 +20,8 @@ interface ITeeFeeCalculator {
         uint256 fee
     );
 
+    error LengthsMismatch();
+
     /**
      * Returns the default fee.
      * @return The default fee.

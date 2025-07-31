@@ -9,9 +9,13 @@ interface IFtdcRequestFeeConfigurations  {
 
     // Event emitted when a type and source price is set.
     event TypeAndSourceFeeSet(bytes32 indexed attestationType, bytes32 indexed source, uint256 fee);
-
     // Event emitted when a type and source price is removed.
     event TypeAndSourceFeeRemoved(bytes32 indexed attestationType, bytes32 indexed source);
+
+    error FeeMustBeGreaterThanZero();
+    error FeeNotSet();
+    error TypeAndSourceCombinationNotSupported();
+    error LengthsMismatch();
 
     /**
      * Method to get the base fee for a type and source pair. It reverts if the pair is not supported.

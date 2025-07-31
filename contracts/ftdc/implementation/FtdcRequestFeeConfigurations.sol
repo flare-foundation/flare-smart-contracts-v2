@@ -61,7 +61,7 @@ contract FtdcRequestFeeConfigurations is Governed, IFtdcRequestFeeConfigurations
     )
         external onlyGovernance
     {
-        require(_types.length == _sources.length && _types.length == _fees.length, "lengths mismatch");
+        require(_types.length == _sources.length && _types.length == _fees.length, LengthsMismatch());
         for (uint256 i = 0; i < _types.length; i++) {
             _setSingleTypeAndSourceFee(_types[i], _sources[i], _fees[i]);
         }
@@ -79,7 +79,7 @@ contract FtdcRequestFeeConfigurations is Governed, IFtdcRequestFeeConfigurations
     )
         external onlyGovernance
     {
-        require(_types.length == _sources.length, "lengths mismatch");
+        require(_types.length == _sources.length, LengthsMismatch());
         for (uint256 i = 0; i < _types.length; i++) {
             _removeSingleTypeAndSourceFee(_types[i], _sources[i]);
         }
@@ -90,7 +90,7 @@ contract FtdcRequestFeeConfigurations is Governed, IFtdcRequestFeeConfigurations
     */
     function getTypeAndSourceFee(bytes32 _type, bytes32 _source) external view returns (uint256 _fee) {
         _fee = typeAndSourceFees[_joinTypeAndSource(_type, _source)];
-        require(_fee > 0, "Type and source combination not supported");
+        require(_fee > 0, TypeAndSourceCombinationNotSupported());
     }
 
     ////////////////////////// Internal functions ///////////////////////////////////////////////
@@ -99,7 +99,7 @@ contract FtdcRequestFeeConfigurations is Governed, IFtdcRequestFeeConfigurations
      * Sets the fee for a given type and source.
      */
     function _setSingleTypeAndSourceFee(bytes32 _type, bytes32 _source, uint256 _fee) internal {
-        require(_fee > 0, "Fee must be greater than 0");
+        require(_fee > 0, FeeMustBeGreaterThanZero());
         typeAndSourceFees[_joinTypeAndSource(_type, _source)] = _fee;
         emit TypeAndSourceFeeSet(_type, _source, _fee);
     }
@@ -109,7 +109,7 @@ contract FtdcRequestFeeConfigurations is Governed, IFtdcRequestFeeConfigurations
      */
     function _removeSingleTypeAndSourceFee(bytes32 _type, bytes32 _source) internal {
         // Same as setting this to 0 but we want to emit a different event + gas savings
-        require(typeAndSourceFees[_joinTypeAndSource(_type, _source)] > 0, "Fee not set");
+        require(typeAndSourceFees[_joinTypeAndSource(_type, _source)] > 0, FeeNotSet());
         delete typeAndSourceFees[_joinTypeAndSource(_type, _source)];
         emit TypeAndSourceFeeRemoved(_type, _source);
     }

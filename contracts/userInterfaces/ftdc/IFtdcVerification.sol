@@ -20,6 +20,10 @@ interface IFtdcVerification {
         Signature[] cosignerSignatures;
     }
 
+    error TeeMachineNotAvailable();
+    error DuplicatedTeeId(address teeId);
+    error DuplicatedCosigner(address cosigner);
+
     /**
      * Verifies the signing policy signatures.
      * @param _signingPolicySignatures The signing policy signatures to verify ("relay message" format).

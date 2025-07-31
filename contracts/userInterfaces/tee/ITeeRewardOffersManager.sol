@@ -15,4 +15,6 @@ interface ITeeRewardOffersManager {
         // part of the rewards that goes to the TEE owners
         uint256 teeOwnersPPM
     );
+
+    error InvalidTeeOwnersPPMValue();
 }

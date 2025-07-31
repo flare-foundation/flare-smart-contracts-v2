@@ -38,6 +38,19 @@ interface ITeeReplication {
         address indexed newTeeId
     );
 
+    error TooSoon();
+    error InvalidTeeStatus();
+    error ExtensionMismatch();
+    error InvalidResponseData();
+    error ReplicationNotValid();
+    error AvailabilityCheckTimestampInvalid();
+    error VersionNotSupported();
+    error InvalidUpgradePath();
+    error TeeUpgradeNotSigned();
+    error OnlyMachineOwner();
+    error InvalidAvailabilityCheckStatus();
+    error InvalidDuration();
+
     /**
      * Pause a TEE machine for upgrade. It has to be paused for long enough time first.
      * Emits TeeMachinePausedForUpgrade event.

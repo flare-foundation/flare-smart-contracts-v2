@@ -28,6 +28,18 @@ interface ITeeGovernance {
         Signature signature
     );
 
+    error OnlyExtensionOwner();
+    error NoSigners();
+    error InvalidThreshold();
+    error SignerAlreadyExists(address signer);
+    error PausingAddressAlreadyExists(address pausingAddress);
+    error InvalidNonce();
+    error NotASigner(address signer);
+    error AlreadySigned(address signer);
+    error GovernanceNotSet();
+    error InvalidGovernanceHash();
+    error PausingAddressesNotSet();
+
     /**
      * Sets new TEE governance.
      * Emits a NewTeeGovernanceSet event.

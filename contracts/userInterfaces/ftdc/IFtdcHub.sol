@@ -31,6 +31,15 @@ interface IFtdcHub {
     event MinThresholdBIPSSet(uint16 minThresholdBIPS);
     event DefaultNumberOfTeesSet(uint8 defaultNumberOfTees);
 
+
+    // Error types for FtdcHub require statements
+    error ThresholdInvalid();
+    error NumberOfTeesAndTeeIdsInvalid();
+    error CosignersThresholdInvalid();
+    error MultipleResponsesPossible();
+    error TeeMachineNotAvailable();
+    error FeeTooLow();
+
     /**
      * Requests an attestation.
      * @param _thresholdBIPS The threshold in BIPS (optional).

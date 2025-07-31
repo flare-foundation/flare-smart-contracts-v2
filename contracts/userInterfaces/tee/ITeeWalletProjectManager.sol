@@ -34,6 +34,14 @@ interface ITeeWalletProjectManager {
         address indexed newOwner
     );
 
+    error OwnerNotAllowed();
+    error OpTypeNotSupported();
+    error SubmitAddressZero();
+    error WalletNotPartOfProject();
+    error WalletNotProductionReady();
+    error OnlyProposedOwner();
+    error OnlyOwner();
+
     /**
      * Creates the project that can be used for wallet creation on specified extension.
      * Emits ProjectCreated event.
