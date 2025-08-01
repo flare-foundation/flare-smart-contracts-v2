@@ -14,6 +14,7 @@ contract TeeGovernanceTest is Test {
 
     address private realOwnerExtension1;
     address private realOwnerExtension2;
+    address private mockOwner;
 
     address private initialGovernance;
     address private addressUpdater;
@@ -28,35 +29,12 @@ contract TeeGovernanceTest is Test {
     address[] private mockSigners;
     uint256[] private privateKeys;
 
-    function areSignaturesEq(
-        Signature memory sig1, 
-        Signature memory sig2
-    ) 
-        private pure 
-        returns (bool) 
-    {
-        return sig1.v == sig2.v && sig1.r == sig2.r && sig1.s == sig2.s;
-    }
-
-    function getSignature(
-        uint256 nonce,
-        address[] memory pausingAddresses,
-        uint256 privateKey
-    ) 
-        private pure
-        returns (Signature memory sig)
-    {
-        bytes32 hashOfPausingAddresses = keccak256(abi.encode("TEE_PAUSING_ADDRESSES", nonce, pausingAddresses));
-        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(hashOfPausingAddresses);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signedMessageHash);
-        sig = Signature(v, r, s);
-    }
-
 
     function setUp() public {
         extensionId = 1;
         realOwnerExtension1 = makeAddr("realOwnerExtension1");
         realOwnerExtension2 = makeAddr("realOwnerExtension2");
+        mockOwner = makeAddr("mockOwner");
 
         initialGovernance = makeAddr("initialGovernance");
         addressUpdater = makeAddr("addressUpdater");
@@ -111,57 +89,81 @@ contract TeeGovernanceTest is Test {
     }
 
 
-    function testOnlyExtensionOwner() public {
-        address mockOwner = makeAddr("mockOwner");
-        
+    // setNewTeeGovernance
+    function testSetNewTeeGovernanceRevertOnlyExtensionOwner() public {        
         vm.expectRevert(ITeeGovernance.OnlyExtensionOwner.selector);
         vm.prank(mockOwner);
-        // any function with onlyExtensionOwner modifier
         teeGovernance.setNewTeeGovernance(
             extensionId,
             mockSigners,
-            1 // any
+            1
         );
     }
 
     
-    function testSetNewTeeGovernance() public {
+    function testSetNewTeeGovernanceRevertNoSigners() public {
         address[] memory emptyMockSigners;
-        
-        vm.startPrank(realOwnerExtension1);
-        
+        vm.prank(realOwnerExtension1);
         vm.expectRevert(ITeeGovernance.NoSigners.selector);
         teeGovernance.setNewTeeGovernance(extensionId, emptyMockSigners, 1);
+    }
 
+
+    function testSetNewTeeGovernanceRevertInvalidThreshold() public {
+        vm.startPrank(realOwnerExtension1);
         vm.expectRevert(ITeeGovernance.InvalidThreshold.selector);
         teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 0);
         vm.expectRevert(ITeeGovernance.InvalidThreshold.selector);
         teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 3);
+        vm.stopPrank();
+    }
 
-        uint64 signersThreshold = 1;
-        bytes32 governanceHash = keccak256(abi.encode(mockSigners, signersThreshold));
-        vm.expectEmit();
-        emit ITeeGovernance.NewTeeGovernanceSet(extensionId, governanceHash, mockSigners, signersThreshold);
-        teeGovernance.setNewTeeGovernance(extensionId, mockSigners, signersThreshold);
 
-        emptyMockSigners = new address[](2);
-        emptyMockSigners[0] = makeAddr("emptyMocksigners1");
-        emptyMockSigners[1] = emptyMockSigners[0];
+    function testSetNewTeeGovernanceRevertSignerAlreadyExists() public {
+        mockSigners[1] = mockSigners[0];
         vm.expectRevert(
             abi.encodeWithSelector(
                 ITeeGovernance.SignerAlreadyExists.selector,
-                emptyMockSigners[0]
+                mockSigners[0]
             )
         );
-        teeGovernance.setNewTeeGovernance(extensionId, emptyMockSigners, signersThreshold);
+        vm.prank(realOwnerExtension1);
+        teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 1);
+    }
 
-        vm.stopPrank();
+
+    function testSetNewTeeGovernance() public { 
+        bytes32 governanceHash = keccak256(abi.encode(mockSigners, 1));
+        vm.prank(realOwnerExtension1);
+        vm.expectEmit();
+        emit ITeeGovernance.NewTeeGovernanceSet(extensionId, governanceHash, mockSigners, 1);
+        teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 1);
+    }
+
+
+    // setTeePausingAddresses
+    function testSetTeePausingAddressesRevertOnlyExtensionOwner() public {
+        vm.expectRevert(ITeeGovernance.OnlyExtensionOwner.selector);
+        vm.prank(mockOwner);
+        teeGovernance.setTeePausingAddresses(extensionId, mockPausingAddresses);
+    }
+
+
+    function testSetTeePausingAddressesRevertPausingAddressAlreadyExists() public {
+        mockPausingAddresses[1] = mockPausingAddresses[0];
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeGovernance.PausingAddressAlreadyExists.selector,
+                mockPausingAddresses[0]
+            )
+        );
+        vm.prank(realOwnerExtension1);
+        teeGovernance.setTeePausingAddresses(extensionId, mockPausingAddresses);
     }
 
 
     function testSetTeePausingAddresses() public {
         address[] memory emptyPausingAdresses;
-        address[] memory pausingAddresses;
 
         vm.startPrank(realOwnerExtension1);
         // empty
@@ -170,76 +172,71 @@ contract TeeGovernanceTest is Test {
         teeGovernance.setTeePausingAddresses(extensionId, emptyPausingAdresses);
         
         // new list
-        pausingAddresses = new address[](1);
-        pausingAddresses[0] = makeAddr("pausingAddress1");
         vm.expectEmit();
-        emit ITeeGovernance.NewPausingAddressesSet(extensionId, 1, pausingAddresses);
-        teeGovernance.setTeePausingAddresses(extensionId, pausingAddresses);
-
-
-        // duplicate values
-        pausingAddresses = new address[](2);
-        pausingAddresses[0] = makeAddr("pausingAddress2");
-        pausingAddresses[1] = pausingAddresses[0]; // duplicate
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ITeeGovernance.PausingAddressAlreadyExists.selector,
-                pausingAddresses[1]
-            )
-        );
-        teeGovernance.setTeePausingAddresses(extensionId, pausingAddresses);
-
-        // empty
-        vm.expectEmit();
-        emit ITeeGovernance.NewPausingAddressesSet(extensionId, 2, emptyPausingAdresses);
-        teeGovernance.setTeePausingAddresses(extensionId, emptyPausingAdresses);
+        emit ITeeGovernance.NewPausingAddressesSet(extensionId, 1, mockPausingAddresses);
+        teeGovernance.setTeePausingAddresses(extensionId, mockPausingAddresses);
 
         vm.stopPrank();
+    }
+
+
+    // signTeePausingAddresses
+    function testSignTeePausingAddressesRevertInvalidNonce() public {
+        Signature memory signature = _getSignature(0, mockSigners, privateKeys[0]);
+        vm.expectRevert(ITeeGovernance.InvalidNonce.selector);
+        teeGovernance.signTeePausingAddresses(extensionId, 0, signature);
+    }
+
+
+    function testSignTeePausingAddressesRevertNotASigner() public {
+        vm.prank(realOwnerExtension1);
+        teeGovernance.setTeePausingAddresses(extensionId, mockPausingAddresses);
+
+        Signature memory signature = _getSignature(0, mockPausingAddresses, privateKeys[0]);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeGovernance.NotASigner.selector,
+                mockSigners[0]
+            )
+        );
+        teeGovernance.signTeePausingAddresses(extensionId, 0, signature);
+    }
+
+
+    function testSignTeePausingAddressesAlreadySigned() public {
+        Signature memory signature = _getSignature(0, mockPausingAddresses, privateKeys[0]);
+        vm.startPrank(realOwnerExtension1);
+        teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 1);
+        teeGovernance.setTeePausingAddresses(extensionId, mockPausingAddresses);
+        vm.stopPrank();
+
+        teeGovernance.signTeePausingAddresses(extensionId, 0, signature);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeGovernance.AlreadySigned.selector,
+                mockSigners[0]
+            )
+        );
+        teeGovernance.signTeePausingAddresses(extensionId, 0, signature);
     }
 
 
     function testSignTeePausingAddresses() public {
-        
-        (address signer, uint256 privateKey) = makeAddrAndKey("signer");
-        Signature memory signature;
-        
-        address[] memory mockSigner = new address[](1);
-        mockSigner[0] = signer;
+        Signature memory signature = _getSignature(0, mockPausingAddresses, privateKeys[0]);
 
         vm.startPrank(realOwnerExtension1);
-        // nonce can't be 0 (yet)
-        vm.expectRevert(ITeeGovernance.InvalidNonce.selector);
-        teeGovernance.signTeePausingAddresses(extensionId, 0, signature);
-        
-        // create a list to be signed
-        teeGovernance.setNewTeeGovernance(extensionId, mockSigner, 1);
+        teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 1);
         teeGovernance.setTeePausingAddresses(extensionId, mockPausingAddresses);
-
-        assertTrue(
-            teeGovernance.isTeeGovernanceSigner(
-                extensionId, 
-                teeGovernance.getLatestTeeGovernanceHash(extensionId), signer
-            )
-        );
-
-        signature = getSignature(0, mockPausingAddresses, privateKey);
+        vm.stopPrank();
         
         vm.expectEmit();
-        emit ITeeGovernance.NewPausingAddressesSigned(extensionId, 0, signer, signature);
+        emit ITeeGovernance.NewPausingAddressesSigned(extensionId, 0, mockSigners[0], signature);
         teeGovernance.signTeePausingAddresses(extensionId, 0, signature);
-        
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ITeeGovernance.AlreadySigned.selector,
-                signer
-            )
-        );
-        teeGovernance.signTeePausingAddresses(extensionId, 0, signature);
-
         vm.stopPrank();
     }
 
 
+    // getLatestTeeGovernanceHash
     function testGetLatestTeeGovernanceHash() public {
         vm.prank(realOwnerExtension1);
         teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 1);
@@ -249,15 +246,20 @@ contract TeeGovernanceTest is Test {
     }
 
 
+    // getTeeGovernanceThreshold
     function testGetTeeGovernanceThreshold() public {
         vm.prank(realOwnerExtension1);
         teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 1);
 
-        uint64 returnedThreshold = teeGovernance.getTeeGovernanceThreshold(extensionId, teeGovernance.getLatestTeeGovernanceHash(extensionId));
+        uint64 returnedThreshold = 
+            teeGovernance.getTeeGovernanceThreshold(
+                extensionId, teeGovernance.getLatestTeeGovernanceHash(extensionId)
+            );
         assertEq(returnedThreshold, 1);
     }
 
 
+    // isTeeGovernanceSigner
     function testIsTeeGovernanceSigner() public {
         vm.prank(realOwnerExtension1);
         teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 2);
@@ -266,6 +268,16 @@ contract TeeGovernanceTest is Test {
         assertFalse(teeGovernance.isTeeGovernanceSigner(extensionId, governanceHash, realOwnerExtension1));
         assertTrue(teeGovernance.isTeeGovernanceSigner(extensionId, governanceHash, mockSigners[0]));
         assertTrue(teeGovernance.isTeeGovernanceSigner(extensionId, governanceHash, mockSigners[1]));
+    }
+
+
+    // getTeeGovernance
+    function testGetTeeGovernanceRevertInvalidGovernanceHash() public {
+        address[] memory returnedSigners;
+        uint64 returnedThreshold;
+        bytes32 governanceHash = teeGovernance.getLatestTeeGovernanceHash(extensionId);
+        vm.expectRevert(ITeeGovernance.InvalidGovernanceHash.selector);
+        (returnedSigners, returnedThreshold) = teeGovernance.getTeeGovernance(extensionId + 1, governanceHash);
     }
 
 
@@ -278,22 +290,29 @@ contract TeeGovernanceTest is Test {
         uint64 returnedThreshold;
         (returnedSigners, returnedThreshold) = teeGovernance.getTeeGovernance(extensionId, governanceHash);
 
-        assertTrue(returnedSigners[0] == mockSigners[0] && returnedSigners[1] == mockSigners[1] && 
-            returnedThreshold == 1);
-        assertFalse(returnedSigners[0] == mockSigners[0] && returnedSigners[1] == mockSigners[1] && 
-            returnedThreshold == 2);
-        assertFalse(returnedSigners[0] == realOwnerExtension1 && returnedSigners[1] == mockSigners[1] && 
-            returnedThreshold == 1);
+        assertTrue(
+            returnedSigners[0] == mockSigners[0] && returnedSigners[1] == mockSigners[1] && 
+            returnedThreshold == 1
+        );
+        assertFalse(
+            returnedSigners[0] == mockSigners[0] && returnedSigners[1] == mockSigners[1] && 
+            returnedThreshold == 0
+        );
+        assertFalse(
+            returnedSigners[0] == realOwnerExtension1 && returnedSigners[1] == mockSigners[1] && 
+            returnedThreshold == 1
+        );
+    }
 
-        vm.expectRevert(ITeeGovernance.InvalidGovernanceHash.selector);
-        (returnedSigners, returnedThreshold) = teeGovernance.getTeeGovernance(extensionId + 1, governanceHash);
+
+    // getLatestTeeGovernance
+    function testGetLatestTeeGovernanceRevertGovernanceNotSet() public {
+        vm.expectRevert(ITeeGovernance.GovernanceNotSet.selector);
+        teeGovernance.getLatestTeeGovernance(extensionId);
     }
 
 
     function testGetLatestTeeGovernance() public {
-        vm.expectRevert(ITeeGovernance.GovernanceNotSet.selector);
-        teeGovernance.getLatestTeeGovernance(extensionId);
-
         vm.startPrank(realOwnerExtension1);
         teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 1);
         teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 2);
@@ -303,12 +322,22 @@ contract TeeGovernanceTest is Test {
         uint64 returnedThreshold;
         (returnedSigners, returnedThreshold) = teeGovernance.getLatestTeeGovernance(extensionId);
 
-        assertTrue(returnedSigners[0] == mockSigners[0] && returnedSigners[1] == mockSigners[1] && returnedThreshold == 2);
-        assertFalse(returnedSigners[0] == mockSigners[0] && returnedSigners[1] == mockSigners[1] && returnedThreshold == 1);
-        assertFalse(returnedSigners[0] == mockSigners[0] && returnedSigners[1] == mockSigners[0] && returnedThreshold == 1);
+        assertTrue(
+            returnedSigners[0] == mockSigners[0] && returnedSigners[1] == mockSigners[1] &&
+            returnedThreshold == 2
+        );
+        assertFalse(
+            returnedSigners[0] == mockSigners[0] && returnedSigners[1] == mockSigners[1] &&
+            returnedThreshold == 1
+        );
+        assertFalse(
+            returnedSigners[0] == mockSigners[0] && returnedSigners[1] == mockSigners[0] &&
+            returnedThreshold == 1
+        );
     }
 
 
+    // isGovernanceHashValid
     function testIsGovernanceHashValid() public {
         bytes32 governanceHash = keccak256(abi.encode(mockSigners, 1));
         // no governance set
@@ -320,18 +349,26 @@ contract TeeGovernanceTest is Test {
         vm.prank(realOwnerExtension2);
         teeGovernance.setNewTeeGovernance(extensionId + 1, mockSigners, 2);
 
-        assertFalse(teeGovernance.isGovernanceHashValid(extensionId + 1, governanceHash)); // wrong threshold
+        assertFalse(teeGovernance.isGovernanceHashValid(extensionId + 1, governanceHash));
         assertTrue(teeGovernance.isGovernanceHashValid(extensionId, governanceHash));
 
         assertFalse(teeGovernance.isGovernanceHashValid(extensionId, bytes32(0x0)));
-        assertTrue(teeGovernance.isGovernanceHashValid(extensionId, teeGovernance.getLatestTeeGovernanceHash(extensionId)));
+        assertTrue(
+            teeGovernance.isGovernanceHashValid(
+                extensionId, teeGovernance.getLatestTeeGovernanceHash(extensionId)
+            )
+        );
+    }
+
+
+    // getTeePausingAddresses
+    function testGetTeePausingAddressesRevertInvalidNonce() public {
+        vm.expectRevert(ITeeGovernance.InvalidNonce.selector);
+        teeGovernance.getTeePausingAddresses(extensionId, 5);
     }
 
 
     function testGetTeePausingAddresses() public {
-        vm.expectRevert(ITeeGovernance.InvalidNonce.selector);
-        teeGovernance.getTeePausingAddresses(extensionId, 5);
-
         vm.prank(realOwnerExtension1);
         teeGovernance.setTeePausingAddresses(extensionId, mockPausingAddresses);
 
@@ -339,7 +376,9 @@ contract TeeGovernanceTest is Test {
         address[] memory returnedPausingAddresses;
 
         (returnedPausingAddresses, returnedSignatures) = teeGovernance.getTeePausingAddresses(extensionId, 0);
-        assertTrue(returnedPausingAddresses[0] == mockPausingAddresses[0] && returnedPausingAddresses[1] == mockPausingAddresses[1] &&
+        assertTrue(
+            returnedPausingAddresses[0] == mockPausingAddresses[0] &&
+            returnedPausingAddresses[1] == mockPausingAddresses[1] &&
             returnedSignatures.length == 0
         );
 
@@ -347,40 +386,44 @@ contract TeeGovernanceTest is Test {
         teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 1);
 
         Signature[] memory signatures = new Signature[](2);
-        signatures[0] = getSignature(0, mockPausingAddresses, privateKeys[0]);
-        signatures[1] = getSignature(0, mockPausingAddresses, privateKeys[1]);
-
-        assertTrue(teeGovernance.isTeeGovernanceSigner(extensionId, teeGovernance.getLatestTeeGovernanceHash(extensionId), mockSigners[0]));
+        signatures[0] = _getSignature(0, mockPausingAddresses, privateKeys[0]);
+        signatures[1] = _getSignature(0, mockPausingAddresses, privateKeys[1]);
 
         teeGovernance.signTeePausingAddresses(extensionId, 0, signatures[0]);
         teeGovernance.signTeePausingAddresses(extensionId, 0, signatures[1]);
 
-
         (returnedPausingAddresses, returnedSignatures) = teeGovernance.getTeePausingAddresses(extensionId, 0);
-        assertTrue(returnedPausingAddresses[0] == mockPausingAddresses[0] && returnedPausingAddresses[1] == mockPausingAddresses[1] &&
+        assertTrue(
+            returnedPausingAddresses[0] == mockPausingAddresses[0] &&
+            returnedPausingAddresses[1] == mockPausingAddresses[1] &&
             returnedSignatures.length == 2
         );
     }
 
 
-    function testGetLatestTeePausingAddresses() public {
-        vm.expectRevert(ITeeGovernance.GovernanceNotSet.selector);
-        teeGovernance.getLatestTeeGovernance(extensionId);
+    // getLatestTeePausingAddresses
+    function testGetLatestTeePausingAddressesRevertPausingAddressesNotSet() public {
+        vm.expectRevert(ITeeGovernance.PausingAddressesNotSet.selector);
+        teeGovernance.getLatestTeePausingAddresses(extensionId);
+    }
 
+
+    function testGetLatestTeePausingAddresses() public {
         vm.prank(realOwnerExtension1);
         teeGovernance.setTeePausingAddresses(extensionId, mockPausingAddresses);
 
         uint256 returnedNonce;
         address[] memory returnedPausingAddresses;
         Signature[] memory returnedSignatures;
-        (returnedNonce, returnedPausingAddresses, returnedSignatures) = teeGovernance.getLatestTeePausingAddresses(extensionId);
+        (returnedNonce, returnedPausingAddresses, returnedSignatures) =
+            teeGovernance.getLatestTeePausingAddresses(extensionId);
 
         assertTrue(
             returnedNonce == 0 && 
-            returnedPausingAddresses[0] == mockPausingAddresses[0] && returnedPausingAddresses[1] == mockPausingAddresses[1] &&
+            returnedPausingAddresses[0] == mockPausingAddresses[0] &&
+            returnedPausingAddresses[1] == mockPausingAddresses[1] &&
             returnedSignatures.length == 0    
         );
-
         
         address[] memory mockSigner = new address[](1);
         uint256 privateKey;
@@ -389,35 +432,27 @@ contract TeeGovernanceTest is Test {
         vm.prank(realOwnerExtension1);
         teeGovernance.setNewTeeGovernance(extensionId, mockSigner, 1);
 
-        Signature memory signature = getSignature(0, mockPausingAddresses, privateKey);
-
+        Signature memory signature = _getSignature(0, mockPausingAddresses, privateKey);
         teeGovernance.signTeePausingAddresses(extensionId, 0, signature);
 
-        (returnedNonce, returnedPausingAddresses, returnedSignatures) = teeGovernance.getLatestTeePausingAddresses(extensionId);
+        (returnedNonce, returnedPausingAddresses, returnedSignatures) =
+            teeGovernance.getLatestTeePausingAddresses(extensionId);
         assertTrue(
             returnedNonce == 0 && 
-            returnedPausingAddresses[0] == mockPausingAddresses[0] && returnedPausingAddresses[1] == mockPausingAddresses[1] &&
-            returnedSignatures.length == 1 && areSignaturesEq(returnedSignatures[0], signature)
+            returnedPausingAddresses[0] == mockPausingAddresses[0] &&
+            returnedPausingAddresses[1] == mockPausingAddresses[1] &&
+            returnedSignatures.length == 1 && _areSignaturesEq(returnedSignatures[0], signature)
         );
     }
 
 
+    // isTeePausingAddressesSigner
     function testIsTeePausingAddressesSigner() public {
         assertFalse(teeGovernance.isTeePausingAddressesSigner(extensionId, realOwnerExtension1));
-
-        Signature memory signature = getSignature(0, mockPausingAddresses, privateKeys[0]);
 
         vm.startPrank(realOwnerExtension1);
         teeGovernance.setTeePausingAddresses(extensionId, mockPausingAddresses);
         assertFalse(teeGovernance.isTeePausingAddressesSigner(extensionId, realOwnerExtension1));
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ITeeGovernance.NotASigner.selector,
-                mockSigners[0]
-            )
-        );
-        teeGovernance.signTeePausingAddresses(extensionId, 0, signature);
 
         teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 1);
         vm.stopPrank();
@@ -427,11 +462,15 @@ contract TeeGovernanceTest is Test {
     }
 
 
-    function testHasSignedTeePausingAddresses() public {
+    // hasSignedTeePausingAddresses
+    function testHasSignedTeePausingAddressesRevertInvalidNonce() public {
         vm.expectRevert(ITeeGovernance.InvalidNonce.selector);
         teeGovernance.hasSignedTeePausingAddresses(extensionId, 0, realOwnerExtension1);
+    }
 
-        Signature memory signature = getSignature(0, mockPausingAddresses, privateKeys[0]);
+
+    function testHasSignedTeePausingAddresses() public {
+        Signature memory signature = _getSignature(0, mockPausingAddresses, privateKeys[0]);
 
         vm.startPrank(realOwnerExtension1);
         teeGovernance.setNewTeeGovernance(extensionId, mockSigners, 1);
@@ -443,5 +482,31 @@ contract TeeGovernanceTest is Test {
 
         assertTrue(teeGovernance.hasSignedTeePausingAddresses(extensionId, 0, mockSigners[0]));
         assertFalse(teeGovernance.hasSignedTeePausingAddresses(extensionId, 0, mockSigners[1]));
+    }
+
+
+    function _areSignaturesEq(
+        Signature memory sig1, 
+        Signature memory sig2
+    ) 
+        private pure 
+        returns (bool) 
+    {
+        return sig1.v == sig2.v && sig1.r == sig2.r && sig1.s == sig2.s;
+    }
+
+
+    function _getSignature(
+        uint256 nonce,
+        address[] memory pausingAddresses,
+        uint256 privateKey
+    ) 
+        private pure
+        returns (Signature memory sig)
+    {
+        bytes32 hashOfPausingAddresses = keccak256(abi.encode("TEE_PAUSING_ADDRESSES", nonce, pausingAddresses));
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(hashOfPausingAddresses);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, signedMessageHash);
+        sig = Signature(v, r, s);
     }
 }

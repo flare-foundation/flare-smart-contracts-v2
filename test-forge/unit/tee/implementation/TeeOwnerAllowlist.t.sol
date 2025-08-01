@@ -8,6 +8,7 @@ import "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlist.sol";
 
 contract TeeOwnerAllowlistTest is Test {
 
+    TeeOwnerAllowlist private teeOwnerAllowlist;
     TeeOwnerAllowlist private teeOwnerAllowlistImpl;
     TeeOwnerAllowlistProxy private teeOwnerAllowlistProxy;
 
@@ -17,6 +18,7 @@ contract TeeOwnerAllowlistTest is Test {
     address private addressUpdater;
 
     address private realOwner;
+    address private mockOwner;
     address private registryAddress;
 
     bytes32[] private contractNameHashes;
@@ -27,10 +29,11 @@ contract TeeOwnerAllowlistTest is Test {
 
     function setUp() public {
         extensionId = 1;
-        realOwner = makeAddr("extensionOwner");
+        realOwner = makeAddr("realOwner");
+        mockOwner = makeAddr("mockOwner");
         owners = new address[](2);
-        owners[0] = makeAddr("addr1");
-        owners[1] = makeAddr("addr2");
+        owners[0] = makeAddr("owner1");
+        owners[1] = makeAddr("owner2");
 
         initialGovernance = makeAddr("initialGovernance");
         addressUpdater = makeAddr("addressUpdater");
@@ -42,7 +45,7 @@ contract TeeOwnerAllowlistTest is Test {
             address(teeOwnerAllowlistImpl)
         );
 
-        teeOwnerAllowlistImpl = TeeOwnerAllowlist(address(teeOwnerAllowlistProxy));
+        teeOwnerAllowlist = TeeOwnerAllowlist(address(teeOwnerAllowlistProxy));
         contractNameHashes = new bytes32[](2);
         contractAddresses = new address[](2);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
@@ -51,8 +54,8 @@ contract TeeOwnerAllowlistTest is Test {
         contractAddresses[1] = makeAddr("TeeExtensionRegistry");
 
         vm.prank(addressUpdater);
-        teeOwnerAllowlistImpl.updateContractAddresses(contractNameHashes, contractAddresses);
-        registryAddress = address(teeOwnerAllowlistImpl.teeExtensionRegistry());
+        teeOwnerAllowlist.updateContractAddresses(contractNameHashes, contractAddresses);
+        registryAddress = address(teeOwnerAllowlist.teeExtensionRegistry());
 
         vm.mockCall(
             registryAddress,
@@ -65,11 +68,10 @@ contract TeeOwnerAllowlistTest is Test {
     }
 
 
-    function testAddAllowedTeeMachineOwnersOnlyExtensionOwner() public {
-        address mockOwner = makeAddr("mockOwner");
+    function testAddAllowedTeeMachineOwnersRevertOnlyExtensionOwner() public {
         vm.expectRevert(ITeeOwnerAllowlist.OnlyExtensionOwner.selector);
         vm.prank(mockOwner);
-        teeOwnerAllowlistImpl.addAllowedTeeMachineOwners(extensionId, owners);
+        teeOwnerAllowlist.addAllowedTeeMachineOwners(extensionId, owners);
     }
 
 
@@ -77,7 +79,14 @@ contract TeeOwnerAllowlistTest is Test {
         vm.expectEmit();
         emit ITeeOwnerAllowlist.AllowedTeeMachineOwnersAdded(extensionId, owners);
         vm.prank(realOwner);
-        teeOwnerAllowlistImpl.addAllowedTeeMachineOwners(extensionId, owners);
+        teeOwnerAllowlist.addAllowedTeeMachineOwners(extensionId, owners);
+    }
+
+
+    function testAddAllowedTeeWalletProjectOwnersRevertOnlyExtensionOwner() public {
+        vm.expectRevert(ITeeOwnerAllowlist.OnlyExtensionOwner.selector);
+        vm.prank(mockOwner);
+        teeOwnerAllowlist.addAllowedTeeWalletProjectOwners(extensionId, owners);
     }
 
 
@@ -85,57 +94,39 @@ contract TeeOwnerAllowlistTest is Test {
         vm.expectEmit();
         emit ITeeOwnerAllowlist.AllowedTeeWalletProjectOwnersAdded(extensionId, owners);
         vm.prank(realOwner);
-        teeOwnerAllowlistImpl.addAllowedTeeWalletProjectOwners(extensionId, owners);
+        teeOwnerAllowlist.addAllowedTeeWalletProjectOwners(extensionId, owners);
     }
 
 
-    function testAllowAllTeeMachineOwnersAndAllowAllTeeMachineOwners() public {
-        vm.startPrank(realOwner);
-        assertFalse(teeOwnerAllowlistImpl.isAllowedTeeMachineOwner(extensionId, owners[0]));
-        teeOwnerAllowlistImpl.allowAllTeeMachineOwners(extensionId);
-        assertTrue(teeOwnerAllowlistImpl.isAllowedTeeMachineOwner(extensionId, owners[0]));
-        assertTrue(teeOwnerAllowlistImpl.isAllowedTeeMachineOwner(extensionId, owners[1]));
-        vm.stopPrank();
+    function testAllowAllTeeMachineOwnersRevertOnlyExtensionOwner() public {
+        vm.expectRevert(ITeeOwnerAllowlist.OnlyExtensionOwner.selector);
+        vm.prank(mockOwner);
+        teeOwnerAllowlist.allowAllTeeMachineOwners(extensionId);
     }
 
 
-    function testAllowAllTeeMachineOwnersAndAddAllowedTeeMachineOwners() public {
-        address[] memory oneOwner = new address[](1);
-        oneOwner[0] = makeAddr("oneOwner");
+    function testAllowAllTeeMachineOwnersAndIsAllowedTeeMachineOwner() public {
+        assertFalse(teeOwnerAllowlist.isAllowedTeeMachineOwner(extensionId, owners[0]));
+        vm.prank(realOwner);
+        teeOwnerAllowlist.allowAllTeeMachineOwners(extensionId);
+        assertTrue(teeOwnerAllowlist.isAllowedTeeMachineOwner(extensionId, owners[0]));
+        assertTrue(teeOwnerAllowlist.isAllowedTeeMachineOwner(extensionId, owners[1]));
+    }
 
-        vm.startPrank(realOwner);
-        teeOwnerAllowlistImpl.addAllowedTeeMachineOwners(extensionId, oneOwner);
-        // false
-        assertFalse(teeOwnerAllowlistImpl.isAllowedTeeMachineOwner(extensionId, owners[0]));
-        assertFalse(teeOwnerAllowlistImpl.isAllowedTeeMachineOwner(extensionId, owners[1]));
-        // true
-        assertTrue(teeOwnerAllowlistImpl.isAllowedTeeMachineOwner(extensionId, oneOwner[0]));
-        vm.stopPrank();
+
+    function testAllowAllTeeWalletProjectOwnersRevertOnlyExtensionOwner() public {
+        vm.expectRevert(ITeeOwnerAllowlist.OnlyExtensionOwner.selector);
+        vm.prank(mockOwner);
+        teeOwnerAllowlist.allowAllTeeWalletProjectOwners(extensionId);
     }
     
 
-    function testAllowAllTeeWalletProjectOwnersAndAllowAllTeeWalletProjectOwners() public {
-        vm.startPrank(realOwner);
-        assertFalse(teeOwnerAllowlistImpl.isAllowedTeeWalletProjectOwner(extensionId, owners[0]));
-        teeOwnerAllowlistImpl.allowAllTeeWalletProjectOwners(extensionId);
-        assertTrue(teeOwnerAllowlistImpl.isAllowedTeeWalletProjectOwner(extensionId, owners[0]));
-        assertTrue(teeOwnerAllowlistImpl.isAllowedTeeWalletProjectOwner(extensionId, owners[1]));
-        vm.stopPrank();
-    }
-
-
-    function testAllowAllTeeWalletProjectOwnersAndAddAllowedTeeWalletProjectOwners() public {
-        address[] memory oneOwner = new address[](1);
-        oneOwner[0] = makeAddr("oneOwner");
-
-        vm.startPrank(realOwner);
-        teeOwnerAllowlistImpl.addAllowedTeeWalletProjectOwners(extensionId, oneOwner);
-        // false
-        assertFalse(teeOwnerAllowlistImpl.isAllowedTeeWalletProjectOwner(extensionId, owners[0]));
-        assertFalse(teeOwnerAllowlistImpl.isAllowedTeeWalletProjectOwner(extensionId, owners[1]));
-        // true
-        assertTrue(teeOwnerAllowlistImpl.isAllowedTeeWalletProjectOwner(extensionId, oneOwner[0]));
-        vm.stopPrank();
+    function testAllowAllTeeWalletProjectOwnersAndIsAllowedTeeWalletProjectOwner() public {
+        assertFalse(teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(extensionId, owners[0]));
+        vm.prank(realOwner);
+        teeOwnerAllowlist.allowAllTeeWalletProjectOwners(extensionId);
+        assertTrue(teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(extensionId, owners[0]));
+        assertTrue(teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(extensionId, owners[1]));
     }
     
 
@@ -143,11 +134,11 @@ contract TeeOwnerAllowlistTest is Test {
         address[] memory allowedTeeMachineOwners;
         
         vm.startPrank(realOwner);
-        allowedTeeMachineOwners = teeOwnerAllowlistImpl.getAllowedTeeMachineOwners(extensionId);
+        allowedTeeMachineOwners = teeOwnerAllowlist.getAllowedTeeMachineOwners(extensionId);
         assertEq(allowedTeeMachineOwners.length, 0);
 
-        teeOwnerAllowlistImpl.addAllowedTeeMachineOwners(extensionId, owners);
-        allowedTeeMachineOwners = teeOwnerAllowlistImpl.getAllowedTeeMachineOwners(extensionId);
+        teeOwnerAllowlist.addAllowedTeeMachineOwners(extensionId, owners);
+        allowedTeeMachineOwners = teeOwnerAllowlist.getAllowedTeeMachineOwners(extensionId);
         assertEq(allowedTeeMachineOwners.length, 2);
         assertEq(allowedTeeMachineOwners[0], owners[0]);
         assertEq(allowedTeeMachineOwners[1], owners[1]);
@@ -159,11 +150,11 @@ contract TeeOwnerAllowlistTest is Test {
         address[] memory allowedTeeProjectWalletOwners;
         
         vm.startPrank(realOwner);
-        allowedTeeProjectWalletOwners = teeOwnerAllowlistImpl.getAllowedTeeWalletProjectOwners(extensionId);
+        allowedTeeProjectWalletOwners = teeOwnerAllowlist.getAllowedTeeWalletProjectOwners(extensionId);
         assertEq(allowedTeeProjectWalletOwners.length, 0);
 
-        teeOwnerAllowlistImpl.addAllowedTeeWalletProjectOwners(extensionId, owners);
-        allowedTeeProjectWalletOwners = teeOwnerAllowlistImpl.getAllowedTeeWalletProjectOwners(extensionId);
+        teeOwnerAllowlist.addAllowedTeeWalletProjectOwners(extensionId, owners);
+        allowedTeeProjectWalletOwners = teeOwnerAllowlist.getAllowedTeeWalletProjectOwners(extensionId);
         assertEq(allowedTeeProjectWalletOwners.length, 2);
         assertEq(allowedTeeProjectWalletOwners[0], owners[0]);
         assertEq(allowedTeeProjectWalletOwners[1], owners[1]);
