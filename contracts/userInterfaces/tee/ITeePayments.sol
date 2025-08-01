@@ -2,6 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import "./ITeeIdKeyIdPair.sol";
+import "../ftdc/IPMWMultisigAccountConfigured.sol";
 
 /**
  * TeePayments interface.
@@ -48,9 +49,9 @@ interface ITeePayments {
         uint128 minFee
     );
 
-    event SenderAddressSet(
+    event WalletAddressSet(
         bytes32 indexed walletId,
-        string senderAddress,
+        string walletAddress,
         uint64 initialNonce
     );
 
@@ -62,7 +63,7 @@ interface ITeePayments {
     error WrongProjectId();
     error DefaultWalletNotSet();
     error WalletNotInProduction();
-    error SenderAddressNotSet();
+    error WalletAddressNotSet();
     error FeeBelowMinFee();
     error NoPaymentInstructions();
     error LengthsMismatch();
@@ -72,10 +73,12 @@ interface ITeePayments {
     error BatchSizeTooLarge();
     error BatchDurationTooLarge();
     error MinFeeZero();
-    error SenderAddressAlreadySet();
+    error WalletAddressAlreadySet();
     error OnlyProductionOrPausedStatus();
     error MinFeeNotSet();
     error DailyLimitBelowTransactionLimit();
+    error WalletAddressZero();
+    error InvalidProof();
 
     /**
      * Payment instruction method.
@@ -115,17 +118,15 @@ interface ITeePayments {
         external payable;
 
     /**
-     * Method for setting the sender address.
-     * Emits SenderAddressSet event.
+     * Method for setting the wallet address and initial nonce.
+     * Emits WalletAddressSet event.
      * @param _walletId The wallet id.
-     * @param _senderAddress The new sender address.
-     * @param _initialNonce The initial nonce.
+     * @param _proof The PMW multisig account configured proof.
      * Can only be called by the wallet owner.
      */
-    function setSenderAddressAndInitialNonce(
+    function setWalletAddressAndInitialNonce(
         bytes32 _walletId,
-        string calldata _senderAddress,
-        uint64 _initialNonce
+        IPMWMultisigAccountConfigured.Proof calldata _proof
     )
         external;
 
@@ -178,11 +179,11 @@ interface ITeePayments {
     function getOpType() external view returns (bytes32);
 
     /**
-     * Returns wallet's sender address.
+     * Returns wallet's address.
      * @param _walletId The wallet id.
-     * @return _senderAddress The wallet owner.
+     * @return _walletAddress The wallet address.
      */
-    function getSenderAddress(bytes32 _walletId) external view returns (string memory _senderAddress);
+    function getWalletAddress(bytes32 _walletId) external view returns (string memory _walletAddress);
 
     /**
      * Returns wallet's batch settings.

@@ -41,6 +41,7 @@ contract TeePaymentsTest is Test {
     uint256 private fee = 123;
     address private submitAddress = makeAddr("submitAddress");
     bytes32 private projectId = bytes32("projectId");
+    IPMWMultisigAccountConfigured.Proof private proof;
 
     event TeeInstructionsSent(
         bytes32 indexed instructionId,
@@ -125,6 +126,12 @@ contract TeePaymentsTest is Test {
         address[] memory instructionInitiators = new address[](1);
         instructionInitiators[0] = address(teePayments);
         teeInstructions.registerInstructionInitiators(instructionInitiators);
+
+        // TODO set public keys and threshold for the proof
+        proof.requestBody.walletAddress = senderAddress;
+        proof.requestBody.opType = opType;
+        proof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
+        proof.responseBody.sequence = 11; // set initial nonce to 11
 
         // fund the submit address and the wallet owner address
         vm.deal(submitAddress, 1 ether);
@@ -240,41 +247,41 @@ contract TeePaymentsTest is Test {
         assertEq(minFee, 20);
     }
 
-    function testSetSenderAddressAndInitialNonce() public {
-        assertEq(bytes(teePayments.getSenderAddress(walletId)), bytes(""));
+    function testSetWalletAddressAndInitialNonce() public {
+        assertEq(bytes(teePayments.getWalletAddress(walletId)), bytes(""));
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         // set fees
         vm.startPrank(walletOwner);
         teePayments.setMinFee(walletId, 10);
-        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 11);
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
-        assertEq(teePayments.getSenderAddress(walletId), senderAddress);
+        assertEq(teePayments.getWalletAddress(walletId), senderAddress);
     }
 
-    function testSetSenderAddressRevertAlreadySet() public {
-        testSetSenderAddressAndInitialNonce();
-        vm.expectRevert("sender address already set");
+    function testSetWalletAddressRevertAlreadySet() public {
+        testSetWalletAddressAndInitialNonce();
+        vm.expectRevert("wallet address already set");
         vm.prank(walletOwner);
-        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 11);
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
     }
 
-    function testSetSenderAddressRevertOnlyOwner() public {
+    function testSetWalletAddressRevertOnlyOwner() public {
         vm.expectRevert("only wallet owner");
-        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 11);
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
     }
 
-    function testSetSenderAddressRevertWrongStatus() public {
+    function testSetWalletAddressRevertWrongStatus() public {
         vm.prank(walletOwner);
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.INITIALIZED);
         vm.expectRevert("only production or paused status");
-        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 11);
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
     }
 
-    function testSetSenderAddressRevertMinFeeNotSet() public {
+    function testSetWalletAddressRevertMinFeeNotSet() public {
         vm.prank(walletOwner);
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.expectRevert("min fee not set");
-        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 11);
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
     }
 
     function testGetOpTypeConstants() public {
@@ -372,7 +379,7 @@ contract TeePaymentsTest is Test {
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
-    function testPayRevertSenderAddressNotSet() public {
+    function testPayRevertWalletAddressNotSet() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(submitAddress);
         vm.expectRevert("sender address not set");
@@ -394,7 +401,7 @@ contract TeePaymentsTest is Test {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
         teePayments.setMinFee(walletId, 10);
-        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 11);
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
         // create payment instruction
         bytes32 instructionId = keccak256(abi.encode(opType, PAY, walletId, 11));
@@ -463,7 +470,7 @@ contract TeePaymentsTest is Test {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
         teePayments.setMinFee(walletId, 10);
-        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 11);
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
         // create payment instruction
         bytes32 instructionId = keccak256(abi.encode(opType, PAY, walletId, 11));
@@ -532,7 +539,7 @@ contract TeePaymentsTest is Test {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
         teePayments.setMinFee(walletId, 10);
-        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 11);
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
         // create payment instruction
         bytes32 instructionId = keccak256(abi.encode(opType, PAY, walletId, 11));
@@ -686,7 +693,7 @@ contract TeePaymentsTest is Test {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
         teePayments.setMinFee(walletId, 10);
-        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 11);
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
         // create payment instruction
         bytes32 instructionId = keccak256(abi.encode(opType, PAY, walletId, 11));
@@ -756,7 +763,7 @@ contract TeePaymentsTest is Test {
         _mockGetWalletProjectId(walletId2, projectId);
         vm.startPrank(walletOwner);
         teePayments.setMinFee(walletId2, 10);
-        teePayments.setSenderAddressAndInitialNonce(walletId2, senderAddress, 11);
+        teePayments.setWalletAddressAndInitialNonce(walletId2, proof);
         vm.stopPrank();
         // create payment instruction
         bytes32 instructionId = keccak256(abi.encode(opType, PAY, walletId2, 11));
@@ -831,7 +838,7 @@ contract TeePaymentsTest is Test {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
         teePayments.setMinFee(walletId, 1000);
-        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 11);
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
         vm.prank(submitAddress);
         vm.expectRevert("fee below min fee");
@@ -863,7 +870,7 @@ contract TeePaymentsTest is Test {
         teePayments.reissue{value: fee * 2 - 1} (walletId, 1, 1, paymentInstructions, fees, nullify);
     }
 
-    function testReissueRevertSenderAddressNotSet() public {
+    function testReissueRevertWalletAddressNotSet() public {
         ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
@@ -892,7 +899,8 @@ contract TeePaymentsTest is Test {
         // set fees and sender address
         vm.startPrank(walletOwner);
         teePayments.setMinFee(walletId, 10);
-        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 10);
+        proof.responseBody.sequence = 10; // set initial nonce to 10
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
         vm.expectRevert("wallet not in production");
         vm.prank(submitAddress);
@@ -913,7 +921,8 @@ contract TeePaymentsTest is Test {
         // set fees and sender address
         vm.startPrank(walletOwner);
         teePayments.setMinFee(walletId, 10);
-        teePayments.setSenderAddressAndInitialNonce(walletId, senderAddress, 10);
+        proof.responseBody.sequence = 10; // set initial nonce to 10
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
         vm.expectRevert("only submit address");
         teePayments.reissue{value: fee * 2} (walletId, 1, 1, paymentInstructions, fees, nullify);

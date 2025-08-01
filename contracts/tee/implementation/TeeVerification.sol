@@ -6,6 +6,9 @@ import "../interface/IITeeSystemStateVerifier.sol";
 import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import "../../userInterfaces/tee/ITeeVerification.sol";
 import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
+import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 import "../../userInterfaces/tee/ITeeReplication.sol";
 import "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import "../../userInterfaces/ftdc/IFtdcHub.sol";
@@ -33,6 +36,12 @@ contract TeeVerification is ITeeVerification, TeeBase {
     ITeeExtensionRegistry public teeExtensionRegistry;
     /// TEE machine registry contract.
     ITeeMachineRegistry public teeMachineRegistry;
+    /// TEE wallet project manager contract.
+    ITeeWalletProjectManager public teeWalletProjectManager;
+    /// TEE wallet manager contract.
+    ITeeWalletManager public teeWalletManager;
+    /// TEE wallet key manager contract.
+    ITeeWalletKeyManager public teeWalletKeyManager;
     /// TEE system state verifier contract.
     IITeeSystemStateVerifier public teeSystemStateVerifier;
     /// TEE replication contract.
@@ -241,6 +250,95 @@ contract TeeVerification is ITeeVerification, TeeBase {
     }
 
     /**
+     * @inheritdoc ITeeVerification
+     */
+    function requestPMWMultisigAccountConfiguredAttestation(
+        bytes32 _walletId,
+        string calldata _walletAddress,
+        address _testOnTeeId
+    )
+        external payable
+    {
+        require(bytes(_walletAddress).length > 0, WalletAddressZero());
+        ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
+        require(
+            walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
+            walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
+            OnlyProductionOrPausedStatus()
+        );
+        (uint64 multisigThreshold, uint64[] memory keyIds, ) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
+        IPMWMultisigAccountConfigured.RequestBody memory requestBody = IPMWMultisigAccountConfigured.RequestBody({
+            walletAddress: _walletAddress,
+            publicKeys: new bytes[](keyIds.length),
+            threshold: multisigThreshold,
+            opType: teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_walletId))
+        });
+        for (uint256 i = 0; i < keyIds.length; i++) {
+            requestBody.publicKeys[i] = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, keyIds[i]);
+        }
+        address[] memory teeIds = new address[](1);
+        teeIds[0] = _testOnTeeId;
+        ftdcHub.requestAttestation{value: msg.value}(
+            0,
+            0,
+            teeIds,
+            cosigners.list,
+            cosignersThreshold,
+            PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
+            TEE_SOURCE_ID,
+            abi.encode(requestBody)
+        );
+    }
+
+    /**
+     * @inheritdoc ITeeVerification
+     */
+    function verifyPMWMultisigAccountConfiguredProof(
+        bytes32 _walletId,
+        IPMWMultisigAccountConfigured.Proof calldata _proof
+    )
+        external
+        returns(bool)
+    {
+        IFtdcHub.FtdcResponseHeader calldata header = _proof.header;
+        require(
+            header.thresholdBIPS == 0 &&
+            header.attestationType == PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE &&
+            header.sourceId == TEE_SOURCE_ID,
+            InvalidAttestation()
+        );
+        IPMWMultisigAccountConfigured.RequestBody calldata requestBody = _proof.requestBody;
+        (uint64 multisigThreshold, uint64[] memory keyIds, ) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
+        require(
+            multisigThreshold == requestBody.threshold &&
+            keyIds.length == requestBody.publicKeys.length &&
+            teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_walletId)) == requestBody.opType,
+            InvalidRequestBody()
+        );
+        for (uint256 i = 0; i < keyIds.length; i++) {
+            bytes memory publicKey = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, keyIds[i]);
+            require(
+                keccak256(requestBody.publicKeys[i]) == keccak256(publicKey),
+                InvalidRequestBody()
+            );
+        }
+
+        bytes32 messageHash = keccak256(abi.encode(
+            keccak256(abi.encode(header)),
+            keccak256(abi.encode(requestBody)),
+            keccak256(abi.encode(_proof.responseBody))
+        ));
+
+        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        // check signing policy signatures
+        _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
+        // check cosigners
+        _checkCosignerSignatures(messageHash, _proof.signatures.cosignerSignatures);
+
+        return _proof.responseBody.status == IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
+    }
+
+    /**
      * Sets the FTDC cosigners and their threshold used for the TEE machine registration.
      * Emits CosignersSet event.
      * @param _cosigners The cosigners.
@@ -330,6 +428,12 @@ contract TeeVerification is ITeeVerification, TeeBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
         teeMachineRegistry = ITeeMachineRegistry(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
+        teeWalletProjectManager = ITeeWalletProjectManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
+        teeWalletManager = ITeeWalletManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
+        teeWalletKeyManager = ITeeWalletKeyManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
         teeSystemStateVerifier = IITeeSystemStateVerifier(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeSystemStateVerifier"));
         teeReplication = ITeeReplication(
@@ -390,19 +494,17 @@ contract TeeVerification is ITeeVerification, TeeBase {
             InvalidRequestBody()
         );
         bytes32 messageHash = keccak256(abi.encode(
-            keccak256(abi.encode(_proof.header)),
+            keccak256(abi.encode(header)),
             keccak256(abi.encode(requestBody)),
             keccak256(abi.encode(_proof.responseBody))
         ));
-        uint256 rewardEpochId =
-            ftdcVerification.verifySigningPolicySignatures(_proof.signatures.signingPolicySignatures, messageHash);
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        require(
-            rewardEpochId == currentRewardEpochId || rewardEpochId + 1 == currentRewardEpochId,
-            InvalidSigningPolicy()
-        );
+        // check signing policy signatures
+        _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
         if (_status == ITeeMachineRegistry.TeeStatus.INITIALIZED) {
-            // in case of registration, we additionally check initial signing policy
+            // additionally check cosigners in case of initial availability check
+            _checkCosignerSignatures(messageHash, _proof.signatures.cosignerSignatures);
+            // check initial signing policy
             require(
                 _proof.responseBody.initialSigningPolicyId <= currentRewardEpochId &&
                 _isSigningPolicyValid(_proof.responseBody.initialSigningPolicyId, currentRewardEpochId),
@@ -418,16 +520,6 @@ contract TeeVerification is ITeeVerification, TeeBase {
                 _isSigningPolicyValid(availabilityCheckValidity[teeId].lastSigningPolicyId, currentRewardEpochId),
                 AvailabilityCheckValidityExpired(availabilityCheckValidity[teeId].lastSigningPolicyId)
             );
-        }
-        // additionally check cosigners in case of initial availability check
-        if (_status == ITeeMachineRegistry.TeeStatus.INITIALIZED && cosignersThreshold > 0) {
-            address[] memory registrationCosigners =
-                ftdcVerification.verifyCosignerSignatures(_proof.signatures.cosignerSignatures, messageHash);
-            require(registrationCosigners.length >= cosignersThreshold,
-                CosignersThresholdNotMet());
-            for (uint256 i = 0; i < registrationCosigners.length; i++) {
-                require(cosigners.index[registrationCosigners[i]] != 0, InvalidCosigner(registrationCosigners[i]));
-            }
         }
         // check response body data validity
         ITeeAvailabilityCheck.ResponseBody calldata responseBody = _proof.responseBody;
@@ -462,6 +554,36 @@ contract TeeVerification is ITeeVerification, TeeBase {
         if (_attestingTeeId == address(0)) {
             // if no replication, use the original TEE id for attestation
             _attestingTeeId = _teeId;
+        }
+    }
+
+    function _checkSigningPolicySignatures(
+        uint256 _currentRewardEpochId,
+        bytes32 _messageHash,
+        bytes calldata _signatures
+    )
+        internal
+    {
+        uint256 rewardEpochId = ftdcVerification.verifySigningPolicySignatures(_signatures, _messageHash);
+        require(
+            rewardEpochId == _currentRewardEpochId || rewardEpochId + 1 == _currentRewardEpochId,
+            InvalidSigningPolicy()
+        );
+    }
+
+    function _checkCosignerSignatures(
+        bytes32 _messageHash,
+        Signature[] calldata _signatures
+    )
+        internal view
+    {
+        if (cosignersThreshold == 0) {
+            return; // no cosigners, nothing to check
+        }
+        address[] memory cosignersList = ftdcVerification.verifyCosignerSignatures(_signatures, _messageHash);
+        require(cosignersList.length >= cosignersThreshold, CosignersThresholdNotMet());
+        for (uint256 i = 0; i < cosignersList.length; i++) {
+            require(cosigners.index[cosignersList[i]] != 0, InvalidCosigner(cosignersList[i]));
         }
     }
 

@@ -187,6 +187,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         ["string", "address", "uint256"],
         ["WALLET", TEE_WALLET_OWNERS[1], 2]));
 
+    const xrpPublicKeys = ["0x03D11FBF992FCC3C7326E323687C234866E400229EA81C73EE4D0DBC1AB5DB22D3", "0x03FE12E21F5B2298FFC9A260A95F5031071E9E0778257276E47BB9A0C27CF6C5AD", "0x03353D8A544503E0F4D6686379B82D64ED1537CB2961FA1193F57B3E8E17F82980"];
+    const xrpAddresses = ["rE5KBHjE7cHFUfHazonUcX9cKv7R519uyR", "rDagTyzXeYLZPe2fLbKYG9n7rCTQd3D2No", "r3uuriD2ARqLqZnEbk5sWzvjuD3zyVQEU1"];
+    const evmPublicKeys:string[] = [];
+
     let addressUpdater: AddressUpdaterInstance;
     let wNat: WNatInstance;
     let pChainStakeMirror: PChainStakeMirrorInstance;
@@ -1536,9 +1540,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     });
 
     it("Should add keys to TEE wallets and confirm them", async () => {
-        const xrpPublicKeys = ["0x03D11FBF992FCC3C7326E323687C234866E400229EA81C73EE4D0DBC1AB5DB22D3", "0x03FE12E21F5B2298FFC9A260A95F5031071E9E0778257276E47BB9A0C27CF6C5AD", "0x03353D8A544503E0F4D6686379B82D64ED1537CB2961FA1193F57B3E8E17F82980"];
-        const xrpAddresses = ["rE5KBHjE7cHFUfHazonUcX9cKv7R519uyR", "rDagTyzXeYLZPe2fLbKYG9n7rCTQd3D2No", "r3uuriD2ARqLqZnEbk5sWzvjuD3zyVQEU1"];
-
         for (let i = 0; i < xrpPublicKeys.length; i++) {
             let tx = await teeWalletKeyManager.addKey(TEE_IDS[i%2], WALLET1_ID, { value: "10", from: TEE_WALLET_OWNERS[0] });
             const event = requiredEventArgsFrom(tx, teeExtensionRegistry, "TeeInstructionsSent") as any;
@@ -1605,6 +1606,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             let prvkeyBuffer = Buffer.from(prvKey, 'hex');
             let [x, y] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
             let publicKey = "0x" + util.encodePublicKey(x, y, false).toString('hex');
+            evmPublicKeys.push(publicKey);
             let addressStr = toChecksumAddress("0x" + util.publicKeyToEthereumAddress(x, y).toString('hex'));
 
             const proof = {
@@ -1697,10 +1699,37 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             minFee: "100"
         });
 
-        tx = await teePayments.setSenderAddressAndInitialNonce(WALLET1_ID, "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh", 2, { from: TEE_WALLET_OWNERS[0] });
-        expectEvent(tx, "SenderAddressSet", {
+        const proof = {
+            signatures: {
+                signingPolicySignatures: "0x", // TODO
+                teeSignatures: [],
+                cosignerSignatures: [],
+            },
+            header: {
+                attestationType: web3.utils.utf8ToHex("PMWMultisigAccountConfigured").padEnd(66, "0"),
+                sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
+                thresholdBIPS: "0",
+                timestamp: (await time.latest()).toString(),
+                cosigners: [],
+                cosignersThreshold: "0",
+            },
+            requestBody: {
+                walletAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
+                publicKeys: xrpPublicKeys,
+                threshold: "2",
+                opType: web3.utils.utf8ToHex("F_XRP").padEnd(66, "0"),
+                nonce: 2
+            },
+            responseBody: {
+                status: "0",
+                sequence: 2
+            }
+        }
+
+        tx = await teePayments.setWalletAddressAndInitialNonce(WALLET1_ID, proof, { from: TEE_WALLET_OWNERS[0] });
+        expectEvent(tx, "WalletAddressSet", {
             walletId: WALLET1_ID,
-            senderAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
+            walletAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
             initialNonce: "2"
         });
 
@@ -1716,10 +1745,38 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             walletId: WALLET2_ID,
             minFee: "1000"
         });
-        tx2 = await teePaymentsEVM.setSenderAddressAndInitialNonce(WALLET2_ID, accounts[200], 1, { from: TEE_WALLET_OWNERS[1] });
-        expectEvent(tx2, "SenderAddressSet", {
+
+        const proof2 = {
+            signatures: {
+                signingPolicySignatures: "0x", // TODO
+                teeSignatures: [],
+                cosignerSignatures: [],
+            },
+            header: {
+                attestationType: web3.utils.utf8ToHex("PMWMultisigAccountConfigured").padEnd(66, "0"),
+                sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
+                thresholdBIPS: "0",
+                timestamp: (await time.latest()).toString(),
+                cosigners: [],
+                cosignersThreshold: "0",
+            },
+            requestBody: {
+                walletAddress: accounts[200],
+                publicKeys: evmPublicKeys,
+                threshold: "1",
+                opType: web3.utils.utf8ToHex("F_EVM").padEnd(66, "0"),
+                nonce: 1
+            },
+            responseBody: {
+                status: "0",
+                sequence: 1
+            }
+        };
+
+        tx2 = await teePaymentsEVM.setWalletAddressAndInitialNonce(WALLET2_ID, proof2, { from: TEE_WALLET_OWNERS[1] });
+        expectEvent(tx2, "WalletAddressSet", {
             walletId: WALLET2_ID,
-            senderAddress: accounts[200],
+            walletAddress: accounts[200],
             initialNonce: "1"
         });
     });

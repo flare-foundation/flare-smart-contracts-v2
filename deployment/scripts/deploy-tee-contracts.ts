@@ -367,8 +367,8 @@ export async function deployTeeContracts(
 
   for (const teePayments of teePaymentsList) {
     await teePayments.updateContractAddresses(
-      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
-      [addressUpdater, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address, teeInstructions.address, flareSystemsManager]
+      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_VERIFICATION, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
+      [addressUpdater, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address, teeVerification.address, teeInstructions.address, flareSystemsManager]
     );
   }
 
@@ -388,8 +388,8 @@ export async function deployTeeContracts(
   );
 
   await teeVerification.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_MACHINE_REGISTRY, Contracts.TEE_SYSTEM_STATE_VERIFIER, Contracts.TEE_REPLICATION, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-    [addressUpdater, teeExtensionRegistry.address, teeMachineRegistry.address, teeSystemStateVerifier.address, teeReplication.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager, relay]
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_MACHINE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_SYSTEM_STATE_VERIFIER, Contracts.TEE_REPLICATION, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+    [addressUpdater, teeExtensionRegistry.address, teeMachineRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address, teeSystemStateVerifier.address, teeReplication.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager, relay]
   );
 
   await teeVersionManager.updateContractAddresses(

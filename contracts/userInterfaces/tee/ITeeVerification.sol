@@ -3,6 +3,7 @@ pragma solidity >=0.7.6 <0.9;
 
 import "./ITeeMachineRegistry.sol";
 import "../ftdc/ITeeAvailabilityCheck.sol";
+import "../ftdc/IPMWMultisigAccountConfigured.sol";
 
 /**
  * TeeVerification interface.
@@ -53,6 +54,8 @@ interface ITeeVerification {
     error AvailabilityCheckValidityExpired(uint32 lastSigningPolicyId);
     error CosignersThresholdNotMet();
     error InvalidDuration();
+    error WalletAddressZero();
+    error OnlyProductionOrPausedStatus();
 
     /**
      * Request attestation for a TEE machine.
@@ -92,6 +95,32 @@ interface ITeeVerification {
      */
     function verifyAvailabilityCheckProof(
         ITeeAvailabilityCheck.Proof calldata _proof
+    )
+        external
+        returns(bool _responseDataValid);
+
+    /**
+     * Request PMW multisig account configured attestation.
+     * @param _walletId The wallet id.
+     * @param _walletAddress The address of the multisig wallet.
+     * @param _testOnTeeId The TEE machine id to test on.
+     */
+    function requestPMWMultisigAccountConfiguredAttestation(
+        bytes32 _walletId,
+        string calldata _walletAddress,
+        address _testOnTeeId
+    )
+        external payable;
+
+    /**
+     * Validate the PMW multisig account configured proof.
+     * @param _walletId The wallet id.
+     * @param _proof The PMW multisig account configured proof.
+     * @return _responseDataValid True if the response data is valid, false otherwise.
+     */
+    function verifyPMWMultisigAccountConfiguredProof(
+        bytes32 _walletId,
+        IPMWMultisigAccountConfigured.Proof calldata _proof
     )
         external
         returns(bool _responseDataValid);
