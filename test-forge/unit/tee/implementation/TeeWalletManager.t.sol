@@ -897,7 +897,7 @@ contract TeeWalletManagerTest is Test {
         // call external script to get random public key coordinates
         string[] memory command = new string[](2);
         command[0] = "node";
-        command[1] = "scripts/generate-key.js";
+        command[1] = "scripts/generate-key-forge.js";
         bytes memory result = vm.ffi(command);
 
         // check if result is 64 bytes
