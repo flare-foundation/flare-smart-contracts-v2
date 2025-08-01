@@ -4,6 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 import "../../userInterfaces/ftdc/IFtdcHub.sol";
 import "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
 import "../../userInterfaces/ftdc/IPMWPaymentStatus.sol";
+import "../../userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
 
 
 interface FtdcStructs {
@@ -20,4 +21,17 @@ interface FtdcStructs {
     function pmwPaymentStatusRequestBodyStruct(IPMWPaymentStatus.RequestBody calldata) external;
     function pmwPaymentStatusResponseBodyStruct(IPMWPaymentStatus.ResponseBody calldata) external;
     function pmwPaymentStatusProofStruct(IPMWPaymentStatus.Proof calldata) external;
+
+    function pmwMultisigAccountConfiguredRequestBodyStruct(
+        IPMWMultisigAccountConfigured.RequestBody calldata
+    )
+        external;
+    function pmwMultisigAccountConfiguredResponseBodyStruct(
+        IPMWMultisigAccountConfigured.ResponseBody calldata
+    )
+        external;
+    function pmwMultisigAccountConfiguredProofStruct(
+        IPMWMultisigAccountConfigured.Proof calldata
+    )
+        external;
 }
