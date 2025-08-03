@@ -89,7 +89,8 @@ contract TeeFeeCalculatorTest is Test {
         assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("F_BTC"), bytes32("REISSUE"), teeIds),
             200 * teeIds.length);
         // no fee set
-        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("F_BTC"), bytes32("PAY"), teeIds), 0);
+        assertEq(teeFeeCalculator.calculateFeeByTeeIds(bytes32("F_BTC"), bytes32("PAY"), teeIds),
+            teeIds.length * defaultFee);
     }
 
 }

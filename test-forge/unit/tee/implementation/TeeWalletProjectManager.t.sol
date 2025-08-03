@@ -11,6 +11,7 @@ contract TeeWalletProjectManagerTest is Test {
     TeeWalletProjectManager private teeWalletProjectManagerImpl;
     TeeWalletProjectManagerProxy private teeWalletProjectManagerProxy;
 
+    address private teeExtensionRegistryMock;
     address private mockTeeOwnerAllowlist;
     address private mockTeeWalletManager;
     address private governance;
@@ -52,6 +53,7 @@ contract TeeWalletProjectManagerTest is Test {
         addressUpdater = makeAddr("addressUpdater");
         mockTeeOwnerAllowlist = makeAddr("mockTeeOwnerAllowlist");
         mockTeeWalletManager = makeAddr("mockTeeWalletManager");
+        teeExtensionRegistryMock = makeAddr("teeExtensionRegistryMock");
 
         teeWalletProjectManagerImpl = new TeeWalletProjectManager();
         teeWalletProjectManagerProxy = new TeeWalletProjectManagerProxy(
@@ -63,14 +65,16 @@ contract TeeWalletProjectManagerTest is Test {
         teeWalletProjectManager = TeeWalletProjectManager(address(teeWalletProjectManagerProxy));
 
         vm.prank(addressUpdater);
-        contractNameHashes = new bytes32[](3);
-        contractAddresses = new address[](3);
+        contractNameHashes = new bytes32[](4);
+        contractAddresses = new address[](4);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractAddresses[0] = address(addressUpdater);
         contractNameHashes[1] = keccak256(abi.encode("TeeOwnerAllowlist"));
         contractAddresses[1] = address(mockTeeOwnerAllowlist);
         contractNameHashes[2] = keccak256(abi.encode("TeeWalletManager"));
         contractAddresses[2] = address(mockTeeWalletManager);
+        contractNameHashes[3] = keccak256(abi.encode("TeeExtensionRegistry"));
+        contractAddresses[3] = teeExtensionRegistryMock;
         teeWalletProjectManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
         submitAddress1 = makeAddr("submitAddress1");
@@ -307,8 +311,7 @@ contract TeeWalletProjectManagerTest is Test {
         vm.mockCall(
             mockTeeOwnerAllowlist,
             abi.encodeWithSelector(
-                ITeeOwnerAllowlist.isAllowedTeeWalletProjectOwner.selector,
-                _owner
+                ITeeOwnerAllowlist.isAllowedTeeWalletProjectOwner.selector, 0, _owner
             ),
             abi.encode(_isAllowed)
         );
@@ -316,10 +319,9 @@ contract TeeWalletProjectManagerTest is Test {
 
     function _mockIsOpTypeSupported(bytes32 _opType, bool _isSupported) internal {
         vm.mockCall(
-            mockTeeWalletManager,
+            teeExtensionRegistryMock,
             abi.encodeWithSelector(
-                ITeeExtensionRegistry.isWalletProjectOpTypeSupported.selector,
-                _opType
+                ITeeExtensionRegistry.isWalletProjectOpTypeSupported.selector, 0, _opType
             ),
             abi.encode(_isSupported)
         );

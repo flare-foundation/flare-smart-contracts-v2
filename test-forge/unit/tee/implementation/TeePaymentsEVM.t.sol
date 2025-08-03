@@ -11,6 +11,7 @@ contract TeePaymentsEVMTest is Test {
     TeePaymentsEVM private teePaymentsEVM;
     TeePaymentsProxy private teePaymentsProxy;
     TeePaymentsEVM private teePaymentsEVMImpl;
+
     address private mockTeeWalletManager;
     address private mockFSM;
     address private mockTeeFeeCalculator;
@@ -19,6 +20,7 @@ contract TeePaymentsEVMTest is Test {
     address private mockRewardManager;
     address private mockTeeWalletProjectManager;
     address private mockTeeWalletKeyManager;
+    address private teeVerificationMock;
 
     address private governance;
     address private addressUpdater;
@@ -32,6 +34,7 @@ contract TeePaymentsEVMTest is Test {
     bytes32 private walletId;
     address private walletOwner;
     bytes32 private projectId;
+    uint256 private chainId;
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -43,6 +46,7 @@ contract TeePaymentsEVMTest is Test {
         mockRewardManager = makeAddr("rewardManager");
         mockTeeWalletProjectManager = makeAddr("teeWalletProjectManager");
         mockTeeWalletKeyManager = makeAddr("teeWalletKeyManager");
+        teeVerificationMock = makeAddr("teeVerificationMock");
 
         teePaymentsEVMImpl = new TeePaymentsEVM();
         teePaymentsProxy = new TeePaymentsProxy(
@@ -62,20 +66,22 @@ contract TeePaymentsEVMTest is Test {
         _mockGetWalletProjectId(walletId, projectId);
         _mockGetOwner(projectId, walletOwner);
 
+        chainId = 14;
+
         vm.prank(addressUpdater);
         contractNameHashes = new bytes32[](7);
         contractAddresses = new address[](7);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("TeeWalletManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
-        contractNameHashes[3] = keccak256(abi.encode("TeeFeeCalculator"));
+        contractNameHashes[3] = keccak256(abi.encode("TeeVerification"));
         contractNameHashes[4] = keccak256(abi.encode("TeeInstructions"));
         contractNameHashes[5] = keccak256(abi.encode("TeeWalletProjectManager"));
         contractNameHashes[6] = keccak256(abi.encode("TeeWalletKeyManager"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockTeeWalletManager;
         contractAddresses[2] = mockFSM;
-        contractAddresses[3] = mockTeeFeeCalculator;
+        contractAddresses[3] = teeVerificationMock;
         contractAddresses[4] = mockTeeInstructions;
         contractAddresses[5] = mockTeeWalletProjectManager;
         contractAddresses[6] = mockTeeWalletKeyManager;
@@ -83,16 +89,13 @@ contract TeePaymentsEVMTest is Test {
     }
 
     function testSetChainId() public {
-        uint256 chainId = 14;
         assertEq(teePaymentsEVM.getChainId(projectId), 0);
-
         vm.prank(walletOwner);
         teePaymentsEVM.setChainId(projectId, chainId);
         assertEq(teePaymentsEVM.getChainId(projectId), chainId);
     }
 
     function testSetChainIdRevertOnlyProjectOwner() public {
-        uint256 chainId = 14;
         vm.expectRevert("only project owner");
         teePaymentsEVM.setChainId(projectId, chainId);
     }
@@ -111,11 +114,10 @@ contract TeePaymentsEVMTest is Test {
     }
 
     function testGetOpTypeConstants() public {
-        uint256 chainId = 14;
         vm.prank(walletOwner);
         teePaymentsEVM.setChainId(projectId, chainId);
 
-        bytes memory opTypeConstants = teePaymentsEVM.getOpTypeConstants(walletId);
+        bytes memory opTypeConstants = teePaymentsEVM.getOpTypeConstants(projectId);
         bytes memory const = abi.encode(ITeePaymentsEVM.OpTypeConstantsEVM(chainId));
         assertEq(opTypeConstants, const);
 
