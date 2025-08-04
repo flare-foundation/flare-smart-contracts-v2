@@ -129,11 +129,19 @@ contract TeeGovernanceTest is Test {
 
 
     function testSetNewTeeGovernance() public {
-        bytes32 governanceHash = keccak256(abi.encode(signers, 1));
-        vm.prank(realOwnerExtension1);
+        bytes32 governanceHash1 = keccak256(abi.encode(signers, 1));
+        vm.startPrank(realOwnerExtension1);
         vm.expectEmit();
-        emit ITeeGovernance.NewTeeGovernanceSet(extensionId, governanceHash, signers, 1);
+        emit ITeeGovernance.NewTeeGovernanceSet(extensionId, governanceHash1, signers, 1);
         teeGovernance.setNewTeeGovernance(extensionId, signers, 1);
+        
+        bytes32 governanceHash2 = keccak256(abi.encode(signers, 2));
+        teeGovernance.setNewTeeGovernance(extensionId, signers, 2);
+        assertEq(teeGovernance.getLatestTeeGovernanceHash(extensionId), governanceHash2);
+        teeGovernance.setNewTeeGovernance(extensionId, signers, 1);
+        assertEq(teeGovernance.getLatestTeeGovernanceHash(extensionId), governanceHash1);
+
+        vm.stopPrank();
     }
 
 
