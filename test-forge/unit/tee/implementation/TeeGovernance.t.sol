@@ -99,10 +99,9 @@ contract TeeGovernanceTest is Test {
 
 
     function testSetNewTeeGovernanceRevertNoSigners() public {
-        address[] memory emptySigners;
         vm.prank(realOwnerExtension1);
         vm.expectRevert(ITeeGovernance.NoSigners.selector);
-        teeGovernance.setNewTeeGovernance(extensionId, emptySigners, 1);
+        teeGovernance.setNewTeeGovernance(extensionId, new address[](0), 1);
     }
 
 
@@ -159,7 +158,7 @@ contract TeeGovernanceTest is Test {
 
 
     function testSetTeePausingAddresses() public {
-        address[] memory emptyPausingAddresses;
+        address[] memory emptyPausingAddresses = new address[](0);
 
         vm.startPrank(realOwnerExtension1);
         // empty
