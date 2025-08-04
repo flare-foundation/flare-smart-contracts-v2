@@ -5,7 +5,6 @@ import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeePaymentsEVM.sol";
 import "../../../../contracts/tee/implementation/TeeInstructions.sol";
 import "../../../../contracts/tee/proxy/TeePaymentsProxy.sol";
-import "../../../../contracts/userInterfaces/tee/ITeePaymentsEVM.sol";
 
 contract TeePaymentsEVMTest is Test {
 

@@ -3,7 +3,6 @@ pragma solidity ^0.8.27;
 
 import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeeFeeCalculator.sol";
-import "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
 
 
 contract TeeFeeCalculatorTest is Test {

@@ -9,8 +9,6 @@ import "../../../../contracts/tee/proxy/TeePaymentsProxy.sol";
 import "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
 import "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
-import "../../../../contracts/userInterfaces/tee/ITeePayments.sol";
-import "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
 
 //solhint-disable-next-line max-states-count
 contract TeePaymentsTest is Test {
@@ -910,18 +908,24 @@ contract TeePaymentsTest is Test {
     }
 
     function testReissueRevertFeeTooLow() public {
+        testPay3();
         ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         uint256[] memory fees = new uint256[](2);
-        fees[0] = 199;
-        fees[1] = 199;
+        fees[0] = 150;
+        fees[1] = 150;
         bool[] memory nullify = new bool[](2);
         nullify[0] = false;
         nullify[1] = false;
-        vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
+        // set min fee
+        vm.prank(walletOwner);
+        teePayments.setMinFee(walletId, 10);
+        _mockReceivingTeesAndKeys();
         vm.prank(submitAddress);
-        teePayments.reissue{value: fee * 2 - 1} (walletId, 1, 1, paymentInstructions, fees, nullify);
+        vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
+        teePayments.reissue{value: fee * 2 - 1} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 
     function testReissueRevertWalletAddressNotSet() public {
@@ -1084,9 +1088,8 @@ contract TeePaymentsTest is Test {
         nullify[0] = false;
         nullify[1] = false;
         // set min fee
-        vm.startPrank(walletOwner);
+        vm.prank(walletOwner);
         teePayments.setMinFee(walletId, 10);
-        vm.stopPrank();
         vm.prank(submitAddress);
         (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();

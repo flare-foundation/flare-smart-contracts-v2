@@ -4,7 +4,6 @@ pragma solidity ^0.8.27;
 import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeeWalletProjectManager.sol";
 import "../../../../contracts/tee/proxy/TeeWalletProjectManagerProxy.sol";
-import "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManager.sol";
 
 contract TeeWalletProjectManagerTest is Test {
 

@@ -8,7 +8,6 @@ import "../../../../contracts/tee/proxy/TeeInstructionsProxy.sol";
 import "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
 import "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
-import "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
 
 contract FtdcHubTest is Test {
 
@@ -170,11 +169,11 @@ contract FtdcHubTest is Test {
 
     function testSetMinThresholdBIPSRevert() public {
         vm.prank(governance);
-        vm.expectRevert(IFtdcHub.ThresholdInvalid.selector);
+        vm.expectRevert(IFtdcHub.MinThresholdInvalid.selector);
         ftdcHub.setMinThresholdBIPS(0);
 
         vm.prank(governance);
-        vm.expectRevert(IFtdcHub.ThresholdInvalid.selector);
+        vm.expectRevert(IFtdcHub.MinThresholdInvalid.selector);
         ftdcHub.setMinThresholdBIPS(1e4 + 1);
 
         vm.expectRevert("only governance");
@@ -191,7 +190,7 @@ contract FtdcHubTest is Test {
 
     function testDefaultNumberOfTeesRevert() public {
         vm.prank(governance);
-        vm.expectRevert("default number of tees zero");
+        vm.expectRevert(IFtdcHub.DefaultNumberOfTeesZero.selector);
         ftdcHub.setDefaultNumberOfTees(0);
 
         vm.expectRevert("only governance");

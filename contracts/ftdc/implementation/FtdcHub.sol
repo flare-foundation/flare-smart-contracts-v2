@@ -166,13 +166,13 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
     }
 
     function _setMinThresholdBIPS(uint16 _minThresholdBIPS) internal {
-        require(0 < _minThresholdBIPS && _minThresholdBIPS <= MAX_BIPS, ThresholdInvalid());
+        require(0 < _minThresholdBIPS && _minThresholdBIPS <= MAX_BIPS, MinThresholdInvalid());
         minThresholdBIPS = _minThresholdBIPS;
         emit MinThresholdBIPSSet(_minThresholdBIPS);
     }
 
     function _setDefaultNumberOfTees(uint8 _defaultNumberOfTees) internal {
-        require(_defaultNumberOfTees > 0, "default number of tees zero");
+        require(_defaultNumberOfTees > 0, DefaultNumberOfTeesZero());
         defaultNumberOfTees = _defaultNumberOfTees;
         emit DefaultNumberOfTeesSet(_defaultNumberOfTees);
     }
