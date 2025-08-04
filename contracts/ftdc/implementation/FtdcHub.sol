@@ -166,7 +166,7 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
     }
 
     function _setMinThresholdBIPS(uint16 _minThresholdBIPS) internal {
-        require(0 < _minThresholdBIPS && _minThresholdBIPS <= MAX_BIPS, "min threshold invalid");
+        require(0 < _minThresholdBIPS && _minThresholdBIPS <= MAX_BIPS, ThresholdInvalid());
         minThresholdBIPS = _minThresholdBIPS;
         emit MinThresholdBIPSSet(_minThresholdBIPS);
     }

@@ -8,6 +8,8 @@ import "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
 import "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
+import "../../../../contracts/userInterfaces/tee/ITeeWalletManager.sol";
+import "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
 
 contract TeeWalletManagerTest is Test {
 
@@ -161,7 +163,7 @@ contract TeeWalletManagerTest is Test {
     }
 
     function testCreateWalletRevert() public {
-        vm.expectRevert("only owner");
+        vm.expectRevert(ITeeWalletManager.OnlyOwner.selector);
         teeWalletManager.createWallet(projectId);
     }
 
@@ -173,7 +175,7 @@ contract TeeWalletManagerTest is Test {
         admins[1] = _getRandomPublicKey();
 
         vm.prank(projectOwner);
-        vm.expectRevert("not enough admins");
+        vm.expectRevert(ITeeWalletManager.NotEnoughAdmins.selector);
         teeWalletManager.setAdmins(walletId, admins, 3);
     }
 
@@ -185,7 +187,7 @@ contract TeeWalletManagerTest is Test {
         admins[1] = _getRandomPublicKey();
 
         vm.prank(projectOwner);
-        vm.expectRevert("invalid admins threshold");
+        vm.expectRevert(ITeeWalletManager.InvalidAdminsThreshold.selector);
         teeWalletManager.setAdmins(walletId, admins, 0);
     }
 
@@ -196,7 +198,12 @@ contract TeeWalletManagerTest is Test {
         admins[0] = _getRandomPublicKey();
 
         vm.prank(projectOwner);
-        vm.expectRevert("invalid public key");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeWalletManager.InvalidPublicKey.selector,
+                admins[1]
+            )
+        );
         teeWalletManager.setAdmins(walletId, admins, 1);
     }
 
@@ -208,7 +215,12 @@ contract TeeWalletManagerTest is Test {
         admins[1] = admins[0]; // duplicate
 
         vm.prank(projectOwner);
-        vm.expectRevert("duplicated public key");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeWalletManager.DuplicatedPublicKey.selector,
+                admins[0]
+            )
+        );
         teeWalletManager.setAdmins(walletId, admins, 1);
     }
 
@@ -219,7 +231,7 @@ contract TeeWalletManagerTest is Test {
         admins[0] = _getRandomPublicKey();
         admins[1] = _getRandomPublicKey();
 
-        vm.expectRevert("only owner");
+        vm.expectRevert(ITeeWalletManager.OnlyOwner.selector);
         teeWalletManager.setAdmins(walletId, admins, 1);
     }
 
@@ -277,7 +289,7 @@ contract TeeWalletManagerTest is Test {
 
     // invalid admin
     function testConfirmAdminsRevert1() public {
-        vm.expectRevert("invalid admin");
+        vm.expectRevert(ITeeWalletManager.InvalidAdmin.selector);
         teeWalletManager.confirmAdmin(walletId);
     }
 
@@ -289,7 +301,7 @@ contract TeeWalletManagerTest is Test {
         cosigners[1] = makeAddr("cosigner2");
 
         vm.prank(projectOwner);
-        vm.expectRevert("invalid threshold");
+        vm.expectRevert(ITeeWalletManager.InvalidCosignersThreshold.selector);
         teeWalletManager.setCosigners(walletId, cosigners, 0);
     }
 
@@ -301,7 +313,12 @@ contract TeeWalletManagerTest is Test {
         cosigners[1] = address(0);
 
         vm.prank(projectOwner);
-        vm.expectRevert("invalid cosigner");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeWalletManager.InvalidCosigner.selector,
+                cosigners[1]
+            )
+        );
         teeWalletManager.setCosigners(walletId, cosigners, 1);
     }
 
@@ -313,7 +330,12 @@ contract TeeWalletManagerTest is Test {
         cosigners[1] = cosigners[0]; // duplicate
 
         vm.prank(projectOwner);
-        vm.expectRevert("duplicated cosigner");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeWalletManager.DuplicatedCosigner.selector,
+                cosigners[1]
+            )
+        );
         teeWalletManager.setCosigners(walletId, cosigners, 1);
     }
 
@@ -324,7 +346,7 @@ contract TeeWalletManagerTest is Test {
         cosigners[0] = makeAddr("cosigner1");
         cosigners[1] = makeAddr("cosigner2");
 
-        vm.expectRevert("only owner");
+        vm.expectRevert(ITeeWalletManager.OnlyOwner.selector);
         teeWalletManager.setCosigners(walletId, cosigners, 1);
     }
 
@@ -364,14 +386,19 @@ contract TeeWalletManagerTest is Test {
     }
 
     function testConfirmCosignerRevert() public {
-        vm.expectRevert("invalid cosigner");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeWalletManager.InvalidCosigner.selector,
+                address(this)
+            )
+        );
         teeWalletManager.confirmCosigner(walletId);
     }
 
     // only owner
     function testCloseWalletInitializationRevert1() public {
         testCreateWallet();
-        vm.expectRevert("only owner");
+        vm.expectRevert(ITeeWalletManager.OnlyOwner.selector);
         teeWalletManager.closeWalletInitialization(walletId);
     }
 
@@ -379,23 +406,33 @@ contract TeeWalletManagerTest is Test {
     function testCloseWalletInitializationRevert2() public {
         testCreateWallet();
         vm.prank(projectOwner);
-        vm.expectRevert("admins not set");
+        vm.expectRevert(ITeeWalletManager.AdminsNotSet.selector);
         teeWalletManager.closeWalletInitialization(walletId);
     }
 
     // not all admins confirmed
     function testCloseWalletInitializationRevert3() public {
-        testSetAdmins();
+        PublicKey[] memory adminsPublicKeys = testSetAdmins();
         vm.prank(projectOwner);
-        vm.expectRevert("not all admins confirmed");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeWalletManager.NotAllAdminsConfirmed.selector,
+                _getAddress(adminsPublicKeys[0])
+            )
+        );
         teeWalletManager.closeWalletInitialization(walletId);
     }
 
     // not all cosigners confirmed
     function testCloseWalletInitializationRevert4() public {
-        testSetCosigners();
+        address[] memory cosigners = testSetCosigners();
         vm.prank(projectOwner);
-        vm.expectRevert("not all cosigners confirmed");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeWalletManager.NotAllCosignersConfirmed.selector,
+                cosigners[0]
+            )
+        );
         teeWalletManager.closeWalletInitialization(walletId);
     }
 
@@ -414,7 +451,7 @@ contract TeeWalletManagerTest is Test {
         admins[1] = _getRandomPublicKey();
 
         vm.prank(projectOwner);
-        vm.expectRevert("invalid wallet status");
+        vm.expectRevert(ITeeWalletManager.InvalidWalletStatus.selector);
         teeWalletManager.setAdmins(walletId, admins, 1);
     }
 
@@ -425,19 +462,19 @@ contract TeeWalletManagerTest is Test {
         cosigners[1] = makeAddr("cosigner2");
 
         vm.prank(projectOwner);
-        vm.expectRevert("invalid wallet status");
+        vm.expectRevert(ITeeWalletManager.InvalidWalletStatus.selector);
         teeWalletManager.setCosigners(walletId, cosigners, 1);
     }
 
     function testConfirmAdminsRevert2() public {
         testCloseWalletInitialization();
-        vm.expectRevert("invalid wallet status");
+        vm.expectRevert(ITeeWalletManager.InvalidWalletStatus.selector);
         teeWalletManager.confirmAdmin(walletId);
     }
 
     function testEnableWalletRevert1() public {
         testCloseWalletInitialization();
-        vm.expectRevert("only owner");
+        vm.expectRevert(ITeeWalletManager.OnlyOwner.selector);
         teeWalletManager.enableWallet(walletId);
     }
 
@@ -445,7 +482,7 @@ contract TeeWalletManagerTest is Test {
     function testEnableWalletRevert2() public {
         testCreateWallet();
         vm.prank(projectOwner);
-        vm.expectRevert("invalid wallet status");
+        vm.expectRevert(ITeeWalletManager.InvalidWalletStatus.selector);
         teeWalletManager.enableWallet(walletId);
     }
 
@@ -454,7 +491,7 @@ contract TeeWalletManagerTest is Test {
         testCloseWalletInitialization();
         _mockGetWalletKeysInfo(walletId, 0, new uint64[](0));
         vm.prank(projectOwner);
-        vm.expectRevert("multisig threshold not set");
+        vm.expectRevert(ITeeWalletManager.MultisigThresholdNotSet.selector);
         teeWalletManager.enableWallet(walletId);
     }
 
@@ -465,7 +502,7 @@ contract TeeWalletManagerTest is Test {
         keyIds[0] = 1;
         _mockGetWalletKeysInfo(walletId, 2, keyIds);
         vm.prank(projectOwner);
-        vm.expectRevert("not enough keys");
+        vm.expectRevert(ITeeWalletManager.NotEnoughKeys.selector);
         teeWalletManager.enableWallet(walletId);
     }
 
@@ -490,7 +527,7 @@ contract TeeWalletManagerTest is Test {
     function testPauseWalletRevert() public {
         testCloseWalletInitialization();
         vm.prank(projectOwner);
-        vm.expectRevert("invalid wallet status"); // only production
+        vm.expectRevert(ITeeWalletManager.InvalidWalletStatus.selector); // only production
         teeWalletManager.pauseWallet(walletId);
     }
 
@@ -573,14 +610,14 @@ contract TeeWalletManagerTest is Test {
 
     function testSetPausingAddressesRevertOnlyWalletOwner() public {
         testEnableWallet();
-        vm.expectRevert("only owner");
+        vm.expectRevert(ITeeWalletManager.OnlyOwner.selector);
         teeWalletManager.setPausingAddresses(walletId, new address[](2));
     }
 
     function testSetPausingAddressesRevertWrongStatus() public {
         testCreateWallet();
         vm.prank(projectOwner);
-        vm.expectRevert("only production or paused status");
+        vm.expectRevert(ITeeWalletManager.OnlyProductionOrPausedStatus.selector);
         teeWalletManager.setPausingAddresses(walletId, new address[](2));
     }
 
@@ -591,7 +628,7 @@ contract TeeWalletManagerTest is Test {
         teeIds[0] = teeIdKeyIdPairs[0].teeId;
         _mockCalculateFeeByTeeIds(teeIds, WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, 1234);
         vm.prank(projectOwner);
-        vm.expectRevert("fee too low");
+        vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
         teeWalletManager.setPausingAddresses{value: 1232}(walletId, new address[](2));
     }
 
@@ -682,14 +719,14 @@ contract TeeWalletManagerTest is Test {
 
     function testResumeRevertWrongStatus() public {
         testCreateWallet();
-        vm.expectRevert("only production or paused status");
+        vm.expectRevert(ITeeWalletManager.OnlyProductionOrPausedStatus.selector);
         vm.prank(projectOwner);
         teeWalletManager.resume(walletId, new ITeeWalletManager.ResumeKeyData[](0));
     }
 
     function testResumeRevertOnlyOwner() public {
         testPauseWallet();
-        vm.expectRevert("only owner");
+        vm.expectRevert(ITeeWalletManager.OnlyOwner.selector);
         teeWalletManager.resume(walletId, new ITeeWalletManager.ResumeKeyData[](0));
     }
 
@@ -720,7 +757,7 @@ contract TeeWalletManagerTest is Test {
         teeMachines[0] = _mockGetTeeMachine(makeAddr("tee1"));
         teeMachines[1] = _mockGetTeeMachine(makeAddr("tee2"));
         vm.prank(projectOwner);
-        vm.expectRevert("fee too low");
+        vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
         teeWalletManager.resume{value: 1233}(walletId, keysData);
     }
 
@@ -751,7 +788,7 @@ contract TeeWalletManagerTest is Test {
         teeMachines[0] = _mockGetTeeMachine(makeAddr("tee1"));
         teeMachines[1] = _mockGetTeeMachine(makeAddr("tee2"));
         vm.prank(projectOwner);
-        vm.expectRevert("wrong key id");
+        vm.expectRevert(ITeeWalletManager.WrongKeyId.selector);
         teeWalletManager.resume{value: 1234}(walletId, keysData);
     }
 
@@ -782,7 +819,7 @@ contract TeeWalletManagerTest is Test {
         teeMachines[0] = _mockGetTeeMachine(makeAddr("tee1"));
         teeMachines[1] = _mockGetTeeMachine(makeAddr("tee2"));
         vm.prank(projectOwner);
-        vm.expectRevert("tee machine not available");
+        vm.expectRevert(ITeeWalletManager.TeeMachineNotAvailable.selector);
         teeWalletManager.resume{value: 1234}(walletId, keysData);
     }
 

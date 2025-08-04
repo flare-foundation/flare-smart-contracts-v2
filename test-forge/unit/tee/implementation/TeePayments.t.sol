@@ -9,6 +9,8 @@ import "../../../../contracts/tee/proxy/TeePaymentsProxy.sol";
 import "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
 import "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
+import "../../../../contracts/userInterfaces/tee/ITeePayments.sol";
+import "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
 
 //solhint-disable-next-line max-states-count
 contract TeePaymentsTest is Test {
@@ -181,7 +183,7 @@ contract TeePaymentsTest is Test {
 
     //// settings tests ////
     function testDeployRevertMaxBatchSize() public {
-        vm.expectRevert("max batch size zero");
+        vm.expectRevert(ITeePayments.MaxBatchSizeZero.selector);
          new TeePaymentsProxy(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
@@ -194,7 +196,7 @@ contract TeePaymentsTest is Test {
     }
 
     function testDeployRevertOpType() public {
-        vm.expectRevert("op type zero");
+        vm.expectRevert(ITeePayments.OpTypeZero.selector);
         new TeePaymentsProxy(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
@@ -219,26 +221,26 @@ contract TeePaymentsTest is Test {
 
     function testRevertSetBatchSizeZero() public {
         vm.prank(walletOwner);
-        vm.expectRevert("batch size zero");
+        vm.expectRevert(ITeePayments.BatchSizeZero.selector);
         teePayments.setBatchSettings(walletId, 0, 300);
     }
 
     function testSetBatchSettingsRevertSize() public {
         uint64 maxBatchSize = teePayments.maxBatchSize();
         vm.prank(walletOwner);
-        vm.expectRevert("batch size too high");
+        vm.expectRevert(ITeePayments.BatchSizeTooLarge.selector);
         teePayments.setBatchSettings(walletId, maxBatchSize + 1, 600);
     }
 
     function testSetBatchSettingsRevertDuration() public {
         uint64 maxBatchDurationSeconds = teePayments.maxBatchDurationSeconds();
         vm.prank(walletOwner);
-        vm.expectRevert("batch duration too high");
+        vm.expectRevert(ITeePayments.BatchDurationTooLarge.selector);
         teePayments.setBatchSettings(walletId, 1, maxBatchDurationSeconds + 1);
     }
 
     function testSetBatchSettingsRevertOnlyOwner() public {
-        vm.expectRevert("only wallet owner");
+        vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);
         teePayments.setBatchSettings(walletId, 5, 300);
     }
 
@@ -253,12 +255,12 @@ contract TeePaymentsTest is Test {
 
     function testSetMinFeeRevertMinFeeZero() public {
         vm.prank(walletOwner);
-        vm.expectRevert("min fee zero");
+        vm.expectRevert(ITeePayments.MinFeeZero.selector);
         teePayments.setMinFee(walletId, 0);
     }
 
     function testSetMinFeeRevertOnlyOwner() public {
-        vm.expectRevert("only wallet owner");
+        vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);
         teePayments.setMinFee(walletId, 10);
     }
 
@@ -299,27 +301,27 @@ contract TeePaymentsTest is Test {
 
     function testSetWalletAddressRevertAlreadySet() public {
         testSetWalletAddressAndInitialNonce();
-        vm.expectRevert("wallet address already set");
+        vm.expectRevert(ITeePayments.WalletAddressAlreadySet.selector);
         vm.prank(walletOwner);
         teePayments.setWalletAddressAndInitialNonce(walletId, proof);
     }
 
     function testSetWalletAddressRevertOnlyOwner() public {
-        vm.expectRevert("only wallet owner");
+        vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);
         teePayments.setWalletAddressAndInitialNonce(walletId, proof);
     }
 
     function testSetWalletAddressRevertWrongStatus() public {
         vm.prank(walletOwner);
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.INITIALIZED);
-        vm.expectRevert("only production or paused status");
+        vm.expectRevert(ITeePayments.OnlyProductionOrPausedStatus.selector);
         teePayments.setWalletAddressAndInitialNonce(walletId, proof);
     }
 
     function testSetWalletAddressRevertMinFeeNotSet() public {
         vm.prank(walletOwner);
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
-        vm.expectRevert("min fee not set");
+        vm.expectRevert(ITeePayments.MinFeeNotSet.selector);
         teePayments.setWalletAddressAndInitialNonce(walletId, proof);
     }
 
@@ -362,32 +364,31 @@ contract TeePaymentsTest is Test {
 
     function testSetPaymentLimitsRevertDailyLower() public {
         vm.prank(walletOwner);
-        vm.expectRevert("daily limit lower than transaction limit");
+        vm.expectRevert(ITeePayments.DailyLimitBelowTransactionLimit.selector);
         teePayments.setPaymentLimits{value: 988}(walletId, 1000, 500);
     }
 
     function testSetPaymentLimitsRevertOnlyWalletOwner() public {
-        vm.expectRevert("only wallet owner");
+        vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);
         teePayments.setPaymentLimits(walletId, 1000, 10000);
     }
 
     function testSetPaymentLimitsRevertWrongStatus() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.INITIALIZED);
         vm.prank(walletOwner);
-        vm.expectRevert("only production or paused status");
+        vm.expectRevert(ITeePayments.OnlyProductionOrPausedStatus.selector);
         teePayments.setPaymentLimits(walletId, 1000, 10000);
     }
 
     function testSetPaymentLimitsWrongOpType() public {
         _mockGetOpType(projectId, bytes32("WRONG"));
         vm.prank(walletOwner);
-        vm.expectRevert("wrong op type");
+        vm.expectRevert(ITeePayments.WrongOpType.selector);
         teePayments.setPaymentLimits(walletId, 1000, 10000);
     }
 
     function testSetPaymentLimitsRevertFeeTooLow() public {
-        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
-            TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
+        _mockReceivingTeesAndKeys();
         // set sender address
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
@@ -395,14 +396,13 @@ contract TeePaymentsTest is Test {
         teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
         vm.prank(walletOwner);
-        vm.expectRevert("fee too low");
+        vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
         teePayments.setPaymentLimits{value: 1}(walletId, 1000, 10000);
     }
 
     //// pay tests ////
     function testPayRevertFeeTooLow() public {
-        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
-            TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
+        _mockReceivingTeesAndKeys();
         // set sender address
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
@@ -410,40 +410,40 @@ contract TeePaymentsTest is Test {
         teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
         vm.prank(submitAddress);
-        vm.expectRevert("fee too low");
+        vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
         teePayments.pay{value: fee - 1}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
     function testPayRevertOnlySubmitAddress() public {
-        vm.expectRevert("only submit address");
+        vm.expectRevert(ITeePayments.OnlySubmitAddress.selector);
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
     function testPayRevertWalletNotInProduction() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.INITIALIZED);
         vm.prank(submitAddress);
-        vm.expectRevert("wallet not in production");
+        vm.expectRevert(ITeePayments.WalletNotInProduction.selector);
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
     function testPayRevertWrongOpType() public {
         _mockGetDefaultWalletInfo(projectId, walletId, submitAddress, bytes32("WRONG"));
         vm.prank(submitAddress);
-        vm.expectRevert("wrong op type");
+        vm.expectRevert(ITeePayments.WrongOpType.selector);
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
     function testPayRevertWalletAddressNotSet() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(submitAddress);
-        vm.expectRevert("sender address not set");
+        vm.expectRevert(ITeePayments.WalletAddressNotSet.selector);
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
     function testPayRevertDefaultWalletNotSet() public {
         _mockGetDefaultWalletInfo(projectId, bytes32(0), submitAddress, OP_TYPE);
         vm.prank(submitAddress);
-        vm.expectRevert("default wallet not set");
+        vm.expectRevert(ITeePayments.DefaultWalletNotSet.selector);
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
@@ -884,7 +884,7 @@ contract TeePaymentsTest is Test {
         );
         _mockGetWalletProjectId(walletId2, projectId2);
         vm.prank(submitAddress);
-        vm.expectRevert("wrong project id");
+        vm.expectRevert(ITeePayments.WrongProjectId.selector);
         teePayments.pay{value: fee} (projectId, walletId2, _createPaymentInstruction(bytes32("ref1")));
     }
 
@@ -895,13 +895,13 @@ contract TeePaymentsTest is Test {
         teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
         vm.prank(submitAddress);
-        vm.expectRevert("fee below min fee");
+        vm.expectRevert(ITeePayments.FeeBelowMinFee.selector);
         teePayments.pay{value: 999}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
     }
 
     //// reissue tests ////
     function testReissueRevertNoPaymentInstructions() public {
-        vm.expectRevert("no payment instructions");
+        vm.expectRevert(ITeePayments.NoPaymentInstructions.selector);
         uint256[] memory fees = new uint256[](1);
         fees[0] = 200;
         bool[] memory nullify = new bool[](1);
@@ -919,7 +919,7 @@ contract TeePaymentsTest is Test {
         bool[] memory nullify = new bool[](2);
         nullify[0] = false;
         nullify[1] = false;
-        vm.expectRevert("fee too low");
+        vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
         vm.prank(submitAddress);
         teePayments.reissue{value: fee * 2 - 1} (walletId, 1, 1, paymentInstructions, fees, nullify);
     }
@@ -934,7 +934,7 @@ contract TeePaymentsTest is Test {
         bool[] memory nullify = new bool[](2);
         nullify[0] = false;
         nullify[1] = false;
-        vm.expectRevert("sender address not set");
+        vm.expectRevert(ITeePayments.WalletAddressNotSet.selector);
         vm.prank(submitAddress);
         teePayments.reissue{value: fee * 2} (walletId, 1, 1, paymentInstructions, fees, nullify);
     }
@@ -956,7 +956,7 @@ contract TeePaymentsTest is Test {
         proof.responseBody.sequence = 10; // set initial nonce to 10
         teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
-        vm.expectRevert("wallet not in production");
+        vm.expectRevert(ITeePayments.WalletNotInProduction.selector);
         vm.prank(submitAddress);
         teePayments.reissue{value: fee * 2} (walletId, 1, 1, paymentInstructions, fees, nullify);
     }
@@ -978,7 +978,7 @@ contract TeePaymentsTest is Test {
         proof.responseBody.sequence = 10; // set initial nonce to 10
         teePayments.setWalletAddressAndInitialNonce(walletId, proof);
         vm.stopPrank();
-        vm.expectRevert("only submit address");
+        vm.expectRevert(ITeePayments.OnlySubmitAddress.selector);
         teePayments.reissue{value: fee * 2} (walletId, 1, 1, paymentInstructions, fees, nullify);
     }
 
@@ -1001,7 +1001,7 @@ contract TeePaymentsTest is Test {
         vm.stopPrank();
         vm.prank(submitAddress);
         // batch with nonce 11 is not yet finished
-        vm.expectRevert("batch hasn't yet ended");
+        vm.expectRevert(ITeePayments.BatchNotYetEnded.selector);
         teePayments.reissue{value: fee * 2} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 
@@ -1023,7 +1023,7 @@ contract TeePaymentsTest is Test {
         vm.stopPrank();
         vm.prank(submitAddress);
         // batch with nonce 11 is finished
-        vm.expectRevert("batch hash mismatch");
+        vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
         teePayments.reissue{value: fee * 2} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 
@@ -1046,7 +1046,7 @@ contract TeePaymentsTest is Test {
         vm.prank(submitAddress);
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
-        vm.expectRevert("batch hash mismatch");
+        vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
         teePayments.reissue{value: fee * 2 + 6} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 
@@ -1067,7 +1067,7 @@ contract TeePaymentsTest is Test {
         vm.prank(submitAddress);
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
-        vm.expectRevert("lengths mismatch");
+        vm.expectRevert(ITeePayments.LengthsMismatch.selector);
         teePayments.reissue{value: fee * 2 + 6} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 
@@ -1174,7 +1174,7 @@ contract TeePaymentsTest is Test {
         paymentInstructions = new ITeePayments.PaymentInstruction[](1);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref5"));
         vm.prank(submitAddress);
-        vm.expectRevert("batch hasn't yet ended");
+        vm.expectRevert(ITeePayments.BatchNotYetEnded.selector);
         teePayments.reissue{value: fee} (walletId, 14, 15, paymentInstructions, fees, nullify);
     }
 
@@ -1352,7 +1352,7 @@ testPay3();
         nullify[1] = false;
         // set min fee
         vm.prank(submitAddress);
-        vm.expectRevert("fee below min fee");
+        vm.expectRevert(ITeePayments.FeeBelowMinFee.selector);
         teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 11, paymentInstructions, fees, nullify);
     }
 

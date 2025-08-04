@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeePaymentsEVM.sol";
 import "../../../../contracts/tee/implementation/TeeInstructions.sol";
 import "../../../../contracts/tee/proxy/TeePaymentsProxy.sol";
+import "../../../../contracts/userInterfaces/tee/ITeePaymentsEVM.sol";
 
 contract TeePaymentsEVMTest is Test {
 
@@ -96,20 +97,20 @@ contract TeePaymentsEVMTest is Test {
     }
 
     function testSetChainIdRevertOnlyProjectOwner() public {
-        vm.expectRevert("only project owner");
+        vm.expectRevert(ITeePaymentsEVM.OnlyProjectOwner.selector);
         teePaymentsEVM.setChainId(projectId, chainId);
     }
 
     function testSetChainIdRevertChainIdZero() public {
         vm.prank(walletOwner);
-        vm.expectRevert("chainId zero");
+        vm.expectRevert(ITeePaymentsEVM.ChainIdZero.selector);
         teePaymentsEVM.setChainId(projectId, 0);
     }
 
     function testSetChainIdRevertAlreadySet() public {
         testSetChainId();
         vm.prank(walletOwner);
-        vm.expectRevert("chainId already set");
+        vm.expectRevert(ITeePaymentsEVM.ChainIdAlreadySet.selector);
         teePaymentsEVM.setChainId(projectId, 15);
     }
 
@@ -129,7 +130,7 @@ contract TeePaymentsEVMTest is Test {
     }
 
     function testGetOpTypeConstantsRevert() public {
-        vm.expectRevert("chainId not set");
+        vm.expectRevert(ITeePaymentsEVM.ChainIdNotSet.selector);
         teePaymentsEVM.getOpTypeConstants(walletId);
     }
 

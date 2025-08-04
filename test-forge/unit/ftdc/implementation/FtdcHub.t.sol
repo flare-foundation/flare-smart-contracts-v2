@@ -8,6 +8,8 @@ import "../../../../contracts/tee/proxy/TeeInstructionsProxy.sol";
 import "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
 import "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
+import "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
+
 contract FtdcHubTest is Test {
 
     FtdcHub private ftdcHub;
@@ -168,11 +170,11 @@ contract FtdcHubTest is Test {
 
     function testSetMinThresholdBIPSRevert() public {
         vm.prank(governance);
-        vm.expectRevert("min threshold invalid");
+        vm.expectRevert(IFtdcHub.ThresholdInvalid.selector);
         ftdcHub.setMinThresholdBIPS(0);
 
         vm.prank(governance);
-        vm.expectRevert("min threshold invalid");
+        vm.expectRevert(IFtdcHub.ThresholdInvalid.selector);
         ftdcHub.setMinThresholdBIPS(1e4 + 1);
 
         vm.expectRevert("only governance");
@@ -197,15 +199,15 @@ contract FtdcHubTest is Test {
     }
 
     function testRequestAttestationRevertThresholdInvalid() public {
-        vm.expectRevert("threshold invalid");
+        vm.expectRevert(IFtdcHub.ThresholdInvalid.selector);
         ftdcHub.requestAttestation(minThresholdBIPS - 1, 1, new address[](0), new address[](0), 0, "", "", "");
 
-        vm.expectRevert("threshold invalid");
+        vm.expectRevert(IFtdcHub.ThresholdInvalid.selector);
         ftdcHub.requestAttestation(1e4 + 1, 1, new address[](0), new address[](0), 0, "", "", "");
     }
 
     function testRequestAttestationRevertTeesInvalid() public {
-        vm.expectRevert("numberOfTees and teeIds invalid");
+        vm.expectRevert(IFtdcHub.NumberOfTeesAndTeeIdsInvalid.selector);
         teeIds = new address[](1);
         teeIds[0] = makeAddr("teeId");
         ftdcHub.requestAttestation(minThresholdBIPS, 2, teeIds, new address[](0), 0, "", "", "");
@@ -216,7 +218,7 @@ contract FtdcHubTest is Test {
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE);
         teeIds = new address[](1);
         teeIds[0] = teeId;
-        vm.expectRevert("tee machine not available");
+        vm.expectRevert(IFtdcHub.TeeMachineNotAvailable.selector);
         ftdcHub.requestAttestation(minThresholdBIPS, 1, teeIds, new address[](0), 0, "", "", "");
     }
 
@@ -225,7 +227,7 @@ contract FtdcHubTest is Test {
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PRODUCTION);
         teeIds = new address[](1);
         teeIds[0] = teeId;
-        vm.expectRevert("fee to low");
+        vm.expectRevert(IFtdcHub.FeeTooLow.selector);
         ftdcHub.requestAttestation{value: requestFee - 1} (
             minThresholdBIPS, 1, teeIds, new address[](0), 0, "", "", ""
         );

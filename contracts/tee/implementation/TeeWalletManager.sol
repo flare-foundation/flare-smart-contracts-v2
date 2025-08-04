@@ -143,7 +143,7 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
                 return;
             }
         }
-        revert("invalid admin");
+        revert InvalidAdmin();
     }
 
     /**
@@ -189,7 +189,7 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
                 return;
             }
         }
-        revert("invalid cosigner");
+        revert InvalidCosigner(msg.sender);
     }
 
     /**

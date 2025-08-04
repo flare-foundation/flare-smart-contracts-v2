@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeeWalletProjectManager.sol";
 import "../../../../contracts/tee/proxy/TeeWalletProjectManagerProxy.sol";
+import "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManager.sol";
 
 contract TeeWalletProjectManagerTest is Test {
 
@@ -92,7 +93,7 @@ contract TeeWalletProjectManagerTest is Test {
         bytes32 opType = keccak256(abi.encode("wrongOpType"));
         _mockIsOpTypeSupported(opType, false);
         vm.prank(projectOwner1);
-        vm.expectRevert("op type not supported");
+        vm.expectRevert(ITeeWalletProjectManager.OpTypeNotSupported.selector);
         teeWalletProjectManager.createProject(0, opType, submitAddress1);
     }
 
@@ -100,14 +101,14 @@ contract TeeWalletProjectManagerTest is Test {
         _mockIsOpTypeSupported(opType1, true);
         _mockIsTeeWalletProjectOwnerAllowed(projectOwner1, false);
         vm.prank(projectOwner1);
-        vm.expectRevert("owner not allowed");
+        vm.expectRevert(ITeeWalletProjectManager.OwnerNotAllowed.selector);
         teeWalletProjectManager.createProject(0, opType1, submitAddress1);
     }
 
     function testCreateProjectRevertSubmitAddressZero() public {
         _mockIsOpTypeSupported(opType1, true);
         vm.prank(projectOwner1);
-        vm.expectRevert("submit address zero");
+        vm.expectRevert(ITeeWalletProjectManager.SubmitAddressZero.selector);
         teeWalletProjectManager.createProject(0, opType1, address(0));
     }
 
@@ -162,7 +163,7 @@ contract TeeWalletProjectManagerTest is Test {
     function testSetBackupManagerRevert() public {
         address backupManager = makeAddr("backupManager");
         bytes32 projectId = keccak256(abi.encode("PROJECT", projectOwner1, 2));
-        vm.expectRevert("only owner");
+        vm.expectRevert(ITeeWalletProjectManager.OnlyOwner.selector);
         teeWalletProjectManager.setBackupManager(projectId, backupManager);
     }
 
@@ -171,7 +172,7 @@ contract TeeWalletProjectManagerTest is Test {
         bytes32 projectId = keccak256(abi.encode("PROJECT", projectOwner1, 1));
         address backupManager = makeAddr("backupManager");
         vm.prank(projectOwner2);
-        vm.expectRevert("only owner");
+        vm.expectRevert(ITeeWalletProjectManager.OnlyOwner.selector);
         teeWalletProjectManager.setBackupManager(projectId, backupManager);
     }
 
@@ -194,7 +195,7 @@ contract TeeWalletProjectManagerTest is Test {
         _mockGetWalletProjectId(defaultWalletId, projectId2);
         _mockGetWalletStatus(defaultWalletId, ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(projectOwner1);
-        vm.expectRevert("wallet not part of the project");
+        vm.expectRevert(ITeeWalletProjectManager.WalletNotPartOfProject.selector);
         teeWalletProjectManager.setDefaultWallet(projectId1, defaultWalletId);
     }
 
@@ -205,7 +206,7 @@ contract TeeWalletProjectManagerTest is Test {
         _mockGetWalletProjectId(defaultWalletId, projectId);
         _mockGetWalletStatus(defaultWalletId, ITeeWalletManager.WalletStatus.PAUSED);
         vm.prank(projectOwner1);
-        vm.expectRevert("wallet not production ready");
+        vm.expectRevert(ITeeWalletProjectManager.WalletNotProductionReady.selector);
         teeWalletProjectManager.setDefaultWallet(projectId, defaultWalletId);
     }
 
@@ -237,7 +238,7 @@ contract TeeWalletProjectManagerTest is Test {
         address newOwner = makeAddr("newOwner");
         _mockIsTeeWalletProjectOwnerAllowed(newOwner, false);
         vm.prank(projectOwner1);
-        vm.expectRevert("owner not allowed");
+        vm.expectRevert(ITeeWalletProjectManager.OwnerNotAllowed.selector);
         teeWalletProjectManager.proposeNewOwner(projectId1, newOwner);
     }
 
@@ -256,7 +257,7 @@ contract TeeWalletProjectManagerTest is Test {
         testProposeNewOwner();
         bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
         vm.prank(projectOwner2);
-        vm.expectRevert("only proposed owner");
+        vm.expectRevert(ITeeWalletProjectManager.OnlyProposedOwner.selector);
         teeWalletProjectManager.confirmOwnership(projectId1);
     }
 
@@ -266,7 +267,7 @@ contract TeeWalletProjectManagerTest is Test {
         address newOwner = makeAddr("newOwner");
         _mockIsTeeWalletProjectOwnerAllowed(newOwner, false);
         vm.prank(newOwner);
-        vm.expectRevert("owner not allowed");
+        vm.expectRevert(ITeeWalletProjectManager.OwnerNotAllowed.selector);
         teeWalletProjectManager.confirmOwnership(projectId1);
     }
 

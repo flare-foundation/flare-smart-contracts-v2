@@ -89,6 +89,7 @@ interface ITeeWalletManager {
     error WrongKeyId();
     error TeeMachineNotAvailable();
     error InvalidPublicKey(PublicKey publicKey);
+    error InvalidAdmin();
 
     /**
      * Creates the wallet for the project.

@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeeFeeCalculator.sol";
+import "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
 
 
 contract TeeFeeCalculatorTest is Test {
@@ -43,7 +44,7 @@ contract TeeFeeCalculatorTest is Test {
     }
 
     function testSetOperationFeesRevertLengthMismatch() public {
-        vm.expectRevert("lengths mismatch");
+        vm.expectRevert(ITeeFeeCalculator.LengthsMismatch.selector);
         vm.prank(governance);
         teeFeeCalculator.setOperationFees(
             new bytes32[](1),
