@@ -134,13 +134,12 @@ contract TeeGovernanceTest is Test {
         vm.expectEmit();
         emit ITeeGovernance.NewTeeGovernanceSet(extensionId, governanceHash1, signers, 1);
         teeGovernance.setNewTeeGovernance(extensionId, signers, 1);
-        
+
         bytes32 governanceHash2 = keccak256(abi.encode(signers, 2));
         teeGovernance.setNewTeeGovernance(extensionId, signers, 2);
         assertEq(teeGovernance.getLatestTeeGovernanceHash(extensionId), governanceHash2);
         teeGovernance.setNewTeeGovernance(extensionId, signers, 1);
         assertEq(teeGovernance.getLatestTeeGovernanceHash(extensionId), governanceHash1);
-
         vm.stopPrank();
     }
 

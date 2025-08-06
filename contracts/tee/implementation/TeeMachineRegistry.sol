@@ -269,8 +269,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         TeeMachineState storage oldState = _getTeeMachineState(oldTeeId);
         TeeMachineState storage newState = _getTeeMachineState(_newTeeId);
         _checkTeeStatus(oldState.status, TeeStatus.PAUSED_FOR_UPGRADE);
-        _checkTeeStatus(oldState.status, TeeStatus.REPLICATING);
-        require(oldState.owner == oldState.owner, OwnerMismatch());
+        _checkTeeStatus(newState.status, TeeStatus.REPLICATING);
+        require(oldState.owner == newState.owner, OwnerMismatch());
         require(oldState.extensionId == newState.extensionId, ExtensionIdMismatch());
         _checkCodeHashPlatformSupported(newState.extensionId, newState.codeHash, newState.platform);
         _validateAvailabilityCheckStatus(_proof.responseBody.status);
@@ -515,15 +515,5 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         internal pure
     {
         require(_status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK, InvalidAvailabilityCheckStatus());
-    }
-
-    function _validateDuration(
-        uint256 _duration,
-        uint256 _minDuration,
-        uint256 _maxDuration
-    )
-        internal pure
-    {
-        require(_minDuration <= _duration && _duration <= _maxDuration, InvalidDuration());
     }
 }
