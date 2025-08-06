@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeeMachineRegistry.sol";
 import "../../../../contracts/tee/proxy/TeeMachineRegistryProxy.sol";
 
+// solhint-disable-next-line max-states-count
 contract TeeMachineRegistryTest is Test {
 
     TeeMachineRegistry private teeMachineRegistry;
@@ -712,7 +713,7 @@ contract TeeMachineRegistryTest is Test {
             abi.encodeWithSelector(
                 RandomNumberV2Interface.getRandomNumber.selector
             ),
-            abi.encode(teeId, false, uint256(0))
+            abi.encode(teeId, false, 0)
         );
     }
 
@@ -779,16 +780,6 @@ contract TeeMachineRegistryTest is Test {
             abi.encode(true)
         );
     }
-
-
-    function _changeStatePause() private {
-        vm.startPrank(owner); // to override existing startPrank
-        vm.expectEmit();
-        emit ITeeMachineRegistry.TeeMachinePaused(teeId, false);
-        teeMachineRegistry.pause(teeId);
-        vm.stopPrank();
-    }
-
 
     function _setupReplicate() private returns (ITeeAvailabilityCheck.Proof memory) {
         testReplicateRevertInvalidTeeStatus();
