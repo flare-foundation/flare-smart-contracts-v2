@@ -258,7 +258,7 @@ class EventStore {
  * to run the simulation on an external Hardhat network (requires running `yarn hardhat node` in a separate process).
  *
  * Contract deployment uses similar logic to the one in end-to-end tests and requires time shifting and
- * mocked contracts. Hence intially the network time is in the past, and once all contracts are deployed
+ * mocked contracts. Hence initially the network time is in the past, and once all contracts are deployed
  * and configured, it is synced with system time.
  *
  * The time syncing is required to allow external components (e.g. protocol manager) to interact with the

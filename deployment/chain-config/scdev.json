@@ -266,6 +266,7 @@
     "ftdcDefaultNumberOfTees": 2,
     "ftdcRequestFees": [
         {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "feeWei": "1"},
-        {"attestationType": "PMWPaymentStatus", "source": "TEE", "feeWei": "1"}
+        {"attestationType": "PMWPaymentStatus", "source": "XRP", "feeWei": "1"},
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "XRP", "feeWei": "1"}
     ]
 }

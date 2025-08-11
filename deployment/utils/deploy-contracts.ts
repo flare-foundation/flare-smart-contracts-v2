@@ -718,11 +718,22 @@ export async function deployContracts(
   addressUpdatableContracts.push(ftdcVerification.address);
 
   // Set the FTDC request fee configurations
-  const ftdc_attestationTypes = ["TeeAvailabilityCheck", "PMWPaymentStatus"];
-  for (const attestationType of ftdc_attestationTypes) {
+  const ftdcRequestFees = [{
+    attestationType: "TeeAvailabilityCheck",
+    source: "TEE",
+  },
+  {
+    attestationType: "PMWPaymentStatus",
+    source: "XRP",
+  },
+  {
+    attestationType: "PMWMultisigAccountConfigured",
+    source: "XRP",
+  }];
+  for (const ftdcRequestFee of ftdcRequestFees) {
     await ftdcRequestFeeConfigurations.setTypeAndSourceFee(
-      web3.utils.utf8ToHex(attestationType).padEnd(66, "0"),
-      web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
+      web3.utils.utf8ToHex(ftdcRequestFee.attestationType).padEnd(66, "0"),
+      web3.utils.utf8ToHex(ftdcRequestFee.source).padEnd(66, "0"),
       "1"
     );
   }
