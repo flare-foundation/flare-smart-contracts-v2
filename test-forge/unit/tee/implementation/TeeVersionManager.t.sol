@@ -215,15 +215,35 @@ contract TeeVersionManagerTest is Test {
     }
 
 
-    /*
     function testAddTeeUpgradePathsRevertSourceVersionAlreadyExists() public {
         testAddTeeUpgradePaths();
-        ITeeVersionManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
+        ITeeVersionManager.TeeUpgradePath[] memory upgradePaths = new ITeeVersionManager.TeeUpgradePath[](1);
+        upgradePaths[0].sourceVersions = new ITeeVersionManager.TeeNodeVersion[](2);
+        upgradePaths[0].sourceVersions[0] =
+            ITeeVersionManager.TeeNodeVersion(sourceCodeHash, sourcePlatform);
+        upgradePaths[0].sourceVersions[1] = upgradePaths[0].sourceVersions[0];
+        upgradePaths[0].targetVersions = new ITeeVersionManager.TeeNodeVersion[](1);
+        upgradePaths[0].targetVersions[0] =
+            ITeeVersionManager.TeeNodeVersion(targetCodeHash, targetPlatform);
         vm.prank(owner);
         vm.expectRevert(ITeeVersionManager.SourceVersionAlreadyExists.selector);
         teeVersionManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
-    */
+
+    function testAddTeeUpgradePathsRevertTargetVersionAlreadyExists() public {
+        testAddTeeUpgradePaths();
+        ITeeVersionManager.TeeUpgradePath[] memory upgradePaths = new ITeeVersionManager.TeeUpgradePath[](1);
+        upgradePaths[0].sourceVersions = new ITeeVersionManager.TeeNodeVersion[](1);
+        upgradePaths[0].sourceVersions[0] =
+            ITeeVersionManager.TeeNodeVersion(sourceCodeHash, sourcePlatform);
+        upgradePaths[0].targetVersions = new ITeeVersionManager.TeeNodeVersion[](2);
+        upgradePaths[0].targetVersions[0] =
+            ITeeVersionManager.TeeNodeVersion(targetCodeHash, targetPlatform);
+        upgradePaths[0].targetVersions[1] = upgradePaths[0].targetVersions[0];
+        vm.prank(owner);
+        vm.expectRevert(ITeeVersionManager.TargetVersionAlreadyExists.selector);
+        teeVersionManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
+    }
 
 
     function testAddTeeUpgradePathsRevertTargetCodeHashAndPlatformNotSupported() public {
@@ -244,17 +264,6 @@ contract TeeVersionManagerTest is Test {
         vm.expectRevert(ITeeVersionManager.TargetGovernanceHashMismatch.selector);
         teeVersionManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
-
-
-    function testAddTeeUpgradePathsRevertTargetVersionAlreadyExists() public {
-        testCreateNewTeeUpgrade();
-        ITeeVersionManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
-        vm.prank(owner);
-        teeVersionManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
-        vm.prank(owner);
-        teeVersionManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
-    }
-
 
     function testAddTeeUpgradePaths() public {
         testCreateNewTeeUpgrade();
