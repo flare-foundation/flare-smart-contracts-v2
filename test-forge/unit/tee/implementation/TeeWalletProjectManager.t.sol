@@ -28,6 +28,8 @@ contract TeeWalletProjectManagerTest is Test {
     address private projectOwner2;
     bytes32 private defaultWalletId;
 
+    ITeeWalletProjectOpTypeConstants private teeWalletProjectOpTypeConstants;
+
     event BackupManagerSet(
         bytes32 indexed projectId,
         address indexed backupManager
@@ -77,6 +79,8 @@ contract TeeWalletProjectManagerTest is Test {
         contractAddresses[3] = teeExtensionRegistryMock;
         teeWalletProjectManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
+        teeWalletProjectOpTypeConstants =
+            ITeeWalletProjectOpTypeConstants(makeAddr("teeWalletProjectOpTypeConstants"));
         submitAddress1 = makeAddr("submitAddress1");
         submitAddress2 = makeAddr("submitAddress2");
         opType1 = keccak256(abi.encode("opType1"));
@@ -277,6 +281,13 @@ contract TeeWalletProjectManagerTest is Test {
         teeWalletProjectManager.confirmOwnership(projectId1);
     }
 
+    function testGetOpTypeConstants() public {
+        _mockGetWalletProjectOpTypeConstantsProvider();
+        _mockGetOpTypeConstants();
+        bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
+        assertEq(teeWalletProjectManager.getOpTypeConstants(projectId1), "opTypeConstants");
+    }
+
     //// Proxy upgrade
     function testUpgradeProxy() public {
         testCreateProject();
@@ -356,5 +367,23 @@ contract TeeWalletProjectManagerTest is Test {
         );
     }
 
+    function _mockGetWalletProjectOpTypeConstantsProvider() private {
+        vm.mockCall(
+            teeExtensionRegistryMock,
+            abi.encodeWithSelector(
+                ITeeExtensionRegistry.getWalletProjectOpTypeConstantsProvider.selector
+            ),
+            abi.encode(teeWalletProjectOpTypeConstants)
+        );
+    }
 
+    function _mockGetOpTypeConstants() private {
+        vm.mockCall(
+            address(teeWalletProjectOpTypeConstants),
+            abi.encodeWithSelector(
+                ITeeWalletProjectOpTypeConstants.getOpTypeConstants.selector
+            ),
+            abi.encode(bytes("opTypeConstants"))
+        );
+    }
 }

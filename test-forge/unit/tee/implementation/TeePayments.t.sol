@@ -210,6 +210,20 @@ contract TeePaymentsTest is Test {
         );
     }
 
+    function testDeploySourceIdZero() public {
+        vm.expectRevert(ITeePayments.SourceIdZero.selector);
+        new TeePaymentsProxy(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            5, // max batch size
+            300, // max batch duration seconds
+            OP_TYPE, // op type
+            bytes32(0),
+            address(teePaymentsImpl)
+        );
+    }
+
     function testSetBatchSettings() public {
         (uint64 batchSize, uint64 batchDurationSeconds) = teePayments.getBatchSettings(walletId);
         assertEq(batchSize, 0);
@@ -301,6 +315,13 @@ contract TeePaymentsTest is Test {
         assertEq(teePayments.getWalletAddress(walletId), senderAddress);
     }
 
+    function testSetWalletAddressRevertWalletAddressZero() public {
+        vm.prank(walletOwner);
+        proof.requestBody.walletAddress = "";
+        vm.expectRevert(ITeePayments.WalletAddressZero.selector);
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
+    }
+
     function testSetWalletAddressRevertAlreadySet() public {
         testSetWalletAddressAndInitialNonce();
         vm.expectRevert(ITeePayments.WalletAddressAlreadySet.selector);
@@ -325,6 +346,16 @@ contract TeePaymentsTest is Test {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.expectRevert(ITeePayments.MinFeeNotSet.selector);
         teePayments.setWalletAddressAndInitialNonce(walletId, proof);
+    }
+
+    function testSetWalletAddressRevertInvalidProof() public {
+        vm.startPrank(walletOwner);
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        _mockVerifyPMWMultisigAccountConfiguredProof(false);
+        teePayments.setMinFee(walletId, 10);
+        vm.expectRevert(ITeePayments.InvalidProof.selector);
+        teePayments.setWalletAddressAndInitialNonce(walletId, proof);
+        vm.stopPrank();
     }
 
     function testGetOpTypeConstants() public {
