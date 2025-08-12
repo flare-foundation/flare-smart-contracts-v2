@@ -131,6 +131,13 @@ contract TeeWalletProjectManagerTest is Test {
         assertEq(projectOwner2, teeWalletProjectManager.getOwner(projectId2));
     }
 
+    function testGetExtensionId() public {
+        bytes32 projectId = keccak256(abi.encode("PROJECT", projectOwner1, 1));
+        assertEq(teeWalletProjectManager.getExtensionId(projectId), 0);
+        testCreateProject();
+        assertEq(teeWalletProjectManager.getExtensionId(projectId), 0);
+    }
+
     function testGetOpType() public {
         testCreateProject();
         bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));

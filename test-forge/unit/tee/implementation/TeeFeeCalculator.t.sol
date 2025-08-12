@@ -77,6 +77,22 @@ contract TeeFeeCalculatorTest is Test {
         assertEq(teeFeeCalculator.getOperationFee(opTypes[0], opCommands[1]), 0);
     }
 
+    function testSetDefaultFeeRevertOnlyGovernance() public {
+        vm.expectRevert("only governance");
+        teeFeeCalculator.setDefaultFee(defaultFee);
+    }
+
+    function testSetDefaultFee() public {
+        vm.prank(governance);
+        vm.expectEmit();
+        emit ITeeFeeCalculator.DefaultFeeSet(defaultFee + 1);
+        teeFeeCalculator.setDefaultFee(defaultFee + 1);
+    }
+
+    function testGetDefaultFee() public {
+        assertEq(teeFeeCalculator.getDefaultFee(), defaultFee);
+    }
+
     function testCalculateFeeByTeeIds() public {
         testSetOperationFees();
 

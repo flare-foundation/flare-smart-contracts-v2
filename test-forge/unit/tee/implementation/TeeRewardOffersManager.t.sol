@@ -103,6 +103,16 @@ contract TeeRewardOffersManagerTest is Test {
         vm.deal(mockInflation, 1 ether);
     }
 
+    function testConstructorRevertInvalidTeeOwnersPPMValue() public {
+        vm.expectRevert(ITeeRewardOffersManager.InvalidTeeOwnersPPMValue.selector);
+        teeRewardOffersManager = new TeeRewardOffersManager(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            1e7
+        );
+    }
+
     function testGetContractName() public {
         assertEq(teeRewardOffersManager.getContractName(), "TeeRewardOffersManager");
     }

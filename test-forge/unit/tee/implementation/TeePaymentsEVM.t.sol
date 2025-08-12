@@ -115,6 +115,10 @@ contract TeePaymentsEVMTest is Test {
         teePaymentsEVM.setChainId(projectId, 15);
     }
 
+    function testGetOpType() public {
+        assertEq(teePaymentsEVM.getOpType(), opType);
+    }
+
     function testGetOpTypeConstants() public {
         vm.prank(walletOwner);
         teePaymentsEVM.setChainId(projectId, chainId);
