@@ -96,6 +96,7 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
 
         _teeUpgradeId = teeUpgrades.length;
         TeeUpgrade storage upgrade = teeUpgrades.push();
+        upgrade.extensionId = _extensionId;
         upgrade.sourceTeeGovernanceHash = _sourceTeeGovernanceHash;
         upgrade.targetTeeGovernanceHash = _targetTeeGovernanceHash;
         emit TeeUpgradeStarted(_extensionId, _teeUpgradeId, _sourceTeeGovernanceHash, _targetTeeGovernanceHash);

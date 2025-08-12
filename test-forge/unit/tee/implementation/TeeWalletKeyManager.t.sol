@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeeWalletKeyManager.sol";
 import "../../../../contracts/tee/proxy/TeeWalletKeyManagerProxy.sol";
 
+// solhint-disable-next-line max-states-count
 contract TeeWalletKeyManagerTest is Test {
 
     TeeWalletKeyManager private teeWalletKeyManager;
