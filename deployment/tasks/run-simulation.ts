@@ -65,10 +65,10 @@ const OFFERS = [
 ];
 
 export const TEE_PAYMENT_CONFIGURATIONS = [
-  {opType: "F_XRP", maxBatchSize: 1, maxBatchDurationSeconds: 0},
-  {opType: "F_BTC", maxBatchSize: 10, maxBatchDurationSeconds: 600},
-  {opType: "F_DOGE", maxBatchSize: 10, maxBatchDurationSeconds: 60},
-  {opType: "F_EVM", maxBatchSize: 1, maxBatchDurationSeconds: 0},
+  {opType: "F_XRP", sourceId: "XRP", maxBatchSize: 1, maxBatchDurationSeconds: 0},
+  {opType: "F_BTC", sourceId: "BTC", maxBatchSize: 10, maxBatchDurationSeconds: 600},
+  {opType: "F_DOGE", sourceId: "DOGE", maxBatchSize: 10, maxBatchDurationSeconds: 60},
+  {opType: "F_EVM", sourceId: "EVM", maxBatchSize: 1, maxBatchDurationSeconds: 0},
 ];
 
 export const TEE_OPERATION_FEES = [

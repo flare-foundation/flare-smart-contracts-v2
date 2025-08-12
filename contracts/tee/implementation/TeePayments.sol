@@ -45,8 +45,8 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
     bytes32 public constant REISSUE = bytes32("REISSUE");
     bytes32 public constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
 
-
     bytes32 internal opType;
+    bytes32 internal sourceId;
     uint64 public maxBatchSize;
     uint64 public maxBatchDurationSeconds;
 
@@ -90,18 +90,21 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         address _addressUpdater,
         uint64 _maxBatchSize,
         uint64 _maxBatchDurationSeconds,
-        bytes32 _opType
+        bytes32 _opType,
+        bytes32 _sourceId
     )
         external virtual
     {
         require(_maxBatchSize > 0, MaxBatchSizeZero());
         require(_opType != bytes32(0), OpTypeZero());
+        require(_sourceId != bytes32(0), SourceIdZero());
 
         TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
 
         maxBatchSize = _maxBatchSize;
         maxBatchDurationSeconds = _maxBatchDurationSeconds;
         opType = _opType;
+        sourceId = _sourceId;
     }
 
     /**
@@ -316,7 +319,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
             OnlyProductionOrPausedStatus()
         );
         require(settings[_walletId].minFee > 0, MinFeeNotSet());
-        require(teeVerification.verifyPMWMultisigAccountConfiguredProof(_walletId, _proof), InvalidProof());
+        require(teeVerification.verifyPMWMultisigAccountConfiguredProof(_walletId, sourceId, _proof), InvalidProof());
         walletAddresses[_walletId] = _proof.requestBody.walletAddress;
         states[_walletId].nonce = _proof.responseBody.sequence;
         states[_walletId].subNonce = _proof.responseBody.sequence;

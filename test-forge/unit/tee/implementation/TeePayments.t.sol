@@ -41,6 +41,7 @@ contract TeePaymentsTest is Test {
     address[] private contractAddresses;
 
     bytes32 private constant OP_TYPE = bytes32("F_XRP");
+    bytes32 private constant SOURCE_ID = bytes32("XRP");
     bytes32 private constant PAY = bytes32("PAY");
     bytes32 private constant REISSUE = bytes32("REISSUE");
     bytes32 private constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
@@ -82,6 +83,7 @@ contract TeePaymentsTest is Test {
             5, // max batch size
             300, // max batch duration seconds
             OP_TYPE,
+            SOURCE_ID,
             address(teePaymentsImpl)
         );
         teePayments = TeePayments(address(teePaymentsProxy));
@@ -189,6 +191,7 @@ contract TeePaymentsTest is Test {
             0, // max batch size
             300, // max batch duration seconds
             OP_TYPE,
+            SOURCE_ID,
             address(teePaymentsImpl)
         );
     }
@@ -202,6 +205,7 @@ contract TeePaymentsTest is Test {
             5, // max batch size
             300, // max batch duration seconds
             bytes32(0), // op type
+            SOURCE_ID,
             address(teePaymentsImpl)
         );
     }
@@ -1391,7 +1395,8 @@ testPay3();
                 addressUpdater,
                 6,
                 400,
-                OP_TYPE
+                OP_TYPE,
+                SOURCE_ID
             )
         ));
     }

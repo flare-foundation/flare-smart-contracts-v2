@@ -321,12 +321,17 @@
                 "opType": {
                     "description": "Payment operation type - XRP, BTC, DOGE,...",
                     "type": "string"
+                },
+                "sourceId": {
+                    "description": "Source id.",
+                    "type": "string"
                 }
             },
             "required": [
                 "maxBatchDurationSeconds",
                 "maxBatchSize",
-                "opType"
+                "opType",
+                "sourceId"
             ],
             "type": "object"
         }

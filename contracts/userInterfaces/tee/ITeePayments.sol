@@ -58,6 +58,7 @@ interface ITeePayments {
     error OnlyWalletOwner();
     error MaxBatchSizeZero();
     error OpTypeZero();
+    error SourceIdZero();
     error OnlySubmitAddress();
     error WrongOpType();
     error WrongProjectId();

@@ -29,6 +29,7 @@ contract TeePaymentsEVMTest is Test {
     address[] private contractAddresses;
 
     bytes32 private immutable opType = bytes32("opType");
+    bytes32 private constant SOURCE_ID = bytes32("XRP");
     bytes32 public constant PAY = bytes32("PAY");
     bytes32 public constant REISSUE = bytes32("REISSUE");
     bytes32 private walletId;
@@ -56,6 +57,7 @@ contract TeePaymentsEVMTest is Test {
             5, // max batch size
             300, // max batch duration seconds
             opType,
+            SOURCE_ID,
             address(teePaymentsEVMImpl)
         );
         teePaymentsEVM = TeePaymentsEVM(address(teePaymentsProxy));

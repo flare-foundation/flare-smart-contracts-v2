@@ -583,12 +583,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         await teeFeeCalculator.setOperationFees(operationTypes, operationCommands, operationFees);
 
         const teePaymentsImpl: TeePaymentsInstance = await TeePayments.new();
-        let teePaymentsProxy = await TeePaymentsProxy.new(governanceSettings.address, accounts[0], addressUpdater.address, 1, 0, web3.utils.utf8ToHex("F_XRP").padEnd(66, "0"),  teePaymentsImpl.address);
+        let teePaymentsProxy = await TeePaymentsProxy.new(governanceSettings.address, accounts[0], addressUpdater.address, 1, 0, web3.utils.utf8ToHex("F_XRP").padEnd(66, "0"), web3.utils.utf8ToHex("XRP").padEnd(66, "0"), teePaymentsImpl.address);
         teePayments = await TeePayments.at(teePaymentsProxy.address);
         addressUpdatableContracts.push(teePayments.address);
 
         const teePaymentsEVMImpl: TeePaymentsEVMInstance = await TeePaymentsEVM.new();
-        teePaymentsProxy = await TeePaymentsProxy.new(governanceSettings.address, accounts[0], addressUpdater.address, 1, 0, web3.utils.utf8ToHex("F_EVM").padEnd(66, "0"), teePaymentsEVMImpl.address);
+        teePaymentsProxy = await TeePaymentsProxy.new(governanceSettings.address, accounts[0], addressUpdater.address, 1, 0, web3.utils.utf8ToHex("F_EVM").padEnd(66, "0"), web3.utils.utf8ToHex("EVM").padEnd(66, "0"), teePaymentsEVMImpl.address);
         teePaymentsEVM = await TeePaymentsEVM.at(teePaymentsProxy.address);
         addressUpdatableContracts.push(teePaymentsEVM.address);
 
@@ -598,11 +598,24 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         ftdcVerification = await FtdcVerification.new(addressUpdater.address);
         addressUpdatableContracts.push(ftdcVerification.address);
         // Set the FTDC request fee configurations
-        const ftdc_attestationTypes = ["TeeAvailabilityCheck", "PMWPaymentStatus"];
-        for (const attestationType of ftdc_attestationTypes) {
+          const ftdcRequestFees = [
+            {
+                attestationType: "TeeAvailabilityCheck",
+                source: "TEE",
+            },
+            {
+                attestationType: "PMWPaymentStatus",
+                source: "XRP",
+            },
+            {
+                attestationType: "PMWMultisigAccountConfigured",
+                source: "XRP",
+            }
+        ];
+        for (const fdtcRequestFee of ftdcRequestFees) {
             await ftdcRequestFeeConfigurations.setTypeAndSourceFee(
-                web3.utils.utf8ToHex(attestationType).padEnd(66, "0"),
-                web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
+                web3.utils.utf8ToHex(fdtcRequestFee.attestationType).padEnd(66, "0"),
+                web3.utils.utf8ToHex(fdtcRequestFee.source).padEnd(66, "0"),
                 "1"
             );
         }
@@ -1707,7 +1720,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             },
             header: {
                 attestationType: web3.utils.utf8ToHex("PMWMultisigAccountConfigured").padEnd(66, "0"),
-                sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
+                sourceId: web3.utils.utf8ToHex("XRP").padEnd(66, "0"),
                 thresholdBIPS: "0",
                 timestamp: (await time.latest()).toString(),
                 cosigners: [],
@@ -1754,7 +1767,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             },
             header: {
                 attestationType: web3.utils.utf8ToHex("PMWMultisigAccountConfigured").padEnd(66, "0"),
-                sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
+                sourceId: web3.utils.utf8ToHex("EVM").padEnd(66, "0"),
                 thresholdBIPS: "0",
                 timestamp: (await time.latest()).toString(),
                 cosigners: [],

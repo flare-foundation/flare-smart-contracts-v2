@@ -214,6 +214,7 @@ export async function deployTeeContracts(
       teePaymentConfig.maxBatchSize,
       teePaymentConfig.maxBatchDurationSeconds,
       web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
+      web3.utils.utf8ToHex(teePaymentConfig.sourceId).padEnd(66, "0"),
       teePaymentsImpl.address
     );
     const teePayments = await Contract.at(teePaymentsProxy.address);

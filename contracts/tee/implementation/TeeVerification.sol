@@ -193,7 +193,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
     function confirmAvailability(
         ITeeAvailabilityCheck.Proof calldata _proof
     )
-         external
+        external
     {
         address teeId = _proof.requestBody.teeId;
         ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(teeId);
@@ -255,7 +255,8 @@ contract TeeVerification is ITeeVerification, TeeBase {
     function requestPMWMultisigAccountConfiguredAttestation(
         bytes32 _walletId,
         string calldata _walletAddress,
-        address _testOnTeeId
+        address _testOnTeeId,
+        bytes32 _sourceId
     )
         external payable
     {
@@ -285,7 +286,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
             cosigners.list,
             cosignersThreshold,
             PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
-            TEE_SOURCE_ID,
+            _sourceId,
             abi.encode(requestBody)
         );
     }
@@ -295,6 +296,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
      */
     function verifyPMWMultisigAccountConfiguredProof(
         bytes32 _walletId,
+        bytes32 _sourceId,
         IPMWMultisigAccountConfigured.Proof calldata _proof
     )
         external
@@ -304,7 +306,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         require(
             header.thresholdBIPS == 0 &&
             header.attestationType == PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE &&
-            header.sourceId == TEE_SOURCE_ID,
+            header.sourceId == _sourceId,
             InvalidAttestation()
         );
         IPMWMultisigAccountConfigured.RequestBody calldata requestBody = _proof.requestBody;

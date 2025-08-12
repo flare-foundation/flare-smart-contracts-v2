@@ -81,7 +81,6 @@ import {
   FTSO_PROTOCOL_ID,
   TEE_PAYMENT_CONFIGURATIONS,
   TEE_OPERATION_FEES,
-  TEE_SOURCE_ID,
   rewardEpochDurationSeconds,
 } from "../tasks/run-simulation";
 import { getLogger } from "./logger";
@@ -693,6 +692,7 @@ export async function deployContracts(
       teePaymentConfig.maxBatchSize,
       teePaymentConfig.maxBatchDurationSeconds,
       web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
+      web3.utils.utf8ToHex(teePaymentConfig.sourceId).padEnd(66, "0"),
       teePaymentsImpl.address
     );
     const teePayments = await Contract.at(teePaymentsProxy.address);
@@ -718,18 +718,20 @@ export async function deployContracts(
   addressUpdatableContracts.push(ftdcVerification.address);
 
   // Set the FTDC request fee configurations
-  const ftdcRequestFees = [{
-    attestationType: "TeeAvailabilityCheck",
-    source: "TEE",
-  },
-  {
-    attestationType: "PMWPaymentStatus",
-    source: "XRP",
-  },
-  {
-    attestationType: "PMWMultisigAccountConfigured",
-    source: "XRP",
-  }];
+  const ftdcRequestFees = [
+    {
+      attestationType: "TeeAvailabilityCheck",
+      source: "TEE",
+    },
+    {
+      attestationType: "PMWPaymentStatus",
+      source: "XRP",
+    },
+    {
+      attestationType: "PMWMultisigAccountConfigured",
+      source: "XRP",
+    }
+  ];
   for (const ftdcRequestFee of ftdcRequestFees) {
     await ftdcRequestFeeConfigurations.setTypeAndSourceFee(
       web3.utils.utf8ToHex(ftdcRequestFee.attestationType).padEnd(66, "0"),
