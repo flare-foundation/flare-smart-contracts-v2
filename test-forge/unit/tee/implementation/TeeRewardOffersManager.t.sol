@@ -26,15 +26,6 @@ contract TeeRewardOffersManagerTest is Test {
 
     uint64 internal constant DAY = 1 days;
 
-    event InflationRewardsOffered(
-        // reward epoch id
-        uint24 indexed rewardEpochId,
-        // amount (in wei) of reward in native coin
-        uint256 amount,
-        // part of the rewards that goes to the TEE owners
-        uint256 teeOwnersPPM
-    );
-
     function setUp() public {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
@@ -157,7 +148,7 @@ contract TeeRewardOffersManagerTest is Test {
         // totalRewardAmount = 5000 * DAY / (2*DAY - DAY) = 5000
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit ITeeRewardOffersManager.InflationRewardsOffered(
             2 + 1,
             5000,
             1234
@@ -173,7 +164,7 @@ contract TeeRewardOffersManagerTest is Test {
         // totalInflationReceivedWei == totalInflationRewardsOfferedWei -> amounts should be zero
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit ITeeRewardOffersManager.InflationRewardsOffered(
             2 + 1,
             0, // amount,
             1234
@@ -203,7 +194,7 @@ contract TeeRewardOffersManagerTest is Test {
         // totalRewardAmount = 1667 * DAY / DAY = 1667
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit ITeeRewardOffersManager.InflationRewardsOffered(
             2 + 1,
             3333,
             1234
@@ -221,7 +212,7 @@ contract TeeRewardOffersManagerTest is Test {
         _mockGetCurrentEpochId(3);
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit ITeeRewardOffersManager.InflationRewardsOffered(
             4,
             1667,
             12345

@@ -30,26 +30,6 @@ contract TeeWalletProjectManagerTest is Test {
 
     ITeeWalletProjectOpTypeConstants private teeWalletProjectOpTypeConstants;
 
-    event BackupManagerSet(
-        bytes32 indexed projectId,
-        address indexed backupManager
-    );
-
-    event DefaultWalletSet(
-        bytes32 indexed projectId,
-        bytes32 indexed walletId
-    );
-
-    event NewOwnerProposed(
-        bytes32 indexed projectId,
-        address indexed newOwner
-    );
-
-    event OwnershipConfirmed(
-        bytes32 indexed projectId,
-        address indexed newOwner
-    );
-
     function setUp() public {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
@@ -164,7 +144,7 @@ contract TeeWalletProjectManagerTest is Test {
         address backupManager = makeAddr("backupManager");
         vm.prank(projectOwner1);
         vm.expectEmit();
-        emit BackupManagerSet(projectId, backupManager);
+        emit ITeeWalletProjectManager.BackupManagerSet(projectId, backupManager);
         teeWalletProjectManager.setBackupManager(projectId, backupManager);
         assertEq(backupManager, teeWalletProjectManager.getBackupManager(projectId));
     }
@@ -193,7 +173,7 @@ contract TeeWalletProjectManagerTest is Test {
         _mockGetWalletStatus(defaultWalletId, ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(projectOwner1);
         vm.expectEmit();
-        emit DefaultWalletSet(projectId, defaultWalletId);
+        emit ITeeWalletProjectManager.DefaultWalletSet(projectId, defaultWalletId);
         teeWalletProjectManager.setDefaultWallet(projectId, defaultWalletId);
     }
 
@@ -237,7 +217,7 @@ contract TeeWalletProjectManagerTest is Test {
         _mockIsTeeWalletProjectOwnerAllowed(newOwner, true);
         vm.prank(projectOwner1);
         vm.expectEmit();
-        emit NewOwnerProposed(projectId1, newOwner);
+        emit ITeeWalletProjectManager.NewOwnerProposed(projectId1, newOwner);
         teeWalletProjectManager.proposeNewOwner(projectId1, newOwner);
         assertEq(newOwner, teeWalletProjectManager.proposedProjectOwner(projectId1));
     }
@@ -258,7 +238,7 @@ contract TeeWalletProjectManagerTest is Test {
         address newOwner = makeAddr("newOwner");
         vm.prank(newOwner);
         vm.expectEmit();
-        emit OwnershipConfirmed(projectId1, newOwner);
+        emit ITeeWalletProjectManager.OwnershipConfirmed(projectId1, newOwner);
         teeWalletProjectManager.confirmOwnership(projectId1);
         assertEq(newOwner, teeWalletProjectManager.getOwner(projectId1));
     }

@@ -14,12 +14,6 @@ contract TeeFeeCalculatorTest is Test {
     address private mockTeeWalletKeyManager;
     uint256 private defaultFee;
 
-    event OperationFeeSet(
-        bytes32 opType,
-        bytes32 opCommand,
-        uint256 fee
-    );
-
     function setUp() public {
         governance = makeAddr("governance");
         defaultFee = 1000;
@@ -65,9 +59,9 @@ contract TeeFeeCalculatorTest is Test {
 
         vm.prank(governance);
         vm.expectEmit();
-        emit OperationFeeSet(opTypes[0], opCommands[0], fees[0]);
+        emit ITeeFeeCalculator.OperationFeeSet(opTypes[0], opCommands[0], fees[0]);
         vm.expectEmit();
-        emit OperationFeeSet(opTypes[1], opCommands[1], fees[1]);
+        emit ITeeFeeCalculator.OperationFeeSet(opTypes[1], opCommands[1], fees[1]);
         teeFeeCalculator.setOperationFees(opTypes, opCommands, fees);
 
         // assert

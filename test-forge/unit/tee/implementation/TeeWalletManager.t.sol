@@ -42,31 +42,6 @@ contract TeeWalletManagerTest is Test {
     bytes32 private projectId;
     bytes32 private walletId;
 
-    event TeeInstructionsSent(
-        bytes32 indexed instructionId,
-        uint32 indexed rewardEpochId,
-        ITeeMachineRegistry.TeeMachine[] teeMachines,
-        bytes32 opType,
-        bytes32 opCommand,
-        bytes message,
-        uint256 fee
-    );
-
-    event WalletCreated(
-        bytes32 indexed projectId,
-        bytes32 indexed walletId
-    );
-
-    event WalletAdminConfirmed(
-        bytes32 indexed walletId,
-        address indexed admin
-    );
-
-    event WalletCosignerConfirmed(
-        bytes32 indexed walletId,
-        address indexed cosigner
-    );
-
     function setUp() public {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
@@ -151,7 +126,7 @@ contract TeeWalletManagerTest is Test {
     function testCreateWallet() public{
         vm.prank(projectOwner);
         vm.expectEmit();
-        emit WalletCreated(projectId, walletId);
+        emit ITeeWalletManager.WalletCreated(projectId, walletId);
         teeWalletManager.createWallet(projectId);
 
         assertEq(teeWalletManager.getWalletProjectId(walletId), projectId);
@@ -273,14 +248,14 @@ contract TeeWalletManagerTest is Test {
         address admin1 = _getAddress(admins[0]);
         vm.prank(admin1);
         vm.expectEmit();
-        emit WalletAdminConfirmed(walletId, admin1);
+        emit ITeeWalletManager.WalletAdminConfirmed(walletId, admin1);
         teeWalletManager.confirmAdmin(walletId);
 
         // confirm second admin
         address admin2 = _getAddress(admins[1]);
         vm.prank(admin2);
         vm.expectEmit();
-        emit WalletAdminConfirmed(walletId, admin2);
+        emit ITeeWalletManager.WalletAdminConfirmed(walletId, admin2);
         teeWalletManager.confirmAdmin(walletId);
     }
 
@@ -374,12 +349,12 @@ contract TeeWalletManagerTest is Test {
         // confirm first cosigner
         vm.prank(cosigners[0]);
         vm.expectEmit();
-        emit WalletCosignerConfirmed(walletId, cosigners[0]);
+        emit ITeeWalletManager.WalletCosignerConfirmed(walletId, cosigners[0]);
         teeWalletManager.confirmCosigner(walletId);
         // confirm second cosigner
         vm.prank(cosigners[1]);
         vm.expectEmit();
-        emit WalletCosignerConfirmed(walletId, cosigners[1]);
+        emit ITeeWalletManager.WalletCosignerConfirmed(walletId, cosigners[1]);
         teeWalletManager.confirmCosigner(walletId);
     }
 
@@ -550,7 +525,7 @@ contract TeeWalletManagerTest is Test {
         );
         vm.prank(projectOwner);
         vm.expectEmit();
-        emit TeeInstructionsSent(
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
             instructionId,
             10,
             receivingTees,
@@ -622,7 +597,7 @@ contract TeeWalletManagerTest is Test {
         teeMachines[1] = _mockGetTeeMachine(makeAddr("tee2"));
         vm.prank(projectOwner);
         vm.expectEmit();
-        emit TeeInstructionsSent(
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
             instructionId,
             10,
             teeMachines,

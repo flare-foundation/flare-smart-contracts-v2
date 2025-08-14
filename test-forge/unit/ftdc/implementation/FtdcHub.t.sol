@@ -42,16 +42,6 @@ contract FtdcHubTest is Test {
     address[] private teeIds;
     string[] private urls;
 
-    event TeeInstructionsSent(
-        bytes32 indexed instructionId,
-        uint32 indexed rewardEpochId,
-        ITeeMachineRegistry.TeeMachine[] teeMachines,
-        bytes32 opType,
-        bytes32 opCommand,
-        bytes message,
-        uint256 fee
-    );
-
     function setUp() public {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
@@ -256,7 +246,7 @@ contract FtdcHubTest is Test {
             requestBody: attestationRequest
         });
         vm.expectEmit();
-        emit TeeInstructionsSent(
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
             instructionId,
             123,
             _getTeeMachines(2),
@@ -301,7 +291,7 @@ contract FtdcHubTest is Test {
             requestBody: attestationRequest
         });
         vm.expectEmit();
-        emit TeeInstructionsSent(
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
             instructionId,
             123,
             _getTeeMachines(1),
@@ -346,7 +336,7 @@ contract FtdcHubTest is Test {
             requestBody: attestationRequest
         });
         vm.expectEmit();
-        emit TeeInstructionsSent(
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
             instructionId,
             123,
             _getTeeMachines(2),
