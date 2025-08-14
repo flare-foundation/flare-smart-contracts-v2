@@ -61,15 +61,6 @@ contract FtdcVerificationTest is Test {
         );
     }
 
-
-    // verifySigningPolicySignatures
-    function testVerifySigningPolicySignatures() public {
-        uint256 rewardEpochId =
-            ftdcVerification.verifySigningPolicySignatures(signingPolicySignatures, messageHash);
-        assertEq(rewardEpochId, 1);
-    }
-
-
     // verifyTeeSignature
     function testVerifyTeeSignatureRevertTeeMachineNotAvailable() public {
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PAUSED);

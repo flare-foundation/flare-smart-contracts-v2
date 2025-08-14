@@ -330,12 +330,15 @@ contract TeeVerification is ITeeVerification, TeeBase {
             keccak256(abi.encode(requestBody)),
             keccak256(abi.encode(_proof.responseBody))
         ));
+        bytes32 customMessageHash = keccak256(
+            bytes.concat(hex"010000000000", messageHash)
+        );
 
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         // check signing policy signatures
         _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
         // check cosigners
-        _checkCosignerSignatures(messageHash, _proof.signatures.cosignerSignatures);
+        _checkCosignerSignatures(customMessageHash, _proof.signatures.cosignerSignatures);
 
         return _proof.responseBody.status == IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
     }
@@ -500,9 +503,12 @@ contract TeeVerification is ITeeVerification, TeeBase {
             keccak256(abi.encode(requestBody)),
             keccak256(abi.encode(_proof.responseBody))
         ));
+        bytes32 customMessageHash = keccak256(
+            bytes.concat(hex"010000000000", messageHash)
+        );
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         // check signing policy signatures
-        _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
+        _checkSigningPolicySignatures(currentRewardEpochId, customMessageHash, _proof.signatures.signingPolicySignatures);
         if (_status == ITeeMachineRegistry.TeeStatus.INITIALIZED) {
             // additionally check cosigners in case of initial availability check
             _checkCosignerSignatures(messageHash, _proof.signatures.cosignerSignatures);
