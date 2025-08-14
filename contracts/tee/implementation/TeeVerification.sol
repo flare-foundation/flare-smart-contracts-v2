@@ -355,7 +355,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
     {
         require(
             _cosigners.length >= _cosignersThreshold && (_cosigners.length == 0 || _cosignersThreshold > 0),
-            "invalid threshold"
+            InvalidThreshold()
         );
         for (uint256 i = 0; i < _cosigners.length; i++) {
             require(_cosigners[i] != address(0), InvalidCosigner(_cosigners[i]));
