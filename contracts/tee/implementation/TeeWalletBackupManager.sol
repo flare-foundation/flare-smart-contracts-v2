@@ -122,7 +122,9 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
             teeIds,
             WALLET_OP_TYPE,
             opCommand,
-            abi.encode(message)
+            abi.encode(message),
+            new address[](0),
+            0
         );
     }
 

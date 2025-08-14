@@ -39,7 +39,16 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         uint256 amount;
         uint256 minFee;
         PaymentInstructionMessage message;
+        address[] cosigners;
+        uint64 cosignersThreshold;
     }
+
+    struct PayTempState {
+        PaymentInstructionMessage message;
+        address[] cosigners;
+        uint64 cosignersThreshold;
+    }
+
 
     bytes32 public constant PAY = bytes32("PAY");
     bytes32 public constant REISSUE = bytes32("REISSUE");
@@ -154,10 +163,10 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
                 state.subNonce
             ));
         }
-
         TeeIdKeyIdPair[] memory teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(walletId);
 
-        PaymentInstructionMessage memory message = PaymentInstructionMessage({
+        PayTempState memory tempState;
+        tempState.message = PaymentInstructionMessage({
             walletId: walletId,
             teeIdKeyIdPairs: teeIdKeyIdPairs,
             senderAddress: walletAddress,
@@ -171,17 +180,22 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         });
         ++state.subNonce;
 
+        (tempState.cosigners, tempState.cosignersThreshold) =
+            teeWalletManager.getWalletCosignersAndThreshold(_walletId);
+
         bytes32 instructionId = keccak256(abi.encode(
-            opType, PAY, walletId, message.nonce
+            opType, PAY, walletId, tempState.message.nonce
         ));
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _toTeeIds(teeIdKeyIdPairs),
             opType,
             PAY,
-            abi.encode(message)
+            abi.encode(tempState.message),
+            tempState.cosigners,
+            tempState.cosignersThreshold
         );
-        return (message.nonce, message.subNonce);
+        return (tempState.message.nonce, tempState.message.subNonce);
     }
 
     /**
@@ -235,6 +249,8 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         tempState.instructionId = keccak256(abi.encode(
             opType, REISSUE, _walletId, _nonce, tempState.reissueNumber
         ));
+        (tempState.cosigners, tempState.cosignersThreshold) =
+            teeWalletManager.getWalletCosignersAndThreshold(_walletId);
         // reissue batch
         tempState.remainingAmount = msg.value;
         for (uint64 i = 0; i < _paymentInstructions.length; i++) {
@@ -262,7 +278,9 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
                 tempState.teeIds,
                 opType,
                 REISSUE,
-                abi.encode(tempState.message)
+                abi.encode(tempState.message),
+                tempState.cosigners,
+                tempState.cosignersThreshold
             );
         }
     }
@@ -356,12 +374,16 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         bytes32 instructionId = keccak256(abi.encode(
             opType, SET_PAYMENT_LIMITS, _walletId, nonce
         ));
+        (address[] memory cosigners, uint64 cosignersThreshold) =
+            teeWalletManager.getWalletCosignersAndThreshold(_walletId);
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _toTeeIds(teeIdKeyIdPairs),
             opType,
             SET_PAYMENT_LIMITS,
-            abi.encode(message)
+            abi.encode(message),
+            cosigners,
+            cosignersThreshold
         );
     }
 

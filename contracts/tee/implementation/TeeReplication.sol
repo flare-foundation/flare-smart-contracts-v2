@@ -235,7 +235,9 @@ contract TeeReplication is ITeeReplication, TeeBase {
             _teeIds,
             REG_OP_TYPE,
             _opCommand,
-            _message
+            _message,
+            new address[](0),
+            0
         );
     }
 

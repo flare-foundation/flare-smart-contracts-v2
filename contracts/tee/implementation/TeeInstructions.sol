@@ -46,7 +46,9 @@ contract TeeInstructions is ITeeInstructions, TeeBase {
         address[] memory _teeIds,
         bytes32 _opType,
         bytes32 _opCommand,
-        bytes memory _message
+        bytes memory _message,
+        address[] memory _cosigners,
+        uint64 _cosignersThreshold
     )
         external payable
     {
@@ -56,7 +58,9 @@ contract TeeInstructions is ITeeInstructions, TeeBase {
             _teeIds,
             _opType,
             _opCommand,
-            _message
+            _message,
+            _cosigners,
+            _cosignersThreshold
         );
     }
 

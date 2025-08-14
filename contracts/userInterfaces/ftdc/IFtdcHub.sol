@@ -10,8 +10,6 @@ interface IFtdcHub {
         bytes32 attestationType;
         bytes32 sourceId;
         uint16 thresholdBIPS;
-        address[] cosigners;
-        uint64 cosignersThreshold;
     }
 
     struct FtdcAttestationRequest {

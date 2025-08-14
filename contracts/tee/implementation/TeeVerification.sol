@@ -141,7 +141,9 @@ contract TeeVerification is ITeeVerification, TeeBase {
             teeIds,
             REG_OP_TYPE,
             TEE_ATTESTATION,
-            abi.encode(message)
+            abi.encode(message),
+            new address[](0),
+            0
         );
         emit TeeAttestationRequested(_teeId, challenge);
     }

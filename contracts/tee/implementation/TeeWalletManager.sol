@@ -280,7 +280,9 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
             teeIds,
             WALLET_OP_TYPE,
             SET_PAUSING_ADDRESSES,
-            abi.encode(message)
+            abi.encode(message),
+            new address[](0),
+            0
         );
     }
 
@@ -331,7 +333,9 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
             teeIds,
             WALLET_OP_TYPE,
             RESUME,
-            abi.encode(message)
+            abi.encode(message),
+            new address[](0),
+            0
         );
     }
 

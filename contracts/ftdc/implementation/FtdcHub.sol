@@ -108,21 +108,20 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
             header: FtdcRequestHeader({
                 attestationType: _attestationType,
                 sourceId: _sourceId,
-                thresholdBIPS: _thresholdBIPS,
-                cosigners: _cosigners,
-                cosignersThreshold: _cosignersThreshold
+                thresholdBIPS: _thresholdBIPS
             }),
             requestBody: _requestBody
         });
         bytes32 instructionId = keccak256(abi.encode(
             FTDC_OP_TYPE, PROVE, attestationRequestCounter++ // TODO
         ));
-        teeInstructions.sendInstructions{value: msg.value - fee}(
+        _sendAttestationInstructions(
             instructionId,
             _teeIds,
-            FTDC_OP_TYPE,
-            PROVE,
-            abi.encode(message)
+            abi.encode(message),
+            _cosigners,
+            _cosignersThreshold,
+            msg.value - fee
         );
     }
 
@@ -176,4 +175,24 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
         defaultNumberOfTees = _defaultNumberOfTees;
         emit DefaultNumberOfTeesSet(_defaultNumberOfTees);
     }
+
+    function _sendAttestationInstructions(
+        bytes32 instructionId,
+        address[] memory teeIds,
+        bytes memory encodedMessage,
+        address[] memory cosigners,
+        uint64 cosignersThreshold,
+        uint256 value
+    ) internal {
+        teeInstructions.sendInstructions{value: value}(
+            instructionId,
+            teeIds,
+            FTDC_OP_TYPE,
+            PROVE,
+            encodedMessage,
+            cosigners,
+            cosignersThreshold
+        );
+    }
+
 }
