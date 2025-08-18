@@ -147,7 +147,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             WALLET_OP_TYPE, KEY_GENERATE, _walletId, _keyId
         ));
 
-        _sendInstructions(instructionId, _teeId, KEY_GENERATE, abi.encode(message), cosigners, cosignersThreshold);
+        _sendInstructions(instructionId, _teeId, KEY_GENERATE, abi.encode(message));
     }
 
     /**
@@ -274,7 +274,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             WALLET_OP_TYPE, KEY_DELETE, _walletId, _keyId, keyDeleteCounter[_walletId][_keyId]++
         ));
 
-        _sendInstructions(instructionId, _teeId, KEY_DELETE, abi.encode(message), new address[](0), 0);
+        _sendInstructions(instructionId, _teeId, KEY_DELETE, abi.encode(message));
     }
 
     /**
@@ -441,9 +441,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         bytes32 _instructionId,
         address _teeId,
         bytes32 _opCommand,
-        bytes memory _message,
-        address[] memory _cosigners,
-        uint64 _cosignersThreshold
+        bytes memory _message
     )
         internal
     {
@@ -455,8 +453,8 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             WALLET_OP_TYPE,
             _opCommand,
             _message,
-            _cosigners,
-            _cosignersThreshold
+            new address[](0),
+            0
         );
     }
 

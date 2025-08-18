@@ -100,6 +100,7 @@ interface ITeeExtensionRegistry {
     error SystemOwnedExtensionId();
     error OnlyProposedOwner();
     error PlatformEmpty();
+    error CosignersThresholdTooHigh();
 
     /**
      * Send instructions to the TEE machines.

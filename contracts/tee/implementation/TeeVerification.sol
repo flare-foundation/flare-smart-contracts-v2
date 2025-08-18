@@ -256,9 +256,9 @@ contract TeeVerification is ITeeVerification, TeeBase {
      */
     function requestPMWMultisigAccountConfiguredAttestation(
         bytes32 _walletId,
+        bytes32 _sourceId,
         string calldata _walletAddress,
-        address _testOnTeeId,
-        bytes32 _sourceId
+        address _testOnTeeId
     )
         external payable
     {
@@ -269,15 +269,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
             walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
             OnlyProductionOrPausedStatus()
         );
-        (uint64 multisigThreshold, uint64[] memory keyIds, ) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
-        IPMWMultisigAccountConfigured.RequestBody memory requestBody = IPMWMultisigAccountConfigured.RequestBody({
-            walletAddress: _walletAddress,
-            publicKeys: new bytes[](keyIds.length),
-            threshold: multisigThreshold
-        });
-        for (uint256 i = 0; i < keyIds.length; i++) {
-            requestBody.publicKeys[i] = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, keyIds[i]);
-        }
+        IPMWMultisigAccountConfigured.RequestBody memory requestBody = _buildPMWMultisigAccountRequestBody(_walletId, _walletAddress);
         address[] memory teeIds = new address[](1);
         teeIds[0] = _testOnTeeId;
         ftdcHub.requestAttestation{value: msg.value}(
@@ -593,6 +585,22 @@ contract TeeVerification is ITeeVerification, TeeBase {
         for (uint256 i = 0; i < cosignersList.length; i++) {
             require(cosigners.index[cosignersList[i]] != 0, InvalidCosigner(cosignersList[i]));
         }
+    }
+
+    function _buildPMWMultisigAccountRequestBody(bytes32 _walletId, string calldata _walletAddress)
+        internal view
+        returns (IPMWMultisigAccountConfigured.RequestBody memory)
+    {
+        (uint64 multisigThreshold, uint64[] memory keyIds, ) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
+        IPMWMultisigAccountConfigured.RequestBody memory requestBody = IPMWMultisigAccountConfigured.RequestBody({
+            walletAddress: _walletAddress,
+            publicKeys: new bytes[](keyIds.length),
+            threshold: multisigThreshold
+        });
+        for (uint256 i = 0; i < keyIds.length; i++) {
+            requestBody.publicKeys[i] = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, keyIds[i]);
+        }
+        return requestBody;
     }
 
     function _validateDuration(

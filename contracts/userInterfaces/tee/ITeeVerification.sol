@@ -102,15 +102,15 @@ interface ITeeVerification {
     /**
      * Request PMW multisig account configured attestation.
      * @param _walletId The wallet id.
+     * @param _sourceId The source id (e.g., XRP, BTC).
      * @param _walletAddress The address of the multisig wallet.
      * @param _testOnTeeId The TEE machine id to test on.
-     * @param _sourceId The source id (e.g., XRP, BTC).
      */
     function requestPMWMultisigAccountConfiguredAttestation(
         bytes32 _walletId,
+        bytes32 _sourceId,
         string calldata _walletAddress,
-        address _testOnTeeId,
-        bytes32 _sourceId
+        address _testOnTeeId
     )
         external payable;
 

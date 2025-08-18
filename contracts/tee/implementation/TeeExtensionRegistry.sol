@@ -110,6 +110,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         require(_opType != bytes32(0), OperationTypeEmpty());
         require(_opCommand != bytes32(0), OperationCommandEmpty());
         require(_message.length > 0, MessageEmpty());
+        require(_cosignersThreshold <= _cosigners.length, CosignersThresholdTooHigh());
         uint256 extensionId = teeMachineRegistry.getExtensionId(_teeIds[0]);
         for (uint256 i = 1; i < _teeIds.length; i++) {
             require(teeMachineRegistry.getExtensionId(_teeIds[i]) == extensionId, ExtensionIdMismatch());
