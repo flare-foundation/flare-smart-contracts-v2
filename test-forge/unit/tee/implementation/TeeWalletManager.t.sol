@@ -834,7 +834,6 @@ contract TeeWalletManagerTest is Test {
         // call external script to get random public key coordinates
         string[] memory command = new string[](3);
         // command[0] = "node";
-        // command[1] = "scripts/generate-key-forge.js";
         // command[1] = "test-forge/utils/generate-key.js";
         command[0] = "bash";
         command[1] = "-c";
