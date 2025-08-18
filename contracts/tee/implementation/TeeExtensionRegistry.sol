@@ -523,7 +523,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     }
 
     function _checkOnlyOwner(uint256 _extensionId) internal view {
-        require(msg.sender == _getExtensionOwner(_extensionId), "only owner");
+        require(msg.sender == _getExtensionOwner(_extensionId), OnlyOwner());
     }
 
     /**
