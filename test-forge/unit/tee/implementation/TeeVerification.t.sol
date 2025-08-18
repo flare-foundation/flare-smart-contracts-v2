@@ -77,7 +77,6 @@ contract TeeVerificationTest is Test {
         PMWProof.requestBody.publicKeys = new bytes[](1);
         PMWProof.requestBody.publicKeys[0] = publicKey;
         PMWProof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
-        PMWProof.requestBody.opType = opType;
         PMWProof.requestBody.threshold = multisigThreshold;
 
         walletId = keccak256("walletId");

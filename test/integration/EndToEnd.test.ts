@@ -1729,9 +1729,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             requestBody: {
                 walletAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
                 publicKeys: xrpPublicKeys,
-                threshold: "2",
-                opType: web3.utils.utf8ToHex("F_XRP").padEnd(66, "0"),
-                nonce: 2
+                threshold: "2"
             },
             responseBody: {
                 status: "0",
@@ -1776,9 +1774,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             requestBody: {
                 walletAddress: accounts[200],
                 publicKeys: evmPublicKeys,
-                threshold: "1",
-                opType: web3.utils.utf8ToHex("F_EVM").padEnd(66, "0"),
-                nonce: 1
+                threshold: "1"
             },
             responseBody: {
                 status: "0",

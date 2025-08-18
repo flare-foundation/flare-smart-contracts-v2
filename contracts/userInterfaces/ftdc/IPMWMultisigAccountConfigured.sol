@@ -26,13 +26,11 @@ interface IPMWMultisigAccountConfigured {
      * @param walletAddress Address of the multisig wallet.
      * @param publicKeys Public keys of the multisig wallet owners.
      * @param threshold Threshold for the multisig wallet.
-     * @param opType Wallet operation type.
      */
     struct RequestBody {
         string walletAddress;
         bytes[] publicKeys;
         uint64 threshold;
-        bytes32 opType;
     }
 
     /**

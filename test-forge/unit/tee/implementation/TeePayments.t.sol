@@ -158,7 +158,6 @@ contract TeePaymentsTest is Test {
 
         // TODO set public keys and threshold for the proof
         proof.requestBody.walletAddress = senderAddress;
-        proof.requestBody.opType = OP_TYPE;
         proof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
         proof.responseBody.sequence = 11; // set initial nonce to 11
 

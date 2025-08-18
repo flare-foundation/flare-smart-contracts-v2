@@ -271,8 +271,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         IPMWMultisigAccountConfigured.RequestBody memory requestBody = IPMWMultisigAccountConfigured.RequestBody({
             walletAddress: _walletAddress,
             publicKeys: new bytes[](keyIds.length),
-            threshold: multisigThreshold,
-            opType: teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_walletId))
+            threshold: multisigThreshold
         });
         for (uint256 i = 0; i < keyIds.length; i++) {
             requestBody.publicKeys[i] = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, keyIds[i]);
@@ -313,8 +312,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         (uint64 multisigThreshold, uint64[] memory keyIds, ) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
         require(
             multisigThreshold == requestBody.threshold &&
-            keyIds.length == requestBody.publicKeys.length &&
-            teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(_walletId)) == requestBody.opType,
+            keyIds.length == requestBody.publicKeys.length,
             InvalidRequestBody()
         );
         for (uint256 i = 0; i < keyIds.length; i++) {
