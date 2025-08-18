@@ -122,7 +122,6 @@ interface ITeeExtensionRegistry {
      * Emits TeeExtensionRegistered and TeeExtensionContractsSet event.
      * @param _teeExtensionStateVerifier The TEE extension state verifier contract.
      * @param _teeExtensionInstructionsSender The address that can send instructions to the TEE machines.
-     * Can only be called by an allowlisted TEE extension owner.
      */
     function register(
         ITeeExtensionStateVerifier _teeExtensionStateVerifier,
@@ -206,7 +205,6 @@ interface ITeeExtensionRegistry {
         external;
 
     /**
-     * Propose a new owner for the extension - has to be on the allowlist.
      * It is a two-step process, the new owner has to confirm the ownership.
      * Emits NewOwnerProposed event.
      * @param _extensionId The id of the extension.
