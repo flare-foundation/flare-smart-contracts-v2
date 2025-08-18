@@ -52,6 +52,8 @@ contract TeePaymentsTest is Test {
     address private submitAddress = makeAddr("submitAddress");
     bytes32 private projectId = bytes32("projectId");
     IPMWMultisigAccountConfigured.Proof private proof;
+    address[] private cosigners;
+    uint64 private cosignersThreshold;
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -178,6 +180,12 @@ contract TeePaymentsTest is Test {
         _mockCalculateFeeByTeeIds(PAY, fee);
         _mockCalculateFeeByTeeIds(REISSUE, fee);
         _mockCalculateFeeByTeeIds(SET_PAYMENT_LIMITS, fee);
+
+        cosigners = new address[](2);
+        cosigners[0] = makeAddr("cosigner1");
+        cosigners[1] = makeAddr("cosigner2");
+        cosignersThreshold = 1;
+        _mockGetWalletCosignersAndThreshold(walletId, cosigners, cosignersThreshold);
     }
 
     //// settings tests ////
@@ -389,6 +397,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             SET_PAYMENT_LIMITS,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             988
         );
         teePayments.setPaymentLimits{value: 988}(walletId, transactionLimit, dailyLimit);
@@ -512,6 +522,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
@@ -539,6 +551,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref2")));
@@ -581,6 +595,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
@@ -608,6 +624,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref2")));
@@ -650,6 +668,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
@@ -677,6 +697,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref2")));
@@ -704,6 +726,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref3")));
@@ -733,6 +757,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref4")));
@@ -762,6 +788,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref5")));
@@ -804,6 +832,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref1")));
@@ -831,6 +861,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, bytes32(0), _createPaymentInstruction(bytes32("ref2")));
@@ -841,6 +873,7 @@ contract TeePaymentsTest is Test {
         (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         bytes32 walletId2 = bytes32("walletId2");
+        _mockGetWalletCosignersAndThreshold(walletId2, cosigners, cosignersThreshold);
         vm.mockCall(
             mockTeeWalletManager,
             abi.encodeWithSelector(ITeeWalletManager.getWalletStatus.selector, walletId2),
@@ -874,6 +907,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, walletId2, _createPaymentInstruction(bytes32("ref1")));
@@ -901,6 +936,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             PAY,
             abi.encode(message),
+            cosigners,
+            cosignersThreshold,
             fee
         );
         teePayments.pay{value: fee}(projectId, walletId2, _createPaymentInstruction(bytes32("ref2")));
@@ -1160,6 +1197,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             REISSUE,
             abi.encode(message1),
+            cosigners,
+            cosignersThreshold,
             126 // floor(253/2) = 126; value: 253 = 2*123 (fee) + 7
         );
         vm.expectEmit();
@@ -1170,6 +1209,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             REISSUE,
             abi.encode(message2),
+            cosigners,
+            cosignersThreshold,
             127 // 253 - 126 = 127
         );
         teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 11, paymentInstructions, fees, nullify);
@@ -1202,6 +1243,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             REISSUE,
             abi.encode(message1),
+            cosigners,
+            cosignersThreshold,
             123
         );
         vm.prank(submitAddress);
@@ -1267,6 +1310,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             REISSUE,
             abi.encode(message1),
+            cosigners,
+            cosignersThreshold,
             126 // floor(253/2) = 126; value: 253 = 2*123 (fee) + 7
         );
         vm.expectEmit();
@@ -1277,6 +1322,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             REISSUE,
             abi.encode(message2),
+            cosigners,
+            cosignersThreshold,
             127 // 253 - 126 = 127
         );
         teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 11, paymentInstructions, fees, nullify);
@@ -1335,6 +1382,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             REISSUE,
             abi.encode(message1),
+            cosigners,
+            cosignersThreshold,
             126 // floor(253/2) = 126; value: 253 = 2*123 (fee) + 7
         );
         vm.expectEmit();
@@ -1345,6 +1394,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             REISSUE,
             abi.encode(message2),
+            cosigners,
+            cosignersThreshold,
             127 // 253 - 126 = 127
         );
         teePayments.reissue{value: fee * 2 + 7} (walletId, 11, 11, paymentInstructions, fees, nullify);
@@ -1359,6 +1410,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             REISSUE,
             abi.encode(message1),
+            cosigners,
+            cosignersThreshold,
             126
         );
         vm.expectEmit();
@@ -1369,6 +1422,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             REISSUE,
             abi.encode(message2),
+            cosigners,
+            cosignersThreshold,
             127
         );
         vm.prank(submitAddress);
@@ -1575,6 +1630,14 @@ testPay3();
             mockTeeFeeCalculator,
             abi.encodeWithSelector(ITeeFeeCalculator.calculateFeeByTeeIds.selector, OP_TYPE, _opCommand),
             abi.encode(_fee)
+        );
+    }
+
+    function _mockGetWalletCosignersAndThreshold(bytes32 _walletId, address[] memory _cosigners, uint64 _threshold) internal {
+        vm.mockCall(
+            mockTeeWalletManager,
+            abi.encodeWithSelector(ITeeWalletManager.getWalletCosignersAndThreshold.selector, _walletId),
+            abi.encode(_cosigners, _threshold)
         );
     }
 

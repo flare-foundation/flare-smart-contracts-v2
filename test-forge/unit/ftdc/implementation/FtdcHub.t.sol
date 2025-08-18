@@ -239,9 +239,7 @@ contract FtdcHubTest is Test {
             header: IFtdcHub.FtdcRequestHeader({
                 attestationType: attestationType,
                 sourceId: sourceId,
-                thresholdBIPS: minThresholdBIPS,
-                cosigners: new address[](0),
-                cosignersThreshold: 0
+                thresholdBIPS: minThresholdBIPS
             }),
             requestBody: attestationRequest
         });
@@ -253,6 +251,8 @@ contract FtdcHubTest is Test {
             FTDC_OP_TYPE,
             PROVE,
             abi.encode(message),
+            new address[](0),
+            0,
             15
         );
         ftdcHub.requestAttestation{value: requestFee + 15} (
@@ -284,9 +284,7 @@ contract FtdcHubTest is Test {
             header: IFtdcHub.FtdcRequestHeader({
                 attestationType: attestationType,
                 sourceId: sourceId,
-                thresholdBIPS: minThresholdBIPS,
-                cosigners: new address[](0),
-                cosignersThreshold: 0
+                thresholdBIPS: minThresholdBIPS
             }),
             requestBody: attestationRequest
         });
@@ -298,6 +296,8 @@ contract FtdcHubTest is Test {
             FTDC_OP_TYPE,
             PROVE,
             abi.encode(message),
+            new address[](0),
+            0,
             15
         );
         ftdcHub.requestAttestation{value: requestFee + 15} (
@@ -329,9 +329,7 @@ contract FtdcHubTest is Test {
             header: IFtdcHub.FtdcRequestHeader({
                 attestationType: attestationType,
                 sourceId: sourceId,
-                thresholdBIPS: minThresholdBIPS,
-                cosigners: new address[](0),
-                cosignersThreshold: 0
+                thresholdBIPS: minThresholdBIPS
             }),
             requestBody: attestationRequest
         });
@@ -343,6 +341,8 @@ contract FtdcHubTest is Test {
             FTDC_OP_TYPE,
             PROVE,
             abi.encode(message),
+            new address[](0),
+            0,
             15
         );
         ftdcHub.requestAttestation{value: requestFee + 15} (

@@ -366,6 +366,8 @@ contract TeeWalletBackupManagerTest is Test {
             teeWalletBackupManager.WALLET_OP_TYPE(),
             teeWalletBackupManager.KEY_DATA_PROVIDER_RESTORE_TEST(),
             abi.encode(message),
+            new address[](0),
+            0,
             1 ether
         );
         vm.prank(owner);

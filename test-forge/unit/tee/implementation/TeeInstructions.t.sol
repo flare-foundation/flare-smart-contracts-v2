@@ -172,7 +172,9 @@ contract TeeInstructionsTest is Test {
             new address[](0),
             bytes32(0),
             bytes32(0),
-            new bytes(0)
+            new bytes(0),
+            new address[](0),
+            0
         );
     }
 
@@ -211,6 +213,8 @@ contract TeeInstructionsTest is Test {
         }
 
         address sender = makeAddr("instructionInitiator1");
+        address[] memory cosigners = new address[](1);
+        cosigners[0] = makeAddr("cosigner1");
         vm.prank(sender);
         vm.deal(sender, 1 ether);
         vm.expectEmit();
@@ -221,6 +225,8 @@ contract TeeInstructionsTest is Test {
             bytes32(XRP_OP_TYPE),
             bytes32("PAY"),
             abi.encode("message"),
+            cosigners,
+            1,
             fee
         );
         teeInstructions.sendInstructions{value: fee} (
@@ -228,7 +234,9 @@ contract TeeInstructionsTest is Test {
             teeIds,
             bytes32(XRP_OP_TYPE),
             bytes32("PAY"),
-            abi.encode("message")
+            abi.encode("message"),
+            cosigners,
+            1
         );
         assertEq(address(rewardManager).balance, fee);
         assertEq(sender.balance, 1 ether - fee);

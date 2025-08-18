@@ -532,6 +532,8 @@ contract TeeWalletManagerTest is Test {
             WALLET_OP_TYPE,
             SET_PAUSING_ADDRESSES,
             abi.encode(message),
+            new address[](0),
+            0,
             12345
         );
         teeWalletManager.setPausingAddresses{value: 12345}(walletId, pausingAddresses);
@@ -604,6 +606,8 @@ contract TeeWalletManagerTest is Test {
             WALLET_OP_TYPE,
             RESUME,
             abi.encode(message),
+            new address[](0),
+            0,
             1234
         );
         teeWalletManager.resume{value: 1234}(walletId, keysData);
