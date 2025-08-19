@@ -138,7 +138,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         teeIds[0] = attestingTeeId;
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             instructionId,
-            teeIds,
+            _toTeeIds(attestingTeeId),
             REG_OP_TYPE,
             TEE_ATTESTATION,
             abi.encode(message),
@@ -159,7 +159,6 @@ contract TeeVerification is ITeeVerification, TeeBase {
     {
         require(challengeTs[_teeId] + challengeValidityDurationSeconds > block.timestamp,
             ChallengeExpired(challengeTs[_teeId]));
-        require(teeMachineRegistry.getExtensionId(_testOnTeeId) == 0, InvalidExtension());
         address attestingTeeId = _getAttestingTeeId(_teeId);
         ITeeMachineRegistry.TeeMachine memory teeMachine = teeMachineRegistry.getTeeMachine(attestingTeeId);
         ITeeAvailabilityCheck.RequestBody memory requestBody = ITeeAvailabilityCheck.RequestBody({
@@ -175,12 +174,8 @@ contract TeeVerification is ITeeVerification, TeeBase {
             registrationCosignersThreshold = cosignersThreshold;
         }
 
-        address[] memory teeIds = new address[](1);
-        teeIds[0] = _testOnTeeId;
-        ftdcHub.requestAttestation{value: msg.value}(
-            0,
-            0,
-            teeIds,
+        _requestFtdcAttestation(
+            _testOnTeeId,
             registrationCosigners,
             registrationCosignersThreshold,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
@@ -269,13 +264,19 @@ contract TeeVerification is ITeeVerification, TeeBase {
             walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
             OnlyProductionOrPausedStatus()
         );
-        IPMWMultisigAccountConfigured.RequestBody memory requestBody = _buildPMWMultisigAccountRequestBody(_walletId, _walletAddress);
-        address[] memory teeIds = new address[](1);
-        teeIds[0] = _testOnTeeId;
-        ftdcHub.requestAttestation{value: msg.value}(
-            0,
-            0,
-            teeIds,
+
+        (uint64 multisigThreshold, uint64[] memory keyIds, ) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
+        IPMWMultisigAccountConfigured.RequestBody memory requestBody = IPMWMultisigAccountConfigured.RequestBody({
+            walletAddress: _walletAddress,
+            publicKeys: new bytes[](keyIds.length),
+            threshold: multisigThreshold
+        });
+        for (uint256 i = 0; i < keyIds.length; i++) {
+            requestBody.publicKeys[i] = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, keyIds[i]);
+        }
+
+        _requestFtdcAttestation(
+            _testOnTeeId,
             cosigners.list,
             cosignersThreshold,
             PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
@@ -322,15 +323,12 @@ contract TeeVerification is ITeeVerification, TeeBase {
             keccak256(abi.encode(requestBody)),
             keccak256(abi.encode(_proof.responseBody))
         ));
-        bytes32 customMessageHash = keccak256(
-            bytes.concat(hex"010000000000", messageHash)
-        );
 
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         // check signing policy signatures
         _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
         // check cosigners
-        _checkCosignerSignatures(customMessageHash, _proof.signatures.cosignerSignatures);
+        _checkCosignerSignatures(_toCosignersMessageHash(messageHash), _proof.signatures.cosignerSignatures);
 
         return _proof.responseBody.status == IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
     }
@@ -495,15 +493,12 @@ contract TeeVerification is ITeeVerification, TeeBase {
             keccak256(abi.encode(requestBody)),
             keccak256(abi.encode(_proof.responseBody))
         ));
-        bytes32 customMessageHash = keccak256(
-            bytes.concat(hex"010000000000", messageHash)
-        );
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         // check signing policy signatures
-        _checkSigningPolicySignatures(currentRewardEpochId, customMessageHash, _proof.signatures.signingPolicySignatures);
+        _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
         if (_status == ITeeMachineRegistry.TeeStatus.INITIALIZED) {
             // additionally check cosigners in case of initial availability check
-            _checkCosignerSignatures(messageHash, _proof.signatures.cosignerSignatures);
+            _checkCosignerSignatures(_toCosignersMessageHash(messageHash), _proof.signatures.cosignerSignatures);
             // check initial signing policy
             require(
                 _proof.responseBody.initialSigningPolicyId <= currentRewardEpochId &&
@@ -535,26 +530,26 @@ contract TeeVerification is ITeeVerification, TeeBase {
                 teeStateVerifier.verifyTeeState(teeId, state.stateVersion, state.state));
     }
 
-    function _isSigningPolicyValid(
-        uint256 _signingPolicyId,
-        uint256 _currentRewardEpochId
+    function _requestFtdcAttestation(
+        address _testOnTeeId,
+        address[] memory _cosigners,
+        uint64 _cosignersThreshold,
+        bytes32 _attestationType,
+        bytes32 _sourceId,
+        bytes memory _requestBody
     )
-        internal view
-        returns(bool)
+        internal
     {
-        return _signingPolicyId + signingPolicyValidityDurationInRewardEpochs >= _currentRewardEpochId;
-    }
-
-    function _getAttestingTeeId(address _teeId)
-        internal view
-        returns(address _attestingTeeId)
-    {
-        // TEE machines in status PAUSED_FOR_UPGRADE does not require attestation
-        _attestingTeeId = teeReplication.getReplicatingTeeId(_teeId);
-        if (_attestingTeeId == address(0)) {
-            // if no replication, use the original TEE id for attestation
-            _attestingTeeId = _teeId;
-        }
+        ftdcHub.requestAttestation{value: msg.value}(
+            0,
+            0,
+            _toTeeIds(_testOnTeeId),
+            _cosigners,
+            _cosignersThreshold,
+            _attestationType,
+            _sourceId,
+            _requestBody
+        );
     }
 
     function _checkSigningPolicySignatures(
@@ -587,20 +582,34 @@ contract TeeVerification is ITeeVerification, TeeBase {
         }
     }
 
-    function _buildPMWMultisigAccountRequestBody(bytes32 _walletId, string calldata _walletAddress)
+    function _isSigningPolicyValid(
+        uint256 _signingPolicyId,
+        uint256 _currentRewardEpochId
+    )
         internal view
-        returns (IPMWMultisigAccountConfigured.RequestBody memory)
+        returns(bool)
     {
-        (uint64 multisigThreshold, uint64[] memory keyIds, ) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
-        IPMWMultisigAccountConfigured.RequestBody memory requestBody = IPMWMultisigAccountConfigured.RequestBody({
-            walletAddress: _walletAddress,
-            publicKeys: new bytes[](keyIds.length),
-            threshold: multisigThreshold
-        });
-        for (uint256 i = 0; i < keyIds.length; i++) {
-            requestBody.publicKeys[i] = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, keyIds[i]);
+        return _signingPolicyId + signingPolicyValidityDurationInRewardEpochs >= _currentRewardEpochId;
+    }
+
+    function _getAttestingTeeId(address _teeId)
+        internal view
+        returns(address _attestingTeeId)
+    {
+        // TEE machines in status PAUSED_FOR_UPGRADE does not require attestation
+        _attestingTeeId = teeReplication.getReplicatingTeeId(_teeId);
+        if (_attestingTeeId == address(0)) {
+            // if no replication, use the original TEE id for attestation
+            _attestingTeeId = _teeId;
         }
-        return requestBody;
+    }
+
+    function _toTeeIds(address _teeId)
+        internal pure
+        returns(address[] memory _teeIds)
+    {
+        _teeIds = new address[](1);
+        _teeIds[0] = _teeId;
     }
 
     function _validateDuration(
@@ -611,5 +620,12 @@ contract TeeVerification is ITeeVerification, TeeBase {
         internal pure
     {
         require(_minDuration <= _duration && _duration <= _maxDuration, InvalidDuration());
+    }
+
+    function _toCosignersMessageHash(bytes32 _messageHash)
+        internal pure
+        returns(bytes32)
+    {
+        return keccak256(bytes.concat(hex"010000000000", _messageHash));
     }
 }

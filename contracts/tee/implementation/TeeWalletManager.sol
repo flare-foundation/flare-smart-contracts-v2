@@ -275,14 +275,15 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         bytes32 instructionId = keccak256(abi.encode(
             WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, _walletId, nonce
         ));
+        (address[] memory admins, uint64 adminsThreshold) = _getWalletAdminsAndThreshold(_walletId);
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             instructionId,
             teeIds,
             WALLET_OP_TYPE,
             SET_PAUSING_ADDRESSES,
             abi.encode(message),
-            new address[](0),
-            0
+            admins,
+            adminsThreshold
         );
     }
 
@@ -362,13 +363,23 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletManager
      */
-    function getWalletAdminsAndThreshold(bytes32 _walletId)
+    function getWalletAdminsPublicKeysAndThreshold(bytes32 _walletId)
         external view
         returns (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold)
     {
         TeeWalletState storage wallet = wallets[_walletId];
         _adminsPublicKeys = wallet.adminsPublicKeys;
         _adminsThreshold = wallet.adminsThreshold;
+    }
+
+    /**
+     * @inheritdoc ITeeWalletManager
+     */
+    function getWalletAdminsAndThreshold(bytes32 _walletId)
+        external view
+        returns (address[] memory _admins, uint64 _adminsThreshold)
+    {
+        (_admins, _adminsThreshold) = _getWalletAdminsAndThreshold(_walletId);
     }
 
     /**
@@ -420,6 +431,18 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     {
         address owner = teeWalletProjectManager.getOwner(wallets[_walletId].projectId);
         require(owner == msg.sender, OnlyOwner());
+    }
+
+    function _getWalletAdminsAndThreshold(bytes32 _walletId)
+        internal view
+        returns (address[] memory _admins, uint64 _adminsThreshold)
+    {
+        TeeWalletState storage wallet = wallets[_walletId];
+        _admins = new address[](wallet.adminsPublicKeys.length);
+        for (uint256 i = 0; i < wallet.adminsPublicKeys.length; i++) {
+            _admins[i] = _getAddress(wallet.adminsPublicKeys[i]);
+        }
+        _adminsThreshold = wallet.adminsThreshold;
     }
 
     function _getAddress(PublicKey storage _pk) internal view returns (address) {

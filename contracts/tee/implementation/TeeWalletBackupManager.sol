@@ -115,6 +115,8 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
         bytes32 instructionId = keccak256(abi.encode(
             WALLET_OP_TYPE, opCommand, _backupId.walletId, _backupId.keyId, counter
         ));
+        (address[] memory admins, uint64 adminsThreshold) =
+            teeWalletManager.getWalletAdminsAndThreshold(_backupId.walletId);
         address[] memory teeIds = new address[](1);
         teeIds[0] = _teeId;
         teeExtensionRegistry.sendInstructions{value: msg.value}(
@@ -123,8 +125,8 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
             WALLET_OP_TYPE,
             opCommand,
             abi.encode(message),
-            new address[](0),
-            0
+            admins,
+            adminsThreshold
         );
     }
 

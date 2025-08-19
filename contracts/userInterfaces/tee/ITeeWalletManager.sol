@@ -219,14 +219,24 @@ interface ITeeWalletManager {
     function getWalletProjectId(bytes32 _walletId) external view returns (bytes32 _projectId);
 
     /**
-     * Returns wallet's admins and threshold.
+     * Returns wallet's admins public keys and threshold.
      * @param _walletId The wallet id.
      * @return _adminsPublicKeys The wallet admins public keys.
      * @return _adminsThreshold The wallet admins threshold.
      */
-    function getWalletAdminsAndThreshold(bytes32 _walletId)
+    function getWalletAdminsPublicKeysAndThreshold(bytes32 _walletId)
         external view
         returns (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold);
+
+    /**
+     * Returns wallet's admins and threshold.
+     * @param _walletId The wallet id.
+     * @return _admins The wallet admins.
+     * @return _adminsThreshold The wallet admins threshold.
+     */
+    function getWalletAdminsAndThreshold(bytes32 _walletId)
+        external view
+        returns (address[] memory _admins, uint64 _adminsThreshold);
 
     /**
      * Returns wallet's cosigners and threshold.

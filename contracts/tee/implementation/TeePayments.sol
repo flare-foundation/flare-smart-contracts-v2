@@ -374,16 +374,16 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         bytes32 instructionId = keccak256(abi.encode(
             opType, SET_PAYMENT_LIMITS, _walletId, nonce
         ));
-        (address[] memory cosigners, uint64 cosignersThreshold) =
-            teeWalletManager.getWalletCosignersAndThreshold(_walletId);
+        (address[] memory admins, uint64 adminsThreshold) =
+            teeWalletManager.getWalletAdminsAndThreshold(_walletId);
         teeInstructions.sendInstructions{value: msg.value}(
             instructionId,
             _toTeeIds(teeIdKeyIdPairs),
             opType,
             SET_PAYMENT_LIMITS,
             abi.encode(message),
-            cosigners,
-            cosignersThreshold
+            admins,
+            adminsThreshold
         );
     }
 

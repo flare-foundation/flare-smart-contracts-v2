@@ -217,7 +217,7 @@
 //         vm.prank(projectOwner);
 //         teeWalletManager.setAdmins(walletId, admins, 1);
 //         (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold) =
-//             teeWalletManager.getWalletAdminsAndThreshold(walletId);
+//             teeWalletManager.getWalletAdminsPublicKeysAndThreshold(walletId);
 //         assertEq(_adminsPublicKeys.length, 2);
 //         assertEq(_adminsPublicKeys[0].x, admins[0].x);
 //         assertEq(_adminsPublicKeys[0].y, admins[0].y);
@@ -235,7 +235,7 @@
 //         teeWalletManager.setAdmins(walletId, admins, 1);
 //         // old admins should be removed
 //         (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold) =
-//             teeWalletManager.getWalletAdminsAndThreshold(walletId);
+//             teeWalletManager.getWalletAdminsPublicKeysAndThreshold(walletId);
 //         assertEq(_adminsPublicKeys.length, 1);
 //         assertEq(_adminsPublicKeys[0].x, admins[0].x);
 //         assertEq(_adminsPublicKeys[0].y, admins[0].y);
@@ -517,6 +517,8 @@
 //         pausingAddresses[1] = makeAddr("pausingAddress2");
 //         uint256 counter = 0;
 //         bytes32 instructionId = keccak256(abi.encode(WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, walletId, counter));
+//         (address[] memory admins, uint64 adminsThreshold) =
+//             teeWalletManager.getWalletAdminsAndThreshold(walletId);
 //         ITeeWalletManager.SetPausingAddresses memory message = ITeeWalletManager.SetPausingAddresses(
 //             walletId,
 //             counter,
@@ -532,8 +534,8 @@
 //             WALLET_OP_TYPE,
 //             SET_PAUSING_ADDRESSES,
 //             abi.encode(message),
-//             new address[](0),
-//             0,
+//             admins,
+//             adminsThreshold,
 //             12345
 //         );
 //         teeWalletManager.setPausingAddresses{value: 12345}(walletId, pausingAddresses);

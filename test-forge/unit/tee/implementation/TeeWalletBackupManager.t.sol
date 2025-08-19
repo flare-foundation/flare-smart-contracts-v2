@@ -45,6 +45,9 @@ contract TeeWalletBackupManagerTest is Test {
     uint256 private extensionId;
     uint256 private nonce;
 
+    address[] private admins;
+    uint64 private adminsThreshold;
+
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
@@ -244,6 +247,17 @@ contract TeeWalletBackupManagerTest is Test {
             ),
             abi.encode("")
         );
+
+        admins = new address[](2);
+        admins[0] = makeAddr("admin1");
+        admins[1] = makeAddr("admin2");
+        adminsThreshold = 2;
+
+        vm.mockCall(
+            teeWalletManager,
+            abi.encodeWithSelector(ITeeWalletManager.getWalletAdminsAndThreshold.selector, backupId.walletId),
+            abi.encode(admins, adminsThreshold)
+        );
     }
 
 
@@ -366,8 +380,8 @@ contract TeeWalletBackupManagerTest is Test {
             teeWalletBackupManager.WALLET_OP_TYPE(),
             teeWalletBackupManager.KEY_DATA_PROVIDER_RESTORE_TEST(),
             abi.encode(message),
-            new address[](0),
-            0,
+            admins,
+            adminsThreshold,
             1 ether
         );
         vm.prank(owner);

@@ -52,6 +52,8 @@ contract TeePaymentsTest is Test {
     address private submitAddress = makeAddr("submitAddress");
     bytes32 private projectId = bytes32("projectId");
     IPMWMultisigAccountConfigured.Proof private proof;
+    address[] private admins;
+    uint64 private adminsThreshold;
     address[] private cosigners;
     uint64 private cosignersThreshold;
 
@@ -186,6 +188,12 @@ contract TeePaymentsTest is Test {
         cosigners[1] = makeAddr("cosigner2");
         cosignersThreshold = 1;
         _mockGetWalletCosignersAndThreshold(walletId, cosigners, cosignersThreshold);
+
+        admins = new address[](2);
+        admins[0] = makeAddr("admin1");
+        admins[1] = makeAddr("admin2");
+        adminsThreshold = 2;
+        _mockGetWalletAdminsAndThreshold(walletId, admins, adminsThreshold);
     }
 
     //// settings tests ////
@@ -397,8 +405,8 @@ contract TeePaymentsTest is Test {
             OP_TYPE,
             SET_PAYMENT_LIMITS,
             abi.encode(message),
-            cosigners,
-            cosignersThreshold,
+            admins,
+            adminsThreshold,
             988
         );
         teePayments.setPaymentLimits{value: 988}(walletId, transactionLimit, dailyLimit);
@@ -1638,6 +1646,14 @@ testPay3();
             mockTeeWalletManager,
             abi.encodeWithSelector(ITeeWalletManager.getWalletCosignersAndThreshold.selector, _walletId),
             abi.encode(_cosigners, _threshold)
+        );
+    }
+
+    function _mockGetWalletAdminsAndThreshold(bytes32 _walletId, address[] memory _admins, uint64 _threshold) internal {
+        vm.mockCall(
+            mockTeeWalletManager,
+            abi.encodeWithSelector(ITeeWalletManager.getWalletAdminsAndThreshold.selector, _walletId),
+            abi.encode(_admins, _threshold)
         );
     }
 

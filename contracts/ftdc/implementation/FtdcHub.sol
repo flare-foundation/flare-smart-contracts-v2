@@ -113,9 +113,10 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
             requestBody: _requestBody
         });
         bytes32 instructionId = keccak256(abi.encode(
-            FTDC_OP_TYPE, PROVE, attestationRequestCounter++ // TODO
+            FTDC_OP_TYPE, PROVE, attestationRequestCounter++
         ));
-        _sendAttestationInstructions(
+
+        _sendInstructions(
             instructionId,
             _teeIds,
             abi.encode(message),
@@ -176,22 +177,22 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
         emit DefaultNumberOfTeesSet(_defaultNumberOfTees);
     }
 
-    function _sendAttestationInstructions(
-        bytes32 instructionId,
-        address[] memory teeIds,
-        bytes memory encodedMessage,
-        address[] memory cosigners,
-        uint64 cosignersThreshold,
-        uint256 value
+    function _sendInstructions(
+        bytes32 _instructionId,
+        address[] memory _teeIds,
+        bytes memory _encodedMessage,
+        address[] memory _cosigners,
+        uint64 _cosignersThreshold,
+        uint256 _value
     ) internal {
-        teeInstructions.sendInstructions{value: value}(
-            instructionId,
-            teeIds,
+        teeInstructions.sendInstructions{value: _value}(
+            _instructionId,
+            _teeIds,
             FTDC_OP_TYPE,
             PROVE,
-            encodedMessage,
-            cosigners,
-            cosignersThreshold
+            _encodedMessage,
+            _cosigners,
+            _cosignersThreshold
         );
     }
 

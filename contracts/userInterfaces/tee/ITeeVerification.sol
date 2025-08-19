@@ -38,7 +38,6 @@ interface ITeeVerification {
     );
 
     error ChallengeExpired(uint256 challengeTs);
-    error InvalidExtension();
     error TeeMachineNotAvailable();
     error InvalidAvailabilityCheckStatus();
     error VersionNotSupported();

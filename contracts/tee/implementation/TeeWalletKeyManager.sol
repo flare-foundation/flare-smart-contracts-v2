@@ -126,7 +126,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         emit WalletKeyAdded(_teeId, _walletId, _keyId);
 
         (PublicKey[] memory adminsPublicKeys, uint64 adminsThreshold) =
-            teeWalletManager.getWalletAdminsAndThreshold(_walletId);
+            teeWalletManager.getWalletAdminsPublicKeysAndThreshold(_walletId);
         (address[] memory cosigners, uint64 cosignersThreshold) =
             teeWalletManager.getWalletCosignersAndThreshold(_walletId);
 
@@ -462,7 +462,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         internal view
     {
         (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold) =
-            teeWalletManager.getWalletAdminsAndThreshold(_walletId);
+            teeWalletManager.getWalletAdminsPublicKeysAndThreshold(_walletId);
         require(_configConstants.adminsPublicKeys.length == _adminsPublicKeys.length, LengthsMismatch());
         require(_configConstants.adminsThreshold == _adminsThreshold, InvalidThreshold());
         for (uint256 i = 0; i < _adminsPublicKeys.length; i++) {

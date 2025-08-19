@@ -330,13 +330,6 @@ contract TeeVerificationTest is Test {
     }
 
 
-    function testRequestAvailabilityCheckAttestationRevertInvalidExtension() public {
-        _mockGetExtensionId(extensionId + 1);
-        vm.expectRevert(ITeeVerification.InvalidExtension.selector);
-        teeVerification.requestAvailabilityCheckAttestation(teeId, teeId);
-    }
-
-
     function testRequestAvailabilityCheckAttestation() public {
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
         _mockGetReplicatingTeeId(address(0));

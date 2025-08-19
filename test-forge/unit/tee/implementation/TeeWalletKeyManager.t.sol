@@ -180,7 +180,7 @@ contract TeeWalletKeyManagerTest is Test {
         vm.mockCall(
             teeWalletManager,
             abi.encodeWithSelector(
-                ITeeWalletManager.getWalletAdminsAndThreshold.selector
+                ITeeWalletManager.getWalletAdminsPublicKeysAndThreshold.selector
             ),
             abi.encode(
                 publicKeys, uint64(1)
