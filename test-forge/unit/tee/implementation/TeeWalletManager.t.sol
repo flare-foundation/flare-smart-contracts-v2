@@ -837,7 +837,7 @@ contract TeeWalletManagerTest is Test {
         // command[1] = "test-forge/utils/generate-key.js";
         command[0] = "bash";
         command[1] = "-c";
-        command[2] = "cast wallet new --json | jq -r 'if type==\"array\" then .[0].private_key else .private_key end' | xargs -I{} cast wallet public-key --raw-private-key {}";
+        command[2] = "cast wallet public-key --raw-private-key \"$(cast wallet new --json | jq -r 'if type==\"array\" then .[0].private_key else .private_key end')\"";
 
         bytes memory result = vm.ffi(command);
 
