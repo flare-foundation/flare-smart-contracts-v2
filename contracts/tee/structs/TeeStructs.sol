@@ -13,6 +13,8 @@ interface TeeStructs {
         uint32 rewardEpochId;
         bytes32 opType;
         bytes32 opCommand;
+        address[] cosigners;
+        uint64 cosignersThreshold;
         bytes originalMessage;
         bytes additionalFixedMessage;
     }
