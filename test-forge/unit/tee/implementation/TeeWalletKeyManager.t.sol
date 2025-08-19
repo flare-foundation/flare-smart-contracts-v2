@@ -627,26 +627,43 @@ contract TeeWalletKeyManagerTest is Test {
     }
 
 
-    // function testDeleteKey() public {
-    //     _setupConfirmKeyInWallet();
-    //     vm.prank(owner);
-    //     teeWalletKeyManager.addKey{value: fee}(newTeeId, walletId);
-    //     vm.prank(teeWalletBackupManager);
-    //     teeWalletKeyManager.increaseKeyNonce(newTeeId, walletId, keyId);
-    //     proof.teeId = newTeeId;
-    //     proof.restored = true;
-    //     teeSignature = _createSignature(newPrivateKey);
-    //     vm.prank(owner);
-    //     teeWalletKeyManager.confirmKey(proof, teeSignature);
+    function testDeleteKey() public {
+        _setupConfirmKeyInWallet();
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](1);
+        teeMachines[0] = ITeeMachineRegistry.TeeMachine(newTeeId, makeAddr("teeProxy"), "url");
+        vm.mockCall(
+            teeMachineRegistry,
+            abi.encodeWithSelector(
+                ITeeMachineRegistry.getTeeMachine.selector, newTeeId
+            ),
+            abi.encode(teeMachines[0])
+        );
+        uint24 currentRewardEpochId = 8;
+        vm.mockCall(
+            flareSystemsManagerMock,
+            abi.encodeWithSelector(
+                ProtocolsV2Interface.getCurrentRewardEpochId.selector
+            ),
+            abi.encode(currentRewardEpochId)
+        );
+        vm.prank(owner);
+        teeWalletKeyManager.addKey{value: fee}(newTeeId, walletId);
+        vm.prank(teeWalletBackupManager);
+        teeWalletKeyManager.increaseKeyNonce(newTeeId, walletId, keyId);
+        proof.teeId = newTeeId;
+        proof.restored = true;
+        teeSignature = _createSignature(newPrivateKey);
+        vm.prank(owner);
+        teeWalletKeyManager.confirmKey(proof, teeSignature);
 
-    //     address[] memory teeIds = teeWalletKeyManager.getWalletKeyTeeIds(walletId, keyId);
-    //     assertEq(teeIds.length, 2);
+        address[] memory teeIds = teeWalletKeyManager.getWalletKeyTeeIds(walletId, keyId);
+        assertEq(teeIds.length, 2);
 
-    //     vm.prank(owner);
-    //     vm.expectEmit();
-    //     emit ITeeWalletKeyManager.WalletKeyDeleted(teeId, walletId, keyId);
-    //     teeWalletKeyManager.deleteKey{value: fee}(teeId, walletId, keyId);
-    // }
+        vm.prank(owner);
+        vm.expectEmit();
+        emit ITeeWalletKeyManager.WalletKeyDeleted(teeId, walletId, keyId);
+        teeWalletKeyManager.deleteKey{value: fee}(teeId, walletId, keyId);
+    }
 
 
     // cleanUpTeeIds
