@@ -71,9 +71,9 @@ scanner-slither:
     expire_in: 7 days
     paths: [ slither.json ]
 
-##
-##
-##
+
+
+
 
 build-smart-contracts:
   stage: build
@@ -98,9 +98,9 @@ build-smart-contracts:
     - typechain-web3
     expire_in: 1 week
 
-##
-## UNIT TESTS
-##
+#
+# UNIT TESTS
+#
 
 
 
@@ -123,6 +123,7 @@ build-smart-contracts:
 
 test-unit-hardhat:
   extends: .test-node-sc
+  tags: [ flarenetwork-lg ]
   parallel:
     matrix:
     - TEST_ARG:
@@ -138,7 +139,7 @@ test-unit-hardhat:
 test-unit-hardhat-md:
   extends: test-unit-hardhat
   timeout: 10 minutes
-  tags: [ flarenetwork-md ]
+  tags: [ flarenetwork-lg ]
   parallel:
     matrix:
     - TEST_ARG:
@@ -148,7 +149,7 @@ test-unit-hardhat-md:
 
 test-contract-end-to-end:
   extends: .test-node-sc
-  tags: [ flarenetwork-md ]
+  tags: [ flarenetwork-lg ]
   script:
   - yarn hardhat test ./test/integration/EndToEnd.test.ts
 
@@ -165,18 +166,19 @@ test-linter-forge:
 test-unit-forge:
   extends: .test-node-sc
   timeout: 10 minutes
-  tags: [ flarenetwork-md ]
-  image: ghcr.io/foundry-rs/foundry:stable
+  tags: [ flarenetwork-lg ]
+  image: aljazflare/foundry-custom:latest
   before_script:
   - forge soldeer install
   - forge install --no-git
+  - npm install elliptic --legacy-peer-deps
   - forge build
   script:
   - forge test -vvv
 
-##
-## COVERAGE
-##
+#
+# COVERAGE
+#
 
 coverage-hardhat:
   image: node:18
@@ -221,16 +223,17 @@ coverage-forge-node_modules:
     - node_modules.sol
 
 coverage-forge:
-  image: ghcr.io/foundry-rs/foundry:stable
+  image: aljazflare/foundry-custom:latest
   needs:
   - job: coverage-forge-node_modules
     artifacts: true
-  tags: [ flarenetwork-md ]
+  tags: [ flarenetwork-lg ]
   timeout: 10 minutes
   before_script:
   - mv node_modules.sol node_modules
   - forge soldeer install
   - forge install --no-git
+  - npm install elliptic --legacy-peer-deps
   - forge build
   script:
   - FOUNDRY_PROFILE=coverage forge coverage --report summary --report lcov
