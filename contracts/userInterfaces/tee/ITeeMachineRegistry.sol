@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../ftdc/ITeeAvailabilityCheck.sol";
+import { ITeeAvailabilityCheck } from "../ftdc/ITeeAvailabilityCheck.sol";
 
 /**
  * TeeMachineRegistry interface.

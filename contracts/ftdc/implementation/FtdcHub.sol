@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../governance/implementation/Governed.sol";
-import "../../userInterfaces/ftdc/IFtdcHub.sol";
-import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
-import "../../userInterfaces/tee/ITeeInstructions.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../protocol/interface/IIRewardManager.sol";
-import "../../userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IFtdcHub } from "../../userInterfaces/ftdc/IFtdcHub.sol";
+import { ITeeMachineRegistry } from  "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeInstructions } from "../../userInterfaces/tee/ITeeInstructions.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
+import { IFtdcRequestFeeConfigurations } from "../../userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
 
 /**
  * FtdcHub is used for requesting FTDC attestations.

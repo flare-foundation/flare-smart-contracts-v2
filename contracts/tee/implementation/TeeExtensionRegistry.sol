@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "./TeeBase.sol";
-import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import "../../userInterfaces/tee/ITeeGovernance.sol";
-import "../../userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
-import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
-import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../protocol/interface/IIRewardManager.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { TeeBase } from "./TeeBase.sol";
+import { ITeeExtensionRegistry, ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeGovernance } from "../../userInterfaces/tee/ITeeGovernance.sol";
+import { ITeeWalletProjectOpTypeConstants } from "../../userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
+import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeFeeCalculator } from "../../userInterfaces/tee/ITeeFeeCalculator.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
  * TeeExtensionRegistry is used for registration of TEE extensions.

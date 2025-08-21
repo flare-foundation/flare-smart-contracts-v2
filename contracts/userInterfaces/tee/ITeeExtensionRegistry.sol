@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./ITeeExtensionStateVerifier.sol";
-import "./ITeeWalletProjectOpTypeConstants.sol";
-import "./ITeeMachineRegistry.sol";
-import "../ftdc/ITeeAvailabilityCheck.sol";
+import { ITeeExtensionStateVerifier } from "./ITeeExtensionStateVerifier.sol";
+import { ITeeWalletProjectOpTypeConstants } from "./ITeeWalletProjectOpTypeConstants.sol";
+import { ITeeMachineRegistry } from "./ITeeMachineRegistry.sol";
+import { ITeeAvailabilityCheck } from "../ftdc/ITeeAvailabilityCheck.sol";
 
 /**
  * TeeExtensionRegistry interface.

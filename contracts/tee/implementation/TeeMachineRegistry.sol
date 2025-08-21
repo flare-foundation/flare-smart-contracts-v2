@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "./TeeBase.sol";
-import "../interface/IITeeMachineRegistry.sol";
-import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import "../../userInterfaces/tee/ITeeOwnerAllowlist.sol";
-import "../../userInterfaces/tee/ITeeVerification.sol";
-import "../../userInterfaces/tee/ITeeReplication.sol";
-import "../../userInterfaces/IRelay.sol";
-import "../../utils/lib/AddressSet.sol";
+import { TeeBase } from "./TeeBase.sol";
+import { IITeeMachineRegistry } from "../interface/IITeeMachineRegistry.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeOwnerAllowlist } from "../../userInterfaces/tee/ITeeOwnerAllowlist.sol";
+import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
+import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
+import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { IRelay } from "../../userInterfaces/IRelay.sol";
+import { AddressSet } from "../../utils/lib/AddressSet.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
  * TeeMachineRegistry is used for registration of TEE machines.

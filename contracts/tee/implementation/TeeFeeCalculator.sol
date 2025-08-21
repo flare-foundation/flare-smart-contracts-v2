@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "../../governance/implementation/Governed.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/tee/ITeeFeeCalculator.sol";
-import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { ITeeFeeCalculator } from "../../userInterfaces/tee/ITeeFeeCalculator.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 /**
  * TeeFeeCalculator is used for calculating fees for TEE operations.

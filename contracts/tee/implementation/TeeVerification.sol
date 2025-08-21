@@ -16,6 +16,8 @@ import "../../userInterfaces/ftdc/IFtdcVerification.sol";
 import "../../userInterfaces/IFlareSystemsManager.sol";
 import "../../userInterfaces/IRelay.sol";
 import "../../utils/lib/AddressSet.sol";
+import { TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE } from "../../userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
 
 /**
  * TeeVerification is used for challenges and availability checks of TEE machines.

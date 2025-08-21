@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../IPublicKey.sol";
-import "./ITeeIdKeyIdPair.sol";
+import { PublicKey } from "../IPublicKey.sol";
+import { TeeIdKeyIdPair } from "./ITeeIdKeyIdPair.sol";
 
 /**
  * TeeWalletManager interface.

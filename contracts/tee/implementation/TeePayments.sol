@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "./TeeBase.sol";
-import "../../userInterfaces/tee/ITeePayments.sol";
-import "../../userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
-import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
-import "../../userInterfaces/tee/ITeeWalletManager.sol";
-import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
-import "../../userInterfaces/tee/ITeeVerification.sol";
-import "../../userInterfaces/tee/ITeeInstructions.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
+import { TeeBase } from "./TeeBase.sol";
+import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
+import { ITeeWalletProjectOpTypeConstants } from "../../userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
+import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
+import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
+import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
+import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
+import { ITeeInstructions } from "../../userInterfaces/tee/ITeeInstructions.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { IPMWMultisigAccountConfigured } from "../../userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
+import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.

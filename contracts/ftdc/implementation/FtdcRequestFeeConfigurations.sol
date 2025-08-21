@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "../../userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
-import "../../governance/implementation/Governed.sol";
+import { IFtdcRequestFeeConfigurations } from "../../userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
+import { Governed, IGovernanceSettings } from "../../governance/implementation/Governed.sol";
 
 /**
  * FtdcRequestFeeConfigurations contract.

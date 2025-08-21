@@ -9,6 +9,7 @@ import "../../../../contracts/tee/proxy/TeePaymentsProxy.sol";
 import "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
 import "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 
 //solhint-disable-next-line max-states-count
 contract TeePaymentsTest is Test {

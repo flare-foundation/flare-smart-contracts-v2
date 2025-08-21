@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "./TeeBase.sol";
-import "../../userInterfaces/tee/ITeeInstructions.sol";
-import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import "../../utils/lib/AddressSet.sol";
+import { TeeBase } from "./TeeBase.sol";
+import { ITeeInstructions } from "../../userInterfaces/tee/ITeeInstructions.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { AddressSet } from "../../utils/lib/AddressSet.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
  * TeeInstructions is used for issuing instructions (emitting events)

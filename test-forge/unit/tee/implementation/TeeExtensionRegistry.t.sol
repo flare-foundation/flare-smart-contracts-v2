@@ -2,8 +2,18 @@
 pragma solidity ^0.8.27;
 
 import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
-import "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
+import { TeeExtensionRegistry } from "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
+import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { TeeExtensionRegistryProxy } from "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
+import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
+import { ITeeWalletProjectOpTypeConstants } from
+    "../../../../contracts/userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
+import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeGovernance } from "../../../../contracts/userInterfaces/tee/ITeeGovernance.sol";
+import { ITeeFeeCalculator } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
 
 // solhint-disable-next-line max-states-count
 contract TeeExtensionRegistryTest is Test {
@@ -142,13 +152,17 @@ contract TeeExtensionRegistryTest is Test {
 
     function testSendInstructionsRevertNoTeeMachinesSpecified() public {
         vm.expectRevert(ITeeExtensionRegistry.NoTeeMachinesSpecified.selector);
-        teeExtensionRegistry.sendInstructions(instructionId, new address[](0), opType, opCommand, message, new address[](0), 0);
+        teeExtensionRegistry.sendInstructions(
+            instructionId, new address[](0), opType, opCommand, message, new address[](0), 0
+        );
     }
 
 
     function testSendInstructionsRevertOperationTypeEmpty() public {
         vm.expectRevert(ITeeExtensionRegistry.OperationTypeEmpty.selector);
-        teeExtensionRegistry.sendInstructions(instructionId, teeIds, bytes32(0), opCommand, message, new address[](0), 0);
+        teeExtensionRegistry.sendInstructions(
+            instructionId, teeIds, bytes32(0), opCommand, message, new address[](0), 0
+        );
     }
 
 
@@ -160,7 +174,9 @@ contract TeeExtensionRegistryTest is Test {
 
     function testSendInstructionsRevertMessageEmpty() public {
         vm.expectRevert(ITeeExtensionRegistry.MessageEmpty.selector);
-        teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, opCommand, new bytes(0), new address[](0), 0);
+        teeExtensionRegistry.sendInstructions(
+            instructionId, teeIds, opType, opCommand, new bytes(0), new address[](0), 0
+        );
     }
 
 

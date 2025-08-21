@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
-import "../../userInterfaces/IRelay.sol";
-import "../../userInterfaces/ftdc/IFtdcVerification.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import { IRelay } from "../../userInterfaces/IRelay.sol";
+import { IFtdcVerification, Signature } from "../../userInterfaces/ftdc/IFtdcVerification.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * FtdcVerification contract.

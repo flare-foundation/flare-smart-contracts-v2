@@ -4,6 +4,8 @@ pragma solidity ^0.8.27;
 import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeeReplication.sol";
 import "../../../../contracts/tee/proxy/TeeReplicationProxy.sol";
+import { IFtdcVerification } from "../../../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
+import { IFtdcHub } from "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
 
 // solhint-disable-next-line max-states-count
 contract TeeReplicationTest is Test {

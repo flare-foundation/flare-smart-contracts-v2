@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "./TeePayments.sol";
-import "../../userInterfaces/tee/ITeePaymentsEVM.sol";
+import { TeePayments } from "./TeePayments.sol";
+import { ITeePaymentsEVM } from "../../userInterfaces/tee/ITeePaymentsEVM.sol";
+import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
+import { ITeeWalletProjectOpTypeConstants } from "../../userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
 
 /**
  * TeePaymentsEVM is a contract used for instructing TEE based wallets payments for EVM based chains.
