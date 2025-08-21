@@ -22,7 +22,8 @@
       "0xb9657EDCf84BCA4DE60b0f849f397C093459D0f8",
       "0xa8e2a3B83bd574Ac058fEb8B01ac1B44AAA9c450",
       "0x051E9Cb16A8676C011faa10efA1ABE95372e7825",
-      "0xE2c06DF29d175Aa0EcfcD10134eB96f8C94448A3"
+      "0xE2c06DF29d175Aa0EcfcD10134eB96f8C94448A3",
+      "0xB4B93a3A3ADa93a574E6efeb5f295bf882934cB6"
     ]
   },
   {
@@ -31,7 +32,8 @@
     "addresses": [
       "0x99D17A3EF05fddF0C0d4E1c0D0Ba4f8aCc8e150a",
       "0xc2AaBcB2F7d00264078D86b6E4aAd7133a5F5aee",
-      "0x43CBAB9C953F54533aadAf7ffCD13c30ec05Edc9"
+      "0x43CBAB9C953F54533aadAf7ffCD13c30ec05Edc9",
+      "0x3787dCBD770202F856ED9204c19d6f9022Ff3BF2"
     ]
   },
   {
@@ -382,7 +384,8 @@
     "name": "VoterPreRegistry",
     "contractName": "VoterPreRegistry.sol",
     "addresses": [
-      "0xD9e8Ee56CB5A06f2070A2793bf76C5dFb3fc3D52"
+      "0xD9e8Ee56CB5A06f2070A2793bf76C5dFb3fc3D52",
+      "0xF660984B8597e31437cA4b7dEa0A41677982563b"
     ]
   },
   {

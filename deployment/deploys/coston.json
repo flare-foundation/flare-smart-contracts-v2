@@ -12,12 +12,12 @@
   {
     "name": "VoterRegistry",
     "contractName": "VoterRegistry.sol",
-    "address": "0xE2c06DF29d175Aa0EcfcD10134eB96f8C94448A3"
+    "address": "0xB4B93a3A3ADa93a574E6efeb5f295bf882934cB6"
   },
   {
     "name": "FlareSystemsCalculator",
     "contractName": "FlareSystemsCalculator.sol",
-    "address": "0x43CBAB9C953F54533aadAf7ffCD13c30ec05Edc9"
+    "address": "0x3787dCBD770202F856ED9204c19d6f9022Ff3BF2"
   },
   {
     "name": "FlareSystemsManager",
@@ -232,7 +232,7 @@
   {
     "name": "VoterPreRegistry",
     "contractName": "VoterPreRegistry.sol",
-    "address": "0xD9e8Ee56CB5A06f2070A2793bf76C5dFb3fc3D52"
+    "address": "0xF660984B8597e31437cA4b7dEa0A41677982563b"
   },
   {
     "name": "PollingManagementGroup",
