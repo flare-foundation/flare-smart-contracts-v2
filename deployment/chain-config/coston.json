@@ -469,25 +469,13 @@
         {"opType": "F_XRP", "opCommand": "PAY", "feeWei": "1"},
         {"opType": "F_XRP", "opCommand": "REISSUE", "feeWei": "1"},
         {"opType": "F_XRP", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
-        {"opType": "F_BTC", "opCommand": "PAY", "feeWei": "1"},
-        {"opType": "F_BTC", "opCommand": "REISSUE", "feeWei": "1"},
-        {"opType": "F_BTC", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
-        {"opType": "F_DOGE", "opCommand": "PAY", "feeWei": "1"},
-        {"opType": "F_DOGE", "opCommand": "REISSUE", "feeWei": "1"},
-        {"opType": "F_DOGE", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
-        {"opType": "F_EVM", "opCommand": "PAY", "feeWei": "1"},
-        {"opType": "F_EVM", "opCommand": "REISSUE", "feeWei": "1"},
-        {"opType": "F_EVM", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
         {"opType": "F_FTDC", "opCommand": "PROVE", "feeWei": "1"}
     ],
     "teePaymentConfigurations": [
-        {"opType": "F_XRP", "sourceId": "XRP", "maxBatchSize": 1, "maxBatchDurationSeconds": 0},
-        {"opType": "F_BTC", "sourceId": "BTC", "maxBatchSize": 10, "maxBatchDurationSeconds": 600},
-        {"opType": "F_DOGE", "sourceId": "DOGE", "maxBatchSize": 10, "maxBatchDurationSeconds": 60},
-        {"opType": "F_EVM", "sourceId": "EVM", "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
+        {"opType": "F_XRP", "sourceId": "XRP", "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
     ],
-    "ftdcMinThresholdBIPS": 3000,
-    "ftdcDefaultNumberOfTees": 2,
+    "ftdcMinThresholdBIPS": 4000,
+    "ftdcDefaultNumberOfTees": 1,
     "ftdcRequestFees": [
         {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "feeWei": "1"},
         {"attestationType": "PMWPaymentStatus", "source": "XRP", "feeWei": "1"},

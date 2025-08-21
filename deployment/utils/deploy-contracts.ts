@@ -101,7 +101,6 @@ import { TeeGovernanceContract, TeeGovernanceInstance } from "../../typechain-tr
 import { TeeWalletKeyManagerContract, TeeWalletKeyManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletKeyManager";
 import { FtdcHubContract, FtdcHubInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcHub";
 import { FtdcRequestFeeConfigurationsInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations";
-import { FtdcVerificationMockContract } from "../../typechain-truffle/contracts/ftdc/mock/FtdcVerificationMock";
 import { TeeGovernanceProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeGovernanceProxy";
 import { TeeMachineRegistryProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeMachineRegistryProxy";
 import { FtdcVerificationContract, FtdcVerificationInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification";
@@ -253,7 +252,6 @@ export async function deployContracts(
   const TeePaymentsEVM: TeePaymentsEVMContract = artifacts.require("TeePaymentsEVM");
   const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
   const FtdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
-  const FtdcVerificationMock: FtdcVerificationMockContract = artifacts.require("FtdcVerificationMock");
   const FtdcVerification: FtdcVerificationContract = artifacts.require("FtdcVerification");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
@@ -714,7 +712,7 @@ export async function deployContracts(
     governanceAccount.address
   );
 
-  const ftdcVerification = await FtdcVerification.at((await FtdcVerificationMock.new(addressUpdater.address)).address); // TODO: remove mock contract
+  const ftdcVerification = await FtdcVerification.new(addressUpdater.address);
   addressUpdatableContracts.push(ftdcVerification.address);
 
   // Set the FTDC request fee configurations

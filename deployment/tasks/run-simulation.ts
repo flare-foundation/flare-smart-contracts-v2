@@ -102,11 +102,6 @@ let SKIP_VOTER_REGISTRATION_SET: Set<string>;
 let SKIP_SIGNING_POLICY_SIGNING_SET: Set<string>;
 let SKIP_VOTING_EPOCH_ACTIONS: boolean;
 let SKIP_FINALIZATIONS: boolean;
-let TEE_CODE_HASH: string;
-let TEE_IDS: string[];
-let TEE_PROXY_IDS: string[];
-let TEE_URLS: string[];
-let TEE_PLATFORMS: string[];
 
 function processEnv() {
   VOTING_EPOCH_DURATION_SEC = 20;
@@ -147,48 +142,6 @@ function processEnv() {
   if (process.env.SKIP_FINALIZATIONS) {
     console.log("Skipping finalizations");
     SKIP_FINALIZATIONS = true;
-  }
-
-  TEE_CODE_HASH = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea8b3d7fc18d10fdc2";
-  if (process.env.TEE_CODE_HASH) {
-    TEE_CODE_HASH = process.env.TEE_CODE_HASH.trim();
-  }
-
-  TEE_IDS = [];
-  if (process.env.TEE_IDS) {
-    process.env.TEE_IDS.split(",").forEach(x => {
-      if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
-        TEE_IDS.push(x.trim().toLowerCase());
-      }
-    });
-  }
-
-  TEE_PROXY_IDS = [];
-  if (process.env.TEE_PROXY_IDS) {
-    process.env.TEE_PROXY_IDS.split(",").forEach(x => {
-      if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
-        TEE_PROXY_IDS.push(x.trim().toLowerCase());
-      }
-    });
-  }
-
-  TEE_URLS = [];
-  if (process.env.TEE_URLS) {
-    process.env.TEE_URLS.split(",").forEach(x => {
-      TEE_URLS.push(x.trim().toLowerCase());
-    });
-  }
-
-  TEE_PLATFORMS = [];
-  if (process.env.TEE_PLATFORMS) {
-    process.env.TEE_PLATFORMS.split(",").forEach(x => {
-      TEE_PLATFORMS.push(x.trim());
-    });
-  }
-
-  if(TEE_IDS.length != TEE_URLS.length || TEE_IDS.length != TEE_PROXY_IDS.length || TEE_IDS.length != TEE_PLATFORMS.length) {
-    console.error("ERRORRrr")
-    throw new Error("TEE_IDS, TEE_PROXY_IDS, TEE_URLS and TEE_PLATFORMS must have the same length");
   }
 }
 
@@ -282,9 +235,6 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   // Account 0 is reserved for governance, 1-5 for contract address use, 10+ for voters.
   const accounts = privateKeys.map(x => hre.web3.eth.accounts.privateKeyToAccount(x.privateKey));
   const governanceAccount = accounts[0];
-  const teeOwnerAccount = accounts[1];
-  const teeGovernanceSigners = [accounts[2], accounts[3], accounts[4], accounts[5]];
-  const teeGovernanceSignersThreshold = 3;
 
   const [c, rewardEpochStart, initialSigningPolicy] = await deployContracts(accounts, hre, governanceAccount);
   serializeDeployedContractsAddresses(c, DEPLOY_ADDRESSES_FILE);
@@ -352,73 +302,6 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     )
   );
   logger.info(`Epoch settings written to ${SETTINGS_FILE_LOCATION}`);
-
-  // TEE
-  logger.info(`Setting TEE governance ${teeGovernanceSigners.map(x => x.address)} with threshold ${teeGovernanceSignersThreshold}`);
-  await c.teeGovernance.setNewTeeGovernance(0, teeGovernanceSigners.map(x => x.address), teeGovernanceSignersThreshold, { from: governanceAccount.address });
-  const governanceHash = await c.teeGovernance.getLatestTeeGovernanceHash(0);
-  logger.info(`TEE governance hash: ${governanceHash}`);
-
-  logger.info(`TEE_CODE_HASH: ${TEE_CODE_HASH}`);
-  const supportedPlatforms = [web3.utils.utf8ToHex("GCP_INTEL_TDX").padEnd(66, "0"), web3.utils.utf8ToHex("GCP_AMD_SEV").padEnd(66, "0"), web3.utils.utf8ToHex("GCP_AMD_SEV_ES").padEnd(66, "0")];
-  await c.teeExtensionRegistry.addSupportedPlatforms(supportedPlatforms, { from: governanceAccount.address });
-  await c.teeExtensionRegistry.addTeeVersion(0, "v0.1.0", TEE_CODE_HASH, supportedPlatforms, ZERO_BYTES32, { from: governanceAccount.address });
-
-  logger.info(`Registering TEEs with owner address: ${teeOwnerAccount.address}`);
-  logger.info(`TEE_IDS: ${TEE_IDS}`);
-  logger.info(`TEE_PROXY_IDS: ${TEE_PROXY_IDS}`);
-  logger.info(`TEE_URLS: ${TEE_URLS}`);
-  logger.info(`TEE_PLATFORMS: ${TEE_PLATFORMS}`);
-  const rewardEpochId = (await c.flareSystemsManager.getCurrentRewardEpochId()).toString();
-  for (let i = 0; i < TEE_IDS.length; i++) {
-    const tx = await c.teeMachineRegistry.register(
-      0,
-      TEE_IDS[i],
-      TEE_PROXY_IDS[i],
-      TEE_URLS[i],
-      TEE_CODE_HASH,
-      web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
-      { value: "2", from: teeOwnerAccount.address }
-    );
-    const event = requiredEventArgsFrom(tx, c.teeVerification, "TeeAttestationRequested") as any;
-    await time.increase(2);
-    const teeState = {
-        systemState: "0x",
-        systemStateVersion: ZERO_BYTES32,
-        state: "0x",
-        stateVersion: ZERO_BYTES32
-    };
-    const proof = {
-      signatures: {
-        signingPolicySignatures: "0x", // TODO
-        teeSignatures: [],
-        cosignerSignatures: [],
-      },
-      header: {
-        attestationType: web3.utils.utf8ToHex("TeeAvailabilityCheck").padEnd(66, "0"),
-        sourceId: web3.utils.utf8ToHex(TEE_SOURCE_ID).padEnd(66, "0"),
-        thresholdBIPS: "0",
-        timestamp: (await time.latest()-1).toString(),
-        cosigners: [],
-        cosignersThreshold: "0",
-      },
-      requestBody: {
-        teeId: TEE_IDS[i],
-        url: TEE_URLS[i],
-        challenge: event.challenge.toString()
-      },
-      responseBody: {
-        status: "0",
-        teeTimestamp: (await time.latest()-1).toString(),
-        codeHash: TEE_CODE_HASH,
-        platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
-        initialSigningPolicyId: rewardEpochId,
-        lastSigningPolicyId: rewardEpochId,
-        state: teeState
-      },
-    }
-    await c.teeMachineRegistry.toProduction(proof, { from: teeOwnerAccount.address });
-  }
 
   const signingPolicies = new Map<number, ISigningPolicy>();
   signingPolicies.set(initialSigningPolicy.rewardEpochId, initialSigningPolicy);

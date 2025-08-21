@@ -468,33 +468,31 @@ export async function deployTeeContracts(
   ]);
 
   // TODO add allowed tee and project owners
-  await teeOwnerAllowlist.allowAllTeeMachineOwners(0);
-  await teeOwnerAllowlist.allowAllTeeWalletProjectOwners(0);
 
   // TODO add tee versions
 
-  // switch to production mode
-  await ftdcHub.switchToProductionMode();
-  await ftdcRequestFeeConfigurations.switchToProductionMode();
+  // switch to production mode TODO
+  // await ftdcHub.switchToProductionMode();
+  // await ftdcRequestFeeConfigurations.switchToProductionMode();
 
-  await teeExtensionRegistry.switchToProductionMode();
-  await teeFeeCalculator.switchToProductionMode();
-  await teeGovernance.switchToProductionMode();
-  await teeInstructions.switchToProductionMode();
-  await teeMachineRegistry.switchToProductionMode();
-  await teeOwnerAllowlist.switchToProductionMode();
-  for (const teePayments of teePaymentsList) {
-    await teePayments.switchToProductionMode();
-  }
-  await teeReplication.switchToProductionMode();
-  await teeRewardOffersManager.switchToProductionMode();
-  await teeSystemStateVerifier.switchToProductionMode();
-  await teeVerification.switchToProductionMode();
-  await teeVersionManager.switchToProductionMode();
-  await teeWalletBackupManager.switchToProductionMode();
-  await teeWalletKeyManager.switchToProductionMode();
-  await teeWalletManager.switchToProductionMode();
-  await teeWalletProjectManager.switchToProductionMode();
+  // await teeExtensionRegistry.switchToProductionMode();
+  // await teeFeeCalculator.switchToProductionMode();
+  // await teeGovernance.switchToProductionMode();
+  // await teeInstructions.switchToProductionMode();
+  // await teeMachineRegistry.switchToProductionMode();
+  // await teeOwnerAllowlist.switchToProductionMode();
+  // for (const teePayments of teePaymentsList) {
+  //   await teePayments.switchToProductionMode();
+  // }
+  // await teeReplication.switchToProductionMode();
+  // await teeRewardOffersManager.switchToProductionMode();
+  // await teeSystemStateVerifier.switchToProductionMode();
+  // await teeVerification.switchToProductionMode();
+  // await teeVersionManager.switchToProductionMode();
+  // await teeWalletBackupManager.switchToProductionMode();
+  // await teeWalletKeyManager.switchToProductionMode();
+  // await teeWalletManager.switchToProductionMode();
+  // await teeWalletProjectManager.switchToProductionMode();
 
   contracts.serialize();
   if (!quiet) {
