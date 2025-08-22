@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
-import "../implementation/TeeReplication.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { TeeReplication } from "../implementation/TeeReplication.sol";
 
 contract TeeReplicationProxy is ERC1967Proxy {
     constructor(

@@ -2,7 +2,8 @@
 pragma solidity ^0.8.27;
 
 import { TeeBase } from "./TeeBase.sol";
-import { ITeeExtensionRegistry, ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeGovernance } from "../../userInterfaces/tee/ITeeGovernance.sol";
 import { ITeeWalletProjectOpTypeConstants } from "../../userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";

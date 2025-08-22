@@ -2,7 +2,8 @@
 pragma solidity ^0.8.27;
 
 import { IFtdcRequestFeeConfigurations } from "../../userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
-import { Governed, IGovernanceSettings } from "../../governance/implementation/Governed.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 /**
  * FtdcRequestFeeConfigurations contract.

@@ -4,7 +4,8 @@ pragma solidity ^0.8.27;
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
-import { IFtdcVerification, Signature } from "../../userInterfaces/ftdc/IFtdcVerification.sol";
+import { IFtdcVerification } from "../../userInterfaces/ftdc/IFtdcVerification.sol";
+import { Signature } from "../../userInterfaces/ISignature.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 

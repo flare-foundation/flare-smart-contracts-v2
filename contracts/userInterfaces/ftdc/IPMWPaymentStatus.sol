@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../ISignature.sol";
-import "../ftdc/IFtdcHub.sol";
-import "../ftdc/IFtdcVerification.sol";
+import { IFtdcHub } from "../ftdc/IFtdcHub.sol";
+import { IFtdcVerification } from "../ftdc/IFtdcVerification.sol";
 
 bytes32 constant PMW_PAYMENT_STATUS_ATTESTATION_TYPE = bytes32("PMWPaymentStatus");
 

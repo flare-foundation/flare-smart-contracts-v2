@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-
 /**
  * FtdcRequestFeeConfigurations interface.
  */
@@ -23,6 +22,10 @@ interface IFtdcRequestFeeConfigurations  {
      * @param _source The source of the attestation.
      * @return The fee for the type and source pair.
      */
-    function getTypeAndSourceFee(bytes32 _type, bytes32 _source) external view returns (uint256);
-
+    function getTypeAndSourceFee(
+        bytes32 _type,
+        bytes32 _source
+    )
+        external view
+        returns (uint256);
 }
