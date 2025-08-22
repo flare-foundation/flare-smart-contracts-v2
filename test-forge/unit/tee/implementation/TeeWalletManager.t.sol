@@ -844,6 +844,17 @@ contract TeeWalletManagerTest is Test {
 
         bytes memory result = vm.ffi(command);
 
+        string[] memory cmd = new string[](2);
+        cmd[0] = "which";
+        cmd[1] = "cast";
+        result = vm.ffi(cmd);
+        console2.logBytes(result);
+        console2.logString(string(result));
+        cmd[1] = "jq";
+        result = vm.ffi(cmd);
+        console2.logBytes(result);
+        console2.logString(string(result));
+
         // check if result is 64 bytes
         require(result.length == 64, "invalid output length");
 
