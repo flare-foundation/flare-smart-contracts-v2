@@ -6,6 +6,8 @@ import "../../../../contracts/tee/implementation/TeeWalletBackupManager.sol";
 import "../../../../contracts/tee/proxy/TeeWalletBackupManagerProxy.sol";
 import "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
 import "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
+import "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
+import "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 
 //solhint-disable-next-line max-states-count
 contract TeeWalletBackupManagerTest is Test {

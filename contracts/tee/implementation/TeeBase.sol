@@ -4,9 +4,9 @@ pragma solidity ^0.8.27;
 import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 
 /**

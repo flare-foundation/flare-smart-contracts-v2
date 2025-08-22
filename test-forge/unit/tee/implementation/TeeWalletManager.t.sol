@@ -8,6 +8,7 @@ import "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
 import "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
 import "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
+import "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 
 contract TeeWalletManagerTest is Test {
 

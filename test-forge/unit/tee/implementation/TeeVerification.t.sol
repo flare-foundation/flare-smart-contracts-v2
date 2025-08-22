@@ -4,6 +4,8 @@ pragma solidity ^0.8.27;
 import "forge-std/Test.sol";
 import "../../../../contracts/tee/implementation/TeeVerification.sol";
 import "../../../../contracts/tee/proxy/TeeVerificationProxy.sol";
+import "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 
 // solhint-disable-next-line max-states-count
 contract TeeVerificationTest is Test {

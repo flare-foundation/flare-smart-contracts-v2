@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "./TeeBase.sol";
-import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import "../../userInterfaces/tee/ITeeWalletManager.sol";
-import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
-import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import { TeeBase } from "./TeeBase.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
+import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
+import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
+import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
  * TeeWalletManager contract used for wallet configuration on chain.

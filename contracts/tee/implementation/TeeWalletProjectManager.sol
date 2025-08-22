@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "./TeeBase.sol";
-import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
-import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import "../../userInterfaces/tee/ITeeOwnerAllowlist.sol";
-import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import { TeeBase } from "./TeeBase.sol";
+import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeOwnerAllowlist } from "../../userInterfaces/tee/ITeeOwnerAllowlist.sol";
+import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
+import { ITeeWalletProjectOpTypeConstants } from "../../userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
  * TeeWalletProjectManager is used for project configurations of TEE wallets.

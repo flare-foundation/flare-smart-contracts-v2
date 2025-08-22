@@ -1,24 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "./TeeBase.sol";
-import "../interface/IITeeSystemStateVerifier.sol";
-import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import "../../userInterfaces/tee/ITeeVerification.sol";
-import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
-import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
-import "../../userInterfaces/tee/ITeeWalletManager.sol";
-import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
-import "../../userInterfaces/tee/ITeeReplication.sol";
-import "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
-import "../../userInterfaces/ftdc/IFtdcHub.sol";
-import "../../userInterfaces/ftdc/IFtdcVerification.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../userInterfaces/IRelay.sol";
-import "../../utils/lib/AddressSet.sol";
-import { TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
-import { PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE }
+import { TeeBase } from "./TeeBase.sol";
+import { IITeeSystemStateVerifier } from "../interface/IITeeSystemStateVerifier.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
+import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
+import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
+import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
+import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
+import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
+import { IFtdcHub } from "../../userInterfaces/ftdc/IFtdcHub.sol";
+import { IFtdcVerification } from "../../userInterfaces/ftdc/IFtdcVerification.sol";
+import { IPMWMultisigAccountConfigured, PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE }
     from "../../userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
+import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
+    from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { IRelay } from "../../userInterfaces/IRelay.sol";
+import { Signature } from "../../userInterfaces/ISignature.sol";
+import { AddressSet } from "../../utils/lib/AddressSet.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
  * TeeVerification is used for challenges and availability checks of TEE machines.

@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "./TeeBase.sol";
-import "../interface/IITeeSystemStateVerifier.sol";
-import "../../governance/implementation/GovernedProxyImplementation.sol";
-import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import { TeeBase } from "./TeeBase.sol";
+import { IITeeSystemStateVerifier } from "../interface/IITeeSystemStateVerifier.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
  * TeeSystemStateVerifier is used for verifying TEE machine state.

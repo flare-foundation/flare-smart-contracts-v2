@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "../../protocol/interface/IIRewardManager.sol";
-import "../../protocol/implementation/RewardOffersManagerBase.sol";
-import "../../userInterfaces/tee/ITeeRewardOffersManager.sol";
-import "../../utils/lib/SafePct.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
+import { ITeeRewardOffersManager } from "../../userInterfaces/tee/ITeeRewardOffersManager.sol";
+import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
+import { RewardOffersManagerBase } from "../../protocol/implementation/RewardOffersManagerBase.sol";
+import { SafePct } from "../../utils/lib/SafePct.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IITokenPool } from "flare-smart-contracts/contracts/tokenPools/interface/IITokenPool.sol";
+import { InflationReceiver } from "../../inflation/implementation/InflationReceiver.sol";
+import { TokenPoolBase } from "../../utils/implementation/TokenPoolBase.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
  * TeeRewardOffersManager contract.

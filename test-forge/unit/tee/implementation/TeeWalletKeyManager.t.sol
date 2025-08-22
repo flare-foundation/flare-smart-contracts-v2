@@ -8,6 +8,7 @@ import {TeeExtensionRegistry} from "../../../../contracts/tee/implementation/Tee
 import {TeeExtensionRegistryProxy} from "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
 import {ITeeFeeCalculator} from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
 import {IIRewardManager} from "../../../../contracts/protocol/interface/IIRewardManager.sol";
+import "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 
 
 // solhint-disable-next-line max-states-count

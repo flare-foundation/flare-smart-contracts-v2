@@ -9,9 +9,9 @@ import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.so
 import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
 import { ITeeInstructions } from "../../userInterfaces/tee/ITeeInstructions.sol";
-import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
-import { IPMWMultisigAccountConfigured } from "../../userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
+import { IPMWMultisigAccountConfigured } from "../../userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 

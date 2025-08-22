@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "./TeeBase.sol";
-import "../../userInterfaces/tee/ITeeVersionManager.sol";
-import "../../userInterfaces/tee/ITeeVerification.sol";
-import "../interface/IITeeMachineRegistry.sol";
-import "../../userInterfaces/tee/ITeeReplication.sol";
-import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { TeeBase } from "./TeeBase.sol";
+import { IITeeMachineRegistry } from "../interface/IITeeMachineRegistry.sol";
+import { ITeeVersionManager } from "../../userInterfaces/tee/ITeeVersionManager.sol";
+import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
+import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
  * TeeReplication is used for replication of TEE machines.

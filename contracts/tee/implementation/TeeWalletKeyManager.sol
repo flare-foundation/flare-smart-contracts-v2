@@ -1,16 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "./TeeBase.sol";
-import "../interface/IITeeWalletKeyManager.sol";
-import "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
-import "../../userInterfaces/tee/ITeeWalletManager.sol";
-import "../../userInterfaces/tee/ITeeWalletBackupManager.sol";
-import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { TeeBase } from "./TeeBase.sol";
+import { IITeeWalletKeyManager } from "../interface/IITeeWalletKeyManager.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
+import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
+import { ITeeWalletBackupManager } from "../../userInterfaces/tee/ITeeWalletBackupManager.sol";
+import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { Signature } from "../../userInterfaces/ISignature.sol";
+import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
  * TeeWalletKeyManager contract used for wallet keys configuration on TEE machines.

@@ -12,6 +12,7 @@ import "../../contracts/tee/proxy/TeeWalletProjectManagerProxy.sol";
 import "../../contracts/tee/proxy/TeeWalletKeyManagerProxy.sol";
 import "../../contracts/tee/proxy/TeeWalletManagerProxy.sol";
 import "../../contracts/tee/proxy/TeeWalletBackupManagerProxy.sol";
+import "../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 
 // solhint-disable-next-line max-states-count
 contract ExtensionProjectWalletKeyManagerTest is Test {

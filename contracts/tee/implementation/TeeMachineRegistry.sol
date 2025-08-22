@@ -7,11 +7,11 @@ import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionReg
 import { ITeeOwnerAllowlist } from "../../userInterfaces/tee/ITeeOwnerAllowlist.sol";
 import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
 import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
-import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { AddressSet } from "../../utils/lib/AddressSet.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
