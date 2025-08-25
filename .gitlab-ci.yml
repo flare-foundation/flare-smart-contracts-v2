@@ -30,7 +30,6 @@ variables:
 ## SCANNERS
 ##
 
-
 include:
 - template: Jobs/SAST.latest.gitlab-ci.yml
 - template: Jobs/Dependency-Scanning.latest.gitlab-ci.yml
@@ -45,8 +44,6 @@ dependency_scanning:
 
 .secret-analyzer:
   needs: []
-
-
 
 
 scanner-slither:
@@ -73,8 +70,6 @@ scanner-slither:
 
 
 
-
-
 build-smart-contracts:
   stage: build
   needs: []
@@ -98,12 +93,10 @@ build-smart-contracts:
     - typechain-web3
     expire_in: 1 week
 
-#
-# UNIT TESTS
-#
 
-
-
+##
+## UNIT TESTS
+##
 
 .test-node-sc:
   image: node:18
@@ -176,9 +169,9 @@ test-unit-forge:
   script:
   - forge test -vvv
 
-#
-# COVERAGE
-#
+##
+## COVERAGE
+##
 
 coverage-hardhat:
   image: node:18

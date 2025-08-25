@@ -27,6 +27,7 @@ import { deployFdcContracts } from "./deployment/scripts/deploy-fdc-contracts";
 import { redeployRelay } from "./deployment/scripts/redeploy-relay";
 import { deployTeeContracts } from "./deployment/scripts/deploy-tee-contracts";
 import { redeployContractsTee } from "./deployment/scripts/redeploy-contracts-tee";
+import { checkAddressUpdater } from "./scripts/check-address-updater";
 import fs from "fs";
 import { HardhatNetworkAccountUserConfig } from "hardhat/types";
 // Importing standalone simple library to surpass warnings in mock contracts and in mock contract imports
@@ -391,6 +392,13 @@ task("deploy-tee", "Deploy TEE contracts")
     } else {
       throw Error("CHAIN_CONFIG environment variable not set.");
     }
+  });
+
+task("check-address-updater", "Check Address Updater")
+  .setAction(async (args, hre, runSuper) => {
+      const network = process.env.CHAIN_CONFIG!;
+      const contracts = readContracts(network);
+      await checkAddressUpdater(hre, contracts);
   });
 
 // verification constants

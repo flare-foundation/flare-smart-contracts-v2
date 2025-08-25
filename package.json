@@ -114,7 +114,12 @@
     "sim-node": "yarn hardhat node",
     "sim-run": "yarn hardhat run-simulation --network local",
     "sim-sign": "yarn hardhat run scripts/libs/mock/run-signer-emulators.ts --network local",
-    "sim-fin": "yarn hardhat run scripts/libs/mock/run-mock-finalizer.ts --network local"
+    "sim-fin": "yarn hardhat run scripts/libs/mock/run-mock-finalizer.ts --network local",
+     "---------ADDRESS-UPDATER-CHECK---SCRIPTS": "",
+    "check_address_updater_flare": "env CHAIN_CONFIG=flare yarn hardhat check-address-updater --network flare",
+    "check_address_updater_coston2": "env CHAIN_CONFIG=coston2 yarn hardhat check-address-updater --network coston2",
+    "check_address_updater_songbird": "env CHAIN_CONFIG=songbird yarn hardhat check-address-updater --network songbird",
+    "check_address_updater_coston": "env CHAIN_CONFIG=coston yarn hardhat check-address-updater --network coston"
   },
   "dependencies": {
     "@openzeppelin/contracts": "5.4.0",
