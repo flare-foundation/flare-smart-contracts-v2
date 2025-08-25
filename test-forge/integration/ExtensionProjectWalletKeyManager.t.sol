@@ -400,14 +400,20 @@ contract ExtensionProjectWalletKeyManagerTest is Test {
 
     function _getRandomPublicKey() internal returns (PublicKey memory) {
         // call external script to get random public key coordinates
-        string[] memory command = new string[](2);
-        command[0] = "node";
-        command[1] = "test-forge/utils/generate-key.js";
-        // command[0] = "bash";
-        // command[1] = "-c";
-        // command[2] = "cast wallet public-key --raw-private-key \"$(cast wallet new --json | jq -r 'if type==\"array\" then .[0].private_key else .private_key end')\"";
-
-        bytes memory result = vm.ffi(command);
+        string[] memory command1 = new string[](4);
+        string[] memory command2 = new string[](5);
+        command1[0] = "cast";
+        command1[1] = "wallet";
+        command1[2] = "new";
+        command1[3] = "--json";
+        bytes memory result = vm.ffi(command1);
+        string memory privateKey = vm.parseJsonString(string(result), "[0].private_key");
+        command2[0] = "cast";
+        command2[1] = "wallet";
+        command2[2] = "public-key";
+        command2[3] = "--raw-private-key";
+        command2[4] = privateKey;
+        result = vm.ffi(command2);
 
         // check if result is 64 bytes
         require(result.length == 64, "invalid output length");

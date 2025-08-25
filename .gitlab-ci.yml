@@ -160,7 +160,7 @@ test-unit-forge:
   extends: .test-node-sc
   timeout: 10 minutes
   tags: [ flarenetwork-lg ]
-  image: aljazflare/foundry-custom:latest
+  image: ghcr.io/foundry-rs/foundry:latest
   before_script:
   - forge soldeer install
   - forge install --no-git
@@ -216,7 +216,7 @@ coverage-forge-node_modules:
     - node_modules.sol
 
 coverage-forge:
-  image: aljazflare/foundry-custom:latest
+  image: ghcr.io/foundry-rs/foundry:latest
   needs:
   - job: coverage-forge-node_modules
     artifacts: true
