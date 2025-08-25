@@ -164,7 +164,6 @@ test-unit-forge:
   before_script:
   - forge soldeer install
   - forge install --no-git
-  - npm install elliptic --legacy-peer-deps
   - forge build
   script:
   - forge test -vvv
@@ -226,7 +225,6 @@ coverage-forge:
   - mv node_modules.sol node_modules
   - forge soldeer install
   - forge install --no-git
-  - npm install elliptic --legacy-peer-deps
   - forge build
   script:
   - FOUNDRY_PROFILE=coverage forge coverage --report summary --report lcov
