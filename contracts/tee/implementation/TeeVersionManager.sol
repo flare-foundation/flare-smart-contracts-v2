@@ -228,10 +228,6 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
             }
         }
 
-        if (teeUpgrade.upgradeSigned) {
-            return; // already signed
-        }
-
         // check if the upgrade is signed by the required number of signers
         uint64 sourceTeeGovernanceThreshold =
             teeGovernance.getTeeGovernanceThreshold(teeUpgrade.extensionId, sourceTeeGovernanceHash);
