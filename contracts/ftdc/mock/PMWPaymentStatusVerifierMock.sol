@@ -31,7 +31,6 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
     error InvalidSenderAddress();
     error TeeThresholdNotMet();
     error AmountTooLow();
-    error NoCosigners();
     error TeeThresholdZero();
 
     /**
@@ -152,7 +151,6 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
     )
         internal
     {
-        require(_cosigners.length > 0, NoCosigners());
         for (uint256 i = 0; i < _cosigners.length; i++) {
             require(_cosigners[i] != address(0), ITeeVerification.InvalidCosigner(_cosigners[i]));
         }
