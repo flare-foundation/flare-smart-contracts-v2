@@ -110,7 +110,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
 
         messageHash = _toCosignersMessageHash(messageHash);
         _checkTeeSignatures(messageHash, _proof.signatures.teeSignatures, teeThreshold);
-        _checkCosignerSignatures(messageHash, _proof.signatures.cosignerSignatures, header.cosignersThreshold);
+        _checkCosignerSignatures(messageHash, _proof.signatures.cosignerSignatures);
 
         require(responseBody.amount >= responseBody.receivedAmount, AmountTooLow());
 
@@ -201,16 +201,15 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
 
     function _checkCosignerSignatures(
         bytes32 _messageHash,
-        Signature[] calldata _signatures,
-        uint64 _cosignersThreshold
+        Signature[] calldata _signatures
     )
         internal view
     {
-        if (_cosignersThreshold == 0) {
+        if (cosignersThreshold == 0) {
             return; // no cosigners, nothing to check
         }
         address[] memory cosignersList = ftdcVerification.verifyCosignerSignatures(_signatures, _messageHash);
-        require(cosignersList.length >= _cosignersThreshold, ITeeVerification.CosignersThresholdNotMet());
+        require(cosignersList.length >= cosignersThreshold, ITeeVerification.CosignersThresholdNotMet());
         for (uint256 i = 0; i < cosignersList.length; i++) {
             require(cosigners.index[cosignersList[i]] != 0, ITeeVerification.InvalidCosigner(cosignersList[i]));
         }
