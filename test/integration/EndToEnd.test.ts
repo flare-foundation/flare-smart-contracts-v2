@@ -1,3 +1,5 @@
+import { globSync } from "glob";
+import { readFileSync } from "node:fs";
 import { constants, expectEvent, expectRevert, time } from '@openzeppelin/test-helpers';
 import { toChecksumAddress } from 'ethereumjs-util';
 import { Contracts } from '../../deployment/scripts/Contracts';
@@ -54,7 +56,6 @@ import { requiredEventArgsFrom } from '../utils/Web3EventDecoder';
 import { AddressUpdater, TeeInstructions } from '../../typechain';
 import { FtdcHubContract, FtdcHubInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcHub';
 import { FtdcRequestFeeConfigurationsContract, FtdcRequestFeeConfigurationsInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations';
-import { FtdcVerificationMockContract, FtdcVerificationMockInstance } from '../../typechain-truffle/contracts/ftdc/mock/FtdcVerificationMock';
 import { TeeVerificationContract, TeeVerificationInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeVerification';
 import { TeeVerificationProxyContract } from '../../typechain-truffle/contracts/tee/proxy/TeeVerificationProxy';
 import { ECDSASignature } from '../../scripts/libs/protocol/ECDSASignature';
@@ -67,6 +68,7 @@ import { TeeExtensionRegistryInstance } from '../../typechain-truffle/contracts/
 import { TeeReplicationContract, TeeReplicationInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeReplication';
 import { TeeReplicationProxyContract } from '../../typechain-truffle/contracts/tee/proxy/TeeReplicationProxy';
 import { AddressUpdaterContract, AddressUpdaterInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressUpdater';
+import { FtdcVerificationContract, FtdcVerificationInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const AddressUpdater: AddressUpdaterContract = artifacts.require("AddressUpdater");
@@ -127,7 +129,7 @@ const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePayment
 const TeePaymentsEVM: TeePaymentsEVMContract = artifacts.require("TeePaymentsEVM");
 const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
 const FtdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
-const FtdcVerification: FtdcVerificationMockContract = artifacts.require("FtdcVerificationMock");
+const FtdcVerification: FtdcVerificationContract = artifacts.require("FtdcVerification");
 
 type PChainStake = {
     txId: string,
@@ -161,7 +163,51 @@ function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {
     return SigningPolicy.hash(signingPolicy);
 }
 
+function getHash(type: any, parameter: any): string {
+    return web3.utils.keccak256(web3.eth.abi.encodeParameter(type, parameter));
+}
+
+function getFtdcMessage(headerHash: string, requestBodyHash: string, responseBodyHash: string): string {
+    return web3.utils.keccak256(web3.eth.abi.encodeParameters(
+        ["bytes32", "bytes32", "bytes32"],
+        [headerHash, requestBodyHash, responseBodyHash]
+    ));
+}
+
+function getStruct(contractName: string, functionName: string) {
+    const files = globSync(`artifacts/!(build-info)/**/structs/${contractName}.sol/${contractName}.json`);
+    if (files.length !== 1) {
+        throw new Error(`Expected one file for ${contractName}, found ${files.length}.`);
+    }
+    const contract = JSON.parse(readFileSync(files[0], "utf8"));
+    const struct = contract.abi.find((item: any) => item.type === "function" && item.name === functionName);
+    if (!struct) {
+        throw new Error(`Expected function ${functionName} in ${contractName} not found.`);
+    }
+    if (struct.inputs.length !== 1) {
+        throw new Error(`Expected function ${functionName} in ${contractName} to have exactly one input.`);
+    }
+    return struct.inputs[0];
+}
+
+
 contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
+
+    async function getNewSigningPolicySignatures(message: string): Promise<string> {
+        const messageData: IProtocolMessageMerkleRoot = { protocolId: 1, votingRoundId: 0, isSecureRandom: false, merkleRoot: message };
+        const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
+
+        const signatures = await generateSignatures(privateKeys.slice(30, 34).map(x => x.privateKey), messageHash, 4);
+
+        const relayMessage = {
+            signingPolicy: newSigningPolicy,
+            signatures,
+            protocolMessageMerkleRoot: messageData,
+        };
+
+        const fullData = RelayMessage.encode(relayMessage);
+        return RELAY_SELECTOR + fullData.slice(2);
+    }
 
     const FTSO_PROTOCOL_ID = 100;
     const REWARD_MANAGER_ID = 0;
@@ -239,7 +285,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     let teePaymentsEVM: TeePaymentsEVMInstance;
     let ftdcHub: FtdcHubInstance;
     let ftdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsInstance;
-    let ftdcVerification: FtdcVerificationMockInstance;
+    let ftdcVerification: FtdcVerificationInstance;
 
     let teeGovernanceSigners: string[] = [accounts[50], accounts[51], accounts[52], accounts[53], accounts[54], accounts[55]];
     let teeGovernanceSignersThreshold = 3;
@@ -1394,8 +1440,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     });
 
     it("Should put new TEE machines in production", async () => {
-        const governanceHash = await teeGovernance.getLatestTeeGovernanceHash(0);
         const rewardEpochId = 2;
+
         assert(TEE_URLS.length === challenges.length && TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
         for (let i = 0; i < TEE_URLS.length; i++) {
             const teeState = {
@@ -1406,7 +1452,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             };
             const proof = {
                 signatures: {
-                    signingPolicySignatures: "0x", // TODO
+                    signingPolicySignatures: "",
                     teeSignatures: [],
                     cosignerSignatures: [],
                 },
@@ -1434,6 +1480,14 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                     state: teeState
                 },
             }
+
+            // sign message
+            const headerHash = getHash(getStruct("FtdcStructs", "ftdcResponseHeaderStruct"), proof.header);
+            const requestBodyHash = getHash(getStruct("FtdcStructs", "availabilityCheckRequestBodyStruct"), proof.requestBody);
+            const responseBodyHash = getHash(getStruct("FtdcStructs", "availabilityCheckResponseBodyStruct"), proof.responseBody);
+            const message = getFtdcMessage(headerHash, requestBodyHash, responseBodyHash);
+            proof.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message);
+
             await time.increase(1);
             let tx = await teeMachineRegistry.toProduction(proof, { from: TEE_OWNERS[i] });
             expectEvent(tx, "TeeMachinePutIntoProduction", {
@@ -1585,10 +1639,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 }
             };
 
-            const msg = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-                [KeyExistanceStruct],
-                [proof]
-            ));
+            const msg = getHash(getStruct("TeeWalletStructs", "keyExistenceStruct"), proof);
             const signature = await ECDSASignature.signMessageHash(
                 msg,
                 privateKeys[20 + i%2].privateKey
@@ -1647,18 +1698,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 }
             };
 
-            const msg = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-                [KeyExistanceStruct],
-                [proof]
-            ));
-            console.log("msg", msg);
+            const msg = getHash(getStruct("TeeWalletStructs", "keyExistenceStruct"), proof);
             const signature = await ECDSASignature.signMessageHash(
                 msg,
                 privateKeys[20 + i%2].privateKey
             );
 
-            // mock
-            await ftdcVerification.setSigningTeeIds([TEE_IDS[i%2]]);
             await time.increase(1);
             tx = await teeWalletKeyManager.confirmKey(proof, signature, { from: TEE_WALLET_OWNERS[1] });
             expectEvent(tx, "WalletKeyConfirmed", {
@@ -1714,7 +1759,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
         const proof = {
             signatures: {
-                signingPolicySignatures: "0x", // TODO
+                signingPolicySignatures: "",
                 teeSignatures: [],
                 cosignerSignatures: [],
             },
@@ -1736,6 +1781,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 sequence: 2
             }
         }
+
+        // sign message
+        const headerHash = getHash(getStruct("FtdcStructs", "ftdcResponseHeaderStruct"), proof.header);
+        const requestBodyHash = getHash(getStruct("FtdcStructs", "pmwMultisigAccountConfiguredRequestBodyStruct"), proof.requestBody);
+        const responseBodyHash = getHash(getStruct("FtdcStructs", "pmwMultisigAccountConfiguredResponseBodyStruct"), proof.responseBody);
+        const message = getFtdcMessage(headerHash, requestBodyHash, responseBodyHash);
+        proof.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message);
 
         tx = await teePayments.setWalletAddressAndInitialNonce(WALLET1_ID, proof, { from: TEE_WALLET_OWNERS[0] });
         expectEvent(tx, "WalletAddressSet", {
@@ -1759,7 +1811,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
         const proof2 = {
             signatures: {
-                signingPolicySignatures: "0x", // TODO
+                signingPolicySignatures: "",
                 teeSignatures: [],
                 cosignerSignatures: [],
             },
@@ -1781,6 +1833,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 sequence: 1
             }
         };
+        // sign message
+        const headerHash2 = getHash(getStruct("FtdcStructs", "ftdcResponseHeaderStruct"), proof2.header);
+        const requestBodyHash2 = getHash(getStruct("FtdcStructs", "pmwMultisigAccountConfiguredRequestBodyStruct"), proof2.requestBody);
+        const responseBodyHash2 = getHash(getStruct("FtdcStructs", "pmwMultisigAccountConfiguredResponseBodyStruct"), proof2.responseBody);
+        const message2 = getFtdcMessage(headerHash2, requestBodyHash2, responseBodyHash2);
+        proof2.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message2);
 
         tx2 = await teePaymentsEVM.setWalletAddressAndInitialNonce(WALLET2_ID, proof2, { from: TEE_WALLET_OWNERS[1] });
         expectEvent(tx2, "WalletAddressSet", {
@@ -1829,127 +1887,3 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         expect(event2.opCommand).to.be.equal(web3.utils.utf8ToHex("REISSUE").padEnd(66, "0"));
     });
 });
-
-const KeyExistanceStruct = {
-    "components": [
-        {
-            "internalType": "address",
-            "name": "teeId",
-            "type": "address"
-        },
-        {
-            "internalType": "bytes32",
-            "name": "walletId",
-            "type": "bytes32"
-        },
-        {
-            "internalType": "uint64",
-            "name": "keyId",
-            "type": "uint64"
-        },
-        {
-            "internalType": "bytes32",
-            "name": "opType",
-            "type": "bytes32"
-        },
-        {
-            "internalType": "bytes",
-            "name": "publicKey",
-            "type": "bytes"
-        },
-        {
-            "internalType": "bytes",
-            "name": "proofOfPossession",
-            "type": "bytes"
-        },
-        {
-            "internalType": "uint256",
-            "name": "nonce",
-            "type": "uint256"
-        },
-        {
-            "internalType": "uint256",
-            "name": "pauseNonce",
-            "type": "uint256"
-        },
-        {
-            "internalType": "enum ITeeWalletKeyManager.TeeKeyStatus",
-            "name": "status",
-            "type": "uint8"
-        },
-        {
-            "internalType": "bool",
-            "name": "restored",
-            "type": "bool"
-        },
-        {
-            "internalType": "string",
-            "name": "addressStr",
-            "type": "string"
-        },
-        {
-            "components": [
-            {
-                "components": [
-                {
-                    "internalType": "bytes32",
-                    "name": "x",
-                    "type": "bytes32"
-                },
-                {
-                    "internalType": "bytes32",
-                    "name": "y",
-                    "type": "bytes32"
-                }
-                ],
-                "internalType": "struct PublicKey[]",
-                "name": "adminsPublicKeys",
-                "type": "tuple[]"
-            },
-            {
-                "internalType": "uint64",
-                "name": "adminsThreshold",
-                "type": "uint64"
-            },
-            {
-                "internalType": "address[]",
-                "name": "cosigners",
-                "type": "address[]"
-            },
-            {
-                "internalType": "uint64",
-                "name": "cosignersThreshold",
-                "type": "uint64"
-            },
-            {
-                "internalType": "bytes",
-                "name": "opTypeConstants",
-                "type": "bytes"
-            }
-            ],
-            "internalType": "struct ITeeWalletKeyManager.KeyConfigConstants",
-            "name": "configConstants",
-            "type": "tuple"
-        },
-        {
-            "components": [
-            {
-                "internalType": "address[]",
-                "name": "pausingAddresses",
-                "type": "address[]"
-            },
-            {
-                "internalType": "bytes",
-                "name": "opTypeSettings",
-                "type": "bytes"
-            }
-            ],
-            "internalType": "struct ITeeWalletKeyManager.KeyConfigSettings",
-            "name": "configSettings",
-            "type": "tuple"
-        }
-    ],
-    "internalType": "struct ITeeWalletKeyManager.KeyExistence",
-    "name": "_proof",
-    "type": "tuple"
-};
