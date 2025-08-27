@@ -1,4 +1,4 @@
-FROM node:18 AS deps
+FROM node:22 AS deps
 
 WORKDIR /app
 
@@ -6,7 +6,7 @@ COPY package.json yarn.lock /app
 
 RUN yarn --frozen-lockfile
 
-FROM node:18 AS builder
+FROM node:22 AS builder
 
 WORKDIR /app
 
