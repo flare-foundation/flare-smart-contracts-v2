@@ -59,7 +59,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
     bytes32 public constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
 
     bytes32 internal opType;
-    bytes32 internal sourceId;
+    bytes32 public sourceId;
     uint64 public maxBatchSize;
     uint64 public maxBatchDurationSeconds;
 
