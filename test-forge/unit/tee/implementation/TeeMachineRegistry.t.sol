@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeeMachineRegistry.sol";
-import "../../../../contracts/tee/proxy/TeeMachineRegistryProxy.sol";
+import { Test } from "forge-std/Test.sol";
+import { TeeMachineRegistry } from "../../../../contracts/tee/implementation/TeeMachineRegistry.sol";
+import { TeeMachineRegistryProxy } from "../../../../contracts/tee/proxy/TeeMachineRegistryProxy.sol";
+import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { IFtdcVerification } from "../../../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
 import { IFtdcHub } from "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
+import { ITeeVerification } from "../../../../contracts/userInterfaces/tee/ITeeVerification.sol";
+import { ITeeOwnerAllowlist } from "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlist.sol";
+import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
 contract TeeMachineRegistryTest is Test {

@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeePaymentsEVM.sol";
-import "../../../../contracts/tee/implementation/TeeInstructions.sol";
-import "../../../../contracts/tee/proxy/TeePaymentsProxy.sol";
+import { Test } from "forge-std/Test.sol";
+import { TeePaymentsEVM } from "../../../../contracts/tee/implementation/TeePaymentsEVM.sol";
+import { TeeInstructions } from "../../../../contracts/tee/implementation/TeeInstructions.sol";
+import { TeePaymentsProxy } from "../../../../contracts/tee/proxy/TeePaymentsProxy.sol";
+import { ITeePaymentsEVM } from "../../../../contracts/userInterfaces/tee/ITeePaymentsEVM.sol";
 import { ITeeWalletManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletManager.sol";
 import { ITeeWalletProjectManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManager.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 contract TeePaymentsEVMTest is Test {
 

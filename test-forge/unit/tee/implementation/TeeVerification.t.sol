@@ -1,11 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeeVerification.sol";
-import "../../../../contracts/tee/proxy/TeeVerificationProxy.sol";
-import "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
-import "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { Test } from "forge-std/Test.sol";
+import { TeeVerification } from "../../../../contracts/tee/implementation/TeeVerification.sol";
+import { TeeVerificationProxy } from "../../../../contracts/tee/proxy/TeeVerificationProxy.sol";
+import { IITeeSystemStateVerifier } from "../../../../contracts/tee/interface/IITeeSystemStateVerifier.sol";
+import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeWalletManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletManager.sol";
+import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
+import { ITeeVerification } from "../../../../contracts/userInterfaces/tee/ITeeVerification.sol";
+import { ITeeReplication } from "../../../../contracts/userInterfaces/tee/ITeeReplication.sol";
+import { ITeeWalletKeyManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
+import { ITeeWalletProjectManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManager.sol";
+import { IFtdcHub } from "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
+import { IFtdcVerification } from "../../../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
+import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import {
+    IPMWMultisigAccountConfigured,
+    PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE
+} from "../../../../contracts/userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { IGovernanceSettings} from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
 contract TeeVerificationTest is Test {
@@ -39,7 +56,7 @@ contract TeeVerificationTest is Test {
     bytes32 private walletId;
     string private walletAddress;
     uint64[] private keyIds;
-    IPMWMultisigAccountConfigured.Proof private PMWProof;
+    IPMWMultisigAccountConfigured.Proof private pmwProof;
     bytes32 private sourceId;
     uint64 private multisigThreshold;
     bytes private publicKey;
@@ -73,13 +90,13 @@ contract TeeVerificationTest is Test {
         proof.responseBody.platform = keccak256("platform");
         proof.responseBody.lastSigningPolicyId = uint32(rewardEpochId);
 
-        PMWProof.header.thresholdBIPS = 0;
-        PMWProof.header.attestationType = PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE;
-        PMWProof.header.sourceId = sourceId;
-        PMWProof.requestBody.publicKeys = new bytes[](1);
-        PMWProof.requestBody.publicKeys[0] = publicKey;
-        PMWProof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
-        PMWProof.requestBody.threshold = multisigThreshold;
+        pmwProof.header.thresholdBIPS = 0;
+        pmwProof.header.attestationType = PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE;
+        pmwProof.header.sourceId = sourceId;
+        pmwProof.requestBody.publicKeys = new bytes[](1);
+        pmwProof.requestBody.publicKeys[0] = publicKey;
+        pmwProof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
+        pmwProof.requestBody.threshold = multisigThreshold;
 
         walletId = keccak256("walletId");
         walletAddress = "walletAddress";
@@ -511,31 +528,31 @@ contract TeeVerificationTest is Test {
     // verifyPMWMultisigAccountConfiguredProof
     function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidAttestation() public {
         vm.expectRevert(ITeeVerification.InvalidAttestation.selector);
-        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, walletId, PMWProof);
+        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, walletId, pmwProof);
     }
 
 
     function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidRequestBody1() public {
-        PMWProof.requestBody.threshold = multisigThreshold + 1;
+        pmwProof.requestBody.threshold = multisigThreshold + 1;
         vm.expectRevert(ITeeVerification.InvalidRequestBody.selector);
-        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, sourceId, PMWProof);
+        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, sourceId, pmwProof);
     }
 
 
     function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidRequestBody2() public {
-        PMWProof.requestBody.publicKeys[0] = abi.encode("invalidPublicKey");
+        pmwProof.requestBody.publicKeys[0] = abi.encode("invalidPublicKey");
         vm.expectRevert(ITeeVerification.InvalidRequestBody.selector);
-        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, sourceId, PMWProof);
+        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, sourceId, pmwProof);
     }
 
 
     function testVerifyPMWMultisigAccountConfiguredProof() public {
         bool isVerified =
-            teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, sourceId, PMWProof);
+            teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, sourceId, pmwProof);
         assertEq(isVerified, true);
-        PMWProof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.ERROR;
+        pmwProof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.ERROR;
         isVerified =
-            teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, sourceId, PMWProof);
+            teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, sourceId, pmwProof);
         assertEq(isVerified, false);
     }
 

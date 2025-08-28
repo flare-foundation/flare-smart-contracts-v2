@@ -11,7 +11,7 @@ import { ITeeFeeCalculator } from "../../../../contracts/userInterfaces/tee/ITee
 import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { IFtdcHub } from "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
-import { IFtdcRequestFeeConfigurations } from 
+import { IFtdcRequestFeeConfigurations } from
     "../../../../contracts/userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
@@ -435,7 +435,7 @@ contract FtdcHubTest is Test {
     function _getTeeMachines(
         uint256 _num
     )
-        internal
+        internal view
         returns (ITeeMachineRegistry.TeeMachine[] memory _teeMachines)
     {
         _teeMachines = new ITeeMachineRegistry.TeeMachine[](_num);

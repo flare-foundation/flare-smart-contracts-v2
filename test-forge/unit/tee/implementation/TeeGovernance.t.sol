@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeeGovernance.sol";
-import "../../../../contracts/tee/proxy/TeeGovernanceProxy.sol";
-import "../../../../contracts/userInterfaces/tee/ITeeGovernance.sol";
+import { Test } from "forge-std/Test.sol";
+import { TeeGovernance } from "../../../../contracts/tee/implementation/TeeGovernance.sol";
+import { TeeGovernanceProxy } from "../../../../contracts/tee/proxy/TeeGovernanceProxy.sol";
+import { ITeeGovernance } from "../../../../contracts/userInterfaces/tee/ITeeGovernance.sol";
+import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract TeeGovernanceTest is Test {
 

@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeeRewardOffersManager.sol";
-import "../../../../contracts/protocol/implementation/RewardManager.sol";
+import { Test } from "forge-std/Test.sol";
+import { TeeRewardOffersManager } from "../../../../contracts/tee/implementation/TeeRewardOffersManager.sol";
+import { RewardManager } from "../../../../contracts/protocol/implementation/RewardManager.sol";
+import { ITeeRewardOffersManager } from "../../../../contracts/userInterfaces/tee/ITeeRewardOffersManager.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 contract TeeRewardOffersManagerTest is Test {
 

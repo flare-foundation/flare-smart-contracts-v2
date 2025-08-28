@@ -1,15 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeePayments.sol";
-import "../../../../contracts/tee/implementation/TeeInstructions.sol";
-import "../../../../contracts/tee/proxy/TeeInstructionsProxy.sol";
-import "../../../../contracts/tee/proxy/TeePaymentsProxy.sol";
-import "../../../../contracts/protocol/interface/IIRewardManager.sol";
-import "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
-import "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
+import { Test } from "forge-std/Test.sol";
+import { TeePayments } from "../../../../contracts/tee/implementation/TeePayments.sol";
+import { TeeInstructions } from "../../../../contracts/tee/implementation/TeeInstructions.sol";
+import { TeeInstructionsProxy } from "../../../../contracts/tee/proxy/TeeInstructionsProxy.sol";
+import { TeePaymentsProxy } from "../../../../contracts/tee/proxy/TeePaymentsProxy.sol";
+import { TeeExtensionRegistryProxy } from "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
+import { TeeExtensionRegistry } from "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
+import { ITeeWalletManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletManager.sol";
+import { ITeePayments } from "../../../../contracts/userInterfaces/tee/ITeePayments.sol";
+import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeWalletProjectManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManager.sol";
+import { ITeeFeeCalculator } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
+import { ITeeVerification } from "../../../../contracts/userInterfaces/tee/ITeeVerification.sol";
+import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeWalletKeyManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
+import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeIdKeyIdPair.sol";
+import {
+    IPMWMultisigAccountConfigured
+} from "../../../../contracts/userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 //solhint-disable-next-line max-states-count
 contract TeePaymentsTest is Test {
@@ -1642,7 +1655,13 @@ testPay3();
         );
     }
 
-    function _mockGetWalletCosignersAndThreshold(bytes32 _walletId, address[] memory _cosigners, uint64 _threshold) internal {
+    function _mockGetWalletCosignersAndThreshold(
+        bytes32 _walletId,
+        address[] memory _cosigners,
+        uint64 _threshold
+    )
+        internal
+    {
         vm.mockCall(
             mockTeeWalletManager,
             abi.encodeWithSelector(ITeeWalletManager.getWalletCosignersAndThreshold.selector, _walletId),
@@ -1650,7 +1669,12 @@ testPay3();
         );
     }
 
-    function _mockGetWalletAdminsAndThreshold(bytes32 _walletId, address[] memory _admins, uint64 _threshold) internal {
+    function _mockGetWalletAdminsAndThreshold(bytes32 _walletId,
+        address[] memory _admins,
+        uint64 _threshold
+    )
+        internal
+    {
         vm.mockCall(
             mockTeeWalletManager,
             abi.encodeWithSelector(ITeeWalletManager.getWalletAdminsAndThreshold.selector, _walletId),

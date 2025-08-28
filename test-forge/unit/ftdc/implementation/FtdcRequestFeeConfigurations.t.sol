@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/ftdc/implementation/FtdcRequestFeeConfigurations.sol";
+import { Test } from "forge-std/Test.sol";
+import {
+    FtdcRequestFeeConfigurations
+} from "../../../../contracts/ftdc/implementation/FtdcRequestFeeConfigurations.sol";
+import {
+    IFtdcRequestFeeConfigurations
+} from "../../../../contracts/userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 contract FtdcRequestFeeConfigurationsTest is Test {
 

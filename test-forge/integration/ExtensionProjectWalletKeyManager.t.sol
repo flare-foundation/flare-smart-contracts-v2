@@ -1,18 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../contracts/tee/implementation/TeeExtensionRegistry.sol";
-import "../../contracts/tee/implementation/TeeWalletProjectManager.sol";
-import "../../contracts/tee/implementation/TeeWalletKeyManager.sol";
-import "../../contracts/tee/implementation/TeeWalletManager.sol";
-import "../../contracts/tee/implementation/TeeWalletBackupManager.sol";
-import "../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
-import "../../contracts/tee/proxy/TeeWalletProjectManagerProxy.sol";
-import "../../contracts/tee/proxy/TeeWalletKeyManagerProxy.sol";
-import "../../contracts/tee/proxy/TeeWalletManagerProxy.sol";
-import "../../contracts/tee/proxy/TeeWalletBackupManagerProxy.sol";
-import "../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { Test } from "forge-std/Test.sol";
+import { TeeExtensionRegistry } from "../../contracts/tee/implementation/TeeExtensionRegistry.sol";
+import { TeeWalletProjectManager } from "../../contracts/tee/implementation/TeeWalletProjectManager.sol";
+import { TeeWalletKeyManager } from "../../contracts/tee/implementation/TeeWalletKeyManager.sol";
+import { TeeWalletManager } from "../../contracts/tee/implementation/TeeWalletManager.sol";
+import { TeeExtensionRegistryProxy } from "../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
+import { TeeWalletProjectManagerProxy } from "../../contracts/tee/proxy/TeeWalletProjectManagerProxy.sol";
+import { TeeWalletKeyManagerProxy } from "../../contracts/tee/proxy/TeeWalletKeyManagerProxy.sol";
+import { TeeWalletManagerProxy } from "../../contracts/tee/proxy/TeeWalletManagerProxy.sol";
+import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
+import {
+    ITeeWalletProjectOpTypeConstants
+} from "../../contracts/userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
+import { ITeeWalletKeyManager } from "../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
+import { ITeeWalletBackupManager } from "../../contracts/userInterfaces/tee/ITeeWalletBackupManager.sol";
+import { ITeeWalletManager } from "../../contracts/userInterfaces/tee/ITeeWalletManager.sol";
+import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
+import  { Signature } from "../../contracts/userInterfaces/ISignature.sol";
+import { ProtocolsV2Interface } from "../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { ITeeOwnerAllowlist } from "../../contracts/userInterfaces/tee/ITeeOwnerAllowlist.sol";
+import { ITeeMachineRegistry } from "../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeFeeCalculator } from "../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
+import { ITeeExtensionRegistry } from "../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardManager.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 // solhint-disable-next-line max-states-count
 contract ExtensionProjectWalletKeyManagerTest is Test {
@@ -407,12 +421,12 @@ contract ExtensionProjectWalletKeyManagerTest is Test {
         command1[2] = "new";
         command1[3] = "--json";
         bytes memory result = vm.ffi(command1);
-        string memory privateKey = vm.parseJsonString(string(result), "[0].private_key");
+        string memory prKey = vm.parseJsonString(string(result), "[0].private_key");
         command2[0] = "cast";
         command2[1] = "wallet";
         command2[2] = "public-key";
         command2[3] = "--raw-private-key";
-        command2[4] = privateKey;
+        command2[4] = prKey;
         result = vm.ffi(command2);
 
         // check if result is 64 bytes

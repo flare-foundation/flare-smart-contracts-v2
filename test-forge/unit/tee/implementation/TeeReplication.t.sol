@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeeReplication.sol";
-import "../../../../contracts/tee/proxy/TeeReplicationProxy.sol";
+import { Test } from "forge-std/Test.sol";
+import { TeeReplication } from "../../../../contracts/tee/implementation/TeeReplication.sol";
+import { TeeReplicationProxy } from "../../../../contracts/tee/proxy/TeeReplicationProxy.sol";
+import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeReplication } from "../../../../contracts/userInterfaces/tee/ITeeReplication.sol";
+import { ITeeVersionManager } from "../../../../contracts/userInterfaces/tee/ITeeVersionManager.sol";
+import { ITeeVerification } from "../../../../contracts/userInterfaces/tee/ITeeVerification.sol";
 import { IFtdcVerification } from "../../../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
 import { IFtdcHub } from "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
+import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { IITeeMachineRegistry } from "../../../../contracts/tee/interface/IITeeMachineRegistry.sol";
+import { IGovernanceSettings} from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
 contract TeeReplicationTest is Test {

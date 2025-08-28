@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeeOwnerAllowlist.sol";
-import "../../../../contracts/tee/proxy/TeeOwnerAllowlistProxy.sol";
-import "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlist.sol";
+import { Test } from "forge-std/Test.sol";
+import { TeeOwnerAllowlist } from "../../../../contracts/tee/implementation/TeeOwnerAllowlist.sol";
+import { TeeOwnerAllowlistProxy } from "../../../../contracts/tee/proxy/TeeOwnerAllowlistProxy.sol";
+import { ITeeOwnerAllowlist } from "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlist.sol";
+import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 contract TeeOwnerAllowlistTest is Test {
 

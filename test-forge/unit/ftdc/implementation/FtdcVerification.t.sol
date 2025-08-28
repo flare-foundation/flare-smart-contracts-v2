@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/ftdc/implementation/FtdcVerification.sol";
+import { Test } from "forge-std/Test.sol";
+import { FtdcVerification } from "../../../../contracts/ftdc/implementation/FtdcVerification.sol";
+import { IFtdcVerification } from "../../../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
+import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
+import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
+import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract FtdcVerificationTest is Test {
 
