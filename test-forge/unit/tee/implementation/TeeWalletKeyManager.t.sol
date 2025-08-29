@@ -1,14 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeeWalletKeyManager.sol";
-import "../../../../contracts/tee/proxy/TeeWalletKeyManagerProxy.sol";
-import {TeeExtensionRegistry} from "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
-import {TeeExtensionRegistryProxy} from "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
-import {ITeeFeeCalculator} from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
-import {IIRewardManager} from "../../../../contracts/protocol/interface/IIRewardManager.sol";
-import "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { Test } from "forge-std/Test.sol";
+import { TeeWalletKeyManager } from "../../../../contracts/tee/implementation/TeeWalletKeyManager.sol";
+import { TeeWalletKeyManagerProxy } from "../../../../contracts/tee/proxy/TeeWalletKeyManagerProxy.sol";
+import { TeeExtensionRegistry } from "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
+import { TeeExtensionRegistryProxy } from "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
+import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeWalletProjectManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManager.sol";
+import { ITeeWalletManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletManager.sol";
+import { ITeeWalletKeyManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
+import { ITeeFeeCalculator } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
+import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
+import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
+import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
+import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 
 // solhint-disable-next-line max-states-count

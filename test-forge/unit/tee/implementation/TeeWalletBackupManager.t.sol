@@ -1,13 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeeWalletBackupManager.sol";
-import "../../../../contracts/tee/proxy/TeeWalletBackupManagerProxy.sol";
-import "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
-import "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
-import "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
-import "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { Test } from "forge-std/Test.sol";
+import { TeeWalletBackupManager } from "../../../../contracts/tee/implementation/TeeWalletBackupManager.sol";
+import { TeeWalletBackupManagerProxy } from "../../../../contracts/tee/proxy/TeeWalletBackupManagerProxy.sol";
+import { TeeExtensionRegistry } from "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
+import { TeeExtensionRegistryProxy } from "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
+import { IITeeWalletKeyManager } from "../../../../contracts/tee/interface/IITeeWalletKeyManager.sol";
+import { ITeeWalletBackupManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletBackupManager.sol";
+import { ITeeWalletKeyManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
+import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeWalletProjectManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManager.sol";
+import { ITeeWalletManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletManager.sol";
+import { ITeeFeeCalculator } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
+import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 //solhint-disable-next-line max-states-count
 contract TeeWalletBackupManagerTest is Test {

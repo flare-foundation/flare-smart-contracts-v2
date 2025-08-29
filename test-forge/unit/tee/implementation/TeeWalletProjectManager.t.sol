@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/tee/implementation/TeeWalletProjectManager.sol";
-import "../../../../contracts/tee/proxy/TeeWalletProjectManagerProxy.sol";
+import { Test } from "forge-std/Test.sol";
+import { TeeWalletProjectManager } from "../../../../contracts/tee/implementation/TeeWalletProjectManager.sol";
+import { TeeWalletProjectManagerProxy } from "../../../../contracts/tee/proxy/TeeWalletProjectManagerProxy.sol";
+import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeWalletProjectManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManager.sol";
+import { ITeeWalletManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletManager.sol";
+import { ITeeOwnerAllowlist } from "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlist.sol";
+import {
+    ITeeWalletProjectOpTypeConstants
+} from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 contract TeeWalletProjectManagerTest is Test {
 
