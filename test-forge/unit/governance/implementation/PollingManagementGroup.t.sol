@@ -938,6 +938,19 @@ contract PollingManagementGroupTest is Test {
         vm.stopPrank();
     }
 
+    function testAddMemberRevertDelegationAddressNotSet() public {
+        vm.warp(7 * DAY_TO_SECONDS);
+        _mockChilledUntilRewardEpochId(voters[6], 0);
+        uint256 currentRewardEpoch = 10;
+        _mockGetCurrentRewardEpochId(currentRewardEpoch);
+        _mockGetVPBlock(currentRewardEpoch - 1, 123);
+        _mockGetDelegationAddress(voters[6], voters[6], 123);
+        _mockRewardManagerId();
+        vm.startPrank(voters[6]);
+        vm.expectRevert("delegation address not set");
+        pollingManagementGroup.addMember();
+    }
+
     // noOfWeightBasedClaims == 0
     function testAddMemberRevertNoRewards1() public {
         vm.warp(7 * DAY_TO_SECONDS);
@@ -1045,6 +1058,29 @@ contract PollingManagementGroupTest is Test {
             _mockGetVPBlock(epoch - 1, vpBlock);
             _mockGetDelegationAddress(voters[0], delegationAddress, vpBlock);
             _mockGetUnclaimedRewardState(delegationAddress, epoch - 1, false);
+            _mockNoOfWeightBasedClaims(epoch - 1, 0);
+            _mockRewardsHash(epoch - 1, bytes32("hash"));
+            epoch--;
+            vpBlock *= 2;
+        }
+        assertEq(pollingManagementGroup.isMember(voters[0]), true);
+        vm.expectEmit();
+        emit ManagementGroupMemberRemoved(voters[0]);
+        pollingManagementGroup.removeMember(voters[0]);
+        assertEq(pollingManagementGroup.isMember(voters[0]), false);
+    }
+
+    // didn't receive rewards in the last initialised reward epochs - delegation address updated
+    function testRemoveMemberDelegationAddressUpdated() public {
+        _mockChilledUntilRewardEpochId(voters[0], 0);
+        _mockRewardManagerId();
+        uint256 epoch = 11;
+        _mockGetCurrentRewardEpochId(epoch);
+        uint256 vpBlock = 123;
+        while (epoch > pollingManagementGroup.removeAfterNotRewardedEpochs()) {
+            _mockGetVPBlock(epoch - 1, vpBlock);
+            _mockGetDelegationAddress(voters[0], voters[0], vpBlock);
+            _mockGetUnclaimedRewardState(voters[0], epoch - 1, false);
             _mockNoOfWeightBasedClaims(epoch - 1, 0);
             _mockRewardsHash(epoch - 1, bytes32("hash"));
             epoch--;

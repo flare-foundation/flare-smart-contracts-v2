@@ -335,8 +335,10 @@ contract PollingManagementGroup is IIPollingManagementGroup, AddressUpdatable, G
         uint256 initialisedEpochs = 0;
         while (epoch > 0 && initialisedEpochs < addAfterRewardedEpochs) {
             epoch--;
+            address delegationAddress = _getDelegationAddress(voter, epoch);
+            require(delegationAddress != voter, "delegation address not set");
             // check if voter received rewards in the epoch and if it was initialised
-            (bool rewardsZero, bool initialised) = _rewardsZero(voter, epoch);
+            (bool rewardsZero, bool initialised) = _rewardsZero(delegationAddress, epoch);
             if (rewardsZero && initialised) {
                 // voter didn't receive rewards
                 revert("no rewards");
@@ -380,8 +382,10 @@ contract PollingManagementGroup is IIPollingManagementGroup, AddressUpdatable, G
                     removeVoter = false;
                     break;
                 }
+                address delegationAddress = _getDelegationAddress(_voter, epoch);
+                // no check that delegationAddress != _voter - if updated, we should still be able to remove a member
                 // check if voter received rewards in the epoch and if it was initialised
-                (bool rewardsZero, bool initialised) = _rewardsZero(_voter, epoch);
+                (bool rewardsZero, bool initialised) = _rewardsZero(delegationAddress, epoch);
                 if (!rewardsZero) { // initialised = true
                     // voter received rewards
                     removeVoter = false;
@@ -788,20 +792,18 @@ contract PollingManagementGroup is IIPollingManagementGroup, AddressUpdatable, G
     }
 
     /**
-     * Determines if rewards are zero for a given voter and reward epoch.
-     * @param _voter Address of a queried voter.
+     * Determines if rewards are zero for a given voter's delegation address and reward epoch.
+     * @param _delegationAddress Voter's delegation address.
      * @param _rewardEpochId Id of a queried reward epoch.
      * @return _zero False if rewards are not zero, true otherwise, even if rewards are not initialised.
      * @return _initialised True if rewards are initialised, false otherwise.
      */
-    function _rewardsZero(address _voter, uint24 _rewardEpochId)
+    function _rewardsZero(address _delegationAddress, uint24 _rewardEpochId)
         internal view
         returns (bool _zero, bool _initialised)
     {
-        uint256 votePowerBlock = flareSystemsManager.getVotePowerBlock(_rewardEpochId);
-        address delegationAddress = entityManager.getDelegationAddressOfAt(_voter, votePowerBlock);
         IRewardManager.UnclaimedRewardState memory rewardState = rewardManager.getUnclaimedRewardState(
-            delegationAddress, _rewardEpochId, RewardsV2Interface.ClaimType.WNAT);
+            _delegationAddress, _rewardEpochId, RewardsV2Interface.ClaimType.WNAT);
         if (rewardState.initialised) {
             return (false, true);
         } else {
@@ -817,4 +819,16 @@ contract PollingManagementGroup is IIPollingManagementGroup, AddressUpdatable, G
         }
     }
 
+    /**
+     * Returns delegation address of a voter for a given epoch.
+     * @param _voter Address of the voter.
+     * @param _epoch Epoch id.
+     * @return Delegation address of the voter for the given epoch.
+     */
+    function _getDelegationAddress(address _voter, uint24 _epoch)
+        internal view returns (address)
+    {
+        uint256 votePowerBlock = flareSystemsManager.getVotePowerBlock(_epoch);
+        return entityManager.getDelegationAddressOfAt(_voter, votePowerBlock);
+    }
 }
