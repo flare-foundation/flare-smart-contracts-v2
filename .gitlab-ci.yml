@@ -256,9 +256,9 @@ coverage-forge-reports:
   - pip3 install --break-system-packages lcov_cobertura 1>/dev/null
   script:
   - node scripts/forge-lcov-prune.js
-  - genhtml lcov.info.pruned --branch-coverage --output-dir coverage-forge
+  - genhtml lcov.info.pruned --branch-coverage --output-dir coverage-forge --ignore-errors inconsistent
   - lcov_cobertura lcov.info.pruned --output coverage-forge-cobertura.xml
-  - lcov --summary lcov.info.pruned --rc branch_coverage=1
+  - lcov --summary lcov.info.pruned --rc branch_coverage=1 --ignore-errors inconsistent
   coverage: '/  lines[\ .:]+\d+\.\d+%/' # https://regex101.com/r/KVj9Dr/1
   artifacts:
     expire_in: 30 days
