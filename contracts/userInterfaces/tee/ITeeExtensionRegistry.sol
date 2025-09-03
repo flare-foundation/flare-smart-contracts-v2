@@ -5,7 +5,6 @@ pragma solidity >=0.7.6 <0.9;
 import { ITeeExtensionStateVerifier } from "./ITeeExtensionStateVerifier.sol";
 import { ITeeWalletProjectOpTypeConstants } from "./ITeeWalletProjectOpTypeConstants.sol";
 import { ITeeMachineRegistry } from "./ITeeMachineRegistry.sol";
-import { ITeeAvailabilityCheck } from "../ftdc/ITeeAvailabilityCheck.sol";
 
 /**
  * TeeExtensionRegistry interface.
