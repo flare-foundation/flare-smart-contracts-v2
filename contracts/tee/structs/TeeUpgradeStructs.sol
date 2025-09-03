@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/tee/ITeeVersionManager.sol";
-import "../../userInterfaces/tee/ITeeReplication.sol";
+import { ITeeVersionManager } from "../../userInterfaces/tee/ITeeVersionManager.sol";
+import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
 
 
 interface TeeUpgradeStructs {

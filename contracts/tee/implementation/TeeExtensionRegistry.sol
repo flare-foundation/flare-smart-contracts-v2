@@ -145,6 +145,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
 
         // emit the event
         emit TeeInstructionsSent(
+            extensionId,
             _instructionId,
             currentRewardEpochId,
             teeMachines,
@@ -164,16 +165,17 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         ITeeExtensionStateVerifier _teeExtensionStateVerifier,
         address _teeExtensionInstructionsSender
     )
-        external payable
+        external
+        returns (uint256 _extensionId)
     {
         require(_teeExtensionInstructionsSender != address(0), InvalidInstructionsSender());
-        uint256 extensionId = extensionsCounter++;
-        TeeExtension storage newExtension = extensions[extensionId];
+        _extensionId = extensionsCounter++;
+        TeeExtension storage newExtension = extensions[_extensionId];
         newExtension.owner = msg.sender;
         newExtension.stateVerifier = _teeExtensionStateVerifier;
         newExtension.instructionsSender = _teeExtensionInstructionsSender;
-        emit TeeExtensionRegistered(extensionId, msg.sender);
-        emit TeeExtensionContractsSet(extensionId, _teeExtensionStateVerifier, _teeExtensionInstructionsSender);
+        emit TeeExtensionRegistered(_extensionId, msg.sender);
+        emit TeeExtensionContractsSet(_extensionId, _teeExtensionStateVerifier, _teeExtensionInstructionsSender);
     }
 
     /**

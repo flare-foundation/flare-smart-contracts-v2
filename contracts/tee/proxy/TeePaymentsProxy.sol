@@ -14,7 +14,7 @@ contract TeePaymentsProxy is ERC1967Proxy {
         uint64 _maxBatchSize,
         uint64 _maxBatchDurationSeconds,
         bytes32 _opType,
-        bytes32 _sourceId,
+        bytes32[] memory _supportedSourceIds,
         address _implementationAddress
     )
         ERC1967Proxy(_implementationAddress,
@@ -27,7 +27,7 @@ contract TeePaymentsProxy is ERC1967Proxy {
                     _maxBatchSize,
                     _maxBatchDurationSeconds,
                     _opType,
-                    _sourceId
+                    _supportedSourceIds
                 )
             )
         )

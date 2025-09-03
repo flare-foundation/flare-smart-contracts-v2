@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/ftdc/IFtdcHub.sol";
-import "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
-import "../../userInterfaces/ftdc/IPMWPaymentStatus.sol";
-import "../../userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
+import { IFtdcHub } from "../../userInterfaces/ftdc/IFtdcHub.sol";
+import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { IPMWPaymentStatus } from "../../userInterfaces/ftdc/IPMWPaymentStatus.sol";
+import { IPMWMultisigAccountConfigured } from "../../userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
 
 
 interface FtdcStructs {

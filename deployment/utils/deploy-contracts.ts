@@ -82,6 +82,7 @@ import {
   TEE_PAYMENT_CONFIGURATIONS,
   TEE_OPERATION_FEES,
   rewardEpochDurationSeconds,
+  FTDC_FEE_CONFIGURATIONS,
 } from "../tasks/run-simulation";
 import { getLogger } from "./logger";
 import { testDeployGovernanceSettings } from "./contract-helpers";
@@ -94,7 +95,6 @@ import { TeeInstructionsContract, TeeInstructionsInstance } from "../../typechai
 import { TeeRewardOffersManagerContract, TeeRewardOffersManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeRewardOffersManager";
 import { TeePaymentsContract, TeePaymentsInstance } from "../../typechain-truffle/contracts/tee/implementation/TeePayments";
 import { TeeWalletBackupManagerContract, TeeWalletBackupManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletBackupManager";
-import { TeePaymentsEVMContract, TeePaymentsEVMInstance } from "../../typechain-truffle/contracts/tee/implementation/TeePaymentsEVM";
 import { TeeWalletProjectManagerContract, TeeWalletProjectManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletProjectManager";
 import { TeeVersionManagerContract, TeeVersionManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeVersionManager";
 import { TeeGovernanceContract, TeeGovernanceInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeGovernance";
@@ -162,7 +162,7 @@ export interface DeployedContracts {
   readonly teeFeeCalculator: TeeFeeCalculatorInstance;
   readonly teeInstructions: TeeInstructionsInstance;
   readonly teeRewardOffersManager: TeeRewardOffersManagerInstance;
-  readonly teePayments: (TeePaymentsEVMInstance | TeePaymentsInstance)[];
+  readonly teePayments: TeePaymentsInstance[];
   readonly ftdcHub: FtdcHubInstance;
   readonly ftdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsInstance;
   readonly ftdcVerification: FtdcVerificationInstance;
@@ -249,7 +249,6 @@ export async function deployContracts(
   const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
   const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
   const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
-  const TeePaymentsEVM: TeePaymentsEVMContract = artifacts.require("TeePaymentsEVM");
   const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
   const FtdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
   const FtdcVerification: FtdcVerificationContract = artifacts.require("FtdcVerification");
@@ -679,10 +678,8 @@ export async function deployContracts(
   addressUpdatableContracts.push(teeInstructions.address);
 
   const teePaymentsList = [];
+  const teePaymentsImpl = await TeePayments.new();
   for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
-    const isEVM = teePaymentConfig.opType === "EVM";
-    const Contract = isEVM ? TeePaymentsEVM : TeePayments;
-    const teePaymentsImpl = await Contract.new();
     const teePaymentsProxy = await TeePaymentsProxy.new(
       governanceSettings.address,
       governanceAccount.address,
@@ -690,10 +687,10 @@ export async function deployContracts(
       teePaymentConfig.maxBatchSize,
       teePaymentConfig.maxBatchDurationSeconds,
       web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
-      web3.utils.utf8ToHex(teePaymentConfig.sourceId).padEnd(66, "0"),
+      teePaymentConfig.sourceIds.map(sourceId => web3.utils.utf8ToHex(sourceId).padEnd(66, "0")),
       teePaymentsImpl.address
     );
-    const teePayments = await Contract.at(teePaymentsProxy.address);
+    const teePayments = await TeePayments.at(teePaymentsProxy.address);
     teePaymentsList.push(teePayments);
     addressUpdatableContracts.push(teePayments.address);
   }
@@ -716,21 +713,7 @@ export async function deployContracts(
   addressUpdatableContracts.push(ftdcVerification.address);
 
   // Set the FTDC request fee configurations
-  const ftdcRequestFees = [
-    {
-      attestationType: "TeeAvailabilityCheck",
-      source: "TEE",
-    },
-    {
-      attestationType: "PMWPaymentStatus",
-      source: "XRP",
-    },
-    {
-      attestationType: "PMWMultisigAccountConfigured",
-      source: "XRP",
-    }
-  ];
-  for (const ftdcRequestFee of ftdcRequestFees) {
+  for (const ftdcRequestFee of FTDC_FEE_CONFIGURATIONS) {
     await ftdcRequestFeeConfigurations.setTypeAndSourceFee(
       web3.utils.utf8ToHex(ftdcRequestFee.attestationType).padEnd(66, "0"),
       web3.utils.utf8ToHex(ftdcRequestFee.source).padEnd(66, "0"),

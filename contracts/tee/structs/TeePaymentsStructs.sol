@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/tee/ITeePaymentsEVM.sol";
+import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
 
 
 interface TeePaymentsStructs {
+
+    function pmwMultisigAccountStruct(ITeePayments.PMWMultisigAccount calldata) external;
 
     function paymentInstructionStruct(ITeePayments.PaymentInstruction calldata) external;
 
@@ -12,5 +14,4 @@ interface TeePaymentsStructs {
 
     function setPaymentLimitsStruct(ITeePayments.SetPaymentLimits calldata) external;
 
-    function opTypeConstantsEVMStruct(ITeePaymentsEVM.OpTypeConstantsEVM calldata) external;
 }

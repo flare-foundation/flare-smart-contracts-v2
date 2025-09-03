@@ -225,6 +225,7 @@ contract TeeInstructionsTest is Test {
         vm.deal(sender, 1 ether);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
+            0,
             bytes32("instructionId"),
             currentRewardEpochId,
             teeMachines,

@@ -4,7 +4,7 @@ pragma solidity  ^0.8.27;
 import { IPMWPaymentStatus, PMW_PAYMENT_STATUS_ATTESTATION_TYPE }
     from "../../userInterfaces/ftdc/IPMWPaymentStatus.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
-import { TeePayments } from "../../tee/implementation/TeePayments.sol";
+import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
 import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
 import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
 import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
@@ -17,13 +17,6 @@ import { AddressSet } from "../../utils/lib/AddressSet.sol";
 
 contract PMWPaymentStatusVerifierMock is AddressUpdatable {
     using AddressSet for AddressSet.State;
-
-    struct WalletProjectTempState {
-        bytes32 walletId;
-        bytes32 projectId;
-        uint256 extensionId;
-        bytes32 opType;
-    }
 
     AddressSet.State private cosigners;
     uint64 private teeThreshold;
@@ -40,7 +33,6 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
 
-    error InvalidSenderAddress();
     error TeeThresholdNotMet();
     error AmountTooLow();
     error TeeThresholdZero();
@@ -48,6 +40,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
     /**
      * Constructor.
      * @param _cosigners Cosigners
+     * @param _cosignersThreshold Cosigners threshold
      * @param _teeThreshold Tee threshold
      * @param _addressUpdater The address of the AddressUpdater contract.
      */
@@ -69,34 +62,26 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         external
         returns (bool, uint256, uint256)
     {
-        IPMWPaymentStatus.RequestBody memory requestBody = _proof.requestBody;
+        IFtdcHub.FtdcResponseHeader calldata header = _proof.header;
+        IPMWPaymentStatus.RequestBody calldata requestBody = _proof.requestBody;
 
-        WalletProjectTempState memory tempState;
-        tempState.walletId = requestBody.walletId;
-        tempState.projectId = teeWalletManager.getWalletProjectId(tempState.walletId);
-        tempState.extensionId = teeWalletProjectManager.getExtensionId(tempState.projectId);
-        tempState.opType = teeWalletProjectManager.getOpType(tempState.projectId);
-        TeePayments teePayments =
-            TeePayments(address(teeExtensionRegistry.getWalletProjectOpTypeConstantsProvider(
-                tempState.extensionId, tempState.opType)));
+        ITeePayments teePayments = ITeePayments(
+            address(teeExtensionRegistry.getWalletProjectOpTypeConstantsProvider(0, requestBody.opType))
+        );
+        bytes32 walletId = teePayments.getWalletId(ITeePayments.PMWMultisigAccount({
+            sourceId: header.sourceId,
+            accountAddress: requestBody.senderAddress
+        }));
 
-        IFtdcHub.FtdcResponseHeader memory header = _proof.header;
-        bytes32 sourceId = teePayments.sourceId();
         require(
+            walletId != bytes32(0) &&
             header.thresholdBIPS == 0 &&
             header.attestationType == PMW_PAYMENT_STATUS_ATTESTATION_TYPE &&
-            header.sourceId == sourceId &&
             header.cosignersThreshold == cosignersThreshold,
             ITeeVerification.InvalidAttestation()
         );
 
-        IPMWPaymentStatus.ResponseBody memory responseBody = _proof.responseBody;
-
-        require(
-            keccak256(abi.encode(teePayments.getWalletAddress(tempState.walletId))) ==
-            keccak256(abi.encode(responseBody.senderAddress)),
-            InvalidSenderAddress()
-        );
+        IPMWPaymentStatus.ResponseBody calldata responseBody = _proof.responseBody;
 
         bytes32 messageHash = keccak256(
             abi.encode(
@@ -109,7 +94,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
 
         messageHash = _toCosignersMessageHash(messageHash);
-        _checkTeeSignatures(messageHash, _proof.signatures.teeSignatures, teeThreshold);
+        _checkTeeSignatures(messageHash, _proof.signatures.teeSignatures);
         _checkCosignerSignatures(messageHash, _proof.signatures.cosignerSignatures);
 
         require(responseBody.amount >= responseBody.receivedAmount, AmountTooLow());
@@ -217,13 +202,12 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
 
     function _checkTeeSignatures(
         bytes32 _messageHash,
-        Signature[] calldata _signatures,
-        uint64 _teeThreshold
+        Signature[] calldata _signatures
     )
         internal view
     {
         address[] memory teesList = ftdcVerification.verifyTeeSignatures(_signatures, _messageHash);
-        require(teesList.length >= _teeThreshold, TeeThresholdNotMet());
+        require(teesList.length >= teeThreshold, TeeThresholdNotMet());
     }
 
     function _toCosignersMessageHash(bytes32 _messageHash)

@@ -19,11 +19,6 @@ interface ITeeWalletProjectManager {
         address indexed backupManager
     );
 
-    event DefaultWalletSet(
-        bytes32 indexed projectId,
-        bytes32 indexed walletId
-    );
-
     event NewOwnerProposed(
         bytes32 indexed projectId,
         address indexed newOwner
@@ -67,15 +62,6 @@ interface ITeeWalletProjectManager {
      * Can only be called by the project owner.
      */
     function setBackupManager(bytes32 _projectId, address _backupManager) external;
-
-    /**
-     * Sets the default wallet for the project.
-     * Emits DefaultWalletSet event.
-     * @param _projectId The project id.
-     * @param _walletId The wallet id.
-     * Can only be called by the project owner.
-     */
-    function setDefaultWallet(bytes32 _projectId, bytes32 _walletId) external;
 
     /**
      * Proposes a new owner for the project - has to be on the allowlist.
@@ -129,17 +115,6 @@ interface ITeeWalletProjectManager {
      * @return _backupManager The backup manager address.
      */
     function getBackupManager(bytes32 _projectId) external view returns (address _backupManager);
-
-    /**
-     * Returns the default wallet info.
-     * @param _projectId The project id.
-     * @return _walletId The wallet id.
-     * @return _opType The operation type.
-     * @return _submitAddress The submit address.
-     */
-    function getDefaultWalletInfo(bytes32 _projectId)
-        external view
-        returns (bytes32 _walletId, bytes32 _opType, address _submitAddress);
 
     /**
      * Returns the required operation type constants.

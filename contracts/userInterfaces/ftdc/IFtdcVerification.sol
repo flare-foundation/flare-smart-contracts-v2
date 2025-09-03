@@ -21,6 +21,7 @@ interface IFtdcVerification {
     }
 
     error TeeMachineNotAvailable();
+    error InvalidTeeMachineExtensionId();
     error DuplicatedTeeId(address teeId);
     error DuplicatedCosigner(address cosigner);
 

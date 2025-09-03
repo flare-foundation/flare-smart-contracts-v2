@@ -355,6 +355,7 @@ contract TeeWalletKeyManagerTest is Test {
         emit ITeeWalletKeyManager.WalletKeyAdded(teeId, walletId, 0);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
+            extensionId,
             instructionId,
             currentRewardEpochId,
             teeMachines,

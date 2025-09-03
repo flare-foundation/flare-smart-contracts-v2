@@ -322,16 +322,19 @@
                     "description": "Payment operation type - XRP, BTC, DOGE,...",
                     "type": "string"
                 },
-                "sourceId": {
-                    "description": "Source id.",
-                    "type": "string"
+                "sourceIds": {
+                    "description": "Source ids.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
                 }
             },
             "required": [
                 "maxBatchDurationSeconds",
                 "maxBatchSize",
                 "opType",
-                "sourceId"
+                "sourceIds"
             ],
             "type": "object"
         }

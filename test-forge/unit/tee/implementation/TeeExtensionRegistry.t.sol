@@ -246,6 +246,7 @@ contract TeeExtensionRegistryTest is Test {
         cosigners[0] = makeAddr("cosigner1");
         cosigners[1] = makeAddr("cosigner2");
         emit ITeeExtensionRegistry.TeeInstructionsSent(
+            extensionId,
             instructionId,
             currentRewardEpochId,
             teeMachines,

@@ -254,6 +254,7 @@ contract FtdcHubTest is Test {
         });
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
+            0,
             instructionId,
             123,
             _getTeeMachines(2),
@@ -299,6 +300,7 @@ contract FtdcHubTest is Test {
         });
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
+            0,
             instructionId,
             123,
             _getTeeMachines(1),
@@ -344,6 +346,7 @@ contract FtdcHubTest is Test {
         });
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
+            0,
             instructionId,
             123,
             _getTeeMachines(2),

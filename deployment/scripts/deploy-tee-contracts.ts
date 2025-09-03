@@ -18,7 +18,6 @@ import { TeeMachineRegistryProxyContract } from "../../typechain-truffle/contrac
 import { TeeOwnerAllowlistContract } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlist";
 import { TeeOwnerAllowlistProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeOwnerAllowlistProxy";
 import { TeePaymentsContract } from "../../typechain-truffle/contracts/tee/implementation/TeePayments";
-import { TeePaymentsEVMContract } from "../../typechain-truffle/contracts/tee/implementation/TeePaymentsEVM";
 import { TeePaymentsProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeePaymentsProxy";
 import { TeeReplicationContract } from "../../typechain-truffle/contracts/tee/implementation/TeeReplication";
 import { TeeReplicationProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeReplicationProxy";
@@ -70,7 +69,6 @@ export async function deployTeeContracts(
   const TeeOwnerAllowlistProxy: TeeOwnerAllowlistProxyContract = artifacts.require("TeeOwnerAllowlistProxy");
   const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
   const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
-  const TeePaymentsEVM: TeePaymentsEVMContract = artifacts.require("TeePaymentsEVM");
   const TeeReplication: TeeReplicationContract = artifacts.require("TeeReplication");
   const TeeReplicationProxy: TeeReplicationProxyContract = artifacts.require("TeeReplicationProxy");
   const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
@@ -200,13 +198,11 @@ export async function deployTeeContracts(
   const teeOwnerAllowlist = await TeeOwnerAllowlist.at(teeOwnerAllowlistProxy.address);
   spewNewContractInfo(contracts, null, TeeOwnerAllowlist.contractName, `TeeOwnerAllowlistProxy.sol`, teeOwnerAllowlistProxy.address, quiet);
 
-  // TeePayments, TeePaymentsEVM
+  // TeePayments
   const teePaymentsList = [];
+  const teePaymentsImpl = await TeePayments.new();
+  spewNewContractInfo(contracts, null, "TeePaymentsImplementation", `TeePayments.sol`, teePaymentsImpl.address, quiet);
   for (const teePaymentConfig of parameters.teePaymentConfigurations) {
-    const isEVM = teePaymentConfig.opType === "F_EVM";
-    const Contract = isEVM ? TeePaymentsEVM : TeePayments;
-    const teePaymentsImpl = await Contract.new();
-    spewNewContractInfo(contracts, null, Contract.contractName + "_" + teePaymentConfig.opType + "Implementation", `TeePayments${isEVM ? "EVM" : ""}.sol`, teePaymentsImpl.address, quiet);
     const teePaymentsProxy = await TeePaymentsProxy.new(
       governanceSettings,
       deployerAccount.address,
@@ -214,12 +210,12 @@ export async function deployTeeContracts(
       teePaymentConfig.maxBatchSize,
       teePaymentConfig.maxBatchDurationSeconds,
       web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
-      web3.utils.utf8ToHex(teePaymentConfig.sourceId).padEnd(66, "0"),
+      teePaymentConfig.sourceIds.map(sourceId => web3.utils.utf8ToHex(sourceId).padEnd(66, "0")),
       teePaymentsImpl.address
     );
-    const teePayments = await Contract.at(teePaymentsProxy.address);
+    const teePayments = await TeePayments.at(teePaymentsProxy.address);
     teePaymentsList.push(teePayments);
-    spewNewContractInfo(contracts, null, Contract.contractName + "_" + teePaymentConfig.opType, `TeePayments${isEVM ? "EVM" : ""}Proxy.sol`, teePaymentsProxy.address, quiet);
+    spewNewContractInfo(contracts, null, "TeePayments_" + teePaymentConfig.opType, `TeePaymentsProxy.sol`, teePaymentsProxy.address, quiet);
   }
 
   // TeeReplication

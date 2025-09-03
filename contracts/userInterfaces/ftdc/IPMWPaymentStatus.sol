@@ -20,20 +20,22 @@ interface IPMWPaymentStatus {
 
     /**
      * Request body for PMWPaymentStatus attestation type
-     * @param walletId Wallet ID for which the payment status is requested.
+     * @param opType Operation type.
+     * @param senderAddress Sender address.
      * @param nonce Nonce of the payment instruction (batch).
      * @param subNonce Sub-nonce of the payment instruction.
      */
     struct RequestBody {
-        bytes32 walletId;
+        bytes32 opType;
+        string senderAddress;
         uint64 nonce;
         uint64 subNonce;
     }
 
     /**
      * Response body for PMWPaymentStatus attestation type
-     * @param senderAddress Sender address.
      * @param recipientAddress Recipient address.
+     * @param tokenId Token ID (e.g. address) for the payment, bytes32(0) means native token.
      * @param amount Amount in minimal units that should be send.
      * @param fee Fee in minimal units that should be paid for the transaction.
      * @param paymentInstruction Payment instruction message as emitted on-chain.
@@ -48,8 +50,8 @@ interface IPMWPaymentStatus {
      * @param blockTimestamp The timestamp of the block in which the transaction is included.
      */
     struct ResponseBody {
-        string senderAddress;
         string recipientAddress;
+        bytes32 tokenId;
         uint256 amount;
         uint256 fee;
         bytes32 paymentReference;

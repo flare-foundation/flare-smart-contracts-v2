@@ -174,50 +174,6 @@ contract TeeWalletProjectManagerTest is Test {
         teeWalletProjectManager.setBackupManager(projectId, backupManager);
     }
 
-    function testSetDefaultWallet() public {
-        testCreateProject();
-        bytes32 projectId = keccak256(abi.encode("PROJECT", projectOwner1, 1));
-        _mockGetWalletProjectId(defaultWalletId, projectId);
-        _mockGetWalletStatus(defaultWalletId, ITeeWalletManager.WalletStatus.PRODUCTION);
-        vm.prank(projectOwner1);
-        vm.expectEmit();
-        emit ITeeWalletProjectManager.DefaultWalletSet(projectId, defaultWalletId);
-        teeWalletProjectManager.setDefaultWallet(projectId, defaultWalletId);
-    }
-
-    // wallet not part of the project
-    function testSetDefaultWalletRevert1() public {
-        testCreateProject();
-        bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
-        bytes32 projectId2 = keccak256(abi.encode("PROJECT", projectOwner2, 2));
-        _mockGetWalletProjectId(defaultWalletId, projectId2);
-        _mockGetWalletStatus(defaultWalletId, ITeeWalletManager.WalletStatus.PRODUCTION);
-        vm.prank(projectOwner1);
-        vm.expectRevert(ITeeWalletProjectManager.WalletNotPartOfProject.selector);
-        teeWalletProjectManager.setDefaultWallet(projectId1, defaultWalletId);
-    }
-
-    // wallet not in production
-    function testSetDefaultWalletRevert2() public {
-        testCreateProject();
-        bytes32 projectId = keccak256(abi.encode("PROJECT", projectOwner1, 1));
-        _mockGetWalletProjectId(defaultWalletId, projectId);
-        _mockGetWalletStatus(defaultWalletId, ITeeWalletManager.WalletStatus.PAUSED);
-        vm.prank(projectOwner1);
-        vm.expectRevert(ITeeWalletProjectManager.WalletNotProductionReady.selector);
-        teeWalletProjectManager.setDefaultWallet(projectId, defaultWalletId);
-    }
-
-    function testGetDefaultWalletInfo() public {
-        testSetDefaultWallet();
-        bytes32 projectId = keccak256(abi.encode("PROJECT", projectOwner1, 1));
-        (bytes32 walletId, bytes32 opType, address submitAddress) =
-            teeWalletProjectManager.getDefaultWalletInfo(projectId);
-        assertEq(walletId, keccak256(abi.encode("defaultWalletId")));
-        assertEq(opType, opType1);
-        assertEq(submitAddress, submitAddress1);
-    }
-
     function testProposeNewOwner() public {
         testCreateProject();
         bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));

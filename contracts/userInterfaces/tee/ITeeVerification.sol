@@ -53,7 +53,7 @@ interface ITeeVerification {
     error AvailabilityCheckValidityExpired(uint32 lastSigningPolicyId);
     error CosignersThresholdNotMet();
     error InvalidDuration();
-    error WalletAddressZero();
+    error AccountAddressZero();
     error OnlyProductionOrPausedStatus();
 
     /**
@@ -102,13 +102,13 @@ interface ITeeVerification {
      * Request PMW multisig account configured attestation.
      * @param _walletId The wallet id.
      * @param _sourceId The source id (e.g., XRP, BTC).
-     * @param _walletAddress The address of the multisig wallet.
+     * @param _accountAddress The address of the multisig account.
      * @param _testOnTeeId The TEE machine id to test on.
      */
     function requestPMWMultisigAccountConfiguredAttestation(
         bytes32 _walletId,
         bytes32 _sourceId,
-        string calldata _walletAddress,
+        string calldata _accountAddress,
         address _testOnTeeId
     )
         external payable;
@@ -116,13 +116,11 @@ interface ITeeVerification {
     /**
      * Validate the PMW multisig account configured proof.
      * @param _walletId The wallet id.
-     * @param _sourceId The source id (e.g., XRP, BTC).
      * @param _proof The PMW multisig account configured proof.
      * @return _responseDataValid True if the response data is valid, false otherwise.
      */
     function verifyPMWMultisigAccountConfiguredProof(
         bytes32 _walletId,
-        bytes32 _sourceId,
         IPMWMultisigAccountConfigured.Proof calldata _proof
     )
         external

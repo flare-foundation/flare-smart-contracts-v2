@@ -385,6 +385,7 @@ contract TeeWalletBackupManagerTest is Test {
         vm.deal(owner, 10 ether);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
+            extensionId,
             instructionId,
             ProtocolsV2Interface(flareSystemsManager).getCurrentRewardEpochId(),
             teeMachines,

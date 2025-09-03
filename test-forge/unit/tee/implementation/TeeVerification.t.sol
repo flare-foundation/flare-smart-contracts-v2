@@ -506,9 +506,9 @@ contract TeeVerificationTest is Test {
 
 
     // requestPMWMultisigAccountConfiguredAttestation
-    function testRequestPMWMultisigAccountConfiguredAttestationRevertWalletAddressZero() public {
+    function testRequestPMWMultisigAccountConfiguredAttestationRevertAccountAddressZero() public {
         walletAddress = "";
-        vm.expectRevert(ITeeVerification.WalletAddressZero.selector);
+        vm.expectRevert(ITeeVerification.AccountAddressZero.selector);
         teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId);
     }
 
@@ -527,32 +527,40 @@ contract TeeVerificationTest is Test {
 
     // verifyPMWMultisigAccountConfiguredProof
     function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidAttestation() public {
+        pmwProof.header.thresholdBIPS = 1;
         vm.expectRevert(ITeeVerification.InvalidAttestation.selector);
-        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, walletId, pmwProof);
+        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
+    }
+
+
+    function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidAttestation2() public {
+        pmwProof.header.attestationType = bytes32("invalidAttestationType");
+        vm.expectRevert(ITeeVerification.InvalidAttestation.selector);
+        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
     }
 
 
     function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidRequestBody1() public {
         pmwProof.requestBody.threshold = multisigThreshold + 1;
         vm.expectRevert(ITeeVerification.InvalidRequestBody.selector);
-        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, sourceId, pmwProof);
+        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
     }
 
 
     function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidRequestBody2() public {
         pmwProof.requestBody.publicKeys[0] = abi.encode("invalidPublicKey");
         vm.expectRevert(ITeeVerification.InvalidRequestBody.selector);
-        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, sourceId, pmwProof);
+        teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
     }
 
 
     function testVerifyPMWMultisigAccountConfiguredProof() public {
         bool isVerified =
-            teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, sourceId, pmwProof);
+            teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
         assertEq(isVerified, true);
         pmwProof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.ERROR;
         isVerified =
-            teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, sourceId, pmwProof);
+            teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
         assertEq(isVerified, false);
     }
 

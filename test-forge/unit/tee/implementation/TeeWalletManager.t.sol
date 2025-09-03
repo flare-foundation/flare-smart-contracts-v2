@@ -537,6 +537,7 @@ contract TeeWalletManagerTest is Test {
         vm.prank(projectOwner);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
+            0,
             instructionId,
             10,
             receivingTees,
@@ -611,6 +612,7 @@ contract TeeWalletManagerTest is Test {
         vm.prank(projectOwner);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
+            0,
             instructionId,
             10,
             teeMachines,

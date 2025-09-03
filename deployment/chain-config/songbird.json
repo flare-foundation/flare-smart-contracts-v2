@@ -401,16 +401,26 @@
         {"opType": "F_FTDC", "opCommand": "PROVE", "feeWei": "1"}
     ],
     "teePaymentConfigurations": [
-        {"opType": "F_XRP", "sourceId": "XRP", "maxBatchSize": 1, "maxBatchDurationSeconds": 0},
-        {"opType": "F_BTC", "sourceId": "BTC", "maxBatchSize": 10, "maxBatchDurationSeconds": 600},
-        {"opType": "F_DOGE", "sourceId": "DOGE", "maxBatchSize": 10, "maxBatchDurationSeconds": 60},
-        {"opType": "F_EVM", "sourceId": "EVM", "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
+        {"opType": "F_XRP", "sourceIds": ["XRP"], "maxBatchSize": 1, "maxBatchDurationSeconds": 0},
+        {"opType": "F_BTC", "sourceIds": ["BTC"], "maxBatchSize": 10, "maxBatchDurationSeconds": 600},
+        {"opType": "F_DOGE", "sourceIds": ["DOGE"], "maxBatchSize": 10, "maxBatchDurationSeconds": 60},
+        {"opType": "F_EVM", "sourceIds": ["ETH", "FLR", "SGB"], "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
     ],
     "ftdcMinThresholdBIPS": 3000,
     "ftdcDefaultNumberOfTees": 2,
     "ftdcRequestFees": [
         {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "feeWei": "1000000000000000000"},
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "XRP", "feeWei": "1000000000000000000"},
         {"attestationType": "PMWPaymentStatus", "source": "XRP", "feeWei": "1000000000000000000"},
-        {"attestationType": "PMWMultisigAccountConfigured", "source": "XRP", "feeWei": "1000000000000000000"}
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "BTC", "feeWei": "1000000000000000000"},
+        {"attestationType": "PMWPaymentStatus", "source": "BTC", "feeWei": "1000000000000000000"},
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "DOGE", "feeWei": "1000000000000000000"},
+        {"attestationType": "PMWPaymentStatus", "source": "DOGE", "feeWei": "1000000000000000000"},
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "ETH", "feeWei": "1000000000000000000"},
+        {"attestationType": "PMWPaymentStatus", "source": "ETH", "feeWei": "1000000000000000000"},
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "FLR", "feeWei": "1000000000000000000"},
+        {"attestationType": "PMWPaymentStatus", "source": "FLR", "feeWei": "1000000000000000000"},
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "SGB", "feeWei": "1000000000000000000"},
+        {"attestationType": "PMWPaymentStatus", "source": "SGB", "feeWei": "1000000000000000000"}
     ]
 }

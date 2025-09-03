@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
-import "../../userInterfaces/tee/ITeeWalletBackupManager.sol";
-import "../../userInterfaces/tee/ITeeWalletManager.sol";
+import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
+import { ITeeWalletBackupManager } from "../../userInterfaces/tee/ITeeWalletBackupManager.sol";
+import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
 
 
 interface TeeWalletStructs {

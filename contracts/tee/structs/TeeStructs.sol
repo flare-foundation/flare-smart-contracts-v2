@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/IPublicKey.sol";
-import "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
+import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
 
 interface TeeStructs {
 

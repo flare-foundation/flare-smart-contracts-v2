@@ -9,9 +9,15 @@ import { IPMWMultisigAccountConfigured } from "../ftdc/IPMWMultisigAccountConfig
  */
 interface ITeePayments {
 
+    struct PMWMultisigAccount {
+        bytes32 sourceId;
+        string accountAddress;
+    }
+
     /// Payment instruction structure
     struct PaymentInstruction {
         string recipientAddress;
+        bytes32 tokenId;
         uint256 amount;
         uint256 fee;
         bytes32 paymentReference;
@@ -20,8 +26,10 @@ interface ITeePayments {
     struct PaymentInstructionMessage {
         bytes32 walletId;
         TeeIdKeyIdPair[] teeIdKeyIdPairs;
+        bytes32 sourceId;
         string senderAddress;
         string recipientAddress;
+        bytes32 tokenId;
         uint256 amount;
         uint256 fee;
         bytes32 paymentReference;
@@ -32,6 +40,8 @@ interface ITeePayments {
 
     struct SetPaymentLimits {
         bytes32 walletId;
+        bytes32 sourceId;
+        string accountAddress;
         uint256 nonce;
         TeeIdKeyIdPair[] teeIdKeyIdPairs;
         uint256 transactionLimit;
@@ -40,32 +50,27 @@ interface ITeePayments {
 
     event BatchSettingsSet(
         bytes32 indexed walletId,
+        bytes32 sourceId,
+        string accountAddress,
         uint64 batchSize,
         uint64 batchDurationSeconds
     );
 
-    event MinFeeSet(
+    event PMWMultisigAccountAdded(
         bytes32 indexed walletId,
-        uint128 minFee
-    );
-
-    event WalletAddressSet(
-        bytes32 indexed walletId,
-        string walletAddress,
+        bytes32 sourceId,
+        string accountAddress,
         uint64 initialNonce
     );
 
     error OnlyWalletOwner();
     error MaxBatchSizeZero();
     error OpTypeZero();
-    error SourceIdZero();
+    error SupportedSourceIdsLengthZero();
+    error SourceIdZero(uint256 index);
     error OnlySubmitAddress();
     error WrongOpType();
-    error WrongProjectId();
-    error DefaultWalletNotSet();
     error WalletNotInProduction();
-    error WalletAddressNotSet();
-    error FeeBelowMinFee();
     error NoPaymentInstructions();
     error LengthsMismatch();
     error BatchNotYetEnded();
@@ -73,26 +78,24 @@ interface ITeePayments {
     error BatchSizeZero();
     error BatchSizeTooLarge();
     error BatchDurationTooLarge();
-    error MinFeeZero();
-    error WalletAddressAlreadySet();
+    error PMWMultisigAccountAddressAlreadySet();
     error OnlyProductionOrPausedStatus();
     error MinFeeNotSet();
     error DailyLimitBelowTransactionLimit();
-    error WalletAddressZero();
+    error AccountAddressZero();
+    error UnsupportedSourceId();
     error InvalidProof();
 
     /**
      * Payment instruction method.
-     * @param _projectId The project id.
-     * @param _walletId The wallet id.
+     * @param _account The PMW multisig account.
      * @param _paymentInstruction The payment instruction.
      * @return _nonce The batch nonce of the payment instruction.
      * @return _subNonce The sequence number of the payment instruction.
      * Can only be called by the submit address of the project.
      */
     function pay(
-        bytes32 _projectId,
-        bytes32 _walletId,
+        PMWMultisigAccount calldata _account,
         PaymentInstruction calldata _paymentInstruction
     )
         external payable
@@ -100,7 +103,7 @@ interface ITeePayments {
 
     /**
      * Payment reissuance method.
-     * @param _walletId The wallet id.
+     * @param _account The PMW multisig account.
      * @param _nonce Batch nonce of the payment instructions to be reissued.
      * @param _firstSubNonce SubNonce of the first payment instruction in the batch.
      * @param _paymentInstructions List of the payment instructions.
@@ -109,7 +112,7 @@ interface ITeePayments {
      * Can only be called by the submit address of the project.
      */
     function reissue(
-        bytes32 _walletId,
+        PMWMultisigAccount calldata _account,
         uint64 _nonce,
         uint64 _firstSubNonce,
         PaymentInstruction[] calldata _paymentInstructions,
@@ -119,41 +122,28 @@ interface ITeePayments {
         external payable;
 
     /**
-     * Method for setting the wallet address and initial nonce.
-     * Emits WalletAddressSet event.
+     * Method for adding the PMW multisig account to the wallet.
+     * Emits PMWMultisigAccountAdded event.
      * @param _walletId The wallet id.
      * @param _proof The PMW multisig account configured proof.
      * Can only be called by the wallet owner.
      */
-    function setWalletAddressAndInitialNonce(
+    function addPMWMultisigAccount(
         bytes32 _walletId,
         IPMWMultisigAccountConfigured.Proof calldata _proof
     )
         external;
 
     /**
-    * Method for setting the minimum fee.
-    * Emits MinFeeSet event.
-    * @param _walletId The wallet id.
-    * @param _minFee The minimum fee.
-    * Can only be called by the wallet owner.
-    */
-    function setMinFee(
-        bytes32 _walletId,
-        uint128 _minFee
-    )
-        external;
-
-    /**
     * Method for setting the batch settings.
     * Emits BatchSettingsSet event.
-    * @param _walletId The wallet id.
+    * @param _account The PMW multisig account.
     * @param _batchSize The batch size.
     * @param _batchDurationSeconds The batch duration in seconds.
     * Can only be called by the wallet owner.
     */
     function setBatchSettings(
-        bytes32 _walletId,
+        PMWMultisigAccount calldata _account,
         uint64 _batchSize,
         uint64 _batchDurationSeconds
     )
@@ -161,13 +151,13 @@ interface ITeePayments {
 
     /**
      * Set payment limits instruction method.
-     * @param _walletId The wallet id.
+     * @param _account The PMW multisig account.
      * @param _transactionLimit The transaction limit.
      * @param _dailyLimit The daily limit.
      * Can only be called by the wallet owner address.
      */
     function setPaymentLimits(
-        bytes32 _walletId,
+        PMWMultisigAccount calldata _account,
         uint256 _transactionLimit,
         uint256 _dailyLimit
     )
@@ -180,20 +170,27 @@ interface ITeePayments {
     function getOpType() external view returns (bytes32);
 
     /**
-     * Returns wallet's address.
+     * Returns wallet's accounts.
      * @param _walletId The wallet id.
-     * @return _walletAddress The wallet address.
+     * @return _walletAccounts The wallet accounts.
      */
-    function getWalletAddress(bytes32 _walletId) external view returns (string memory _walletAddress);
+    function getWalletAccounts(bytes32 _walletId) external view returns (PMWMultisigAccount[] memory _walletAccounts);
+
+    /**
+     * Returns wallet's id.
+     * @param _account The PMW multisig account.
+     * @return _walletId The wallet id.
+     */
+    function getWalletId(PMWMultisigAccount calldata _account) external view returns (bytes32 _walletId);
 
     /**
      * Returns wallet's batch settings.
-     * @param _walletId The wallet id.
+     * @param _account The PMW multisig account.
      * @return _batchSize The batch size.
      * @return _batchDurationSeconds The batch duration in seconds.
      */
     function getBatchSettings(
-        bytes32 _walletId
+        PMWMultisigAccount calldata _account
     )
         external view
         returns(
@@ -202,15 +199,15 @@ interface ITeePayments {
         );
 
     /**
-     * Returns wallet's minimum fee.
-     * @param _walletId The wallet id.
-     * @return _minFee The minimum fee.
+     * Returns the supported source ids.
+     * @return _supportedSourceIds The supported source ids.
      */
-    function getMinFee(
-        bytes32 _walletId
-    )
-        external view
-        returns (
-            uint128 _minFee
-        );
+    function getSupportedSourceIds() external view returns (bytes32[] memory _supportedSourceIds);
+
+    /**
+     * Returns whether the given source id is supported.
+     * @param _sourceId The source id to check.
+     * @return True if the source id is supported, false otherwise.
+     */
+    function isSourceIdSupported(bytes32 _sourceId) external view returns (bool);
 }

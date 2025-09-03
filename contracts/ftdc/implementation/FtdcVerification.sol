@@ -50,16 +50,7 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
     )
         external view returns (address _signingTeeId)
     {
-        _signingTeeId = ECDSA.recover(
-            MessageHashUtils.toEthSignedMessageHash(_messageHash),
-            _signature.v,
-            _signature.r,
-            _signature.s
-        );
-        require(
-            teeMachineRegistry.getTeeMachineStatus(_signingTeeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
-            TeeMachineNotAvailable()
-        );
+        _signingTeeId = _verifyTeeSignature(_signature, _messageHash);
     }
 
     /**
@@ -73,17 +64,7 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
     {
         _signingTeeIds = new address[](_signatures.length);
         for (uint256 i = 0; i < _signatures.length; i++) {
-            Signature calldata signature = _signatures[i];
-            address teeId = ECDSA.recover(
-                MessageHashUtils.toEthSignedMessageHash(_messageHash),
-                signature.v,
-                signature.r,
-                signature.s
-            );
-            require(
-                teeMachineRegistry.getTeeMachineStatus(teeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
-                TeeMachineNotAvailable()
-            );
+            address teeId = _verifyTeeSignature(_signatures[i], _messageHash);
             for (uint256 j = 0; j < i; j++) {
                 require(_signingTeeIds[j] != teeId, DuplicatedTeeId(teeId));
             }
@@ -129,5 +110,28 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
         teeMachineRegistry = ITeeMachineRegistry(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
+    }
+
+    function _verifyTeeSignature(
+        Signature calldata _signature,
+        bytes32 _messageHash
+    )
+        internal view
+        returns (address _signingTeeId)
+    {
+        _signingTeeId = ECDSA.recover(
+            MessageHashUtils.toEthSignedMessageHash(_messageHash),
+            _signature.v,
+            _signature.r,
+            _signature.s
+        );
+        require(
+            teeMachineRegistry.getExtensionId(_signingTeeId) == 0,
+            InvalidTeeMachineExtensionId()
+        );
+        require(
+            teeMachineRegistry.getTeeMachineStatus(_signingTeeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
+            TeeMachineNotAvailable()
+        );
     }
 }

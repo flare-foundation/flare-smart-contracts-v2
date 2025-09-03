@@ -22,12 +22,12 @@ interface IPMWMultisigAccountConfigured {
 
     /**
      * Request body for PMWMultisigAccountConfigured attestation type
-     * @param walletAddress Address of the multisig wallet.
-     * @param publicKeys Public keys of the multisig wallet owners.
-     * @param threshold Threshold for the multisig wallet.
+     * @param accountAddress Address of the multisig account.
+     * @param publicKeys Public keys of the multisig account owners.
+     * @param threshold Threshold for the multisig account.
      */
     struct RequestBody {
-        string walletAddress;
+        string accountAddress;
         bytes[] publicKeys;
         uint64 threshold;
     }

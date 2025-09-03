@@ -13,6 +13,7 @@ import { ITeeAvailabilityCheck } from "../ftdc/ITeeAvailabilityCheck.sol";
 interface ITeeExtensionRegistry {
 
     event TeeInstructionsSent(
+        uint256 indexed extensionId,
         bytes32 indexed instructionId,
         uint32 indexed rewardEpochId,
         ITeeMachineRegistry.TeeMachine[] teeMachines,
@@ -129,12 +130,14 @@ interface ITeeExtensionRegistry {
      * Emits TeeExtensionRegistered and TeeExtensionContractsSet event.
      * @param _teeExtensionStateVerifier The TEE extension state verifier contract.
      * @param _teeExtensionInstructionsSender The address that can send instructions to the TEE machines.
+     * @return _extensionId The id of the registered extension.
      */
     function register(
         ITeeExtensionStateVerifier _teeExtensionStateVerifier,
         address _teeExtensionInstructionsSender
     )
-        external payable;
+        external
+        returns (uint256 _extensionId);
 
     /**
      * Set the extension contracts for a given extension id.

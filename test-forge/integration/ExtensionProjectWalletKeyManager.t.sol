@@ -368,8 +368,6 @@ contract ExtensionProjectWalletKeyManagerTest is Test {
         teeWalletKeyManager.setMultisigThreshold(walletId, 2);
 
         teeWalletManager.enableWallet(walletId);
-
-        teeWalletProjectManager.setDefaultWallet(projectId, walletId);
         vm.stopPrank();
 
         address newProjectOwner = makeAddr("newProjectOwner");

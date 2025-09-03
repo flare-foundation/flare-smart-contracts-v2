@@ -21,7 +21,6 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
         bytes32 opType;
         address submitAddress;
         address backupManager;
-        bytes32 defaultWalletId;
     }
 
     uint256 public projectCounter = 0;
@@ -91,22 +90,6 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     {
         projects[_projectId].backupManager = _backupManager;
         emit BackupManagerSet(_projectId, _backupManager);
-    }
-
-    /**
-     * @inheritdoc ITeeWalletProjectManager
-     */
-    function setDefaultWallet(bytes32 _projectId, bytes32 _walletId)
-        external onlyOwner(_projectId)
-    {
-        require(teeWalletManager.getWalletProjectId(_walletId) == _projectId,
-            WalletNotPartOfProject());
-        require(
-            teeWalletManager.getWalletStatus(_walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
-            WalletNotProductionReady()
-        );
-        projects[_projectId].defaultWalletId = _walletId;
-        emit DefaultWalletSet(_projectId, _walletId);
     }
 
     /**
@@ -186,19 +169,6 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
         returns (address _backupManager)
     {
         return projects[_projectId].backupManager;
-    }
-
-    /**
-     * @inheritdoc ITeeWalletProjectManager
-     */
-    function getDefaultWalletInfo(bytes32 _projectId)
-        external view
-        returns (bytes32 _walletId, bytes32 _opType, address _submitAddress)
-    {
-        TeeWalletProjectState storage project = projects[_projectId];
-        _walletId = project.defaultWalletId;
-        _opType = project.opType;
-        _submitAddress = project.submitAddress;
     }
 
     /**

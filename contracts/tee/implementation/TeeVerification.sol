@@ -259,12 +259,12 @@ contract TeeVerification is ITeeVerification, TeeBase {
     function requestPMWMultisigAccountConfiguredAttestation(
         bytes32 _walletId,
         bytes32 _sourceId,
-        string calldata _walletAddress,
+        string calldata _accountAddress,
         address _testOnTeeId
     )
         external payable
     {
-        require(bytes(_walletAddress).length > 0, WalletAddressZero());
+        require(bytes(_accountAddress).length > 0, AccountAddressZero());
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
         require(
             walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
@@ -274,7 +274,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
 
         (uint64 multisigThreshold, uint64[] memory keyIds, ) = teeWalletKeyManager.getWalletKeysInfo(_walletId);
         IPMWMultisigAccountConfigured.RequestBody memory requestBody = IPMWMultisigAccountConfigured.RequestBody({
-            walletAddress: _walletAddress,
+            accountAddress: _accountAddress,
             publicKeys: new bytes[](keyIds.length),
             threshold: multisigThreshold
         });
@@ -297,7 +297,6 @@ contract TeeVerification is ITeeVerification, TeeBase {
      */
     function verifyPMWMultisigAccountConfiguredProof(
         bytes32 _walletId,
-        bytes32 _sourceId,
         IPMWMultisigAccountConfigured.Proof calldata _proof
     )
         external
@@ -306,8 +305,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         IFtdcHub.FtdcResponseHeader calldata header = _proof.header;
         require(
             header.thresholdBIPS == 0 &&
-            header.attestationType == PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE &&
-            header.sourceId == _sourceId,
+            header.attestationType == PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
             InvalidAttestation()
         );
         IPMWMultisigAccountConfigured.RequestBody calldata requestBody = _proof.requestBody;
@@ -534,6 +532,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
             (lastSigningPolicyId == currentRewardEpochId || lastSigningPolicyId == currentRewardEpochId + 1) &&
             teeSystemStateVerifier.verifyTeeSystemState(teeId, state.systemStateVersion, state.systemState) &&
             (address(teeStateVerifier) == address(0) && state.stateVersion == bytes32(0) && state.state.length == 0 ||
+                address(teeStateVerifier) != address(0) &&
                 teeStateVerifier.verifyTeeState(teeId, state.stateVersion, state.state));
     }
 

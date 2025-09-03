@@ -33,7 +33,6 @@ export const SIMULATION_ACCOUNTS_FILE = `${SIMULATION_DUMP_FOLDER}/simulation-ac
 export const MEMORY_DATABASE_FILE = `${SIMULATION_DUMP_FOLDER}/indexer.db`;
 
 export const TIMELOCK_SEC = 3600;
-export const TEE_SOURCE_ID = "TEE";
 
 const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
 const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -65,11 +64,25 @@ const OFFERS = [
 ];
 
 export const TEE_PAYMENT_CONFIGURATIONS = [
-  {opType: "F_XRP", sourceId: "XRP", maxBatchSize: 1, maxBatchDurationSeconds: 0},
-  {opType: "F_BTC", sourceId: "BTC", maxBatchSize: 10, maxBatchDurationSeconds: 600},
-  {opType: "F_DOGE", sourceId: "DOGE", maxBatchSize: 10, maxBatchDurationSeconds: 60},
-  {opType: "F_EVM", sourceId: "EVM", maxBatchSize: 1, maxBatchDurationSeconds: 0},
+  {opType: "F_XRP", sourceIds: ["XRP"], maxBatchSize: 1, maxBatchDurationSeconds: 0},
+  {opType: "F_BTC", sourceIds: ["BTC"], maxBatchSize: 10, maxBatchDurationSeconds: 600},
+  {opType: "F_DOGE", sourceIds: ["DOGE"], maxBatchSize: 10, maxBatchDurationSeconds: 60},
+  {opType: "F_EVM", sourceIds: ["FLR", "SGB"], maxBatchSize: 1, maxBatchDurationSeconds: 0},
 ];
+
+export const FTDC_FEE_CONFIGURATIONS = [
+    { attestationType: "TeeAvailabilityCheck", source: "TEE" },
+    { attestationType: "PMWMultisigAccountConfigured", source: "XRP" },
+    { attestationType: "PMWPaymentStatus", source: "XRP" },
+    { attestationType: "PMWMultisigAccountConfigured", source: "BTC" },
+    { attestationType: "PMWPaymentStatus", source: "BTC" },
+    { attestationType: "PMWMultisigAccountConfigured", source: "DOGE" },
+    { attestationType: "PMWPaymentStatus", source: "DOGE" },
+    { attestationType: "PMWMultisigAccountConfigured", source: "FLR" },
+    { attestationType: "PMWPaymentStatus", source: "FLR" },
+    { attestationType: "PMWMultisigAccountConfigured", source: "SGB" },
+    { attestationType: "PMWPaymentStatus", source: "SGB" }
+  ];
 
 export const TEE_OPERATION_FEES = [
   {opType: "F_REG", opCommand: "TEE_ATTESTATION", feeWei: "1"},

@@ -472,13 +472,13 @@
         {"opType": "F_FTDC", "opCommand": "PROVE", "feeWei": "1"}
     ],
     "teePaymentConfigurations": [
-        {"opType": "F_XRP", "sourceId": "XRP", "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
+        {"opType": "F_XRP", "sourceIds": ["testXRP"], "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
     ],
     "ftdcMinThresholdBIPS": 4000,
     "ftdcDefaultNumberOfTees": 1,
     "ftdcRequestFees": [
         {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "feeWei": "1"},
-        {"attestationType": "PMWPaymentStatus", "source": "XRP", "feeWei": "1"},
-        {"attestationType": "PMWMultisigAccountConfigured", "source": "XRP", "feeWei": "1"}
+        {"attestationType": "PMWMultisigAccountConfigured", "source": "testXRP", "feeWei": "1"},
+        {"attestationType": "PMWPaymentStatus", "source": "testXRP", "feeWei": "1"}
     ]
 }

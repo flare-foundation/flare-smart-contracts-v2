@@ -753,9 +753,9 @@ export interface TeePaymentConfiguration {
     opType: string;
 
     /**
-     * Source id.
+     * Source ids.
      */
-    sourceId: string;
+    sourceIds: string[];
 
     /**
      *  Max batch size.

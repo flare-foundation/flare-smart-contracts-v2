@@ -56,6 +56,7 @@ contract FtdcVerificationTest is Test {
         teeMachineRegistry = address(ftdcVerification.teeMachineRegistry());
 
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PRODUCTION);
+        _mockGetExtensionId(0);
 
         vm.mockCall(
             relay,
@@ -73,6 +74,12 @@ contract FtdcVerificationTest is Test {
         ftdcVerification.verifyTeeSignature(signature, messageHash);
     }
 
+
+    function testVerifyTeeSignatureRevertInvalidTeeMachineExtensionId() public {
+        _mockGetExtensionId(1);
+        vm.expectRevert(IFtdcVerification.InvalidTeeMachineExtensionId.selector);
+        ftdcVerification.verifyTeeSignature(signature, messageHash);
+    }
 
     function testVerifyTeeSignature() public {
         address returnedTeeId =
@@ -155,13 +162,18 @@ contract FtdcVerificationTest is Test {
     function _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus _status) private {
         vm.mockCall(
             teeMachineRegistry,
-            abi.encodeWithSelector(
-                ITeeMachineRegistry.getTeeMachineStatus.selector
-            ),
+            abi.encodeWithSelector(ITeeMachineRegistry.getTeeMachineStatus.selector),
             abi.encode(_status)
         );
     }
 
+    function _mockGetExtensionId(uint256 _extensionId) private {
+        vm.mockCall(
+            teeMachineRegistry,
+            abi.encodeWithSelector(ITeeMachineRegistry.getExtensionId.selector),
+            abi.encode(_extensionId)
+        );
+    }
 
     function _createSignature(
         uint256 _privateKey
