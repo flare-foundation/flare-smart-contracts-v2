@@ -237,7 +237,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
     const xrpPublicKeys = ["0x03D11FBF992FCC3C7326E323687C234866E400229EA81C73EE4D0DBC1AB5DB22D3", "0x03FE12E21F5B2298FFC9A260A95F5031071E9E0778257276E47BB9A0C27CF6C5AD", "0x03353D8A544503E0F4D6686379B82D64ED1537CB2961FA1193F57B3E8E17F82980"];
     const xrpAddresses = ["rE5KBHjE7cHFUfHazonUcX9cKv7R519uyR", "rDagTyzXeYLZPe2fLbKYG9n7rCTQd3D2No", "r3uuriD2ARqLqZnEbk5sWzvjuD3zyVQEU1"];
-    const evmPublicKeys:string[] = [];
+    const evmPublicKeys: string[] = [];
 
     let addressUpdater: AddressUpdaterInstance;
     let wNat: WNatInstance;
@@ -318,10 +318,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
     let [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[10].privateKey.slice(2));
     let [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[11].privateKey.slice(2));
-    const adminsPublicKeys1 = [{x : x1, y : y1}, {x : x2, y : y2}];
+    const adminsPublicKeys1 = [{ x: x1, y: y1 }, { x: x2, y: y2 }];
     [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[12].privateKey.slice(2));
     [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[13].privateKey.slice(2));
-    const adminsPublicKeys2 = [{x : x1, y : y1}, {x : x2, y : y2}];
+    const adminsPublicKeys2 = [{ x: x1, y: y1 }, { x: x2, y: y2 }];
 
     const RANDOM_ROOT = web3.utils.keccak256("root");
     const RANDOM_ROOT2 = web3.utils.keccak256("root2");
@@ -1371,7 +1371,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     });
 
     it("Should set new TEE governance", async () => {
-        await teeGovernance.setNewTeeGovernance(0,teeGovernanceSigners, teeGovernanceSignersThreshold);
+        await teeGovernance.setNewTeeGovernance(0, teeGovernanceSigners, teeGovernanceSignersThreshold);
 
         const governanceHash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
             ["address[]", "uint256"],
@@ -1910,7 +1910,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
     it("Should set TEE payment wallet settings", async () => {
         // set wallet 1 settings
-        let tx = await teePaymentsXRP.setBatchSettings({sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh"}, 1, 0, { from: TEE_WALLET_OWNERS[0] });
+        let tx = await teePaymentsXRP.setBatchSettings({ sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" }, 1, 0, { from: TEE_WALLET_OWNERS[0] });
         expectEvent(tx, "BatchSettingsSet", {
             walletId: WALLET1_ID,
             sourceId: XRP_SOURCE_ID,
@@ -1919,7 +1919,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             batchDurationSeconds: "0"
         });
 
-        let tx2 = await teePaymentsEVM.setBatchSettings({sourceId: FLR_SOURCE_ID, accountAddress: accounts[200]}, 1, 0, { from: TEE_WALLET_OWNERS[1] });
+        let tx2 = await teePaymentsEVM.setBatchSettings({ sourceId: FLR_SOURCE_ID, accountAddress: accounts[200] }, 1, 0, { from: TEE_WALLET_OWNERS[1] });
         expectEvent(tx2, "BatchSettingsSet", {
             walletId: WALLET2_ID,
             sourceId: FLR_SOURCE_ID,
@@ -1931,15 +1931,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
     it("Should trigger TEE wallet payments", async () => {
         const paymentInstructionMessageStruct = getStruct("TeePaymentsStructs", "paymentInstructionMessageStruct");
-        const tx = await teePaymentsXRP.pay({sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh"},
+        const tx = await teePaymentsXRP.pay({ sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" },
             { recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B", tokenId: constants.ZERO_BYTES32, amount: "500", fee: 150, paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a" },
             { value: "10", from: TEE_WALLET_SUBMIT_ADDRESSES[0] });
         const message = {
             walletId: WALLET1_ID,
             teeIdKeyIdPairs: [
-                {teeId: TEE_IDS[0], keyId: "0"},
-                {teeId: TEE_IDS[1], keyId: "1"},
-                {teeId: TEE_IDS[0], keyId: "2"}
+                { teeId: TEE_IDS[0], keyId: "0" },
+                { teeId: TEE_IDS[1], keyId: "1" },
+                { teeId: TEE_IDS[0], keyId: "2" }
             ],
             sourceId: XRP_SOURCE_ID,
             senderAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
@@ -1958,16 +1958,16 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("PAY").padEnd(66, "0"));
         expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(paymentInstructionMessageStruct, message));
 
-        const tx2 = await teePaymentsEVM.pay({sourceId: FLR_SOURCE_ID, accountAddress: accounts[200]},
+        const tx2 = await teePaymentsEVM.pay({ sourceId: FLR_SOURCE_ID, accountAddress: accounts[200] },
             { recipientAddress: accounts[150], tokenId: constants.ZERO_BYTES32, amount: "1500", fee: 1000, paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797" },
             { value: "10", from: TEE_WALLET_SUBMIT_ADDRESSES[1] });
         const message2 = {
             walletId: WALLET2_ID,
             teeIdKeyIdPairs: [
-                {teeId: TEE_IDS[0], keyId: "0"},
-                {teeId: TEE_IDS[1], keyId: "1"},
-                {teeId: TEE_IDS[0], keyId: "2"},
-                {teeId: TEE_IDS[1], keyId: "3"}
+                { teeId: TEE_IDS[0], keyId: "0" },
+                { teeId: TEE_IDS[1], keyId: "1" },
+                { teeId: TEE_IDS[0], keyId: "2" },
+                { teeId: TEE_IDS[1], keyId: "3" }
             ],
             sourceId: FLR_SOURCE_ID,
             senderAddress: accounts[200],
@@ -1990,16 +1990,16 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     it("Should trigger TEE wallet reissue payments", async () => {
         const paymentInstructionMessageStruct = getStruct("TeePaymentsStructs", "paymentInstructionMessageStruct");
         await time.increase(1);
-        const tx = await teePaymentsXRP.reissue({sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh"}, 2, 2,
+        const tx = await teePaymentsXRP.reissue({ sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" }, 2, 2,
             [{ recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B", tokenId: constants.ZERO_BYTES32, amount: "500", fee: 150, paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a" }],
             [10000], [false],
             { value: "10", from: TEE_WALLET_SUBMIT_ADDRESSES[0] });
         const message = {
             walletId: WALLET1_ID,
             teeIdKeyIdPairs: [
-                {teeId: TEE_IDS[0], keyId: "0"},
-                {teeId: TEE_IDS[1], keyId: "1"},
-                {teeId: TEE_IDS[0], keyId: "2"}
+                { teeId: TEE_IDS[0], keyId: "0" },
+                { teeId: TEE_IDS[1], keyId: "1" },
+                { teeId: TEE_IDS[0], keyId: "2" }
             ],
             sourceId: XRP_SOURCE_ID,
             senderAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
@@ -2018,17 +2018,17 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("REISSUE").padEnd(66, "0"));
         expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(paymentInstructionMessageStruct, message));
 
-        const tx2 = await teePaymentsEVM.reissue({sourceId: FLR_SOURCE_ID, accountAddress: accounts[200]}, 1, 1,
+        const tx2 = await teePaymentsEVM.reissue({ sourceId: FLR_SOURCE_ID, accountAddress: accounts[200] }, 1, 1,
             [{ recipientAddress: accounts[150], tokenId: constants.ZERO_BYTES32, amount: "1500", fee: 1000, paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797" }],
             [5000000], [false],
             { value: "10", from: TEE_WALLET_SUBMIT_ADDRESSES[1] });
         const message2 = {
             walletId: WALLET2_ID,
             teeIdKeyIdPairs: [
-                {teeId: TEE_IDS[0], keyId: "0"},
-                {teeId: TEE_IDS[1], keyId: "1"},
-                {teeId: TEE_IDS[0], keyId: "2"},
-                {teeId: TEE_IDS[1], keyId: "3"}
+                { teeId: TEE_IDS[0], keyId: "0" },
+                { teeId: TEE_IDS[1], keyId: "1" },
+                { teeId: TEE_IDS[0], keyId: "2" },
+                { teeId: TEE_IDS[1], keyId: "3" }
             ],
             sourceId: FLR_SOURCE_ID,
             senderAddress: accounts[200],
