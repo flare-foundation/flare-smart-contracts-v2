@@ -287,6 +287,11 @@ contract TeePaymentsTest is Test {
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof);
         assertEq(teePayments.getWalletId(pmwMultisigAccount), walletId);
+
+        ITeePayments.PMWMultisigAccount[] memory accounts = teePayments.getWalletAccounts(walletId);
+        assertEq(accounts.length, 1);
+        assertEq(accounts[0].accountAddress, senderAddress);
+        assertEq(accounts[0].sourceId, SOURCE_ID);
     }
 
     function testAddPMWMultisigAccountRevertAccountAddressZero() public {
@@ -320,6 +325,21 @@ contract TeePaymentsTest is Test {
         _mockVerifyPMWMultisigAccountConfiguredProof(false);
         vm.expectRevert(ITeePayments.InvalidProof.selector);
         vm.prank(walletOwner);
+        teePayments.addPMWMultisigAccount(walletId, proof);
+    }
+
+    function testAddPMWMultisigAccountRevertWrongOpType() public {
+        _mockGetOpType(projectId, bytes32("WRONG_OP_TYPE"));
+        vm.expectRevert(ITeePayments.WrongOpType.selector);
+        vm.prank(walletOwner);
+        teePayments.addPMWMultisigAccount(walletId, proof);
+    }
+
+    function testAddPMWMultisigAccountRevertUnsupportedSourceId() public {
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        proof.header.sourceId = bytes32("WRONG_SOURCE_ID");
+        vm.prank(walletOwner);
+        vm.expectRevert(ITeePayments.UnsupportedSourceId.selector);
         teePayments.addPMWMultisigAccount(walletId, proof);
     }
 
@@ -1413,6 +1433,61 @@ contract TeePaymentsTest is Test {
         );
         vm.prank(submitAddress);
         teePayments.reissue{value: fee * 2 + 7} (pmwMultisigAccount, 11, 11, paymentInstructions, fees, nullify);
+    }
+
+    function testAddSupportedSourceIds() public {
+        bytes32[] memory supportedSourceIds = teePayments.getSupportedSourceIds();
+        assertEq(supportedSourceIds.length, 1);
+        assertEq(supportedSourceIds[0], SOURCE_ID);
+
+        bytes32 newSourceId1 = bytes32("NEW_SOURCE_ID1");
+        bytes32 newSourceId2 = bytes32("NEW_SOURCE_ID2");
+        assertTrue(teePayments.isSourceIdSupported(SOURCE_ID));
+        assertFalse(teePayments.isSourceIdSupported(newSourceId1));
+        assertFalse(teePayments.isSourceIdSupported(newSourceId2));
+
+        vm.prank(governance);
+        bytes32[] memory newSourceIds = new bytes32[](2);
+        newSourceIds[0] = newSourceId1;
+        newSourceIds[1] = newSourceId2;
+        vm.expectEmit();
+        emit ITeePayments.SupportedSourceIdAdded(OP_TYPE, newSourceId1);
+        vm.expectEmit();
+        emit ITeePayments.SupportedSourceIdAdded(OP_TYPE, newSourceId2);
+        teePayments.addSupportedSourceIds(newSourceIds);
+        assertEq(teePayments.getSupportedSourceIds().length, 3);
+        assertEq(teePayments.getSupportedSourceIds()[0], SOURCE_ID);
+        assertEq(teePayments.getSupportedSourceIds()[1], newSourceId1);
+        assertEq(teePayments.getSupportedSourceIds()[2], newSourceId2);
+        assertTrue(teePayments.isSourceIdSupported(SOURCE_ID));
+        assertTrue(teePayments.isSourceIdSupported(newSourceId2));
+        assertTrue(teePayments.isSourceIdSupported(newSourceId1));
+    }
+
+    function testAddSupportedSourceIdsRevertOnlyGovernance() public {
+        bytes32 newSourceId1 = bytes32("NEW_SOURCE_ID1");
+        bytes32 newSourceId2 = bytes32("NEW_SOURCE_ID2");
+        bytes32[] memory newSourceIds = new bytes32[](2);
+        newSourceIds[0] = newSourceId1;
+        newSourceIds[1] = newSourceId2;
+        vm.expectRevert("only governance");
+        teePayments.addSupportedSourceIds(newSourceIds);
+    }
+
+    function testAddSupportedSourceIdsRevertAlreadyExists() public {
+        bytes32 newSourceId1 = bytes32("NEW_SOURCE_ID1");
+        bytes32 newSourceId2 = SOURCE_ID; // already supported
+        bytes32[] memory newSourceIds = new bytes32[](2);
+        newSourceIds[0] = newSourceId1;
+        newSourceIds[1] = newSourceId2;
+        vm.prank(governance);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeePayments.SourceIdAlreadyExists.selector,
+                SOURCE_ID
+            )
+        );
+        teePayments.addSupportedSourceIds(newSourceIds);
     }
 
     //// Proxy upgrade
