@@ -68,7 +68,6 @@ import { TeeReplicationContract, TeeReplicationInstance } from '../../typechain-
 import { TeeReplicationProxyContract } from '../../typechain-truffle/contracts/tee/proxy/TeeReplicationProxy';
 import { AddressUpdaterContract, AddressUpdaterInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressUpdater';
 import { FtdcVerificationContract, FtdcVerificationInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification';
-import { token } from "../../typechain/@openzeppelin/contracts";
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const AddressUpdater: AddressUpdaterContract = artifacts.require("AddressUpdater");
@@ -1455,7 +1454,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 challenge: challenges[i]
             };
             const message = {
-                header : {
+                header: {
                     attestationType: web3.utils.utf8ToHex("TeeAvailabilityCheck").padEnd(66, "0"),
                     sourceId: TEE_SOURCE_ID,
                     thresholdBIPS: "0"
@@ -1793,7 +1792,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             threshold: "2"
         };
         const message = {
-            header : {
+            header: {
                 attestationType: web3.utils.utf8ToHex("PMWMultisigAccountConfigured").padEnd(66, "0"),
                 sourceId: XRP_SOURCE_ID,
                 thresholdBIPS: "0"
@@ -1813,7 +1812,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             threshold: "1"
         };
         const message2 = {
-            header : {
+            header: {
                 attestationType: web3.utils.utf8ToHex("PMWMultisigAccountConfigured").padEnd(66, "0"),
                 sourceId: FLR_SOURCE_ID,
                 thresholdBIPS: "0"
