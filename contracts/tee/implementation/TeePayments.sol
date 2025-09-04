@@ -123,10 +123,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         maxBatchSize = _maxBatchSize;
         maxBatchDurationSeconds = _maxBatchDurationSeconds;
         opType = _opType;
-        for (uint256 i = 0; i < _supportedSourceIds.length; i++) {
-            require(_supportedSourceIds[i] != bytes32(0), SourceIdZero(i));
-            supportedSourceIds.add(_supportedSourceIds[i]);
-        }
+        _addSupportedSourceIds(_supportedSourceIds);
     }
 
     /**
@@ -395,6 +392,20 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
     }
 
     /**
+     * Adds supported source ids.
+     * Emits SupportedSourceIdAdded events.
+     * @param _sourceIds The source ids to add.
+     * Can only be called by the governance.
+     */
+    function addSupportedSourceIds(
+        bytes32[] calldata _sourceIds
+    )
+        external onlyGovernance
+    {
+        _addSupportedSourceIds(_sourceIds);
+    }
+
+    /**
      * @inheritdoc ITeePayments
      */
     function getOpType()
@@ -477,6 +488,14 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
+    }
+
+    function _addSupportedSourceIds(bytes32[] calldata _sourceIds) internal {
+        for (uint256 i = 0; i < _sourceIds.length; i++) {
+            require(_sourceIds[i] != bytes32(0), SourceIdZero(i));
+            require(supportedSourceIds.add(_sourceIds[i]), SourceIdAlreadyExists(_sourceIds[i]));
+            emit SupportedSourceIdAdded(opType, _sourceIds[i]);
+        }
     }
 
     function _checkOnlyWalletOwner(PMWMultisigAccount calldata _account) internal view {

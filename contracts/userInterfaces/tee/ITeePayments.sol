@@ -63,11 +63,17 @@ interface ITeePayments {
         uint64 initialNonce
     );
 
+    event SupportedSourceIdAdded(
+        bytes32 indexed opType,
+        bytes32 indexed sourceId
+    );
+
     error OnlyWalletOwner();
     error MaxBatchSizeZero();
     error OpTypeZero();
     error SupportedSourceIdsLengthZero();
     error SourceIdZero(uint256 index);
+    error SourceIdAlreadyExists(bytes32 sourceId);
     error OnlySubmitAddress();
     error WrongOpType();
     error WalletNotInProduction();
