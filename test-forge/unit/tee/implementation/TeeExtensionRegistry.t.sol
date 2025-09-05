@@ -458,14 +458,31 @@ contract TeeExtensionRegistryTest is Test {
     }
 
 
-    function testAddOrUpdateSupportedWalletProjectOpTypesRevertSystemOpTypeNotAllowed() public {
+    function testAddOrUpdateSupportedWalletProjectOpTypes1() public {
         testRegister();
-        _mockGetOpType(bytes32("F_"));
+        bytes32 opType1 = bytes32("FSOMETHING");
+        _mockGetOpType(opType1);
+        vm.prank(owner);
+        teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(extensionId, opTypeConstantsProviders);
+    }
+
+    function testAddOrUpdateSupportedWalletProjectOpTypes2() public {
+        testRegister();
+        bytes32 opType1 = bytes32("A_SOMETHING");
+        _mockGetOpType(opType1);
+        vm.prank(owner);
+        teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(extensionId, opTypeConstantsProviders);
+    }
+
+    function testAddOrUpdateSupportedWalletProjectOpTypesRevertSystemOpTypeNotAllowed1() public {
+        testRegister();
+        bytes32 opType1 = bytes32("F_SOMETHING");
+        _mockGetOpType(opType1);
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(
                 ITeeExtensionRegistry.SystemOpTypeNotAllowed.selector,
-                bytes32("F_")
+                bytes32(opType1)
             )
         );
         teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(extensionId, opTypeConstantsProviders);

@@ -38,12 +38,22 @@ contract TeeFeeCalculatorTest is Test {
         );
     }
 
-    function testSetOperationFeesRevertLengthMismatch() public {
+    function testSetOperationFeesRevertLengthMismatch1() public {
         vm.expectRevert(ITeeFeeCalculator.LengthsMismatch.selector);
         vm.prank(governance);
         teeFeeCalculator.setOperationFees(
             new bytes32[](1),
             new bytes32[](2),
+            new uint256[](1)
+        );
+    }
+
+    function testSetOperationFeesRevertLengthMismatch2() public {
+        vm.expectRevert(ITeeFeeCalculator.LengthsMismatch.selector);
+        vm.prank(governance);
+        teeFeeCalculator.setOperationFees(
+            new bytes32[](1),
+            new bytes32[](1),
             new uint256[](2)
         );
     }

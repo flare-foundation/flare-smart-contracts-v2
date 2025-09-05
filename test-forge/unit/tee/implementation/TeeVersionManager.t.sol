@@ -355,6 +355,66 @@ contract TeeVersionManagerTest is Test {
         teeVersionManager.signTeeUpgrade(teeUpgradeId, signature);
     }
 
+    function testSignTeeUpgrade1() public {
+        vm.mockCall(
+            teeGovernance,
+            abi.encodeWithSelector(
+                ITeeGovernance.getTeeGovernanceThreshold.selector,
+                extensionId,
+                targetTeeGovernanceHash
+            ),
+            abi.encode(1)
+        );
+
+        vm.mockCall(
+            teeGovernance,
+            abi.encodeWithSelector(
+                ITeeGovernance.getTeeGovernanceThreshold.selector,
+                extensionId,
+                sourceTeeGovernanceHash
+            ),
+            abi.encode(2)
+        );
+
+        testFinalizeTeeUpgrade();
+        Signature memory signature = _createSignature();
+        vm.recordLogs();
+        vm.prank(owner);
+        teeVersionManager.signTeeUpgrade(teeUpgradeId, signature);
+        assertFalse(teeVersionManager.isTeeUpgradeSigned(teeUpgradeId));
+    }
+
+
+    function testSignTeeUpgrade2() public {
+        vm.mockCall(
+            teeGovernance,
+            abi.encodeWithSelector(
+                ITeeGovernance.getTeeGovernanceThreshold.selector,
+                extensionId,
+                targetTeeGovernanceHash
+            ),
+            abi.encode(2)
+        );
+
+        vm.mockCall(
+            teeGovernance,
+            abi.encodeWithSelector(
+                ITeeGovernance.getTeeGovernanceThreshold.selector,
+                extensionId,
+                sourceTeeGovernanceHash
+            ),
+            abi.encode(1)
+        );
+
+        testFinalizeTeeUpgrade();
+        Signature memory signature = _createSignature();
+        vm.recordLogs();
+        vm.prank(owner);
+        teeVersionManager.signTeeUpgrade(teeUpgradeId, signature);
+        assertFalse(teeVersionManager.isTeeUpgradeSigned(teeUpgradeId));
+    }
+
+
 
     // isTeeUpgradePathValid
     function testIsTeeUpgradePathValidRevertInvalidUpgradeId() public {
@@ -392,10 +452,18 @@ contract TeeVersionManagerTest is Test {
     }
 
 
-    function testIsTeeUpgradePathValidFalse() public {
+    function testIsTeeUpgradePathValidFalse1() public {
         testFinalizeTeeUpgrade();
         bool isValid = teeVersionManager.isTeeUpgradePathValid(
             teeUpgradeId, extensionId, keccak256("wrongSourceCodeHash"), sourcePlatform, targetCodeHash, targetPlatform
+        );
+        assertEq(isValid, false);
+    }
+
+    function testIsTeeUpgradePathValidFalse2() public {
+        testFinalizeTeeUpgrade();
+        bool isValid = teeVersionManager.isTeeUpgradePathValid(
+            teeUpgradeId, extensionId, sourceCodeHash, sourcePlatform, keccak256("wrongTargetCodeHash"), targetPlatform
         );
         assertEq(isValid, false);
     }

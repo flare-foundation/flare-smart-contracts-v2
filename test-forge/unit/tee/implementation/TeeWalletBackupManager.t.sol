@@ -342,8 +342,7 @@ contract TeeWalletBackupManagerTest is Test {
         teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, true);
     }
 
-
-    function testBackupRestoreRevertExtensionIdMismatch() public {
+    function testBackupRestoreRevertExtensionIdMismatch1() public {
         _mockGetExtensionId(backupTeeId, extensionId + 1);
         vm.prank(owner);
         vm.expectRevert(ITeeWalletBackupManager.ExtensionIdMismatch.selector);
@@ -355,7 +354,6 @@ contract TeeWalletBackupManagerTest is Test {
         vm.expectRevert(ITeeWalletBackupManager.ExtensionIdMismatch.selector);
         teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, true);
     }
-
 
     function testBackupRestore() public {
         address[] memory initiators = new address[](1);

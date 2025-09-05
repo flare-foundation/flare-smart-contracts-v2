@@ -1067,7 +1067,7 @@ contract TeePaymentsTest is Test {
     }
 
     // current batch nonce is 11 (state.nonce is 12)
-    function testReissueRevertBatchNotEnded() public {
+    function testReissueRevertBatchNotEnded1() public {
         testPay4();
         ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
@@ -1083,6 +1083,24 @@ contract TeePaymentsTest is Test {
         // batch with nonce 11 is not yet finished
         vm.expectRevert(ITeePayments.BatchNotYetEnded.selector);
         teePayments.reissue{value: fee * 2} (pmwMultisigAccount, 11, 11, paymentInstructions, fees, nullify);
+    }
+
+    // current batch nonce is 13 (state.nonce is 12)
+    function testReissueRevertBatchNotEnded2() public {
+        testPay4();
+        ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
+        paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
+        paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        uint256[] memory fees = new uint256[](2);
+        fees[0] = 150;
+        fees[1] = 150;
+        bool[] memory nullify = new bool[](2);
+        nullify[0] = false;
+        nullify[1] = false;
+        vm.prank(submitAddress);
+        vm.expectRevert(ITeePayments.BatchNotYetEnded.selector);
+        teePayments.reissue{value: fee * 2} (pmwMultisigAccount, 13, 11, paymentInstructions, fees, nullify);
     }
 
     function testReissueRevertHashMismatch1() public {
@@ -1122,7 +1140,8 @@ contract TeePaymentsTest is Test {
         teePayments.reissue{value: fee * 2 + 6} (pmwMultisigAccount, 11, 11, paymentInstructions, fees, nullify);
     }
 
-    function testReissueRevertLengthsMismatch() public {
+    // fees.length != nullify.length
+    function testReissueRevertLengthsMismatch1() public {
         testPay4();
         ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
@@ -1132,6 +1151,24 @@ contract TeePaymentsTest is Test {
         fees[0] = 150;
         fees[1] = 150;
         bool[] memory nullify = new bool[](1);
+        vm.prank(submitAddress);
+        // batch with nonce 11 not yet finished but batch end timestamp passed
+        vm.warp(500 + 301);
+        vm.expectRevert(ITeePayments.LengthsMismatch.selector);
+        teePayments.reissue{value: fee * 2 + 6} (pmwMultisigAccount, 11, 11, paymentInstructions, fees, nullify);
+    }
+
+    // fees.length != paymentInstructions.length
+    function testReissueRevertLengthsMismatch2() public {
+        testPay4();
+        ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
+        paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
+        paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        uint256[] memory fees = new uint256[](1);
+        fees[0] = 150;
+        bool[] memory nullify = new bool[](1);
+        nullify[0] = false;
         vm.prank(submitAddress);
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);

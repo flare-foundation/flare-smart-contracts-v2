@@ -164,10 +164,20 @@ contract TeeMachineRegistryTest is Test {
     }
 
 
-    // toProduction
-    function testToProductionRevertInvalidTeeStatus() public {
+    //// toProduction
+    // msg.sender != owner
+    function testToProductionRevertInvalidTeeStatus1() public {
         testRegister();
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
+        teeMachineRegistry.toProduction(proof);
+    }
+
+    // machine status != INITIALIZED && machine status != PAUSED
+    function testToProductionRevertInvalidTeeStatus2() public {
+        testToProduction();
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        vm.prank(owner);
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
         teeMachineRegistry.toProduction(proof);
     }

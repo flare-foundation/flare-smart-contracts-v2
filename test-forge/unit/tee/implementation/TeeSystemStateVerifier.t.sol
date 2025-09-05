@@ -70,7 +70,32 @@ contract TeeSystemStateVerifierTest is Test {
 
 
     // verifyTeeSystemState
-    function testVerifyTeeSystemStateReturnStateVersion() public {
+    function testVerifyTeeSystemStateNotValid1() public {
+        teeSystemState.status = IITeeSystemStateVerifier.TeeMachineStatus.PAUSED;
+        bool isValid = teeSystemStateVerifier.verifyTeeSystemState(
+            teeId, stateVersion, abi.encode(teeSystemState)
+        );
+        assertFalse(isValid);
+    }
+
+    function testVerifyTeeSystemStateNotValid2() public {
+        teeSystemState.initialTeeId = makeAddr("wrongTeeId");
+        bool isValid = teeSystemStateVerifier.verifyTeeSystemState(
+            teeId, stateVersion, abi.encode(teeSystemState)
+        );
+        assertFalse(isValid);
+    }
+
+    function testVerifyTeeSystemStateNotValid3() public {
+        teeSystemState.teeGovernanceHash = keccak256("wrongTeeGovernanceHash");
+        bool isValid = teeSystemStateVerifier.verifyTeeSystemState(
+            teeId, stateVersion, abi.encode(teeSystemState)
+        );
+        assertFalse(isValid);
+    }
+
+
+    function testVerifyTeeSystemStateReturnStateVersion() public view {
         bool isValid = teeSystemStateVerifier.verifyTeeSystemState(
             teeId, bytes32(0), abi.encode(teeSystemState)
         );
@@ -82,16 +107,11 @@ contract TeeSystemStateVerifierTest is Test {
     }
 
 
-    function testVerifyTeeSystemState() public {
+    function testVerifyTeeSystemState() public view {
         bool isValid = teeSystemStateVerifier.verifyTeeSystemState(
             teeId, stateVersion, abi.encode(teeSystemState)
         );
         assertTrue(isValid);
-        teeSystemState.status = IITeeSystemStateVerifier.TeeMachineStatus.PAUSED;
-        isValid = teeSystemStateVerifier.verifyTeeSystemState(
-            teeId, stateVersion, abi.encode(teeSystemState)
-        );
-        assertFalse(isValid);
     }
 
 

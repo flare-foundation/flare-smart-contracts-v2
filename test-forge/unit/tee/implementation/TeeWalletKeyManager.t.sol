@@ -519,14 +519,13 @@ contract TeeWalletKeyManagerTest is Test {
         teeWalletKeyManager.confirmKey(proof, teeSignature);
     }
 
-
+    // nonce == 0
     function testConfirmKeyRevertKeyNotGeneratedOnTeeMachine() public {
         testAddKey();
         vm.prank(owner);
         vm.expectRevert(ITeeWalletKeyManager.KeyNotGeneratedOnTeeMachine.selector);
         teeWalletKeyManager.confirmKey(proof, teeSignature);
     }
-
 
     function testConfirmKeyNotInWallet() public {
         proof.restored = false;
@@ -544,8 +543,8 @@ contract TeeWalletKeyManagerTest is Test {
         teeWalletKeyManager.confirmKey(proof, teeSignature);
     }
 
-
-    function testConfirmKeyRevertKeyNotRestoredOnTeeMachine() public {
+    // nonce == 0
+    function testConfirmKeyRevertKeyNotRestoredOnTeeMachine1() public {
         testConfirmKeyNotInWallet();
         teeSignature = _createSignature(privateKey);
         vm.prank(owner);
@@ -553,6 +552,18 @@ contract TeeWalletKeyManagerTest is Test {
         teeWalletKeyManager.confirmKey(proof, teeSignature);
     }
 
+    // nonce > 0, restored == false
+    function testConfirmKeyRevertKeyNotRestoredOnTeeMachine2() public {
+        testConfirmKeyNotInWallet();
+        proof.nonce = 1;
+        proof.restored = false;
+        teeSignature = _createSignature(privateKey);
+        vm.prank(teeWalletBackupManager);
+        teeWalletKeyManager.increaseKeyNonce(teeId, walletId, keyId);
+        vm.prank(owner);
+        vm.expectRevert(ITeeWalletKeyManager.KeyNotRestoredOnTeeMachine.selector);
+        teeWalletKeyManager.confirmKey(proof, teeSignature);
+    }
 
     function testConfirmKeyRevertInvalidPublicKeyInWallet() public {
         _setupConfirmKeyInWallet();

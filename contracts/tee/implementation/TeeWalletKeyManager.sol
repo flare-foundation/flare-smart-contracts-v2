@@ -207,6 +207,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             // tee id not found, add it
             keyDefinitionTeeIds.push(teeId);
         } else {
+            assert(_proof.nonce == 0);
             require(_proof.publicKey.length > 0, InvalidPublicKey());
             require(bytes(_proof.addressStr).length > 0, InvalidAddress());
             // new key definition can only be added if wallet is in status initialized
@@ -214,7 +215,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             // new key definition can only be added by the owner
             _checkOnlyOwner(walletId);
             // check that key is generated on the tee machine
-            require(_proof.nonce == 0 && !_proof.restored, KeyNotGeneratedOnTeeMachine());
+            require(!_proof.restored, KeyNotGeneratedOnTeeMachine());
             // add new key id
             keys.keyIds.push(keyId);
             // set public key, address and add tee id

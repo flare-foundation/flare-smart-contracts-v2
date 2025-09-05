@@ -171,14 +171,26 @@ contract TeeReplicationTest is Test {
         teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
     }
 
-
-    function testReplicateFromRevertInvalidTeeStatus() public {
+    function testReplicateFromRevertInvalidTeeStatus1() public {
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(newTeeId, url);
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.INITIALIZED);
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
         vm.prank(owner);
         teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
 
+        _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE);
+        _mockGetTeeMachineStatus(newTeeId, ITeeMachineRegistry.TeeStatus.REPLICATING);
+        vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
+        vm.prank(owner);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+    }
+
+    // retry (newStatus != ITeeMachineRegistry.TeeStatus.INITIALIZED && replications[oldTeeId] != newTeeId)
+    function testReplicateFromRevertInvalidTeeStatus2() public {
+        assertEq(teeReplication.getReplicatingTeeId(teeId), address(0));
+        testReplicateFrom();
+        assertEq(teeReplication.getReplicatingTeeId(teeId), newTeeId);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(newTeeId, url);
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE);
         _mockGetTeeMachineStatus(newTeeId, ITeeMachineRegistry.TeeStatus.PRODUCTION);
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
@@ -189,7 +201,7 @@ contract TeeReplicationTest is Test {
 
     function testReplicateFromRevertExtensionMismatch() public {
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(newTeeId, url);
-        testReplicateFromRevertInvalidTeeStatus();
+        testReplicateFromRevertInvalidTeeStatus1();
         _mockGetTeeMachineStatus(newTeeId, ITeeMachineRegistry.TeeStatus.INITIALIZED);
         _mockGetExtensionId(newTeeId, extensionId + 1);
         vm.expectRevert(ITeeReplication.ExtensionMismatch.selector);
@@ -298,10 +310,16 @@ contract TeeReplicationTest is Test {
     }
 
 
-    function testSetPauseBeforeUpgradeMinDurationSecondsRevertInvalidDuration() public {
+    function testSetPauseBeforeUpgradeMinDurationSecondsRevertInvalidDuration1() public {
         vm.prank(initialGovernance);
         vm.expectRevert(ITeeReplication.InvalidDuration.selector);
         teeReplication.setPauseBeforeUpgradeMinDurationSeconds(2 days);
+    }
+
+    function testSetPauseBeforeUpgradeMinDurationSecondsRevertInvalidDuration2() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(ITeeReplication.InvalidDuration.selector);
+        teeReplication.setPauseBeforeUpgradeMinDurationSeconds(1);
     }
 
 
