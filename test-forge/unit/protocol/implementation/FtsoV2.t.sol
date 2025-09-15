@@ -21,8 +21,8 @@ import { FeeCalculator } from "../../../../contracts/fastUpdates/implementation/
 import { FtsoV2Proxy } from "../../../../contracts/protocol/implementation/FtsoV2Proxy.sol";
 import "../../../../contracts/fastUpdates/lib/FixedPointArithmetic.sol" as FPA;
 import { IICustomFeed } from "../../../../contracts/customFeeds/interface/IICustomFeed.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
-import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/songbird/IFlareContractRegistry.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/flare/IFlareContractRegistry.sol";
 
 // solhint-disable-next-line max-states-count
 contract FtsoV2Test is Test {

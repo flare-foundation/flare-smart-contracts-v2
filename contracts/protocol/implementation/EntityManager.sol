@@ -9,7 +9,7 @@ import { IINodePossessionVerifier } from "../interface/IINodePossessionVerifier.
 import { IIPublicKeyVerifier } from "../interface/IIPublicKeyVerifier.sol";
 import { Governed } from "../../governance/implementation/Governed.sol";
 import { IEntityManager } from "../../userInterfaces/IEntityManager.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
  * Entity manager contract.

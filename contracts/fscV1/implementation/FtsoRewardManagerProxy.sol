@@ -8,8 +8,8 @@ import { IRewardManager } from "../../userInterfaces/IRewardManager.sol";
 import { RewardsV2Interface } from "../../userInterfaces/LTS/RewardsV2Interface.sol";
 import { Governed } from "../../governance/implementation/Governed.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
-import { IFtsoRewardManager } from "@flarenetwork/flare-periphery-contracts/songbird/IFtsoRewardManager.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IFtsoRewardManager } from "@flarenetwork/flare-periphery-contracts/flare/IFtsoRewardManager.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 

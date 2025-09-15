@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import { IFtso } from "@flarenetwork/flare-periphery-contracts/songbird/IFtso.sol";
+import { IFtso } from "@flarenetwork/flare-periphery-contracts/flare/IFtso.sol";
 import { IIFtsoManagerProxy} from "../../fscV1/interface/IIFtsoManagerProxy.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 

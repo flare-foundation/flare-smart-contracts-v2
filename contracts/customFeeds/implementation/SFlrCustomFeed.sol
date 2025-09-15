@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/songbird/IFlareContractRegistry.sol";
+import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/flare/IFlareContractRegistry.sol";
 import { IFeeCalculator } from "../../userInterfaces/IFeeCalculator.sol";
 import { IFastUpdater } from "../../userInterfaces/IFastUpdater.sol";
 import { IFastUpdatesConfiguration } from "../../userInterfaces/IFastUpdatesConfiguration.sol";

@@ -8,11 +8,11 @@ import { IFdcHub } from "../../userInterfaces/IFdcHub.sol";
 import { IFdcRequestFeeConfigurations } from "../../userInterfaces/IFdcRequestFeeConfigurations.sol";
 import { IFdcInflationConfigurations } from "../../userInterfaces/IFdcInflationConfigurations.sol";
 import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
-import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/songbird/tokenPools/interfaces/IITokenPool.sol";
+import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/flare/tokenPools/interfaces/IITokenPool.sol";
 import { RewardOffersManagerBase } from "../../protocol/implementation/RewardOffersManagerBase.sol";
 import { SafePct } from "../../utils/lib/SafePct.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
  * FdcHub contract.

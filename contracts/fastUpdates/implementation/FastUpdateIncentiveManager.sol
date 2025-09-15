@@ -12,8 +12,8 @@ import { IncreaseManager } from "./IncreaseManager.sol";
 import { IIFastUpdateIncentiveManager } from "../interface/IIFastUpdateIncentiveManager.sol";
 import { TokenPoolBase } from "../../utils/implementation/TokenPoolBase.sol";
 import { SafePct } from "../../utils/lib/SafePct.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
-import { IITokenPool } from "flare-smart-contracts/contracts/tokenPools/interface/IITokenPool.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/flare/tokenPools/interfaces/IITokenPool.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import "../lib/FixedPointArithmetic.sol" as FPA;
 
@@ -218,9 +218,9 @@ contract FastUpdateIncentiveManager is IncreaseManager, RewardOffersManagerBase,
         return baseScale;
     }
 
-    // /**
-    //  * @inheritdoc IITokenPool
-    //  */
+    /**
+     * @inheritdoc IITokenPool
+     */
     function getTokenPoolSupplyData()
         external view
         returns (

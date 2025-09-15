@@ -18,8 +18,8 @@ import { IFlareSystemsManager } from "../../../../contracts/userInterfaces/IFlar
 import { IFastUpdatesConfiguration } from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
-import { IFtso } from "@flarenetwork/flare-periphery-contracts/songbird/IFtso.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IFtso } from "@flarenetwork/flare-periphery-contracts/flare/IFtso.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 
 // solhint-disable-next-line max-states-count

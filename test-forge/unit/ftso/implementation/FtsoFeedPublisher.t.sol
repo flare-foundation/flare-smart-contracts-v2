@@ -5,7 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { FtsoFeedPublisher } from "../../../../contracts/ftso/implementation/FtsoFeedPublisher.sol";
 import { IFtsoFeedPublisher } from "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FtsoFeedPublisherTest is Test {
 

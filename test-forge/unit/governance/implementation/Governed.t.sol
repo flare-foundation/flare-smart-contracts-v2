@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import { Test } from "forge-std/Test.sol";
 import { GovernedMock } from "../../../mock/GovernedMock.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract GovernedTest is Test {
 

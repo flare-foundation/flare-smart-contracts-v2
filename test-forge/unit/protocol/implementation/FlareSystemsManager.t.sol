@@ -18,7 +18,7 @@ import { IFlareSystemsManager } from "../../../../contracts/userInterfaces/IFlar
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract FlareSystemsManagerTest is Test {

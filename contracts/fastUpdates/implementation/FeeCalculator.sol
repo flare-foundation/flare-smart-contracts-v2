@@ -6,7 +6,7 @@ import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.so
 import { IFastUpdatesConfiguration } from "../../userInterfaces/IFastUpdatesConfiguration.sol";
 import { IFeeCalculator } from "../../userInterfaces/IFeeCalculator.sol";
 import { IIFeeCalculator } from "../interface/IIFeeCalculator.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
  * FeeCalculator is a contract that calculates fees for fetching current feeds' data from FastUpdater contract.

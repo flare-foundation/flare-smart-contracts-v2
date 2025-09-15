@@ -10,7 +10,7 @@ import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/P
 import { IIClaimSetupManager } from "../../../../contracts/protocol/interface/IIClaimSetupManager.sol";
 import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
 import { IIFlareSystemsCalculator } from "../../../../contracts/protocol/interface/IIFlareSystemsCalculator.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
 contract FtsoRewardManagerProxyTest is Test {

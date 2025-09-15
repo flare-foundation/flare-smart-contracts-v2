@@ -6,7 +6,7 @@ import {
     FtsoInflationConfigurations
 } from "../../../../contracts/ftso/implementation/FtsoInflationConfigurations.sol";
 import { IFtsoInflationConfigurations } from "../../../../contracts/userInterfaces/IFtsoInflationConfigurations.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FtsoInflationConfigurationsTest is Test {
 

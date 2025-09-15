@@ -19,8 +19,8 @@ import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/Mes
 import { SafePct } from "../../utils/lib/SafePct.sol";
 import { AddressSet } from "../../utils/lib/AddressSet.sol";
 import { IIFeeCalculator } from "../interface/IIFeeCalculator.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
-import { IFlareDaemonize } from "@flarenetwork/flare-periphery-contracts/songbird/genesis/interfaces/IFlareDaemonize.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareDaemonize } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IFlareDaemonize.sol";
 import { G1Point } from "../../userInterfaces/IBn256.sol";
 
 // The number of units of weight distributed among providers is 1 << VIRTUAL_PROVIDER_BITS
@@ -681,9 +681,9 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
         return false;
     }
 
-    // /**
-    //  * @inheritdoc IFlareDaemonize
-    //  */
+    /**
+     * @inheritdoc IFlareDaemonize
+     */
     function getContractName() external pure returns (string memory) {
         return "FastUpdater";
     }

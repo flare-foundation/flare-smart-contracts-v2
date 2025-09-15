@@ -7,7 +7,7 @@ import { MockNodePossessionVerification } from "../../../mock/MockNodePossession
 import { MockPublicKeyVerification } from "../../../mock/MockPublicKeyVerification.sol";
 import { IINodePossessionVerifier } from "../../../../contracts/protocol/interface/IINodePossessionVerifier.sol";
 import { IIPublicKeyVerifier } from "../../../../contracts/protocol/interface/IIPublicKeyVerifier.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract EntityManagerTest is Test {
 

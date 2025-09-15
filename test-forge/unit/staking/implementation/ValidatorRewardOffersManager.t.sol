@@ -5,7 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { ValidatorRewardOffersManager } from "../../../../contracts/staking/implementation/ValidatorRewardOffersManager.sol";
 import { RewardManager } from "../../../../contracts/protocol/implementation/RewardManager.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract ValidatorRewardOffersManagerTest is Test {
 

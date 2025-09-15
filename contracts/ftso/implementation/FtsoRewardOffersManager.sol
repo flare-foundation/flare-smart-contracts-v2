@@ -10,8 +10,8 @@ import { IFtsoFeedDecimals } from "../../userInterfaces/IFtsoFeedDecimals.sol";
 import { SafePct } from "../../utils/lib/SafePct.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { InflationReceiver } from "../../inflation/implementation/InflationReceiver.sol";
-import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/songbird/tokenPools/interfaces/IITokenPool.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/flare/tokenPools/interfaces/IITokenPool.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**

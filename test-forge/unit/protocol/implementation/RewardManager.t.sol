@@ -7,7 +7,7 @@ import { IIClaimSetupManager } from "../../../../contracts/protocol/interface/II
 import { IIFlareSystemsCalculator } from "../../../../contracts/protocol/interface/IIFlareSystemsCalculator.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { RewardsV2Interface } from "../../../../contracts/userInterfaces/LTS/RewardsV2Interface.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
 contract RewardManagerTest is Test {

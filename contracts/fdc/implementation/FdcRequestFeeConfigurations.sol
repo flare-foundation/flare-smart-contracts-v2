@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import { IFdcRequestFeeConfigurations } from "../../userInterfaces/IFdcRequestFeeConfigurations.sol";
 import { Governed } from "../../governance/implementation/Governed.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
  * FdcRequestFeeConfigurations contract.

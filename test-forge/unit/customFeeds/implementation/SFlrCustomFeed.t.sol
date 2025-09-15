@@ -6,7 +6,7 @@ import { SFlrCustomFeed , ISFlr } from "../../../../contracts/customFeeds/implem
 import { IFastUpdatesConfiguration } from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
 import { IFastUpdater } from "../../../../contracts/userInterfaces/IFastUpdater.sol";
 import { IFeeCalculator } from "../../../../contracts/userInterfaces/IFeeCalculator.sol";
-import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/songbird/IFlareContractRegistry.sol";
+import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/flare/IFlareContractRegistry.sol";
 
 contract SFlrCustomFeedTest is Test {
 

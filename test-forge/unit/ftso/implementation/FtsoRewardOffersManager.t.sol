@@ -8,7 +8,7 @@ import { IFtsoRewardOffersManager } from "../../../../contracts/userInterfaces/I
 import { IFtsoInflationConfigurations } from "../../../../contracts/userInterfaces/IFtsoInflationConfigurations.sol";
 import { IFtsoFeedDecimals } from "../../../../contracts/userInterfaces/IFtsoFeedDecimals.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FtsoRewardOffersManagerTest is Test {
 

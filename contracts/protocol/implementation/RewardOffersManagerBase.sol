@@ -6,7 +6,7 @@ import { InflationReceiver } from "../../inflation/implementation/InflationRecei
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { IIFlareSystemsManager } from "../interface/IIFlareSystemsManager.sol";
 import { IIRewardEpochSwitchoverTrigger } from "../interface/IIRewardEpochSwitchoverTrigger.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
  * RewardOffersManagerBase contract.

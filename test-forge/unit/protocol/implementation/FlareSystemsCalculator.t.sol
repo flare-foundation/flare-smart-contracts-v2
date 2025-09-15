@@ -7,7 +7,7 @@ import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/
 import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
 import { IEntityManager } from "../../../../contracts/userInterfaces/IEntityManager.sol";
 import { IWNatDelegationFee } from "../../../../contracts/userInterfaces/IWNatDelegationFee.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract FlareSystemsCalculatorTest is Test {

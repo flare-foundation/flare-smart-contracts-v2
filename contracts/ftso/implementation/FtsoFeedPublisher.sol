@@ -7,7 +7,7 @@ import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { Governed } from "../../governance/implementation/Governed.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
  * FtsoFeedPublisher contract.

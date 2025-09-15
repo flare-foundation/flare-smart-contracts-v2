@@ -2,7 +2,7 @@
 pragma solidity 0.8.20;
 
 import { IFlareDaemonize } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IFlareDaemonize.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { ProtocolsV2Interface } from "../../userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { Governed } from "../../governance/implementation/Governed.sol";

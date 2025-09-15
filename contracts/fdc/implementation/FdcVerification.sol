@@ -26,7 +26,7 @@ import {
 } from "../../userInterfaces/fdc/IReferencedPaymentNonexistenceVerification.sol";
 import { IWeb2Json } from "../../userInterfaces/fdc/IWeb2Json.sol";
 import { IWeb2JsonVerification } from "../../userInterfaces/fdc/IWeb2JsonVerification.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";

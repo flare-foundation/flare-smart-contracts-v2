@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IClaimSetupManager } from "@flarenetwork/flare-periphery-contracts/songbird/IClaimSetupManager.sol";
+import { IClaimSetupManager } from "@flarenetwork/flare-periphery-contracts/flare/IClaimSetupManager.sol";
 import { IWNat } from "../../userInterfaces/IWNat.sol";
 
 /**

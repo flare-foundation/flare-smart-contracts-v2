@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IVPToken } from "@flarenetwork/flare-periphery-contracts/songbird/IVPToken.sol";
-import { IICleanable } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IICleanable.sol";
+import { IVPToken } from "@flarenetwork/flare-periphery-contracts/flare/IVPToken.sol";
+import { IICleanable } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IICleanable.sol";
 
 /**
  * @title Wrapped Native token

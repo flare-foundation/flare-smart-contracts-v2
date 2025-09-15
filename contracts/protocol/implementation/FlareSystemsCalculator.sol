@@ -2,7 +2,7 @@
 pragma solidity 0.8.20;
 
 import { IPChainStakeMirror } from "@flarenetwork/flare-periphery-contracts/flare/IPChainStakeMirror.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IIEntityManager } from "../interface/IIEntityManager.sol";
 import { IIFlareSystemsCalculator } from "../interface/IIFlareSystemsCalculator.sol";
 import { IIFlareSystemsManager } from "../interface/IIFlareSystemsManager.sol";

@@ -9,7 +9,7 @@ import { Governed } from "../../governance/implementation/Governed.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { SafePct } from "../../utils/lib/SafePct.sol";
 import { IVoterRegistry } from "../../userInterfaces/IVoterRegistry.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 

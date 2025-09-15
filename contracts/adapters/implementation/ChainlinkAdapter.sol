@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/flare/IFlareContractRegistry.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
 import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
 import { AggregatorV3Interface } from "../interface/AggregatorV3Interface.sol";

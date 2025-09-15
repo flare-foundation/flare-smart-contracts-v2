@@ -15,10 +15,10 @@ import { IVoterRegistry } from "../../contracts/userInterfaces/IVoterRegistry.so
 import { IRandomProvider } from "../../contracts/userInterfaces/IRandomProvider.sol";
 import { RandomNumberV2Interface } from "../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { GovernorVotes } from "../../contracts/governance/implementation/GovernorVotes.sol";
-import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIGovernanceVotePower.sol";
-import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIVPContract.sol";
-import { IISupply } from "@flarenetwork/flare-periphery-contracts/songbird/inflation/interfaces/IISupply.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
+import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIVPContract.sol";
+import { IISupply } from "@flarenetwork/flare-periphery-contracts/flare/inflation/interfaces/IISupply.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 // solhint-disable-next-line max-states-count
 contract PollingFoundationIntegrationTest is Test {
 

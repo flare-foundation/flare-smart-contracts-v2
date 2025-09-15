@@ -14,9 +14,9 @@ import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegis
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { FtsoProxy } from "../../../../contracts/fscV1/implementation/FtsoProxy.sol";
 import { IIIPriceSubmitter } from "../../../../contracts/mock/IIIPriceSubmitter.sol";
-import { IFtso } from "@flarenetwork/flare-periphery-contracts/songbird/IFtso.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
-import { IIFtso } from "@flarenetwork/flare-periphery-contracts/songbird/ftso/interfaces/IIFtso.sol";
+import { IFtso } from "@flarenetwork/flare-periphery-contracts/flare/IFtso.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IIFtso } from "@flarenetwork/flare-periphery-contracts/flare/ftso/interfaces/IIFtso.sol";
 
 // solhint-disable-next-line max-states-count
 contract FtsoManagerProxyTest is Test {

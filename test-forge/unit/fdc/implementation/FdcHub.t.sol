@@ -9,7 +9,7 @@ import { RewardManager } from "../../../../contracts/protocol/implementation/Rew
 import { IFdcInflationConfigurations } from "../../../../contracts/userInterfaces/IFdcInflationConfigurations.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FdcHubTest is Test {
     FdcHub private fdcHub;

@@ -5,7 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Submission } from "../../../../contracts/protocol/implementation/Submission.sol";
 import { PassContract } from "../../../mock/PassContract.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract SubmissionTest is Test {
     Submission private submission;

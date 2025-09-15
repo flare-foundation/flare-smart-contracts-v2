@@ -10,7 +10,7 @@ import { GovernedProxyImplementation } from "../../governance/implementation/Gov
 import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { IICustomFeed } from "../../customFeeds/interface/IICustomFeed.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";

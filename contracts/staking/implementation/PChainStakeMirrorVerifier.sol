@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import { IIPChainStakeMirrorVerifier } from "flare-smart-contracts/contracts/staking/interface/IIPChainStakeMirrorVerifier.sol";
+import { IIPChainStakeMirrorVerifier } from "@flarenetwork/flare-periphery-contracts/flare/staking/interfaces/IIPChainStakeMirrorVerifier.sol";
 import { IPChainStakeMirrorMultiSigVoting } from "@flarenetwork/flare-periphery-contracts/flare/IPChainStakeMirrorMultiSigVoting.sol";
-import { IPChainStakeMirrorVerifier } from "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirrorVerifier.sol";
+import { IPChainStakeMirrorVerifier } from "@flarenetwork/flare-periphery-contracts/flare/IPChainStakeMirrorVerifier.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 

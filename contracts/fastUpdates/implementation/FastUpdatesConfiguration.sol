@@ -5,7 +5,7 @@ import { Governed } from "../../governance/implementation/Governed.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { IFastUpdatesConfiguration } from "../../userInterfaces/IFastUpdatesConfiguration.sol";
 import { IIFastUpdater } from "../interface/IIFastUpdater.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
  * This contract is used to manage the Fast updates configuration.

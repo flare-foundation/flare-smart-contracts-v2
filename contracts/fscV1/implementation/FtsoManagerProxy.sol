@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import { IIFtsoRewardManager } from "@flarenetwork/flare-periphery-contracts/songbird/tokenPools/interfaces/IIFtsoRewardManager.sol";
-import { IIFtsoManager } from "@flarenetwork/flare-periphery-contracts/songbird/ftso/interfaces/IIFtsoManager.sol";
-import { IIPriceSubmitter } from "@flarenetwork/flare-periphery-contracts/songbird/genesis/interfaces/IIPriceSubmitter.sol";
-import { IIFtsoRegistry } from "@flarenetwork/flare-periphery-contracts/songbird/utils/interfaces/IIFtsoRegistry.sol";
-import { IIFtso } from "@flarenetwork/flare-periphery-contracts/songbird/ftso/interfaces/IIFtso.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
-import { IFtsoManager } from "@flarenetwork/flare-periphery-contracts/songbird/IFtsoManager.sol";
-import { IFtso } from "@flarenetwork/flare-periphery-contracts/songbird/IFtso.sol";
-import { IFtsoManagerGenesis } from "@flarenetwork/flare-periphery-contracts/songbird/genesis/interfaces/IFtsoManagerGenesis.sol";
+import { IIFtsoRewardManager } from "@flarenetwork/flare-periphery-contracts/flare/tokenPools/interfaces/IIFtsoRewardManager.sol";
+import { IIFtsoManager } from "@flarenetwork/flare-periphery-contracts/flare/ftso/interfaces/IIFtsoManager.sol";
+import { IIPriceSubmitter } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IIPriceSubmitter.sol";
+import { IIFtsoRegistry } from "@flarenetwork/flare-periphery-contracts/flare/utils/interfaces/IIFtsoRegistry.sol";
+import { IIFtso } from "@flarenetwork/flare-periphery-contracts/flare/ftso/interfaces/IIFtso.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFtsoManager } from "@flarenetwork/flare-periphery-contracts/flare/IFtsoManager.sol";
+import { IFtso } from "@flarenetwork/flare-periphery-contracts/flare/IFtso.sol";
+import { IFtsoManagerGenesis } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IFtsoManagerGenesis.sol";
 import { IIFtsoManagerProxy } from "../interface/IIFtsoManagerProxy.sol";
 import { IIFastUpdaterView } from "../../fscV1/interface/IIFastUpdaterView.sol";
 import { IRewardManager } from "../../userInterfaces/IRewardManager.sol";

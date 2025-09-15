@@ -5,7 +5,7 @@ import { IFdcInflationConfigurations } from "../../userInterfaces/IFdcInflationC
 import { IFdcRequestFeeConfigurations } from "../../userInterfaces/IFdcRequestFeeConfigurations.sol";
 import { Governed } from "../../governance/implementation/Governed.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
  * FdcInflationConfigurations contract.

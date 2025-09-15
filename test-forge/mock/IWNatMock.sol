@@ -2,8 +2,8 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { IWNat } from "../../contracts/userInterfaces/IWNat.sol";
-import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIVPContract.sol";
-import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIGovernanceVotePower.sol";
+import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIVPContract.sol";
+import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
 
 interface IWNatMock is IWNat {
 

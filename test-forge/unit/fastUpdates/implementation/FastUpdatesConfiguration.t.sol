@@ -7,7 +7,7 @@ import {
 } from "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
 import  { IFastUpdatesConfiguration } from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
 import { IIFastUpdater } from "../../../../contracts/fastUpdates/interface/IIFastUpdater.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FastUpdatesConfigurationTest is Test {
 

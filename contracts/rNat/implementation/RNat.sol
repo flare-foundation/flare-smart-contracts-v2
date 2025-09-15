@@ -11,8 +11,8 @@ import { IIClaimSetupManager } from "../../protocol/interface/IIClaimSetupManage
 import { IRNat } from "../../userInterfaces/IRNat.sol";
 import { IRNatAccount } from "../../userInterfaces/IRNatAccount.sol";
 import { IWNat } from "../../userInterfaces/IWNat.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
-import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/songbird/tokenPools/interfaces/IITokenPool.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/flare/tokenPools/interfaces/IITokenPool.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";

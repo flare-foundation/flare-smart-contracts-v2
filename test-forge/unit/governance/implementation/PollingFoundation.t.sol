@@ -12,10 +12,10 @@ import { IRandomProvider } from "../../../../contracts/userInterfaces/IRandomPro
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { ExecuteMock } from "../../../mock/ExecuteMock.sol";
 import { ExecuteMockSquare } from "../../../mock/ExecuteMockSquare.sol";
-import { IGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceVotePower.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
-import { IISupply } from "@flarenetwork/flare-periphery-contracts/songbird/inflation/interfaces/IISupply.sol";
-import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIGovernanceVotePower.sol";
+import { IGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceVotePower.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IISupply } from "@flarenetwork/flare-periphery-contracts/flare/inflation/interfaces/IISupply.sol";
+import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 // solhint-disable-next-line max-states-count

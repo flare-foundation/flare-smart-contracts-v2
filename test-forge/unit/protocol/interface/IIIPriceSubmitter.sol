@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IIPriceSubmitter } from "flare-smart-contracts/contracts/genesis/interface/IIPriceSubmitter.sol";
+import { IIPriceSubmitter } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IIPriceSubmitter.sol";
 
 /**
  * @title Price submitter internal interface for testing.

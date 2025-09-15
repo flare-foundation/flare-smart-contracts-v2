@@ -12,7 +12,7 @@ import { IIVoterRegistry } from "../../protocol/interface/IIVoterRegistry.sol";
 import { SafePct } from "../../utils/lib/SafePct.sol";
 import { Governed } from "./Governed.sol";
 import { AddressSet } from "../../utils/lib/AddressSet.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**

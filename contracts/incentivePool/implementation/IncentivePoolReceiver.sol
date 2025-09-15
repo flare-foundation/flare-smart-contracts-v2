@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import { IIIncentivePoolReceiver } from "flare-smart-contracts/contracts/tokenPools/interface/IIIncentivePoolReceiver.sol";
+import { IIIncentivePoolReceiver } from "@flarenetwork/flare-periphery-contracts/flare/tokenPools/interfaces/IIIncentivePoolReceiver.sol";
 import { TokenPoolBase } from "../../utils/implementation/TokenPoolBase.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
-import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/songbird/tokenPools/interfaces/IITokenPool.sol";
+import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/flare/tokenPools/interfaces/IITokenPool.sol";
 
 abstract contract IncentivePoolReceiver is TokenPoolBase, IIIncentivePoolReceiver, AddressUpdatable {
 

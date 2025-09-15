@@ -6,10 +6,10 @@ import { RNat } from "../../../../contracts/rNat/implementation/RNat.sol";
 import { RNatAccount } from "../../../../contracts/rNat/implementation/RNatAccount.sol";
 import { ERC20Mock } from "../../../../contracts/mock/ERC20Mock.sol";
 import { IWNatMock } from "../../../mock/IWNatMock.sol";
-import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIVPContract.sol";
-import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIGovernanceVotePower.sol";
-import { IClaimSetupManager } from "@flarenetwork/flare-periphery-contracts/songbird/IClaimSetupManager.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIVPContract.sol";
+import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
+import { IClaimSetupManager } from "@flarenetwork/flare-periphery-contracts/flare/IClaimSetupManager.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract RNatTest is Test {
 

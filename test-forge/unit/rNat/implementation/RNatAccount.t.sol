@@ -7,9 +7,9 @@ import { IIClaimSetupManager } from "../../../../contracts/protocol/interface/II
 import { IRNat } from "../../../../contracts/userInterfaces/IRNat.sol";
 import { IWNatMock } from "../../../mock/IWNatMock.sol";
 import { ERC20Mock } from "../../../../contracts/mock/ERC20Mock.sol";
-import { IClaimSetupManager } from "@flarenetwork/flare-periphery-contracts/songbird/IClaimSetupManager.sol";
-import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIVPContract.sol";
-import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIGovernanceVotePower.sol";
+import { IClaimSetupManager } from "@flarenetwork/flare-periphery-contracts/flare/IClaimSetupManager.sol";
+import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIVPContract.sol";
+import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
 
 
 contract RNatAccountTest is Test {
