@@ -15,8 +15,6 @@ import { TeeOwnerAllowlistProxy } from "../../contracts/tee/proxy/TeeOwnerAllowl
 import { TeeFeeCalculator } from "../../contracts/tee/implementation/TeeFeeCalculator.sol";
 import { TeePayments } from "../../contracts/tee/implementation/TeePayments.sol";
 import { TeePaymentsProxy } from "../../contracts/tee/proxy/TeePaymentsProxy.sol";
-import { TeeInstructions } from "../../contracts/tee/implementation/TeeInstructions.sol";
-import { TeeInstructionsProxy } from "../../contracts/tee/proxy/TeeInstructionsProxy.sol";
 import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardManager.sol";
 import { IPMWMultisigAccountConfigured } from "../../contracts/userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
 import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
@@ -46,7 +44,6 @@ contract WalletPaymentsTest is Test {
     TeeWalletManager private teeWalletManager;
     TeeOwnerAllowlist private teeOwnerAllowlist;
     TeePayments private teePayments;
-    TeeInstructions private teeInstructions ;
 
     TeeExtensionRegistry private teeExtensionRegistryImpl;
     TeeWalletProjectManager private teeWalletProjectManagerImpl;
@@ -54,7 +51,6 @@ contract WalletPaymentsTest is Test {
     TeeWalletManager private teeWalletManagerImpl;
     TeeOwnerAllowlist private teeOwnerAllowlistImpl;
     TeePayments private teePaymentsImpl;
-    TeeInstructions private teeInstructionsImpl;
 
     TeeExtensionRegistryProxy private teeExtensionRegistryProxy;
     TeeWalletProjectManagerProxy private teeWalletProjectManagerProxy;
@@ -62,7 +58,6 @@ contract WalletPaymentsTest is Test {
     TeeWalletManagerProxy private teeWalletManagerProxy;
     TeeOwnerAllowlistProxy private teeOwnerAllowlistProxy;
     TeePaymentsProxy private teePaymentsProxy;
-    TeeInstructionsProxy private teeInstructionsProxy;
 
     address private teeVerification = makeAddr("TeeVerification"); // TODO deploy the actual contract?
 
@@ -75,7 +70,6 @@ contract WalletPaymentsTest is Test {
     address private rewardManagerMock;
     address private teeWalletBackupManagerMock;
 
-    address private teeInstructionSender;
     bytes32 private projectId;
     bytes32 private opType;
     address private submitAddress;
@@ -105,7 +99,6 @@ contract WalletPaymentsTest is Test {
     address[] private contractAddresses;
 
     function setUp() public {
-        teeInstructionSender = makeAddr("teeInstructionSender");
         opType = keccak256("OP_TYPE");
         submitAddress = makeAddr("submitAddress");
         pausingAddresses = new address[](1);
@@ -188,15 +181,6 @@ contract WalletPaymentsTest is Test {
             governance,
             3
         );
-
-        teeInstructionsImpl = new TeeInstructions();
-        teeInstructionsProxy = new TeeInstructionsProxy(
-            governanceSettings,
-            governance,
-            addressUpdater,
-            address(teeInstructionsImpl)
-        );
-        teeInstructions = TeeInstructions(address(teeInstructionsProxy));
 
         bytes32[] memory supportedSourceIds = new bytes32[](1);
         supportedSourceIds[0] = XRP_SOURCE_ID;
@@ -284,30 +268,21 @@ contract WalletPaymentsTest is Test {
         contractAddresses[1] = address(teeExtensionRegistry);
         teeOwnerAllowlist.updateContractAddresses(contractNameHashes, contractAddresses);
 
-        contractNameHashes = new bytes32[](2);
-        contractAddresses = new address[](2);
-        contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("TeeExtensionRegistry"));
-        contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = address(teeExtensionRegistry);
-        teeInstructions.updateContractAddresses(contractNameHashes, contractAddresses);
 
-        contractNameHashes = new bytes32[](7);
-        contractAddresses = new address[](7);
+        contractNameHashes = new bytes32[](6);
+        contractAddresses = new address[](6);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("TeeWalletProjectManager"));
         contractNameHashes[2] = keccak256(abi.encode("TeeWalletManager"));
         contractNameHashes[3] = keccak256(abi.encode("TeeWalletKeyManager"));
         contractNameHashes[4] = keccak256(abi.encode("TeeVerification"));
-        contractNameHashes[5] = keccak256(abi.encode("TeeInstructions"));
-        contractNameHashes[6] = keccak256(abi.encode("FlareSystemsManager"));
+        contractNameHashes[5] = keccak256(abi.encode("FlareSystemsManager"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = address(teeWalletProjectManager);
         contractAddresses[2] = address(teeWalletManager);
         contractAddresses[3] = address(teeWalletKeyManager);
         contractAddresses[4] = teeVerification;
-        contractAddresses[5] = address(teeInstructions);
-        contractAddresses[6] = flareSystemsManagerMock;
+        contractAddresses[5] = flareSystemsManagerMock;
         teePayments.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
@@ -361,22 +336,15 @@ contract WalletPaymentsTest is Test {
     function testExtensionCreation() public {
         // extensionId = 0 is system extension; owner is governance
         vm.startPrank(governance);
-        teeExtensionRegistry.setExtensionContracts(
-            0,
-            ITeeExtensionStateVerifier(address(0)),
-            address(teeInstructions)
-        );
         ITeeWalletProjectOpTypeConstants[] memory opTypeConstantsProviders = new ITeeWalletProjectOpTypeConstants[](1);
         opTypeConstantsProviders[0] = ITeeWalletProjectOpTypeConstants(address(teePayments));
         teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(0, opTypeConstantsProviders);
-        address[] memory systemInstructionInitiators = new address[](3);
+        address[] memory systemInstructionInitiators = new address[](4);
         systemInstructionInitiators[0] = address(teeWalletKeyManager);
         systemInstructionInitiators[1] = address(teeWalletManager);
         systemInstructionInitiators[2] = address(teeVerification);
+        systemInstructionInitiators[3] = address(teePayments);
         teeExtensionRegistry.registerSystemInstructionInitiators(systemInstructionInitiators);
-        address[] memory instructionInitiators = new address[](1);
-        instructionInitiators[0] = address(teePayments);
-        teeInstructions.registerInstructionInitiators(instructionInitiators);
         vm.stopPrank();
 
         // allowlist project owners
