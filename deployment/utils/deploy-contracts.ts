@@ -52,7 +52,6 @@ import {
   RewardManagerInstance,
   SubmissionContract,
   SubmissionInstance,
-  TeeInstructionsProxyContract,
   TeePaymentsProxyContract,
   TeeVersionManagerProxyContract,
   TeeWalletBackupManagerProxyContract,
@@ -91,7 +90,6 @@ import { RelayInitialConfig } from "./RelayInitialConfig";
 import { TeeMachineRegistryContract, TeeMachineRegistryInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeMachineRegistry";
 import { TeeWalletManagerContract, TeeWalletManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletManager";
 import { TeeFeeCalculatorContract, TeeFeeCalculatorInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeFeeCalculator";
-import { TeeInstructionsContract, TeeInstructionsInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeInstructions";
 import { TeeRewardOffersManagerContract, TeeRewardOffersManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeRewardOffersManager";
 import { TeePaymentsContract, TeePaymentsInstance } from "../../typechain-truffle/contracts/tee/implementation/TeePayments";
 import { TeeWalletBackupManagerContract, TeeWalletBackupManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletBackupManager";
@@ -160,7 +158,6 @@ export interface DeployedContracts {
   readonly teeWalletKeyManager: TeeWalletKeyManagerInstance;
   readonly teeWalletBackupManager: TeeWalletBackupManagerInstance;
   readonly teeFeeCalculator: TeeFeeCalculatorInstance;
-  readonly teeInstructions: TeeInstructionsInstance;
   readonly teeRewardOffersManager: TeeRewardOffersManagerInstance;
   readonly teePayments: TeePaymentsInstance[];
   readonly ftdcHub: FtdcHubInstance;
@@ -244,8 +241,6 @@ export async function deployContracts(
   const TeeWalletBackupManager: TeeWalletBackupManagerContract = artifacts.require("TeeWalletBackupManager");
   const TeeWalletBackupManagerProxy: TeeWalletBackupManagerProxyContract = artifacts.require("TeeWalletBackupManagerProxy");
   const TeeFeeCalculator: TeeFeeCalculatorContract = artifacts.require("TeeFeeCalculator");
-  const TeeInstructions: TeeInstructionsContract = artifacts.require("TeeInstructions");
-  const TeeInstructionsProxy: TeeInstructionsProxyContract = artifacts.require("TeeInstructionsProxy");
   const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
   const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
   const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
@@ -667,16 +662,6 @@ export async function deployContracts(
   }
   await teeFeeCalculator.setOperationFees(operationTypes, operationCommands, operationFees, { from: governanceAccount.address });
 
-  const teeInstructionsImpl = await TeeInstructions.new();
-  const teeInstructionsProxy = await TeeInstructionsProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    teeInstructionsImpl.address
-  );
-  const teeInstructions = await TeeInstructions.at(teeInstructionsProxy.address);
-  addressUpdatableContracts.push(teeInstructions.address);
-
   const teePaymentsList = [];
   const teePaymentsImpl = await TeePayments.new();
   for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
@@ -761,7 +746,6 @@ export async function deployContracts(
       Contracts.TEE_MACHINE_REGISTRY,
       Contracts.TEE_FEE_CALCULATOR,
       Contracts.TEE_SYSTEM_STATE_VERIFIER,
-      Contracts.TEE_INSTRUCTIONS,
       Contracts.FTDC_HUB,
       Contracts.FTDC_VERIFICATION,
       Contracts.FTDC_REQUEST_FEE_CONFIGURATIONS,
@@ -808,7 +792,6 @@ export async function deployContracts(
       teeMachineRegistry.address,
       teeFeeCalculator.address,
       teeSystemStateVerifier.address,
-      teeInstructions.address,
       ftdcHub.address,
       ftdcVerification.address,
       ftdcRequestFeeConfigurations.address,
@@ -830,21 +813,18 @@ export async function deployContracts(
     { from: governanceAccount.address }
   );
 
-  await teeExtensionRegistry.setExtensionContracts(0,
-    ZERO_ADDRESS,
-    teeInstructions.address,
-    { from: governanceAccount.address }
-  )
-
   await teeExtensionRegistry.registerSystemInstructionInitiators(
-    [teeVerification.address, teeWalletManager.address, teeWalletKeyManager.address, teeWalletBackupManager.address, teeReplication.address],
+    [
+      teeVerification.address,
+      teeWalletManager.address,
+      teeWalletKeyManager.address,
+      teeWalletBackupManager.address,
+      teeReplication.address,
+      ...teePaymentsList.map(teePayments => teePayments.address),
+      ftdcHub.address
+    ],
     { from: governanceAccount.address }
   )
-
-  await teeInstructions.registerInstructionInitiators([
-    ...teePaymentsList.map(teePayments => teePayments.address),
-    ftdcHub.address,
-  ], { from: governanceAccount.address });
 
   await teeOwnerAllowlist.allowAllTeeMachineOwners(0, { from: governanceAccount.address });
   await teeOwnerAllowlist.allowAllTeeWalletProjectOwners(0, { from: governanceAccount.address });
@@ -1046,7 +1026,6 @@ export async function deployContracts(
     teeWalletKeyManager,
     teeWalletBackupManager,
     teeFeeCalculator,
-    teeInstructions,
     teeRewardOffersManager,
     teePayments: teePaymentsList,
     ftdcHub,

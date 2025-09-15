@@ -18,7 +18,7 @@ import { ITeeWalletKeyManager } from "../../contracts/userInterfaces/tee/ITeeWal
 import { ITeeWalletBackupManager } from "../../contracts/userInterfaces/tee/ITeeWalletBackupManager.sol";
 import { ITeeWalletManager } from "../../contracts/userInterfaces/tee/ITeeWalletManager.sol";
 import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
-import  { Signature } from "../../contracts/userInterfaces/ISignature.sol";
+import { Signature } from "../../contracts/userInterfaces/ISignature.sol";
 import { ProtocolsV2Interface } from "../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { ITeeOwnerAllowlist } from "../../contracts/userInterfaces/tee/ITeeOwnerAllowlist.sol";
 import { ITeeMachineRegistry } from "../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";

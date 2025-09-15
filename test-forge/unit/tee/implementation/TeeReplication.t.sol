@@ -14,6 +14,7 @@ import { IFtdcHub } from "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol
 import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
 import { IITeeMachineRegistry } from "../../../../contracts/tee/interface/IITeeMachineRegistry.sol";
 import { IGovernanceSettings} from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IITeeSystemStateVerifier } from "../../../../contracts/tee/interface/IITeeSystemStateVerifier.sol";
 
 // solhint-disable-next-line max-states-count
 contract TeeReplicationTest is Test {
@@ -492,7 +493,7 @@ contract TeeReplicationTest is Test {
         address _teeId,
         string memory _url
     )
-        private pure
+        private
         returns (ITeeAvailabilityCheck.Proof memory)
     {
         IFtdcVerification.FtdcSignatures memory sigs;
@@ -500,8 +501,14 @@ contract TeeReplicationTest is Test {
         header.timestamp = 1;
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             _teeId,
+            makeAddr("teeProxyId"),
             _url,
             keccak256("challenge")
+        );
+        IITeeSystemStateVerifier.TeeSystemState memory systemState = IITeeSystemStateVerifier.TeeSystemState(
+            IITeeSystemStateVerifier.TeeMachineStatus.ACTIVE,
+            _teeId,
+            keccak256("governanceHash")
         );
         ITeeAvailabilityCheck.ResponseBody memory repBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
@@ -510,7 +517,7 @@ contract TeeReplicationTest is Test {
             keccak256("platform"),
             0,
             0,
-            ITeeAvailabilityCheck.TeeState(new bytes(0), 0, new bytes(0), 0)
+            ITeeAvailabilityCheck.TeeState(abi.encode(systemState), bytes32("v1"), new bytes(0), bytes32(0))
         );
 
         return ITeeAvailabilityCheck.Proof(

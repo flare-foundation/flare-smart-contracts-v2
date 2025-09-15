@@ -8,7 +8,7 @@ import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletPro
 import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
 import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
-import { ITeeInstructions } from "../../userInterfaces/tee/ITeeInstructions.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { IPMWMultisigAccountConfigured } from "../../userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
@@ -84,8 +84,8 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
     ITeeWalletKeyManager public teeWalletKeyManager;
     /// TeeVerification contract.
     ITeeVerification public teeVerification;
-    /// TeeInstructions contract.
-    ITeeInstructions public teeInstructions;
+    /// TeeExtensionRegistry contract.
+    ITeeExtensionRegistry public teeExtensionRegistry;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
 
@@ -190,7 +190,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         tempState.instructionId = keccak256(abi.encode(
             opType, PAY, _account.sourceId, _account.accountAddress, tempState.message.nonce
         ));
-        teeInstructions.sendInstructions{value: msg.value}(
+        teeExtensionRegistry.sendInstructions{value: msg.value}(
             tempState.instructionId,
             _toTeeIds(teeIdKeyIdPairs),
             opType,
@@ -278,7 +278,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
             }
             tempState.amount = tempState.remainingAmount / (_paymentInstructions.length - i);
             tempState.remainingAmount -= tempState.amount;
-            teeInstructions.sendInstructions{value: tempState.amount}(
+            teeExtensionRegistry.sendInstructions{value: tempState.amount}(
                 tempState.instructionId,
                 tempState.teeIds,
                 opType,
@@ -301,6 +301,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
     {
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         require(teeWalletProjectManager.getOwner(projectId) == msg.sender, OnlyWalletOwner());
+        require(teeWalletProjectManager.getExtensionId(projectId) == 0, OnlySystemExtensionId());
         require(teeWalletProjectManager.getOpType(projectId) == opType, WrongOpType());
         require(bytes(_proof.requestBody.accountAddress).length > 0, AccountAddressZero());
         require(supportedSourceIds.contains(_proof.header.sourceId), UnsupportedSourceId());
@@ -380,7 +381,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
             opType, SET_PAYMENT_LIMITS, _account.sourceId, _account.accountAddress, nonce
         ));
         (address[] memory admins, uint64 adminsThreshold) = teeWalletManager.getWalletAdminsAndThreshold(walletId);
-        teeInstructions.sendInstructions{value: msg.value}(
+        teeExtensionRegistry.sendInstructions{value: msg.value}(
             instructionId,
             _toTeeIds(teeIdKeyIdPairs),
             opType,
@@ -484,8 +485,8 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
         teeVerification = ITeeVerification(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeVerification"));
-        teeInstructions = ITeeInstructions(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
+        teeExtensionRegistry = ITeeExtensionRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }

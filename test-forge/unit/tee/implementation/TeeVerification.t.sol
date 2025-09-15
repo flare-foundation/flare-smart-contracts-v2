@@ -47,6 +47,7 @@ contract TeeVerificationTest is Test {
 
     address private owner;
     address private teeId;
+    address private teeProxyId;
     uint256 private randomNumber;
     uint256 private extensionId;
     ITeeAvailabilityCheck.Proof private proof;
@@ -70,6 +71,7 @@ contract TeeVerificationTest is Test {
     function setUp() public {
         owner = makeAddr("owner");
         teeId = makeAddr("teeId");
+        teeProxyId = makeAddr("teeProxyId");
         extensionId = 0;
         url = "url";
         sourceId = bytes32("TEE");
@@ -84,6 +86,7 @@ contract TeeVerificationTest is Test {
         proof.header.thresholdBIPS = 0;
         proof.header.attestationType = bytes32("TeeAvailabilityCheck");
         proof.header.sourceId = sourceId;
+        proof.requestBody.teeProxyId = teeProxyId;
         proof.requestBody.url = url;
         proof.responseBody.initialSigningPolicyId = signingPolicyId;
         proof.responseBody.codeHash = keccak256("codeHash");
@@ -202,7 +205,7 @@ contract TeeVerificationTest is Test {
             abi.encodeWithSelector(
                 ITeeMachineRegistry.getTeeMachine.selector
             ),
-            abi.encode(ITeeMachineRegistry.TeeMachine(teeId, teeId, url))
+            abi.encode(ITeeMachineRegistry.TeeMachine(teeId, teeProxyId, url))
         );
 
         vm.mockCall(
@@ -527,6 +530,12 @@ contract TeeVerificationTest is Test {
 
     function testVerifyAvailabilityCheckRevertInvalidRequestBody2() public {
         proof.requestBody.challenge = keccak256("invalidChallenge");
+        vm.expectRevert(ITeeVerification.InvalidRequestBody.selector);
+        teeVerification.verifyAvailabilityCheckProof(proof);
+    }
+
+    function testVerifyAvailabilityCheckRevertInvalidRequestBody3() public {
+        proof.requestBody.teeProxyId = makeAddr("invalidTeeProxyId");
         vm.expectRevert(ITeeVerification.InvalidRequestBody.selector);
         teeVerification.verifyAvailabilityCheckProof(proof);
     }

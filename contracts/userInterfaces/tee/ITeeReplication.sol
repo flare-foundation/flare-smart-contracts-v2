@@ -43,6 +43,7 @@ interface ITeeReplication {
     error ExtensionMismatch();
     error InvalidResponseData();
     error ReplicationNotValid();
+    error InvalidSystemStateVersion();
     error AvailabilityCheckTimestampInvalid();
     error VersionNotSupported();
     error InvalidUpgradePath();

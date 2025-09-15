@@ -118,6 +118,7 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
         require(_upgradePaths.length > 0, NoUpgradePaths());
 
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
+        uint256 extensionId = teeUpgrade.extensionId;
         bytes32 sourceTeeGovernanceHash = teeUpgrade.sourceTeeGovernanceHash;
         bytes32 targetTeeGovernanceHash = teeUpgrade.targetTeeGovernanceHash;
 
@@ -130,13 +131,13 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
                 TeeNodeVersion calldata sourceVersion = upgradePath.sourceVersions[j];
                 require(
                     teeExtensionRegistry.isCodeHashPlatformSupported(
-                        teeUpgrade.extensionId, sourceVersion.codeHash, sourceVersion.platform) ||
+                        extensionId, sourceVersion.codeHash, sourceVersion.platform) ||
                     teeExtensionRegistry.codeHashPlatformDisabled(
-                        teeUpgrade.extensionId, sourceVersion.codeHash, sourceVersion.platform),
+                        extensionId, sourceVersion.codeHash, sourceVersion.platform),
                     SourceCodeHashAndPlatformNotSupported()
                 );
                 require(
-                    teeExtensionRegistry.getTeeGovernanceHash(teeUpgrade.extensionId, sourceVersion.codeHash) ==
+                    teeExtensionRegistry.getTeeGovernanceHash(extensionId, sourceVersion.codeHash) ==
                         sourceTeeGovernanceHash,
                     SourceGovernanceHashMismatch()
                 );
@@ -152,11 +153,11 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
                 TeeNodeVersion calldata targetVersion = upgradePath.targetVersions[j];
                 require(
                     teeExtensionRegistry.isCodeHashPlatformSupported(
-                        teeUpgrade.extensionId, targetVersion.codeHash, targetVersion.platform),
+                        extensionId, targetVersion.codeHash, targetVersion.platform),
                     TargetCodeHashAndPlatformNotSupported()
                 );
                 require(
-                    teeExtensionRegistry.getTeeGovernanceHash(teeUpgrade.extensionId, targetVersion.codeHash) ==
+                    teeExtensionRegistry.getTeeGovernanceHash(extensionId, targetVersion.codeHash) ==
                         targetTeeGovernanceHash,
                     TargetGovernanceHashMismatch()
                 );

@@ -11,8 +11,6 @@ import { TeeExtensionRegistryProxyContract } from "../../typechain-truffle/contr
 import { TeeFeeCalculatorContract } from "../../typechain-truffle/contracts/tee/implementation/TeeFeeCalculator";
 import { TeeGovernanceContract } from "../../typechain-truffle/contracts/tee/implementation/TeeGovernance";
 import { TeeGovernanceProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeGovernanceProxy";
-import { TeeInstructionsContract } from "../../typechain-truffle/contracts/tee/implementation/TeeInstructions";
-import { TeeInstructionsProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeInstructionsProxy";
 import { TeeMachineRegistryContract } from "../../typechain-truffle/contracts/tee/implementation/TeeMachineRegistry";
 import { TeeMachineRegistryProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeMachineRegistryProxy";
 import { TeeOwnerAllowlistContract } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlist";
@@ -61,8 +59,6 @@ export async function deployTeeContracts(
   const TeeGovernance: TeeGovernanceContract = artifacts.require("TeeGovernance");
   const TeeGovernanceProxy: TeeGovernanceProxyContract = artifacts.require("TeeGovernanceProxy");
   const TeeFeeCalculator: TeeFeeCalculatorContract = artifacts.require("TeeFeeCalculator");
-  const TeeInstructions: TeeInstructionsContract = artifacts.require("TeeInstructions");
-  const TeeInstructionsProxy: TeeInstructionsProxyContract = artifacts.require("TeeInstructionsProxy");
   const TeeMachineRegistry: TeeMachineRegistryContract = artifacts.require("TeeMachineRegistry");
   const TeeMachineRegistryProxy: TeeMachineRegistryProxyContract = artifacts.require("TeeMachineRegistryProxy");
   const TeeOwnerAllowlist: TeeOwnerAllowlistContract = artifacts.require("TeeOwnerAllowlist");
@@ -161,18 +157,6 @@ export async function deployTeeContracts(
   );
   const teeGovernance = await TeeGovernance.at(teeGovernanceProxy.address);
   spewNewContractInfo(contracts, null, TeeGovernance.contractName, `TeeGovernanceProxy.sol`, teeGovernanceProxy.address, quiet);
-
-  // TeeInstructions
-  const teeInstructionsImpl = await TeeInstructions.new();
-  spewNewContractInfo(contracts, null, "TeeInstructionsImplementation", `TeeInstructions.sol`, teeInstructionsImpl.address, quiet);
-  const teeInstructionsProxy = await TeeInstructionsProxy.new(
-    governanceSettings,
-    deployerAccount.address,
-    deployerAccount.address,
-    teeInstructionsImpl.address
-  );
-  const teeInstructions = await TeeInstructions.at(teeInstructionsProxy.address);
-  spewNewContractInfo(contracts, null, TeeInstructions.contractName, `TeeInstructionsProxy.sol`, teeInstructionsProxy.address, quiet);
 
   // TeeMachineRegistry
   const teeMachineRegistryImpl = await TeeMachineRegistry.new();
@@ -328,8 +312,8 @@ export async function deployTeeContracts(
 
   // set contract addresses
   await ftdcHub.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_MACHINE_REGISTRY, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.FTDC_REQUEST_FEE_CONFIGURATIONS]),
-    [addressUpdater, teeMachineRegistry.address, teeInstructions.address, flareSystemsManager, rewardManager, ftdcRequestFeeConfigurations.address],
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_MACHINE_REGISTRY, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_REPLICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.FTDC_REQUEST_FEE_CONFIGURATIONS]),
+    [addressUpdater, teeMachineRegistry.address, teeExtensionRegistry.address, teeReplication.address, flareSystemsManager, rewardManager, ftdcRequestFeeConfigurations.address],
   );
 
   await ftdcVerification.updateContractAddresses(
@@ -347,11 +331,6 @@ export async function deployTeeContracts(
     [addressUpdater, teeExtensionRegistry.address]
   );
 
-  await teeInstructions.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_EXTENSION_REGISTRY]),
-    [addressUpdater, teeExtensionRegistry.address]
-  );
-
   await teeMachineRegistry.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_OWNER_ALLOWLIST, Contracts.TEE_VERIFICATION, Contracts.TEE_REPLICATION, Contracts.RELAY]),
     [addressUpdater, teeExtensionRegistry.address, teeOwnerAllowlist.address, teeVerification.address, teeReplication.address, relay]
@@ -364,8 +343,8 @@ export async function deployTeeContracts(
 
   for (const teePayments of teePaymentsList) {
     await teePayments.updateContractAddresses(
-      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_VERIFICATION, Contracts.TEE_INSTRUCTIONS, Contracts.FLARE_SYSTEMS_MANAGER]),
-      [addressUpdater, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address, teeVerification.address, teeInstructions.address, flareSystemsManager]
+      encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_VERIFICATION, Contracts.TEE_EXTENSION_REGISTRY, Contracts.FLARE_SYSTEMS_MANAGER]),
+      [addressUpdater, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address, teeVerification.address, teeExtensionRegistry.address, flareSystemsManager]
     );
   }
 
@@ -445,20 +424,13 @@ export async function deployTeeContracts(
     teePaymentsList.map(teePayments => teePayments.address)
   );
 
-  // set extension contracts
-  await teeExtensionRegistry.setExtensionContracts(0, ZERO_ADDRESS, teeInstructions.address);
-
   // register system instruction initiators
   await teeExtensionRegistry.registerSystemInstructionInitiators([
     teeReplication.address,
     teeVerification.address,
     teeWalletBackupManager.address,
     teeWalletKeyManager.address,
-    teeWalletManager.address
-  ]);
-
-  // register instruction initiators
-  await teeInstructions.registerInstructionInitiators([
+    teeWalletManager.address,
     ...teePaymentsList.map(teePayments => teePayments.address),
     ftdcHub.address
   ]);
@@ -474,7 +446,6 @@ export async function deployTeeContracts(
   // await teeExtensionRegistry.switchToProductionMode();
   // await teeFeeCalculator.switchToProductionMode();
   // await teeGovernance.switchToProductionMode();
-  // await teeInstructions.switchToProductionMode();
   // await teeMachineRegistry.switchToProductionMode();
   // await teeOwnerAllowlist.switchToProductionMode();
   // for (const teePayments of teePaymentsList) {

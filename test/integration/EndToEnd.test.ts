@@ -10,7 +10,7 @@ import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfiguratio
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { RelayMessage } from '../../scripts/libs/protocol/RelayMessage';
 import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
-import { AddressBinderInstance, EntityManagerInstance, FtsoFeedIdConverterContract, FtsoFeedIdConverterInstance, FtsoFeedPublisherContract, FtsoFeedPublisherInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, TeeExtensionRegistryContract, TeeGovernanceProxyContract, TeeInstructionsProxyContract, TeePaymentsProxyContract, TeeMachineRegistryProxyContract, TeeVersionManagerProxyContract, TeeWalletBackupManagerProxyContract, TeeWalletKeyManagerProxyContract, TeeWalletManagerProxyContract, TeeWalletProjectManagerProxyContract, WNatInstance } from '../../typechain-truffle';
+import { AddressBinderInstance, EntityManagerInstance, FtsoFeedIdConverterContract, FtsoFeedIdConverterInstance, FtsoFeedPublisherContract, FtsoFeedPublisherInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, TeeExtensionRegistryContract, TeeGovernanceProxyContract, TeePaymentsProxyContract, TeeMachineRegistryProxyContract, TeeVersionManagerProxyContract, TeeWalletBackupManagerProxyContract, TeeWalletKeyManagerProxyContract, TeeWalletManagerProxyContract, TeeWalletProjectManagerProxyContract, WNatInstance } from '../../typechain-truffle';
 import { MockContractContract } from '../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract';
 import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
 import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
@@ -47,12 +47,10 @@ import { TeeWalletManagerContract, TeeWalletManagerInstance } from '../../typech
 import { TeeWalletKeyManagerContract, TeeWalletKeyManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeWalletKeyManager';
 import { TeeWalletBackupManagerContract, TeeWalletBackupManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeWalletBackupManager';
 import { TeeFeeCalculatorContract, TeeFeeCalculatorInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeFeeCalculator';
-import { TeeInstructionsContract, TeeInstructionsInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeInstructions';
 import { TeeRewardOffersManagerContract, TeeRewardOffersManagerInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeRewardOffersManager';
 import { TeePaymentsContract, TeePaymentsInstance } from '../../typechain-truffle/contracts/tee/implementation/TeePayments';
 import { TEE_OPERATION_FEES } from '../../deployment/tasks/run-simulation';
 import { requiredEventArgsFrom } from '../utils/Web3EventDecoder';
-import { AddressUpdater, TeeInstructions } from '../../typechain';
 import { FtdcHubContract, FtdcHubInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcHub';
 import { FtdcRequestFeeConfigurationsContract, FtdcRequestFeeConfigurationsInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations';
 import { TeeVerificationContract, TeeVerificationInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeVerification';
@@ -118,8 +116,6 @@ const TeeWalletKeyManagerProxy: TeeWalletKeyManagerProxyContract = artifacts.req
 const TeeWalletBackupManager: TeeWalletBackupManagerContract = artifacts.require("TeeWalletBackupManager");
 const TeeWalletBackupManagerProxy: TeeWalletBackupManagerProxyContract = artifacts.require("TeeWalletBackupManagerProxy");
 const TeeFeeCalculator: TeeFeeCalculatorContract = artifacts.require("TeeFeeCalculator");
-const TeeInstructions: TeeInstructionsContract = artifacts.require("TeeInstructions");
-const TeeInstructionsProxy: TeeInstructionsProxyContract = artifacts.require("TeeInstructionsProxy");
 const TeeReplication: TeeReplicationContract = artifacts.require("TeeReplication");
 const TeeReplicationProxy: TeeReplicationProxyContract = artifacts.require("TeeReplicationProxy");
 const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
@@ -280,7 +276,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     let teeWalletKeyManager: TeeWalletKeyManagerInstance;
     let teeWalletBackupManager: TeeWalletBackupManagerInstance;
     let teeFeeCalculator: TeeFeeCalculatorInstance;
-    let teeInstructions: TeeInstructionsInstance;
     let teeReplication: TeeReplicationInstance;
     let teeRewardOffersManager: TeeRewardOffersManagerInstance;
     let teePaymentsXRP: TeePaymentsInstance;
@@ -605,11 +600,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         teeRewardOffersManager = await TeeRewardOffersManager.new(governanceSettings.address, accounts[0], addressUpdater.address, 100000); // 10%
         addressUpdatableContracts.push(teeRewardOffersManager.address);
 
-        const teeInstructionsImpl: TeeInstructionsInstance = await TeeInstructions.new();
-        const teeInstructionsProxy = await TeeInstructionsProxy.new(governanceSettings.address, accounts[0], addressUpdater.address, teeInstructionsImpl.address);
-        teeInstructions = await TeeInstructions.at(teeInstructionsProxy.address);
-        addressUpdatableContracts.push(teeInstructions.address);
-
         const teeReplicationImpl: TeeReplicationInstance = await TeeReplication.new();
         const teeReplicationProxy = await TeeReplicationProxy.new(governanceSettings.address, accounts[0], addressUpdater.address, 60, teeReplicationImpl.address);
         teeReplication = await TeeReplication.at(teeReplicationProxy.address);
@@ -693,7 +683,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 Contracts.TEE_MACHINE_REGISTRY,
                 Contracts.TEE_FEE_CALCULATOR,
                 Contracts.TEE_SYSTEM_STATE_VERIFIER,
-                Contracts.TEE_INSTRUCTIONS,
                 Contracts.FTDC_HUB,
                 Contracts.FTDC_VERIFICATION,
                 Contracts.FTDC_REQUEST_FEE_CONFIGURATIONS,
@@ -734,7 +723,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 teeMachineRegistry.address,
                 teeFeeCalculator.address,
                 teeSystemStateVerifier.address,
-                teeInstructions.address,
                 ftdcHub.address,
                 ftdcVerification.address,
                 ftdcRequestFeeConfigurations.address,
@@ -750,16 +738,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             addressUpdatableContracts,
             { from: accounts[0] }
         );
-        // set extension contracts
-        await teeExtensionRegistry.setExtensionContracts(0, constants.ZERO_ADDRESS, teeInstructions.address);
         // set supported operation types
         await teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(0, [teePaymentsXRP.address, teePaymentsEVM.address]);
         // set supported platforms
         await teeExtensionRegistry.addSupportedPlatforms(TEE_PLATFORMS.map(platform => web3.utils.utf8ToHex(platform).padEnd(66, "0")));
         // register system instruction initiators
-        await teeExtensionRegistry.registerSystemInstructionInitiators([teeVerification.address, teeWalletManager.address, teeWalletKeyManager.address, teeWalletBackupManager.address, teeReplication.address]);
-        // register instructions initiators
-        await teeInstructions.registerInstructionInitiators([teePaymentsXRP.address, teePaymentsEVM.address, ftdcHub.address]);
+        await teeExtensionRegistry.registerSystemInstructionInitiators([teeVerification.address, teeWalletManager.address, teeWalletKeyManager.address, teeWalletBackupManager.address, teeReplication.address, teePaymentsXRP.address, teePaymentsEVM.address, ftdcHub.address]);
         await teeOwnerAllowlist.allowAllTeeMachineOwners(0);
         await teeOwnerAllowlist.allowAllTeeWalletProjectOwners(0);
         // set reward offers manager list
@@ -1442,7 +1426,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     });
 
     it("Should trigger TEE machine availability check", async () => {
-        assert(TEE_URLS.length === challenges.length && TEE_URLS.length === TEE_IDS.length, "Arrays must be of the same length");
+        assert(TEE_URLS.length === challenges.length && TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PROXY_IDS.length, "Arrays must be of the same length");
 
         const ftdcAttestationRequestStruct = getStruct("FtdcStructs", "ftdcAttestationRequestStruct")
         const availabilityCheckRequestBodyStruct = getStruct("FtdcStructs", "availabilityCheckRequestBodyStruct");
@@ -1450,6 +1434,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         for (let i = 0; i < TEE_IDS.length; i++) {
             const requestBody = {
                 teeId: TEE_IDS[i],
+                teeProxyId: TEE_PROXY_IDS[i],
                 url: TEE_URLS[i],
                 challenge: challenges[i]
             };
@@ -1473,7 +1458,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     it("Should put new TEE machines in production", async () => {
         const rewardEpochId = 2;
 
-        assert(TEE_URLS.length === challenges.length && TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
+        assert(TEE_URLS.length === challenges.length && TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PROXY_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
         for (let i = 0; i < TEE_URLS.length; i++) {
             const teeState = {
                 systemState: "0x",
@@ -1497,6 +1482,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 },
                 requestBody: {
                     teeId: TEE_IDS[i],
+                    teeProxyId: TEE_PROXY_IDS[i],
                     url: TEE_URLS[i],
                     challenge: challenges[i].toString()
                 },
@@ -1521,8 +1507,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
             await time.increase(1);
             let tx = await teeMachineRegistry.toProduction(proof, { from: TEE_OWNERS[i] });
-            expectEvent(tx, "TeeMachinePutIntoProduction", {
-                teeId: TEE_IDS[i]
+            expectEvent(tx, "TeeMachineStatusChanged", {
+                teeId: TEE_IDS[i],
+                newStatus: "1" // TEE_MACHINE_STATUS.PRODUCTION
             });
         }
     });

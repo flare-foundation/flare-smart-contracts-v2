@@ -3,13 +3,12 @@ pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
 import { FtdcHub } from "../../../../contracts/ftdc/implementation/FtdcHub.sol";
-import { TeeInstructions } from "../../../../contracts/tee/implementation/TeeInstructions.sol";
 import { TeeExtensionRegistry } from "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
 import { TeeExtensionRegistryProxy } from "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
-import { TeeInstructionsProxy } from "../../../../contracts/tee/proxy/TeeInstructionsProxy.sol";
 import { ITeeFeeCalculator } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
 import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeReplication } from "../../../../contracts/userInterfaces/tee/ITeeReplication.sol";
 import { IFtdcHub } from "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
 import { IFtdcRequestFeeConfigurations } from
     "../../../../contracts/userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
@@ -26,13 +25,10 @@ contract FtdcHubTest is Test {
     address private addressUpdater;
     address private mockTeeMachineRegistry;
     address private mockTeeFeeCalculator;
+    address private mockTeeReplication;
     address private mockFlareSystemsManager;
     address private mockFtdcRequestFeeConfigurations;
     address private mockRewardManager;
-
-    TeeInstructions private teeInstructions;
-    TeeInstructions private teeInstructionsImpl;
-    TeeInstructionsProxy private teeInstructionsProxy;
 
     TeeExtensionRegistry private teeExtensionRegistry;
     TeeExtensionRegistry private teeExtensionRegistryImpl;
@@ -64,15 +60,6 @@ contract FtdcHubTest is Test {
             defaultNumberOfTees
         );
 
-        teeInstructionsImpl = new TeeInstructions();
-        teeInstructionsProxy = new TeeInstructionsProxy(
-            IGovernanceSettings(address(this)),
-            governance,
-            addressUpdater,
-            address(teeInstructionsImpl)
-        );
-        teeInstructions = TeeInstructions(address(teeInstructionsProxy));
-
         teeExtensionRegistryImpl = new TeeExtensionRegistry();
         teeExtensionRegistryProxy = new TeeExtensionRegistryProxy(
             IGovernanceSettings(address(this)),
@@ -84,35 +71,30 @@ contract FtdcHubTest is Test {
 
         mockTeeMachineRegistry = makeAddr("mockTeeMachineRegistry");
         mockTeeFeeCalculator = makeAddr("mockTeeFeeCalculator");
+        mockTeeReplication = makeAddr("mockTeeReplication");
         mockFlareSystemsManager = makeAddr("mockFlareSystemsManager");
         mockFtdcRequestFeeConfigurations = makeAddr("mockFtdcRequestFeeConfigurations");
         mockRewardManager = makeAddr("rewardManager");
 
         // set contract addresses
         vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](6);
-        contractAddresses = new address[](6);
+        contractNameHashes = new bytes32[](7);
+        contractAddresses = new address[](7);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractAddresses[0] = addressUpdater;
         contractNameHashes[1] = keccak256(abi.encode("TeeMachineRegistry"));
         contractAddresses[1] = mockTeeMachineRegistry;
         contractNameHashes[2] = keccak256(abi.encode("RewardManager"));
         contractAddresses[2] = mockRewardManager;
-        contractNameHashes[3] = keccak256(abi.encode("TeeInstructions"));
-        contractAddresses[3] = address(teeInstructions);
+        contractNameHashes[3] = keccak256(abi.encode("TeeExtensionRegistry"));
+        contractAddresses[3] = address(teeExtensionRegistry);
         contractNameHashes[4] = keccak256(abi.encode("FlareSystemsManager"));
         contractAddresses[4] = mockFlareSystemsManager;
         contractNameHashes[5] = keccak256(abi.encode("FtdcRequestFeeConfigurations"));
         contractAddresses[5] = mockFtdcRequestFeeConfigurations;
+        contractNameHashes[6] = keccak256(abi.encode("TeeReplication"));
+        contractAddresses[6] = mockTeeReplication;
         ftdcHub.updateContractAddresses(contractNameHashes, contractAddresses);
-
-        contractNameHashes = new bytes32[](2);
-        contractAddresses = new address[](2);
-        contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("TeeExtensionRegistry"));
-        contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = address(teeExtensionRegistry);
-        teeInstructions.updateContractAddresses(contractNameHashes, contractAddresses);
 
         contractNameHashes = new bytes32[](6);
         contractAddresses = new address[](6);
@@ -131,14 +113,10 @@ contract FtdcHubTest is Test {
         teeExtensionRegistry.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
-        // set data connector contract as instruction initiator on TeeInstructions
-        // set TeeInstructions as system instruction initiator on TeeExtensionRegistry
+        // set FtdcHub contract as system instruction initiator on TeeExtensionRegistry
         vm.startPrank(governance);
-        address[] memory instructionInitiators = new address[](1);
-        instructionInitiators[0] = address(ftdcHub);
-        teeInstructions.registerInstructionInitiators(instructionInitiators);
         address[] memory systemInstructionInitiator = new address[](1);
-        systemInstructionInitiator[0] = address(teeInstructions);
+        systemInstructionInitiator[0] = address(ftdcHub);
         teeExtensionRegistry.registerSystemInstructionInitiators(systemInstructionInitiator);
         vm.stopPrank();
         _mockReceiveRewards();
@@ -211,17 +189,35 @@ contract FtdcHubTest is Test {
         ftdcHub.requestAttestation(minThresholdBIPS, 2, teeIds, new address[](0), 0, "", "", "");
     }
 
-    function testRequestAttestationRevertTeeNotAvailable() public {
+    function testRequestAttestationRevertTeeMachineNotAvailable() public {
         address teeId = makeAddr("teeId");
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE);
+        _mockGetTeeReplicatingTeeId(teeId, address(0));
         teeIds = new address[](1);
         teeIds[0] = teeId;
         vm.expectRevert(IFtdcHub.TeeMachineNotAvailable.selector);
         ftdcHub.requestAttestation(minThresholdBIPS, 1, teeIds, new address[](0), 0, "", "", "");
     }
 
+    function testRequestAttestationRevertOnlySystemExtensionId() public {
+        _mockGetExtensionId(1);
+        address teeId = makeAddr("teeId");
+        _mockGetTeeMachine(teeId, "url");
+        _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PRODUCTION);
+        teeIds = new address[](1);
+        teeIds[0] = teeId;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFtdcHub.OnlySystemExtensionId.selector,
+                teeId
+            )
+        );
+        ftdcHub.requestAttestation(minThresholdBIPS, 0, teeIds, new address[](0), 0, "", "", "");
+    }
+
     function testRequestAttestationRevertFeeTooLow() public {
         address teeId = makeAddr("teeId");
+        _mockGetTeeMachine(teeId, "url");
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PRODUCTION);
         teeIds = new address[](1);
         teeIds[0] = teeId;
@@ -373,6 +369,18 @@ contract FtdcHubTest is Test {
             abi.encode(_status)
         );
     }
+
+    function _mockGetTeeReplicatingTeeId(address _teeId, address _replicatingTeeId) internal {
+        vm.mockCall(
+            mockTeeReplication,
+            abi.encodeWithSelector(
+                ITeeReplication.getReplicatingTeeId.selector,
+                _teeId
+            ),
+            abi.encode(_replicatingTeeId)
+        );
+    }
+
 
     function _mockGetTypeAndSourceFee() internal {
         vm.mockCall(

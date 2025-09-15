@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import { TeeBase } from "./TeeBase.sol";
-import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { IITeeExtensionRegistry } from "../interface/IITeeExtensionRegistry.sol";
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeGovernance } from "../../userInterfaces/tee/ITeeGovernance.sol";
 import { ITeeWalletProjectOpTypeConstants } from "../../userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
@@ -12,12 +12,13 @@ import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.
 import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**
  * TeeExtensionRegistry is used for registration of TEE extensions.
  */
-contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
+contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -108,53 +109,47 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     )
         external payable
     {
-        require(_instructionId != bytes32(0), InstructionIdEmpty());
-        require(_teeIds.length > 0, NoTeeMachinesSpecified());
-        require(_opType != bytes32(0), OperationTypeEmpty());
-        require(_opCommand != bytes32(0), OperationCommandEmpty());
-        require(_message.length > 0, MessageEmpty());
-        require(_cosignersThreshold <= _cosigners.length, CosignersThresholdTooHigh());
-        uint256 extensionId = teeMachineRegistry.getExtensionId(_teeIds[0]);
-        for (uint256 i = 1; i < _teeIds.length; i++) {
-            require(teeMachineRegistry.getExtensionId(_teeIds[i]) == extensionId, ExtensionIdMismatch());
-        }
-        bool isSystemOpType = _isSystemOpType(_opType);
-        if (!systemInstructionInitiators.contains(msg.sender)) {
-            require(msg.sender == extensions[extensionId].instructionsSender, OnlyInstructionsSender());
-            require(extensionId == 0 || !isSystemOpType, SystemOpTypeNotAllowed(_opType));
-        }
-
-        // Check fee
-        require(teeFeeCalculator.calculateFeeByTeeIds(_opType, _opCommand, _teeIds) <= msg.value, FeeTooLow());
-
-        // Get the TEE machines and check their status.
+        // Get TEE machines.
         ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](_teeIds.length);
         for (uint256 i = 0; i < _teeIds.length; i++) {
-            if (!isSystemOpType) {
-                require(
-                    teeMachineRegistry.getTeeMachineStatus(_teeIds[i]) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
-                    TeeMachineNotAvailable()
-                );
-            }
             teeMachines[i] = teeMachineRegistry.getTeeMachine(_teeIds[i]);
         }
 
-        // send fee to the reward manager
-        uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        rewardManager.receiveRewards{value: msg.value}(currentRewardEpochId, false);
-
-        // emit the event
-        emit TeeInstructionsSent(
-            extensionId,
+        _sendInstructions(
             _instructionId,
-            currentRewardEpochId,
             teeMachines,
             _opType,
             _opCommand,
             _message,
             _cosigners,
-            _cosignersThreshold,
-            msg.value
+            _cosignersThreshold
+        );
+    }
+
+    /**
+     * @inheritdoc IITeeExtensionRegistry
+     */
+    function sendSystemInstructions(
+        bytes32 _instructionId,
+        ITeeMachineRegistry.TeeMachine[] memory _teeMachines,
+        bytes32 _opType,
+        bytes32 _opCommand,
+        bytes memory _message,
+        address[] memory _cosigners,
+        uint64 _cosignersThreshold
+    )
+        external payable
+    {
+        require(systemInstructionInitiators.contains(msg.sender), OnlySystemInstructionInitiator());
+
+        _sendInstructions(
+            _instructionId,
+            _teeMachines,
+            _opType,
+            _opCommand,
+            _message,
+            _cosigners,
+            _cosignersThreshold
         );
     }
 
@@ -188,6 +183,8 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     )
         external onlyOwner(_extensionId)
     {
+        // Extension 0 is using system instructions initiators and system state verifier.
+        require(_extensionId != 0, SystemOwnedExtensionId());
         require(_teeExtensionInstructionsSender != address(0), InvalidInstructionsSender());
         TeeExtension storage extension = extensions[_extensionId];
         extension.stateVerifier = _teeExtensionStateVerifier;
@@ -227,7 +224,7 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
             require(teeVersion.platforms.add(_platforms[i]), PlatformAlreadyExists(_platforms[i]));
         }
         teeVersion.governanceHash = _governanceHash;
-        emit TeeVersionAdded(_extensionId, _codeHash, _version, _platforms, _governanceHash);
+        emit TeeVersionAdded(_extensionId, _version, _codeHash, _platforms, _governanceHash);
     }
 
     /**
@@ -378,6 +375,13 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
+    function getSupportedPlatforms() external view returns(bytes32[] memory) {
+        return supportedPlatforms.values();
+    }
+
+    /**
+     * @inheritdoc ITeeExtensionRegistry
+     */
     function getSystemInstructionInitiators() external view returns(address[] memory) {
         return systemInstructionInitiators.values();
     }
@@ -509,6 +513,68 @@ contract TeeExtensionRegistry is ITeeExtensionRegistry, TeeBase {
         _governanceHash = extension.codeHashToVersion[_codeHash].governanceHash;
         _version = extension.codeHashToVersion[_codeHash].version;
         _platforms = extension.codeHashToVersion[_codeHash].platforms.values();
+    }
+
+    /**
+     * Internal function to send instructions to TEE machines.
+     */
+    function _sendInstructions(
+        bytes32 _instructionId,
+        ITeeMachineRegistry.TeeMachine[] memory _teeMachines,
+        bytes32 _opType,
+        bytes32 _opCommand,
+        bytes memory _message,
+        address[] memory _cosigners,
+        uint64 _cosignersThreshold
+    )
+        internal
+    {
+        require(_instructionId != bytes32(0), InstructionIdEmpty());
+        require(_teeMachines.length > 0, NoTeeMachinesSpecified());
+        require(_opType != bytes32(0), OperationTypeEmpty());
+        require(_opCommand != bytes32(0), OperationCommandEmpty());
+        require(_message.length > 0, MessageEmpty());
+        require(_cosignersThreshold <= _cosigners.length, CosignersThresholdTooHigh());
+        address[] memory teeIds = new address[](_teeMachines.length);
+        uint256 extensionId = teeMachineRegistry.getExtensionId(_teeMachines[0].teeId);
+        bool isSystemOpType = _isSystemOpType(_opType);
+        for (uint256 i = 0; i < _teeMachines.length; i++) {
+            address teeId = _teeMachines[i].teeId;
+            require(i == 0 || teeMachineRegistry.getExtensionId(teeId) == extensionId, ExtensionIdMismatch());
+            // some system operation types can be executed on non-production TEEs - status checked elsewhere
+            if (!isSystemOpType) {
+                require(
+                    teeMachineRegistry.getTeeMachineStatus(teeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
+                    TeeMachineNotAvailable()
+                );
+            }
+            teeIds[i] = teeId;
+        }
+        if (!systemInstructionInitiators.contains(msg.sender)) {
+            require(msg.sender == extensions[extensionId].instructionsSender, OnlyInstructionsSender());
+            require(extensionId == 0 || !isSystemOpType, SystemOpTypeNotAllowed(_opType));
+        }
+
+        // Check fee
+        require(teeFeeCalculator.calculateFeeByTeeIds(_opType, _opCommand, teeIds) <= msg.value, FeeTooLow());
+
+        // send fee to the reward manager
+        uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        rewardManager.receiveRewards{value: msg.value}(currentRewardEpochId, false);
+
+        // emit the event
+        emit TeeInstructionsSent(
+            extensionId,
+            _instructionId,
+            currentRewardEpochId,
+            _teeMachines,
+            _opType,
+            _opCommand,
+            _message,
+            _cosigners,
+            _cosignersThreshold,
+            msg.value
+        );
     }
 
     /**

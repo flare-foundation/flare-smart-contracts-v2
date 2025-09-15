@@ -41,8 +41,8 @@ interface ITeeExtensionRegistry {
 
     event TeeVersionAdded(
         uint256 indexed extensionId,
-        bytes32 indexed codeHash,
         string version,
+        bytes32 indexed codeHash,
         bytes32[] platforms,
         bytes32 governanceHash
     );
@@ -81,6 +81,7 @@ interface ITeeExtensionRegistry {
     error MessageEmpty();
     error ExtensionIdMismatch();
     error OnlyInstructionsSender();
+    error OnlySystemInstructionInitiator();
     error SystemOpTypeNotAllowed(bytes32 opType);
     error FeeTooLow();
     error TeeMachineNotAvailable();
@@ -106,7 +107,7 @@ interface ITeeExtensionRegistry {
      * Send instructions to the TEE machines.
      * Emits a TeeInstructionsSent event.
      * @param _instructionId The instruction ID.
-     * @param _teeIds The TEE machine IDs to which the instructions are sent (must all belong to the given extension).
+     * @param _teeIds The TEE machine IDs to which the instructions are sent (must all belong to the same extension).
      * @param _opType The operation type.
      * @param _opCommand The operation command.
      * @param _message The message.
@@ -239,6 +240,12 @@ interface ITeeExtensionRegistry {
     function extensionsCounter()
         external view
         returns (uint256);
+
+    /**
+     * Get supported platforms.
+     * @return The list of supported platforms.
+     */
+    function getSupportedPlatforms() external view returns(bytes32[] memory);
 
     /**
      * Get system instruction initiators.

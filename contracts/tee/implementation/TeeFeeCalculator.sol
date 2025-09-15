@@ -34,9 +34,9 @@ contract TeeFeeCalculator is ITeeFeeCalculator, Governed {
      * @dev Only governance can call this method.
      */
     function setOperationFees(
-        bytes32[] memory _opTypes,
-        bytes32[] memory _opCommands,
-        uint256[] memory _fees
+        bytes32[] calldata _opTypes,
+        bytes32[] calldata _opCommands,
+        uint256[] calldata _fees
     )
         external onlyGovernance
     {

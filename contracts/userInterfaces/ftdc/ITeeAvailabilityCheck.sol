@@ -33,11 +33,13 @@ interface ITeeAvailabilityCheck {
     /**
      * @notice Request body for TeeAvailabilityCheck attestation type
      * @param teeId Id of the TEE machine, copied from the old TEE machine in case of replication.
+     * @param teeProxyId The TEE proxy id.
      * @param url URL of the TEE.
      * @param challenge Challenge used for TEE attestation request.
      */
     struct RequestBody {
         address teeId;
+        address teeProxyId;
         string url;
         bytes32 challenge;
     }

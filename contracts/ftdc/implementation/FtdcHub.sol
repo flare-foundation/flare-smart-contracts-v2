@@ -5,8 +5,9 @@ import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.so
 import { Governed } from "../../governance/implementation/Governed.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 import { IFtdcHub } from "../../userInterfaces/ftdc/IFtdcHub.sol";
+import { IITeeExtensionRegistry } from "../../tee/interface/IITeeExtensionRegistry.sol";
 import { ITeeMachineRegistry } from  "../../userInterfaces/tee/ITeeMachineRegistry.sol";
-import { ITeeInstructions } from "../../userInterfaces/tee/ITeeInstructions.sol";
+import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
 import { IFtdcRequestFeeConfigurations } from "../../userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
@@ -20,10 +21,12 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
     bytes32 public constant FTDC_OP_TYPE = bytes32("F_FTDC");
     bytes32 public constant PROVE = bytes32("PROVE");
 
+    /// TEE extension registry contract.
+    IITeeExtensionRegistry public teeExtensionRegistry;
     /// TEE machine registry contract.
     ITeeMachineRegistry public teeMachineRegistry;
-    /// TEE instructions contract.
-    ITeeInstructions public teeInstructions;
+    /// TEE replication contract.
+    ITeeReplication public teeReplication;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
     /// Reward manager contract.
@@ -83,19 +86,42 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
         require(_cosigners.length >= _cosignersThreshold, CosignersThresholdInvalid());
         require(_thresholdBIPS == 0 || _thresholdBIPS >= MAX_BIPS / 2 ||
             _cosignersThreshold > _cosigners.length / 2, MultipleResponsesPossible());
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines;
         if (_teeIds.length == 0) {
             if (_numberOfTees == 0) {
                 _numberOfTees = defaultNumberOfTees;
             }
             _teeIds = teeMachineRegistry.getRandomTeeIds(0, _numberOfTees);
-            // all random tee machines are in PRODUCTION status, so we don't need to check their status
-        } else {
-            // Check that the TEE machines are not paused for upgrade.
+            // all random tee machines are in PRODUCTION status and belong to the system extension
+            teeMachines = new ITeeMachineRegistry.TeeMachine[](_teeIds.length);
             for (uint256 i = 0; i < _teeIds.length; i++) {
+                teeMachines[i] = teeMachineRegistry.getTeeMachine(_teeIds[i]);
+            }
+        } else {
+            teeMachines = new ITeeMachineRegistry.TeeMachine[](_teeIds.length);
+            // For all TEE machines check their status and that they belong to the system extension.
+            for (uint256 i = 0; i < _teeIds.length; i++) {
+                address teeId = _teeIds[i];
+                ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(teeId);
+                if (status == ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE) {
+                    // if the TEE machine is PAUSED_FOR_UPGRADE use its replicating TEE machine if exists, else revert
+                    address replicatingTeeId = teeReplication.getReplicatingTeeId(teeId);
+                    require(replicatingTeeId != address(0), TeeMachineNotAvailable());
+                    teeMachines[i] = teeMachineRegistry.getTeeMachine(replicatingTeeId);
+                    teeMachines[i].teeId = teeId; // keep the original teeId
+                } else {
+                    // else require the TEE machine to be in INITIALIZED or PRODUCTION status
+                    require(
+                        status == ITeeMachineRegistry.TeeStatus.INITIALIZED ||
+                        status == ITeeMachineRegistry.TeeStatus.PRODUCTION,
+                        TeeMachineNotAvailable()
+                    );
+                    teeMachines[i] = teeMachineRegistry.getTeeMachine(teeId);
+                }
+                // check that the TEE machine belongs to the system extension
                 require(
-                    teeMachineRegistry.getTeeMachineStatus(_teeIds[i]) !=
-                        ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE,
-                    TeeMachineNotAvailable()
+                    teeMachineRegistry.getExtensionId(teeId) == 0,
+                    OnlySystemExtensionId(teeId)
                 );
             }
         }
@@ -119,7 +145,7 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
 
         _sendInstructions(
             instructionId,
-            _teeIds,
+            teeMachines,
             abi.encode(message),
             _cosigners,
             _cosignersThreshold,
@@ -154,10 +180,12 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
     )
         internal override
     {
+        teeExtensionRegistry = IITeeExtensionRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
         teeMachineRegistry = ITeeMachineRegistry(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
-        teeInstructions = ITeeInstructions(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeInstructions"));
+        teeReplication = ITeeReplication(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeReplication"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         rewardManager = IIRewardManager(
@@ -180,15 +208,15 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
 
     function _sendInstructions(
         bytes32 _instructionId,
-        address[] memory _teeIds,
+        ITeeMachineRegistry.TeeMachine[] memory _teeMachines,
         bytes memory _encodedMessage,
         address[] memory _cosigners,
         uint64 _cosignersThreshold,
         uint256 _value
     ) internal {
-        teeInstructions.sendInstructions{value: _value}(
+        teeExtensionRegistry.sendSystemInstructions{value: _value}(
             _instructionId,
-            _teeIds,
+            _teeMachines,
             FTDC_OP_TYPE,
             PROVE,
             _encodedMessage,

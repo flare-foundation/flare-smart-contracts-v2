@@ -134,6 +134,7 @@ contract TeeReplication is ITeeReplication, TeeBase {
         _checkTeeMachinesCompatible(_teeUpgradeId, extensionId, _oldTeeId, newTeeId);
         _validateAvailabilityCheckStatus(_proof.responseBody.status);
         _validateAvailabilityCheckTs(newTeeId, _proof.header.timestamp);
+        require(_proof.responseBody.state.systemStateVersion != bytes32(0), InvalidSystemStateVersion());
         require(teeVerification.verifyAvailabilityCheckProof(_proof), InvalidResponseData());
 
         replications[_oldTeeId] = newTeeId;
@@ -174,6 +175,7 @@ contract TeeReplication is ITeeReplication, TeeBase {
         // in case multiple replications are triggered only the last one can be confirmed
         require(replications[oldTeeId] == _newTeeId, ReplicationNotValid());
         delete replications[oldTeeId];
+        require(_proof.responseBody.state.systemStateVersion != bytes32(0), InvalidSystemStateVersion());
         teeMachineRegistry.replicate(_newTeeId, _proof);
         emit TeeMachineReplicationConfirmed(oldTeeId, _newTeeId);
     }

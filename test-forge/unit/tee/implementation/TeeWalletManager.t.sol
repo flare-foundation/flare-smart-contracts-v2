@@ -125,7 +125,7 @@ contract TeeWalletManagerTest is Test {
         _mockReceiveRewards();
         _mockGetExtensionId(0);
 
-        // set TeeInstructions as system instruction initiator on TeeExtensionRegistry
+        // set TeeWalletManager as system instruction initiator on TeeExtensionRegistry
         vm.prank(governance);
         address[] memory systemInstructionInitiator = new address[](1);
         systemInstructionInitiator[0] = address(teeWalletManager);
@@ -569,6 +569,7 @@ contract TeeWalletManagerTest is Test {
         (, TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         address[] memory teeIds = new address[](1);
         teeIds[0] = teeIdKeyIdPairs[0].teeId;
+        _mockGetTeeMachine(teeIds[0]);
         _mockCalculateFeeByTeeIds(teeIds, WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, 1234);
         vm.prank(projectOwner);
         vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);

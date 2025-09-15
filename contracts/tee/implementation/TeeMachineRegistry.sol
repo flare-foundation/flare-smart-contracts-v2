@@ -147,7 +147,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         extensionActiveTeeIds[state.extensionId].add(teeId);
         activeTeeIds.add(teeId);
         teeVerification.confirmAvailability(_proof);
-        emit TeeMachinePutIntoProduction(teeId);
+        emit TeeMachineStatusChanged(teeId, TeeStatus.PRODUCTION);
     }
 
     /**
@@ -168,7 +168,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         state.lastStatusChangeTs = block.timestamp;
         extensionActiveTeeIds[state.extensionId].remove(_teeId);
         activeTeeIds.remove(_teeId);
-        emit TeeMachinePaused(_teeId, false);
+        emit TeeMachineStatusChanged(_teeId, TeeStatus.PAUSED);
     }
 
     /**
@@ -194,7 +194,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         state.lastStatusChangeTs = block.timestamp;
         extensionActiveTeeIds[state.extensionId].remove(teeId);
         activeTeeIds.remove(teeId);
-        emit TeeMachinePaused(teeId, true);
+        emit TeeMachineStatusChanged(teeId, TeeStatus.PAUSED_WITH_PROOF);
     }
 
     /**
@@ -229,13 +229,23 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function setTeeProxyId(address _teeId, address _teeProxyId)
+    function updateTeeMachineSettings(address _teeId, address _teeProxyId, string calldata _url)
         external onlyOwner(_teeId)
     {
         require(_teeProxyId != address(0), InvalidTeeProxyId());
+        require(bytes(_url).length > 0, InvalidUrl());
         TeeMachineState storage state = teeMachineStates[_teeId];
         state.teeProxyId = _teeProxyId;
-        emit TeeProxyIdSet(_teeId, _teeProxyId);
+        state.url = _url;
+        TeeStatus status = state.status;
+        if (status == TeeStatus.PRODUCTION || status == TeeStatus.PAUSED_WITH_PROOF) {
+            state.status = TeeStatus.PAUSED;
+            state.lastStatusChangeTs = block.timestamp;
+            extensionActiveTeeIds[state.extensionId].remove(_teeId);
+            activeTeeIds.remove(_teeId);
+            emit TeeMachineStatusChanged(_teeId, TeeStatus.PAUSED);
+        }
+        emit TeeMachineSettingsUpdated(_teeId, _teeProxyId, _url);
     }
 
     /**
@@ -248,16 +258,20 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         external onlyTeeReplicationContract
     {
         TeeMachineState storage state = _getTeeMachineState(_teeId);
+        TeeStatus status = state.status;
         if (_newStatus == TeeStatus.REPLICATING) {
-            _checkTeeStatus(state.status, TeeStatus.INITIALIZED, TeeStatus.REPLICATING);
+            _checkTeeStatus(status, TeeStatus.INITIALIZED, TeeStatus.REPLICATING);
         } else if (_newStatus == TeeStatus.PAUSED_FOR_UPGRADE) {
-            _checkTeeStatus(state.status, TeeStatus.PAUSED, TeeStatus.PAUSED_FOR_UPGRADE);
+            _checkTeeStatus(status, TeeStatus.PAUSED, TeeStatus.PAUSED_FOR_UPGRADE);
         } else {
             revert InvalidNewStatus();
         }
 
-        state.status = _newStatus;
-        state.lastStatusChangeTs = block.timestamp;
+        if (status != _newStatus) {
+            state.status = _newStatus;
+            state.lastStatusChangeTs = block.timestamp;
+            emit TeeMachineStatusChanged(_teeId, _newStatus);
+        }
     }
 
     /**
@@ -274,6 +288,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         TeeMachineState storage newState = _getTeeMachineState(_newTeeId);
         _checkTeeStatus(oldState.status, TeeStatus.PAUSED_FOR_UPGRADE);
         _checkTeeStatus(newState.status, TeeStatus.REPLICATING);
+        assert(_newTeeId == newState.initialTeeId);
         require(oldState.owner == newState.owner, OwnerMismatch());
         require(oldState.extensionId == newState.extensionId, ExtensionIdMismatch());
         _checkCodeHashPlatformSupported(newState.extensionId, newState.codeHash, newState.platform);
@@ -286,6 +301,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         oldState.codeHash = newState.codeHash;
         oldState.platform = newState.platform;
         oldState.url = newState.url;
+        // temporary status, will be set to PRODUCTION after availability check
+        oldState.status = TeeStatus.REPLICATING;
         // delete the new TEE machine state
         delete teeMachineStates[_newTeeId];
         // verify the availability check proof for the updated TEE machine data
@@ -297,7 +314,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         extensionActiveTeeIds[oldState.extensionId].add(oldTeeId);
         activeTeeIds.add(oldTeeId);
         teeVerification.confirmAvailability(_proof);
-        emit TeeMachinePutIntoProduction(oldTeeId);
+        emit TeeMachineStatusChanged(oldTeeId, TeeStatus.PRODUCTION);
     }
 
     /**

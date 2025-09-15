@@ -2,8 +2,8 @@
 pragma solidity ^0.8.27;
 
 import { TeeBase } from "./TeeBase.sol";
+import { IITeeExtensionRegistry } from "../interface/IITeeExtensionRegistry.sol";
 import { IITeeSystemStateVerifier } from "../interface/IITeeSystemStateVerifier.sol";
-import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
@@ -40,7 +40,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
     bytes32 public constant TEE_ATTESTATION = bytes32("TEE_ATTESTATION");
 
     /// TEE extension registry contract.
-    ITeeExtensionRegistry public teeExtensionRegistry;
+    IITeeExtensionRegistry public teeExtensionRegistry;
     /// TEE machine registry contract.
     ITeeMachineRegistry public teeMachineRegistry;
     /// TEE wallet project manager contract.
@@ -129,23 +129,26 @@ contract TeeVerification is ITeeVerification, TeeBase {
 
         address attestingTeeId = _getAttestingTeeId(_teeId);
 
-        ITeeMachineRegistry.TeeMachineWithAttestationData memory teeMachine =
+        ITeeMachineRegistry.TeeMachineWithAttestationData memory teeMachineWithAttestationData =
             teeMachineRegistry.getTeeMachineWithAttestationData(attestingTeeId);
+        ITeeMachineRegistry.TeeMachine memory teeMachine = teeMachineRegistry.getTeeMachine(attestingTeeId);
         // set the TEE id to the one we are requesting attestation for, can only differ in case of active replication
+        // machine in status PAUSED_FOR_UPGRADE does not need TEE attestation
+        teeMachineWithAttestationData.teeId = _teeId;
         teeMachine.teeId = _teeId;
 
         TeeAttestation memory message = TeeAttestation({
-            teeMachine: teeMachine,
+            teeMachine: teeMachineWithAttestationData,
             challenge: challenge
         });
         bytes32 instructionId = keccak256(abi.encode(
             REG_OP_TYPE, TEE_ATTESTATION, _teeId, challenge
         ));
-        address[] memory teeIds = new address[](1);
-        teeIds[0] = attestingTeeId;
-        teeExtensionRegistry.sendInstructions{value: msg.value}(
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](1);
+        teeMachines[0] = teeMachine;
+        teeExtensionRegistry.sendSystemInstructions{value: msg.value}(
             instructionId,
-            _toTeeIds(attestingTeeId),
+            teeMachines,
             REG_OP_TYPE,
             TEE_ATTESTATION,
             abi.encode(message),
@@ -170,13 +173,18 @@ contract TeeVerification is ITeeVerification, TeeBase {
         ITeeMachineRegistry.TeeMachine memory teeMachine = teeMachineRegistry.getTeeMachine(attestingTeeId);
         ITeeAvailabilityCheck.RequestBody memory requestBody = ITeeAvailabilityCheck.RequestBody({
             teeId: _teeId,
+            teeProxyId: teeMachine.teeProxyId,
             url: teeMachine.url,
             challenge: challenges[_teeId]
         });
 
         address[] memory registrationCosigners = new address[](0);
         uint64 registrationCosignersThreshold = 0;
-        if (teeMachineRegistry.getTeeMachineStatus(_teeId) == ITeeMachineRegistry.TeeStatus.INITIALIZED) {
+        ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(attestingTeeId);
+        // initial state or active replication
+        if (status == ITeeMachineRegistry.TeeStatus.INITIALIZED ||
+            status == ITeeMachineRegistry.TeeStatus.REPLICATING)
+        {
             registrationCosigners = cosigners.list;
             registrationCosignersThreshold = cosignersThreshold;
         }
@@ -201,15 +209,14 @@ contract TeeVerification is ITeeVerification, TeeBase {
     {
         address teeId = _proof.requestBody.teeId;
         ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(teeId);
-        require(status == ITeeMachineRegistry.TeeStatus.PRODUCTION,
-            TeeMachineNotAvailable());
+        require(status == ITeeMachineRegistry.TeeStatus.PRODUCTION, TeeMachineNotAvailable());
 
         require(
             _proof.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
             InvalidAvailabilityCheckStatus()
         );
 
-        // if called from the registry, checks were already done
+        // if called from the tee machine registry, checks were already done there,
         // otherwise, we need to verify the proof and check the TEE version and platform
         if (msg.sender != address(teeMachineRegistry)) {
             uint256 extensionId = teeMachineRegistry.getExtensionId(teeId);
@@ -424,7 +431,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
     )
         internal override
     {
-        teeExtensionRegistry = ITeeExtensionRegistry(
+        teeExtensionRegistry = IITeeExtensionRegistry(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
         teeMachineRegistry = ITeeMachineRegistry(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
@@ -468,7 +475,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
     }
 
     function _verifyAvailabilityCheckProof(
-        ITeeMachineRegistry.TeeMachineWithAttestationData memory _teeMachine,
+        ITeeMachineRegistry.TeeMachineWithAttestationData memory _teeMachineWithAttestationData,
         ITeeMachineRegistry.TeeStatus _status,
         ITeeAvailabilityCheck.Proof calldata _proof
     )
@@ -488,8 +495,10 @@ contract TeeVerification is ITeeVerification, TeeBase {
             AvailabilityCheckTimestampInvalid(challengeTs[teeId]));
         require(challengeTs[teeId] + challengeValidityDurationSeconds > block.timestamp,
             ChallengeExpired(challengeTs[teeId]));
+        ITeeMachineRegistry.TeeMachine memory teeMachine = teeMachineRegistry.getTeeMachine(teeId);
         require(
-            keccak256(bytes(requestBody.url)) == keccak256(bytes(_teeMachine.url)) &&
+            keccak256(bytes(requestBody.url)) == keccak256(bytes(teeMachine.url)) &&
+            requestBody.teeProxyId == teeMachine.teeProxyId &&
             requestBody.challenge == challenges[teeId],
             InvalidRequestBody()
         );
@@ -501,8 +510,10 @@ contract TeeVerification is ITeeVerification, TeeBase {
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         // check signing policy signatures
         _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
-        if (_status == ITeeMachineRegistry.TeeStatus.INITIALIZED) {
-            // additionally check cosigners in case of initial availability check
+        if (_status == ITeeMachineRegistry.TeeStatus.INITIALIZED ||
+            _status == ITeeMachineRegistry.TeeStatus.REPLICATING)
+        {
+            // additionally check cosigners in case of initial availability check or active replication
             _checkCosignerSignatures(_toCosignersMessageHash(messageHash), _proof.signatures.cosignerSignatures);
             // check initial signing policy
             require(
@@ -527,8 +538,8 @@ contract TeeVerification is ITeeVerification, TeeBase {
         uint256 extensionId = teeMachineRegistry.getExtensionId(teeId);
         ITeeExtensionStateVerifier teeStateVerifier = teeExtensionRegistry.getTeeExtensionStateVerifier(extensionId);
         ITeeAvailabilityCheck.TeeState calldata state = responseBody.state;
-        return responseBody.codeHash == _teeMachine.codeHash &&
-            responseBody.platform == _teeMachine.platform &&
+        return responseBody.codeHash == _teeMachineWithAttestationData.codeHash &&
+            responseBody.platform == _teeMachineWithAttestationData.platform &&
             (lastSigningPolicyId == currentRewardEpochId || lastSigningPolicyId == currentRewardEpochId + 1) &&
             teeSystemStateVerifier.verifyTeeSystemState(teeId, state.systemStateVersion, state.systemState) &&
             (address(teeStateVerifier) == address(0) && state.stateVersion == bytes32(0) && state.state.length == 0 ||
@@ -546,10 +557,18 @@ contract TeeVerification is ITeeVerification, TeeBase {
     )
         internal
     {
+        uint256 numberOfTees;
+        address[] memory teeIds;
+        if (_testOnTeeId != address(0)) {
+            teeIds = new address[](1);
+            teeIds[0] = _testOnTeeId;
+        } else {
+            numberOfTees = 1; // request on a random active TEE machine
+        }
         ftdcHub.requestAttestation{value: msg.value}(
             0,
-            0,
-            _toTeeIds(_testOnTeeId),
+            numberOfTees,
+            teeIds,
             _cosigners,
             _cosignersThreshold,
             _attestationType,
@@ -608,14 +627,6 @@ contract TeeVerification is ITeeVerification, TeeBase {
             // if no replication, use the original TEE id for attestation
             _attestingTeeId = _teeId;
         }
-    }
-
-    function _toTeeIds(address _teeId)
-        internal pure
-        returns(address[] memory _teeIds)
-    {
-        _teeIds = new address[](1);
-        _teeIds[0] = _teeId;
     }
 
     function _validateDuration(

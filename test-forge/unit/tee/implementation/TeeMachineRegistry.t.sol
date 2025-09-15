@@ -168,7 +168,7 @@ contract TeeMachineRegistryTest is Test {
     // msg.sender != owner
     function testToProductionRevertInvalidTeeStatus1() public {
         testRegister();
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
         teeMachineRegistry.toProduction(proof);
     }
@@ -176,7 +176,7 @@ contract TeeMachineRegistryTest is Test {
     // machine status != INITIALIZED && machine status != PAUSED
     function testToProductionRevertInvalidTeeStatus2() public {
         testToProduction();
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         vm.prank(owner);
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
         teeMachineRegistry.toProduction(proof);
@@ -186,7 +186,7 @@ contract TeeMachineRegistryTest is Test {
     function testToProductionRevertVersionNotSupported() public {
         testRegister();
         _mockIsCodeHashPlatformSupported(false);
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         vm.prank(owner);
         vm.expectRevert(ITeeMachineRegistry.VersionNotSupported.selector);
         teeMachineRegistry.toProduction(proof);
@@ -195,7 +195,7 @@ contract TeeMachineRegistryTest is Test {
 
     function testToProductionRevertInvalidAvailabilityCheckStatus() public {
         testRegister();
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         proof.responseBody.status = ITeeAvailabilityCheck.AvailabilityCheckStatus.DOWN;
         vm.prank(owner);
         vm.expectRevert(ITeeMachineRegistry.InvalidAvailabilityCheckStatus.selector);
@@ -205,7 +205,7 @@ contract TeeMachineRegistryTest is Test {
 
     function testToProductionRevertAcTimestampInvalid() public {
         testRegister();
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         proof.header.timestamp = 0;
         vm.prank(owner);
         vm.expectRevert(ITeeMachineRegistry.AcTimestampInvalid.selector);
@@ -215,7 +215,7 @@ contract TeeMachineRegistryTest is Test {
 
     function testToProductionRevertInvalidResponseData() public {
         testRegister();
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         _mockVerifyAvailabilityCheckProof(false);
         vm.prank(owner);
         vm.expectRevert(ITeeMachineRegistry.InvalidResponseData.selector);
@@ -248,7 +248,7 @@ contract TeeMachineRegistryTest is Test {
         testToProduction();
         vm.prank(owner);
         vm.expectEmit();
-        emit ITeeMachineRegistry.TeeMachinePaused(teeId, false);
+        emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.PAUSED);
         teeMachineRegistry.pause(teeId);
     }
 
@@ -256,7 +256,7 @@ contract TeeMachineRegistryTest is Test {
     // pauseWithProof
     function testPauseWithProofRevertInvalidTeeStatus() public {
         testRegister();
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
         teeMachineRegistry.pauseWithProof(proof);
     }
@@ -264,7 +264,7 @@ contract TeeMachineRegistryTest is Test {
 
     function testPauseWithProofRevertInvalidResponseDataOrAvailabilityCheckStatus() public {
         testToProduction();
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         vm.expectRevert(ITeeMachineRegistry.InvalidResponseDataOrAvailabilityCheckStatus.selector);
         teeMachineRegistry.pauseWithProof(proof);
     }
@@ -272,7 +272,7 @@ contract TeeMachineRegistryTest is Test {
 
     function testPauseWithProofRevertAcTimestampInvalid() public {
         testToProduction();
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         proof.header.timestamp = 0;
         _mockVerifyAvailabilityCheckProofFalse(proof);
         vm.expectRevert(ITeeMachineRegistry.AcTimestampInvalid.selector);
@@ -282,10 +282,10 @@ contract TeeMachineRegistryTest is Test {
 
     function testPauseWithProof() public {
         testToProduction();
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         _mockVerifyAvailabilityCheckProofFalse(proof);
         vm.expectEmit();
-        emit ITeeMachineRegistry.TeeMachinePaused(teeId, true);
+        emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.PAUSED_WITH_PROOF);
         teeMachineRegistry.pauseWithProof(proof);
     }
 
@@ -344,28 +344,80 @@ contract TeeMachineRegistryTest is Test {
     }
 
 
-    // setTeeProxyId
-    function testSetTeeProxyIdRevertOnlyOwner() public {
+    // updateTeeMachineSettings
+    function testUpdateTeeMachineSettingsRevertOnlyOwner() public {
         vm.expectRevert(ITeeMachineRegistry.OnlyOwner.selector);
-        teeMachineRegistry.setTeeProxyId(teeId, address(0));
+        teeMachineRegistry.updateTeeMachineSettings(teeId, address(0), "newUrl");
     }
 
 
-    function testSetTeeProxyIdRevertInvalidTeeProxyId() public {
+    function testUpdateTeeMachineSettingsRevertInvalidTeeProxyId() public {
         testRegister();
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeProxyId.selector);
         vm.prank(owner);
-        teeMachineRegistry.setTeeProxyId(teeId, address(0));
+        teeMachineRegistry.updateTeeMachineSettings(teeId, address(0), "newUrl");
     }
 
 
-    function testSetTeeProxyId() public {
+    function testUpdateTeeMachineSettingsRevertInvalidUrl() public {
+        testRegister();
+        vm.expectRevert(ITeeMachineRegistry.InvalidUrl.selector);
+        vm.prank(owner);
+        teeMachineRegistry.updateTeeMachineSettings(teeId, makeAddr("newTeeProxyId"), "");
+    }
+
+
+    function testUpdateTeeMachineSettings() public {
         address newTeeProxyId = makeAddr("newTeeProxyId");
+        string memory newUrl = "newUrl";
         testRegister();
         vm.prank(owner);
         vm.expectEmit();
-        emit ITeeMachineRegistry.TeeProxyIdSet(teeId, newTeeProxyId);
-        teeMachineRegistry.setTeeProxyId(teeId, newTeeProxyId);
+        emit ITeeMachineRegistry.TeeMachineSettingsUpdated(teeId, newTeeProxyId, newUrl);
+        vm.recordLogs();
+        teeMachineRegistry.updateTeeMachineSettings(teeId, newTeeProxyId, newUrl);
+        assertEq(vm.getRecordedLogs().length, 1); // no other events emitted
+        ITeeMachineRegistry.TeeMachine memory teeMachine = teeMachineRegistry.getTeeMachine(teeId);
+        assertEq(teeMachine.teeProxyId, newTeeProxyId);
+        assertEq(keccak256(bytes(teeMachine.url)), keccak256(bytes(newUrl)));
+        ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(teeId);
+        assert(status == ITeeMachineRegistry.TeeStatus.INITIALIZED);
+    }
+
+
+    function testUpdateTeeMachineSettingsAndPause() public {
+        address newTeeProxyId = makeAddr("newTeeProxyId");
+        string memory newUrl = "newUrl";
+        testToProduction();
+        vm.prank(owner);
+        vm.expectEmit();
+        emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.PAUSED);
+        vm.expectEmit();
+        emit ITeeMachineRegistry.TeeMachineSettingsUpdated(teeId, newTeeProxyId, newUrl);
+        teeMachineRegistry.updateTeeMachineSettings(teeId, newTeeProxyId, newUrl);
+        ITeeMachineRegistry.TeeMachine memory teeMachine = teeMachineRegistry.getTeeMachine(teeId);
+        assertEq(teeMachine.teeProxyId, newTeeProxyId);
+        assertEq(keccak256(bytes(teeMachine.url)), keccak256(bytes(newUrl)));
+        ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(teeId);
+        assert(status == ITeeMachineRegistry.TeeStatus.PAUSED);
+    }
+
+
+    function testUpdateTeeMachineSettingsAndPause2() public {
+        address newTeeProxyId = makeAddr("newTeeProxyId");
+        string memory newUrl = "newUrl";
+        testPauseWithProof();
+        vm.prank(owner);
+        vm.expectEmit();
+        emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.PAUSED);
+        vm.expectEmit();
+        emit ITeeMachineRegistry.TeeMachineSettingsUpdated(teeId, newTeeProxyId, newUrl);
+        teeMachineRegistry.updateTeeMachineSettings(teeId, newTeeProxyId, newUrl);
+        ITeeMachineRegistry.TeeMachine memory teeMachine = teeMachineRegistry.getTeeMachine(teeId);
+        assertEq(teeMachine.teeProxyId, newTeeProxyId);
+        assertEq(keccak256(bytes(teeMachine.url)), keccak256(bytes(newUrl)));
+        ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(teeId);
+        assert(status == ITeeMachineRegistry.TeeStatus.PAUSED);
     }
 
 
@@ -401,14 +453,14 @@ contract TeeMachineRegistryTest is Test {
 
     // replicate
     function testReplicateRevertOnlyTeeReplicationContract() public {
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         vm.expectRevert(ITeeMachineRegistry.OnlyTeeReplicationContract.selector);
         teeMachineRegistry.replicate(newTeeId, proof);
     }
 
 
     function testReplicateRevertTeeNotFound() public {
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         vm.prank(teeReplication);
         vm.expectRevert(ITeeMachineRegistry.TeeNotFound.selector);
         teeMachineRegistry.replicate(newTeeId, proof);
@@ -421,7 +473,7 @@ contract TeeMachineRegistryTest is Test {
 
 
     function testReplicateRevertInvalidTeeStatus() public {
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         testToProduction();
         vm.prank(owner);
         teeMachineRegistry.register(extensionId, newTeeId, teeProxyId, url, codeHash, platform);
@@ -456,7 +508,7 @@ contract TeeMachineRegistryTest is Test {
 
 
     function testReplicateRevertExtensionIdMismatch() public {
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         testToProduction();
         vm.prank(owner);
         teeMachineRegistry.register(extensionId + 1, newTeeId, teeProxyId, url, codeHash, platform);
@@ -516,7 +568,7 @@ contract TeeMachineRegistryTest is Test {
         _mockVerifyAvailabilityCheckProof(true);
         vm.prank(teeReplication);
         vm.expectEmit();
-        emit ITeeMachineRegistry.TeeMachinePutIntoProduction(teeId);
+        emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.PRODUCTION);
         teeMachineRegistry.replicate(newTeeId, proof);
     }
 
@@ -606,7 +658,7 @@ contract TeeMachineRegistryTest is Test {
 
     function testGetRandomTeeIds() public {
         testToProduction();
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(newTeeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(newTeeId, teeProxyId, url);
         vm.startPrank(owner);
         teeMachineRegistry.register(extensionId, newTeeId, teeProxyId, url, codeHash, platform);
         teeMachineRegistry.toProduction(proof);
@@ -740,9 +792,9 @@ contract TeeMachineRegistryTest is Test {
     function _changeStateToProduction() private {
         _mockIsCodeHashPlatformSupported(true);
         _mockVerifyAvailabilityCheckProof(true);
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, url);
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         vm.expectEmit();
-        emit ITeeMachineRegistry.TeeMachinePutIntoProduction(teeId);
+        emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.PRODUCTION);
         vm.prank(owner);
         teeMachineRegistry.toProduction(proof);
     }
@@ -804,12 +856,13 @@ contract TeeMachineRegistryTest is Test {
         testReplicateRevertInvalidTeeStatus();
         vm.prank(teeReplication);
         teeMachineRegistry.changeStatus(newTeeId, ITeeMachineRegistry.TeeStatus.REPLICATING);
-        return _createAvailabilityCheckProof(teeId, url);
+        return _createAvailabilityCheckProof(teeId, teeProxyId, url);
     }
 
 
     function _createAvailabilityCheckProof(
         address _teeId,
+        address _teeProxyId,
         string memory _url
     )
         private view
@@ -820,6 +873,7 @@ contract TeeMachineRegistryTest is Test {
         header.timestamp = 1;
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             _teeId,
+            _teeProxyId,
             _url,
             keccak256("challenge")
         );

@@ -95,7 +95,6 @@ export class Contracts {
   public static readonly TEE_WALLET_KEY_MANAGER = "TeeWalletKeyManager";
   public static readonly TEE_WALLET_BACKUP_MANAGER = "TeeWalletBackupManager";
   public static readonly TEE_SYSTEM_STATE_VERIFIER = "TeeSystemStateVerifier";
-  public static readonly TEE_INSTRUCTIONS = "TeeInstructions";
   public static readonly TEE_FEE_CALCULATOR = "TeeFeeCalculator";
   public static readonly TEE_REPLICATION = "TeeReplication";
   public static readonly TEE_REWARD_OFFERS_MANAGER = "TeeRewardOffersManager";

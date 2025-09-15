@@ -287,6 +287,14 @@ contract TeeExtensionRegistryTest is Test {
     }
 
 
+    function testSetExtensionContractsRevertSystemOwnedExtensionId() public {
+        testRegister();
+        vm.prank(initialGovernance);
+        vm.expectRevert(ITeeExtensionRegistry.SystemOwnedExtensionId.selector);
+        teeExtensionRegistry.setExtensionContracts(0, teeExtensionStateVerifier, address(0));
+    }
+
+
     function testSetExtensionContractsRevertInvalidInstructionsSender() public {
         testRegister();
         vm.prank(owner);
@@ -391,7 +399,7 @@ contract TeeExtensionRegistryTest is Test {
         vm.prank(owner);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeVersionAdded(
-            extensionId, codeHash, version, platforms, governanceHash
+            extensionId, version, codeHash, platforms, governanceHash
         );
         teeExtensionRegistry.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
     }
@@ -591,9 +599,17 @@ contract TeeExtensionRegistryTest is Test {
 
     function testAddSupportedPlatforms() public {
         vm.prank(initialGovernance);
-        vm.expectEmit();
-        emit ITeeExtensionRegistry.SupportedPlatformAdded(platforms[0]);
+        for (uint256 i = 0; i < platforms.length; i++) {
+            vm.expectEmit();
+            emit ITeeExtensionRegistry.SupportedPlatformAdded(platforms[i]);
+        }
         teeExtensionRegistry.addSupportedPlatforms(platforms);
+        // getSupportedPlatforms
+        bytes32[] memory supportedPlatforms = teeExtensionRegistry.getSupportedPlatforms();
+        assertEq(supportedPlatforms.length, platforms.length);
+        for (uint256 i = 0; i < platforms.length; i++) {
+            assertEq(supportedPlatforms[i], platforms[i]);
+        }
     }
 
 

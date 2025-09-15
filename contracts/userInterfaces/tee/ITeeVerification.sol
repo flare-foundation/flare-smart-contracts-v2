@@ -69,7 +69,7 @@ interface ITeeVerification {
     /**
      * Request availability check attestation for a TEE machine - triggers FTDC availability check.
      * @param _teeId The TEE machine id.
-     * @param _testOnTeeId The TEE machine id to test on.
+     * @param _testOnTeeId The TEE machine id to test on, if address(0) a random active TEE machine will be used.
      */
     function requestAvailabilityCheckAttestation(
         address _teeId,
@@ -103,7 +103,7 @@ interface ITeeVerification {
      * @param _walletId The wallet id.
      * @param _sourceId The source id (e.g., XRP, BTC).
      * @param _accountAddress The address of the multisig account.
-     * @param _testOnTeeId The TEE machine id to test on.
+     * @param _testOnTeeId The TEE machine id to test on, if address(0) a random active TEE machine will be used.
      */
     function requestPMWMultisigAccountConfiguredAttestation(
         bytes32 _walletId,

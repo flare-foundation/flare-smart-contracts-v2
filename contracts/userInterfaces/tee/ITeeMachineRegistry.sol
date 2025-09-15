@@ -45,18 +45,15 @@ interface ITeeMachineRegistry {
         bytes32 platform
     );
 
-    event TeeMachinePutIntoProduction(
-        address indexed teeId
+    event TeeMachineStatusChanged(
+        address indexed teeId,
+        TeeStatus indexed newStatus
     );
 
-    event TeeMachinePaused(
+    event TeeMachineSettingsUpdated(
         address indexed teeId,
-        bool withProof
-    );
-
-    event TeeProxyIdSet(
-        address indexed teeId,
-        address indexed teeProxyId
+        address indexed teeProxyId,
+        string url
     );
 
     error OnlyTeeReplicationContract();
@@ -83,7 +80,7 @@ interface ITeeMachineRegistry {
 
     /**
      * Register a new TEE machine. It also triggers availability check.
-     * Emits TeeMachineRegistered event.
+     * Emits a TeeMachineRegistered event.
      * @param _extensionId The id of the extension.
      * @param _teeId The TEE machine id.
      * @param _teeProxyId The TEE proxy id.
@@ -104,7 +101,7 @@ interface ITeeMachineRegistry {
 
     /**
      * Put a TEE machine into production.
-     * Emits a TeeMachinePutIntoProduction event.
+     * Emits a TeeMachineStatusChanged event.
      * @param _proof The availability check proof.
      * Can only be called by the TEE machine owner or by anyone in case TEE machine was paused with proof.
      */
@@ -115,7 +112,7 @@ interface ITeeMachineRegistry {
 
     /**
      * Pause a TEE machine.
-     * Emits a TeeMachinePaused event.
+     * Emits a TeeMachineStatusChanged event.
      * @param _teeId The TEE machine id.
      * Can be called by the TEE machine owner or by anyone in case version is obsolete.
      */
@@ -124,7 +121,7 @@ interface ITeeMachineRegistry {
 
     /**
      * Pause a TEE machine with proof.
-     * Emits a TeeMachinePaused event.
+     * Emits a TeeMachineStatusChanged event.
      * @param _proof The availability check proof.
      * Can be called by anyone in case TEE machine is obsolete, down, ...
      */
@@ -154,13 +151,15 @@ interface ITeeMachineRegistry {
         external;
 
     /**
-     * Set TEE proxy id.
-     * Emits TeeProxyIdSet event.
+     * Update TEE machine settings. If the TEE machine was in PRODUCTION or PAUSED_WITH_PROOF status,
+     * updating settings pauses the TEE machine and emits a TeeMachineStatusChanged event.
+     * Emits a TeeMachineSettingsUpdated event.
      * @param _teeId The TEE machine id.
      * @param _teeProxyId The TEE proxy id.
+     * @param _url The TEE machine URL.
      * Can only be called by the TEE machine owner.
      */
-    function setTeeProxyId(address _teeId, address _teeProxyId)
+    function updateTeeMachineSettings(address _teeId, address _teeProxyId, string calldata _url)
         external;
 
     /**

@@ -34,6 +34,7 @@ interface IFtdcHub {
     error CosignersThresholdInvalid();
     error MultipleResponsesPossible();
     error TeeMachineNotAvailable();
+    error OnlySystemExtensionId(address teeId);
     error FeeTooLow();
     error MinThresholdInvalid();
     error DefaultNumberOfTeesZero();

@@ -69,6 +69,7 @@ interface ITeePayments {
     );
 
     error OnlyWalletOwner();
+    error OnlySystemExtensionId();
     error MaxBatchSizeZero();
     error OpTypeZero();
     error SupportedSourceIdsLengthZero();

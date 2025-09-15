@@ -3,8 +3,6 @@ pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
 import { TeePayments } from "../../../../contracts/tee/implementation/TeePayments.sol";
-import { TeeInstructions } from "../../../../contracts/tee/implementation/TeeInstructions.sol";
-import { TeeInstructionsProxy } from "../../../../contracts/tee/proxy/TeeInstructionsProxy.sol";
 import { TeePaymentsProxy } from "../../../../contracts/tee/proxy/TeePaymentsProxy.sol";
 import { TeeExtensionRegistryProxy } from "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
 import { TeeExtensionRegistry } from "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
@@ -35,9 +33,6 @@ contract TeePaymentsTest is Test {
     address private mockFSM;
     address private mockTeeFeeCalculator;
     address private mockTeeInstructions;
-    TeeInstructions private teeInstructions;
-    TeeInstructions private teeInstructionsImpl;
-    TeeInstructionsProxy private teeInstructionsProxy;
     address private mockRewardManager;
     address private mockTeeWalletProjectManager;
     address private mockTeeWalletKeyManager;
@@ -86,14 +81,6 @@ contract TeePaymentsTest is Test {
         teeVerificationMock = makeAddr("teeVerificationMock");
         teeMachineRegistryMock = makeAddr("teeMachineRegistry");
 
-        teeInstructionsImpl = new TeeInstructions();
-        teeInstructionsProxy = new TeeInstructionsProxy(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
-            addressUpdater,
-            address(teeInstructionsImpl)
-        );
-        teeInstructions = TeeInstructions(address(teeInstructionsProxy));
 
         teePaymentsImpl = new TeePayments();
         sourceIds = new bytes32[](1);
@@ -127,25 +114,16 @@ contract TeePaymentsTest is Test {
         contractNameHashes[2] = keccak256(abi.encode("TeeWalletManager"));
         contractNameHashes[3] = keccak256(abi.encode("TeeWalletKeyManager"));
         contractNameHashes[4] = keccak256(abi.encode("TeeVerification"));
-        contractNameHashes[5] = keccak256(abi.encode("TeeInstructions"));
+        contractNameHashes[5] = keccak256(abi.encode("TeeExtensionRegistry"));
         contractNameHashes[6] = keccak256(abi.encode("FlareSystemsManager"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = mockTeeWalletProjectManager;
         contractAddresses[2] = mockTeeWalletManager;
         contractAddresses[3] = mockTeeWalletKeyManager;
-        // contractAddresses[4] = mockTeeInstructions;
         contractAddresses[4] = teeVerificationMock;
-        contractAddresses[5] = address(teeInstructions);
+        contractAddresses[5] = address(teeExtensionRegistry);
         contractAddresses[6] = mockFSM;
         teePayments.updateContractAddresses(contractNameHashes, contractAddresses);
-
-        contractNameHashes = new bytes32[](2);
-        contractAddresses = new address[](2);
-        contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("TeeExtensionRegistry"));
-        contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = address(teeExtensionRegistry);
-        teeInstructions.updateContractAddresses(contractNameHashes, contractAddresses);
 
         contractNameHashes = new bytes32[](6);
         contractAddresses = new address[](6);
@@ -165,17 +143,12 @@ contract TeePaymentsTest is Test {
         vm.stopPrank();
 
         _mockGetWalletProjectId(walletId, projectId);
+        _mockGetExtensionId(projectId, 0);
         _mockGetOwner(projectId, walletOwner);
         _mockGetSubmitAddress(projectId, submitAddress);
         _mockGetCurrentRewardEpochId(10);
         _mockReceiveRewards();
         _mockGetOpType(projectId, OP_TYPE);
-
-        // set tee payments contract as instruction initiator on TeeInstructions
-        vm.prank(governance);
-        address[] memory instructionInitiators = new address[](1);
-        instructionInitiators[0] = address(teePayments);
-        teeInstructions.registerInstructionInitiators(instructionInitiators);
 
         pmwMultisigAccount.sourceId = SOURCE_ID;
         pmwMultisigAccount.accountAddress = senderAddress;
@@ -195,10 +168,10 @@ contract TeePaymentsTest is Test {
 
         _mockVerifyPMWMultisigAccountConfiguredProof(true);
         _mockGetExtensionId(0);
-        // set system instruction initiator
+        // set TeePayments contract as system instruction initiator on TeeExtensionRegistry
         vm.prank(governance);
         address[] memory systemInstructionInitiators = new address[](1);
-        systemInstructionInitiators[0] = address(teeInstructions);
+        systemInstructionInitiators[0] = address(teePayments);
         teeExtensionRegistry.registerSystemInstructionInitiators(systemInstructionInitiators);
         _mockCalculateFeeByTeeIds(PAY, fee);
         _mockCalculateFeeByTeeIds(REISSUE, fee);
@@ -310,6 +283,13 @@ contract TeePaymentsTest is Test {
 
     function testAddPMWMultisigAccountRevertOnlyOwner() public {
         vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);
+        teePayments.addPMWMultisigAccount(walletId, proof);
+    }
+
+    function testAddPMWMultisigAccountRevertOnlySystemExtensionId() public {
+        _mockGetExtensionId(projectId, 1);
+        vm.expectRevert(ITeePayments.OnlySystemExtensionId.selector);
+        vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof);
     }
 
@@ -1571,6 +1551,14 @@ contract TeePaymentsTest is Test {
             mockTeeWalletManager,
             abi.encodeWithSelector(ITeeWalletManager.getWalletProjectId.selector, _walletId),
             abi.encode(_projectId)
+        );
+    }
+
+    function _mockGetExtensionId(bytes32 _projectId, uint256 _extensionId) internal {
+        vm.mockCall(
+            mockTeeWalletProjectManager,
+            abi.encodeWithSelector(ITeeWalletProjectManager.getExtensionId.selector, _projectId),
+            abi.encode(_extensionId)
         );
     }
 

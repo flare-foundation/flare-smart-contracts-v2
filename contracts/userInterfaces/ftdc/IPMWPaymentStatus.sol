@@ -38,7 +38,7 @@ interface IPMWPaymentStatus {
      * @param tokenId Token ID (e.g. address) for the payment, bytes32(0) means native token.
      * @param amount Amount in minimal units that should be send.
      * @param fee Fee in minimal units that should be paid for the transaction.
-     * @param paymentInstruction Payment instruction message as emitted on-chain.
+     * @param paymentReference Payment reference of the transaction.
      * @param transactionStatus Success status of the transaction: 0 - success, 1 - failed by sender's fault,
      * 2 - failed by receiver's fault.
      * @param revertReason Revert reason from the blockchain, if transaction status is not success.

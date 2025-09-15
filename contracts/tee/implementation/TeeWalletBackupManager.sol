@@ -105,7 +105,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
         bytes32 opCommand = _test ? KEY_DATA_PROVIDER_RESTORE_TEST : KEY_DATA_PROVIDER_RESTORE;
         // restored flag in KeyExistence proof will always be set to true after this call
         // in case of a test restore, nonce should be 0, so that the key cannot be confirmed on-chain
-        // in case of a actual restore, nonce should be increased to prevent replay attacks
+        // in case of an actual restore, nonce should be increased to prevent replay attacks
         // and to allow the key to be confirmed on-chain
         KeyDataProviderRestore memory message = KeyDataProviderRestore({
             teeId: _teeId,
