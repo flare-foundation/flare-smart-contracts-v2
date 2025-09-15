@@ -269,20 +269,22 @@ contract WalletPaymentsTest is Test {
         teeOwnerAllowlist.updateContractAddresses(contractNameHashes, contractAddresses);
 
 
-        contractNameHashes = new bytes32[](6);
-        contractAddresses = new address[](6);
+        contractNameHashes = new bytes32[](7);
+        contractAddresses = new address[](7);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("TeeWalletProjectManager"));
         contractNameHashes[2] = keccak256(abi.encode("TeeWalletManager"));
         contractNameHashes[3] = keccak256(abi.encode("TeeWalletKeyManager"));
         contractNameHashes[4] = keccak256(abi.encode("TeeVerification"));
         contractNameHashes[5] = keccak256(abi.encode("FlareSystemsManager"));
+        contractNameHashes[6] = keccak256(abi.encode("TeeExtensionRegistry"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = address(teeWalletProjectManager);
         contractAddresses[2] = address(teeWalletManager);
         contractAddresses[3] = address(teeWalletKeyManager);
         contractAddresses[4] = teeVerification;
         contractAddresses[5] = flareSystemsManagerMock;
+        contractAddresses[6] = address(teeExtensionRegistry);
         teePayments.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
