@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
-import "../userInterfaces/ICChainStake.sol";
+import { ICChainStake } from "../userInterfaces/ICChainStake.sol";
 import { IIGovernanceVotePower, IGovernanceVotePower, WNat, CheckPointsByAddress,
         DelegateCheckPointsByAddress, IVPToken, IPChainStakeMirror, SafeMath, SafeCast }
     from "../../flattened/FlareSmartContracts.sol";
-
 
 /**
  * Contract managing governance vote power and its delegation.

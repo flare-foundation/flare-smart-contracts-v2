@@ -106,10 +106,12 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "5.0.2",
+    "@flarenetwork/flare-periphery-contracts": "0.1.36",
     "@typescript-eslint/eslint-plugin": "^7.3.1",
     "@typescript-eslint/parser": "^7.3.1",
     "ethers": "^6.11.1",
     "flare-smart-contracts": "git+https://gitlab.com/flarenetwork/flare-smart-contracts.git",
+
     "hardhat": "2.22.16",
     "solhint": "^4.5.2"
   },

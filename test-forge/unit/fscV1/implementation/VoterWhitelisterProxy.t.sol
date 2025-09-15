@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fscV1/implementation/VoterWhitelisterProxy.sol";
-import "../../../../contracts/mock/IIIPriceSubmitter.sol";
-
+import { Test } from "forge-std/Test.sol";
+import { VoterWhitelisterProxy } from "../../../../contracts/fscV1/implementation/VoterWhitelisterProxy.sol";
+import { IIPriceSubmitter } from "@flarenetwork/flare-periphery-contracts/songbird/genesis/interfaces/IIPriceSubmitter.sol";
+import { IIIPriceSubmitter } from "../../../../contracts/mock/IIIPriceSubmitter.sol";
 
 contract VoterWhitelisterProxyTest is Test {
 
     VoterWhitelisterProxy private voterWhitelisterProxy;
 
-    IIIPriceSubmitter private priceSubmitter;
+    IIPriceSubmitter private priceSubmitter;
     address private mockFtsoManager;
     address private mockFtsoRegistry;
     address private addressUpdater;
@@ -29,11 +29,11 @@ contract VoterWhitelisterProxyTest is Test {
             abi.encode(),
             0x1000000000000000000000000000000000000003
         );
-        priceSubmitter = IIIPriceSubmitter(0x1000000000000000000000000000000000000003);
-        priceSubmitter.initialiseFixedAddress();
+        priceSubmitter = IIPriceSubmitter(0x1000000000000000000000000000000000000003);
+        IIIPriceSubmitter(address(priceSubmitter)).initialiseFixedAddress();
         address submitterGovernance = address(0xfffEc6C83c8BF5c3F4AE0cCF8c45CE20E4560BD7);
         vm.prank(submitterGovernance);
-        priceSubmitter.setAddressUpdater(addressUpdater);
+        IIIPriceSubmitter(address(priceSubmitter)).setAddressUpdater(addressUpdater);
 
         // voter whitelister proxy
         voterWhitelisterProxy = new VoterWhitelisterProxy(
@@ -54,7 +54,7 @@ contract VoterWhitelisterProxyTest is Test {
         contractAddresses[2] = address(voterWhitelisterProxy);
         contractAddresses[3] = addressUpdater;
         vm.prank(addressUpdater);
-        priceSubmitter.updateContractAddresses(contractNameHashes, contractAddresses);
+        IIIPriceSubmitter(address(priceSubmitter)).updateContractAddresses(contractNameHashes, contractAddresses);
     }
 
     function test() public {

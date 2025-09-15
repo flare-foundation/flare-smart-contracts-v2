@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../mock/GovernedMock.sol";
+import { Test } from "forge-std/Test.sol";
+import { GovernedMock } from "../../../mock/GovernedMock.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 contract GovernedTest is Test {
 

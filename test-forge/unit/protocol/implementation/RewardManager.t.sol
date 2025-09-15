@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/RewardManager.sol";
+import { Test, Vm } from "forge-std/Test.sol";
+import { RewardManager } from "../../../../contracts/protocol/implementation/RewardManager.sol";
+import { IIClaimSetupManager } from "../../../../contracts/protocol/interface/IIClaimSetupManager.sol";
+import { IIFlareSystemsCalculator } from "../../../../contracts/protocol/interface/IIFlareSystemsCalculator.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { RewardsV2Interface } from "../../../../contracts/userInterfaces/LTS/RewardsV2Interface.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
 contract RewardManagerTest is Test {

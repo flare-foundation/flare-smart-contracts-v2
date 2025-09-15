@@ -1,12 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fscV1/implementation/FtsoManagerProxy.sol";
-import "../../../../contracts/protocol/implementation/FlareSystemsManager.sol";
-import "../../../../contracts/mock/IIIFtsoRegistry.sol";
-import "../../../../contracts/fscV1/implementation/FtsoProxy.sol";
-import "../../../../contracts/mock/IIIPriceSubmitter.sol";
+import { Test } from "forge-std/Test.sol";
+import { FtsoManagerProxy } from "../../../../contracts/fscV1/implementation/FtsoManagerProxy.sol";
+import { FlareSystemsManager } from "../../../../contracts/protocol/implementation/FlareSystemsManager.sol";
+import { IIRewardEpochSwitchoverTrigger } from "../../../../contracts/protocol/interface/IIRewardEpochSwitchoverTrigger.sol";
+import { IISubmission } from "../../../../contracts/protocol/interface/IISubmission.sol";
+import { IIVoterRegistry } from "../../../../contracts/protocol/interface/IIVoterRegistry.sol";
+import { IIRelay } from "../../../../contracts/protocol/interface/IIRelay.sol";
+import { IIIFtsoRegistry } from "../../../../contracts/mock/IIIFtsoRegistry.sol";
+import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
+import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
+import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { FtsoProxy } from "../../../../contracts/fscV1/implementation/FtsoProxy.sol";
+import { IIIPriceSubmitter } from "../../../../contracts/mock/IIIPriceSubmitter.sol";
+import { IFtso } from "@flarenetwork/flare-periphery-contracts/songbird/IFtso.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IIFtso } from "@flarenetwork/flare-periphery-contracts/songbird/ftso/interfaces/IIFtso.sol";
 
 // solhint-disable-next-line max-states-count
 contract FtsoManagerProxyTest is Test {

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-// import {Test, console2} from "forge-std/Test.sol";
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/EntityManager.sol";
-import "../../../mock/MockNodePossessionVerification.sol";
-import "../../../mock/MockPublicKeyVerification.sol";
+import { Test, Vm } from "forge-std/Test.sol";
+import { EntityManager } from "../../../../contracts/protocol/implementation/EntityManager.sol";
+import { MockNodePossessionVerification } from "../../../mock/MockNodePossessionVerification.sol";
+import { MockPublicKeyVerification } from "../../../mock/MockPublicKeyVerification.sol";
+import { IINodePossessionVerifier } from "../../../../contracts/protocol/interface/IINodePossessionVerifier.sol";
+import { IIPublicKeyVerifier } from "../../../../contracts/protocol/interface/IIPublicKeyVerifier.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 contract EntityManagerTest is Test {
 

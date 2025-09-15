@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/rNat/implementation/RNatAccount.sol";
-import "../../../mock/IWNatMock.sol";
-import "flare-smart-contracts/contracts/token/interface/IIVPContract.sol";
-import "flare-smart-contracts/contracts/token/interface/IIGovernanceVotePower.sol";
-import "../../../../contracts/userInterfaces/ICChainStake.sol";
-import "../../../../contracts/mock/ERC20Mock.sol";
-import "flare-smart-contracts/contracts/userInterfaces/IClaimSetupManager.sol";
+import { Test } from "forge-std/Test.sol";
+import { RNatAccount } from "../../../../contracts/rNat/implementation/RNatAccount.sol";
+import { IIClaimSetupManager } from "../../../../contracts/protocol/interface/IIClaimSetupManager.sol";
+import { IRNat } from "../../../../contracts/userInterfaces/IRNat.sol";
+import { IWNatMock } from "../../../mock/IWNatMock.sol";
+import { ERC20Mock } from "../../../../contracts/mock/ERC20Mock.sol";
+import { IClaimSetupManager } from "@flarenetwork/flare-periphery-contracts/songbird/IClaimSetupManager.sol";
+import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIVPContract.sol";
+import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIGovernanceVotePower.sol";
+
 
 contract RNatAccountTest is Test {
 

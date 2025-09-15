@@ -2,8 +2,8 @@
 pragma solidity >=0.7.6 <0.9;
 
 import "./IFixedPointArithmetic.sol" as FPA;
-import "./IFastUpdatesConfiguration.sol";
-import "./IIncreaseManager.sol";
+import { IFastUpdatesConfiguration } from "./IFastUpdatesConfiguration.sol";
+import { IIncreaseManager } from "./IIncreaseManager.sol";
 
 /**
  * Fast update incentive manager interface.

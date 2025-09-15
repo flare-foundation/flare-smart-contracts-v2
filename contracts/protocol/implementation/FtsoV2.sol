@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../userInterfaces/LTS/FtsoV2Interface.sol";
-import "../../userInterfaces/IFastUpdater.sol";
-import "../../userInterfaces/IFastUpdatesConfiguration.sol";
-import "../../userInterfaces/IFeeCalculator.sol";
-import "../../userInterfaces/IRelay.sol";
-import "../../governance/implementation/GovernedProxyImplementation.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../customFeeds/interface/IICustomFeed.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { FtsoV2Interface } from "../../userInterfaces/LTS/FtsoV2Interface.sol";
+import { IFastUpdater } from "../../userInterfaces/IFastUpdater.sol";
+import { IFastUpdatesConfiguration } from "../../userInterfaces/IFastUpdatesConfiguration.sol";
+import { IFeeCalculator } from "../../userInterfaces/IFeeCalculator.sol";
+import { IRelay } from "../../userInterfaces/IRelay.sol";
+import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
+import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IICustomFeed } from "../../customFeeds/interface/IICustomFeed.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 contract FtsoV2 is FtsoV2Interface, UUPSUpgradeable, GovernedProxyImplementation, AddressUpdatable {
     using MerkleProof for bytes32[];

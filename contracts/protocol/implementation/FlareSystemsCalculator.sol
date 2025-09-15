@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
-import "../interface/IIEntityManager.sol";
-import "../interface/IIFlareSystemsCalculator.sol";
-import "../interface/IIFlareSystemsManager.sol";
-import "../../userInterfaces/IVoterRegistry.sol";
-import "../../userInterfaces/IWNat.sol";
-import "../../userInterfaces/IWNatDelegationFee.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../governance/implementation/Governed.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
+import { IPChainStakeMirror } from "@flarenetwork/flare-periphery-contracts/flare/IPChainStakeMirror.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IIEntityManager } from "../interface/IIEntityManager.sol";
+import { IIFlareSystemsCalculator } from "../interface/IIFlareSystemsCalculator.sol";
+import { IIFlareSystemsManager } from "../interface/IIFlareSystemsManager.sol";
+import { IVoterRegistry } from "../../userInterfaces/IVoterRegistry.sol";
+import { IWNat } from "../../userInterfaces/IWNat.sol";
+import { IWNatDelegationFee } from "../../userInterfaces/IWNatDelegationFee.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * FlareSystemsCalculator is used to calculate the registration weight of a voter and the burn factor.

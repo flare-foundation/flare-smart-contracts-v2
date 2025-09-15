@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../contracts/userInterfaces/IWNat.sol";
-import "flare-smart-contracts/contracts/token/interface/IIVPContract.sol";
-import "flare-smart-contracts/contracts/token/interface/IIGovernanceVotePower.sol";
+import { IWNat } from "../../contracts/userInterfaces/IWNat.sol";
+import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIVPContract.sol";
+import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIGovernanceVotePower.sol";
 
 interface IWNatMock is IWNat {
 

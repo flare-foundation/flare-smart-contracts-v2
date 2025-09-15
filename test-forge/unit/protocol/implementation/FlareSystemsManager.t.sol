@@ -1,11 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/FlareSystemsManager.sol";
-import "../../../mock/MockCleanupBlockNumberManager.sol";
-import "../../../mock/MockVoterRegistrationTrigger.sol";
+import { Test } from "forge-std/Test.sol";
+import { FlareSystemsManager } from "../../../../contracts/protocol/implementation/FlareSystemsManager.sol";
+import { MockCleanupBlockNumberManager } from "../../../mock/MockCleanupBlockNumberManager.sol";
+import { MockVoterRegistrationTrigger } from "../../../mock/MockVoterRegistrationTrigger.sol";
+import {
+    IIRewardEpochSwitchoverTrigger
+} from "../../../../contracts/protocol/interface/IIRewardEpochSwitchoverTrigger.sol";
+import { IIVoterRegistry } from "../../../../contracts/protocol/interface/IIVoterRegistry.sol";
+import { IIRelay } from "../../../../contracts/protocol/interface/IIRelay.sol";
+import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
+import { IICleanupBlockNumberManager } from "../../../../contracts/protocol/interface/IICleanupBlockNumberManager.sol";
+import { IIVoterRegistrationTrigger } from "../../../../contracts/protocol/interface/IIVoterRegistrationTrigger.sol";
+import { IISubmission } from "../../../../contracts/protocol/interface/IISubmission.sol";
+import { IFlareSystemsManager } from "../../../../contracts/userInterfaces/IFlareSystemsManager.sol";
+import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
+import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract FlareSystemsManagerTest is Test {
 

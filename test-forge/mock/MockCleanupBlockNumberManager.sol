@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../contracts/protocol/interface/IICleanupBlockNumberManager.sol";
+import { IICleanupBlockNumberManager } from "../../contracts/protocol/interface/IICleanupBlockNumberManager.sol";
 
 contract MockCleanupBlockNumberManager is IICleanupBlockNumberManager {
     //solhint-disable-next-line no-unused-vars

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "flare-smart-contracts/contracts/tokenPools/interface/IITokenPool.sol";
-
+import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/songbird/tokenPools/interfaces/IITokenPool.sol";
 
 abstract contract TokenPoolBase is IITokenPool {
 

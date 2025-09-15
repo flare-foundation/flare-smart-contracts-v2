@@ -1,16 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/FtsoV2.sol";
-import "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
-import "../../../../contracts/userInterfaces/IFeeCalculator.sol";
+import { Test } from "forge-std/Test.sol";
+import { FtsoV2 } from "../../../../contracts/protocol/implementation/FtsoV2.sol";
+import { IFtsoFeedPublisher } from "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
+import { IFeeCalculator } from "../../../../contracts/userInterfaces/IFeeCalculator.sol";
+import { IFastUpdatesConfiguration } from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
+import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
+import { ISFlr } from "../../../../contracts/customFeeds/implementation/SFlrCustomFeed.sol";
+import { FtsoV2Interface } from "../../../../contracts/userInterfaces/LTS/FtsoV2Interface.sol";
 import { FastUpdater } from "../../../../contracts/fastUpdates/implementation/FastUpdater.sol";
-import "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
-import "../../../../contracts/fastUpdates/implementation/FastUpdateIncentiveManager.sol";
-import "../../../../contracts/customFeeds/implementation/SFlrCustomFeed.sol";
-import "../../../../contracts/fastUpdates/implementation/FeeCalculator.sol";
-import "../../../../contracts/protocol/implementation/FtsoV2Proxy.sol";
+import {
+    FastUpdatesConfiguration
+} from "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
+import {
+    FastUpdateIncentiveManager
+} from "../../../../contracts/fastUpdates/implementation/FastUpdateIncentiveManager.sol";
+import { SFlrCustomFeed } from "../../../../contracts/customFeeds/implementation/SFlrCustomFeed.sol";
+import { FeeCalculator } from "../../../../contracts/fastUpdates/implementation/FeeCalculator.sol";
+import { FtsoV2Proxy } from "../../../../contracts/protocol/implementation/FtsoV2Proxy.sol";
+import "../../../../contracts/fastUpdates/lib/FixedPointArithmetic.sol" as FPA;
+import { IICustomFeed } from "../../../../contracts/customFeeds/interface/IICustomFeed.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/songbird/IFlareContractRegistry.sol";
 
 // solhint-disable-next-line max-states-count
 contract FtsoV2Test is Test {

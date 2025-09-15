@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../governance/implementation/Governed.sol";
-import "../../inflation/implementation/InflationReceiver.sol";
-import "../interface/IIFlareSystemsManager.sol";
-import "../interface/IIRewardEpochSwitchoverTrigger.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { InflationReceiver } from "../../inflation/implementation/InflationReceiver.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IIFlareSystemsManager } from "../interface/IIFlareSystemsManager.sol";
+import { IIRewardEpochSwitchoverTrigger } from "../interface/IIRewardEpochSwitchoverTrigger.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 /**
  * RewardOffersManagerBase contract.

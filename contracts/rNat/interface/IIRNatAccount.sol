@@ -2,8 +2,11 @@
 pragma solidity >=0.7.6 <0.9;
 
 
-import "../../userInterfaces/IRNatAccount.sol";
-import "../../protocol/interface/IIClaimSetupManager.sol";
+import { IRNatAccount } from "../../userInterfaces/IRNatAccount.sol";
+import { IRNat } from "../../userInterfaces/IRNat.sol";
+import { IWNat } from "../../userInterfaces/IWNat.sol";
+import { IIClaimSetupManager } from "../../protocol/interface/IIClaimSetupManager.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IIRNatAccount is IRNatAccount {
 

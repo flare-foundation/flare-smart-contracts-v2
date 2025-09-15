@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../lib/Bn256.sol";
-import "../lib/Sortition.sol";
+import { G1Point } from "../lib/Bn256.sol";
+import { SortitionState, verifySortitionCredential, verifySortitionProof, verifySignature } from "../lib/Sortition.sol";
+import { SortitionCredential } from "../../userInterfaces/ISortition.sol";
 
 contract SortitionMock {
     function verifySortitionCredentialTest(

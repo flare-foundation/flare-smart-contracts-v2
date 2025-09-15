@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import {Bn256} from "./Bn256.sol";
-import {G1Point} from "../../userInterfaces/IBn256.sol";
-import {SortitionCredential} from "../../userInterfaces/ISortition.sol";
+import { Bn256 } from "./Bn256.sol";
+import { G1Point } from "../../userInterfaces/IBn256.sol";
+import { SortitionCredential } from "../../userInterfaces/ISortition.sol";
 
 struct SortitionState {
     uint256 baseSeed;

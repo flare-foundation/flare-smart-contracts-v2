@@ -1,11 +1,35 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../governance/implementation/GovernedProxyImplementation.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/IFdcVerification.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
+import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
+import { IFdcVerification } from "../../userInterfaces/IFdcVerification.sol";
+import { IRelay } from "../../userInterfaces/IRelay.sol";
+import { IAddressValidity } from "../../userInterfaces/fdc/IAddressValidity.sol";
+import { IBalanceDecreasingTransaction } from "../../userInterfaces/fdc/IBalanceDecreasingTransaction.sol";
+import { IConfirmedBlockHeightExists } from "../../userInterfaces/fdc/IConfirmedBlockHeightExists.sol";
+import { IEVMTransaction } from "../../userInterfaces/fdc/IEVMTransaction.sol";
+import { IPayment } from "../../userInterfaces/fdc/IPayment.sol";
+import { IReferencedPaymentNonexistence } from "../../userInterfaces/fdc/IReferencedPaymentNonexistence.sol";
+import { IAddressValidityVerification } from "../../userInterfaces/fdc/IAddressValidityVerification.sol";
+import {
+    IBalanceDecreasingTransactionVerification
+} from "../../userInterfaces/fdc/IBalanceDecreasingTransactionVerification.sol";
+import {
+    IConfirmedBlockHeightExistsVerification
+} from "../../userInterfaces/fdc/IConfirmedBlockHeightExistsVerification.sol";
+import { IEVMTransactionVerification } from "../../userInterfaces/fdc/IEVMTransactionVerification.sol";
+import { IPaymentVerification } from "../../userInterfaces/fdc/IPaymentVerification.sol";
+import {
+    IReferencedPaymentNonexistenceVerification
+} from "../../userInterfaces/fdc/IReferencedPaymentNonexistenceVerification.sol";
+import { IWeb2Json } from "../../userInterfaces/fdc/IWeb2Json.sol";
+import { IWeb2JsonVerification } from "../../userInterfaces/fdc/IWeb2JsonVerification.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 /**
  * FdcVerification contract.

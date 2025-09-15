@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/customFeeds/implementation/SFlrCustomFeed.sol";
+import { Test } from "forge-std/Test.sol";
+import { SFlrCustomFeed , ISFlr } from "../../../../contracts/customFeeds/implementation/SFlrCustomFeed.sol";
+import { IFastUpdatesConfiguration } from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
+import { IFastUpdater } from "../../../../contracts/userInterfaces/IFastUpdater.sol";
+import { IFeeCalculator } from "../../../../contracts/userInterfaces/IFeeCalculator.sol";
+import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/songbird/IFlareContractRegistry.sol";
 
 contract SFlrCustomFeedTest is Test {
 

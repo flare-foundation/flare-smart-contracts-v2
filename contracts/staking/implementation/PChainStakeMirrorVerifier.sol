@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "flare-smart-contracts/contracts/staking/interface/IIPChainStakeMirrorVerifier.sol";
-import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirrorMultiSigVoting.sol";
-import "../../userInterfaces/IRelay.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { IIPChainStakeMirrorVerifier } from "flare-smart-contracts/contracts/staking/interface/IIPChainStakeMirrorVerifier.sol";
+import { IPChainStakeMirrorMultiSigVoting } from "@flarenetwork/flare-periphery-contracts/flare/IPChainStakeMirrorMultiSigVoting.sol";
+import { IPChainStakeMirrorVerifier } from "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirrorVerifier.sol";
+import { IRelay } from "../../userInterfaces/IRelay.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
  * Contract used for P-chain staking verification using stake data and Merkle proof.

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/utils/implementation/USDTSwapper.sol";
-import "../../../../contracts/mock/ERC20Mock.sol";
+import { Test } from "forge-std/Test.sol";
+import { USDTSwapper } from "../../../../contracts/utils/implementation/USDTSwapper.sol";
+import { ERC20Mock } from "../../../../contracts/mock/ERC20Mock.sol";
+import { IERC20Errors } from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 contract USDTSwapperTest is Test {
 

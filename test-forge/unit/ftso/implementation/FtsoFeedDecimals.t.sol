@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/ftso/implementation/FtsoFeedDecimals.sol";
+import { Test } from "forge-std/Test.sol";
+import { FtsoFeedDecimals } from "../../../../contracts/ftso/implementation/FtsoFeedDecimals.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 contract FtsoFeedDecimalsTest is Test {
 

@@ -1,22 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "flare-smart-contracts/contracts/userInterfaces/IPChainStakeMirror.sol";
-import "../interface/IIRewardManager.sol";
-import "../interface/IIClaimSetupManager.sol";
-import "../interface/IIFlareSystemsCalculator.sol";
-import "../interface/IIFlareSystemsManager.sol";
-import "../../governance/implementation/Governed.sol";
-import "../../userInterfaces/ICChainStake.sol";
-import "../../userInterfaces/IWNat.sol";
-import "../../utils/implementation/TokenPoolBase.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../utils/lib/SafePct.sol";
-import "../../utils/lib/AddressSet.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
+import { IPChainStakeMirror } from "@flarenetwork/flare-periphery-contracts/flare/IPChainStakeMirror.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IIRewardManager } from "../interface/IIRewardManager.sol";
+import { IIClaimSetupManager } from "../interface/IIClaimSetupManager.sol";
+import { IIFlareSystemsCalculator } from "../interface/IIFlareSystemsCalculator.sol";
+import { IIFlareSystemsManager } from "../interface/IIFlareSystemsManager.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { IRewardManager } from "../../userInterfaces/IRewardManager.sol";
+import { ICChainStake } from "../../userInterfaces/ICChainStake.sol";
+import { IWNat } from "../../userInterfaces/IWNat.sol";
+import { RewardsV2Interface } from "../../userInterfaces/LTS/RewardsV2Interface.sol";
+import { TokenPoolBase } from "../../utils/implementation/TokenPoolBase.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { SafePct } from "../../utils/lib/SafePct.sol";
+import { AddressSet } from "../../utils/lib/AddressSet.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * Reward manager contract.

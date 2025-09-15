@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/IFlareSystemsCalculator.sol";
+import { IFlareSystemsCalculator } from "../../userInterfaces/IFlareSystemsCalculator.sol";
 
 /**
  * FlareSystemsCalculator internal interface.

@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/ftso/implementation/FtsoInflationConfigurations.sol";
+import { Test } from "forge-std/Test.sol";
+import {
+    FtsoInflationConfigurations
+} from "../../../../contracts/ftso/implementation/FtsoInflationConfigurations.sol";
+import { IFtsoInflationConfigurations } from "../../../../contracts/userInterfaces/IFtsoInflationConfigurations.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 contract FtsoInflationConfigurationsTest is Test {
 

@@ -1,23 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-
-import "../../governance/implementation/Governed.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../userInterfaces/IFtsoFeedPublisher.sol";
-import "../../userInterfaces/IFastUpdatesConfiguration.sol";
-import "../../protocol/interface/IIVoterRegistry.sol";
-import "../interface/IIFastUpdater.sol";
-import "../lib/Bn256.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { IFtsoFeedPublisher } from "../../userInterfaces/IFtsoFeedPublisher.sol";
+import { IFastUpdatesConfiguration } from "../../userInterfaces/IFastUpdatesConfiguration.sol";
+import { IFastUpdater } from "../../userInterfaces/IFastUpdater.sol";
+import { IIVoterRegistry } from "../../protocol/interface/IIVoterRegistry.sol";
+import { IIFastUpdater } from "../interface/IIFastUpdater.sol";
+import { IIPublicKeyVerifier } from "../../protocol/interface/IIPublicKeyVerifier.sol";
+import { Bn256 } from "../lib/Bn256.sol";
 import "../lib/FixedPointArithmetic.sol" as FPA;
-import "../interface/IIFastUpdateIncentiveManager.sol";
+import { IIFastUpdateIncentiveManager } from "../interface/IIFastUpdateIncentiveManager.sol";
 import { SortitionState, verifySortitionCredential, verifySignature } from "../lib/Sortition.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import "../../utils/lib/SafePct.sol";
-import "../../utils/lib/AddressSet.sol";
-import "../interface/IIFeeCalculator.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { SafePct } from "../../utils/lib/SafePct.sol";
+import { AddressSet } from "../../utils/lib/AddressSet.sol";
+import { IIFeeCalculator } from "../interface/IIFeeCalculator.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IFlareDaemonize } from "@flarenetwork/flare-periphery-contracts/songbird/genesis/interfaces/IFlareDaemonize.sol";
+import { G1Point } from "../../userInterfaces/IBn256.sol";
 
 // The number of units of weight distributed among providers is 1 << VIRTUAL_PROVIDER_BITS
 uint256 constant VIRTUAL_PROVIDER_BITS = 12;
@@ -677,9 +681,9 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
         return false;
     }
 
-    /**
-     * @inheritdoc IFlareDaemonize
-     */
+    // /**
+    //  * @inheritdoc IFlareDaemonize
+    //  */
     function getContractName() external pure returns (string memory) {
         return "FastUpdater";
     }

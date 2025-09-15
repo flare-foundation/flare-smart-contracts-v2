@@ -1,14 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fscV1/implementation/FtsoProxy.sol";
-import "../../../../contracts/fscV1/implementation/FtsoManagerProxy.sol";
-import "../../../../contracts/protocol/implementation/Submission.sol";
-import "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
+import  { Test } from "forge-std/Test.sol";
+import { FtsoProxy } from "../../../../contracts/fscV1/implementation/FtsoProxy.sol";
+import { FtsoManagerProxy } from "../../../../contracts/fscV1/implementation/FtsoManagerProxy.sol";
+import { Submission } from "../../../../contracts/protocol/implementation/Submission.sol";
+import { IFtsoFeedPublisher } from "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
 import { FastUpdater } from "../../../../contracts/fastUpdates/implementation/FastUpdater.sol";
-import "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
-import "../../../../contracts/fastUpdates/implementation/FastUpdateIncentiveManager.sol";
+import {
+    FastUpdatesConfiguration
+} from "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
+import {
+    FastUpdateIncentiveManager
+} from "../../../../contracts/fastUpdates/implementation/FastUpdateIncentiveManager.sol";
+import { SampleSize, Range, Fee } from "../../../../contracts/fastUpdates/lib/FixedPointArithmetic.sol";
+import { IFlareSystemsManager } from "../../../../contracts/userInterfaces/IFlareSystemsManager.sol";
+import { IFastUpdatesConfiguration } from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { IFtso } from "@flarenetwork/flare-periphery-contracts/songbird/IFtso.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 
 // solhint-disable-next-line max-states-count
@@ -72,12 +83,12 @@ contract FtsoProxyTest is Test {
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            FPA.SampleSize.wrap(SAMPLE_SIZE),
-            FPA.Range.wrap(RANGE),
-            FPA.SampleSize.wrap(SAMPLE_INCREASE_LIMIT),
-            FPA.Range.wrap(RANGE_INCREASE_LIMIT),
-            FPA.Fee.wrap(SAMPLE_SIZE_INCREASE_PRICE),
-            FPA.Fee.wrap(RANGE_INCREASE_PRICE),
+            SampleSize.wrap(SAMPLE_SIZE),
+            Range.wrap(RANGE),
+            SampleSize.wrap(SAMPLE_INCREASE_LIMIT),
+            Range.wrap(RANGE_INCREASE_LIMIT),
+            Fee.wrap(SAMPLE_SIZE_INCREASE_PRICE),
+            Fee.wrap(RANGE_INCREASE_PRICE),
             DURATION
         );
 

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fastUpdates/implementation/FeeCalculator.sol";
+import { Test } from "forge-std/Test.sol";
+import { FeeCalculator } from "../../../../contracts/fastUpdates/implementation/FeeCalculator.sol";
+import { IFastUpdatesConfiguration } from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 contract FeeCalculatorTest is Test {
 

@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/FlareSystemsCalculator.sol";
+import { Test } from "forge-std/Test.sol";
+import { FlareSystemsCalculator } from "../../../../contracts/protocol/implementation/FlareSystemsCalculator.sol";
+import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
+import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
+import { IEntityManager } from "../../../../contracts/userInterfaces/IEntityManager.sol";
+import { IWNatDelegationFee } from "../../../../contracts/userInterfaces/IWNatDelegationFee.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract FlareSystemsCalculatorTest is Test {
     FlareSystemsCalculator private calculator;

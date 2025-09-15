@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/governance/implementation/PollingManagementGroup.sol";
+import { Test } from "forge-std/Test.sol";
+import { PollingManagementGroup } from "../../../../contracts/governance/implementation/PollingManagementGroup.sol";
+import { IIPollingManagementGroup } from "../../../../contracts/governance/interface/IIPollingManagementGroup.sol";
+import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
+import { IRewardManager } from "../../../../contracts/userInterfaces/IRewardManager.sol";
+import { IEntityManager } from "../../../../contracts/userInterfaces/IEntityManager.sol";
+import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { RewardsV2Interface } from "../../../../contracts/userInterfaces/LTS/RewardsV2Interface.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 contract PollingManagementGroupTest is Test {
 

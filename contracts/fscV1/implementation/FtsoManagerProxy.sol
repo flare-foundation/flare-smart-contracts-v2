@@ -1,17 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "flare-smart-contracts/contracts/tokenPools/interface/IIFtsoRewardManager.sol";
-import "flare-smart-contracts/contracts/ftso/interface/IIFtsoManager.sol";
-import "flare-smart-contracts/contracts/genesis/interface/IIPriceSubmitter.sol";
-import "flare-smart-contracts/contracts/utils/interface/IIFtsoRegistry.sol";
-import "../interface/IIFtsoManagerProxy.sol";
-import "../../userInterfaces/IRewardManager.sol";
-import "../../governance/implementation/Governed.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
-
+import { IIFtsoRewardManager } from "@flarenetwork/flare-periphery-contracts/songbird/tokenPools/interfaces/IIFtsoRewardManager.sol";
+import { IIFtsoManager } from "@flarenetwork/flare-periphery-contracts/songbird/ftso/interfaces/IIFtsoManager.sol";
+import { IIPriceSubmitter } from "@flarenetwork/flare-periphery-contracts/songbird/genesis/interfaces/IIPriceSubmitter.sol";
+import { IIFtsoRegistry } from "@flarenetwork/flare-periphery-contracts/songbird/utils/interfaces/IIFtsoRegistry.sol";
+import { IIFtso } from "@flarenetwork/flare-periphery-contracts/songbird/ftso/interfaces/IIFtso.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IFtsoManager } from "@flarenetwork/flare-periphery-contracts/songbird/IFtsoManager.sol";
+import { IFtso } from "@flarenetwork/flare-periphery-contracts/songbird/IFtso.sol";
+import { IFtsoManagerGenesis } from "@flarenetwork/flare-periphery-contracts/songbird/genesis/interfaces/IFtsoManagerGenesis.sol";
+import { IIFtsoManagerProxy } from "../interface/IIFtsoManagerProxy.sol";
+import { IIFastUpdaterView } from "../../fscV1/interface/IIFastUpdaterView.sol";
+import { IRewardManager } from "../../userInterfaces/IRewardManager.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { IFastUpdatesConfiguration } from "../../userInterfaces/IFastUpdatesConfiguration.sol";
+import { IRelay } from "../../userInterfaces/IRelay.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /**
  * FtsoManagerProxy is a compatibility contract replacing FtsoManager

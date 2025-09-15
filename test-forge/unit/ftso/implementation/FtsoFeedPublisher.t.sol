@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/ftso/implementation/FtsoFeedPublisher.sol";
+import { Test } from "forge-std/Test.sol";
+import { FtsoFeedPublisher } from "../../../../contracts/ftso/implementation/FtsoFeedPublisher.sol";
+import { IFtsoFeedPublisher } from "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
+import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 contract FtsoFeedPublisherTest is Test {
 

@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "flare-smart-contracts/contracts/tokenPools/interface/IIFtsoRewardManager.sol";
-import "../../protocol/interface/IIRewardManager.sol";
-import "../../protocol/interface/IIFlareSystemsManager.sol";
-import "../../userInterfaces/IWNatDelegationFee.sol";
-import "../../governance/implementation/Governed.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
+import { IIFlareSystemsManager } from "../../protocol/interface/IIFlareSystemsManager.sol";
+import { IWNatDelegationFee } from "../../userInterfaces/IWNatDelegationFee.sol";
+import { IRewardManager } from "../../userInterfaces/IRewardManager.sol";
+import { RewardsV2Interface } from "../../userInterfaces/LTS/RewardsV2Interface.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IFtsoRewardManager } from "@flarenetwork/flare-periphery-contracts/songbird/IFtsoRewardManager.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 
 /**

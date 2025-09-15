@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/ftso/implementation/FtsoFeedIdConverter.sol";
+import { Test } from "forge-std/Test.sol";
+import { FtsoFeedIdConverter } from "../../../../contracts/ftso/implementation/FtsoFeedIdConverter.sol";
 
 contract FtsoFeedIdConverterTest is Test {
 

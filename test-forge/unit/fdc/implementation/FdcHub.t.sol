@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fdc/implementation/FdcHub.sol";
-import "../../../../contracts/fdc/implementation/FdcInflationConfigurations.sol";
-import "../../../../contracts/fdc/implementation/FdcRequestFeeConfigurations.sol";
-import "../../../../contracts/protocol/implementation/RewardManager.sol";
+import { Test } from "forge-std/Test.sol";
+import { FdcHub } from "../../../../contracts/fdc/implementation/FdcHub.sol";
+import { FdcInflationConfigurations } from "../../../../contracts/fdc/implementation/FdcInflationConfigurations.sol";
+import { FdcRequestFeeConfigurations } from "../../../../contracts/fdc/implementation/FdcRequestFeeConfigurations.sol";
+import { RewardManager } from "../../../../contracts/protocol/implementation/RewardManager.sol";
+import { IFdcInflationConfigurations } from "../../../../contracts/userInterfaces/IFdcInflationConfigurations.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 contract FdcHubTest is Test {
     FdcHub private fdcHub;

@@ -2,7 +2,7 @@
 pragma solidity 0.8.20;
 
 import { GovernedBase } from "./GovernedBase.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 
 /**

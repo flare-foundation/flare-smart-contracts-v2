@@ -1,13 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../contracts/governance/implementation/PollingFoundation.sol";
-import "../../contracts/protocol/implementation/FlareSystemsManager.sol";
-import "flare-smart-contracts/contracts/token/interface/IIGovernanceVotePower.sol";
-import "../../contracts/userInterfaces/IWNat.sol";
-import "flare-smart-contracts/contracts/token/interface/IIVPContract.sol";
+import {Test } from "forge-std/Test.sol";
+import { PollingFoundation } from "../../contracts/governance/implementation/PollingFoundation.sol";
+import { FlareSystemsManager } from "../../contracts/protocol/implementation/FlareSystemsManager.sol";
+import { IIPollingFoundation } from "../../contracts/governance/interface/IIPollingFoundation.sol";
+import { IIVoterRegistry } from "../../contracts/protocol/interface/IIVoterRegistry.sol";
+import { IISubmission } from "../../contracts/protocol/interface/IISubmission.sol";
+import { IIRelay } from "../../contracts/protocol/interface/IIRelay.sol";
+import { IWNat } from "../../contracts/userInterfaces/IWNat.sol";
+import { IGovernor } from "../../contracts/userInterfaces/IGovernor.sol";
+import { IRelay } from "../../contracts/userInterfaces/IRelay.sol";
+import { IVoterRegistry } from "../../contracts/userInterfaces/IVoterRegistry.sol";
+import { IRandomProvider } from "../../contracts/userInterfaces/IRandomProvider.sol";
 import { RandomNumberV2Interface } from "../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { GovernorVotes } from "../../contracts/governance/implementation/GovernorVotes.sol";
+import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIGovernanceVotePower.sol";
+import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIVPContract.sol";
+import { IISupply } from "@flarenetwork/flare-periphery-contracts/songbird/inflation/interfaces/IISupply.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 // solhint-disable-next-line max-states-count
 contract PollingFoundationIntegrationTest is Test {
 
@@ -32,7 +43,6 @@ contract PollingFoundationIntegrationTest is Test {
     IIVPContract private vpContract;
 
     IIPollingFoundation.GovernorSettingsWithoutExecParams private settings;
-    IGovernor.GovernorSettings private settingsExec;
 
     FlareSystemsManager.Settings private fsmSettings;
     FlareSystemsManager.InitialSettings private initialSettings;

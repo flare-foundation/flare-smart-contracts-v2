@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../userInterfaces/IFdcHub.sol";
-import "../../userInterfaces/IFdcRequestFeeConfigurations.sol";
-import "../../protocol/interface/IIRewardManager.sol";
-import "../../protocol/implementation/RewardOffersManagerBase.sol";
-import "../../utils/lib/SafePct.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { InflationReceiver } from "../../inflation/implementation/InflationReceiver.sol";
+import { TokenPoolBase } from "../../utils/implementation/TokenPoolBase.sol";
+import { IFdcHub } from "../../userInterfaces/IFdcHub.sol";
+import { IFdcRequestFeeConfigurations } from "../../userInterfaces/IFdcRequestFeeConfigurations.sol";
+import { IFdcInflationConfigurations } from "../../userInterfaces/IFdcInflationConfigurations.sol";
+import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
+import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/songbird/tokenPools/interfaces/IITokenPool.sol";
+import { RewardOffersManagerBase } from "../../protocol/implementation/RewardOffersManagerBase.sol";
+import { SafePct } from "../../utils/lib/SafePct.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 /**
  * FdcHub contract.

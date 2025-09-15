@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../interface/IIEntityManager.sol";
-import "../interface/IIFlareSystemsCalculator.sol";
-import "../interface/IIVoterRegistry.sol";
-import "../interface/IIFlareSystemsManager.sol";
-import "../../governance/implementation/Governed.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../utils/lib/SafePct.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { IIEntityManager } from "../interface/IIEntityManager.sol";
+import { IIFlareSystemsCalculator } from "../interface/IIFlareSystemsCalculator.sol";
+import { IIVoterRegistry } from "../interface/IIVoterRegistry.sol";
+import { IIFlareSystemsManager } from "../interface/IIFlareSystemsManager.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { SafePct } from "../../utils/lib/SafePct.sol";
+import { IVoterRegistry } from "../../userInterfaces/IVoterRegistry.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * VoterRegistry contract.

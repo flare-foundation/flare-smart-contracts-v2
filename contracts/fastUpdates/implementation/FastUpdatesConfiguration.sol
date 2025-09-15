@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../governance/implementation/Governed.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/IFastUpdatesConfiguration.sol";
-import "../interface/IIFastUpdater.sol";
-
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IFastUpdatesConfiguration } from "../../userInterfaces/IFastUpdatesConfiguration.sol";
+import { IIFastUpdater } from "../interface/IIFastUpdater.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 /**
  * This contract is used to manage the Fast updates configuration.

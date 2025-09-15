@@ -1,10 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/governance/implementation/PollingFoundation.sol";
-import "../../../mock/ExecuteMock.sol";
-import "../../../mock/ExecuteMockSquare.sol";
+import { Test } from "forge-std/Test.sol";
+import { PollingFoundation } from "../../../../contracts/governance/implementation/PollingFoundation.sol";
+import { GovernorVotes } from "../../../../contracts/governance/implementation/GovernorVotes.sol";
+
+import { IIPollingFoundation } from "../../../../contracts/governance/interface/IIPollingFoundation.sol";
+import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
+import { IGovernor } from "../../../../contracts/userInterfaces/IGovernor.sol";
+import { IRandomProvider } from "../../../../contracts/userInterfaces/IRandomProvider.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { ExecuteMock } from "../../../mock/ExecuteMock.sol";
+import { ExecuteMockSquare } from "../../../mock/ExecuteMockSquare.sol";
+import { IGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceVotePower.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { IISupply } from "@flarenetwork/flare-periphery-contracts/songbird/inflation/interfaces/IISupply.sol";
+import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/songbird/token/interfaces/IIGovernanceVotePower.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 // solhint-disable-next-line max-states-count
 contract PollingFoundationTest is Test {

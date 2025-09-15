@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/VoterPreRegistry.sol";
-import "../../../../contracts/protocol/implementation/VoterRegistry.sol";
+import { Test } from "forge-std/Test.sol";
+import { VoterPreRegistry } from "../../../../contracts/protocol/implementation/VoterPreRegistry.sol";
+import { VoterRegistry } from "../../../../contracts/protocol/implementation/VoterRegistry.sol";
+import { IIFlareSystemsCalculator } from "../../../../contracts/protocol/interface/IIFlareSystemsCalculator.sol";
+import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
+import { IEntityManager } from "../../../../contracts/userInterfaces/IEntityManager.sol";
+import { IFlareSystemsManager } from "../../../../contracts/userInterfaces/IFlareSystemsManager.sol";
+import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 // solhint-disable-next-line max-states-count
 contract VoterPreRegistryTest is Test {

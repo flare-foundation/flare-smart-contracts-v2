@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/WNatDelegationFee.sol";
+import { Test } from "forge-std/Test.sol";
+import { WNatDelegationFee } from "../../../../contracts/protocol/implementation/WNatDelegationFee.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 
 contract WNatDelegationFeeTest is Test {
 

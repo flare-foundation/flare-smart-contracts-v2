@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../interface/IIVoterRegistrationTrigger.sol";
-import "../../userInterfaces/IVoterPreRegistry.sol";
-import "../../utils/lib/AddressSet.sol";
-import "../../protocol/interface/IIVoterRegistry.sol";
-import "../interface/IIEntityManager.sol";
-import "../interface/IIEntityManager.sol";
-import "../interface/IIFlareSystemsManager.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IIVoterRegistrationTrigger } from "../interface/IIVoterRegistrationTrigger.sol";
+import { IVoterPreRegistry } from "../../userInterfaces/IVoterPreRegistry.sol";
+import { AddressSet } from "../../utils/lib/AddressSet.sol";
+import { IIVoterRegistry } from "../../protocol/interface/IIVoterRegistry.sol";
+import { IIEntityManager } from "../interface/IIEntityManager.sol";
+import { IIEntityManager } from "../interface/IIEntityManager.sol";
+import { IIFlareSystemsManager } from "../interface/IIFlareSystemsManager.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract VoterPreRegistry is AddressUpdatable, IIVoterRegistrationTrigger, IVoterPreRegistry {
     using AddressSet for AddressSet.State;

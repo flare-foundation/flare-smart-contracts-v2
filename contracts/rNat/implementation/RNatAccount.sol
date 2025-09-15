@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../interface/IIRNatAccount.sol";
-import "../../utils/lib/SafePct.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
+import { IIRNatAccount } from "../interface/IIRNatAccount.sol";
+import { IIClaimSetupManager } from "../../protocol/interface/IIClaimSetupManager.sol";
+import { IRNat } from "../../userInterfaces/IRNat.sol";
+import { SafePct } from "../../utils/lib/SafePct.sol";
+import { IWNat} from "../../userInterfaces/IWNat.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * RNatAccount contract is a personal RNat account contract for a RNat holder.

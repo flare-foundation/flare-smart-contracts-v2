@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../userInterfaces/IFtsoFeedIdConverter.sol";
+import { IFtsoFeedIdConverter } from "../../userInterfaces/IFtsoFeedIdConverter.sol";
 
 
 /**

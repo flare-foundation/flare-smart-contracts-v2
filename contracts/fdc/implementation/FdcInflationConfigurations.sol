@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../userInterfaces/IFdcInflationConfigurations.sol";
-import "../../userInterfaces/IFdcRequestFeeConfigurations.sol";
-import "../../governance/implementation/Governed.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
+import { IFdcInflationConfigurations } from "../../userInterfaces/IFdcInflationConfigurations.sol";
+import { IFdcRequestFeeConfigurations } from "../../userInterfaces/IFdcRequestFeeConfigurations.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 /**
  * FdcInflationConfigurations contract.

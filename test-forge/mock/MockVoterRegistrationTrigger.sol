@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../contracts/protocol/interface/IIVoterRegistrationTrigger.sol";
+import { IIVoterRegistrationTrigger } from "../../contracts/protocol/interface/IIVoterRegistrationTrigger.sol";
 
 contract MockVoterRegistrationTrigger is IIVoterRegistrationTrigger {
     //solhint-disable-next-line no-unused-vars

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../userInterfaces/IGovernor.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
+import { IGovernor } from "../../userInterfaces/IGovernor.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 abstract contract GovernorProposals {
 

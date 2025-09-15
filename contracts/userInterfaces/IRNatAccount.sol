@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./IRNat.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IRNat } from "./IRNat.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IRNatAccount {
 

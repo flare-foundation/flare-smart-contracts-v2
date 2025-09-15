@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
+import { Test } from "forge-std/Test.sol";
+import {
+    FastUpdatesConfiguration
+} from "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
+import  { IFastUpdatesConfiguration } from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
+import { IIFastUpdater } from "../../../../contracts/fastUpdates/interface/IIFastUpdater.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 contract FastUpdatesConfigurationTest is Test {
 

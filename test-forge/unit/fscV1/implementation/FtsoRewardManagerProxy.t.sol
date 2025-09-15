@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/RewardManager.sol";
-import "../../../../contracts/fscV1/implementation/FtsoRewardManagerProxy.sol";
-import "../../../../contracts/protocol/implementation/WNatDelegationFee.sol";
+import { Test } from "forge-std/Test.sol";
+import { RewardManager } from "../../../../contracts/protocol/implementation/RewardManager.sol";
+import { FtsoRewardManagerProxy } from "../../../../contracts/fscV1/implementation/FtsoRewardManagerProxy.sol";
+import { WNatDelegationFee } from "../../../../contracts/protocol/implementation/WNatDelegationFee.sol";
+import { RewardsV2Interface } from "../../../../contracts/userInterfaces/LTS/RewardsV2Interface.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { IIClaimSetupManager } from "../../../../contracts/protocol/interface/IIClaimSetupManager.sol";
+import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
+import { IIFlareSystemsCalculator } from "../../../../contracts/protocol/interface/IIFlareSystemsCalculator.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/songbird/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
 contract FtsoRewardManagerProxyTest is Test {

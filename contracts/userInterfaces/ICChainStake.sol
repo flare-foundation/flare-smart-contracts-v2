@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./ICChainVotePower.sol";
-
+import { ICChainVotePower } from "./ICChainVotePower.sol";
 
 /**
  * Interface for the `CChainStake` contract.

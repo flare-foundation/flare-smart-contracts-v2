@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./IFdcInflationConfigurations.sol";
-import "./IFdcRequestFeeConfigurations.sol";
-
+import { IFdcInflationConfigurations } from "./IFdcInflationConfigurations.sol";
+import { IFdcRequestFeeConfigurations } from "./IFdcRequestFeeConfigurations.sol";
 
 /**
  * FdcHub interface.

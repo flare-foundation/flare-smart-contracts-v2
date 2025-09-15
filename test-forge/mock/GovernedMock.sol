@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "../../contracts/governance/implementation/GovernedBase.sol";
+import { GovernedBase } from "../../contracts/governance/implementation/GovernedBase.sol";
 
 contract GovernedMock is GovernedBase {
     uint256 public a;

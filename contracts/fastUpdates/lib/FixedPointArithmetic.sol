@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import {Scale, Precision, SampleSize, Range, Fractional, Fee} from  "../../userInterfaces/IFixedPointArithmetic.sol";
-
+import { Scale, Precision, SampleSize, Range, Fractional, Fee } from  "../../userInterfaces/IFixedPointArithmetic.sol";
 
 Scale constant oneS = Scale.wrap(1 << 127);
 SampleSize constant zeroS = SampleSize.wrap(0);
