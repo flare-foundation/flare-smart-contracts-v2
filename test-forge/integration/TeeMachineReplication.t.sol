@@ -89,10 +89,13 @@ contract TeeMachineReplicationTest is Test {
     uint256 private newTeePrivateKey;
     string private newTeeUrl;
 
-    Signer[] private signers1;
-    Signer[] private signers2;
-    uint64 private signersThreshold1;
-    uint64 private signersThreshold2;
+    Signer[] private governanceSigners1;
+    Signer[] private governanceSigners2;
+    uint64 private governanceSignersThreshold1;
+    uint64 private governanceSignersThreshold2;
+
+    Signer[] private cosigners;
+    uint64 private cosignersThreshold;
 
     bytes32 private governanceHash1;
     bytes32 private governanceHash2;
@@ -221,26 +224,35 @@ contract TeeMachineReplicationTest is Test {
         );
 
         // set signers and thresholds
-        signers1.push();
-        (signers1[0].addr, signers1[0].privateKey) = makeAddrAndKey("signer1");
-        signers1.push();
-        (signers1[1].addr, signers1[1].privateKey) = makeAddrAndKey("signer2");
-        signers1.push();
-        (signers1[2].addr, signers1[2].privateKey) = makeAddrAndKey("signer3");
-        signersThreshold1 = 2;
+        governanceSigners1.push();
+        (governanceSigners1[0].addr, governanceSigners1[0].privateKey) = makeAddrAndKey("signer1");
+        governanceSigners1.push();
+        (governanceSigners1[1].addr, governanceSigners1[1].privateKey) = makeAddrAndKey("signer2");
+        governanceSigners1.push();
+        (governanceSigners1[2].addr, governanceSigners1[2].privateKey) = makeAddrAndKey("signer3");
+        governanceSignersThreshold1 = 2;
 
-        signers2.push();
-        (signers2[0].addr, signers2[0].privateKey) = makeAddrAndKey("signer4");
-        signers2.push();
-        (signers2[1].addr, signers2[1].privateKey) = makeAddrAndKey("signer5");
-        signers2.push();
-        (signers2[2].addr, signers2[2].privateKey) = makeAddrAndKey("signer6");
-        signers2.push();
-        (signers2[3].addr, signers2[3].privateKey) = makeAddrAndKey("signer7");
-        signersThreshold2 = 3;
+        governanceSigners2.push();
+        (governanceSigners2[0].addr, governanceSigners2[0].privateKey) = makeAddrAndKey("signer4");
+        governanceSigners2.push();
+        (governanceSigners2[1].addr, governanceSigners2[1].privateKey) = makeAddrAndKey("signer5");
+        governanceSigners2.push();
+        (governanceSigners2[2].addr, governanceSigners2[2].privateKey) = makeAddrAndKey("signer6");
+        governanceSigners2.push();
+        (governanceSigners2[3].addr, governanceSigners2[3].privateKey) = makeAddrAndKey("signer7");
+        governanceSignersThreshold2 = 3;
 
-        governanceHash1 = keccak256(abi.encode(_getSignersAddresses(signers1), signersThreshold1));
-        governanceHash2 = keccak256(abi.encode(_getSignersAddresses(signers2), signersThreshold2));
+        cosigners.push();
+        (cosigners[0].addr, cosigners[0].privateKey) = makeAddrAndKey("cosigner1");
+        cosigners.push();
+        (cosigners[1].addr, cosigners[1].privateKey) = makeAddrAndKey("cosigner2");
+        cosigners.push();
+        (cosigners[2].addr, cosigners[2].privateKey) = makeAddrAndKey("cosigner3");
+        cosignersThreshold = 2;
+
+        // compute governance hashes
+        governanceHash1 = keccak256(abi.encode(_getSignersAddresses(governanceSigners1), governanceSignersThreshold1));
+        governanceHash2 = keccak256(abi.encode(_getSignersAddresses(governanceSigners2), governanceSignersThreshold2));
 
         // set code hashes and platforms
         codeHash1 = keccak256(abi.encodePacked("codeHash1"));
@@ -339,6 +351,9 @@ contract TeeMachineReplicationTest is Test {
             teeVerification.TEE_SOURCE_ID(),
             50
         );
+
+        // set cosigners
+        teeVerification.setCosigners(_getSignersAddresses(cosigners), cosignersThreshold);
         vm.stopPrank();
 
         // mock calls to other contracts
@@ -391,7 +406,7 @@ contract TeeMachineReplicationTest is Test {
 
     function testSetGovernanceHash() public {
         testRegisterNewTeeExtension();
-        _setGovernanceHash(governanceHash1, signers1, signersThreshold1);
+        _setGovernanceHash(governanceHash1, governanceSigners1, governanceSignersThreshold1);
     }
 
     function testAddTeeVersion() public {
@@ -426,19 +441,21 @@ contract TeeMachineReplicationTest is Test {
     function testPutTeeMachineToProduction() public {
         testRegisterTeeMachine();
 
-        IFtdcVerification.FtdcSignatures memory sigs;
-        IFtdcHub.FtdcResponseHeader memory header;
-        header.attestationType = TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE;
-        header.sourceId = teeVerification.TEE_SOURCE_ID();
-        header.thresholdBIPS = 0;
-        header.timestamp = uint64(block.timestamp);
+        IFtdcHub.FtdcResponseHeader memory header = IFtdcHub.FtdcResponseHeader(
+            TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
+            teeVerification.TEE_SOURCE_ID(),
+            0,
+            _getSignersAddresses(cosigners),
+            cosignersThreshold,
+            uint64(block.timestamp)
+        );
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             teeId,
             teeProxyId,
             teeUrl,
             keccak256(abi.encode(teeId, block.timestamp, randomNumber))
         );
-        ITeeAvailabilityCheck.ResponseBody memory repBody = ITeeAvailabilityCheck.ResponseBody(
+        ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
             uint64(block.timestamp),
             codeHash1,
@@ -448,11 +465,24 @@ contract TeeMachineReplicationTest is Test {
             ITeeAvailabilityCheck.TeeState(new bytes(0), 0, new bytes(0), 0)
         );
 
+        bytes32 messageHash = keccak256(abi.encode(
+            keccak256(abi.encode(header)),
+            keccak256(abi.encode(reqBody)),
+            keccak256(abi.encode(respBody))
+        ));
+        bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
+
+        IFtdcVerification.FtdcSignatures memory sigs;
+        sigs.cosignerSignatures = new Signature[](cosignersThreshold);
+        for (uint256 i = 0; i < cosignersThreshold; i++) {
+            sigs.cosignerSignatures[i] = _createSignature(cosignersMessageHash, cosigners[i].privateKey);
+        }
+
         ITeeAvailabilityCheck.Proof memory proof = ITeeAvailabilityCheck.Proof(
             sigs,
             header,
             reqBody,
-            repBody
+            respBody
         );
 
         vm.warp(block.timestamp + 1);
@@ -465,7 +495,7 @@ contract TeeMachineReplicationTest is Test {
 
     function testAddNewTeeVersion() public {
         testPutTeeMachineToProduction();
-        _setGovernanceHash(governanceHash2, signers2, signersThreshold2);
+        _setGovernanceHash(governanceHash2, governanceSigners2, governanceSignersThreshold2);
         _addTeeVersion("v2.0.0", codeHash2, platforms2, governanceHash2);
     }
 
@@ -509,13 +539,13 @@ contract TeeMachineReplicationTest is Test {
     function testSignTeeUpgrade() public {
         testFinalizeTeeUpgrade();
         bytes32 messageHash = keccak256(abi.encode(teeVersionManager.getTeeUpgradePaths(0)));
-        for (uint256 i = 0; i < signersThreshold1; i++) {
-            Signature memory signature = _createSignature(messageHash, signers1[i].privateKey);
+        for (uint256 i = 0; i < governanceSignersThreshold1; i++) {
+            Signature memory signature = _createSignature(messageHash, governanceSigners1[i].privateKey);
             teeVersionManager.signTeeUpgrade(0, signature);
         }
-        for (uint256 i = 0; i < signersThreshold2; i++) {
-            Signature memory signature = _createSignature(messageHash, signers2[i].privateKey);
-            if (i == signersThreshold2 - 1) {
+        for (uint256 i = 0; i < governanceSignersThreshold2; i++) {
+            Signature memory signature = _createSignature(messageHash, governanceSigners2[i].privateKey);
+            if (i == governanceSignersThreshold2 - 1) {
                 vm.expectEmit();
                 emit ITeeVersionManager.TeeUpgradeSigned(0);
             }
@@ -563,12 +593,14 @@ contract TeeMachineReplicationTest is Test {
     function testReplicateFromTeeMachine() public {
         testRegisterNewTeeMachine();
 
-        IFtdcVerification.FtdcSignatures memory sigs;
-        IFtdcHub.FtdcResponseHeader memory header;
-        header.attestationType = TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE;
-        header.sourceId = teeVerification.TEE_SOURCE_ID();
-        header.thresholdBIPS = 0;
-        header.timestamp = uint64(block.timestamp);
+        IFtdcHub.FtdcResponseHeader memory header = IFtdcHub.FtdcResponseHeader(
+            TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
+            teeVerification.TEE_SOURCE_ID(),
+            0,
+            _getSignersAddresses(cosigners),
+            cosignersThreshold,
+            uint64(block.timestamp)
+        );
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             newTeeId,
             newTeeProxyId,
@@ -580,7 +612,7 @@ contract TeeMachineReplicationTest is Test {
             newTeeId,
             governanceHash2
         );
-        ITeeAvailabilityCheck.ResponseBody memory repBody = ITeeAvailabilityCheck.ResponseBody(
+        ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
             uint64(block.timestamp),
             codeHash2,
@@ -590,11 +622,24 @@ contract TeeMachineReplicationTest is Test {
             ITeeAvailabilityCheck.TeeState(abi.encode(systemState), bytes32("v1"), new bytes(0), bytes32(0))
         );
 
+        bytes32 messageHash = keccak256(abi.encode(
+            keccak256(abi.encode(header)),
+            keccak256(abi.encode(reqBody)),
+            keccak256(abi.encode(respBody))
+        ));
+        bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
+
+        IFtdcVerification.FtdcSignatures memory sigs;
+        sigs.cosignerSignatures = new Signature[](cosignersThreshold);
+        for (uint256 i = 0; i < cosignersThreshold; i++) {
+            sigs.cosignerSignatures[i] = _createSignature(cosignersMessageHash, cosigners[i].privateKey);
+        }
+
         ITeeAvailabilityCheck.Proof memory proof = ITeeAvailabilityCheck.Proof(
             sigs,
             header,
             reqBody,
-            repBody
+            respBody
         );
 
         vm.warp(block.timestamp + 1);
@@ -616,12 +661,14 @@ contract TeeMachineReplicationTest is Test {
     function testConfirmReplicate() public {
         testRequestTeeAttestation();
 
-        IFtdcVerification.FtdcSignatures memory sigs;
-        IFtdcHub.FtdcResponseHeader memory header;
-        header.attestationType = TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE;
-        header.sourceId = teeVerification.TEE_SOURCE_ID();
-        header.thresholdBIPS = 0;
-        header.timestamp = uint64(block.timestamp);
+        IFtdcHub.FtdcResponseHeader memory header = IFtdcHub.FtdcResponseHeader(
+            TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
+            teeVerification.TEE_SOURCE_ID(),
+            0,
+            _getSignersAddresses(cosigners),
+            cosignersThreshold,
+            uint64(block.timestamp)
+        );
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             teeId,
             newTeeProxyId,
@@ -633,7 +680,7 @@ contract TeeMachineReplicationTest is Test {
             newTeeId,
             governanceHash2
         );
-        ITeeAvailabilityCheck.ResponseBody memory repBody = ITeeAvailabilityCheck.ResponseBody(
+        ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
             uint64(block.timestamp),
             codeHash2,
@@ -643,11 +690,24 @@ contract TeeMachineReplicationTest is Test {
             ITeeAvailabilityCheck.TeeState(abi.encode(systemState), bytes32("v1"), new bytes(0), bytes32(0))
         );
 
+        bytes32 messageHash = keccak256(abi.encode(
+            keccak256(abi.encode(header)),
+            keccak256(abi.encode(reqBody)),
+            keccak256(abi.encode(respBody))
+        ));
+        bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
+
+        IFtdcVerification.FtdcSignatures memory sigs;
+        sigs.cosignerSignatures = new Signature[](cosignersThreshold);
+        for (uint256 i = 0; i < cosignersThreshold; i++) {
+            sigs.cosignerSignatures[i] = _createSignature(cosignersMessageHash, cosigners[i].privateKey);
+        }
+
         ITeeAvailabilityCheck.Proof memory proof = ITeeAvailabilityCheck.Proof(
             sigs,
             header,
             reqBody,
-            repBody
+            respBody
         );
 
         vm.warp(block.timestamp + 1);
