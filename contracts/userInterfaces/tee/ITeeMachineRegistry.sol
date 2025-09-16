@@ -219,12 +219,18 @@ interface ITeeMachineRegistry {
 
     /**
      * Get all active TEE machines.
+     * @param _start The start index (inclusive) for pagination.
+     * @param _end The end index (exclusive) for pagination.
      * @return _teeIds The list of TEE machine ids.
      * @return _urls The list of TEE machine URLs.
+     * @return _totalLength The total number of active TEE machines.
      */
-    function getAllActiveTeeMachines()
+    function getAllActiveTeeMachines(
+        uint256 _start,
+        uint256 _end
+    )
         external view
-        returns(address[] memory _teeIds, string[] memory _urls);
+        returns(address[] memory _teeIds, string[] memory _urls, uint256 _totalLength);
 
     /**
      * Get active TEE machines.

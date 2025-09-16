@@ -11,6 +11,7 @@ import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilit
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { AddressSet } from "../../utils/lib/AddressSet.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
@@ -410,15 +411,23 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function getAllActiveTeeMachines()
+    function getAllActiveTeeMachines(
+        uint256 _start,
+        uint256 _end
+    )
         external view
-        returns(address[] memory _teeIds, string[] memory _urls)
+        returns(address[] memory _teeIds, string[] memory _urls, uint256 _totalLength)
     {
-        _teeIds = activeTeeIds.list;
-        uint256 length = _teeIds.length;
-        _urls = new string[](length);
-        for (uint256 i = 0; i < length; i++) {
-            _urls[i] = teeMachineStates[_teeIds[i]].url;
+        address[] storage teeIds = activeTeeIds.list;
+        _totalLength = teeIds.length;
+        _end = Math.min(_end, _totalLength);
+        _start = Math.min(_start, _end);
+        _teeIds = new address[](_end - _start);
+        _urls = new string[](_end - _start);
+        for (uint256 i = _start; i < _end; i++) {
+            uint256 index = i - _start;
+            _teeIds[index] = teeIds[i];
+            _urls[index] = teeMachineStates[_teeIds[index]].url;
         }
     }
 

@@ -673,16 +673,19 @@ contract TeeMachineRegistryTest is Test {
 
     // getAllActiveTeeMachines
     function testGetAllActiveTeeMachines() public {
-        (address[] memory teeIds, string[] memory urls) = teeMachineRegistry.getAllActiveTeeMachines();
+        (address[] memory teeIds, string[] memory urls, uint256 totalLength) =
+            teeMachineRegistry.getAllActiveTeeMachines(0, 10);
         assertEq(teeIds.length, 0);
         assertEq(urls.length, 0);
+        assertEq(totalLength, 0);
 
         testToProduction();
-        (teeIds, urls) = teeMachineRegistry.getAllActiveTeeMachines();
+        (teeIds, urls, totalLength) = teeMachineRegistry.getAllActiveTeeMachines(0, 10);
         assertEq(teeIds.length, 1);
         assertEq(urls.length, 1);
         assertEq(teeIds[0], teeId);
         assertEq(urls[0], url);
+        assertEq(totalLength, 1);
     }
 
 
