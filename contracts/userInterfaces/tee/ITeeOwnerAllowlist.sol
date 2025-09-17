@@ -12,6 +12,8 @@ interface ITeeOwnerAllowlist {
     event AllTeeWalletProjectOwnersAllowed(uint256 extensionId);
 
     error OnlyExtensionOwner();
+    error InvalidOwner();
+    error OwnerAlreadyAllowed(address owner);
 
     /**
      * Adds a list of allowed TEE machine owners on the specified extension.

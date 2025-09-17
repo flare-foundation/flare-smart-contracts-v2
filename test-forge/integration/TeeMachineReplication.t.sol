@@ -455,6 +455,11 @@ contract TeeMachineReplicationTest is Test {
             teeUrl,
             keccak256(abi.encode(teeId, block.timestamp, randomNumber))
         );
+        IITeeSystemStateVerifier.TeeSystemState memory systemState = IITeeSystemStateVerifier.TeeSystemState(
+            IITeeSystemStateVerifier.TeeMachineStatus.ACTIVE,
+            teeId,
+            governanceHash1
+        );
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
             uint64(block.timestamp),
@@ -462,7 +467,7 @@ contract TeeMachineReplicationTest is Test {
             platforms1[0],
             1,
             1,
-            ITeeAvailabilityCheck.TeeState(new bytes(0), 0, new bytes(0), 0)
+            ITeeAvailabilityCheck.TeeState(abi.encode(systemState), bytes32("v1"), new bytes(0), bytes32(0))
         );
 
         bytes32 messageHash = keccak256(abi.encode(

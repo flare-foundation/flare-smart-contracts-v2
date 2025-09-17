@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import { TeeBase } from "./TeeBase.sol";
 import { ITeeOwnerAllowlist } from "../../userInterfaces/tee/ITeeOwnerAllowlist.sol";
 import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import { AddressSet } from "../../utils/lib/AddressSet.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
@@ -12,10 +12,10 @@ import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.so
  * TeeOwnerAllowlist is used for allowlisting TEE machine owners and TEE wallet project owners.
  */
 contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
-    using AddressSet for AddressSet.State;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
-    mapping(uint256 extensionId => AddressSet.State) private allowedTeeMachineOwners;
-    mapping(uint256 extensionId => AddressSet.State) private allowedTeeWalletProjectOwners;
+    mapping(uint256 extensionId => EnumerableSet.AddressSet) private allowedTeeMachineOwners;
+    mapping(uint256 extensionId => EnumerableSet.AddressSet) private allowedTeeWalletProjectOwners;
 
     mapping(uint256 extensionId => bool) public allTeeMachineOwnersAllowed;
     mapping(uint256 extensionId => bool) public allTeeWalletProjectOwnersAllowed;
@@ -58,7 +58,10 @@ contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
     )
         external onlyExtensionOwner(_extensionId)
     {
-        allowedTeeMachineOwners[_extensionId].addAll(_owners);
+        for (uint256 i = 0; i < _owners.length; i++) {
+            require(_owners[i] != address(0), InvalidOwner());
+            require(allowedTeeMachineOwners[_extensionId].add(_owners[i]), OwnerAlreadyAllowed(_owners[i]));
+        }
         emit AllowedTeeMachineOwnersAdded(_extensionId, _owners);
     }
 
@@ -71,7 +74,10 @@ contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
     )
         external onlyExtensionOwner(_extensionId)
     {
-        allowedTeeWalletProjectOwners[_extensionId].addAll(_owners);
+        for (uint256 i = 0; i < _owners.length; i++) {
+            require(_owners[i] != address(0), InvalidOwner());
+            require(allowedTeeWalletProjectOwners[_extensionId].add(_owners[i]), OwnerAlreadyAllowed(_owners[i]));
+        }
         emit AllowedTeeWalletProjectOwnersAdded(_extensionId, _owners);
     }
 
@@ -106,7 +112,7 @@ contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
         external view
         returns (address[] memory)
     {
-        return allowedTeeMachineOwners[_extensionId].list;
+        return allowedTeeMachineOwners[_extensionId].values();
     }
 
     /**
@@ -116,7 +122,7 @@ contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
         external view
         returns (address[] memory)
     {
-        return allowedTeeWalletProjectOwners[_extensionId].list;
+        return allowedTeeWalletProjectOwners[_extensionId].values();
     }
 
     /**
@@ -129,7 +135,8 @@ contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
         external view
         returns (bool _isAllowed)
     {
-        return allTeeMachineOwnersAllowed[_extensionId] || allowedTeeMachineOwners[_extensionId].index[_owner] != 0;
+        return allTeeMachineOwnersAllowed[_extensionId] ||
+            allowedTeeMachineOwners[_extensionId].contains(_owner);
     }
 
     /**
@@ -143,7 +150,7 @@ contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
         returns (bool _isAllowed)
     {
         return allTeeWalletProjectOwnersAllowed[_extensionId] ||
-            allowedTeeWalletProjectOwners[_extensionId].index[_owner] != 0;
+            allowedTeeWalletProjectOwners[_extensionId].contains(_owner);
     }
 
     /**

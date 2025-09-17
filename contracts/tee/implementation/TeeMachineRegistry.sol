@@ -9,9 +9,9 @@ import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol"
 import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
 import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
-import { AddressSet } from "../../utils/lib/AddressSet.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
@@ -19,7 +19,7 @@ import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.so
  * TeeMachineRegistry is used for registration of TEE machines.
  */
 contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
-    using AddressSet for AddressSet.State;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     struct TeeMachineState {
         uint256 extensionId;
@@ -47,8 +47,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /// Relay contract.
     IRelay public relay;
 
-    AddressSet.State private activeTeeIds;
-    mapping(uint256 extensionId => AddressSet.State) private extensionActiveTeeIds;
+    EnumerableSet.AddressSet private activeTeeIds;
+    mapping(uint256 extensionId => EnumerableSet.AddressSet) private extensionActiveTeeIds;
     mapping(address teeId => TeeMachineState) private teeMachineStates;
     /// Proposed new TEE owner.
     mapping(address teeId => address) public proposedTeeOwner;
@@ -384,7 +384,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         external view
         returns(address[] memory _teeIds)
     {
-        uint256 length = extensionActiveTeeIds[_extensionId].list.length;
+        uint256 length = extensionActiveTeeIds[_extensionId].length();
         require (_count <= length, TooMany());
         (uint256 randomNumber,,) = relay.getRandomNumber();
 
@@ -404,7 +404,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         // Copy tee ids for random indices
         _teeIds = new address[](_count);
         for (uint256 i = 0; i < _count; i++) {
-            _teeIds[i] = extensionActiveTeeIds[_extensionId].list[indices[i]];
+            _teeIds[i] = extensionActiveTeeIds[_extensionId].at(indices[i]);
         }
     }
 
@@ -418,15 +418,14 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         external view
         returns(address[] memory _teeIds, string[] memory _urls, uint256 _totalLength)
     {
-        address[] storage teeIds = activeTeeIds.list;
-        _totalLength = teeIds.length;
+        _totalLength = activeTeeIds.length();
         _end = Math.min(_end, _totalLength);
         _start = Math.min(_start, _end);
         _teeIds = new address[](_end - _start);
         _urls = new string[](_end - _start);
         for (uint256 i = _start; i < _end; i++) {
             uint256 index = i - _start;
-            _teeIds[index] = teeIds[i];
+            _teeIds[index] = activeTeeIds.at(i);
             _urls[index] = teeMachineStates[_teeIds[index]].url;
         }
     }
@@ -438,7 +437,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         external view
         returns(address[] memory _teeIds, string[] memory _urls)
     {
-        _teeIds = extensionActiveTeeIds[_extensionId].list;
+        _teeIds = extensionActiveTeeIds[_extensionId].values();
         uint256 length = _teeIds.length;
         _urls = new string[](length);
         for (uint256 i = 0; i < length; i++) {

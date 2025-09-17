@@ -49,19 +49,20 @@ contract TeeSystemStateVerifier is IITeeSystemStateVerifier, TeeBase {
         external view
         returns (bool _isValid)
     {
-        if (_stateVersion == bytes32(0)) {
-            return _state.length == 0;
-        }
-        IITeeSystemStateVerifier.TeeSystemState memory state =
-            abi.decode(_state, (IITeeSystemStateVerifier.TeeSystemState));
         ITeeMachineRegistry.TeeMachineWithAttestationData memory teeMachine =
             teeMachineRegistry.getTeeMachineWithAttestationData(_teeId);
         uint256 extensionId = teeMachineRegistry.getExtensionId(_teeId);
+        bytes32 teeGovernanceHash = teeExtensionRegistry.getTeeGovernanceHash(extensionId, teeMachine.codeHash);
+        if (_stateVersion == bytes32(0)) {
+            return _state.length == 0 && teeGovernanceHash == bytes32(0);
+        }
+        IITeeSystemStateVerifier.TeeSystemState memory state =
+            abi.decode(_state, (IITeeSystemStateVerifier.TeeSystemState));
         // Check if the TEE machine is active and the state matches the governance hash.
         return
             state.status == IITeeSystemStateVerifier.TeeMachineStatus.ACTIVE &&
             state.initialTeeId == teeMachine.initialTeeId &&
-            state.teeGovernanceHash == teeExtensionRegistry.getTeeGovernanceHash(extensionId, teeMachine.codeHash);
+            state.teeGovernanceHash == teeGovernanceHash;
     }
 
     /**

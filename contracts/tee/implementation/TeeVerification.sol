@@ -20,7 +20,7 @@ import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
-import { AddressSet } from "../../utils/lib/AddressSet.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
@@ -28,7 +28,7 @@ import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.so
  * TeeVerification is used for challenges and availability checks of TEE machines.
  */
 contract TeeVerification is ITeeVerification, TeeBase {
-    using AddressSet for AddressSet.State;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     struct AvailabilityCheckValidity {
         uint64 endTs;
@@ -75,7 +75,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
     uint64 private challengeValidityDurationSeconds;
 
     /// registration availability check cosigners and their threshold
-    AddressSet.State private cosigners;
+    EnumerableSet.AddressSet private cosigners;
     uint64 private cosignersThreshold;
 
     mapping(address teeId => AvailabilityCheckValidity) private availabilityCheckValidity;
@@ -185,7 +185,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         if (status == ITeeMachineRegistry.TeeStatus.INITIALIZED ||
             status == ITeeMachineRegistry.TeeStatus.REPLICATING)
         {
-            registrationCosigners = cosigners.list;
+            registrationCosigners = cosigners.values();
             registrationCosignersThreshold = cosignersThreshold;
         }
 
@@ -291,7 +291,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
 
         _requestFtdcAttestation(
             _testOnTeeId,
-            cosigners.list,
+            cosigners.values(),
             cosignersThreshold,
             PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
             _sourceId,
@@ -362,14 +362,16 @@ contract TeeVerification is ITeeVerification, TeeBase {
             _cosigners.length >= _cosignersThreshold && (_cosigners.length == 0 || _cosignersThreshold > 0),
             InvalidThreshold()
         );
+        address[] memory currentCosigners = cosigners.values();
+        // optimization: clear the set by removing last element each time
+        for (uint256 i = currentCosigners.length; i > 0; i--) {
+            cosigners.remove(currentCosigners[i - 1]);
+        }
         for (uint256 i = 0; i < _cosigners.length; i++) {
             require(_cosigners[i] != address(0), InvalidCosigner(_cosigners[i]));
             // check for duplicates
-            for (uint256 j = 0; j < i; j++) {
-                require(_cosigners[j] != _cosigners[i], DuplicatedCosigner(_cosigners[i]));
-            }
+            require(cosigners.add(_cosigners[i]), DuplicatedCosigner(_cosigners[i]));
         }
-        cosigners.replaceAll(_cosigners);
         cosignersThreshold = _cosignersThreshold;
         emit CosignersSet(_cosigners, _cosignersThreshold);
     }
@@ -404,7 +406,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         external view
         returns(address[] memory _cosigners, uint64 _cosignersThreshold)
     {
-        _cosigners = cosigners.list;
+        _cosigners = cosigners.values();
         _cosignersThreshold = cosignersThreshold;
     }
 
@@ -603,7 +605,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         address[] memory cosignersList = ftdcVerification.verifyCosignerSignatures(_signatures, _messageHash);
         require(cosignersList.length >= cosignersThreshold, CosignersThresholdNotMet());
         for (uint256 i = 0; i < cosignersList.length; i++) {
-            require(cosigners.index[cosignersList[i]] != 0, InvalidCosigner(cosignersList[i]));
+            require(cosigners.contains(cosignersList[i]), InvalidCosigner(cosignersList[i]));
         }
     }
 

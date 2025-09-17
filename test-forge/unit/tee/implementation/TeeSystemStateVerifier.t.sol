@@ -65,7 +65,7 @@ contract TeeSystemStateVerifierTest is Test {
 
         _mockGetTeeMachineWithAttestationData();
         _mockGetExtensionId();
-        _mockGetTeeGovernanceHash();
+        _mockGetTeeGovernanceHash(teeGovernanceHash);
     }
 
 
@@ -95,8 +95,21 @@ contract TeeSystemStateVerifierTest is Test {
     }
 
 
-    function testVerifyTeeSystemStateReturnStateVersion() public view {
+    function testVerifyTeeSystemStateReturnStateVersion() public {
+        assertNotEq(teeGovernanceHash, bytes32(0));
+        _mockGetTeeGovernanceHash(teeGovernanceHash);
         bool isValid = teeSystemStateVerifier.verifyTeeSystemState(
+            teeId, bytes32(0), abi.encode(teeSystemState)
+        );
+        assertFalse(isValid);
+
+        isValid = teeSystemStateVerifier.verifyTeeSystemState(
+            teeId, bytes32(0), new bytes(0)
+        );
+        assertFalse(isValid);
+
+        _mockGetTeeGovernanceHash(bytes32(0));
+        isValid = teeSystemStateVerifier.verifyTeeSystemState(
             teeId, bytes32(0), abi.encode(teeSystemState)
         );
         assertFalse(isValid);
@@ -104,6 +117,14 @@ contract TeeSystemStateVerifierTest is Test {
             teeId, bytes32(0), new bytes(0)
         );
         assertTrue(isValid);
+    }
+
+
+    function testVerifyTeeSystemStateRevertEvmError() public {
+        vm.expectRevert();
+        teeSystemStateVerifier.verifyTeeSystemState(
+            teeId, stateVersion, new bytes(0)
+        );
     }
 
 
@@ -144,13 +165,13 @@ contract TeeSystemStateVerifierTest is Test {
         );
     }
 
-    function _mockGetTeeGovernanceHash() private {
+    function _mockGetTeeGovernanceHash(bytes32 _teeGovernanceHash) private {
         vm.mockCall(
             teeExtensionRegistry,
             abi.encodeWithSelector(
                 ITeeExtensionRegistry.getTeeGovernanceHash.selector
             ),
-            abi.encode(teeGovernanceHash)
+            abi.encode(_teeGovernanceHash)
         );
     }
 }

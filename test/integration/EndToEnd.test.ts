@@ -1369,12 +1369,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     });
 
     it("Should add new TEE node version", async () => {
-        const governanceHash = await teeGovernance.getLatestTeeGovernanceHash(0);
         const supportedPlatforms = TEE_PLATFORMS.map(platform => web3.utils.utf8ToHex(platform).padEnd(66, "0"));
-        await teeExtensionRegistry.addTeeVersion(0, "v0.1.0", TEE_CODE_HASH, supportedPlatforms, governanceHash);
+        await teeExtensionRegistry.addTeeVersion(0, "v0.1.0", TEE_CODE_HASH, supportedPlatforms, constants.ZERO_BYTES32);
 
         const codeHashInfo = await teeExtensionRegistry.getCodeHashInfo(0, TEE_CODE_HASH);
-        expect(codeHashInfo[0]).to.be.equal(governanceHash);
+        expect(codeHashInfo[0]).to.be.equal(constants.ZERO_BYTES32);
         expect(codeHashInfo[1]).to.be.equal("v0.1.0");
         expect(codeHashInfo[2]).to.be.deep.equal(supportedPlatforms);
     });
