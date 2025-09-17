@@ -19,7 +19,7 @@ import {
 import { SFlrCustomFeed } from "../../../../contracts/customFeeds/implementation/SFlrCustomFeed.sol";
 import { FeeCalculator } from "../../../../contracts/fastUpdates/implementation/FeeCalculator.sol";
 import { FtsoV2Proxy } from "../../../../contracts/protocol/implementation/FtsoV2Proxy.sol";
-import "../../../../contracts/fastUpdates/lib/FixedPointArithmetic.sol" as FPA;
+import { SampleSize, Fee, Range } from "../../../../contracts/fastUpdates/lib/FixedPointArithmetic.sol";
 import { IICustomFeed } from "../../../../contracts/customFeeds/interface/IICustomFeed.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/flare/IFlareContractRegistry.sol";
@@ -110,12 +110,12 @@ contract FtsoV2Test is Test {
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            FPA.SampleSize.wrap(SAMPLE_SIZE),
-            FPA.Range.wrap(RANGE),
-            FPA.SampleSize.wrap(SAMPLE_INCREASE_LIMIT),
-            FPA.Range.wrap(RANGE_INCREASE_LIMIT),
-            FPA.Fee.wrap(SAMPLE_SIZE_INCREASE_PRICE),
-            FPA.Fee.wrap(RANGE_INCREASE_PRICE),
+            SampleSize.wrap(SAMPLE_SIZE),
+            Range.wrap(RANGE),
+            SampleSize.wrap(SAMPLE_INCREASE_LIMIT),
+            Range.wrap(RANGE_INCREASE_LIMIT),
+            Fee.wrap(SAMPLE_SIZE_INCREASE_PRICE),
+            Fee.wrap(RANGE_INCREASE_PRICE),
             DURATION
         );
 
