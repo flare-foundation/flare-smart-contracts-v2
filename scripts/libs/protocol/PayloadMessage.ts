@@ -73,8 +73,8 @@ export namespace PayloadMessage {
   /**
    * Concatenates hex strings into one hex string.
    * In the process it checks if each string is a valid hex string.
-   * @param hexStrings 
-   * @returns 
+   * @param hexStrings
+   * @returns
    */
   export function concatenateHexStrings(hexStrings: string[]): string {
     let result = "0x";

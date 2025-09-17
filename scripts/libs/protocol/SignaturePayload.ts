@@ -174,9 +174,9 @@ export namespace SignaturePayload {
   /**
    * Augments signature payload with signer and index from signerIndices map.
    * Also adds message hash.
-   * @param signaturePayload 
-   * @param signerIndices 
-   * @returns 
+   * @param signaturePayload
+   * @param signerIndices
+   * @returns
    */
   export function augment(
     signaturePayload: ISignaturePayload,
@@ -237,10 +237,10 @@ export namespace SignaturePayload {
 
   /**
    * Encodes signature payloads into 0x-prefixed hex string representing byte encoding
-   * in which first 2 bytes are represent the number of signatures N while the rest is 
+   * in which first 2 bytes are represent the number of signatures N while the rest is
    * N * (1 + 32 + 32 + 2) bytes representing byte encoded signatures with index.
-   * @param signaturePayloads 
-   * @returns 
+   * @param signaturePayloads
+   * @returns
    */
   export function encodeForRelay(signaturePayloads: ISignaturePayload[]): string {
     let signatures = "0x" + signaturePayloads.length.toString(16).padStart(4, "0");
@@ -324,9 +324,9 @@ export namespace SignaturePayload {
   }
 
   /**
-   * 
-   * @param signaturePayloads 
-   * @returns 
+   *
+   * @param signaturePayloads
+   * @returns
    */
   export function sortSignaturePayloads(
     signaturePayloads: ISignaturePayload[],

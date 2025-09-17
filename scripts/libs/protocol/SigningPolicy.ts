@@ -153,8 +153,8 @@ export namespace SigningPolicy {
 
   /**
    * Normalizes addresses in signing policy by converting them to lower case.
-   * @param signingPolicy 
-   * @returns 
+   * @param signingPolicy
+   * @returns
    */
   export function normalizeAddresses(signingPolicy: ISigningPolicy) {
     signingPolicy.voters = signingPolicy.voters.map(x => x.toLowerCase());
@@ -162,8 +162,8 @@ export namespace SigningPolicy {
   }
   /**
    * Calculates signing policy hash from signing policy object
-   * @param signingPolicy 
-   * @returns 
+   * @param signingPolicy
+   * @returns
    */
   export function hash(signingPolicy: ISigningPolicy) {
     return SigningPolicy.hashEncoded(SigningPolicy.encode(signingPolicy));
@@ -172,9 +172,9 @@ export namespace SigningPolicy {
   /**
    * Checks if two signing policies are equal as objects. Essentially checks if all properties are equal,
    * except the encodedLength property.
-   * @param signingPolicy1 
-   * @param signingPolicy2 
-   * @returns 
+   * @param signingPolicy1
+   * @param signingPolicy2
+   * @returns
    */
   export function equals(signingPolicy1: ISigningPolicy, signingPolicy2: ISigningPolicy) {
     const test = signingPolicy1.rewardEpochId === signingPolicy2.rewardEpochId &&
@@ -191,7 +191,7 @@ export namespace SigningPolicy {
       if(signingPolicy1.voters[i].toLowerCase() !== signingPolicy2.voters[i].toLowerCase() || signingPolicy1.weights[i] !== signingPolicy2.weights[i]) {
         return false;
       }
-    }  
+    }
     return true;
   }
 

@@ -52,7 +52,7 @@ const privateKeys = JSON.parse(fs.readFileSync("./deployment/test-1020-accounts.
 const addressMap: Map<string, string> = new Map<string, string>();
 privateKeys.forEach((x: any) => addressMap.set(web3.eth.accounts.privateKeyToAccount(x.privateKey).address.toLowerCase(), x.privateKey));
 
-export function privateKeysForAddresses(addresses: string[]): string[] {  
+export function privateKeysForAddresses(addresses: string[]): string[] {
   return addresses.map(address => addressMap.get(address.toLowerCase())!);
 }
 
@@ -71,6 +71,6 @@ export function eventToSigningPolicy(event: any): ISigningPolicy {
     threshold: parseInt(event.threshold),
     seed: "0x" + BigInt(event.seed).toString(16).padStart(64, "0").toLowerCase(),
     voters: event.voters.map((x: any) => x.toLowerCase()),
-    weights: event.weights.map((x: any) => parseInt(x))  
+    weights: event.weights.map((x: any) => parseInt(x))
   } as ISigningPolicy
 }

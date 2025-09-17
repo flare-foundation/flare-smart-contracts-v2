@@ -40,7 +40,7 @@ export class SignerEmulator {
         protocolId: message.messageToSign.protocolId,
         votingRoundId: message.messageToSign.votingRoundId,
         payload: SignaturePayload.encode(signaturePayload)
-      }) 
+      })
     }));
     return PayloadMessage.concatenateHexStrings(signaturePayloadHexList);
   }

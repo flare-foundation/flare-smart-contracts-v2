@@ -14,7 +14,7 @@ const LOGGING_ENABLED = true;
 
 const sem = new SignerEmulatorManager(
   voterPrivateKeys,
-  web3, 
+  web3,
   contractAddress("Submission"),
   contractAddress("FlareSystemsManager"),
   signerEmulationConfig,

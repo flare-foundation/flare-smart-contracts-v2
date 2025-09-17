@@ -4,7 +4,7 @@ import { contractAddress } from "./mock-test-helpers";
 
 const mf = new MockFinalizer(
   privateKeys[0].privateKey,
-  web3, 
+  web3,
   contractAddress("Submission"),
   contractAddress("Relay"),
   contractAddress("FlareSystemsManager"),

@@ -24,9 +24,9 @@ export namespace RelayMessage {
    * - signatures are valid according to signing policy
    * - signatures are in ascending order by index in signing policy and indices of signatures match indices in signing policy
    * - threshold is met
-   * @param message 
-   * @param verify 
-   * @returns 
+   * @param message
+   * @param verify
+   * @returns
    */
   export function encode(message: IRelayMessage, verify = false): string {
     if (!message) {
@@ -54,14 +54,14 @@ export namespace RelayMessage {
       encoded += encodedMessage.slice(2);
       if(verify) {
         hashToSign = ethers.keccak256(encodedMessage);
-      }      
+      }
     } else {
       encoded += "00";  // protocolId == 0 indicates new signing policy
       const encodedNewSigningPolicy = SigningPolicy.encode(message.newSigningPolicy!);
       encoded += encodedNewSigningPolicy.slice(2);
       if(verify) {
         hashToSign = SigningPolicy.hashEncoded(encodedNewSigningPolicy);
-      }      
+      }
     }
     let lastObservedIndex = -1;
     let totalWeight = 0;
@@ -73,14 +73,14 @@ export namespace RelayMessage {
         }
         lastObservedIndex = signature.index
         if(verify) {
-          const actualSigner = ECDSASignatureWithIndex.recoverSigner(hashToSign!, signature);        
+          const actualSigner = ECDSASignatureWithIndex.recoverSigner(hashToSign!, signature);
           const signingPolicySigner = message.signingPolicy.voters[signature.index];
           if(actualSigner.toLowerCase() !== signingPolicySigner.toLowerCase()) {
             throw Error(`Invalid signature: signer ${actualSigner} does not match signing policy ${signingPolicySigner}`);
           }
           totalWeight += message.signingPolicy.weights[signature.index];
         }
-      }  
+      }
       if(totalWeight <= message.signingPolicy.threshold) {
         throw Error(`Invalid relay message: threshold not met`);
       }
@@ -90,8 +90,8 @@ export namespace RelayMessage {
 
   /**
    * Decodes relay message from hex string (can be 0x-prefixed or not).
-   * @param encoded 
-   * @returns 
+   * @param encoded
+   * @returns
    */
   export function decode(encoded: string): IRelayMessage {
     const signingPolicy = SigningPolicy.decode(encoded, false);

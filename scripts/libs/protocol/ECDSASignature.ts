@@ -50,10 +50,10 @@ export namespace ECDSASignature {
 
   /**
    * Signs message hash with ECDSA using private key
-   * @param messageHash 
-   * @param privateKey 
-   * @param index 
-   * @returns 
+   * @param messageHash
+   * @param privateKey
+   * @param index
+   * @returns
    */
   export async function signMessageHash(
     messageHash: string,
@@ -73,9 +73,9 @@ export namespace ECDSASignature {
 
   /**
    * Recovers signer address from message hash and signature
-   * @param messageHash 
-   * @param signature 
-   * @returns 
+   * @param messageHash
+   * @param signature
+   * @returns
    */
   export function recoverSigner(messageHash: string, signature: IECDSASignature): string {
     return web3.eth.accounts.recover(messageHash, "0x" + signature.v.toString(16), signature.r, signature.s).toLowerCase();
