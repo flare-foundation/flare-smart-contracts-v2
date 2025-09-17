@@ -2,10 +2,7 @@
 pragma solidity 0.8.20;
 
 import { Test} from "forge-std/Test.sol";
-import { FdcHub } from "../../../../contracts/fdc/implementation/FdcHub.sol";
-import { FdcInflationConfigurations } from "../../../../contracts/fdc/implementation/FdcInflationConfigurations.sol";
 import { FdcRequestFeeConfigurations } from "../../../../contracts/fdc/implementation/FdcRequestFeeConfigurations.sol";
-import { RewardManager } from "../../../../contracts/protocol/implementation/RewardManager.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FdcRequestFeeConfigurationsTest is Test {

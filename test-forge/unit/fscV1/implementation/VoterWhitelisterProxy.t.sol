@@ -3,7 +3,9 @@ pragma solidity 0.8.20;
 
 import { Test } from "forge-std/Test.sol";
 import { VoterWhitelisterProxy } from "../../../../contracts/fscV1/implementation/VoterWhitelisterProxy.sol";
-import { IIPriceSubmitter } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IIPriceSubmitter.sol";
+import {
+    IIPriceSubmitter
+} from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IIPriceSubmitter.sol";
 import { IIIPriceSubmitter } from "../../../../contracts/mock/IIIPriceSubmitter.sol";
 
 contract VoterWhitelisterProxyTest is Test {

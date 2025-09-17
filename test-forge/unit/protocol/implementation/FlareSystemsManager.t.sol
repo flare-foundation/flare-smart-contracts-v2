@@ -2146,7 +2146,7 @@ contract FlareSystemsManagerTest is Test {
         );
     }
 
-    function _initializeSigningPolicyAndMoveToNewEpoch(uint256 _nextEpochId) private {
+    function _initializeSigningPolicyAndMoveToNewEpoch(uint256 _nextEpochId) internal {
         _initializeSigningPolicy(_nextEpochId);
         vm.mockCall(
             mockRelay,
@@ -2159,7 +2159,7 @@ contract FlareSystemsManagerTest is Test {
         // flareSystemsManager.daemonize(); // start new reward epoch (_nextEpochId)
     }
 
-    function _mockToSigningPolicyHash(uint256 _epochId, bytes32 _hash) private {
+    function _mockToSigningPolicyHash(uint256 _epochId, bytes32 _hash) internal {
         vm.mockCall(
             mockRelay,
             abi.encodeWithSelector(IRelay.toSigningPolicyHash.selector, _epochId),
@@ -2167,15 +2167,15 @@ contract FlareSystemsManagerTest is Test {
         );
     }
 
-    function _keccak256AbiEncode(string memory _value) internal pure returns(bytes32) {
-        return keccak256(abi.encode(_value));
-    }
-
     function _moveToSignUptimeStart() internal {
         vm.prank(flareDaemon);
         vm.warp(block.timestamp + 10 + 1);
         vm.roll(block.number + 2 + 1);
         flareSystemsManager.daemonize();
+    }
+
+    function _keccak256AbiEncode(string memory _value) internal pure returns(bytes32) {
+        return keccak256(abi.encode(_value));
     }
 
 }

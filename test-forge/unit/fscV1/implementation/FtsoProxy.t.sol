@@ -370,7 +370,7 @@ contract FtsoProxyTest is Test {
         );
     }
 
-    function _addFeeds() public {
+    function _addFeeds() private {
         IFastUpdatesConfiguration.FeedConfiguration[] memory feedConfigs =
             new IFastUpdatesConfiguration.FeedConfiguration[](3);
 

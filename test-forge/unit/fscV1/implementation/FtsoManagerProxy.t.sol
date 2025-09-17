@@ -4,7 +4,9 @@ pragma solidity 0.8.20;
 import { Test } from "forge-std/Test.sol";
 import { FtsoManagerProxy } from "../../../../contracts/fscV1/implementation/FtsoManagerProxy.sol";
 import { FlareSystemsManager } from "../../../../contracts/protocol/implementation/FlareSystemsManager.sol";
-import { IIRewardEpochSwitchoverTrigger } from "../../../../contracts/protocol/interface/IIRewardEpochSwitchoverTrigger.sol";
+import {
+    IIRewardEpochSwitchoverTrigger
+} from "../../../../contracts/protocol/interface/IIRewardEpochSwitchoverTrigger.sol";
 import { IISubmission } from "../../../../contracts/protocol/interface/IISubmission.sol";
 import { IIVoterRegistry } from "../../../../contracts/protocol/interface/IIVoterRegistry.sol";
 import { IIRelay } from "../../../../contracts/protocol/interface/IIRelay.sol";

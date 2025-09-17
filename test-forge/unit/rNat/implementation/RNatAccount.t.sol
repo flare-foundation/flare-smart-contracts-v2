@@ -9,7 +9,9 @@ import { IWNatMock } from "../../../mock/IWNatMock.sol";
 import { ERC20Mock } from "../../../../contracts/mock/ERC20Mock.sol";
 import { IClaimSetupManager } from "@flarenetwork/flare-periphery-contracts/flare/IClaimSetupManager.sol";
 import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIVPContract.sol";
-import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
+import {
+    IIGovernanceVotePower
+} from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
 
 
 contract RNatAccountTest is Test {

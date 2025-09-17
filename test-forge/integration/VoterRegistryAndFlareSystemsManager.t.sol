@@ -1457,7 +1457,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
     ////////
 
-    function _registerAddressesAndNodes() private {
+    function _registerAddressesAndNodes() internal {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             // register voters' addresses, public keys and node IDs
             vm.roll(block.number + 10);
@@ -1501,7 +1501,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         }
     }
 
-    function _setVotePowers(uint256 _vpBlock) private {
+    function _setVotePowers(uint256 _vpBlock) internal {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             // set wNat voter power
             vm.mockCall(
@@ -1604,11 +1604,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         );
     }
 
-    function _calculateWeight(uint256 _value) internal view returns (uint256) {
-        return calculator.sqrt(_value) * calculator.sqrt(calculator.sqrt(_value));
-    }
-
-    function _mockToSigningPolicyHash(uint256 _epochId, bytes32 _hash) private {
+    function _mockToSigningPolicyHash(uint256 _epochId, bytes32 _hash) internal {
         vm.mockCall(
             mockRelay,
             abi.encodeWithSelector(IRelay.toSigningPolicyHash.selector, _epochId),
@@ -1634,5 +1630,9 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         );
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize();
+    }
+
+    function _calculateWeight(uint256 _value) internal view returns (uint256) {
+        return calculator.sqrt(_value) * calculator.sqrt(calculator.sqrt(_value));
     }
 }

@@ -760,7 +760,8 @@ contract RewardManagerTest is Test {
 
         RewardEpochData memory rewardEpochData = RewardEpochData(0, 10);
         RewardsV2Interface.RewardClaimWithProof[] memory proofs = new RewardsV2Interface.RewardClaimWithProof[](3);
-        RewardsV2Interface.RewardClaimWithProof[] memory directProofs = new RewardsV2Interface.RewardClaimWithProof[](2);
+        RewardsV2Interface.RewardClaimWithProof[] memory directProofs =
+            new RewardsV2Interface.RewardClaimWithProof[](2);
         merkleProof1 = new bytes32[](2);
         merkleProof2 = new bytes32[](2);
         merkleProof3 = new bytes32[](2);
@@ -2204,10 +2205,8 @@ contract RewardManagerTest is Test {
         assertEq(BURN_ADDRESS.balance, 900 + 10);
     }
 
-
-
     //// helper functions
-    function _mockGetCurrentEpochId(uint256 _epochId) private {
+    function _mockGetCurrentEpochId(uint256 _epochId) internal {
         vm.mockCall(
             mockFlareSystemsManager,
             abi.encodeWithSelector(ProtocolsV2Interface.getCurrentRewardEpochId.selector),
@@ -2215,7 +2214,7 @@ contract RewardManagerTest is Test {
         );
     }
 
-    function _mockGetVpBlock(uint256 _epochId, uint256 _vpBlock) private {
+    function _mockGetVpBlock(uint256 _epochId, uint256 _vpBlock) internal {
         vm.mockCall(
             mockFlareSystemsManager,
             abi.encodeWithSelector(ProtocolsV2Interface.getVotePowerBlock.selector, _epochId),
@@ -2223,7 +2222,7 @@ contract RewardManagerTest is Test {
         );
     }
 
-    function _mockRewardsHash(uint256 _epochId, bytes32 _hash) private {
+    function _mockRewardsHash(uint256 _epochId, bytes32 _hash) internal {
         vm.mockCall(
             mockFlareSystemsManager,
             abi.encodeWithSelector(bytes4(keccak256("rewardsHash(uint256)")), _epochId),
@@ -2231,7 +2230,7 @@ contract RewardManagerTest is Test {
         );
     }
 
-    function _mockCalculateBurnFactor(uint256 _epochId, address _user, uint256 _burnFactor) private {
+    function _mockCalculateBurnFactor(uint256 _epochId, address _user, uint256 _burnFactor) internal {
         vm.mockCall(
             mockFlareSystemsCalculator,
             abi.encodeWithSelector(IIFlareSystemsCalculator.calculateBurnFactorPPM.selector, _epochId, _user),
@@ -2239,7 +2238,7 @@ contract RewardManagerTest is Test {
         );
     }
 
-    function _mockNoOfWeightBasedClaims(uint256 _epoch, uint256 _noOfClaims) private {
+    function _mockNoOfWeightBasedClaims(uint256 _epoch, uint256 _noOfClaims) internal {
         vm.mockCall(
             mockFlareSystemsManager,
             abi.encodeWithSelector(bytes4(keccak256("noOfWeightBasedClaims(uint256,uint256)")), _epoch, 0),
@@ -2247,7 +2246,7 @@ contract RewardManagerTest is Test {
         );
     }
 
-    function _mockWNatBalance(address _user, uint256 _vpBlock, uint256 _balance) private {
+    function _mockWNatBalance(address _user, uint256 _vpBlock, uint256 _balance) internal {
         vm.mockCall(
             mockWNat,
             abi.encodeWithSelector(bytes4(keccak256("balanceOfAt(address,uint256)")), _user, _vpBlock),
@@ -2261,7 +2260,7 @@ contract RewardManagerTest is Test {
         address[] memory _delegates,
         uint256[] memory _bips
     )
-        private
+        internal
     {
         vm.mockCall(
             mockWNat,
@@ -2276,7 +2275,7 @@ contract RewardManagerTest is Test {
         bytes20[] memory _nodeIds,
         uint256[] memory _weights
     )
-        private
+        internal
     {
         vm.mockCall(
             mockPChainStakeMirror,
@@ -2291,7 +2290,7 @@ contract RewardManagerTest is Test {
         address[] memory _accounts,
         uint256[] memory _weights
     )
-        private
+        internal
     {
         vm.mockCall(
             mockCChainStake,
@@ -2300,7 +2299,7 @@ contract RewardManagerTest is Test {
         );
     }
 
-    function _mockWNatVp(address _user, uint256 _vpBlock, uint256 _vp) private {
+    function _mockWNatVp(address _user, uint256 _vpBlock, uint256 _vp) internal {
         vm.mockCall(
             mockWNat,
             abi.encodeWithSelector(bytes4(keccak256("votePowerOfAt(address,uint256)")), _user, _vpBlock),
@@ -2308,7 +2307,7 @@ contract RewardManagerTest is Test {
         );
     }
 
-    function _mockMirroredVp(bytes20 _nodeId, uint256 _vpBlock, uint256 _vp) private {
+    function _mockMirroredVp(bytes20 _nodeId, uint256 _vpBlock, uint256 _vp) internal {
         vm.mockCall(
             mockPChainStakeMirror,
             abi.encodeWithSelector(bytes4(keccak256("votePowerOfAt(bytes20,uint256)")), _nodeId, _vpBlock),
@@ -2316,7 +2315,7 @@ contract RewardManagerTest is Test {
         );
     }
 
-    function _mockCChainVp(address _account, uint256 _vpBlock, uint256 _vp) private {
+    function _mockCChainVp(address _account, uint256 _vpBlock, uint256 _vp) internal {
         vm.mockCall(
             mockCChainStake,
             abi.encodeWithSelector(bytes4(keccak256("votePowerOfAt(address,uint256)")), _account, _vpBlock),
@@ -2330,7 +2329,7 @@ contract RewardManagerTest is Test {
         address[] memory _claimAddresses,
         uint256 _fee
     )
-        private
+        internal
     {
         vm.mockCall(
             mockClaimSetupManager,
@@ -2420,11 +2419,7 @@ contract RewardManagerTest is Test {
         rewardManager.receiveRewards{value: _amountWei} (_rewardEpochId, false);
     }
 
-    function _hashPair(bytes32 a, bytes32 b) private pure returns (bytes32) {
-        return a < b ? keccak256(abi.encode(a, b)) : keccak256(abi.encode(b, a));
-    }
-
-    function _enableAndActivate(uint256 _epochId, uint256 _vpBlock) private {
+    function _enableAndActivate(uint256 _epochId, uint256 _vpBlock) internal {
         vm.startPrank(governance);
         rewardManager.enableClaims();
         rewardManager.activate();
@@ -2434,7 +2429,7 @@ contract RewardManagerTest is Test {
         _mockGetVpBlock(_epochId + 1, _vpBlock * 2);
     }
 
-    function _setZeroStakes(address _account, uint256 _vpBlock) private {
+    function _setZeroStakes(address _account, uint256 _vpBlock) internal {
         bytes20[] memory nodeIds = new bytes20[](0);
         uint256[] memory weights = new uint256[](0);
         _mockStakes(_account, _vpBlock, nodeIds, weights);
@@ -2445,7 +2440,7 @@ contract RewardManagerTest is Test {
         uint256 _vpBlock,
         uint256 _undelegatedVotePower
     )
-        private
+        internal
     {
         vm.mockCall(
             mockWNat,
@@ -2454,25 +2449,29 @@ contract RewardManagerTest is Test {
         );
     }
 
-    function _enablePChainStakeMirror() private {
+    function _enablePChainStakeMirror() internal {
         vm.prank(governance);
         rewardManager.enablePChainStakeMirror();
         vm.prank(addressUpdater);
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
     }
 
-    function _enableCChainStake() private {
+    function _enableCChainStake() internal {
         vm.prank(governance);
         rewardManager.enableCChainStake();
         vm.prank(addressUpdater);
         rewardManager.updateContractAddresses(contractNameHashes, contractAddresses);
     }
 
-    function _mockRewardEpochIdToExpireNext(uint256 _epochId) private {
+    function _mockRewardEpochIdToExpireNext(uint256 _epochId) internal {
         vm.mockCall(
             mockFlareSystemsManager,
             abi.encodeWithSelector(bytes4(keccak256("rewardEpochIdToExpireNext()"))),
             abi.encode(_epochId)
         );
+    }
+
+    function _hashPair(bytes32 a, bytes32 b) internal pure returns (bytes32) {
+        return a < b ? keccak256(abi.encode(a, b)) : keccak256(abi.encode(b, a));
     }
 }

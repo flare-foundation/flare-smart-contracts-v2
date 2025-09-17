@@ -364,12 +364,6 @@ contract FeeCalculatorTest is Test {
     }
 
     ////
-    function _getFeedId(uint8 _category, string memory _name) internal pure returns(bytes21) {
-        bytes memory nameBytes = bytes(_name);
-        require(nameBytes.length <= 20, "name too long");
-        return bytes21(bytes.concat(bytes1(_category), nameBytes));
-    }
-
     function _setFeedIds() internal {
         feedIds = new bytes21[](8);
         for (uint256 i = 0; i < 8; i++) {
@@ -386,6 +380,12 @@ contract FeeCalculatorTest is Test {
                 abi.encode(feedIds[i])
             );
         }
+    }
+
+    function _getFeedId(uint8 _category, string memory _name) internal pure returns(bytes21) {
+        bytes memory nameBytes = bytes(_name);
+        require(nameBytes.length <= 20, "name too long");
+        return bytes21(bytes.concat(bytes1(_category), nameBytes));
     }
 
 }

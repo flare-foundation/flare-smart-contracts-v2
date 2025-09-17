@@ -4,7 +4,6 @@ pragma solidity 0.8.20;
 import { Test } from "forge-std/Test.sol";
 import { FtsoV2 } from "../../../../contracts/protocol/implementation/FtsoV2.sol";
 import { IFtsoFeedPublisher } from "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
-import { IFeeCalculator } from "../../../../contracts/userInterfaces/IFeeCalculator.sol";
 import { IFastUpdatesConfiguration } from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { ISFlr } from "../../../../contracts/customFeeds/implementation/SFlrCustomFeed.sol";
