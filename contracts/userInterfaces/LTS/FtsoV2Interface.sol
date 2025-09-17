@@ -31,38 +31,6 @@ interface FtsoV2Interface {
     event FeedIdChanged(bytes21 indexed oldFeedId, bytes21 indexed newFeedId);
 
     /**
-     * Returns the FTSO protocol id.
-     */
-    function getFtsoProtocolId() external view returns (uint256);
-
-    /**
-     * Returns the list of supported feed ids (currently active feed ids).
-     * To get the list of all available feed ids, combine with `getFeedIdChanges()`.
-     * @return _feedIds The list of supported feed ids.
-     */
-    function getSupportedFeedIds() external view returns (bytes21[] memory _feedIds);
-
-    /**
-     * Returns the list of feed id changes.
-     * @return _feedIdChanges The list of changed feed id pairs (old and new feed id).
-     */
-    function getFeedIdChanges() external view returns (FeedIdChange[] memory _feedIdChanges);
-
-    /**
-     * Calculates the fee for fetching a feed.
-     * @param _feedId The id of the feed.
-     * @return _fee The fee for fetching the feed.
-     */
-    function calculateFeeById(bytes21 _feedId) external view returns (uint256 _fee);
-
-    /**
-     * Calculates the fee for fetching feeds.
-     * @param _feedIds The list of feed ids.
-     * @return _fee The fee for fetching the feeds.
-     */
-    function calculateFeeByIds(bytes21[] memory _feedIds) external view returns (uint256 _fee);
-
-    /**
      * Returns stored data of a feed.
      * A fee (calculated by the FeeCalculator contract) may need to be paid.
      * @param _feedId The id of the feed.
@@ -120,6 +88,38 @@ interface FtsoV2Interface {
             uint256[] memory _values,
             uint64 _timestamp
         );
+
+    /**
+     * Returns the FTSO protocol id.
+     */
+    function getFtsoProtocolId() external view returns (uint256);
+
+    /**
+     * Returns the list of supported feed ids (currently active feed ids).
+     * To get the list of all available feed ids, combine with `getFeedIdChanges()`.
+     * @return _feedIds The list of supported feed ids.
+     */
+    function getSupportedFeedIds() external view returns (bytes21[] memory _feedIds);
+
+    /**
+     * Returns the list of feed id changes.
+     * @return _feedIdChanges The list of changed feed id pairs (old and new feed id).
+     */
+    function getFeedIdChanges() external view returns (FeedIdChange[] memory _feedIdChanges);
+
+    /**
+     * Calculates the fee for fetching a feed.
+     * @param _feedId The id of the feed.
+     * @return _fee The fee for fetching the feed.
+     */
+    function calculateFeeById(bytes21 _feedId) external view returns (uint256 _fee);
+
+    /**
+     * Calculates the fee for fetching feeds.
+     * @param _feedIds The list of feed ids.
+     * @return _fee The fee for fetching the feeds.
+     */
+    function calculateFeeByIds(bytes21[] memory _feedIds) external view returns (uint256 _fee);
 
     /**
      * Checks if the feed data is valid (i.e. is part of the confirmed Merkle tree).

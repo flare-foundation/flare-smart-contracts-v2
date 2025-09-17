@@ -31,38 +31,6 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
 
     /**
      * @inheritdoc IPriceSubmitter
-     * @dev Deprecated - reverts
-     */
-    function submitHash(uint256, bytes32) external pure {
-        revert("not supported");
-    }
-
-    /**
-     * Submits price hashes for current epoch (Songbird version)
-     * @dev Deprecated - reverts
-     */
-    function submitPriceHashes(uint256, uint256[] memory, bytes32[] memory) external pure {
-        revert("not supported");
-    }
-
-    /**
-     * @inheritdoc IPriceSubmitter
-     * @dev Deprecated - reverts
-     */
-    function revealPrices(uint256, uint256[] memory, uint256[] memory, uint256) external pure {
-        revert("not supported");
-    }
-
-    /**
-     * Reveals submitted prices during epoch reveal period (Songbird version)
-     * @dev Deprecated - reverts
-     */
-    function revealPrices(uint256, uint256[] memory, uint256[] memory, uint256[] memory) external pure {
-        revert("not supported");
-    }
-
-    /**
-     * @inheritdoc IPriceSubmitter
      */
     function getCurrentRandom() external view returns (uint256 _currentRandom) {
         (_currentRandom, , ) = relay.getRandomNumber();
@@ -97,6 +65,15 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
     }
 
     /**
+     * Returns current random number and a flag indicating if it was securely generated.
+     * @return _currentRandom Current random number.
+     * @return _isSecureRandom Indicates if current random number is secure.
+     */
+    function getCurrentRandomWithQuality() external view returns (uint256 _currentRandom, bool _isSecureRandom) {
+        (_currentRandom, _isSecureRandom, ) = relay.getRandomNumber();
+    }
+
+    /**
      * @inheritdoc IPriceSubmitter
      * @dev Deprecated - reverts
      */
@@ -105,12 +82,35 @@ contract PriceSubmitterProxy is IPriceSubmitter, AddressUpdatable {
     }
 
     /**
-     * Returns current random number and a flag indicating if it was securely generated.
-     * @return _currentRandom Current random number.
-     * @return _isSecureRandom Indicates if current random number is secure.
+     * @inheritdoc IPriceSubmitter
+     * @dev Deprecated - reverts
      */
-    function getCurrentRandomWithQuality() external view returns (uint256 _currentRandom, bool _isSecureRandom) {
-        (_currentRandom, _isSecureRandom, ) = relay.getRandomNumber();
+    function submitHash(uint256, bytes32) external pure {
+        revert("not supported");
+    }
+
+    /**
+     * Submits price hashes for current epoch (Songbird version)
+     * @dev Deprecated - reverts
+     */
+    function submitPriceHashes(uint256, uint256[] memory, bytes32[] memory) external pure {
+        revert("not supported");
+    }
+
+    /**
+     * @inheritdoc IPriceSubmitter
+     * @dev Deprecated - reverts
+     */
+    function revealPrices(uint256, uint256[] memory, uint256[] memory, uint256) external pure {
+        revert("not supported");
+    }
+
+    /**
+     * Reveals submitted prices during epoch reveal period (Songbird version)
+     * @dev Deprecated - reverts
+     */
+    function revealPrices(uint256, uint256[] memory, uint256[] memory, uint256[] memory) external pure {
+        revert("not supported");
     }
 
     /**

@@ -2,8 +2,8 @@
 pragma solidity 0.8.20;
 
 import {
-    IInflationReceiver
-} from "@flarenetwork/flare-periphery-contracts/flare/inflation/interfaces/IInflationReceiver.sol";
+    IIInflationReceiver
+} from "@flarenetwork/flare-periphery-contracts/flare/inflation/interfaces/IIInflationReceiver.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { TokenPoolBase } from "../../utils/implementation/TokenPoolBase.sol";
 
