@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
 import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/flare/IFlareContractRegistry.sol";
 import { IFeeCalculator } from "../../userInterfaces/IFeeCalculator.sol";

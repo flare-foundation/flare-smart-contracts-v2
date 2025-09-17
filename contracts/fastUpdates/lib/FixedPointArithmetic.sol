@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
 import { Scale, Precision, SampleSize, Range, Fractional, Fee } from  "../../userInterfaces/IFixedPointArithmetic.sol";
 

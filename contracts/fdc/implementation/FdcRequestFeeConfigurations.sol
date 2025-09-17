@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
 import { IFdcRequestFeeConfigurations } from "../../userInterfaces/IFdcRequestFeeConfigurations.sol";
 import { Governed } from "../../governance/implementation/Governed.sol";

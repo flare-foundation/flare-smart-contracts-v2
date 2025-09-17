@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
 import { Test, Vm } from "forge-std/Test.sol";
 import { EntityManager } from "../../../../contracts/protocol/implementation/EntityManager.sol";

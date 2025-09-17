@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
 import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
 import { IIFlareSystemsManager } from "../../protocol/interface/IIFlareSystemsManager.sol";

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
 import { IIGovernorProposer } from "../interface/IIGovernorProposer.sol";
 import { Governed } from "./Governed.sol";
