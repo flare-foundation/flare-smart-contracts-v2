@@ -2,8 +2,12 @@
 pragma solidity 0.8.20;
 
 import { IPriceSubmitter } from "@flarenetwork/flare-periphery-contracts/flare/IPriceSubmitter.sol";
-import { IFtsoManagerGenesis } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IFtsoManagerGenesis.sol";
-import { IFtsoRegistryGenesis } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IFtsoRegistryGenesis.sol";
+import {
+    IFtsoManagerGenesis
+} from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IFtsoManagerGenesis.sol";
+import {
+    IFtsoRegistryGenesis
+} from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IFtsoRegistryGenesis.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { RandomNumberV2Interface } from "../../userInterfaces/LTS/RandomNumberV2Interface.sol";
 

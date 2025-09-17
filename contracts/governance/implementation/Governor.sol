@@ -2,7 +2,9 @@
 pragma solidity 0.8.20;
 
 import { IISupply } from "@flarenetwork/flare-periphery-contracts/flare/inflation/interfaces/IISupply.sol";
-import { IIGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
+import {
+    IIGovernanceVotePower
+} from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
 import { IGovernor } from "../../userInterfaces/IGovernor.sol";
 import { ISubmission } from "../../userInterfaces/ISubmission.sol";
 import { GovernorProposals } from "./GovernorProposals.sol";
