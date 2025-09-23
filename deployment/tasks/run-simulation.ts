@@ -69,15 +69,15 @@ export const TEE_CODE_HASH = "0x194844cf417dde867073e5ab7199fa4d21fd82b5dbe2bdea
 
 export const TEE_KEY_CONFIGURATIONS = [
   { keyType: "XRP", signingAlgos: ["sha512half-secp256k1-ecdsa"] },
-  // { keyType: "BTC", signingAlgos: ["TODO"] },
-  // { keyType: "DOGE", signingAlgos: ["TODO"] },
+  { keyType: "BTC", signingAlgos: ["sha256d-secp256k1-ecdsa"] },
+  { keyType: "DOGE", signingAlgos: ["sha256d-secp256k1-ecdsa"] },
   { keyType: "EVM", signingAlgos: ["keccak256-secp256k1-ecdsa"] }
 ];
 
 export const TEE_PAYMENT_CONFIGURATIONS = [
   {opType: "F_XRP", keyType: "XRP", sourceIds: ["XRP"], maxBatchSize: 1, maxBatchDurationSeconds: 0},
-  // {opType: "F_BTC", keyType: "BTC", sourceIds: ["BTC"], maxBatchSize: 10, maxBatchDurationSeconds: 600},
-  // {opType: "F_DOGE", keyType: "DOGE", sourceIds: ["DOGE"], maxBatchSize: 10, maxBatchDurationSeconds: 60},
+  {opType: "F_BTC", keyType: "BTC", sourceIds: ["BTC"], maxBatchSize: 10, maxBatchDurationSeconds: 600},
+  {opType: "F_DOGE", keyType: "DOGE", sourceIds: ["DOGE"], maxBatchSize: 10, maxBatchDurationSeconds: 60},
   {opType: "F_EVM", keyType: "EVM", sourceIds: ["FLR", "SGB"], maxBatchSize: 1, maxBatchDurationSeconds: 0},
 ];
 
@@ -85,10 +85,10 @@ export const FTDC_FEE_CONFIGURATIONS = [
     { attestationType: "TeeAvailabilityCheck", source: "TEE" },
     { attestationType: "PMWMultisigAccountConfigured", source: "XRP" },
     { attestationType: "PMWPaymentStatus", source: "XRP" },
-    // { attestationType: "PMWMultisigAccountConfigured", source: "BTC" },
-    // { attestationType: "PMWPaymentStatus", source: "BTC" },
-    // { attestationType: "PMWMultisigAccountConfigured", source: "DOGE" },
-    // { attestationType: "PMWPaymentStatus", source: "DOGE" },
+    { attestationType: "PMWMultisigAccountConfigured", source: "BTC" },
+    { attestationType: "PMWPaymentStatus", source: "BTC" },
+    { attestationType: "PMWMultisigAccountConfigured", source: "DOGE" },
+    { attestationType: "PMWPaymentStatus", source: "DOGE" },
     { attestationType: "PMWMultisigAccountConfigured", source: "FLR" },
     { attestationType: "PMWPaymentStatus", source: "FLR" },
     { attestationType: "PMWMultisigAccountConfigured", source: "SGB" },

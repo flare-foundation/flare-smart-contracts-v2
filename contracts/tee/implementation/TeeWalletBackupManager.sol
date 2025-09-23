@@ -19,7 +19,6 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
 
     bytes32 public constant WALLET_OP_TYPE = bytes32("F_WALLET");
     bytes32 public constant KEY_DATA_PROVIDER_RESTORE = bytes32("KEY_DATA_PROVIDER_RESTORE");
-    bytes32 public constant KEY_DATA_PROVIDER_RESTORE_TEST = bytes32("KEY_DATA_PROVIDER_RESTORE_TEST");
 
     mapping(bytes32 walletId => mapping(uint64 keyId => uint256)) private dataProviderRestoreCounter;
 
@@ -66,8 +65,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
     function backupRestore(
         address _teeId,
         BackupId calldata _backupId,
-        string calldata _backupUrl,
-        bool _test
+        string calldata _backupUrl
     )
         external payable
         onlyOwnerOrBackupManager(_backupId.walletId)
@@ -103,20 +101,17 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
             extensionId == teeMachineRegistry.getExtensionId(_teeId),
             ExtensionIdMismatch()
         );
-        bytes32 opCommand = _test ? KEY_DATA_PROVIDER_RESTORE_TEST : KEY_DATA_PROVIDER_RESTORE;
         // restored flag in KeyExistence proof will always be set to true after this call
-        // in case of a test restore, nonce should be 0, so that the key cannot be confirmed on-chain
-        // in case of an actual restore, nonce should be increased to prevent replay attacks
-        // and to allow the key to be confirmed on-chain
+        // nonce should be increased to prevent replay attacks
         KeyDataProviderRestore memory message = KeyDataProviderRestore({
-            teeId: _teeId,
+            teePublicKey: teeMachineRegistry.getPublicKey(_teeId),
             backupId: _backupId,
             backupUrl: _backupUrl,
-            nonce: _test ? 0 : teeWalletKeyManager.increaseKeyNonce(_teeId, _backupId.walletId, _backupId.keyId)
+            nonce: teeWalletKeyManager.increaseKeyNonce(_teeId, _backupId.walletId, _backupId.keyId)
         });
         uint256 counter = dataProviderRestoreCounter[_backupId.walletId][_backupId.keyId]++;
         bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, opCommand, _backupId.walletId, _backupId.keyId, counter
+            WALLET_OP_TYPE, KEY_DATA_PROVIDER_RESTORE, _backupId.walletId, _backupId.keyId, counter
         ));
         (address[] memory admins, uint64 adminsThreshold) =
             teeWalletManager.getWalletAdminsAndThreshold(_backupId.walletId);
@@ -126,7 +121,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
             instructionId,
             teeIds,
             WALLET_OP_TYPE,
-            opCommand,
+            KEY_DATA_PROVIDER_RESTORE,
             abi.encode(message),
             admins,
             adminsThreshold

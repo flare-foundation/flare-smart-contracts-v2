@@ -8,6 +8,8 @@ import { ITeeOwnerAllowlist } from "../../userInterfaces/tee/ITeeOwnerAllowlist.
 import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
 import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
 import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
+import { PublicKeyUtils } from "../../utils/lib/PublicKeyUtils.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -23,6 +25,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
 
     struct TeeMachineState {
         uint256 extensionId;
+        PublicKey teePublicKey;
         address initialTeeId;
         uint32 initialSigningPolicyId;
         address owner;
@@ -87,7 +90,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
      */
     function register(
         uint256 _extensionId,
-        address _teeId,
+        PublicKey calldata _teePublicKey,
         address _teeProxyId,
         string calldata _url,
         bytes32 _codeHash,
@@ -96,15 +99,17 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         external payable
     {
         require(teeOwnerAllowlist.isAllowedTeeMachineOwner(_extensionId, msg.sender), OwnerNotAllowed());
-        require(_teeId != address(0), InvalidTeeId());
+        require(PublicKeyUtils.isPublicKeyValid(_teePublicKey), InvalidTeePublicKey());
+        address teeId = PublicKeyUtils.getAddress(_teePublicKey);
         require(_teeProxyId != address(0), InvalidTeeProxyId());
         require(bytes(_url).length > 0, InvalidUrl());
-        require(teeMachineStates[_teeId].owner == address(0), AlreadyRegistered());
+        require(teeMachineStates[teeId].owner == address(0), AlreadyRegistered());
         _checkCodeHashPlatformSupported(_extensionId, _codeHash, _platform);
 
-        teeMachineStates[_teeId] = TeeMachineState({
+        teeMachineStates[teeId] = TeeMachineState({
             extensionId: _extensionId,
-            initialTeeId: _teeId,
+            initialTeeId: teeId,
+            teePublicKey: _teePublicKey,
             initialSigningPolicyId: 0, // temporary value, will be set when TEE machine is put into production
             owner: msg.sender,
             teeProxyId: _teeProxyId,
@@ -115,8 +120,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
             url: _url
         });
 
-        teeVerification.requestTeeAttestation{value: msg.value}(_teeId);
-        emit TeeMachineRegistered(_teeId, _teeProxyId, msg.sender, _extensionId, _url, _codeHash, _platform);
+        teeVerification.requestTeeAttestation{value: msg.value}(teeId);
+        emit TeeMachineRegistered(teeId, _teeProxyId, msg.sender, _extensionId, _url, _codeHash, _platform);
     }
 
     /**
@@ -296,6 +301,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         _validateAvailabilityCheckStatus(_proof.responseBody.status);
         _validateAvailabilityCheckTs(_newTeeId, _proof.header.timestamp);
         // copy TEE machine data from new TEE machine to old TEE machine
+        // teePublicKey belongs to the old TEE machine id and should not be changed
         oldState.initialTeeId = newState.initialTeeId;
         oldState.initialSigningPolicyId = newState.initialSigningPolicyId;
         oldState.teeProxyId = newState.teeProxyId;
@@ -454,6 +460,17 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     {
         TeeMachineState storage state = _getTeeMachineState(_teeId);
         return state.extensionId;
+    }
+
+    /**
+     * @inheritdoc ITeeMachineRegistry
+     */
+    function getPublicKey(address _teeId)
+        external view
+        returns (PublicKey memory)
+    {
+        TeeMachineState storage state = _getTeeMachineState(_teeId);
+        return state.teePublicKey;
     }
 
     /**

@@ -450,6 +450,9 @@
     ],
 
     "teeSupportedPlatforms": ["GCP_INTEL_TDX", "GCP_AMD_SEV", "GCP_AMD_SEV_ES"],
+    "teeSupportedKeyTypesWithSigningAlgos": [
+        {"keyType": "XRP", "signingAlgos": ["sha512half-secp256k1-ecdsa"]}
+    ],
     "teeDefaultFeeWei": "1000",
     "teePauseBeforeUpgradeMinDurationSeconds": 600,
     "teeAvailabilityCheckValidityDurationSeconds": 21600,
@@ -472,7 +475,7 @@
         {"opType": "F_FTDC", "opCommand": "PROVE", "feeWei": "1"}
     ],
     "teePaymentConfigurations": [
-        {"opType": "F_XRP", "sourceIds": ["testXRP"], "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
+        {"opType": "F_XRP", "keyType": "XRP", "sourceIds": ["testXRP"], "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
     ],
     "ftdcMinThresholdBIPS": 4000,
     "ftdcDefaultNumberOfTees": 1,

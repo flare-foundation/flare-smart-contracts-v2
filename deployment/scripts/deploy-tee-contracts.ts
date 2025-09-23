@@ -194,6 +194,7 @@ export async function deployTeeContracts(
       teePaymentConfig.maxBatchSize,
       teePaymentConfig.maxBatchDurationSeconds,
       web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
+      web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0"),
       teePaymentConfig.sourceIds.map(sourceId => web3.utils.utf8ToHex(sourceId).padEnd(66, "0")),
       teePaymentsImpl.address
     );
@@ -413,19 +414,25 @@ export async function deployTeeContracts(
   }
   await teeFeeCalculator.setOperationFees(operationTypes, operationCommands, operationFees);
 
-  // add supported platforms
-  await teeExtensionRegistry.addSupportedPlatforms(
+  // add system supported platforms
+  await teeExtensionRegistry.addSystemSupportedPlatforms(
     parameters.teeSupportedPlatforms.map(platform => web3.utils.utf8ToHex(platform).padEnd(66, "0"))
   );
 
-  // add supported operation types
-  await teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(
-    0, // system extension id
-    teePaymentsList.map(teePayments => teePayments.address)
+  // add system supported key types and signing algorithms
+  await teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(
+    parameters.teeSupportedKeyTypesWithSigningAlgos.map(teeKeyConfig => web3.utils.utf8ToHex(teeKeyConfig.keyType).padEnd(66, "0")),
+    parameters.teeSupportedKeyTypesWithSigningAlgos.map(teeKeyConfig => teeKeyConfig.signingAlgos.map(alg => web3.utils.utf8ToHex(alg).padEnd(66, "0"))),
   );
 
-  // register system instruction initiators
-  await teeExtensionRegistry.registerSystemInstructionInitiators([
+  // add system extension supported key types
+  await teeExtensionRegistry.addSupportedKeyTypes(
+    0, // system extension id
+    parameters.teePaymentConfigurations.map(teePaymentConfig => web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0")),
+  );
+
+  // register system instructions senders
+  await teeExtensionRegistry.registerSystemInstructionsSenders([
     teeReplication.address,
     teeVerification.address,
     teeWalletBackupManager.address,

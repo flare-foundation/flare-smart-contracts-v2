@@ -492,6 +492,11 @@ export interface ChainParameters {
     teeSupportedPlatforms: string[];
 
     /**
+     * List of supported TEE key types and signing algorithms
+     */
+    teeSupportedKeyTypesWithSigningAlgos: TeeKeyTypeWithSigningAlgos[];
+
+    /**
      * The default fee for TEE operations. In Wei.
      */
     teeDefaultFeeWei: string;
@@ -746,11 +751,28 @@ export interface FdcInflationConfiguration {
     mode: integer;
 }
 
+export interface TeeKeyTypeWithSigningAlgos {
+    /**
+     * Key type - e.g. EVM, XRP,...
+     */
+    keyType: string;
+
+    /**
+     * Supported signing algorithms for the key type - e.g. keccak256-secp256k1-ecdsa, sha512half-secp256k1-ecdsa,...
+     */
+    signingAlgos: string[];
+}
+
 export interface TeePaymentConfiguration {
     /**
-     * Payment operation type - XRP, BTC, DOGE,...
+     * Payment operation type - F_XRP, F_BTC, F_DOGE, F_EVM,...
      */
     opType: string;
+
+    /**
+     * Key type - XRP, BTC, DOGE, EVM,...
+     */
+    keyType: string;
 
     /**
      * Source ids.

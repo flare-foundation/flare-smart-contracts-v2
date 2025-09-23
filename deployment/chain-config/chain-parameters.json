@@ -284,6 +284,27 @@
             ],
             "type": "object"
         },
+        "TeeKeyTypeWithSigningAlgos": {
+            "additionalProperties": false,
+            "properties": {
+                "keyType": {
+                    "description": "Key type - e.g. EVM, XRP,...",
+                    "type": "string"
+                },
+                "signingAlgos": {
+                    "description": "Supported signing algorithms for the key type - e.g. keccak256-secp256k1-ecdsa, sha512half-secp256k1-ecdsa,...",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "keyType",
+                "signingAlgos"
+            ],
+            "type": "object"
+        },
         "TeeOperationFee": {
             "additionalProperties": false,
             "properties": {
@@ -310,6 +331,10 @@
         "TeePaymentConfiguration": {
             "additionalProperties": false,
             "properties": {
+                "keyType": {
+                    "description": "Key type - XRP, BTC, DOGE, EVM,...",
+                    "type": "string"
+                },
                 "maxBatchDurationSeconds": {
                     "description": "Max batch duration in seconds.",
                     "type": "integer"
@@ -319,7 +344,7 @@
                     "type": "integer"
                 },
                 "opType": {
-                    "description": "Payment operation type - XRP, BTC, DOGE,...",
+                    "description": "Payment operation type - F_XRP, F_BTC, F_DOGE, F_EVM,...",
                     "type": "string"
                 },
                 "sourceIds": {
@@ -331,6 +356,7 @@
                 }
             },
             "required": [
+                "keyType",
                 "maxBatchDurationSeconds",
                 "maxBatchSize",
                 "opType",
@@ -752,6 +778,13 @@
             "description": "The signing policy validity duration, in reward epochs (e.g. 10).\nUsed when extending availability or putting tee machine into production:\n- in case of registration, the check is done for the initial signing policy,\n- in other cases, the check is done for the last confirmed signing policy.",
             "type": "integer"
         },
+        "teeSupportedKeyTypesWithSigningAlgos": {
+            "description": "List of supported TEE key types and signing algorithms",
+            "items": {
+                "$ref": "#/definitions/TeeKeyTypeWithSigningAlgos"
+            },
+            "type": "array"
+        },
         "teeSupportedPlatforms": {
             "description": "List of supported TEE platforms ()",
             "items": {
@@ -884,6 +917,7 @@
         "teePauseBeforeUpgradeMinDurationSeconds",
         "teePaymentConfigurations",
         "teeSigningPolicyValidityDurationInRewardEpochs",
+        "teeSupportedKeyTypesWithSigningAlgos",
         "teeSupportedPlatforms",
         "testDeployment",
         "thresholdConditionBIPS",

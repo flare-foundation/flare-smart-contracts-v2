@@ -211,6 +211,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     const TEE_SIGNING_ALGOS = [[web3.utils.utf8ToHex("sha512half-secp256k1-ecdsa").padEnd(66, "0")], [web3.utils.utf8ToHex("keccak256-secp256k1-ecdsa").padEnd(66, "0")]];
     const TEE_OWNERS = [accounts[101], accounts[102]];
     const TEE_IDS = [accounts[20], accounts[21]];
+    let [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[20].privateKey.slice(2));
+    let [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[21].privateKey.slice(2));
+    const TEE_PUBLIC_KEYS = [{ x: x1, y: y1 }, { x: x2, y: y2 }];
     const TEE_PROXY_IDS = [accounts[22], accounts[23]];
     const TEE_URLS = ["127.0.0.1:1234", "127.0.0.1:1235"];
     const TEE_WALLET_OWNERS = [accounts[103], accounts[104]];
@@ -312,8 +315,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     };
     let challenges: string[] = [];
 
-    let [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[10].privateKey.slice(2));
-    let [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[11].privateKey.slice(2));
+    [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[10].privateKey.slice(2));
+    [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[11].privateKey.slice(2));
     const adminsPublicKeys1 = [{ x: x1, y: y1 }, { x: x2, y: y2 }];
     [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[12].privateKey.slice(2));
     [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[13].privateKey.slice(2));
@@ -1384,11 +1387,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     it("Should register new TEE machines", async () => {
         const teeAttestationStruct = getStruct("TeeVerificationStructs", "teeAttestationStruct");
 
-        assert(TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PROXY_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
+        assert(TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PUBLIC_KEYS.length && TEE_URLS.length === TEE_PROXY_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
         for (let i = 0; i < TEE_URLS.length; i++) {
             const tx = await teeMachineRegistry.register(
                 0,
-                TEE_IDS[i],
+                TEE_PUBLIC_KEYS[i],
                 TEE_PROXY_IDS[i],
                 TEE_URLS[i],
                 TEE_CODE_HASH,

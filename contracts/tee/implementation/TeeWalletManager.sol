@@ -10,6 +10,7 @@ import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
+import { PublicKeyUtils } from "../../utils/lib/PublicKeyUtils.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
@@ -29,7 +30,6 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         mapping(address cosigner => bool) cosignerConfirmations;
     }
 
-    uint256 constant private P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
     bytes32 public constant WALLET_OP_TYPE = bytes32("F_WALLET");
     bytes32 public constant SET_PAUSING_ADDRESSES = bytes32("SET_PAUSING_ADDRESSES");
     bytes32 public constant RESUME = bytes32("RESUME");
@@ -110,7 +110,7 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         for (uint256 i = 0; i < _adminsPublicKeys.length; i++) {
             PublicKey calldata pk = _adminsPublicKeys[i];
             // check public key validity
-            _checkPublicKeyValidity(pk);
+            require(PublicKeyUtils.isPublicKeyValid(pk), InvalidPublicKey(pk));
             // check for duplicates
             for (uint256 j = 0; j < i; j++) {
                 require(_adminsPublicKeys[j].x != pk.x || _adminsPublicKeys[j].y != pk.y,
@@ -140,7 +140,7 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         TeeWalletState storage wallet = wallets[_walletId];
         _checkWalletStatus(wallet.status, WalletStatus.CREATED);
         for (uint256 i = 0; i < wallet.adminsPublicKeys.length; i++) {
-            address adminAddress = _getAddress(wallet.adminsPublicKeys[i]);
+            address adminAddress = PublicKeyUtils.getAddress(wallet.adminsPublicKeys[i]);
             if (adminAddress == msg.sender) {
                 wallet.adminConfirmations[msg.sender] = true;
                 emit WalletAdminConfirmed(_walletId, msg.sender);
@@ -208,8 +208,8 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         _checkWalletStatus(wallet.status, WalletStatus.CREATED);
         require(wallet.adminsPublicKeys.length > 0, AdminsNotSet());
         for (uint256 i = 0; i < wallet.adminsPublicKeys.length; i++) {
-            require(wallet.adminConfirmations[_getAddress(wallet.adminsPublicKeys[i])],
-                NotAllAdminsConfirmed(_getAddress(wallet.adminsPublicKeys[i])));
+            address adminAddress = PublicKeyUtils.getAddress(wallet.adminsPublicKeys[i]);
+            require(wallet.adminConfirmations[adminAddress], NotAllAdminsConfirmed(adminAddress));
         }
         for (uint256 i = 0; i < wallet.cosigners.length; i++) {
             require(wallet.cosignerConfirmations[wallet.cosigners[i]], NotAllCosignersConfirmed(wallet.cosigners[i]));
@@ -444,29 +444,14 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         TeeWalletState storage wallet = wallets[_walletId];
         _admins = new address[](wallet.adminsPublicKeys.length);
         for (uint256 i = 0; i < wallet.adminsPublicKeys.length; i++) {
-            _admins[i] = _getAddress(wallet.adminsPublicKeys[i]);
+            _admins[i] = PublicKeyUtils.getAddress(wallet.adminsPublicKeys[i]);
         }
         _adminsThreshold = wallet.adminsThreshold;
-    }
-
-    function _getAddress(PublicKey storage _pk) internal view returns (address) {
-        uint256[2] memory publicKeyPair = [uint256(_pk.x), uint256(_pk.y)];
-        bytes32 hash = keccak256(abi.encodePacked(publicKeyPair));
-        return address(uint160(uint256(hash)));
     }
 
     function _checkWalletStatus(WalletStatus _actualStatus, WalletStatus _expectedStatus)
         internal pure
     {
         require(_actualStatus == _expectedStatus, InvalidWalletStatus());
-    }
-
-    function _checkPublicKeyValidity(PublicKey calldata _pk) internal pure {
-        uint256 x = uint256(_pk.x);
-        uint256 y = uint256(_pk.y);
-        require(
-            x < P && x > 0 && y < P && y > 0 && mulmod(y, y, P) == addmod(mulmod(mulmod(x, x, P), x, P), 7, P),
-            InvalidPublicKey(_pk)
-        );
     }
 }

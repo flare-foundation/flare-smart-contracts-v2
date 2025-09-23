@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
+import { PublicKey } from "../IPublicKey.sol";
 import { ITeeAvailabilityCheck } from "../ftdc/ITeeAvailabilityCheck.sol";
 
 /**
@@ -58,7 +59,7 @@ interface ITeeMachineRegistry {
 
     error OnlyTeeReplicationContract();
     error OwnerNotAllowed();
-    error InvalidTeeId();
+    error InvalidTeePublicKey();
     error InvalidTeeProxyId();
     error InvalidUrl();
     error AlreadyRegistered();
@@ -82,16 +83,16 @@ interface ITeeMachineRegistry {
      * Register a new TEE machine. It also triggers availability check.
      * Emits a TeeMachineRegistered event.
      * @param _extensionId The id of the extension.
-     * @param _teeId The TEE machine id.
+     * @param _teePublicKey The TEE machine public key.
      * @param _teeProxyId The TEE proxy id.
      * @param _url The TEE machine URL.
      * @param _codeHash The TEE machine code hash.
      * @param _platform The TEE machine platform.
      * Can only be called by an allowlisted TEE machine owner.
      */
-    function register(
+function register(
         uint256 _extensionId,
-        address _teeId,
+        PublicKey calldata _teePublicKey,
         address _teeProxyId,
         string calldata _url,
         bytes32 _codeHash,
@@ -250,6 +251,15 @@ interface ITeeMachineRegistry {
     function getExtensionId(address _teeId)
         external view
         returns (uint256);
+
+    /**
+     * Get the public key for a TEE machine.
+     * @param _teeId The TEE machine id.
+     * @return The public key.
+     */
+    function getPublicKey(address _teeId)
+        external view
+        returns (PublicKey memory);
 
     /**
      * Get the last status change timestamp for a TEE machine.

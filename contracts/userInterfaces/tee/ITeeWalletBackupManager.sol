@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
+import { PublicKey } from "../IPublicKey.sol";
+
 /**
  * TeeWalletBackupManager interface.
  */
 interface ITeeWalletBackupManager {
 
     struct KeyDataProviderRestore {
-        address teeId;
+        PublicKey teePublicKey;
         BackupId backupId;
         string backupUrl;
         uint256 nonce;
@@ -41,14 +43,11 @@ interface ITeeWalletBackupManager {
      * @param _teeId The tee id on which the wallet key will be restored.
      * @param _backupId The backup id (tee id, wallet id, key id, operation type, public key and reward epoch id).
      * @param _backupUrl The URL of a backup package.
-     * @param _test If true, the restore will be done using nonce = 0 to prevent confirmation on-chain.
-     * Once the key is restored and proof of possession is generated, the key will be immediately deleted.
      */
     function backupRestore(
         address _teeId,
         BackupId calldata _backupId,
-        string calldata _backupUrl,
-        bool _test
+        string calldata _backupUrl
     )
         external payable;
 }
