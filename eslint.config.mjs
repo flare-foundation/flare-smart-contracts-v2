@@ -13,8 +13,9 @@ export default defineConfig([
     {
         ignores: [
             'eslint.config.mjs',
-            'scripts/**/*',
             '.solcover.js',
+            'scripts/forge-lcov-prune.js',
+            'scripts/slither-parse.js',
         ],
     },
     {
@@ -82,6 +83,7 @@ export default defineConfig([
             '@typescript-eslint/no-unused-vars': 'off',
             // Disables the rule that disallows unused expressions.
             '@typescript-eslint/no-unused-expressions': 'off',
+            '@typescript-eslint/no-unsafe-assignment': 'off',
         },
     },
 ]);

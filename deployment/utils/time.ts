@@ -1,7 +1,7 @@
 
-export async function sleepFor(ms: number) {
-  await new Promise((resolve: any) => {
-    setTimeout(() => resolve(), ms);
+export async function sleepFor(ms: number): Promise<void> {
+  await new Promise<void>(resolve => {
+    setTimeout(resolve, ms);
   });
 }
 

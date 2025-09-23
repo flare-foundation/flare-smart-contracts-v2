@@ -34,7 +34,7 @@ export async function generateSignatures(
   count: number,
   indices?: number[]
 ): Promise<IECDSASignatureWithIndex[]> {
-  let signatures: IECDSASignatureWithIndex[] = [];
+  const signatures: IECDSASignatureWithIndex[] = [];
   if (indices) {
     for (const i of indices) {
       const signature = await ECDSASignatureWithIndex.signMessageHash(messageHash, privateKeys[i], i);

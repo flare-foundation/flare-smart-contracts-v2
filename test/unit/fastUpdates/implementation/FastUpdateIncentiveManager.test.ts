@@ -1,17 +1,18 @@
 import { expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import { Contracts } from '../../../../deployment/scripts/Contracts'
-import { MockContractContract, MockContractInstance } from '../../../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract'
-import type {
+import {
     FastUpdateIncentiveManagerContract,
     FastUpdateIncentiveManagerInstance,
-} from '../../../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdateIncentiveManager'
+    MockContractContract,
+    MockContractInstance
+} from '../../../../typechain-truffle';
 import { getTestFile } from '../../../utils/constants'
 import { encodeContractNames } from '../../../utils/test-helpers'
 import { RangeOrSampleFPA } from "../../../utils/fixed-point-arithmetic";
 import { FtsoConfigurations } from '../../../../scripts/libs/protocol/FtsoConfigurations'
 
-const FastUpdateIncentiveManager = artifacts.require('FastUpdateIncentiveManager') as FastUpdateIncentiveManagerContract
-const MockContract = artifacts.require('MockContract') as MockContractContract
+const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract = artifacts.require('FastUpdateIncentiveManager');
+const MockContract: MockContractContract = artifacts.require('MockContract');
 
 const SAMPLE_SIZE = 1
 const RANGE = 2**-13
@@ -202,9 +203,10 @@ contract(
                 from: accounts[1],
                 value: '100000',
             })
-            let tr = await web3.eth.getTransaction(result.tx);
+            const tr = await web3.eth.getTransaction(result.tx);
             const newBalance = await web3.eth.getBalance(accounts[1]);
-            expect(result.receipt.gasUsed * +tr.gasPrice).to.equal(BigInt(oldBalance) - (BigInt(newBalance)));
+            const gasUsed = (result.receipt as { gasUsed: number }).gasUsed;
+            expect(gasUsed * +tr.gasPrice).to.equal(BigInt(oldBalance) - (BigInt(newBalance)));
 
             const newRange = (
                 await fastUpdateIncentiveManager.getRange()
@@ -236,9 +238,10 @@ contract(
                 from: accounts[1],
                 value: '100000',
             })
-            let tr = await web3.eth.getTransaction(result.tx);
+            const tr = await web3.eth.getTransaction(result.tx);
             const newBalance = await web3.eth.getBalance(accounts[1]);
-            expect(result.receipt.gasUsed * +tr.gasPrice).to.equal(BigInt(oldBalance) - (BigInt(newBalance)));
+            (result.receipt as { gasUsed: number }).gasUsed
+            expect((result.receipt as { gasUsed: number }).gasUsed * +tr.gasPrice).to.equal(BigInt(oldBalance) - (BigInt(newBalance)));
 
             const newRange = (
                 await fastUpdateIncentiveManager.getRange()
@@ -270,9 +273,9 @@ contract(
                 from: accounts[1],
                 value: '100000',
             })
-            let tr = await web3.eth.getTransaction(result.tx);
+            const tr = await web3.eth.getTransaction(result.tx);
             const newBalance = await web3.eth.getBalance(accounts[1]);
-            expect(result.receipt.gasUsed * +tr.gasPrice).to.equal(BigInt(oldBalance) - (BigInt(newBalance)));
+            expect((result.receipt as { gasUsed: number }).gasUsed * +tr.gasPrice).to.equal(BigInt(oldBalance) - (BigInt(newBalance)));
 
             const newRange = (
                 await fastUpdateIncentiveManager.getRange()
@@ -427,8 +430,8 @@ contract(
             // set daily authorized inflation
             await fastUpdateIncentiveManager.setDailyAuthorizedInflation(5000, { from: inflation});
 
-            let block = await web3.eth.getBlockNumber();
-            let time = (await web3.eth.getBlock(block)).timestamp as string;
+            const block = await web3.eth.getBlockNumber();
+            const time = (await web3.eth.getBlock(block)).timestamp as string;
             // set daily authorized inflation
             await fastUpdateIncentiveManager.receiveInflation( { from: inflation, value: "5000" });
 
@@ -438,13 +441,13 @@ contract(
             // totalRewardAmount = 5000 * DAY / (2*DAY - DAY) = 5000
             expect(await web3.eth.getBalance(fastUpdateIncentiveManager.address)).to.equal("5000");
 
-            let trigger = await fastUpdateIncentiveManager.triggerRewardEpochSwitchover(2, 3 * DAY + time, DAY, { from: flareSystemManager });
+            const trigger = await fastUpdateIncentiveManager.triggerRewardEpochSwitchover(2, 3 * DAY + time, DAY, { from: flareSystemManager });
             expectEvent(trigger, "InflationRewardsOffered", { rewardEpochId: "3", amount: "5000"})
             expect(await web3.eth.getBalance(fastUpdateIncentiveManager.address)).to.equal("0");
             expect(await web3.eth.getBalance(rewardManagerMock.address)).to.equal("5000");
-            console.log("Gas used:", trigger.receipt?.gasUsed?.toString());
+            console.log("Gas used:", (trigger.receipt as { gasUsed: number }).gasUsed.toString());
 
-            let tokenPoolSupplyData = await fastUpdateIncentiveManager.getTokenPoolSupplyData();
+            const tokenPoolSupplyData = await fastUpdateIncentiveManager.getTokenPoolSupplyData();
             expect(tokenPoolSupplyData[0]).to.equal("0");
             expect(tokenPoolSupplyData[1]).to.equal("5000");
             expect(tokenPoolSupplyData[2]).to.equal("5000");
@@ -478,7 +481,7 @@ contract(
         })
 
         it("should revert when setting sample increase limit or range increase price if value too big", async() => {
-            let value = (2 ** 255).toString(16);
+            const value = (2 ** 255).toString(16);
 
             await expectRevert(fastUpdateIncentiveManager.setSampleIncreaseLimit(value, { from: governance }), "Sample increase limit too large");
 
@@ -486,7 +489,7 @@ contract(
         });
 
         it("should revert when setting sample size, range etc. if value too big/small", async() => {
-            let value = (2 ** 255).toString(16);
+            const value = (2 ** 255).toString(16);
 
             await expectRevert(fastUpdateIncentiveManager.setIncentiveParameters(value, RangeOrSampleFPA(RANGE), SAMPLE_SIZE_INCREASE_PRICE, DURATION, { from: governance }), "Sample size too large");
 

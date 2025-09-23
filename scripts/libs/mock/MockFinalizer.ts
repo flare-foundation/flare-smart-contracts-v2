@@ -63,21 +63,21 @@ export class MockFinalizer {
       this.logger?.info(`No signing policies yet`);
       return undefined;
     }
-    let minStartVotingEpochId = this.signingPolicies.get(this.minRewardEpochSigningPolicy)!.startVotingRoundId;
+    const minStartVotingEpochId = this.signingPolicies.get(this.minRewardEpochSigningPolicy)!.startVotingRoundId;
     if (votingRoundId < minStartVotingEpochId) {
       this.logger.info(`Below`);
       return undefined;
     }
-    let maxStartVotingEpochId = this.signingPolicies.get(this.maxRewardEpochSigningPolicy)!.startVotingRoundId;
+    const maxStartVotingEpochId = this.signingPolicies.get(this.maxRewardEpochSigningPolicy)!.startVotingRoundId;
     if (votingRoundId > maxStartVotingEpochId) {
       const expectedRewardEpoch = this.epochSettings.expectedRewardEpochForVotingRoundId(votingRoundId);
-      if (expectedRewardEpoch == this.maxRewardEpochSigningPolicy) {
+      if (expectedRewardEpoch === this.maxRewardEpochSigningPolicy) {
         return {
           signingPolicy: this.signingPolicies.get(this.maxRewardEpochSigningPolicy)!,
           threshold: this.signingPolicies.get(this.maxRewardEpochSigningPolicy)!.threshold
         }
       }
-      if (expectedRewardEpoch == this.maxRewardEpochSigningPolicy + 1) {
+      if (expectedRewardEpoch === this.maxRewardEpochSigningPolicy + 1) {
         return {
           signingPolicy: this.signingPolicies.get(this.maxRewardEpochSigningPolicy)!,
           threshold: Math.floor(this.signingPolicies.get(this.maxRewardEpochSigningPolicy)!.threshold * THRESHOLD_INCREASE_BIPS / 10000)
@@ -106,7 +106,7 @@ export class MockFinalizer {
     let result = "Processed:";
     for (const [votingRoundId, protocolIdToProcessed] of this.processed.entries()) {
       if (votingRoundId > lastVotingRoundId) {
-        let processedProtocolIds: number[] = []
+        const processedProtocolIds: number[] = []
         for (const [protocolId, processed] of protocolIdToProcessed.entries()) {
           if (processed) {
             processedProtocolIds.push(protocolId);
@@ -136,7 +136,7 @@ export class MockFinalizer {
       const fullData = signingPolicy + fullMessage + signatures;
 
       try {
-        const receipt = await web3.eth.sendTransaction({
+        const _receipt = await web3.eth.sendTransaction({
           from: this.web3.eth.accounts.privateKeyToAccount(this.privateKey).address,
           to: this.relayContractAddress,
           data: RELAY_SELECTOR + fullData,
@@ -198,8 +198,8 @@ export class MockFinalizer {
           this.signingPolicies.set(signingPolicy.rewardEpochId, signingPolicy);
           this.maxRewardEpochSigningPolicy = signingPolicy.rewardEpochId;
 
-          let voterToIndex = new Map<string, number>();
-          let voterToWeight = new Map<string, number>();
+          const voterToIndex = new Map<string, number>();
+          const voterToWeight = new Map<string, number>();
           for (let i = 0; i < signingPolicy.voters.length; i++) {
             voterToIndex.set(signingPolicy.voters[i], i);
             voterToWeight.set(signingPolicy.voters[i], signingPolicy.weights[i]);
@@ -222,10 +222,10 @@ export class MockFinalizer {
         this.logger.info(`No signing policy for votingRoundId: ${votingRoundId}. Expected reward epoch: ${this.epochSettings.expectedRewardEpochForVotingRoundId(votingRoundId)}`);
         return;
       }
-      const voterToIndexMap = this.voterToIndexMaps.get(matchingSigningPolicy!.signingPolicy.rewardEpochId!);
+      const voterToIndexMap = this.voterToIndexMaps.get(matchingSigningPolicy.signingPolicy.rewardEpochId);
       const augPayload = SignaturePayload.augment(payload, voterToIndexMap!);
       if (augPayload.signer === undefined) {
-        this.logger.info(`Signer not in the signing policy for rewardEpochId: ${matchingSigningPolicy!.signingPolicy.rewardEpochId!}.`);
+        this.logger.info(`Signer not in the signing policy for rewardEpochId: ${matchingSigningPolicy.signingPolicy.rewardEpochId}.`);
         return;
       }
       const messageHash = augPayload.messageHash;
@@ -244,12 +244,12 @@ export class MockFinalizer {
         this.results.get(votingRoundId)!.get(protocolId)!.set(messageHash, []);
         this.weights.get(votingRoundId)!.get(protocolId)!.set(messageHash, 0);
       }
-      let sortedList = this.results.get(votingRoundId)!.get(protocolId)!.get(messageHash)!;
+      const sortedList = this.results.get(votingRoundId)!.get(protocolId)!.get(messageHash)!;
       const inserted = SignaturePayload.insertInSigningPolicySortedList(sortedList, augPayload);
 
       if (inserted) {
         // check if threshold reached
-        const voterToWeightMap = this.voterToWeightMaps.get(matchingSigningPolicy!.signingPolicy.rewardEpochId!);
+        const voterToWeightMap = this.voterToWeightMaps.get(matchingSigningPolicy.signingPolicy.rewardEpochId);
         let totalWeight = 0;
         for (const payload of sortedList) {
           totalWeight += voterToWeightMap!.get(payload.signer!)!;
@@ -263,7 +263,7 @@ export class MockFinalizer {
           if (!this.thresholdReached.get(votingRoundId)!.has(protocolId)) {
             this.thresholdReached.get(votingRoundId)!.set(protocolId, new Map<string, number>());
           }
-          if (this.thresholdReached!.get(votingRoundId)!.get(protocolId)!.has(messageHash)) {
+          if (this.thresholdReached.get(votingRoundId)!.get(protocolId)!.has(messageHash)) {
             // no need for entering the queue again
             return;
           }

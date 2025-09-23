@@ -91,7 +91,7 @@ export namespace ECDSASignatureWithIndex {
     if(encodedInternal.length !== 4 + count * 134) {
       throw Error(`Invalid encoded signature list length: ${encodedInternal.length}`);
     }
-    let signatures: IECDSASignatureWithIndex[] = [];
+    const signatures: IECDSASignatureWithIndex[] = [];
     for (let i = 0; i < count; i++) {
       const signature = decode("0x" + encodedInternal.slice(4 + i * 134, 4 + (i + 1) * 134));
       signatures.push(signature);
@@ -114,7 +114,7 @@ export namespace ECDSASignatureWithIndex {
     if (!/^0x[0-9a-f]{64}$/i.test(messageHash)) {
       throw Error(`Invalid message hash format: ${messageHash}`);
     }
-    let signatureObject = web3.eth.accounts.sign(messageHash, privateKey);
+    const signatureObject = web3.eth.accounts.sign(messageHash, privateKey);
     return {
       v: parseInt(signatureObject.v.slice(2), 16),
       r: signatureObject.r,

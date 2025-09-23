@@ -82,7 +82,7 @@ export namespace SignaturePayload {
     const strippedCalldata = "0x" + calldataInternal.slice(8);
     const signatureRecords = PayloadMessage.decode(strippedCalldata);
     const result: IPayloadMessage<ISignaturePayload>[] = [];
-    for (let record of signatureRecords) {
+    for (const record of signatureRecords) {
       result.push({
         protocolId: record.protocolId,
         votingRoundId: record.votingRoundId,
@@ -116,7 +116,7 @@ export namespace SignaturePayload {
     }
     let totalWeight = 0;
     let nextAllowedSignerIndex = 0;
-    for (let signature of signatures) {
+    for (const signature of signatures) {
       const signer = web3.eth.accounts.recover(
         messageHash,
         "0x" + signature.v.toString(16),
@@ -162,7 +162,7 @@ export namespace SignaturePayload {
     const message: IProtocolMessageMerkleRoot = signaturePayloads[0].payload.message;
     const messageHash = web3.utils.keccak256(ProtocolMessageMerkleRoot.encode(message));
     const signatures: IECDSASignature[] = [];
-    for (let payload of signaturePayloads) {
+    for (const payload of signaturePayloads) {
       if (!ProtocolMessageMerkleRoot.equals(payload.payload.message, message)) {
         throw Error(`Invalid payload message`);
       }
@@ -247,7 +247,7 @@ export namespace SignaturePayload {
     let lastIndex = -1;
     for (const payload of signaturePayloads) {
       if (payload.index === undefined) {
-        throw new Error(`Payload ${payload} does not have index.`)
+        throw new Error(`Payload ${JSON.stringify(payload)} does not have index.`)
       }
       if (payload.index <= lastIndex) {
         throw new Error(`Payloads are not strictly monotonic sorted by index.`)
@@ -256,7 +256,7 @@ export namespace SignaturePayload {
         r: payload.signature.r,
         s: payload.signature.s,
         v: payload.signature.v,
-        index: payload.index!
+        index: payload.index
       } as IECDSASignatureWithIndex;
       signatures += ECDSASignatureWithIndex.encode(signatureWithIndex).slice(2);
       lastIndex = payload.index;
@@ -286,7 +286,7 @@ export namespace SignaturePayload {
       return [];
     }
 
-    for (let payload of signaturePayloads) {
+    for (const payload of signaturePayloads) {
       if (!ProtocolMessageMerkleRoot.equals(payload.payload.message, signaturePayloads[0].payload.message)) {
         throw Error(`Invalid payload message`);
       }
@@ -333,7 +333,7 @@ export namespace SignaturePayload {
   ): Map<number, Map<number, ISignaturePayload[]>> {
     // votingRoundId => protocolId => SignaturePayload[]
     const result = new Map<number, Map<number, ISignaturePayload[]>>();
-    for (let payload of signaturePayloads) {
+    for (const payload of signaturePayloads) {
       if (!result.has(payload.message.votingRoundId)) {
         result.set(payload.message.votingRoundId, new Map<number, ISignaturePayload[]>());
       }

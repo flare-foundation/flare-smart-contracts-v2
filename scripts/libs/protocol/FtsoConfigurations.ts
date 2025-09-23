@@ -45,12 +45,12 @@ export namespace FtsoConfigurations {
     if (!/^[0-9a-f]*$/.test(encodedFeedIdsInternal)) {
       throw Error(`Invalid format - not hex string: ${encodedFeedIds}`);
     }
-    if (encodedFeedIdsInternal.length % 42 != 0) {
+    if (encodedFeedIdsInternal.length % 42 !== 0) {
       throw Error(`Invalid format - wrong length: ${encodedFeedIds}`);
     }
     const result: IFeedId[] = [];
     for (let i = 0; i < encodedFeedIdsInternal.length / 42; i++) {
-      let category = parseInt(encodedFeedIdsInternal.slice(i * 42, i * 42 + 2), 16);
+      const category = parseInt(encodedFeedIdsInternal.slice(i * 42, i * 42 + 2), 16);
       if (category < 0 || category >= 2**8) { // can never happen
         throw Error(`Invalid category: ${category}`);
       }
@@ -88,7 +88,7 @@ export namespace FtsoConfigurations {
     if (!/^[0-9a-f]*$/.test(encodedSecondaryBandWidthPPMsInternal)) {
       throw Error(`Invalid format - not hex string: ${encodedSecondaryBandWidthPPMs}`);
     }
-    if (encodedSecondaryBandWidthPPMsInternal.length % 6 != 0) {
+    if (encodedSecondaryBandWidthPPMsInternal.length % 6 !== 0) {
       throw Error(`Invalid format - wrong length: ${encodedSecondaryBandWidthPPMs}`);
     }
     const result: number[] = [];
@@ -134,7 +134,7 @@ export namespace FtsoConfigurations {
     if (!/^[0-9a-f]*$/.test(encodedDecimalsInternal)) {
       throw Error(`Invalid format - not hex string: ${encodedDecimals}`);
     }
-    if (encodedDecimalsInternal.length % 2 != 0) {
+    if (encodedDecimalsInternal.length % 2 !== 0) {
       throw Error(`Invalid format - wrong length: ${encodedDecimals}`);
     }
     const result: number[] = [];

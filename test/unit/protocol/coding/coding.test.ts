@@ -69,11 +69,11 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
   });
 
   it("Should encode and decode signature payloads", async () => {
-    let payloads: IPayloadMessage<string>[] = [];
+    const payloads: IPayloadMessage<string>[] = [];
     const N = 10;
-    let encoded = "0x";    
+    let encoded = "0x";
     for (let i = 0; i < N; i++) {
-      let payload = {
+      const payload = {
         protocolId: i,
         votingRoundId: 10 * i,
         payload: web3.utils.randomHex(2 * (N - i)),

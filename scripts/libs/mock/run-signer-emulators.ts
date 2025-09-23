@@ -9,7 +9,7 @@ const signerEmulationConfig: SignerEmulationConfig = {
   shareOfSignedSubprotocols: 0.8,
 }
 
-const NUMBER_OF_SIGNERS = 4;
+const _NUMBER_OF_SIGNERS = 4;
 const LOGGING_ENABLED = true;
 
 const sem = new SignerEmulatorManager(

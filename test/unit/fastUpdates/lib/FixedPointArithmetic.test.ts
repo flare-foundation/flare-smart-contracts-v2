@@ -2,11 +2,9 @@ import { expect } from 'chai'
 
 import { randomInt } from '../../../utils/sortition'
 import { getTestFile } from '../../../utils/constants'
-import { FixedPointArithmeticMockContract, FixedPointArithmeticMockInstance } from '../../../../typechain-truffle'
+import { FixedPointArithmeticMockInstance } from '../../../../typechain-truffle'
 
-const TestFixedPointArithmetic = artifacts.require(
-    'FixedPointArithmeticMock'
-) as FixedPointArithmeticMockContract
+const TestFixedPointArithmetic = artifacts.require('FixedPointArithmeticMock')
 
 contract(
     `FixedPointArithmetic.sol; ${getTestFile(__filename)}}`,

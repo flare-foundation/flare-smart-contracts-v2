@@ -2,25 +2,32 @@ import fs from "fs";
 import { TLPEvents } from "../../../deployment/utils/indexer/Entity";
 import { FlareSystemsManagerContract, FlareSystemsManagerInstance } from "../../../typechain-truffle";
 import { EpochSettings } from "../../../deployment/utils/EpochSettings";
-import { ISigningPolicy } from "../protocol/SigningPolicy";
+import { ISigningPolicy, SigningPolicyInitializedEvent } from "../protocol/SigningPolicy";
 import { DEPLOY_ADDRESSES_FILE } from "../../../deployment/tasks/run-simulation";
+import type { AbiInput } from "web3-utils";
+import { HardhatNetworkAccountUserConfig } from "hardhat/types";
 
 export const SUBMIT_SIGNATURES_SELECTOR = web3.utils.sha3("submitSignatures()")!.slice(0, 10);
 export const RELAY_SELECTOR = web3.utils.sha3("relay()")!.slice(0, 10);
 export const THRESHOLD_INCREASE_BIPS = 12000;
+
 export function eventSignature(contractName: string, eventName: string): string {
-  const contract = artifacts.require(contractName as any);
-  return Object.entries(contract.events!).find((x: any) => x[1].name === eventName)![0];
+  const contract = (artifacts as unknown as { require(name: string): unknown }).require(contractName) as { events: Record<string, { name: string }> };
+  const eventEntry = Object.entries(contract.events).find(([, value]) => value.name === eventName);
+  if (!eventEntry) throw new Error(`Event ${eventName} not found in contract ${contractName}`);
+  return eventEntry[0];
 }
 
 function prefix0x(hex: string): string {
   return hex.startsWith("0x") ? hex : "0x" + hex;
 }
 
-export function decodeEvent(contractName: string, eventName: string, data: TLPEvents): any {
-  const contract = artifacts.require(contractName as any);
-  const signature = eventSignature(contractName, eventName);
-  let abi = (Object.entries(contract.events!).find((x: any) => x[1].name === eventName)![1]! as any).inputs;
+export function decodeEvent(contractName: string, eventName: string, data: TLPEvents): { [key: string]: string } {
+  const contract = (artifacts as unknown as { require(name: string): unknown }).require(contractName) as { events: Record<string, { name: string }> };
+  const _signature = eventSignature(contractName, eventName);
+  const eventEntry = Object.entries(contract.events).find(([, value]) => value.name === eventName);
+  if (!eventEntry) throw new Error(`Event ${eventName} not found in contract ${contractName}`);
+  const abi = (eventEntry[1] as unknown as { inputs: AbiInput[] }).inputs;
   return web3.eth.abi.decodeLog(
     abi,
     prefix0x(data.data),
@@ -29,7 +36,7 @@ export function decodeEvent(contractName: string, eventName: string, data: TLPEv
 }
 
 export function contractAddress(contractName: string): string {
-  const addresses = JSON.parse(fs.readFileSync(DEPLOY_ADDRESSES_FILE).toString());
+  const addresses = JSON.parse(fs.readFileSync(DEPLOY_ADDRESSES_FILE).toString()) as Record<string, string>;
   return addresses[contractName];
 }
 
@@ -48,9 +55,9 @@ export async function extractEpochSettings(flareSystemsManagerAddress: string): 
   );
 }
 
-const privateKeys = JSON.parse(fs.readFileSync("./deployment/test-1020-accounts.json").toString());
+const privateKeys = JSON.parse(fs.readFileSync("./deployment/test-1020-accounts.json").toString()) as HardhatNetworkAccountUserConfig[];
 const addressMap: Map<string, string> = new Map<string, string>();
-privateKeys.forEach((x: any) => addressMap.set(web3.eth.accounts.privateKeyToAccount(x.privateKey).address.toLowerCase(), x.privateKey));
+privateKeys.forEach(x => addressMap.set(web3.eth.accounts.privateKeyToAccount(x.privateKey).address.toLowerCase(), x.privateKey));
 
 export function privateKeysForAddresses(addresses: string[]): string[] {
   return addresses.map(address => addressMap.get(address.toLowerCase())!);
@@ -64,13 +71,13 @@ export const FIXED_TEST_VOTERS = [
   "0x2E3bfF5d8F20FDb941adC794F9BF3deA0416988f"
 ];
 
-export function eventToSigningPolicy(event: any): ISigningPolicy {
+export function eventToSigningPolicy(event: SigningPolicyInitializedEvent): ISigningPolicy {
   return {
     rewardEpochId: parseInt(event.rewardEpochId),
     startVotingRoundId: parseInt(event.startVotingRoundId),
     threshold: parseInt(event.threshold),
     seed: "0x" + BigInt(event.seed).toString(16).padStart(64, "0").toLowerCase(),
-    voters: event.voters.map((x: any) => x.toLowerCase()),
-    weights: event.weights.map((x: any) => parseInt(x))
+    voters: event.voters.map(x => x.toLowerCase()),
+    weights: event.weights.map(x => parseInt(x))
   } as ISigningPolicy
 }

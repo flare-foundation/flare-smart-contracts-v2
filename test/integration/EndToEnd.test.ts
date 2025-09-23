@@ -9,30 +9,20 @@ import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfiguratio
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { RelayMessage } from '../../scripts/libs/protocol/RelayMessage';
 import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
-import { AddressBinderInstance, EntityManagerInstance, FtsoFeedIdConverterContract, FtsoFeedIdConverterInstance, FtsoFeedPublisherContract, FtsoFeedPublisherInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance } from '../../typechain-truffle';
-import { MockContractContract } from '../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract';
-import { FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
-import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
-import { FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
-import { PollingFoundationContract, PollingFoundationInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingFoundation';
-import { PollingManagementGroupContract, PollingManagementGroupInstance } from '../../typechain-truffle/contracts/governance/implementation/PollingManagementGroup';
-import { CChainStakeContract, CChainStakeInstance } from '../../typechain-truffle/contracts/mock/CChainStake';
-import { GovernanceVotePowerContract } from '../../typechain-truffle/contracts/mock/GovernanceVotePower';
-import { PChainStakeMirrorContract } from '../../typechain-truffle/contracts/mock/PChainStakeMirror';
-import { EntityManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/EntityManager';
-import { FlareSystemsCalculatorContract, FlareSystemsCalculatorInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsCalculator';
-import { FlareSystemsManagerContract, FlareSystemsManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager';
-import { PChainStakeMirrorVerifierContract } from '../../typechain-truffle/contracts/protocol/implementation/PChainStakeMirrorVerifier';
-import { RelayContract, RelayInstance } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
-import { RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
-import { SubmissionContract, SubmissionInstance } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
-import { VoterRegistryContract, VoterRegistryInstance } from '../../typechain-truffle/contracts/protocol/implementation/VoterRegistry';
-import { WNatDelegationFeeContract, WNatDelegationFeeInstance } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
-import { ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance } from '../../typechain-truffle/contracts/staking/implementation/ValidatorRewardOffersManager';
-import { AddressBinderContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressBinder';
-import { CleanupBlockNumberManagerContract, CleanupBlockNumberManagerInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/CleanupBlockNumberManager';
-import { VPContractContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/VPContract';
-import { WNatContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/WNat';
+import {
+    AddressBinderInstance, EntityManagerInstance, FtsoFeedIdConverterContract, FtsoFeedIdConverterInstance, FtsoFeedPublisherContract, FtsoFeedPublisherInstance, FtsoInflationConfigurationsInstance, GovernanceSettingsInstance, GovernanceVotePowerInstance, MockContractInstance, PChainStakeMirrorInstance, PChainStakeMirrorVerifierInstance, RewardManagerContract, WNatInstance,
+    MockContractContract, FtsoFeedDecimalsContract, FtsoFeedDecimalsInstance, FtsoInflationConfigurationsContract,
+    FtsoRewardOffersManagerContract, FtsoRewardOffersManagerInstance, PollingFoundationContract,
+    PollingFoundationInstance, PollingManagementGroupContract, PollingManagementGroupInstance,
+    CChainStakeContract, CChainStakeInstance, GovernanceVotePowerContract, PChainStakeMirrorContract,
+    EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsCalculatorInstance,
+    FlareSystemsManagerContract, FlareSystemsManagerInstance, PChainStakeMirrorVerifierContract,
+    RelayContract, RelayInstance, RewardManagerInstance, SubmissionContract, SubmissionInstance,
+    VoterRegistryContract, VoterRegistryInstance, WNatDelegationFeeContract, WNatDelegationFeeInstance,
+    ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance,
+    AddressBinderContract, CleanupBlockNumberManagerContract, CleanupBlockNumberManagerInstance,
+    WNatContract, VPContractContract
+} from '../../typechain-truffle';
 import { generateSignatures } from '../unit/protocol/coding/coding-helpers';
 import { getTestFile } from "../utils/constants";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
@@ -76,7 +66,7 @@ type PChainStake = {
 }
 
 async function setMockStakingData(verifierMock: MockContractInstance, pChainStakeMirrorVerifierInterface: PChainStakeMirrorVerifierInstance, txId: string, stakingType: number, inputAddress: string, nodeId: string, startTime: BN, endTime: BN, weight: number, stakingProved: boolean = true): Promise<PChainStake> {
-    let data = {
+    const data = {
         txId: txId,
         stakingType: stakingType,
         inputAddress: inputAddress,
@@ -86,7 +76,9 @@ async function setMockStakingData(verifierMock: MockContractInstance, pChainStak
         weight: weight
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const verifyPChainStakingMethod = pChainStakeMirrorVerifierInterface.contract.methods.verifyStake(data, []).encodeABI();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     await verifierMock.givenCalldataReturnBool(verifyPChainStakingMethod, stakingProved);
     return data;
 }
@@ -95,7 +87,7 @@ function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {
     return SigningPolicy.hash(signingPolicy);
 }
 
-contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
+contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
     const FTSO_PROTOCOL_ID = 100;
     const REWARD_MANAGER_ID = 0;
@@ -132,16 +124,25 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     let initialSigningPolicy: ISigningPolicy;
     let newSigningPolicy: ISigningPolicy;
 
-    let registeredPAddresses: string[] = [];
-    let registeredCAddresses: string[] = [];
+    const registeredPAddresses: string[] = [];
+    const registeredCAddresses: string[] = [];
     let now: BN;
     let nodeIds: string[] = [];
     let weightsGwei: number[] = [];
     let stakeIds: string[] = [];
-    let rewardClaim: any;
-    let feed: any;
-
-    let tempSigningPolicyEncoded: string;
+    let rewardClaim: {
+        rewardEpochId: number;
+        beneficiary: string;
+        amount: number;
+        claimType: number;
+    };
+    let feed: {
+        votingRoundId: number;
+        id: string;
+        value: number;
+        turnoutBIPS: number;
+        decimals: number;
+    };
 
     const RANDOM_ROOT = web3.utils.keccak256("root");
     const RANDOM_ROOT2 = web3.utils.keccak256("root2");
@@ -178,7 +179,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         governanceSettings = await testDeployGovernanceSettings(accounts[0], 3600, [accounts[0]]);
         wNat = await WNat.new(accounts[0], "Wrapped NAT", "WNAT");
         await wNat.switchToProductionMode({ from: accounts[0] });
-        let switchToProdModeTime = await time.latest();
+        const switchToProdModeTime = await time.latest();
         const vpContract = await VPContract.new(wNat.address, false);
         await wNat.setWriteVpContract(vpContract.address);
         await wNat.setReadVpContract(vpContract.address);
@@ -206,7 +207,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const initialThreshold = 65500 / 2;
         const initialVoters = accounts.slice(0, INITIAL_NUMBER_OF_VOTERS);
         const initialSigningPolicyVoters = accounts.slice(INITIAL_NUMBER_OF_VOTERS, INITIAL_NUMBER_OF_VOTERS + INITIAL_NUMBER_OF_VOTERS);
-        const initialWeights = Array(100).fill(655);
+        const initialWeights: number[] = Array(100).fill(655);
 
         entityManager = await EntityManager.new(governanceSettings.address, accounts[0], 4);
         await entityManager.setNodePossessionVerifier(verifierMock.address); // mock verifier
@@ -285,7 +286,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             thresholdIncreaseBIPS: 12000,
             messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
             feeCollectionAddress: constants.ZERO_ADDRESS,
-            feeConfigs: []        
+            feeConfigs: []
         }
 
         relay = await Relay.new(
@@ -306,7 +307,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
             thresholdIncreaseBIPS: 12000,
             messageFinalizationWindowInRewardEpochs: MESSAGE_FINALIZATION_WINDOW_IN_REWARD_EPOCHS,
             feeCollectionAddress: constants.ZERO_ADDRESS,
-            feeConfigs: []        
+            feeConfigs: []
         }
 
         relay2 = await Relay.new(
@@ -485,12 +486,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should register addresses", async () => {
         for (let i = 0; i < 4; i++) {
-            let prvKey = privateKeys[i].privateKey.slice(2);
-            let prvkeyBuffer = Buffer.from(prvKey, 'hex');
-            let [x, y] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
-            let pubKey = "0x" + util.encodePublicKey(x, y, false).toString('hex');
-            let pAddr = "0x" + util.publicKeyToAvalancheAddress(x, y).toString('hex');
-            let cAddr = toChecksumAddress("0x" + util.publicKeyToEthereumAddress(x, y).toString('hex'));
+            const prvKey = privateKeys[i].privateKey.slice(2);
+            const prvkeyBuffer = Buffer.from(prvKey, 'hex');
+            const [x, y] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
+            const pubKey = "0x" + util.encodePublicKey(x, y, false).toString('hex');
+            const pAddr = "0x" + util.publicKeyToAvalancheAddress(x, y).toString('hex');
+            const cAddr = toChecksumAddress("0x" + util.publicKeyToEthereumAddress(x, y).toString('hex'));
             await addressBinder.registerAddresses(pubKey, pAddr, cAddr);
             registeredPAddresses.push(pAddr);
             registeredCAddresses.push(cAddr)
@@ -513,7 +514,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
     it("Should wrap some funds", async () => {
         for (let i = 0; i < 4; i++) {
-            await wNat.deposit({ value: weightsGwei[i] * GWEI, from: accounts[50 + i] });
+            await wNat.deposit({ value: toBN(weightsGwei[i] * GWEI), from: accounts[50 + i] });
         }
     });
 
@@ -614,7 +615,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
                 rewardEpochId: toBN(1), startVotingRoundId: toBN(startVotingRoundId), voters: newSigningPolicy.voters,
                 seed: toBN(web3.utils.keccak256(RANDOM_ROOT)), threshold: toBN(32767), weights: newSigningPolicy.weights.map(x => toBN(x))
             });
-        const { _lastInitializedRewardEpoch, _startingVotingRoundIdForLastInitializedRewardEpoch } = (await relay.lastInitializedRewardEpochData()) as any;
+        const result = await relay.lastInitializedRewardEpochData();
+        const _lastInitializedRewardEpoch = result[0];
+        const _startingVotingRoundIdForLastInitializedRewardEpoch = result[1];
         expect(_lastInitializedRewardEpoch.toString()).to.equal("1");
         expect(_startingVotingRoundIdForLastInitializedRewardEpoch.toString()).to.equal(startVotingRoundId.toString());
         expect(await relay.toSigningPolicyHash(1)).to.be.equal(getSigningPolicyHash(newSigningPolicy));
@@ -651,8 +654,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         const newSigningPolicyEncoded = SigningPolicy.encode(newSigningPolicy).slice(2);
         const fullData = RELAY_SELECTOR + signingPolicyEncoded + "00" + newSigningPolicyEncoded + signatures;
 
-        const { _lastInitializedRewardEpoch } = (await relay2.lastInitializedRewardEpochData()) as any;
-        expect(_lastInitializedRewardEpoch.toString()).to.equal("0");        
+
+        let result = await relay2.lastInitializedRewardEpochData();
+        let _lastInitializedRewardEpoch = result[0];
+        expect(_lastInitializedRewardEpoch.toString()).to.equal("0");
 
         const txReceipt = await web3.eth.sendTransaction({
             from: accounts[0],
@@ -661,8 +666,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         });
 
         await expectEvent.inTransaction(txReceipt.transactionHash, relay2, "SigningPolicyRelayed", { rewardEpochId: toBN(rewardEpochId) });
-        const data = (await relay2.lastInitializedRewardEpochData()) as any;
-        expect(data._lastInitializedRewardEpoch.toString()).to.equal(rewardEpochId.toString());
+        result = (await relay2.lastInitializedRewardEpochData());
+        _lastInitializedRewardEpoch = result[0];
+        expect(_lastInitializedRewardEpoch.toString()).to.equal(rewardEpochId.toString());
     });
 
     it("Should start new reward epoch, initiate new voting round and offer rewards for the next reward epoch", async () => {
@@ -964,7 +970,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
     });
 
     it("Should create new PollingFoundation proposal and vote on it", async () => {
-        let tx = await pollingFoundation.methods["propose(string,(bool,uint256,uint256,uint256,uint256,uint256))"].sendTransaction("Proposal",
+        const tx = await pollingFoundation.methods["propose(string,(bool,uint256,uint256,uint256,uint256,uint256))"].sendTransaction("Proposal",
             {
                 accept: false,
                 votingStartTs: (await time.latest()).addn(3600).toNumber(),
@@ -974,7 +980,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
                 majorityConditionBIPS: 5000
             }, { from: accounts[10] }) as any;
 
-        let proposalId = tx.logs[0].args.proposalId.toString();
+        const proposalId: string = tx.logs[0].args.proposalId.toString();
 
         // advance one hour to the voting period
         await time.increase(3600);
@@ -987,7 +993,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         // advance to the end of the voting period
         await time.increase(7200);
 
-        let state = await pollingFoundation.state(proposalId);
+        const state = await pollingFoundation.state(proposalId);
         expect(state.toString()).to.equals("2");
     });
 
@@ -995,7 +1001,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         // change management group members
         await pollingManagementGroup.changeManagementGroupMembers(registeredCAddresses, [], { from: accounts[10] });
         const proposalId = toBN(1);
-        let tx = await pollingManagementGroup.propose("Proposal", { value: toBN(100), from: registeredCAddresses[0] });
+        const tx = await pollingManagementGroup.propose("Proposal", { value: toBN(100), from: registeredCAddresses[0] });
         expectEvent(tx, "ManagementGroupProposalCreated", { proposalId: proposalId, proposer: registeredCAddresses[0] });
 
         // advance one hour to the voting period
@@ -1009,7 +1015,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
         // advance to the end of the voting period
         await time.increase(3600);
 
-        let state = await pollingManagementGroup.state(proposalId);
+        const state = await pollingManagementGroup.state(proposalId);
         expect(state.toString()).to.equals("4");
     });
 

@@ -12,6 +12,16 @@ export interface ISigningPolicy {
   encodedLength?: number;  // used only as a parsing result when parsing signing policy encoded into Relay message
 }
 
+export interface SigningPolicyInitializedEvent {
+  rewardEpochId: string;
+  startVotingRoundId: string;
+  threshold: string;
+  seed: string;
+  voters: string[];
+  weights: string[];
+  signingPolicyBytes?: string;
+  timestamp?: number;
+}
 export namespace SigningPolicy {
 
   //////////////////////////////////////////////////////////////////////////////
@@ -143,9 +153,9 @@ export namespace SigningPolicy {
    */
   export function hashEncoded(signingPolicy: string) {
     const signingPolicyInternal = signingPolicy.startsWith("0x") ? signingPolicy.slice(2) : signingPolicy;
-    const splitted = signingPolicyInternal.match(/.{1,64}/g)!.map(x => x.padEnd(64, "0"))!;
-    let hash: string = ethers.keccak256("0x" + splitted[0] + splitted[1])!;
-    for (let i = 2; i < splitted!.length; i++) {
+    const splitted = signingPolicyInternal.match(/.{1,64}/g)!.map(x => x.padEnd(64, "0"));
+    let hash: string = ethers.keccak256("0x" + splitted[0] + splitted[1]);
+    for (let i = 2; i < splitted.length; i++) {
       hash = ethers.keccak256("0x" + hash.slice(2) + splitted[i])!;
     }
     return hash;

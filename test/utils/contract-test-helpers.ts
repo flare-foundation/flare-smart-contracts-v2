@@ -34,13 +34,14 @@ export async function emptyAddressBalance(address: string, toAccount: string) {
     await stopImpersonatingContract(address);
 }
 
-export async function executeTimelockedGovernanceCall(contract: Truffle.ContractInstance, methodCall: (governance: string) => Promise<Truffle.TransactionResponse<any>>) {
+export async function executeTimelockedGovernanceCall<T extends Truffle.AnyEvent>(contract: Truffle.ContractInstance, methodCall: (governance: string) => Promise<Truffle.TransactionResponse<T>>) {
     const contractGoverned = contract as GovernedBaseInstance;
     const governanceSettings = await GovernanceSettings.at(await contractGoverned.governanceSettings());
     const governance = await governanceSettings.getGovernanceAddress();
     const executor = (await governanceSettings.getExecutors())[0];
     const response = await methodCall(governance);
-    const timelockArgs = findRequiredEvent(response, "GovernanceCallTimelocked").args;
+    const timelockEvent = findRequiredEvent(response, "GovernanceCallTimelocked");
+    const timelockArgs = timelockEvent.args as { allowedAfterTimestamp: BN; selector: string };
     await time.increaseTo(timelockArgs.allowedAfterTimestamp.toNumber() + 1);
     await contractGoverned.executeGovernanceCall(timelockArgs.selector, { from: executor });
 }

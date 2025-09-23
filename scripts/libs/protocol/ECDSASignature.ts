@@ -63,7 +63,7 @@ export namespace ECDSASignature {
       throw Error(`Invalid message hash format: ${messageHash}`);
     }
     const web3 = new Web3();
-    let signatureObject = web3.eth.accounts.sign(messageHash, privateKey);
+    const signatureObject = web3.eth.accounts.sign(messageHash, privateKey);
     return {
       v: parseInt(signatureObject.v.slice(2), 16),
       r: signatureObject.r,
