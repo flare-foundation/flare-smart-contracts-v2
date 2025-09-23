@@ -6,7 +6,6 @@ import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletPro
 import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { ITeeOwnerAllowlist } from "../../userInterfaces/tee/ITeeOwnerAllowlist.sol";
 import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
-import { ITeeWalletProjectOpTypeConstants } from "../../userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
@@ -18,8 +17,9 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     struct TeeWalletProjectState {
         address owner;
         uint256 extensionId;
-        bytes32 opType;
-        address submitAddress;
+        bytes32 keyType;
+        bytes32 signingAlgo;
+        address authorizationAddress;
         address backupManager;
     }
 
@@ -63,23 +63,26 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
      */
     function createProject(
         uint256 _extensionId,
-        bytes32 _opType,
-        address _submitAddress
+        bytes32 _keyType,
+        bytes32 _signingAlgo,
+        address _authorizationAddress
     )
         external
         returns (bytes32 _projectId)
     {
         require(teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(_extensionId, msg.sender), OwnerNotAllowed());
-        require(teeExtensionRegistry.isWalletProjectOpTypeSupported(_extensionId, _opType), OpTypeNotSupported());
-        require(_submitAddress != address(0), SubmitAddressZero());
+        require(teeExtensionRegistry.isKeyTypeSupported(_extensionId, _keyType), KeyTypeNotSupported());
+        require(teeExtensionRegistry.isSigningAlgoSupported(_keyType, _signingAlgo), SigningAlgoNotSupported());
+        require(_authorizationAddress != address(0), AuthorizationAddressZero());
         _projectId = keccak256(abi.encode("PROJECT", msg.sender, ++projectCounter));
         TeeWalletProjectState storage project = projects[_projectId];
         assert(project.owner == address(0)); // should never revert
         project.owner = msg.sender;
         project.extensionId = _extensionId;
-        project.opType = _opType;
-        project.submitAddress = _submitAddress;
-        emit ProjectCreated(_projectId, msg.sender, _extensionId, _opType, _submitAddress);
+        project.keyType = _keyType;
+        project.signingAlgo = _signingAlgo;
+        project.authorizationAddress = _authorizationAddress;
+        emit ProjectCreated(_projectId, msg.sender, _extensionId, _keyType, _signingAlgo, _authorizationAddress);
     }
 
     /**
@@ -144,21 +147,31 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletProjectManager
      */
-    function getOpType(bytes32 _projectId)
+    function getKeyType(bytes32 _projectId)
         external view
-        returns (bytes32 _opType)
+        returns (bytes32 _keyType)
     {
-        return projects[_projectId].opType;
+        return projects[_projectId].keyType;
     }
 
     /**
      * @inheritdoc ITeeWalletProjectManager
      */
-    function getSubmitAddress(bytes32 _projectId)
+    function getSigningAlgo(bytes32 _projectId)
         external view
-        returns (address _submitAddress)
+        returns (bytes32 _signingAlgo)
     {
-        return projects[_projectId].submitAddress;
+        return projects[_projectId].signingAlgo;
+    }
+
+    /**
+     * @inheritdoc ITeeWalletProjectManager
+     */
+    function getAuthorizationAddress(bytes32 _projectId)
+        external view
+        returns (address _authorizationAddress)
+    {
+        return projects[_projectId].authorizationAddress;
     }
 
     /**
@@ -169,16 +182,6 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
         returns (address _backupManager)
     {
         return projects[_projectId].backupManager;
-    }
-
-    /**
-     * @inheritdoc ITeeWalletProjectManager
-     */
-    function getOpTypeConstants(bytes32 _projectId) external view returns(bytes memory) {
-        TeeWalletProjectState storage project = projects[_projectId];
-        ITeeWalletProjectOpTypeConstants opTypeConstantsProvider =
-            teeExtensionRegistry.getWalletProjectOpTypeConstantsProvider(project.extensionId, project.opType);
-        return opTypeConstantsProvider.getOpTypeConstants(_projectId);
     }
 
     /**

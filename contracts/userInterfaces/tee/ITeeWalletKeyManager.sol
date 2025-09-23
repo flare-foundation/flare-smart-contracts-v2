@@ -10,13 +10,12 @@ import { Signature } from "../ISignature.sol";
  */
 interface ITeeWalletKeyManager {
 
-    enum TeeKeyStatus { PAUSED, ACTIVE }
-
     struct KeyGenerate {
         address teeId;
         bytes32 walletId;
         uint64 keyId;
-        bytes32 opType;
+        bytes32 keyType;
+        bytes32 signingAlgo;
         KeyConfigConstants configConstants;
     }
 
@@ -25,28 +24,20 @@ interface ITeeWalletKeyManager {
         uint64 adminsThreshold;
         address[] cosigners;
         uint64 cosignersThreshold;
-        bytes opTypeConstants;
-    }
-
-    struct KeyConfigSettings {
-        address[] pausingAddresses;
-        bytes opTypeSettings;
     }
 
     struct KeyExistence {
         address teeId;
         bytes32 walletId;
         uint64 keyId;
-        bytes32 opType;
+        bytes32 keyType;
+        bytes32 signingAlgo;
         bytes publicKey;
-        bytes proofOfPossession;
         uint256 nonce;
-        uint256 pauseNonce;
-        TeeKeyStatus status;
         bool restored;
-        string addressStr;
         KeyConfigConstants configConstants;
-        KeyConfigSettings configSettings;
+        bytes32 settingsVersion;
+        bytes settings;
     }
 
     struct KeyDelete {
@@ -71,8 +62,7 @@ interface ITeeWalletKeyManager {
         address indexed teeId,
         bytes32 indexed walletId,
         uint64 indexed keyId,
-        bytes publicKey,
-        string addressStr
+        bytes publicKey
     );
 
     event WalletKeyDeleted(
@@ -99,7 +89,9 @@ interface ITeeWalletKeyManager {
     error ExtensionIdMismatch();
     error InvalidKeyId();
     error InvalidNonce();
-    error InvalidOpType();
+    error InvalidKeyType();
+    error InvalidSigningAlgo();
+    error InvalidSettings();
     error InvalidTeeSignature();
     error KeyNotRestoredOnTeeMachine();
     error InvalidPublicKey();
@@ -108,7 +100,6 @@ interface ITeeWalletKeyManager {
     error KeyNotGeneratedOnTeeMachine();
     error ThresholdNotMet();
     error LengthsMismatch();
-    error InvalidOpTypeConstants();
     error TeeMachineNotAvailable();
     error OnlyOwner();
     error OnlyOwnerOrBackupManager();
@@ -190,14 +181,6 @@ interface ITeeWalletKeyManager {
      * @return _publicKey The public key.
      */
     function getWalletKeyPublicKey(bytes32 _walletId, uint64 _keyId) external view returns (bytes memory _publicKey);
-
-    /**
-     * Returns the address of the wallet key.
-     * @param _walletId The wallet id.
-     * @param _keyId The key id.
-     * @return _addressStr The address.
-     */
-    function getWalletKeyAddress(bytes32 _walletId, uint64 _keyId) external view returns (string memory _addressStr);
 
     /**
      * Returns information about the wallet keys.

@@ -161,7 +161,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         _checkTeeStatus(state.status, TeeStatus.PRODUCTION, TeeStatus.PAUSED_WITH_PROOF);
         require(
             msg.sender == state.owner ||
-            teeExtensionRegistry.codeHashPlatformDisabled(state.extensionId, state.codeHash, state.platform),
+            teeExtensionRegistry.isCodeHashPlatformDisabled(state.extensionId, state.codeHash, state.platform),
             OnlyOwnerOrDisabledVersion()
         );
 

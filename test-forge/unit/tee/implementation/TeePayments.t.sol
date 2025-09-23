@@ -145,7 +145,7 @@ contract TeePaymentsTest is Test {
         _mockGetWalletProjectId(walletId, projectId);
         _mockGetExtensionId(projectId, 0);
         _mockGetOwner(projectId, walletOwner);
-        _mockGetSubmitAddress(projectId, submitAddress);
+        _mockGetAuthorizationAddress(projectId, submitAddress);
         _mockGetCurrentRewardEpochId(10);
         _mockReceiveRewards();
         _mockGetOpType(projectId, OP_TYPE);
@@ -372,11 +372,6 @@ contract TeePaymentsTest is Test {
         teePayments.setBatchSettings(pmwMultisigAccount, 5, 300);
     }
 
-    function testGetOpTypeConstants() public {
-        bytes memory opTypeConstants = teePayments.getOpTypeConstants(walletId);
-        assertEq(opTypeConstants, "");
-    }
-
     function testGetOpType() public {
         assertEq(teePayments.getOpType(), OP_TYPE);
     }
@@ -456,7 +451,7 @@ contract TeePaymentsTest is Test {
         teePayments.pay{value: fee - 1}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
     }
 
-    function testPayRevertOnlySubmitAddress() public {
+    function testPayRevertOnlyAuthorizationAddress() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof);
@@ -467,7 +462,7 @@ contract TeePaymentsTest is Test {
     function testPayRevertOnlySubmitAddress2() public {
         // account not added
         _mockGetWalletProjectId(bytes32(0), bytes32(0));
-        _mockGetSubmitAddress(bytes32(0), address(0));
+        _mockGetAuthorizationAddress(bytes32(0), address(0));
         vm.expectRevert(ITeePayments.OnlySubmitAddress.selector);
         teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
     }
@@ -1011,7 +1006,7 @@ contract TeePaymentsTest is Test {
         teePayments.reissue{value: fee * 2} (pmwMultisigAccount, 1, 1, paymentInstructions, fees, nullify);
     }
 
-    function testReissueRevertOnlySubmitAddress() public {
+    function testReissueRevertOnlyAuthorizationAddress() public {
         ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
@@ -1041,7 +1036,7 @@ contract TeePaymentsTest is Test {
         nullify[1] = false;
         // account not added
         _mockGetWalletProjectId(bytes32(0), bytes32(0));
-        _mockGetSubmitAddress(bytes32(0), address(0));
+        _mockGetAuthorizationAddress(bytes32(0), address(0));
         vm.expectRevert(ITeePayments.OnlySubmitAddress.selector);
         teePayments.reissue{value: fee * 2} (pmwMultisigAccount, 1, 1, paymentInstructions, fees, nullify);
     }
@@ -1592,7 +1587,7 @@ contract TeePaymentsTest is Test {
         });
     }
 
-    function _mockGetSubmitAddress(bytes32 _projectId, address _submitAddress) internal {
+    function _mockGetAuthorizationAddress(bytes32 _projectId, address _submitAddress) internal {
         vm.mockCall(
             mockTeeWalletProjectManager,
             abi.encodeWithSelector(ITeeWalletProjectManager.getSubmitAddress.selector, _projectId),

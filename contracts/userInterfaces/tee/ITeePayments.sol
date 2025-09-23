@@ -72,11 +72,12 @@ interface ITeePayments {
     error OnlySystemExtensionId();
     error MaxBatchSizeZero();
     error OpTypeZero();
+    error KeyTypeZero();
     error SupportedSourceIdsLengthZero();
     error SourceIdZero(uint256 index);
     error SourceIdAlreadyExists(bytes32 sourceId);
-    error OnlySubmitAddress();
-    error WrongOpType();
+    error OnlyAuthorizationAddress();
+    error WrongKeyType();
     error WalletNotInProduction();
     error NoPaymentInstructions();
     error LengthsMismatch();
@@ -171,10 +172,16 @@ interface ITeePayments {
         external payable;
 
     /**
-     * Returns the wallet operation type.
+     * Returns the operation type.
      * @return _opType The operation type.
      */
     function getOpType() external view returns (bytes32);
+
+    /**
+     * Returns the supported key type.
+     * @return _keyType The key type.
+     */
+    function getKeyType() external view returns (bytes32);
 
     /**
      * Returns wallet's accounts.

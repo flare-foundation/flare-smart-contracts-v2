@@ -17,7 +17,8 @@ interface ITeeWalletBackupManager {
         address teeId;
         bytes32 walletId;
         uint64 keyId;
-        bytes32 opType;
+        bytes32 keyType;
+        bytes32 signingAlgo;
         bytes publicKey;
         uint24 rewardEpochId;
         uint256 randomNonce;
@@ -30,7 +31,8 @@ interface ITeeWalletBackupManager {
     error InvalidPublicKey();
     error UnsupportedRewardEpochId();
     error InvalidRewardEpochId();
-    error InvalidOpType();
+    error InvalidKeyType();
+    error InvalidSigningAlgo();
     error ExtensionIdMismatch();
     error OnlyOwnerOrBackupManager();
 

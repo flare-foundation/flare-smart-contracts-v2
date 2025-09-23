@@ -130,6 +130,7 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
         require(msg.value >= fee, FeeTooLow());
         //slither-disable-next-line arbitrary-send-eth
         rewardManager.receiveRewards{value: fee}(flareSystemsManager.getCurrentRewardEpochId(), false);
+        emit AttestationRequested(_attestationType, _sourceId, _requestBody, fee);
         // Create the attestation request message.
         FtdcAttestationRequest memory message = FtdcAttestationRequest({
             header: FtdcRequestHeader({

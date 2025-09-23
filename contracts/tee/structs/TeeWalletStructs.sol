@@ -14,8 +14,6 @@ interface TeeWalletStructs {
 
     function keyConfigConstantsStruct(ITeeWalletKeyManager.KeyConfigConstants calldata) external;
 
-    function keyConfigSettingsStruct(ITeeWalletKeyManager.KeyConfigSettings calldata) external;
-
     function keyExistenceStruct(ITeeWalletKeyManager.KeyExistence calldata) external;
 
     function keyDataProviderRestoreStruct(ITeeWalletBackupManager.KeyDataProviderRestore calldata) external;

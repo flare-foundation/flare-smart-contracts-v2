@@ -78,7 +78,6 @@ contract TeeFeeCalculator is ITeeFeeCalculator, Governed {
         bytes32 _opType,
         bytes32 _opCommand,
         address[] memory _teeIds
-
     )
         external view returns (uint256 _fee)
     {

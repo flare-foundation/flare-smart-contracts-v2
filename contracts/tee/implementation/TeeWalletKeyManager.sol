@@ -32,7 +32,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
 
     struct KeyDefinition {
         bytes publicKey;
-        string addressStr;
         mapping(address teeId => uint256 nonce) nonces;
         address[] teeIds;
     }
@@ -140,13 +139,13 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             teeId: _teeId,
             walletId: _walletId,
             keyId: _keyId,
-            opType: teeWalletProjectManager.getOpType(projectId),
+            keyType: teeWalletProjectManager.getKeyType(projectId),
+            signingAlgo: teeWalletProjectManager.getSigningAlgo(projectId),
             configConstants: KeyConfigConstants({
                 adminsPublicKeys: adminsPublicKeys,
                 adminsThreshold: adminsThreshold,
                 cosigners: cosigners,
-                cosignersThreshold: cosignersThreshold,
-                opTypeConstants: teeWalletProjectManager.getOpTypeConstants(projectId)
+                cosignersThreshold: cosignersThreshold
             })
         });
         bytes32 instructionId = keccak256(abi.encode(
@@ -173,11 +172,17 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         KeyDefinition storage keyDefinition = keys.keyDefinitions[keyId];
         // check nonce
         require(_proof.nonce == keyDefinition.nonces[_proof.teeId], InvalidNonce());
-        // check op type
-        bytes32 opType = teeWalletProjectManager.getOpType(teeWalletManager.getWalletProjectId(walletId));
-        require(_proof.opType == opType, InvalidOpType());
+        bytes32 projectId = teeWalletManager.getWalletProjectId(walletId);
+        // check key type
+        bytes32 keyType = teeWalletProjectManager.getKeyType(projectId);
+        require(_proof.keyType == keyType, InvalidKeyType());
+        // check signing algo
+        bytes32 signingAlgo = teeWalletProjectManager.getSigningAlgo(projectId);
+        require(_proof.signingAlgo == signingAlgo, InvalidSigningAlgo());
         // check config constants
         _validateKeyExistenceConfigConstants(walletId, _proof.configConstants);
+        // check settings - future use cases, for now they must be empty
+        require(_proof.settingsVersion == bytes32(0) && _proof.settings.length == 0, InvalidSettings());
         // check TEE signature
         address teeId = ECDSA.recover(
             MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(_proof))),
@@ -196,10 +201,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
                 keccak256(keyDefinition.publicKey) == keccak256(_proof.publicKey),
                 InvalidPublicKey()
             );
-            require(
-                keccak256(bytes(keyDefinition.addressStr)) == keccak256(bytes(_proof.addressStr)),
-                InvalidAddress()
-            );
             address[] storage keyDefinitionTeeIds = keyDefinition.teeIds;
             for (uint256 i = 0; i < keyDefinitionTeeIds.length; i++) {
                 require(keyDefinitionTeeIds[i] != teeId, TeeIdAlreadyAdded());
@@ -209,7 +210,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         } else {
             assert(_proof.nonce == 0);
             require(_proof.publicKey.length > 0, InvalidPublicKey());
-            require(bytes(_proof.addressStr).length > 0, InvalidAddress());
             // new key definition can only be added if wallet is in status initialized
             _checkWalletStatus(walletId);
             // new key definition can only be added by the owner
@@ -218,19 +218,12 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             require(!_proof.restored, KeyNotGeneratedOnTeeMachine());
             // add new key id
             keys.keyIds.push(keyId);
-            // set public key, address and add tee id
+            // set public key and add tee id
             keyDefinition.publicKey = _proof.publicKey;
-            keyDefinition.addressStr = _proof.addressStr;
             keyDefinition.teeIds.push(teeId);
         }
 
-        emit WalletKeyConfirmed(
-            teeId,
-            walletId,
-            keyId,
-            _proof.publicKey,
-            _proof.addressStr
-        );
+        emit WalletKeyConfirmed(teeId, walletId, keyId, _proof.publicKey);
     }
 
     /**
@@ -404,16 +397,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletKeyManager
      */
-    function getWalletKeyAddress(bytes32 _walletId, uint64 _keyId)
-        external view
-        returns (string memory _addressStr)
-    {
-        return walletKeys[_walletId].keyDefinitions[_keyId].addressStr;
-    }
-
-    /**
-     * @inheritdoc ITeeWalletKeyManager
-     */
     function getWalletKeyTeeIds(bytes32 _walletId, uint64 _keyId)
         external view
         returns (address[] memory _teeIds)
@@ -486,13 +469,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         for (uint256 i = 0; i < _cosigners.length; i++) {
             require(_configConstants.cosigners[i] == _cosigners[i], InvalidAddress());
         }
-
-        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        bytes memory opTypeConstants = teeWalletProjectManager.getOpTypeConstants(projectId);
-        require(
-            keccak256(_configConstants.opTypeConstants) == keccak256(opTypeConstants),
-            InvalidOpTypeConstants()
-        );
     }
 
     function _checkTeeStatus(address _teeId)

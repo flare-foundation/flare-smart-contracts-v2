@@ -10,8 +10,9 @@ interface ITeeWalletProjectManager {
         bytes32 indexed projectId,
         address indexed owner,
         uint256 extensionId,
-        bytes32 opType,
-        address submitAddress
+        bytes32 keyType,
+        bytes32 signingAlgo,
+        address authorizationAddress
     );
 
     event BackupManagerSet(
@@ -30,8 +31,9 @@ interface ITeeWalletProjectManager {
     );
 
     error OwnerNotAllowed();
-    error OpTypeNotSupported();
-    error SubmitAddressZero();
+    error KeyTypeNotSupported();
+    error SigningAlgoNotSupported();
+    error AuthorizationAddressZero();
     error WalletNotPartOfProject();
     error WalletNotProductionReady();
     error OnlyProposedOwner();
@@ -41,15 +43,17 @@ interface ITeeWalletProjectManager {
      * Creates the project that can be used for wallet creation on specified extension.
      * Emits ProjectCreated event.
      * @param _extensionId The id of the extension.
-     * @param _opType The project/wallet operation type.
-     * @param _submitAddress The project/wallet submit address.
+     * @param _keyType The key type (e.g. EVM, XRP).
+     * @param _signingAlgo The signing algorithm (e.g. keccak256-secp256k1-ecdsa, sha512half-secp256k1-ecdsa).
+     * @param _authorizationAddress The project/wallet authorization address.
      * @return _projectId The project id.
      * Can only be called by an allowlisted wallet project owner.
      */
     function createProject(
         uint256 _extensionId,
-        bytes32 _opType,
-        address _submitAddress
+        bytes32 _keyType,
+        bytes32 _signingAlgo,
+        address _authorizationAddress
     )
         external
         returns (bytes32 _projectId);
@@ -96,18 +100,25 @@ interface ITeeWalletProjectManager {
     function getExtensionId(bytes32 _projectId) external view returns (uint256 _extensionId);
 
     /**
-     * Returns the project operation type.
+     * Returns the project key type.
      * @param _projectId The project id.
-     * @return _opType The operation type.
+     * @return _keyType The key type.
      */
-    function getOpType(bytes32 _projectId) external view returns (bytes32 _opType);
+    function getKeyType(bytes32 _projectId) external view returns (bytes32 _keyType);
 
     /**
-     * Returns the project submit address.
+     * Returns the project signing algorithm.
      * @param _projectId The project id.
-     * @return _submitAddress The submit address.
+     * @return _signingAlgo The signing algorithm.
      */
-    function getSubmitAddress(bytes32 _projectId) external view returns (address _submitAddress);
+    function getSigningAlgo(bytes32 _projectId) external view returns (bytes32 _signingAlgo);
+
+    /**
+     * Returns the project/wallet authorization address.
+     * @param _projectId The project id.
+     * @return _authorizationAddress The authorization address.
+     */
+    function getAuthorizationAddress(bytes32 _projectId) external view returns (address _authorizationAddress);
 
     /**
      * Returns the project backup manager.
@@ -115,12 +126,4 @@ interface ITeeWalletProjectManager {
      * @return _backupManager The backup manager address.
      */
     function getBackupManager(bytes32 _projectId) external view returns (address _backupManager);
-
-    /**
-     * Returns the required operation type constants.
-     * @param _projectId The project id.
-     * @return The ABI encoded operation type constants.
-     * NOTE: Should revert if the required operation type constants are not set.
-     */
-    function getOpTypeConstants(bytes32 _projectId) external view returns(bytes memory);
 }

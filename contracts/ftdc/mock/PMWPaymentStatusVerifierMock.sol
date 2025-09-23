@@ -57,6 +57,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
     }
 
     function verify(
+        ITeePayments _teePayments,
         IPMWPaymentStatus.Proof calldata _proof
     )
         external
@@ -65,15 +66,13 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         IFtdcHub.FtdcResponseHeader calldata header = _proof.header;
         IPMWPaymentStatus.RequestBody calldata requestBody = _proof.requestBody;
 
-        ITeePayments teePayments = ITeePayments(
-            address(teeExtensionRegistry.getWalletProjectOpTypeConstantsProvider(0, requestBody.opType))
-        );
-        bytes32 walletId = teePayments.getWalletId(ITeePayments.PMWMultisigAccount({
+        bytes32 walletId = _teePayments.getWalletId(ITeePayments.PMWMultisigAccount({
             sourceId: header.sourceId,
             accountAddress: requestBody.senderAddress
         }));
 
         require(
+            _teePayments.getOpType() == requestBody.opType &&
             walletId != bytes32(0) &&
             header.thresholdBIPS == 0 &&
             header.attestationType == PMW_PAYMENT_STATUS_ATTESTATION_TYPE &&

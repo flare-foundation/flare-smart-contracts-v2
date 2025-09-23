@@ -95,7 +95,8 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
             InvalidRewardEpochId()
         );
         bytes32 projectId = teeWalletManager.getWalletProjectId(_backupId.walletId);
-        require(teeWalletProjectManager.getOpType(projectId) == _backupId.opType, InvalidOpType());
+        require(teeWalletProjectManager.getKeyType(projectId) == _backupId.keyType, InvalidKeyType());
+        require(teeWalletProjectManager.getSigningAlgo(projectId) == _backupId.signingAlgo, InvalidSigningAlgo());
         uint256 extensionId = teeWalletProjectManager.getExtensionId(projectId);
         require(
             extensionId == teeMachineRegistry.getExtensionId(_backupId.teeId) &&

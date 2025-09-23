@@ -5,7 +5,6 @@ import { TeeBase } from "./TeeBase.sol";
 import { IITeeExtensionRegistry } from "../interface/IITeeExtensionRegistry.sol";
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeGovernance } from "../../userInterfaces/tee/ITeeGovernance.sol";
-import { ITeeWalletProjectOpTypeConstants } from "../../userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeFeeCalculator } from "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
@@ -38,9 +37,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         /// Disabled code hash and platform mapping.
         mapping(bytes32 codeHash => mapping(bytes32 platform => bool)) codeHashPlatformDisabled;
 
-        bytes32[] supportedOpTypes;
-        /// Mapping of operation type to operation type constants provider.
-        mapping(bytes32 opType => ITeeWalletProjectOpTypeConstants) opTypeConstantsProviders;
+        // Supported key types.
+        EnumerableSet.Bytes32Set supportedKeyTypes;
     }
 
     /// Prefix reserved for system-owned extension.
@@ -57,11 +55,15 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     /// Reward manager contract.
     IIRewardManager public rewardManager;
 
-    /// List of system instruction initiator contracts.
-    EnumerableSet.AddressSet private systemInstructionInitiators;
+    /// List of system instructions sender contracts.
+    EnumerableSet.AddressSet private systemInstructionsSenders;
 
-    /// List of supported platforms.
-    EnumerableSet.Bytes32Set private supportedPlatforms;
+    /// List of system supported platforms.
+    EnumerableSet.Bytes32Set private systemSupportedPlatforms;
+
+    /// List of system supported key types and signing algorithms.
+    EnumerableSet.Bytes32Set private systemSupportedKeyTypes;
+    mapping(bytes32 keyType => EnumerableSet.Bytes32Set) private systemSupportedSigningAlgos;
 
     /// Extensions counter.
     uint256 public extensionsCounter;
@@ -140,7 +142,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     )
         external payable
     {
-        require(systemInstructionInitiators.contains(msg.sender), OnlySystemInstructionInitiator());
+        require(systemInstructionsSenders.contains(msg.sender), OnlySystemInstructionsSender());
 
         _sendInstructions(
             _instructionId,
@@ -208,7 +210,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         require(_codeHash != bytes32(0), CodeHashZero());
         require(_platforms.length > 0, NoPlatforms());
         for (uint256 i = 0; i < _platforms.length; i++) {
-            require(supportedPlatforms.contains(_platforms[i]), UnsupportedPlatform(_platforms[i]));
+            require(systemSupportedPlatforms.contains(_platforms[i]), UnsupportedPlatform(_platforms[i]));
         }
         TeeExtension storage extension = extensions[_extensionId];
         require(extension.codeHashToVersion[_codeHash].platforms.length() == 0, VersionAlreadyExists());
@@ -260,47 +262,37 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function addOrUpdateSupportedWalletProjectOpTypes(
+    function addSupportedKeyTypes(
         uint256 _extensionId,
-        ITeeWalletProjectOpTypeConstants[] calldata _opTypeConstantsProviders
+        bytes32[] calldata _keyTypes
     )
         external onlyOwner(_extensionId)
     {
         TeeExtension storage extension = extensions[_extensionId];
-        for (uint256 i = 0; i < _opTypeConstantsProviders.length; i++) {
-            ITeeWalletProjectOpTypeConstants opTypeConstantsProvider = _opTypeConstantsProviders[i];
-            bytes32 opType = opTypeConstantsProvider.getOpType();
-            require(opType != bytes32(0), OpTypeEmpty());
-            require(_extensionId == 0 || !_isSystemOpType(opType), SystemOpTypeNotAllowed(opType));
-            if (address(extension.opTypeConstantsProviders[opType]) == address(0)) {
-                extension.supportedOpTypes.push(opType);
-                emit SupportedWalletProjectOpTypeAdded(_extensionId, opType);
-            }
-            extension.opTypeConstantsProviders[opType] = opTypeConstantsProvider;
+        for (uint256 i = 0; i < _keyTypes.length; i++) {
+            bytes32 keyType = _keyTypes[i];
+            require(keyType != bytes32(0), KeyTypeEmpty());
+            require(systemSupportedKeyTypes.contains(keyType), KeyTypeNotSupported());
+            require(extension.supportedKeyTypes.add(keyType), KeyTypeAlreadyExists(keyType));
+            emit SupportedKeyTypeAdded(_extensionId, keyType);
         }
     }
 
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function removeSupportedWalletProjectOpTypes(
+    function removeSupportedKeyTypes(
         uint256 _extensionId,
-        bytes32[] memory _opTypes
+        bytes32[] memory _keyTypes
     )
         external onlyOwner(_extensionId)
     {
         TeeExtension storage extension = extensions[_extensionId];
-        bytes32[] storage supportedOpTypes = extension.supportedOpTypes;
-        for (uint256 i = 0; i < _opTypes.length; i++) {
-            for (uint256 j = 0; j < supportedOpTypes.length; j++) {
-                if (supportedOpTypes[j] == _opTypes[i]) {
-                    supportedOpTypes[j] = supportedOpTypes[supportedOpTypes.length - 1];
-                    supportedOpTypes.pop();
-                    delete extension.opTypeConstantsProviders[_opTypes[i]];
-                    emit SupportedWalletProjectOpTypeRemoved(_extensionId, _opTypes[i]);
-                    break;
-                }
-            }
+        for (uint256 i = 0; i < _keyTypes.length; i++) {
+            bytes32 keyType = _keyTypes[i];
+            require(keyType != bytes32(0), KeyTypeEmpty());
+            require(extension.supportedKeyTypes.remove(keyType), KeyTypeNotSupported());
+            emit SupportedKeyTypeRemoved(_extensionId, keyType);
         }
     }
 
@@ -328,62 +320,108 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     }
 
     /**
-     * Adds supported platforms.
+     * Add system supported platforms.
      * @param _platforms List of platforms to add.
      * @dev Only governance can call this method.
      */
-    function addSupportedPlatforms(bytes32[] calldata _platforms)
+    function addSystemSupportedPlatforms(bytes32[] calldata _platforms)
         external onlyGovernance
     {
         for (uint256 i = 0; i < _platforms.length; i++) {
             require(_platforms[i] != bytes32(0), PlatformEmpty());
-            require(supportedPlatforms.add(_platforms[i]), PlatformAlreadyExists(_platforms[i]));
-            emit SupportedPlatformAdded(_platforms[i]);
+            require(systemSupportedPlatforms.add(_platforms[i]), PlatformAlreadyExists(_platforms[i]));
+            emit SystemSupportedPlatformAdded(_platforms[i]);
         }
     }
 
     /**
-     * Registers system instruction initiator contracts.
-     * @param _instructionInitiators List of contracts to register.
+     * Add system supported key types and signing algorithms.
+     * @param _keyTypes List of key types to add.
+     * @param _signingAlgosByKeyType List of signing algorithms for each key type.
      * @dev Only governance can call this method.
      */
-    function registerSystemInstructionInitiators(
-        address[] calldata _instructionInitiators
+    function addSystemSupportedKeyTypesAndSigningAlgos(
+        bytes32[] calldata _keyTypes,
+        bytes32[][] calldata _signingAlgosByKeyType
     )
         external onlyGovernance
     {
-        for (uint256 i = 0; i < _instructionInitiators.length; ++i) {
-            systemInstructionInitiators.add(_instructionInitiators[i]);
+        require(_keyTypes.length == _signingAlgosByKeyType.length, LengthsMismatch());
+        for (uint256 i = 0; i < _keyTypes.length; i++) {
+            bytes32 keyType = _keyTypes[i];
+            require(keyType != bytes32(0), KeyTypeEmpty());
+            bytes32[] calldata signingAlgos = _signingAlgosByKeyType[i];
+            require(signingAlgos.length > 0, NoSigningAlgos(keyType));
+            systemSupportedKeyTypes.add(keyType);
+
+            for (uint256 j = 0; j < signingAlgos.length; j++) {
+                bytes32 signingAlgo = signingAlgos[j];
+                require(signingAlgo != bytes32(0), SigningAlgoEmpty());
+                require(
+                    systemSupportedSigningAlgos[keyType].add(signingAlgo),
+                    SigningAlgoAlreadyExists(keyType, signingAlgo)
+                );
+                emit SystemSupportedKeyTypeAndSigningAlgoAdded(keyType, signingAlgo);
+            }
         }
     }
 
     /**
-     * Unregisters system instruction initiator contracts.
-     * @param _instructionInitiators List of contracts to unregister.
+     * Register system instructions sender contracts.
+     * @param _instructionsSenders List of contracts to register.
      * @dev Only governance can call this method.
      */
-    function unregisterSystemInstructionInitiators(
-        address[] calldata _instructionInitiators
+    function registerSystemInstructionsSenders(
+        address[] calldata _instructionsSenders
     )
         external onlyGovernance
     {
-        for (uint256 i = 0; i < _instructionInitiators.length; ++i) {
-            systemInstructionInitiators.remove(_instructionInitiators[i]);
+        for (uint256 i = 0; i < _instructionsSenders.length; ++i) {
+            systemInstructionsSenders.add(_instructionsSenders[i]);
+        }
+    }
+
+    /**
+     * Unregister system instructions sender contracts.
+     * @param _instructionsSenders List of contracts to unregister.
+     * @dev Only governance can call this method.
+     */
+    function unregisterSystemInstructionsSenders(
+        address[] calldata _instructionsSenders
+    )
+        external onlyGovernance
+    {
+        for (uint256 i = 0; i < _instructionsSenders.length; ++i) {
+            systemInstructionsSenders.remove(_instructionsSenders[i]);
         }
     }
 
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function getSupportedPlatforms() external view returns(bytes32[] memory) {
-        return supportedPlatforms.values();
+    function getSystemSupportedPlatforms() external view returns(bytes32[] memory) {
+        return systemSupportedPlatforms.values();
+    }
+
+    /**
+    * @inheritdoc ITeeExtensionRegistry
+    */
+    function getSystemSupportedKeyTypes() external view returns(bytes32[] memory) {
+        return systemSupportedKeyTypes.values();
     }
 
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function getSystemInstructionInitiators() external view returns(address[] memory) {
-        return systemInstructionInitiators.values();
+    function getSystemSupportedSigningAlgos(bytes32 _keyType) external view returns(bytes32[] memory) {
+        return systemSupportedSigningAlgos[_keyType].values();
+    }
+
+    /**
+     * @inheritdoc ITeeExtensionRegistry
+     */
+    function getSystemInstructionsSenders() external view returns(address[] memory) {
+        return systemInstructionsSenders.values();
     }
 
     /**
@@ -419,40 +457,39 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function getWalletProjectOpTypeConstantsProvider(
-        uint256 _extensionId,
-        bytes32 _opType
-    )
-        external view
-        returns (ITeeWalletProjectOpTypeConstants _opTypeConstantsProvider)
-    {
-        _opTypeConstantsProvider = extensions[_extensionId].opTypeConstantsProviders[_opType];
-        require(address(_opTypeConstantsProvider) != address(0), OperationTypeConstantsProviderNotSet());
-    }
-
-    /**
-     * @inheritdoc ITeeExtensionRegistry
-     */
-    function getSupportedWalletProjectOpTypes(
-        uint256 _extensionId
-    )
-        external view
-        returns (bytes32[] memory _supportedOpTypes)
-    {
-        return extensions[_extensionId].supportedOpTypes;
-    }
-
-    /**
-     * @inheritdoc ITeeExtensionRegistry
-     */
-    function isWalletProjectOpTypeSupported(
-        uint256 _extensionId,
-        bytes32 _opType
+    function isSigningAlgoSupported(
+        bytes32 _keyType,
+        bytes32 _signingAlgo
     )
         external view
         returns (bool)
     {
-        return address(extensions[_extensionId].opTypeConstantsProviders[_opType]) != address(0);
+        return systemSupportedSigningAlgos[_keyType].contains(_signingAlgo);
+    }
+
+    /**
+     * @inheritdoc ITeeExtensionRegistry
+     */
+    function getSupportedKeyTypes(
+        uint256 _extensionId
+    )
+        external view
+        returns (bytes32[] memory _supportedKeyTypes)
+    {
+        return extensions[_extensionId].supportedKeyTypes.values();
+    }
+
+    /**
+     * @inheritdoc ITeeExtensionRegistry
+     */
+    function isKeyTypeSupported(
+        uint256 _extensionId,
+        bytes32 _keyType
+    )
+        external view
+        returns (bool)
+    {
+        return extensions[_extensionId].supportedKeyTypes.contains(_keyType);
     }
 
     /**
@@ -475,7 +512,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function codeHashPlatformDisabled(
+    function isCodeHashPlatformDisabled(
         uint256 _extensionId,
         bytes32 _codeHash,
         bytes32 _platform
@@ -550,7 +587,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
             }
             teeIds[i] = teeId;
         }
-        if (!systemInstructionInitiators.contains(msg.sender)) {
+        if (!systemInstructionsSenders.contains(msg.sender)) {
             require(msg.sender == extensions[extensionId].instructionsSender, OnlyInstructionsSender());
             require(extensionId == 0 || !isSystemOpType, SystemOpTypeNotAllowed(_opType));
         }

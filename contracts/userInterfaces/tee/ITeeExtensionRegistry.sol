@@ -3,7 +3,6 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { ITeeExtensionStateVerifier } from "./ITeeExtensionStateVerifier.sol";
-import { ITeeWalletProjectOpTypeConstants } from "./ITeeWalletProjectOpTypeConstants.sol";
 import { ITeeMachineRegistry } from "./ITeeMachineRegistry.sol";
 
 /**
@@ -35,8 +34,13 @@ interface ITeeExtensionRegistry {
         address indexed teeExtensionInstructionsSender
     );
 
-    event SupportedPlatformAdded(
+    event SystemSupportedPlatformAdded(
         bytes32 indexed platform
+    );
+
+    event SystemSupportedKeyTypeAndSigningAlgoAdded(
+        bytes32 indexed keyType,
+        bytes32 indexed signingAlgo
     );
 
     event TeeVersionAdded(
@@ -53,14 +57,14 @@ interface ITeeExtensionRegistry {
         bytes32 indexed platform
     );
 
-    event SupportedWalletProjectOpTypeAdded(
+    event SupportedKeyTypeAdded(
         uint256 indexed extensionId,
-        bytes32 indexed opType
+        bytes32 indexed keyType
     );
 
-    event SupportedWalletProjectOpTypeRemoved(
+    event SupportedKeyTypeRemoved(
         uint256 indexed extensionId,
-        bytes32 indexed opType
+        bytes32 indexed keyType
     );
 
     event NewOwnerProposed(
@@ -81,7 +85,7 @@ interface ITeeExtensionRegistry {
     error MessageEmpty();
     error ExtensionIdMismatch();
     error OnlyInstructionsSender();
-    error OnlySystemInstructionInitiator();
+    error OnlySystemInstructionsSender();
     error SystemOpTypeNotAllowed(bytes32 opType);
     error FeeTooLow();
     error TeeMachineNotAvailable();
@@ -95,13 +99,18 @@ interface ITeeExtensionRegistry {
     error PlatformAlreadyExists(bytes32 platform);
     error InvalidCodeHash();
     error InvalidPlatform();
-    error OpTypeEmpty();
-    error OperationTypeConstantsProviderNotSet();
     error OnlyOwner();
     error SystemOwnedExtensionId();
     error OnlyProposedOwner();
     error PlatformEmpty();
     error CosignersThresholdTooHigh();
+    error KeyTypeEmpty();
+    error KeyTypeAlreadyExists(bytes32 keyType);
+    error KeyTypeNotSupported();
+    error LengthsMismatch();
+    error NoSigningAlgos(bytes32 keyType);
+    error SigningAlgoEmpty();
+    error SigningAlgoAlreadyExists(bytes32 keyType, bytes32 signingAlgo);
 
     /**
      * Send instructions to the TEE machines.
@@ -189,28 +198,28 @@ interface ITeeExtensionRegistry {
         external;
 
     /**
-     * Add or update supported wallet project operation types and their constants providers.
-     * Emits SupportedWalletProjectOpTypeAdded event.
+     * Add supported key types.
+     * Emits SupportedKeyTypeAdded event.
      * @param _extensionId The id of the extension.
-     * @param _opTypeConstantsProviders The operation type constants providers for the operation types.
+     * @param _keyTypes The key types to add.
      * Can only be called by the extension owner.
      */
-    function addOrUpdateSupportedWalletProjectOpTypes(
+    function addSupportedKeyTypes(
         uint256 _extensionId,
-        ITeeWalletProjectOpTypeConstants[] calldata _opTypeConstantsProviders
+        bytes32[] calldata _keyTypes
     )
         external;
 
     /**
-     * Remove supported wallet project operation types.
-     * Emits SupportedWalletProjectOpTypeRemoved event.
+     * Remove supported key types.
+     * Emits SupportedKeyTypeRemoved event.
      * @param _extensionId The id of the extension.
-     * @param _opTypes The operation types to remove.
+     * @param _keyTypes The key types to remove.
      * Can only be called by the extension owner.
      */
-    function removeSupportedWalletProjectOpTypes(
+    function removeSupportedKeyTypes(
         uint256 _extensionId,
-        bytes32[] memory _opTypes
+        bytes32[] memory _keyTypes
     )
         external;
 
@@ -242,16 +251,29 @@ interface ITeeExtensionRegistry {
         returns (uint256);
 
     /**
-     * Get supported platforms.
-     * @return The list of supported platforms.
+     * Get system supported platforms.
+     * @return The list of system supported platforms.
      */
-    function getSupportedPlatforms() external view returns(bytes32[] memory);
+    function getSystemSupportedPlatforms() external view returns(bytes32[] memory);
 
     /**
-     * Get system instruction initiators.
-     * @return The list of system instruction initiators.
+     * Get system supported key types.
+     * @return The list of system supported key types.
      */
-    function getSystemInstructionInitiators() external view returns(address[] memory);
+    function getSystemSupportedKeyTypes() external view returns(bytes32[] memory);
+
+    /**
+     * Get system supported signing algorithms for the given key type.
+     * @param _keyType The key type.
+     * @return The list of supported signing algorithms.
+     */
+    function getSystemSupportedSigningAlgos(bytes32 _keyType) external view returns(bytes32[] memory);
+
+    /**
+     * Get system instructions senders.
+     * @return The list of system instructions senders.
+     */
+    function getSystemInstructionsSenders() external view returns(address[] memory);
 
     /**
      * Get the owner of a TEE extension.
@@ -281,37 +303,36 @@ interface ITeeExtensionRegistry {
         returns (address);
 
     /**
-     * Get wallet project operation type constants provider for the specified extension and operation type.
-     * @param _extensionId The id of the extension.
-     * @param _opType The operation type.
-     * @return The wallet project operation type constants provider.
-     * NOTE: Should revert if the operation type constants provider is not set.
+     * Checks if the signing algorithm is supported for the given key type.
+     * @param _keyType The key type.
+     * @param _signingAlgo The signing algorithm.
+     * @return True if the signing algorithm is supported.
      */
-    function getWalletProjectOpTypeConstantsProvider(
-        uint256 _extensionId,
-        bytes32 _opType
+    function isSigningAlgoSupported(
+        bytes32 _keyType,
+        bytes32 _signingAlgo
     )
         external view
-        returns (ITeeWalletProjectOpTypeConstants);
+        returns (bool);
 
     /**
-     * Returns supported wallet project operation types for the given extension.
+     * Returns supported wallet/project key types for the given extension.
      * @param _extensionId The id of the extension.
-     * @return _supportedOpTypes The supported operation types.
+     * @return _supportedKeyTypes The supported key types.
      */
-    function getSupportedWalletProjectOpTypes(
+    function getSupportedKeyTypes(
         uint256 _extensionId
     )
         external view
-        returns (bytes32[] memory _supportedOpTypes);
+        returns (bytes32[] memory _supportedKeyTypes);
 
     /**
-     * Checks if wallet project operation type is supported for the given extension.
+     * Checks if the key type is supported for the given extension.
      * @param _extensionId The id of the extension.
-     * @param _opType The operation type.
-     * @return True if the operation type is supported.
+     * @param _keyType The key type.
+     * @return True if the key type is supported.
      */
-    function isWalletProjectOpTypeSupported(uint256 _extensionId, bytes32 _opType)
+    function isKeyTypeSupported(uint256 _extensionId, bytes32 _keyType)
         external view
         returns (bool);
 
@@ -336,7 +357,7 @@ interface ITeeExtensionRegistry {
      * @param _codeHash The code hash.
      * @param _platform The platform.
      */
-    function codeHashPlatformDisabled(
+    function isCodeHashPlatformDisabled(
         uint256 _extensionId,
         bytes32 _codeHash,
         bytes32 _platform

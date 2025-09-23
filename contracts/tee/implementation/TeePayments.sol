@@ -3,7 +3,6 @@ pragma solidity ^0.8.27;
 
 import { TeeBase } from "./TeeBase.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
-import { ITeeWalletProjectOpTypeConstants } from "../../userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
 import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
 import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
 import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
@@ -19,7 +18,7 @@ import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.so
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.
  */
-contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase {
+contract TeePayments is ITeePayments, TeeBase {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     struct AccountState {
@@ -64,6 +63,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
     bytes32 public constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
 
     bytes32 internal opType;
+    bytes32 internal keyType;
     EnumerableSet.Bytes32Set internal supportedSourceIds;
     uint64 public maxBatchSize;
     uint64 public maxBatchDurationSeconds;
@@ -110,12 +110,14 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         uint64 _maxBatchSize,
         uint64 _maxBatchDurationSeconds,
         bytes32 _opType,
+        bytes32 _keyType,
         bytes32[] calldata _supportedSourceIds
     )
         external virtual
     {
         require(_maxBatchSize > 0, MaxBatchSizeZero());
         require(_opType != bytes32(0), OpTypeZero());
+        require(_keyType != bytes32(0), KeyTypeZero());
         require(_supportedSourceIds.length > 0, SupportedSourceIdsLengthZero());
 
         TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
@@ -123,6 +125,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         maxBatchSize = _maxBatchSize;
         maxBatchDurationSeconds = _maxBatchDurationSeconds;
         opType = _opType;
+        keyType = _keyType;
         _addSupportedSourceIds(_supportedSourceIds);
     }
 
@@ -138,7 +141,10 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         bytes32 accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
         bytes32 walletId = accountHashToWalletId[accountHash];
         bytes32 projectId = teeWalletManager.getWalletProjectId(walletId);
-        require(teeWalletProjectManager.getSubmitAddress(projectId) == msg.sender, OnlySubmitAddress());
+        require(
+            teeWalletProjectManager.getAuthorizationAddress(projectId) == msg.sender,
+            OnlyAuthorizationAddress()
+        );
         require(
             teeWalletManager.getWalletStatus(walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
             WalletNotInProduction()
@@ -221,7 +227,10 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         tempState.accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
         tempState.walletId = accountHashToWalletId[tempState.accountHash];
         tempState.projectId = teeWalletManager.getWalletProjectId(tempState.walletId);
-        require(teeWalletProjectManager.getSubmitAddress(tempState.projectId) == msg.sender, OnlySubmitAddress());
+        require(
+            teeWalletProjectManager.getAuthorizationAddress(tempState.projectId) == msg.sender,
+            OnlyAuthorizationAddress()
+        );
         require(
             teeWalletManager.getWalletStatus(tempState.walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
             WalletNotInProduction()
@@ -302,7 +311,7 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         require(teeWalletProjectManager.getOwner(projectId) == msg.sender, OnlyWalletOwner());
         require(teeWalletProjectManager.getExtensionId(projectId) == 0, OnlySystemExtensionId());
-        require(teeWalletProjectManager.getOpType(projectId) == opType, WrongOpType());
+        require(teeWalletProjectManager.getKeyType(projectId) == keyType, WrongKeyType());
         require(bytes(_proof.requestBody.accountAddress).length > 0, AccountAddressZero());
         require(supportedSourceIds.contains(_proof.header.sourceId), UnsupportedSourceId());
         bytes32 accountHash = _toAccountHash(_proof.header.sourceId, _proof.requestBody.accountAddress);
@@ -410,10 +419,20 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
      * @inheritdoc ITeePayments
      */
     function getOpType()
-        external view virtual override(ITeePayments, ITeeWalletProjectOpTypeConstants)
+        external view
         returns(bytes32)
     {
         return opType;
+    }
+
+    /**
+     * @inheritdoc ITeePayments
+     */
+    function getKeyType()
+        external view
+        returns(bytes32)
+    {
+        return keyType;
     }
 
     /**
@@ -459,13 +478,6 @@ contract TeePayments is ITeePayments, ITeeWalletProjectOpTypeConstants, TeeBase 
      */
     function isSourceIdSupported(bytes32 _sourceId) external view returns (bool) {
         return supportedSourceIds.contains(_sourceId);
-    }
-
-    /**
-     * @inheritdoc ITeeWalletProjectOpTypeConstants
-     */
-    function getOpTypeConstants(bytes32 _projectId) external view virtual override returns(bytes memory) {
-        // return empty bytes
     }
 
     /**

@@ -132,7 +132,7 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
                 require(
                     teeExtensionRegistry.isCodeHashPlatformSupported(
                         extensionId, sourceVersion.codeHash, sourceVersion.platform) ||
-                    teeExtensionRegistry.codeHashPlatformDisabled(
+                    teeExtensionRegistry.isCodeHashPlatformDisabled(
                         extensionId, sourceVersion.codeHash, sourceVersion.platform),
                     SourceCodeHashAndPlatformNotSupported()
                 );

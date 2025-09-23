@@ -28,6 +28,7 @@ interface IFtdcHub {
 
     event MinThresholdBIPSSet(uint16 minThresholdBIPS);
     event DefaultNumberOfTeesSet(uint8 defaultNumberOfTees);
+    event AttestationRequested(bytes32 attestationType, bytes32 sourceId, bytes requestBody, uint256 fee);
 
     error ThresholdInvalid();
     error NumberOfTeesAndTeeIdsInvalid();

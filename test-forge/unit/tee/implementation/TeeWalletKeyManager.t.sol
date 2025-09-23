@@ -217,14 +217,6 @@ contract TeeWalletKeyManagerTest is Test {
         vm.mockCall(
             teeWalletProjectManager,
             abi.encodeWithSelector(
-                ITeeWalletProjectManager.getOpTypeConstants.selector
-            ),
-            abi.encode(opTypeConstants)
-        );
-
-        vm.mockCall(
-            teeWalletProjectManager,
-            abi.encodeWithSelector(
                 ITeeWalletProjectManager.getBackupManager.selector
             ),
             abi.encode(backupManager)
@@ -789,16 +781,6 @@ contract TeeWalletKeyManagerTest is Test {
         testConfirmKeyNotInWallet();
         pk = teeWalletKeyManager.getWalletKeyPublicKey(walletId, keyId);
         assertEq(pk, proof.publicKey);
-    }
-
-
-    // getWalletKeyAddress
-    function testGetWalletKeyAddress() public {
-        string memory addressStr = teeWalletKeyManager.getWalletKeyAddress(walletId, keyId);
-        assertEq(addressStr, "");
-        testConfirmKeyNotInWallet();
-        addressStr = teeWalletKeyManager.getWalletKeyAddress(walletId, keyId);
-        assertEq(addressStr, proof.addressStr);
     }
 
 

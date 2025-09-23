@@ -82,6 +82,9 @@ import {
   TEE_OPERATION_FEES,
   rewardEpochDurationSeconds,
   FTDC_FEE_CONFIGURATIONS,
+  TEE_KEY_CONFIGURATIONS,
+  TEE_PLATFORMS,
+  TEE_CODE_HASH,
 } from "../tasks/run-simulation";
 import { getLogger } from "./logger";
 import { testDeployGovernanceSettings } from "./contract-helpers";
@@ -672,6 +675,7 @@ export async function deployContracts(
       teePaymentConfig.maxBatchSize,
       teePaymentConfig.maxBatchDurationSeconds,
       web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
+      web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0"),
       teePaymentConfig.sourceIds.map(sourceId => web3.utils.utf8ToHex(sourceId).padEnd(66, "0")),
       teePaymentsImpl.address
     );
@@ -808,12 +812,32 @@ export async function deployContracts(
     { from: governanceAccount.address }
   );
 
-  await teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(
-    0, teePaymentsList.map(teePayments => teePayments.address),
+  await teeExtensionRegistry.addSystemSupportedPlatforms(
+    TEE_PLATFORMS.map(platform => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
     { from: governanceAccount.address }
   );
 
-  await teeExtensionRegistry.registerSystemInstructionInitiators(
+  await teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(
+    TEE_KEY_CONFIGURATIONS.map(teeKeyConfig => web3.utils.utf8ToHex(teeKeyConfig.keyType).padEnd(66, "0")),
+    TEE_KEY_CONFIGURATIONS.map(teeKeyConfig => teeKeyConfig.signingAlgos.map(alg => web3.utils.utf8ToHex(alg).padEnd(66, "0"))),
+    { from: governanceAccount.address }
+  );
+
+  await teeExtensionRegistry.addTeeVersion(
+    0,
+    "v0.1.0",
+    TEE_CODE_HASH,
+    TEE_PLATFORMS.map(platform => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
+    ZERO_BYTES32,
+    { from: governanceAccount.address }
+  );
+
+  await teeExtensionRegistry.addSupportedKeyTypes(
+    0, TEE_PAYMENT_CONFIGURATIONS.map(teePaymentConfig => web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0")),
+    { from: governanceAccount.address }
+  );
+
+  await teeExtensionRegistry.registerSystemInstructionsSenders(
     [
       teeVerification.address,
       teeWalletManager.address,

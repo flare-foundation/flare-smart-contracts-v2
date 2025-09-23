@@ -138,12 +138,12 @@ contract TeeWalletProjectManagerTest is Test {
         assertEq(teeWalletProjectManager.getOpType(projectId2), opType2);
     }
 
-    function testGetSubmitAddress() public {
+    function testGetAuthorizationAddress() public {
         testCreateProject();
         bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
         bytes32 projectId2 = keccak256(abi.encode("PROJECT", projectOwner2, 2));
-        assertEq(submitAddress1, teeWalletProjectManager.getSubmitAddress(projectId1));
-        assertEq(submitAddress2, teeWalletProjectManager.getSubmitAddress(projectId2));
+        assertEq(submitAddress1, teeWalletProjectManager.getAuthorizationAddress(projectId1));
+        assertEq(submitAddress2, teeWalletProjectManager.getAuthorizationAddress(projectId2));
     }
 
     function testSetBackupManager() public {
@@ -223,13 +223,6 @@ contract TeeWalletProjectManagerTest is Test {
         vm.prank(newOwner);
         vm.expectRevert(ITeeWalletProjectManager.OwnerNotAllowed.selector);
         teeWalletProjectManager.confirmOwnership(projectId1);
-    }
-
-    function testGetOpTypeConstants() public {
-        _mockGetWalletProjectOpTypeConstantsProvider();
-        _mockGetOpTypeConstants();
-        bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
-        assertEq(teeWalletProjectManager.getOpTypeConstants(projectId1), "opTypeConstants");
     }
 
     //// Proxy upgrade
@@ -318,16 +311,6 @@ contract TeeWalletProjectManagerTest is Test {
                 ITeeExtensionRegistry.getWalletProjectOpTypeConstantsProvider.selector
             ),
             abi.encode(teeWalletProjectOpTypeConstants)
-        );
-    }
-
-    function _mockGetOpTypeConstants() private {
-        vm.mockCall(
-            address(teeWalletProjectOpTypeConstants),
-            abi.encodeWithSelector(
-                ITeeWalletProjectOpTypeConstants.getOpTypeConstants.selector
-            ),
-            abi.encode(bytes("opTypeConstants"))
         );
     }
 }
