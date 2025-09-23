@@ -10,7 +10,6 @@ import type {
     Block
 } from "ethers";
 import { ethers } from "hardhat";
-import got from 'got';
 
 /**
  * Helper function for instantiating and deploying a contract by using factory.
@@ -56,6 +55,7 @@ export async function increaseTimeTo(tm: number, callType: 'ethers' | 'web3' = "
         const dt = new Date(0);
         dt.setUTCSeconds(tm);
         const strTime = formatTime(dt);
+        const got = (await import('got')).default;
         const res = await got(`http://localhost:8080/${strTime}`)
         // console.log("RES", strTime, res.body)
         return await advanceBlock();
