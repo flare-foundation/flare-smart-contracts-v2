@@ -1,11 +1,21 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "./Contracts";
-import { FlareSystemsManagerContract, FtsoRewardOffersManagerContract } from "../../typechain-truffle";
-import { FtsoRewardOffersManagerInstance } from "../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager";
+import {
+  FlareSystemsManagerContract, FtsoRewardOffersManagerContract,
+  FtsoRewardOffersManagerInstance, FlareSystemsManagerInstance
+} from "../../typechain-truffle";
 import { FtsoConfigurations, IFeedId } from "../../scripts/libs/protocol/FtsoConfigurations";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { sleep } from "../tasks/run-simulation";
-import { FlareSystemsManagerInstance } from "../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager";
+
+export interface Offer {
+  amount: string;
+  feedId: string;
+  minRewardedTurnoutBIPS: number;
+  primaryBandRewardSharePPM: number;
+  secondaryBandWidthPPM: number;
+  claimBackAddress: string;
+}
 
 export async function offerRewards(
   hre: HardhatRuntimeEnvironment,
@@ -35,7 +45,7 @@ export async function offerRewards(
 export async function runOfferRewards(
   nextRewardEpochId: number,
   ofm: FtsoRewardOffersManagerInstance,
-  offers: any[],
+  offers: Offer[],
   offerSender: string
 ) {
   const batchSize = 75;
@@ -56,13 +66,13 @@ export async function runOfferRewards(
       // console.log(`Rewards offered: ${batch.length}`);
       await sleep(500);
     } catch (e) {
-      console.error("Rewards not offered: " + e);
+      console.error("Rewards not offered: " + String(e));
     }
   }
 }
 
-export function generateOffers(feedIds: IFeedId[], amountNat: number, offerSender: string) {
-  const offers = [];
+export function generateOffers(feedIds: IFeedId[], amountNat: number, offerSender: string): Offer[] {
+  const offers: Offer[] = [];
   const amount = web3.utils.toWei(amountNat.toString());
   for (const feedId of feedIds) {
     offers.push({

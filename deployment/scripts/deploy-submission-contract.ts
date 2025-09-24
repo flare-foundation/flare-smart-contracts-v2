@@ -12,6 +12,7 @@ import { SubmissionContract } from '../../typechain-truffle';
 import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
+import { Account } from 'web3-core';
 
 export async function deploySubmissionContract(
   hre: HardhatRuntimeEnvironment,
@@ -22,17 +23,17 @@ export async function deploySubmissionContract(
 ) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
-  const BN = web3.utils.toBN;
+  const _BN = (value: string | number) => web3.utils.toBN(value);
 
-  const Submission: SubmissionContract = artifacts.require("Submission");
+  const Submission = artifacts.require("Submission") as SubmissionContract;
 
   // Define accounts in play for the deployment process
-  let deployerAccount: any;
+  let deployerAccount: Account;
 
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.submissionDeployerPrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e)
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e));
   }
 
   // Wire up the default account that will do the deployment

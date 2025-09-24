@@ -13,28 +13,18 @@ import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
 import { ISigningPolicy, SigningPolicy } from '../../scripts/libs/protocol/SigningPolicy';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
-import { FtsoFeedIdConverterContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedIdConverter';
+import {
+  FtsoFeedIdConverterContract, EntityManagerContract, NodePossessionVerifierContract,
+  VoterRegistryContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract,
+  RewardManagerContract, FtsoRewardManagerProxyContract, SubmissionContract,
+  WNatDelegationFeeContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract,
+  FtsoFeedDecimalsContract, FtsoFeedPublisherContract, RelayContract,
+  FdcHubContract, FdcInflationConfigurationsContract, FdcRequestFeeConfigurationsContract
+} from '../../typechain-truffle';
 import { generateOffers, runOfferRewards } from './offer-rewards';
 import { RelayInitialConfig } from '../utils/RelayInitialConfig';
-import { EntityManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/EntityManager';
-import { NodePossessionVerifierContract } from '../../typechain-truffle/contracts/protocol/implementation/NodePossessionVerifier';
-import { VoterRegistryContract } from '../../typechain-truffle/contracts/protocol/implementation/VoterRegistry';
-import { FlareSystemsCalculatorContract } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsCalculator';
-import { FlareSystemsManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager';
-import { RewardManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
-import { FtsoRewardManagerProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/FtsoRewardManagerProxy';
-import { SubmissionContract } from '../../typechain-truffle/contracts/protocol/implementation/Submission';
-import { WNatDelegationFeeContract } from '../../typechain-truffle/contracts/protocol/implementation/WNatDelegationFee';
-import { FtsoInflationConfigurationsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoInflationConfigurations';
-import { FtsoRewardOffersManagerContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoRewardOffersManager';
-import { FtsoFeedDecimalsContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedDecimals';
-import { FtsoFeedPublisherContract } from '../../typechain-truffle/contracts/ftso/implementation/FtsoFeedPublisher';
-import { RelayContract } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
-import { FdcHubContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcHub";
-import { FdcInflationConfigurationsContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcInflationConfigurations";
-import { FdcRequestFeeConfigurationsContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcRequestFeeConfigurations";
-
-let fs = require("fs");
+import fs from 'fs';
+import { Account } from 'web3-core';
 
 export async function deployContracts(
   hre: HardhatRuntimeEnvironment,
@@ -45,38 +35,37 @@ export async function deployContracts(
 ) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
-  const BN = web3.utils.toBN;
+  const BN = (value: string | number) => web3.utils.toBN(value);
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-  const EntityManager: EntityManagerContract = artifacts.require("EntityManager");
-  const NodePossessionVerifier: NodePossessionVerifierContract = artifacts.require("NodePossessionVerifier");
-  const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
-  const FlareSystemsCalculator: FlareSystemsCalculatorContract = artifacts.require("FlareSystemsCalculator");
-  const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
-  const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
-  const FtsoRewardManagerProxy: FtsoRewardManagerProxyContract = artifacts.require("FtsoRewardManagerProxy");
-  const Submission: SubmissionContract = artifacts.require("Submission");
-  const WNatDelegationFee: WNatDelegationFeeContract = artifacts.require("WNatDelegationFee");
-  const FtsoInflationConfigurations: FtsoInflationConfigurationsContract =
-    artifacts.require("FtsoInflationConfigurations");
-  const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
-  const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
-  const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
-  const FtsoFeedIdConverter: FtsoFeedIdConverterContract = artifacts.require("FtsoFeedIdConverter");
-  const Relay: RelayContract = artifacts.require("Relay");
+  const EntityManager = artifacts.require("EntityManager") as EntityManagerContract;
+  const NodePossessionVerifier = artifacts.require("NodePossessionVerifier") as NodePossessionVerifierContract;
+  const VoterRegistry = artifacts.require("VoterRegistry") as VoterRegistryContract;
+  const FlareSystemsCalculator = artifacts.require("FlareSystemsCalculator") as FlareSystemsCalculatorContract;
+  const FlareSystemsManager = artifacts.require("FlareSystemsManager") as FlareSystemsManagerContract;
+  const RewardManager = artifacts.require("RewardManager") as RewardManagerContract;
+  const FtsoRewardManagerProxy = artifacts.require("FtsoRewardManagerProxy") as FtsoRewardManagerProxyContract;
+  const Submission = artifacts.require("Submission") as SubmissionContract;
+  const WNatDelegationFee = artifacts.require("WNatDelegationFee") as WNatDelegationFeeContract;
+  const FtsoInflationConfigurations = artifacts.require("FtsoInflationConfigurations") as FtsoInflationConfigurationsContract;
+  const FtsoRewardOffersManager = artifacts.require("FtsoRewardOffersManager") as FtsoRewardOffersManagerContract;
+  const FtsoFeedDecimals = artifacts.require("FtsoFeedDecimals") as FtsoFeedDecimalsContract;
+  const FtsoFeedPublisher = artifacts.require("FtsoFeedPublisher") as FtsoFeedPublisherContract;
+  const FtsoFeedIdConverter = artifacts.require("FtsoFeedIdConverter") as FtsoFeedIdConverterContract;
+  const Relay = artifacts.require("Relay") as RelayContract;
   const Supply = artifacts.require("IISupplyGovernance");
-  const FdcHub: FdcHubContract = artifacts.require("FdcHub");
-  const FdcInflationConfigurations: FdcInflationConfigurationsContract = artifacts.require("FdcInflationConfigurations");
-  const FdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FdcRequestFeeConfigurations");
+  const FdcHub = artifacts.require("FdcHub") as FdcHubContract;
+  const FdcInflationConfigurations = artifacts.require("FdcInflationConfigurations") as FdcInflationConfigurationsContract;
+  const FdcRequestFeeConfigurations = artifacts.require("FdcRequestFeeConfigurations") as FdcRequestFeeConfigurationsContract;
 
   // Define accounts in play for the deployment process
-  let deployerAccount: any;
+  let deployerAccount: Account;
 
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e);
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e));
   }
 
   // Wire up the default account that will do the deployment

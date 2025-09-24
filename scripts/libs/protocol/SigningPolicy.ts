@@ -13,14 +13,14 @@ export interface ISigningPolicy {
 }
 
 export interface SigningPolicyInitializedEvent {
-  rewardEpochId: string;
-  startVotingRoundId: string;
-  threshold: string;
+  rewardEpochId: string | number;
+  startVotingRoundId: string | number;
+  threshold: string | number;
   seed: string;
   voters: string[];
-  weights: string[];
+  weights: string[] | number[];
   signingPolicyBytes?: string;
-  timestamp?: number;
+  timestamp?: string | number;
 }
 export namespace SigningPolicy {
 

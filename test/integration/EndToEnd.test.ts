@@ -27,7 +27,7 @@ import { generateSignatures } from '../unit/protocol/coding/coding-helpers';
 import { getTestFile } from "../utils/constants";
 import { executeTimelockedGovernanceCall, testDeployGovernanceSettings } from '../utils/contract-test-helpers';
 import * as util from "../utils/key-to-address";
-import { encodeContractNames, toBN } from '../utils/test-helpers';
+import { encodeContractNames, findRequiredEvent, toBN } from '../utils/test-helpers';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const WNat: WNatContract = artifacts.require("WNat");
@@ -970,6 +970,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     });
 
     it("Should create new PollingFoundation proposal and vote on it", async () => {
+        type ProposalCreatedEvent = { name: "ProposalCreated"; args: { proposalId: string } };
+
         const tx = await pollingFoundation.methods["propose(string,(bool,uint256,uint256,uint256,uint256,uint256))"].sendTransaction("Proposal",
             {
                 accept: false,
@@ -978,9 +980,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 vpBlockPeriodSeconds: 259200,
                 thresholdConditionBIPS: 7500,
                 majorityConditionBIPS: 5000
-            }, { from: accounts[10] }) as any;
-
-        const proposalId: string = tx.logs[0].args.proposalId.toString();
+            }, { from: accounts[10] }) as unknown as Truffle.TransactionResponse<ProposalCreatedEvent>;
+        const event = findRequiredEvent(tx, "ProposalCreated");
+        const eventArgs = event.args;
+        const proposalId: string = eventArgs.proposalId.toString();
 
         // advance one hour to the voting period
         await time.increase(3600);

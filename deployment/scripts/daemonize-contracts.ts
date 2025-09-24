@@ -1,6 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "./Contracts";
 import { ChainParameters } from "../chain-config/chain-parameters";
+import { Account } from "web3-core";
 
 /**
  * This script will register all required contracts to the FlareDaemon.
@@ -23,20 +24,20 @@ export async function daemonizeContracts(
   }
 
   // Define accounts in play for the deployment process
-  let deployerAccount: any;
-  let genesisGovernanceAccount: any;
+  let deployerAccount: Account;
+  let genesisGovernanceAccount: Account;
 
   // Get deployer account
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e)
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e));
   }
 
   try {
     genesisGovernanceAccount = web3.eth.accounts.privateKeyToAccount(parameters.genesisGovernancePrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e)
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e));
   }
 
   if (!quiet) {

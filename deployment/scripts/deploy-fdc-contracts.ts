@@ -2,14 +2,17 @@
  * This script will deploy FdcHub contract using real FlareSystemManager contract and mock contracts for the rest.
  */
 
+import { Account } from "web3-core";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
-import { FdcHubContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcHub";
-import { FdcInflationConfigurationsContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcInflationConfigurations";
-import { FdcRequestFeeConfigurationsContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcRequestFeeConfigurations";
+import {
+  FdcHubContract,
+  FdcInflationConfigurationsContract,
+  FdcRequestFeeConfigurationsContract,
+  FdcVerificationContract
+} from "../../typechain-truffle";
 import { spewNewContractInfo } from "./deploy-utils";
-import { FdcVerificationContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcVerification";
 import { FdcVerificationProxyContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcVerificationProxy";
 
 export async function deployFdcContracts(
@@ -22,19 +25,19 @@ export async function deployFdcContracts(
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
 
-  const FdcHub: FdcHubContract = artifacts.require("FdcHub");
-  const FdcInflationConfigurations: FdcInflationConfigurationsContract = artifacts.require("FdcInflationConfigurations");
-  const FdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FdcRequestFeeConfigurations");
-  const FdcVerificationImplementation: FdcVerificationContract = artifacts.require("FdcVerification");
-  const FdcVerificationProxy: FdcVerificationProxyContract = artifacts.require("FdcVerificationProxy");
+  const FdcHub = artifacts.require("FdcHub") as FdcHubContract;
+  const FdcInflationConfigurations = artifacts.require("FdcInflationConfigurations") as FdcInflationConfigurationsContract;
+  const FdcRequestFeeConfigurations = artifacts.require("FdcRequestFeeConfigurations") as FdcRequestFeeConfigurationsContract;
+  const FdcVerificationImplementation = artifacts.require("FdcVerification") as FdcVerificationContract;
+  const FdcVerificationProxy = artifacts.require("FdcVerificationProxy") as FdcVerificationProxyContract;
 
   // Define accounts in play for the deployment process
-  let deployerAccount: any;
+  let deployerAccount: Account;
 
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e);
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e));
   }
 
   // Wire up the default account that will do the deployment

@@ -73,11 +73,11 @@ export const FIXED_TEST_VOTERS = [
 
 export function eventToSigningPolicy(event: SigningPolicyInitializedEvent): ISigningPolicy {
   return {
-    rewardEpochId: parseInt(event.rewardEpochId),
-    startVotingRoundId: parseInt(event.startVotingRoundId),
-    threshold: parseInt(event.threshold),
+    rewardEpochId: +event.rewardEpochId,
+    startVotingRoundId: +event.startVotingRoundId,
+    threshold: +event.threshold,
     seed: "0x" + BigInt(event.seed).toString(16).padStart(64, "0").toLowerCase(),
     voters: event.voters.map(x => x.toLowerCase()),
-    weights: event.weights.map(x => parseInt(x))
-  } as ISigningPolicy
+    weights: event.weights.map(x => +x)
+  }
 }

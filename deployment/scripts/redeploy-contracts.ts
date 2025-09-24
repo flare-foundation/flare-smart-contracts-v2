@@ -11,33 +11,19 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
-import { PChainStakeMirrorVerifierContract, PChainStakeMirrorVerifierInstance } from '../../typechain-truffle/contracts/staking/implementation/PChainStakeMirrorVerifier';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
-import { RNatContract } from '../../typechain-truffle/contracts/rNat/implementation/RNat';
-import { RNatAccountContract } from '../../typechain-truffle/contracts/rNat/implementation/RNatAccount';
-import { WNatContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/WNat';
 import { RelayInitialConfig } from '../utils/RelayInitialConfig';
-import { RelayContract, RelayInstance } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
-import { RewardManagerContract, RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
-import { FlareSystemsManagerContract, FlareSystemsManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager';
-import { PollingFoundationContract } from '../../typechain-truffle/contracts/governance/implementation/PollingFoundation';
-import { PollingManagementGroupContract } from '../../typechain-truffle/contracts/governance/implementation/PollingManagementGroup';
-import { ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance } from '../../typechain-truffle/contracts/staking/implementation/ValidatorRewardOffersManager';
-import { FastUpdateIncentiveManagerContract, FastUpdateIncentiveManagerInstance } from '../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdateIncentiveManager';
-import { FastUpdaterContract } from '../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdater';
-import { FastUpdatesConfigurationContract, FastUpdatesConfigurationInstance } from '../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdatesConfiguration';
-import { FeeCalculatorContract } from '../../typechain-truffle/contracts/fastUpdates/implementation/FeeCalculator';
-import { FtsoManagerProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/FtsoManagerProxy';
-import { FtsoProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/FtsoProxy';
-import { FtsoV2Contract } from '../../typechain-truffle/contracts/protocol/implementation/FtsoV2';
-import { FtsoV2ProxyContract } from '../../typechain-truffle/contracts/protocol/implementation/FtsoV2Proxy';
-import { PriceSubmitterProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/PriceSubmitterProxy';
-import { VoterWhitelisterProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/VoterWhitelisterProxy';
-import { FtsoRewardManagerProxyContract, FtsoRewardManagerProxyInstance } from '../../typechain-truffle/contracts/fscV1/implementation/FtsoRewardManagerProxy';
-import { EntityManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/EntityManager';
-import { VoterRegistryContract } from '../../typechain-truffle/contracts/protocol/implementation/VoterRegistry';
-import { VoterPreRegistryContract } from '../../typechain-truffle/contracts/protocol/implementation/VoterPreRegistry';
-import { SFlrCustomFeedContract } from '../../typechain-truffle/contracts/customFeeds/implementation/SFlrCustomFeed.sol/SFlrCustomFeed';
+import {
+  PChainStakeMirrorVerifierContract, PChainStakeMirrorVerifierInstance, RNatContract, RNatAccountContract, WNatContract, RelayContract, RelayInstance, RewardManagerContract, RewardManagerInstance,
+  FlareSystemsManagerContract, FlareSystemsManagerInstance, PollingFoundationContract,
+  PollingManagementGroupContract, ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance,
+  FastUpdateIncentiveManagerContract, FastUpdateIncentiveManagerInstance, FastUpdaterContract,
+  FastUpdatesConfigurationContract, FastUpdatesConfigurationInstance, FeeCalculatorContract,
+  FtsoManagerProxyContract, FtsoProxyContract, FtsoV2Contract, FtsoV2ProxyContract,
+  PriceSubmitterProxyContract, VoterWhitelisterProxyContract, FtsoRewardManagerProxyContract, FtsoRewardManagerProxyInstance, EntityManagerContract, VoterRegistryContract, VoterPreRegistryContract, SFlrCustomFeedContract
+
+} from '../../typechain-truffle';
+import { Account } from 'web3-core';
 
 export async function redeployContracts(
   hre: HardhatRuntimeEnvironment,
@@ -48,7 +34,7 @@ export async function redeployContracts(
 ) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
-  const BN = web3.utils.toBN;
+  const BN = (value: string | number) => web3.utils.toBN(value);
 
   const initialDeploy = true;
   const deployRNat = false;
@@ -56,31 +42,31 @@ export async function redeployContracts(
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
   const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
-  const Relay: RelayContract = artifacts.require("Relay");
-  const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
-  const PollingFoundation: PollingFoundationContract = artifacts.require("PollingFoundation");
-  const PollingManagementGroup: PollingManagementGroupContract = artifacts.require("PollingManagementGroup");
-  const ValidatorRewardOffersManager: ValidatorRewardOffersManagerContract = artifacts.require("ValidatorRewardOffersManager");
-  const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = artifacts.require("PChainStakeMirrorVerifier");
-  const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract = artifacts.require("FastUpdateIncentiveManager");
-  const FastUpdater: FastUpdaterContract = artifacts.require("FastUpdater");
-  const FastUpdatesConfiguration: FastUpdatesConfigurationContract = artifacts.require("FastUpdatesConfiguration");
-  const FeeCalculator: FeeCalculatorContract = artifacts.require("FeeCalculator");
-  const WNat: WNatContract = artifacts.require("WNat");
-  const RNat: RNatContract = artifacts.require("RNat");
-  const RNatAccount: RNatAccountContract = artifacts.require("RNatAccount");
-  const FtsoManagerProxy: FtsoManagerProxyContract = artifacts.require("FtsoManagerProxy");
-  const FtsoProxy: FtsoProxyContract = artifacts.require("FtsoProxy");
-  const FtsoV2Implementation: FtsoV2Contract = artifacts.require("FtsoV2");
-  const FtsoV2Proxy: FtsoV2ProxyContract = artifacts.require("FtsoV2Proxy");
-  const PriceSubmitterProxy: PriceSubmitterProxyContract = artifacts.require("PriceSubmitterProxy");
-  const VoterWhitelisterProxy: VoterWhitelisterProxyContract = artifacts.require("VoterWhitelisterProxy");
-  const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
-  const FtsoRewardManagerProxy: FtsoRewardManagerProxyContract = artifacts.require("FtsoRewardManagerProxy");
-  const EntityManager: EntityManagerContract = artifacts.require("EntityManager");
-  const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
-  const VoterPreRegistry: VoterPreRegistryContract = artifacts.require("VoterPreRegistry");
-  const SFlrCustomFeed: SFlrCustomFeedContract = artifacts.require("SFlrCustomFeed");
+  const Relay = artifacts.require("Relay") as RelayContract;
+  const FlareSystemsManager = artifacts.require("FlareSystemsManager") as FlareSystemsManagerContract;
+  const PollingFoundation = artifacts.require("PollingFoundation") as PollingFoundationContract;
+  const PollingManagementGroup = artifacts.require("PollingManagementGroup") as PollingManagementGroupContract;
+  const ValidatorRewardOffersManager = artifacts.require("ValidatorRewardOffersManager") as ValidatorRewardOffersManagerContract;
+  const PChainStakeMirrorVerifier = artifacts.require("PChainStakeMirrorVerifier") as PChainStakeMirrorVerifierContract;
+  const FastUpdateIncentiveManager = artifacts.require("FastUpdateIncentiveManager") as FastUpdateIncentiveManagerContract;
+  const FastUpdater = artifacts.require("FastUpdater") as FastUpdaterContract;
+  const FastUpdatesConfiguration = artifacts.require("FastUpdatesConfiguration") as FastUpdatesConfigurationContract;
+  const FeeCalculator = artifacts.require("FeeCalculator") as FeeCalculatorContract;
+  const WNat = artifacts.require("WNat") as WNatContract;
+  const RNat = artifacts.require("RNat") as RNatContract;
+  const RNatAccount = artifacts.require("RNatAccount") as RNatAccountContract;
+  const FtsoManagerProxy = artifacts.require("FtsoManagerProxy") as FtsoManagerProxyContract;
+  const FtsoProxy = artifacts.require("FtsoProxy") as FtsoProxyContract;
+  const FtsoV2Implementation = artifacts.require("FtsoV2") as FtsoV2Contract;
+  const FtsoV2Proxy = artifacts.require("FtsoV2Proxy") as FtsoV2ProxyContract;
+  const PriceSubmitterProxy = artifacts.require("PriceSubmitterProxy") as PriceSubmitterProxyContract;
+  const VoterWhitelisterProxy = artifacts.require("VoterWhitelisterProxy") as VoterWhitelisterProxyContract;
+  const RewardManager = artifacts.require("RewardManager") as RewardManagerContract;
+  const FtsoRewardManagerProxy = artifacts.require("FtsoRewardManagerProxy") as FtsoRewardManagerProxyContract;
+  const EntityManager = artifacts.require("EntityManager") as EntityManagerContract;
+  const VoterRegistry = artifacts.require("VoterRegistry") as VoterRegistryContract;
+  const VoterPreRegistry = artifacts.require("VoterPreRegistry") as VoterPreRegistryContract;
+  const SFlrCustomFeed = artifacts.require("SFlrCustomFeed") as SFlrCustomFeedContract;
 
   let validatorRewardOffersManager: ValidatorRewardOffersManagerInstance;
   let pChainStakeMirrorVerifier: PChainStakeMirrorVerifierInstance;
@@ -89,12 +75,12 @@ export async function redeployContracts(
   let ftsoRewardManagerProxy: FtsoRewardManagerProxyInstance;
 
   // Define accounts in play for the deployment process
-  let deployerAccount: any;
+  let deployerAccount: Account;
 
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e)
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e));
   }
 
   // Wire up the default account that will do the deployment

@@ -1,5 +1,6 @@
 
 import Web3 from "web3";
+import type { AbiInput } from "web3-utils";
 
 /**
  * Can be used to decode events that were emitted indirectly.
@@ -13,17 +14,17 @@ export function decodeLogs(
   emitter: Truffle.ContractInstance,
   eventName: string
 ): Truffle.TransactionLog<never>[] {
-  const logs: any[] = response.receipt.rawLogs;
+  const receipt = response.receipt as { rawLogs: Array<{ topics: string[]; data: string; address: string; logIndex?: number }> };
+  const logs = receipt.rawLogs;
 
-  let abi: any[];
+  const abi = emitter.abi;
   let address: string | null;
-  abi = emitter.abi;
   try {
     address = emitter.address;
-  } catch (e) {
+  } catch {
     address = null;
   }
-  let eventABIs = abi.filter(x => x.type === "event" && x.name === eventName);
+  const eventABIs = abi.filter(x => x.type === "event" && x.name === eventName);
   if (eventABIs.length === 0) {
     throw new Error(`No ABI entry for event '${eventName}'`);
   } else if (eventABIs.length > 1) {
@@ -31,11 +32,12 @@ export function decodeLogs(
   }
 
   const eventABI = eventABIs[0];
-  const eventSignature = `${eventName}(${eventABI.inputs.map((input: any) => input.type).join(",")})`;
+  const inputs: AbiInput[] = eventABI.inputs ?? [];
+  const eventSignature = `${eventName}(${inputs.map(input => input.type).join(",")})`;
   const eventTopic = Web3.utils.sha3(eventSignature);
 
   return logs
     .filter(log => log.topics.length > 0 && log.topics[0] === eventTopic && (!address || log.address === address))
-    .map(log => web3.eth.abi.decodeLog(eventABI.inputs, log.data, log.topics.slice(1)))
-    .map(decoded => ({ event: eventName, args: decoded })) as any;
+    .map(log => web3.eth.abi.decodeLog(inputs, log.data, log.topics.slice(1)))
+    .map(decoded => ({ event: eventName, args: decoded })) as Truffle.TransactionLog<never>[];
 }
