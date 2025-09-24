@@ -102,7 +102,6 @@ export const TEE_OPERATION_FEES = [
   {opType: "F_WALLET", opCommand: "KEY_GENERATE", feeWei: "1"},
   {opType: "F_WALLET", opCommand: "KEY_DELETE", feeWei: "1"},
   {opType: "F_WALLET", opCommand: "KEY_DATA_PROVIDER_RESTORE", feeWei: "1"},
-  {opType: "F_WALLET", opCommand: "KEY_DATA_PROVIDER_RESTORE_TEST", feeWei: "1"},
   {opType: "F_WALLET", opCommand: "SET_PAUSING_ADDRESSES", feeWei: "1"},
   {opType: "F_WALLET", opCommand: "RESUME", feeWei: "1"},
   {opType: "F_XRP", opCommand: "PAY", feeWei: "1"},
