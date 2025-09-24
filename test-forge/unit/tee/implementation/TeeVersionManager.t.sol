@@ -77,7 +77,7 @@ contract TeeVersionManagerTest is Test {
         _mockIsGovernanceHashValid(targetTeeGovernanceHash, true);
         _mockIsCodeHashPlatformSupported(sourceCodeHash, true);
         _mockIsCodeHashPlatformSupported(targetCodeHash, true);
-        _mockCodeHashPlatformDisabled(false);
+        _mockIsCodeHashPlatformDisabled(false);
         _mockGetTeeGovernanceHash(sourceCodeHash, sourceTeeGovernanceHash);
         _mockGetTeeGovernanceHash(targetCodeHash, targetTeeGovernanceHash);
 
@@ -594,11 +594,11 @@ contract TeeVersionManagerTest is Test {
     }
 
 
-    function _mockCodeHashPlatformDisabled(bool _isDisabled) private {
+    function _mockIsCodeHashPlatformDisabled(bool _isDisabled) private {
         vm.mockCall(
             teeExtensionRegistry,
             abi.encodeWithSelector(
-                ITeeExtensionRegistry.codeHashPlatformDisabled.selector
+                ITeeExtensionRegistry.isCodeHashPlatformDisabled.selector
             ),
             abi.encode(_isDisabled)
         );

@@ -115,9 +115,9 @@ contract FtdcHubTest is Test {
 
         // set FtdcHub contract as system instruction initiator on TeeExtensionRegistry
         vm.startPrank(governance);
-        address[] memory systemInstructionInitiator = new address[](1);
-        systemInstructionInitiator[0] = address(ftdcHub);
-        teeExtensionRegistry.registerSystemInstructionInitiators(systemInstructionInitiator);
+        address[] memory systemInstructionsSender = new address[](1);
+        systemInstructionsSender[0] = address(ftdcHub);
+        teeExtensionRegistry.registerSystemInstructionsSenders(systemInstructionsSender);
         vm.stopPrank();
         _mockReceiveRewards();
 

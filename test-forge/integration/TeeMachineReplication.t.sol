@@ -45,6 +45,7 @@ import { IRelay } from "../../contracts/userInterfaces/IRelay.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
+import { PublicKeyHelper } from "../utils/PublicKeyHelper.sol";
 import { Signature } from "../../contracts/userInterfaces/ISignature.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
@@ -80,13 +81,13 @@ contract TeeMachineReplicationTest is Test {
     address private instructionsSender;
     uint256 private extensionId;
     address private teeMachineOwner;
+    PublicKey private teePublicKey;
     address private teeId;
     address private teeProxyId;
-    uint256 private teePrivateKey;
     string private teeUrl;
+    PublicKey private newTeePublicKey;
     address private newTeeId;
     address private newTeeProxyId;
-    uint256 private newTeePrivateKey;
     string private newTeeUrl;
 
     Signer[] private governanceSigners1;
@@ -111,10 +112,12 @@ contract TeeMachineReplicationTest is Test {
         instructionsSender = makeAddr("instructionsSender");
         teeMachineOwner = makeAddr("teeMachineOwner");
         vm.deal(teeMachineOwner, 1 ether);
-        (teeId, teePrivateKey) = makeAddrAndKey("teeId");
+        teePublicKey = PublicKeyHelper.getRandomPublicKey(vm);
+        teeId = PublicKeyHelper.getAddress(teePublicKey);
         teeProxyId = makeAddr("teeProxyId");
         teeUrl = "https://tee.proxy.url";
-        (newTeeId, newTeePrivateKey) = makeAddrAndKey("newTeeId");
+        newTeePublicKey = PublicKeyHelper.getRandomPublicKey(vm);
+        newTeeId = PublicKeyHelper.getAddress(newTeePublicKey);
         newTeeProxyId = makeAddr("newTeeProxyId");
         newTeeUrl = "https://new.tee.proxy.url";
 
@@ -321,14 +324,14 @@ contract TeeMachineReplicationTest is Test {
 
         vm.startPrank(initialGovernance);
         // register system instruction initiators
-        address[] memory systemInstructionInitiators = new address[](3);
-        systemInstructionInitiators[0] = address(teeReplication);
-        systemInstructionInitiators[1] = address(teeVerification);
-        systemInstructionInitiators[2] = address(ftdcHub);
-        teeExtensionRegistry.registerSystemInstructionInitiators(systemInstructionInitiators);
+        address[] memory systemInstructionsSenders = new address[](3);
+        systemInstructionsSenders[0] = address(teeReplication);
+        systemInstructionsSenders[1] = address(teeVerification);
+        systemInstructionsSenders[2] = address(ftdcHub);
+        teeExtensionRegistry.registerSystemInstructionsSenders(systemInstructionsSenders);
 
         // add supported platforms
-        teeExtensionRegistry.addSupportedPlatforms(platforms2);
+        teeExtensionRegistry.addSystemSupportedPlatforms(platforms2);
 
         // set tee fees
         bytes32[] memory opTypes = new bytes32[](3);
@@ -435,7 +438,14 @@ contract TeeMachineReplicationTest is Test {
         emit ITeeMachineRegistry.TeeMachineRegistered(
             teeId, teeProxyId, teeMachineOwner, extensionId, teeUrl, codeHash1, platforms1[0]
         );
-        teeMachineRegistry.register{value: 150}(extensionId, teeId, teeProxyId, teeUrl, codeHash1, platforms1[0]);
+        teeMachineRegistry.register{value: 150}(
+            extensionId,
+            teePublicKey,
+            teeProxyId,
+            teeUrl,
+            codeHash1,
+            platforms1[0]
+        );
     }
 
     function testPutTeeMachineToProduction() public {
@@ -587,7 +597,7 @@ contract TeeMachineReplicationTest is Test {
         );
         teeMachineRegistry.register{value: 150}(
             extensionId,
-            newTeeId,
+            newTeePublicKey,
             newTeeProxyId,
             newTeeUrl,
             codeHash2,

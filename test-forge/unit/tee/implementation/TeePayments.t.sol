@@ -50,6 +50,7 @@ contract TeePaymentsTest is Test {
     address[] private contractAddresses;
 
     bytes32 private constant OP_TYPE = bytes32("F_XRP");
+    bytes32 private constant KEY_TYPE = bytes32("XRP_KEY");
     bytes32 private constant SOURCE_ID = bytes32("XRP");
     bytes32 private constant PAY = bytes32("PAY");
     bytes32 private constant REISSUE = bytes32("REISSUE");
@@ -58,7 +59,7 @@ contract TeePaymentsTest is Test {
     address private walletOwner = makeAddr("walletOwner");
     string private senderAddress = "senderAddress";
     uint256 private fee = 123;
-    address private submitAddress = makeAddr("submitAddress");
+    address private authorizationAddress = makeAddr("authorizationAddress");
     bytes32 private projectId = bytes32("projectId");
     bytes32[] private sourceIds;
     ITeePayments.PMWMultisigAccount private pmwMultisigAccount;
@@ -92,6 +93,7 @@ contract TeePaymentsTest is Test {
             5, // max batch size
             300, // max batch duration seconds
             OP_TYPE,
+            KEY_TYPE,
             sourceIds,
             address(teePaymentsImpl)
         );
@@ -145,10 +147,10 @@ contract TeePaymentsTest is Test {
         _mockGetWalletProjectId(walletId, projectId);
         _mockGetExtensionId(projectId, 0);
         _mockGetOwner(projectId, walletOwner);
-        _mockGetAuthorizationAddress(projectId, submitAddress);
+        _mockGetAuthorizationAddress(projectId, authorizationAddress);
         _mockGetCurrentRewardEpochId(10);
         _mockReceiveRewards();
-        _mockGetOpType(projectId, OP_TYPE);
+        _mockGetKeyType(projectId, KEY_TYPE);
 
         pmwMultisigAccount.sourceId = SOURCE_ID;
         pmwMultisigAccount.accountAddress = senderAddress;
@@ -160,7 +162,7 @@ contract TeePaymentsTest is Test {
         proof.responseBody.sequence = 11; // set initial nonce to 11
 
         // fund the submit address and the wallet owner address
-        vm.deal(submitAddress, 1 ether);
+        vm.deal(authorizationAddress, 1 ether);
         vm.deal(walletOwner, 1 ether);
 
         // move time to 500 seconds
@@ -170,9 +172,9 @@ contract TeePaymentsTest is Test {
         _mockGetExtensionId(0);
         // set TeePayments contract as system instruction initiator on TeeExtensionRegistry
         vm.prank(governance);
-        address[] memory systemInstructionInitiators = new address[](1);
-        systemInstructionInitiators[0] = address(teePayments);
-        teeExtensionRegistry.registerSystemInstructionInitiators(systemInstructionInitiators);
+        address[] memory systemInstructionsSenders = new address[](1);
+        systemInstructionsSenders[0] = address(teePayments);
+        teeExtensionRegistry.registerSystemInstructionsSenders(systemInstructionsSenders);
         _mockCalculateFeeByTeeIds(PAY, fee);
         _mockCalculateFeeByTeeIds(REISSUE, fee);
         _mockCalculateFeeByTeeIds(SET_PAYMENT_LIMITS, fee);
@@ -200,12 +202,13 @@ contract TeePaymentsTest is Test {
             0, // max batch size
             300, // max batch duration seconds
             OP_TYPE,
+            KEY_TYPE,
             sourceIds,
             address(teePaymentsImpl)
         );
     }
 
-    function testDeployRevertOpType() public {
+    function testDeployRevertOpTypeZero() public {
         vm.expectRevert(ITeePayments.OpTypeZero.selector);
         new TeePaymentsProxy(
             IGovernanceSettings(makeAddr("governanceSettings")),
@@ -214,6 +217,22 @@ contract TeePaymentsTest is Test {
             5, // max batch size
             300, // max batch duration seconds
             bytes32(0), // op type
+            KEY_TYPE,
+            sourceIds,
+            address(teePaymentsImpl)
+        );
+    }
+
+    function testDeployRevertKeyTypeZero() public {
+        vm.expectRevert(ITeePayments.KeyTypeZero.selector);
+        new TeePaymentsProxy(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            5, // max batch size
+            300, // max batch duration seconds
+            OP_TYPE,
+            bytes32(0), // key type
             sourceIds,
             address(teePaymentsImpl)
         );
@@ -229,6 +248,7 @@ contract TeePaymentsTest is Test {
             5, // max batch size
             300, // max batch duration seconds
             OP_TYPE, // op type
+            KEY_TYPE,
             sourceIds,
             address(teePaymentsImpl)
         );
@@ -249,6 +269,7 @@ contract TeePaymentsTest is Test {
             5, // max batch size
             300, // max batch duration seconds
             OP_TYPE, // op type
+            KEY_TYPE,
             sourceIds,
             address(teePaymentsImpl)
         );
@@ -308,9 +329,9 @@ contract TeePaymentsTest is Test {
         teePayments.addPMWMultisigAccount(walletId, proof);
     }
 
-    function testAddPMWMultisigAccountRevertWrongOpType() public {
-        _mockGetOpType(projectId, bytes32("WRONG_OP_TYPE"));
-        vm.expectRevert(ITeePayments.WrongOpType.selector);
+    function testAddPMWMultisigAccountRevertWrongKeyType() public {
+        _mockGetKeyType(projectId, bytes32("WRONG_KEY_TYPE"));
+        vm.expectRevert(ITeePayments.WrongKeyType.selector);
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof);
     }
@@ -446,7 +467,7 @@ contract TeePaymentsTest is Test {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof);
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
         teePayments.pay{value: fee - 1}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
     }
@@ -455,15 +476,15 @@ contract TeePaymentsTest is Test {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof);
-        vm.expectRevert(ITeePayments.OnlySubmitAddress.selector);
+        vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
         teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
     }
 
-    function testPayRevertOnlySubmitAddress2() public {
+    function testPayRevertOnlyAuthorizationAddress2() public {
         // account not added
         _mockGetWalletProjectId(bytes32(0), bytes32(0));
         _mockGetAuthorizationAddress(bytes32(0), address(0));
-        vm.expectRevert(ITeePayments.OnlySubmitAddress.selector);
+        vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
         teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
     }
 
@@ -471,7 +492,7 @@ contract TeePaymentsTest is Test {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PAUSED);
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof);
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.WalletNotInProduction.selector);
         teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
     }
@@ -499,7 +520,7 @@ contract TeePaymentsTest is Test {
             11, // subNonce
             500 + 0
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -531,7 +552,7 @@ contract TeePaymentsTest is Test {
             12, // subNonce
             500 + 0
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -574,7 +595,7 @@ contract TeePaymentsTest is Test {
             11, // subNonce
             500 + 300
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -606,7 +627,7 @@ contract TeePaymentsTest is Test {
             12, // subNonce
             500 + 300
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -649,7 +670,7 @@ contract TeePaymentsTest is Test {
             11, // subNonce
             500 + 300
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -681,7 +702,7 @@ contract TeePaymentsTest is Test {
             12, // subNonce
             500 + 300
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -713,7 +734,7 @@ contract TeePaymentsTest is Test {
             13, // subNonce
             500 + 300
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -749,7 +770,7 @@ contract TeePaymentsTest is Test {
             14, // subNonce
             500 + 301 + 300 // batch end time
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -783,7 +804,7 @@ contract TeePaymentsTest is Test {
             15, // subNonce
             500 + 301 + 300
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -826,7 +847,7 @@ contract TeePaymentsTest is Test {
             11, // subNonce
             500 + 300
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -858,7 +879,7 @@ contract TeePaymentsTest is Test {
             12, // subNonce
             500 + 300
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -910,7 +931,7 @@ contract TeePaymentsTest is Test {
             11, // subNonce
             500 + 0
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -943,7 +964,7 @@ contract TeePaymentsTest is Test {
             12, // subNonce
             500 + 0
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -983,7 +1004,7 @@ contract TeePaymentsTest is Test {
         nullify[0] = false;
         nullify[1] = false;
         _mockReceivingTeesAndKeys();
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
         teePayments.reissue{value: fee * 2 - 1} (pmwMultisigAccount, 11, 11, paymentInstructions, fees, nullify);
     }
@@ -1002,7 +1023,7 @@ contract TeePaymentsTest is Test {
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof);
         vm.expectRevert(ITeePayments.WalletNotInProduction.selector);
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         teePayments.reissue{value: fee * 2} (pmwMultisigAccount, 1, 1, paymentInstructions, fees, nullify);
     }
 
@@ -1019,11 +1040,11 @@ contract TeePaymentsTest is Test {
         nullify[1] = false;
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof);
-        vm.expectRevert(ITeePayments.OnlySubmitAddress.selector);
+        vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
         teePayments.reissue{value: fee * 2} (pmwMultisigAccount, 1, 1, paymentInstructions, fees, nullify);
     }
 
-    function testReissueRevertOnlySubmitAddress2() public {
+    function testReissueRevertOnlyAuthorizationAddress2() public {
         ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
@@ -1037,7 +1058,7 @@ contract TeePaymentsTest is Test {
         // account not added
         _mockGetWalletProjectId(bytes32(0), bytes32(0));
         _mockGetAuthorizationAddress(bytes32(0), address(0));
-        vm.expectRevert(ITeePayments.OnlySubmitAddress.selector);
+        vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
         teePayments.reissue{value: fee * 2} (pmwMultisigAccount, 1, 1, paymentInstructions, fees, nullify);
     }
 
@@ -1054,7 +1075,7 @@ contract TeePaymentsTest is Test {
         bool[] memory nullify = new bool[](2);
         nullify[0] = false;
         nullify[1] = false;
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         // batch with nonce 11 is not yet finished
         vm.expectRevert(ITeePayments.BatchNotYetEnded.selector);
         teePayments.reissue{value: fee * 2} (pmwMultisigAccount, 11, 11, paymentInstructions, fees, nullify);
@@ -1073,7 +1094,7 @@ contract TeePaymentsTest is Test {
         bool[] memory nullify = new bool[](2);
         nullify[0] = false;
         nullify[1] = false;
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.BatchNotYetEnded.selector);
         teePayments.reissue{value: fee * 2} (pmwMultisigAccount, 13, 11, paymentInstructions, fees, nullify);
     }
@@ -1090,7 +1111,7 @@ contract TeePaymentsTest is Test {
         bool[] memory nullify = new bool[](2);
         nullify[0] = false;
         nullify[1] = false;
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         // batch with nonce 11 is finished
         vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
         teePayments.reissue{value: fee * 2} (pmwMultisigAccount, 11, 11, paymentInstructions, fees, nullify);
@@ -1108,7 +1129,7 @@ contract TeePaymentsTest is Test {
         bool[] memory nullify = new bool[](2);
         nullify[0] = false;
         nullify[1] = false;
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
         vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
@@ -1126,7 +1147,7 @@ contract TeePaymentsTest is Test {
         fees[0] = 150;
         fees[1] = 150;
         bool[] memory nullify = new bool[](1);
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
         vm.expectRevert(ITeePayments.LengthsMismatch.selector);
@@ -1144,7 +1165,7 @@ contract TeePaymentsTest is Test {
         fees[0] = 150;
         bool[] memory nullify = new bool[](1);
         nullify[0] = false;
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
         vm.expectRevert(ITeePayments.LengthsMismatch.selector);
@@ -1163,7 +1184,7 @@ contract TeePaymentsTest is Test {
         bool[] memory nullify = new bool[](2);
         nullify[0] = false;
         nullify[1] = false;
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         bytes32 instructionId = keccak256(abi.encode(OP_TYPE, REISSUE, SOURCE_ID, senderAddress, 11, 0));
@@ -1258,13 +1279,13 @@ contract TeePaymentsTest is Test {
             cosignersThreshold,
             123
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         teePayments.reissue{value: fee} (pmwMultisigAccount, 13, 14, paymentInstructions, fees, nullify);
 
         // try reissue batch with nonce 14; batch is not yet finished
         paymentInstructions = new ITeePayments.PaymentInstruction[](1);
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref5"));
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.BatchNotYetEnded.selector);
         teePayments.reissue{value: fee} (pmwMultisigAccount, 14, 15, paymentInstructions, fees, nullify);
     }
@@ -1275,7 +1296,7 @@ contract TeePaymentsTest is Test {
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         bytes32 instructionId = keccak256(abi.encode(OP_TYPE, REISSUE, SOURCE_ID, senderAddress, 11, 0));
         (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
@@ -1349,7 +1370,7 @@ contract TeePaymentsTest is Test {
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         bytes32 instructionId = keccak256(abi.encode(OP_TYPE, REISSUE, SOURCE_ID, senderAddress, 11, 0));
         (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
@@ -1443,7 +1464,7 @@ contract TeePaymentsTest is Test {
             cosignersThreshold,
             127
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         teePayments.reissue{value: fee * 2 + 7} (pmwMultisigAccount, 11, 11, paymentInstructions, fees, nullify);
     }
 
@@ -1535,6 +1556,7 @@ contract TeePaymentsTest is Test {
                 6,
                 400,
                 OP_TYPE,
+                KEY_TYPE,
                 sourceIds
             )
         ));
@@ -1587,11 +1609,11 @@ contract TeePaymentsTest is Test {
         });
     }
 
-    function _mockGetAuthorizationAddress(bytes32 _projectId, address _submitAddress) internal {
+    function _mockGetAuthorizationAddress(bytes32 _projectId, address _authorizationAddress) internal {
         vm.mockCall(
             mockTeeWalletProjectManager,
-            abi.encodeWithSelector(ITeeWalletProjectManager.getSubmitAddress.selector, _projectId),
-            abi.encode(_submitAddress)
+            abi.encodeWithSelector(ITeeWalletProjectManager.getAuthorizationAddress.selector, _projectId),
+            abi.encode(_authorizationAddress)
         );
     }
 
@@ -1643,11 +1665,11 @@ contract TeePaymentsTest is Test {
         );
     }
 
-    function _mockGetOpType(bytes32 _projectId, bytes32 _opType) internal {
+    function _mockGetKeyType(bytes32 _projectId, bytes32 _keyType) internal {
         vm.mockCall(
             mockTeeWalletProjectManager,
-            abi.encodeWithSelector(ITeeWalletProjectManager.getOpType.selector, _projectId),
-            abi.encode(_opType)
+            abi.encodeWithSelector(ITeeWalletProjectManager.getKeyType.selector, _projectId),
+            abi.encode(_keyType)
         );
     }
 

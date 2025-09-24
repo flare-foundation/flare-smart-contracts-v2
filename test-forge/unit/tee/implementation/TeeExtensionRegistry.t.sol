@@ -6,8 +6,6 @@ import { TeeExtensionRegistry } from "../../../../contracts/tee/implementation/T
 import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { TeeExtensionRegistryProxy } from "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
-import { ITeeWalletProjectOpTypeConstants } from
-    "../../../../contracts/userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
 import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeGovernance } from "../../../../contracts/userInterfaces/tee/ITeeGovernance.sol";
 import { ITeeFeeCalculator } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
@@ -48,7 +46,10 @@ contract TeeExtensionRegistryTest is Test {
     bytes32 private governanceHash;
     bytes32 private platform;
     bytes32[] private platforms;
-    ITeeWalletProjectOpTypeConstants[] private opTypeConstantsProviders;
+
+    bytes32 private keyType;
+    bytes32[] private keyTypes;
+    bytes32[][] private signingAlgosByKeyType;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -77,8 +78,17 @@ contract TeeExtensionRegistryTest is Test {
         platform = keccak256("GOOGLE_INTEL");
         platforms = new bytes32[](1);
         platforms[0] = platform;
-        opTypeConstantsProviders = new ITeeWalletProjectOpTypeConstants[](1);
-        opTypeConstantsProviders[0] = ITeeWalletProjectOpTypeConstants(makeAddr("opTypeConstantsProviders"));
+
+        keyType = bytes32("XRP");
+        keyTypes = new bytes32[](2);
+        keyTypes[0] = keyType;
+        keyTypes[1] = bytes32("EVM");
+        signingAlgosByKeyType = new bytes32[][](2);
+        signingAlgosByKeyType[0] = new bytes32[](1);
+        signingAlgosByKeyType[0][0] = bytes32("XRP_SIGNING_ALGO");
+        signingAlgosByKeyType[1] = new bytes32[](2);
+        signingAlgosByKeyType[1][0] = bytes32("EVM_SIGNING_ALGO_V1");
+        signingAlgosByKeyType[1][1] = bytes32("EVM_SIGNING_ALGO_V2");
 
         initialGovernance = makeAddr("initialGovernance");
         addressUpdater = makeAddr("addressUpdater");
@@ -123,7 +133,6 @@ contract TeeExtensionRegistryTest is Test {
         _mockGetTeeMachine(teeIds[0]);
         _mockGetTeeMachine(teeIds[1]);
         _mockGetLatestTeeGovernanceHash(governanceHash);
-        _mockGetOpType(opType);
 
         vm.mockCall(
             flareSystemsManager,
@@ -368,7 +377,7 @@ contract TeeExtensionRegistryTest is Test {
 
     function testAddTeeVersionRevertPlatformAlreadyExists() public {
         testRegister();
-        testAddSupportedPlatforms();
+        testAddSystemSupportedPlatforms();
         platforms = new bytes32[](2);
         platforms[0] = platform;
         platforms[1] = platforms[0];
@@ -385,7 +394,7 @@ contract TeeExtensionRegistryTest is Test {
 
     function testAddTeeVersionRevertInvalidGovernanceHash() public {
         testRegister();
-        testAddSupportedPlatforms();
+        testAddSystemSupportedPlatforms();
         _mockGetLatestTeeGovernanceHash(keccak256("invalidGovernanceHash"));
         vm.prank(owner);
         vm.expectRevert(ITeeGovernance.InvalidGovernanceHash.selector);
@@ -395,7 +404,7 @@ contract TeeExtensionRegistryTest is Test {
 
     function testAddTeeVersion() public {
         testRegister();
-        testAddSupportedPlatforms();
+        testAddSystemSupportedPlatforms();
         vm.prank(owner);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeVersionAdded(
@@ -449,77 +458,161 @@ contract TeeExtensionRegistryTest is Test {
     }
 
 
-    // addOrUpdateSupportedWalletProjectOpTypes
-    function testAddOrUpdateSupportedWalletProjectOpTypesRevertOnlyOwner() public {
+    // addSystemSupportedKeyTypesAndSigningAlgos
+    function testAddSystemSupportedKeyTypesAndSigningAlgosRevertOnlyGovernance() public {
+        vm.expectRevert("only governance");
+        teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
+    }
+
+    function testAddSystemSupportedKeyTypesAndSigningAlgosRevertLengthsMismatch() public {
+        keyTypes = new bytes32[](1);
+        vm.prank(initialGovernance);
+        vm.expectRevert(ITeeExtensionRegistry.LengthsMismatch.selector);
+        teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
+    }
+
+    function testAddSystemSupportedKeyTypesAndSigningAlgosRevertKeyTypeEmpty() public {
+        keyTypes[0] = bytes32(0);
+        vm.prank(initialGovernance);
+        vm.expectRevert(ITeeExtensionRegistry.KeyTypeEmpty.selector);
+        teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
+    }
+
+    function testAddSystemSupportedKeyTypesAndSigningAlgosRevertNoSigningAlgos() public {
+        signingAlgosByKeyType[0] = new bytes32[](0);
+        vm.prank(initialGovernance);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeExtensionRegistry.NoSigningAlgos.selector,
+                keyTypes[0]
+            )
+        );
+        teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
+    }
+
+    function testAddSystemSupportedKeyTypesAndSigningAlgosRevertSigningAlgoEmpty() public {
+        signingAlgosByKeyType[0][0] = bytes32(0);
+        vm.prank(initialGovernance);
+        vm.expectRevert(ITeeExtensionRegistry.SigningAlgoEmpty.selector);
+        teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
+    }
+
+    function testAddSystemSupportedKeyTypesAndSigningAlgosRevertSigningAlgoAlreadyExists() public {
+        signingAlgosByKeyType[1][1] = signingAlgosByKeyType[1][0];
+        vm.prank(initialGovernance);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeExtensionRegistry.SigningAlgoAlreadyExists.selector,
+                keyTypes[1],
+                signingAlgosByKeyType[1][0]
+            )
+        );
+        teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
+    }
+
+    function testAddSystemSupportedKeyTypesAndSigningAlgos() public {
+        vm.prank(initialGovernance);
+        for (uint256 i = 0; i < keyTypes.length; i++) {
+            for (uint256 j = 0; j < signingAlgosByKeyType[i].length; j++) {
+                vm.expectEmit();
+                emit ITeeExtensionRegistry.SystemSupportedKeyTypeAndSigningAlgoAdded(
+                    keyTypes[i], signingAlgosByKeyType[i][j]
+                );
+            }
+        }
+        teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
+    }
+
+
+    // addSupportedKeyTypes
+    function testAddSupportedKeyTypesRevertOnlyOwner() public {
         testRegister();
+        testAddSystemSupportedKeyTypesAndSigningAlgos();
         vm.expectRevert(ITeeExtensionRegistry.OnlyOwner.selector);
-        teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(extensionId, opTypeConstantsProviders);
+        teeExtensionRegistry.addSupportedKeyTypes(extensionId, keyTypes);
     }
 
-
-    function testAddOrUpdateSupportedWalletProjectOpTypesRevertOpTypeEmpty() public {
+    function testAddSupportedKeyTypesRevertKeyTypeEmpty() public {
         testRegister();
-        _mockGetOpType(bytes32(0));
+        testAddSystemSupportedKeyTypesAndSigningAlgos();
+        keyTypes[0] = bytes32(0);
         vm.prank(owner);
-        vm.expectRevert(ITeeExtensionRegistry.OpTypeEmpty.selector);
-        teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(extensionId, opTypeConstantsProviders);
+        vm.expectRevert(ITeeExtensionRegistry.KeyTypeEmpty.selector);
+        teeExtensionRegistry.addSupportedKeyTypes(extensionId, keyTypes);
     }
 
 
-    function testAddOrUpdateSupportedWalletProjectOpTypes1() public {
+    function testAddSupportedKeyTypesRevertKeyTypeNotSupported() public {
         testRegister();
-        bytes32 opType1 = bytes32("FSOMETHING");
-        _mockGetOpType(opType1);
-        vm.prank(owner);
-        teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(extensionId, opTypeConstantsProviders);
-    }
-
-    function testAddOrUpdateSupportedWalletProjectOpTypes2() public {
-        testRegister();
-        bytes32 opType1 = bytes32("A_SOMETHING");
-        _mockGetOpType(opType1);
-        vm.prank(owner);
-        teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(extensionId, opTypeConstantsProviders);
-    }
-
-    function testAddOrUpdateSupportedWalletProjectOpTypesRevertSystemOpTypeNotAllowed1() public {
-        testRegister();
-        bytes32 opType1 = bytes32("F_SOMETHING");
-        _mockGetOpType(opType1);
+        testAddSystemSupportedKeyTypesAndSigningAlgos();
+        keyType = bytes32("INVALID_KEY_TYPE");
+        keyTypes[0] = keyType;
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(
-                ITeeExtensionRegistry.SystemOpTypeNotAllowed.selector,
-                bytes32(opType1)
+                ITeeExtensionRegistry.KeyTypeNotSupported.selector,
+                keyType
             )
         );
-        teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(extensionId, opTypeConstantsProviders);
+        teeExtensionRegistry.addSupportedKeyTypes(extensionId, keyTypes);
     }
 
-
-    function testAddOrUpdateSupportedWalletProjectOpTypes() public {
+    function testAddSupportedKeyTypesRevertKeyTypeAlreadyExists() public {
         testRegister();
+        testAddSystemSupportedKeyTypesAndSigningAlgos();
+        keyTypes[0] = keyType;
+        keyTypes[1] = keyType;
         vm.prank(owner);
-        vm.expectEmit();
-        emit ITeeExtensionRegistry.SupportedWalletProjectOpTypeAdded(extensionId, opType);
-        teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(extensionId, opTypeConstantsProviders);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeExtensionRegistry.KeyTypeAlreadyExists.selector,
+                keyType
+            )
+        );
+        teeExtensionRegistry.addSupportedKeyTypes(extensionId, keyTypes);
     }
 
 
-    // removeSupportedWalletProjectOpTypes
-    function testRemoveSupportedWalletProjectOpTypesRevertOnlyOwner() public {
+    function testAddSupportedKeyTypes() public {
         testRegister();
+        testAddSystemSupportedKeyTypesAndSigningAlgos();
+        vm.prank(owner);
+        for (uint256 i = 0; i < keyTypes.length; i++) {
+            vm.expectEmit();
+            emit ITeeExtensionRegistry.SupportedKeyTypeAdded(extensionId, keyTypes[i]);
+        }
+        teeExtensionRegistry.addSupportedKeyTypes(extensionId, keyTypes);
+    }
+
+
+    // removeSupportedKeyTypes
+    function testRemoveSupportedKeyTypesRevertOnlyOwner() public {
+        testAddSupportedKeyTypes();
         vm.expectRevert(ITeeExtensionRegistry.OnlyOwner.selector);
-        teeExtensionRegistry.removeSupportedWalletProjectOpTypes(extensionId, opTypes);
+        teeExtensionRegistry.removeSupportedKeyTypes(extensionId, keyTypes);
     }
 
-
-    function testRemoveSupportedWalletProjectOpTypes() public {
-        testAddOrUpdateSupportedWalletProjectOpTypes();
+    function testRemoveSupportedKeyTypesRevertKeyTypeNotSupported() public {
+        testAddSupportedKeyTypes();
+        keyTypes[0] = bytes32("INVALID_KEY_TYPE");
         vm.prank(owner);
-        vm.expectEmit();
-        emit ITeeExtensionRegistry.SupportedWalletProjectOpTypeRemoved(extensionId, opTypes[0]);
-        teeExtensionRegistry.removeSupportedWalletProjectOpTypes(extensionId, opTypes);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITeeExtensionRegistry.KeyTypeNotSupported.selector,
+                keyTypes[0]
+            )
+        );
+        teeExtensionRegistry.removeSupportedKeyTypes(extensionId, keyTypes);
+    }
+
+    function testRemoveSupportedKeyTypes() public {
+        testAddSupportedKeyTypes();
+        vm.prank(owner);
+        for (uint256 i = 0; i < keyTypes.length; i++) {
+            vm.expectEmit();
+            emit ITeeExtensionRegistry.SupportedKeyTypeRemoved(extensionId, keyTypes[i]);
+        }
+        teeExtensionRegistry.removeSupportedKeyTypes(extensionId, keyTypes);
     }
 
 
@@ -569,23 +662,23 @@ contract TeeExtensionRegistryTest is Test {
     }
 
 
-    // addSupportedPlatforms
-    function testAddSupportedPlatformsRevertOnlyGovernance() public {
+    // addSystemSupportedPlatforms
+    function testAddSystemSupportedPlatformsRevertOnlyGovernance() public {
         vm.expectRevert("only governance");
-        teeExtensionRegistry.addSupportedPlatforms(platforms);
+        teeExtensionRegistry.addSystemSupportedPlatforms(platforms);
     }
 
 
-    function testAddSupportedPlatformsRevertPlatformEmpty() public {
+    function testAddSystemSupportedPlatformsRevertPlatformEmpty() public {
         platforms[0] = bytes32(0);
         vm.prank(initialGovernance);
         vm.expectRevert(ITeeExtensionRegistry.PlatformEmpty.selector);
-        teeExtensionRegistry.addSupportedPlatforms(platforms);
+        teeExtensionRegistry.addSystemSupportedPlatforms(platforms);
     }
 
 
-    function testAddSupportedPlatformsRevertPlatformAlreadyExists() public {
-        testAddSupportedPlatforms();
+    function testAddSystemSupportedPlatformsRevertPlatformAlreadyExists() public {
+        testAddSystemSupportedPlatforms();
         vm.prank(initialGovernance);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -593,58 +686,57 @@ contract TeeExtensionRegistryTest is Test {
                 platforms[0]
                )
         );
-        teeExtensionRegistry.addSupportedPlatforms(platforms);
+        teeExtensionRegistry.addSystemSupportedPlatforms(platforms);
     }
 
 
-    function testAddSupportedPlatforms() public {
+    function testAddSystemSupportedPlatforms() public {
         vm.prank(initialGovernance);
         for (uint256 i = 0; i < platforms.length; i++) {
             vm.expectEmit();
-            emit ITeeExtensionRegistry.SupportedPlatformAdded(platforms[i]);
+            emit ITeeExtensionRegistry.SystemSupportedPlatformAdded(platforms[i]);
         }
-        teeExtensionRegistry.addSupportedPlatforms(platforms);
-        // getSupportedPlatforms
-        bytes32[] memory supportedPlatforms = teeExtensionRegistry.getSupportedPlatforms();
+        teeExtensionRegistry.addSystemSupportedPlatforms(platforms);
+        // getSystemSupportedPlatforms
+        bytes32[] memory supportedPlatforms = teeExtensionRegistry.getSystemSupportedPlatforms();
         assertEq(supportedPlatforms.length, platforms.length);
         for (uint256 i = 0; i < platforms.length; i++) {
             assertEq(supportedPlatforms[i], platforms[i]);
         }
     }
 
-
-    // registerSystemInstructionInitiators
-    function testRegisterSystemInstructionInitiatorsRevertOnlyGovernance() public {
+    // registerSystemInstructionsSenders
+    function testRegisterSystemInstructionsSendersRevertOnlyGovernance() public {
         vm.expectRevert("only governance");
-        teeExtensionRegistry.registerSystemInstructionInitiators(instructionInitiators);
+        teeExtensionRegistry.registerSystemInstructionsSenders(instructionInitiators);
     }
 
 
-    function testRegisterSystemInstructionInitiators() public {
+    function testRegisterSystemInstructionsSenders() public {
         vm.prank(initialGovernance);
-        teeExtensionRegistry.registerSystemInstructionInitiators(instructionInitiators);
-        // getSystemInstructionInitiators
+        teeExtensionRegistry.registerSystemInstructionsSenders(instructionInitiators);
+        // getSystemInstructionsSenders
         address[] memory returnedInstructionInitiators =
-            teeExtensionRegistry.getSystemInstructionInitiators();
+            teeExtensionRegistry.getSystemInstructionsSenders();
         assertEq(returnedInstructionInitiators.length, 1);
         assertEq(returnedInstructionInitiators[0], address(this));
     }
 
 
-    // unregisterSystemInstructionInitiators
-    function testUnregisterSystemInstructionInitiatorsRevertOnlyGovernance() public {
+    // unregisterSystemInstructionsSenders
+    function testUnregisterSystemInstructionsSendersRevertOnlyGovernance() public {
         vm.expectRevert("only governance");
-        teeExtensionRegistry.unregisterSystemInstructionInitiators(instructionInitiators);
+        teeExtensionRegistry.unregisterSystemInstructionsSenders(instructionInitiators);
     }
 
 
-    function testUnregisterSystemInstructionInitiators() public {
-        testRegisterSystemInstructionInitiators();
+    function testUnregisterSystemInstructionsSenders() public {
+        testRegisterSystemInstructionsSenders();
         vm.prank(initialGovernance);
-        teeExtensionRegistry.unregisterSystemInstructionInitiators(instructionInitiators);
-        // getSystemInstructionInitiators
+        teeExtensionRegistry.unregisterSystemInstructionsSenders(instructionInitiators);
+        // getSystemInstructionsSenders
         address[] memory returnedInstructionInitiators =
-            teeExtensionRegistry.getSystemInstructionInitiators();
+            teeExtensionRegistry.getSystemInstructionsSenders();
         assertEq(returnedInstructionInitiators.length, 0);
     }
 
@@ -680,46 +772,27 @@ contract TeeExtensionRegistryTest is Test {
     }
 
 
-    // getWalletProjectOpTypeConstantsProvider
-    function testGetWalletProjectOpTypeConstantsProviderRevertOperationTypeConstantsProviderNotSet() public {
-        testRegister();
-        vm.expectRevert(ITeeExtensionRegistry.OperationTypeConstantsProviderNotSet.selector);
-        teeExtensionRegistry.getWalletProjectOpTypeConstantsProvider(extensionId, opType);
-
-        vm.expectRevert(ITeeExtensionRegistry.OperationTypeConstantsProviderNotSet.selector);
-        teeExtensionRegistry.getWalletProjectOpTypeConstantsProvider(extensionId, keccak256("invalidOpType"));
+    // getSupportedKeyTypes
+    function testGetSupportedKeyTypes() public {
+        bytes32[] memory returnedSupportedKeyTypes =
+            teeExtensionRegistry.getSupportedKeyTypes(extensionId);
+        assertEq(returnedSupportedKeyTypes.length, 0);
+        testAddSupportedKeyTypes();
+        returnedSupportedKeyTypes = teeExtensionRegistry.getSupportedKeyTypes(extensionId);
+        assertEq(returnedSupportedKeyTypes.length, 2);
+        assertEq(returnedSupportedKeyTypes[0], keyTypes[0]);
+        assertEq(returnedSupportedKeyTypes[1], keyTypes[1]);
     }
 
 
-    function testGetWalletProjectOpTypeConstantsProvider() public {
-        testAddOrUpdateSupportedWalletProjectOpTypes();
-        assertEq(
-            address(teeExtensionRegistry.getWalletProjectOpTypeConstantsProvider(extensionId, opType)),
-            address(opTypeConstantsProviders[0])
-        );
-    }
-
-
-    // getSupportedWalletProjectOpTypes
-    function testGetSupportedWalletProjectOpTypes() public {
-        bytes32[] memory returnedSupportedOpTypes =
-            teeExtensionRegistry.getSupportedWalletProjectOpTypes(extensionId);
-        assertEq(returnedSupportedOpTypes.length, 0);
-        testAddOrUpdateSupportedWalletProjectOpTypes();
-        returnedSupportedOpTypes = teeExtensionRegistry.getSupportedWalletProjectOpTypes(extensionId);
-        assertEq(returnedSupportedOpTypes.length, 1);
-        assertEq(returnedSupportedOpTypes[0], opType);
-    }
-
-
-    // isWalletProjectOpTypeSupported
-    function testIsWalletProjectOpTypeSupported() public {
-        testAddOrUpdateSupportedWalletProjectOpTypes();
+    // isKeyTypeSupported
+    function testIsKeyTypeSupported() public {
+        testAddSupportedKeyTypes();
         assertFalse(
-            teeExtensionRegistry.isWalletProjectOpTypeSupported(extensionId + 1, opType)
+            teeExtensionRegistry.isKeyTypeSupported(extensionId + 1, keyTypes[0])
         );
         assertTrue(
-            teeExtensionRegistry.isWalletProjectOpTypeSupported(extensionId, opType)
+            teeExtensionRegistry.isKeyTypeSupported(extensionId, keyTypes[0])
         );
     }
 
@@ -738,16 +811,16 @@ contract TeeExtensionRegistryTest is Test {
     }
 
 
-    // codeHashPlatformDisabled
-    function testCodeHashPlatformDisabled() public {
-        bool val = teeExtensionRegistry.codeHashPlatformDisabled(extensionId, codeHash, platform);
+    // isCodeHashPlatformDisabled
+    function testIsCodeHashPlatformDisabled() public {
+        bool val = teeExtensionRegistry.isCodeHashPlatformDisabled(extensionId, codeHash, platform);
         assertFalse(val);
         testAddTeeVersion();
-        val = teeExtensionRegistry.codeHashPlatformDisabled(extensionId, codeHash, platform);
+        val = teeExtensionRegistry.isCodeHashPlatformDisabled(extensionId, codeHash, platform);
         assertFalse(val);
         vm.prank(owner);
         teeExtensionRegistry.disableCodeHashPlatform(extensionId, codeHash, platform);
-        val = teeExtensionRegistry.codeHashPlatformDisabled(extensionId, codeHash, platform);
+        val = teeExtensionRegistry.isCodeHashPlatformDisabled(extensionId, codeHash, platform);
         assertTrue(val);
     }
 
@@ -836,17 +909,6 @@ contract TeeExtensionRegistryTest is Test {
                 ITeeGovernance.getLatestTeeGovernanceHash.selector
             ),
             abi.encode(_governanceHash)
-        );
-    }
-
-
-    function _mockGetOpType(bytes32 _opType) private {
-        vm.mockCall(
-            address(opTypeConstantsProviders[0]),
-            abi.encodeWithSelector(
-                ITeeWalletProjectOpTypeConstants.getOpType.selector
-            ),
-            abi.encode(_opType)
         );
     }
 }

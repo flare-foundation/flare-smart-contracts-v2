@@ -8,9 +8,6 @@ import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/
 import { ITeeWalletProjectManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManager.sol";
 import { ITeeWalletManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletManager.sol";
 import { ITeeOwnerAllowlist } from "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlist.sol";
-import {
-    ITeeWalletProjectOpTypeConstants
-} from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 contract TeeWalletProjectManagerTest is Test {
@@ -28,15 +25,15 @@ contract TeeWalletProjectManagerTest is Test {
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
-    address private submitAddress1;
-    address private submitAddress2;
-    bytes32 private opType1;
-    bytes32 private opType2;
+    address private authorizationAddress1;
+    address private authorizationAddress2;
+    bytes32 private keyType1;
+    bytes32 private keyType2;
+    bytes32 private signingAlgo1;
+    bytes32 private signingAlgo2;
     address private projectOwner1;
     address private projectOwner2;
     bytes32 private defaultWalletId;
-
-    ITeeWalletProjectOpTypeConstants private teeWalletProjectOpTypeConstants;
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -67,12 +64,12 @@ contract TeeWalletProjectManagerTest is Test {
         contractAddresses[3] = teeExtensionRegistryMock;
         teeWalletProjectManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
-        teeWalletProjectOpTypeConstants =
-            ITeeWalletProjectOpTypeConstants(makeAddr("teeWalletProjectOpTypeConstants"));
-        submitAddress1 = makeAddr("submitAddress1");
-        submitAddress2 = makeAddr("submitAddress2");
-        opType1 = keccak256(abi.encode("opType1"));
-        opType2 = keccak256(abi.encode("opType2"));
+        authorizationAddress1 = makeAddr("authorizationAddress1");
+        authorizationAddress2 = makeAddr("authorizationAddress2");
+        keyType1 = keccak256(abi.encode("keyType1"));
+        keyType2 = keccak256(abi.encode("keyType2"));
+        signingAlgo1 = keccak256(abi.encode("signingAlgo1"));
+        signingAlgo2 = keccak256(abi.encode("signingAlgo2"));
         projectOwner1 = makeAddr("projectOwner");
         projectOwner2 = makeAddr("projectOwner2");
         defaultWalletId = keccak256(abi.encode("defaultWalletId"));
@@ -80,38 +77,47 @@ contract TeeWalletProjectManagerTest is Test {
         _mockIsTeeWalletProjectOwnerAllowed(projectOwner2, true);
     }
 
-    function testCreateProjectRevertWrongOpType() public {
-        bytes32 opType = keccak256(abi.encode("wrongOpType"));
-        _mockIsOpTypeSupported(opType, false);
-        vm.prank(projectOwner1);
-        vm.expectRevert(ITeeWalletProjectManager.OpTypeNotSupported.selector);
-        teeWalletProjectManager.createProject(0, opType, submitAddress1);
-    }
-
     function testCreateProjectRevertOwnerNotAllowed() public {
-        _mockIsOpTypeSupported(opType1, true);
         _mockIsTeeWalletProjectOwnerAllowed(projectOwner1, false);
         vm.prank(projectOwner1);
         vm.expectRevert(ITeeWalletProjectManager.OwnerNotAllowed.selector);
-        teeWalletProjectManager.createProject(0, opType1, submitAddress1);
+        teeWalletProjectManager.createProject(0, keyType1, signingAlgo1, authorizationAddress1);
     }
 
-    function testCreateProjectRevertSubmitAddressZero() public {
-        _mockIsOpTypeSupported(opType1, true);
+    function testCreateProjectRevertWrongKeyType() public {
+        _mockIsKeyTypeSupported(keyType1, false);
         vm.prank(projectOwner1);
-        vm.expectRevert(ITeeWalletProjectManager.SubmitAddressZero.selector);
-        teeWalletProjectManager.createProject(0, opType1, address(0));
+        vm.expectRevert(ITeeWalletProjectManager.KeyTypeNotSupported.selector);
+        teeWalletProjectManager.createProject(0, keyType1, signingAlgo1, authorizationAddress1);
+    }
+
+    function testCreateProjectRevertSigningAlgoNotSupported() public {
+        _mockIsKeyTypeSupported(keyType1, true);
+        _mockIsSigningAlgoSupported(keyType1, signingAlgo1, false);
+        vm.prank(projectOwner1);
+        vm.expectRevert(ITeeWalletProjectManager.SigningAlgoNotSupported.selector);
+        teeWalletProjectManager.createProject(0, keyType1, signingAlgo1, authorizationAddress1);
+    }
+
+    function testCreateProjectRevertAuthorizationAddressZero() public {
+        _mockIsKeyTypeSupported(keyType1, true);
+        _mockIsSigningAlgoSupported(keyType1, signingAlgo1, true);
+        vm.prank(projectOwner1);
+        vm.expectRevert(ITeeWalletProjectManager.AuthorizationAddressZero.selector);
+        teeWalletProjectManager.createProject(0, keyType1, signingAlgo1, address(0));
     }
 
     function testCreateProject() public {
-        _mockIsOpTypeSupported(opType1, true);
-        _mockIsOpTypeSupported(opType2, true);
+        _mockIsKeyTypeSupported(keyType1, true);
+        _mockIsSigningAlgoSupported(keyType1, signingAlgo1, true);
         vm.prank(projectOwner1);
-        bytes32 projectId = teeWalletProjectManager.createProject(0, opType1, submitAddress1);
+        bytes32 projectId = teeWalletProjectManager.createProject(0, keyType1, signingAlgo1, authorizationAddress1);
         assertEq(projectId, keccak256(abi.encode("PROJECT", projectOwner1, 1)));
 
+        _mockIsKeyTypeSupported(keyType2, true);
+        _mockIsSigningAlgoSupported(keyType2, signingAlgo2, true);
         vm.prank(projectOwner2);
-        bytes32 projectId2 = teeWalletProjectManager.createProject(0, opType2, submitAddress2);
+        bytes32 projectId2 = teeWalletProjectManager.createProject(0, keyType2, signingAlgo2, authorizationAddress2);
         assertEq(projectId2, keccak256(abi.encode("PROJECT", projectOwner2, 2)));
     }
 
@@ -130,20 +136,28 @@ contract TeeWalletProjectManagerTest is Test {
         assertEq(teeWalletProjectManager.getExtensionId(projectId), 0);
     }
 
-    function testGetOpType() public {
+    function testGetKeyType() public {
         testCreateProject();
         bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
         bytes32 projectId2 = keccak256(abi.encode("PROJECT", projectOwner2, 2));
-        assertEq(teeWalletProjectManager.getOpType(projectId1), opType1);
-        assertEq(teeWalletProjectManager.getOpType(projectId2), opType2);
+        assertEq(teeWalletProjectManager.getKeyType(projectId1), keyType1);
+        assertEq(teeWalletProjectManager.getKeyType(projectId2), keyType2);
+    }
+
+    function testGetSigningAlgo() public {
+        testCreateProject();
+        bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
+        bytes32 projectId2 = keccak256(abi.encode("PROJECT", projectOwner2, 2));
+        assertEq(teeWalletProjectManager.getSigningAlgo(projectId1), signingAlgo1);
+        assertEq(teeWalletProjectManager.getSigningAlgo(projectId2), signingAlgo2);
     }
 
     function testGetAuthorizationAddress() public {
         testCreateProject();
         bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
         bytes32 projectId2 = keccak256(abi.encode("PROJECT", projectOwner2, 2));
-        assertEq(submitAddress1, teeWalletProjectManager.getAuthorizationAddress(projectId1));
-        assertEq(submitAddress2, teeWalletProjectManager.getAuthorizationAddress(projectId2));
+        assertEq(authorizationAddress1, teeWalletProjectManager.getAuthorizationAddress(projectId1));
+        assertEq(authorizationAddress2, teeWalletProjectManager.getAuthorizationAddress(projectId2));
     }
 
     function testSetBackupManager() public {
@@ -272,11 +286,21 @@ contract TeeWalletProjectManagerTest is Test {
         );
     }
 
-    function _mockIsOpTypeSupported(bytes32 _opType, bool _isSupported) internal {
+    function _mockIsKeyTypeSupported(bytes32 _keyType, bool _isSupported) internal {
         vm.mockCall(
             teeExtensionRegistryMock,
             abi.encodeWithSelector(
-                ITeeExtensionRegistry.isWalletProjectOpTypeSupported.selector, 0, _opType
+                ITeeExtensionRegistry.isKeyTypeSupported.selector, 0, _keyType
+            ),
+            abi.encode(_isSupported)
+        );
+    }
+
+    function _mockIsSigningAlgoSupported(bytes32 _keyType, bytes32 _signingAlgo, bool _isSupported) internal {
+        vm.mockCall(
+            teeExtensionRegistryMock,
+            abi.encodeWithSelector(
+                ITeeExtensionRegistry.isSigningAlgoSupported.selector, _keyType, _signingAlgo
             ),
             abi.encode(_isSupported)
         );
@@ -301,16 +325,6 @@ contract TeeWalletProjectManagerTest is Test {
                 _walletId
             ),
             abi.encode(_status)
-        );
-    }
-
-    function _mockGetWalletProjectOpTypeConstantsProvider() private {
-        vm.mockCall(
-            teeExtensionRegistryMock,
-            abi.encodeWithSelector(
-                ITeeExtensionRegistry.getWalletProjectOpTypeConstantsProvider.selector
-            ),
-            abi.encode(teeWalletProjectOpTypeConstants)
         );
     }
 }

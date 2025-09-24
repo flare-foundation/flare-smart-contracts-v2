@@ -106,7 +106,7 @@ interface ITeeExtensionRegistry {
     error CosignersThresholdTooHigh();
     error KeyTypeEmpty();
     error KeyTypeAlreadyExists(bytes32 keyType);
-    error KeyTypeNotSupported();
+    error KeyTypeNotSupported(bytes32 keyType);
     error LengthsMismatch();
     error NoSigningAlgos(bytes32 keyType);
     error SigningAlgoEmpty();

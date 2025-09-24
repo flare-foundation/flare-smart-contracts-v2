@@ -12,6 +12,8 @@ import { ITeeVerification } from "../../../../contracts/userInterfaces/tee/ITeeV
 import { ITeeOwnerAllowlist } from "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlist.sol";
 import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
+import { PublicKeyHelper } from "../../../utils/PublicKeyHelper.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
@@ -33,6 +35,7 @@ contract TeeMachineRegistryTest is Test {
     address private relay;
 
     uint256 private extensionId;
+    PublicKey private teePublicKey;
     address private teeId;
     address private teeProxyId;
     string private url;
@@ -42,6 +45,7 @@ contract TeeMachineRegistryTest is Test {
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
+    PublicKey private newTeePublicKey;
     address private newTeeId;
 
     function setUp() public {
@@ -52,7 +56,8 @@ contract TeeMachineRegistryTest is Test {
         addressUpdater = makeAddr("addressUpdater");
 
         extensionId = 1;
-        teeId = makeAddr("teeId");
+        teePublicKey = PublicKeyHelper.getRandomPublicKey(vm);
+        teeId = PublicKeyHelper.getAddress(teePublicKey);
         url = "url";
         codeHash = keccak256("codeHash");
         platform = keccak256("platform");
@@ -92,7 +97,8 @@ contract TeeMachineRegistryTest is Test {
         teeReplication = address(teeMachineRegistry.teeReplication());
         relay = address(teeMachineRegistry.relay());
 
-        newTeeId = makeAddr("newTeeId");
+        newTeePublicKey = PublicKeyHelper.getRandomPublicKey(vm);
+        newTeeId = PublicKeyHelper.getAddress(newTeePublicKey);
 
         _mockIsAllowedTeeMachineOwner(extensionId);
         _mockIsAllowedTeeMachineOwner(extensionId + 1);
@@ -114,36 +120,37 @@ contract TeeMachineRegistryTest is Test {
     function testRegisterRevertOwnerNotAllowed() public {
         _mockIsAllowedTeeMachineOwner(false);
         vm.expectRevert(ITeeMachineRegistry.OwnerNotAllowed.selector);
-        teeMachineRegistry.register(extensionId, teeId, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, url, codeHash, platform);
     }
 
 
-    function testRegisterRevertInvalidTeeId() public {
-        vm.expectRevert(ITeeMachineRegistry.InvalidTeeId.selector);
+    function testRegisterRevertInvalidTeePublicKey() public {
+        vm.expectRevert(ITeeMachineRegistry.InvalidTeePublicKey.selector);
         vm.prank(owner);
-        teeMachineRegistry.register(extensionId, address(0), teeProxyId, url, codeHash, platform);
+        teePublicKey = PublicKey(0, 0);
+        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, url, codeHash, platform);
     }
 
 
     function testRegisterRevertInvalidTeeProxyId() public {
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeProxyId.selector);
         vm.prank(owner);
-        teeMachineRegistry.register(extensionId, teeId, address(0), url, codeHash, platform);
+        teeMachineRegistry.register(extensionId, teePublicKey, address(0), url, codeHash, platform);
     }
 
 
     function testRegisterRevertInvalidUrl() public {
         vm.expectRevert(ITeeMachineRegistry.InvalidUrl.selector);
         vm.prank(owner);
-        teeMachineRegistry.register(extensionId, teeId, teeProxyId, "", codeHash, platform);
+        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, "", codeHash, platform);
     }
 
 
     function testRegisterRevertAlreadyRegistered() public {
         vm.startPrank(owner);
-        teeMachineRegistry.register(extensionId, teeId, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, url, codeHash, platform);
         vm.expectRevert(ITeeMachineRegistry.AlreadyRegistered.selector);
-        teeMachineRegistry.register(extensionId, teeId, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, url, codeHash, platform);
         vm.stopPrank();
     }
 
@@ -152,7 +159,7 @@ contract TeeMachineRegistryTest is Test {
         _mockIsCodeHashPlatformSupported(false);
         vm.expectRevert(ITeeMachineRegistry.VersionNotSupported.selector);
         vm.prank(owner);
-        teeMachineRegistry.register(extensionId, teeId, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, url, codeHash, platform);
     }
 
 
@@ -160,7 +167,7 @@ contract TeeMachineRegistryTest is Test {
         vm.expectEmit();
         vm.prank(owner);
         emit ITeeMachineRegistry.TeeMachineRegistered(teeId, teeProxyId, owner, extensionId, url, codeHash, platform);
-        teeMachineRegistry.register(extensionId, teeId, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, url, codeHash, platform);
     }
 
 
@@ -238,7 +245,7 @@ contract TeeMachineRegistryTest is Test {
 
     function testPauseRevertOnlyOwnerOrDisabledVersion() public {
         testToProduction();
-        _mockCodeHashPlatformDisabledFalse();
+        _mockIsCodeHashPlatformDisabledFalse();
         vm.expectRevert(ITeeMachineRegistry.OnlyOwnerOrDisabledVersion.selector);
         teeMachineRegistry.pause(teeId);
     }
@@ -476,7 +483,7 @@ contract TeeMachineRegistryTest is Test {
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         testToProduction();
         vm.prank(owner);
-        teeMachineRegistry.register(extensionId, newTeeId, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(extensionId, newTeePublicKey, teeProxyId, url, codeHash, platform);
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
         vm.prank(teeReplication);
         teeMachineRegistry.replicate(newTeeId, proof);
@@ -511,7 +518,7 @@ contract TeeMachineRegistryTest is Test {
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         testToProduction();
         vm.prank(owner);
-        teeMachineRegistry.register(extensionId + 1, newTeeId, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(extensionId + 1, newTeePublicKey, teeProxyId, url, codeHash, platform);
 
         vm.prank(owner);
         teeMachineRegistry.pause(teeId);
@@ -660,7 +667,7 @@ contract TeeMachineRegistryTest is Test {
         testToProduction();
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(newTeeId, teeProxyId, url);
         vm.startPrank(owner);
-        teeMachineRegistry.register(extensionId, newTeeId, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(extensionId, newTeePublicKey, teeProxyId, url, codeHash, platform);
         teeMachineRegistry.toProduction(proof);
         vm.stopPrank();
 
@@ -803,11 +810,11 @@ contract TeeMachineRegistryTest is Test {
     }
 
 
-    function _mockCodeHashPlatformDisabledFalse() private {
+    function _mockIsCodeHashPlatformDisabledFalse() private {
         vm.mockCall(
             teeExtensionRegistry,
             abi.encodeWithSelector(
-                ITeeExtensionRegistry.codeHashPlatformDisabled.selector,
+                ITeeExtensionRegistry.isCodeHashPlatformDisabled.selector,
                 extensionId,
                 codeHash,
                 platform

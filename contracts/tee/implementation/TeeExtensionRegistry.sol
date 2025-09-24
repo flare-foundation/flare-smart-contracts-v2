@@ -272,7 +272,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         for (uint256 i = 0; i < _keyTypes.length; i++) {
             bytes32 keyType = _keyTypes[i];
             require(keyType != bytes32(0), KeyTypeEmpty());
-            require(systemSupportedKeyTypes.contains(keyType), KeyTypeNotSupported());
+            require(systemSupportedKeyTypes.contains(keyType), KeyTypeNotSupported(keyType));
             require(extension.supportedKeyTypes.add(keyType), KeyTypeAlreadyExists(keyType));
             emit SupportedKeyTypeAdded(_extensionId, keyType);
         }
@@ -290,8 +290,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         TeeExtension storage extension = extensions[_extensionId];
         for (uint256 i = 0; i < _keyTypes.length; i++) {
             bytes32 keyType = _keyTypes[i];
-            require(keyType != bytes32(0), KeyTypeEmpty());
-            require(extension.supportedKeyTypes.remove(keyType), KeyTypeNotSupported());
+            require(extension.supportedKeyTypes.remove(keyType), KeyTypeNotSupported(keyType));
             emit SupportedKeyTypeRemoved(_extensionId, keyType);
         }
     }

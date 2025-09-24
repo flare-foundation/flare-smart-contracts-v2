@@ -18,9 +18,6 @@ import { TeePaymentsProxy } from "../../contracts/tee/proxy/TeePaymentsProxy.sol
 import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardManager.sol";
 import { IPMWMultisigAccountConfigured } from "../../contracts/userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
 import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
-import {
-    ITeeWalletProjectOpTypeConstants
-} from "../../contracts/userInterfaces/tee/ITeeWalletProjectOpTypeConstants.sol";
 import { ITeeWalletKeyManager } from "../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
 import { ITeeWalletBackupManager } from "../../contracts/userInterfaces/tee/ITeeWalletBackupManager.sol";
 import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
@@ -72,7 +69,7 @@ contract WalletPaymentsTest is Test {
 
     bytes32 private projectId;
     bytes32 private opType;
-    address private submitAddress;
+    address private authorizationAddress;
     address private teeId1;
     address private teeId2;
     ITeeMachineRegistry.TeeMachine private teeMachine1;
@@ -91,6 +88,8 @@ contract WalletPaymentsTest is Test {
 
     // tee payments
     bytes32 constant private XRP_OP_TYPE = bytes32("F_XRP");
+    bytes32 constant private XRP_KEY_TYPE = bytes32("XRP_KEY");
+    bytes32 constant private XRP_SIGNING_ALGO = bytes32("XRP_SIGNING_ALGO");
     bytes32 constant private XRP_SOURCE_ID = bytes32("XRP");
     string private accountAddress = "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe";
     ITeePayments.PMWMultisigAccount private account1;
@@ -100,7 +99,7 @@ contract WalletPaymentsTest is Test {
 
     function setUp() public {
         opType = keccak256("OP_TYPE");
-        submitAddress = makeAddr("submitAddress");
+        authorizationAddress = makeAddr("authorizationAddress");
         pausingAddresses = new address[](1);
         pausingAddresses[0] = makeAddr("pausingAddresses1");
         cosigners = new address[](1);
@@ -192,6 +191,7 @@ contract WalletPaymentsTest is Test {
             1,
             1,
             XRP_OP_TYPE,
+            XRP_KEY_TYPE,
             supportedSourceIds,
             address(teePaymentsImpl)
         );
@@ -332,28 +332,36 @@ contract WalletPaymentsTest is Test {
 
         // fund addresses
         vm.deal(projectOwner, 1 ether);
-        vm.deal(submitAddress, 1 ether);
+        vm.deal(authorizationAddress, 1 ether);
     }
 
     function testExtensionCreation() public {
         // extensionId = 0 is system extension; owner is governance
         vm.startPrank(governance);
-        ITeeWalletProjectOpTypeConstants[] memory opTypeConstantsProviders = new ITeeWalletProjectOpTypeConstants[](1);
-        opTypeConstantsProviders[0] = ITeeWalletProjectOpTypeConstants(address(teePayments));
-        teeExtensionRegistry.addOrUpdateSupportedWalletProjectOpTypes(0, opTypeConstantsProviders);
-        address[] memory systemInstructionInitiators = new address[](4);
-        systemInstructionInitiators[0] = address(teeWalletKeyManager);
-        systemInstructionInitiators[1] = address(teeWalletManager);
-        systemInstructionInitiators[2] = address(teeVerification);
-        systemInstructionInitiators[3] = address(teePayments);
-        teeExtensionRegistry.registerSystemInstructionInitiators(systemInstructionInitiators);
-        vm.stopPrank();
+        address[] memory systemInstructionsSenders = new address[](4);
+        systemInstructionsSenders[0] = address(teeWalletKeyManager);
+        systemInstructionsSenders[1] = address(teeWalletManager);
+        systemInstructionsSenders[2] = address(teeVerification);
+        systemInstructionsSenders[3] = address(teePayments);
+        teeExtensionRegistry.registerSystemInstructionsSenders(systemInstructionsSenders);
+
+        // add key types and signing algos
+        bytes32[] memory keyTypes = new bytes32[](1);
+        keyTypes[0] = XRP_KEY_TYPE;
+        bytes32[] memory xrpSigningAlgos = new bytes32[](1);
+        xrpSigningAlgos[0] = XRP_SIGNING_ALGO;
+        bytes32[][] memory signingAlgos = new bytes32[][](1);
+        signingAlgos[0] = xrpSigningAlgos;
+        teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgos);
+
+        // add supported key types for extension 0
+        teeExtensionRegistry.addSupportedKeyTypes(0, keyTypes);
 
         // allowlist project owners
         address[] memory owners = new address[](1);
         owners[0] = projectOwner;
-        vm.prank(governance);
         teeOwnerAllowlist.addAllowedTeeWalletProjectOwners(0, owners);
+        vm.stopPrank();
 
     }
 
@@ -361,7 +369,7 @@ contract WalletPaymentsTest is Test {
         testExtensionCreation();
         // create project
         vm.prank(projectOwner);
-        projectId = teeWalletProjectManager.createProject(0, XRP_OP_TYPE, submitAddress);
+        projectId = teeWalletProjectManager.createProject(0, XRP_KEY_TYPE, XRP_SIGNING_ALGO, authorizationAddress);
 
         // create wallet
         vm.prank(projectOwner);
@@ -394,17 +402,18 @@ contract WalletPaymentsTest is Test {
         keyExistenceProof.walletId = walletId;
         keyExistenceProof.keyId = keyId1;
         keyExistenceProof.nonce = 0;
-        keyExistenceProof.opType = XRP_OP_TYPE;
+        keyExistenceProof.keyType = XRP_KEY_TYPE;
+        keyExistenceProof.signingAlgo = XRP_SIGNING_ALGO;
         keyExistenceProof.configConstants.adminsPublicKeys.push(adminsPublicKeys[0]);
         keyExistenceProof.configConstants.adminsPublicKeys.push(adminsPublicKeys[1]);
         keyExistenceProof.configConstants.adminsThreshold = 2;
+        keyExistenceProof.configConstants.cosigners.push(cosigners[0]);
         keyExistenceProof.configConstants.cosignersThreshold = 1;
-        keyExistenceProof.configConstants.opTypeConstants = "";
         keyExistenceProof.publicKey = abi.encode("publicKey");
-        keyExistenceProof.addressStr = "address";
         keyExistenceProof.restored = false;
         keyExistenceProof.keyId = keyId;
-        keyExistenceProof.configConstants.cosigners.push(cosigners[0]);
+        keyExistenceProof.settingsVersion = bytes32(0);
+        keyExistenceProof.settings = bytes("");
         vm.prank(projectOwner);
         teeWalletKeyManager.confirmKey(keyExistenceProof, _createSignature(privateKey1));
 
@@ -516,7 +525,7 @@ contract WalletPaymentsTest is Test {
         });
 
         // only submit address can submit payment instructions
-        vm.expectRevert(ITeePayments.OnlySubmitAddress.selector);
+        vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
         teePayments.pay(account1, instruction);
 
         bytes32 instructionId = keccak256(abi.encode(
@@ -542,10 +551,10 @@ contract WalletPaymentsTest is Test {
 
         // if fee too low revert
         vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         teePayments.pay(account1, instruction);
 
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
@@ -580,7 +589,7 @@ contract WalletPaymentsTest is Test {
         fees[0] = 30;
         bool[] memory nullify = new bool[](1);
         nullify[0] = false;
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
         teePayments.reissue{value: 50} (account1, 0, 0, instructions, fees, nullify);
     }
@@ -640,7 +649,7 @@ contract WalletPaymentsTest is Test {
             1,
             60
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         teePayments.reissue{value: 60} (account1, 2, 2, instructions, fees, nullify);
 
         // nullify
@@ -664,7 +673,7 @@ contract WalletPaymentsTest is Test {
             1,
             60
         );
-        vm.prank(submitAddress);
+        vm.prank(authorizationAddress);
         teePayments.reissue{value: 60} (account1, 2, 2, instructions, fees, nullify);
     }
 

@@ -46,8 +46,8 @@ contract TeeWalletKeyManagerTest is Test {
     uint64 private keyId;
 
     uint256 private extensionId;
-    bytes32 private opType;
-    bytes private opTypeConstants;
+    bytes32 private keyType;
+    bytes32 private signingAlgo;
     ITeeWalletKeyManager.KeyExistence private proof;
     Signature private teeSignature;
     uint256 private fee;
@@ -76,8 +76,8 @@ contract TeeWalletKeyManagerTest is Test {
         (teeId, privateKey) = makeAddrAndKey("teeId");
         (newTeeId, newPrivateKey) = makeAddrAndKey("newTeeId");
         extensionId = 1;
-        opType = keccak256("opType");
-        opTypeConstants = abi.encode("op", "type", "constants");
+        keyType = keccak256("keyType");
+        signingAlgo = keccak256("signingAlgo");
         keyId = 0;
 
         PublicKey memory pk = PublicKey(keccak256("1"), keccak256("1"));
@@ -88,16 +88,17 @@ contract TeeWalletKeyManagerTest is Test {
         proof.teeId = teeId;
         proof.walletId = walletId;
         proof.nonce = 0;
-        proof.opType = opType;
+        proof.keyType = keyType;
+        proof.signingAlgo = signingAlgo;
         proof.configConstants.adminsPublicKeys.push(publicKeys[0]);
         proof.configConstants.adminsThreshold = 1;
         proof.configConstants.cosigners.push(cosigners[0]);
         proof.configConstants.cosignersThreshold = 1;
-        proof.configConstants.opTypeConstants = opTypeConstants;
         proof.publicKey = abi.encode("publicKey");
-        proof.addressStr = "address";
         proof.restored = true;
         proof.keyId = keyId;
+        proof.settingsVersion = bytes32(0);
+        proof.settings = bytes("");
 
         teeSignature = _createSignature(privateKey);
 
@@ -209,9 +210,17 @@ contract TeeWalletKeyManagerTest is Test {
         vm.mockCall(
             teeWalletProjectManager,
             abi.encodeWithSelector(
-                ITeeWalletProjectManager.getOpType.selector
+                ITeeWalletProjectManager.getKeyType.selector
             ),
-            abi.encode(opType)
+            abi.encode(keyType)
+        );
+
+        vm.mockCall(
+            teeWalletProjectManager,
+            abi.encodeWithSelector(
+                ITeeWalletProjectManager.getSigningAlgo.selector
+            ),
+            abi.encode(signingAlgo)
         );
 
         vm.mockCall(
@@ -225,7 +234,7 @@ contract TeeWalletKeyManagerTest is Test {
         address[] memory instructionInitiators = new address[](1);
         instructionInitiators[0] = address(teeWalletKeyManager);
         vm.prank(initialGovernance);
-        teeExtensionRegistry.registerSystemInstructionInitiators(instructionInitiators);
+        teeExtensionRegistry.registerSystemInstructionsSenders(instructionInitiators);
 
         fee = 123;
         vm.mockCall(
@@ -329,13 +338,13 @@ contract TeeWalletKeyManagerTest is Test {
             teeId: teeId,
             walletId: walletId,
             keyId: keyId,
-            opType: opType,
+            keyType: keyType,
+            signingAlgo: signingAlgo,
             configConstants: ITeeWalletKeyManager.KeyConfigConstants({
                 adminsPublicKeys: publicKeys,
                 adminsThreshold: 1,
                 cosigners: cosigners,
-                cosignersThreshold: 1,
-                opTypeConstants: opTypeConstants
+                cosignersThreshold: 1
             })
         });
         bytes32 instructionId = keccak256(abi.encode(
@@ -393,11 +402,38 @@ contract TeeWalletKeyManagerTest is Test {
     }
 
 
-    function testConfirmKeyRevertInvalidOpType() public {
-        proof.opType = keccak256("invalidOpType");
+    function testConfirmKeyRevertInvalidKeyType() public {
+        proof.keyType = keccak256("invalidKeyType");
         testAddKey();
         vm.prank(owner);
-        vm.expectRevert(ITeeWalletKeyManager.InvalidOpType.selector);
+        vm.expectRevert(ITeeWalletKeyManager.InvalidKeyType.selector);
+        teeWalletKeyManager.confirmKey(proof, teeSignature);
+    }
+
+
+    function testConfirmKeyRevertInvalidSigningAlgo() public {
+        proof.signingAlgo = keccak256("invalidSigningAlgo");
+        testAddKey();
+        vm.prank(owner);
+        vm.expectRevert(ITeeWalletKeyManager.InvalidSigningAlgo.selector);
+        teeWalletKeyManager.confirmKey(proof, teeSignature);
+    }
+
+
+    function testConfirmKeyRevertInvalidSettings() public {
+        proof.settings = bytes("invalidSettings");
+        testAddKey();
+        vm.prank(owner);
+        vm.expectRevert(ITeeWalletKeyManager.InvalidSettings.selector);
+        teeWalletKeyManager.confirmKey(proof, teeSignature);
+    }
+
+
+    function testConfirmKeyRevertInvalidSettings2() public {
+        proof.settingsVersion = bytes32("invalidVersion");
+        testAddKey();
+        vm.prank(owner);
+        vm.expectRevert(ITeeWalletKeyManager.InvalidSettings.selector);
         teeWalletKeyManager.confirmKey(proof, teeSignature);
     }
 
@@ -456,15 +492,6 @@ contract TeeWalletKeyManagerTest is Test {
     }
 
 
-    function testConfirmKeyRevertInvalidOpTypeConstants() public {
-        proof.configConstants.opTypeConstants = abi.encode("invalid", "op", "type", "constants");
-        testAddKey();
-        vm.prank(owner);
-        vm.expectRevert(ITeeWalletKeyManager.InvalidOpTypeConstants.selector);
-        teeWalletKeyManager.confirmKey(proof, teeSignature);
-    }
-
-
     function testConfirmKeyRevertInvalidTeeSignature() public {
         proof.teeId = makeAddr("invalidTeeId");
         teeSignature = _createSignature(privateKey);
@@ -481,16 +508,6 @@ contract TeeWalletKeyManagerTest is Test {
         testAddKey();
         vm.prank(owner);
         vm.expectRevert(ITeeWalletKeyManager.InvalidPublicKey.selector);
-        teeWalletKeyManager.confirmKey(proof, teeSignature);
-    }
-
-
-    function testConfirmKeyRevertInvalidAddressProof() public {
-        proof.addressStr = "";
-        teeSignature = _createSignature(privateKey);
-        testAddKey();
-        vm.prank(owner);
-        vm.expectRevert(ITeeWalletKeyManager.InvalidAddress.selector);
         teeWalletKeyManager.confirmKey(proof, teeSignature);
     }
 
@@ -529,8 +546,7 @@ contract TeeWalletKeyManagerTest is Test {
             teeId,
             walletId,
             proof.keyId,
-            proof.publicKey,
-            proof.addressStr
+            proof.publicKey
         );
         teeWalletKeyManager.confirmKey(proof, teeSignature);
     }
@@ -567,16 +583,6 @@ contract TeeWalletKeyManagerTest is Test {
     }
 
 
-    function testConfirmKeyRevertInvalidAddressAddressStr() public {
-        _setupConfirmKeyInWallet();
-        proof.addressStr = "invalidAddressStr";
-        teeSignature = _createSignature(privateKey);
-        vm.prank(owner);
-        vm.expectRevert(ITeeWalletKeyManager.InvalidAddress.selector);
-        teeWalletKeyManager.confirmKey(proof, teeSignature);
-    }
-
-
     function testConfirmKeyRevertTeeIdAlreadyAdded() public {
         _setupConfirmKeyInWallet();
         teeSignature = _createSignature(privateKey);
@@ -599,8 +605,7 @@ contract TeeWalletKeyManagerTest is Test {
             newTeeId,
             walletId,
             keyId,
-            proof.publicKey,
-            proof.addressStr
+            proof.publicKey
         );
         teeWalletKeyManager.confirmKey(proof, teeSignature);
     }

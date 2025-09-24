@@ -14,13 +14,13 @@ import { ITeeWalletKeyManager } from "../../../../contracts/userInterfaces/tee/I
 import { ITeeFeeCalculator } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
 import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
+import { PublicKeyHelper } from "../../../utils/PublicKeyHelper.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 contract TeeWalletManagerTest is Test {
 
-    uint256 constant private P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
     bytes32 constant private SET_PAUSING_ADDRESSES = bytes32("SET_PAUSING_ADDRESSES");
     bytes32 public constant WALLET_OP_TYPE = bytes32("F_WALLET");
     bytes32 public constant RESUME = bytes32("RESUME");
@@ -127,9 +127,9 @@ contract TeeWalletManagerTest is Test {
 
         // set TeeWalletManager as system instruction initiator on TeeExtensionRegistry
         vm.prank(governance);
-        address[] memory systemInstructionInitiator = new address[](1);
-        systemInstructionInitiator[0] = address(teeWalletManager);
-        teeExtensionRegistry.registerSystemInstructionInitiators(systemInstructionInitiator);
+        address[] memory systemInstructionsSender = new address[](1);
+        systemInstructionsSender[0] = address(teeWalletManager);
+        teeExtensionRegistry.registerSystemInstructionsSenders(systemInstructionsSender);
     }
 
     function testCreateWallet() public{
@@ -153,8 +153,8 @@ contract TeeWalletManagerTest is Test {
     function testSetAdminsRevert1() public {
         testCreateWallet();
         PublicKey[] memory admins =  new PublicKey[](2);
-        admins[0] = _getRandomPublicKey();
-        admins[1] = _getRandomPublicKey();
+        admins[0] = PublicKeyHelper.getRandomPublicKey(vm);
+        admins[1] = PublicKeyHelper.getRandomPublicKey(vm);
 
         vm.prank(projectOwner);
         vm.expectRevert(ITeeWalletManager.NotEnoughAdmins.selector);
@@ -165,8 +165,8 @@ contract TeeWalletManagerTest is Test {
     function testSetAdminsRevert2() public {
         testCreateWallet();
         PublicKey[] memory admins =  new PublicKey[](2);
-        admins[0] = _getRandomPublicKey();
-        admins[1] = _getRandomPublicKey();
+        admins[0] = PublicKeyHelper.getRandomPublicKey(vm);
+        admins[1] = PublicKeyHelper.getRandomPublicKey(vm);
 
         vm.prank(projectOwner);
         vm.expectRevert(ITeeWalletManager.InvalidAdminsThreshold.selector);
@@ -177,7 +177,7 @@ contract TeeWalletManagerTest is Test {
     function testSetAdminsRevert3() public {
         testCreateWallet();
         PublicKey[] memory admins =  new PublicKey[](2);
-        admins[0] = _getRandomPublicKey();
+        admins[0] = PublicKeyHelper.getRandomPublicKey(vm);
 
         vm.prank(projectOwner);
         vm.expectRevert(
@@ -193,7 +193,7 @@ contract TeeWalletManagerTest is Test {
     function testSetAdminsRevert4() public {
         testCreateWallet();
         PublicKey[] memory admins =  new PublicKey[](2);
-        admins[0] = _getRandomPublicKey();
+        admins[0] = PublicKeyHelper.getRandomPublicKey(vm);
         admins[1] = admins[0]; // duplicate
 
         vm.prank(projectOwner);
@@ -210,8 +210,8 @@ contract TeeWalletManagerTest is Test {
     function testSetAdminsRevert5() public {
         testCreateWallet();
         PublicKey[] memory admins =  new PublicKey[](2);
-        admins[0] = _getRandomPublicKey();
-        admins[1] = _getRandomPublicKey();
+        admins[0] = PublicKeyHelper.getRandomPublicKey(vm);
+        admins[1] = PublicKeyHelper.getRandomPublicKey(vm);
 
         vm.expectRevert(ITeeWalletManager.OnlyOwner.selector);
         teeWalletManager.setAdmins(walletId, admins, 1);
@@ -220,8 +220,8 @@ contract TeeWalletManagerTest is Test {
     function testSetAdmins() public returns (PublicKey[] memory) {
         testCreateWallet();
         PublicKey[] memory admins =  new PublicKey[](2);
-        admins[0] = _getRandomPublicKey();
-        admins[1] = _getRandomPublicKey();
+        admins[0] = PublicKeyHelper.getRandomPublicKey(vm);
+        admins[1] = PublicKeyHelper.getRandomPublicKey(vm);
 
         vm.prank(projectOwner);
         teeWalletManager.setAdmins(walletId, admins, 1);
@@ -239,7 +239,7 @@ contract TeeWalletManagerTest is Test {
     function testSetAdminsAgain() public {
         testSetAdmins();
         PublicKey[] memory admins =  new PublicKey[](1);
-        admins[0] = _getRandomPublicKey();
+        admins[0] = PublicKeyHelper.getRandomPublicKey(vm);
         vm.prank(projectOwner);
         teeWalletManager.setAdmins(walletId, admins, 1);
         // old admins should be removed
@@ -254,14 +254,14 @@ contract TeeWalletManagerTest is Test {
     function testConfirmAdmins() public {
         PublicKey[] memory admins = testSetAdmins();
         // confirm first admin
-        address admin1 = _getAddress(admins[0]);
+        address admin1 = PublicKeyHelper.getAddress(admins[0]);
         vm.prank(admin1);
         vm.expectEmit();
         emit ITeeWalletManager.WalletAdminConfirmed(walletId, admin1);
         teeWalletManager.confirmAdmin(walletId);
 
         // confirm second admin
-        address admin2 = _getAddress(admins[1]);
+        address admin2 = PublicKeyHelper.getAddress(admins[1]);
         vm.prank(admin2);
         vm.expectEmit();
         emit ITeeWalletManager.WalletAdminConfirmed(walletId, admin2);
@@ -399,7 +399,7 @@ contract TeeWalletManagerTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 ITeeWalletManager.NotAllAdminsConfirmed.selector,
-                _getAddress(adminsPublicKeys[0])
+                PublicKeyHelper.getAddress(adminsPublicKeys[0])
             )
         );
         teeWalletManager.closeWalletInitialization(walletId);
@@ -429,8 +429,8 @@ contract TeeWalletManagerTest is Test {
     function testSetAdminsRevert6() public {
         testCloseWalletInitialization();
         PublicKey[] memory admins =  new PublicKey[](2);
-        admins[0] = _getRandomPublicKey();
-        admins[1] = _getRandomPublicKey();
+        admins[0] = PublicKeyHelper.getRandomPublicKey(vm);
+        admins[1] = PublicKeyHelper.getRandomPublicKey(vm);
 
         vm.prank(projectOwner);
         vm.expectRevert(ITeeWalletManager.InvalidWalletStatus.selector);
@@ -843,56 +843,4 @@ contract TeeWalletManagerTest is Test {
             abi.encode(_extensionId)
         );
     }
-
-    function _getRandomPublicKey() internal returns (PublicKey memory) {
-        // call external script to get random public key coordinates
-        string[] memory command1 = new string[](4);
-        string[] memory command2 = new string[](5);
-        command1[0] = "cast";
-        command1[1] = "wallet";
-        command1[2] = "new";
-        command1[3] = "--json";
-        bytes memory result = vm.ffi(command1);
-        string memory privateKey = vm.parseJsonString(string(result), "[0].private_key");
-        command2[0] = "cast";
-        command2[1] = "wallet";
-        command2[2] = "public-key";
-        command2[3] = "--raw-private-key";
-        command2[4] = privateKey;
-        result = vm.ffi(command2);
-
-        // check if result is 64 bytes
-        require(result.length == 64, "invalid output length");
-
-        // extract x and y as bytes32
-        bytes32 x;
-        bytes32 y;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            x := mload(add(result, 32)) // first 32 bytes (hex-decoded)
-            y := mload(add(result, 64)) // second 32 bytes
-        }
-
-        PublicKey memory pk = PublicKey(x, y);
-        // test that the coordinates are valid
-        _checkPublicKeyValidity(pk);
-
-        return pk;
-    }
-
-    function _checkPublicKeyValidity(PublicKey memory _pk) internal pure {
-        uint256 x = uint256(_pk.x);
-        uint256 y = uint256(_pk.y);
-        require(
-            x < P && x > 0 && y < P && y > 0 && mulmod(y, y, P) == addmod(mulmod(mulmod(x, x, P), x, P), 7, P),
-            "invalid public key"
-        );
-    }
-
-    function _getAddress(PublicKey memory _pk) internal pure returns (address) {
-        uint256[2] memory publicKeyPair = [uint256(_pk.x), uint256(_pk.y)];
-        bytes32 hash = keccak256(abi.encodePacked(publicKeyPair));
-        return address(uint160(uint256(hash)));
-    }
-
 }

@@ -61,7 +61,6 @@ contract TeeVerificationTest is Test {
     bytes32 private sourceId;
     uint64 private multisigThreshold;
     bytes private publicKey;
-    bytes32 private opType;
     uint32 private signingPolicyId;
 
     bytes32[] private contractNameHashes;
@@ -76,7 +75,6 @@ contract TeeVerificationTest is Test {
         url = "url";
         sourceId = bytes32("TEE");
         multisigThreshold = 1;
-        opType = keccak256("OP_TYPE");
         publicKey = abi.encode("publicKey");
         signingPolicyId = 1;
         rewardEpochId = 1;
@@ -230,14 +228,6 @@ contract TeeVerificationTest is Test {
                 ITeeWalletManager.getWalletProjectId.selector
             ),
             abi.encode(1)
-        );
-
-        vm.mockCall(
-            teeWalletProjectManager,
-            abi.encodeWithSelector(
-                ITeeWalletProjectManager.getOpType.selector
-            ),
-            abi.encode(opType)
         );
 
         vm.mockCall(
