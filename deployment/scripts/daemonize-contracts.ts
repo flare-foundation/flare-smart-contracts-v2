@@ -2,6 +2,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "./Contracts";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { Account } from "web3-core";
+import { IIFlareDaemonGovernanceContract } from "../../typechain-truffle";
 
 /**
  * This script will register all required contracts to the FlareDaemon.
@@ -48,7 +49,7 @@ export async function daemonizeContracts(
   web3.eth.defaultAccount = deployerAccount.address;
 
   // Get contract definitions
-  const FlareDaemon = artifacts.require("IIFlareDaemonGovernance");
+  const FlareDaemon = artifacts.require("IIFlareDaemonGovernance") as IIFlareDaemonGovernanceContract;
 
   // Fetch flare daemon
   const flareDaemon = await FlareDaemon.at(oldContracts.getContractAddress(Contracts.FLARE_DAEMON));

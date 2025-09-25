@@ -2,6 +2,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "./Contracts";
 import { ChainParameters, integer } from "../chain-config/chain-parameters";
 import { Account } from "web3-core";
+import { IIInflationGovernanceContract, IIInflationAllocationGovernanceContract } from "../../typechain-truffle";
 
 /**
  * This script will set inflation receivers on Inflation contract.
@@ -48,8 +49,8 @@ export async function setInflationReceivers(
   web3.eth.defaultAccount = deployerAccount.address;
 
   // Get contract definitions
-  const Inflation = artifacts.require("IIInflationGovernance");
-  const InflationAllocation = artifacts.require("IIInflationAllocationGovernance");
+  const Inflation = artifacts.require("IIInflationGovernance") as IIInflationGovernanceContract;
+  const InflationAllocation = artifacts.require("IIInflationAllocationGovernance") as IIInflationAllocationGovernanceContract;
 
   // Fetch inflation contracts
   const inflation = await Inflation.at(oldContracts.getContractAddress(Contracts.INFLATION));

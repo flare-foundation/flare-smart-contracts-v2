@@ -19,7 +19,8 @@ import {
   RewardManagerContract, FtsoRewardManagerProxyContract, SubmissionContract,
   WNatDelegationFeeContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract,
   FtsoFeedDecimalsContract, FtsoFeedPublisherContract, RelayContract,
-  FdcHubContract, FdcInflationConfigurationsContract, FdcRequestFeeConfigurationsContract
+  FdcHubContract, FdcInflationConfigurationsContract, FdcRequestFeeConfigurationsContract,
+  IISupplyGovernanceContract
 } from '../../typechain-truffle';
 import { generateOffers, runOfferRewards } from './offer-rewards';
 import { RelayInitialConfig } from '../utils/RelayInitialConfig';
@@ -54,7 +55,7 @@ export async function deployContracts(
   const FtsoFeedPublisher = artifacts.require("FtsoFeedPublisher") as FtsoFeedPublisherContract;
   const FtsoFeedIdConverter = artifacts.require("FtsoFeedIdConverter") as FtsoFeedIdConverterContract;
   const Relay = artifacts.require("Relay") as RelayContract;
-  const Supply = artifacts.require("IISupplyGovernance");
+  const Supply = artifacts.require("IISupplyGovernance") as IISupplyGovernanceContract;
   const FdcHub = artifacts.require("FdcHub") as FdcHubContract;
   const FdcInflationConfigurations = artifacts.require("FdcInflationConfigurations") as FdcInflationConfigurationsContract;
   const FdcRequestFeeConfigurations = artifacts.require("FdcRequestFeeConfigurations") as FdcRequestFeeConfigurationsContract;
