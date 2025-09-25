@@ -105,6 +105,28 @@ export async function redeployContracts(
   const wNatDelegationFee = contracts.getContractAddress(Contracts.WNAT_DELEGATION_FEE);
   const ftsoRewardOffersManager = contracts.getContractAddress(Contracts.FTSO_REWARD_OFFERS_MANAGER);
 
+  let ftsoRegistry: string;
+  try {
+    ftsoRegistry = oldContracts.getContractAddress(Contracts.FTSO_REGISTRY);
+  } catch {
+    const ftsoManagerProxyOld = await FtsoManagerProxy.at(contracts.getContractAddress(Contracts.FTSO_MANAGER));
+    ftsoRegistry = await ftsoManagerProxyOld.ftsoRegistry();
+  }
+
+  let ftsoManager: string;
+  try {
+    ftsoManager = oldContracts.getContractAddress(Contracts.FTSO_MANAGER);
+  } catch {
+    ftsoManager = contracts.getContractAddress(Contracts.FTSO_MANAGER);
+  }
+
+  let priceSubmitter: string;
+  try {
+    priceSubmitter = oldContracts.getContractAddress(Contracts.PRICE_SUBMITTER);
+  } catch {
+    priceSubmitter = "0x1000000000000000000000000000000000000003";
+  }
+
   // Deploy the contracts
   if (!initialDeploy) {
     const oldRelay = await Relay.at(contracts.getContractAddress(Contracts.RELAY));
@@ -299,7 +321,7 @@ export async function redeployContracts(
     governanceSettings,
     deployerAccount.address,
     deployerAccount.address, // tmp address updater
-    oldContracts.getContractAddress(Contracts.FTSO_MANAGER) // old ftso manager
+    ftsoManager
   );
   spewNewContractInfo(contracts, null, "FtsoManager", `FtsoManagerProxy.sol`, ftsoManagerProxy.address, quiet);
 
@@ -335,7 +357,7 @@ export async function redeployContracts(
   spewNewContractInfo(contracts, null, "PriceSubmitter", `PriceSubmitterProxy.sol`, priceSubmitterProxy.address, quiet);
 
   const voterWhitelisterProxy = await VoterWhitelisterProxy.new(
-    oldContracts.getContractAddress(Contracts.PRICE_SUBMITTER)
+    priceSubmitter
   );
   spewNewContractInfo(contracts, null, "VoterWhitelister", `VoterWhitelisterProxy.sol`, voterWhitelisterProxy.address, quiet);
 
@@ -397,7 +419,7 @@ export async function redeployContracts(
 
   await ftsoManagerProxy.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FTSO_REWARD_MANAGER, Contracts.FTSO_REGISTRY, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FAST_UPDATER, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.RELAY]),
-    [addressUpdater, ftsoRewardManagerProxy.address, oldContracts.getContractAddress(Contracts.FTSO_REGISTRY), rewardManager.address, flareSystemsManager.address, fastUpdater.address, fastUpdatesConfiguration.address, relay.address]
+    [addressUpdater, ftsoRewardManagerProxy.address, ftsoRegistry, rewardManager.address, flareSystemsManager.address, fastUpdater.address, fastUpdatesConfiguration.address, relay.address]
   );
 
   await ftsoV2.updateContractAddresses(
@@ -407,17 +429,17 @@ export async function redeployContracts(
 
   await priceSubmitterProxy.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY, Contracts.FTSO_REGISTRY, Contracts.FTSO_MANAGER, Contracts.VOTER_WHITELISTER]),
-    [addressUpdater, relay.address, oldContracts.getContractAddress(Contracts.FTSO_REGISTRY), ftsoManagerProxy.address, voterWhitelisterProxy.address]
+    [addressUpdater, relay.address, ftsoRegistry, ftsoManagerProxy.address, voterWhitelisterProxy.address]
   );
 
   if (hre.network.name === "flare") {
     const sFlrCustomFeed = await SFlrCustomFeed.new(
-      FtsoConfigurations.encodeFeedId({"category": 33, "name": "sFLR/USD"}),
-      FtsoConfigurations.encodeFeedId({"category": 1, "name": "FLR/USD"}),
+      FtsoConfigurations.encodeFeedId({ "category": 33, "name": "sFLR/USD" }),
+      FtsoConfigurations.encodeFeedId({ "category": 1, "name": "FLR/USD" }),
       oldContracts.getContractAddress(Contracts.FLARE_CONTRACT_REGISTRY),
       "0x12e605bc104e93B45e1aD99F9e555f659051c2BB");
-      spewNewContractInfo(contracts, null, "SFlrCustomFeed", `SFlrCustomFeed.sol`, sFlrCustomFeed.address, quiet);
-      await ftsoV2.addCustomFeeds([sFlrCustomFeed.address]);
+    spewNewContractInfo(contracts, null, "SFlrCustomFeed", `SFlrCustomFeed.sol`, sFlrCustomFeed.address, quiet);
+    await ftsoV2.addCustomFeeds([sFlrCustomFeed.address]);
   }
 
   if (initialDeploy) {
@@ -433,7 +455,7 @@ export async function redeployContracts(
     await fastUpdater.resetFeeds([...Array(numberOfFeeds.toNumber()).keys()]);
 
     await ftsoV2.changeFeedIds([
-      {oldFeedId: FtsoConfigurations.encodeFeedId({"category": 1, "name": "MATIC/USD"}), newFeedId: FtsoConfigurations.encodeFeedId({category: 1, name: "POL/USD"})}]
+      { oldFeedId: FtsoConfigurations.encodeFeedId({ "category": 1, "name": "MATIC/USD" }), newFeedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "POL/USD" }) }]
     );
   }
 

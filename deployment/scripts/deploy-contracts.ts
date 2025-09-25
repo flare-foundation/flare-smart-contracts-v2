@@ -80,8 +80,14 @@ export async function deployContracts(
   const wNat = oldContracts.getContractAddress(Contracts.WNAT);
   const claimSetupManager = oldContracts.getContractAddress(Contracts.CLAIM_SETUP_MANAGER);
   const inflation = oldContracts.getContractAddress(Contracts.INFLATION);
-  const ftsoRewardManager = oldContracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER);
   const cleanupBlockNumberManager = oldContracts.getContractAddress(Contracts.CLEANUP_BLOCK_NUMBER_MANAGER);
+
+  let ftsoRewardManager;
+  try {
+    ftsoRewardManager = oldContracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER);
+  } catch {
+    ftsoRewardManager = contracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER);
+  }
 
   const entityManager = await EntityManager.new(
     governanceSettings,
