@@ -136,7 +136,7 @@ interface IRelay is RandomNumberV2Interface {
 
     /**
      * Returns the signing policy hash for given reward epoch id.
-     * The function is reverted if signingPolicySetter is set, hence on all
+     * The function is reverted if signingPolicySetter is NOT set, hence on all
      * deployments where the contract is used as a pure relay.
      * @param _rewardEpochId The reward epoch id.
      * @return _signingPolicyHash The signing policy hash.
@@ -152,7 +152,7 @@ interface IRelay is RandomNumberV2Interface {
 
     /**
      * Returns the Merkle root for given protocol id and voting round id.
-     * The function is reverted if signingPolicySetter is set, hence on all
+     * The function is reverted if signingPolicySetter is NOT set, hence on all
      * deployments where the contract is used as a pure relay.
      * @param _protocolId The protocol id.
      * @param _votingRoundId The voting round id.
