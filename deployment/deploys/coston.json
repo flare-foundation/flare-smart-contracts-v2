@@ -292,7 +292,7 @@
   {
     "name": "TeeMachineRegistryImplementation",
     "contractName": "TeeMachineRegistry.sol",
-    "address": "0x558E392D04139cfE62636cAf31c04084Df0ED56E"
+    "address": "0x6C44bcaf6188C7385a025EEDfe1aA340F0a1535C"
   },
   {
     "name": "TeeMachineRegistry",
@@ -322,7 +322,7 @@
   {
     "name": "TeeReplicationImplementation",
     "contractName": "TeeReplication.sol",
-    "address": "0xDF8a0b74e8115bB7B3dfAE44dc3D0B01d2Ed641F"
+    "address": "0x50d63A4134Ec3E6C2164f334F1fD891bc593a816"
   },
   {
     "name": "TeeReplication",
@@ -347,7 +347,7 @@
   {
     "name": "TeeVerificationImplementation",
     "contractName": "TeeVerification.sol",
-    "address": "0x01E9551c0428D198D4c2260f4b292437f9Bf0488"
+    "address": "0x4e348632077848995b39a7B6DabDAD2F5f3284a3"
   },
   {
     "name": "TeeVerification",
