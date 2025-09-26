@@ -50,7 +50,7 @@ contract TeeWalletBackupManagerTest is Test {
     uint64 private keyId;
     bytes private publicKey;
     address private keyHolderTeeId;
-    uint24 private rewardEpochId;
+    uint32 private rewardEpochId;
     bytes32 private keyType;
     bytes32 private signingAlgo;
     uint256 private extensionId;
@@ -155,7 +155,7 @@ contract TeeWalletBackupManagerTest is Test {
             signingAlgo,
             publicKey,
             rewardEpochId,
-            nonce
+            bytes32("randomNonce")
         );
 
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PRODUCTION);

@@ -22,8 +22,8 @@ interface ITeeWalletBackupManager {
         bytes32 keyType;
         bytes32 signingAlgo;
         bytes publicKey;
-        uint24 rewardEpochId;
-        uint256 randomNonce;
+        uint32 rewardEpochId;
+        bytes32 randomNonce;
     }
 
     error TeeMachineNotAvailable();

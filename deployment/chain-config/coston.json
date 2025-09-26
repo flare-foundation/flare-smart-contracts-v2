@@ -451,7 +451,8 @@
 
     "teeSupportedPlatforms": ["GCP_INTEL_TDX", "GCP_AMD_SEV", "GCP_AMD_SEV_ES"],
     "teeSupportedKeyTypesWithSigningAlgos": [
-        {"keyType": "XRP", "signingAlgos": ["sha512half-secp256k1-ecdsa"]}
+        {"keyType": "XRP", "signingAlgos": ["sha512half-secp256k1-ecdsa"]},
+        {"keyType": "EVM", "signingAlgos": ["keccak256-secp256k1-ecdsa"]}
     ],
     "teeDefaultFeeWei": "1000",
     "teePauseBeforeUpgradeMinDurationSeconds": 600,
