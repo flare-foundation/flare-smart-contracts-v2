@@ -608,6 +608,13 @@ contract TeeMachineReplicationTest is Test {
     function testReplicateFromTeeMachine() public {
         testRegisterNewTeeMachine();
 
+        // update current reward epoch id
+        vm.mockCall(
+            flareSystemsManager,
+            abi.encodeWithSelector(ProtocolsV2Interface.getCurrentRewardEpochId.selector),
+            abi.encode(2)
+        );
+
         IFtdcHub.FtdcResponseHeader memory header = IFtdcHub.FtdcResponseHeader(
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             teeVerification.TEE_SOURCE_ID(),
@@ -632,8 +639,8 @@ contract TeeMachineReplicationTest is Test {
             uint64(block.timestamp),
             codeHash2,
             platforms2[1],
-            1,
-            1,
+            2,
+            3,
             ITeeAvailabilityCheck.TeeState(abi.encode(systemState), bytes32("v1"), new bytes(0), bytes32(0))
         );
 
@@ -700,8 +707,8 @@ contract TeeMachineReplicationTest is Test {
             uint64(block.timestamp),
             codeHash2,
             platforms2[1],
-            1,
-            1,
+            2,
+            3,
             ITeeAvailabilityCheck.TeeState(abi.encode(systemState), bytes32("v1"), new bytes(0), bytes32(0))
         );
 

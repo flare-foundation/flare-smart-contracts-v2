@@ -249,7 +249,8 @@ contract TeeReplication is ITeeReplication, TeeBase {
 
     function _validateAvailabilityCheckTs(address _teeId, uint256 _availabilityCheckTs) internal view {
         require(_availabilityCheckTs >= teeMachineRegistry.getLastStatusChangeTs(_teeId),
-            AvailabilityCheckTimestampInvalid());
+            AvailabilityCheckTimestampInvalid()
+        );
     }
 
     function _getTeeMachineWithAttestationData(address _teeId)

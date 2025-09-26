@@ -208,17 +208,16 @@ contract TeeVerification is ITeeVerification, TeeBase {
         external
     {
         address teeId = _proof.requestBody.teeId;
-        ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(teeId);
-        require(status == ITeeMachineRegistry.TeeStatus.PRODUCTION, TeeMachineNotAvailable());
-
-        require(
-            _proof.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            InvalidAvailabilityCheckStatus()
-        );
 
         // if called from the tee machine registry, checks were already done there,
-        // otherwise, we need to verify the proof and check the TEE version and platform
+        // otherwise, we need to verify the proof and check the TEE status, version and platform
         if (msg.sender != address(teeMachineRegistry)) {
+            ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(teeId);
+            require(status == ITeeMachineRegistry.TeeStatus.PRODUCTION, TeeMachineNotAvailable());
+            require(
+                _proof.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
+                InvalidAvailabilityCheckStatus()
+            );
             uint256 extensionId = teeMachineRegistry.getExtensionId(teeId);
             ITeeMachineRegistry.TeeMachineWithAttestationData memory teeMachine =
                 teeMachineRegistry.getTeeMachineWithAttestationData(teeId);
@@ -476,6 +475,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         );
     }
 
+    /// _proof.responseBody.status must be checked elsewhere
     function _verifyAvailabilityCheckProof(
         ITeeMachineRegistry.TeeMachineWithAttestationData memory _teeMachineWithAttestationData,
         ITeeMachineRegistry.TeeStatus _status,
@@ -512,41 +512,59 @@ contract TeeVerification is ITeeVerification, TeeBase {
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         // check signing policy signatures
         _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
+        // additionally check cosigners in case of initial availability check or active replication
         if (_status == ITeeMachineRegistry.TeeStatus.INITIALIZED ||
             _status == ITeeMachineRegistry.TeeStatus.REPLICATING)
         {
-            // additionally check cosigners in case of initial availability check or active replication
             _checkCosignerSignatures(_toCosignersMessageHash(messageHash), _proof.signatures.cosignerSignatures);
+        }
+
+        // check response body data validity - except for status, which must be checked elsewhere
+        ITeeAvailabilityCheck.ResponseBody calldata responseBody = _proof.responseBody;
+        if (_status == ITeeMachineRegistry.TeeStatus.INITIALIZED ||
+            _status == ITeeMachineRegistry.TeeStatus.REPLICATING)
+        {
             // check initial signing policy
-            require(
-                _proof.responseBody.initialSigningPolicyId <= currentRewardEpochId &&
-                _isSigningPolicyValid(_proof.responseBody.initialSigningPolicyId, currentRewardEpochId),
-                InvalidInitialSigningPolicy()
-            );
+            if (responseBody.initialSigningPolicyId > currentRewardEpochId ||
+                !_isSigningPolicyValid(responseBody.initialSigningPolicyId, currentRewardEpochId))
+            {
+                return false;
+            }
         } else {
             // for other statuses, we check the initial and last availability check signing policy
-            require(
-                _proof.responseBody.initialSigningPolicyId == teeMachineRegistry.getInitialSigningPolicyId(teeId),
-                InvalidInitialSigningPolicy()
-            );
-            require(
-                _isSigningPolicyValid(availabilityCheckValidity[teeId].lastSigningPolicyId, currentRewardEpochId),
-                AvailabilityCheckValidityExpired(availabilityCheckValidity[teeId].lastSigningPolicyId)
-            );
+            if (responseBody.initialSigningPolicyId != teeMachineRegistry.getInitialSigningPolicyId(teeId)) {
+                return false;
+            }
+            if (!_isSigningPolicyValid(availabilityCheckValidity[teeId].lastSigningPolicyId, currentRewardEpochId)) {
+                return false;
+            }
         }
-        // check response body data validity
-        ITeeAvailabilityCheck.ResponseBody calldata responseBody = _proof.responseBody;
+        if (responseBody.codeHash != _teeMachineWithAttestationData.codeHash) {
+            return false;
+        }
+        if (responseBody.platform != _teeMachineWithAttestationData.platform) {
+            return false;
+        }
         uint256 lastSigningPolicyId = responseBody.lastSigningPolicyId;
+        if (lastSigningPolicyId != currentRewardEpochId && lastSigningPolicyId != currentRewardEpochId + 1) {
+            return false;
+        }
+        ITeeAvailabilityCheck.TeeState calldata state = responseBody.state;
+        if (!teeSystemStateVerifier.verifyTeeSystemState(teeId, state.systemStateVersion, state.systemState)) {
+            return false;
+        }
         uint256 extensionId = teeMachineRegistry.getExtensionId(teeId);
         ITeeExtensionStateVerifier teeStateVerifier = teeExtensionRegistry.getTeeExtensionStateVerifier(extensionId);
-        ITeeAvailabilityCheck.TeeState calldata state = responseBody.state;
-        return responseBody.codeHash == _teeMachineWithAttestationData.codeHash &&
-            responseBody.platform == _teeMachineWithAttestationData.platform &&
-            (lastSigningPolicyId == currentRewardEpochId || lastSigningPolicyId == currentRewardEpochId + 1) &&
-            teeSystemStateVerifier.verifyTeeSystemState(teeId, state.systemStateVersion, state.systemState) &&
-            (address(teeStateVerifier) == address(0) && state.stateVersion == bytes32(0) && state.state.length == 0 ||
-                address(teeStateVerifier) != address(0) &&
-                teeStateVerifier.verifyTeeState(teeId, state.stateVersion, state.state));
+        if (address(teeStateVerifier) == address(0)) {
+            if (state.stateVersion != bytes32(0) || state.state.length != 0) {
+                return false;
+            }
+        } else {
+            if (!teeStateVerifier.verifyTeeState(teeId, state.stateVersion, state.state)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     function _requestFtdcAttestation(

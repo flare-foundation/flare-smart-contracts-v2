@@ -210,12 +210,12 @@ contract TeeMachineRegistryTest is Test {
     }
 
 
-    function testToProductionRevertAcTimestampInvalid() public {
+    function testToProductionRevertAvailabilityCheckTimestampInvalid() public {
         testRegister();
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         proof.header.timestamp = 0;
         vm.prank(owner);
-        vm.expectRevert(ITeeMachineRegistry.AcTimestampInvalid.selector);
+        vm.expectRevert(ITeeMachineRegistry.AvailabilityCheckTimestampInvalid.selector);
         teeMachineRegistry.toProduction(proof);
     }
 
@@ -277,12 +277,12 @@ contract TeeMachineRegistryTest is Test {
     }
 
 
-    function testPauseWithProofRevertAcTimestampInvalid() public {
+    function testPauseWithProofRevertAvailabilityCheckTimestampInvalid() public {
         testToProduction();
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         proof.header.timestamp = 0;
         _mockVerifyAvailabilityCheckProofFalse(proof);
-        vm.expectRevert(ITeeMachineRegistry.AcTimestampInvalid.selector);
+        vm.expectRevert(ITeeMachineRegistry.AvailabilityCheckTimestampInvalid.selector);
         teeMachineRegistry.pauseWithProof(proof);
     }
 
@@ -552,11 +552,11 @@ contract TeeMachineRegistryTest is Test {
     }
 
 
-    function testReplicateRevertAcTimestampInvalid() public {
+    function testReplicateRevertAvailabilityCheckTimestampInvalid() public {
         ITeeAvailabilityCheck.Proof memory proof = _setupReplicate();
         proof.header.timestamp = 0;
         vm.prank(teeReplication);
-        vm.expectRevert(ITeeMachineRegistry.AcTimestampInvalid.selector);
+        vm.expectRevert(ITeeMachineRegistry.AvailabilityCheckTimestampInvalid.selector);
         teeMachineRegistry.replicate(newTeeId, proof);
     }
 

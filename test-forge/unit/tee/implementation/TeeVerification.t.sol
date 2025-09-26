@@ -417,27 +417,24 @@ contract TeeVerificationTest is Test {
         teeVerification.confirmAvailability(proof);
     }
 
-    function testConfirmAvailabilityRevertInvalidInitialSigningPolicy() public {
-        proof.responseBody.initialSigningPolicyId = signingPolicyId + 1;
-        vm.expectRevert(ITeeVerification.InvalidInitialSigningPolicy.selector);
-        teeVerification.confirmAvailability(proof);
-    }
-
-    function testConfirmAvailabilityRevertAvailabilityCheckValidityExpired() public {
-        _mockGetCurrentRewardEpochId(uint24(rewardEpochId + 100));
-        _mockVerifySigningPolicySignatures(rewardEpochId + 100);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ITeeVerification.AvailabilityCheckValidityExpired.selector,
-                0
-            )
-        );
-        teeVerification.confirmAvailability(proof);
-    }
-
 
     function testConfirmAvailabilityRevertInvalidResponseData() public {
+        _mockGetCurrentRewardEpochId(uint24(rewardEpochId + 100));
+        _mockVerifySigningPolicySignatures(rewardEpochId + 100);
+        vm.expectRevert(ITeeVerification.InvalidResponseData.selector);
+        teeVerification.confirmAvailability(proof);
+    }
+
+
+    function testConfirmAvailabilityRevertInvalidResponseData1() public {
         _mockVerifyTeeSystemState(false);
+        vm.expectRevert(ITeeVerification.InvalidResponseData.selector);
+        teeVerification.confirmAvailability(proof);
+    }
+
+
+    function testConfirmAvailabilityRevertInvalidResponseData2() public {
+        proof.responseBody.initialSigningPolicyId = signingPolicyId + 1;
         vm.expectRevert(ITeeVerification.InvalidResponseData.selector);
         teeVerification.confirmAvailability(proof);
     }
@@ -476,14 +473,6 @@ contract TeeVerificationTest is Test {
                 invalidCosigners[0]
             )
         );
-        teeVerification.verifyAvailabilityCheckProof(proof);
-    }
-
-
-    function testVerifyAvailabilityCheckProofRevertInvalidInitialSigningPolicy() public {
-        proof.responseBody.initialSigningPolicyId = uint32(rewardEpochId + 1);
-        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
-        vm.expectRevert(ITeeVerification.InvalidInitialSigningPolicy.selector);
         teeVerification.verifyAvailabilityCheckProof(proof);
     }
 
@@ -527,46 +516,6 @@ contract TeeVerificationTest is Test {
     function testVerifyAvailabilityCheckRevertInvalidRequestBody3() public {
         proof.requestBody.teeProxyId = makeAddr("invalidTeeProxyId");
         vm.expectRevert(ITeeVerification.InvalidRequestBody.selector);
-        teeVerification.verifyAvailabilityCheckProof(proof);
-    }
-
-    // initialSigningPolicyId > currentRewardEpochId
-    // machine status == INITIALIZED
-    function testVerifyAvailabilityCheckRevertInvalidInitialSigningPolicy1() public {
-        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
-        // currentRewardEpochId == 1
-        proof.responseBody.initialSigningPolicyId = 2;
-        vm.expectRevert(ITeeVerification.InvalidInitialSigningPolicy.selector);
-        teeVerification.verifyAvailabilityCheckProof(proof);
-    }
-
-    // initialSigningPolicyId + signingPolicyValidityDurationInRewardEpochs (== 1) < currentRewardEpochId
-    // machine status == INITIALIZED
-    function testVerifyAvailabilityCheckRevertInvalidInitialSigningPolicy2() public {
-        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
-        _mockGetCurrentRewardEpochId(10);
-        _mockVerifySigningPolicySignatures(10);
-        proof.responseBody.initialSigningPolicyId = 1;
-        vm.expectRevert(ITeeVerification.InvalidInitialSigningPolicy.selector);
-        teeVerification.verifyAvailabilityCheckProof(proof);
-    }
-
-    // machine status != INITIALIZED
-    function testVerifyAvailabilityCheckRevertInvalidInitialSigningPolicy3() public {
-        proof.responseBody.initialSigningPolicyId = signingPolicyId + 1;
-        vm.expectRevert(ITeeVerification.InvalidInitialSigningPolicy.selector);
-        teeVerification.verifyAvailabilityCheckProof(proof);
-    }
-
-    function testVerifyAvailabilityCheckRevertAvailabilityCheckValidityExpired() public {
-        _mockGetCurrentRewardEpochId(uint24(rewardEpochId + 100));
-        _mockVerifySigningPolicySignatures(rewardEpochId + 100);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ITeeVerification.AvailabilityCheckValidityExpired.selector,
-                0
-            )
-        );
         teeVerification.verifyAvailabilityCheckProof(proof);
     }
 
@@ -638,8 +587,41 @@ contract TeeVerificationTest is Test {
         assertFalse(teeVerification.verifyAvailabilityCheckProof(proof));
     }
 
-    // address(teeStateVerifier) != address(0) && verifyTeeState -> true
+    // initialSigningPolicyId > currentRewardEpochId
+    // machine status == INITIALIZED
     function testVerifyAvailabilityCheckProof9() public {
+        proof.responseBody.initialSigningPolicyId = signingPolicyId + 1;
+        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
+        assertFalse(teeVerification.verifyAvailabilityCheckProof(proof));
+    }
+
+    // initialSigningPolicyId + signingPolicyValidityDurationInRewardEpochs (== 1) < currentRewardEpochId
+    // machine status == INITIALIZED
+    function testVerifyAvailabilityCheckProof10() public {
+        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
+        _mockGetCurrentRewardEpochId(10);
+        _mockVerifySigningPolicySignatures(10);
+        proof.responseBody.initialSigningPolicyId = 1;
+        assertFalse(teeVerification.verifyAvailabilityCheckProof(proof));
+    }
+
+    // initialSigningPolicyId > currentRewardEpochId
+    // machine status != INITIALIZED
+    function testVerifyAvailabilityCheckProof11() public {
+        proof.responseBody.initialSigningPolicyId = signingPolicyId + 1;
+        assertFalse(teeVerification.verifyAvailabilityCheckProof(proof));
+    }
+
+    // availability check validity expired
+    // machine status != INITIALIZED
+    function testVerifyAvailabilityCheckProof12() public {
+        _mockGetCurrentRewardEpochId(uint24(rewardEpochId + 100));
+        _mockVerifySigningPolicySignatures(rewardEpochId + 100);
+        assertFalse(teeVerification.verifyAvailabilityCheckProof(proof));
+    }
+
+    // address(teeStateVerifier) != address(0) && verifyTeeState -> true
+    function testVerifyAvailabilityCheckProof13() public {
         testSetCosigners();
         address teeStateVerifier = makeAddr("teeStateVerifier");
         _mockGetTeeExtensionStateVerifier(teeStateVerifier);

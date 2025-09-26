@@ -303,11 +303,12 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         // copy TEE machine data from new TEE machine to old TEE machine
         // teePublicKey belongs to the old TEE machine id and should not be changed
         oldState.initialTeeId = newState.initialTeeId;
-        oldState.initialSigningPolicyId = newState.initialSigningPolicyId;
         oldState.teeProxyId = newState.teeProxyId;
         oldState.codeHash = newState.codeHash;
         oldState.platform = newState.platform;
         oldState.url = newState.url;
+        // initialSigningPolicyId was never set for the new TEE machine, so set it from the proof
+        oldState.initialSigningPolicyId = _proof.responseBody.initialSigningPolicyId;
         // temporary status, will be set to PRODUCTION after availability check
         oldState.status = TeeStatus.REPLICATING;
         // delete the new TEE machine state
@@ -505,7 +506,10 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     }
 
     function _validateAvailabilityCheckTs(address _teeId, uint256 _availabilityCheckTs) internal view {
-        require(_availabilityCheckTs >= teeMachineStates[_teeId].lastStatusChangeTs, AcTimestampInvalid());
+        require(
+            _availabilityCheckTs >= teeMachineStates[_teeId].lastStatusChangeTs,
+            AvailabilityCheckTimestampInvalid()
+        );
     }
 
     function _getTeeMachineState(address _teeId) internal view returns(TeeMachineState storage _state) {

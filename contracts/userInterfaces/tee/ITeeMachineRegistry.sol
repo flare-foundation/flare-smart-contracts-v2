@@ -71,7 +71,7 @@ interface ITeeMachineRegistry {
     error OwnerMismatch();
     error ExtensionIdMismatch();
     error TooMany();
-    error AcTimestampInvalid();
+    error AvailabilityCheckTimestampInvalid();
     error TeeNotFound();
     error InvalidNewStatus();
     error InvalidAvailabilityCheckStatus();

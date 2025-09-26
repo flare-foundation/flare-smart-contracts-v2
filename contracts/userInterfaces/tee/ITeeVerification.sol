@@ -49,8 +49,6 @@ interface ITeeVerification {
     error AvailabilityCheckTimestampInvalid(uint256 challengeTs);
     error InvalidRequestBody();
     error InvalidSigningPolicy();
-    error InvalidInitialSigningPolicy();
-    error AvailabilityCheckValidityExpired(uint32 lastSigningPolicyId);
     error CosignersThresholdNotMet();
     error InvalidDuration();
     error AccountAddressZero();
