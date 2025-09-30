@@ -1,13 +1,25 @@
 [profile.default]
 src = "contracts"
 out = "artifacts-forge"
-libs = ["node_modules", "lib"]
+libs = ["node_modules", "lib", "dependencies"]
 test = "test-forge"
 cache_path = 'cache-forge'
 evm_version = 'london'
 fs_permissions = [{ access = "read", path = "./artifacts-forge/"}]
 optimizer = true
 optimizer_runs = 200
+
+[dependencies]
+forge-std = "1.10.0"
+"@openzeppelin-contracts" = "5.0.2"
+flare-periphery = "0.1.37"
+
+[soldeer]
+remappings_generate = false
+remappings_regenerate = false
+remappings_version = false
+remappings_location = "txt"
+recursive_deps = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 

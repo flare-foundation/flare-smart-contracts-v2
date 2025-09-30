@@ -167,9 +167,8 @@ test-unit-forge:
   timeout: 10 minutes
   tags: [ flarenetwork-md ]
   image: ghcr.io/foundry-rs/foundry:stable
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
   before_script:
+  forge soldeer install
   - forge install --no-git
   - forge build
   script:
@@ -228,10 +227,9 @@ coverage-forge:
     artifacts: true
   tags: [ flarenetwork-md ]
   timeout: 10 minutes
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
   before_script:
   - mv node_modules.sol node_modules
+  - forge soldeer install
   - forge install --no-git
   - forge build
   script:

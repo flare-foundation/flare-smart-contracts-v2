@@ -1,0 +1,20 @@
+[[dependencies]]
+name = "@openzeppelin-contracts"
+version = "5.0.2"
+url = "https://soldeer-revisions.s3.amazonaws.com/@openzeppelin-contracts/5_0_2_14-03-2024_06:11:59_contracts.zip"
+checksum = "8bc4f0acc7c187771b878d46f7de4bfad1acad2eb5d096d9d05d34035853f5c3"
+integrity = "55881f6114aa36158566ef52b486d9d96b217c3e47d0e24bbd4994a8cfb5ee7c"
+
+[[dependencies]]
+name = "flare-periphery"
+version = "0.1.37"
+url = "https://soldeer-revisions.s3.amazonaws.com/flare-periphery/0_1_37_15-09-2025_11:19:27_soldeer-flare-periphery.zip"
+checksum = "5e518d4bbf697d43a02676f2b618b9d6f7a22841eac0c205d4bac7a8c5371efc"
+integrity = "4c8b90474b6e212fb3d6a4901779cd17c1b1f3c6b527b74ed9922816966786b6"
+
+[[dependencies]]
+name = "forge-std"
+version = "1.10.0"
+url = "https://soldeer-revisions.s3.amazonaws.com/forge-std/1_10_0_02-08-2025_06:50:35_forge-std-1.10.zip"
+checksum = "8cc59e92a7762c170c15f2102c4f3718106dfc78239978fe87c64f316740cc09"
+integrity = "3fd441e2499c5cf04ef9b4126f52150a50dcef9cac1645ff7a955345e947cd04"
