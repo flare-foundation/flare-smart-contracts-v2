@@ -168,7 +168,7 @@ test-unit-forge:
   tags: [ flarenetwork-md ]
   image: ghcr.io/foundry-rs/foundry:stable
   before_script:
-  forge soldeer install
+  - forge soldeer install
   - forge install --no-git
   - forge build
   script:
