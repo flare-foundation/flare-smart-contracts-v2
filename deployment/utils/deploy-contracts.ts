@@ -85,6 +85,7 @@ import {
   TEE_KEY_CONFIGURATIONS,
   TEE_PLATFORMS,
   TEE_CODE_HASH,
+  TEE_EXTENSION_CODE_HASH,
 } from "../tasks/run-simulation";
 import { getLogger } from "./logger";
 import { testDeployGovernanceSettings } from "./contract-helpers";
@@ -1012,7 +1013,16 @@ export async function deployContracts(
     ZERO_ADDRESS,
     teeExtensionInstructionsSenderMock.address,
     { from: extensionOwnerAccount.address }
-  )
+  );
+
+  await teeExtensionRegistry.addTeeVersion(
+    1,
+    "v0.1.0",
+    TEE_EXTENSION_CODE_HASH,
+    TEE_PLATFORMS.map(platform => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
+    ZERO_BYTES32,
+    { from: extensionOwnerAccount.address }
+  );
 
   await teeExtensionRegistry.addSupportedKeyTypes(
     1,
