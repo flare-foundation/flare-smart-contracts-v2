@@ -5,10 +5,7 @@ import Web3 from "web3";
 import { Account } from "web3-core";
 import { toBN } from "web3-utils";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
-import {
-  IProtocolMessageMerkleRoot,
-  ProtocolMessageMerkleRoot,
-} from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
+import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { RelayMessage } from "../../scripts/libs/protocol/RelayMessage";
 import { ISigningPolicy, SigningPolicy, SigningPolicyInitializedEvent } from "../../scripts/libs/protocol/SigningPolicy";
 import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
@@ -23,7 +20,6 @@ import { MockDBIndexer } from "../utils/indexer/MockDBIndexer";
 import { getLogger } from "../utils/logger";
 import { Sign, Signature, SortitionKey, generateSortitionKey, ParseSortitionKey } from "../../test/utils/sortition";
 import { sha256 } from "ethers";
-import { requiredEventArgsFrom } from "../../test/utils/Web3EventDecoder";
 
 // Simulation config
 export const SIMULATION_DUMP_FOLDER = "./sim";
@@ -258,8 +254,9 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   // Account 0 is reserved for governance, 1-5 for contract address use, 10+ for voters.
   const accounts = privateKeys.map(x => hre.web3.eth.accounts.privateKeyToAccount(x.privateKey));
   const governanceAccount = accounts[0];
+  const extensionOwnerAccount = accounts[1];
 
-  const [c, rewardEpochStart, initialSigningPolicy] = await deployContracts(accounts, hre, governanceAccount);
+  const [c, rewardEpochStart, initialSigningPolicy] = await deployContracts(accounts, hre, governanceAccount, extensionOwnerAccount);
   serializeDeployedContractsAddresses(c, DEPLOY_ADDRESSES_FILE);
   const submissionSelectors = {
     submit1: Web3.utils.sha3("submit1()")!.slice(2, 10),

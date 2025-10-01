@@ -35,7 +35,7 @@ contract TeeExtensionRegistryTest is Test {
     bytes32 private opCommand;
     bytes private message;
     uint256 private extensionId;
-    address[] private instructionInitiators;
+    address[] private instructionsSenders;
     ITeeExtensionStateVerifier private teeExtensionStateVerifier;
     address private owner;
     address private newOwner;
@@ -68,8 +68,8 @@ contract TeeExtensionRegistryTest is Test {
         opCommand = keccak256("opCommand");
         message = abi.encode("message");
         extensionId = 1;
-        instructionInitiators = new address[](1);
-        instructionInitiators[0] = address(this);
+        instructionsSenders = new address[](1);
+        instructionsSenders[0] = makeAddr("instructionsSender");
         currentRewardEpochId = 1;
         url = "url";
         version = "1.0";
@@ -236,7 +236,6 @@ contract TeeExtensionRegistryTest is Test {
         teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, opCommand, message, new address[](0), 1);
     }
 
-
     function testSendInstructions() public {
         ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](2);
         teeMachines[0] = ITeeMachineRegistry.TeeMachine(
@@ -269,6 +268,43 @@ contract TeeExtensionRegistryTest is Test {
         teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, opCommand, message, cosigners, 1);
     }
 
+    function testSendInstructionsWithDuplicatedTeeIds() public {
+        teeIds = new address[](5);
+        teeIds[0] = makeAddr("teeId1");
+        teeIds[1] = teeIds[0];
+        teeIds[2] = makeAddr("teeId2");
+        teeIds[3] = teeIds[0];
+        teeIds[4] = teeIds[2];
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](2);
+        teeMachines[0] = ITeeMachineRegistry.TeeMachine(
+            teeIds[0],
+            teeIds[0],
+            url
+        );
+        teeMachines[1] = ITeeMachineRegistry.TeeMachine(
+            teeIds[2],
+            teeIds[2],
+            url
+        );
+        testRegister();
+        vm.expectEmit();
+        address[] memory cosigners = new address[](2);
+        cosigners[0] = makeAddr("cosigner1");
+        cosigners[1] = makeAddr("cosigner2");
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
+            extensionId,
+            instructionId,
+            currentRewardEpochId,
+            teeMachines,
+            opType,
+            opCommand,
+            message,
+            cosigners,
+            1,
+            0
+        );
+        teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, opCommand, message, cosigners, 1);
+    }
 
     // register
     function testRegisterRevertInvalidInstructionsSender() public {
@@ -708,36 +744,104 @@ contract TeeExtensionRegistryTest is Test {
     // registerSystemInstructionsSenders
     function testRegisterSystemInstructionsSendersRevertOnlyGovernance() public {
         vm.expectRevert("only governance");
-        teeExtensionRegistry.registerSystemInstructionsSenders(instructionInitiators);
+        teeExtensionRegistry.registerSystemInstructionsSenders(instructionsSenders);
     }
 
 
     function testRegisterSystemInstructionsSenders() public {
         vm.prank(initialGovernance);
-        teeExtensionRegistry.registerSystemInstructionsSenders(instructionInitiators);
+        teeExtensionRegistry.registerSystemInstructionsSenders(instructionsSenders);
         // getSystemInstructionsSenders
-        address[] memory returnedInstructionInitiators =
+        address[] memory returnedInstructionsSenders =
             teeExtensionRegistry.getSystemInstructionsSenders();
-        assertEq(returnedInstructionInitiators.length, 1);
-        assertEq(returnedInstructionInitiators[0], address(this));
+        assertEq(returnedInstructionsSenders.length, 1);
+        assertEq(returnedInstructionsSenders[0], instructionsSenders[0]);
     }
 
 
     // unregisterSystemInstructionsSenders
     function testUnregisterSystemInstructionsSendersRevertOnlyGovernance() public {
         vm.expectRevert("only governance");
-        teeExtensionRegistry.unregisterSystemInstructionsSenders(instructionInitiators);
+        teeExtensionRegistry.unregisterSystemInstructionsSenders(instructionsSenders);
     }
 
 
     function testUnregisterSystemInstructionsSenders() public {
         testRegisterSystemInstructionsSenders();
         vm.prank(initialGovernance);
-        teeExtensionRegistry.unregisterSystemInstructionsSenders(instructionInitiators);
+        teeExtensionRegistry.unregisterSystemInstructionsSenders(instructionsSenders);
         // getSystemInstructionsSenders
-        address[] memory returnedInstructionInitiators =
+        address[] memory returnedInstructionsSenders =
             teeExtensionRegistry.getSystemInstructionsSenders();
-        assertEq(returnedInstructionInitiators.length, 0);
+        assertEq(returnedInstructionsSenders.length, 0);
+    }
+
+
+
+    // sendSystemInstructions
+    function testSendSystemInstructionsRevertOnlySystemInstructionsSender() public {
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](2);
+        teeMachines[0] = ITeeMachineRegistry.TeeMachine(
+            teeIds[0],
+            teeIds[0],
+            url
+        );
+        teeMachines[1] = ITeeMachineRegistry.TeeMachine(
+            teeIds[1],
+            teeIds[1],
+            url
+        );
+        vm.expectRevert(ITeeExtensionRegistry.OnlySystemInstructionsSender.selector);
+        teeExtensionRegistry.sendSystemInstructions(
+            instructionId,
+            teeMachines,
+            opType,
+            opCommand,
+            message,
+            new address[](0),
+            0
+        );
+    }
+
+    function testSendSystemInstructions() public {
+        testRegisterSystemInstructionsSenders();
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](2);
+        teeMachines[0] = ITeeMachineRegistry.TeeMachine(
+            teeIds[0],
+            teeIds[0],
+            url
+        );
+        teeMachines[1] = ITeeMachineRegistry.TeeMachine(
+            teeIds[1],
+            teeIds[1],
+            url
+        );
+        vm.expectEmit();
+        address[] memory cosigners = new address[](2);
+        cosigners[0] = makeAddr("cosigner1");
+        cosigners[1] = makeAddr("cosigner2");
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
+            extensionId,
+            instructionId,
+            currentRewardEpochId,
+            teeMachines,
+            opType,
+            opCommand,
+            message,
+            cosigners,
+            1,
+            0
+        );
+        vm.prank(instructionsSenders[0]);
+        teeExtensionRegistry.sendSystemInstructions(
+            instructionId,
+            teeMachines,
+            opType,
+            opCommand,
+            message,
+            cosigners,
+            1
+        );
     }
 
 

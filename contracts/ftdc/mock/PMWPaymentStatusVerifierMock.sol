@@ -39,16 +39,16 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
 
     /**
      * Constructor.
+     * @param _addressUpdater The address of the AddressUpdater contract.
      * @param _cosigners Cosigners
      * @param _cosignersThreshold Cosigners threshold
      * @param _teeThreshold Tee threshold
-     * @param _addressUpdater The address of the AddressUpdater contract.
      */
     constructor(
+        address _addressUpdater,
         address[] memory _cosigners,
         uint64 _cosignersThreshold,
-        uint64 _teeThreshold,
-        address _addressUpdater
+        uint64 _teeThreshold
     )
         AddressUpdatable(_addressUpdater)
     {

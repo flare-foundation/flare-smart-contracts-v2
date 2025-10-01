@@ -17,6 +17,7 @@ interface IITeeExtensionRegistry is ITeeExtensionRegistry {
      * @param _cosigners The cosigners.
      * @param _cosignersThreshold The cosigners threshold.
      * Can only be called by the system instruction initiators.
+     * @dev No check for duplicated TEE machines is performed.
      */
     function sendSystemInstructions(
         bytes32 _instructionId,

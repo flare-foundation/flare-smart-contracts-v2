@@ -116,6 +116,8 @@ import { TeeExtensionRegistryContract, TeeExtensionRegistryInstance } from "../.
 import { TeeExtensionRegistryProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeExtensionRegistryProxy";
 import { TeeReplicationContract, TeeReplicationInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeReplication";
 import { TeeReplicationProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeReplicationProxy";
+import { TeeExtensionInstructionsSenderMockContract, TeeExtensionInstructionsSenderMockInstance } from "../../typechain-truffle/contracts/tee/mock/TeeExtensionInstructionsSenderMock";
+import { PMWPaymentStatusVerifierMockContract, PMWPaymentStatusVerifierMockInstance } from "../../typechain-truffle/contracts/ftdc/mock/PMWPaymentStatusVerifierMock";
 
 export interface DeployedContracts {
   readonly addressUpdater: AddressUpdaterInstance;
@@ -166,6 +168,8 @@ export interface DeployedContracts {
   readonly ftdcHub: FtdcHubInstance;
   readonly ftdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsInstance;
   readonly ftdcVerification: FtdcVerificationInstance;
+  readonly pmwPaymentStatusVerifierMock: PMWPaymentStatusVerifierMockInstance;
+  readonly teeExtensionInstructionsSenderMock: TeeExtensionInstructionsSenderMockInstance;
 }
 
 const logger = getLogger("contracts");
@@ -173,14 +177,15 @@ const logger = getLogger("contracts");
 export async function deployContracts(
   accounts: Account[],
   hre: HardhatRuntimeEnvironment,
-  governanceAccount: Account
+  governanceAccount: Account,
+  extensionOwnerAccount: Account
 ): Promise<[DeployedContracts, number, ISigningPolicy]> {
-  const CLEANER_CONTRACT_ADDR = accounts[1].address;
-  const MULTI_SIG_VOTING_ADDR = accounts[2].address;
-  const RELAY_ADDR = accounts[3].address;
-  const CLAIM_SETUP_MANAGER_ADDR = accounts[4].address;
-  const FTSO_REWARD_MANAGER_ADDR = accounts[5].address;
-  const INFLATION_ADDR = accounts[5].address;
+  const CLEANER_CONTRACT_ADDR = accounts[2].address;
+  const MULTI_SIG_VOTING_ADDR = accounts[3].address;
+  const RELAY_ADDR = accounts[4].address;
+  const CLAIM_SETUP_MANAGER_ADDR = accounts[5].address;
+  const FTSO_REWARD_MANAGER_ADDR = accounts[6].address;
+  const INFLATION_ADDR = accounts[7].address;
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
   const _ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -250,6 +255,9 @@ export async function deployContracts(
   const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
   const FtdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
   const FtdcVerification: FtdcVerificationContract = artifacts.require("FtdcVerification");
+
+  const PMWPaymentStatusVerifierMock: PMWPaymentStatusVerifierMockContract = artifacts.require("PMWPaymentStatusVerifierMock");
+  const TeeExtensionInstructionsSenderMock: TeeExtensionInstructionsSenderMockContract = artifacts.require("TeeExtensionInstructionsSenderMock");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
@@ -701,6 +709,17 @@ export async function deployContracts(
   const ftdcVerification = await FtdcVerification.new(addressUpdater.address);
   addressUpdatableContracts.push(ftdcVerification.address);
 
+  // MOCKS
+  const pmwPaymentStatusVerifierMock = await PMWPaymentStatusVerifierMock.new(addressUpdater.address, [], 0, 1);
+  addressUpdatableContracts.push(pmwPaymentStatusVerifierMock.address);
+
+  const teeExtensionInstructionsSenderMock = await TeeExtensionInstructionsSenderMock.new(
+    teeExtensionRegistry.address,
+    teeWalletProjectManager.address,
+    teeWalletManager.address,
+    teeWalletKeyManager.address
+  );
+
   // Set the FTDC request fee configurations
   for (const ftdcRequestFee of FTDC_FEE_CONFIGURATIONS) {
     await ftdcRequestFeeConfigurations.setTypeAndSourceFee(
@@ -988,6 +1007,22 @@ export async function deployContracts(
   ];
   await flareDaemon.registerToDaemonize(registrations, { from: genesisGovernance });
 
+  // TEE EXTENSION
+  await teeExtensionRegistry.register(
+    ZERO_ADDRESS,
+    teeExtensionInstructionsSenderMock.address,
+    { from: extensionOwnerAccount.address }
+  )
+
+  await teeExtensionRegistry.addSupportedKeyTypes(
+    1,
+    [await teeExtensionInstructionsSenderMock.KEY_TYPE()], // EVM
+    { from: extensionOwnerAccount.address }
+  );
+
+  await teeOwnerAllowlist.allowAllTeeMachineOwners(1, { from: extensionOwnerAccount.address });
+  await teeOwnerAllowlist.allowAllTeeWalletProjectOwners(1, { from: extensionOwnerAccount.address });
+
   logger.info(
     `Finished deploying contracts:\n` +
     `  FlareSystemsManager: ${flareSystemsManager.address},\n` +
@@ -1054,7 +1089,9 @@ export async function deployContracts(
     teePayments: teePaymentsList,
     ftdcHub,
     ftdcRequestFeeConfigurations,
-    ftdcVerification
+    ftdcVerification,
+    pmwPaymentStatusVerifierMock,
+    teeExtensionInstructionsSenderMock
   };
 
   return [contracts, rewardEpochStart, initialSigningPolicy];

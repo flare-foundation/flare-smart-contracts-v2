@@ -111,7 +111,9 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     )
         external payable
     {
-        // Get TEE machines.
+        // remove duplicates
+        _removeDuplicates(_teeIds);
+        // get TEE machines
         ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](_teeIds.length);
         for (uint256 i = 0; i < _teeIds.length; i++) {
             teeMachines[i] = teeMachineRegistry.getTeeMachine(_teeIds[i]);
@@ -659,5 +661,25 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         returns(bool)
     {
         return _opType[0] == SYSTEM_OP_TYPE_PREFIX[0] && _opType[1] == SYSTEM_OP_TYPE_PREFIX[1];
+    }
+
+    function _removeDuplicates(address[] memory _teeIds) internal pure {
+        uint256 length = _teeIds.length;
+        for (uint256 i = 0; i < length; i++) {
+            for (uint256 j = i + 1; j < length; j++) {
+                if (_teeIds[i] == _teeIds[j]) {
+                    // move the last element to the current position
+                    _teeIds[j] = _teeIds[length - 1];
+                    // reduce the array size
+                    length--;
+                    // check the new element at position j
+                    j--;
+                }
+            }
+        }
+        // resize the array to the new length which is <= original length, which is always safe
+        // this is done using inline assembly as Solidity does not provide a way to resize memory arrays
+        // solhint-disable-next-line no-inline-assembly
+        assembly { mstore(_teeIds, length) }
     }
 }

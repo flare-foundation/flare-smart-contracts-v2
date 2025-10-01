@@ -102,6 +102,11 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
             // For all TEE machines check their status and that they belong to the system extension.
             for (uint256 i = 0; i < _teeIds.length; i++) {
                 address teeId = _teeIds[i];
+                // check for duplicated teeIds
+                for (uint256 j = i + 1; j < _teeIds.length; j++) {
+                    require(teeId != _teeIds[j], DuplicatedTeeId(teeId));
+                }
+                // check the TEE machine status
                 ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(teeId);
                 if (status == ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE) {
                     // if the TEE machine is PAUSED_FOR_UPGRADE use its replicating TEE machine if exists, else revert

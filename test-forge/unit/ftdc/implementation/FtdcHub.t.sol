@@ -189,6 +189,22 @@ contract FtdcHubTest is Test {
         ftdcHub.requestAttestation(minThresholdBIPS, 2, teeIds, new address[](0), 0, "", "", "");
     }
 
+    function testRequestAttestationRevertDuplicatedTeeId() public {
+        address teeId = makeAddr("teeId");
+        _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE);
+        _mockGetTeeReplicatingTeeId(teeId, address(0));
+        teeIds = new address[](2);
+        teeIds[0] = teeId;
+        teeIds[1] = teeId;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IFtdcHub.DuplicatedTeeId.selector,
+                teeId
+            )
+        );
+        ftdcHub.requestAttestation(minThresholdBIPS, 2, teeIds, new address[](0), 0, "", "", "");
+    }
+
     function testRequestAttestationRevertTeeMachineNotAvailable() public {
         address teeId = makeAddr("teeId");
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE);
