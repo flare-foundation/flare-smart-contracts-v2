@@ -7,7 +7,7 @@ import { getDataSource } from "../../../deployment/utils/indexer/data-source";
 import { getLogger } from "../../../deployment/utils/logger";
 import { ProtocolMessageMerkleRoot } from "../protocol/ProtocolMessageMerkleRoot";
 import { ISignaturePayload, SignaturePayload } from "../protocol/SignaturePayload";
-import { ISigningPolicy, SigningPolicy } from "../protocol/SigningPolicy";
+import { ISigningPolicy, SigningPolicy, SigningPolicyInitializedEvent } from "../protocol/SigningPolicy";
 import { Queue } from "./Queue";
 import { RELAY_SELECTOR, SUBMIT_SIGNATURES_SELECTOR, THRESHOLD_INCREASE_BIPS, decodeEvent, eventSignature, eventToSigningPolicy, extractEpochSettings } from "./mock-test-helpers";
 
@@ -159,7 +159,7 @@ export class MockFinalizer {
       .andWhere("event.address = :contractAddress", { contractAddress: this.relayContractAddress.slice(2).toLowerCase() })
       .andWhere("event.topic0 = :signature", { signature: eventSignature("Relay", "SigningPolicyInitialized").slice(2) })
       .getMany();
-    const signingPolicyEvents = queryResult.map((event) => decodeEvent("Relay", "SigningPolicyInitialized", event));
+    const signingPolicyEvents = queryResult.map((event) => decodeEvent<SigningPolicyInitializedEvent>("Relay", "SigningPolicyInitialized", event));
     return signingPolicyEvents.map(event => eventToSigningPolicy(event));
   }
 

@@ -12,6 +12,9 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "sourceMap": true,
+    "noUncheckedSideEffectImports": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
     "newLine": "lf",
     "outDir": "dist",
     "typeRoots": ["node_modules/@types", "lib/types"]

@@ -22,7 +22,7 @@ function prefix0x(hex: string): string {
   return hex.startsWith("0x") ? hex : "0x" + hex;
 }
 
-export function decodeEvent(contractName: string, eventName: string, data: TLPEvents): { [key: string]: string } {
+export function decodeEvent<T extends object = { [key: string]: string }>(contractName: string, eventName: string, data: TLPEvents): T {
   const contract = (artifacts as unknown as { require(name: string): unknown }).require(contractName) as { events: Record<string, { name: string }> };
   const _signature = eventSignature(contractName, eventName);
   const eventEntry = Object.entries(contract.events).find(([, value]) => value.name === eventName);
@@ -32,7 +32,7 @@ export function decodeEvent(contractName: string, eventName: string, data: TLPEv
     abi,
     prefix0x(data.data),
     [prefix0x(data.topic0), prefix0x(data.topic1), prefix0x(data.topic2), prefix0x(data.topic3)].filter(x => x)
-  );
+  ) as unknown as T;
 }
 
 export function contractAddress(contractName: string): string {
