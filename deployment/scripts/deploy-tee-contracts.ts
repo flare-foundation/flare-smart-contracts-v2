@@ -428,7 +428,7 @@ export async function deployTeeContracts(
   // add system extension supported key types
   await teeExtensionRegistry.addSupportedKeyTypes(
     0, // system extension id
-    parameters.teePaymentConfigurations.map(teePaymentConfig => web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0")),
+    [...new Set(parameters.teePaymentConfigurations.map(teePaymentConfig => web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0")))]
   );
 
   // register system instructions senders
