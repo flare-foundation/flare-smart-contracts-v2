@@ -267,7 +267,7 @@
   {
     "name": "TeeExtensionRegistryImplementation",
     "contractName": "TeeExtensionRegistry.sol",
-    "address": "0x0868DCA1B8F0791A80C9BfC7d8032fCDB724Ed67"
+    "address": "0x765369a14fF869fBcB88833895E406eB70b79124"
   },
   {
     "name": "TeeExtensionRegistry",
@@ -367,7 +367,7 @@
   {
     "name": "TeeWalletBackupManagerImplementation",
     "contractName": "TeeWalletBackupManager.sol",
-    "address": "0x4f94f9D4FEb94c736FC8aD1bBdb4E0d984C90964"
+    "address": "0xd9094a83c268A136a8f66fC1AC0e09F34e252Cae"
   },
   {
     "name": "TeeWalletBackupManager",
