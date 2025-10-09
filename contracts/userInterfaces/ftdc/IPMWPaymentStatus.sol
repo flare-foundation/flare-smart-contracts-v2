@@ -39,8 +39,7 @@ interface IPMWPaymentStatus {
      * @param amount Amount in minimal units that should be send.
      * @param fee Fee in minimal units that should be paid for the transaction.
      * @param paymentReference Payment reference of the transaction.
-     * @param transactionStatus Success status of the transaction: 0 - success, 1 - failed by sender's fault,
-     * 2 - failed by receiver's fault.
+     * @param transactionStatus Success status of the transaction: 0 - success, 1 - reverted.
      * @param revertReason Revert reason from the blockchain, if transaction status is not success.
      * @param receivedAmount Amount in minimal units received by the receiving address.
      * @param transactionFee Total fee in minimal units used for the transaction.
