@@ -54,7 +54,7 @@ contract VoterRegistryTest is Test {
         bytes32 publicKeyPart1,
         bytes32 publicKeyPart2,
         uint256 registrationWeight,
-        Signature signature
+        IVoterRegistry.Signature signature
     );
 
     function setUp() public {

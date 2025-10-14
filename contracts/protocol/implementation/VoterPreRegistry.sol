@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { IIVoterRegistrationTrigger } from "../interface/IIVoterRegistrationTrigger.sol";
 import { IVoterPreRegistry } from "../../userInterfaces/IVoterPreRegistry.sol";
+import { IVoterRegistry } from "../../userInterfaces/IVoterRegistry.sol";
 import { AddressSet } from "../../utils/lib/AddressSet.sol";
 import { IIVoterRegistry } from "../../protocol/interface/IIVoterRegistry.sol";
 import { IIEntityManager } from "../interface/IIEntityManager.sol";
@@ -62,8 +63,12 @@ contract VoterPreRegistry is AddressUpdatable, IIVoterRegistrationTrigger, IVote
         VoterWithSignature[] storage voters = preRegisteredVoters[_rewardEpochId].list;
         for (uint256 i = 0; i < voters.length; i++) {
             VoterWithSignature memory voterData = voters[i];
-            try voterRegistry.registerVoter(voterData.voter, Signature(voterData.v, voterData.r, voterData.s)) {
-            } catch {
+            try voterRegistry.registerVoter(
+                voterData.voter,
+                IVoterRegistry.Signature(voterData.v, voterData.r, voterData.s)
+            )
+            { }
+            catch {
                 emit VoterRegistrationFailed(voterData.voter, _rewardEpochId);
             }
         }
@@ -72,7 +77,7 @@ contract VoterPreRegistry is AddressUpdatable, IIVoterRegistrationTrigger, IVote
     /**
      * @inheritdoc IVoterPreRegistry
      */
-    function preRegisterVoter(address _voter, IIVoterRegistry.Signature calldata _signature) external {
+    function preRegisterVoter(address _voter, IVoterRegistry.Signature calldata _signature) external {
         uint24 rewardEpochId = flareSystemsManager.getCurrentRewardEpochId() + 1;
         // check if pre-registration is still open
         (, , , uint256 randomAcquisitionEndBlock) = flareSystemsManager.getRandomAcquisitionInfo(rewardEpochId);
@@ -125,11 +130,17 @@ contract VoterPreRegistry is AddressUpdatable, IIVoterRegistrationTrigger, IVote
     /**
      * @inheritdoc IVoterPreRegistry
      */
-    function getVoterSignature(uint24 _rewardEpochId, address _voter) external view returns (Signature memory) {
+    function getVoterSignature(
+        uint24 _rewardEpochId,
+        address _voter
+    )
+        external view
+        returns (IVoterRegistry.Signature memory)
+    {
         uint256 index = preRegisteredVoters[_rewardEpochId].index[_voter];
         require(index != 0, "voter not pre-registered");
         VoterWithSignature storage preRegisteredVoter = preRegisteredVoters[_rewardEpochId].list[index - 1];
-        return Signature(preRegisteredVoter.v, preRegisteredVoter.r, preRegisteredVoter.s);
+        return IVoterRegistry.Signature(preRegisteredVoter.v, preRegisteredVoter.r, preRegisteredVoter.s);
     }
 
     /**

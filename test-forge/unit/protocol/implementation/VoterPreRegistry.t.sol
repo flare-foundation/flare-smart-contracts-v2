@@ -26,7 +26,7 @@ contract VoterPreRegistryTest is Test {
     address private addressUpdater;
     address[] private initialVoters;
     uint256[] private initialVotersSigningPolicyPk; // private keys
-    Signature[] private initialVotersSignatures;
+    IVoterRegistry.Signature[] private initialVotersSignatures;
     uint256[] private initialWeights;
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -53,7 +53,7 @@ contract VoterPreRegistryTest is Test {
         bytes32 publicKeyPart1,
         bytes32 publicKeyPart2,
         uint256 registrationWeight,
-        Signature signature
+        IVoterRegistry.Signature signature
     );
     event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId);
 
@@ -161,7 +161,7 @@ contract VoterPreRegistryTest is Test {
         emit VoterPreRegistered(initialVoters[0], 11);
 
         voterPreRegistry.preRegisterVoter(initialVoters[0], signature);
-        Signature memory signature2 = voterPreRegistry.getVoterSignature(11, initialVoters[0]);
+        IVoterRegistry.Signature memory signature2 = voterPreRegistry.getVoterSignature(11, initialVoters[0]);
         assertEq(signature2.v, signature.v);
         assertEq(signature2.r, signature.r);
         assertEq(signature2.s, signature.s);
@@ -169,20 +169,20 @@ contract VoterPreRegistryTest is Test {
 
     function testPreRegisterVoterAgainAfterChangingSigningPolicyAddress() public {
         testPreRegisterVoter();
-        Signature memory signature1 = voterPreRegistry.getVoterSignature(11, initialVoters[0]);
+        IVoterRegistry.Signature memory signature1 = voterPreRegistry.getVoterSignature(11, initialVoters[0]);
 
         vm.roll(100);
         // change the signing policy address and key
         initialSigningPolicyAddresses[0] = initialSigningPolicyAddresses[1];
         initialVotersSigningPolicyPk[0] = initialVotersSigningPolicyPk[1];
         _mockGetVoterForSigningPolicyAddress(initialSigningPolicyAddresses[0], 100, initialVoters[0]);
-        Signature memory signature = _createSigningPolicyAddressSignature(0, 11);
+        IVoterRegistry.Signature memory signature = _createSigningPolicyAddressSignature(0, 11);
 
         vm.expectEmit();
         emit VoterPreRegistered(initialVoters[0], 11);
         voterPreRegistry.preRegisterVoter(initialVoters[0], signature);
 
-        Signature memory signature2 = voterPreRegistry.getVoterSignature(11, initialVoters[0]);
+        IVoterRegistry.Signature memory signature2 = voterPreRegistry.getVoterSignature(11, initialVoters[0]);
         assertEq(signature2.v, signature.v);
         assertEq(signature2.r, signature.r);
         assertEq(signature2.s, signature.s);
@@ -199,7 +199,7 @@ contract VoterPreRegistryTest is Test {
         voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(10);
         for (uint256 i = 0; i < initialVoters.length; i++) {
             _mockGetVoterForSigningPolicyAddress(initialSigningPolicyAddresses[i], 90, initialVoters[i]);
-            Signature memory signature = _createSigningPolicyAddressSignature(i, 11);
+            IVoterRegistry.Signature memory signature = _createSigningPolicyAddressSignature(i, 11);
             initialVotersSignatures[i] = signature;
             emit VoterPreRegistered(initialVoters[i], 11);
             voterPreRegistry.preRegisterVoter(initialVoters[i], signature);
@@ -292,7 +292,7 @@ contract VoterPreRegistryTest is Test {
         while (i > 0) {
             i--;
             _mockGetVoterForSigningPolicyAddress(initialSigningPolicyAddresses[i], 90, initialVoters[i]);
-            Signature memory signature = _createSigningPolicyAddressSignature(i, 11);
+            IVoterRegistry.Signature memory signature = _createSigningPolicyAddressSignature(i, 11);
             initialVotersSignatures[i] = signature;
             emit VoterPreRegistered(initialVoters[i], 11);
             voterPreRegistry.preRegisterVoter(initialVoters[i], signature);

@@ -1,3 +1,3 @@
 @openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.0.2/
 forge-std/=dependencies/forge-std-1.10.0/src/
-flare-periphery-contracts/=dependencies/flare-periphery-0.1.37/
+@flarenetwork/flare-periphery-contracts/flare/=dependencies/flare-periphery-0.1.38/src/flare/

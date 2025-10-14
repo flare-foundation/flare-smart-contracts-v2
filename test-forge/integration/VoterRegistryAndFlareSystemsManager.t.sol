@@ -99,7 +99,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         bytes32 publicKeyPart1,
         bytes32 publicKeyPart2,
         uint256 registrationWeight,
-        Signature signature
+        IVoterRegistry.Signature signature
     );
     event VotePowerBlockSelected(
         uint24 indexed rewardEpochId,   // Reward epoch id

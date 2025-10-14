@@ -37,5 +37,10 @@ interface IVoterPreRegistry {
      * @param _voter The voter address.
      * @return _signature The voter's signature.
      */
-    function getVoterSignature(uint24 _rewardEpochId, address _voter) external view returns (Signature memory);
+    function getVoterSignature(
+        uint24 _rewardEpochId,
+        address _voter
+    )
+        external view
+        returns (IIVoterRegistry.Signature memory);
 }
