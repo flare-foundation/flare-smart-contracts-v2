@@ -31,7 +31,7 @@ contract TeeExtensionInstructionsSenderMock {
     }
 
     bytes32 public constant KEY_TYPE = bytes32("EVM");
-    bytes32 public constant OP_TYPE = bytes32("EVM_TX");
+    bytes32 public constant OP_TYPE = bytes32("DEMO_EVM");
     bytes32 public constant OP_COMMAND = bytes32("SIGN");
 
     /// TeeExtensionRegistry contract.
@@ -113,6 +113,38 @@ contract TeeExtensionInstructionsSenderMock {
             abi.encode(message),
             cosigners,
             cosignersThreshold
+        );
+    }
+
+    /**
+     * Send custom instructions to available TEEs via the TeeExtensionRegistry.
+     * @param _instructionId The instruction ID.
+     * @param _teeIds The TEE machine IDs to which the instructions are sent (must all belong to the same extension).
+     * @param _opType The operation type.
+     * @param _opCommand The operation command.
+     * @param _message The message.
+     * @param _cosigners The cosigners.
+     * @param _cosignersThreshold The cosigners threshold.
+     */
+    function sendInstructions(
+        bytes32 _instructionId,
+        address[] calldata _teeIds,
+        bytes32 _opType,
+        bytes32 _opCommand,
+        bytes calldata _message,
+        address[] calldata _cosigners,
+        uint64 _cosignersThreshold
+    )
+        external payable
+    {
+        teeExtensionRegistry.sendInstructions{value: msg.value}(
+            _instructionId,
+            _teeIds,
+            _opType,
+            _opCommand,
+            _message,
+            _cosigners,
+            _cosignersThreshold
         );
     }
 

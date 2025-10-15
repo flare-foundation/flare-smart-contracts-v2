@@ -38,7 +38,7 @@ contract TeeFeeCalculatorTest is Test {
         );
     }
 
-    function testSetOperationFeesRevertLengthMismatch1() public {
+    function testSetOperationFeesRevertLengthsMismatch1() public {
         vm.expectRevert(ITeeFeeCalculator.LengthsMismatch.selector);
         vm.prank(governance);
         teeFeeCalculator.setOperationFees(
@@ -48,7 +48,7 @@ contract TeeFeeCalculatorTest is Test {
         );
     }
 
-    function testSetOperationFeesRevertLengthMismatch2() public {
+    function testSetOperationFeesRevertLengthsMismatch2() public {
         vm.expectRevert(ITeeFeeCalculator.LengthsMismatch.selector);
         vm.prank(governance);
         teeFeeCalculator.setOperationFees(
