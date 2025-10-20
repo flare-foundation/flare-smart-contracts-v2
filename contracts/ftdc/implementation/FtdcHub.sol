@@ -39,8 +39,6 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
     /// The default number of TEEs used for attestation.
     uint8 public defaultNumberOfTees;
 
-    uint256 private attestationRequestCounter;
-
     /**
      * Constructor.
      * @param _governanceSettings The address of the GovernanceSettings contract.
@@ -145,12 +143,8 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
             }),
             requestBody: _requestBody
         });
-        bytes32 instructionId = keccak256(abi.encode(
-            FTDC_OP_TYPE, PROVE, attestationRequestCounter++
-        ));
 
         _sendInstructions(
-            instructionId,
             teeMachines,
             abi.encode(message),
             _cosigners,
@@ -213,7 +207,6 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
     }
 
     function _sendInstructions(
-        bytes32 _instructionId,
         ITeeMachineRegistry.TeeMachine[] memory _teeMachines,
         bytes memory _encodedMessage,
         address[] memory _cosigners,
@@ -221,7 +214,7 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
         uint256 _value
     ) internal {
         teeExtensionRegistry.sendSystemInstructions{value: _value}(
-            _instructionId,
+            bytes32(0),
             _teeMachines,
             FTDC_OP_TYPE,
             PROVE,

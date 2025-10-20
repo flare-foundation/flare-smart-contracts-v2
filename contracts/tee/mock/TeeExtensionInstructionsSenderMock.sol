@@ -43,9 +43,6 @@ contract TeeExtensionInstructionsSenderMock {
     /// TeeWalletKeyManager contract.
     ITeeWalletKeyManager public teeWalletKeyManager;
 
-    /// mapping from wallet id to sign calls counter
-    mapping(bytes32 walletId => uint256) internal signCounter;
-
     error OnlyAuthorizationAddress();
     error WrongKeyType();
     error WalletNotInProduction();
@@ -102,11 +99,7 @@ contract TeeExtensionInstructionsSenderMock {
         (address[] memory cosigners, uint64 cosignersThreshold) =
             teeWalletManager.getWalletCosignersAndThreshold(_walletId);
 
-        bytes32 instructionId = keccak256(abi.encode(
-            OP_TYPE, OP_COMMAND, _walletId, signCounter[_walletId]++
-        ));
         teeExtensionRegistry.sendInstructions{value: msg.value}(
-            instructionId,
             _toTeeIds(teeIdKeyIdPairs),
             OP_TYPE,
             OP_COMMAND,
@@ -118,7 +111,6 @@ contract TeeExtensionInstructionsSenderMock {
 
     /**
      * Send custom instructions to available TEEs via the TeeExtensionRegistry.
-     * @param _instructionId The instruction ID.
      * @param _teeIds The TEE machine IDs to which the instructions are sent (must all belong to the same extension).
      * @param _opType The operation type.
      * @param _opCommand The operation command.
@@ -127,7 +119,6 @@ contract TeeExtensionInstructionsSenderMock {
      * @param _cosignersThreshold The cosigners threshold.
      */
     function sendInstructions(
-        bytes32 _instructionId,
         address[] calldata _teeIds,
         bytes32 _opType,
         bytes32 _opCommand,
@@ -138,7 +129,6 @@ contract TeeExtensionInstructionsSenderMock {
         external payable
     {
         teeExtensionRegistry.sendInstructions{value: msg.value}(
-            _instructionId,
             _teeIds,
             _opType,
             _opCommand,

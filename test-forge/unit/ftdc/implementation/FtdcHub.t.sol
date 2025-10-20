@@ -113,7 +113,7 @@ contract FtdcHubTest is Test {
         teeExtensionRegistry.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
-        // set FtdcHub contract as system instruction initiator on TeeExtensionRegistry
+        // set FtdcHub contract as system instructions sender on TeeExtensionRegistry
         vm.startPrank(governance);
         address[] memory systemInstructionsSender = new address[](1);
         systemInstructionsSender[0] = address(ftdcHub);

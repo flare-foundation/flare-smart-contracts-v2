@@ -170,7 +170,7 @@ contract TeePaymentsTest is Test {
 
         _mockVerifyPMWMultisigAccountConfiguredProof(true);
         _mockGetExtensionId(0);
-        // set TeePayments contract as system instruction initiator on TeeExtensionRegistry
+        // set TeePayments contract as system instructions sender on TeeExtensionRegistry
         vm.prank(governance);
         address[] memory systemInstructionsSenders = new address[](1);
         systemInstructionsSenders[0] = address(teePayments);

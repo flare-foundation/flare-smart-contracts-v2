@@ -68,6 +68,21 @@ contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
     /**
      * @inheritdoc ITeeOwnerAllowlist
      */
+    function removeAllowedTeeMachineOwners(
+        uint256 _extensionId,
+        address[] memory _owners
+    )
+        external onlyExtensionOwner(_extensionId)
+    {
+        for (uint256 i = 0; i < _owners.length; i++) {
+            require(allowedTeeMachineOwners[_extensionId].remove(_owners[i]), OwnerNotAllowed(_owners[i]));
+        }
+        emit AllowedTeeMachineOwnersRemoved(_extensionId, _owners);
+    }
+
+    /**
+     * @inheritdoc ITeeOwnerAllowlist
+     */
     function addAllowedTeeWalletProjectOwners(
         uint256 _extensionId,
         address[] memory _owners
@@ -79,6 +94,21 @@ contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
             require(allowedTeeWalletProjectOwners[_extensionId].add(_owners[i]), OwnerAlreadyAllowed(_owners[i]));
         }
         emit AllowedTeeWalletProjectOwnersAdded(_extensionId, _owners);
+    }
+
+    /**
+     * @inheritdoc ITeeOwnerAllowlist
+     */
+    function removeAllowedTeeWalletProjectOwners(
+        uint256 _extensionId,
+        address[] memory _owners
+    )
+        external onlyExtensionOwner(_extensionId)
+    {
+        for (uint256 i = 0; i < _owners.length; i++) {
+            require(allowedTeeWalletProjectOwners[_extensionId].remove(_owners[i]), OwnerNotAllowed(_owners[i]));
+        }
+        emit AllowedTeeWalletProjectOwnersRemoved(_extensionId, _owners);
     }
 
     /**
@@ -96,6 +126,18 @@ contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
     /**
      * @inheritdoc ITeeOwnerAllowlist
      */
+    function disallowAllTeeMachineOwners(
+        uint256 _extensionId
+    )
+        external onlyExtensionOwner(_extensionId)
+    {
+        allTeeMachineOwnersAllowed[_extensionId] = false;
+        emit AllTeeMachineOwnersDisallowed(_extensionId);
+    }
+
+    /**
+     * @inheritdoc ITeeOwnerAllowlist
+     */
     function allowAllTeeWalletProjectOwners(
         uint256 _extensionId
     )
@@ -103,6 +145,18 @@ contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
     {
         allTeeWalletProjectOwnersAllowed[_extensionId] = true;
         emit AllTeeWalletProjectOwnersAllowed(_extensionId);
+    }
+
+    /**
+     * @inheritdoc ITeeOwnerAllowlist
+     */
+    function disallowAllTeeWalletProjectOwners(
+        uint256 _extensionId
+    )
+        external onlyExtensionOwner(_extensionId)
+    {
+        allTeeWalletProjectOwnersAllowed[_extensionId] = false;
+        emit AllTeeWalletProjectOwnersDisallowed(_extensionId);
     }
 
     /**

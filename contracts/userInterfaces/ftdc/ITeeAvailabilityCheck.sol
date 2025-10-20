@@ -36,12 +36,14 @@ interface ITeeAvailabilityCheck {
      * @param teeProxyId The TEE proxy id.
      * @param url URL of the TEE.
      * @param challenge Challenge used for TEE attestation request.
+     * @param instructionId Instruction ID used for the availability check (challenge must match).
      */
     struct RequestBody {
         address teeId;
         address teeProxyId;
         string url;
         bytes32 challenge;
+        bytes32 instructionId;
     }
 
     /**

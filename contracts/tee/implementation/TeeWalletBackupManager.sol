@@ -20,8 +20,6 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
     bytes32 public constant WALLET_OP_TYPE = bytes32("F_WALLET");
     bytes32 public constant KEY_DATA_PROVIDER_RESTORE = bytes32("KEY_DATA_PROVIDER_RESTORE");
 
-    mapping(bytes32 walletId => mapping(uint64 keyId => uint256)) private dataProviderRestoreCounter;
-
     /// TEE extension registry contract.
     ITeeExtensionRegistry public teeExtensionRegistry;
     /// TEE machine registry contract.
@@ -109,16 +107,11 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
             backupUrl: _backupUrl,
             nonce: teeWalletKeyManager.increaseKeyNonce(_teeId, _backupId.walletId, _backupId.keyId)
         });
-        uint256 counter = dataProviderRestoreCounter[_backupId.walletId][_backupId.keyId]++;
-        bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, KEY_DATA_PROVIDER_RESTORE, _backupId.walletId, _backupId.keyId, counter
-        ));
         (address[] memory admins, uint64 adminsThreshold) =
             teeWalletManager.getWalletAdminsAndThreshold(_backupId.walletId);
         address[] memory teeIds = new address[](1);
         teeIds[0] = _teeId;
         teeExtensionRegistry.sendInstructions{value: msg.value}(
-            instructionId,
             teeIds,
             WALLET_OP_TYPE,
             KEY_DATA_PROVIDER_RESTORE,

@@ -67,10 +67,12 @@ interface ITeeVerification {
     /**
      * Request availability check attestation for a TEE machine - triggers FTDC availability check.
      * @param _teeId The TEE machine id.
+     * @param _instructionId The instruction ID used for the TEE attestation check (challenge must match).
      * @param _testOnTeeId The TEE machine id to test on, if address(0) a random active TEE machine will be used.
      */
     function requestAvailabilityCheckAttestation(
         address _teeId,
+        bytes32 _instructionId,
         address _testOnTeeId
     )
         external payable;

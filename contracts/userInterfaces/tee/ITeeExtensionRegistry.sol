@@ -78,7 +78,6 @@ interface ITeeExtensionRegistry {
         address indexed newOwner
     );
 
-    error InstructionIdEmpty();
     error NoTeeMachinesSpecified();
     error OperationTypeEmpty();
     error OperationCommandEmpty();
@@ -113,18 +112,18 @@ interface ITeeExtensionRegistry {
     error SigningAlgoAlreadyExists(bytes32 keyType, bytes32 signingAlgo);
 
     /**
-     * Send instructions to the TEE machines.
+     * Send instructions to the TEE machines. Instruction ID will be generated internally and returned.
      * Emits a TeeInstructionsSent event.
-     * @param _instructionId The instruction ID.
      * @param _teeIds The TEE machine IDs to which the instructions are sent (must all belong to the same extension).
      * @param _opType The operation type.
      * @param _opCommand The operation command.
      * @param _message The message.
      * @param _cosigners The cosigners.
      * @param _cosignersThreshold The cosigners threshold.
+     * @return _instructionId The generated instruction ID.
+     * Can only be called by the TEE machines extension instructions sender.
      */
     function sendInstructions(
-        bytes32 _instructionId,
         address[] memory _teeIds,
         bytes32 _opType,
         bytes32 _opCommand,
@@ -132,7 +131,8 @@ interface ITeeExtensionRegistry {
         address[] memory _cosigners,
         uint64 _cosignersThreshold
     )
-        external payable;
+        external payable
+        returns (bytes32 _instructionId);
 
     /**
      * Register a new TEE extension.

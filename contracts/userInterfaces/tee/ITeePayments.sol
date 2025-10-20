@@ -60,7 +60,9 @@ interface ITeePayments {
         bytes32 indexed walletId,
         bytes32 sourceId,
         string accountAddress,
-        uint64 initialNonce
+        uint64 initialNonce,
+        uint64 batchSize,
+        uint64 batchDurationSeconds
     );
 
     event SupportedSourceIdAdded(

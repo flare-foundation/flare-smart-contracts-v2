@@ -38,8 +38,7 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     mapping(bytes32 walletId => TeeWalletState) private wallets;
     mapping(bytes32 projectId => bytes32[] walletIds) private projectWallets;
 
-    mapping (bytes32 walletId => uint256) private setPausingAddressesCounter;
-    mapping (bytes32 walletId => uint256) private resumeCounter;
+    mapping (bytes32 walletId => uint256) private setPausingAddressesNonce;
 
     /// TEE extension registry contract.
     ITeeExtensionRegistry public teeExtensionRegistry;
@@ -269,19 +268,14 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
             teeIds[i] = teeIdKeyIdPairs[i].teeId;
         }
 
-        uint256 nonce = setPausingAddressesCounter[_walletId]++;
         SetPausingAddresses memory message = SetPausingAddresses({
             walletId: _walletId,
-            nonce: nonce,
+            nonce: setPausingAddressesNonce[_walletId]++,
             teeIdKeyIdPairs: teeIdKeyIdPairs,
             pausingAddresses: _pausingAddresses
         });
-        bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, _walletId, nonce
-        ));
         (address[] memory admins, uint64 adminsThreshold) = _getWalletAdminsAndThreshold(_walletId);
         teeExtensionRegistry.sendInstructions{value: msg.value}(
-            instructionId,
             teeIds,
             WALLET_OP_TYPE,
             SET_PAUSING_ADDRESSES,
@@ -330,11 +324,7 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
             walletId: _walletId,
             keysData: _keysData
         });
-        bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, RESUME, _walletId, resumeCounter[_walletId]++
-        ));
         teeExtensionRegistry.sendInstructions{value: msg.value}(
-            instructionId,
             teeIds,
             WALLET_OP_TYPE,
             RESUME,

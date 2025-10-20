@@ -11,6 +11,9 @@ import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilit
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
 import { PublicKeyUtils } from "../../utils/lib/PublicKeyUtils.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
+import { Signature } from "../../userInterfaces/ISignature.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
@@ -57,7 +60,15 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     mapping(address teeId => address) public proposedTeeOwner;
 
     modifier onlyOwner(address _teeId) {
-        _checkOnlyOwner(_teeId);
+        require(msg.sender == teeMachineStates[_teeId].owner, OnlyOwner());
+        _;
+    }
+
+    modifier onlyExtensionOwner(address _teeId) {
+        require(
+            msg.sender == teeExtensionRegistry.getExtensionOwner(teeMachineStates[_teeId].extensionId),
+            OnlyExtensionOwner()
+        );
         _;
     }
 
@@ -89,39 +100,59 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
      * @inheritdoc ITeeMachineRegistry
      */
     function register(
-        uint256 _extensionId,
-        PublicKey calldata _teePublicKey,
+        TeeMachineData calldata _teeMachineData,
+        Signature calldata _teeMachineDataSignature,
         address _teeProxyId,
-        string calldata _url,
-        bytes32 _codeHash,
-        bytes32 _platform
+        string calldata _url
     )
         external payable
     {
-        require(teeOwnerAllowlist.isAllowedTeeMachineOwner(_extensionId, msg.sender), OwnerNotAllowed());
-        require(PublicKeyUtils.isPublicKeyValid(_teePublicKey), InvalidTeePublicKey());
-        address teeId = PublicKeyUtils.getAddress(_teePublicKey);
+        require(msg.sender == _teeMachineData.initialOwner, OnlyOwner());
+        require(
+            teeOwnerAllowlist.isAllowedTeeMachineOwner(_teeMachineData.extensionId, _teeMachineData.initialOwner),
+            OwnerNotAllowed()
+        );
+        require(PublicKeyUtils.isPublicKeyValid(_teeMachineData.publicKey), InvalidTeePublicKey());
+        address teeId = ECDSA.recover(
+            MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(_teeMachineData))),
+            _teeMachineDataSignature.v,
+            _teeMachineDataSignature.r,
+            _teeMachineDataSignature.s
+        );
+        require(teeId ==  PublicKeyUtils.getAddress(_teeMachineData.publicKey), InvalidTeePublicKeyOrSignature());
         require(_teeProxyId != address(0), InvalidTeeProxyId());
         require(bytes(_url).length > 0, InvalidUrl());
         require(teeMachineStates[teeId].owner == address(0), AlreadyRegistered());
-        _checkCodeHashPlatformSupported(_extensionId, _codeHash, _platform);
+        _checkCodeHashPlatformSupported(
+            _teeMachineData.extensionId,
+            _teeMachineData.codeHash,
+            _teeMachineData.platform
+        );
 
         teeMachineStates[teeId] = TeeMachineState({
-            extensionId: _extensionId,
+            extensionId: _teeMachineData.extensionId,
             initialTeeId: teeId,
-            teePublicKey: _teePublicKey,
+            teePublicKey: _teeMachineData.publicKey,
             initialSigningPolicyId: 0, // temporary value, will be set when TEE machine is put into production
-            owner: msg.sender,
+            owner: _teeMachineData.initialOwner,
             teeProxyId: _teeProxyId,
             status: TeeStatus.INITIALIZED,
             lastStatusChangeTs: block.timestamp,
-            codeHash: _codeHash,
-            platform: _platform,
+            codeHash: _teeMachineData.codeHash,
+            platform: _teeMachineData.platform,
             url: _url
         });
 
         teeVerification.requestTeeAttestation{value: msg.value}(teeId);
-        emit TeeMachineRegistered(teeId, _teeProxyId, msg.sender, _extensionId, _url, _codeHash, _platform);
+        emit TeeMachineRegistered(
+            teeId,
+            _teeProxyId,
+            _teeMachineData.initialOwner,
+            _teeMachineData.extensionId,
+            _url,
+            _teeMachineData.codeHash,
+            _teeMachineData.platform
+        );
     }
 
     /**
@@ -201,6 +232,38 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         extensionActiveTeeIds[state.extensionId].remove(teeId);
         activeTeeIds.remove(teeId);
         emit TeeMachineStatusChanged(teeId, TeeStatus.PAUSED_WITH_PROOF);
+    }
+
+    /**
+     * @inheritdoc ITeeMachineRegistry
+     */
+    function ban(address _teeId)
+        external onlyExtensionOwner(_teeId)
+    {
+        TeeMachineState storage state = teeMachineStates[_teeId];
+        TeeStatus status = state.status;
+        require(
+            status == TeeStatus.PAUSED || status == TeeStatus.PAUSED_WITH_PROOF || status == TeeStatus.PRODUCTION,
+            InvalidTeeStatus()
+        );
+        state.status = TeeStatus.BANNED;
+        state.lastStatusChangeTs = block.timestamp;
+        extensionActiveTeeIds[state.extensionId].remove(_teeId);
+        activeTeeIds.remove(_teeId);
+        emit TeeMachineStatusChanged(_teeId, TeeStatus.BANNED);
+    }
+
+    /**
+     * @inheritdoc ITeeMachineRegistry
+     */
+    function unban(address _teeId)
+        external onlyExtensionOwner(_teeId)
+    {
+        TeeMachineState storage state = teeMachineStates[_teeId];
+        _checkTeeStatus(state.status, TeeStatus.BANNED);
+        state.status = TeeStatus.PAUSED;
+        state.lastStatusChangeTs = block.timestamp;
+        emit TeeMachineStatusChanged(_teeId, TeeStatus.PAUSED);
     }
 
     /**
@@ -541,10 +604,6 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
             teeExtensionRegistry.isCodeHashPlatformSupported(_extensionId, _codeHash, _platform),
             VersionNotSupported()
         );
-    }
-
-    function _checkOnlyOwner(address _teeId) internal view {
-        require(msg.sender == teeMachineStates[_teeId].owner, OnlyOwner());
     }
 
     function _checkTeeStatus(TeeStatus _actualStatus, TeeStatus _expectedStatus)

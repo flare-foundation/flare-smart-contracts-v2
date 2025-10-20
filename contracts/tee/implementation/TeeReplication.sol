@@ -36,8 +36,6 @@ contract TeeReplication is ITeeReplication, TeeBase {
     mapping(address oldTeeId => address newTeeId) public replications;
     /// Proposed new TEE owner.
     mapping(address teeId => address) public proposedTeeOwner;
-    mapping(address teeId => uint256) private pauseForUpgradeCounter;
-    mapping(address oldTeeId => uint256) private replicateCounter;
 
     modifier onlyOwner(address _teeId) {
         _checkOnlyOwner(_teeId);
@@ -93,13 +91,9 @@ contract TeeReplication is ITeeReplication, TeeBase {
             teeId: _teeId,
             initialTeeId: teeMachine.initialTeeId
         });
-        bytes32 instructionId = keccak256(abi.encode(
-            REG_OP_TYPE, TO_PAUSE_FOR_UPGRADE, _teeId, pauseForUpgradeCounter[_teeId]++
-        ));
         address[] memory teeIds = new address[](1);
         teeIds[0] = _teeId;
         _sendInstructions(
-            instructionId,
             teeIds,
             TO_PAUSE_FOR_UPGRADE,
             abi.encode(message)
@@ -144,15 +138,10 @@ contract TeeReplication is ITeeReplication, TeeBase {
             oldTeeMachine: _getTeeMachineWithAttestationData(_oldTeeId),
             newTeeMachine: _getTeeMachineWithAttestationData(newTeeId)
         });
-        uint256 counter = replicateCounter[_oldTeeId]++;
-        bytes32 instructionId = keccak256(abi.encode(
-            REG_OP_TYPE, REPLICATE_FROM, _oldTeeId, newTeeId, counter
-        ));
         address[] memory teeIds = new address[](2);
         teeIds[0] = _oldTeeId;
         teeIds[1] = newTeeId;
         _sendInstructions(
-            instructionId,
             teeIds,
             REPLICATE_FROM,
             abi.encode(message)
@@ -229,7 +218,6 @@ contract TeeReplication is ITeeReplication, TeeBase {
     }
 
     function _sendInstructions(
-        bytes32 _instructionId,
         address[] memory _teeIds,
         bytes32 _opCommand,
         bytes memory _message
@@ -237,7 +225,6 @@ contract TeeReplication is ITeeReplication, TeeBase {
         internal
     {
         teeExtensionRegistry.sendInstructions{value: msg.value}(
-            _instructionId,
             _teeIds,
             REG_OP_TYPE,
             _opCommand,

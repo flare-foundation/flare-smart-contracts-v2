@@ -314,6 +314,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         decimals: number;
     };
     let challenges: string[] = [];
+    let instructionIds: string[] = [];
 
     [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[10].privateKey.slice(2));
     [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[11].privateKey.slice(2));
@@ -1389,13 +1390,25 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
         assert(TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PUBLIC_KEYS.length && TEE_URLS.length === TEE_PROXY_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
         for (let i = 0; i < TEE_URLS.length; i++) {
+            const teeMachineData = {
+                extensionId: 0,
+                initialOwner: TEE_OWNERS[i],
+                codeHash: TEE_CODE_HASH,
+                platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
+                publicKey: TEE_PUBLIC_KEYS[i]
+            };
+
+            const msg = getHash(getStruct("TeeMachineRegistryStructs", "teeMachineDataStruct"), teeMachineData);
+            const signature = await ECDSASignature.signMessageHash(
+                msg,
+                privateKeys[20 + i%2].privateKey
+            );
+
             const tx = await teeMachineRegistry.register(
-                0,
-                TEE_PUBLIC_KEYS[i],
+                teeMachineData,
+                signature,
                 TEE_PROXY_IDS[i],
                 TEE_URLS[i],
-                TEE_CODE_HASH,
-                web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
                 { value: "2", from: TEE_OWNERS[i] }
             );
             expectEvent(tx, "TeeMachineRegistered", {
@@ -1427,11 +1440,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             expect(event3.opType).to.be.equal(web3.utils.utf8ToHex("F_REG").padEnd(66, "0"));
             expect(event3.opCommand).to.be.equal(web3.utils.utf8ToHex("TEE_ATTESTATION").padEnd(66, "0"));
             expect(event3.message).to.be.equal(web3.eth.abi.encodeParameter(teeAttestationStruct, message));
+            instructionIds.push(event3.instructionId);
         }
     });
 
     it("Should trigger TEE machine availability check", async () => {
-        assert(TEE_URLS.length === challenges.length && TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PROXY_IDS.length, "Arrays must be of the same length");
+        assert(TEE_URLS.length === challenges.length && TEE_URLS.length === instructionIds.length && TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PROXY_IDS.length, "Arrays must be of the same length");
 
         const ftdcAttestationRequestStruct = getStruct("FtdcStructs", "ftdcAttestationRequestStruct")
         const availabilityCheckRequestBodyStruct = getStruct("FtdcStructs", "availabilityCheckRequestBodyStruct");
@@ -1441,7 +1455,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 teeId: TEE_IDS[i],
                 teeProxyId: TEE_PROXY_IDS[i],
                 url: TEE_URLS[i],
-                challenge: challenges[i]
+                challenge: challenges[i],
+                instructionId: instructionIds[i]
             };
             const message = {
                 header: {
@@ -1451,7 +1466,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 },
                 requestBody: web3.eth.abi.encodeParameter(availabilityCheckRequestBodyStruct, requestBody)
             };
-            const tx = await teeVerification.requestAvailabilityCheckAttestation(TEE_IDS[i], TEE_IDS[i], { value: "2" });
+            const tx = await teeVerification.requestAvailabilityCheckAttestation(TEE_IDS[i], instructionIds[i], TEE_IDS[i], { value: "2" });
             const event = requiredEventArgsFrom(tx, teeExtensionRegistry, "TeeInstructionsSent") as any;
             expect(event.rewardEpochId).to.be.equal("2");
             expect(event.opType).to.be.equal(web3.utils.utf8ToHex("F_FTDC").padEnd(66, "0"));
@@ -1463,7 +1478,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     it("Should put new TEE machines in production", async () => {
         const rewardEpochId = 2;
 
-        assert(TEE_URLS.length === challenges.length && TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PROXY_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
+        assert(TEE_URLS.length === challenges.length && TEE_URLS.length === instructionIds.length && TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PROXY_IDS.length && TEE_URLS.length === TEE_PLATFORMS.length && TEE_URLS.length === TEE_OWNERS.length, "Arrays must be of the same length");
         for (let i = 0; i < TEE_URLS.length; i++) {
             const teeState = {
                 systemState: "0x",
@@ -1489,7 +1504,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                     teeId: TEE_IDS[i],
                     teeProxyId: TEE_PROXY_IDS[i],
                     url: TEE_URLS[i],
-                    challenge: challenges[i].toString()
+                    challenge: challenges[i],
+                    instructionId: instructionIds[i]
                 },
                 responseBody: {
                     status: "0",

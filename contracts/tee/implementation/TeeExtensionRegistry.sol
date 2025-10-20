@@ -61,6 +61,9 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     /// List of system supported platforms.
     EnumerableSet.Bytes32Set private systemSupportedPlatforms;
 
+    /// Instruction IDs counter per extension ID.
+    mapping(uint256 extensionId => uint256 counter) private instructionIdsCounter;
+
     /// List of system supported key types and signing algorithms.
     EnumerableSet.Bytes32Set private systemSupportedKeyTypes;
     mapping(bytes32 keyType => EnumerableSet.Bytes32Set) private systemSupportedSigningAlgos;
@@ -74,6 +77,11 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
 
     modifier onlyOwner(uint256 _extensionId) {
         _checkOnlyOwner(_extensionId);
+        _;
+    }
+
+    modifier onlySystemInstructionsSender() {
+        require(systemInstructionsSenders.contains(msg.sender), OnlySystemInstructionsSender());
         _;
     }
 
@@ -101,7 +109,6 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
      * @inheritdoc ITeeExtensionRegistry
      */
     function sendInstructions(
-        bytes32 _instructionId,
         address[] memory _teeIds,
         bytes32 _opType,
         bytes32 _opCommand,
@@ -110,6 +117,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         uint64 _cosignersThreshold
     )
         external payable
+        returns (bytes32)
     {
         // remove duplicates
         _removeDuplicates(_teeIds);
@@ -119,7 +127,41 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
             teeMachines[i] = teeMachineRegistry.getTeeMachine(_teeIds[i]);
         }
 
-        _sendInstructions(
+        return _sendInstructions(
+            bytes32(0),
+            teeMachines,
+            _opType,
+            _opCommand,
+            _message,
+            _cosigners,
+            _cosignersThreshold
+        );
+    }
+
+    /**
+     * @inheritdoc IITeeExtensionRegistry
+     */
+    function sendSystemInstructions(
+        bytes32 _instructionId,
+        address[] memory _teeIds,
+        bytes32 _opType,
+        bytes32 _opCommand,
+        bytes memory _message,
+        address[] memory _cosigners,
+        uint64 _cosignersThreshold
+    )
+        external payable onlySystemInstructionsSender
+        returns (bytes32)
+    {
+        // remove duplicates
+        _removeDuplicates(_teeIds);
+        // get TEE machines
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](_teeIds.length);
+        for (uint256 i = 0; i < _teeIds.length; i++) {
+            teeMachines[i] = teeMachineRegistry.getTeeMachine(_teeIds[i]);
+        }
+
+        return _sendInstructions(
             _instructionId,
             teeMachines,
             _opType,
@@ -142,11 +184,10 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         address[] memory _cosigners,
         uint64 _cosignersThreshold
     )
-        external payable
+        external payable onlySystemInstructionsSender
+        returns (bytes32)
     {
-        require(systemInstructionsSenders.contains(msg.sender), OnlySystemInstructionsSender());
-
-        _sendInstructions(
+        return _sendInstructions(
             _instructionId,
             _teeMachines,
             _opType,
@@ -187,7 +228,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     )
         external onlyOwner(_extensionId)
     {
-        // Extension 0 is using system instructions initiators and system state verifier.
+        // Extension 0 is using system instructions senders and system state verifier.
         require(_extensionId != 0, SystemOwnedExtensionId());
         require(_teeExtensionInstructionsSender != address(0), InvalidInstructionsSender());
         TeeExtension storage extension = extensions[_extensionId];
@@ -565,9 +606,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         address[] memory _cosigners,
         uint64 _cosignersThreshold
     )
-        internal
+        internal returns (bytes32)
     {
-        require(_instructionId != bytes32(0), InstructionIdEmpty());
         require(_teeMachines.length > 0, NoTeeMachinesSpecified());
         require(_opType != bytes32(0), OperationTypeEmpty());
         require(_opCommand != bytes32(0), OperationCommandEmpty());
@@ -575,6 +615,9 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         require(_cosignersThreshold <= _cosigners.length, CosignersThresholdTooHigh());
         address[] memory teeIds = new address[](_teeMachines.length);
         uint256 extensionId = teeMachineRegistry.getExtensionId(_teeMachines[0].teeId);
+        if (_instructionId == bytes32(0)) {
+            _instructionId = _generateInstructionId(extensionId);
+        }
         bool isSystemOpType = _isSystemOpType(_opType);
         for (uint256 i = 0; i < _teeMachines.length; i++) {
             address teeId = _teeMachines[i].teeId;
@@ -613,6 +656,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
             _cosignersThreshold,
             msg.value
         );
+
+        return _instructionId;
     }
 
     /**
@@ -634,6 +679,14 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         rewardManager = IIRewardManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
+    }
+
+    function _generateInstructionId(uint256 _extensionId)
+        internal
+        returns (bytes32)
+    {
+        uint256 counter = instructionIdsCounter[_extensionId]++;
+        return keccak256(abi.encode(_extensionId, counter, blockhash(block.number - 1)));
     }
 
     function _checkOnlyOwner(uint256 _extensionId) internal view {

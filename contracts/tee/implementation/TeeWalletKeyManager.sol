@@ -41,7 +41,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     bytes32 public constant KEY_DELETE = bytes32("KEY_DELETE");
 
     mapping(bytes32 walletId => TeeWalletKeysState) private walletKeys;
-    mapping(bytes32 walletId => mapping(uint64 keyId => uint256)) private keyDeleteCounter;
 
     /// TEE extension registry contract.
     ITeeExtensionRegistry public teeExtensionRegistry;
@@ -148,11 +147,8 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
                 cosignersThreshold: cosignersThreshold
             })
         });
-        bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, KEY_GENERATE, _walletId, _keyId
-        ));
 
-        _sendInstructions(instructionId, _teeId, KEY_GENERATE, abi.encode(message));
+        _sendInstructions(_teeId, KEY_GENERATE, abi.encode(message));
     }
 
     /**
@@ -270,11 +266,8 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             keyId: _keyId,
             nonce: ++keyDefinition.nonces[_teeId]
         });
-        bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, KEY_DELETE, _walletId, _keyId, keyDeleteCounter[_walletId][_keyId]++
-        ));
 
-        _sendInstructions(instructionId, _teeId, KEY_DELETE, abi.encode(message));
+        _sendInstructions(_teeId, KEY_DELETE, abi.encode(message));
     }
 
     /**
@@ -428,7 +421,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     }
 
     function _sendInstructions(
-        bytes32 _instructionId,
         address _teeId,
         bytes32 _opCommand,
         bytes memory _message
@@ -438,7 +430,6 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         address[] memory teeIds = new address[](1);
         teeIds[0] = _teeId;
         teeExtensionRegistry.sendInstructions{value: msg.value}(
-            _instructionId,
             teeIds,
             WALLET_OP_TYPE,
             _opCommand,

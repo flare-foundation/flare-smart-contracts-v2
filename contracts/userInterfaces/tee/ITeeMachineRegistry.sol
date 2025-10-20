@@ -2,6 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { PublicKey } from "../IPublicKey.sol";
+import { Signature } from "../ISignature.sol";
 import { ITeeAvailabilityCheck } from "../ftdc/ITeeAvailabilityCheck.sol";
 
 /**
@@ -9,7 +10,15 @@ import { ITeeAvailabilityCheck } from "../ftdc/ITeeAvailabilityCheck.sol";
  */
 interface ITeeMachineRegistry {
 
-    enum TeeStatus { INITIALIZED, PRODUCTION, PAUSED_WITH_PROOF, PAUSED, PAUSED_FOR_UPGRADE, REPLICATING }
+    enum TeeStatus { INITIALIZED, PRODUCTION, PAUSED_WITH_PROOF, PAUSED, PAUSED_FOR_UPGRADE, REPLICATING, BANNED }
+
+    struct TeeMachineData {
+        uint256 extensionId;
+        address initialOwner;
+        bytes32 codeHash;
+        bytes32 platform;
+        PublicKey publicKey;
+    }
 
     struct TeeMachine {
         address teeId;
@@ -61,6 +70,7 @@ interface ITeeMachineRegistry {
     error OwnerNotAllowed();
     error InvalidTeePublicKey();
     error InvalidTeeProxyId();
+    error InvalidTeePublicKeyOrSignature();
     error InvalidUrl();
     error AlreadyRegistered();
     error VersionNotSupported();
@@ -77,26 +87,23 @@ interface ITeeMachineRegistry {
     error InvalidAvailabilityCheckStatus();
     error InvalidDuration();
     error OnlyOwner();
+    error OnlyExtensionOwner();
     error InvalidResponseData();
 
     /**
      * Register a new TEE machine. It also triggers availability check.
      * Emits a TeeMachineRegistered event.
-     * @param _extensionId The id of the extension.
-     * @param _teePublicKey The TEE machine public key.
+     * @param _teeMachineData The TEE machine data.
+     * @param _teeMachineDataSignature The TEE machine signature over the TEE machine data.
      * @param _teeProxyId The TEE proxy id.
-     * @param _url The TEE machine URL.
-     * @param _codeHash The TEE machine code hash.
-     * @param _platform The TEE machine platform.
+     * @param _url The TEE machine URL (proxy URL).
      * Can only be called by an allowlisted TEE machine owner.
      */
 function register(
-        uint256 _extensionId,
-        PublicKey calldata _teePublicKey,
+        TeeMachineData calldata _teeMachineData,
+        Signature calldata _teeMachineDataSignature,
         address _teeProxyId,
-        string calldata _url,
-        bytes32 _codeHash,
-        bytes32 _platform
+        string calldata _url
     )
         external payable;
 
@@ -129,6 +136,25 @@ function register(
     function pauseWithProof(
         ITeeAvailabilityCheck.Proof calldata _proof
     )
+        external;
+
+    /**
+     * Ban a TEE machine - puts it into BANNED status.
+     * Emits a TeeMachineStatusChanged event.
+     * @param _teeId The TEE machine id.
+     * Can only be called by the extension owner.
+     */
+    function ban(address _teeId)
+        external;
+
+
+    /**
+     * Unban a TEE machine - puts it into PAUSED status.
+     * Emits a TeeMachineStatusChanged event.
+     * @param _teeId The TEE machine id.
+     * Can only be called by the extension owner.
+     */
+    function unban(address _teeId)
         external;
 
     /**

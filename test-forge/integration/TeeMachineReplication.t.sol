@@ -323,7 +323,7 @@ contract TeeMachineReplicationTest is Test {
         vm.stopPrank();
 
         vm.startPrank(initialGovernance);
-        // register system instruction initiators
+        // register system instructions senders
         address[] memory systemInstructionsSenders = new address[](3);
         systemInstructionsSenders[0] = address(teeReplication);
         systemInstructionsSenders[1] = address(teeVerification);

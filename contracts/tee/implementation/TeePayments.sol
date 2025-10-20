@@ -2,12 +2,12 @@
 pragma solidity ^0.8.27;
 
 import { TeeBase } from "./TeeBase.sol";
+import { IITeeExtensionRegistry } from "../interface/IITeeExtensionRegistry.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
 import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
 import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
 import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
-import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { IPMWMultisigAccountConfigured } from "../../userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
@@ -74,7 +74,7 @@ contract TeePayments is ITeePayments, TeeBase {
     mapping(bytes32 accountHash => AccountSettings) private settings;
     mapping(bytes32 accountHash => mapping(uint64 nonce => bytes32)) private hashes;
     mapping(bytes32 accountHash => mapping(uint64 nonce => uint256)) private reissueCounter;
-    mapping(bytes32 accountHash => uint256) private setLimitsCounter;
+    mapping(bytes32 accountHash => uint256) private setPaymentLimitsNonce;
 
     /// TeeWalletProjectManager contract.
     ITeeWalletProjectManager public teeWalletProjectManager;
@@ -85,7 +85,7 @@ contract TeePayments is ITeePayments, TeeBase {
     /// TeeVerification contract.
     ITeeVerification public teeVerification;
     /// TeeExtensionRegistry contract.
-    ITeeExtensionRegistry public teeExtensionRegistry;
+    IITeeExtensionRegistry public teeExtensionRegistry;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
 
@@ -196,7 +196,7 @@ contract TeePayments is ITeePayments, TeeBase {
         tempState.instructionId = keccak256(abi.encode(
             opType, PAY, _account.sourceId, _account.accountAddress, tempState.message.nonce
         ));
-        teeExtensionRegistry.sendInstructions{value: msg.value}(
+        teeExtensionRegistry.sendSystemInstructions{value: msg.value}(
             tempState.instructionId,
             _toTeeIds(teeIdKeyIdPairs),
             opType,
@@ -287,7 +287,7 @@ contract TeePayments is ITeePayments, TeeBase {
             }
             tempState.amount = tempState.remainingAmount / (_paymentInstructions.length - i);
             tempState.remainingAmount -= tempState.amount;
-            teeExtensionRegistry.sendInstructions{value: tempState.amount}(
+            teeExtensionRegistry.sendSystemInstructions{value: tempState.amount}(
                 tempState.instructionId,
                 tempState.teeIds,
                 opType,
@@ -327,11 +327,14 @@ contract TeePayments is ITeePayments, TeeBase {
         walletAccounts[_walletId].push(PMWMultisigAccount(_proof.header.sourceId, _proof.requestBody.accountAddress));
         states[accountHash].nonce = _proof.responseBody.sequence;
         states[accountHash].subNonce = _proof.responseBody.sequence;
+        settings[accountHash].batchSize = 1;
         emit PMWMultisigAccountAdded(
             _walletId,
             _proof.header.sourceId,
             _proof.requestBody.accountAddress,
-            _proof.responseBody.sequence
+            _proof.responseBody.sequence,
+            1,
+            0
         );
     }
 
@@ -376,22 +379,17 @@ contract TeePayments is ITeePayments, TeeBase {
         bytes32 walletId = accountHashToWalletId[accountHash];
         TeeIdKeyIdPair[] memory teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(walletId);
 
-        uint256 nonce = setLimitsCounter[accountHash]++;
         SetPaymentLimits memory message = SetPaymentLimits({
             walletId: walletId,
             sourceId: _account.sourceId,
             accountAddress: _account.accountAddress,
-            nonce: nonce,
+            nonce: setPaymentLimitsNonce[accountHash]++,
             teeIdKeyIdPairs: teeIdKeyIdPairs,
             transactionLimit: _transactionLimit,
             dailyLimit: _dailyLimit
         });
-        bytes32 instructionId = keccak256(abi.encode(
-            opType, SET_PAYMENT_LIMITS, _account.sourceId, _account.accountAddress, nonce
-        ));
         (address[] memory admins, uint64 adminsThreshold) = teeWalletManager.getWalletAdminsAndThreshold(walletId);
         teeExtensionRegistry.sendInstructions{value: msg.value}(
-            instructionId,
             _toTeeIds(teeIdKeyIdPairs),
             opType,
             SET_PAYMENT_LIMITS,
@@ -497,7 +495,7 @@ contract TeePayments is ITeePayments, TeeBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
         teeVerification = ITeeVerification(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeVerification"));
-        teeExtensionRegistry = ITeeExtensionRegistry(
+        teeExtensionRegistry = IITeeExtensionRegistry(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));

@@ -231,10 +231,10 @@ contract TeeWalletKeyManagerTest is Test {
             abi.encode(backupManager)
         );
 
-        address[] memory instructionInitiators = new address[](1);
-        instructionInitiators[0] = address(teeWalletKeyManager);
+        address[] memory instructionsSenders = new address[](1);
+        instructionsSenders[0] = address(teeWalletKeyManager);
         vm.prank(initialGovernance);
-        teeExtensionRegistry.registerSystemInstructionsSenders(instructionInitiators);
+        teeExtensionRegistry.registerSystemInstructionsSenders(instructionsSenders);
 
         fee = 123;
         vm.mockCall(

@@ -6,6 +6,8 @@ import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistr
 
 interface TeeMachineRegistryStructs {
 
+    function teeMachineDataStruct(ITeeMachineRegistry.TeeMachineData calldata) external;
+
     function teeMachineStruct(ITeeMachineRegistry.TeeMachine calldata) external;
 
     function teeMachineWithAttestationDataStruct(ITeeMachineRegistry.TeeMachineWithAttestationData calldata) external;

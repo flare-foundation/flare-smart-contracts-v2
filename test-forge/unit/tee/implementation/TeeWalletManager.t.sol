@@ -125,7 +125,7 @@ contract TeeWalletManagerTest is Test {
         _mockReceiveRewards();
         _mockGetExtensionId(0);
 
-        // set TeeWalletManager as system instruction initiator on TeeExtensionRegistry
+        // set TeeWalletManager as system instructions sender on TeeExtensionRegistry
         vm.prank(governance);
         address[] memory systemInstructionsSender = new address[](1);
         systemInstructionsSender[0] = address(teeWalletManager);

@@ -141,13 +141,10 @@ contract TeeVerification is ITeeVerification, TeeBase {
             teeMachine: teeMachineWithAttestationData,
             challenge: challenge
         });
-        bytes32 instructionId = keccak256(abi.encode(
-            REG_OP_TYPE, TEE_ATTESTATION, _teeId, challenge
-        ));
         ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](1);
         teeMachines[0] = teeMachine;
         teeExtensionRegistry.sendSystemInstructions{value: msg.value}(
-            instructionId,
+            bytes32(0),
             teeMachines,
             REG_OP_TYPE,
             TEE_ATTESTATION,
@@ -163,19 +160,23 @@ contract TeeVerification is ITeeVerification, TeeBase {
      */
     function requestAvailabilityCheckAttestation(
         address _teeId,
+        bytes32 _instructionId,
         address _testOnTeeId
     )
         external payable
     {
-        require(challengeTs[_teeId] + challengeValidityDurationSeconds > block.timestamp,
-            ChallengeExpired(challengeTs[_teeId]));
+        require(
+            challengeTs[_teeId] + challengeValidityDurationSeconds > block.timestamp,
+            ChallengeExpired(challengeTs[_teeId])
+        );
         address attestingTeeId = _getAttestingTeeId(_teeId);
         ITeeMachineRegistry.TeeMachine memory teeMachine = teeMachineRegistry.getTeeMachine(attestingTeeId);
         ITeeAvailabilityCheck.RequestBody memory requestBody = ITeeAvailabilityCheck.RequestBody({
             teeId: _teeId,
             teeProxyId: teeMachine.teeProxyId,
             url: teeMachine.url,
-            challenge: challenges[_teeId]
+            challenge: challenges[_teeId],
+            instructionId: _instructionId
         });
 
         address[] memory registrationCosigners = new address[](0);
