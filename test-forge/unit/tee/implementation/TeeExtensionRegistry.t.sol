@@ -768,6 +768,19 @@ contract TeeExtensionRegistryTest is Test {
 
     // sendSystemInstructions
     function testSendSystemInstructionsRevertOnlySystemInstructionsSender() public {
+        vm.expectRevert(ITeeExtensionRegistry.OnlySystemInstructionsSender.selector);
+        teeExtensionRegistry.sendSystemInstructions(
+            instructionId,
+            teeIds,
+            opType,
+            opCommand,
+            message,
+            new address[](0),
+            0
+        );
+    }
+
+    function testSendSystemInstructionsRevertOnlySystemInstructionsSender2() public {
         ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](2);
         teeMachines[0] = ITeeMachineRegistry.TeeMachine(
             teeIds[0],
@@ -792,6 +805,47 @@ contract TeeExtensionRegistryTest is Test {
     }
 
     function testSendSystemInstructions() public {
+        testRegisterSystemInstructionsSenders();
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](2);
+        teeMachines[0] = ITeeMachineRegistry.TeeMachine(
+            teeIds[0],
+            teeIds[0],
+            url
+        );
+        teeMachines[1] = ITeeMachineRegistry.TeeMachine(
+            teeIds[1],
+            teeIds[1],
+            url
+        );
+        vm.expectEmit();
+        address[] memory cosigners = new address[](2);
+        cosigners[0] = makeAddr("cosigner1");
+        cosigners[1] = makeAddr("cosigner2");
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
+            extensionId,
+            instructionId,
+            currentRewardEpochId,
+            teeMachines,
+            opType,
+            opCommand,
+            message,
+            cosigners,
+            1,
+            0
+        );
+        vm.prank(instructionsSenders[0]);
+        teeExtensionRegistry.sendSystemInstructions(
+            instructionId,
+            teeIds,
+            opType,
+            opCommand,
+            message,
+            cosigners,
+            1
+        );
+    }
+
+    function testSendSystemInstructions2() public {
         testRegisterSystemInstructionsSenders();
         ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](2);
         teeMachines[0] = ITeeMachineRegistry.TeeMachine(
