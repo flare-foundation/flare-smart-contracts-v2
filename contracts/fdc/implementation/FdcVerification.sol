@@ -144,17 +144,8 @@ contract FdcVerification is IFdcVerification, UUPSUpgradeable, GovernedProxyImpl
     /**
      * @inheritdoc IWeb2JsonVerification
      */
-    function verifyJsonApi(IWeb2Json.Proof calldata _proof)
-        external view returns (bool _proved)
-    {
-        return verifyWeb2Json(_proof);
-    }
-
-    /**
-     * @inheritdoc IWeb2JsonVerification
-     */
     function verifyWeb2Json(IWeb2Json.Proof calldata _proof)
-        public view returns (bool _proved)
+        external view returns (bool _proved)
     {
         bytes32 merkleRoot = relay.merkleRoots(fdcProtocolId, _proof.data.votingRound);
         return
