@@ -119,7 +119,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
             _teeMachineDataSignature.r,
             _teeMachineDataSignature.s
         );
-        require(teeId ==  PublicKeyUtils.getAddress(_teeMachineData.publicKey), InvalidTeePublicKeyOrSignature());
+        require(teeId == PublicKeyUtils.getAddress(_teeMachineData.publicKey), InvalidTeePublicKeyOrSignature());
         require(_teeProxyId != address(0), InvalidTeeProxyId());
         require(bytes(_url).length > 0, InvalidUrl());
         require(teeMachineStates[teeId].owner == address(0), AlreadyRegistered());

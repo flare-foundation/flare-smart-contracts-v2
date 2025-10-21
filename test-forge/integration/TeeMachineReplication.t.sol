@@ -2,6 +2,7 @@
 pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
+import { VmSafe } from "forge-std/Vm.sol";
 import { TeeExtensionRegistry } from "../../contracts/tee/implementation/TeeExtensionRegistry.sol";
 import { TeeOwnerAllowlist } from "../../contracts/tee/implementation/TeeOwnerAllowlist.sol";
 import { TeeGovernance } from "../../contracts/tee/implementation/TeeGovernance.sol";
@@ -45,9 +46,8 @@ import { IRelay } from "../../contracts/userInterfaces/IRelay.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
-import { PublicKeyHelper } from "../utils/PublicKeyHelper.sol";
+import { SignatureHelper } from "../utils/SignatureHelper.sol";
 import { Signature } from "../../contracts/userInterfaces/ISignature.sol";
-import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 // solhint-disable-next-line max-states-count
 contract TeeMachineReplicationTest is Test {
@@ -82,10 +82,12 @@ contract TeeMachineReplicationTest is Test {
     uint256 private extensionId;
     address private teeMachineOwner;
     PublicKey private teePublicKey;
+    uint256 private teePrivateKey;
     address private teeId;
     address private teeProxyId;
     string private teeUrl;
     PublicKey private newTeePublicKey;
+    uint256 private newTeePrivateKey;
     address private newTeeId;
     address private newTeeProxyId;
     string private newTeeUrl;
@@ -108,16 +110,25 @@ contract TeeMachineReplicationTest is Test {
     uint256 private randomNumber;
 
     function setUp() public {
+        extensionId = 0;
         extensionOwner = makeAddr("extensionOwner");
         instructionsSender = makeAddr("instructionsSender");
         teeMachineOwner = makeAddr("teeMachineOwner");
         vm.deal(teeMachineOwner, 1 ether);
-        teePublicKey = PublicKeyHelper.getRandomPublicKey(vm);
-        teeId = PublicKeyHelper.getAddress(teePublicKey);
+
+        VmSafe.Wallet memory wallet = vm.createWallet("teeId");
+        teePublicKey.x = bytes32(wallet.publicKeyX);
+        teePublicKey.y = bytes32(wallet.publicKeyY);
+        teePrivateKey = wallet.privateKey;
+        teeId = wallet.addr;
         teeProxyId = makeAddr("teeProxyId");
         teeUrl = "https://tee.proxy.url";
-        newTeePublicKey = PublicKeyHelper.getRandomPublicKey(vm);
-        newTeeId = PublicKeyHelper.getAddress(newTeePublicKey);
+
+        wallet = vm.createWallet("newTeeId");
+        newTeePublicKey.x = bytes32(wallet.publicKeyX);
+        newTeePublicKey.y = bytes32(wallet.publicKeyY);
+        newTeePrivateKey = wallet.privateKey;
+        newTeeId = wallet.addr;
         newTeeProxyId = makeAddr("newTeeProxyId");
         newTeeUrl = "https://new.tee.proxy.url";
 
@@ -438,13 +449,24 @@ contract TeeMachineReplicationTest is Test {
         emit ITeeMachineRegistry.TeeMachineRegistered(
             teeId, teeProxyId, teeMachineOwner, extensionId, teeUrl, codeHash1, platforms1[0]
         );
+
+        ITeeMachineRegistry.TeeMachineData memory teeMachineData = ITeeMachineRegistry.TeeMachineData({
+            extensionId: extensionId,
+            publicKey: teePublicKey,
+            initialOwner: teeMachineOwner,
+            codeHash: codeHash1,
+            platform: platforms1[0]
+        });
+        Signature memory signature = SignatureHelper.createSignature(
+            vm,
+            keccak256(abi.encode(teeMachineData)),
+            teePrivateKey
+        );
         teeMachineRegistry.register{value: 150}(
-            extensionId,
-            teePublicKey,
+            teeMachineData,
+            signature,
             teeProxyId,
-            teeUrl,
-            codeHash1,
-            platforms1[0]
+            teeUrl
         );
     }
 
@@ -463,7 +485,8 @@ contract TeeMachineReplicationTest is Test {
             teeId,
             teeProxyId,
             teeUrl,
-            keccak256(abi.encode(teeId, block.timestamp, randomNumber))
+            keccak256(abi.encode(teeId, block.timestamp, randomNumber)),
+            keccak256(abi.encode(extensionId))
         );
         IITeeSystemStateVerifier.TeeSystemState memory systemState = IITeeSystemStateVerifier.TeeSystemState(
             IITeeSystemStateVerifier.TeeMachineStatus.ACTIVE,
@@ -490,7 +513,8 @@ contract TeeMachineReplicationTest is Test {
         IFtdcVerification.FtdcSignatures memory sigs;
         sigs.cosignerSignatures = new Signature[](cosignersThreshold);
         for (uint256 i = 0; i < cosignersThreshold; i++) {
-            sigs.cosignerSignatures[i] = _createSignature(cosignersMessageHash, cosigners[i].privateKey);
+            sigs.cosignerSignatures[i] =
+                SignatureHelper.createSignature(vm, cosignersMessageHash, cosigners[i].privateKey);
         }
 
         ITeeAvailabilityCheck.Proof memory proof = ITeeAvailabilityCheck.Proof(
@@ -555,11 +579,13 @@ contract TeeMachineReplicationTest is Test {
         testFinalizeTeeUpgrade();
         bytes32 messageHash = keccak256(abi.encode(teeVersionManager.getTeeUpgradePaths(0)));
         for (uint256 i = 0; i < governanceSignersThreshold1; i++) {
-            Signature memory signature = _createSignature(messageHash, governanceSigners1[i].privateKey);
+            Signature memory signature =
+                SignatureHelper.createSignature(vm, messageHash, governanceSigners1[i].privateKey);
             teeVersionManager.signTeeUpgrade(0, signature);
         }
         for (uint256 i = 0; i < governanceSignersThreshold2; i++) {
-            Signature memory signature = _createSignature(messageHash, governanceSigners2[i].privateKey);
+            Signature memory signature =
+                SignatureHelper.createSignature(vm, messageHash, governanceSigners2[i].privateKey);
             if (i == governanceSignersThreshold2 - 1) {
                 vm.expectEmit();
                 emit ITeeVersionManager.TeeUpgradeSigned(0);
@@ -595,13 +621,24 @@ contract TeeMachineReplicationTest is Test {
         emit ITeeMachineRegistry.TeeMachineRegistered(
             newTeeId, newTeeProxyId, teeMachineOwner, extensionId, newTeeUrl, codeHash2, platforms2[1]
         );
+
+        ITeeMachineRegistry.TeeMachineData memory newTeeMachineData = ITeeMachineRegistry.TeeMachineData({
+            extensionId: extensionId,
+            publicKey: newTeePublicKey,
+            initialOwner: teeMachineOwner,
+            codeHash: codeHash2,
+            platform: platforms2[1]
+        });
+        Signature memory signature = SignatureHelper.createSignature(
+            vm,
+            keccak256(abi.encode(newTeeMachineData)),
+            newTeePrivateKey
+        );
         teeMachineRegistry.register{value: 150}(
-            extensionId,
-            newTeePublicKey,
+            newTeeMachineData,
+            signature,
             newTeeProxyId,
-            newTeeUrl,
-            codeHash2,
-            platforms2[1]
+            newTeeUrl
         );
     }
 
@@ -627,7 +664,8 @@ contract TeeMachineReplicationTest is Test {
             newTeeId,
             newTeeProxyId,
             newTeeUrl,
-            keccak256(abi.encode(newTeeId, block.timestamp, randomNumber))
+            keccak256(abi.encode(newTeeId, block.timestamp, randomNumber)),
+            bytes32("instructionId")
         );
         IITeeSystemStateVerifier.TeeSystemState memory systemState = IITeeSystemStateVerifier.TeeSystemState(
             IITeeSystemStateVerifier.TeeMachineStatus.ACTIVE,
@@ -654,7 +692,8 @@ contract TeeMachineReplicationTest is Test {
         IFtdcVerification.FtdcSignatures memory sigs;
         sigs.cosignerSignatures = new Signature[](cosignersThreshold);
         for (uint256 i = 0; i < cosignersThreshold; i++) {
-            sigs.cosignerSignatures[i] = _createSignature(cosignersMessageHash, cosigners[i].privateKey);
+            sigs.cosignerSignatures[i] =
+                SignatureHelper.createSignature(vm, cosignersMessageHash, cosigners[i].privateKey);
         }
 
         ITeeAvailabilityCheck.Proof memory proof = ITeeAvailabilityCheck.Proof(
@@ -695,7 +734,8 @@ contract TeeMachineReplicationTest is Test {
             teeId,
             newTeeProxyId,
             newTeeUrl,
-            keccak256(abi.encode(teeId, block.timestamp, randomNumber))
+            keccak256(abi.encode(teeId, block.timestamp, randomNumber)),
+            bytes32("newInstructionId")
         );
         IITeeSystemStateVerifier.TeeSystemState memory systemState = IITeeSystemStateVerifier.TeeSystemState(
             IITeeSystemStateVerifier.TeeMachineStatus.ACTIVE,
@@ -722,7 +762,8 @@ contract TeeMachineReplicationTest is Test {
         IFtdcVerification.FtdcSignatures memory sigs;
         sigs.cosignerSignatures = new Signature[](cosignersThreshold);
         for (uint256 i = 0; i < cosignersThreshold; i++) {
-            sigs.cosignerSignatures[i] = _createSignature(cosignersMessageHash, cosigners[i].privateKey);
+            sigs.cosignerSignatures[i] =
+                SignatureHelper.createSignature(vm, cosignersMessageHash, cosigners[i].privateKey);
         }
 
         ITeeAvailabilityCheck.Proof memory proof = ITeeAvailabilityCheck.Proof(
@@ -783,17 +824,5 @@ contract TeeMachineReplicationTest is Test {
             addresses[i] = _signers[i].addr;
         }
         return addresses;
-    }
-
-    function _createSignature(
-        bytes32 messageHash,
-        uint256 _privateKey
-    )
-        private pure
-        returns (Signature memory)
-    {
-        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, signedMessageHash);
-        return Signature(v, r, s);
     }
 }

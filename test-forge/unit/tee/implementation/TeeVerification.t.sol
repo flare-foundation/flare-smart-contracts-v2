@@ -62,6 +62,7 @@ contract TeeVerificationTest is Test {
     uint64 private multisigThreshold;
     bytes private publicKey;
     uint32 private signingPolicyId;
+    bytes32 private instructionId;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
@@ -78,6 +79,7 @@ contract TeeVerificationTest is Test {
         publicKey = abi.encode("publicKey");
         signingPolicyId = 1;
         rewardEpochId = 1;
+        instructionId = bytes32("instructionId");
 
         proof.requestBody.teeId = teeId;
         proof.responseBody.status = ITeeAvailabilityCheck.AvailabilityCheckStatus.OK;
@@ -337,14 +339,14 @@ contract TeeVerificationTest is Test {
                 0
             )
         );
-        teeVerification.requestAvailabilityCheckAttestation(teeId, teeId);
+        teeVerification.requestAvailabilityCheckAttestation(teeId, instructionId, teeId);
     }
 
 
     function testRequestAvailabilityCheckAttestation() public {
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
         _mockGetReplicatingTeeId(address(0));
-        teeVerification.requestAvailabilityCheckAttestation(teeId, teeId);
+        teeVerification.requestAvailabilityCheckAttestation(teeId, instructionId, teeId);
     }
 
 

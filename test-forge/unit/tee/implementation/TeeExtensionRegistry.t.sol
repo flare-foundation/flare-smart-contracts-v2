@@ -153,52 +153,40 @@ contract TeeExtensionRegistryTest is Test {
 
 
     // sendInstructions
-    function testSendInstructionsRevertInstructionIdEmpty() public {
-        vm.expectRevert(ITeeExtensionRegistry.InstructionIdEmpty.selector);
-        teeExtensionRegistry.sendInstructions(bytes32(0), teeIds, opType, opCommand, message, new address[](0), 0);
-    }
-
-
     function testSendInstructionsRevertNoTeeMachinesSpecified() public {
         vm.expectRevert(ITeeExtensionRegistry.NoTeeMachinesSpecified.selector);
-        teeExtensionRegistry.sendInstructions(
-            instructionId, new address[](0), opType, opCommand, message, new address[](0), 0
-        );
+        teeExtensionRegistry.sendInstructions(new address[](0), opType, opCommand, message, new address[](0), 0);
     }
 
 
     function testSendInstructionsRevertOperationTypeEmpty() public {
         vm.expectRevert(ITeeExtensionRegistry.OperationTypeEmpty.selector);
-        teeExtensionRegistry.sendInstructions(
-            instructionId, teeIds, bytes32(0), opCommand, message, new address[](0), 0
-        );
+        teeExtensionRegistry.sendInstructions(teeIds, bytes32(0), opCommand, message, new address[](0), 0);
     }
 
 
     function testSendInstructionsRevertOperationCommandEmpty() public {
         vm.expectRevert(ITeeExtensionRegistry.OperationCommandEmpty.selector);
-        teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, bytes32(0), message, new address[](0), 0);
+        teeExtensionRegistry.sendInstructions(teeIds, opType, bytes32(0), message, new address[](0), 0);
     }
 
 
     function testSendInstructionsRevertMessageEmpty() public {
         vm.expectRevert(ITeeExtensionRegistry.MessageEmpty.selector);
-        teeExtensionRegistry.sendInstructions(
-            instructionId, teeIds, opType, opCommand, new bytes(0), new address[](0), 0
-        );
+        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, new bytes(0), new address[](0), 0);
     }
 
 
     function testSendInstructionsRevertExtensionIdMismatch() public {
         _mockGetExtensionId(teeIds[1], extensionId + 1);
         vm.expectRevert(ITeeExtensionRegistry.ExtensionIdMismatch.selector);
-        teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, opCommand, message, new address[](0), 0);
+        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, new address[](0), 0);
     }
 
 
     function testSendInstructionsRevertOnlyInstructionsSender() public {
         vm.expectRevert(ITeeExtensionRegistry.OnlyInstructionsSender.selector);
-        teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, opCommand, message, new address[](0), 0);
+        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, new address[](0), 0);
     }
 
 
@@ -211,7 +199,7 @@ contract TeeExtensionRegistryTest is Test {
                 opType
             )
         );
-        teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, opCommand, message, new address[](0), 0);
+        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, new address[](0), 0);
     }
 
 
@@ -219,7 +207,7 @@ contract TeeExtensionRegistryTest is Test {
         testRegister();
         _mockCalculateFeeByTeeIds(100000);
         vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
-        teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, opCommand, message, new address[](0), 0);
+        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, new address[](0), 0);
     }
 
 
@@ -227,13 +215,13 @@ contract TeeExtensionRegistryTest is Test {
         testRegister();
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PAUSED);
         vm.expectRevert(ITeeExtensionRegistry.TeeMachineNotAvailable.selector);
-        teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, opCommand, message, new address[](0), 0);
+        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, new address[](0), 0);
     }
 
     function testSendInstructionsRevertCosignersThresholdTooHigh() public {
         testRegister();
         vm.expectRevert(ITeeExtensionRegistry.CosignersThresholdTooHigh.selector);
-        teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, opCommand, message, new address[](0), 1);
+        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, new address[](0), 1);
     }
 
     function testSendInstructions() public {
@@ -265,7 +253,7 @@ contract TeeExtensionRegistryTest is Test {
             1,
             0
         );
-        teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, opCommand, message, cosigners, 1);
+        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, cosigners, 1);
     }
 
     function testSendInstructionsWithDuplicatedTeeIds() public {
@@ -303,7 +291,7 @@ contract TeeExtensionRegistryTest is Test {
             1,
             0
         );
-        teeExtensionRegistry.sendInstructions(instructionId, teeIds, opType, opCommand, message, cosigners, 1);
+        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, cosigners, 1);
     }
 
     // register

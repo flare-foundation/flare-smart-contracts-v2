@@ -7,22 +7,27 @@ import { Vm } from "forge-std/Vm.sol";
 
 library PublicKeyHelper {
 
-    function getRandomPublicKey(Vm _vm) internal returns (PublicKey memory) {
-        // call external script to get random public key coordinates
-        string[] memory command1 = new string[](4);
-        string[] memory command2 = new string[](5);
-        command1[0] = "cast";
-        command1[1] = "wallet";
-        command1[2] = "new";
-        command1[3] = "--json";
-        bytes memory result = _vm.ffi(command1);
+    function getRandomPrivateKey(Vm _vm) internal returns (uint256) {
+        // call external script to get random private key
+        string[] memory command = new string[](4);
+        command[0] = "cast";
+        command[1] = "wallet";
+        command[2] = "new";
+        command[3] = "--json";
+        bytes memory result = _vm.ffi(command);
         string memory privateKey = _vm.parseJsonString(string(result), "[0].private_key");
-        command2[0] = "cast";
-        command2[1] = "wallet";
-        command2[2] = "public-key";
-        command2[3] = "--raw-private-key";
-        command2[4] = privateKey;
-        result = _vm.ffi(command2);
+        return uint256(bytes32(bytes(privateKey)));
+    }
+
+    function getPublicKey(Vm _vm, uint256 _privateKey) internal returns (PublicKey memory) {
+        // call external script to get public key coordinates from private key
+        string[] memory command = new string[](5);
+        command[0] = "cast";
+        command[1] = "wallet";
+        command[2] = "public-key";
+        command[3] = "--raw-private-key";
+        command[4] = _vm.toString(_privateKey);
+        bytes memory result = _vm.ffi(command);
 
         // check if result is 64 bytes
         require(result.length == 64, "invalid output length");
@@ -41,6 +46,11 @@ library PublicKeyHelper {
         require(PublicKeyUtils.isPublicKeyValid(pk), "invalid public key");
 
         return pk;
+    }
+
+    function getRandomPublicKey(Vm _vm) internal returns (PublicKey memory) {
+        uint256 privateKey = getRandomPrivateKey(_vm);
+        return getPublicKey(_vm, privateKey);
     }
 
     function getAddress(PublicKey memory _pk) internal pure returns (address) {

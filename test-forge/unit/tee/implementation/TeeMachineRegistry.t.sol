@@ -13,7 +13,9 @@ import { ITeeOwnerAllowlist } from "../../../../contracts/userInterfaces/tee/ITe
 import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
+import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { PublicKeyHelper } from "../../../utils/PublicKeyHelper.sol";
+import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
@@ -36,17 +38,23 @@ contract TeeMachineRegistryTest is Test {
 
     uint256 private extensionId;
     PublicKey private teePublicKey;
+    uint256 private teePrivateKey;
     address private teeId;
     address private teeProxyId;
     string private url;
     bytes32 private codeHash;
     bytes32 private platform;
+    ITeeMachineRegistry.TeeMachineData private teeMachineData;
+    Signature private teeMachineDataSignature;
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
     PublicKey private newTeePublicKey;
+    uint256 private newTeePrivateKey;
     address private newTeeId;
+    ITeeMachineRegistry.TeeMachineData private newTeeMachineData;
+    Signature private newTeeMachineDataSignature;
 
     function setUp() public {
         owner = makeAddr("owner");
@@ -56,11 +64,25 @@ contract TeeMachineRegistryTest is Test {
         addressUpdater = makeAddr("addressUpdater");
 
         extensionId = 1;
-        teePublicKey = PublicKeyHelper.getRandomPublicKey(vm);
+        teePrivateKey = PublicKeyHelper.getRandomPrivateKey(vm);
+        teePublicKey = PublicKeyHelper.getPublicKey(vm, teePrivateKey);
         teeId = PublicKeyHelper.getAddress(teePublicKey);
         url = "url";
         codeHash = keccak256("codeHash");
         platform = keccak256("platform");
+
+        teeMachineData = ITeeMachineRegistry.TeeMachineData({
+            extensionId: extensionId,
+            publicKey: teePublicKey,
+            initialOwner: owner,
+            codeHash: codeHash,
+            platform: platform
+        });
+        teeMachineDataSignature = SignatureHelper.createSignature(
+            vm,
+            keccak256(abi.encode(teeMachineData)),
+            teePrivateKey
+        );
 
         teeMachineRegistryImpl = new TeeMachineRegistry();
         teeMachineRegistryProxy = new TeeMachineRegistryProxy(
@@ -97,8 +119,22 @@ contract TeeMachineRegistryTest is Test {
         teeReplication = address(teeMachineRegistry.teeReplication());
         relay = address(teeMachineRegistry.relay());
 
-        newTeePublicKey = PublicKeyHelper.getRandomPublicKey(vm);
+        newTeePrivateKey = PublicKeyHelper.getRandomPrivateKey(vm);
+        newTeePublicKey = PublicKeyHelper.getPublicKey(vm, newTeePrivateKey);
         newTeeId = PublicKeyHelper.getAddress(newTeePublicKey);
+
+        newTeeMachineData = ITeeMachineRegistry.TeeMachineData({
+            extensionId: extensionId,
+            publicKey: newTeePublicKey,
+            initialOwner: owner,
+            codeHash: codeHash,
+            platform: platform
+        });
+        newTeeMachineDataSignature = SignatureHelper.createSignature(
+            vm,
+            keccak256(abi.encode(newTeeMachineData)),
+            newTeePrivateKey
+        );
 
         _mockIsAllowedTeeMachineOwner(extensionId);
         _mockIsAllowedTeeMachineOwner(extensionId + 1);
@@ -120,37 +156,44 @@ contract TeeMachineRegistryTest is Test {
     function testRegisterRevertOwnerNotAllowed() public {
         _mockIsAllowedTeeMachineOwner(false);
         vm.expectRevert(ITeeMachineRegistry.OwnerNotAllowed.selector);
-        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(teeMachineData, teeMachineDataSignature, teeProxyId, url);
     }
 
 
     function testRegisterRevertInvalidTeePublicKey() public {
         vm.expectRevert(ITeeMachineRegistry.InvalidTeePublicKey.selector);
         vm.prank(owner);
-        teePublicKey = PublicKey(0, 0);
-        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, url, codeHash, platform);
+        teeMachineData.publicKey = PublicKey(0, 0);
+        teeMachineRegistry.register(teeMachineData, teeMachineDataSignature, teeProxyId, url);
+    }
+
+    function testRegisterRevertInvalidTeePublicKeyOrSignature() public {
+        vm.expectRevert(ITeeMachineRegistry.InvalidTeePublicKeyOrSignature.selector);
+        vm.prank(owner);
+        teeMachineData.publicKey = PublicKeyHelper.getRandomPublicKey(vm);
+        teeMachineRegistry.register(teeMachineData, teeMachineDataSignature, teeProxyId, url);
     }
 
 
     function testRegisterRevertInvalidTeeProxyId() public {
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeProxyId.selector);
         vm.prank(owner);
-        teeMachineRegistry.register(extensionId, teePublicKey, address(0), url, codeHash, platform);
+        teeMachineRegistry.register(teeMachineData, teeMachineDataSignature, address(0), url);
     }
 
 
     function testRegisterRevertInvalidUrl() public {
         vm.expectRevert(ITeeMachineRegistry.InvalidUrl.selector);
         vm.prank(owner);
-        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, "", codeHash, platform);
+        teeMachineRegistry.register(teeMachineData, teeMachineDataSignature, teeProxyId, "");
     }
 
 
     function testRegisterRevertAlreadyRegistered() public {
         vm.startPrank(owner);
-        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(teeMachineData, teeMachineDataSignature, teeProxyId, url);
         vm.expectRevert(ITeeMachineRegistry.AlreadyRegistered.selector);
-        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(teeMachineData, teeMachineDataSignature, teeProxyId, url);
         vm.stopPrank();
     }
 
@@ -159,7 +202,7 @@ contract TeeMachineRegistryTest is Test {
         _mockIsCodeHashPlatformSupported(false);
         vm.expectRevert(ITeeMachineRegistry.VersionNotSupported.selector);
         vm.prank(owner);
-        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(teeMachineData, teeMachineDataSignature, teeProxyId, url);
     }
 
 
@@ -167,7 +210,7 @@ contract TeeMachineRegistryTest is Test {
         vm.expectEmit();
         vm.prank(owner);
         emit ITeeMachineRegistry.TeeMachineRegistered(teeId, teeProxyId, owner, extensionId, url, codeHash, platform);
-        teeMachineRegistry.register(extensionId, teePublicKey, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(teeMachineData, teeMachineDataSignature, teeProxyId, url);
     }
 
 
@@ -483,7 +526,7 @@ contract TeeMachineRegistryTest is Test {
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         testToProduction();
         vm.prank(owner);
-        teeMachineRegistry.register(extensionId, newTeePublicKey, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(newTeeMachineData, newTeeMachineDataSignature, teeProxyId, url);
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
         vm.prank(teeReplication);
         teeMachineRegistry.replicate(newTeeId, proof);
@@ -518,7 +561,13 @@ contract TeeMachineRegistryTest is Test {
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         testToProduction();
         vm.prank(owner);
-        teeMachineRegistry.register(extensionId + 1, newTeePublicKey, teeProxyId, url, codeHash, platform);
+        newTeeMachineData.extensionId = extensionId + 1;
+        newTeeMachineDataSignature = SignatureHelper.createSignature(
+            vm,
+            keccak256(abi.encode(newTeeMachineData)),
+            newTeePrivateKey
+        );
+        teeMachineRegistry.register(newTeeMachineData, newTeeMachineDataSignature, teeProxyId, url);
 
         vm.prank(owner);
         teeMachineRegistry.pause(teeId);
@@ -667,7 +716,7 @@ contract TeeMachineRegistryTest is Test {
         testToProduction();
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(newTeeId, teeProxyId, url);
         vm.startPrank(owner);
-        teeMachineRegistry.register(extensionId, newTeePublicKey, teeProxyId, url, codeHash, platform);
+        teeMachineRegistry.register(newTeeMachineData, newTeeMachineDataSignature, teeProxyId, url);
         teeMachineRegistry.toProduction(proof);
         vm.stopPrank();
 
@@ -885,7 +934,8 @@ contract TeeMachineRegistryTest is Test {
             _teeId,
             _teeProxyId,
             _url,
-            keccak256("challenge")
+            keccak256("challenge"),
+            bytes32("instructionId")
         );
         ITeeAvailabilityCheck.ResponseBody memory repBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,

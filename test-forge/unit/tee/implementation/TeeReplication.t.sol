@@ -503,7 +503,8 @@ contract TeeReplicationTest is Test {
             _teeId,
             makeAddr("teeProxyId"),
             _url,
-            keccak256("challenge")
+            keccak256("challenge"),
+            bytes32("instructionId")
         );
         IITeeSystemStateVerifier.TeeSystemState memory systemState = IITeeSystemStateVerifier.TeeSystemState(
             IITeeSystemStateVerifier.TeeMachineStatus.ACTIVE,
