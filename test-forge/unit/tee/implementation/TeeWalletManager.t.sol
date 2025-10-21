@@ -524,13 +524,11 @@ contract TeeWalletManagerTest is Test {
         address[] memory pausingAddresses = new address[](2);
         pausingAddresses[0] = makeAddr("pausingAddress1");
         pausingAddresses[1] = makeAddr("pausingAddress2");
-        uint256 counter = 0;
-        bytes32 instructionId = keccak256(abi.encode(WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, walletId, counter));
         (address[] memory admins, uint64 adminsThreshold) =
             teeWalletManager.getWalletAdminsAndThreshold(walletId);
         ITeeWalletManager.SetPausingAddresses memory message = ITeeWalletManager.SetPausingAddresses(
             walletId,
-            counter,
+            0,
             teeIdKeyIdPairs,
             pausingAddresses
         );
@@ -538,7 +536,7 @@ contract TeeWalletManagerTest is Test {
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
-            instructionId,
+            keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
             10,
             receivingTees,
             WALLET_OP_TYPE,
@@ -599,9 +597,6 @@ contract TeeWalletManagerTest is Test {
         keyIds[1] = 2;
         _mockGetWalletKeysInfo(walletId, 2, keyIds);
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PRODUCTION);
-        bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, RESUME, walletId, 0
-        ));
         _mockCalculateFeeByTeeIds(teeIds, WALLET_OP_TYPE, RESUME, 1234);
         ITeeWalletManager.Resume memory message = ITeeWalletManager.Resume(
             walletId,
@@ -614,7 +609,7 @@ contract TeeWalletManagerTest is Test {
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
-            instructionId,
+            keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
             10,
             teeMachines,
             WALLET_OP_TYPE,

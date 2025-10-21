@@ -254,7 +254,6 @@ contract FtdcHubTest is Test {
         bytes32 attestationType = "PMWPaymentStatus";
         bytes32 sourceId = "XRP";
         bytes memory attestationRequest = "attestationRequest";
-        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, 0));
 
         IFtdcHub.FtdcAttestationRequest memory message = IFtdcHub.FtdcAttestationRequest({
             header: IFtdcHub.FtdcRequestHeader({
@@ -267,7 +266,7 @@ contract FtdcHubTest is Test {
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
-            instructionId,
+            keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
             123,
             _getTeeMachines(2),
             FTDC_OP_TYPE,
@@ -300,7 +299,6 @@ contract FtdcHubTest is Test {
         bytes32 attestationType = "PMWPaymentStatus";
         bytes32 sourceId = "XRP";
         bytes memory attestationRequest = "attestationRequest";
-        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, 0));
 
         IFtdcHub.FtdcAttestationRequest memory message = IFtdcHub.FtdcAttestationRequest({
             header: IFtdcHub.FtdcRequestHeader({
@@ -313,7 +311,7 @@ contract FtdcHubTest is Test {
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
-            instructionId,
+            keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
             123,
             _getTeeMachines(1),
             FTDC_OP_TYPE,
@@ -346,7 +344,6 @@ contract FtdcHubTest is Test {
         bytes32 attestationType = "PMWPaymentStatus";
         bytes32 sourceId = "XRP";
         bytes memory attestationRequest = "attestationRequest";
-        bytes32 instructionId = keccak256(abi.encode(FTDC_OP_TYPE, PROVE, 0));
 
         IFtdcHub.FtdcAttestationRequest memory message = IFtdcHub.FtdcAttestationRequest({
             header: IFtdcHub.FtdcRequestHeader({
@@ -359,7 +356,7 @@ contract FtdcHubTest is Test {
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             0,
-            instructionId,
+            keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
             123,
             _getTeeMachines(2),
             FTDC_OP_TYPE,

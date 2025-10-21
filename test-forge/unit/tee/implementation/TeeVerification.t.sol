@@ -195,9 +195,11 @@ contract TeeVerificationTest is Test {
         vm.mockCall(
             teeExtensionRegistry,
             abi.encodeWithSelector(
-                ITeeExtensionRegistry.sendInstructions.selector
+                bytes4(keccak256(
+                    "sendSystemInstructions(bytes32,(address,address,string)[],bytes32,bytes32,bytes,address[],uint64)"
+                ))
             ),
-            abi.encode("")
+            abi.encode(bytes32("instructionId"))
         );
 
         vm.mockCall(

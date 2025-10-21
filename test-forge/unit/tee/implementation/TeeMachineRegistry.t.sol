@@ -156,6 +156,9 @@ contract TeeMachineRegistryTest is Test {
     function testRegisterRevertOwnerNotAllowed() public {
         _mockIsAllowedTeeMachineOwner(false);
         vm.expectRevert(ITeeMachineRegistry.OwnerNotAllowed.selector);
+        address someOwner = makeAddr("someOwner");
+        teeMachineData.initialOwner = someOwner;
+        vm.prank(someOwner);
         teeMachineRegistry.register(teeMachineData, teeMachineDataSignature, teeProxyId, url);
     }
 

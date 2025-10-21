@@ -26,7 +26,7 @@ library PublicKeyHelper {
         command[1] = "wallet";
         command[2] = "public-key";
         command[3] = "--raw-private-key";
-        command[4] = _vm.toString(_privateKey);
+        command[4] = _vm.toString(bytes32(_privateKey));
         bytes memory result = _vm.ffi(command);
 
         // check if result is 64 bytes

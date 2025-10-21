@@ -347,9 +347,6 @@ contract TeeWalletKeyManagerTest is Test {
                 cosignersThreshold: 1
             })
         });
-        bytes32 instructionId = keccak256(abi.encode(
-            WALLET_OP_TYPE, KEY_GENERATE, walletId, keyId
-        ));
 
         vm.prank(owner);
         vm.expectEmit();
@@ -357,7 +354,7 @@ contract TeeWalletKeyManagerTest is Test {
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
             extensionId,
-            instructionId,
+            keccak256(abi.encode(extensionId, 0, blockhash(block.number - 1))),
             currentRewardEpochId,
             teeMachines,
             WALLET_OP_TYPE,

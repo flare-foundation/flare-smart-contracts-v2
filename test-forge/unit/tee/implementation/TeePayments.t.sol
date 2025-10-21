@@ -347,7 +347,7 @@ contract TeePaymentsTest is Test {
     function testSetBatchSettings() public {
         testAddPMWMultisigAccount();
         (uint64 batchSize, uint64 batchDurationSeconds) = teePayments.getBatchSettings(pmwMultisigAccount);
-        assertEq(batchSize, 0);
+        assertEq(batchSize, 1);
         assertEq(batchDurationSeconds, 0);
         vm.prank(walletOwner);
         teePayments.setBatchSettings(pmwMultisigAccount, 5, 300);
@@ -404,7 +404,7 @@ contract TeePaymentsTest is Test {
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         uint256 transactionLimit = 1000;
         uint256 dailyLimit = 10000;
-        bytes32 instructionId = keccak256(abi.encode(OP_TYPE, SET_PAYMENT_LIMITS, SOURCE_ID, senderAddress, 0));
+        bytes32 instructionId = keccak256(abi.encode(0, 0, blockhash(block.number - 1)));
         ITeePayments.SetPaymentLimits memory message = ITeePayments.SetPaymentLimits(
             walletId,
             SOURCE_ID,

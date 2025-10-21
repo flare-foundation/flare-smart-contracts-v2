@@ -58,7 +58,6 @@ contract TeeExtensionRegistryTest is Test {
     function setUp() public {
         owner = makeAddr("owner");
         newOwner = makeAddr("newOwner");
-        instructionId = keccak256("instructionId");
         teeIds = new address[](2);
         teeIds[0] = makeAddr("teeId1");
         teeIds[1] = makeAddr("teeId2");
@@ -68,6 +67,7 @@ contract TeeExtensionRegistryTest is Test {
         opCommand = keccak256("opCommand");
         message = abi.encode("message");
         extensionId = 1;
+        instructionId = keccak256(abi.encode(extensionId, 0, blockhash(block.number - 1)));
         instructionsSenders = new address[](1);
         instructionsSenders[0] = makeAddr("instructionsSender");
         currentRewardEpochId = 1;
