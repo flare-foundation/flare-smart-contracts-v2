@@ -1,20 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./IPublicKey.sol";
-import "./ISignature.sol";
+import { PublicKey } from "./IPublicKey.sol";
+import { Signature } from "./ISignature.sol";
 
 /**
  * VoterRegistry interface.
  */
 interface IVoterRegistry {
-
-    /// Signature data.
-    struct Signature {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
 
     /// Event emitted when a beneficiary (c-chain address or node id) is chilled.
     event BeneficiaryChilled(bytes20 indexed beneficiary, uint32 untilRewardEpochId);

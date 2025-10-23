@@ -5,6 +5,7 @@ import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.so
 import { IIVoterRegistrationTrigger } from "../interface/IIVoterRegistrationTrigger.sol";
 import { IVoterPreRegistry } from "../../userInterfaces/IVoterPreRegistry.sol";
 import { IVoterRegistry } from "../../userInterfaces/IVoterRegistry.sol";
+import { Signature } from "../../userInterfaces/ISignature.sol";
 import { AddressSet } from "../../utils/lib/AddressSet.sol";
 import { IIVoterRegistry } from "../../protocol/interface/IIVoterRegistry.sol";
 import { IIEntityManager } from "../interface/IIEntityManager.sol";
@@ -65,7 +66,7 @@ contract VoterPreRegistry is AddressUpdatable, IIVoterRegistrationTrigger, IVote
             VoterWithSignature memory voterData = voters[i];
             try voterRegistry.registerVoter(
                 voterData.voter,
-                IVoterRegistry.Signature(voterData.v, voterData.r, voterData.s)
+                Signature(voterData.v, voterData.r, voterData.s)
             )
             { }
             catch {
@@ -77,7 +78,7 @@ contract VoterPreRegistry is AddressUpdatable, IIVoterRegistrationTrigger, IVote
     /**
      * @inheritdoc IVoterPreRegistry
      */
-    function preRegisterVoter(address _voter, IVoterRegistry.Signature calldata _signature) external {
+    function preRegisterVoter(address _voter, Signature calldata _signature) external {
         uint24 rewardEpochId = flareSystemsManager.getCurrentRewardEpochId() + 1;
         // check if pre-registration is still open
         (, , , uint256 randomAcquisitionEndBlock) = flareSystemsManager.getRandomAcquisitionInfo(rewardEpochId);
@@ -134,7 +135,7 @@ contract VoterPreRegistry is AddressUpdatable, IIVoterRegistrationTrigger, IVote
         uint256 index = preRegisteredVoters[_rewardEpochId].index[_voter];
         require(index != 0, "voter not pre-registered");
         VoterWithSignature storage preRegisteredVoter = preRegisteredVoters[_rewardEpochId].list[index - 1];
-        return IVoterRegistry.Signature(preRegisteredVoter.v, preRegisteredVoter.r, preRegisteredVoter.s);
+        return Signature(preRegisteredVoter.v, preRegisteredVoter.r, preRegisteredVoter.s);
     }
 
     /**

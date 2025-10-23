@@ -2,6 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { IIVoterRegistry } from "../protocol/interface/IIVoterRegistry.sol";
+import { Signature } from "./ISignature.sol";
 
 interface IVoterPreRegistry {
 
@@ -16,7 +17,7 @@ interface IVoterPreRegistry {
      * @param _voter The voter address.
      * @param _signature The signature.
      */
-    function preRegisterVoter(address _voter, IIVoterRegistry.Signature calldata _signature) external;
+    function preRegisterVoter(address _voter, Signature calldata _signature) external;
 
     /**
      * Returns the list of pre-registered voters for a given reward epoch.

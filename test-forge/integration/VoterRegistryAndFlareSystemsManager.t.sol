@@ -13,6 +13,8 @@ import { RandomNumberV2Interface } from "../../contracts/userInterfaces/LTS/Rand
 import { IRelay } from "../../contracts/userInterfaces/IRelay.sol";
 import { IEntityManager } from "../../contracts/userInterfaces/IEntityManager.sol";
 import { IVoterRegistry } from "../../contracts/userInterfaces/IVoterRegistry.sol";
+import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
+import { Signature } from "../../contracts/userInterfaces/ISignature.sol";
 import { IFlareSystemsManager } from "../../contracts/userInterfaces/IFlareSystemsManager.sol";
 import { IWNatDelegationFee } from "../../contracts/userInterfaces/IWNatDelegationFee.sol";
 import { IIRelay } from "../../contracts/protocol/interface/IIRelay.sol";
@@ -73,7 +75,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     bytes private validPublicKeyData = abi.encode(1, 2, 3);
     bytes20[] private voter3RegisteredNodesAtVpBlock;
     uint256[] private voter3RegisteredPChainVPAtVpBlock;
-    IVoterRegistry.Signature private signature;
+    Signature private signature;
     IFlareSystemsManager.Signature private signatureFSM;
 
     bytes32 private newSigningPolicyHash;
@@ -97,7 +99,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         address submitSignaturesAddress,
         PublicKey publicKey,
         uint256 registrationWeight,
-        IVoterRegistry.Signature signature
+        Signature signature
     );
     event VotePowerBlockSelected(
         uint24 indexed rewardEpochId,   // Reward epoch id
@@ -451,7 +453,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         bytes32 messageHash = keccak256(abi.encode(1, initialDelegationAddresses[2]));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(fakeSubmitSignatureAddressPK, signedMessageHash);
-        signature = IVoterRegistry.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.expectRevert("delegation address not set");
         voterRegistry.registerVoter(initialDelegationAddresses[2], signature);
 
@@ -629,7 +631,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         bytes32 messageHash = keccak256(abi.encode(1, initialVoters[3]));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersPK[3], signedMessageHash);
-        signature = IVoterRegistry.Signature(v, r, s);
+        signature = Signature(v, r, s);
         voter3RegisteredNodesAtVpBlock = new bytes20[](2);
         voter3RegisteredNodesAtVpBlock[0] = initialNodeIds[3][0];
         voter3RegisteredNodesAtVpBlock[1] = initialNodeIds[3][1];
@@ -1133,7 +1135,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 bytes32 messageHashRegister = keccak256(abi.encode(4, initialVoters[i]));
                 bytes32 signedMessageHashRegister = MessageHashUtils.toEthSignedMessageHash(messageHashRegister);
                 (v, r, s) = vm.sign(newSigningPolicyPK, signedMessageHashRegister);
-                signature = IVoterRegistry.Signature(v, r, s);
+                signature = Signature(v, r, s);
                 emit VoterRegistered(
                     initialVoters[i],
                     uint24(4),
@@ -1584,13 +1586,13 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     )
         internal
         returns (
-            IVoterRegistry.Signature memory _signature
+            Signature memory _signature
         )
     {
         bytes32 messageHash = keccak256(abi.encode(_nextRewardEpochId, initialVoters[_voterIndex]));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[_voterIndex], signedMessageHash);
-        _signature = IVoterRegistry.Signature(v, r, s);
+        _signature = Signature(v, r, s);
     }
 
     function _mockGetVoterRegistrationData(uint256 _vpBlock, bool _enabled) internal {
