@@ -10,7 +10,7 @@ import {
 import {
     IPChainStakeMirrorVerifier
 } from "@flarenetwork/flare-periphery-contracts/flare/IPChainStakeMirrorVerifier.sol";
-import { IRelay } from "../../userInterfaces/IRelay.sol";
+import { IRelay } from "../userInterfaces/IRelay.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
