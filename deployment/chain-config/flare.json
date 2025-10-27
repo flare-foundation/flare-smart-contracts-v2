@@ -150,7 +150,8 @@
                 {"category": 1, "name": "PAXG/USD"},
                 {"category": 1, "name": "BERA/USD"},
                 {"category": 1, "name": "OP/USD"},
-                {"category": 1, "name": "PUMP/USD"}
+                {"category": 1, "name": "PUMP/USD"},
+                {"category": 1, "name": "XPL/USD"}
             ],
             "inflationShare": 10000,
             "minRewardedTurnoutBIPS": 5000,
@@ -160,7 +161,7 @@
                 1150, 1150, 500, 900, 900, 900, 900, 1150, 900, 500, 900, 900, 900, 500, 900, 900, 100, 100, 500, 500,
                 900, 900, 900, 900, 900, 900, 100, 900, 1150, 1600, 900, 900, 1400, 1400, 1150, 1400, 1400, 1150, 1150, 1150,
                 1150, 900, 1150, 1150, 1150, 1150, 1150, 1150, 1150, 1150, 1400, 200, 1600, 1150, 1400, 1400, 900, 500, 1400, 1150,
-                1400
+                1400, 1400
             ]
         }
     ],
@@ -316,7 +317,8 @@
         {"feedId": {"category": 1, "name": "PAXG/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "BERA/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "OP/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
-        {"feedId": {"category": 1, "name": "PUMP/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
+        {"feedId": {"category": 1, "name": "PUMP/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
+        {"feedId": {"category": 1, "name": "XPL/USD"}, "rewardBandValue": 5000, "inflationShare": 10000}
     ],
     "defaultFeeWei": "1",
     "ftsoProxies": [
