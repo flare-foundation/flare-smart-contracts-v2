@@ -1,10 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fdc/implementation/FdcVerification.sol";
-import "../../../../contracts/fdc/implementation/FdcVerificationProxy.sol";
-import "../../../../contracts/userInterfaces/IRelay.sol";
+import { Test } from "forge-std/Test.sol";
+import { FdcVerification } from "../../../../contracts/fdc/implementation/FdcVerification.sol";
+import { FdcVerificationProxy } from "../../../../contracts/fdc/implementation/FdcVerificationProxy.sol";
+import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
+import { IAddressValidity } from "../../../../contracts/userInterfaces/fdc/IAddressValidity.sol";
+import {
+    IBalanceDecreasingTransaction
+} from "../../../../contracts/userInterfaces/fdc/IBalanceDecreasingTransaction.sol";
+import { IConfirmedBlockHeightExists } from "../../../../contracts/userInterfaces/fdc/IConfirmedBlockHeightExists.sol";
+import { IEVMTransaction } from "../../../../contracts/userInterfaces/fdc/IEVMTransaction.sol";
+import { IPayment } from "../../../../contracts/userInterfaces/fdc/IPayment.sol";
+import {
+    IReferencedPaymentNonexistence
+} from "../../../../contracts/userInterfaces/fdc/IReferencedPaymentNonexistence.sol";
+import {
+    IWeb2Json
+} from "../../../../contracts/userInterfaces/fdc/IWeb2Json.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
 contract FdcVerificationTest is Test {

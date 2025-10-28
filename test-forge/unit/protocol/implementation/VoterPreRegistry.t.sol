@@ -8,7 +8,6 @@ import { IIFlareSystemsCalculator } from "../../../../contracts/protocol/interfa
 import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
 import { IEntityManager } from "../../../../contracts/userInterfaces/IEntityManager.sol";
 import { IFlareSystemsManager } from "../../../../contracts/userInterfaces/IFlareSystemsManager.sol";
-import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";

@@ -12,7 +12,6 @@ import { VoterPreRegistry } from "../../contracts/protocol/implementation/VoterP
 import { RandomNumberV2Interface } from "../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { IRelay } from "../../contracts/userInterfaces/IRelay.sol";
 import { IEntityManager } from "../../contracts/userInterfaces/IEntityManager.sol";
-import { IVoterRegistry } from "../../contracts/userInterfaces/IVoterRegistry.sol";
 import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
 import { Signature } from "../../contracts/userInterfaces/ISignature.sol";
 import { IFlareSystemsManager } from "../../contracts/userInterfaces/IFlareSystemsManager.sol";

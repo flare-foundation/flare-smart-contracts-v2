@@ -6,7 +6,6 @@ import { VoterRegistry } from "../../../../contracts/protocol/implementation/Vot
 import { IIEntityManager } from "../../../../contracts/protocol/interface/IIEntityManager.sol";
 import { IIFlareSystemsCalculator } from "../../../../contracts/protocol/interface/IIFlareSystemsCalculator.sol";
 import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
-import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
 import { IEntityManager } from "../../../../contracts/userInterfaces/IEntityManager.sol";
 import { IFlareSystemsManager } from "../../../../contracts/userInterfaces/IFlareSystemsManager.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
