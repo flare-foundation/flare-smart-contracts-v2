@@ -252,156 +252,166 @@
   {
     "name": "FtdcHub",
     "contractName": "FtdcHub.sol",
-    "address": "0x39Fd5418058932cb8b30a72623B0E6ae391D3768"
+    "address": "0xcbf21163bC2A47E8a0FF69cC006C94684bC8Dc9b"
   },
   {
     "name": "FtdcRequestFeeConfigurations",
     "contractName": "FtdcRequestFeeConfigurations.sol",
-    "address": "0x969e2F247e104cb3640D0715141392A3ef9c9e81"
+    "address": "0x9Aeb4C3959Ba15464241F7b8daf38Ac2Fa1Cca13"
   },
   {
     "name": "FtdcVerification",
     "contractName": "FtdcVerification.sol",
-    "address": "0x854B7c6737F2D52041C006f6bF60AbCD516ca1cF"
+    "address": "0x9B2767BEaFf0d48147390fA15f001162FdcB33e1"
   },
   {
     "name": "TeeExtensionRegistryImplementation",
     "contractName": "TeeExtensionRegistry.sol",
-    "address": "0x765369a14fF869fBcB88833895E406eB70b79124"
+    "address": "0x9391Caba91a99590C87F421A0C3Fb5E92d36DCb4"
   },
   {
     "name": "TeeExtensionRegistry",
     "contractName": "TeeExtensionRegistryProxy.sol",
-    "address": "0x19038AF3c19e31673D7B02e6489583989c5bD0D7"
+    "address": "0x90c2210E899db9f27Eb713aF5acF97226DD7cEa1"
   },
   {
     "name": "TeeFeeCalculator",
     "contractName": "TeeFeeCalculator.sol",
-    "address": "0x623c7dfE61D9a7Df9755817CB50Daaa91D0FF93C"
+    "address": "0xF515D79df67c549C379E64Ec4Ff8f151906ADB0A"
   },
   {
     "name": "TeeGovernanceImplementation",
     "contractName": "TeeGovernance.sol",
-    "address": "0xbE07eF38b1440aF692cAc663837167Bf4d969308"
+    "address": "0x8756eF3d5e491c101DC703bf1AeaB1123988dD1B"
   },
   {
     "name": "TeeGovernance",
     "contractName": "TeeGovernanceProxy.sol",
-    "address": "0x4905adaACcee0f34Eb2CbbA6038a51D11479b7aB"
+    "address": "0x2Fc4E122BC234f56a0D05aa24d8CE7c28cD25141"
   },
   {
     "name": "TeeMachineRegistryImplementation",
     "contractName": "TeeMachineRegistry.sol",
-    "address": "0x6C44bcaf6188C7385a025EEDfe1aA340F0a1535C"
+    "address": "0xc2333fa57d96BeFceB1A45e53C52C533d28eFc74"
   },
   {
     "name": "TeeMachineRegistry",
     "contractName": "TeeMachineRegistryProxy.sol",
-    "address": "0x2C6585F711E0C98EEfAb5dd7F054D39Ac797b10c"
+    "address": "0x8F6FBdcC73819CD0a2E71A3E1D40bE036D335E3d"
   },
   {
     "name": "TeeOwnerAllowlistImplementation",
     "contractName": "TeeOwnerAllowlist.sol",
-    "address": "0xCeb31dEeb53E9E23F40d0Faa3da2C8d79bc8a5FE"
+    "address": "0x8025F92764a9e5936A02570c0534F7B3dbFBDf20"
   },
   {
     "name": "TeeOwnerAllowlist",
     "contractName": "TeeOwnerAllowlistProxy.sol",
-    "address": "0xF0Bf0990e918E5502794f92dA97582e6b19A3930"
+    "address": "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE"
   },
   {
     "name": "TeePaymentsImplementation",
     "contractName": "TeePayments.sol",
-    "address": "0x7822c772E50C1661AA0d650f5aA01AfA0E358d99"
+    "address": "0x6E255EC5c01cF99eEF2Dd07a6761832D3C839bf8"
   },
   {
     "name": "TeePaymentsFXrp",
     "contractName": "TeePaymentsProxy.sol",
-    "address": "0x1bE20A5f36D8fB1C7D7F720105e869EF96a33f05"
+    "address": "0xc1970EB191F9a7dB924ef2DaBc0BDa2731F5601B"
   },
   {
     "name": "TeeReplicationImplementation",
     "contractName": "TeeReplication.sol",
-    "address": "0x50d63A4134Ec3E6C2164f334F1fD891bc593a816"
+    "address": "0xE92fA9C939eD086cf263620E052ABeF996D64390"
   },
   {
     "name": "TeeReplication",
     "contractName": "TeeReplicationProxy.sol",
-    "address": "0x9df41850672Aaae0BB01b4da8f95991816B37c30"
+    "address": "0xff080f2f287f56a4751a2404E576e85726ebb333"
   },
   {
     "name": "TeeRewardOffersManager",
     "contractName": "TeeRewardOffersManager.sol",
-    "address": "0x7f736171a3407e9113A201715e3c31EaB6366924"
+    "address": "0xF0338A1b9f8902000c562F34f43B4400FCc77A8f"
   },
   {
     "name": "TeeSystemStateVerifierImplementation",
     "contractName": "TeeSystemStateVerifier.sol",
-    "address": "0x0fDc65731Ed33879e07D32ece8AF4b9a78b22152"
+    "address": "0x04dd3Ba33aC798d400bEc42A26F82f9812A421dc"
   },
   {
     "name": "TeeSystemStateVerifier",
     "contractName": "TeeSystemStateVerifierProxy.sol",
-    "address": "0x3712491dE2CA65C582B82e27A44fFAd66eB13F14"
+    "address": "0x85884d027d270Ed66801bDe56FBC3F2195A147ca"
   },
   {
     "name": "TeeVerificationImplementation",
     "contractName": "TeeVerification.sol",
-    "address": "0x4e348632077848995b39a7B6DabDAD2F5f3284a3"
+    "address": "0xbC135843998E0669a603e89599E9D184a713cac7"
   },
   {
     "name": "TeeVerification",
     "contractName": "TeeVerificationProxy.sol",
-    "address": "0x170898D2811cbA089b052a6429a23e2E8d71010F"
+    "address": "0x49484b974b3bBbF4e22cb5f5f3891EfacF5b1B2F"
   },
   {
     "name": "TeeVersionManagerImplementation",
     "contractName": "TeeVersionManager.sol",
-    "address": "0xdc0053B2607aDE001A5b9906bb274946255562b5"
+    "address": "0xA34Ff9be42b2C7782786270a51d33b1baC0462Cd"
   },
   {
     "name": "TeeVersionManager",
     "contractName": "TeeVersionManagerProxy.sol",
-    "address": "0xF41eAbea61911AD56e656D5D5133e481a2C73cBD"
+    "address": "0xD205AcEe3a785A4C59f090f71D909DB1F6CAeFf9"
   },
   {
     "name": "TeeWalletBackupManagerImplementation",
     "contractName": "TeeWalletBackupManager.sol",
-    "address": "0xd9094a83c268A136a8f66fC1AC0e09F34e252Cae"
+    "address": "0x1A78D02DD19400138f4F3A817E95fC715B6c34Fe"
   },
   {
     "name": "TeeWalletBackupManager",
     "contractName": "TeeWalletBackupManagerProxy.sol",
-    "address": "0x3f3E6f8CA740981f6906ab96e3D93d3D6BfAB229"
+    "address": "0x4ea574f16c87a9474A8Ae8ac65516b5f167B071a"
   },
   {
     "name": "TeeWalletKeyManagerImplementation",
     "contractName": "TeeWalletKeyManager.sol",
-    "address": "0x70C8D7970aa959Bf7255d62E9e23a874e945F9Eb"
+    "address": "0xC2973CEAD7c193e3e915Eeb6b4DA672660d84F7D"
   },
   {
     "name": "TeeWalletKeyManager",
     "contractName": "TeeWalletKeyManagerProxy.sol",
-    "address": "0x0120b4AD9a161dF90E25A9A7926A145D27CbD220"
+    "address": "0x4860B2bf6237bF9a1779C60E9Bfb263330930661"
   },
   {
     "name": "TeeWalletManagerImplementation",
     "contractName": "TeeWalletManager.sol",
-    "address": "0x0D6d35a24bE6BFa560dde75044d355D09fB255af"
+    "address": "0x2dB76e4E0162400747561bD72dE52442897f6dA2"
   },
   {
     "name": "TeeWalletManager",
     "contractName": "TeeWalletManagerProxy.sol",
-    "address": "0xe9d7EFf5f661d221c7E1de833173E8acc4E5E71a"
+    "address": "0xA8b8E5174C2a389ba115cE8C4Ac508374aEBC957"
   },
   {
     "name": "TeeWalletProjectManagerImplementation",
     "contractName": "TeeWalletProjectManager.sol",
-    "address": "0x9cb129C083775029eB26406D657d60cd09F8a8D0"
+    "address": "0x86CB3e2dA1a4Ec30e2Ff2E5bA1A2D5ff9C9D44f4"
   },
   {
     "name": "TeeWalletProjectManager",
     "contractName": "TeeWalletProjectManagerProxy.sol",
-    "address": "0x7Ea3a23bd7E2468f67C852951563f369df97210e"
+    "address": "0x4df266f37FBdcB6a1FCEd842e284f73B527D4cf2"
+  },
+  {
+    "name": "TeeExtensionInstructionsSenderMock",
+    "contractName": "TeeExtensionInstructionsSenderMock.sol",
+    "address": "0x93cFB0aDfBe7a02F28975Ca481200dfE71725f4f"
+  },
+  {
+    "name": "PmwPaymentStatusVerifierMock",
+    "contractName": "PMWPaymentStatusVerifierMock.sol",
+    "address": "0x642F8A4522F81800704A1Faa87592FED78EC6aFa"
   }
 ]

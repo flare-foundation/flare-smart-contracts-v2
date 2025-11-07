@@ -446,6 +446,30 @@ export async function deployTeeContracts(
 
   // TODO add tee versions
 
+  // TODO remove mock deploys
+
+  const TeeExtensionInstructionsSenderMock = artifacts.require("TeeExtensionInstructionsSenderMock");
+  const teeExtensionInstructionsSenderMock = await TeeExtensionInstructionsSenderMock.new(
+    teeExtensionRegistry.address,
+    teeWalletProjectManager.address,
+    teeWalletManager.address,
+    teeWalletKeyManager.address
+  );
+  spewNewContractInfo(contracts, null, TeeExtensionInstructionsSenderMock.contractName, `TeeExtensionInstructionsSenderMock.sol`, teeExtensionInstructionsSenderMock.address, quiet);
+
+  const PMWPaymentStatusVerifierMock = artifacts.require("PMWPaymentStatusVerifierMock");
+  const pmwPaymentStatusVerifierMock = await PMWPaymentStatusVerifierMock.new(
+    deployerAccount.address, // tmp address updater
+    [],
+    0,
+    1
+  );
+  await pmwPaymentStatusVerifierMock.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER]),
+    [addressUpdater, teeExtensionRegistry.address, teeWalletManager.address, teeWalletProjectManager.address, ftdcVerification.address, flareSystemsManager]
+  );
+  spewNewContractInfo(contracts, null, PMWPaymentStatusVerifierMock.contractName, `PMWPaymentStatusVerifierMock.sol`, pmwPaymentStatusVerifierMock.address, quiet);
+
   // switch to production mode TODO
   // await ftdcHub.switchToProductionMode();
   // await ftdcRequestFeeConfigurations.switchToProductionMode();
