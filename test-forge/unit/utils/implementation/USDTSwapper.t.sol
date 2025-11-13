@@ -15,9 +15,6 @@ contract USDTSwapperTest is Test {
     ERC20Mock public usdt0;
     USDTSwapper public swapper;
 
-    event Swapped(address indexed sender, uint256 amount);
-
-
     function setUp() public {
         sender1 = makeAddr("sender1");
         sender2 = makeAddr("sender2");
@@ -55,7 +52,7 @@ contract USDTSwapperTest is Test {
         usdte.approve(address(swapper), 100);
         vm.prank(sender1);
         vm.expectEmit();
-        emit Swapped(sender1, 100);
+        emit USDTSwapper.Swapped(sender1, 100);
         swapper.swap(100);
         assertEq(usdte.balanceOf(address(swapper)), 100);
         assertEq(usdt0.balanceOf(address(swapper)), 1900);

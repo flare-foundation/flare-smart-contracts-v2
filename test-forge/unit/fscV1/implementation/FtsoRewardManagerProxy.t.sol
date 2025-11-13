@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { RewardManager } from "../../../../contracts/protocol/implementation/RewardManager.sol";
 import { FtsoRewardManagerProxy } from "../../../../contracts/fscV1/implementation/FtsoRewardManagerProxy.sol";
 import { WNatDelegationFee } from "../../../../contracts/protocol/implementation/WNatDelegationFee.sol";
+import { IRewardManager } from "../../../../contracts/userInterfaces/IRewardManager.sol";
 import { RewardsV2Interface } from "../../../../contracts/userInterfaces/LTS/RewardsV2Interface.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IIClaimSetupManager } from "../../../../contracts/protocol/interface/IIClaimSetupManager.sol";
@@ -48,19 +49,6 @@ contract FtsoRewardManagerProxyTest is Test {
     bytes32[] private merkleProof2;
     bytes32[] private merkleProof3;
     bytes32[] private merkleProof4;
-
-    event RewardClaimed(
-        address indexed beneficiary,
-        address indexed rewardOwner,
-        address indexed recipient,
-        uint24 rewardEpochId,
-        RewardManager.ClaimType claimType,
-        uint120 amount
-    );
-
-    event RewardClaimsExpired(
-        uint256 indexed rewardEpochId
-    );
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -208,7 +196,7 @@ contract FtsoRewardManagerProxyTest is Test {
         // WNAT reward claim for delegator; should receive 200 * 50/300 = 33
         vm.prank(delegator);
         vm.expectEmit();
-        emit RewardClaimed(voter1, delegator, recipient, rewardEpochData.id, body1.claimType, 33);
+        emit IRewardManager.RewardClaimed(voter1, delegator, recipient, rewardEpochData.id, body1.claimType, 33);
         uint256[] memory rewardEpochs = new uint256[](1);
         rewardEpochs[0] = 0;
         ftsoRewardManagerProxy.claimReward(recipient, rewardEpochs);
@@ -316,7 +304,7 @@ contract FtsoRewardManagerProxyTest is Test {
         // WNAT reward claim for delegator; should receive 200 * 50/300 = 33
         vm.prank(delegator);
         vm.expectEmit();
-        emit RewardClaimed(voter1, delegator, recipient, rewardEpochData.id, body1.claimType, 33);
+        emit IRewardManager.RewardClaimed(voter1, delegator, recipient, rewardEpochData.id, body1.claimType, 33);
         uint256[] memory rewardEpochs = new uint256[](1);
         rewardEpochs[0] = 0;
         ftsoRewardManagerProxy.claim(delegator, recipient, 0, false);

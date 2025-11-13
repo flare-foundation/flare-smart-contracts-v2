@@ -33,6 +33,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
 
     uint256 internal constant UINT16_MAX = type(uint16).max;
     uint256 internal constant UINT256_MAX = type(uint256).max;
+    uint256 private constant MAX_VOTERS = 300; // aligned with Relay contract
 
     /// Maximum number of voters in one reward epoch.
     uint256 public maxVoters;
@@ -92,7 +93,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
-        require(_maxVoters <= UINT16_MAX, "_maxVoters too high");
+        require(_maxVoters <= MAX_VOTERS, "_maxVoters too high");
         maxVoters = _maxVoters;
 
         uint256 length = _initialVoters.length;
@@ -165,7 +166,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      * @dev Only governance can call this method.
      */
     function setMaxVoters(uint256 _maxVoters) external onlyGovernance {
-        require(_maxVoters <= UINT16_MAX, "_maxVoters too high");
+        require(_maxVoters <= MAX_VOTERS, "_maxVoters too high");
         require(_maxVoters >= flareSystemsManager.signingPolicyMinNumberOfVoters(), "_maxVoters too low");
         maxVoters = _maxVoters;
     }
@@ -538,14 +539,14 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
             votersAndWeights.voters.push(_voter);
             votersAndWeights.weights[_voter] = weight;
         } else {
-            // find minimum to kick out (if needed)
+            // find the most recently registered (highest index) among those with the lowest weight
             uint256 minIndex = 0;
             uint256 minIndexWeight = UINT256_MAX;
-
             for (uint256 i = 0; i < length; i++) {
                 address voter = votersAndWeights.voters[i];
                 uint256 voterWeight = votersAndWeights.weights[voter];
-                if (minIndexWeight > voterWeight) {
+                // on ties, prefer the highest index (most recent) to favor early participants
+                if (minIndexWeight >= voterWeight) {
                     minIndexWeight = voterWeight;
                     minIndex = i;
                 }

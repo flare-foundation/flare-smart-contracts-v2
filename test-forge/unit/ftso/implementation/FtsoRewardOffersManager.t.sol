@@ -37,44 +37,6 @@ contract FtsoRewardOffersManagerTest is Test {
 
     uint64 internal constant DAY = 1 days;
 
-    event RewardsOffered(
-        // reward epoch id
-        uint24 indexed rewardEpochId,
-        // feed id - i.e. category + base/quote symbol
-        bytes21 feedId,
-        // number of decimals (negative exponent)
-        int8 decimals,
-        // amount (in wei) of reward in native coin
-        uint256 amount,
-        // minimal reward eligibility turnout threshold in BIPS (basis points)
-        uint16 minRewardedTurnoutBIPS,
-        // primary band reward share in PPM (parts per million)
-        uint24 primaryBandRewardSharePPM,
-        // secondary band width in PPM (parts per million) in relation to the median
-        uint24 secondaryBandWidthPPM,
-        // address that can claim undistributed part of the reward (or burn address)
-        address claimBackAddress
-    );
-
-    event InflationRewardsOffered(
-        // reward epoch id
-        uint24 indexed rewardEpochId,
-        // feed ids - i.e. category + base/quote symbols - multiple of 21 (one feedId is bytes21)
-        bytes feedIds,
-        // decimals encoded to - multiple of 1 (int8)
-        bytes decimals,
-        // amount (in wei) of reward in native coin
-        uint256 amount,
-        // minimal reward eligibility turnout threshold in BIPS (basis points)
-        uint16 minRewardedTurnoutBIPS,
-        // primary band reward share in PPM (parts per million)
-        uint24 primaryBandRewardSharePPM,
-        // secondary band width in PPM (parts per million) in relation to the median - multiple of 3 (uint24)
-        bytes secondaryBandWidthPPMs,
-        // rewards split mode (0 means equally, 1 means random,...)
-        uint16 mode
-    );
-
     function setUp() public {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
@@ -270,7 +232,7 @@ contract FtsoRewardOffersManagerTest is Test {
         _mockGetDecimals(feedId2, -5);
 
         vm.expectEmit();
-        emit RewardsOffered(
+        emit IFtsoRewardOffersManager.RewardsOffered(
             2 + 1,
             offers[0].feedId,
             int8(4),
@@ -281,7 +243,7 @@ contract FtsoRewardOffersManagerTest is Test {
             claimBackAddr
         );
         vm.expectEmit();
-        emit RewardsOffered(
+        emit IFtsoRewardOffersManager.RewardsOffered(
             2 + 1,
             offers[1].feedId,
             int8(-5),
@@ -364,7 +326,7 @@ contract FtsoRewardOffersManagerTest is Test {
         // totalRewardAmount = 5000 * DAY / (2*DAY - DAY) = 5000
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit IFtsoRewardOffersManager.InflationRewardsOffered(
             2 + 1,
             feeds1,
             decimals1,
@@ -375,7 +337,7 @@ contract FtsoRewardOffersManagerTest is Test {
             ftsoConfigs[0].mode
         );
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit IFtsoRewardOffersManager.InflationRewardsOffered(
             2 + 1,
             feeds2,
             decimals1,
@@ -394,7 +356,7 @@ contract FtsoRewardOffersManagerTest is Test {
         // totalInflationReceivedWei == totalInflationRewardsOfferedWei -> amounts should be zero
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit IFtsoRewardOffersManager.InflationRewardsOffered(
             2 + 1,
             feeds1,
             decimals1,
@@ -405,7 +367,7 @@ contract FtsoRewardOffersManagerTest is Test {
             ftsoConfigs[0].mode
         );
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit IFtsoRewardOffersManager.InflationRewardsOffered(
             2 + 1,
             feeds2,
             decimals1,
@@ -464,7 +426,7 @@ contract FtsoRewardOffersManagerTest is Test {
         _mockGetFtsoConfigurations(ftsoConfigs);
         _mockGetCurrentEpochId(2);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit IFtsoRewardOffersManager.InflationRewardsOffered(
             2 + 1,
             feeds1,
             decimals1,
@@ -475,7 +437,7 @@ contract FtsoRewardOffersManagerTest is Test {
             ftsoConfigs[0].mode
         );
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit IFtsoRewardOffersManager.InflationRewardsOffered(
             2 + 1,
             feeds2,
             decimals1,

@@ -19,11 +19,6 @@ contract FastUpdatesConfigurationTest is Test {
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
-    event FeedAdded(bytes21 indexed feedId, uint32 rewardBandValue, uint24 inflationShare, uint256 index);
-    event FeedUpdated(bytes21 indexed feedId, uint32 rewardBandValue, uint24 inflationShare, uint256 index);
-    event FeedRemoved(bytes21 indexed feedId, uint256 index);
-
-
     function setUp() public {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
@@ -80,11 +75,11 @@ contract FastUpdatesConfigurationTest is Test {
         });
 
         vm.expectEmit();
-        emit FeedAdded(bytes21("feed1"), 100, 150, 0);
+        emit IFastUpdatesConfiguration.FeedAdded(bytes21("feed1"), 100, 150, 0);
         vm.expectEmit();
-        emit FeedAdded(bytes21("feed2"), 200, 250, 1);
+        emit IFastUpdatesConfiguration.FeedAdded(bytes21("feed2"), 200, 250, 1);
         vm.expectEmit();
-        emit FeedAdded(bytes21("feed3"), 300, 350, 2);
+        emit IFastUpdatesConfiguration.FeedAdded(bytes21("feed3"), 300, 350, 2);
         fastUpdatesConfiguration.addFeeds(feedConfigs);
     }
 
@@ -149,9 +144,9 @@ contract FastUpdatesConfigurationTest is Test {
         });
 
         vm.expectEmit();
-        emit FeedUpdated(bytes21("feed1"), 110, 550, 0);
+        emit IFastUpdatesConfiguration.FeedUpdated(bytes21("feed1"), 110, 550, 0);
         vm.expectEmit();
-        emit FeedUpdated(bytes21("feed2"), 210, 650, 1);
+        emit IFastUpdatesConfiguration.FeedUpdated(bytes21("feed2"), 210, 650, 1);
         fastUpdatesConfiguration.updateFeeds(feedConfigs);
 
         feedConfigs = fastUpdatesConfiguration.getFeedConfigurations();
@@ -215,7 +210,7 @@ contract FastUpdatesConfigurationTest is Test {
         bytes21[] memory feedIdsToRemove = new bytes21[](1);
         feedIdsToRemove[0] = bytes21("feed2");
         vm.expectEmit();
-        emit FeedRemoved(bytes21("feed2"), 1);
+        emit IFastUpdatesConfiguration.FeedRemoved(bytes21("feed2"), 1);
         fastUpdatesConfiguration.removeFeeds(feedIdsToRemove);
 
         feedIds = fastUpdatesConfiguration.getFeedIds();
@@ -238,7 +233,7 @@ contract FastUpdatesConfigurationTest is Test {
             inflationShare: 19
         });
         vm.expectEmit();
-        emit FeedAdded(bytes21("feed9"), 9, 19, 1);
+        emit IFastUpdatesConfiguration.FeedAdded(bytes21("feed9"), 9, 19, 1);
         fastUpdatesConfiguration.addFeeds(feedConfigs);
 
         unused = fastUpdatesConfiguration.getUnusedIndices();
@@ -254,7 +249,7 @@ contract FastUpdatesConfigurationTest is Test {
         feedIdsToRemove = new bytes21[](1);
         feedIdsToRemove[0] = bytes21("feed3");
         vm.expectEmit();
-        emit FeedRemoved(bytes21("feed3"), 2);
+        emit IFastUpdatesConfiguration.FeedRemoved(bytes21("feed3"), 2);
         fastUpdatesConfiguration.removeFeeds(feedIdsToRemove);
 
         assertEq(fastUpdatesConfiguration.getNumberOfFeeds(), 3); // 2 used and 1 unused

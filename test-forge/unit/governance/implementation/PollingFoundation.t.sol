@@ -57,19 +57,6 @@ contract PollingFoundationTest is Test {
     IIPollingFoundation.GovernorSettingsWithoutExecParams private settings;
     IGovernor.GovernorSettings private settingsExec;
 
-    event VoteCast(
-        address indexed voter,
-        uint256 indexed proposalId,
-        uint8 support,
-        uint256 votePower,
-        string reason,
-        uint256 forVotePower,
-        uint256 againstVotePower
-    );
-
-    event ProposalExecuted(uint256 indexed proposalId);
-
-
     function setUp() public {
         governance = makeAddr("governance");
         governanceSettings = makeAddr("governanceSettings");
@@ -352,7 +339,7 @@ contract PollingFoundationTest is Test {
         vm.startPrank(voters[2]);
         vm.expectEmit();
         uint256 vpVoter2 = pollingFoundation.getVotes(voters[2], vpBlock);
-        emit VoteCast(
+        emit IGovernor.VoteCast(
             voters[2],
             proposalId,
             uint8(GovernorVotes.VoteType.Against),
@@ -407,7 +394,15 @@ contract PollingFoundationTest is Test {
 
         // voter0 votes by sig
         vm.expectEmit();
-        emit VoteCast(voters[0], proposalId, uint8(GovernorVotes.VoteType.Against), 100, "", 0, 100);
+        emit IGovernor.VoteCast(
+            voters[0],
+            proposalId,
+            uint8(GovernorVotes.VoteType.Against),
+            100,
+            "",
+            0,
+            100
+        );
         pollingFoundation.castVoteBySig(proposalId, uint8(GovernorVotes.VoteType.Against), v, r, s);
 
         assertTrue(pollingFoundation.hasVoted(proposalId, voters[0]));
@@ -444,7 +439,7 @@ contract PollingFoundationTest is Test {
         vm.warp(block.timestamp + 3600);
         vm.prank(proposers[0]);
         vm.expectEmit();
-        emit ProposalExecuted(proposalId);
+        emit IGovernor.ProposalExecuted(proposalId);
         pollingFoundation.execute(proposalId);
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Executed));
     }

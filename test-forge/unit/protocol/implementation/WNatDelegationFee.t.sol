@@ -33,7 +33,6 @@ contract WNatDelegationFeeTest is Test {
         voter = makeAddr("voter");
     }
 
-
     function testConstructorOffsetTooSmall() public {
         vm.expectRevert("offset too small");
         new WNatDelegationFee(addressUpdater, 1, 2000);

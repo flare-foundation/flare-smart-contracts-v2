@@ -64,11 +64,6 @@ contract FtsoV2Test is Test {
 
     address private voter;
 
-    event CustomFeedAdded(bytes21 indexed feedId, IICustomFeed customFeed);
-    event CustomFeedReplaced(bytes21 indexed feedId, IICustomFeed oldCustomFeed, IICustomFeed newCustomFeed);
-    event CustomFeedRemoved(bytes21 indexed feedId);
-    event FeedIdChanged(bytes21 indexed oldFeedId, bytes21 indexed newFeedId);
-
     function setUp() public {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
@@ -455,7 +450,7 @@ contract FtsoV2Test is Test {
         assertEq(ftsoV2.getSupportedFeedIds().length, 0);
         assertEq(ftsoV2.getCustomFeeds().length, 0);
         vm.expectEmit();
-        emit CustomFeedAdded(sflrFeedId, sFlrCustomFeed);
+        emit FtsoV2.CustomFeedAdded(sflrFeedId, sFlrCustomFeed);
         _addSFlrCustomFeed();
         assertEq(ftsoV2.getSupportedFeedIds().length, 1);
         assertEq(ftsoV2.getCustomFeeds()[0].feedId, sflrFeedId);
@@ -504,7 +499,7 @@ contract FtsoV2Test is Test {
         customFeeds[0] = newFeed;
         vm.prank(governance);
         vm.expectEmit();
-        emit CustomFeedReplaced(sflrFeedId, sFlrCustomFeed, newFeed);
+        emit FtsoV2.CustomFeedReplaced(sflrFeedId, sFlrCustomFeed, newFeed);
         ftsoV2.replaceCustomFeeds(customFeeds);
         assertEq(ftsoV2.getCustomFeeds().length, 1);
         assertEq(ftsoV2.getCustomFeeds()[0].feedId, sflrFeedId);
@@ -821,7 +816,7 @@ contract FtsoV2Test is Test {
         feedIdChanges[0] = FtsoV2Interface.FeedIdChange(bytes21("oldSGB"), bytes21("SGB"));
         vm.prank(governance);
         vm.expectEmit();
-        emit FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
+        emit FtsoV2Interface.FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
         ftsoV2.changeFeedIds(feedIdChanges);
 
         // calculate fee
@@ -845,9 +840,9 @@ contract FtsoV2Test is Test {
         feedIdChanges[1] = FtsoV2Interface.FeedIdChange(bytes21("oldBTC"), bytes21("BTC"));
         vm.prank(governance);
         vm.expectEmit();
-        emit FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
+        emit FtsoV2Interface.FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
         vm.expectEmit();
-        emit FeedIdChanged(feedIdChanges[1].oldFeedId, feedIdChanges[1].newFeedId);
+        emit FtsoV2Interface.FeedIdChanged(feedIdChanges[1].oldFeedId, feedIdChanges[1].newFeedId);
         ftsoV2.changeFeedIds(feedIdChanges);
         assertEq(ftsoV2.getFeedIdChanges().length, 2);
         assertEq(ftsoV2.getFeedIdChanges()[0].oldFeedId, bytes21("oldSGB"));
@@ -877,7 +872,7 @@ contract FtsoV2Test is Test {
         feedIdChanges[0] = FtsoV2Interface.FeedIdChange(bytes21("oldSGB"), bytes21(0));
         vm.prank(governance);
         vm.expectEmit();
-        emit FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
+        emit FtsoV2Interface.FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
         ftsoV2.changeFeedIds(feedIdChanges);
         assertEq(ftsoV2.getFeedIdChanges().length, 2);
         assertEq(ftsoV2.getFeedIdChanges()[0].oldFeedId, bytes21("oldETH"));
@@ -941,7 +936,7 @@ contract FtsoV2Test is Test {
         feedIdChanges[0] = FtsoV2Interface.FeedIdChange(bytes21("oldSGB"), bytes21("newSGB"));
         vm.prank(governance);
         vm.expectEmit();
-        emit FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
+        emit FtsoV2Interface.FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
         ftsoV2.changeFeedIds(feedIdChanges);
         assertEq(ftsoV2.getFeedIdChanges().length, 1);
         assertEq(ftsoV2.getFeedIdChanges()[0].oldFeedId, bytes21("oldSGB"));
@@ -990,7 +985,7 @@ contract FtsoV2Test is Test {
         IICustomFeed[] memory customFeeds = new IICustomFeed[](1);
         customFeeds[0] = sFlrCustomFeed;
         vm.expectEmit();
-        emit CustomFeedAdded(sflrFeedId, sFlrCustomFeed);
+        emit FtsoV2.CustomFeedAdded(sflrFeedId, sFlrCustomFeed);
         vm.prank(governance);
         ftsoV2.upgradeToAndCall(
             address(newFtsoV2Impl),

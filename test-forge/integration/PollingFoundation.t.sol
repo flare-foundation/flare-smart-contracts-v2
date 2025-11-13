@@ -63,19 +63,6 @@ contract PollingFoundationIntegrationTest is Test {
     uint64(REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS) * VOTING_EPOCH_DURATION_SEC;
     uint24 private constant PPM_MAX = 1e6;
 
-    event VoteCast(
-        address indexed voter,
-        uint256 indexed proposalId,
-        uint8 support,
-        uint256 votePower,
-        string reason,
-        uint256 forVotePower,
-        uint256 againstVotePower
-    );
-
-    event ProposalExecuted(uint256 indexed proposalId);
-
-
     function setUp() public {
         vm.warp(300000);
         vm.roll(150000);
@@ -356,7 +343,7 @@ contract PollingFoundationIntegrationTest is Test {
         // voter 2 wrapped additional funds before vote power block
         vm.prank(voters[2]);
         vm.expectEmit();
-        emit VoteCast(voters[2], proposalId, uint8(GovernorVotes.VoteType.Against), 500, "", 300, 500);
+        emit IGovernor.VoteCast(voters[2], proposalId, uint8(GovernorVotes.VoteType.Against), 500, "", 300, 500);
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.Against));
         vm.prank(voters[3]);
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.For));
@@ -434,7 +421,7 @@ contract PollingFoundationIntegrationTest is Test {
         vm.roll(block.number + 200);
         vm.prank(voters[0]);
         vm.expectEmit();
-        emit VoteCast(voters[0], proposalId, uint8(GovernorVotes.VoteType.For), 0, "", 0, 0);
+        emit IGovernor.VoteCast(voters[0], proposalId, uint8(GovernorVotes.VoteType.For), 0, "", 0, 0);
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.For));
         vm.prank(voters[1]);
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.For));

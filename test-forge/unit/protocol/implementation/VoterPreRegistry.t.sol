@@ -9,6 +9,8 @@ import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/
 import { IEntityManager } from "../../../../contracts/userInterfaces/IEntityManager.sol";
 import { IFlareSystemsManager } from "../../../../contracts/userInterfaces/IFlareSystemsManager.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { IVoterPreRegistry } from "../../../../contracts/userInterfaces/IVoterPreRegistry.sol";
+import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -41,20 +43,6 @@ contract VoterPreRegistryTest is Test {
     uint256[] private initialVotersWeights;
 
     uint256 private constant UINT16_MAX = type(uint16).max;
-
-    event VoterPreRegistered(address indexed voter, uint32 indexed rewardEpochId);
-    event VoterRegistrationFailed(address indexed voter, uint32 indexed rewardEpochId);
-    event VoterRegistered(
-        address indexed voter,
-        uint32 indexed rewardEpochId,
-        address indexed signingPolicyAddress,
-        address submitAddress,
-        address submitSignaturesAddress,
-        PublicKey publicKey,
-        uint256 registrationWeight,
-        Signature signature
-    );
-    event VoterRemoved(address indexed voter, uint32 indexed rewardEpochId);
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -157,7 +145,7 @@ contract VoterPreRegistryTest is Test {
         Signature memory signature = _createSigningPolicyAddressSignature(0, 11);
 
         vm.expectEmit();
-        emit VoterPreRegistered(initialVoters[0], 11);
+        emit IVoterPreRegistry.VoterPreRegistered(initialVoters[0], 11);
 
         voterPreRegistry.preRegisterVoter(initialVoters[0], signature);
         Signature memory signature2 = voterPreRegistry.getVoterSignature(11, initialVoters[0]);
@@ -178,7 +166,7 @@ contract VoterPreRegistryTest is Test {
         Signature memory signature = _createSigningPolicyAddressSignature(0, 11);
 
         vm.expectEmit();
-        emit VoterPreRegistered(initialVoters[0], 11);
+        emit IVoterPreRegistry.VoterPreRegistered(initialVoters[0], 11);
         voterPreRegistry.preRegisterVoter(initialVoters[0], signature);
 
         Signature memory signature2 = voterPreRegistry.getVoterSignature(11, initialVoters[0]);
@@ -200,7 +188,7 @@ contract VoterPreRegistryTest is Test {
             _mockGetVoterForSigningPolicyAddress(initialSigningPolicyAddresses[i], 90, initialVoters[i]);
             Signature memory signature = _createSigningPolicyAddressSignature(i, 11);
             initialVotersSignatures[i] = signature;
-            emit VoterPreRegistered(initialVoters[i], 11);
+            emit IVoterPreRegistry.VoterPreRegistered(initialVoters[i], 11);
             voterPreRegistry.preRegisterVoter(initialVoters[i], signature);
         }
     }
@@ -222,7 +210,7 @@ contract VoterPreRegistryTest is Test {
         _mockGetPublicKeyOfAt();
         for (uint256 i = 0; i < initialVoters.length; i++) {
             vm.expectEmit();
-            emit VoterRegistered(
+            emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
                 uint24(11),
                 initialSigningPolicyAddresses[i],
@@ -258,10 +246,10 @@ contract VoterPreRegistryTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             if (i == 3) {
                 vm.expectEmit();
-                emit VoterRemoved(initialVoters[0], 11);
+                emit IVoterRegistry.VoterRemoved(initialVoters[0], 11);
             }
             vm.expectEmit();
-            emit VoterRegistered(
+            emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
                 11,
                 initialSigningPolicyAddresses[i],
@@ -291,7 +279,7 @@ contract VoterPreRegistryTest is Test {
             _mockGetVoterForSigningPolicyAddress(initialSigningPolicyAddresses[i], 90, initialVoters[i]);
             Signature memory signature = _createSigningPolicyAddressSignature(i, 11);
             initialVotersSignatures[i] = signature;
-            emit VoterPreRegistered(initialVoters[i], 11);
+            emit IVoterPreRegistry.VoterPreRegistered(initialVoters[i], 11);
             voterPreRegistry.preRegisterVoter(initialVoters[i], signature);
         }
 
@@ -314,7 +302,7 @@ contract VoterPreRegistryTest is Test {
         i = 3;
         while (i > 0) {
             vm.expectEmit();
-            emit VoterRegistered(
+            emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
                 11,
                 initialSigningPolicyAddresses[i],
@@ -328,7 +316,7 @@ contract VoterPreRegistryTest is Test {
         }
         // registration for last voter should fail because max voters is 3 and the last has lowest weight
         vm.expectEmit();
-        emit VoterRegistrationFailed(initialVoters[0], 11);
+        emit IVoterPreRegistry.VoterRegistrationFailed(initialVoters[0], 11);
         vm.prank(mockFlareSystemsManager);
         voterPreRegistry.triggerVoterRegistration(11);
         assertEq(voterRegistry.getNumberOfRegisteredVoters(11), 3);

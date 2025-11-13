@@ -11,11 +11,13 @@ import { IFlareSystemsManager } from "../../../../contracts/userInterfaces/IFlar
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
+import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 // solhint-disable-next-line max-states-count
 contract VoterRegistryTest is Test {
+    uint256 private constant MAX_VOTERS = 300; // aligned with Relay contract
 
     VoterRegistry private voterRegistry;
     address private mockFlareSystemsManager;
@@ -43,19 +45,6 @@ contract VoterRegistryTest is Test {
     uint256 private wNatTotalVP;
 
     uint256 private constant UINT16_MAX = type(uint16).max;
-
-    event BeneficiaryChilled(bytes20 indexed beneficiary, uint32 untilRewardEpochId);
-    event VoterRemoved(address indexed voter, uint32 indexed rewardEpochId);
-    event VoterRegistered(
-        address indexed voter,
-        uint32 indexed rewardEpochId,
-        address indexed signingPolicyAddress,
-        address submitAddress,
-        address submitSignaturesAddress,
-        PublicKey publicKey,
-        uint256 registrationWeight,
-        Signature signature
-    );
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -175,7 +164,7 @@ contract VoterRegistryTest is Test {
         vm.prank(governance);
         _mockGetCurrentEpochId(1);
         vm.expectEmit();
-        emit BeneficiaryChilled(bytes20(initialVoters[0]), 4);
+        emit IVoterRegistry.BeneficiaryChilled(bytes20(initialVoters[0]), 4);
         bytes20[] memory voters = new bytes20[](1);
         voters[0] = bytes20(initialVoters[0]);
         voterRegistry.chill(voters, 2);
@@ -191,21 +180,34 @@ contract VoterRegistryTest is Test {
         beneficiaryList[1] = nodeId;
 
         vm.expectEmit();
-        emit BeneficiaryChilled(bytes20(initialVoters[0]), 4);
+        emit IVoterRegistry.BeneficiaryChilled(bytes20(initialVoters[0]), 4);
         vm.expectEmit();
-        emit BeneficiaryChilled(nodeId, 4);
+        emit IVoterRegistry.BeneficiaryChilled(nodeId, 4);
         voterRegistry.chill(beneficiaryList, 2);
+    }
+
+    function testMaxVotersRevertOnlyGovernance() public {
+        vm.expectRevert("only governance");
+        voterRegistry.setMaxVoters(10);
+    }
+
+    function testSetMaxVotersRevertTooHigh() public {
+        _mockSigningPolicyMinNumberOfVoters(3);
+        vm.startPrank(governance);
+        vm.expectRevert("_maxVoters too high");
+        voterRegistry.setMaxVoters(MAX_VOTERS + 1);
+    }
+
+    function testSetMaxVotersRevertTooLow() public {
+        _mockSigningPolicyMinNumberOfVoters(3);
+        vm.startPrank(governance);
+        vm.expectRevert("_maxVoters too low");
+        voterRegistry.setMaxVoters(2);
     }
 
     function testSetMaxVoters() public {
         _mockSigningPolicyMinNumberOfVoters(3);
         vm.startPrank(governance);
-        vm.expectRevert("_maxVoters too high");
-        voterRegistry.setMaxVoters(UINT16_MAX + 1);
-
-        vm.expectRevert("_maxVoters too low");
-        voterRegistry.setMaxVoters(2);
-
         assertEq(voterRegistry.maxVoters(), 4);
         voterRegistry.setMaxVoters(100);
         assertEq(voterRegistry.maxVoters(), 100);
@@ -459,7 +461,7 @@ contract VoterRegistryTest is Test {
         voterRegistry.chill(voters, 2);
 
         vm.expectEmit();
-        emit VoterRegistered(
+        emit IVoterRegistry.VoterRegistered(
             initialVoters[0],
             uint24(1),
             initialSigningPolicyAddresses[0],
@@ -535,7 +537,7 @@ contract VoterRegistryTest is Test {
         for (uint256 i = 0; i < initialVoters.length - 1; i++) {
             signature = _createSigningPolicyAddressSignature(i, 1);
             vm.expectEmit();
-            emit VoterRegistered(
+            emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
                 uint24(1),
                 initialSigningPolicyAddresses[i],
@@ -573,7 +575,7 @@ contract VoterRegistryTest is Test {
         // voter 1 has non-zero public key
         signature = _createSigningPolicyAddressSignature(0, 1);
         vm.expectEmit();
-        emit VoterRegistered(
+        emit IVoterRegistry.VoterRegistered(
             initialVoters[0],
             uint24(1),
             initialSigningPolicyAddresses[0],
@@ -598,7 +600,7 @@ contract VoterRegistryTest is Test {
         );
         signature = _createSigningPolicyAddressSignature(2, 1);
         vm.expectEmit();
-        emit VoterRegistered(
+        emit IVoterRegistry.VoterRegistered(
             initialVoters[2],
             uint24(1),
             initialSigningPolicyAddresses[2],
@@ -723,9 +725,107 @@ contract VoterRegistryTest is Test {
         Signature memory signature = _createSigningPolicyAddressSignature(3, 1);
 
         vm.expectEmit();
-        emit VoterRemoved(initialVoters[0], 1);
+        emit IVoterRegistry.VoterRemoved(initialVoters[0], 1);
         vm.expectEmit();
-        emit VoterRegistered(
+        emit IVoterRegistry.VoterRegistered(
+            initialVoters[3],
+            uint24(1),
+            initialSigningPolicyAddresses[3],
+            initialSubmitAddresses[3],
+            initialSubmitSignaturesAddresses[3],
+            PublicKey(initialPublicKeyParts1[3], initialPublicKeyParts2[3]),
+            initialVotersWeights[3],
+            signature
+        );
+        voterRegistry.registerVoter(initialVoters[3], signature);
+    }
+
+    // 2 voters have the same lowest weight -> remove the one that registered last
+    function testRemoveVoter2() public {
+        Signature memory signature;
+
+        _mockGetCurrentEpochId(0);
+        _mockGetVoterAddressesAt();
+        _mockGetDelegationAddressOfAt();
+        _mockGetPublicKeyOfAt();
+        _mockGetVoterRegistrationData(10, true);
+        _mockVoterWeights();
+        _mockSigningPolicyMinNumberOfVoters(3);
+        vm.prank(governance);
+        voterRegistry.setMaxVoters(4);
+        vm.prank(mockFlareSystemsManager);
+        voterRegistry.setNewSigningPolicyInitializationStartBlockNumber(1);
+
+        address voter = makeAddr("voter0DuplicateWeight");
+        (address signPolicyAddr, uint256 pk) = makeAddrAndKey("signingPolicyAddressVoter0DuplicateWeight");
+        uint256 voterWeight = initialVotersWeights[0]; // duplicate weight of voter 0 (lowest weight)
+
+        vm.mockCall(
+                mockEntityManager,
+                abi.encodeWithSelector(IEntityManager.getVoterAddressesAt.selector, voter),
+                abi.encode(
+                    IEntityManager.VoterAddresses(
+                        makeAddr("submitAddressVoter0DuplicateWeight"),
+                        makeAddr("submitSignaturesAddressVoter0DuplicateWeight"),
+                        signPolicyAddr
+                    )
+                )
+        );
+
+        vm.mockCall(
+                mockEntityManager,
+                abi.encodeWithSelector(IEntityManager.getPublicKeyOfAt.selector, voter),
+                abi.encode(
+                    keccak256(abi.encodePacked("publicKeyPart1Voter0DuplicateWeight")),
+                    keccak256(abi.encodePacked("publicKeyPart2Voter0DuplicateWeight"))
+                )
+        );
+
+        vm.mockCall(
+                mockFlareSystemsCalculator,
+                abi.encodeWithSelector(
+                    IIFlareSystemsCalculator.calculateRegistrationWeight.selector,voter),
+                abi.encode(voterWeight)
+        );
+
+        vm.mockCall(
+            mockEntityManager,
+            abi.encodeWithSelector(IEntityManager.getDelegationAddressOfAt.selector, voter),
+            abi.encode(makeAddr("delegationAddress"))
+        );
+
+
+        for (uint256 i = 0; i < initialVoters.length - 1; i++) {
+            signature = _createSigningPolicyAddressSignature(i, 1);
+            vm.expectEmit();
+            emit IVoterRegistry.VoterRegistered(
+                initialVoters[i],
+                uint24(1),
+                initialSigningPolicyAddresses[i],
+                initialSubmitAddresses[i],
+                initialSubmitSignaturesAddresses[i],
+                PublicKey(initialPublicKeyParts1[i], initialPublicKeyParts2[i]),
+                initialVotersWeights[i],
+                signature
+            );
+            voterRegistry.registerVoter(initialVoters[i], signature);
+        }
+
+        // add duplicate weight voter
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(pk, MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(1, voter))));
+        signature = Signature(v, r, s);
+        voterRegistry.registerVoter(voter, signature);
+
+        // add new voter and remove the last one added among those with lowest weight
+        // voter and initialVoters[0] have the same weight
+        // voter was added later -> it should be removed
+        signature = _createSigningPolicyAddressSignature(3, 1);
+
+        vm.expectEmit();
+        emit IVoterRegistry.VoterRemoved(voter, 1);
+        vm.expectEmit();
+        emit IVoterRegistry.VoterRegistered(
             initialVoters[3],
             uint24(1),
             initialSigningPolicyAddresses[3],
@@ -779,7 +879,7 @@ contract VoterRegistryTest is Test {
         // register
         signature = _createSigningPolicyAddressSignature(1, 1);
         vm.expectEmit();
-        emit VoterRegistered(
+        emit IVoterRegistry.VoterRegistered(
             initialVoters[1],
             uint24(1),
             initialSigningPolicyAddresses[1],

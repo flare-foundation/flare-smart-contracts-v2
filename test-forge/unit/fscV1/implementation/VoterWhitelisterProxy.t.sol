@@ -20,8 +20,6 @@ contract VoterWhitelisterProxyTest is Test {
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
-    event VoterRemovedFromWhitelist(address voter, uint256 ftsoIndex);
-
     function setUp() public {
         addressUpdater = makeAddr("addressUpdater");
 
@@ -76,7 +74,7 @@ contract VoterWhitelisterProxyTest is Test {
         // remove voters from whitelist for ftso with index 0
         for (uint256 i = 0; i < 100; i++) {
             vm.expectEmit();
-            emit VoterRemovedFromWhitelist(voters[i], 0);
+            emit VoterWhitelisterProxy.VoterRemovedFromWhitelist(voters[i], 0);
         }
         voterWhitelisterProxy.votersRemovedFromWhitelist(voters, 0);
         for (uint256 i = 0; i < 100; i++) {

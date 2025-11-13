@@ -8,6 +8,7 @@ import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/
 import { IRewardManager } from "../../../../contracts/userInterfaces/IRewardManager.sol";
 import { IEntityManager } from "../../../../contracts/userInterfaces/IEntityManager.sol";
 import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
+import { IPollingManagementGroup } from "../../../../contracts/userInterfaces/IPollingManagementGroup.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { RewardsV2Interface } from "../../../../contracts/userInterfaces/LTS/RewardsV2Interface.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -37,28 +38,6 @@ contract PollingManagementGroupTest is Test {
     address[] private members;
     address private proposer;
     address private proxyVoter;
-
-    event ManagementGroupProposalCreated(
-        uint256 indexed proposalId,
-        address proposer,
-        string description,
-        uint256 voteStartTime,
-        uint256 voteEndTime,
-        uint256 thresholdConditionBIPS,
-        uint256 majorityConditionBIPS,
-        address[] eligibleMembers,
-        bool accept
-    );
-    event VoteCast(
-        address indexed voter,
-        uint256 indexed proposalId,
-        uint8 support,
-        uint256 forVotePower,
-        uint256 againstVotePower
-    );
-    event ProposalCanceled(uint256 indexed proposalId);
-    event ManagementGroupMemberAdded(address addedMember);
-    event ManagementGroupMemberRemoved(address removedMember);
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -219,7 +198,7 @@ contract PollingManagementGroupTest is Test {
 
         vm.prank(proposer);
         vm.expectEmit();
-        emit ManagementGroupProposalCreated(
+        emit IPollingManagementGroup.ManagementGroupProposalCreated(
             1,
             proposer,
             "proposal1",
@@ -241,7 +220,7 @@ contract PollingManagementGroupTest is Test {
 
         vm.prank(proposer);
         vm.expectEmit();
-        emit ManagementGroupProposalCreated(
+        emit IPollingManagementGroup.ManagementGroupProposalCreated(
             1,
             proposer,
             "proposal1",
@@ -276,7 +255,7 @@ contract PollingManagementGroupTest is Test {
         vm.deal(proposer, 1 ether);
         vm.prank(proposer);
         vm.expectEmit();
-        emit ManagementGroupProposalCreated(
+        emit IPollingManagementGroup.ManagementGroupProposalCreated(
             2,
             proposer,
             "proposal2",
@@ -383,7 +362,7 @@ contract PollingManagementGroupTest is Test {
             votesFor++;
             vm.prank(voters[i]);
             vm.expectEmit();
-            emit VoteCast(voters[i], 1, 1, votesFor, 0);
+            emit IPollingManagementGroup.VoteCast(voters[i], 1, 1, votesFor, 0);
             pollingManagementGroup.castVote(1, 1);
         }
         for (uint256 i = 0; i < 2; i++) {
@@ -399,7 +378,7 @@ contract PollingManagementGroupTest is Test {
             votesAgainst++;
             vm.prank(voters[i]);
             vm.expectEmit();
-            emit VoteCast(voters[i], 1, 0, votesFor, votesAgainst);
+            emit IPollingManagementGroup.VoteCast(voters[i], 1, 0, votesFor, votesAgainst);
             pollingManagementGroup.castVote(1, 0);
         }
         (votesFor, getVotesAgainst) = pollingManagementGroup.getProposalVotes(1);
@@ -430,11 +409,11 @@ contract PollingManagementGroupTest is Test {
         // voters 1 and 2 vote (in favor)
         vm.prank(voters[0]);
         vm.expectEmit();
-        emit VoteCast(voters[0], 1, 1, 1, 0);
+        emit IPollingManagementGroup.VoteCast(voters[0], 1, 1, 1, 0);
         pollingManagementGroup.castVote(1, 1);
         vm.prank(voters[1]);
         vm.expectEmit();
-        emit VoteCast(voters[1], 1, 1, 2, 0);
+        emit IPollingManagementGroup.VoteCast(voters[1], 1, 1, 2, 0);
         pollingManagementGroup.castVote(1, 1);
         for (uint256 i = 0; i < 2; i++) {
             assertEq(pollingManagementGroup.hasVoted(1, voters[i]), true);
@@ -446,7 +425,7 @@ contract PollingManagementGroupTest is Test {
         // voter 3 votes against; threshold is reached and majority is in favor
         vm.prank(voters[2]);
         vm.expectEmit();
-        emit VoteCast(voters[2], 1, 0, 2, 1);
+        emit IPollingManagementGroup.VoteCast(voters[2], 1, 0, 2, 1);
         pollingManagementGroup.castVote(1, 0);
         (votesFor, votesAgainst) = pollingManagementGroup.getProposalVotes(1);
         assertEq(votesFor, 2);
@@ -476,11 +455,11 @@ contract PollingManagementGroupTest is Test {
         // voters 1 and 2 vote (in favor)
         vm.prank(voters[0]);
         vm.expectEmit();
-        emit VoteCast(voters[0], 1, 1, 1, 0);
+        emit IPollingManagementGroup.VoteCast(voters[0], 1, 1, 1, 0);
         pollingManagementGroup.castVote(1, 1);
         vm.prank(voters[1]);
         vm.expectEmit();
-        emit VoteCast(voters[1], 1, 1, 2, 0);
+        emit IPollingManagementGroup.VoteCast(voters[1], 1, 1, 2, 0);
         pollingManagementGroup.castVote(1, 1);
         for (uint256 i = 0; i < 2; i++) {
             assertEq(pollingManagementGroup.hasVoted(1, voters[i]), true);
@@ -560,7 +539,7 @@ contract PollingManagementGroupTest is Test {
         testPropose();
         vm.prank(proposer);
         vm.expectEmit();
-        emit ProposalCanceled(1);
+        emit IPollingManagementGroup.ProposalCanceled(1);
         pollingManagementGroup.cancel(1);
         assertEq(uint256(pollingManagementGroup.state(1)), 0);
     }
@@ -646,7 +625,7 @@ contract PollingManagementGroupTest is Test {
         // cancel proposal by proxy
         vm.prank(proxyVoter);
         vm.expectEmit();
-        emit ProposalCanceled(1);
+        emit IPollingManagementGroup.ProposalCanceled(1);
         pollingManagementGroup.cancel(1);
         assertEq(uint256(pollingManagementGroup.state(1)), 0);
     }
@@ -660,7 +639,7 @@ contract PollingManagementGroupTest is Test {
         // voters[0] votes as proxy
         vm.prank(proxyVoter);
         vm.expectEmit();
-        emit VoteCast(voters[0], 1, 1, 1, 0);
+        emit IPollingManagementGroup.VoteCast(voters[0], 1, 1, 1, 0);
         pollingManagementGroup.castVote(1, 1);
         assertEq(pollingManagementGroup.hasVoted(1, voters[0]), true);
 
@@ -683,7 +662,7 @@ contract PollingManagementGroupTest is Test {
         // voters[1] votes through proxy
         vm.prank(proxyVoter);
         vm.expectEmit();
-        emit VoteCast(voters[1], 1, 1, 2, 0);
+        emit IPollingManagementGroup.VoteCast(voters[1], 1, 1, 2, 0);
         pollingManagementGroup.castVote(1, 1);
         assertEq(pollingManagementGroup.hasVoted(1, voters[1]), true);
 
@@ -713,21 +692,21 @@ contract PollingManagementGroupTest is Test {
         // it votes in its own name and not in the name of voters[0]
         vm.prank(proxyVoter);
         vm.expectEmit();
-        emit VoteCast(proxyVoter, 1, 1, 1, 0);
+        emit IPollingManagementGroup.VoteCast(proxyVoter, 1, 1, 1, 0);
         pollingManagementGroup.castVote(1, 1);
         assertEq(pollingManagementGroup.hasVoted(1, proxyVoter), true);
 
         // voters[0] votes
         vm.prank(voters[0]);
         vm.expectEmit();
-        emit VoteCast(voters[0], 1, 1, 2, 0);
+        emit IPollingManagementGroup.VoteCast(voters[0], 1, 1, 2, 0);
         pollingManagementGroup.castVote(1, 1);
         assertEq(pollingManagementGroup.hasVoted(1, voters[0]), true);
 
         // voters[1] votes
         vm.prank(voters[2]);
         vm.expectEmit();
-        emit VoteCast(voters[2], 1, 1, 3, 0);
+        emit IPollingManagementGroup.VoteCast(voters[2], 1, 1, 3, 0);
         pollingManagementGroup.castVote(1, 1);
         assertEq(pollingManagementGroup.hasVoted(1, voters[1]), true);
 
@@ -812,7 +791,7 @@ contract PollingManagementGroupTest is Test {
 
         vm.prank(maintainer);
         vm.expectEmit();
-        emit ManagementGroupProposalCreated(
+        emit IPollingManagementGroup.ManagementGroupProposalCreated(
             1,
             maintainer,
             "rejection based proposal",
@@ -834,11 +813,11 @@ contract PollingManagementGroupTest is Test {
         // voters 1 and 2 vote (in favor)
         vm.prank(voters[0]);
         vm.expectEmit();
-        emit VoteCast(voters[0], 1, 1, 1, 0);
+        emit IPollingManagementGroup.VoteCast(voters[0], 1, 1, 1, 0);
         pollingManagementGroup.castVote(1, 1);
         vm.prank(voters[1]);
         vm.expectEmit();
-        emit VoteCast(voters[1], 1, 1, 2, 0);
+        emit IPollingManagementGroup.VoteCast(voters[1], 1, 1, 2, 0);
         pollingManagementGroup.castVote(1, 1);
         for (uint256 i = 0; i < 2; i++) {
             assertEq(pollingManagementGroup.hasVoted(1, voters[i]), true);
@@ -850,11 +829,11 @@ contract PollingManagementGroupTest is Test {
         // voters 3 and 4 votes against; threshold is reached but majority is not against
         vm.prank(voters[2]);
         vm.expectEmit();
-        emit VoteCast(voters[2], 1, 0, 2, 1);
+        emit IPollingManagementGroup.VoteCast(voters[2], 1, 0, 2, 1);
         pollingManagementGroup.castVote(1, 0);
         vm.prank(voters[3]);
         vm.expectEmit();
-        emit VoteCast(voters[3], 1, 0, 2, 2);
+        emit IPollingManagementGroup.VoteCast(voters[3], 1, 0, 2, 2);
         pollingManagementGroup.castVote(1, 0);
         (votesFor, votesAgainst) = pollingManagementGroup.getProposalVotes(1);
         assertEq(votesFor, 2);
@@ -872,11 +851,11 @@ contract PollingManagementGroupTest is Test {
         // voters 1 and 2 vote (against)
         vm.prank(voters[0]);
         vm.expectEmit();
-        emit VoteCast(voters[0], 1, 0, 0, 1);
+        emit IPollingManagementGroup.VoteCast(voters[0], 1, 0, 0, 1);
         pollingManagementGroup.castVote(1, 0);
         vm.prank(voters[1]);
         vm.expectEmit();
-        emit VoteCast(voters[1], 1, 0, 0, 2);
+        emit IPollingManagementGroup.VoteCast(voters[1], 1, 0, 0, 2);
         pollingManagementGroup.castVote(1, 0);
         for (uint256 i = 0; i < 2; i++) {
             assertEq(pollingManagementGroup.hasVoted(1, voters[i]), true);
@@ -901,13 +880,13 @@ contract PollingManagementGroupTest is Test {
             vpAgainst += 1;
             vm.prank(voters[i]);
             vm.expectEmit();
-            emit VoteCast(voters[i], 1, 0, 0, vpAgainst);
+            emit IPollingManagementGroup.VoteCast(voters[i], 1, 0, 0, vpAgainst);
             pollingManagementGroup.castVote(1, 0);
         }
         // voter 4 votes in favor
         vm.prank(voters[3]);
         vm.expectEmit();
-        emit VoteCast(voters[3], 1, 1, 1, 3);
+        emit IPollingManagementGroup.VoteCast(voters[3], 1, 1, 1, 3);
         pollingManagementGroup.castVote(1, 1);
         for (uint256 i = 0; i < 4; i++) {
             assertEq(pollingManagementGroup.hasVoted(1, voters[i]), true);
@@ -1035,7 +1014,7 @@ contract PollingManagementGroupTest is Test {
         assertEq(pollingManagementGroup.isMember(voters[6]), false);
         vm.startPrank(voters[6]);
         vm.expectEmit();
-        emit ManagementGroupMemberAdded(voters[6]);
+        emit IPollingManagementGroup.ManagementGroupMemberAdded(voters[6]);
         pollingManagementGroup.addMember();
         assertEq(pollingManagementGroup.isMember(voters[6]), true);
     }
@@ -1073,7 +1052,7 @@ contract PollingManagementGroupTest is Test {
         }
         assertEq(pollingManagementGroup.isMember(voters[0]), true);
         vm.expectEmit();
-        emit ManagementGroupMemberRemoved(voters[0]);
+        emit IPollingManagementGroup.ManagementGroupMemberRemoved(voters[0]);
         pollingManagementGroup.removeMember(voters[0]);
         assertEq(pollingManagementGroup.isMember(voters[0]), false);
     }
@@ -1096,7 +1075,7 @@ contract PollingManagementGroupTest is Test {
         }
         assertEq(pollingManagementGroup.isMember(voters[0]), true);
         vm.expectEmit();
-        emit ManagementGroupMemberRemoved(voters[0]);
+        emit IPollingManagementGroup.ManagementGroupMemberRemoved(voters[0]);
         pollingManagementGroup.removeMember(voters[0]);
         assertEq(pollingManagementGroup.isMember(voters[0]), false);
     }
@@ -1305,7 +1284,7 @@ contract PollingManagementGroupTest is Test {
         _mockChilledUntilRewardEpochId(voters[1], 15);
         vm.warp(7 * DAY_TO_SECONDS);
         vm.expectEmit();
-        emit ManagementGroupMemberRemoved(voters[0]);
+        emit IPollingManagementGroup.ManagementGroupMemberRemoved(voters[0]);
         pollingManagementGroup.removeMember(voters[0]);
 
         // move to the reward epoch 20

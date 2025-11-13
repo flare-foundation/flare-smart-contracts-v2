@@ -13,13 +13,9 @@ contract SubmissionTest is Test {
     address[] private users;
 
     bytes32[] private nameHashes;
-
     address[] private addresses;
-
     address[] private emptyAddresses;
-
     address private mockRelay;
-
 
     function setUp() public {
         submission = new Submission(

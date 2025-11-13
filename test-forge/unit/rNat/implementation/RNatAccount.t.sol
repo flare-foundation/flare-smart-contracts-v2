@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { RNatAccount } from "../../../../contracts/rNat/implementation/RNatAccount.sol";
 import { IIClaimSetupManager } from "../../../../contracts/protocol/interface/IIClaimSetupManager.sol";
 import { IRNat } from "../../../../contracts/userInterfaces/IRNat.sol";
+import { IRNatAccount } from "../../../../contracts/userInterfaces/IRNatAccount.sol";
 import { IWNatMock } from "../../../mock/IWNatMock.sol";
 import { ERC20Mock } from "../../../../contracts/mock/ERC20Mock.sol";
 import { IClaimSetupManager } from "@flarenetwork/flare-periphery-contracts/flare/IClaimSetupManager.sol";
@@ -23,8 +24,6 @@ contract RNatAccountTest is Test {
     address private governance;
     IIVPContract private vpContract;
     IIGovernanceVotePower private governanceVotePower;
-
-    event ClaimExecutorsSet(address[] executors);
 
     function setUp() public {
         rNatAccount = new RNatAccount();
@@ -154,7 +153,7 @@ contract RNatAccountTest is Test {
 
         vm.prank(address(mockRNat));
         vm.expectEmit();
-        emit ClaimExecutorsSet(executors);
+        emit IRNatAccount.ClaimExecutorsSet(executors);
         rNatAccount.setClaimExecutors(claimSetupManager, executors);
         // 1000 is sent back to owner
         assertEq(owner.balance, 1000 + balanceBefore);
@@ -179,7 +178,7 @@ contract RNatAccountTest is Test {
 
         vm.prank(address(mockRNat));
         vm.expectEmit();
-        emit ClaimExecutorsSet(executorsWithOwner);
+        emit IRNatAccount.ClaimExecutorsSet(executorsWithOwner);
         rNatAccount.setClaimExecutors(claimSetupManager, executors);
     }
 
