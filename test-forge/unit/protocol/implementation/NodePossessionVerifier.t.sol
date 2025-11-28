@@ -3,15 +3,22 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/Test.sol";
 import { NodePossessionVerifier } from "../../../../contracts/protocol/implementation/NodePossessionVerifier.sol";
+import { MockP256Controller } from "../../../mock/MockP256Controller.sol";
 
 // solhint-disable max-line-length
 contract NodePossessionVerifierTest is Test {
     NodePossessionVerifier private nodePossessionVerifier;
     bytes private certificateRaw;
     bytes private signature;
+    MockP256Controller private p256Controller;
 
     function setUp() public {
         nodePossessionVerifier = new NodePossessionVerifier();
+        // deploy controller with default success and etch to fixed address used by mock P256
+        p256Controller = new MockP256Controller(true);
+        vm.etch(0x00000000000000000000000000000000000000A1, address(p256Controller).code);
+        // initialize result storage (slot 0) at etched controller address to true
+        vm.store(0x00000000000000000000000000000000000000A1, bytes32(0), bytes32(uint256(1)));
     }
 
     function testVerifyNodePossessionRSA() public {
@@ -76,8 +83,12 @@ contract NodePossessionVerifierTest is Test {
         bytes20 nodeId = hex"bb3df2038a1a3561656816b2e7133232f3e61a42";
         certificateRaw = hex"308201103081b7a003020102020100300a06082a8648ce3d04030230003020170d3939313233313030303030305a180f32313235313131323135313531305a30003059301306072a8648ce3d020106082a8648ce3d03010703420004ad718eb689e3687ca9cb62e392511d7deda15fd02f38e462e637d31601a9d26de97411c4e538b97bfbb5bbf2f827d5fd52d5e70a545eb235ba273b331753ea05a320301e300e0603551d0f0101ff040403020780300c0603551d130101ff04023000300a06082a8648ce3d04030203480030450220617f3abda239a27e565956e7c9f0d6c01d2603bf84f277d98a22973138e2fa190221009dbaa257992342612416f2c04f7140c9140955cb67d597899745d9684a9a1d23";
         signature = hex"3045022100be9658e7d3d641b8c042b218f802e4ba036093c3ff0b1f8a7656d978779c6b570220589f3bbe0f419c78bc8949656ea110bf61d930e8ab56612ec20b773ed73cdc65";
+        // Force mock verify to return false by setting controller storage slot 0 to 0
+        vm.store(0x00000000000000000000000000000000000000A1, bytes32(0), bytes32(uint256(0)));
         vm.expectRevert("invalid signature");
         nodePossessionVerifier.verifyNodePossession(voter, nodeId, certificateRaw, signature);
+        // Restore controller outcome to true for subsequent tests
+        vm.store(0x00000000000000000000000000000000000000A1, bytes32(0), bytes32(uint256(1)));
     }
 
     //// extractPublicKeyFromRawCertificate tests

@@ -29,3 +29,9 @@ songbird = "${SONGBIRD_RPC}"
 coston2 = "${COSTON2_RPC}"
 coston = "${COSTON2_RPC}"
 staging = "${STAGING_RPC}"
+
+[profile.coverage]
+# Remap OZ P256 library to mock library to avoid stack to deep in coverage
+remappings = [
+  "@openzeppelin/contracts/utils/cryptography/P256.sol=contracts/mock/MockP256.sol"
+]

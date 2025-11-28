@@ -369,6 +369,8 @@ const config: HardhatUserConfig = {
             enabled: true,
             runs: 200,
           },
+          // enable IR to avoid stack-too-deep in OZ P256 library
+          viaIR: true,
         },
       },
       {

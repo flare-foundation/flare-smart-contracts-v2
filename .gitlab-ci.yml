@@ -233,7 +233,7 @@ coverage-forge:
   - forge install --no-git
   - forge build
   script:
-  - forge coverage --report summary --report lcov
+  - FOUNDRY_PROFILE=coverage forge coverage --report summary --report lcov
   artifacts:
     expire_in: 30 days
     paths:
