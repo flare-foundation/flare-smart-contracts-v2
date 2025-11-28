@@ -369,8 +369,8 @@ const config: HardhatUserConfig = {
             enabled: true,
             runs: 200,
           },
-          // enable IR to avoid stack-too-deep in OZ P256 library
-          viaIR: true,
+          // keep viaIR off globally to avoid RNat Yul issues
+          viaIR: false,
         },
       },
       {
@@ -391,6 +391,30 @@ const config: HardhatUserConfig = {
       "@gnosis.pm/mock-contract/contracts/MockContract.sol": {
         version: "0.6.12",
         settings: {},
+      },
+      // enable IR only for files that require deeper stack handling (contracts in P256 usage path)
+      "@openzeppelin/contracts/utils/cryptography/P256.sol": {
+        version: "0.8.30",
+        settings: {
+          evmVersion: "cancun",
+          optimizer: {
+            enabled: true,
+            runs: 200
+          },
+          viaIR: true
+        },
+      },
+      // contracts that imports P256
+      "contracts/protocol/implementation/NodePossessionVerifier.sol": {
+        version: "0.8.30",
+        settings: {
+          evmVersion: "cancun",
+          optimizer: {
+            enabled: true,
+            runs: 200
+          },
+          viaIR: true
+        },
       },
       // EXTRA_OVERRIDES
     },
