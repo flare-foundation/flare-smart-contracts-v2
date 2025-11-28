@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import { FtsoV2Interface } from "../../userInterfaces/LTS/FtsoV2Interface.sol";
 import { IFastUpdater } from "../../userInterfaces/IFastUpdater.sol";
