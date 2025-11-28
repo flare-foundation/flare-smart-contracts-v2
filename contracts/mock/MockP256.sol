@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.20 <0.9;
+pragma solidity ^0.8.20;
 
 interface IP256Controller {
     function shouldVerify(
