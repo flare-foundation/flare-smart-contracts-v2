@@ -17,7 +17,7 @@
     "---------TEST---SCRIPTS": "",
     "test_unit_hh": "env TEST_PATH=./test/unit yarn hardhat test --network hardhat",
     "test_integration_hh": "env TEST_PATH=./test/integration yarn hardhat test --network hardhat",
-    "coverage": "env NODE_OPTIONS=\"--max-old-space-size=16384\" yarn hardhat coverage --solcoverjs ./.solcover.js --testfiles \"test\"",
+    "coverage": "env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn hardhat coverage --solcoverjs ./.solcover.js --testfiles \"test\"",
     "coverage-forge": "forge coverage --report lcov && node scripts/forge-lcov-prune.js && genhtml lcov.info.pruned --branch-coverage --output-dir coverage-forge",
     "---------COMPILE---SCRIPTS": "",
     "clean": "env rm -rf cache artifacts cache-forge artifacts-forge dist typechain typechain-truffle typechain-web3",

@@ -54,7 +54,10 @@ const SCALE = 1 + RANGE / SAMPLE_SIZE;
 const RANGE_INCREASE_PRICE = BigInt(10) ** BigInt(24);
 const SAMPLE_SIZE_INCREASE_PRICE = 1425;
 
-const NUM_FEEDS: number = 1000;
+const COVERAGE = process.env.COVERAGE === "1";
+// coverage mode injects extra instrumentation (code) increasing gas, CPU and memory usage
+// large feed loops magnify the overhead; reduce number of feeds when COVERAGE=1
+const NUM_FEEDS: number = COVERAGE ? 200 : 1000;
 const FEED_IDS = [
   FtsoConfigurations.encodeFeedId({ category: 1, name: "BTC/USD" }),
   FtsoConfigurations.encodeFeedId({ category: 1, name: "ETH/USD" }),
@@ -364,7 +367,9 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
                 from: accounts[0],
               });
               const gasUsed = (tx.receipt as { gasUsed: number }).gasUsed;
-              expect(gasUsed).to.be.lessThan(300000);
+              if (!COVERAGE) {
+                expect(gasUsed).to.be.lessThan(300000);
+              }
               console.log(`Gas used for submitting updates: ${gasUsed}`);
               expectEvent(tx, "FastUpdateFeedsSubmitted", { signingPolicyAddress: voters[i] });
               expect((await fastUpdater.numberOfUpdatesInBlock(await web3.eth.getBlockNumber())).toNumber()).to.be.gt(
@@ -431,7 +436,9 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       const tx = await fastUpdater.daemonize({
         from: flareDaemon,
       });
-      expect((tx.receipt as { gasUsed: number }).gasUsed).to.be.lessThan(4000000);
+      if (!COVERAGE) {
+        expect((tx.receipt as { gasUsed: number }).gasUsed).to.be.lessThan(4000000);
+      }
 
       // set addresses that can fetch the feeds for free
       await fastUpdater.setFreeFetchAddresses([accounts[0], accounts[123]], { from: governance });
