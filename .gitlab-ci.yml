@@ -182,7 +182,7 @@ coverage-hardhat:
   image: node:18
   needs: []
   timeout: 30 minutes
-  tags: [ flarenetwork-lg ]
+  tags: [ flarenetwork-lg-cpu ] # 16gb RAM
   cache: [ !reference [.partials, cache-nodejs] ]
   before_script:
   - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR 1>/dev/null
