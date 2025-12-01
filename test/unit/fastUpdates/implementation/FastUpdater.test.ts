@@ -54,7 +54,7 @@ const SCALE = 1 + RANGE / SAMPLE_SIZE;
 const RANGE_INCREASE_PRICE = BigInt(10) ** BigInt(24);
 const SAMPLE_SIZE_INCREASE_PRICE = 1425;
 
-const COVERAGE = process.env.COVERAGE === "1";
+const COVERAGE = process.env.COVERAGE === "1" || process.env.COVERAGE === "true";
 // coverage mode injects extra instrumentation (code) increasing gas, CPU and memory usage
 // large feed loops magnify the overhead; reduce number of feeds when COVERAGE=1
 const NUM_FEEDS: number = COVERAGE ? 200 : 1000;

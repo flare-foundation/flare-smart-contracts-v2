@@ -33,6 +33,10 @@ const intercept = require('intercept-stdout') as (fn: (text: string) => string) 
 
 dotenv.config();
 
+// Enable IR only during coverage runs
+const COVERAGE = process.env.COVERAGE === "1" || process.env.COVERAGE === "true";
+console.log(`COVERAGE mode: ${COVERAGE}`);
+
 const accounts = [
   // In Truffle, default account is always the first one.
   ...(process.env.DEPLOYER_PRIVATE_KEY
@@ -401,7 +405,7 @@ const config: HardhatUserConfig = {
             enabled: true,
             runs: 200
           },
-          viaIR: true
+          viaIR: COVERAGE
         },
       },
       // contracts that imports P256
@@ -413,7 +417,7 @@ const config: HardhatUserConfig = {
             enabled: true,
             runs: 200
           },
-          viaIR: true
+          viaIR: COVERAGE
         },
       },
       // EXTRA_OVERRIDES
