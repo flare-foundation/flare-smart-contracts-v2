@@ -10,7 +10,7 @@ This repository implements solidity contracts for Flare Systems Protocol (FSP) a
 
 ## Overview
 
-
+A comprehensive diagram of all V1 and V2 smart contracts is available [here](https://content.flare.network/flare-smart-contracts-v1-v2-all_with_background.svg).
 
 ## Development and contribution
 
