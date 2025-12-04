@@ -129,13 +129,19 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
             // N and E
             (length, _part1, success) = this.readASN1Element(data, 0x02, true);
             require(success, "couldn't read N element");
-            // skip the first byte, which is 0x00
-            _part1 = Bytes.slice(_part1, 1);
+            if (_part1.length > 1 && _part1[0] == bytes1(0x00)) {
+                // skip the first byte, which is 0x00
+                _part1 = Bytes.slice(_part1, 1);
+            }
 
             // E
             data = Bytes.slice(data, length);
             (, _part2, success) = this.readASN1Element(data, 0x02, true);
             require(success, "couldn't read E element");
+            if (_part2.length > 1 && _part2[0] == bytes1(0x00)) {
+                // skip the first byte, which is 0x00
+                _part2 = Bytes.slice(_part2, 1);
+            }
         } else {
             revert("algorithm not supported");
         }
