@@ -20,7 +20,8 @@ import {
   FastUpdateIncentiveManagerContract, FastUpdateIncentiveManagerInstance, FastUpdaterContract,
   FastUpdatesConfigurationContract, FastUpdatesConfigurationInstance, FeeCalculatorContract,
   FtsoManagerProxyContract, FtsoProxyContract, FtsoV2Contract, FtsoV2ProxyContract,
-  PriceSubmitterProxyContract, VoterWhitelisterProxyContract, FtsoRewardManagerProxyContract, FtsoRewardManagerProxyInstance, EntityManagerContract, VoterRegistryContract, VoterPreRegistryContract, SFlrCustomFeedContract
+  PriceSubmitterProxyContract, VoterWhitelisterProxyContract, FtsoRewardManagerProxyContract, FtsoRewardManagerProxyInstance, EntityManagerContract, VoterRegistryContract, VoterPreRegistryContract, SFlrCustomFeedContract,
+  StXrpCustomFeedContract
 
 } from '../../typechain-truffle';
 import { Account } from 'web3-core';
@@ -67,6 +68,7 @@ export async function redeployContracts(
   const VoterRegistry = artifacts.require("VoterRegistry") as VoterRegistryContract;
   const VoterPreRegistry = artifacts.require("VoterPreRegistry") as VoterPreRegistryContract;
   const SFlrCustomFeed = artifacts.require("SFlrCustomFeed") as SFlrCustomFeedContract;
+  const StXrpCustomFeed = artifacts.require("StXrpCustomFeed") as StXrpCustomFeedContract;
 
   let validatorRewardOffersManager: ValidatorRewardOffersManagerInstance;
   let pChainStakeMirrorVerifier: PChainStakeMirrorVerifierInstance;
@@ -439,7 +441,15 @@ export async function redeployContracts(
       oldContracts.getContractAddress(Contracts.FLARE_CONTRACT_REGISTRY),
       "0x12e605bc104e93B45e1aD99F9e555f659051c2BB");
     spewNewContractInfo(contracts, null, "SFlrCustomFeed", `SFlrCustomFeed.sol`, sFlrCustomFeed.address, quiet);
-    await ftsoV2.addCustomFeeds([sFlrCustomFeed.address]);
+
+    const stXrpCustomFeed = await StXrpCustomFeed.new(
+      FtsoConfigurations.encodeFeedId({ "category": 33, "name": "stXRP/USD" }),
+      FtsoConfigurations.encodeFeedId({ "category": 1, "name": "XRP/USD" }),
+      oldContracts.getContractAddress(Contracts.FLARE_CONTRACT_REGISTRY),
+      "0x4c18ff3c89632c3dd62e796c0afa5c07c4c1b2b3");
+    spewNewContractInfo(contracts, null, "StXrpCustomFeed", `StXrpCustomFeed.sol`, stXrpCustomFeed.address, quiet);
+
+    await ftsoV2.addCustomFeeds([sFlrCustomFeed.address, stXrpCustomFeed.address]);
   }
 
   if (initialDeploy) {
