@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
+import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
+import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { IFtdcRequestFeeConfigurations } from "../../userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
-import { Governed } from "../../governance/implementation/Governed.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 /**
@@ -10,22 +13,28 @@ import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfa
  *
  * This contract is used to manage the flare tee data connector requests fee configuration.
  */
-contract FtdcRequestFeeConfigurations is Governed, IFtdcRequestFeeConfigurations {
+contract FtdcRequestFeeConfigurations is IFtdcRequestFeeConfigurations, GovernedProxyImplementation, UUPSUpgradeable {
 
     /// Mapping of type and source to fee.
     mapping(bytes32 typeAndSource => uint256 fee) private typeAndSourceFees;
 
     /**
-    * Constructor.
-    * @param _governanceSettings The address of the GovernanceSettings contract.
-    * @param _initialGovernance The initial governance address.
-    */
-    constructor(
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
+     */
+    constructor() GovernedProxyImplementation() {}
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     */
+    function initialize(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance
     )
-        Governed(_governanceSettings, _initialGovernance)
-    { }
+        external virtual
+    {
+        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+    }
 
     /**
      * Sets the fee for a given type and source.
@@ -94,7 +103,32 @@ contract FtdcRequestFeeConfigurations is Governed, IFtdcRequestFeeConfigurations
         require(_fee > 0, TypeAndSourceCombinationNotSupported());
     }
 
+    /**
+     * Returns the current implementation address.
+     * @return The current implementation address.
+     */
+    function implementation() external view returns (address) {
+        return ERC1967Utils.getImplementation();
+    }
+
+    /**
+     * @inheritdoc UUPSUpgradeable
+     * @dev Only governance can call this method.
+     */
+    function upgradeToAndCall(address _newImplementation, bytes memory _data)
+        public payable virtual override
+        onlyGovernance
+    {
+        super.upgradeToAndCall(_newImplementation, _data);
+    }
+
     ////////////////////////// Internal functions ///////////////////////////////////////////////
+
+    /**
+     * Unused. Present just to satisfy UUPSUpgradeable requirement.
+     * The real check is in onlyGovernance modifier on upgradeToAndCall.
+     */
+    function _authorizeUpgrade(address _newImplementation) internal virtual override {}
 
     /**
      * Sets the fee for a given type and source.

@@ -497,6 +497,28 @@ contract TeePaymentsTest is Test {
         teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
     }
 
+    function testPayRevertPaymentAmountZero() public {
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        vm.prank(walletOwner);
+        teePayments.addPMWMultisigAccount(walletId, proof);
+        ITeePayments.PaymentInstruction memory instruction = _createPaymentInstruction(bytes32("ref1"));
+        instruction.amount = 0;
+        vm.prank(authorizationAddress);
+        vm.expectRevert(ITeePayments.PaymentAmountZero.selector);
+        teePayments.pay{value: fee}(pmwMultisigAccount, instruction);
+    }
+
+    function testPayRevertRecipientIsSender() public {
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        vm.prank(walletOwner);
+        teePayments.addPMWMultisigAccount(walletId, proof);
+        ITeePayments.PaymentInstruction memory instruction = _createPaymentInstruction(bytes32("ref1"));
+        instruction.recipientAddress = senderAddress;
+        vm.prank(authorizationAddress);
+        vm.expectRevert(ITeePayments.RecipientIsSender.selector);
+        teePayments.pay{value: fee}(pmwMultisigAccount, instruction);
+    }
+
     // batch duration is not set (default is 0)
     function testPay1() public {
         (ITeeMachineRegistry.TeeMachine[] memory receivingTees,

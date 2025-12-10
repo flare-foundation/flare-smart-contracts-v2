@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import {
     FtdcRequestFeeConfigurations
 } from "../../../../contracts/ftdc/implementation/FtdcRequestFeeConfigurations.sol";
+import { FtdcRequestFeeConfigurationsProxy } from "../../../../contracts/ftdc/proxy/FtdcRequestFeeConfigurationsProxy.sol";
 import {
     IFtdcRequestFeeConfigurations
 } from "../../../../contracts/userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
@@ -13,6 +14,8 @@ import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfa
 contract FtdcRequestFeeConfigurationsTest is Test {
 
     FtdcRequestFeeConfigurations private ftdcRequestFeeConfigurations;
+    FtdcRequestFeeConfigurations private ftdcRequestFeeConfigurationsImpl;
+    FtdcRequestFeeConfigurationsProxy private ftdcRequestFeeConfigurationsProxy;
 
     address private initialGovernance;
 
@@ -38,10 +41,13 @@ contract FtdcRequestFeeConfigurationsTest is Test {
 
         initialGovernance = makeAddr("initialGovernance");
 
-        ftdcRequestFeeConfigurations = new FtdcRequestFeeConfigurations(
+        ftdcRequestFeeConfigurationsImpl = new FtdcRequestFeeConfigurations();
+        ftdcRequestFeeConfigurationsProxy = new FtdcRequestFeeConfigurationsProxy(
             IGovernanceSettings(address(this)),
-            initialGovernance
+            initialGovernance,
+            address(ftdcRequestFeeConfigurationsImpl)
         );
+        ftdcRequestFeeConfigurations = FtdcRequestFeeConfigurations(address(ftdcRequestFeeConfigurationsProxy));
     }
 
 

@@ -1,27 +1,41 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { Governed } from "../../governance/implementation/Governed.sol";
+import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
+import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { ITeeFeeCalculator } from "../../userInterfaces/tee/ITeeFeeCalculator.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 /**
  * TeeFeeCalculator is used for calculating fees for TEE operations.
  */
-contract TeeFeeCalculator is ITeeFeeCalculator, Governed {
+contract TeeFeeCalculator is ITeeFeeCalculator, GovernedProxyImplementation, UUPSUpgradeable {
 
     /// Default fee for operations.
     uint256 private defaultFee;
 
     mapping(bytes32 opType => mapping(bytes32 opCommand => uint256 fee)) internal operationFee;
 
-    constructor(
+    /**
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
+     */
+    constructor() GovernedProxyImplementation() {}
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     */
+    function initialize(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         uint256 _defaultFee
     )
-        Governed(_governanceSettings, _initialGovernance)
+        external virtual
     {
+        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+
         defaultFee = _defaultFee;
         emit DefaultFeeSet(_defaultFee);
     }
@@ -87,4 +101,29 @@ contract TeeFeeCalculator is ITeeFeeCalculator, Governed {
         }
         _fee *= _teeIds.length;
     }
+
+    /**
+     * Returns the current implementation address.
+     * @return The current implementation address.
+     */
+    function implementation() external view returns (address) {
+        return ERC1967Utils.getImplementation();
+    }
+
+    /**
+     * @inheritdoc UUPSUpgradeable
+     * @dev Only governance can call this method.
+     */
+    function upgradeToAndCall(address _newImplementation, bytes memory _data)
+        public payable virtual override
+        onlyGovernance
+    {
+        super.upgradeToAndCall(_newImplementation, _data);
+    }
+
+    /**
+     * Unused. Present just to satisfy UUPSUpgradeable requirement.
+     * The real check is in onlyGovernance modifier on upgradeToAndCall.
+     */
+    function _authorizeUpgrade(address _newImplementation) internal virtual override {}
 }

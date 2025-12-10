@@ -2,19 +2,24 @@
 pragma solidity ^0.8.27;
 
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
+import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { IFtdcVerification } from "../../userInterfaces/ftdc/IFtdcVerification.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 /**
  * FtdcVerification contract.
  *
  * This contract is used to verify FTDC attestations.
  */
-contract FtdcVerification is IFtdcVerification, AddressUpdatable {
+contract FtdcVerification is IFtdcVerification, GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
 
     /// The TEE machine registry contract.
     ITeeMachineRegistry public teeMachineRegistry;
@@ -22,11 +27,23 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
     IRelay public relay;
 
     /**
-     * Constructor.
-     * @param _addressUpdater The address of the AddressUpdater contract.
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor(address _addressUpdater) AddressUpdatable(_addressUpdater) {
-        // empty constructor
+    constructor() GovernedProxyImplementation() AddressUpdatable(address(0)) {}
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     */
+    function initialize(
+        IGovernanceSettings _governanceSettings,
+        address _initialGovernance,
+        address _addressUpdater
+    )
+        external virtual
+    {
+        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
     }
 
     /**
@@ -96,6 +113,31 @@ contract FtdcVerification is IFtdcVerification, AddressUpdatable {
             _cosigners[i] = cosigner;
         }
     }
+
+    /**
+     * Returns the current implementation address.
+     * @return The current implementation address.
+     */
+    function implementation() external view returns (address) {
+        return ERC1967Utils.getImplementation();
+    }
+
+    /**
+     * @inheritdoc UUPSUpgradeable
+     * @dev Only governance can call this method.
+     */
+    function upgradeToAndCall(address _newImplementation, bytes memory _data)
+        public payable virtual override
+        onlyGovernance
+    {
+        super.upgradeToAndCall(_newImplementation, _data);
+    }
+
+    /**
+     * Unused. Present just to satisfy UUPSUpgradeable requirement.
+     * The real check is in onlyGovernance modifier on upgradeToAndCall.
+     */
+    function _authorizeUpgrade(address _newImplementation) internal virtual override {}
 
     /**
      * Implementation of the AddressUpdatable abstract method.

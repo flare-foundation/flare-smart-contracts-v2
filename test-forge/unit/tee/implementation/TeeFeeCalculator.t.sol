@@ -3,13 +3,15 @@ pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
 import { TeeFeeCalculator } from "../../../../contracts/tee/implementation/TeeFeeCalculator.sol";
+import { TeeFeeCalculatorProxy } from "../../../../contracts/tee/proxy/TeeFeeCalculatorProxy.sol";
 import { ITeeFeeCalculator } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
-
 
 contract TeeFeeCalculatorTest is Test {
 
     TeeFeeCalculator private teeFeeCalculator;
+    TeeFeeCalculator private teeFeeCalculatorImpl;
+    TeeFeeCalculatorProxy private teeFeeCalculatorProxy;
 
     address private governance;
     address private mockTeeWalletManager;
@@ -19,11 +21,14 @@ contract TeeFeeCalculatorTest is Test {
     function setUp() public {
         governance = makeAddr("governance");
         defaultFee = 1000;
-        teeFeeCalculator = new TeeFeeCalculator(
-            IGovernanceSettings(makeAddr("governanceSettings")),
+        teeFeeCalculatorImpl = new TeeFeeCalculator();
+        teeFeeCalculatorProxy = new TeeFeeCalculatorProxy(
+            IGovernanceSettings(address(this)),
             governance,
-            defaultFee
+            defaultFee,
+            address(teeFeeCalculatorImpl)
         );
+        teeFeeCalculator = TeeFeeCalculator(address(teeFeeCalculatorProxy));
         mockTeeWalletManager = makeAddr("mockTeeWalletManager");
         mockTeeWalletKeyManager = makeAddr("mockTeeWalletKeyManager");
     }

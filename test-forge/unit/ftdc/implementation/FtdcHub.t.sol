@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
 import { FtdcHub } from "../../../../contracts/ftdc/implementation/FtdcHub.sol";
+import { FtdcHubProxy } from "../../../../contracts/ftdc/proxy/FtdcHubProxy.sol";
 import { TeeExtensionRegistry } from "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
 import { TeeExtensionRegistryProxy } from "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
 import { ITeeFeeCalculator } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
@@ -20,6 +21,8 @@ import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfa
 contract FtdcHubTest is Test {
 
     FtdcHub private ftdcHub;
+    FtdcHub private ftdcHubImpl;
+    FtdcHubProxy private ftdcHubProxy;
 
     address private governance;
     address private addressUpdater;
@@ -52,13 +55,16 @@ contract FtdcHubTest is Test {
         addressUpdater = makeAddr("addressUpdater");
         minThresholdBIPS = 5000;
         defaultNumberOfTees = 1;
-        ftdcHub = new FtdcHub(
+        ftdcHubImpl = new FtdcHub();
+        ftdcHubProxy = new FtdcHubProxy(
             IGovernanceSettings(address(this)),
             governance,
             addressUpdater,
             minThresholdBIPS,
-            defaultNumberOfTees
+            defaultNumberOfTees,
+            address(ftdcHubImpl)
         );
+        ftdcHub = FtdcHub(address(ftdcHubProxy));
 
         teeExtensionRegistryImpl = new TeeExtensionRegistry();
         teeExtensionRegistryProxy = new TeeExtensionRegistryProxy(

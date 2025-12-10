@@ -13,6 +13,7 @@ import { TeeWalletManagerProxy } from "../../contracts/tee/proxy/TeeWalletManage
 import { TeeOwnerAllowlist } from "../../contracts/tee/implementation/TeeOwnerAllowlist.sol";
 import { TeeOwnerAllowlistProxy } from "../../contracts/tee/proxy/TeeOwnerAllowlistProxy.sol";
 import { TeeFeeCalculator } from "../../contracts/tee/implementation/TeeFeeCalculator.sol";
+import { TeeFeeCalculatorProxy } from "../../contracts/tee/proxy/TeeFeeCalculatorProxy.sol";
 import { TeePayments } from "../../contracts/tee/implementation/TeePayments.sol";
 import { TeePaymentsProxy } from "../../contracts/tee/proxy/TeePaymentsProxy.sol";
 import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardManager.sol";
@@ -27,7 +28,7 @@ import { ProtocolsV2Interface } from "../../contracts/userInterfaces/LTS/Protoco
 import { ITeeVerification } from "../../contracts/userInterfaces/tee/ITeeVerification.sol";
 import { IFtdcVerification } from "../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
 import { IFtdcHub } from "../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
-import {ITeePayments} from "../../contracts/userInterfaces/tee/ITeePayments.sol";
+import { ITeePayments } from "../../contracts/userInterfaces/tee/ITeePayments.sol";
 import { ITeeExtensionRegistry } from "../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -41,6 +42,7 @@ contract WalletPaymentsTest is Test {
     TeeWalletManager private teeWalletManager;
     TeeOwnerAllowlist private teeOwnerAllowlist;
     TeePayments private teePayments;
+    TeeFeeCalculator private teeFeeCalculatorImpl;
 
     TeeExtensionRegistry private teeExtensionRegistryImpl;
     TeeWalletProjectManager private teeWalletProjectManagerImpl;
@@ -48,6 +50,7 @@ contract WalletPaymentsTest is Test {
     TeeWalletManager private teeWalletManagerImpl;
     TeeOwnerAllowlist private teeOwnerAllowlistImpl;
     TeePayments private teePaymentsImpl;
+    TeeFeeCalculator private teeFeeCalculator;
 
     TeeExtensionRegistryProxy private teeExtensionRegistryProxy;
     TeeWalletProjectManagerProxy private teeWalletProjectManagerProxy;
@@ -55,6 +58,7 @@ contract WalletPaymentsTest is Test {
     TeeWalletManagerProxy private teeWalletManagerProxy;
     TeeOwnerAllowlistProxy private teeOwnerAllowlistProxy;
     TeePaymentsProxy private teePaymentsProxy;
+    TeeFeeCalculatorProxy private teeFeeCalculatorProxy;
 
     address private teeVerification = makeAddr("TeeVerification"); // TODO deploy the actual contract?
 
@@ -62,7 +66,6 @@ contract WalletPaymentsTest is Test {
     address private addressUpdater;
     address private teeGovernanceMock;
     address private teeMachineRegistryMock;
-    TeeFeeCalculator private teeFeeCalculator;
     address private flareSystemsManagerMock;
     address private rewardManagerMock;
     address private teeWalletBackupManagerMock;
@@ -175,11 +178,14 @@ contract WalletPaymentsTest is Test {
         teeOwnerAllowlist = TeeOwnerAllowlist(address(teeOwnerAllowlistProxy));
 
         defaultFee = 3;
-        teeFeeCalculator = new TeeFeeCalculator(
+        teeFeeCalculatorImpl = new TeeFeeCalculator();
+        teeFeeCalculatorProxy = new TeeFeeCalculatorProxy(
             governanceSettings,
             governance,
-            3
+            defaultFee,
+            address(teeFeeCalculatorImpl)
         );
+        teeFeeCalculator = TeeFeeCalculator(address(teeFeeCalculatorProxy));
 
         bytes32[] memory supportedSourceIds = new bytes32[](1);
         supportedSourceIds[0] = XRP_SOURCE_ID;

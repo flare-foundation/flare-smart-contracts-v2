@@ -7,14 +7,18 @@ import { TeeExtensionRegistry } from "../../contracts/tee/implementation/TeeExte
 import { TeeOwnerAllowlist } from "../../contracts/tee/implementation/TeeOwnerAllowlist.sol";
 import { TeeGovernance } from "../../contracts/tee/implementation/TeeGovernance.sol";
 import { TeeFeeCalculator } from "../../contracts/tee/implementation/TeeFeeCalculator.sol";
+import { TeeFeeCalculatorProxy } from "../../contracts/tee/proxy/TeeFeeCalculatorProxy.sol";
 import { TeeMachineRegistry } from "../../contracts/tee/implementation/TeeMachineRegistry.sol";
 import { TeeReplication } from "../../contracts/tee/implementation/TeeReplication.sol";
 import { TeeVerification } from "../../contracts/tee/implementation/TeeVerification.sol";
 import { TeeSystemStateVerifier } from "../../contracts/tee/implementation/TeeSystemStateVerifier.sol";
 import { TeeVersionManager } from "../../contracts/tee/implementation/TeeVersionManager.sol";
 import { FtdcVerification } from "../../contracts/ftdc/implementation/FtdcVerification.sol";
+import { FtdcVerificationProxy } from "../../contracts/ftdc/proxy/FtdcVerificationProxy.sol";
 import { FtdcHub } from "../../contracts/ftdc/implementation/FtdcHub.sol";
+import { FtdcHubProxy } from "../../contracts/ftdc/proxy/FtdcHubProxy.sol";
 import { FtdcRequestFeeConfigurations } from "../../contracts/ftdc/implementation/FtdcRequestFeeConfigurations.sol";
+import { FtdcRequestFeeConfigurationsProxy } from "../../contracts/ftdc/proxy/FtdcRequestFeeConfigurationsProxy.sol";
 
 import { TeeExtensionRegistryProxy } from "../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
 import { TeeOwnerAllowlistProxy } from "../../contracts/tee/proxy/TeeOwnerAllowlistProxy.sol";
@@ -60,15 +64,23 @@ contract TeeMachineReplicationTest is Test {
     TeeExtensionRegistry private teeExtensionRegistry;
     TeeOwnerAllowlist private teeOwnerAllowlist;
     TeeGovernance private teeGovernance;
+    TeeFeeCalculator private teeFeeCalculatorImpl;
     TeeFeeCalculator private teeFeeCalculator;
+    TeeFeeCalculatorProxy private teeFeeCalculatorProxy;
     TeeMachineRegistry private teeMachineRegistry;
     TeeReplication private teeReplication;
     TeeVerification private teeVerification;
     TeeSystemStateVerifier private teeSystemStateVerifier;
     TeeVersionManager private teeVersionManager;
     FtdcHub private ftdcHub;
+    FtdcHub private ftdcHubImpl;
+    FtdcHubProxy private ftdcHubProxy;
     FtdcVerification private ftdcVerification;
+    FtdcVerification private ftdcVerificationImpl;
+    FtdcVerificationProxy private ftdcVerificationProxy;
     FtdcRequestFeeConfigurations private ftdcRequestFeeConfigurations;
+    FtdcRequestFeeConfigurations private ftdcRequestFeeConfigurationsImpl;
+    FtdcRequestFeeConfigurationsProxy private ftdcRequestFeeConfigurationsProxy;
 
     IGovernanceSettings private governanceSettings;
     address private initialGovernance;
@@ -167,11 +179,14 @@ contract TeeMachineReplicationTest is Test {
         );
         teeGovernance = TeeGovernance(address(teeGovernanceProxy));
 
-        teeFeeCalculator = new TeeFeeCalculator(
+        teeFeeCalculatorImpl = new TeeFeeCalculator();
+        teeFeeCalculatorProxy = new TeeFeeCalculatorProxy(
             governanceSettings,
             initialGovernance,
-            1000
+            1000,
+            address(teeFeeCalculatorImpl)
         );
+        teeFeeCalculator = TeeFeeCalculator(address(teeFeeCalculatorProxy));
 
         TeeMachineRegistry teeMachineRegistryImpl = new TeeMachineRegistry();
         TeeMachineRegistryProxy teeMachineRegistryProxy = new TeeMachineRegistryProxy(
@@ -222,20 +237,33 @@ contract TeeMachineReplicationTest is Test {
         );
         teeVersionManager = TeeVersionManager(address(teeVersionManagerProxy));
 
-        ftdcHub = new FtdcHub(
-            governanceSettings,
+        ftdcHubImpl = new FtdcHub();
+        ftdcHubProxy = new FtdcHubProxy(
+            IGovernanceSettings(address(this)),
             initialGovernance,
             addressUpdater,
-            3000, // minThresholdBIPS
-            1    // defaultNumberOfTees
+            5000,
+            1,
+            address(ftdcHubImpl)
         );
+        ftdcHub = FtdcHub(address(ftdcHubProxy));
 
-        ftdcVerification = new FtdcVerification(addressUpdater);
-
-        ftdcRequestFeeConfigurations = new FtdcRequestFeeConfigurations(
-            governanceSettings,
-            initialGovernance
+        ftdcVerificationImpl = new FtdcVerification();
+        ftdcVerificationProxy = new FtdcVerificationProxy(
+            IGovernanceSettings(address(this)),
+            initialGovernance,
+            addressUpdater,
+            address(ftdcVerificationImpl)
         );
+        ftdcVerification = FtdcVerification(address(ftdcVerificationProxy));
+
+        ftdcRequestFeeConfigurationsImpl = new FtdcRequestFeeConfigurations();
+        ftdcRequestFeeConfigurationsProxy = new FtdcRequestFeeConfigurationsProxy(
+            IGovernanceSettings(address(this)),
+            initialGovernance,
+            address(ftdcRequestFeeConfigurationsImpl)
+        );
+        ftdcRequestFeeConfigurations = FtdcRequestFeeConfigurations(address(ftdcRequestFeeConfigurationsProxy));
 
         // set signers and thresholds
         governanceSigners1.push();

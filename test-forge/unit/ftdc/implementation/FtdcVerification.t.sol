@@ -3,16 +3,21 @@ pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
 import { FtdcVerification } from "../../../../contracts/ftdc/implementation/FtdcVerification.sol";
+import { FtdcVerificationProxy } from "../../../../contracts/ftdc/proxy/FtdcVerificationProxy.sol";
 import { IFtdcVerification } from "../../../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
 import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 
 contract FtdcVerificationTest is Test {
 
     FtdcVerification private ftdcVerification;
+    FtdcVerification private ftdcVerificationImpl;
+    FtdcVerificationProxy private ftdcVerificationProxy;
 
+    address private governance;
     address private addressUpdater;
     address private relay;
     address private teeMachineRegistry;
@@ -37,8 +42,16 @@ contract FtdcVerificationTest is Test {
         signature = _createSignature(privateKey);
 
         addressUpdater = makeAddr("addressUpdater");
+        governance = makeAddr("governance");
 
-        ftdcVerification = new FtdcVerification(addressUpdater);
+        ftdcVerificationImpl = new FtdcVerification();
+        ftdcVerificationProxy = new FtdcVerificationProxy(
+            IGovernanceSettings(address(this)),
+            governance,
+            addressUpdater,
+            address(ftdcVerificationImpl)
+        );
+        ftdcVerification = FtdcVerification(address(ftdcVerificationProxy));
 
         contractNameHashes = new bytes32[](3);
         contractAddresses = new address[](3);

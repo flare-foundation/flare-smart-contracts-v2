@@ -95,6 +95,8 @@ interface ITeePayments {
     error AccountAddressZero();
     error UnsupportedSourceId();
     error InvalidProof();
+    error PaymentAmountZero();
+    error RecipientIsSender();
 
     /**
      * Payment instruction method.

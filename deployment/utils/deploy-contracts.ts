@@ -94,6 +94,7 @@ import { RelayInitialConfig } from "./RelayInitialConfig";
 import { TeeMachineRegistryContract, TeeMachineRegistryInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeMachineRegistry";
 import { TeeWalletManagerContract, TeeWalletManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletManager";
 import { TeeFeeCalculatorContract, TeeFeeCalculatorInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeFeeCalculator";
+import { TeeFeeCalculatorProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeFeeCalculatorProxy";
 import { TeeRewardOffersManagerContract, TeeRewardOffersManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeRewardOffersManager";
 import { TeePaymentsContract, TeePaymentsInstance } from "../../typechain-truffle/contracts/tee/implementation/TeePayments";
 import { TeeWalletBackupManagerContract, TeeWalletBackupManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletBackupManager";
@@ -102,10 +103,13 @@ import { TeeVersionManagerContract, TeeVersionManagerInstance } from "../../type
 import { TeeGovernanceContract, TeeGovernanceInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeGovernance";
 import { TeeWalletKeyManagerContract, TeeWalletKeyManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletKeyManager";
 import { FtdcHubContract, FtdcHubInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcHub";
+import { FtdcHubProxyContract } from "../../typechain-truffle/contracts/ftdc/proxy/FtdcHubProxy";
 import { FtdcRequestFeeConfigurationsInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations";
+import { FtdcRequestFeeConfigurationsProxyContract } from "../../typechain-truffle/contracts/ftdc/proxy/FtdcRequestFeeConfigurationsProxy";
 import { TeeGovernanceProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeGovernanceProxy";
 import { TeeMachineRegistryProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeMachineRegistryProxy";
 import { FtdcVerificationContract, FtdcVerificationInstance } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification";
+import { FtdcVerificationProxyContract } from "../../typechain-truffle/contracts/ftdc/proxy/FtdcVerificationProxy";
 import { TeeVerificationContract, TeeVerificationInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeVerification";
 import { TeeVerificationProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeVerificationProxy";
 import { TeeOwnerAllowlistContract, TeeOwnerAllowlistInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlist";
@@ -250,12 +254,16 @@ export async function deployContracts(
   const TeeWalletBackupManager: TeeWalletBackupManagerContract = artifacts.require("TeeWalletBackupManager");
   const TeeWalletBackupManagerProxy: TeeWalletBackupManagerProxyContract = artifacts.require("TeeWalletBackupManagerProxy");
   const TeeFeeCalculator: TeeFeeCalculatorContract = artifacts.require("TeeFeeCalculator");
+  const TeeFeeCalculatorProxy: TeeFeeCalculatorProxyContract = artifacts.require("TeeFeeCalculatorProxy");
   const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
   const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
   const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
   const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
+  const FtdcHubProxy: FtdcHubProxyContract = artifacts.require("FtdcHubProxy");
   const FtdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
+  const FtdcRequestFeeConfigurationsProxy: FtdcRequestFeeConfigurationsProxyContract = artifacts.require("FtdcRequestFeeConfigurationsProxy");
   const FtdcVerification: FtdcVerificationContract = artifacts.require("FtdcVerification");
+  const FtdcVerificationProxy: FtdcVerificationProxyContract = artifacts.require("FtdcVerificationProxy");
 
   const PMWPaymentStatusVerifierMock: PMWPaymentStatusVerifierMockContract = artifacts.require("PMWPaymentStatusVerifierMock");
   const TeeExtensionInstructionsSenderMock: TeeExtensionInstructionsSenderMockContract = artifacts.require("TeeExtensionInstructionsSenderMock");
@@ -650,10 +658,14 @@ export async function deployContracts(
   const teeWalletBackupManager = await TeeWalletBackupManager.at(teeWalletBackupManagerProxy.address);
   addressUpdatableContracts.push(teeWalletBackupManager.address);
 
-  const teeFeeCalculator = await TeeFeeCalculator.new(
+  const teeFeeCalculatorImpl = await TeeFeeCalculator.new();
+  const teeFeeCalculatorProxy = await TeeFeeCalculatorProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    1
+    1,
+    teeFeeCalculatorImpl.address
+  );
+  const teeFeeCalculator = await TeeFeeCalculator.at(teeFeeCalculatorProxy.address
   );
 
   const teeRewardOffersManager = await TeeRewardOffersManager.new(
@@ -694,20 +706,34 @@ export async function deployContracts(
   }
 
   // FTDC
-  const ftdcHub = await FtdcHub.new(
+  const ftdcHubImpl = await FtdcHub.new();
+  const ftdcHubProxy = await FtdcHubProxy.new(
     governanceSettings.address,
     governanceAccount.address,
     addressUpdater.address,
     3000,
-    1
+    1,
+    ftdcHubImpl.address
   );
+  const ftdcHub = await FtdcHub.at(ftdcHubProxy.address);
   addressUpdatableContracts.push(ftdcHub.address);
-  const ftdcRequestFeeConfigurations = await FtdcRequestFeeConfigurations.new(
-    governanceSettings.address,
-    governanceAccount.address
-  );
 
-  const ftdcVerification = await FtdcVerification.new(addressUpdater.address);
+  const ftdcRequestFeeConfigurationsImpl = await FtdcRequestFeeConfigurations.new();
+  const ftdcRequestFeeConfigurationsProxy = await FtdcRequestFeeConfigurationsProxy.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    ftdcRequestFeeConfigurationsImpl.address
+  );
+  const ftdcRequestFeeConfigurations = await FtdcRequestFeeConfigurations.at(ftdcRequestFeeConfigurationsProxy.address);
+
+  const ftdcVerificationImpl = await FtdcVerification.new();
+  const ftdcVerificationProxy = await FtdcVerificationProxy.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    addressUpdater.address,
+    ftdcVerificationImpl.address
+  );
+  const ftdcVerification = await FtdcVerification.at(ftdcVerificationProxy.address);
   addressUpdatableContracts.push(ftdcVerification.address);
 
   // MOCKS

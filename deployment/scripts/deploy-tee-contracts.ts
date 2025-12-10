@@ -4,11 +4,15 @@
 
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { FtdcHubContract } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcHub";
+import { FtdcHubProxyContract } from "../../typechain-truffle/contracts/ftdc/proxy/FtdcHubProxy";
 import { FtdcRequestFeeConfigurationsContract } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations";
+import { FtdcRequestFeeConfigurationsProxyContract } from "../../typechain-truffle/contracts/ftdc/proxy/FtdcRequestFeeConfigurationsProxy";
 import { FtdcVerificationContract } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification";
+import { FtdcVerificationProxyContract } from "../../typechain-truffle/contracts/ftdc/proxy/FtdcVerificationProxy";
 import { TeeExtensionRegistryContract } from "../../typechain-truffle/contracts/tee/implementation/TeeExtensionRegistry";
 import { TeeExtensionRegistryProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeExtensionRegistryProxy";
 import { TeeFeeCalculatorContract } from "../../typechain-truffle/contracts/tee/implementation/TeeFeeCalculator";
+import { TeeFeeCalculatorProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeFeeCalculatorProxy";
 import { TeeGovernanceContract } from "../../typechain-truffle/contracts/tee/implementation/TeeGovernance";
 import { TeeGovernanceProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeGovernanceProxy";
 import { TeeMachineRegistryContract } from "../../typechain-truffle/contracts/tee/implementation/TeeMachineRegistry";
@@ -52,13 +56,17 @@ export async function deployTeeContracts(
 
   // Import contract artifacts
   const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
+  const FtdcHubProxy: FtdcHubProxyContract = artifacts.require("FtdcHubProxy");
   const FtdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
+  const FtdcRequestFeeConfigurationsProxy: FtdcRequestFeeConfigurationsProxyContract = artifacts.require("FtdcRequestFeeConfigurationsProxy");
   const FtdcVerification: FtdcVerificationContract = artifacts.require("FtdcVerification");
+  const FtdcVerificationProxy: FtdcVerificationProxyContract = artifacts.require("FtdcVerificationProxy");
   const TeeExtensionRegistry: TeeExtensionRegistryContract = artifacts.require("TeeExtensionRegistry");
   const TeeExtensionRegistryProxy: TeeExtensionRegistryProxyContract = artifacts.require("TeeExtensionRegistryProxy");
   const TeeGovernance: TeeGovernanceContract = artifacts.require("TeeGovernance");
   const TeeGovernanceProxy: TeeGovernanceProxyContract = artifacts.require("TeeGovernanceProxy");
   const TeeFeeCalculator: TeeFeeCalculatorContract = artifacts.require("TeeFeeCalculator");
+  const TeeFeeCalculatorProxy: TeeFeeCalculatorProxyContract = artifacts.require("TeeFeeCalculatorProxy");
   const TeeMachineRegistry: TeeMachineRegistryContract = artifacts.require("TeeMachineRegistry");
   const TeeMachineRegistryProxy: TeeMachineRegistryProxyContract = artifacts.require("TeeMachineRegistryProxy");
   const TeeOwnerAllowlist: TeeOwnerAllowlistContract = artifacts.require("TeeOwnerAllowlist");
@@ -104,26 +112,37 @@ export async function deployTeeContracts(
 
   // deploy contracts
   // FtdcHub
-  const ftdcHub = await FtdcHub.new(
+  const ftdcHubImpl = await FtdcHub.new();
+  const ftdcHubProxy = await FtdcHubProxy.new(
     governanceSettings,
     deployerAccount.address,
     deployerAccount.address,
     parameters.ftdcMinThresholdBIPS,
-    parameters.ftdcDefaultNumberOfTees
+    parameters.ftdcDefaultNumberOfTees,
+    ftdcHubImpl.address
   );
+  const ftdcHub = await FtdcHub.at(ftdcHubProxy.address);
   spewNewContractInfo(contracts, null, FtdcHub.contractName, `FtdcHub.sol`, ftdcHub.address, quiet);
 
   // FtdcRequestFeeConfigurations
-  const ftdcRequestFeeConfigurations = await FtdcRequestFeeConfigurations.new(
+  const ftdcRequestFeeConfigurationsImpl = await FtdcRequestFeeConfigurations.new();
+  const ftdcRequestFeeConfigurationsProxy = await FtdcRequestFeeConfigurationsProxy.new(
     governanceSettings,
-    deployerAccount.address
+    deployerAccount.address,
+    ftdcRequestFeeConfigurationsImpl.address
   );
+  const ftdcRequestFeeConfigurations = await FtdcRequestFeeConfigurations.at(ftdcRequestFeeConfigurationsProxy.address);
   spewNewContractInfo(contracts, null, FtdcRequestFeeConfigurations.contractName, `FtdcRequestFeeConfigurations.sol`, ftdcRequestFeeConfigurations.address, quiet);
 
   // FtdcVerification
-  const ftdcVerification = await FtdcVerification.new(
-    deployerAccount.address
+  const ftdcVerificationImpl = await FtdcVerification.new();
+  const ftdcVerificationProxy = await FtdcVerificationProxy.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address,
+    ftdcVerificationImpl.address
   );
+  const ftdcVerification = await FtdcVerification.at(ftdcVerificationProxy.address);
   spewNewContractInfo(contracts, null, FtdcVerification.contractName, `FtdcVerification.sol`, ftdcVerification.address, quiet);
 
   // TeeExtensionRegistry
@@ -139,11 +158,14 @@ export async function deployTeeContracts(
   spewNewContractInfo(contracts, null, TeeExtensionRegistry.contractName, `TeeExtensionRegistryProxy.sol`, teeExtensionRegistryProxy.address, quiet);
 
   // TeeFeeCalculator
-  const teeFeeCalculator = await TeeFeeCalculator.new(
+  const teeFeeCalculatorImpl = await TeeFeeCalculator.new();
+  const teeFeeCalculatorProxy = await TeeFeeCalculatorProxy.new(
     governanceSettings,
     deployerAccount.address,
-    parameters.teeDefaultFeeWei
+    parameters.teeDefaultFeeWei,
+    teeFeeCalculatorImpl.address
   );
+  const teeFeeCalculator = await TeeFeeCalculator.at(teeFeeCalculatorProxy.address);
   spewNewContractInfo(contracts, null, TeeFeeCalculator.contractName, `TeeFeeCalculator.sol`, teeFeeCalculator.address, quiet);
 
   // TeeGovernance

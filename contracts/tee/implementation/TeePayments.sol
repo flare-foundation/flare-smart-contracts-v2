@@ -138,6 +138,11 @@ contract TeePayments is ITeePayments, TeeBase {
     )
         external payable returns (uint64 _nonce, uint64 _subNonce)
     {
+        require(_paymentInstruction.amount > 0, PaymentAmountZero());
+        require(
+            keccak256(bytes(_paymentInstruction.recipientAddress)) != keccak256(bytes(_account.accountAddress)),
+            RecipientIsSender()
+        );
         bytes32 accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
         bytes32 walletId = accountHashToWalletId[accountHash];
         bytes32 projectId = teeWalletManager.getWalletProjectId(walletId);

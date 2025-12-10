@@ -2,7 +2,10 @@
 pragma solidity ^0.8.27;
 
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
-import { Governed } from "../../governance/implementation/Governed.sol";
+import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
+import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 import { IFtdcHub } from "../../userInterfaces/ftdc/IFtdcHub.sol";
 import { IITeeExtensionRegistry } from "../../tee/interface/IITeeExtensionRegistry.sol";
@@ -15,7 +18,7 @@ import { IFtdcRequestFeeConfigurations } from "../../userInterfaces/ftdc/IFtdcRe
 /**
  * FtdcHub is used for requesting FTDC attestations.
  */
-contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
+contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
 
     uint256 internal constant MAX_BIPS = 1e4;
     bytes32 public constant FTDC_OP_TYPE = bytes32("F_FTDC");
@@ -40,20 +43,26 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
     uint8 public defaultNumberOfTees;
 
     /**
-     * Constructor.
-     * @param _governanceSettings The address of the GovernanceSettings contract.
-     * @param _initialGovernance The initial governance address.
-     * @param _addressUpdater The address of the AddressUpdater contract.
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor(
+    constructor() GovernedProxyImplementation() AddressUpdatable(address(0)) {}
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     */
+    function initialize(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater,
         uint16 _minThresholdBIPS,
         uint8 _defaultNumberOfTees
     )
-        Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
+        external virtual
     {
+        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
+
         _setMinThresholdBIPS(_minThresholdBIPS);
         _setDefaultNumberOfTees(_defaultNumberOfTees);
     }
@@ -172,6 +181,31 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
     }
 
     /**
+     * Returns the current implementation address.
+     * @return The current implementation address.
+     */
+    function implementation() external view returns (address) {
+        return ERC1967Utils.getImplementation();
+    }
+
+    /**
+     * @inheritdoc UUPSUpgradeable
+     * @dev Only governance can call this method.
+     */
+    function upgradeToAndCall(address _newImplementation, bytes memory _data)
+        public payable virtual override
+        onlyGovernance
+    {
+        super.upgradeToAndCall(_newImplementation, _data);
+    }
+
+    /**
+     * Unused. Present just to satisfy UUPSUpgradeable requirement.
+     * The real check is in onlyGovernance modifier on upgradeToAndCall.
+     */
+    function _authorizeUpgrade(address _newImplementation) internal virtual override {}
+
+    /**
      * @inheritdoc AddressUpdatable
      */
     function _updateContractAddresses(
@@ -223,5 +257,4 @@ contract FtdcHub is IFtdcHub, Governed, AddressUpdatable {
             _cosignersThreshold
         );
     }
-
 }
