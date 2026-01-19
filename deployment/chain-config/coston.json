@@ -60,6 +60,7 @@
         {"feedId": {"category": 1, "name":"XDC/USD"}, "decimals": 6},
         {"feedId": {"category": 1, "name":"FLR/USD"}, "decimals": 6},
         {"feedId": {"category": 1, "name":"PENGU/USD"}, "decimals": 6},
+        {"feedId": {"category": 1, "name":"NIGHT/USD"}, "decimals": 6},
         {"feedId": {"category": 1, "name":"MON/USD"}, "decimals": 7},
         {"feedId": {"category": 1, "name":"JOULE/USD"}, "decimals": 7},
         {"feedId": {"category": 1, "name":"SGB/USD"}, "decimals": 7},
@@ -173,7 +174,8 @@
                 {"category": 1, "name": "OP/USD"},
                 {"category": 1, "name": "PUMP/USD"},
                 {"category": 1, "name": "XPL/USD"},
-                {"category": 1, "name": "MON/USD"}
+                {"category": 1, "name": "MON/USD"},
+                {"category": 1, "name": "NIGHT/USD"}
             ],
             "inflationShare": 10000,
             "minRewardedTurnoutBIPS": 5000,
@@ -187,7 +189,7 @@
                 1400, 1400, 1150, 1400, 1400, 1150,  900, 1150,
                 1150, 1150,  900, 1400, 1150, 1150, 1150, 1400,
                 1400, 1150,  200, 1400, 1600,  900, 1400, 1150,
-                1150,  500, 1400, 1150, 1400, 1400, 1400
+                1150,  500, 1400, 1150, 1400, 1400, 1400, 1400
             ]
         },
         {
