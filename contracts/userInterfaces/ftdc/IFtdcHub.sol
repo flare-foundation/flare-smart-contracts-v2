@@ -43,7 +43,7 @@ interface IFtdcHub {
 
     /**
      * Requests an attestation.
-     * @param _thresholdBIPS The threshold in BIPS (optional).
+     * @param _thresholdBIPS The threshold in BIPS (optional, 0 uses signing policy threshold).
      * @param _numberOfTees The number of TEEs (optional).
      * @param _teeIds The TEE ids (optional).
      * @param _cosigners The cosigners (optional).

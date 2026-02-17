@@ -82,6 +82,7 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
     )
         external payable
     {
+        // _thresholdBIPS == 0 uses signing policy threshold
         require(
             _thresholdBIPS == 0 || (minThresholdBIPS <= _thresholdBIPS && _thresholdBIPS <= MAX_BIPS),
             ThresholdInvalid()
