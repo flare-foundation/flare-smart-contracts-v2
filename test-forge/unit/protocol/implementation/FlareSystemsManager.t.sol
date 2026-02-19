@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../../../../contracts/protocol/implementation/FlareSystemsManager.sol";
 import "../../../mock/MockCleanupBlockNumberManager.sol";
 import "../../../mock/MockVoterRegistrationTrigger.sol";
+import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 
 contract FlareSystemsManagerTest is Test {
 

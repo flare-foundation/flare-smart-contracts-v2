@@ -7,7 +7,7 @@ import "../../contracts/protocol/implementation/FlareSystemsManager.sol";
 import "flare-smart-contracts/contracts/token/interface/IIGovernanceVotePower.sol";
 import "../../contracts/userInterfaces/IWNat.sol";
 import "flare-smart-contracts/contracts/token/interface/IIVPContract.sol";
-
+import { RandomNumberV2Interface } from "../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 // solhint-disable-next-line max-states-count
 contract PollingFoundationIntegrationTest is Test {
 
