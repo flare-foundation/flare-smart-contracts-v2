@@ -24,6 +24,7 @@ import { provideRandomNumberForInitialRewardEpoch } from "./deployment/tasks/pro
 import { redeployContracts } from "./deployment/scripts/redeploy-contracts";
 import { registerPublicKeys } from "./deployment/tasks/register-public-keys";
 import { deployFdcContracts } from "./deployment/scripts/deploy-fdc-contracts";
+import { redeployRelay } from "./deployment/scripts/redeploy-relay";
 const intercept = require("intercept-stdout");
 
 dotenv.config();
@@ -314,6 +315,19 @@ task("redeploy-contracts", "Redeploy contracts")
       const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
       const contracts = readContracts(network);
       await redeployContracts(hre, oldContracts, contracts, parameters, args.quiet);
+    } else {
+      throw Error("CHAIN_CONFIG environment variable not set.");
+    }
+  });
+
+task("redeploy-relay", "Redeploy relay contract")
+  .addFlag("quiet", "Suppress console output")
+  .setAction(async (args, hre, runSuper) => {
+    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
+    if (parameters) {
+      const network = process.env.CHAIN_CONFIG!;
+      const contracts = readContracts(network);
+      await redeployRelay(hre, contracts, parameters, args.quiet);
     } else {
       throw Error("CHAIN_CONFIG environment variable not set.");
     }
