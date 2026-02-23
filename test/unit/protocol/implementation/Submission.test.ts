@@ -45,7 +45,8 @@ contract(`Submission.sol; ${getTestFile(__filename)}`, async accounts => {
 
     const relay = await Relay.new(
       relayInitialConfig,
-      accounts[1]
+      accounts[1],
+      ZERO_ADDRESS
     );
 
     await submission.setSubmitAndPassData(relay.address, web3.utils.keccak256("relay()").slice(0, 10)); // first 4 bytes is function selector

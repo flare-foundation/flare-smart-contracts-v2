@@ -290,7 +290,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         relay = await Relay.new(
             relayInitialConfig,
-            flareSystemsManager.address
+            flareSystemsManager.address,
+            constants.ZERO_ADDRESS
         );
 
         const relayInitialConfig2: RelayInitialConfig = {
@@ -310,6 +311,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, async accounts => {
 
         relay2 = await Relay.new(
             relayInitialConfig2,
+            constants.ZERO_ADDRESS,
             constants.ZERO_ADDRESS
         );
 

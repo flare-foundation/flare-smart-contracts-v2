@@ -1,6 +1,6 @@
 {
   "name": "flare-smart-contracts-v2",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Smart contracts implementing Top level protocol on Flare Network.",
   "main": "",
   "repository": {
@@ -88,6 +88,12 @@
     "redeploy_contracts_network_coston": "env CHAIN_CONFIG=coston yarn --silent hardhat --network coston redeploy-contracts",
     "redeploy_contracts_local_scdev": "env CHAIN_CONFIG=scdev yarn --silent hardhat --network scdev redeploy-contracts",
     "redeploy_contracts_local_hardhat": "env CHAIN_CONFIG=scdev yarn --silent hardhat --network localhost redeploy-contracts",
+    "redeploy_relay_network_flare": "env CHAIN_CONFIG=flare yarn --silent hardhat --network flare redeploy-relay",
+    "redeploy_relay_network_coston2": "env CHAIN_CONFIG=coston2 yarn --silent hardhat --network coston2 redeploy-relay",
+    "redeploy_relay_network_songbird": "env CHAIN_CONFIG=songbird yarn --silent hardhat --network songbird redeploy-relay",
+    "redeploy_relay_network_coston": "env CHAIN_CONFIG=coston yarn --silent hardhat --network coston redeploy-relay",
+    "redeploy_relay_local_scdev": "env CHAIN_CONFIG=scdev yarn --silent hardhat --network scdev redeploy-relay",
+    "redeploy_relay_local_hardhat": "env CHAIN_CONFIG=scdev yarn --silent hardhat --network localhost redeploy-relay",
     "deploy_fdc_contracts_network_flare": "env CHAIN_CONFIG=flare yarn --silent hardhat --network flare deploy-fdc",
     "deploy_fdc_contracts_network_coston2": "env CHAIN_CONFIG=coston2 yarn --silent hardhat --network coston2 deploy-fdc",
     "deploy_fdc_contracts_network_songbird": "env CHAIN_CONFIG=songbird yarn --silent hardhat --network songbird deploy-fdc",

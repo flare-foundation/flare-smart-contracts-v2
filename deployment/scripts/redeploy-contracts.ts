@@ -142,7 +142,8 @@ export async function redeployContracts(
 
     relay = await Relay.new(
       relayInitialConfig,
-      flareSystemsManager.address
+      flareSystemsManager.address,
+      oldRelay.address
     );
     spewNewContractInfo(contracts, null, Relay.contractName, `Relay.sol`, relay.address, quiet);
 

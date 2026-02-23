@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./LTS/RandomNumberV2Interface.sol";
+import { RandomNumberV2Interface } from "./LTS/RandomNumberV2Interface.sol";
 
 /**
  * Relay interface.
@@ -135,6 +135,13 @@ interface IRelay is RandomNumberV2Interface {
         returns (bool);
 
     /**
+     * Returns the address of the signing policy setter.
+     * If the address is zero, the contract is used as a pure relay,
+     * otherwise the contract is deployed on mainnet.
+     */
+    function signingPolicySetter() external view returns (address);
+
+    /**
      * Returns the signing policy hash for given reward epoch id.
      * The function is reverted if signingPolicySetter is NOT set, hence on all
      * deployments where the contract is used as a pure relay.
@@ -196,5 +203,37 @@ interface IRelay is RandomNumberV2Interface {
      * @param _protocolId The protocol id.
      */
     function protocolFeeInWei(uint256 _protocolId) external view returns (uint256);
+
+    /**
+     * Returns the state data.
+     * @return randomNumberProtocolId The protocol id of the random number protocol.
+     * @return firstVotingRoundStartTs The timestamp of the first voting round start.
+     * @return votingEpochDurationSeconds The duration of a voting epoch in seconds.
+     * @return firstRewardEpochStartVotingRoundId The start voting round id of the first reward epoch.
+     * @return rewardEpochDurationInVotingEpochs The duration of a reward epoch in voting epochs.
+     * @return thresholdIncreaseBIPS The threshold increase in BIPS for signing with old signing policy.
+     * @return randomVotingRoundId The random voting round id.
+     * @return isSecureRandom The secure random flag.
+     * @return lastInitializedRewardEpoch The last initialized reward epoch.
+     * @return noSigningPolicyRelay The flag indicating no signing policy relay.
+     * @return messageFinalizationWindowInRewardEpochs The window of reward epochs for finalizing the
+     *  protocol messages.
+     */
+    function stateData()
+        external
+        view
+        returns (
+            uint8 randomNumberProtocolId,
+            uint32 firstVotingRoundStartTs,
+            uint8 votingEpochDurationSeconds,
+            uint32 firstRewardEpochStartVotingRoundId,
+            uint16 rewardEpochDurationInVotingEpochs,
+            uint16 thresholdIncreaseBIPS,
+            uint32 randomVotingRoundId,
+            bool isSecureRandom,
+            uint32 lastInitializedRewardEpoch,
+            bool noSigningPolicyRelay,
+            uint32 messageFinalizationWindowInRewardEpochs
+        );
 
 }
