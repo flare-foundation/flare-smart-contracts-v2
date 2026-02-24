@@ -14,7 +14,6 @@ import {
   FdcVerificationProxyContract
 } from "../../typechain-truffle";
 import { spewNewContractInfo } from "./deploy-utils";
-import { FdcVerificationProxyContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcVerificationProxy";
 
 export async function deployFdcContracts(
   hre: HardhatRuntimeEnvironment,

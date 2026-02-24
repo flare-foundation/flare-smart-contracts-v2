@@ -22,6 +22,7 @@ import { IIRelay } from "../../contracts/protocol/interface/IIRelay.sol";
 import { IISubmission } from "../../contracts/protocol/interface/IISubmission.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+
 // solhint-disable-next-line max-states-count
 contract VoterRegistryAndFlareSystemsManagerTest is Test {
 

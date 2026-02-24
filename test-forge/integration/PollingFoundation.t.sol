@@ -21,6 +21,7 @@ import {
 import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIVPContract.sol";
 import { IISupply } from "@flarenetwork/flare-periphery-contracts/flare/inflation/interfaces/IISupply.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+
 // solhint-disable-next-line max-states-count
 contract PollingFoundationIntegrationTest is Test {
 
