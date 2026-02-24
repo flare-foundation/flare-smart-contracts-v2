@@ -10,6 +10,7 @@ import { FdcInflationConfigurationsContract } from "../../typechain-truffle/cont
 import { FdcRequestFeeConfigurationsContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcRequestFeeConfigurations";
 import { spewNewContractInfo } from "./deploy-utils";
 import { FdcVerificationContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcVerification";
+import { FdcVerificationProxyContract } from "../../typechain-truffle/contracts/fdc/implementation/FdcVerificationProxy";
 
 export async function deployFdcContracts(
   hre: HardhatRuntimeEnvironment,
@@ -24,7 +25,8 @@ export async function deployFdcContracts(
   const FdcHub: FdcHubContract = artifacts.require("FdcHub");
   const FdcInflationConfigurations: FdcInflationConfigurationsContract = artifacts.require("FdcInflationConfigurations");
   const FdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FdcRequestFeeConfigurations");
-  const FdcVerification: FdcVerificationContract = artifacts.require("FdcVerification");
+  const FdcVerificationImplementation: FdcVerificationContract = artifacts.require("FdcVerification");
+  const FdcVerificationProxy: FdcVerificationProxyContract = artifacts.require("FdcVerificationProxy");
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
@@ -49,8 +51,11 @@ export async function deployFdcContracts(
   spewNewContractInfo(contracts, null, FdcInflationConfigurations.contractName, `FdcInflationConfigurations.sol`, fdcInflationConfigurations.address, quiet);
   const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(governanceSettings, deployerAccount.address);
   spewNewContractInfo(contracts, null, FdcRequestFeeConfigurations.contractName, `FdcRequestFeeConfigurations.sol`, fdcRequestFeeConfigurations.address, quiet);
-  const fdcVerification = await FdcVerification.new(deployerAccount.address, parameters.fdcProtocolId);
-  spewNewContractInfo(contracts, null, FdcVerification.contractName, `FdcVerification.sol`, fdcVerification.address, quiet);
+  const fdcVerificationImpl = await FdcVerificationImplementation.new();
+  spewNewContractInfo(contracts, null, "FdcVerificationImplementation", `FdcVerification.sol`, fdcVerificationImpl.address, quiet);
+  const fdcVerificationProxy = await FdcVerificationProxy.new(governanceSettings, deployerAccount.address, deployerAccount.address, parameters.fdcProtocolId, fdcVerificationImpl.address);
+  spewNewContractInfo(contracts, null, "FdcVerification", `FdcVerificationProxy.sol`, fdcVerificationProxy.address, quiet);
+  const fdcVerification = await FdcVerificationImplementation.at(fdcVerificationProxy.address);
 
   // update contract addresses
   await fdcHub.updateContractAddresses(
@@ -106,6 +111,7 @@ export async function deployFdcContracts(
   await fdcHub.switchToProductionMode();
   await fdcInflationConfigurations.switchToProductionMode();
   await fdcRequestFeeConfigurations.switchToProductionMode();
+  await fdcVerification.switchToProductionMode();
 
   contracts.serialize();
   if (!quiet) {

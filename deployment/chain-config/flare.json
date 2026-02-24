@@ -378,7 +378,8 @@
         {"attestationType": "ReferencedPaymentNonexistence", "source": "DOGE", "feeWei": "1000000000000000000"},
         {"attestationType": "EVMTransaction", "source": "ETH", "feeWei": "1000000000000000000"},
         {"attestationType": "EVMTransaction", "source": "FLR", "feeWei": "1000000000000000000"},
-        {"attestationType": "EVMTransaction", "source": "SGB", "feeWei": "1000000000000000000"}
+        {"attestationType": "EVMTransaction", "source": "SGB", "feeWei": "1000000000000000000"},
+        {"attestationType": "Web2Json", "source": "Ignite", "feeWei": "100000000000000000000"}
     ],
     "fdcInflationConfigurations": [
         {"attestationType": "AddressValidity", "source": "XRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
@@ -398,6 +399,7 @@
         {"attestationType": "ReferencedPaymentNonexistence", "source": "DOGE", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
         {"attestationType": "EVMTransaction", "source": "ETH", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
         {"attestationType": "EVMTransaction", "source": "FLR", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
-        {"attestationType": "EVMTransaction", "source": "SGB", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0}
+        {"attestationType": "EVMTransaction", "source": "SGB", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "Web2Json", "source": "Ignite", "inflationShare": 1000, "minRequestsThreshold": 2, "mode": 0}
     ]
 }

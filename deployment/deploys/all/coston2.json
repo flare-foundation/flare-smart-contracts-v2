@@ -380,9 +380,10 @@
   },
   {
     "name": "FdcVerification",
-    "contractName": "FdcVerification.sol",
+    "contractName": "FdcVerificationProxy.sol",
     "addresses": [
-      "0x075bf301fF07C4920e5261f93a0609640F53487D"
+      "0x075bf301fF07C4920e5261f93a0609640F53487D",
+      "0x906507E0B64bcD494Db73bd0459d1C667e14B933"
     ]
   },
   {
@@ -412,6 +413,15 @@
     "contractName": "USDTSwapper.sol",
     "addresses": [
       "0x0B70c0C7A242d4f81D85e9C8384C8AB1593851Cb"
+    ]
+  },
+  {
+    "name": "FdcVerificationImplementation",
+    "contractName": "FdcVerification.sol",
+    "addresses": [
+      "0x4221f845df8D010952a269ee47F208Fe96B59131",
+      "0x7861e131502bC8eFB13e661C0290Ec487D9DC2Cb",
+      "0x5543cEDC4F3Eb2fc9372b20b62a2c3713c8749c6"
     ]
   },
   {
