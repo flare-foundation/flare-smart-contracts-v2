@@ -226,8 +226,8 @@
   },
   {
     "name": "FdcVerification",
-    "contractName": "FdcVerification.sol",
-    "address": "0xd283afC5A67E2d4Bc700b5B640328Bda22450621"
+    "contractName": "FdcVerificationProxy.sol",
+    "address": "0x3f4dd62410D4F876232Ed17C115437144995557f"
   },
   {
     "name": "VoterPreRegistry",
@@ -243,5 +243,10 @@
     "name": "FtsoV2Implementation",
     "contractName": "FtsoV2.sol",
     "address": "0x5878D57Ff2BC773355aEd2831D8dF29AC72Ca0f6"
+  },
+  {
+    "name": "FdcVerificationImplementation",
+    "contractName": "FdcVerification.sol",
+    "address": "0xEDA9BB641a54E59dCc319169933f04de0c4dCd76"
   }
 ]

@@ -357,9 +357,10 @@
   },
   {
     "name": "FdcVerification",
-    "contractName": "FdcVerification.sol",
+    "contractName": "FdcVerificationProxy.sol",
     "addresses": [
-      "0x9394c7A36b3Da8de1b4F27cdD0a554dA4Fa7132d"
+      "0x9394c7A36b3Da8de1b4F27cdD0a554dA4Fa7132d",
+      "0x5C14FE9D73Ab763F4d4a76f334bf7029DDD20Ecc"
     ]
   },
   {
@@ -397,6 +398,13 @@
     "addresses": [
       "0xF51b848fd3fe825398514473BA366E6653EFc142",
       "0xa33EebB9Da61095a8bE132B6AA5CaDF30D7BE947"
+    ]
+  },
+  {
+    "name": "FdcVerificationImplementation",
+    "contractName": "FdcVerification.sol",
+    "addresses": [
+      "0x4BaD22102bf4658B938cec27BEE16E917F696Ce5"
     ]
   },
   {

@@ -246,8 +246,8 @@
   },
   {
     "name": "FdcVerification",
-    "contractName": "FdcVerification.sol",
-    "address": "0x075bf301fF07C4920e5261f93a0609640F53487D"
+    "contractName": "FdcVerificationProxy.sol",
+    "address": "0x906507E0B64bcD494Db73bd0459d1C667e14B933"
   },
   {
     "name": "VoterPreRegistry",
@@ -268,6 +268,11 @@
     "name": "USDTSwapper",
     "contractName": "USDTSwapper.sol",
     "address": "0x0B70c0C7A242d4f81D85e9C8384C8AB1593851Cb"
+  },
+  {
+    "name": "FdcVerificationImplementation",
+    "contractName": "FdcVerification.sol",
+    "address": "0x5543cEDC4F3Eb2fc9372b20b62a2c3713c8749c6"
   },
   {
     "name": "ChainlinkAdapterImplementation",

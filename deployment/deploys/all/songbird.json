@@ -339,9 +339,10 @@
   },
   {
     "name": "FdcVerification",
-    "contractName": "FdcVerification.sol",
+    "contractName": "FdcVerificationProxy.sol",
     "addresses": [
-      "0xd283afC5A67E2d4Bc700b5B640328Bda22450621"
+      "0xd283afC5A67E2d4Bc700b5B640328Bda22450621",
+      "0x3f4dd62410D4F876232Ed17C115437144995557f"
     ]
   },
   {
@@ -364,6 +365,13 @@
     "contractName": "FtsoV2.sol",
     "addresses": [
       "0x5878D57Ff2BC773355aEd2831D8dF29AC72Ca0f6"
+    ]
+  },
+  {
+    "name": "FdcVerificationImplementation",
+    "contractName": "FdcVerification.sol",
+    "addresses": [
+      "0xEDA9BB641a54E59dCc319169933f04de0c4dCd76"
     ]
   }
 ]
