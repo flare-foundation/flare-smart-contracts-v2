@@ -7,9 +7,8 @@ import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
 import { RelayInitialConfig } from '../utils/RelayInitialConfig';
-import { RelayContract } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
-import { FlareSystemsManagerContract, FlareSystemsManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager';
-
+import { FlareSystemsManagerContract, FlareSystemsManagerInstance, RelayContract } from '../../typechain-truffle';
+import { Account } from 'web3-core';
 
 export async function redeployRelay(
   hre: HardhatRuntimeEnvironment,
@@ -19,20 +18,19 @@ export async function redeployRelay(
 ) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
-  const BN = web3.utils.toBN;
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-  const Relay: RelayContract = artifacts.require("Relay");
-  const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
+  const Relay = artifacts.require("Relay") as RelayContract;
+  const FlareSystemsManager = artifacts.require("FlareSystemsManager") as FlareSystemsManagerContract;
 
   // Define accounts in play for the deployment process
-  let deployerAccount: any;
+  let deployerAccount: Account;
 
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e)
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e))
   }
 
   // Wire up the default account that will do the deployment

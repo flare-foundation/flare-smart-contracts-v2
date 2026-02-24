@@ -2355,7 +2355,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       const votingRoundIdAndProtocolIdExampleProof = new Map<string, string[]>();
 
       // set new signing policy on old flare contract
-      relayOldFlare.setSigningPolicy(newSigningPolicyData);
+      await relayOldFlare.setSigningPolicy(newSigningPolicyData);
 
       const signaturesSP = await generateSignatures(
         accountPrivateKeys,
@@ -2369,9 +2369,9 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
         newSigningPolicy: newSigningPolicyData
       };
 
-      let fullDataSP = RelayMessage.encode(relayMessageSP);
+      const fullDataSP = RelayMessage.encode(relayMessageSP);
 
-      let receiptSP = await web3.eth.sendTransaction({
+      const receiptSP = await web3.eth.sendTransaction({
         from: signers[0].address,
         to: relayOldRelay.address,
         data: selector + fullDataSP.slice(2),
@@ -2394,36 +2394,26 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
           const newMessageData = newMessageDataTmp;
           // initialize a random merkle root
           newMessageData.merkleRoot = ethers.hexlify(ethers.randomBytes(32));
-          // let randomNumberResult: RandomResult | undefined;
-          // let relayData: any;
-          let leaf = newMessageData.merkleRoot;
-          let proof: string[] = [];
-          // if (isRandomNumberProtocol) {
-          //   const res = prepareDataWithRandom(newMessageData, randomNumber);
-          //   randomNumberResult = res.randomNumberResult;
-          //   relayData = res.relayData;
-          //   leaf = res.randomNumberLeaf;
-          //   proof = res.relayData.merkleProof;
-          // }
+          const leaf = newMessageData.merkleRoot;
+          const proof: string[] = [];
           votingRoundIdAndProtocolIdToMerkleRoot.set(`${votingRoundIdBase + votingRoundOffset}-${protocolId}`, newMessageData.merkleRoot);
           votingRoundIdAndProtocolIdExampleLeaf.set(`${votingRoundIdBase + votingRoundOffset}-${protocolId}`, leaf);
           votingRoundIdAndProtocolIdExampleProof.set(`${votingRoundIdBase + votingRoundOffset}-${protocolId}`, proof);
           const messageHash = ProtocolMessageMerkleRoot.hash(newMessageData);
-          let signatures = await generateSignatures(
+          const signatures = await generateSignatures(
             accountPrivateKeys,
             messageHash,
             N / 2 + 1
           );
 
 
-          let relayMessage = {
+          const relayMessage = {
             signingPolicy: newSigningPolicyData,
             signatures,
             protocolMessageMerkleRoot: newMessageData,
-            // ...relayData
           };
 
-          let fullData = RelayMessage.encode(relayMessage);
+          const fullData = RelayMessage.encode(relayMessage);
           for (const relayContract of allRelays) {
             // skip relaying to new relay contracts
             if (isOldRelaying && isNew.get(relayContract)!) {
@@ -2444,7 +2434,6 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
               votingRoundId: toBN(newMessageData.votingRoundId),
               isSecureRandom: newMessageData.isSecureRandom,
               merkleRoot: newMessageData.merkleRoot,
-              // randomNumber: isRandomNumberProtocol ? toBN(randomNumberResult!.value) : toBN(0),
             });
           }
         }
@@ -2568,7 +2557,7 @@ contract(`Relay.sol; ${getTestFile(__filename)}`, () => {
       });
 
       await expectEvent.inTransaction(
-        receipt!.transactionHash,
+        receipt.transactionHash,
         relay,
         "ProtocolMessageRelayed",
         {

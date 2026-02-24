@@ -20,8 +20,7 @@ import {
   FastUpdateIncentiveManagerContract, FastUpdateIncentiveManagerInstance, FastUpdaterContract,
   FastUpdatesConfigurationContract, FastUpdatesConfigurationInstance, FeeCalculatorContract,
   FtsoManagerProxyContract, FtsoProxyContract, FtsoV2Contract, FtsoV2ProxyContract,
-  PriceSubmitterProxyContract, VoterWhitelisterProxyContract, FtsoRewardManagerProxyContract, FtsoRewardManagerProxyInstance, EntityManagerContract, VoterRegistryContract, VoterPreRegistryContract, SFlrCustomFeedContract,
-  StXrpCustomFeedContract
+  PriceSubmitterProxyContract, VoterWhitelisterProxyContract, FtsoRewardManagerProxyContract, FtsoRewardManagerProxyInstance, EntityManagerContract, VoterPreRegistryContract, SFlrCustomFeedContract, StXrpCustomFeedContract
 
 } from '../../typechain-truffle';
 import { Account } from 'web3-core';
@@ -65,7 +64,6 @@ export async function redeployContracts(
   const RewardManager = artifacts.require("RewardManager") as RewardManagerContract;
   const FtsoRewardManagerProxy = artifacts.require("FtsoRewardManagerProxy") as FtsoRewardManagerProxyContract;
   const EntityManager = artifacts.require("EntityManager") as EntityManagerContract;
-  const VoterRegistry = artifacts.require("VoterRegistry") as VoterRegistryContract;
   const VoterPreRegistry = artifacts.require("VoterPreRegistry") as VoterPreRegistryContract;
   const SFlrCustomFeed = artifacts.require("SFlrCustomFeed") as SFlrCustomFeedContract;
   const StXrpCustomFeed = artifacts.require("StXrpCustomFeed") as StXrpCustomFeedContract;
