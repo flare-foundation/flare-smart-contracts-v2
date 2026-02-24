@@ -273,5 +273,35 @@
     "name": "USDTSwapper",
     "contractName": "USDTSwapper.sol",
     "address": "0xa33EebB9Da61095a8bE132B6AA5CaDF30D7BE947"
+  },
+  {
+    "name": "ChainlinkAdapterImplementation",
+    "contractName": "ChainlinkAdapter.sol",
+    "address": "0x61ce9eA92EF76Bc215ecAaf051F5D0fc1436A066"
+  },
+  {
+    "name": "ChainlinkAdapterFlr",
+    "contractName": "ChainlinkAdapterProxy.sol",
+    "address": "0xbF9D1474E817C94163Fc7cc7Da5B4543CdA76697"
+  },
+  {
+    "name": "ChainlinkAdapterXrp",
+    "contractName": "ChainlinkAdapterProxy.sol",
+    "address": "0xa14A1934cca2B74F6A9C25db4D59746A32d83821"
+  },
+  {
+    "name": "ChainlinkAdapterUsdt",
+    "contractName": "ChainlinkAdapterProxy.sol",
+    "address": "0x50Bc0b3C0028F4F6bF4e4E4536711B1A714FeD43"
+  },
+  {
+    "name": "ChainlinkAdapterUsdc",
+    "contractName": "ChainlinkAdapterProxy.sol",
+    "address": "0xCAdd50C4317eac6d2c125e5E52d8D00198205C47"
+  },
+  {
+    "name": "ChainlinkAdapterStXrp",
+    "contractName": "ChainlinkAdapterProxy.sol",
+    "address": "0x64e152B754c003B51D88Ebf0FA88C3DA39A0E7e0"
   }
 ]
