@@ -413,5 +413,40 @@
     "addresses": [
       "0x0B70c0C7A242d4f81D85e9C8384C8AB1593851Cb"
     ]
+  },
+  {
+    "name": "ChainlinkAdapterImplementation",
+    "contractName": "ChainlinkAdapter.sol",
+    "addresses": [
+      "0xAB8A8ABE1B73dE9a8c67D4591961E0a3be5274c7"
+    ]
+  },
+  {
+    "name": "ChainlinkAdapterFlr",
+    "contractName": "ChainlinkAdapterProxy.sol",
+    "addresses": [
+      "0x230052d081dFdF5C72BdAE1cB262B6F79563DDC6"
+    ]
+  },
+  {
+    "name": "ChainlinkAdapterXrp",
+    "contractName": "ChainlinkAdapterProxy.sol",
+    "addresses": [
+      "0x9b4f882C5a43bd98F7f6FAC7F24E5fBb697dB0fB"
+    ]
+  },
+  {
+    "name": "ChainlinkAdapterUsdt",
+    "contractName": "ChainlinkAdapterProxy.sol",
+    "addresses": [
+      "0xdf020706adB01E393A9026150FBFB810cDda789A"
+    ]
+  },
+  {
+    "name": "ChainlinkAdapterUsdc",
+    "contractName": "ChainlinkAdapterProxy.sol",
+    "addresses": [
+      "0x2fa3D57fa4ED7cD44443166F240D8223D42cB38B"
+    ]
   }
 ]
