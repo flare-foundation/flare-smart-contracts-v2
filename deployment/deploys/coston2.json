@@ -272,7 +272,7 @@
   {
     "name": "FdcVerificationImplementation",
     "contractName": "FdcVerification.sol",
-    "address": "0x7861e131502bC8eFB13e661C0290Ec487D9DC2Cb"
+    "address": "0x5543cEDC4F3Eb2fc9372b20b62a2c3713c8749c6"
   },
   {
     "name": "ChainlinkAdapterImplementation",
