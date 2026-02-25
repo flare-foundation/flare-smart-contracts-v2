@@ -47,7 +47,7 @@ import { ProtocolsV2Interface } from "../../contracts/userInterfaces/LTS/Protoco
 import { RandomNumberV2Interface } from "../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardManager.sol";
 import { IRelay } from "../../contracts/userInterfaces/IRelay.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
 import { SignatureHelper } from "../utils/SignatureHelper.sol";

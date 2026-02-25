@@ -513,7 +513,6 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
         address _voter,
         uint32 _rewardEpochId,
         Signature calldata _signature,
-        Signature calldata _signature,
         IIEntityManager.VoterAddresses memory _voterAddresses
     )
         internal

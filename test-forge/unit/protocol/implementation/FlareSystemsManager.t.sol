@@ -21,6 +21,7 @@ import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegis
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 
 contract FlareSystemsManagerTest is Test {
 

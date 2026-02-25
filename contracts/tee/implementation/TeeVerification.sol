@@ -21,7 +21,7 @@ import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
 /**

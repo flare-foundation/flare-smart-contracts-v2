@@ -20,6 +20,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { Signature } from "../../userInterfaces/ISignature.sol";
 
 /**
  * FlareSystemsManager is responsible for initialization of reward epochs and voting rounds using FlareDaemon calls.

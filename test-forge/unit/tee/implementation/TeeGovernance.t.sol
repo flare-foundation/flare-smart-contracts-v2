@@ -7,7 +7,7 @@ import { TeeGovernanceProxy } from "../../../../contracts/tee/proxy/TeeGovernanc
 import { ITeeGovernance } from "../../../../contracts/userInterfaces/tee/ITeeGovernance.sol";
 import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract TeeGovernanceTest is Test {

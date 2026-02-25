@@ -30,7 +30,7 @@ import { IFtdcVerification } from "../../contracts/userInterfaces/ftdc/IFtdcVeri
 import { IFtdcHub } from "../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
 import { ITeePayments } from "../../contracts/userInterfaces/tee/ITeePayments.sol";
 import { ITeeExtensionRegistry } from "../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 // solhint-disable-next-line max-states-count

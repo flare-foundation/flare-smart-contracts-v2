@@ -5,7 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { TeeFeeCalculator } from "../../../../contracts/tee/implementation/TeeFeeCalculator.sol";
 import { TeeFeeCalculatorProxy } from "../../../../contracts/tee/proxy/TeeFeeCalculatorProxy.sol";
 import { ITeeFeeCalculator } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract TeeFeeCalculatorTest is Test {
 

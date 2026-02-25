@@ -9,7 +9,7 @@ import { FtdcRequestFeeConfigurationsProxy } from "../../../../contracts/ftdc/pr
 import {
     IFtdcRequestFeeConfigurations
 } from "../../../../contracts/userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FtdcRequestFeeConfigurationsTest is Test {
 

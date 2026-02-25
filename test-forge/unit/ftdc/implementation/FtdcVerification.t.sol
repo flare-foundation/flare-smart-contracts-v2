@@ -9,7 +9,7 @@ import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/IT
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FtdcVerificationTest is Test {
 

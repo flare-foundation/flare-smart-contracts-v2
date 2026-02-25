@@ -6,7 +6,7 @@ import { TeeOwnerAllowlist } from "../../../../contracts/tee/implementation/TeeO
 import { TeeOwnerAllowlistProxy } from "../../../../contracts/tee/proxy/TeeOwnerAllowlistProxy.sol";
 import { ITeeOwnerAllowlist } from "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlist.sol";
 import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract TeeOwnerAllowlistTest is Test {
 

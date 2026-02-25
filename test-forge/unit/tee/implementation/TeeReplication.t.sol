@@ -13,7 +13,7 @@ import { IFtdcVerification } from "../../../../contracts/userInterfaces/ftdc/IFt
 import { IFtdcHub } from "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
 import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
 import { IITeeMachineRegistry } from "../../../../contracts/tee/interface/IITeeMachineRegistry.sol";
-import { IGovernanceSettings} from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings} from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IITeeSystemStateVerifier } from "../../../../contracts/tee/interface/IITeeSystemStateVerifier.sol";
 
 // solhint-disable-next-line max-states-count

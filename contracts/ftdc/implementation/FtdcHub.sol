@@ -6,7 +6,7 @@ import { GovernedProxyImplementation } from "../../governance/implementation/Gov
 import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IFtdcHub } from "../../userInterfaces/ftdc/IFtdcHub.sol";
 import { IITeeExtensionRegistry } from "../../tee/interface/IITeeExtensionRegistry.sol";
 import { ITeeMachineRegistry } from  "../../userInterfaces/tee/ITeeMachineRegistry.sol";

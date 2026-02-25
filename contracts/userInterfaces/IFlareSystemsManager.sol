@@ -2,7 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { ProtocolsV2Interface } from "./LTS/ProtocolsV2Interface.sol";
-import { Signature }" from ./ISignature.sol";
+import { Signature } from "./ISignature.sol";
 
 /**
  * FlareSystemsManager interface.

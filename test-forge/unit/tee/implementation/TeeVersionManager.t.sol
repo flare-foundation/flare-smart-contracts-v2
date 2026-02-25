@@ -8,7 +8,7 @@ import { ITeeVersionManager } from "../../../../contracts/userInterfaces/tee/ITe
 import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { ITeeGovernance } from "../../../../contracts/userInterfaces/tee/ITeeGovernance.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 contract TeeVersionManagerTest is Test {

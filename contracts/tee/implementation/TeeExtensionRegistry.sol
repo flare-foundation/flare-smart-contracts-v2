@@ -10,7 +10,7 @@ import { ITeeFeeCalculator } from "../../userInterfaces/tee/ITeeFeeCalculator.so
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 

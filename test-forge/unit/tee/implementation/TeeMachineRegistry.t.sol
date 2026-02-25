@@ -16,7 +16,7 @@ import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { PublicKeyHelper } from "../../../utils/PublicKeyHelper.sol";
 import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
 contract TeeMachineRegistryTest is Test {
