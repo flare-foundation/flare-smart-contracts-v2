@@ -70,6 +70,8 @@ import { TeeReplicationProxyContract } from '../../typechain-truffle/contracts/t
 import { AddressUpdaterContract, AddressUpdaterInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressUpdater';
 import { FtdcVerificationContract, FtdcVerificationInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification';
 import { FtdcVerificationProxyContract } from '../../typechain-truffle/contracts/ftdc/proxy/FtdcVerificationProxy';
+import { TeeVrfContract, TeeVrfInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeVrf';
+import { TeeVrfProxyContract } from '../../typechain-truffle/contracts/tee/proxy/TeeVrfProxy';
 
 const MockContract: MockContractContract = artifacts.require("MockContract");
 const AddressUpdater: AddressUpdaterContract = artifacts.require("AddressUpdater");
@@ -132,6 +134,8 @@ const FtdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsContract = artif
 const FtdcRequestFeeConfigurationsProxy: FtdcRequestFeeConfigurationsProxyContract = artifacts.require("FtdcRequestFeeConfigurationsProxy");
 const FtdcVerification: FtdcVerificationContract = artifacts.require("FtdcVerification");
 const FtdcVerificationProxy: FtdcVerificationProxyContract = artifacts.require("FtdcVerificationProxy");
+const TeeVrf: TeeVrfContract = artifacts.require("TeeVrf");
+const TeeVrfProxy: TeeVrfProxyContract = artifacts.require("TeeVrfProxy");
 
 type PChainStake = {
     txId: string,
@@ -292,6 +296,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     let teeRewardOffersManager: TeeRewardOffersManagerInstance;
     let teePaymentsXRP: TeePaymentsInstance;
     let teePaymentsEVM: TeePaymentsInstance;
+    let teeVrf: TeeVrfInstance;
     let ftdcHub: FtdcHubInstance;
     let ftdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsInstance;
     let ftdcVerification: FtdcVerificationInstance;
@@ -649,6 +654,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         teePaymentsEVM = await TeePayments.at(teePaymentsProxy.address);
         addressUpdatableContracts.push(teePaymentsEVM.address);
 
+        const teeVrfImpl: TeeVrfInstance = await TeeVrf.new();
+        const teeVrfProxy = await TeeVrfProxy.new(governanceSettings.address, accounts[0], addressUpdater.address, teeVrfImpl.address);
+        teeVrf = await TeeVrf.at(teeVrfProxy.address);
+        addressUpdatableContracts.push(teeVrf.address);
+
         const ftdcHubImpl: FtdcHubInstance = await FtdcHub.new();
         const ftdcHubProxy = await FtdcHubProxy.new(
             governanceSettings.address,
@@ -737,7 +747,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 Contracts.TEE_WALLET_PROJECT_MANAGER,
                 Contracts.TEE_WALLET_KEY_MANAGER,
                 Contracts.TEE_WALLET_BACKUP_MANAGER,
-                Contracts.TEE_REPLICATION
+                Contracts.TEE_REPLICATION,
+                Contracts.TEE_VRF
             ],
             [
                 addressUpdater.address,
@@ -777,7 +788,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 teeWalletProjectManager.address,
                 teeWalletKeyManager.address,
                 teeWalletBackupManager.address,
-                teeReplication.address
+                teeReplication.address,
+                teeVrf.address
             ],
             addressUpdatableContracts,
             { from: accounts[0] }
@@ -789,7 +801,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         // set system extension supported key types
         await teeExtensionRegistry.addSupportedKeyTypes(0, TEE_KEY_CONFIGURATIONS);
         // register system instructions senders
-        await teeExtensionRegistry.registerSystemInstructionsSenders([teeVerification.address, teeWalletManager.address, teeWalletKeyManager.address, teeWalletBackupManager.address, teeReplication.address, teePaymentsXRP.address, teePaymentsEVM.address, ftdcHub.address]);
+        await teeExtensionRegistry.registerSystemInstructionsSenders([teeVerification.address, teeWalletManager.address, teeWalletKeyManager.address, teeWalletBackupManager.address, teeReplication.address, teePaymentsXRP.address, teePaymentsEVM.address, ftdcHub.address, teeVrf.address]);
         await teeOwnerAllowlist.allowAllTeeMachineOwners(0);
         await teeOwnerAllowlist.allowAllTeeWalletProjectOwners(0);
         // set reward offers manager list
@@ -2105,5 +2117,29 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         expect(event2.opType).to.be.equal(web3.utils.utf8ToHex("F_EVM").padEnd(66, "0"));
         expect(event2.opCommand).to.be.equal(web3.utils.utf8ToHex("REISSUE").padEnd(66, "0"));
         expect(event2.message).to.be.equal(web3.eth.abi.encodeParameter(paymentInstructionMessageStruct, message2));
+    });
+
+    it("Should request VRF", async () => {
+        const keyId = 0;
+        const nonce = "0x" + Buffer.from("test-vrf-nonce").toString("hex");
+
+        const vrfInstructionMessageStruct = getStruct("TeeVrfStructs", "vrfInstructionMessageStruct");
+
+        const tx = await teeVrf.requestVrf(WALLET1_ID, keyId, nonce, { value: "1", from: TEE_WALLET_OWNERS[0] });
+
+        const vrfEvent = requiredEventArgsFrom(tx, teeVrf, "VrfRequested") as any;
+        expect(vrfEvent.walletId).to.be.equal(WALLET1_ID);
+        expect(vrfEvent.keyId).to.be.equal(keyId.toString());
+
+        const instEvent = requiredEventArgsFrom(tx, teeExtensionRegistry, "TeeInstructionsSent") as any;
+        expect(instEvent.rewardEpochId).to.be.equal("2");
+        expect(instEvent.opType).to.be.equal(web3.utils.utf8ToHex("F_WALLET").padEnd(66, "0"));
+        expect(instEvent.opCommand).to.be.equal(web3.utils.utf8ToHex("VRF").padEnd(66, "0"));
+        expect(instEvent.message).to.be.equal(web3.eth.abi.encodeParameter(vrfInstructionMessageStruct, {
+            walletId: WALLET1_ID,
+            keyId: keyId.toString(),
+            nonce: nonce
+        }));
+        expect(vrfEvent.instructionId).to.be.equal(instEvent.instructionId);
     });
 });
