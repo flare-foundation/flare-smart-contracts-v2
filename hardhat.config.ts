@@ -394,12 +394,11 @@ task("deploy-tee", "Deploy TEE contracts")
     }
   });
 
-task("check-address-updater", "Check Address Updater")
-  .setAction(async (args, hre, runSuper) => {
-      const network = process.env.CHAIN_CONFIG!;
-      const contracts = readContracts(network);
-      await checkAddressUpdater(hre, contracts);
-  });
+task("check-address-updater", "Check Address Updater").setAction(async (args, hre, runSuper) => {
+  const network = process.env.CHAIN_CONFIG!;
+  const contracts = readContracts(network);
+  await checkAddressUpdater(hre, contracts);
+});
 
 // verification constants
 const ETHERSCAN_API_URL = process.env.ETHERSCAN_API_URL || "123";
@@ -587,8 +586,8 @@ const config: HardhatUserConfig = {
     ],
   },
   sourcify: {
-    enabled: false
-  }
+    enabled: false,
+  },
 };
 
 export default config;

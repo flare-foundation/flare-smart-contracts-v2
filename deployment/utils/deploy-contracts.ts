@@ -124,6 +124,9 @@ import { TeeReplicationContract, TeeReplicationInstance } from "../../typechain-
 import { TeeReplicationProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeReplicationProxy";
 import { TeeExtensionInstructionsSenderMockContract, TeeExtensionInstructionsSenderMockInstance } from "../../typechain-truffle/contracts/tee/mock/TeeExtensionInstructionsSenderMock";
 import { PMWPaymentStatusVerifierMockContract, PMWPaymentStatusVerifierMockInstance } from "../../typechain-truffle/contracts/ftdc/mock/PMWPaymentStatusVerifierMock";
+import { TeeVrfContract, TeeVrfInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeVrf";
+import { TeeVrfProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeVrfProxy";
+import { VRFVerifierContract, VRFVerifierInstance } from "../../typechain-truffle/contracts/tee/lib/VRFVerifier";
 
 export interface DeployedContracts {
   readonly addressUpdater: AddressUpdaterInstance;
@@ -176,6 +179,8 @@ export interface DeployedContracts {
   readonly ftdcVerification: FtdcVerificationInstance;
   readonly pmwPaymentStatusVerifierMock: PMWPaymentStatusVerifierMockInstance;
   readonly teeExtensionInstructionsSenderMock: TeeExtensionInstructionsSenderMockInstance;
+  readonly teeVrf: TeeVrfInstance;
+  readonly vrfVerifier: VRFVerifierInstance;
 }
 
 const logger = getLogger("contracts");
@@ -269,6 +274,9 @@ export async function deployContracts(
 
   const PMWPaymentStatusVerifierMock: PMWPaymentStatusVerifierMockContract = artifacts.require("PMWPaymentStatusVerifierMock");
   const TeeExtensionInstructionsSenderMock: TeeExtensionInstructionsSenderMockContract = artifacts.require("TeeExtensionInstructionsSenderMock");
+  const TeeVrf: TeeVrfContract = artifacts.require("TeeVrf");
+  const TeeVrfProxy: TeeVrfProxyContract = artifacts.require("TeeVrfProxy");
+  const VRFVerifier: VRFVerifierContract = artifacts.require("VRFVerifier");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
@@ -749,6 +757,18 @@ export async function deployContracts(
     teeWalletKeyManager.address
   );
 
+  const teeVrfImpl = await TeeVrf.new();
+  const teeVrfProxy = await TeeVrfProxy.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    addressUpdater.address,
+    teeVrfImpl.address
+  );
+  const teeVrf = await TeeVrf.at(teeVrfProxy.address);
+  addressUpdatableContracts.push(teeVrf.address);
+
+  const vrfVerifier = await VRFVerifier.new();
+
   // Set the FTDC request fee configurations
   for (const ftdcRequestFee of FTDC_FEE_CONFIGURATIONS) {
     await ftdcRequestFeeConfigurations.setTypeAndSourceFee(
@@ -808,7 +828,8 @@ export async function deployContracts(
       Contracts.TEE_WALLET_PROJECT_MANAGER,
       Contracts.TEE_WALLET_KEY_MANAGER,
       Contracts.TEE_WALLET_BACKUP_MANAGER,
-      Contracts.TEE_REPLICATION
+      Contracts.TEE_REPLICATION,
+      Contracts.TEE_VRF
     ],
     [
       addressUpdater.address,
@@ -854,7 +875,8 @@ export async function deployContracts(
       teeWalletProjectManager.address,
       teeWalletKeyManager.address,
       teeWalletBackupManager.address,
-      teeReplication.address
+      teeReplication.address,
+      teeVrf.address
     ],
     addressUpdatableContracts,
     { from: governanceAccount.address }
@@ -893,6 +915,7 @@ export async function deployContracts(
       teeWalletBackupManager.address,
       teeReplication.address,
       ...teePaymentsList.map(teePayments => teePayments.address),
+      teeVrf.address,
       ftdcHub.address
     ],
     { from: governanceAccount.address }
@@ -1129,7 +1152,9 @@ export async function deployContracts(
     ftdcRequestFeeConfigurations,
     ftdcVerification,
     pmwPaymentStatusVerifierMock,
-    teeExtensionInstructionsSenderMock
+    teeExtensionInstructionsSenderMock,
+    teeVrf,
+    vrfVerifier
   };
 
   return [contracts, rewardEpochStart, initialSigningPolicy];

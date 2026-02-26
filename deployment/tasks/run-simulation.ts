@@ -115,6 +115,7 @@ export const TEE_OPERATION_FEES = [
   {opType: "F_EVM", opCommand: "PAY", feeWei: "1"},
   {opType: "F_EVM", opCommand: "REISSUE", feeWei: "1"},
   {opType: "F_EVM", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
+  {opType: "F_WALLET", opCommand: "VRF", feeWei: "1"},
   {opType: "F_FTDC", opCommand: "PROVE", feeWei: "1"}
 ];
 

@@ -101,6 +101,7 @@ export class Contracts {
   public static readonly FTDC_HUB = "FtdcHub";
   public static readonly FTDC_REQUEST_FEE_CONFIGURATIONS = "FtdcRequestFeeConfigurations";
   public static readonly FTDC_VERIFICATION = "FtdcVerification";
+  public static readonly TEE_VRF = "TeeVrf";
 
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 
