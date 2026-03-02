@@ -21,9 +21,6 @@ import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.so
 contract TeePayments is ITeePayments, TeeBase {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    /// default fee schedule: factor 1 (10000 BIPS), delay 0 seconds
-    bytes public constant DEFAULT_FEE_SCHEDULE = abi.encodePacked(int16(10000), uint8(0));
-
     struct AccountState {
         uint64 nonce;
         uint64 subNonce;
@@ -65,6 +62,8 @@ contract TeePayments is ITeePayments, TeeBase {
         bytes feeSchedule;
     }
 
+    /// default fee schedule: factor 1 (10000 BIPS), delay 0 seconds
+    bytes public constant DEFAULT_FEE_SCHEDULE = abi.encodePacked(int16(10000), uint8(0));
 
     bytes32 public constant PAY = bytes32("PAY");
     bytes32 public constant REISSUE = bytes32("REISSUE");

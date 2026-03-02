@@ -526,7 +526,7 @@ contract WalletPaymentsTest is Test {
             recipientAddress: recipient,
             tokenId: bytes32(0),
             amount: 1000,
-            fee: 15,
+            maxFee: 15,
             paymentReference: paymentReference
         });
 
@@ -548,7 +548,8 @@ contract WalletPaymentsTest is Test {
             recipientAddress: instruction.recipientAddress,
             tokenId: instruction.tokenId,
             amount: instruction.amount,
-            fee: instruction.fee,
+            maxFee: instruction.maxFee,
+            feeSchedule: abi.encodePacked(int16(10000), uint8(0)),
             paymentReference: instruction.paymentReference,
             nonce: 2,
             subNonce: 2,
@@ -586,18 +587,22 @@ contract WalletPaymentsTest is Test {
             recipientAddress: recipient,
             tokenId: bytes32(0),
             amount: 1000,
-            fee: 15,
+            maxFee: 15,
             paymentReference: paymentReference
         });
         ITeePayments.PaymentInstruction[] memory instructions = new ITeePayments.PaymentInstruction[](1);
         instructions[0] = instruction;
         uint256[] memory fees = new uint256[](1);
         fees[0] = 30;
-        bool[] memory nullify = new bool[](1);
-        nullify[0] = false;
+        int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
+        feeFactorScheduleBIPS[0] = new int16[](0);
+        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
-        teePayments.reissue{value: 50} (account1, 0, 0, instructions, fees, nullify);
+        teePayments.reissue{value: 50}(
+            account1, 0, 0, instructions, fees,
+            feeFactorScheduleBIPS, feeDelayScheduleSeconds
+        );
     }
 
     function testReissue() public {
@@ -608,15 +613,16 @@ contract WalletPaymentsTest is Test {
             recipientAddress: recipient,
             tokenId: bytes32(0),
             amount: 1000,
-            fee: 15,
+            maxFee: 15,
             paymentReference: paymentReference
         });
         ITeePayments.PaymentInstruction[] memory instructions = new ITeePayments.PaymentInstruction[](1);
         instructions[0] = instruction;
         uint256[] memory fees = new uint256[](1);
         fees[0] = 30;
-        bool[] memory nullify = new bool[](1);
-        nullify[0] = false;
+        int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
+        feeFactorScheduleBIPS[0] = new int16[](0);
+        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
 
         uint256 reissueNumber = 0;
         bytes32 instructionId = keccak256(abi.encode(
@@ -635,7 +641,8 @@ contract WalletPaymentsTest is Test {
             recipientAddress: instruction.recipientAddress,
             tokenId: instruction.tokenId,
             amount: instruction.amount,
-            fee: fees[0],
+            maxFee: fees[0],
+            feeSchedule: abi.encodePacked(int16(10000), uint8(0)),
             paymentReference: instruction.paymentReference,
             nonce: 2,
             subNonce: 2,
@@ -656,31 +663,10 @@ contract WalletPaymentsTest is Test {
             60
         );
         vm.prank(authorizationAddress);
-        teePayments.reissue{value: 60} (account1, 2, 2, instructions, fees, nullify);
-
-        // nullify
-        nullify[0] = true;
-        reissueNumber = 1;
-        instructionId = keccak256(abi.encode(
-            XRP_OP_TYPE, bytes32("REISSUE"), XRP_SOURCE_ID, account1.accountAddress, 2, reissueNumber
-        ));
-        message.amount = 0;
-        message.recipientAddress = message.senderAddress;
-        vm.expectEmit();
-        emit ITeeExtensionRegistry.TeeInstructionsSent(
-            0,
-            instructionId,
-            13,
-            teeMachines,
-            XRP_OP_TYPE,
-            bytes32("REISSUE"),
-            abi.encode(message),
-            cosigners,
-            1,
-            60
+        teePayments.reissue{value: 60}(
+            account1, 2, 2, instructions, fees,
+            feeFactorScheduleBIPS, feeDelayScheduleSeconds
         );
-        vm.prank(authorizationAddress);
-        teePayments.reissue{value: 60} (account1, 2, 2, instructions, fees, nullify);
     }
 
     function _getRandomPublicKey() internal returns (PublicKey memory) {
