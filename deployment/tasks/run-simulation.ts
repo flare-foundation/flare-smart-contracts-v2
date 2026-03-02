@@ -68,7 +68,7 @@ export const TEE_KEY_CONFIGURATIONS = [
   { keyType: "XRP", signingAlgos: ["sha512half-secp256k1-ecdsa"] },
   { keyType: "BTC", signingAlgos: ["sha256d-secp256k1-ecdsa"] },
   { keyType: "DOGE", signingAlgos: ["sha256d-secp256k1-ecdsa"] },
-  { keyType: "EVM", signingAlgos: ["keccak256-secp256k1-ecdsa"] }
+  { keyType: "EVM", signingAlgos: ["keccak256-secp256k1-ecdsa", "keccak256-secp256k1-vrf"] }
 ];
 
 export const TEE_PAYMENT_CONFIGURATIONS = [
