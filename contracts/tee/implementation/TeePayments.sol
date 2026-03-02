@@ -59,7 +59,6 @@ contract TeePayments is ITeePayments, TeeBase {
         address[] cosigners;
         uint64 cosignersThreshold;
         bytes defaultFeeSchedule;
-        bytes feeSchedule;
     }
 
     /// default fee schedule: factor 1 (10000 BIPS), delay 0 seconds
@@ -261,13 +260,15 @@ contract TeePayments is ITeePayments, TeeBase {
             teeWalletManager.getWalletStatus(tempState.walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
             WalletNotInProduction()
         );
-        AccountState storage state = states[tempState.accountHash];
-        // check if batch has ended
-        require(
-            tempState.nonce + 1 < state.nonce ||
-            tempState.nonce + 1 == state.nonce && block.timestamp > state.batchEndTs,
-            BatchNotYetEnded()
-        );
+        {
+            AccountState storage state = states[tempState.accountHash];
+            // check if batch has ended
+            require(
+                tempState.nonce + 1 < state.nonce ||
+                tempState.nonce + 1 == state.nonce && block.timestamp > state.batchEndTs,
+                BatchNotYetEnded()
+            );
+        }
 
         // check if hash matches
         tempState.batchHash = keccak256(abi.encode(_paymentInstructions[0], _firstSubNonce));
@@ -298,9 +299,12 @@ contract TeePayments is ITeePayments, TeeBase {
         // reissue batch
         tempState.remainingAmount = msg.value;
         for (uint64 i = 0; i < _paymentInstructions.length; i++) {
-            tempState.feeSchedule = _getFeeSchedule(_feeFactorScheduleBIPS[i], _feeDelayScheduleSeconds);
-            if (tempState.feeSchedule.length == 0) {
-                tempState.feeSchedule = tempState.defaultFeeSchedule;
+            bytes memory feeSchedule;
+            if (_feeFactorScheduleBIPS.length > 0) {
+                feeSchedule = _getFeeSchedule(_feeFactorScheduleBIPS[i], _feeDelayScheduleSeconds);
+            }
+            if (feeSchedule.length == 0) {
+                feeSchedule = tempState.defaultFeeSchedule;
             }
             tempState.message = PaymentInstructionMessage({
                 walletId: tempState.walletId,
@@ -311,7 +315,7 @@ contract TeePayments is ITeePayments, TeeBase {
                 tokenId: _paymentInstructions[i].tokenId,
                 amount: _paymentInstructions[i].amount,
                 maxFee: _maxFees[i],
-                feeSchedule: tempState.feeSchedule,
+                feeSchedule: feeSchedule,
                 paymentReference: _paymentInstructions[i].paymentReference,
                 nonce: tempState.nonce,
                 subNonce: _firstSubNonce + i,
