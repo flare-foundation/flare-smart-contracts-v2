@@ -1971,8 +1971,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
     it("Should trigger TEE wallet payments", async () => {
         const paymentInstructionMessageStruct = getStruct("TeePaymentsStructs", "paymentInstructionMessageStruct");
+        // DEFAULT_FEE_SCHEDULE = abi.encodePacked(int16(10000), uint8(0))
+        // int16(10000) = 0x2710 (2 bytes), uint8(0) = 0x00 (1 byte)
+        const factorBIPS = 10000; // 100%
+        const delaySeconds = 0;
+        const defaultFeeSchedule = "0x"
+            + factorBIPS.toString(16).padStart(4, "0")
+            + delaySeconds.toString(16).padStart(2, "0");
         const tx = await teePaymentsXRP.pay({ sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" },
-            { recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B", tokenId: constants.ZERO_BYTES32, amount: "500", fee: 150, paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a" },
+            { recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B", tokenId: constants.ZERO_BYTES32, amount: "500", maxFee: 150, paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a" },
             { value: "10", from: TEE_WALLET_AUTHORIZATION_ADDRESSES[0] });
         const message = {
             walletId: WALLET1_ID,
@@ -1986,7 +1993,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B",
             tokenId: constants.ZERO_BYTES32,
             amount: "500",
-            fee: 150,
+            maxFee: 150,
+            feeSchedule: defaultFeeSchedule,
             paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a",
             nonce: 2,
             subNonce: 2,
@@ -1999,7 +2007,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(paymentInstructionMessageStruct, message));
 
         const tx2 = await teePaymentsEVM.pay({ sourceId: FLR_SOURCE_ID, accountAddress: accounts[200] },
-            { recipientAddress: accounts[150], tokenId: constants.ZERO_BYTES32, amount: "1500", fee: 1000, paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797" },
+            { recipientAddress: accounts[150], tokenId: constants.ZERO_BYTES32, amount: "1500", maxFee: 1000, paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797" },
             { value: "10", from: TEE_WALLET_AUTHORIZATION_ADDRESSES[1] });
         const message2 = {
             walletId: WALLET2_ID,
@@ -2014,7 +2022,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             recipientAddress: accounts[150],
             tokenId: constants.ZERO_BYTES32,
             amount: "1500",
-            fee: 1000,
+            maxFee: 1000,
+            feeSchedule: defaultFeeSchedule,
             paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797",
             nonce: 1,
             subNonce: 1,
@@ -2029,10 +2038,16 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
     it("Should trigger TEE wallet reissue payments", async () => {
         const paymentInstructionMessageStruct = getStruct("TeePaymentsStructs", "paymentInstructionMessageStruct");
+        // DEFAULT_FEE_SCHEDULE = abi.encodePacked(int16(10000), uint8(0))
+        const factorBIPS = 10000;
+        const delaySeconds = 0;
+        const defaultFeeSchedule = "0x"
+            + factorBIPS.toString(16).padStart(4, "0")
+            + delaySeconds.toString(16).padStart(2, "0");
         await time.increase(1);
         const tx = await teePaymentsXRP.reissue({ sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" }, 2, 2,
-            [{ recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B", tokenId: constants.ZERO_BYTES32, amount: "500", fee: 150, paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a" }],
-            [10000], [false],
+            [{ recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B", tokenId: constants.ZERO_BYTES32, amount: "500", maxFee: 150, paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a" }],
+            [10000], [[]], [],
             { value: "10", from: TEE_WALLET_AUTHORIZATION_ADDRESSES[0] });
         const message = {
             walletId: WALLET1_ID,
@@ -2046,7 +2061,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B",
             tokenId: constants.ZERO_BYTES32,
             amount: "500",
-            fee: 10000,
+            maxFee: 10000,
+            feeSchedule: defaultFeeSchedule,
             paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a",
             nonce: 2,
             subNonce: 2,
@@ -2059,8 +2075,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(paymentInstructionMessageStruct, message));
 
         const tx2 = await teePaymentsEVM.reissue({ sourceId: FLR_SOURCE_ID, accountAddress: accounts[200] }, 1, 1,
-            [{ recipientAddress: accounts[150], tokenId: constants.ZERO_BYTES32, amount: "1500", fee: 1000, paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797" }],
-            [5000000], [false],
+            [{ recipientAddress: accounts[150], tokenId: constants.ZERO_BYTES32, amount: "1500", maxFee: 1000, paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797" }],
+            [5000000], [[]], [],
             { value: "10", from: TEE_WALLET_AUTHORIZATION_ADDRESSES[1] });
         const message2 = {
             walletId: WALLET2_ID,
@@ -2075,7 +2091,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             recipientAddress: accounts[150],
             tokenId: constants.ZERO_BYTES32,
             amount: "1500",
-            fee: 5000000,
+            maxFee: 5000000,
+            feeSchedule: defaultFeeSchedule,
             paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797",
             nonce: 1,
             subNonce: 1,
