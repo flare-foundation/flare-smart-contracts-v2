@@ -19,7 +19,7 @@ interface ITeePayments {
         string recipientAddress;
         bytes32 tokenId;
         uint256 amount;
-        uint256 fee;
+        uint256 maxFee;
         bytes32 paymentReference;
     }
 
@@ -31,7 +31,8 @@ interface ITeePayments {
         string recipientAddress;
         bytes32 tokenId;
         uint256 amount;
-        uint256 fee;
+        uint256 maxFee;
+        bytes feeSchedule;
         bytes32 paymentReference;
         uint64 nonce;
         uint64 subNonce;
@@ -54,6 +55,14 @@ interface ITeePayments {
         string accountAddress,
         uint64 batchSize,
         uint64 batchDurationSeconds
+    );
+
+    event FeeScheduleSet(
+        bytes32 indexed walletId,
+        bytes32 sourceId,
+        string accountAddress,
+        int16[] factorsBIPS,
+        uint8[] delaysSeconds
     );
 
     event PMWMultisigAccountAdded(
@@ -88,6 +97,8 @@ interface ITeePayments {
     error BatchSizeZero();
     error BatchSizeTooLarge();
     error BatchDurationTooLarge();
+    error InvalidFeeFactor(uint256 index);
+    error InvalidFeeDelay(uint256 index);
     error PMWMultisigAccountAddressAlreadySet();
     error OnlyProductionOrPausedStatus();
     error MinFeeNotSet();
@@ -119,8 +130,10 @@ interface ITeePayments {
      * @param _nonce Batch nonce of the payment instructions to be reissued.
      * @param _firstSubNonce SubNonce of the first payment instruction in the batch.
      * @param _paymentInstructions List of the payment instructions.
-     * @param _fees List of fees for the payment instructions.
-     * @param _nullify List of nullification flags for the payment instructions.
+     * @param _maxFees The max fees of the payment instructions.
+     * @param _factorScheduleBIPS The factor schedules of the payment instructions (in BIPS). Part of max fee.
+     * @param _timeScheduleSeconds The time schedule of the payment instructions (in seconds from the start,
+      ordered ascending).
      * Can only be called by the submit address of the project.
      */
     function reissue(
@@ -128,8 +141,9 @@ interface ITeePayments {
         uint64 _nonce,
         uint64 _firstSubNonce,
         PaymentInstruction[] calldata _paymentInstructions,
-        uint256[] calldata _fees,
-        bool[] calldata _nullify
+        uint256[] calldata _maxFees,
+        int16[][] calldata _factorScheduleBIPS,
+        uint8[] calldata _timeScheduleSeconds
     )
         external payable;
 
@@ -158,6 +172,21 @@ interface ITeePayments {
         PMWMultisigAccount calldata _account,
         uint64 _batchSize,
         uint64 _batchDurationSeconds
+    )
+        external;
+
+    /**
+     * Method for setting the fee schedule.
+     * @param _account The PMW multisig account.
+     * @param _factorsBIPS The factor schedule of the payment instructions (in BIPS).
+     * @param _delaysSeconds The time schedule of the payment instructions (in seconds from the start,
+      ordered ascending).
+     * Can only be called by the wallet owner address.
+     */
+    function setFeeSchedule(
+        PMWMultisigAccount calldata _account,
+        int16[] calldata _factorsBIPS,
+        uint8[] calldata _delaysSeconds
     )
         external;
 
@@ -214,6 +243,22 @@ interface ITeePayments {
         returns(
             uint64 _batchSize,
             uint64 _batchDurationSeconds
+        );
+
+    /**
+     * Returns wallet's fee schedule.
+     * @param _account The PMW multisig account.
+     * @return _factorsBIPS The factor schedule of the payment instructions (in BIPS).
+     * @return _delaysSeconds The time schedule of the payment instructions (in seconds from the start,
+      ordered ascending).
+     */
+    function getFeeSchedule(
+        PMWMultisigAccount calldata _account
+    )
+        external view
+        returns(
+            int16[] memory _factorsBIPS,
+            uint8[] memory _delaysSeconds
         );
 
     /**
