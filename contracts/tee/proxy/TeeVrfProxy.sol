@@ -5,7 +5,6 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
 import { TeeVrf } from "../implementation/TeeVrf.sol";
 
-
 contract TeeVrfProxy is ERC1967Proxy {
     constructor(
         IGovernanceSettings _governanceSettings,
