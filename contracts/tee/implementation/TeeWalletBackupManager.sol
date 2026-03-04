@@ -119,6 +119,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
             admins,
             adminsThreshold
         );
+        emit BackupRestoreTriggered(_teeId, _backupId.walletId, _backupId.keyId, message.nonce);
     }
 
     /**

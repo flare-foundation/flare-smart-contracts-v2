@@ -42,7 +42,7 @@ interface ITeeGovernance {
 
     /**
      * Sets new TEE governance.
-     * Emits a NewTeeGovernanceSet event.
+     * Emits NewTeeGovernanceSet event.
      * @param _extensionId The id of the extension.
      * @param _signers The new governance signers.
      * @param _signersThreshold The new governance signers threshold.
@@ -57,7 +57,7 @@ interface ITeeGovernance {
 
     /**
      * Sets new TEE pausing addresses.
-     * Emits a NewPausingAddressesSet event.
+     * Emits NewPausingAddressesSet event.
      * @param _extensionId The id of the extension.
      * @param _pausingAddresses The list of new pausing addresses, can be empty.
      * Can only be called the extension owner.
@@ -70,7 +70,7 @@ interface ITeeGovernance {
 
     /**
      * Signs pausing addresses.
-     * Emits a NewPausingAddressesSigned event.
+     * Emits NewPausingAddressesSigned event.
      * @param _extensionId The id of the extension.
      * @param _nonce The nonce of the pausing addresses.
      * @param _signature The signature of the TEE pausing addresses list.

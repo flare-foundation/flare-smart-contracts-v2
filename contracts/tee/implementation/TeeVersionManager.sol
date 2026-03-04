@@ -169,8 +169,8 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
                 upgradePathState.targetTeeNodeVersionExists[targetVersionHash] = true;
                 upgradePathState.upgradePath.targetVersions.push(targetVersion);
             }
-            emit TeeUpgradePathAdded(_teeUpgradeId, upgradePath);
         }
+        emit TeeUpgradePathsAdded(_teeUpgradeId, _upgradePaths);
     }
 
     /**
@@ -211,23 +211,29 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
             _signature.s
         );
 
-        // check if the signer is an source TEE governance signer
-        if (teeGovernance.isTeeGovernanceSigner(teeUpgrade.extensionId, sourceTeeGovernanceHash, signer)) {
+        // check if the signer is a source TEE governance signer
+        bool sourceSig = teeGovernance.isTeeGovernanceSigner(teeUpgrade.extensionId, sourceTeeGovernanceHash, signer);
+        if (sourceSig) {
             // add the signer to the source TEE governance signers if not already added
             if (!teeUpgrade.sourceTeeGovernanceSigners[signer]) {
                 teeUpgrade.sourceTeeGovernanceSigners[signer] = true;
                 teeUpgrade.sourceTeeGovernanceSignatures.push(_signature);
+                emit TeeUpgradeSourceSignatureAdded(_teeUpgradeId, signer);
             }
         }
 
         // check if the signer is a target TEE governance signer
-        if (teeGovernance.isTeeGovernanceSigner(teeUpgrade.extensionId, targetTeeGovernanceHash, signer)) {
+        bool targetSig = teeGovernance.isTeeGovernanceSigner(teeUpgrade.extensionId, targetTeeGovernanceHash, signer);
+        if (targetSig) {
             // add the signer to the target TEE governance signers if not already added
             if (!teeUpgrade.targetTeeGovernanceSigners[signer]) {
                 teeUpgrade.targetTeeGovernanceSigners[signer] = true;
                 teeUpgrade.targetTeeGovernanceSignatures.push(_signature);
+                emit TeeUpgradeTargetSignatureAdded(_teeUpgradeId, signer);
             }
         }
+
+        require(sourceSig || targetSig, InvalidSignature());
 
         // check if the upgrade is signed by the required number of signers
         uint64 sourceTeeGovernanceThreshold =

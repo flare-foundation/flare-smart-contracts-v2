@@ -39,6 +39,9 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
 
         // Supported key types.
         EnumerableSet.Bytes32Set supportedKeyTypes;
+
+        // Supported code hashes.
+        EnumerableSet.Bytes32Set supportedCodeHashes;
     }
 
     /// Prefix reserved for system-owned extension.
@@ -255,14 +258,13 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         for (uint256 i = 0; i < _platforms.length; i++) {
             require(systemSupportedPlatforms.contains(_platforms[i]), UnsupportedPlatform(_platforms[i]));
         }
-        TeeExtension storage extension = extensions[_extensionId];
-        require(extension.codeHashToVersion[_codeHash].platforms.length() == 0, VersionAlreadyExists());
-
         require(
             _governanceHash == bytes32(0) || teeGovernance.getLatestTeeGovernanceHash(_extensionId) == _governanceHash,
             InvalidGovernanceHash()
         );
 
+        TeeExtension storage extension = extensions[_extensionId];
+        require(extension.supportedCodeHashes.add(_codeHash), VersionAlreadyExists());
         TeeVersion storage teeVersion = extension.codeHashToVersion[_codeHash];
         teeVersion.version = _version;
         for (uint256 i = 0; i < _platforms.length; i++) {
@@ -288,6 +290,10 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         if (_platform != bytes32(0)) {
             for (uint256 i = 0; i < platforms.length; i++) {
                 if (platforms[i] == _platform) {
+                    require(
+                        !extension.codeHashPlatformDisabled[_codeHash][_platform],
+                        CodeHashPlatformAlreadyDisabled()
+                    );
                     extension.codeHashPlatformDisabled[_codeHash][_platform] = true;
                     emit CodeHashPlatformDisabled(_extensionId, _codeHash, _platform);
                     return;
@@ -296,6 +302,9 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
             revert InvalidPlatform();
         } else {
             for (uint256 i = 0; i < platforms.length; i++) {
+                if (extension.codeHashPlatformDisabled[_codeHash][platforms[i]]) {
+                    continue;
+                }
                 extension.codeHashPlatformDisabled[_codeHash][platforms[i]] = true;
                 emit CodeHashPlatformDisabled(_extensionId, _codeHash, platforms[i]);
             }
@@ -317,8 +326,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
             require(keyType != bytes32(0), KeyTypeEmpty());
             require(systemSupportedKeyTypes.contains(keyType), KeyTypeNotSupported(keyType));
             require(extension.supportedKeyTypes.add(keyType), KeyTypeAlreadyExists(keyType));
-            emit SupportedKeyTypeAdded(_extensionId, keyType);
         }
+        emit SupportedKeyTypesAdded(_extensionId, _keyTypes);
     }
 
     /**
@@ -334,8 +343,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         for (uint256 i = 0; i < _keyTypes.length; i++) {
             bytes32 keyType = _keyTypes[i];
             require(extension.supportedKeyTypes.remove(keyType), KeyTypeNotSupported(keyType));
-            emit SupportedKeyTypeRemoved(_extensionId, keyType);
         }
+        emit SupportedKeyTypesRemoved(_extensionId, _keyTypes);
     }
 
     /**
@@ -363,6 +372,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
 
     /**
      * Add system supported platforms.
+     * Emits SystemSupportedPlatformsAdded event.
      * @param _platforms List of platforms to add.
      * @dev Only governance can call this method.
      */
@@ -372,12 +382,13 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         for (uint256 i = 0; i < _platforms.length; i++) {
             require(_platforms[i] != bytes32(0), PlatformEmpty());
             require(systemSupportedPlatforms.add(_platforms[i]), PlatformAlreadyExists(_platforms[i]));
-            emit SystemSupportedPlatformAdded(_platforms[i]);
         }
+        emit SystemSupportedPlatformsAdded(_platforms);
     }
 
     /**
      * Add system supported key types and signing algorithms.
+     * Emits SystemSupportedKeyTypesAndSigningAlgosAdded event.
      * @param _keyTypes List of key types to add.
      * @param _signingAlgosByKeyType List of signing algorithms for each key type.
      * @dev Only governance can call this method.
@@ -403,13 +414,14 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
                     systemSupportedSigningAlgos[keyType].add(signingAlgo),
                     SigningAlgoAlreadyExists(keyType, signingAlgo)
                 );
-                emit SystemSupportedKeyTypeAndSigningAlgoAdded(keyType, signingAlgo);
             }
         }
+        emit SystemSupportedKeyTypesAndSigningAlgosAdded(_keyTypes, _signingAlgosByKeyType);
     }
 
     /**
      * Register system instructions sender contracts.
+     * Emits SystemInstructionsSendersRegistered event.
      * @param _instructionsSenders List of contracts to register.
      * @dev Only governance can call this method.
      */
@@ -419,12 +431,18 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         external onlyGovernance
     {
         for (uint256 i = 0; i < _instructionsSenders.length; ++i) {
-            systemInstructionsSenders.add(_instructionsSenders[i]);
+            require(_instructionsSenders[i] != address(0), InvalidInstructionsSender());
+            require(
+                systemInstructionsSenders.add(_instructionsSenders[i]),
+                SystemInstructionsSenderAlreadyExists(_instructionsSenders[i])
+            );
         }
+        emit SystemInstructionsSendersRegistered(_instructionsSenders);
     }
 
     /**
      * Unregister system instructions sender contracts.
+     * Emits SystemInstructionsSendersUnregistered event.
      * @param _instructionsSenders List of contracts to unregister.
      * @dev Only governance can call this method.
      */
@@ -434,8 +452,12 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         external onlyGovernance
     {
         for (uint256 i = 0; i < _instructionsSenders.length; ++i) {
-            systemInstructionsSenders.remove(_instructionsSenders[i]);
+            require(
+                systemInstructionsSenders.remove(_instructionsSenders[i]),
+                SystemInstructionsSenderNotFound(_instructionsSenders[i])
+            );
         }
+        emit SystemInstructionsSendersUnregistered(_instructionsSenders);
     }
 
     /**
@@ -532,6 +554,18 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         returns (bool)
     {
         return extensions[_extensionId].supportedKeyTypes.contains(_keyType);
+    }
+
+    /**
+     * @inheritdoc ITeeExtensionRegistry
+     */
+    function getSupportedCodeHashes(
+        uint256 _extensionId
+    )
+        external view
+        returns (bytes32[] memory _supportedCodeHashes)
+    {
+        return extensions[_extensionId].supportedCodeHashes.values();
     }
 
     /**

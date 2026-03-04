@@ -34,13 +34,13 @@ interface ITeeExtensionRegistry {
         address indexed teeExtensionInstructionsSender
     );
 
-    event SystemSupportedPlatformAdded(
-        bytes32 indexed platform
+    event SystemSupportedPlatformsAdded(
+        bytes32[] platforms
     );
 
-    event SystemSupportedKeyTypeAndSigningAlgoAdded(
-        bytes32 indexed keyType,
-        bytes32 indexed signingAlgo
+    event SystemSupportedKeyTypesAndSigningAlgosAdded(
+        bytes32[] keyTypes,
+        bytes32[][] _signingAlgosByKeyType
     );
 
     event TeeVersionAdded(
@@ -57,14 +57,22 @@ interface ITeeExtensionRegistry {
         bytes32 indexed platform
     );
 
-    event SupportedKeyTypeAdded(
+    event SupportedKeyTypesAdded(
         uint256 indexed extensionId,
-        bytes32 indexed keyType
+        bytes32[] keyTypes
     );
 
-    event SupportedKeyTypeRemoved(
+    event SupportedKeyTypesRemoved(
         uint256 indexed extensionId,
-        bytes32 indexed keyType
+        bytes32[] keyTypes
+    );
+
+    event SystemInstructionsSendersRegistered(
+        address[] instructionsSenders
+    );
+
+    event SystemInstructionsSendersUnregistered(
+        address[] instructionsSenders
     );
 
     event NewOwnerProposed(
@@ -97,6 +105,7 @@ interface ITeeExtensionRegistry {
     error InvalidGovernanceHash();
     error PlatformAlreadyExists(bytes32 platform);
     error InvalidCodeHash();
+    error CodeHashPlatformAlreadyDisabled();
     error InvalidPlatform();
     error OnlyOwner();
     error SystemOwnedExtensionId();
@@ -106,6 +115,8 @@ interface ITeeExtensionRegistry {
     error KeyTypeEmpty();
     error KeyTypeAlreadyExists(bytes32 keyType);
     error KeyTypeNotSupported(bytes32 keyType);
+    error SystemInstructionsSenderAlreadyExists(address instructionsSender);
+    error SystemInstructionsSenderNotFound(address instructionsSender);
     error LengthsMismatch();
     error NoSigningAlgos(bytes32 keyType);
     error SigningAlgoEmpty();
@@ -113,7 +124,7 @@ interface ITeeExtensionRegistry {
 
     /**
      * Send instructions to the TEE machines. Instruction ID will be generated internally and returned.
-     * Emits a TeeInstructionsSent event.
+     * Emits TeeInstructionsSent event.
      * @param _teeIds The TEE machine IDs to which the instructions are sent (must all belong to the same extension).
      * @param _opType The operation type.
      * @param _opCommand The operation command.
@@ -136,7 +147,7 @@ interface ITeeExtensionRegistry {
 
     /**
      * Register a new TEE extension.
-     * Emits TeeExtensionRegistered and TeeExtensionContractsSet event.
+     * Emits TeeExtensionRegistered and TeeExtensionContractsSet events.
      * @param _teeExtensionStateVerifier The TEE extension state verifier contract.
      * @param _teeExtensionInstructionsSender The address that can send instructions to the TEE machines.
      * @return _extensionId The id of the registered extension.
@@ -199,7 +210,7 @@ interface ITeeExtensionRegistry {
 
     /**
      * Add supported key types.
-     * Emits SupportedKeyTypeAdded event.
+     * Emits SupportedKeyTypesAdded event.
      * @param _extensionId The id of the extension.
      * @param _keyTypes The key types to add.
      * Can only be called by the extension owner.
@@ -212,7 +223,7 @@ interface ITeeExtensionRegistry {
 
     /**
      * Remove supported key types.
-     * Emits SupportedKeyTypeRemoved event.
+     * Emits SupportedKeyTypesRemoved event.
      * @param _extensionId The id of the extension.
      * @param _keyTypes The key types to remove.
      * Can only be called by the extension owner.
@@ -335,6 +346,17 @@ interface ITeeExtensionRegistry {
     function isKeyTypeSupported(uint256 _extensionId, bytes32 _keyType)
         external view
         returns (bool);
+
+    /**
+     * Returns supported code hashes for the given extension.
+     * @param _extensionId The id of the extension.
+     * @return _supportedCodeHashes The supported code hashes.
+     */
+    function getSupportedCodeHashes(
+        uint256 _extensionId
+    )
+        external view
+        returns (bytes32[] memory _supportedCodeHashes);
 
     /**
      * Checks if the code hash and platform are supported for the given extension.

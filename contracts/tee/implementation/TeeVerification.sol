@@ -425,6 +425,18 @@ contract TeeVerification is ITeeVerification, TeeBase {
     }
 
     /**
+     * @inheritdoc ITeeVerification
+     */
+    function getAvailabilityCheckValidity(address _teeId)
+        external view
+        returns(uint64 _endTs, uint32 _lastSigningPolicyId)
+    {
+        AvailabilityCheckValidity memory validity = availabilityCheckValidity[_teeId];
+        _endTs = validity.endTs;
+        _lastSigningPolicyId = validity.lastSigningPolicyId;
+    }
+
+    /**
      * @inheritdoc AddressUpdatable
      */
     function _updateContractAddresses(

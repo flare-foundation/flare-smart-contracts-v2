@@ -147,4 +147,14 @@ interface ITeeVerification {
             uint256 _availabilityCheckValidityDurationSeconds,
             uint256 _challengeValidityDurationSeconds
         );
+
+    /**
+     * Returns the availability check validity for a TEE machine.
+     * @param _teeId The TEE machine id.
+     * @return _endTs The end timestamp of the availability check validity.
+     * @return _lastSigningPolicyId The last signing policy id.
+     */
+    function getAvailabilityCheckValidity(address _teeId)
+        external view
+        returns(uint64 _endTs, uint32 _lastSigningPolicyId);
 }

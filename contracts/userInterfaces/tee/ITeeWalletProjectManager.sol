@@ -11,8 +11,7 @@ interface ITeeWalletProjectManager {
         address indexed owner,
         uint256 extensionId,
         bytes32 keyType,
-        bytes32 signingAlgo,
-        address authorizationAddress
+        bytes32 signingAlgo
     );
 
     event BackupManagerSet(
@@ -33,7 +32,6 @@ interface ITeeWalletProjectManager {
     error OwnerNotAllowed();
     error KeyTypeNotSupported();
     error SigningAlgoNotSupported();
-    error AuthorizationAddressZero();
     error WalletNotPartOfProject();
     error WalletNotProductionReady();
     error OnlyProposedOwner();
@@ -45,15 +43,13 @@ interface ITeeWalletProjectManager {
      * @param _extensionId The id of the extension.
      * @param _keyType The key type (e.g. EVM, XRP).
      * @param _signingAlgo The signing algorithm (e.g. keccak256-secp256k1-ecdsa, sha512half-secp256k1-ecdsa).
-     * @param _authorizationAddress The project/wallet authorization address.
      * @return _projectId The project id.
      * Can only be called by an allowlisted wallet project owner.
      */
     function createProject(
         uint256 _extensionId,
         bytes32 _keyType,
-        bytes32 _signingAlgo,
-        address _authorizationAddress
+        bytes32 _signingAlgo
     )
         external
         returns (bytes32 _projectId);
@@ -70,7 +66,7 @@ interface ITeeWalletProjectManager {
     /**
      * Proposes a new owner for the project - has to be on the allowlist.
      * It is a two-step process, the new owner has to confirm the ownership.
-     * Emits a NewOwnerProposed event.
+     * Emits NewOwnerProposed event.
      * @param _projectId The project id.
      * @param _newOwner The new owner.
      * Can only be called by the current project owner.
@@ -112,13 +108,6 @@ interface ITeeWalletProjectManager {
      * @return _signingAlgo The signing algorithm.
      */
     function getSigningAlgo(bytes32 _projectId) external view returns (bytes32 _signingAlgo);
-
-    /**
-     * Returns the project/wallet authorization address.
-     * @param _projectId The project id.
-     * @return _authorizationAddress The authorization address.
-     */
-    function getAuthorizationAddress(bytes32 _projectId) external view returns (address _authorizationAddress);
 
     /**
      * Returns the project backup manager.

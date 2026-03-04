@@ -19,7 +19,6 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
         uint256 extensionId;
         bytes32 keyType;
         bytes32 signingAlgo;
-        address authorizationAddress;
         address backupManager;
     }
 
@@ -64,8 +63,7 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     function createProject(
         uint256 _extensionId,
         bytes32 _keyType,
-        bytes32 _signingAlgo,
-        address _authorizationAddress
+        bytes32 _signingAlgo
     )
         external
         returns (bytes32 _projectId)
@@ -73,7 +71,6 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
         require(teeOwnerAllowlist.isAllowedTeeWalletProjectOwner(_extensionId, msg.sender), OwnerNotAllowed());
         require(teeExtensionRegistry.isKeyTypeSupported(_extensionId, _keyType), KeyTypeNotSupported());
         require(teeExtensionRegistry.isSigningAlgoSupported(_keyType, _signingAlgo), SigningAlgoNotSupported());
-        require(_authorizationAddress != address(0), AuthorizationAddressZero());
         _projectId = keccak256(abi.encode("PROJECT", msg.sender, ++projectCounter));
         TeeWalletProjectState storage project = projects[_projectId];
         assert(project.owner == address(0)); // should never revert
@@ -81,8 +78,7 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
         project.extensionId = _extensionId;
         project.keyType = _keyType;
         project.signingAlgo = _signingAlgo;
-        project.authorizationAddress = _authorizationAddress;
-        emit ProjectCreated(_projectId, msg.sender, _extensionId, _keyType, _signingAlgo, _authorizationAddress);
+        emit ProjectCreated(_projectId, msg.sender, _extensionId, _keyType, _signingAlgo);
     }
 
     /**
@@ -162,16 +158,6 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
         returns (bytes32 _signingAlgo)
     {
         return projects[_projectId].signingAlgo;
-    }
-
-    /**
-     * @inheritdoc ITeeWalletProjectManager
-     */
-    function getAuthorizationAddress(bytes32 _projectId)
-        external view
-        returns (address _authorizationAddress)
-    {
-        return projects[_projectId].authorizationAddress;
     }
 
     /**

@@ -166,11 +166,10 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         address teeId = _proof.requestBody.teeId;
         TeeMachineState storage state = teeMachineStates[teeId];
         TeeStatus status = state.status;
-        require(
-            status == TeeStatus.PAUSED_WITH_PROOF ||
-            (status == TeeStatus.INITIALIZED || status == TeeStatus.PAUSED) && msg.sender == state.owner,
-            InvalidTeeStatus()
-        );
+        if (status != TeeStatus.PAUSED_WITH_PROOF) {
+            require(msg.sender == state.owner, OnlyOwner());
+            require(status == TeeStatus.INITIALIZED || status == TeeStatus.PAUSED, InvalidTeeStatus());
+        }
         _checkCodeHashPlatformSupported(state.extensionId, state.codeHash, state.platform);
         _validateAvailabilityCheckStatus(_proof.responseBody.status);
         _validateAvailabilityCheckTs(teeId, _proof.header.timestamp);
@@ -194,18 +193,24 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         external
     {
         TeeMachineState storage state = teeMachineStates[_teeId];
-        _checkTeeStatus(state.status, TeeStatus.PRODUCTION, TeeStatus.PAUSED_WITH_PROOF);
-        require(
-            msg.sender == state.owner ||
-            teeExtensionRegistry.isCodeHashPlatformDisabled(state.extensionId, state.codeHash, state.platform),
-            OnlyOwnerOrDisabledVersion()
-        );
+        TeeStatus status;
+        if (msg.sender == state.owner ||
+            teeExtensionRegistry.isCodeHashPlatformDisabled(state.extensionId, state.codeHash, state.platform))
+        {
+            _checkTeeStatus(state.status, TeeStatus.PRODUCTION, TeeStatus.PAUSED_WITH_PROOF);
+            status = TeeStatus.PAUSED;
+        } else {
+            _checkTeeStatus(state.status, TeeStatus.PRODUCTION);
+            (uint64 endTs, ) = teeVerification.getAvailabilityCheckValidity(_teeId);
+            require(endTs < block.timestamp, OnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion());
+            status = TeeStatus.PAUSED_WITH_PROOF;
+        }
 
-        state.status = TeeStatus.PAUSED;
+        state.status = status;
         state.lastStatusChangeTs = block.timestamp;
         extensionActiveTeeIds[state.extensionId].remove(_teeId);
         activeTeeIds.remove(_teeId);
-        emit TeeMachineStatusChanged(_teeId, TeeStatus.PAUSED);
+        emit TeeMachineStatusChanged(_teeId, status);
     }
 
     /**

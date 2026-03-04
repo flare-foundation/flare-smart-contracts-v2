@@ -341,11 +341,11 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             });
         }
         if (unavailableKeyIdsCounter > 0) {
-            uint64[] memory unavailableKeyIdsTrimmed = new uint64[](unavailableKeyIdsCounter);
-            for (uint256 i = 0; i < unavailableKeyIdsCounter; i++) {
-                unavailableKeyIdsTrimmed[i] = unavailableKeyIds[i];
-            }
-            emit WalletKeysNotAvailable(_walletId, unavailableKeyIdsTrimmed);
+            // resize the array to the new length which is <= original length, which is always safe
+            // this is done using inline assembly as Solidity does not provide a way to resize memory arrays
+            // solhint-disable-next-line no-inline-assembly
+            assembly { mstore(unavailableKeyIds, unavailableKeyIdsCounter) }
+            emit WalletKeysNotAvailable(_walletId, unavailableKeyIds);
         }
     }
 

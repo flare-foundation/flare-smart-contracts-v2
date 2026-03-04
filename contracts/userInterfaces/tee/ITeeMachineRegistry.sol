@@ -76,7 +76,7 @@ interface ITeeMachineRegistry {
     error VersionNotSupported();
     error InvalidTeeStatus();
     error InvalidResponseDataOrAvailabilityCheckStatus();
-    error OnlyOwnerOrDisabledVersion();
+    error OnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion();
     error OnlyProposedOwner();
     error OwnerMismatch();
     error ExtensionIdMismatch();
@@ -92,7 +92,7 @@ interface ITeeMachineRegistry {
 
     /**
      * Register a new TEE machine. It also triggers availability check.
-     * Emits a TeeMachineRegistered event.
+     * Emits TeeMachineRegistered event.
      * @param _teeMachineData The TEE machine data.
      * @param _teeMachineDataSignature The TEE machine signature over the TEE machine data.
      * @param _teeProxyId The TEE proxy id.
@@ -109,7 +109,7 @@ function register(
 
     /**
      * Put a TEE machine into production.
-     * Emits a TeeMachineStatusChanged event.
+     * Emits TeeMachineStatusChanged event.
      * @param _proof The availability check proof.
      * Can only be called by the TEE machine owner or by anyone in case TEE machine was paused with proof.
      */
@@ -120,7 +120,7 @@ function register(
 
     /**
      * Pause a TEE machine.
-     * Emits a TeeMachineStatusChanged event.
+     * Emits TeeMachineStatusChanged event.
      * @param _teeId The TEE machine id.
      * Can be called by the TEE machine owner or by anyone in case version is obsolete.
      */
@@ -129,7 +129,7 @@ function register(
 
     /**
      * Pause a TEE machine with proof.
-     * Emits a TeeMachineStatusChanged event.
+     * Emits TeeMachineStatusChanged event.
      * @param _proof The availability check proof.
      * Can be called by anyone in case TEE machine is obsolete, down, ...
      */
@@ -140,7 +140,7 @@ function register(
 
     /**
      * Ban a TEE machine - puts it into BANNED status.
-     * Emits a TeeMachineStatusChanged event.
+     * Emits TeeMachineStatusChanged event.
      * @param _teeId The TEE machine id.
      * Can only be called by the extension owner.
      */
@@ -150,7 +150,7 @@ function register(
 
     /**
      * Unban a TEE machine - puts it into PAUSED status.
-     * Emits a TeeMachineStatusChanged event.
+     * Emits TeeMachineStatusChanged event.
      * @param _teeId The TEE machine id.
      * Can only be called by the extension owner.
      */
@@ -160,7 +160,7 @@ function register(
     /**
      * Propose a new owner for a TEE machine - has to be on the allowlist.
      * It is a two-step process, the new owner has to confirm the ownership.
-     * Emits a NewOwnerProposed event.
+     * Emits NewOwnerProposed event.
      * @param _teeId The TEE machine id.
      * @param _newOwner The new owner address.
      * Can only be called by the current TEE machine owner.
@@ -170,7 +170,7 @@ function register(
 
     /**
      * Confirm the ownership of a TEE machine.
-     * Emits a NewOwnerConfirmed event.
+     * Emits NewOwnerConfirmed event.
      * @param _teeId The TEE machine id.
      * Can only be called by the proposed new owner.
      */
@@ -180,7 +180,7 @@ function register(
     /**
      * Update TEE machine settings. If the TEE machine was in PRODUCTION or PAUSED_WITH_PROOF status,
      * updating settings pauses the TEE machine and emits a TeeMachineStatusChanged event.
-     * Emits a TeeMachineSettingsUpdated event.
+     * Emits TeeMachineSettingsUpdated event.
      * @param _teeId The TEE machine id.
      * @param _teeProxyId The TEE proxy id.
      * @param _url The TEE machine URL.

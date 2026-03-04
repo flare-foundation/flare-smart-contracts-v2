@@ -70,13 +70,13 @@ interface ITeePayments {
         bytes32 sourceId,
         string accountAddress,
         uint64 initialNonce,
+        address authorizationAddress,
         uint64 batchSize,
         uint64 batchDurationSeconds
     );
 
-    event SupportedSourceIdAdded(
-        bytes32 indexed opType,
-        bytes32 indexed sourceId
+    event SupportedSourceIdsAdded(
+        bytes32[] sourceIds
     );
 
     error OnlyWalletOwner();
@@ -108,6 +108,7 @@ interface ITeePayments {
     error InvalidProof();
     error PaymentAmountZero();
     error RecipientIsSender();
+    error AuthorizationAddressZero();
 
     /**
      * Payment instruction method.
@@ -152,11 +153,13 @@ interface ITeePayments {
      * Emits PMWMultisigAccountAdded event.
      * @param _walletId The wallet id.
      * @param _proof The PMW multisig account configured proof.
+     * @param _authorizationAddress The address authorized to submit payment instructions for the account.
      * Can only be called by the wallet owner.
      */
     function addPMWMultisigAccount(
         bytes32 _walletId,
-        IPMWMultisigAccountConfigured.Proof calldata _proof
+        IPMWMultisigAccountConfigured.Proof calldata _proof,
+        address _authorizationAddress
     )
         external;
 
@@ -260,6 +263,15 @@ interface ITeePayments {
             int16[] memory _factorsBIPS,
             uint16[] memory _delaysSeconds
         );
+
+    /**
+     * Returns the authorization address for the given PMW multisig account.
+     * @param _account The PMW multisig account.
+     * @return _authorizationAddress The authorization address that can submit payment instructions for the account.
+     */
+    function getAuthorizationAddress(PMWMultisigAccount calldata _account)
+        external view
+        returns (address _authorizationAddress);
 
     /**
      * Returns the supported source ids.

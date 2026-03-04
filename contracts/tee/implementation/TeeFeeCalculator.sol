@@ -42,6 +42,7 @@ contract TeeFeeCalculator is ITeeFeeCalculator, GovernedProxyImplementation, UUP
 
     /**
      * Sets fees for operations.
+     * Emits OperationFeesSet event.
      * @param _opTypes List of operation types.
      * @param _opCommands List of operation commands.
      * @param _fees List of fees.
@@ -57,8 +58,8 @@ contract TeeFeeCalculator is ITeeFeeCalculator, GovernedProxyImplementation, UUP
         require(_opTypes.length == _opCommands.length && _opTypes.length == _fees.length, LengthsMismatch());
         for (uint256 i = 0; i < _opTypes.length; i++) {
             operationFee[_opTypes[i]][_opCommands[i]] = _fees[i];
-            emit OperationFeeSet(_opTypes[i], _opCommands[i], _fees[i]);
         }
+        emit OperationFeesSet(_opTypes, _opCommands, _fees);
     }
 
     /**

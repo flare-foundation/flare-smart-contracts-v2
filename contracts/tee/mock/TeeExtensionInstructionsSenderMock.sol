@@ -43,9 +43,12 @@ contract TeeExtensionInstructionsSenderMock {
     /// TeeWalletKeyManager contract.
     ITeeWalletKeyManager public teeWalletKeyManager;
 
+    mapping(bytes32 walletId => address) private authorizationAddresses;
+
     error OnlyAuthorizationAddress();
     error WrongKeyType();
     error WalletNotInProduction();
+    error OnlyOwner();
 
     /**
      * Constructor.
@@ -77,11 +80,8 @@ contract TeeExtensionInstructionsSenderMock {
     )
         external payable
     {
+        require(authorizationAddresses[_walletId] == msg.sender, OnlyAuthorizationAddress());
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        require(
-            teeWalletProjectManager.getAuthorizationAddress(projectId) == msg.sender,
-            OnlyAuthorizationAddress()
-        );
         require(teeWalletProjectManager.getKeyType(projectId) == KEY_TYPE, WrongKeyType());
         require(
             teeWalletManager.getWalletStatus(_walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
@@ -136,6 +136,16 @@ contract TeeExtensionInstructionsSenderMock {
             _cosigners,
             _cosignersThreshold
         );
+    }
+
+    function setAuthorizationAddress(bytes32 _walletId, address _authorizationAddress) external {
+        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
+        require(teeWalletProjectManager.getOwner(projectId) == msg.sender, OnlyOwner());
+        authorizationAddresses[_walletId] = _authorizationAddress;
+    }
+
+    function getAuthorizationAddress(bytes32 _walletId) external view returns (address) {
+        return authorizationAddresses[_walletId];
     }
 
     function _toTeeIds(

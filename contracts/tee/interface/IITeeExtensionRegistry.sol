@@ -8,7 +8,7 @@ interface IITeeExtensionRegistry is ITeeExtensionRegistry {
 
     /**
      * Send instructions to the TEE machines - same as sendInstructions but with instruction ID (might be bytes32(0)).
-     * Emits a TeeInstructionsSent event.
+     * Emits TeeInstructionsSent event.
      * @param _instructionId The instruction ID - auto generated in case of bytes32(0).
      * @param _teeIds The TEE machine IDs to which the instructions are sent (must all belong to the same extension).
      * @param _opType The operation type.
@@ -34,7 +34,7 @@ interface IITeeExtensionRegistry is ITeeExtensionRegistry {
 
     /**
      * Send instructions to the TEE machines - same as sendSystemInstructions but with full TEE machine data provided.
-     * Emits a TeeInstructionsSent event.
+     * Emits TeeInstructionsSent event.
      * @param _instructionId The instruction ID.
      * @param _teeMachines The TEE machines to which the instructions are sent (must all belong to the same extension).
      * @param _opType The operation type.

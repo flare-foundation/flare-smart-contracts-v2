@@ -71,14 +71,6 @@ interface ITeeWalletKeyManager {
         uint64 indexed keyId
     );
 
-    event WalletEnabled(
-        bytes32 indexed walletId
-    );
-
-    event WalletPaused(
-        bytes32 indexed walletId
-    );
-
     event WalletKeysNotAvailable(
         bytes32 indexed walletId,
         uint64[] keyIds

@@ -82,6 +82,7 @@ contract TeePayments is ITeePayments, TeeBase {
     mapping(bytes32 accountHash => mapping(uint64 nonce => bytes32)) private hashes;
     mapping(bytes32 accountHash => mapping(uint64 nonce => uint256)) private reissueCounter;
     mapping(bytes32 accountHash => uint256) private setPaymentLimitsNonce;
+    mapping(bytes32 accountHash => address) private authorizationAddresses;
 
     /// TeeWalletProjectManager contract.
     ITeeWalletProjectManager public teeWalletProjectManager;
@@ -152,8 +153,7 @@ contract TeePayments is ITeePayments, TeeBase {
         );
         bytes32 accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
         bytes32 walletId = accountHashToWalletId[accountHash];
-        bytes32 projectId = teeWalletManager.getWalletProjectId(walletId);
-        _checkAuthorizationAddress(projectId);
+        _checkAuthorizationAddress(accountHash);
         _checkWalletStatus(walletId);
 
         AccountState storage state = states[accountHash];
@@ -246,7 +246,7 @@ contract TeePayments is ITeePayments, TeeBase {
         tempState.nonce = _nonce;
         tempState.walletId = accountHashToWalletId[tempState.accountHash];
         tempState.projectId = teeWalletManager.getWalletProjectId(tempState.walletId);
-        _checkAuthorizationAddress(tempState.projectId);
+        _checkAuthorizationAddress(tempState.accountHash);
         _checkWalletStatus(tempState.walletId);
         {
             AccountState storage state = states[tempState.accountHash];
@@ -328,7 +328,8 @@ contract TeePayments is ITeePayments, TeeBase {
      */
     function addPMWMultisigAccount(
         bytes32 _walletId,
-        IPMWMultisigAccountConfigured.Proof calldata _proof
+        IPMWMultisigAccountConfigured.Proof calldata _proof,
+        address _authorizationAddress
     )
         external
     {
@@ -338,6 +339,7 @@ contract TeePayments is ITeePayments, TeeBase {
         require(teeWalletProjectManager.getKeyType(projectId) == keyType, WrongKeyType());
         require(bytes(_proof.requestBody.accountAddress).length > 0, AccountAddressZero());
         require(supportedSourceIds.contains(_proof.header.sourceId), UnsupportedSourceId());
+        require(_authorizationAddress != address(0), AuthorizationAddressZero());
         bytes32 accountHash = _toAccountHash(_proof.header.sourceId, _proof.requestBody.accountAddress);
         require(accountHashToWalletId[accountHash] == 0, PMWMultisigAccountAddressAlreadySet());
         ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
@@ -352,11 +354,13 @@ contract TeePayments is ITeePayments, TeeBase {
         states[accountHash].nonce = _proof.responseBody.sequence;
         states[accountHash].subNonce = _proof.responseBody.sequence;
         settings[accountHash].batchSize = 1;
+        authorizationAddresses[accountHash] = _authorizationAddress;
         emit PMWMultisigAccountAdded(
             _walletId,
             _proof.header.sourceId,
             _proof.requestBody.accountAddress,
             _proof.responseBody.sequence,
+            _authorizationAddress,
             1,
             0
         );
@@ -449,7 +453,7 @@ contract TeePayments is ITeePayments, TeeBase {
 
     /**
      * Adds supported source ids.
-     * Emits SupportedSourceIdAdded events.
+     * Emits SupportedSourceIdsAdded events.
      * @param _sourceIds The source ids to add.
      * Can only be called by the governance.
      */
@@ -535,6 +539,16 @@ contract TeePayments is ITeePayments, TeeBase {
     /**
      * @inheritdoc ITeePayments
      */
+    function getAuthorizationAddress(PMWMultisigAccount calldata _account)
+        external view
+        returns (address _authorizationAddress)
+    {
+        return authorizationAddresses[_toAccountHash(_account.sourceId, _account.accountAddress)];
+    }
+
+    /**
+     * @inheritdoc ITeePayments
+     */
     function getSupportedSourceIds() external view returns (bytes32[] memory) {
         return supportedSourceIds.values();
     }
@@ -573,8 +587,8 @@ contract TeePayments is ITeePayments, TeeBase {
         for (uint256 i = 0; i < _sourceIds.length; i++) {
             require(_sourceIds[i] != bytes32(0), SourceIdZero(i));
             require(supportedSourceIds.add(_sourceIds[i]), SourceIdAlreadyExists(_sourceIds[i]));
-            emit SupportedSourceIdAdded(opType, _sourceIds[i]);
         }
+        emit SupportedSourceIdsAdded(_sourceIds);
     }
 
     function _checkOnlyWalletOwner(PMWMultisigAccount calldata _account) internal view {
@@ -583,8 +597,8 @@ contract TeePayments is ITeePayments, TeeBase {
         require(teeWalletProjectManager.getOwner(projectId) == msg.sender, OnlyWalletOwner());
     }
 
-    function _checkAuthorizationAddress(bytes32 _projectId) internal view {
-        require(teeWalletProjectManager.getAuthorizationAddress(_projectId) == msg.sender, OnlyAuthorizationAddress());
+    function _checkAuthorizationAddress(bytes32 _accountHash) internal view {
+        require(authorizationAddresses[_accountHash] == msg.sender, OnlyAuthorizationAddress());
     }
 
     function _checkWalletStatus(bytes32 _walletId) internal view {

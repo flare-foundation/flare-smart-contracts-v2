@@ -11,11 +11,11 @@ interface ITeeFeeCalculator {
         uint256 defaultFee
     );
 
-    /// Event emitted when operation fee is set.
-    event OperationFeeSet(
-        bytes32 opType,
-        bytes32 opCommand,
-        uint256 fee
+    /// Event emitted when operation fees are set.
+    event OperationFeesSet(
+        bytes32[] opTypes,
+        bytes32[] opCommands,
+        uint256[] fees
     );
 
     error LengthsMismatch();

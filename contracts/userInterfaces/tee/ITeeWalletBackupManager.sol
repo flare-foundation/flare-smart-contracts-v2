@@ -26,6 +26,13 @@ interface ITeeWalletBackupManager {
         bytes32 randomNonce;
     }
 
+    event BackupRestoreTriggered(
+        address indexed teeId,
+        bytes32 indexed walletId,
+        uint64 indexed keyId,
+        uint256 nonce
+    );
+
     error TeeMachineNotAvailable();
     error InvalidTeeMachine();
     error KeyAlreadyAvailable();
@@ -40,6 +47,7 @@ interface ITeeWalletBackupManager {
 
     /**
      * Triggers a wallet key restore by data providers and wallet admins from given backup id.
+     * Emits BackupRestoreTriggered event.
      * @param _teeId The tee id on which the wallet key will be restored.
      * @param _backupId The backup id (tee id, wallet id, key id, operation type, public key and reward epoch id).
      * @param _backupUrl The URL of a backup package.

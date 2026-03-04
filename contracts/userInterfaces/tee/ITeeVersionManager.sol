@@ -25,13 +25,23 @@ interface ITeeVersionManager {
         bytes32 targetTeeGovernanceHash
     );
 
-    event TeeUpgradePathAdded(
+    event TeeUpgradePathsAdded(
         uint256 indexed teeUpgradeId,
-        TeeUpgradePath upgradePath
+        TeeUpgradePath[] upgradePaths
     );
 
     event TeeUpgradeFinalized(
         uint256 indexed teeUpgradeId
+    );
+
+    event TeeUpgradeSourceSignatureAdded(
+        uint256 indexed teeUpgradeId,
+        address indexed signer
+    );
+
+    event TeeUpgradeTargetSignatureAdded(
+        uint256 indexed teeUpgradeId,
+        address indexed signer
     );
 
     event TeeUpgradeSigned(
@@ -55,6 +65,7 @@ interface ITeeVersionManager {
     error UpgradePathAlreadyFinalized();
     error UpgradeAlreadySigned();
     error UpgradeNotFinalized();
+    error InvalidSignature();
     error ExtensionIdMismatch();
 
     /**
@@ -76,7 +87,7 @@ interface ITeeVersionManager {
 
     /**
      * Adds TEE upgrade paths.
-     * Emits TeeUpgradePathAdded event for each added upgrade path.
+     * Emits TeeUpgradePathsAdded event.
      * @param _teeUpgradeId The TEE upgrade id.
      * @param _upgradePaths The TEE upgrade paths.
      * Can only be called by the upgrade path extension owner.
@@ -100,6 +111,7 @@ interface ITeeVersionManager {
 
     /**
      * Signs the TEE upgrade.
+     * Emits TeeUpgradeSourceSignatureAdded and/or TeeUpgradeTargetSignatureAdded event when a signature is added.
      * Emits TeeUpgradeSigned event when all required signatures are collected.
      * @param _teeUpgradeId The TEE upgrade id.
      * @param _signature The signature.

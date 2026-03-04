@@ -296,8 +296,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     let ftdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsInstance;
     let ftdcVerification: FtdcVerificationInstance;
 
-    let teeGovernanceSigners: string[] = [accounts[50], accounts[51], accounts[52], accounts[53], accounts[54], accounts[55]];
-    let teeGovernanceSignersThreshold = 3;
+    const teeGovernanceSigners: string[] = [accounts[50], accounts[51], accounts[52], accounts[53], accounts[54], accounts[55]];
+    const teeGovernanceSignersThreshold = 3;
 
     let initialSigningPolicy: ISigningPolicy;
     let newSigningPolicy: ISigningPolicy;
@@ -321,8 +321,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         turnoutBIPS: number;
         decimals: number;
     };
-    let challenges: string[] = [];
-    let instructionIds: string[] = [];
+    const challenges: string[] = [];
+    const instructionIds: string[] = [];
 
     [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[10].privateKey.slice(2));
     [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[11].privateKey.slice(2));
@@ -1566,7 +1566,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             proof.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message);
 
             await time.increase(1);
-            let tx = await teeMachineRegistry.toProduction(proof, { from: TEE_OWNERS[i] });
+            const tx = await teeMachineRegistry.toProduction(proof, { from: TEE_OWNERS[i] });
             expectEvent(tx, "TeeMachineStatusChanged", {
                 teeId: TEE_IDS[i],
                 newStatus: "1" // TEE_MACHINE_STATUS.PRODUCTION
@@ -1583,7 +1583,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             0,
             TEE_KEY_CONFIGURATIONS[0],
             TEE_SIGNING_ALGOS[0][0],
-            TEE_WALLET_AUTHORIZATION_ADDRESSES[0],
             { from: TEE_WALLET_OWNERS[0] }
         );
         expectEvent(tx, "ProjectCreated", {
@@ -1591,15 +1590,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             projectId: PROJECT1_ID,
             keyType: TEE_KEY_CONFIGURATIONS[0],
             signingAlgo: TEE_SIGNING_ALGOS[0][0],
-            owner: TEE_WALLET_OWNERS[0],
-            authorizationAddress: TEE_WALLET_AUTHORIZATION_ADDRESSES[0]
+            owner: TEE_WALLET_OWNERS[0]
         });
 
         tx = await teeWalletProjectManager.createProject(
             0,
             TEE_KEY_CONFIGURATIONS[1],
             TEE_SIGNING_ALGOS[1][0],
-            TEE_WALLET_AUTHORIZATION_ADDRESSES[1],
             { from: TEE_WALLET_OWNERS[1] }
         );
         expectEvent(tx, "ProjectCreated", {
@@ -1607,8 +1604,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             projectId: PROJECT2_ID,
             keyType: TEE_KEY_CONFIGURATIONS[1],
             signingAlgo: TEE_SIGNING_ALGOS[1][0],
-            owner: TEE_WALLET_OWNERS[1],
-            authorizationAddress: TEE_WALLET_AUTHORIZATION_ADDRESSES[1]
+            owner: TEE_WALLET_OWNERS[1]
         });
     });
 
@@ -1768,10 +1764,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("KEY_GENERATE").padEnd(66, "0"));
             expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(keyGenerateStruct, message));
 
-            let prvKey = privateKeys[50+i].privateKey.slice(2);
-            let prvkeyBuffer = Buffer.from(prvKey, 'hex');
-            let [x, y] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
-            let publicKey = "0x" + util.encodePublicKey(x, y, false).toString('hex');
+            const prvKey = privateKeys[50+i].privateKey.slice(2);
+            const prvkeyBuffer = Buffer.from(prvKey, 'hex');
+            const [x, y] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
+            const publicKey = "0x" + util.encodePublicKey(x, y, false).toString('hex');
             evmPublicKeys.push(publicKey);
 
             const proof = {
@@ -1900,12 +1896,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         const message = getFtdcMessage(headerHash, requestBodyHash, responseBodyHash);
         proof.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message);
 
-        let tx = await teePaymentsXRP.addPMWMultisigAccount(WALLET1_ID, proof, { from: TEE_WALLET_OWNERS[0] });
+        const tx = await teePaymentsXRP.addPMWMultisigAccount(WALLET1_ID, proof, TEE_WALLET_AUTHORIZATION_ADDRESSES[0],{ from: TEE_WALLET_OWNERS[0] });
         expectEvent(tx, "PMWMultisigAccountAdded", {
             walletId: WALLET1_ID,
             sourceId: XRP_SOURCE_ID,
             accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
-            initialNonce: "2"
+            initialNonce: "2",
+            authorizationAddress: TEE_WALLET_AUTHORIZATION_ADDRESSES[0],
+            batchSize: "1",
+            batchDurationSeconds: "0"
         });
 
         const proof2 = {
@@ -1939,18 +1938,21 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         const message2 = getFtdcMessage(headerHash2, requestBodyHash2, responseBodyHash2);
         proof2.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message2);
 
-        let tx2 = await teePaymentsEVM.addPMWMultisigAccount(WALLET2_ID, proof2, { from: TEE_WALLET_OWNERS[1] });
+        const tx2 = await teePaymentsEVM.addPMWMultisigAccount(WALLET2_ID, proof2, TEE_WALLET_AUTHORIZATION_ADDRESSES[1], { from: TEE_WALLET_OWNERS[1] });
         expectEvent(tx2, "PMWMultisigAccountAdded", {
             walletId: WALLET2_ID,
             sourceId: FLR_SOURCE_ID,
             accountAddress: accounts[200],
-            initialNonce: "1"
+            initialNonce: "1",
+            authorizationAddress: TEE_WALLET_AUTHORIZATION_ADDRESSES[1],
+            batchSize: "1",
+            batchDurationSeconds: "0"
         });
     });
 
     it("Should set TEE payment wallet settings", async () => {
         // set wallet 1 settings
-        let tx = await teePaymentsXRP.setBatchSettings({ sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" }, 1, 0, { from: TEE_WALLET_OWNERS[0] });
+        const tx = await teePaymentsXRP.setBatchSettings({ sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" }, 1, 0, { from: TEE_WALLET_OWNERS[0] });
         expectEvent(tx, "BatchSettingsSet", {
             walletId: WALLET1_ID,
             sourceId: XRP_SOURCE_ID,
@@ -1959,7 +1961,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             batchDurationSeconds: "0"
         });
 
-        let tx2 = await teePaymentsEVM.setBatchSettings({ sourceId: FLR_SOURCE_ID, accountAddress: accounts[200] }, 1, 0, { from: TEE_WALLET_OWNERS[1] });
+        const tx2 = await teePaymentsEVM.setBatchSettings({ sourceId: FLR_SOURCE_ID, accountAddress: accounts[200] }, 1, 0, { from: TEE_WALLET_OWNERS[1] });
         expectEvent(tx2, "BatchSettingsSet", {
             walletId: WALLET2_ID,
             sourceId: FLR_SOURCE_ID,
