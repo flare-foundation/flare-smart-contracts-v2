@@ -534,10 +534,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref1"),
             11, // nonce
             11, // subNonce
@@ -567,10 +567,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref2"),
             12, // nonce
             12, // subNonce
@@ -611,10 +611,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref1"),
             11, // nonce
             11, // subNonce
@@ -644,10 +644,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref2"),
             12, // nonce
             12, // subNonce
@@ -688,10 +688,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref1"),
             11, // nonce
             11, // subNonce
@@ -721,10 +721,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref2"),
             11, // nonce
             12, // subNonce
@@ -754,10 +754,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32("tokenId"), // tokenId
+            bytes("tokenId"), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref3"),
             12, // nonce
             13, // subNonce
@@ -778,7 +778,7 @@ contract TeePaymentsTest is Test {
             fee
         );
         ITeePayments.PaymentInstruction memory instruction = _createPaymentInstruction(bytes32("ref3"));
-        instruction.tokenId = bytes32("tokenId");
+        instruction.tokenId = bytes("tokenId");
         teePayments.pay{value: fee}(pmwMultisigAccount, instruction);
 
         // move to the end of batch
@@ -791,10 +791,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref4"),
             13, // nonce
             14, // subNonce
@@ -826,10 +826,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref5"),
             14, // nonce
             15, // subNonce
@@ -870,10 +870,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref1"),
             11, // nonce
             11, // subNonce
@@ -903,10 +903,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref2"),
             11, // nonce
             12, // subNonce
@@ -956,10 +956,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress2,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref1"),
             11, // nonce
             11, // subNonce
@@ -990,10 +990,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress2,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             10,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref2"),
             12, // nonce
             12, // subNonce
@@ -1023,7 +1023,7 @@ contract TeePaymentsTest is Test {
         fees[0] = 200;
         int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
         feeFactorScheduleBIPS[0] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         teePayments.reissue(
             pmwMultisigAccount,
             1,
@@ -1047,7 +1047,7 @@ contract TeePaymentsTest is Test {
         int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
         feeFactorScheduleBIPS[0] = new int16[](0);
         feeFactorScheduleBIPS[1] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         _mockReceivingTeesAndKeys();
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
@@ -1073,7 +1073,7 @@ contract TeePaymentsTest is Test {
         int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
         feeFactorScheduleBIPS[0] = new int16[](0);
         feeFactorScheduleBIPS[1] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof);
         vm.expectRevert(ITeePayments.WalletNotInProduction.selector);
@@ -1100,7 +1100,7 @@ contract TeePaymentsTest is Test {
         int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
         feeFactorScheduleBIPS[0] = new int16[](0);
         feeFactorScheduleBIPS[1] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof);
         vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
@@ -1126,7 +1126,7 @@ contract TeePaymentsTest is Test {
         int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
         feeFactorScheduleBIPS[0] = new int16[](0);
         feeFactorScheduleBIPS[1] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         // account not added
         _mockGetWalletProjectId(bytes32(0), bytes32(0));
         _mockGetAuthorizationAddress(bytes32(0), address(0));
@@ -1155,7 +1155,7 @@ contract TeePaymentsTest is Test {
         int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
         feeFactorScheduleBIPS[0] = new int16[](0);
         feeFactorScheduleBIPS[1] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         // batch with nonce 11 is not yet finished
         vm.expectRevert(ITeePayments.BatchNotYetEnded.selector);
@@ -1183,7 +1183,7 @@ contract TeePaymentsTest is Test {
         int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
         feeFactorScheduleBIPS[0] = new int16[](0);
         feeFactorScheduleBIPS[1] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.BatchNotYetEnded.selector);
         teePayments.reissue{value: fee * 2}(
@@ -1209,7 +1209,7 @@ contract TeePaymentsTest is Test {
         int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
         feeFactorScheduleBIPS[0] = new int16[](0);
         feeFactorScheduleBIPS[1] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         // batch with nonce 11 is finished
         vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
@@ -1236,7 +1236,7 @@ contract TeePaymentsTest is Test {
         int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
         feeFactorScheduleBIPS[0] = new int16[](0);
         feeFactorScheduleBIPS[1] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
@@ -1264,7 +1264,7 @@ contract TeePaymentsTest is Test {
         fees[1] = 150;
         int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
         feeFactorScheduleBIPS[0] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
@@ -1291,7 +1291,7 @@ contract TeePaymentsTest is Test {
         fees[0] = 150;
         int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
         feeFactorScheduleBIPS[0] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
@@ -1319,7 +1319,7 @@ contract TeePaymentsTest is Test {
         int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
         feeFactorScheduleBIPS[0] = new int16[](0);
         feeFactorScheduleBIPS[1] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
@@ -1330,10 +1330,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             150,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref1"),
             11, // nonce
             11, // subNonce
@@ -1345,10 +1345,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             150,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref2"),
             11, // nonce
             12, // subNonce
@@ -1404,10 +1404,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             150,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref4"),
             13, // nonce
             14, // subNonce
@@ -1470,17 +1470,17 @@ contract TeePaymentsTest is Test {
         int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
         feeFactorScheduleBIPS[0] = new int16[](0);
         feeFactorScheduleBIPS[1] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         ITeePayments.PaymentInstructionMessage memory message1 = ITeePayments.PaymentInstructionMessage(
             walletId,
             teeIdKeyIdPairs,
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             150,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref1"),
             11, // nonce
             11, // subNonce
@@ -1492,10 +1492,10 @@ contract TeePaymentsTest is Test {
             SOURCE_ID,
             senderAddress,
             "recipientAddress",
-            bytes32(0), // tokenId
+            bytes(""), // tokenId
             100,
             150,
-            abi.encodePacked(int16(10000), uint8(0)),
+            abi.encodePacked(int16(10000), uint16(0)),
             bytes32("ref2"),
             11, // nonce
             12, // subNonce
@@ -1711,7 +1711,7 @@ contract TeePaymentsTest is Test {
     {
         return ITeePayments.PaymentInstruction({
             recipientAddress: "recipientAddress",
-            tokenId: bytes32(0),
+            tokenId: bytes(""),
             amount: 100,
             maxFee: 10,
             paymentReference: _paymentReference

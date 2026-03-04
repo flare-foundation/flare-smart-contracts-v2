@@ -1971,13 +1971,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
     it("Should trigger TEE wallet payments", async () => {
         const paymentInstructionMessageStruct = getStruct("TeePaymentsStructs", "paymentInstructionMessageStruct");
-        // DEFAULT_FEE_SCHEDULE = abi.encodePacked(int16(10000), uint8(0))
-        // int16(10000) = 0x2710 (2 bytes), uint8(0) = 0x00 (1 byte)
+        // DEFAULT_FEE_SCHEDULE = abi.encodePacked(int16(10000), uint16(0))
+        // int16(10000) = 0x2710 (2 bytes), uint16(0) = 0x00 (2 bytes)
         const factorBIPS = 10000; // 100%
         const delaySeconds = 0;
         const defaultFeeSchedule = "0x"
             + factorBIPS.toString(16).padStart(4, "0")
-            + delaySeconds.toString(16).padStart(2, "0");
+            + delaySeconds.toString(16).padStart(4, "0");
         const tx = await teePaymentsXRP.pay({ sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" },
             { recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B", tokenId: constants.ZERO_BYTES32, amount: "500", maxFee: 150, paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a" },
             { value: "10", from: TEE_WALLET_AUTHORIZATION_ADDRESSES[0] });
@@ -2038,12 +2038,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
     it("Should trigger TEE wallet reissue payments", async () => {
         const paymentInstructionMessageStruct = getStruct("TeePaymentsStructs", "paymentInstructionMessageStruct");
-        // DEFAULT_FEE_SCHEDULE = abi.encodePacked(int16(10000), uint8(0))
+        // DEFAULT_FEE_SCHEDULE = abi.encodePacked(int16(10000), uint16(0))
         const factorBIPS = 10000;
         const delaySeconds = 0;
         const defaultFeeSchedule = "0x"
             + factorBIPS.toString(16).padStart(4, "0")
-            + delaySeconds.toString(16).padStart(2, "0");
+            + delaySeconds.toString(16).padStart(4, "0");
         await time.increase(1);
         const tx = await teePaymentsXRP.reissue({ sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" }, 2, 2,
             [{ recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B", tokenId: constants.ZERO_BYTES32, amount: "500", maxFee: 150, paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a" }],

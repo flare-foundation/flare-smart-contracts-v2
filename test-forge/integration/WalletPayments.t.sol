@@ -524,7 +524,7 @@ contract WalletPaymentsTest is Test {
         bytes32 paymentReference = bytes32("paymentReference");
         ITeePayments.PaymentInstruction memory instruction = ITeePayments.PaymentInstruction({
             recipientAddress: recipient,
-            tokenId: bytes32(0),
+            tokenId: bytes(""),
             amount: 1000,
             maxFee: 15,
             paymentReference: paymentReference
@@ -549,7 +549,7 @@ contract WalletPaymentsTest is Test {
             tokenId: instruction.tokenId,
             amount: instruction.amount,
             maxFee: instruction.maxFee,
-            feeSchedule: abi.encodePacked(int16(10000), uint8(0)),
+            feeSchedule: abi.encodePacked(int16(10000), uint16(0)),
             paymentReference: instruction.paymentReference,
             nonce: 2,
             subNonce: 2,
@@ -585,7 +585,7 @@ contract WalletPaymentsTest is Test {
         bytes32 paymentReference = bytes32("paymentReference");
         ITeePayments.PaymentInstruction memory instruction = ITeePayments.PaymentInstruction({
             recipientAddress: recipient,
-            tokenId: bytes32(0),
+            tokenId: bytes(""),
             amount: 1000,
             maxFee: 15,
             paymentReference: paymentReference
@@ -596,7 +596,7 @@ contract WalletPaymentsTest is Test {
         fees[0] = 30;
         int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
         feeFactorScheduleBIPS[0] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
         teePayments.reissue{value: 50}(
@@ -611,7 +611,7 @@ contract WalletPaymentsTest is Test {
         bytes32 paymentReference = bytes32("paymentReference");
         ITeePayments.PaymentInstruction memory instruction = ITeePayments.PaymentInstruction({
             recipientAddress: recipient,
-            tokenId: bytes32(0),
+            tokenId: bytes(""),
             amount: 1000,
             maxFee: 15,
             paymentReference: paymentReference
@@ -622,7 +622,7 @@ contract WalletPaymentsTest is Test {
         fees[0] = 30;
         int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
         feeFactorScheduleBIPS[0] = new int16[](0);
-        uint8[] memory feeDelayScheduleSeconds = new uint8[](0);
+        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
 
         uint256 reissueNumber = 0;
         bytes32 instructionId = keccak256(abi.encode(
@@ -642,7 +642,7 @@ contract WalletPaymentsTest is Test {
             tokenId: instruction.tokenId,
             amount: instruction.amount,
             maxFee: fees[0],
-            feeSchedule: abi.encodePacked(int16(10000), uint8(0)),
+            feeSchedule: abi.encodePacked(int16(10000), uint16(0)),
             paymentReference: instruction.paymentReference,
             nonce: 2,
             subNonce: 2,

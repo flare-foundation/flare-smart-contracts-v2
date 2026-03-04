@@ -17,7 +17,7 @@ interface ITeePayments {
     /// Payment instruction structure
     struct PaymentInstruction {
         string recipientAddress;
-        bytes32 tokenId;
+        bytes tokenId;
         uint256 amount;
         uint256 maxFee;
         bytes32 paymentReference;
@@ -29,7 +29,7 @@ interface ITeePayments {
         bytes32 sourceId;
         string senderAddress;
         string recipientAddress;
-        bytes32 tokenId;
+        bytes tokenId;
         uint256 amount;
         uint256 maxFee;
         bytes feeSchedule;
@@ -62,7 +62,7 @@ interface ITeePayments {
         bytes32 sourceId,
         string accountAddress,
         int16[] factorsBIPS,
-        uint8[] delaysSeconds
+        uint16[] delaysSeconds
     );
 
     event PMWMultisigAccountAdded(
@@ -143,7 +143,7 @@ interface ITeePayments {
         PaymentInstruction[] calldata _paymentInstructions,
         uint256[] calldata _maxFees,
         int16[][] calldata _factorScheduleBIPS,
-        uint8[] calldata _timeScheduleSeconds
+        uint16[] calldata _timeScheduleSeconds
     )
         external payable;
 
@@ -186,7 +186,7 @@ interface ITeePayments {
     function setFeeSchedule(
         PMWMultisigAccount calldata _account,
         int16[] calldata _factorsBIPS,
-        uint8[] calldata _delaysSeconds
+        uint16[] calldata _delaysSeconds
     )
         external;
 
@@ -258,7 +258,7 @@ interface ITeePayments {
         external view
         returns(
             int16[] memory _factorsBIPS,
-            uint8[] memory _delaysSeconds
+            uint16[] memory _delaysSeconds
         );
 
     /**

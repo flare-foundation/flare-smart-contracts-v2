@@ -27,7 +27,7 @@ contract TeePayments is ITeePayments, TeeBase {
         uint64 batchEndTs;
         uint24 batchRewardEpochId;
         uint40 batchCounter;
-        /// multiple of 3 bytes (int16 factor in BIPS, uint8 delay in seconds from start, sorted ascending)
+        /// multiple of 4 bytes (int16 factor in BIPS, uint16 delay in seconds from start, sorted ascending)
         bytes feeSchedule;
     }
 
@@ -61,8 +61,8 @@ contract TeePayments is ITeePayments, TeeBase {
         bytes defaultFeeSchedule;
     }
 
-    /// default fee schedule: factor 1 (10000 BIPS), delay 0 seconds
-    bytes public constant DEFAULT_FEE_SCHEDULE = abi.encodePacked(int16(10000), uint8(0));
+    /// @dev default fee schedule: factor 1 (10000 BIPS = 0x2710), delay 0 seconds (0x0000)
+    bytes public constant DEFAULT_FEE_SCHEDULE = hex"27100000";
 
     bytes32 public constant PAY = bytes32("PAY");
     bytes32 public constant REISSUE = bytes32("REISSUE");
@@ -153,14 +153,8 @@ contract TeePayments is ITeePayments, TeeBase {
         bytes32 accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
         bytes32 walletId = accountHashToWalletId[accountHash];
         bytes32 projectId = teeWalletManager.getWalletProjectId(walletId);
-        require(
-            teeWalletProjectManager.getAuthorizationAddress(projectId) == msg.sender,
-            OnlyAuthorizationAddress()
-        );
-        require(
-            teeWalletManager.getWalletStatus(walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
-            WalletNotInProduction()
-        );
+        _checkAuthorizationAddress(projectId);
+        _checkWalletStatus(walletId);
 
         AccountState storage state = states[accountHash];
         AccountSettings storage setting = settings[accountHash];
@@ -232,7 +226,7 @@ contract TeePayments is ITeePayments, TeeBase {
         PaymentInstruction[] calldata _paymentInstructions,
         uint256[] calldata _maxFees,
         int16[][] calldata _feeFactorScheduleBIPS,
-        uint8[] calldata _feeDelayScheduleSeconds
+        uint16[] calldata _feeDelayScheduleSeconds
     )
         external payable
     {
@@ -252,14 +246,8 @@ contract TeePayments is ITeePayments, TeeBase {
         tempState.nonce = _nonce;
         tempState.walletId = accountHashToWalletId[tempState.accountHash];
         tempState.projectId = teeWalletManager.getWalletProjectId(tempState.walletId);
-        require(
-            teeWalletProjectManager.getAuthorizationAddress(tempState.projectId) == msg.sender,
-            OnlyAuthorizationAddress()
-        );
-        require(
-            teeWalletManager.getWalletStatus(tempState.walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
-            WalletNotInProduction()
-        );
+        _checkAuthorizationAddress(tempState.projectId);
+        _checkWalletStatus(tempState.walletId);
         {
             AccountState storage state = states[tempState.accountHash];
             // check if batch has ended
@@ -406,7 +394,7 @@ contract TeePayments is ITeePayments, TeeBase {
     function setFeeSchedule(
         PMWMultisigAccount calldata _account,
         int16[] calldata _factorsBIPS,
-        uint8[] calldata _delaysSeconds
+        uint16[] calldata _delaysSeconds
     )
         external onlyWalletOwner(_account)
     {
@@ -531,15 +519,16 @@ contract TeePayments is ITeePayments, TeeBase {
         PMWMultisigAccount calldata _account
     )
         external view
-        returns(int16[] memory _factorsBIPS, uint8[] memory _delaysSeconds)
+        returns(int16[] memory _factorsBIPS, uint16[] memory _delaysSeconds)
     {
         bytes memory feeSchedule = accountFeeSchedule[_toAccountHash(_account.sourceId, _account.accountAddress)];
-        uint256 length = feeSchedule.length / 3;
+        uint256 length = feeSchedule.length / 4;
         _factorsBIPS = new int16[](length);
-        _delaysSeconds = new uint8[](length);
+        _delaysSeconds = new uint16[](length);
         for (uint256 i = 0; i < length; i++) {
-            _factorsBIPS[i] = int16(uint16(bytes2(abi.encodePacked(feeSchedule[i * 3], feeSchedule[i * 3 + 1]))));
-            _delaysSeconds[i] = uint8(feeSchedule[i * 3 + 2]);
+            uint256 offset = i * 4;
+            _factorsBIPS[i] = int16(uint16(uint8(feeSchedule[offset])) << 8 | uint16(uint8(feeSchedule[offset + 1])));
+            _delaysSeconds[i] = uint16(uint8(feeSchedule[offset + 2])) << 8 | uint16(uint8(feeSchedule[offset + 3]));
         }
     }
 
@@ -594,6 +583,17 @@ contract TeePayments is ITeePayments, TeeBase {
         require(teeWalletProjectManager.getOwner(projectId) == msg.sender, OnlyWalletOwner());
     }
 
+    function _checkAuthorizationAddress(bytes32 _projectId) internal view {
+        require(teeWalletProjectManager.getAuthorizationAddress(_projectId) == msg.sender, OnlyAuthorizationAddress());
+    }
+
+    function _checkWalletStatus(bytes32 _walletId) internal view {
+        require(
+            teeWalletManager.getWalletStatus(_walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
+            WalletNotInProduction()
+        );
+    }
+
     function _getWalletId(PMWMultisigAccount calldata _account) internal view returns (bytes32) {
         return accountHashToWalletId[_toAccountHash(_account.sourceId, _account.accountAddress)];
     }
@@ -615,24 +615,25 @@ contract TeePayments is ITeePayments, TeeBase {
     }
 
     // _factorsBIPS and _delaysSeconds have the same length
-    function _getFeeSchedule(int16[] calldata _factorsBIPS, uint8[] calldata _delaysSeconds)
+    function _getFeeSchedule(int16[] calldata _factorsBIPS, uint16[] calldata _delaysSeconds)
         internal pure
         returns (bytes memory _feeSchedule)
     {
-        _feeSchedule = new bytes(_factorsBIPS.length * 3);
+        _feeSchedule = new bytes(_factorsBIPS.length * 4);
         for (uint256 i = 0; i < _factorsBIPS.length; i++) {
             require(
                 -10000 <= _factorsBIPS[i] && _factorsBIPS[i] <= 10000 && _factorsBIPS[i] != 0,
                 InvalidFeeFactor(i)
             );
-            bytes2 factorBytes = bytes2(uint16(int16(_factorsBIPS[i])));
-            _feeSchedule [i * 3] = factorBytes[0];
-            _feeSchedule [i * 3 + 1] = factorBytes[1];
-            _feeSchedule [i * 3 + 2] = bytes1(_delaysSeconds[i]);
+            uint256 offset = i * 4;
+            _feeSchedule[offset] = bytes1(uint8(uint16(_factorsBIPS[i]) >> 8));
+            _feeSchedule[offset + 1] = bytes1(uint8(uint16(_factorsBIPS[i])));
+            _feeSchedule[offset + 2] = bytes1(uint8(_delaysSeconds[i] >> 8));
+            _feeSchedule[offset + 3] = bytes1(uint8(_delaysSeconds[i]));
         }
     }
 
-    function _checkDelays(uint8[] calldata _delaysSeconds) internal pure {
+    function _checkDelays(uint16[] calldata _delaysSeconds) internal pure {
         for (uint256 i = 0; i < _delaysSeconds.length; i++) {
             require(i == 0 || _delaysSeconds[i] > _delaysSeconds[i - 1], InvalidFeeDelay(i));
         }
