@@ -1,12 +1,13 @@
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { keccak256, AbiCoder, getBytes, hexlify } from "ethers";
 import { expect } from "chai";
+import { expectRevert } from "@openzeppelin/test-helpers";
 
 import { randomInt } from "../../../utils/sortition";
 import { getTestFile } from "../../../utils/constants";
-import { VRFVerifierContract, VRFVerifierInstance } from "../../../../typechain-truffle/contracts/tee/lib/VRFVerifier";
+import { VrfVerifierContract, VrfVerifierInstance } from "../../../../typechain-truffle/contracts/tee/lib/VrfVerifier";
 
-const VRFVerifier = artifacts.require("VRFVerifier") as VRFVerifierContract;
+const VrfVerifier = artifacts.require("VrfVerifier") as VrfVerifierContract;
 
 // ── secp256k1 constants ──────────────────────────────────────────────────────
 const P = secp256k1.CURVE.p;
@@ -20,7 +21,7 @@ const abiCoder = AbiCoder.defaultAbiCoder();
 
 type AffinePoint = { x: bigint; y: bigint };
 
-interface VRFProof {
+interface VrfProof {
     gamma: AffinePoint;
     c: bigint;
     s: bigint;
@@ -30,7 +31,7 @@ interface VRFProof {
     zInv: bigint;
 }
 
-// ── helpers matching VRFVerifier.sol internals exactly ───────────────────────
+// ── helpers matching VrfVerifier.sol internals exactly ───────────────────────
 
 function modExp(base: bigint, exp: bigint, mod: bigint): bigint {
     let result = 1n;
@@ -43,7 +44,7 @@ function modExp(base: bigint, exp: bigint, mod: bigint): bigint {
     return result;
 }
 
-/** Mirrors VRFVerifier._modSqrt: returns 0 if a is not a quadratic residue. */
+/** Mirrors VrfVerifier._modSqrt: returns 0 if a is not a quadratic residue. */
 function modSqrt(a: bigint): bigint {
     if (a === 0n) return 0n;
     const result = modExp(a, SQRT_EXP, P);
@@ -52,7 +53,7 @@ function modSqrt(a: bigint): bigint {
 }
 
 /**
- * Mirrors VRFVerifier._hashToCurve.
+ * Mirrors VrfVerifier._hashToCurve.
  * Hashes `input` to a secp256k1 point using the try-and-increment method.
  */
 function hashToCurve(input: Uint8Array): AffinePoint {
@@ -70,7 +71,7 @@ function hashToCurve(input: Uint8Array): AffinePoint {
 }
 
 /**
- * Mirrors VRFVerifier._hashToZn.
+ * Mirrors VrfVerifier._hashToZn.
  * Encodes the twelve points/scalars with abi.encode and reduces keccak256 mod N.
  */
 function hashToZn(
@@ -89,10 +90,10 @@ function hashToZn(
 }
 
 /**
- * Generates a VRF proof for (sk, nonce) that can be verified by VRFVerifier.verifyRandomness.
+ * Generates a VRF proof for (sk, nonce) that can be verified by VrfVerifier.verifyRandomness.
  * The witness fields (u, cGamma, v, zInv) are computed off-chain as the contract expects.
  */
-function generateVRFProof(sk: bigint, pk: AffinePoint, nonce: Uint8Array): VRFProof {
+function generateVrfProof(sk: bigint, pk: AffinePoint, nonce: Uint8Array): VrfProof {
     const h = hashToCurve(nonce);
     if (h.x >= N) throw new Error("VRF: h.x >= N (degenerate input)");
 
@@ -116,8 +117,8 @@ function generateVRFProof(sk: bigint, pk: AffinePoint, nonce: Uint8Array): VRFPr
     return { gamma, c, s, u, cGamma, v, zInv };
 }
 
-/** Converts a VRFProof to the struct shape expected by the contract. */
-function toContractProof(proof: VRFProof) {
+/** Converts a VrfProof to the struct shape expected by the contract. */
+function toContractProof(proof: VrfProof) {
     return {
         gamma:  { x: proof.gamma.x.toString(),  y: proof.gamma.y.toString() },
         c:      proof.c.toString(),
@@ -131,11 +132,11 @@ function toContractProof(proof: VRFProof) {
 
 // ── tests ────────────────────────────────────────────────────────────────────
 
-contract(`VRFVerifier.sol; ${getTestFile(__filename)}`, () => {
-    let verifier: VRFVerifierInstance;
+contract(`VrfVerifier.sol; ${getTestFile(__filename)}`, () => {
+    let verifier: VrfVerifierInstance;
 
     before(async () => {
-        verifier = await VRFVerifier.new();
+        verifier = await VrfVerifier.new();
     });
 
     it("should verify a valid VRF proof", async () => {
@@ -143,7 +144,7 @@ contract(`VRFVerifier.sol; ${getTestFile(__filename)}`, () => {
         const pk = secp256k1.ProjectivePoint.BASE.multiply(sk).toAffine();
         const nonce = new TextEncoder().encode("test-nonce");
 
-        const proof = generateVRFProof(sk, pk, nonce);
+        const proof = generateVrfProof(sk, pk, nonce);
         const valid = await verifier.verifyRandomness(
             toContractProof(proof),
             pk.x.toString(),
@@ -160,8 +161,8 @@ contract(`VRFVerifier.sol; ${getTestFile(__filename)}`, () => {
         const nonce = new TextEncoder().encode("deterministic-nonce");
 
         // Two proofs with independent k values → same gamma → same randomness
-        const proof1 = generateVRFProof(sk, pk, nonce);
-        const proof2 = generateVRFProof(sk, pk, nonce);
+        const proof1 = generateVrfProof(sk, pk, nonce);
+        const proof2 = generateVrfProof(sk, pk, nonce);
 
         const r1 = await verifier.randomnessFromProof(proof1.gamma.x.toString(), proof1.gamma.y.toString());
         const r2 = await verifier.randomnessFromProof(proof2.gamma.x.toString(), proof2.gamma.y.toString());
@@ -173,8 +174,8 @@ contract(`VRFVerifier.sol; ${getTestFile(__filename)}`, () => {
         const sk = randomInt(N - 1n) + 1n;
         const pk = secp256k1.ProjectivePoint.BASE.multiply(sk).toAffine();
 
-        const proof1 = generateVRFProof(sk, pk, new TextEncoder().encode("nonce-a"));
-        const proof2 = generateVRFProof(sk, pk, new TextEncoder().encode("nonce-b"));
+        const proof1 = generateVrfProof(sk, pk, new TextEncoder().encode("nonce-a"));
+        const proof2 = generateVrfProof(sk, pk, new TextEncoder().encode("nonce-b"));
 
         const r1 = await verifier.randomnessFromProof(proof1.gamma.x.toString(), proof1.gamma.y.toString());
         const r2 = await verifier.randomnessFromProof(proof2.gamma.x.toString(), proof2.gamma.y.toString());
@@ -186,42 +187,39 @@ contract(`VRFVerifier.sol; ${getTestFile(__filename)}`, () => {
         const sk = randomInt(N - 1n) + 1n;
         const pk = secp256k1.ProjectivePoint.BASE.multiply(sk).toAffine();
         const nonce = new TextEncoder().encode("test-nonce");
-        const proof = generateVRFProof(sk, pk, nonce);
+        const proof = generateVrfProof(sk, pk, nonce);
 
         const wrongSk = randomInt(N - 1n) + 1n;
         const wrongPk = secp256k1.ProjectivePoint.BASE.multiply(wrongSk).toAffine();
 
-        let reverted = false;
-        try {
-            await verifier.verifyRandomness(
+        await expectRevert(
+            verifier.verifyRandomness(
                 toContractProof(proof),
                 wrongPk.x.toString(),
                 wrongPk.y.toString(),
                 hexlify(nonce)
-            );
-        } catch {
-            reverted = true;
-        }
-        expect(reverted).to.equal(true);
+            ),
+            "InvalidUWitness()"
+        );
     });
 
     it("should reject a proof with a tampered gamma", async () => {
         const sk = randomInt(N - 1n) + 1n;
         const pk = secp256k1.ProjectivePoint.BASE.multiply(sk).toAffine();
         const nonce = new TextEncoder().encode("test-nonce");
-        const proof = generateVRFProof(sk, pk, nonce);
+        const proof = generateVrfProof(sk, pk, nonce);
 
         // Replace gamma with a random point on the curve
         const tamperedGamma = secp256k1.ProjectivePoint.BASE.multiply(randomInt(N - 1n) + 1n).toAffine();
-        const tamperedProof = { ...toContractProof(proof), gamma: { x: tamperedGamma.x.toString(), y: tamperedGamma.y.toString() } };
+        const tamperedProof = {
+            ...toContractProof(proof),
+            gamma: { x: tamperedGamma.x.toString(), y: tamperedGamma.y.toString() },
+        };
 
-        let reverted = false;
-        try {
-            await verifier.verifyRandomness(tamperedProof, pk.x.toString(), pk.y.toString(), hexlify(nonce));
-        } catch {
-            reverted = true;
-        }
-        expect(reverted).to.equal(true);
+        await expectRevert(
+            verifier.verifyRandomness(tamperedProof, pk.x.toString(), pk.y.toString(), hexlify(nonce)),
+            "InvalidCGammaWitness()"
+        );
     });
 
     it("should verify proofs for multiple independent key pairs", async () => {
@@ -229,7 +227,7 @@ contract(`VRFVerifier.sol; ${getTestFile(__filename)}`, () => {
         for (let i = 0; i < 3; i++) {
             const sk = randomInt(N - 1n) + 1n;
             const pk = secp256k1.ProjectivePoint.BASE.multiply(sk).toAffine();
-            const proof = generateVRFProof(sk, pk, nonce);
+            const proof = generateVrfProof(sk, pk, nonce);
             const valid = await verifier.verifyRandomness(
                 toContractProof(proof),
                 pk.x.toString(),

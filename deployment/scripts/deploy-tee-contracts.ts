@@ -40,7 +40,7 @@ import { TeeWalletProjectManagerContract } from "../../typechain-truffle/contrac
 import { TeeWalletProjectManagerProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeWalletProjectManagerProxy";
 import { TeeVrfContract } from "../../typechain-truffle/contracts/tee/implementation/TeeVrf";
 import { TeeVrfProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeVrfProxy";
-import { VRFVerifierContract } from "../../typechain-truffle/contracts/tee/lib/VRFVerifier";
+import { VrfVerifierContract } from "../../typechain-truffle/contracts/tee/lib/VrfVerifier";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from "./deploy-utils";
@@ -95,7 +95,7 @@ export async function deployTeeContracts(
   const TeeWalletProjectManagerProxy: TeeWalletProjectManagerProxyContract = artifacts.require("TeeWalletProjectManagerProxy");
   const TeeVrf: TeeVrfContract = artifacts.require("TeeVrf");
   const TeeVrfProxy: TeeVrfProxyContract = artifacts.require("TeeVrfProxy");
-  const VRFVerifier: VRFVerifierContract = artifacts.require("VRFVerifier");
+  const VrfVerifier: VrfVerifierContract = artifacts.require("VrfVerifier");
 
   // Define accounts in play for the deployment process
   let deployerAccount: any;
@@ -351,9 +351,9 @@ export async function deployTeeContracts(
   const teeVrf = await TeeVrf.at(teeVrfProxy.address);
   spewNewContractInfo(contracts, null, TeeVrf.contractName, `TeeVrfProxy.sol`, teeVrfProxy.address, quiet);
 
-  // VRFVerifier
-  const vrfVerifier = await VRFVerifier.new();
-  spewNewContractInfo(contracts, null, VRFVerifier.contractName, `VRFVerifier.sol`, vrfVerifier.address, quiet);
+  // VrfVerifier
+  const vrfVerifier = await VrfVerifier.new();
+  spewNewContractInfo(contracts, null, VrfVerifier.contractName, `VrfVerifier.sol`, vrfVerifier.address, quiet);
 
   // set contract addresses
   await ftdcHub.updateContractAddresses(

@@ -126,7 +126,7 @@ import { TeeExtensionInstructionsSenderMockContract, TeeExtensionInstructionsSen
 import { PMWPaymentStatusVerifierMockContract, PMWPaymentStatusVerifierMockInstance } from "../../typechain-truffle/contracts/ftdc/mock/PMWPaymentStatusVerifierMock";
 import { TeeVrfContract, TeeVrfInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeVrf";
 import { TeeVrfProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeVrfProxy";
-import { VRFVerifierContract, VRFVerifierInstance } from "../../typechain-truffle/contracts/tee/lib/VRFVerifier";
+import { VrfVerifierContract, VrfVerifierInstance } from "../../typechain-truffle/contracts/tee/lib/VrfVerifier";
 
 export interface DeployedContracts {
   readonly addressUpdater: AddressUpdaterInstance;
@@ -180,7 +180,7 @@ export interface DeployedContracts {
   readonly pmwPaymentStatusVerifierMock: PMWPaymentStatusVerifierMockInstance;
   readonly teeExtensionInstructionsSenderMock: TeeExtensionInstructionsSenderMockInstance;
   readonly teeVrf: TeeVrfInstance;
-  readonly vrfVerifier: VRFVerifierInstance;
+  readonly vrfVerifier: VrfVerifierInstance;
 }
 
 const logger = getLogger("contracts");
@@ -276,7 +276,7 @@ export async function deployContracts(
   const TeeExtensionInstructionsSenderMock: TeeExtensionInstructionsSenderMockContract = artifacts.require("TeeExtensionInstructionsSenderMock");
   const TeeVrf: TeeVrfContract = artifacts.require("TeeVrf");
   const TeeVrfProxy: TeeVrfProxyContract = artifacts.require("TeeVrfProxy");
-  const VRFVerifier: VRFVerifierContract = artifacts.require("VRFVerifier");
+  const VrfVerifier: VrfVerifierContract = artifacts.require("VrfVerifier");
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
@@ -767,7 +767,7 @@ export async function deployContracts(
   const teeVrf = await TeeVrf.at(teeVrfProxy.address);
   addressUpdatableContracts.push(teeVrf.address);
 
-  const vrfVerifier = await VRFVerifier.new();
+  const vrfVerifier = await VrfVerifier.new();
 
   // Set the FTDC request fee configurations
   for (const ftdcRequestFee of FTDC_FEE_CONFIGURATIONS) {

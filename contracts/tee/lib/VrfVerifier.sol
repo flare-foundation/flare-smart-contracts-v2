@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.27;
 
 /**
- * @title VRFVerifier
- * @notice On-chain verification of VRF proofs on secp256k1
- *         with optimization to reduce gas costs.
+ * On-chain verification of VRF proofs on secp256k1
+ * with optimization to reduce gas costs.
  */
-contract VRFVerifier {
+contract VrfVerifier {
     struct Point {
         uint256 x;
         uint256 y;
     }
 
     /**
-     * @notice Extended VRF proof that includes the witness points needed for
-     *         the ecrecover-based gas optimization.
-     *
+     * Extended VRF proof that includes the witness points needed for
+     * the ecrecover-based gas optimization.
      * @param gamma   gamma = sk · HashToG1(nonce)
      * @param c       Challenge scalar
      * @param s       Response scalar  (s = k − sk·c mod N)
@@ -35,36 +33,64 @@ contract VRFVerifier {
         uint256 zInv;
     }
 
-    /// @dev Field prime p = 2^256 − 2^32 − 977
+    /// Field prime p = 2^256 − 2^32 − 977
     uint256 internal constant P =
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
 
-    /// @dev Curve order N
+    /// Curve order N
     uint256 internal constant N =
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
 
-    /// @dev Generator point
+    /// Generator point
     uint256 internal constant GX =
         0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798;
     uint256 internal constant GY =
         0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8;
 
-    /// @dev Curve coefficient b (y² = x³ + 7)
+    /// Curve coefficient b (y² = x³ + 7)
     uint256 internal constant CURVE_B = 7;
 
-    /// @dev (P+1)/4  — valid exponent for modular square root because P ≡ 3 mod 4
+    /// (P+1)/4  — valid exponent for modular square root because P ≡ 3 mod 4
     uint256 internal constant SQRT_EXP =
         0x3FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFBFFFFF0C;
 
+    /// Public key point does not satisfy y² = x³ + 7.
+    error PkNotOnCurve();
+
+    /// Gamma point does not satisfy y² = x³ + 7.
+    error GammaNotOnCurve();
+
+    /// Challenge scalar c is zero or >= curve order N.
+    error COutOfRange();
+
+    /// Response scalar s is >= curve order N.
+    error SOutOfRange();
+
+    /// Hash-to-curve produced h.x >= N, making ecrecover invalid.
+    error DegenerateInput();
+
+    /// Witness point u does not match c·pk + s·G.
+    error InvalidUWitness();
+
+    /// Witness point cGamma does not match c·gamma.
+    error InvalidCGammaWitness();
+
+    /// Hash-to-curve failed to find a valid point within 256 iterations.
+    error HashToCurveExceededIterationLimit();
+
+    /// Provided zInv is not the modular inverse of (cGamma.x - v.x).
+    error InvalidZInv();
+
+    /// Witness point v does not match c·gamma + s·h.
+    error InvalidVWitness();
+
     /**
-     * @notice Verify a VRF proof using the ecrecover trick for cheap secp256k1
-     *         scalar-multiplication checks.
-     *
+     * Verify a VRF proof using the ecrecover trick for cheap secp256k1
+     * scalar-multiplication checks.
      * @param _proof  Extended proof including witness points (see struct above).
      * @param _pkX    Prover's public key x-coordinate.
      * @param _pkY    Prover's public key y-coordinate.
      * @param _nonce  The nonce used to generate the proof.
-     *
      * @return _valid  True iff the proof is valid for (pk, nonce).
      */
     function verifyRandomness(
@@ -77,31 +103,31 @@ contract VRFVerifier {
         returns (bool _valid)
     {
         // ── input validation ────────────────────────────────────────────────
-        require(_isOnCurve(Point(_pkX, _pkY)), "VRF: pk not on curve");
-        require(_isOnCurve(_proof.gamma), "VRF: gamma not on curve");
-        require(_proof.c > 0 && _proof.c < N, "VRF: c out of range");
-        require(_proof.s < N, "VRF: s out of range");
+        require(_isOnCurve(Point(_pkX, _pkY)), PkNotOnCurve());
+        require(_isOnCurve(_proof.gamma), GammaNotOnCurve());
+        require(_proof.c > 0 && _proof.c < N, COutOfRange());
+        require(_proof.s < N, SOutOfRange());
 
         // Hash the nonce to a curve point.
         Point memory h = _hashToCurve(_nonce);
 
         // Guard against the rare case h.x >= N (would make ecrecover invalid).
         // Probability ≈ (P − N) / P ≈ 2^{−128}.
-        require(h.x < N, "VRF: h.x >= N (degenerate input)");
+        require(h.x < N, DegenerateInput());
 
         // verify witnesses u and cGamma
         address wantU = _toAddress(_proof.u.x, _proof.u.y);
         require(
             wantU != address(0) &&
                 wantU == _ecMulAddr(_proof.s, _pkX, _pkY, _proof.c),
-            "VRF: invalid u witness"
+            InvalidUWitness()
         );
 
         address wantCG = _toAddress(_proof.cGamma.x, _proof.cGamma.y);
         require(
             wantCG != address(0) &&
                 wantCG == _ecMulAddr(0, _proof.gamma.x, _proof.gamma.y, _proof.c),
-            "VRF: invalid cGamma witness"
+            InvalidCGammaWitness()
         );
 
         _verifyVWitness(_proof, h);
@@ -110,7 +136,7 @@ contract VRFVerifier {
     }
 
     /**
-     * @dev Derive the randomness output from a verified gamma point.
+     * Derive the randomness output from a verified gamma point.
      */
     function randomnessFromProof(
         uint256 _gammaX,
@@ -122,7 +148,9 @@ contract VRFVerifier {
         return keccak256(abi.encodePacked(bytes32(_gammaX), bytes32(_gammaY)));
     }
 
-    /// @dev Modular exponentiation via EVM precompile 0x05 (BigModExp).
+    /**
+     * Modular exponentiation via EVM precompile 0x05 (BigModExp).
+     */
     function _modExp(
         uint256 _base,
         uint256 _exponent,
@@ -148,7 +176,7 @@ contract VRFVerifier {
     }
 
     /**
-     * @dev Hash bytes to a secp256k1 point (try-and-rehash).
+     * Hash bytes to a secp256k1 point (try-and-rehash).
      */
     function _hashToCurve(
         bytes memory _input
@@ -168,10 +196,12 @@ contract VRFVerifier {
             buf = keccak256(abi.encodePacked(buf));
             x = uint256(buf) % P;
         }
-        revert("VRF: HashToCurve exceeded iteration limit");
+        revert HashToCurveExceededIterationLimit();
     }
 
-    /// @dev Modular square root: a^((P+1)/4) mod P.  Returns 0 if a is not a QR.
+    /**
+     * Modular square root: a^((P+1)/4) mod P. Returns 0 if a is not a QR.
+     */
     function _modSqrt(
         uint256 _a
     )
@@ -183,7 +213,9 @@ contract VRFVerifier {
         if (mulmod(_result, _result, P) != _a) return 0;
     }
 
-    /// @dev Verify zInv and the v witness point
+    /**
+     * Verify zInv and the v witness point.
+     */
     function _verifyVWitness(
         Proof calldata _proof,
         Point memory _h
@@ -194,7 +226,7 @@ contract VRFVerifier {
         uint256 denom = addmod(_proof.cGamma.x, P - _proof.v.x, P);
         require(
             denom != 0 && mulmod(_proof.zInv, denom, P) == 1,
-            "VRF: invalid zInv"
+            InvalidZInv()
         );
 
         // verify witness v
@@ -213,11 +245,13 @@ contract VRFVerifier {
         address wantW = _toAddress(wx, wy);
         require(
             wantW != address(0) && wantW == _ecMulAddr(0, _h.x, _h.y, _proof.s),
-            "VRF: invalid v witness"
+            InvalidVWitness()
         );
     }
 
-    /// @dev Verify the challenge scalar c against the hash of all witness data.
+    /**
+     * Verify the challenge scalar c against the hash of all witness data.
+     */
     function _verifyChallenge(
         Proof calldata _proof,
         uint256 _pkX,
@@ -238,7 +272,9 @@ contract VRFVerifier {
         return (_hashToZn(packed) == _proof.c);
     }
 
-    /// @dev keccak256(data) as uint256, reduced mod N.
+    /**
+     * keccak256(data) as uint256, reduced mod N.
+     */
     function _hashToZn(
         bytes memory _data
     )
@@ -248,7 +284,9 @@ contract VRFVerifier {
         return uint256(keccak256(_data)) % N;
     }
 
-    /// @dev True iff (x,y) satisfies y² = x³ + 7 mod P.
+    /**
+     * True iff (x,y) satisfies y² = x³ + 7 mod P.
+     */
     function _isOnCurve(
         Point memory _p
     )
@@ -261,9 +299,9 @@ contract VRFVerifier {
     }
 
     /**
-     * @dev Returns addr(a·G + b·P) using the ecrecover trick.
-     *      Setting a = 0 gives addr(b·P), because
-     *      (N − px·0) mod N = 0 collapses the hash argument to zero.
+     * Returns addr(a·G + b·P) using the ecrecover trick.
+     * Setting a = 0 gives addr(b·P), because
+     * (N − px·0) mod N = 0 collapses the hash argument to zero.
      */
     function _ecMulAddr(
         uint256 _a,
@@ -283,7 +321,9 @@ contract VRFVerifier {
             );
     }
 
-    /// @dev Ethereum address of a secp256k1 point: keccak256(x ‖ y)[12:].
+    /**
+     * Ethereum address of a secp256k1 point: keccak256(x ‖ y)[12:].
+     */
     function _toAddress(
         uint256 _x,
         uint256 _y
