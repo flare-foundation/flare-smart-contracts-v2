@@ -166,7 +166,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         address teeId = _proof.requestBody.teeId;
         TeeMachineState storage state = teeMachineStates[teeId];
         TeeStatus status = state.status;
-        if (status != TeeStatus.PAUSED_WITH_PROOF) {
+        if (status != TeeStatus.SUSPENDED) {
             require(msg.sender == state.owner, OnlyOwner());
             require(status == TeeStatus.INITIALIZED || status == TeeStatus.PAUSED, InvalidTeeStatus());
         }
@@ -197,13 +197,13 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         if (msg.sender == state.owner ||
             teeExtensionRegistry.isCodeHashPlatformDisabled(state.extensionId, state.codeHash, state.platform))
         {
-            _checkTeeStatus(state.status, TeeStatus.PRODUCTION, TeeStatus.PAUSED_WITH_PROOF);
+            _checkTeeStatus(state.status, TeeStatus.PRODUCTION, TeeStatus.SUSPENDED);
             status = TeeStatus.PAUSED;
         } else {
             _checkTeeStatus(state.status, TeeStatus.PRODUCTION);
             (uint64 endTs, ) = teeVerification.getAvailabilityCheckValidity(_teeId);
             require(endTs < block.timestamp, OnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion());
-            status = TeeStatus.PAUSED_WITH_PROOF;
+            status = TeeStatus.SUSPENDED;
         }
 
         state.status = status;
@@ -232,11 +232,11 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         );
         _validateAvailabilityCheckTs(teeId, _proof.header.timestamp);
 
-        state.status = TeeStatus.PAUSED_WITH_PROOF;
+        state.status = TeeStatus.SUSPENDED;
         state.lastStatusChangeTs = block.timestamp;
         extensionActiveTeeIds[state.extensionId].remove(teeId);
         activeTeeIds.remove(teeId);
-        emit TeeMachineStatusChanged(teeId, TeeStatus.PAUSED_WITH_PROOF);
+        emit TeeMachineStatusChanged(teeId, TeeStatus.SUSPENDED);
     }
 
     /**
@@ -248,7 +248,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         TeeMachineState storage state = teeMachineStates[_teeId];
         TeeStatus status = state.status;
         require(
-            status == TeeStatus.PAUSED || status == TeeStatus.PAUSED_WITH_PROOF || status == TeeStatus.PRODUCTION,
+            status == TeeStatus.PAUSED || status == TeeStatus.SUSPENDED || status == TeeStatus.PRODUCTION,
             InvalidTeeStatus()
         );
         state.status = TeeStatus.BANNED;
@@ -312,7 +312,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         state.teeProxyId = _teeProxyId;
         state.url = _url;
         TeeStatus status = state.status;
-        if (status == TeeStatus.PRODUCTION || status == TeeStatus.PAUSED_WITH_PROOF) {
+        if (status == TeeStatus.PRODUCTION || status == TeeStatus.SUSPENDED) {
             state.status = TeeStatus.PAUSED;
             state.lastStatusChangeTs = block.timestamp;
             extensionActiveTeeIds[state.extensionId].remove(_teeId);

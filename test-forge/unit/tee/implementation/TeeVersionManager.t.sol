@@ -276,7 +276,7 @@ contract TeeVersionManagerTest is Test {
         ITeeVersionManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
         vm.prank(owner);
         vm.expectEmit();
-        emit ITeeVersionManager.TeeUpgradePathAdded(teeUpgradeId, upgradePaths[0]);
+        emit ITeeVersionManager.TeeUpgradePathsAdded(teeUpgradeId, upgradePaths);
         teeVersionManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 

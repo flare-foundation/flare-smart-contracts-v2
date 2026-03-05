@@ -375,7 +375,7 @@ contract WalletPaymentsTest is Test {
         testExtensionCreation();
         // create project
         vm.prank(projectOwner);
-        projectId = teeWalletProjectManager.createProject(0, XRP_KEY_TYPE, XRP_SIGNING_ALGO, authorizationAddress);
+        projectId = teeWalletProjectManager.createProject(0, XRP_KEY_TYPE, XRP_SIGNING_ALGO);
 
         // create wallet
         vm.prank(projectOwner);
@@ -485,10 +485,10 @@ contract WalletPaymentsTest is Test {
 
         // only wallet owner can add PMW account
         vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);
-        teePayments.addPMWMultisigAccount(walletId, pmwAccountProof);
+        teePayments.addPMWMultisigAccount(walletId, pmwAccountProof, authorizationAddress);
 
         vm.prank(projectOwner);
-        teePayments.addPMWMultisigAccount(walletId, pmwAccountProof);
+        teePayments.addPMWMultisigAccount(walletId, pmwAccountProof, authorizationAddress);
         ITeePayments.PMWMultisigAccount[] memory accounts = teePayments.getWalletAccounts(walletId);
         assertEq(accounts.length, 1, "wrong number of accounts");
         assertEq(accounts[0].accountAddress, accountAddress, "wrong account address");
@@ -505,7 +505,7 @@ contract WalletPaymentsTest is Test {
         pmwAccountProof.header.sourceId = bytes32("NOT_XRP");
         vm.expectRevert(ITeePayments.UnsupportedSourceId.selector);
         vm.prank(projectOwner);
-        teePayments.addPMWMultisigAccount(walletId, pmwAccountProof);
+        teePayments.addPMWMultisigAccount(walletId, pmwAccountProof, authorizationAddress);
     }
 
     function testPay() public {

@@ -10,7 +10,7 @@ import { ITeeAvailabilityCheck } from "../ftdc/ITeeAvailabilityCheck.sol";
  */
 interface ITeeMachineRegistry {
 
-    enum TeeStatus { INITIALIZED, PRODUCTION, PAUSED_WITH_PROOF, PAUSED, PAUSED_FOR_UPGRADE, REPLICATING, BANNED }
+    enum TeeStatus { INITIALIZED, PRODUCTION, SUSPENDED, PAUSED, PAUSED_FOR_UPGRADE, REPLICATING, BANNED }
 
     struct TeeMachineData {
         uint256 extensionId;
@@ -178,7 +178,7 @@ function register(
         external;
 
     /**
-     * Update TEE machine settings. If the TEE machine was in PRODUCTION or PAUSED_WITH_PROOF status,
+     * Update TEE machine settings. If the TEE machine was in PRODUCTION or SUSPENDED status,
      * updating settings pauses the TEE machine and emits a TeeMachineStatusChanged event.
      * Emits TeeMachineSettingsUpdated event.
      * @param _teeId The TEE machine id.

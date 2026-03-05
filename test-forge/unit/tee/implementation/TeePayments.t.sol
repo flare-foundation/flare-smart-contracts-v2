@@ -147,7 +147,6 @@ contract TeePaymentsTest is Test {
         _mockGetWalletProjectId(walletId, projectId);
         _mockGetExtensionId(projectId, 0);
         _mockGetOwner(projectId, walletOwner);
-        _mockGetAuthorizationAddress(projectId, authorizationAddress);
         _mockGetCurrentRewardEpochId(10);
         _mockReceiveRewards();
         _mockGetKeyType(projectId, KEY_TYPE);
@@ -279,8 +278,9 @@ contract TeePaymentsTest is Test {
         assertEq(teePayments.getWalletId(pmwMultisigAccount), bytes32(0));
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         assertEq(teePayments.getWalletId(pmwMultisigAccount), walletId);
+        assertEq(teePayments.getAuthorizationAddress(pmwMultisigAccount), authorizationAddress);
 
         ITeePayments.PMWMultisigAccount[] memory accounts = teePayments.getWalletAccounts(walletId);
         assertEq(accounts.length, 1);
@@ -292,33 +292,33 @@ contract TeePaymentsTest is Test {
         vm.prank(walletOwner);
         proof.requestBody.accountAddress = "";
         vm.expectRevert(ITeePayments.AccountAddressZero.selector);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
     }
 
     function testAddPMWMultisigAccountRevertAlreadySet() public {
         testAddPMWMultisigAccount();
         vm.expectRevert(ITeePayments.PMWMultisigAccountAddressAlreadySet.selector);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
     }
 
     function testAddPMWMultisigAccountRevertOnlyOwner() public {
         vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
     }
 
     function testAddPMWMultisigAccountRevertOnlySystemExtensionId() public {
         _mockGetExtensionId(projectId, 1);
         vm.expectRevert(ITeePayments.OnlySystemExtensionId.selector);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
     }
 
     function testAddPMWMultisigAccountRevertWrongStatus() public {
         vm.prank(walletOwner);
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.INITIALIZED);
         vm.expectRevert(ITeePayments.OnlyProductionOrPausedStatus.selector);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
     }
 
     function testAddPMWMultisigAccountRevertInvalidProof() public {
@@ -326,14 +326,14 @@ contract TeePaymentsTest is Test {
         _mockVerifyPMWMultisigAccountConfiguredProof(false);
         vm.expectRevert(ITeePayments.InvalidProof.selector);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
     }
 
     function testAddPMWMultisigAccountRevertWrongKeyType() public {
         _mockGetKeyType(projectId, bytes32("WRONG_KEY_TYPE"));
         vm.expectRevert(ITeePayments.WrongKeyType.selector);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
     }
 
     function testAddPMWMultisigAccountRevertUnsupportedSourceId() public {
@@ -341,7 +341,19 @@ contract TeePaymentsTest is Test {
         proof.header.sourceId = bytes32("WRONG_SOURCE_ID");
         vm.prank(walletOwner);
         vm.expectRevert(ITeePayments.UnsupportedSourceId.selector);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
+    }
+
+    function testAddPMWMultisigAccountRevertAuthorizationAddressZero() public {
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        vm.prank(walletOwner);
+        vm.expectRevert(ITeePayments.AuthorizationAddressZero.selector);
+        teePayments.addPMWMultisigAccount(walletId, proof, address(0));
+    }
+
+    function testGetAuthorizationAddress() public {
+        testAddPMWMultisigAccount();
+        assertEq(teePayments.getAuthorizationAddress(pmwMultisigAccount), authorizationAddress);
     }
 
     function testSetBatchSettings() public {
@@ -466,7 +478,7 @@ contract TeePaymentsTest is Test {
         _mockReceivingTeesAndKeys();
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
         teePayments.pay{value: fee - 1}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
@@ -475,7 +487,7 @@ contract TeePaymentsTest is Test {
     function testPayRevertOnlyAuthorizationAddress() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
         teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
     }
@@ -483,7 +495,6 @@ contract TeePaymentsTest is Test {
     function testPayRevertOnlyAuthorizationAddress2() public {
         // account not added
         _mockGetWalletProjectId(bytes32(0), bytes32(0));
-        _mockGetAuthorizationAddress(bytes32(0), address(0));
         vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
         teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
     }
@@ -491,7 +502,7 @@ contract TeePaymentsTest is Test {
     function testPayRevertWalletNotInProduction() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PAUSED);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.WalletNotInProduction.selector);
         teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
@@ -500,7 +511,7 @@ contract TeePaymentsTest is Test {
     function testPayRevertPaymentAmountZero() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         ITeePayments.PaymentInstruction memory instruction = _createPaymentInstruction(bytes32("ref1"));
         instruction.amount = 0;
         vm.prank(authorizationAddress);
@@ -511,7 +522,7 @@ contract TeePaymentsTest is Test {
     function testPayRevertRecipientIsSender() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         ITeePayments.PaymentInstruction memory instruction = _createPaymentInstruction(bytes32("ref1"));
         instruction.recipientAddress = senderAddress;
         vm.prank(authorizationAddress);
@@ -525,7 +536,7 @@ contract TeePaymentsTest is Test {
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         // create payment instruction
         bytes32 instructionId = keccak256(abi.encode(OP_TYPE, PAY, SOURCE_ID, senderAddress, 11));
         ITeePayments.PaymentInstructionMessage memory message = ITeePayments.PaymentInstructionMessage(
@@ -599,7 +610,7 @@ contract TeePaymentsTest is Test {
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         // set batch settings
         teePayments.setBatchSettings(pmwMultisigAccount, 1, 300);
         vm.stopPrank();
@@ -676,7 +687,7 @@ contract TeePaymentsTest is Test {
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         // set batch settings
         teePayments.setBatchSettings(pmwMultisigAccount, 2, 300);
         vm.stopPrank();
@@ -858,7 +869,7 @@ contract TeePaymentsTest is Test {
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         // set batch settings
         teePayments.setBatchSettings(pmwMultisigAccount, 2, 300);
         vm.stopPrank();
@@ -944,9 +955,9 @@ contract TeePaymentsTest is Test {
         );
         _mockGetWalletProjectId(walletId2, projectId);
         vm.startPrank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         proof.requestBody.accountAddress = senderAddress2;
-        teePayments.addPMWMultisigAccount(walletId2, proof);
+        teePayments.addPMWMultisigAccount(walletId2, proof, authorizationAddress);
         vm.stopPrank();
         // create payment instruction
         bytes32 instructionId = keccak256(abi.encode(OP_TYPE, PAY, SOURCE_ID, senderAddress2, 11));
@@ -1075,7 +1086,7 @@ contract TeePaymentsTest is Test {
         feeFactorScheduleBIPS[1] = new int16[](0);
         uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         vm.expectRevert(ITeePayments.WalletNotInProduction.selector);
         vm.prank(authorizationAddress);
         teePayments.reissue{value: fee * 2}(
@@ -1102,7 +1113,7 @@ contract TeePaymentsTest is Test {
         feeFactorScheduleBIPS[1] = new int16[](0);
         uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         vm.prank(walletOwner);
-        teePayments.addPMWMultisigAccount(walletId, proof);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
         teePayments.reissue{value: fee * 2}(
             pmwMultisigAccount,
@@ -1129,7 +1140,6 @@ contract TeePaymentsTest is Test {
         uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
         // account not added
         _mockGetWalletProjectId(bytes32(0), bytes32(0));
-        _mockGetAuthorizationAddress(bytes32(0), address(0));
         vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
         teePayments.reissue{value: fee * 2}(
             pmwMultisigAccount,
@@ -1593,9 +1603,7 @@ contract TeePaymentsTest is Test {
         newSourceIds[0] = newSourceId1;
         newSourceIds[1] = newSourceId2;
         vm.expectEmit();
-        emit ITeePayments.SupportedSourceIdAdded(OP_TYPE, newSourceId1);
-        vm.expectEmit();
-        emit ITeePayments.SupportedSourceIdAdded(OP_TYPE, newSourceId2);
+        emit ITeePayments.SupportedSourceIdsAdded(newSourceIds);
         teePayments.addSupportedSourceIds(newSourceIds);
         assertEq(teePayments.getSupportedSourceIds().length, 3);
         assertEq(teePayments.getSupportedSourceIds()[0], SOURCE_ID);
@@ -1716,14 +1724,6 @@ contract TeePaymentsTest is Test {
             maxFee: 10,
             paymentReference: _paymentReference
         });
-    }
-
-    function _mockGetAuthorizationAddress(bytes32 _projectId, address _authorizationAddress) internal {
-        vm.mockCall(
-            mockTeeWalletProjectManager,
-            abi.encodeWithSelector(ITeeWalletProjectManager.getAuthorizationAddress.selector, _projectId),
-            abi.encode(_authorizationAddress)
-        );
     }
 
     function _mockGetCurrentRewardEpochId(uint24 _rewardEpochId) internal {

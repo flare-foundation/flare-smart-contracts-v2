@@ -219,15 +219,15 @@ contract TeeMachineRegistryTest is Test {
 
     //// toProduction
     // msg.sender != owner
-    function testToProductionRevertInvalidTeeStatus1() public {
+    function testToProductionRevertOnlyOwner() public {
         testRegister();
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
-        vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
+        vm.expectRevert(ITeeMachineRegistry.OnlyOwner.selector);
         teeMachineRegistry.toProduction(proof);
     }
 
     // machine status != INITIALIZED && machine status != PAUSED
-    function testToProductionRevertInvalidTeeStatus2() public {
+    function testToProductionRevertInvalidTeeStatus() public {
         testToProduction();
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         vm.prank(owner);
@@ -283,16 +283,19 @@ contract TeeMachineRegistryTest is Test {
 
 
     // pause
-    function testPauseRevertInvalidTeeStatus() public {
-        vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
-        teeMachineRegistry.pause(teeId);
-    }
-
-
-    function testPauseRevertOnlyOwnerOrDisabledVersion() public {
+    function testPauseRevertOnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion() public {
         testToProduction();
         _mockIsCodeHashPlatformDisabledFalse();
-        vm.expectRevert(ITeeMachineRegistry.OnlyOwnerOrDisabledVersion.selector);
+        // mock getAvailabilityCheckValidity to return future endTs (not expired)
+        vm.mockCall(
+            teeVerification,
+            abi.encodeWithSelector(
+                ITeeVerification.getAvailabilityCheckValidity.selector,
+                teeId
+            ),
+            abi.encode(uint64(block.timestamp + 1000), uint32(0))
+        );
+        vm.expectRevert(ITeeMachineRegistry.OnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion.selector);
         teeMachineRegistry.pause(teeId);
     }
 
@@ -302,6 +305,71 @@ contract TeeMachineRegistryTest is Test {
         vm.prank(owner);
         vm.expectEmit();
         emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.PAUSED);
+        teeMachineRegistry.pause(teeId);
+    }
+
+    function testPauseFromPausedWithProof() public {
+        testPauseWithProof();
+        vm.prank(owner);
+        vm.expectEmit();
+        emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.PAUSED);
+        teeMachineRegistry.pause(teeId);
+    }
+
+    function testPauseAfterExpiredAvailabilityCheck() public {
+        testToProduction();
+        _mockIsCodeHashPlatformDisabledFalse();
+        // mock expired availability check
+        vm.mockCall(
+            teeVerification,
+            abi.encodeWithSelector(
+                ITeeVerification.getAvailabilityCheckValidity.selector,
+                teeId
+            ),
+            abi.encode(uint64(block.timestamp - 1), uint32(0))
+        );
+        // anyone can call pause when availability check expired
+        vm.expectEmit();
+        emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.SUSPENDED);
+        teeMachineRegistry.pause(teeId);
+    }
+
+    function testPauseWhenCodeHashPlatformDisabled() public {
+        testToProduction();
+         // mock isCodeHashPlatformDisabled to return true
+        vm.mockCall(
+            teeExtensionRegistry,
+            abi.encodeWithSelector(
+                ITeeExtensionRegistry.isCodeHashPlatformDisabled.selector,
+                extensionId,
+                codeHash,
+                platform
+            ),
+            abi.encode(true)
+        );
+        // anyone can call pause when code hash platform is disabled
+        vm.expectEmit();
+        emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.PAUSED);
+        teeMachineRegistry.pause(teeId);
+    }
+
+    function testPauseRevertInvalidTeeStatus() public {
+        // mock isCodeHashPlatformDisabled for unregistered tee (zero state values)
+        vm.mockCall(
+            teeExtensionRegistry,
+            abi.encodeWithSelector(
+                ITeeExtensionRegistry.isCodeHashPlatformDisabled.selector
+            ),
+            abi.encode(false)
+        );
+        vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
+        teeMachineRegistry.pause(teeId);
+    }
+
+    function testPauseRevertInvalidTeeStatus2() public {
+        testPause();
+        vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
+        vm.prank(owner);
         teeMachineRegistry.pause(teeId);
     }
 
@@ -338,7 +406,7 @@ contract TeeMachineRegistryTest is Test {
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(teeId, teeProxyId, url);
         _mockVerifyAvailabilityCheckProofFalse(proof);
         vm.expectEmit();
-        emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.PAUSED_WITH_PROOF);
+        emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.SUSPENDED);
         teeMachineRegistry.pauseWithProof(proof);
     }
 

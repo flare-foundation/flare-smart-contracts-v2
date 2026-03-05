@@ -589,7 +589,7 @@ contract TeeMachineReplicationTest is Test {
         upgradePaths[0] = ITeeVersionManager.TeeUpgradePath(sourceVersions, targetVersions);
         vm.prank(extensionOwner);
         vm.expectEmit();
-        emit ITeeVersionManager.TeeUpgradePathAdded(0, upgradePaths[0]);
+        emit ITeeVersionManager.TeeUpgradePathsAdded(0, upgradePaths);
         teeVersionManager.addTeeUpgradePaths(0, upgradePaths);
     }
 

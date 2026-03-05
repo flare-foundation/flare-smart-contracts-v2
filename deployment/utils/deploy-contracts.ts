@@ -26,6 +26,7 @@ import {
   FlareSystemsCalculatorInstance,
   FlareSystemsManagerContract,
   FlareSystemsManagerInstance,
+  FtdcRequestFeeConfigurationsContract,
   FtsoFeedDecimalsContract,
   FtsoFeedDecimalsInstance,
   FtsoFeedIdConverterContract,
@@ -193,7 +194,7 @@ export async function deployContracts(
   const INFLATION_ADDR = accounts[7].address;
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-  const _ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
+  const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
   const MockContract = hre.artifacts.require("MockContract") as MockContractContract;
   const WNat = hre.artifacts.require("WNat") as WNatContract;
@@ -260,10 +261,11 @@ export async function deployContracts(
   const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
   const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
   const FtdcHubProxy: FtdcHubProxyContract = artifacts.require("FtdcHubProxy");
-  const FtdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
+  const FtdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
   const FtdcRequestFeeConfigurationsProxy: FtdcRequestFeeConfigurationsProxyContract = artifacts.require("FtdcRequestFeeConfigurationsProxy");
   const FtdcVerification: FtdcVerificationContract = artifacts.require("FtdcVerification");
   const FtdcVerificationProxy: FtdcVerificationProxyContract = artifacts.require("FtdcVerificationProxy");
+  const AddressUpdater: AddressUpdaterContract = artifacts.require("AddressUpdater");
 
   const PMWPaymentStatusVerifierMock: PMWPaymentStatusVerifierMockContract = artifacts.require("PMWPaymentStatusVerifierMock");
   const TeeExtensionInstructionsSenderMock: TeeExtensionInstructionsSenderMockContract = artifacts.require("TeeExtensionInstructionsSenderMock");

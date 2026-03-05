@@ -76,9 +76,7 @@ contract TeeFeeCalculatorTest is Test {
 
         vm.prank(governance);
         vm.expectEmit();
-        emit ITeeFeeCalculator.OperationFeeSet(opTypes[0], opCommands[0], fees[0]);
-        vm.expectEmit();
-        emit ITeeFeeCalculator.OperationFeeSet(opTypes[1], opCommands[1], fees[1]);
+        emit ITeeFeeCalculator.OperationFeesSet(opTypes, opCommands, fees);
         teeFeeCalculator.setOperationFees(opTypes, opCommands, fees);
 
         // assert

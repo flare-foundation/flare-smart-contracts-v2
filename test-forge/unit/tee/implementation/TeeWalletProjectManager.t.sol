@@ -25,8 +25,6 @@ contract TeeWalletProjectManagerTest is Test {
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
-    address private authorizationAddress1;
-    address private authorizationAddress2;
     bytes32 private keyType1;
     bytes32 private keyType2;
     bytes32 private signingAlgo1;
@@ -64,8 +62,6 @@ contract TeeWalletProjectManagerTest is Test {
         contractAddresses[3] = teeExtensionRegistryMock;
         teeWalletProjectManager.updateContractAddresses(contractNameHashes, contractAddresses);
 
-        authorizationAddress1 = makeAddr("authorizationAddress1");
-        authorizationAddress2 = makeAddr("authorizationAddress2");
         keyType1 = keccak256(abi.encode("keyType1"));
         keyType2 = keccak256(abi.encode("keyType2"));
         signingAlgo1 = keccak256(abi.encode("signingAlgo1"));
@@ -81,14 +77,14 @@ contract TeeWalletProjectManagerTest is Test {
         _mockIsTeeWalletProjectOwnerAllowed(projectOwner1, false);
         vm.prank(projectOwner1);
         vm.expectRevert(ITeeWalletProjectManager.OwnerNotAllowed.selector);
-        teeWalletProjectManager.createProject(0, keyType1, signingAlgo1, authorizationAddress1);
+        teeWalletProjectManager.createProject(0, keyType1, signingAlgo1);
     }
 
     function testCreateProjectRevertWrongKeyType() public {
         _mockIsKeyTypeSupported(keyType1, false);
         vm.prank(projectOwner1);
         vm.expectRevert(ITeeWalletProjectManager.KeyTypeNotSupported.selector);
-        teeWalletProjectManager.createProject(0, keyType1, signingAlgo1, authorizationAddress1);
+        teeWalletProjectManager.createProject(0, keyType1, signingAlgo1);
     }
 
     function testCreateProjectRevertSigningAlgoNotSupported() public {
@@ -96,28 +92,20 @@ contract TeeWalletProjectManagerTest is Test {
         _mockIsSigningAlgoSupported(keyType1, signingAlgo1, false);
         vm.prank(projectOwner1);
         vm.expectRevert(ITeeWalletProjectManager.SigningAlgoNotSupported.selector);
-        teeWalletProjectManager.createProject(0, keyType1, signingAlgo1, authorizationAddress1);
-    }
-
-    function testCreateProjectRevertAuthorizationAddressZero() public {
-        _mockIsKeyTypeSupported(keyType1, true);
-        _mockIsSigningAlgoSupported(keyType1, signingAlgo1, true);
-        vm.prank(projectOwner1);
-        vm.expectRevert(ITeeWalletProjectManager.AuthorizationAddressZero.selector);
-        teeWalletProjectManager.createProject(0, keyType1, signingAlgo1, address(0));
+        teeWalletProjectManager.createProject(0, keyType1, signingAlgo1);
     }
 
     function testCreateProject() public {
         _mockIsKeyTypeSupported(keyType1, true);
         _mockIsSigningAlgoSupported(keyType1, signingAlgo1, true);
         vm.prank(projectOwner1);
-        bytes32 projectId = teeWalletProjectManager.createProject(0, keyType1, signingAlgo1, authorizationAddress1);
+        bytes32 projectId = teeWalletProjectManager.createProject(0, keyType1, signingAlgo1);
         assertEq(projectId, keccak256(abi.encode("PROJECT", projectOwner1, 1)));
 
         _mockIsKeyTypeSupported(keyType2, true);
         _mockIsSigningAlgoSupported(keyType2, signingAlgo2, true);
         vm.prank(projectOwner2);
-        bytes32 projectId2 = teeWalletProjectManager.createProject(0, keyType2, signingAlgo2, authorizationAddress2);
+        bytes32 projectId2 = teeWalletProjectManager.createProject(0, keyType2, signingAlgo2);
         assertEq(projectId2, keccak256(abi.encode("PROJECT", projectOwner2, 2)));
     }
 
@@ -150,14 +138,6 @@ contract TeeWalletProjectManagerTest is Test {
         bytes32 projectId2 = keccak256(abi.encode("PROJECT", projectOwner2, 2));
         assertEq(teeWalletProjectManager.getSigningAlgo(projectId1), signingAlgo1);
         assertEq(teeWalletProjectManager.getSigningAlgo(projectId2), signingAlgo2);
-    }
-
-    function testGetAuthorizationAddress() public {
-        testCreateProject();
-        bytes32 projectId1 = keccak256(abi.encode("PROJECT", projectOwner1, 1));
-        bytes32 projectId2 = keccak256(abi.encode("PROJECT", projectOwner2, 2));
-        assertEq(authorizationAddress1, teeWalletProjectManager.getAuthorizationAddress(projectId1));
-        assertEq(authorizationAddress2, teeWalletProjectManager.getAuthorizationAddress(projectId2));
     }
 
     function testSetBackupManager() public {

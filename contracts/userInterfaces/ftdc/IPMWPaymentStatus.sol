@@ -35,9 +35,9 @@ interface IPMWPaymentStatus {
     /**
      * Response body for PMWPaymentStatus attestation type
      * @param recipientAddress Recipient address.
-     * @param tokenId Token ID (e.g. address) for the payment, bytes32(0) means native token.
+     * @param tokenId Token ID (e.g. address) for the payment, bytes(0) means native token.
      * @param amount Amount in minimal units that should be send.
-     * @param fee Fee in minimal units that should be paid for the transaction.
+     * @param maxFee Maximum fee in minimal units that can be paid for the transaction.
      * @param paymentReference Payment reference of the transaction.
      * @param transactionStatus Success status of the transaction: 0 - success, 1 - reverted.
      * @param revertReason Revert reason from the blockchain, if transaction status is not success.
@@ -50,9 +50,9 @@ interface IPMWPaymentStatus {
      */
     struct ResponseBody {
         string recipientAddress;
-        bytes32 tokenId;
+        bytes tokenId;
         uint256 amount;
-        uint256 fee;
+        uint256 maxFee;
         bytes32 paymentReference;
         uint8 transactionStatus;
         string revertReason;

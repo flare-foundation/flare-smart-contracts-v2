@@ -536,14 +536,8 @@ contract TeeExtensionRegistryTest is Test {
 
     function testAddSystemSupportedKeyTypesAndSigningAlgos() public {
         vm.prank(initialGovernance);
-        for (uint256 i = 0; i < keyTypes.length; i++) {
-            for (uint256 j = 0; j < signingAlgosByKeyType[i].length; j++) {
-                vm.expectEmit();
-                emit ITeeExtensionRegistry.SystemSupportedKeyTypeAndSigningAlgoAdded(
-                    keyTypes[i], signingAlgosByKeyType[i][j]
-                );
-            }
-        }
+        vm.expectEmit();
+        emit ITeeExtensionRegistry.SystemSupportedKeyTypesAndSigningAlgosAdded(keyTypes, signingAlgosByKeyType);
         teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
     }
 
@@ -601,10 +595,8 @@ contract TeeExtensionRegistryTest is Test {
         testRegister();
         testAddSystemSupportedKeyTypesAndSigningAlgos();
         vm.prank(owner);
-        for (uint256 i = 0; i < keyTypes.length; i++) {
-            vm.expectEmit();
-            emit ITeeExtensionRegistry.SupportedKeyTypeAdded(extensionId, keyTypes[i]);
-        }
+        vm.expectEmit();
+        emit ITeeExtensionRegistry.SupportedKeyTypesAdded(extensionId, keyTypes);
         teeExtensionRegistry.addSupportedKeyTypes(extensionId, keyTypes);
     }
 
@@ -632,10 +624,8 @@ contract TeeExtensionRegistryTest is Test {
     function testRemoveSupportedKeyTypes() public {
         testAddSupportedKeyTypes();
         vm.prank(owner);
-        for (uint256 i = 0; i < keyTypes.length; i++) {
-            vm.expectEmit();
-            emit ITeeExtensionRegistry.SupportedKeyTypeRemoved(extensionId, keyTypes[i]);
-        }
+        vm.expectEmit();
+        emit ITeeExtensionRegistry.SupportedKeyTypesRemoved(extensionId, keyTypes);
         teeExtensionRegistry.removeSupportedKeyTypes(extensionId, keyTypes);
     }
 
@@ -716,10 +706,8 @@ contract TeeExtensionRegistryTest is Test {
 
     function testAddSystemSupportedPlatforms() public {
         vm.prank(initialGovernance);
-        for (uint256 i = 0; i < platforms.length; i++) {
-            vm.expectEmit();
-            emit ITeeExtensionRegistry.SystemSupportedPlatformAdded(platforms[i]);
-        }
+        vm.expectEmit();
+        emit ITeeExtensionRegistry.SystemSupportedPlatformsAdded(platforms);
         teeExtensionRegistry.addSystemSupportedPlatforms(platforms);
         // getSystemSupportedPlatforms
         bytes32[] memory supportedPlatforms = teeExtensionRegistry.getSystemSupportedPlatforms();
