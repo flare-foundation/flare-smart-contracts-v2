@@ -208,7 +208,7 @@ coverage-forge-node_modules:
   - apt-get update -y && apt-get install -y rsync
   script:
   - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
-  - rsync -zarvm --include "*/" --include="*.sol" --include="*.js" --include="*.json" --exclude="*" node_modules/ node_modules.sol
+  - rsync -zarvm --include "*/" --include="*.sol" --include="*.js" --include="*.cjs" --include="*.mjs" --include="*.json" --exclude="*" node_modules/ node_modules.sol
   artifacts:
     expire_in: 5 minutes
     paths:
