@@ -5,7 +5,9 @@ import { Test } from "forge-std/Test.sol";
 import {
     FtdcRequestFeeConfigurations
 } from "../../../../contracts/ftdc/implementation/FtdcRequestFeeConfigurations.sol";
-import { FtdcRequestFeeConfigurationsProxy } from "../../../../contracts/ftdc/proxy/FtdcRequestFeeConfigurationsProxy.sol";
+import {
+    FtdcRequestFeeConfigurationsProxy
+} from "../../../../contracts/ftdc/proxy/FtdcRequestFeeConfigurationsProxy.sol";
 import {
     IFtdcRequestFeeConfigurations
 } from "../../../../contracts/userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";

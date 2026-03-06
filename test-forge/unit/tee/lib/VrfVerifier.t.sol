@@ -12,30 +12,6 @@ contract VrfVerifierTest is Test {
         verifier = new VrfVerifier();
     }
 
-    function _generateProof(
-        string memory _mode,
-        string memory _nonce
-    )
-        internal
-        returns (
-            VrfVerifier.Proof memory _proof,
-            uint256 _pkX,
-            uint256 _pkY,
-            bytes memory _nonceBytes
-        )
-    {
-        string[] memory command = new string[](4);
-        command[0] = "node";
-        command[1] = "test-forge/scripts/generate_vrf_proof.js";
-        command[2] = _mode;
-        command[3] = _nonce;
-        bytes memory result = vm.ffi(command);
-        (_proof, _pkX, _pkY, _nonceBytes) = abi.decode(
-            result,
-            (VrfVerifier.Proof, uint256, uint256, bytes)
-        );
-    }
-
     function testVerifyValidProof() public {
         (
             VrfVerifier.Proof memory proof,
@@ -135,5 +111,29 @@ contract VrfVerifierTest is Test {
             bool valid = verifier.verifyRandomness(proof, pkX, pkY, nonce);
             assertTrue(valid);
         }
+    }
+
+    function _generateProof(
+        string memory _mode,
+        string memory _nonce
+    )
+        internal
+        returns (
+            VrfVerifier.Proof memory _proof,
+            uint256 _pkX,
+            uint256 _pkY,
+            bytes memory _nonceBytes
+        )
+    {
+        string[] memory command = new string[](4);
+        command[0] = "node";
+        command[1] = "test-forge/scripts/generate_vrf_proof.js";
+        command[2] = _mode;
+        command[3] = _nonce;
+        bytes memory result = vm.ffi(command);
+        (_proof, _pkX, _pkY, _nonceBytes) = abi.decode(
+            result,
+            (VrfVerifier.Proof, uint256, uint256, bytes)
+        );
     }
 }
