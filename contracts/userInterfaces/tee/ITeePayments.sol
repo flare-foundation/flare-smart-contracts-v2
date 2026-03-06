@@ -116,7 +116,7 @@ interface ITeePayments {
      * @param _paymentInstruction The payment instruction.
      * @return _nonce The batch nonce of the payment instruction.
      * @return _subNonce The sequence number of the payment instruction.
-     * Can only be called by the submit address of the project.
+     * Can only be called by the authorization address of the PMW multisig account.
      */
     function pay(
         PMWMultisigAccount calldata _account,
@@ -135,7 +135,7 @@ interface ITeePayments {
      * @param _factorScheduleBIPS The factor schedules of the payment instructions (in BIPS). Part of max fee.
      * @param _timeScheduleSeconds The time schedule of the payment instructions (in seconds from the start,
       ordered ascending).
-     * Can only be called by the submit address of the project.
+     * Can only be called by the authorization address of the PMW multisig account.
      */
     function reissue(
         PMWMultisigAccount calldata _account,

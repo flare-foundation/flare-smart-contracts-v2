@@ -764,7 +764,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
                 }
             }
         }
-        // resize the array to the new length which is <= original length, which is always safe
+        // resize the array to the new length which is <= original length - that is always safe
         // this is done using inline assembly as Solidity does not provide a way to resize memory arrays
         // solhint-disable-next-line no-inline-assembly
         assembly { mstore(_teeIds, length) }

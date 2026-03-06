@@ -530,7 +530,7 @@ contract WalletPaymentsTest is Test {
             paymentReference: paymentReference
         });
 
-        // only submit address can submit payment instructions
+        // only authorization address can submit payment instructions
         vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
         teePayments.pay(account1, instruction);
 

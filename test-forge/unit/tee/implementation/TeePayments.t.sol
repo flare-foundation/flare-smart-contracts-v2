@@ -160,7 +160,7 @@ contract TeePaymentsTest is Test {
         proof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
         proof.responseBody.sequence = 11; // set initial nonce to 11
 
-        // fund the submit address and the wallet owner address
+        // fund the authorization address and the wallet owner address
         vm.deal(authorizationAddress, 1 ether);
         vm.deal(walletOwner, 1 ether);
 

@@ -5,22 +5,21 @@ import { Test } from "forge-std/Test.sol";
 import { TeeVrf } from "../../../../contracts/tee/implementation/TeeVrf.sol";
 import { TeeVrfProxy } from "../../../../contracts/tee/proxy/TeeVrfProxy.sol";
 import { ITeeVrf } from "../../../../contracts/userInterfaces/tee/ITeeVrf.sol";
+import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeWalletKeyManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
 import { ITeeWalletManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletManager.sol";
 import { ITeeWalletProjectManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManager.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract TeeVrfTest is Test {
-
-    // selector for sendSystemInstructions(bytes32,address[],bytes32,bytes32,bytes,address[],uint64)
-    bytes4 private constant SEND_SYSTEM_INSTRUCTIONS_SELECTOR =
-        bytes4(keccak256("sendSystemInstructions(bytes32,address[],bytes32,bytes32,bytes,address[],uint64)"));
 
     TeeVrf private teeVrf;
     TeeVrf private teeVrfImpl;
     TeeVrfProxy private teeVrfProxy;
 
     address private mockTeeExtensionRegistry;
+    address private mockTeeMachineRegistry;
     address private mockTeeWalletKeyManager;
     address private mockTeeWalletManager;
     address private mockTeeWalletProjectManager;
@@ -31,6 +30,7 @@ contract TeeVrfTest is Test {
     address[] private contractAddresses;
 
     address private walletOwner;
+    address private authAddress;
     bytes32 private walletId;
     bytes32 private projectId;
     uint64 private keyId;
@@ -42,6 +42,7 @@ contract TeeVrfTest is Test {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
         mockTeeExtensionRegistry = makeAddr("teeExtensionRegistry");
+        mockTeeMachineRegistry = makeAddr("teeMachineRegistry");
         mockTeeWalletKeyManager = makeAddr("teeWalletKeyManager");
         mockTeeWalletManager = makeAddr("teeWalletManager");
         mockTeeWalletProjectManager = makeAddr("teeWalletProjectManager");
@@ -56,21 +57,24 @@ contract TeeVrfTest is Test {
         teeVrf = TeeVrf(address(teeVrfProxy));
 
         vm.prank(addressUpdater);
-        contractNameHashes = new bytes32[](5);
-        contractAddresses = new address[](5);
+        contractNameHashes = new bytes32[](6);
+        contractAddresses = new address[](6);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractAddresses[0] = addressUpdater;
         contractNameHashes[1] = keccak256(abi.encode("TeeExtensionRegistry"));
         contractAddresses[1] = mockTeeExtensionRegistry;
-        contractNameHashes[2] = keccak256(abi.encode("TeeWalletKeyManager"));
-        contractAddresses[2] = mockTeeWalletKeyManager;
-        contractNameHashes[3] = keccak256(abi.encode("TeeWalletManager"));
-        contractAddresses[3] = mockTeeWalletManager;
-        contractNameHashes[4] = keccak256(abi.encode("TeeWalletProjectManager"));
-        contractAddresses[4] = mockTeeWalletProjectManager;
+        contractNameHashes[2] = keccak256(abi.encode("TeeMachineRegistry"));
+        contractAddresses[2] = mockTeeMachineRegistry;
+        contractNameHashes[3] = keccak256(abi.encode("TeeWalletKeyManager"));
+        contractAddresses[3] = mockTeeWalletKeyManager;
+        contractNameHashes[4] = keccak256(abi.encode("TeeWalletManager"));
+        contractAddresses[4] = mockTeeWalletManager;
+        contractNameHashes[5] = keccak256(abi.encode("TeeWalletProjectManager"));
+        contractAddresses[5] = mockTeeWalletProjectManager;
         teeVrf.updateContractAddresses(contractNameHashes, contractAddresses);
 
         walletOwner = makeAddr("walletOwner");
+        authAddress = makeAddr("authAddress");
         walletId = keccak256(abi.encode("walletId"));
         projectId = keccak256(abi.encode("projectId"));
         keyId = 0;
@@ -79,35 +83,61 @@ contract TeeVrfTest is Test {
         instructionId = keccak256(abi.encode("instructionId"));
     }
 
+    // requestVrf tests
+
     function testRequestVrfRevertNonceEmpty() public {
-        vm.prank(walletOwner);
+        vm.prank(authAddress);
         vm.expectRevert(ITeeVrf.NonceEmpty.selector);
         teeVrf.requestVrf(walletId, keyId, bytes(""));
     }
 
-    function testRequestVrfRevertOnlyWalletOwner() public {
+    function testRequestVrfRevertOnlyAuthorizationAddress() public {
         _mockGetWalletProjectId(walletId, projectId);
-        _mockGetOwner(projectId, makeAddr("otherOwner"));
+        _mockGetOwner(projectId, walletOwner);
+        // set auth address, then call from a different address
         vm.prank(walletOwner);
-        vm.expectRevert(ITeeVrf.OnlyWalletOwner.selector);
+        teeVrf.setVrfAuthorizationAddress(walletId, authAddress);
+
+        vm.prank(makeAddr("randomCaller"));
+        vm.expectRevert(ITeeVrf.OnlyAuthorizationAddress.selector);
+        teeVrf.requestVrf(walletId, keyId, nonce);
+    }
+
+    function testRequestVrfRevertOnlyAuthorizationAddressNoAuthSet() public {
+        // no auth address set (default address(0))
+        vm.prank(walletOwner);
+        vm.expectRevert(ITeeVrf.OnlyAuthorizationAddress.selector);
         teeVrf.requestVrf(walletId, keyId, nonce);
     }
 
     function testRequestVrfRevertWalletNotInProduction() public {
-        _mockGetWalletProjectId(walletId, projectId);
-        _mockGetOwner(projectId, walletOwner);
+        _setupAuthAddress();
         _mockGetWalletStatus(walletId, ITeeWalletManager.WalletStatus.INITIALIZED);
-        vm.prank(walletOwner);
+        vm.prank(authAddress);
         vm.expectRevert(ITeeVrf.WalletNotInProduction.selector);
         teeVrf.requestVrf(walletId, keyId, nonce);
     }
 
     function testRequestVrfRevertNoTeesForKey() public {
-        _mockGetWalletProjectId(walletId, projectId);
-        _mockGetOwner(projectId, walletOwner);
+        _setupAuthAddress();
         _mockGetWalletStatus(walletId, ITeeWalletManager.WalletStatus.PRODUCTION);
         _mockGetWalletKeyTeeIds(walletId, keyId, new address[](0));
-        vm.prank(walletOwner);
+        vm.prank(authAddress);
+        vm.expectRevert(ITeeVrf.NoTeesForKey.selector);
+        teeVrf.requestVrf(walletId, keyId, nonce);
+    }
+
+    function testRequestVrfRevertNoTeesForKeyAllNonProduction() public {
+        address[] memory teeIds = new address[](2);
+        teeIds[0] = makeAddr("tee0");
+        teeIds[1] = makeAddr("tee1");
+        _setupAuthAddress();
+        _mockGetWalletStatus(walletId, ITeeWalletManager.WalletStatus.PRODUCTION);
+        _mockGetWalletKeyTeeIds(walletId, keyId, teeIds);
+        // all TEEs are not in PRODUCTION
+        _mockGetTeeMachineStatus(teeIds[0], ITeeMachineRegistry.TeeStatus.INITIALIZED);
+        _mockGetTeeMachineStatus(teeIds[1], ITeeMachineRegistry.TeeStatus.SUSPENDED);
+        vm.prank(authAddress);
         vm.expectRevert(ITeeVrf.NoTeesForKey.selector);
         teeVrf.requestVrf(walletId, keyId, nonce);
     }
@@ -116,9 +146,9 @@ contract TeeVrfTest is Test {
         address[] memory teeIds = new address[](1);
         teeIds[0] = teeId;
         _setupHappyPath(teeIds);
-        _mockSendSystemInstructions(instructionId);
+        _mockSendInstructions(instructionId);
 
-        vm.prank(walletOwner);
+        vm.prank(authAddress);
         vm.expectEmit();
         emit ITeeVrf.VrfRequested(walletId, keyId, instructionId);
         bytes32 returnedId = teeVrf.requestVrf(walletId, keyId, nonce);
@@ -129,15 +159,15 @@ contract TeeVrfTest is Test {
         address[] memory teeIds = new address[](1);
         teeIds[0] = teeId;
         _setupHappyPath(teeIds);
-        _mockSendSystemInstructions(instructionId);
+        _mockSendInstructions(instructionId);
 
-        vm.deal(walletOwner, 1 ether);
+        vm.deal(authAddress, 1 ether);
         vm.expectCall(
             mockTeeExtensionRegistry,
             1 ether,
-            abi.encodePacked(SEND_SYSTEM_INSTRUCTIONS_SELECTOR)
+            abi.encodePacked(ITeeExtensionRegistry.sendInstructions.selector)
         );
-        vm.prank(walletOwner);
+        vm.prank(authAddress);
         teeVrf.requestVrf{value: 1 ether}(walletId, keyId, nonce);
     }
 
@@ -147,14 +177,83 @@ contract TeeVrfTest is Test {
         teeIds[1] = makeAddr("teeId1");
         teeIds[2] = makeAddr("teeId2");
         _setupHappyPath(teeIds);
-        _mockSendSystemInstructions(instructionId);
+        _mockSendInstructions(instructionId);
 
-        vm.prank(walletOwner);
+        vm.prank(authAddress);
         vm.expectEmit();
         emit ITeeVrf.VrfRequested(walletId, keyId, instructionId);
         bytes32 returnedId = teeVrf.requestVrf(walletId, keyId, nonce);
         assertEq(returnedId, instructionId);
     }
+
+    function testRequestVrfFiltersNonProductionTees() public {
+        address[] memory teeIds = new address[](3);
+        teeIds[0] = makeAddr("teeProduction");
+        teeIds[1] = makeAddr("teeSuspended");
+        teeIds[2] = makeAddr("teeProduction2");
+        _setupAuthAddress();
+        _mockGetWalletStatus(walletId, ITeeWalletManager.WalletStatus.PRODUCTION);
+        _mockGetWalletKeyTeeIds(walletId, keyId, teeIds);
+        _mockGetTeeMachineStatus(teeIds[0], ITeeMachineRegistry.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(teeIds[1], ITeeMachineRegistry.TeeStatus.SUSPENDED);
+        _mockGetTeeMachineStatus(teeIds[2], ITeeMachineRegistry.TeeStatus.PRODUCTION);
+        _mockSendInstructions(instructionId);
+
+        vm.prank(authAddress);
+        vm.expectEmit();
+        emit ITeeVrf.VrfRequested(walletId, keyId, instructionId);
+        bytes32 returnedId = teeVrf.requestVrf(walletId, keyId, nonce);
+        assertEq(returnedId, instructionId);
+    }
+
+    // setVrfAuthorizationAddress tests
+
+    function testSetVrfAuthorizationAddress() public {
+        _mockGetWalletProjectId(walletId, projectId);
+        _mockGetOwner(projectId, walletOwner);
+
+        vm.prank(walletOwner);
+        vm.expectEmit();
+        emit ITeeVrf.VrfAuthorizationAddressSet(walletId, authAddress);
+        teeVrf.setVrfAuthorizationAddress(walletId, authAddress);
+
+        assertEq(teeVrf.getVrfAuthorizationAddress(walletId), authAddress);
+    }
+
+    function testSetVrfAuthorizationAddressToZero() public {
+        _mockGetWalletProjectId(walletId, projectId);
+        _mockGetOwner(projectId, walletOwner);
+
+        // first set to non-zero
+        vm.prank(walletOwner);
+        teeVrf.setVrfAuthorizationAddress(walletId, authAddress);
+        assertEq(teeVrf.getVrfAuthorizationAddress(walletId), authAddress);
+
+        // then set to zero to disable
+        vm.prank(walletOwner);
+        vm.expectEmit();
+        emit ITeeVrf.VrfAuthorizationAddressSet(walletId, address(0));
+        teeVrf.setVrfAuthorizationAddress(walletId, address(0));
+
+        assertEq(teeVrf.getVrfAuthorizationAddress(walletId), address(0));
+    }
+
+    function testSetVrfAuthorizationAddressRevertOnlyWalletOwner() public {
+        _mockGetWalletProjectId(walletId, projectId);
+        _mockGetOwner(projectId, walletOwner);
+
+        vm.prank(makeAddr("notOwner"));
+        vm.expectRevert(ITeeVrf.OnlyWalletOwner.selector);
+        teeVrf.setVrfAuthorizationAddress(walletId, authAddress);
+    }
+
+    // getVrfAuthorizationAddress tests
+
+    function testGetVrfAuthorizationAddressDefault() public view {
+        assertEq(teeVrf.getVrfAuthorizationAddress(walletId), address(0));
+    }
+
+    // Proxy tests
 
     function testUpgradeProxy() public {
         TeeVrf newImpl = new TeeVrf();
@@ -186,11 +285,20 @@ contract TeeVrfTest is Test {
 
     //// Helpers
 
-    function _setupHappyPath(address[] memory _teeIds) internal {
+    function _setupAuthAddress() internal {
         _mockGetWalletProjectId(walletId, projectId);
         _mockGetOwner(projectId, walletOwner);
+        vm.prank(walletOwner);
+        teeVrf.setVrfAuthorizationAddress(walletId, authAddress);
+    }
+
+    function _setupHappyPath(address[] memory _teeIds) internal {
+        _setupAuthAddress();
         _mockGetWalletStatus(walletId, ITeeWalletManager.WalletStatus.PRODUCTION);
         _mockGetWalletKeyTeeIds(walletId, keyId, _teeIds);
+        for (uint256 i = 0; i < _teeIds.length; i++) {
+            _mockGetTeeMachineStatus(_teeIds[i], ITeeMachineRegistry.TeeStatus.PRODUCTION);
+        }
     }
 
     function _mockGetWalletProjectId(bytes32 _walletId, bytes32 _projectId) internal {
@@ -225,11 +333,18 @@ contract TeeVrfTest is Test {
         );
     }
 
-    function _mockSendSystemInstructions(bytes32 _instructionId) internal {
-        // Match on selector only so any call to sendSystemInstructions(bytes32,address[],...) is intercepted.
+    function _mockGetTeeMachineStatus(address _teeId, ITeeMachineRegistry.TeeStatus _status) internal {
+        vm.mockCall(
+            mockTeeMachineRegistry,
+            abi.encodeWithSelector(ITeeMachineRegistry.getTeeMachineStatus.selector, _teeId),
+            abi.encode(_status)
+        );
+    }
+
+    function _mockSendInstructions(bytes32 _instructionId) internal {
         vm.mockCall(
             mockTeeExtensionRegistry,
-            abi.encodePacked(SEND_SYSTEM_INSTRUCTIONS_SELECTOR),
+            abi.encodePacked(ITeeExtensionRegistry.sendInstructions.selector),
             abi.encode(_instructionId)
         );
     }

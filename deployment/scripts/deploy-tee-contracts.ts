@@ -439,8 +439,8 @@ export async function deployTeeContracts(
   );
 
   await teeVrf.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_PROJECT_MANAGER]),
-    [addressUpdater, teeExtensionRegistry.address, teeWalletKeyManager.address, teeWalletManager.address, teeWalletProjectManager.address]
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_MACHINE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER]),
+    [addressUpdater, teeExtensionRegistry.address, teeMachineRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address]
   );
 
   // set FTDC request fee configurations
@@ -541,6 +541,7 @@ export async function deployTeeContracts(
   // await teeWalletKeyManager.switchToProductionMode();
   // await teeWalletManager.switchToProductionMode();
   // await teeWalletProjectManager.switchToProductionMode();
+  // await teeVrf.switchToProductionMode();
 
   contracts.serialize();
   if (!quiet) {

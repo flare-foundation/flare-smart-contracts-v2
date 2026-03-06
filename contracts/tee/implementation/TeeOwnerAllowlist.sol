@@ -20,6 +20,7 @@ contract TeeOwnerAllowlist is ITeeOwnerAllowlist, TeeBase  {
     mapping(uint256 extensionId => bool) public allTeeMachineOwnersAllowed;
     mapping(uint256 extensionId => bool) public allTeeWalletProjectOwnersAllowed;
 
+    /// TeeExtensionRegistry contract.
     ITeeExtensionRegistry public teeExtensionRegistry;
 
     modifier onlyExtensionOwner(uint256 _extensionId) {
