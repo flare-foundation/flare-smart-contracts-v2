@@ -2125,7 +2125,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
         const vrfInstructionMessageStruct = getStruct("TeeVrfStructs", "vrfInstructionMessageStruct");
 
-        const tx = await teeVrf.requestVrf(WALLET1_ID, keyId, nonce, { value: "1", from: TEE_WALLET_OWNERS[0] });
+        await teeVrf.setVrfAuthorizationAddress(WALLET1_ID, TEE_WALLET_AUTHORIZATION_ADDRESSES[0], { from: TEE_WALLET_OWNERS[0] });
+
+        const tx = await teeVrf.requestVrf(WALLET1_ID, keyId, nonce, { value: "1", from: TEE_WALLET_AUTHORIZATION_ADDRESSES[0] });
 
         const vrfEvent = requiredEventArgsFrom(tx, teeVrf, "VrfRequested") as any;
         expect(vrfEvent.walletId).to.be.equal(WALLET1_ID);
