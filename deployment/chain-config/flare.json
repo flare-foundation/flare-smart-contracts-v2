@@ -144,7 +144,6 @@
                 {"category": 1, "name": "RUNE/USD"},
                 {"category": 1, "name": "TRUMP/USD"},
                 {"category": 1, "name": "USDX/USD"},
-                {"category": 1, "name": "JOULE/USD"},
                 {"category": 1, "name": "HBAR/USD"},
                 {"category": 1, "name": "PENGU/USD"},
                 {"category": 1, "name": "HYPE/USD"},
@@ -168,8 +167,8 @@
                  900,  900,  100,  500,  900, 1600, 1150,  900,
                 1400, 1400, 1150, 1400, 1400, 1150,  900, 1150,
                 1150, 1150,  900, 1400, 1150, 1150, 1150, 1400,
-                1400, 1150, 1400,  200, 1600,  900, 1400, 1150,
-                1150,  500, 1400, 1150, 1400, 1400, 1400, 1400
+                1400, 1150, 1400,  200,  900, 1400, 1150, 1150,
+                 500, 1400, 1150, 1400, 1400, 1400, 1400
             ]
         }
     ],
@@ -317,7 +316,6 @@
         {"feedId": {"category": 1, "name": "RUNE/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "TRUMP/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "USDX/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
-        {"feedId": {"category": 1, "name": "JOULE/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "HBAR/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "PENGU/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
         {"feedId": {"category": 1, "name": "HYPE/USD"}, "rewardBandValue": 5000, "inflationShare": 10000},
