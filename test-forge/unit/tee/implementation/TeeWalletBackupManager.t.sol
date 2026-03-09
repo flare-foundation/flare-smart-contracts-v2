@@ -285,7 +285,7 @@ contract TeeWalletBackupManagerTest is Test {
     // backupRestore
     function testBackupRestoreRevertOnlyOwnerOrBackupManager() public {
         vm.expectRevert(ITeeWalletBackupManager.OnlyOwnerOrBackupManager.selector);
-        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl);
+        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
 
@@ -293,7 +293,7 @@ contract TeeWalletBackupManagerTest is Test {
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.INITIALIZED);
         vm.expectRevert(ITeeWalletBackupManager.TeeMachineNotAvailable.selector);
         vm.prank(owner);
-        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl);
+        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
 
@@ -301,7 +301,7 @@ contract TeeWalletBackupManagerTest is Test {
         _mockGetTeeMachineStatus(backupTeeId, ITeeMachineRegistry.TeeStatus.INITIALIZED);
         vm.expectRevert(ITeeWalletBackupManager.InvalidTeeMachine.selector);
         vm.prank(owner);
-        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl);
+        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
 
@@ -309,7 +309,7 @@ contract TeeWalletBackupManagerTest is Test {
         _mockGetWalletKeyTeeIds(teeId);
         vm.prank(owner);
         vm.expectRevert(ITeeWalletBackupManager.KeyAlreadyAvailable.selector);
-        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl);
+        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
 
@@ -317,7 +317,7 @@ contract TeeWalletBackupManagerTest is Test {
         _mockGetWalletKeyPublicKey(bytes(""));
         vm.prank(owner);
         vm.expectRevert(ITeeWalletBackupManager.KeyNotConfirmed.selector);
-        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl);
+        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
 
@@ -325,7 +325,7 @@ contract TeeWalletBackupManagerTest is Test {
         _mockGetWalletKeyPublicKey(bytes("invalidKey"));
         vm.prank(owner);
         vm.expectRevert(ITeeWalletBackupManager.InvalidPublicKey.selector);
-        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl);
+        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
 
@@ -333,7 +333,7 @@ contract TeeWalletBackupManagerTest is Test {
         backupId.rewardEpochId = 0;
         vm.prank(owner);
         vm.expectRevert(ITeeWalletBackupManager.UnsupportedRewardEpochId.selector);
-        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl);
+        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
 
@@ -341,7 +341,7 @@ contract TeeWalletBackupManagerTest is Test {
         backupId.rewardEpochId = 20;
         vm.prank(owner);
         vm.expectRevert(ITeeWalletBackupManager.InvalidRewardEpochId.selector);
-        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl);
+        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
 
@@ -349,7 +349,7 @@ contract TeeWalletBackupManagerTest is Test {
         backupId.keyType = keccak256("InvalidKeyType");
         vm.prank(owner);
         vm.expectRevert(ITeeWalletBackupManager.InvalidKeyType.selector);
-        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl);
+        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
 
@@ -357,7 +357,7 @@ contract TeeWalletBackupManagerTest is Test {
         backupId.signingAlgo = keccak256("InvalidSigningAlgo");
         vm.prank(owner);
         vm.expectRevert(ITeeWalletBackupManager.InvalidSigningAlgo.selector);
-        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl);
+        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
 
@@ -365,13 +365,13 @@ contract TeeWalletBackupManagerTest is Test {
         _mockGetExtensionId(backupTeeId, extensionId + 1);
         vm.prank(owner);
         vm.expectRevert(ITeeWalletBackupManager.ExtensionIdMismatch.selector);
-        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl);
+        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, address(0));
 
         _mockGetExtensionId(backupTeeId, extensionId);
         _mockGetExtensionId(teeId, extensionId + 1);
         vm.prank(owner);
         vm.expectRevert(ITeeWalletBackupManager.ExtensionIdMismatch.selector);
-        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl);
+        teeWalletBackupManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
 

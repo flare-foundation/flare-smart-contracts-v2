@@ -117,7 +117,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         bytes32 _opCommand,
         bytes memory _message,
         address[] memory _cosigners,
-        uint64 _cosignersThreshold
+        uint64 _cosignersThreshold,
+        address _claimBackAddress
     )
         external payable
         returns (bytes32)
@@ -137,7 +138,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
             _opCommand,
             _message,
             _cosigners,
-            _cosignersThreshold
+            _cosignersThreshold,
+            _claimBackAddress
         );
     }
 
@@ -151,7 +153,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         bytes32 _opCommand,
         bytes memory _message,
         address[] memory _cosigners,
-        uint64 _cosignersThreshold
+        uint64 _cosignersThreshold,
+        address _claimBackAddress
     )
         external payable onlySystemInstructionsSender
         returns (bytes32)
@@ -171,7 +174,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
             _opCommand,
             _message,
             _cosigners,
-            _cosignersThreshold
+            _cosignersThreshold,
+            _claimBackAddress
         );
     }
 
@@ -185,7 +189,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         bytes32 _opCommand,
         bytes memory _message,
         address[] memory _cosigners,
-        uint64 _cosignersThreshold
+        uint64 _cosignersThreshold,
+        address _claimBackAddress
     )
         external payable onlySystemInstructionsSender
         returns (bytes32)
@@ -197,7 +202,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
             _opCommand,
             _message,
             _cosigners,
-            _cosignersThreshold
+            _cosignersThreshold,
+            _claimBackAddress
         );
     }
 
@@ -638,7 +644,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         bytes32 _opCommand,
         bytes memory _message,
         address[] memory _cosigners,
-        uint64 _cosignersThreshold
+        uint64 _cosignersThreshold,
+        address _claimBackAddress
     )
         internal returns (bytes32)
     {
@@ -688,6 +695,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
             _message,
             _cosigners,
             _cosignersThreshold,
+            _claimBackAddress,
             msg.value
         );
 

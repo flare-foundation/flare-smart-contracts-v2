@@ -51,11 +51,13 @@ interface ITeeWalletBackupManager {
      * @param _teeId The tee id on which the wallet key will be restored.
      * @param _backupId The backup id (tee id, wallet id, key id, operation type, public key and reward epoch id).
      * @param _backupUrl The URL of a backup package.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      */
     function backupRestore(
         address _teeId,
         BackupId calldata _backupId,
-        string calldata _backupUrl
+        string calldata _backupUrl,
+        address _claimBackAddress
     )
         external payable;
 }

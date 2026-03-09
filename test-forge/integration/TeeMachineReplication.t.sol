@@ -494,7 +494,8 @@ contract TeeMachineReplicationTest is Test {
             teeMachineData,
             signature,
             teeProxyId,
-            teeUrl
+            teeUrl,
+            address(0)
         );
     }
 
@@ -505,6 +506,7 @@ contract TeeMachineReplicationTest is Test {
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             teeVerification.TEE_SOURCE_ID(),
             0,
+            address(0),
             _getSignersAddresses(cosigners),
             cosignersThreshold,
             uint64(block.timestamp)
@@ -638,7 +640,7 @@ contract TeeMachineReplicationTest is Test {
         vm.prank(teeMachineOwner);
         vm.expectEmit();
         emit ITeeMachineRegistry.TeeMachineStatusChanged(teeId, ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE);
-        teeReplication.toPauseForUpgrade{value: 200}(teeId);
+        teeReplication.toPauseForUpgrade{value: 200}(teeId, address(0));
         assert(teeMachineRegistry.getTeeMachineStatus(teeId) == ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE);
     }
 
@@ -666,7 +668,8 @@ contract TeeMachineReplicationTest is Test {
             newTeeMachineData,
             signature,
             newTeeProxyId,
-            newTeeUrl
+            newTeeUrl,
+            address(0)
         );
     }
 
@@ -684,6 +687,7 @@ contract TeeMachineReplicationTest is Test {
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             teeVerification.TEE_SOURCE_ID(),
             0,
+            address(0),
             _getSignersAddresses(cosigners),
             cosignersThreshold,
             uint64(block.timestamp)
@@ -735,7 +739,7 @@ contract TeeMachineReplicationTest is Test {
         vm.prank(teeMachineOwner);
         vm.expectEmit();
         emit ITeeReplication.TeeMachineReplicationTriggered(teeId, newTeeId, 0);
-        teeReplication.replicateFrom{value: 600}(teeId, proof, 0);
+        teeReplication.replicateFrom{value: 600}(teeId, proof, 0, address(0));
         assert(teeMachineRegistry.getTeeMachineStatus(newTeeId) == ITeeMachineRegistry.TeeStatus.REPLICATING);
     }
 
@@ -744,7 +748,7 @@ contract TeeMachineReplicationTest is Test {
         bytes32 challenge = keccak256(abi.encode(teeId, block.timestamp, randomNumber));
         vm.expectEmit();
         emit ITeeVerification.TeeAttestationRequested(teeId, challenge);
-        teeVerification.requestTeeAttestation{value: 150}(teeId);
+        teeVerification.requestTeeAttestation{value: 150}(teeId, address(0));
     }
 
     function testConfirmReplicate() public {
@@ -754,6 +758,7 @@ contract TeeMachineReplicationTest is Test {
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             teeVerification.TEE_SOURCE_ID(),
             0,
+            address(0),
             _getSignersAddresses(cosigners),
             cosignersThreshold,
             uint64(block.timestamp)

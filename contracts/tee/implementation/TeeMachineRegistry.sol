@@ -103,7 +103,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         TeeMachineData calldata _teeMachineData,
         Signature calldata _teeMachineDataSignature,
         address _teeProxyId,
-        string calldata _url
+        string calldata _url,
+        address _claimBackAddress
     )
         external payable
     {
@@ -143,7 +144,7 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
             url: _url
         });
 
-        teeVerification.requestTeeAttestation{value: msg.value}(teeId);
+        teeVerification.requestTeeAttestation{value: msg.value}(teeId, _claimBackAddress);
         emit TeeMachineRegistered(
             teeId,
             _teeProxyId,

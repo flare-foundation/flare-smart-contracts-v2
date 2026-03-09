@@ -182,17 +182,35 @@ contract FtdcHubTest is Test {
 
     function testRequestAttestationRevertThresholdInvalid() public {
         vm.expectRevert(IFtdcHub.ThresholdInvalid.selector);
-        ftdcHub.requestAttestation(minThresholdBIPS - 1, 1, new address[](0), new address[](0), 0, "", "", "");
+        ftdcHub.requestAttestation(
+            IFtdcHub.FtdcAttestationRequest({
+                header: IFtdcHub.FtdcRequestHeader("", "", minThresholdBIPS - 1, address(0)),
+                requestBody: ""
+            }),
+            1, new address[](0), new address[](0), 0, address(0)
+        );
 
         vm.expectRevert(IFtdcHub.ThresholdInvalid.selector);
-        ftdcHub.requestAttestation(1e4 + 1, 1, new address[](0), new address[](0), 0, "", "", "");
+        ftdcHub.requestAttestation(
+            IFtdcHub.FtdcAttestationRequest({
+                header: IFtdcHub.FtdcRequestHeader("", "", 1e4 + 1, address(0)),
+                requestBody: ""
+            }),
+            1, new address[](0), new address[](0), 0, address(0)
+        );
     }
 
     function testRequestAttestationRevertTeesInvalid() public {
         vm.expectRevert(IFtdcHub.NumberOfTeesAndTeeIdsInvalid.selector);
         teeIds = new address[](1);
         teeIds[0] = makeAddr("teeId");
-        ftdcHub.requestAttestation(minThresholdBIPS, 2, teeIds, new address[](0), 0, "", "", "");
+        ftdcHub.requestAttestation(
+            IFtdcHub.FtdcAttestationRequest({
+                header: IFtdcHub.FtdcRequestHeader("", "", minThresholdBIPS, address(0)),
+                requestBody: ""
+            }),
+            2, teeIds, new address[](0), 0, address(0)
+        );
     }
 
     function testRequestAttestationRevertDuplicatedTeeId() public {
@@ -208,7 +226,13 @@ contract FtdcHubTest is Test {
                 teeId
             )
         );
-        ftdcHub.requestAttestation(minThresholdBIPS, 2, teeIds, new address[](0), 0, "", "", "");
+        ftdcHub.requestAttestation(
+            IFtdcHub.FtdcAttestationRequest({
+                header: IFtdcHub.FtdcRequestHeader("", "", minThresholdBIPS, address(0)),
+                requestBody: ""
+            }),
+            2, teeIds, new address[](0), 0, address(0)
+        );
     }
 
     function testRequestAttestationRevertTeeMachineNotAvailable() public {
@@ -218,7 +242,13 @@ contract FtdcHubTest is Test {
         teeIds = new address[](1);
         teeIds[0] = teeId;
         vm.expectRevert(IFtdcHub.TeeMachineNotAvailable.selector);
-        ftdcHub.requestAttestation(minThresholdBIPS, 1, teeIds, new address[](0), 0, "", "", "");
+        ftdcHub.requestAttestation(
+            IFtdcHub.FtdcAttestationRequest({
+                header: IFtdcHub.FtdcRequestHeader("", "", minThresholdBIPS, address(0)),
+                requestBody: ""
+            }),
+            1, teeIds, new address[](0), 0, address(0)
+        );
     }
 
     function testRequestAttestationRevertOnlySystemExtensionId() public {
@@ -234,7 +264,13 @@ contract FtdcHubTest is Test {
                 teeId
             )
         );
-        ftdcHub.requestAttestation(minThresholdBIPS, 0, teeIds, new address[](0), 0, "", "", "");
+        ftdcHub.requestAttestation(
+            IFtdcHub.FtdcAttestationRequest({
+                header: IFtdcHub.FtdcRequestHeader("", "", minThresholdBIPS, address(0)),
+                requestBody: ""
+            }),
+            0, teeIds, new address[](0), 0, address(0)
+        );
     }
 
     function testRequestAttestationRevertFeeTooLow() public {
@@ -245,7 +281,11 @@ contract FtdcHubTest is Test {
         teeIds[0] = teeId;
         vm.expectRevert(IFtdcHub.FeeTooLow.selector);
         ftdcHub.requestAttestation{value: requestFee - 1} (
-            minThresholdBIPS, 1, teeIds, new address[](0), 0, "", "", ""
+            IFtdcHub.FtdcAttestationRequest({
+                header: IFtdcHub.FtdcRequestHeader("", "", minThresholdBIPS, address(0)),
+                requestBody: ""
+            }),
+            1, teeIds, new address[](0), 0, address(0)
         );
     }
 
@@ -265,7 +305,8 @@ contract FtdcHubTest is Test {
             header: IFtdcHub.FtdcRequestHeader({
                 attestationType: attestationType,
                 sourceId: sourceId,
-                thresholdBIPS: minThresholdBIPS
+                thresholdBIPS: minThresholdBIPS,
+                proofOwner: address(0)
             }),
             requestBody: attestationRequest
         });
@@ -280,10 +321,11 @@ contract FtdcHubTest is Test {
             abi.encode(message),
             new address[](0),
             0,
+            address(0),
             15
         );
         ftdcHub.requestAttestation{value: requestFee + 15} (
-            minThresholdBIPS, 0, teeIds, new address[](0), 0, attestationType, sourceId, attestationRequest
+            message, 0, teeIds, new address[](0), 0, address(0)
         );
     }
 
@@ -310,7 +352,8 @@ contract FtdcHubTest is Test {
             header: IFtdcHub.FtdcRequestHeader({
                 attestationType: attestationType,
                 sourceId: sourceId,
-                thresholdBIPS: minThresholdBIPS
+                thresholdBIPS: minThresholdBIPS,
+                proofOwner: address(0)
             }),
             requestBody: attestationRequest
         });
@@ -325,10 +368,11 @@ contract FtdcHubTest is Test {
             abi.encode(message),
             new address[](0),
             0,
+            address(0),
             15
         );
         ftdcHub.requestAttestation{value: requestFee + 15} (
-            minThresholdBIPS, 0, new address[](0), new address[](0), 0, attestationType, sourceId, attestationRequest
+            message, 0, new address[](0), new address[](0), 0, address(0)
         );
     }
 
@@ -355,7 +399,8 @@ contract FtdcHubTest is Test {
             header: IFtdcHub.FtdcRequestHeader({
                 attestationType: attestationType,
                 sourceId: sourceId,
-                thresholdBIPS: minThresholdBIPS
+                thresholdBIPS: minThresholdBIPS,
+                proofOwner: address(0)
             }),
             requestBody: attestationRequest
         });
@@ -370,10 +415,11 @@ contract FtdcHubTest is Test {
             abi.encode(message),
             new address[](0),
             0,
+            address(0),
             15
         );
         ftdcHub.requestAttestation{value: requestFee + 15} (
-            minThresholdBIPS, 2, new address[](0), new address[](0), 0, attestationType, sourceId, attestationRequest
+            message, 2, new address[](0), new address[](0), 0, address(0)
         );
     }
 

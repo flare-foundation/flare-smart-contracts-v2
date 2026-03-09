@@ -97,13 +97,15 @@ interface ITeeMachineRegistry {
      * @param _teeMachineDataSignature The TEE machine signature over the TEE machine data.
      * @param _teeProxyId The TEE proxy id.
      * @param _url The TEE machine URL (proxy URL).
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * Can only be called by an allowlisted TEE machine owner.
      */
-function register(
+    function register(
         TeeMachineData calldata _teeMachineData,
         Signature calldata _teeMachineDataSignature,
         address _teeProxyId,
-        string calldata _url
+        string calldata _url,
+        address _claimBackAddress
     )
         external payable;
 

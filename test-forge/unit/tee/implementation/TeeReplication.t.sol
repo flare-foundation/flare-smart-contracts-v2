@@ -130,7 +130,7 @@ contract TeeReplicationTest is Test {
     // toPauseForUpgrade
     function testToPauseForUpgradeRevertOnlyOwner() public {
         vm.expectRevert(ITeeReplication.OnlyMachineOwner.selector);
-        teeReplication.toPauseForUpgrade(teeId);
+        teeReplication.toPauseForUpgrade(teeId, address(0));
     }
 
 
@@ -138,7 +138,7 @@ contract TeeReplicationTest is Test {
         vm.startPrank(owner);
         vm.expectRevert(ITeeReplication.InvalidTeeStatus.selector);
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.INITIALIZED);
-        teeReplication.toPauseForUpgrade(teeId);
+        teeReplication.toPauseForUpgrade(teeId, address(0));
     }
 
 
@@ -147,7 +147,7 @@ contract TeeReplicationTest is Test {
         _mockGetLastStatusChangeTs(0);
         vm.prank(owner);
         vm.expectRevert(ITeeReplication.TooSoon.selector);
-        teeReplication.toPauseForUpgrade(teeId);
+        teeReplication.toPauseForUpgrade(teeId, address(0));
     }
 
 
@@ -157,7 +157,7 @@ contract TeeReplicationTest is Test {
         vm.expectEmit();
         emit ITeeReplication.TeeMachinePausedForUpgrade(teeId);
         vm.warp(1 days);
-        teeReplication.toPauseForUpgrade(teeId);
+        teeReplication.toPauseForUpgrade(teeId, address(0));
     }
 
 
@@ -165,11 +165,11 @@ contract TeeReplicationTest is Test {
     function testReplicateFromRevertOnlyMachineOwner() public {
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(newTeeId, url);
         vm.expectRevert(ITeeReplication.OnlyMachineOwner.selector);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
 
         _mockGetTeeMachineOwner(newTeeId, address(this));
         vm.expectRevert(ITeeReplication.OnlyMachineOwner.selector);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
     }
 
     function testReplicateFromRevertInvalidTeeStatus1() public {
@@ -177,13 +177,13 @@ contract TeeReplicationTest is Test {
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.INITIALIZED);
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
         vm.prank(owner);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
 
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE);
         _mockGetTeeMachineStatus(newTeeId, ITeeMachineRegistry.TeeStatus.REPLICATING);
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
         vm.prank(owner);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
     }
 
     // retry (newStatus != ITeeMachineRegistry.TeeStatus.INITIALIZED && replications[oldTeeId] != newTeeId)
@@ -196,7 +196,7 @@ contract TeeReplicationTest is Test {
         _mockGetTeeMachineStatus(newTeeId, ITeeMachineRegistry.TeeStatus.PRODUCTION);
         vm.expectRevert(ITeeMachineRegistry.InvalidTeeStatus.selector);
         vm.prank(owner);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
     }
 
 
@@ -207,7 +207,7 @@ contract TeeReplicationTest is Test {
         _mockGetExtensionId(newTeeId, extensionId + 1);
         vm.expectRevert(ITeeReplication.ExtensionMismatch.selector);
         vm.prank(owner);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
     }
 
 
@@ -216,7 +216,7 @@ contract TeeReplicationTest is Test {
         _mockIsCodeHashPlatformSupported(extensionId, false);
         vm.expectRevert(ITeeReplication.VersionNotSupported.selector);
         vm.prank(owner);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
     }
 
 
@@ -225,7 +225,7 @@ contract TeeReplicationTest is Test {
         _mockIsTeeUpgradePathValid(false);
         vm.expectRevert(ITeeReplication.InvalidUpgradePath.selector);
         vm.prank(owner);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
     }
 
 
@@ -234,7 +234,7 @@ contract TeeReplicationTest is Test {
         _mockIsTeeUpgradeSigned(false);
         vm.expectRevert(ITeeReplication.TeeUpgradeNotSigned.selector);
         vm.prank(owner);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
     }
 
 
@@ -243,7 +243,7 @@ contract TeeReplicationTest is Test {
         proof.responseBody.status = ITeeAvailabilityCheck.AvailabilityCheckStatus.DOWN;
         vm.expectRevert(ITeeReplication.InvalidAvailabilityCheckStatus.selector);
         vm.prank(owner);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
     }
 
 
@@ -252,7 +252,7 @@ contract TeeReplicationTest is Test {
         proof.header.timestamp = 0;
         vm.expectRevert(ITeeReplication.AvailabilityCheckTimestampInvalid.selector);
         vm.prank(owner);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
     }
 
     function testReplicateFromRevertInvalidResponseData() public {
@@ -260,7 +260,7 @@ contract TeeReplicationTest is Test {
         _mockVerifyAvailabilityCheckProof(false);
         vm.expectRevert(ITeeReplication.InvalidResponseData.selector);
         vm.prank(owner);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
     }
 
 
@@ -269,7 +269,7 @@ contract TeeReplicationTest is Test {
         vm.expectEmit();
         emit ITeeReplication.TeeMachineReplicationTriggered(teeId, newTeeId, teeUpgradeId);
         vm.prank(owner);
-        teeReplication.replicateFrom(teeId, proof, teeUpgradeId);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
     }
 
 

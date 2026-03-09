@@ -71,20 +71,19 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
      * @inheritdoc IFtdcHub
      */
     function requestAttestation(
-        uint16 _thresholdBIPS,
+        FtdcAttestationRequest calldata _attestationRequest,
         uint256 _numberOfTees,
         address[] memory _teeIds,
         address[] memory _cosigners,
         uint64 _cosignersThreshold,
-        bytes32 _attestationType,
-        bytes32 _sourceId,
-        bytes calldata _requestBody
+        address _claimBackAddress
     )
         external payable
     {
-        // _thresholdBIPS == 0 uses signing policy threshold
+        // thresholdBIPS == 0 uses signing policy threshold
+        uint16 thresholdBIPS = _attestationRequest.header.thresholdBIPS;
         require(
-            _thresholdBIPS == 0 || (minThresholdBIPS <= _thresholdBIPS && _thresholdBIPS <= MAX_BIPS),
+            thresholdBIPS == 0 || (minThresholdBIPS <= thresholdBIPS && thresholdBIPS <= MAX_BIPS),
             ThresholdInvalid()
         );
         require(
@@ -92,7 +91,7 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
             NumberOfTeesAndTeeIdsInvalid()
         );
         require(_cosigners.length >= _cosignersThreshold, CosignersThresholdInvalid());
-        require(_thresholdBIPS == 0 || _thresholdBIPS >= MAX_BIPS / 2 ||
+        require(thresholdBIPS == 0 || thresholdBIPS >= MAX_BIPS / 2 ||
             _cosignersThreshold > _cosigners.length / 2, MultipleResponsesPossible());
         ITeeMachineRegistry.TeeMachine[] memory teeMachines;
         if (_teeIds.length == 0) {
@@ -138,28 +137,28 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
                 );
             }
         }
-        // Send the fee to the reward manager.
-        uint256 fee = ftdcRequestFeeConfigurations.getTypeAndSourceFee(_attestationType, _sourceId);
+        bytes32 attestationType = _attestationRequest.header.attestationType;
+        bytes32 sourceId = _attestationRequest.header.sourceId;
+        uint256 fee = ftdcRequestFeeConfigurations.getTypeAndSourceFee(attestationType, sourceId);
         require(msg.value >= fee, FeeTooLow());
         //slither-disable-next-line arbitrary-send-eth
         rewardManager.receiveRewards{value: fee}(flareSystemsManager.getCurrentRewardEpochId(), false);
-        emit AttestationRequested(_attestationType, _sourceId, _requestBody, fee);
-        // Create the attestation request message.
-        FtdcAttestationRequest memory message = FtdcAttestationRequest({
-            header: FtdcRequestHeader({
-                attestationType: _attestationType,
-                sourceId: _sourceId,
-                thresholdBIPS: _thresholdBIPS
-            }),
-            requestBody: _requestBody
-        });
 
-        _sendInstructions(
+        bytes32 instructionId = _sendInstructions(
             teeMachines,
-            abi.encode(message),
+            abi.encode(_attestationRequest),
             _cosigners,
             _cosignersThreshold,
+            _claimBackAddress,
             msg.value - fee
+        );
+        emit AttestationRequested(
+            instructionId,
+            attestationType,
+            sourceId,
+            _attestationRequest.header.proofOwner,
+            _claimBackAddress,
+            fee
         );
     }
 
@@ -243,19 +242,24 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
 
     function _sendInstructions(
         ITeeMachineRegistry.TeeMachine[] memory _teeMachines,
-        bytes memory _encodedMessage,
+        bytes memory _message,
         address[] memory _cosigners,
         uint64 _cosignersThreshold,
-        uint256 _value
-    ) internal {
-        teeExtensionRegistry.sendSystemInstructions{value: _value}(
+        address _claimBackAddress,
+        uint256 _instructionsFee
+    )
+        internal
+        returns (bytes32 _instructionId)
+    {
+        return teeExtensionRegistry.sendSystemInstructions{value: _instructionsFee}(
             bytes32(0),
             _teeMachines,
             FTDC_OP_TYPE,
             PROVE,
-            _encodedMessage,
+            _message,
             _cosigners,
-            _cosignersThreshold
+            _cosignersThreshold,
+            _claimBackAddress
         );
     }
 }

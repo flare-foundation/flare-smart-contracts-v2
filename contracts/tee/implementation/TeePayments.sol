@@ -41,6 +41,7 @@ contract TeePayments is ITeePayments, TeeBase {
         PaymentInstructionMessage message;
         address[] cosigners;
         uint64 cosignersThreshold;
+        address claimBackAddress;
     }
 
     struct ReissueTempState {
@@ -59,6 +60,9 @@ contract TeePayments is ITeePayments, TeeBase {
         address[] cosigners;
         uint64 cosignersThreshold;
         bytes defaultFeeSchedule;
+        address claimBackAddress;
+        bytes32 sourceId;
+        string accountAddress;
     }
 
     /// @dev default fee schedule: factor 1 (10000 BIPS = 0x2710), delay 0 seconds (0x0000)
@@ -79,8 +83,8 @@ contract TeePayments is ITeePayments, TeeBase {
     mapping(bytes32 accountHash => AccountState) private states;
     mapping(bytes32 accountHash => AccountSettings) private settings;
     mapping(bytes32 accountHash => bytes) private accountFeeSchedule;
-    mapping(bytes32 accountHash => mapping(uint64 nonce => bytes32)) private hashes;
-    mapping(bytes32 accountHash => mapping(uint64 nonce => uint256)) private reissueCounter;
+    mapping(bytes32 accountHash => mapping(uint256 nonce => bytes32)) private hashes;
+    mapping(bytes32 accountHash => mapping(uint256 nonce => uint256)) private reissueCounter;
     mapping(bytes32 accountHash => uint256) private setPaymentLimitsNonce;
     mapping(bytes32 accountHash => address) private authorizationAddresses;
 
@@ -142,7 +146,8 @@ contract TeePayments is ITeePayments, TeeBase {
      */
     function pay(
         PMWMultisigAccount calldata _account,
-        PaymentInstruction calldata _paymentInstruction
+        PaymentInstruction calldata _paymentInstruction,
+        address _claimBackAddress
     )
         external payable returns (uint64 _nonce, uint64 _subNonce)
     {
@@ -152,8 +157,8 @@ contract TeePayments is ITeePayments, TeeBase {
             RecipientIsSender()
         );
         bytes32 accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
-        bytes32 walletId = accountHashToWalletId[accountHash];
         _checkAuthorizationAddress(accountHash);
+        bytes32 walletId = accountHashToWalletId[accountHash];
         _checkWalletStatus(walletId);
 
         AccountState storage state = states[accountHash];
@@ -166,21 +171,19 @@ contract TeePayments is ITeePayments, TeeBase {
             state.batchEndTs = uint64(block.timestamp) + setting.batchDurationSeconds;
             state.batchCounter = 1;
             state.feeSchedule = accountFeeSchedule[accountHash];
-            hashes[accountHash][state.nonce++] = keccak256(abi.encode(
-                _paymentInstruction,
-                state.subNonce
-            ));
+            hashes[accountHash][state.nonce++] = _getBatchHash(_paymentInstruction, state.subNonce);
         } else {
             ++state.batchCounter;
-            hashes[accountHash][state.nonce - 1] = keccak256(abi.encode(
+            hashes[accountHash][state.nonce - 1] = _getBatchHash(
                 hashes[accountHash][state.nonce - 1],
                 _paymentInstruction,
                 state.subNonce
-            ));
+            );
         }
         TeeIdKeyIdPair[] memory teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(walletId);
 
         PayTempState memory tempState;
+        tempState.claimBackAddress = _claimBackAddress;
         tempState.message = PaymentInstructionMessage({
             walletId: walletId,
             teeIdKeyIdPairs: teeIdKeyIdPairs,
@@ -211,7 +214,8 @@ contract TeePayments is ITeePayments, TeeBase {
             PAY,
             abi.encode(tempState.message),
             tempState.cosigners,
-            tempState.cosignersThreshold
+            tempState.cosignersThreshold,
+            tempState.claimBackAddress
         );
         return (tempState.message.nonce, tempState.message.subNonce);
     }
@@ -226,7 +230,8 @@ contract TeePayments is ITeePayments, TeeBase {
         PaymentInstruction[] calldata _paymentInstructions,
         uint256[] calldata _maxFees,
         int16[][] calldata _feeFactorScheduleBIPS,
-        uint16[] calldata _feeDelayScheduleSeconds
+        uint16[] calldata _feeDelayScheduleSeconds,
+        address _claimBackAddress
     )
         external payable
     {
@@ -242,7 +247,10 @@ contract TeePayments is ITeePayments, TeeBase {
         }
         _checkDelays(_feeDelayScheduleSeconds);
         ReissueTempState memory tempState;
-        tempState.accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
+        tempState.claimBackAddress = _claimBackAddress;
+        tempState.sourceId = _account.sourceId;
+        tempState.accountAddress = _account.accountAddress;
+        tempState.accountHash = _toAccountHash(tempState.sourceId, tempState.accountAddress);
         tempState.nonce = _nonce;
         tempState.walletId = accountHashToWalletId[tempState.accountHash];
         tempState.projectId = teeWalletManager.getWalletProjectId(tempState.walletId);
@@ -259,13 +267,13 @@ contract TeePayments is ITeePayments, TeeBase {
         }
 
         // check if hash matches
-        tempState.batchHash = keccak256(abi.encode(_paymentInstructions[0], _firstSubNonce));
+        tempState.batchHash = _getBatchHash(_paymentInstructions[0], _firstSubNonce);
         for (uint256 i = 1; i < _paymentInstructions.length; i++) {
-            tempState.batchHash = keccak256(abi.encode(
+            tempState.batchHash = _getBatchHash(
                 tempState.batchHash,
                 _paymentInstructions[i],
                 _firstSubNonce + i
-            ));
+            );
         }
         require(hashes[tempState.accountHash][tempState.nonce] == tempState.batchHash, BatchHashMismatch());
 
@@ -282,11 +290,11 @@ contract TeePayments is ITeePayments, TeeBase {
         }
 
         tempState.instructionId = keccak256(abi.encode(
-            opType, REISSUE, _account.sourceId, _account.accountAddress, tempState.nonce, tempState.reissueNumber
+            opType, REISSUE, tempState.sourceId, tempState.accountAddress, tempState.nonce, tempState.reissueNumber
         ));
         // reissue batch
         tempState.remainingAmount = msg.value;
-        for (uint64 i = 0; i < _paymentInstructions.length; i++) {
+        for (uint256 i = 0; i < _paymentInstructions.length; i++) {
             bytes memory feeSchedule;
             if (_feeFactorScheduleBIPS.length > 0) {
                 feeSchedule = _getFeeSchedule(_feeFactorScheduleBIPS[i], _feeDelayScheduleSeconds);
@@ -297,8 +305,8 @@ contract TeePayments is ITeePayments, TeeBase {
             tempState.message = PaymentInstructionMessage({
                 walletId: tempState.walletId,
                 teeIdKeyIdPairs: tempState.teeIdKeyIdPairs,
-                sourceId: _account.sourceId,
-                senderAddress: _account.accountAddress,
+                sourceId: tempState.sourceId,
+                senderAddress: tempState.accountAddress,
                 recipientAddress: _paymentInstructions[i].recipientAddress,
                 tokenId: _paymentInstructions[i].tokenId,
                 amount: _paymentInstructions[i].amount,
@@ -306,7 +314,7 @@ contract TeePayments is ITeePayments, TeeBase {
                 feeSchedule: feeSchedule,
                 paymentReference: _paymentInstructions[i].paymentReference,
                 nonce: tempState.nonce,
-                subNonce: _firstSubNonce + i,
+                subNonce: uint64(_firstSubNonce + i),
                 batchEndTs: uint64(block.timestamp)
             });
             tempState.amount = tempState.remainingAmount / (_paymentInstructions.length - i);
@@ -318,7 +326,8 @@ contract TeePayments is ITeePayments, TeeBase {
                 REISSUE,
                 abi.encode(tempState.message),
                 tempState.cosigners,
-                tempState.cosignersThreshold
+                tempState.cosignersThreshold,
+                tempState.claimBackAddress
             );
         }
     }
@@ -422,7 +431,8 @@ contract TeePayments is ITeePayments, TeeBase {
     function setPaymentLimits(
         PMWMultisigAccount calldata _account,
         uint256 _transactionLimit,
-        uint256 _dailyLimit
+        uint256 _dailyLimit,
+        address _claimBackAddress
     )
         external payable onlyWalletOwner(_account)
     {
@@ -441,13 +451,13 @@ contract TeePayments is ITeePayments, TeeBase {
             dailyLimit: _dailyLimit
         });
         (address[] memory admins, uint64 adminsThreshold) = teeWalletManager.getWalletAdminsAndThreshold(walletId);
-        teeExtensionRegistry.sendInstructions{value: msg.value}(
+
+        _sendInstructions(
             _toTeeIds(teeIdKeyIdPairs),
-            opType,
-            SET_PAYMENT_LIMITS,
             abi.encode(message),
             admins,
-            adminsThreshold
+            adminsThreshold,
+            _claimBackAddress
         );
     }
 
@@ -583,6 +593,26 @@ contract TeePayments is ITeePayments, TeeBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 
+    function _sendInstructions(
+        address[] memory _teeIds,
+        bytes memory _message,
+        address[] memory _cosigners,
+        uint64 _cosignersThreshold,
+        address _claimBackAddress
+    )
+        internal
+    {
+        teeExtensionRegistry.sendInstructions{value: msg.value}(
+            _teeIds,
+            opType,
+            SET_PAYMENT_LIMITS,
+            _message,
+            _cosigners,
+            _cosignersThreshold,
+            _claimBackAddress
+        );
+    }
+
     function _addSupportedSourceIds(bytes32[] calldata _sourceIds) internal {
         for (uint256 i = 0; i < _sourceIds.length; i++) {
             require(_sourceIds[i] != bytes32(0), SourceIdZero(i));
@@ -652,4 +682,25 @@ contract TeePayments is ITeePayments, TeeBase {
             require(i == 0 || _delaysSeconds[i] > _delaysSeconds[i - 1], InvalidFeeDelay(i));
         }
     }
+
+    function _getBatchHash(
+        PaymentInstruction calldata _paymentInstruction,
+        uint256 _subNonce
+    )
+        internal pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_paymentInstruction, _subNonce));
+    }
+
+     function _getBatchHash(
+        bytes32 _previousHash,
+        PaymentInstruction calldata _paymentInstruction,
+        uint256 _subNonce
+    )
+        internal pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_previousHash, _paymentInstruction, _subNonce));
+     }
 }

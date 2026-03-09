@@ -114,9 +114,10 @@ interface ITeeWalletKeyManager {
      * Emits WalletKeyAdded event.
      * @param _teeId The tee id.
      * @param _walletId The wallet id.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * @return _keyId The key id.
      */
-    function addKey(address _teeId, bytes32 _walletId) external payable returns (uint64 _keyId);
+    function addKey(address _teeId, bytes32 _walletId, address _claimBackAddress) external payable returns (uint64 _keyId);
 
     /**
      * Confirms the key generation.
@@ -136,8 +137,9 @@ interface ITeeWalletKeyManager {
      * @param _teeId The tee id.
      * @param _walletId The wallet id.
      * @param _keyId The key id.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      */
-    function deleteKey(address _teeId, bytes32 _walletId, uint64 _keyId) external payable;
+    function deleteKey(address _teeId, bytes32 _walletId, uint64 _keyId, address _claimBackAddress) external payable;
 
     /**
      * For given wallet id and key id cleans up all tee machines that are not in production status.

@@ -36,13 +36,15 @@ interface ITeeVrf {
      * @param _walletId The wallet id.
      * @param _keyId The key id within the wallet to use for VRF proof generation.
      * @param _nonce The nonce (must be non-empty) used as input to the VRF.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * @return _instructionId The instruction ID assigned by the extension registry.
      * Can only be called by the authorization address set for the wallet.
      */
     function requestVrf(
         bytes32 _walletId,
         uint64 _keyId,
-        bytes calldata _nonce
+        bytes calldata _nonce,
+        address _claimBackAddress
     )
         external payable
         returns (bytes32 _instructionId);

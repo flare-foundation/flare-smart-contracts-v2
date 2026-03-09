@@ -66,7 +66,7 @@ contract TeeReplication is ITeeReplication, TeeBase {
     /**
      * @inheritdoc ITeeReplication
      */
-    function toPauseForUpgrade(address _teeId)
+    function toPauseForUpgrade(address _teeId, address _claimBackAddress)
         external payable
         onlyOwner(_teeId)
     {
@@ -96,7 +96,8 @@ contract TeeReplication is ITeeReplication, TeeBase {
         _sendInstructions(
             teeIds,
             TO_PAUSE_FOR_UPGRADE,
-            abi.encode(message)
+            abi.encode(message),
+            _claimBackAddress
         );
         emit TeeMachinePausedForUpgrade(_teeId);
     }
@@ -107,7 +108,8 @@ contract TeeReplication is ITeeReplication, TeeBase {
     function replicateFrom(
         address _oldTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof,
-        uint256 _teeUpgradeId
+        uint256 _teeUpgradeId,
+        address _claimBackAddress
     )
         external payable
         onlyOwner(_oldTeeId)
@@ -144,7 +146,8 @@ contract TeeReplication is ITeeReplication, TeeBase {
         _sendInstructions(
             teeIds,
             REPLICATE_FROM,
-            abi.encode(message)
+            abi.encode(message),
+            _claimBackAddress
         );
         emit TeeMachineReplicationTriggered(_oldTeeId, newTeeId, _teeUpgradeId);
     }
@@ -220,7 +223,8 @@ contract TeeReplication is ITeeReplication, TeeBase {
     function _sendInstructions(
         address[] memory _teeIds,
         bytes32 _opCommand,
-        bytes memory _message
+        bytes memory _message,
+        address _claimBackAddress
     )
         internal
     {
@@ -230,7 +234,8 @@ contract TeeReplication is ITeeReplication, TeeBase {
             _opCommand,
             _message,
             new address[](0),
-            0
+            0,
+            _claimBackAddress
         );
     }
 

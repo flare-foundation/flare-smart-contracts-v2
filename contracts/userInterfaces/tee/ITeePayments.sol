@@ -114,13 +114,15 @@ interface ITeePayments {
      * Payment instruction method.
      * @param _account The PMW multisig account.
      * @param _paymentInstruction The payment instruction.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * @return _nonce The batch nonce of the payment instruction.
      * @return _subNonce The sequence number of the payment instruction.
      * Can only be called by the authorization address of the PMW multisig account.
      */
     function pay(
         PMWMultisigAccount calldata _account,
-        PaymentInstruction calldata _paymentInstruction
+        PaymentInstruction calldata _paymentInstruction,
+        address _claimBackAddress
     )
         external payable
         returns (uint64 _nonce, uint64 _subNonce);
@@ -135,6 +137,7 @@ interface ITeePayments {
      * @param _factorScheduleBIPS The factor schedules of the payment instructions (in BIPS). Part of max fee.
      * @param _timeScheduleSeconds The time schedule of the payment instructions (in seconds from the start,
       ordered ascending).
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * Can only be called by the authorization address of the PMW multisig account.
      */
     function reissue(
@@ -144,7 +147,8 @@ interface ITeePayments {
         PaymentInstruction[] calldata _paymentInstructions,
         uint256[] calldata _maxFees,
         int16[][] calldata _factorScheduleBIPS,
-        uint16[] calldata _timeScheduleSeconds
+        uint16[] calldata _timeScheduleSeconds,
+        address _claimBackAddress
     )
         external payable;
 
@@ -198,12 +202,14 @@ interface ITeePayments {
      * @param _account The PMW multisig account.
      * @param _transactionLimit The transaction limit.
      * @param _dailyLimit The daily limit.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * Can only be called by the wallet owner address.
      */
     function setPaymentLimits(
         PMWMultisigAccount calldata _account,
         uint256 _transactionLimit,
-        uint256 _dailyLimit
+        uint256 _dailyLimit,
+        address _claimBackAddress
     )
         external payable;
 

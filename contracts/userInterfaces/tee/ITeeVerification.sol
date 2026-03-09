@@ -58,9 +58,11 @@ interface ITeeVerification {
      * Request attestation for a TEE machine.
      * Emits TeeAttestationRequested event.
      * @param _teeId The TEE machine id.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      */
     function requestTeeAttestation(
-        address _teeId
+        address _teeId,
+        address _claimBackAddress
     )
         external payable;
 
@@ -69,11 +71,15 @@ interface ITeeVerification {
      * @param _teeId The TEE machine id.
      * @param _instructionId The instruction ID used for the TEE attestation check (challenge must match).
      * @param _testOnTeeId The TEE machine id to test on, if address(0) a random active TEE machine will be used.
+     * @param _proofOwner The proof owner address (optional).
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      */
     function requestAvailabilityCheckAttestation(
         address _teeId,
         bytes32 _instructionId,
-        address _testOnTeeId
+        address _testOnTeeId,
+        address _proofOwner,
+        address _claimBackAddress
     )
         external payable;
 
@@ -99,17 +105,21 @@ interface ITeeVerification {
         returns(bool _responseDataValid);
 
     /**
-     * Request PMW multisig account configured attestation.
+     * Request PMW multisig account configured attestation - triggers FTDC PMW multisig account configured check.
      * @param _walletId The wallet id.
      * @param _sourceId The source id (e.g., XRP, BTC).
      * @param _accountAddress The address of the multisig account.
      * @param _testOnTeeId The TEE machine id to test on, if address(0) a random active TEE machine will be used.
+     * @param _proofOwner The proof owner address (optional).
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      */
     function requestPMWMultisigAccountConfiguredAttestation(
         bytes32 _walletId,
         bytes32 _sourceId,
         string calldata _accountAddress,
-        address _testOnTeeId
+        address _testOnTeeId,
+        address _proofOwner,
+        address _claimBackAddress
     )
         external payable;
 

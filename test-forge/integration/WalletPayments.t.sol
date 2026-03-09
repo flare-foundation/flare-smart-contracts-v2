@@ -401,7 +401,7 @@ contract WalletPaymentsTest is Test {
 
         vm.startPrank(projectOwner);
         teeWalletManager.closeWalletInitialization(walletId);
-        uint64 keyId1 = teeWalletKeyManager.addKey{value: defaultFee} (teeId1, walletId);
+        uint64 keyId1 = teeWalletKeyManager.addKey{value: defaultFee} (teeId1, walletId, address(0));
         vm.stopPrank();
 
         keyExistenceProof.teeId = teeId1;
@@ -425,7 +425,7 @@ contract WalletPaymentsTest is Test {
 
         // add second key
         vm.prank(projectOwner);
-        uint64 keyId2 = teeWalletKeyManager.addKey{value: defaultFee}(teeId2, walletId);
+        uint64 keyId2 = teeWalletKeyManager.addKey{value: defaultFee}(teeId2, walletId, address(0));
 
         vm.startPrank(projectOwner);
         keyExistenceProof.teeId = teeId2;
@@ -467,9 +467,10 @@ contract WalletPaymentsTest is Test {
                 attestationType: bytes32("PMWMultisigAccountConfigured"),
                 sourceId: XRP_SOURCE_ID,
                 thresholdBIPS: 0,
-                timestamp: uint64(block.timestamp),
+                proofOwner: address(0),
                 cosigners: new address[](0),
-                cosignersThreshold: 0
+                cosignersThreshold: 0,
+                timestamp: uint64(block.timestamp)
         }),
             requestBody: IPMWMultisigAccountConfigured.RequestBody({
                 accountAddress: accountAddress,
@@ -532,7 +533,7 @@ contract WalletPaymentsTest is Test {
 
         // only authorization address can submit payment instructions
         vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
-        teePayments.pay(account1, instruction);
+        teePayments.pay(account1, instruction, address(0));
 
         bytes32 instructionId = keccak256(abi.encode(
             XRP_OP_TYPE, bytes32("PAY"), XRP_SOURCE_ID, account1.accountAddress, 2
@@ -559,7 +560,7 @@ contract WalletPaymentsTest is Test {
         // if fee too low revert
         vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
         vm.prank(authorizationAddress);
-        teePayments.pay(account1, instruction);
+        teePayments.pay(account1, instruction, address(0));
 
         vm.prank(authorizationAddress);
         vm.expectEmit();
@@ -573,9 +574,10 @@ contract WalletPaymentsTest is Test {
             abi.encode(message),
             cosigners,
             1,
+            address(0),
             2 * 25
         );
-        teePayments.pay{value: 50} (account1, instruction);
+        teePayments.pay{value: 50} (account1, instruction, address(0));
     }
 
     // payment was not issued
@@ -601,7 +603,8 @@ contract WalletPaymentsTest is Test {
         vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
         teePayments.reissue{value: 50}(
             account1, 0, 0, instructions, fees,
-            feeFactorScheduleBIPS, feeDelayScheduleSeconds
+            feeFactorScheduleBIPS, feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -660,12 +663,14 @@ contract WalletPaymentsTest is Test {
             abi.encode(message),
             cosigners,
             1,
+            address(0),
             60
         );
         vm.prank(authorizationAddress);
         teePayments.reissue{value: 60}(
             account1, 2, 2, instructions, fees,
-            feeFactorScheduleBIPS, feeDelayScheduleSeconds
+            feeFactorScheduleBIPS, feeDelayScheduleSeconds,
+            address(0)
         );
     }
 

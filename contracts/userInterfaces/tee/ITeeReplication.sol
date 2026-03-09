@@ -56,9 +56,13 @@ interface ITeeReplication {
      * Pause a TEE machine for upgrade. It has to be paused for long enough time first.
      * Emits TeeMachinePausedForUpgrade event.
      * @param _teeId The TEE machine id.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * Can only be called by the TEE machine owner.
      */
-    function toPauseForUpgrade(address _teeId)
+    function toPauseForUpgrade(
+        address _teeId,
+        address _claimBackAddress
+    )
         external payable;
 
     /**
@@ -67,12 +71,14 @@ interface ITeeReplication {
      * @param _oldTeeId The old TEE machine id.
      * @param _proof The availability check proof for the new TEE machine.
      * @param _teeUpgradeId The TEE upgrade id.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * Can only be called by the TEE machines owner.
      */
     function replicateFrom(
         address _oldTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof,
-        uint256 _teeUpgradeId
+        uint256 _teeUpgradeId,
+        address _claimBackAddress
     )
         external payable;
 

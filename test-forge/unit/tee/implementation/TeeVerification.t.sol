@@ -196,7 +196,7 @@ contract TeeVerificationTest is Test {
             teeExtensionRegistry,
             abi.encodeWithSelector(
                 bytes4(keccak256(
-                    "sendSystemInstructions(bytes32,(address,address,string)[],bytes32,bytes32,bytes,address[],uint64)"
+                    "sendSystemInstructions(bytes32,(address,address,string)[],bytes32,bytes32,bytes,address[],uint64,address)"
                 ))
             ),
             abi.encode(bytes32("instructionId"))
@@ -322,13 +322,13 @@ contract TeeVerificationTest is Test {
         bytes32 challenge = bytes32(0);
         vm.expectEmit();
         emit ITeeVerification.TeeAttestationRequested(teeId, challenge);
-        teeVerification.requestTeeAttestation(teeId);
+        teeVerification.requestTeeAttestation(teeId, address(0));
 
         vm.warp(2 minutes);
         challenge = keccak256(abi.encode(teeId, block.timestamp, randomNumber));
         vm.expectEmit();
         emit ITeeVerification.TeeAttestationRequested(teeId, challenge);
-        teeVerification.requestTeeAttestation(teeId);
+        teeVerification.requestTeeAttestation(teeId, address(0));
     }
 
 
@@ -341,14 +341,14 @@ contract TeeVerificationTest is Test {
                 0
             )
         );
-        teeVerification.requestAvailabilityCheckAttestation(teeId, instructionId, teeId);
+        teeVerification.requestAvailabilityCheckAttestation(teeId, instructionId, teeId, address(0), address(0));
     }
 
 
     function testRequestAvailabilityCheckAttestation() public {
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
         _mockGetReplicatingTeeId(address(0));
-        teeVerification.requestAvailabilityCheckAttestation(teeId, instructionId, teeId);
+        teeVerification.requestAvailabilityCheckAttestation(teeId, instructionId, teeId, address(0), address(0));
     }
 
 
@@ -643,19 +643,19 @@ contract TeeVerificationTest is Test {
     function testRequestPMWMultisigAccountConfiguredAttestationRevertAccountAddressZero() public {
         walletAddress = "";
         vm.expectRevert(ITeeVerification.AccountAddressZero.selector);
-        teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId);
+        teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId, address(0), address(0));
     }
 
 
     function testRequestPMWMultisigAccountConfiguredAttestationRevertOnlyProductionOrPausedStatus() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.INITIALIZED);
         vm.expectRevert(ITeeVerification.OnlyProductionOrPausedStatus.selector);
-        teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId);
+        teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId, address(0), address(0));
     }
 
 
     function testRequestPMWMultisigAccountConfiguredAttestation() public {
-        teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId);
+        teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId, address(0), address(0));
     }
 
 

@@ -16,6 +16,7 @@ interface IITeeExtensionRegistry is ITeeExtensionRegistry {
      * @param _message The message.
      * @param _cosigners The cosigners.
      * @param _cosignersThreshold The cosigners threshold.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * @return The instruction ID.
      * Can only be called by the system instructions senders.
      * @dev No check for duplicated TEE machines is performed.
@@ -27,7 +28,8 @@ interface IITeeExtensionRegistry is ITeeExtensionRegistry {
         bytes32 _opCommand,
         bytes memory _message,
         address[] memory _cosigners,
-        uint64 _cosignersThreshold
+        uint64 _cosignersThreshold,
+        address _claimBackAddress
     )
         external payable
         returns (bytes32);
@@ -42,6 +44,7 @@ interface IITeeExtensionRegistry is ITeeExtensionRegistry {
      * @param _message The message.
      * @param _cosigners The cosigners.
      * @param _cosignersThreshold The cosigners threshold.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * @return The instruction ID.
      * Can only be called by the system instructions senders.
      * @dev No check for duplicated TEE machines is performed.
@@ -53,7 +56,8 @@ interface IITeeExtensionRegistry is ITeeExtensionRegistry {
         bytes32 _opCommand,
         bytes memory _message,
         address[] memory _cosigners,
-        uint64 _cosignersThreshold
+        uint64 _cosignersThreshold,
+        address _claimBackAddress
     )
         external payable
         returns (bytes32);

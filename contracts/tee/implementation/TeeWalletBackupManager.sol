@@ -63,7 +63,8 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
     function backupRestore(
         address _teeId,
         BackupId calldata _backupId,
-        string calldata _backupUrl
+        string calldata _backupUrl,
+        address _claimBackAddress
     )
         external payable
         onlyOwnerOrBackupManager(_backupId.walletId)
@@ -109,17 +110,37 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
         });
         (address[] memory admins, uint64 adminsThreshold) =
             teeWalletManager.getWalletAdminsAndThreshold(_backupId.walletId);
+
+        _sendInstructions(
+            _teeId,
+            abi.encode(message),
+            admins,
+            adminsThreshold,
+            _claimBackAddress
+        );
+        emit BackupRestoreTriggered(_teeId, _backupId.walletId, _backupId.keyId, message.nonce);
+    }
+
+    function _sendInstructions(
+        address _teeId,
+        bytes memory _message,
+        address[] memory _cosigners,
+        uint64 _cosignersThreshold,
+        address _claimBackAddress
+    )
+        internal
+    {
         address[] memory teeIds = new address[](1);
         teeIds[0] = _teeId;
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             teeIds,
             WALLET_OP_TYPE,
             KEY_DATA_PROVIDER_RESTORE,
-            abi.encode(message),
-            admins,
-            adminsThreshold
+            _message,
+            _cosigners,
+            _cosignersThreshold,
+            _claimBackAddress
         );
-        emit BackupRestoreTriggered(_teeId, _backupId.walletId, _backupId.keyId, message.nonce);
     }
 
     /**

@@ -438,22 +438,23 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             admins,
             adminsThreshold,
+            address(0),
             988
         );
-        teePayments.setPaymentLimits{value: 988}(pmwMultisigAccount, transactionLimit, dailyLimit);
+        teePayments.setPaymentLimits{value: 988}(pmwMultisigAccount, transactionLimit, dailyLimit, address(0));
     }
 
     function testSetPaymentLimitsRevertDailyLower() public {
         testAddPMWMultisigAccount();
         vm.prank(walletOwner);
         vm.expectRevert(ITeePayments.DailyLimitBelowTransactionLimit.selector);
-        teePayments.setPaymentLimits{value: 988}(pmwMultisigAccount, 1000, 500);
+        teePayments.setPaymentLimits{value: 988}(pmwMultisigAccount, 1000, 500, address(0));
     }
 
     function testSetPaymentLimitsRevertOnlyWalletOwner() public {
         testAddPMWMultisigAccount();
         vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);
-        teePayments.setPaymentLimits(pmwMultisigAccount, 1000, 10000);
+        teePayments.setPaymentLimits(pmwMultisigAccount, 1000, 10000, address(0));
     }
 
     function testSetPaymentLimitsRevertOnlyWalletOwner2() public {
@@ -461,7 +462,7 @@ contract TeePaymentsTest is Test {
         _mockGetWalletProjectId(bytes32(0), bytes32(0));
         _mockGetOwner(bytes32(0), address(0));
         vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);
-        teePayments.setPaymentLimits(pmwMultisigAccount, 1000, 10000);
+        teePayments.setPaymentLimits(pmwMultisigAccount, 1000, 10000, address(0));
     }
 
     function testSetPaymentLimitsRevertFeeTooLow() public {
@@ -470,7 +471,7 @@ contract TeePaymentsTest is Test {
         _mockReceivingTeesAndKeys();
         vm.prank(walletOwner);
         vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
-        teePayments.setPaymentLimits{value: 1}(pmwMultisigAccount, 1000, 10000);
+        teePayments.setPaymentLimits{value: 1}(pmwMultisigAccount, 1000, 10000, address(0));
     }
 
     //// pay tests ////
@@ -481,7 +482,7 @@ contract TeePaymentsTest is Test {
         teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
-        teePayments.pay{value: fee - 1}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee - 1}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")), address(0));
     }
 
     function testPayRevertOnlyAuthorizationAddress() public {
@@ -489,14 +490,14 @@ contract TeePaymentsTest is Test {
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")), address(0));
     }
 
     function testPayRevertOnlyAuthorizationAddress2() public {
         // account not added
         _mockGetWalletProjectId(bytes32(0), bytes32(0));
         vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")), address(0));
     }
 
     function testPayRevertWalletNotInProduction() public {
@@ -505,7 +506,7 @@ contract TeePaymentsTest is Test {
         teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.WalletNotInProduction.selector);
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")), address(0));
     }
 
     function testPayRevertPaymentAmountZero() public {
@@ -516,7 +517,7 @@ contract TeePaymentsTest is Test {
         instruction.amount = 0;
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.PaymentAmountZero.selector);
-        teePayments.pay{value: fee}(pmwMultisigAccount, instruction);
+        teePayments.pay{value: fee}(pmwMultisigAccount, instruction, address(0));
     }
 
     function testPayRevertRecipientIsSender() public {
@@ -527,7 +528,7 @@ contract TeePaymentsTest is Test {
         instruction.recipientAddress = senderAddress;
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.RecipientIsSender.selector);
-        teePayments.pay{value: fee}(pmwMultisigAccount, instruction);
+        teePayments.pay{value: fee}(pmwMultisigAccount, instruction, address(0));
     }
 
     // batch duration is not set (default is 0)
@@ -566,9 +567,10 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")), address(0));
 
         // create new payment instruction; new batch should be created
         instructionId = keccak256(abi.encode(OP_TYPE, PAY, SOURCE_ID, senderAddress, 12));
@@ -599,9 +601,10 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref2")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref2")), address(0));
     }
 
     // batch duration is > 0 but batch size is 1
@@ -643,9 +646,10 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")), address(0));
 
         // create new payment instruction; new batch should be created
         instructionId = keccak256(abi.encode(OP_TYPE, PAY, SOURCE_ID, senderAddress, 12));
@@ -676,9 +680,10 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref2")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref2")), address(0));
     }
 
     // batch duration is > 0 and batch size is > 1
@@ -720,9 +725,10 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")), address(0));
 
         // create new payment instruction
         instructionId = keccak256(abi.encode(OP_TYPE, PAY, SOURCE_ID, senderAddress, 11));
@@ -753,9 +759,10 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref2")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref2")), address(0));
 
         // create new payment instruction with tokenId; new batch should be created
         instructionId = keccak256(abi.encode(OP_TYPE, PAY, SOURCE_ID, senderAddress, 12));
@@ -786,11 +793,12 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
         ITeePayments.PaymentInstruction memory instruction = _createPaymentInstruction(bytes32("ref3"));
         instruction.tokenId = bytes("tokenId");
-        teePayments.pay{value: fee}(pmwMultisigAccount, instruction);
+        teePayments.pay{value: fee}(pmwMultisigAccount, instruction, address(0));
 
         // move to the end of batch
         vm.warp(500 + 301);
@@ -823,9 +831,10 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref4")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref4")), address(0));
 
         // one transactions in batch 2, end batch time is not yet reached, new reward epoch started
         // new batch should be created
@@ -858,9 +867,10 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref5")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref5")), address(0));
     }
 
     // two transactions in batch with nonce 10
@@ -902,9 +912,10 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")), address(0));
 
         // create new payment instruction
         instructionId = keccak256(abi.encode(OP_TYPE, PAY, SOURCE_ID, senderAddress, 11));
@@ -935,9 +946,10 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref2")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref2")), address(0));
     }
 
     // pay from secondary wallet
@@ -988,10 +1000,11 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
         pmwMultisigAccount.accountAddress = senderAddress2;
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref1")), address(0));
 
         // create new payment instruction; new batch should be created
         instructionId = keccak256(abi.encode(OP_TYPE, PAY, SOURCE_ID, senderAddress2, 12));
@@ -1022,9 +1035,10 @@ contract TeePaymentsTest is Test {
             abi.encode(message),
             cosigners,
             cosignersThreshold,
+            address(0),
             fee
         );
-        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref2")));
+        teePayments.pay{value: fee}(pmwMultisigAccount, _createPaymentInstruction(bytes32("ref2")), address(0));
     }
 
     //// reissue tests ////
@@ -1042,7 +1056,8 @@ contract TeePaymentsTest is Test {
             new ITeePayments.PaymentInstruction[](0),
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -1069,7 +1084,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -1096,7 +1112,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -1122,7 +1139,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -1148,7 +1166,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -1176,7 +1195,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -1203,7 +1223,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -1230,7 +1251,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -1258,7 +1280,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -1286,7 +1309,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -1313,7 +1337,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -1375,6 +1400,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message1),
             cosigners,
             cosignersThreshold,
+            address(0),
             126 // floor(253/2) = 126; value: 253 = 2*123 (fee) + 7
         );
         vm.expectEmit();
@@ -1388,6 +1414,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message2),
             cosigners,
             cosignersThreshold,
+            address(0),
             127 // 253 - 126 = 127
         );
         teePayments.reissue{value: fee * 2 + 7}(
@@ -1397,7 +1424,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
 
         // reissue also batch with nonce 13
@@ -1434,6 +1462,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message1),
             cosigners,
             cosignersThreshold,
+            address(0),
             123
         );
         vm.prank(authorizationAddress);
@@ -1444,7 +1473,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
 
         // try reissue batch with nonce 14; batch is not yet finished
@@ -1459,7 +1489,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 
@@ -1522,6 +1553,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message1),
             cosigners,
             cosignersThreshold,
+            address(0),
             126 // floor(253/2) = 126; value: 253 = 2*123 (fee) + 7
         );
         vm.expectEmit();
@@ -1535,6 +1567,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message2),
             cosigners,
             cosignersThreshold,
+            address(0),
             127 // 253 - 126 = 127
         );
         teePayments.reissue{value: fee * 2 + 7}(
@@ -1544,7 +1577,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
 
         // reissue again; instructionId changes
@@ -1560,6 +1594,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message1),
             cosigners,
             cosignersThreshold,
+            address(0),
             126
         );
         vm.expectEmit();
@@ -1573,6 +1608,7 @@ contract TeePaymentsTest is Test {
             abi.encode(message2),
             cosigners,
             cosignersThreshold,
+            address(0),
             127
         );
         vm.prank(authorizationAddress);
@@ -1583,7 +1619,8 @@ contract TeePaymentsTest is Test {
             paymentInstructions,
             fees,
             feeFactorScheduleBIPS,
-            feeDelayScheduleSeconds
+            feeDelayScheduleSeconds,
+            address(0)
         );
     }
 

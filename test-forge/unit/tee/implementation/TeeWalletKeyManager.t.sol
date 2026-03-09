@@ -287,7 +287,7 @@ contract TeeWalletKeyManagerTest is Test {
     // addKey
     function testAddKeyRevertOnlyOwner() public {
         vm.expectRevert(ITeeWalletKeyManager.OnlyOwner.selector);
-        teeWalletKeyManager.addKey(teeId, walletId);
+        teeWalletKeyManager.addKey(teeId, walletId, address(0));
     }
 
 
@@ -295,7 +295,7 @@ contract TeeWalletKeyManagerTest is Test {
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PAUSED);
         vm.prank(owner);
         vm.expectRevert(ITeeWalletKeyManager.TeeMachineNotAvailable.selector);
-        teeWalletKeyManager.addKey(teeId, walletId);
+        teeWalletKeyManager.addKey(teeId, walletId, address(0));
     }
 
 
@@ -303,7 +303,7 @@ contract TeeWalletKeyManagerTest is Test {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         vm.prank(owner);
         vm.expectRevert(ITeeWalletKeyManager.InvalidWalletStatus.selector);
-        teeWalletKeyManager.addKey(teeId, walletId);
+        teeWalletKeyManager.addKey(teeId, walletId, address(0));
     }
 
 
@@ -311,7 +311,7 @@ contract TeeWalletKeyManagerTest is Test {
         _mockGetExtensionId(extensionId + 1);
         vm.prank(owner);
         vm.expectRevert(ITeeWalletKeyManager.ExtensionIdMismatch.selector);
-        teeWalletKeyManager.addKey(teeId, walletId);
+        teeWalletKeyManager.addKey(teeId, walletId, address(0));
     }
 
 
@@ -362,9 +362,10 @@ contract TeeWalletKeyManagerTest is Test {
             abi.encode(message),
             new address[](0),
             0,
+            address(0),
             2 * fee
         );
-        teeWalletKeyManager.addKey{value: 2 * fee}(teeId, walletId);
+        teeWalletKeyManager.addKey{value: 2 * fee}(teeId, walletId, address(0));
     }
 
 
@@ -611,7 +612,7 @@ contract TeeWalletKeyManagerTest is Test {
     // deleteKey
     function testDeleteKeyRevertOnlyOwner() public {
         vm.expectRevert(ITeeWalletKeyManager.OnlyOwner.selector);
-        teeWalletKeyManager.deleteKey(teeId, walletId, keyId);
+        teeWalletKeyManager.deleteKey(teeId, walletId, keyId, address(0));
     }
 
 
@@ -619,7 +620,7 @@ contract TeeWalletKeyManagerTest is Test {
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
         vm.prank(owner);
         vm.expectRevert(ITeeWalletKeyManager.TeeMachineNotAvailable.selector);
-        teeWalletKeyManager.deleteKey(teeId, walletId, keyId);
+        teeWalletKeyManager.deleteKey(teeId, walletId, keyId, address(0));
     }
 
 
@@ -627,7 +628,7 @@ contract TeeWalletKeyManagerTest is Test {
         _mockGetExtensionId(extensionId + 1);
         vm.prank(owner);
         vm.expectRevert(ITeeWalletKeyManager.ExtensionIdMismatch.selector);
-        teeWalletKeyManager.deleteKey(teeId, walletId, keyId);
+        teeWalletKeyManager.deleteKey(teeId, walletId, keyId, address(0));
     }
 
 
@@ -636,10 +637,10 @@ contract TeeWalletKeyManagerTest is Test {
         // non-existent keyId or walletId
         vm.startPrank(owner);
         vm.expectRevert(ITeeWalletKeyManager.InvalidKeyId.selector);
-        teeWalletKeyManager.deleteKey(teeId, walletId, keyId + 1);
+        teeWalletKeyManager.deleteKey(teeId, walletId, keyId + 1, address(0));
 
         vm.expectRevert(ITeeWalletKeyManager.InvalidKeyId.selector);
-        teeWalletKeyManager.deleteKey(teeId, keccak256("invalidWalletId"), keyId);
+        teeWalletKeyManager.deleteKey(teeId, keccak256("invalidWalletId"), keyId, address(0));
         vm.stopPrank();
     }
 
@@ -664,7 +665,7 @@ contract TeeWalletKeyManagerTest is Test {
             abi.encode(currentRewardEpochId)
         );
         vm.prank(owner);
-        teeWalletKeyManager.addKey{value: fee}(newTeeId, walletId);
+        teeWalletKeyManager.addKey{value: fee}(newTeeId, walletId, address(0));
         vm.prank(teeWalletBackupManager);
         teeWalletKeyManager.increaseKeyNonce(newTeeId, walletId, keyId);
         proof.teeId = newTeeId;
@@ -679,7 +680,7 @@ contract TeeWalletKeyManagerTest is Test {
         vm.prank(owner);
         vm.expectEmit();
         emit ITeeWalletKeyManager.WalletKeyDeleted(teeId, walletId, keyId);
-        teeWalletKeyManager.deleteKey{value: fee}(teeId, walletId, keyId);
+        teeWalletKeyManager.deleteKey{value: fee}(teeId, walletId, keyId, address(0));
     }
 
 

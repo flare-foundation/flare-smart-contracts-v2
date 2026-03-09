@@ -73,10 +73,12 @@ contract TeeExtensionInstructionsSenderMock {
      * Request signing of a transaction by the TEE wallet keys.
      * @param _walletId The ID of the wallet to use for signing.
      * @param _transaction The transaction to be signed.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      */
     function signTransaction(
         bytes32 _walletId,
-        Transaction calldata _transaction
+        Transaction calldata _transaction,
+        address _claimBackAddress
     )
         external payable
     {
@@ -105,7 +107,8 @@ contract TeeExtensionInstructionsSenderMock {
             OP_COMMAND,
             abi.encode(message),
             cosigners,
-            cosignersThreshold
+            cosignersThreshold,
+            _claimBackAddress
         );
     }
 
@@ -117,6 +120,7 @@ contract TeeExtensionInstructionsSenderMock {
      * @param _message The message.
      * @param _cosigners The cosigners.
      * @param _cosignersThreshold The cosigners threshold.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      */
     function sendInstructions(
         address[] calldata _teeIds,
@@ -124,7 +128,8 @@ contract TeeExtensionInstructionsSenderMock {
         bytes32 _opCommand,
         bytes calldata _message,
         address[] calldata _cosigners,
-        uint64 _cosignersThreshold
+        uint64 _cosignersThreshold,
+        address _claimBackAddress
     )
         external payable
     {
@@ -134,7 +139,8 @@ contract TeeExtensionInstructionsSenderMock {
             _opCommand,
             _message,
             _cosigners,
-            _cosignersThreshold
+            _cosignersThreshold,
+            _claimBackAddress
         );
     }
 

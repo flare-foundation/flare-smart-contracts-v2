@@ -6,12 +6,25 @@ pragma solidity >=0.7.6 <0.9;
  */
 interface IFtdcHub {
 
+    /**
+     * FTDC attestation request header structure.
+     * @param attestationType The attestation type.
+     * @param sourceId The source id.
+     * @param thresholdBIPS The threshold in BIPS (optional, 0 uses signing policy threshold).
+     * @param proofOwner The proof owner address (optional).
+     */
     struct FtdcRequestHeader {
         bytes32 attestationType;
         bytes32 sourceId;
         uint16 thresholdBIPS;
+        address proofOwner;
     }
 
+    /**
+     * FTDC attestation request structure.
+     * @param header The request header (attestation type, source id, thresholdBIPS and proof owner).
+     * @param requestBody The request body.
+     */
     struct FtdcAttestationRequest {
         FtdcRequestHeader header;
         bytes requestBody;
@@ -21,6 +34,7 @@ interface IFtdcHub {
         bytes32 attestationType;
         bytes32 sourceId;
         uint16 thresholdBIPS;
+        address proofOwner;
         address[] cosigners;
         uint64 cosignersThreshold;
         uint64 timestamp;
@@ -28,7 +42,14 @@ interface IFtdcHub {
 
     event MinThresholdBIPSSet(uint16 minThresholdBIPS);
     event DefaultNumberOfTeesSet(uint8 defaultNumberOfTees);
-    event AttestationRequested(bytes32 attestationType, bytes32 sourceId, bytes requestBody, uint256 fee);
+    event AttestationRequested(
+        bytes32 indexed instructionId,
+        bytes32 indexed attestationType,
+        bytes32 indexed sourceId,
+        address proofOwner,
+        address claimBackAddress,
+        uint256 fee
+    );
 
     error ThresholdInvalid();
     error NumberOfTeesAndTeeIdsInvalid();
@@ -43,24 +64,21 @@ interface IFtdcHub {
 
     /**
      * Requests an attestation.
-     * @param _thresholdBIPS The threshold in BIPS (optional, 0 uses signing policy threshold).
+     * Emits AttestationRequested event.
+     * @param _attestationRequest The attestation request (header and body).
      * @param _numberOfTees The number of TEEs (optional).
      * @param _teeIds The TEE ids (optional).
      * @param _cosigners The cosigners (optional).
      * @param _cosignersThreshold The cosigners threshold - must be 0 if cosigners are not provided.
-     * @param _attestationType The attestation type.
-     * @param _sourceId The source id.
-     * @param _requestBody The request body.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      */
     function requestAttestation(
-        uint16 _thresholdBIPS,
+        FtdcAttestationRequest calldata _attestationRequest,
         uint256 _numberOfTees,
         address[] memory _teeIds,
         address[] memory _cosigners,
         uint64 _cosignersThreshold,
-        bytes32 _attestationType,
-        bytes32 _sourceId,
-        bytes calldata _requestBody
+        address _claimBackAddress
     )
         external payable;
 }

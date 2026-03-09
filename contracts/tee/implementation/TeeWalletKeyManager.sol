@@ -111,7 +111,8 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
      */
     function addKey(
         address _teeId,
-        bytes32 _walletId
+        bytes32 _walletId,
+        address _claimBackAddress
     )
         external payable
         onlyOwner(_walletId)
@@ -148,7 +149,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             })
         });
 
-        _sendInstructions(_teeId, KEY_GENERATE, abi.encode(message));
+        _sendInstructions(_teeId, KEY_GENERATE, abi.encode(message), _claimBackAddress);
     }
 
     /**
@@ -228,7 +229,8 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     function deleteKey(
         address _teeId,
         bytes32 _walletId,
-        uint64 _keyId
+        uint64 _keyId,
+        address _claimBackAddress
     )
         external payable
         onlyOwner(_walletId)
@@ -267,7 +269,7 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             nonce: ++keyDefinition.nonces[_teeId]
         });
 
-        _sendInstructions(_teeId, KEY_DELETE, abi.encode(message));
+        _sendInstructions(_teeId, KEY_DELETE, abi.encode(message), _claimBackAddress);
     }
 
     /**
@@ -423,7 +425,8 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     function _sendInstructions(
         address _teeId,
         bytes32 _opCommand,
-        bytes memory _message
+        bytes memory _message,
+        address _claimBackAddress
     )
         internal
     {
@@ -435,7 +438,8 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
             _opCommand,
             _message,
             new address[](0),
-            0
+            0,
+            _claimBackAddress
         );
     }
 

@@ -88,7 +88,7 @@ contract TeeVrfTest is Test {
     function testRequestVrfRevertNonceEmpty() public {
         vm.prank(authAddress);
         vm.expectRevert(ITeeVrf.NonceEmpty.selector);
-        teeVrf.requestVrf(walletId, keyId, bytes(""));
+        teeVrf.requestVrf(walletId, keyId, bytes(""), address(0));
     }
 
     function testRequestVrfRevertOnlyAuthorizationAddress() public {
@@ -100,14 +100,14 @@ contract TeeVrfTest is Test {
 
         vm.prank(makeAddr("randomCaller"));
         vm.expectRevert(ITeeVrf.OnlyAuthorizationAddress.selector);
-        teeVrf.requestVrf(walletId, keyId, nonce);
+        teeVrf.requestVrf(walletId, keyId, nonce, address(0));
     }
 
     function testRequestVrfRevertOnlyAuthorizationAddressNoAuthSet() public {
         // no auth address set (default address(0))
         vm.prank(walletOwner);
         vm.expectRevert(ITeeVrf.OnlyAuthorizationAddress.selector);
-        teeVrf.requestVrf(walletId, keyId, nonce);
+        teeVrf.requestVrf(walletId, keyId, nonce, address(0));
     }
 
     function testRequestVrfRevertWalletNotInProduction() public {
@@ -115,7 +115,7 @@ contract TeeVrfTest is Test {
         _mockGetWalletStatus(walletId, ITeeWalletManager.WalletStatus.INITIALIZED);
         vm.prank(authAddress);
         vm.expectRevert(ITeeVrf.WalletNotInProduction.selector);
-        teeVrf.requestVrf(walletId, keyId, nonce);
+        teeVrf.requestVrf(walletId, keyId, nonce, address(0));
     }
 
     function testRequestVrfRevertNoTeesForKey() public {
@@ -124,7 +124,7 @@ contract TeeVrfTest is Test {
         _mockGetWalletKeyTeeIds(walletId, keyId, new address[](0));
         vm.prank(authAddress);
         vm.expectRevert(ITeeVrf.NoTeesForKey.selector);
-        teeVrf.requestVrf(walletId, keyId, nonce);
+        teeVrf.requestVrf(walletId, keyId, nonce, address(0));
     }
 
     function testRequestVrfRevertNoTeesForKeyAllNonProduction() public {
@@ -139,7 +139,7 @@ contract TeeVrfTest is Test {
         _mockGetTeeMachineStatus(teeIds[1], ITeeMachineRegistry.TeeStatus.SUSPENDED);
         vm.prank(authAddress);
         vm.expectRevert(ITeeVrf.NoTeesForKey.selector);
-        teeVrf.requestVrf(walletId, keyId, nonce);
+        teeVrf.requestVrf(walletId, keyId, nonce, address(0));
     }
 
     function testRequestVrf() public {
@@ -151,7 +151,7 @@ contract TeeVrfTest is Test {
         vm.prank(authAddress);
         vm.expectEmit();
         emit ITeeVrf.VrfRequested(walletId, keyId, instructionId);
-        bytes32 returnedId = teeVrf.requestVrf(walletId, keyId, nonce);
+        bytes32 returnedId = teeVrf.requestVrf(walletId, keyId, nonce, address(0));
         assertEq(returnedId, instructionId);
     }
 
@@ -168,7 +168,7 @@ contract TeeVrfTest is Test {
             abi.encodePacked(ITeeExtensionRegistry.sendInstructions.selector)
         );
         vm.prank(authAddress);
-        teeVrf.requestVrf{value: 1 ether}(walletId, keyId, nonce);
+        teeVrf.requestVrf{value: 1 ether}(walletId, keyId, nonce, address(0));
     }
 
     function testRequestVrfMultipleTees() public {
@@ -182,7 +182,7 @@ contract TeeVrfTest is Test {
         vm.prank(authAddress);
         vm.expectEmit();
         emit ITeeVrf.VrfRequested(walletId, keyId, instructionId);
-        bytes32 returnedId = teeVrf.requestVrf(walletId, keyId, nonce);
+        bytes32 returnedId = teeVrf.requestVrf(walletId, keyId, nonce, address(0));
         assertEq(returnedId, instructionId);
     }
 
@@ -202,7 +202,7 @@ contract TeeVrfTest is Test {
         vm.prank(authAddress);
         vm.expectEmit();
         emit ITeeVrf.VrfRequested(walletId, keyId, instructionId);
-        bytes32 returnedId = teeVrf.requestVrf(walletId, keyId, nonce);
+        bytes32 returnedId = teeVrf.requestVrf(walletId, keyId, nonce, address(0));
         assertEq(returnedId, instructionId);
     }
 

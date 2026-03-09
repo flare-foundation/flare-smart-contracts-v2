@@ -182,11 +182,13 @@ interface ITeeWalletManager {
      * Set pausing addresses (for pausing keys) instruction method.
      * @param _walletId The wallet id.
      * @param _pausingAddresses The list of pausing addresses, can be empty.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * Can only be called by the wallet owner.
      */
     function setPausingAddresses(
         bytes32 _walletId,
-        address[] calldata _pausingAddresses
+        address[] calldata _pausingAddresses,
+        address _claimBackAddress
     )
         external payable;
 
@@ -194,11 +196,13 @@ interface ITeeWalletManager {
      * Resume paused keys instruction method.
      * @param _walletId The wallet id.
      * @param _keysData The list of keys's data.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * Can only be called by the wallet owner.
      */
     function resume(
         bytes32 _walletId,
-        ResumeKeyData[] calldata _keysData
+        ResumeKeyData[] calldata _keysData,
+        address _claimBackAddress
     )
         external payable;
 

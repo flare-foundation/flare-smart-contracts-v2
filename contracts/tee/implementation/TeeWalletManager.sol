@@ -254,7 +254,8 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
      */
     function setPausingAddresses(
         bytes32 _walletId,
-        address[] calldata _pausingAddresses
+        address[] calldata _pausingAddresses,
+        address _claimBackAddress
     )
         external payable onlyOwner(_walletId)
     {
@@ -263,10 +264,6 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
             walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
             OnlyProductionOrPausedStatus());
         TeeIdKeyIdPair[] memory teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(_walletId);
-        address[] memory teeIds = new address[](teeIdKeyIdPairs.length);
-        for (uint256 i = 0; i < teeIdKeyIdPairs.length; i++) {
-            teeIds[i] = teeIdKeyIdPairs[i].teeId;
-        }
 
         SetPausingAddresses memory message = SetPausingAddresses({
             walletId: _walletId,
@@ -276,12 +273,13 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         });
         (address[] memory admins, uint64 adminsThreshold) = _getWalletAdminsAndThreshold(_walletId);
         teeExtensionRegistry.sendInstructions{value: msg.value}(
-            teeIds,
+            _toTeeIds(teeIdKeyIdPairs),
             WALLET_OP_TYPE,
             SET_PAUSING_ADDRESSES,
             abi.encode(message),
             admins,
-            adminsThreshold
+            adminsThreshold,
+            _claimBackAddress
         );
     }
 
@@ -290,7 +288,8 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
      */
     function resume(
         bytes32 _walletId,
-        ResumeKeyData[] calldata _keysData
+        ResumeKeyData[] calldata _keysData,
+        address _claimBackAddress
     )
         external payable onlyOwner(_walletId)
     {
@@ -330,7 +329,8 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
             RESUME,
             abi.encode(message),
             new address[](0),
-            0
+            0,
+            _claimBackAddress
         );
     }
 
@@ -443,5 +443,17 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         internal pure
     {
         require(_actualStatus == _expectedStatus, InvalidWalletStatus());
+    }
+
+    function _toTeeIds(
+        TeeIdKeyIdPair[] memory _teeIdKeyIdPairs
+    )
+        internal pure
+        returns(address[] memory _teeIds)
+    {
+        _teeIds = new address[](_teeIdKeyIdPairs.length);
+        for (uint256 i = 0; i < _teeIdKeyIdPairs.length; i++) {
+            _teeIds[i] = _teeIdKeyIdPairs[i].teeId;
+        }
     }
 }

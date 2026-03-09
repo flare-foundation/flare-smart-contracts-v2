@@ -20,6 +20,7 @@ interface ITeeExtensionRegistry {
         bytes message,
         address[] cosigners,
         uint64 cosignersThreshold,
+        address claimBackAddress,
         uint256 fee
     );
 
@@ -131,6 +132,7 @@ interface ITeeExtensionRegistry {
      * @param _message The message.
      * @param _cosigners The cosigners.
      * @param _cosignersThreshold The cosigners threshold.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * @return _instructionId The generated instruction ID.
      * Can only be called by the TEE machines extension instructions sender.
      */
@@ -140,7 +142,8 @@ interface ITeeExtensionRegistry {
         bytes32 _opCommand,
         bytes memory _message,
         address[] memory _cosigners,
-        uint64 _cosignersThreshold
+        uint64 _cosignersThreshold,
+        address _claimBackAddress
     )
         external payable
         returns (bytes32 _instructionId);

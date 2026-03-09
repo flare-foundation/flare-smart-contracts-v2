@@ -113,7 +113,8 @@ contract TeeVerification is ITeeVerification, TeeBase {
      * @inheritdoc ITeeVerification
      */
     function requestTeeAttestation(
-        address _teeId
+        address _teeId,
+        address _claimBackAddress
     )
         external payable
     {
@@ -143,14 +144,11 @@ contract TeeVerification is ITeeVerification, TeeBase {
         });
         ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](1);
         teeMachines[0] = teeMachine;
-        teeExtensionRegistry.sendSystemInstructions{value: msg.value}(
-            bytes32(0),
-            teeMachines,
-            REG_OP_TYPE,
-            TEE_ATTESTATION,
+
+        _sendInstructions(
+             teeMachines,
             abi.encode(message),
-            new address[](0),
-            0
+            _claimBackAddress
         );
         emit TeeAttestationRequested(_teeId, challenge);
     }
@@ -161,7 +159,9 @@ contract TeeVerification is ITeeVerification, TeeBase {
     function requestAvailabilityCheckAttestation(
         address _teeId,
         bytes32 _instructionId,
-        address _testOnTeeId
+        address _testOnTeeId,
+        address _proofOwner,
+        address _claimBackAddress
     )
         external payable
     {
@@ -196,7 +196,9 @@ contract TeeVerification is ITeeVerification, TeeBase {
             registrationCosignersThreshold,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
-            abi.encode(requestBody)
+            abi.encode(requestBody),
+            _proofOwner,
+            _claimBackAddress
         );
     }
 
@@ -267,7 +269,9 @@ contract TeeVerification is ITeeVerification, TeeBase {
         bytes32 _walletId,
         bytes32 _sourceId,
         string calldata _accountAddress,
-        address _testOnTeeId
+        address _testOnTeeId,
+        address _proofOwner,
+        address _claimBackAddress
     )
         external payable
     {
@@ -295,7 +299,9 @@ contract TeeVerification is ITeeVerification, TeeBase {
             cosignersThreshold,
             PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
             _sourceId,
-            abi.encode(requestBody)
+            abi.encode(requestBody),
+            _proofOwner,
+            _claimBackAddress
         );
     }
 
@@ -580,13 +586,34 @@ contract TeeVerification is ITeeVerification, TeeBase {
         return true;
     }
 
+    function _sendInstructions(
+        ITeeMachineRegistry.TeeMachine[] memory _teeMachines,
+        bytes memory _message,
+        address _claimBackAddress
+    )
+        internal
+    {
+        teeExtensionRegistry.sendSystemInstructions{value: msg.value}(
+            bytes32(0),
+            _teeMachines,
+            REG_OP_TYPE,
+            TEE_ATTESTATION,
+            _message,
+            new address[](0),
+            0,
+            _claimBackAddress
+        );
+    }
+
     function _requestFtdcAttestation(
         address _testOnTeeId,
         address[] memory _cosigners,
         uint64 _cosignersThreshold,
         bytes32 _attestationType,
         bytes32 _sourceId,
-        bytes memory _requestBody
+        bytes memory _requestBody,
+        address _proofOwner,
+        address _claimBackAddress
     )
         internal
     {
@@ -598,15 +625,22 @@ contract TeeVerification is ITeeVerification, TeeBase {
         } else {
             numberOfTees = 1; // request on a random active TEE machine
         }
+        IFtdcHub.FtdcAttestationRequest memory attestationRequest = IFtdcHub.FtdcAttestationRequest({
+            header: IFtdcHub.FtdcRequestHeader({
+                attestationType: _attestationType,
+                sourceId: _sourceId,
+                thresholdBIPS: 0,
+                proofOwner: _proofOwner
+            }),
+            requestBody: _requestBody
+        });
         ftdcHub.requestAttestation{value: msg.value}(
-            0,
+            attestationRequest,
             numberOfTees,
             teeIds,
             _cosigners,
             _cosignersThreshold,
-            _attestationType,
-            _sourceId,
-            _requestBody
+            _claimBackAddress
         );
     }
 

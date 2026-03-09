@@ -58,7 +58,8 @@ contract TeeVrf is ITeeVrf, TeeBase {
     function requestVrf(
         bytes32 _walletId,
         uint64 _keyId,
-        bytes calldata _nonce
+        bytes calldata _nonce,
+        address _claimBackAddress
     )
         external payable
         returns (bytes32 _instructionId)
@@ -96,7 +97,8 @@ contract TeeVrf is ITeeVrf, TeeBase {
             VRF,
             abi.encode(message),
             new address[](0),
-            0
+            0,
+            _claimBackAddress
         );
         emit VrfRequested(_walletId, _keyId, _instructionId);
     }
