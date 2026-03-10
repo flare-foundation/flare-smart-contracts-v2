@@ -117,7 +117,13 @@ interface ITeeWalletKeyManager {
      * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * @return _keyId The key id.
      */
-    function addKey(address _teeId, bytes32 _walletId, address _claimBackAddress) external payable returns (uint64 _keyId);
+    function addKey(
+        address _teeId,
+        bytes32 _walletId,
+        address _claimBackAddress
+    )
+        external payable
+        returns (uint64 _keyId);
 
     /**
      * Confirms the key generation.
@@ -139,7 +145,13 @@ interface ITeeWalletKeyManager {
      * @param _keyId The key id.
      * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      */
-    function deleteKey(address _teeId, bytes32 _walletId, uint64 _keyId, address _claimBackAddress) external payable;
+    function deleteKey(
+        address _teeId,
+        bytes32 _walletId,
+        uint64 _keyId,
+        address _claimBackAddress
+    )
+        external payable;
 
     /**
      * For given wallet id and key id cleans up all tee machines that are not in production status.
@@ -147,7 +159,11 @@ interface ITeeWalletKeyManager {
      * @param _walletId The wallet id.
      * @param _keyId The key id.
      */
-    function cleanUpTeeIds(bytes32 _walletId, uint64 _keyId) external;
+    function cleanUpTeeIds(
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        external;
 
     /**
      * Returns wallet's receiving tees and keys.
@@ -156,7 +172,9 @@ interface ITeeWalletKeyManager {
      * @return _teeIdKeyIdPairs The tee id and key id pairs.
      * NOTE: If all keys are not available (e.g. some TEEs being down), `WalletKeysNotAvailable` event is emitted.
      */
-    function receivingTeesAndKeys(bytes32 _walletId)
+    function receivingTeesAndKeys(
+        bytes32 _walletId
+    )
         external
         returns (TeeIdKeyIdPair[] memory _teeIdKeyIdPairs);
 
@@ -166,7 +184,12 @@ interface ITeeWalletKeyManager {
      * @param _keyId The key id.
      * @return _teeIds The list of tee ids.
      */
-    function getWalletKeyTeeIds(bytes32 _walletId, uint64 _keyId) external view returns (address[] memory _teeIds);
+    function getWalletKeyTeeIds(
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        external view
+        returns (address[] memory _teeIds);
 
     /**
      * Returns the public key of the wallet key.
@@ -174,7 +197,12 @@ interface ITeeWalletKeyManager {
      * @param _keyId The key id.
      * @return _publicKey The public key.
      */
-    function getWalletKeyPublicKey(bytes32 _walletId, uint64 _keyId) external view returns (bytes memory _publicKey);
+    function getWalletKeyPublicKey(
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        external view
+        returns (bytes memory _publicKey);
 
     /**
      * Returns information about the wallet keys.
@@ -183,7 +211,13 @@ interface ITeeWalletKeyManager {
      * @param _keyIds The key ids.
      * @param _counter The counter - number of `addKey` calls.
      */
-    function getWalletKeysInfo(bytes32 _walletId)
+    function getWalletKeysInfo(
+        bytes32 _walletId
+    )
         external view
-        returns (uint64 _multisigThreshold, uint64[] memory _keyIds, uint64 _counter);
+        returns (
+            uint64 _multisigThreshold,
+            uint64[] memory _keyIds,
+            uint64 _counter
+        );
 }

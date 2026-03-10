@@ -102,7 +102,8 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         PublicKey[] calldata _adminsPublicKeys,
         uint64 _adminsThreshold
     )
-        external onlyOwner(_walletId)
+        external
+        onlyOwner(_walletId)
     {
         require(_adminsPublicKeys.length >= _adminsThreshold, NotEnoughAdmins());
         require(_adminsThreshold > 0, InvalidAdminsThreshold());
@@ -133,7 +134,9 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletManager
      */
-    function confirmAdmin(bytes32 _walletId)
+    function confirmAdmin(
+        bytes32 _walletId
+    )
         external
     {
         TeeWalletState storage wallet = wallets[_walletId];
@@ -157,7 +160,8 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         address[] calldata _cosigners,
         uint64 _cosignersThreshold
     )
-        external onlyOwner(_walletId)
+        external
+        onlyOwner(_walletId)
     {
         require(
             _cosigners.length >= _cosignersThreshold && (_cosigners.length == 0 || _cosignersThreshold > 0),
@@ -180,7 +184,9 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletManager
      */
-    function confirmCosigner(bytes32 _walletId)
+    function confirmCosigner(
+        bytes32 _walletId
+    )
         external
     {
         TeeWalletState storage wallet = wallets[_walletId];
@@ -201,7 +207,8 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     function closeWalletInitialization(
         bytes32 _walletId
     )
-        external onlyOwner(_walletId)
+        external
+        onlyOwner(_walletId)
     {
         TeeWalletState storage wallet = wallets[_walletId];
         _checkWalletStatus(wallet.status, WalletStatus.CREATED);
@@ -221,8 +228,11 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletManager
      */
-    function enableWallet(bytes32 _walletId)
-        external onlyOwner(_walletId)
+    function enableWallet(
+        bytes32 _walletId
+    )
+        external
+        onlyOwner(_walletId)
     {
         TeeWalletState storage wallet = wallets[_walletId];
         WalletStatus status = wallet.status;
@@ -240,8 +250,11 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletManager
      */
-    function pauseWallet(bytes32 _walletId)
-        external onlyOwner(_walletId)
+    function pauseWallet(
+        bytes32 _walletId
+    )
+        external
+        onlyOwner(_walletId)
     {
         TeeWalletState storage wallet = wallets[_walletId];
         _checkWalletStatus(wallet.status, WalletStatus.PRODUCTION);
@@ -257,7 +270,8 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         address[] calldata _pausingAddresses,
         address _claimBackAddress
     )
-        external payable onlyOwner(_walletId)
+        external payable
+        onlyOwner(_walletId)
     {
         ITeeWalletManager.WalletStatus walletStatus = wallets[_walletId].status;
         require(walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
@@ -291,7 +305,8 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         ResumeKeyData[] calldata _keysData,
         address _claimBackAddress
     )
-        external payable onlyOwner(_walletId)
+        external payable
+        onlyOwner(_walletId)
     {
         ITeeWalletManager.WalletStatus walletStatus = wallets[_walletId].status;
         require(
@@ -337,7 +352,9 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletManager
      */
-     function getProjectWalletIds(bytes32 _projectId)
+    function getProjectWalletIds(
+        bytes32 _projectId
+    )
         external view
         returns (bytes32[] memory _walletIds)
     {
@@ -347,7 +364,9 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletManager
      */
-    function getWalletProjectId(bytes32 _walletId)
+    function getWalletProjectId(
+        bytes32 _walletId
+    )
         external view
         returns (bytes32 _projectId)
     {
@@ -357,9 +376,14 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletManager
      */
-    function getWalletAdminsPublicKeysAndThreshold(bytes32 _walletId)
+    function getWalletAdminsPublicKeysAndThreshold(
+        bytes32 _walletId
+    )
         external view
-        returns (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold)
+        returns (
+            PublicKey[] memory _adminsPublicKeys,
+            uint64 _adminsThreshold
+        )
     {
         TeeWalletState storage wallet = wallets[_walletId];
         _adminsPublicKeys = wallet.adminsPublicKeys;
@@ -369,9 +393,14 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletManager
      */
-    function getWalletAdminsAndThreshold(bytes32 _walletId)
+    function getWalletAdminsAndThreshold(
+        bytes32 _walletId
+    )
         external view
-        returns (address[] memory _admins, uint64 _adminsThreshold)
+        returns (
+            address[] memory _admins,
+            uint64 _adminsThreshold
+        )
     {
         (_admins, _adminsThreshold) = _getWalletAdminsAndThreshold(_walletId);
     }
@@ -379,9 +408,14 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletManager
      */
-    function getWalletCosignersAndThreshold(bytes32 _walletId)
+    function getWalletCosignersAndThreshold(
+        bytes32 _walletId
+    )
         external view
-        returns (address[] memory _cosigners, uint64 _cosignersThreshold)
+        returns (
+            address[] memory _cosigners,
+            uint64 _cosignersThreshold
+        )
     {
         TeeWalletState storage wallet = wallets[_walletId];
         _cosigners = wallet.cosigners;
@@ -391,7 +425,9 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletManager
      */
-    function getWalletStatus(bytes32 _walletId)
+    function getWalletStatus(
+        bytes32 _walletId
+    )
         external view
         returns (WalletStatus _status)
     {
@@ -427,9 +463,14 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         require(owner == msg.sender, OnlyOwner());
     }
 
-    function _getWalletAdminsAndThreshold(bytes32 _walletId)
+    function _getWalletAdminsAndThreshold(
+        bytes32 _walletId
+    )
         internal view
-        returns (address[] memory _admins, uint64 _adminsThreshold)
+        returns (
+            address[] memory _admins,
+            uint64 _adminsThreshold
+        )
     {
         TeeWalletState storage wallet = wallets[_walletId];
         _admins = new address[](wallet.adminsPublicKeys.length);
@@ -439,7 +480,10 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         _adminsThreshold = wallet.adminsThreshold;
     }
 
-    function _checkWalletStatus(WalletStatus _actualStatus, WalletStatus _expectedStatus)
+    function _checkWalletStatus(
+        WalletStatus _actualStatus,
+        WalletStatus _expectedStatus
+    )
         internal pure
     {
         require(_actualStatus == _expectedStatus, InvalidWalletStatus());
@@ -449,7 +493,7 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         TeeIdKeyIdPair[] memory _teeIdKeyIdPairs
     )
         internal pure
-        returns(address[] memory _teeIds)
+        returns (address[] memory _teeIds)
     {
         _teeIds = new address[](_teeIdKeyIdPairs.length);
         for (uint256 i = 0; i < _teeIdKeyIdPairs.length; i++) {

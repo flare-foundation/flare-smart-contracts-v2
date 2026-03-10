@@ -83,7 +83,7 @@ interface ITeeVersionManager {
         bytes32 _targetTeeGovernanceHash
     )
         external
-        returns(uint256 _teeUpgradeId);
+        returns (uint256 _teeUpgradeId);
 
     /**
      * Adds TEE upgrade paths.
@@ -141,7 +141,7 @@ interface ITeeVersionManager {
         bytes32 _targetPlatform
     )
         external view
-        returns(bool);
+        returns (bool);
 
     /**
      * Checks if the TEE upgrade is finalized.
@@ -152,7 +152,7 @@ interface ITeeVersionManager {
         uint256 _teeUpgradeId
     )
         external view
-        returns(bool);
+        returns (bool);
 
     /**
      * Checks if the TEE upgrade is signed.
@@ -163,7 +163,7 @@ interface ITeeVersionManager {
         uint256 _teeUpgradeId
     )
         external view
-        returns(bool);
+        returns (bool);
 
     /**
      * Returns TEE upgrades count.
@@ -171,7 +171,7 @@ interface ITeeVersionManager {
      */
     function getTeeUpgradesCount()
         external view
-        returns(uint256);
+        returns (uint256);
 
     /**
      * Returns the TEE upgrade paths for the given TEE upgrade id.
@@ -182,7 +182,7 @@ interface ITeeVersionManager {
         uint256 _teeUpgradeId
     )
         external view
-        returns(TeeUpgradePath[] memory upgradePaths);
+        returns (TeeUpgradePath[] memory upgradePaths);
 
     /**
      * Returns the TEE upgrade signatures for the given TEE upgrade id.
@@ -194,5 +194,8 @@ interface ITeeVersionManager {
         uint256 _teeUpgradeId
     )
         external view
-        returns(Signature[] memory sourceTeeGovernanceSignatures, Signature[] memory targetTeeGovernanceSignatures);
+        returns (
+            Signature[] memory sourceTeeGovernanceSignatures,
+            Signature[] memory targetTeeGovernanceSignatures
+        );
 }

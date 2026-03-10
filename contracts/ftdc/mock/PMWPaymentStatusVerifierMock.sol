@@ -61,7 +61,11 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         IPMWPaymentStatus.Proof calldata _proof
     )
         external
-        returns (bool, uint256, uint256)
+        returns (
+            bool,
+            uint256,
+            uint256
+        )
     {
         IFtdcHub.FtdcResponseHeader calldata header = _proof.header;
         IPMWPaymentStatus.RequestBody calldata requestBody = _proof.requestBody;
@@ -209,9 +213,11 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         require(teesList.length >= teeThreshold, TeeThresholdNotMet());
     }
 
-    function _toCosignersMessageHash(bytes32 _messageHash)
+    function _toCosignersMessageHash(
+        bytes32 _messageHash
+    )
         internal pure
-        returns(bytes32)
+        returns (bytes32)
     {
         return keccak256(bytes.concat(hex"010000000000", _messageHash));
     }

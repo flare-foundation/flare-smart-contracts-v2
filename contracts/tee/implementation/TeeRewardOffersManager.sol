@@ -55,7 +55,12 @@ contract TeeRewardOffersManager is RewardOffersManagerBase, ITeeRewardOffersMana
      * Set the part of the rewards that goes to the TEE owners.
      * @param _teeOwnersPPM The part of the rewards that goes to the TEE owners.
      */
-    function setTeeOwnersPPM(uint24 _teeOwnersPPM) external onlyGovernance {
+    function setTeeOwnersPPM(
+        uint24 _teeOwnersPPM
+    )
+        external
+        onlyGovernance
+    {
         require(_teeOwnersPPM <= PPM_MAX, InvalidTeeOwnersPPMValue());
         teeOwnersPPM = _teeOwnersPPM;
     }
@@ -80,7 +85,10 @@ contract TeeRewardOffersManager is RewardOffersManagerBase, ITeeRewardOffersMana
      * Implement this function to allow updating inflation receiver contracts through `AddressUpdater`.
      * @return Contract name.
      */
-    function getContractName() external pure returns (string memory) {
+    function getContractName()
+        external pure
+        returns (string memory)
+    {
         return "TeeRewardOffersManager";
     }
 
@@ -100,7 +108,11 @@ contract TeeRewardOffersManager is RewardOffersManagerBase, ITeeRewardOffersMana
     /**
      * @inheritdoc InflationReceiver
      */
-    function _setDailyAuthorizedInflation(uint256 _toAuthorizeWei) internal override {
+    function _setDailyAuthorizedInflation(
+        uint256 _toAuthorizeWei
+    )
+        internal override
+    {
         // do nothing
     }
 
@@ -139,7 +151,10 @@ contract TeeRewardOffersManager is RewardOffersManagerBase, ITeeRewardOffersMana
     /**
      * @inheritdoc TokenPoolBase
      */
-    function _getExpectedBalance() internal view override returns(uint256 _balanceExpectedWei) {
+    function _getExpectedBalance()
+        internal view override
+        returns (uint256 _balanceExpectedWei)
+    {
         return totalInflationReceivedWei - totalInflationRewardsOfferedWei;
     }
 

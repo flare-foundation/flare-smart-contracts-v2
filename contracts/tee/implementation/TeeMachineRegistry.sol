@@ -190,7 +190,9 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function pause(address _teeId)
+    function pause(
+        address _teeId
+    )
         external
     {
         TeeMachineState storage state = teeMachineStates[_teeId];
@@ -243,8 +245,11 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function ban(address _teeId)
-        external onlyExtensionOwner(_teeId)
+    function ban(
+        address _teeId
+    )
+        external
+        onlyExtensionOwner(_teeId)
     {
         TeeMachineState storage state = teeMachineStates[_teeId];
         TeeStatus status = state.status;
@@ -262,8 +267,11 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function unban(address _teeId)
-        external onlyExtensionOwner(_teeId)
+    function unban(
+        address _teeId
+    )
+        external
+        onlyExtensionOwner(_teeId)
     {
         TeeMachineState storage state = teeMachineStates[_teeId];
         _checkTeeStatus(state.status, TeeStatus.BANNED);
@@ -275,8 +283,12 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function proposeNewOwner(address _teeId, address _newOwner)
-        external onlyOwner(_teeId)
+    function proposeNewOwner(
+        address _teeId,
+        address _newOwner
+    )
+        external
+        onlyOwner(_teeId)
     {
         uint256 extensionId = teeMachineStates[_teeId].extensionId;
         require(
@@ -290,7 +302,9 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function confirmOwnership(address _teeId)
+    function confirmOwnership(
+        address _teeId
+    )
         external
     {
         uint256 extensionId = teeMachineStates[_teeId].extensionId;
@@ -304,8 +318,13 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function updateTeeMachineSettings(address _teeId, address _teeProxyId, string calldata _url)
-        external onlyOwner(_teeId)
+    function updateTeeMachineSettings(
+        address _teeId,
+        address _teeProxyId,
+        string calldata _url
+    )
+        external
+        onlyOwner(_teeId)
     {
         require(_teeProxyId != address(0), InvalidTeeProxyId());
         require(bytes(_url).length > 0, InvalidUrl());
@@ -330,7 +349,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         address _teeId,
         TeeStatus _newStatus
     )
-        external onlyTeeReplicationContract
+        external
+        onlyTeeReplicationContract
     {
         TeeMachineState storage state = _getTeeMachineState(_teeId);
         TeeStatus status = state.status;
@@ -356,7 +376,8 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         address _newTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof
     )
-        external onlyTeeReplicationContract
+        external
+        onlyTeeReplicationContract
     {
         address oldTeeId = _proof.requestBody.teeId;
         TeeMachineState storage oldState = _getTeeMachineState(oldTeeId);
@@ -397,9 +418,11 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function getTeeMachineStatus(address _teeId)
+    function getTeeMachineStatus(
+        address _teeId
+    )
         external view
-        returns(TeeStatus)
+        returns (TeeStatus)
     {
         TeeMachineState storage state = _getTeeMachineState(_teeId);
         return state.status;
@@ -408,9 +431,11 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function getTeeMachineOwner(address _teeId)
+    function getTeeMachineOwner(
+        address _teeId
+    )
         external view
-        returns(address)
+        returns (address)
     {
         TeeMachineState storage state = _getTeeMachineState(_teeId);
         return state.owner;
@@ -419,7 +444,9 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function getInitialSigningPolicyId(address _teeId)
+    function getInitialSigningPolicyId(
+        address _teeId
+    )
         external view
         returns (uint32)
     {
@@ -430,9 +457,11 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function getTeeMachine(address _teeId)
+    function getTeeMachine(
+        address _teeId
+    )
         external view
-        returns(TeeMachine memory _teeMachine)
+        returns (TeeMachine memory _teeMachine)
     {
         TeeMachineState storage state = _getTeeMachineState(_teeId);
         _teeMachine = TeeMachine({
@@ -445,9 +474,11 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function getTeeMachineWithAttestationData(address _teeId)
+    function getTeeMachineWithAttestationData(
+        address _teeId
+    )
         external view
-        returns(TeeMachineWithAttestationData memory _teeMachine)
+        returns (TeeMachineWithAttestationData memory _teeMachine)
     {
         TeeMachineState storage state = _getTeeMachineState(_teeId);
         _teeMachine = _getTeeMachineWithAttestationData(_teeId, state);
@@ -456,9 +487,12 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function getRandomTeeIds(uint256 _extensionId, uint256 _count)
+    function getRandomTeeIds(
+        uint256 _extensionId,
+        uint256 _count
+    )
         external view
-        returns(address[] memory _teeIds)
+        returns (address[] memory _teeIds)
     {
         uint256 length = extensionActiveTeeIds[_extensionId].length();
         require (_count <= length, TooMany());
@@ -492,7 +526,11 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         uint256 _end
     )
         external view
-        returns(address[] memory _teeIds, string[] memory _urls, uint256 _totalLength)
+        returns (
+            address[] memory _teeIds,
+            string[] memory _urls,
+            uint256 _totalLength
+        )
     {
         _totalLength = activeTeeIds.length();
         _end = Math.min(_end, _totalLength);
@@ -509,9 +547,14 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function getActiveTeeMachines(uint256 _extensionId)
+    function getActiveTeeMachines(
+        uint256 _extensionId
+    )
         external view
-        returns(address[] memory _teeIds, string[] memory _urls)
+        returns (
+            address[] memory _teeIds,
+            string[] memory _urls
+        )
     {
         _teeIds = extensionActiveTeeIds[_extensionId].values();
         uint256 length = _teeIds.length;
@@ -524,7 +567,9 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function getExtensionId(address _teeId)
+    function getExtensionId(
+        address _teeId
+    )
         external view
         returns (uint256)
     {
@@ -535,7 +580,9 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function getPublicKey(address _teeId)
+    function getPublicKey(
+        address _teeId
+    )
         external view
         returns (PublicKey memory)
     {
@@ -546,7 +593,9 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
     /**
      * @inheritdoc ITeeMachineRegistry
      */
-    function getLastStatusChangeTs(address _teeId)
+    function getLastStatusChangeTs(
+        address _teeId
+    )
         external view
         returns (uint256)
     {
@@ -574,21 +623,34 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
-    function _validateAvailabilityCheckTs(address _teeId, uint256 _availabilityCheckTs) internal view {
+    function _validateAvailabilityCheckTs(
+        address _teeId,
+        uint256 _availabilityCheckTs
+    )
+        internal view
+    {
         require(
             _availabilityCheckTs >= teeMachineStates[_teeId].lastStatusChangeTs,
             AvailabilityCheckTimestampInvalid()
         );
     }
 
-    function _getTeeMachineState(address _teeId) internal view returns(TeeMachineState storage _state) {
+    function _getTeeMachineState(
+        address _teeId
+    )
+        internal view
+        returns (TeeMachineState storage _state)
+    {
         _state = teeMachineStates[_teeId];
         require(_state.owner != address(0), TeeNotFound());
     }
 
-    function _getTeeMachineWithAttestationData(address _teeId, TeeMachineState storage _state)
+    function _getTeeMachineWithAttestationData(
+        address _teeId,
+        TeeMachineState storage _state
+    )
         internal view
-        returns(TeeMachineWithAttestationData memory)
+        returns (TeeMachineWithAttestationData memory)
     {
         return TeeMachineWithAttestationData({
             teeId: _teeId,
@@ -612,13 +674,20 @@ contract TeeMachineRegistry is IITeeMachineRegistry, TeeBase {
         );
     }
 
-    function _checkTeeStatus(TeeStatus _actualStatus, TeeStatus _expectedStatus)
+    function _checkTeeStatus(
+        TeeStatus _actualStatus,
+        TeeStatus _expectedStatus
+    )
         internal pure
     {
         require(_actualStatus == _expectedStatus, InvalidTeeStatus());
     }
 
-    function _checkTeeStatus(TeeStatus _actualStatus, TeeStatus _expectedStatus1, TeeStatus _expectedStatus2)
+    function _checkTeeStatus(
+        TeeStatus _actualStatus,
+        TeeStatus _expectedStatus1,
+        TeeStatus _expectedStatus2
+    )
         internal pure
     {
         require(_actualStatus == _expectedStatus1 || _actualStatus == _expectedStatus2, InvalidTeeStatus());

@@ -102,7 +102,7 @@ interface ITeeVerification {
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         external
-        returns(bool _responseDataValid);
+        returns (bool _responseDataValid);
 
     /**
      * Request PMW multisig account configured attestation - triggers FTDC PMW multisig account configured check.
@@ -134,7 +134,7 @@ interface ITeeVerification {
         IPMWMultisigAccountConfigured.Proof calldata _proof
     )
         external
-        returns(bool _responseDataValid);
+        returns (bool _responseDataValid);
 
     /**
      * Returns the list of FTDC cosigners and their threshold used for the TEE machine registration.
@@ -143,7 +143,10 @@ interface ITeeVerification {
      */
     function getCosigners()
         external view
-        returns(address[] memory _cosigners, uint64 _cosignersThreshold);
+        returns (
+            address[] memory _cosigners,
+            uint64 _cosignersThreshold
+        );
 
 
     /**
@@ -153,7 +156,7 @@ interface ITeeVerification {
      */
     function getSettings()
         external view
-        returns(
+        returns (
             uint256 _availabilityCheckValidityDurationSeconds,
             uint256 _challengeValidityDurationSeconds
         );
@@ -164,7 +167,12 @@ interface ITeeVerification {
      * @return _endTs The end timestamp of the availability check validity.
      * @return _lastSigningPolicyId The last signing policy id.
      */
-    function getAvailabilityCheckValidity(address _teeId)
+    function getAvailabilityCheckValidity(
+        address _teeId
+    )
         external view
-        returns(uint64 _endTs, uint32 _lastSigningPolicyId);
+        returns (
+            uint64 _endTs,
+            uint32 _lastSigningPolicyId
+        );
 }

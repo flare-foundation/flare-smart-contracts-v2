@@ -121,7 +121,12 @@ contract TeeVrf is ITeeVrf, TeeBase {
     /**
      * @inheritdoc ITeeVrf
      */
-    function getVrfAuthorizationAddress(bytes32 _walletId) external view returns (address) {
+    function getVrfAuthorizationAddress(
+        bytes32 _walletId
+    )
+        external view
+        returns (address)
+    {
         return vrfAuthorizationAddresses[_walletId];
     }
 

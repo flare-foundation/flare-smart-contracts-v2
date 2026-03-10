@@ -144,13 +144,23 @@ contract TeeExtensionInstructionsSenderMock {
         );
     }
 
-    function setAuthorizationAddress(bytes32 _walletId, address _authorizationAddress) external {
+    function setAuthorizationAddress(
+        bytes32 _walletId,
+        address _authorizationAddress
+    )
+        external
+    {
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
         require(teeWalletProjectManager.getOwner(projectId) == msg.sender, OnlyOwner());
         authorizationAddresses[_walletId] = _authorizationAddress;
     }
 
-    function getAuthorizationAddress(bytes32 _walletId) external view returns (address) {
+    function getAuthorizationAddress(
+        bytes32 _walletId
+    )
+        external view
+        returns (address)
+    {
         return authorizationAddresses[_walletId];
     }
 
@@ -158,7 +168,7 @@ contract TeeExtensionInstructionsSenderMock {
         TeeIdKeyIdPair[] memory _teeIdKeyIdPairs
     )
         internal pure
-        returns(address[] memory _teeIds)
+        returns (address[] memory _teeIds)
     {
         _teeIds = new address[](_teeIdKeyIdPairs.length);
         for (uint256 i = 0; i < _teeIdKeyIdPairs.length; i++) {

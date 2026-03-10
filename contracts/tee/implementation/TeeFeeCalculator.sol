@@ -53,7 +53,8 @@ contract TeeFeeCalculator is ITeeFeeCalculator, GovernedProxyImplementation, UUP
         bytes32[] calldata _opCommands,
         uint256[] calldata _fees
     )
-        external onlyGovernance
+        external
+        onlyGovernance
     {
         require(_opTypes.length == _opCommands.length && _opTypes.length == _fees.length, LengthsMismatch());
         for (uint256 i = 0; i < _opTypes.length; i++) {
@@ -67,7 +68,12 @@ contract TeeFeeCalculator is ITeeFeeCalculator, GovernedProxyImplementation, UUP
      * @param _defaultFee The new default fee.
      * @dev Only governance can call this method.
      */
-    function setDefaultFee(uint256 _defaultFee) external onlyGovernance {
+    function setDefaultFee(
+        uint256 _defaultFee
+    )
+        external
+        onlyGovernance
+    {
         defaultFee = _defaultFee;
         emit DefaultFeeSet(_defaultFee);
     }
@@ -75,14 +81,23 @@ contract TeeFeeCalculator is ITeeFeeCalculator, GovernedProxyImplementation, UUP
     /**
      * @inheritdoc ITeeFeeCalculator
      */
-    function getDefaultFee() external view returns (uint256) {
+    function getDefaultFee()
+        external view
+        returns (uint256)
+    {
         return defaultFee;
     }
 
     /**
      * @inheritdoc ITeeFeeCalculator
      */
-    function getOperationFee(bytes32 _opType, bytes32 _opCommand) external view returns (uint256) {
+    function getOperationFee(
+        bytes32 _opType,
+        bytes32 _opCommand
+    )
+        external view
+        returns (uint256)
+    {
         return operationFee[_opType][_opCommand];
     }
 
@@ -94,7 +109,8 @@ contract TeeFeeCalculator is ITeeFeeCalculator, GovernedProxyImplementation, UUP
         bytes32 _opCommand,
         address[] memory _teeIds
     )
-        external view returns (uint256 _fee)
+        external view
+        returns (uint256 _fee)
     {
         _fee = operationFee[_opType][_opCommand];
         if (_fee == 0) {
@@ -115,7 +131,10 @@ contract TeeFeeCalculator is ITeeFeeCalculator, GovernedProxyImplementation, UUP
      * @inheritdoc UUPSUpgradeable
      * @dev Only governance can call this method.
      */
-    function upgradeToAndCall(address _newImplementation, bytes memory _data)
+    function upgradeToAndCall(
+        address _newImplementation,
+        bytes memory _data
+    )
         public payable virtual override
         onlyGovernance
     {

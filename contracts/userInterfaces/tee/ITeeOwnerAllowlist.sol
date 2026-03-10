@@ -121,7 +121,9 @@ interface ITeeOwnerAllowlist {
      * @param _extensionId The id of the extension.
      * @return _allAllowed True if all addresses are allowed, false otherwise.
      */
-    function allTeeMachineOwnersAllowed(uint256 _extensionId)
+    function allTeeMachineOwnersAllowed(
+        uint256 _extensionId
+    )
         external view
         returns (bool _allAllowed);
 
@@ -130,7 +132,9 @@ interface ITeeOwnerAllowlist {
      * @param _extensionId The id of the extension.
      * @return _allAllowed True if all addresses are allowed, false otherwise.
      */
-    function allTeeWalletProjectOwnersAllowed(uint256 _extensionId)
+    function allTeeWalletProjectOwnersAllowed(
+        uint256 _extensionId
+    )
         external view
         returns (bool _allAllowed);
 
@@ -139,7 +143,9 @@ interface ITeeOwnerAllowlist {
      * @param _extensionId The id of the extension.
      * @return _allowedOwners The list of allowed TEE machine owners.
      */
-    function getAllowedTeeMachineOwners(uint256 _extensionId)
+    function getAllowedTeeMachineOwners(
+        uint256 _extensionId
+    )
         external view
         returns (address[] memory _allowedOwners);
 
@@ -148,7 +154,9 @@ interface ITeeOwnerAllowlist {
      * @param _extensionId The id of the extension.
      * @return _allowedOwners The list of allowed TEE wallet project owners.
      */
-    function getAllowedTeeWalletProjectOwners(uint256 _extensionId)
+    function getAllowedTeeWalletProjectOwners(
+        uint256 _extensionId
+    )
         external view
         returns (address[] memory _allowedOwners);
 

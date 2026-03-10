@@ -244,7 +244,10 @@ interface ITeeExtensionRegistry {
      * @param _newOwner The new owner address.
      * Can only be called by the current TEE extension owner.
      */
-    function proposeNewOwner(uint256 _extensionId, address _newOwner)
+    function proposeNewOwner(
+        uint256 _extensionId,
+        address _newOwner
+    )
         external;
 
     /**
@@ -253,7 +256,9 @@ interface ITeeExtensionRegistry {
      * @param _extensionId The id of the extension.
      * Can only be called by the proposed new owner.
      */
-    function confirmOwnership(uint256 _extensionId)
+    function confirmOwnership(
+        uint256 _extensionId
+    )
         external;
 
     /**
@@ -268,33 +273,45 @@ interface ITeeExtensionRegistry {
      * Get system supported platforms.
      * @return The list of system supported platforms.
      */
-    function getSystemSupportedPlatforms() external view returns(bytes32[] memory);
+    function getSystemSupportedPlatforms()
+        external view
+        returns (bytes32[] memory);
 
     /**
      * Get system supported key types.
      * @return The list of system supported key types.
      */
-    function getSystemSupportedKeyTypes() external view returns(bytes32[] memory);
+    function getSystemSupportedKeyTypes()
+        external view
+        returns (bytes32[] memory);
 
     /**
      * Get system supported signing algorithms for the given key type.
      * @param _keyType The key type.
      * @return The list of supported signing algorithms.
      */
-    function getSystemSupportedSigningAlgos(bytes32 _keyType) external view returns(bytes32[] memory);
+    function getSystemSupportedSigningAlgos(
+        bytes32 _keyType
+    )
+        external view
+        returns (bytes32[] memory);
 
     /**
      * Get system instructions senders.
      * @return The list of system instructions senders.
      */
-    function getSystemInstructionsSenders() external view returns(address[] memory);
+    function getSystemInstructionsSenders()
+        external view
+        returns (address[] memory);
 
     /**
      * Get the owner of a TEE extension.
      * @param _extensionId The id of the extension.
      * @return The owner address.
      */
-    function getExtensionOwner(uint256 _extensionId)
+    function getExtensionOwner(
+        uint256 _extensionId
+    )
         external view
         returns (address);
 
@@ -303,7 +320,9 @@ interface ITeeExtensionRegistry {
      * @param _extensionId The id of the extension.
      * @return The TEE extension state verifier contract address.
      */
-    function getTeeExtensionStateVerifier(uint256 _extensionId)
+    function getTeeExtensionStateVerifier(
+        uint256 _extensionId
+    )
         external view
         returns (ITeeExtensionStateVerifier);
 
@@ -312,7 +331,9 @@ interface ITeeExtensionRegistry {
      * @param _extensionId The id of the extension.
      * @return The TEE extension instructions sender address.
      */
-    function getTeeExtensionInstructionsSender(uint256 _extensionId)
+    function getTeeExtensionInstructionsSender(
+        uint256 _extensionId
+    )
         external view
         returns (address);
 
@@ -346,7 +367,10 @@ interface ITeeExtensionRegistry {
      * @param _keyType The key type.
      * @return True if the key type is supported.
      */
-    function isKeyTypeSupported(uint256 _extensionId, bytes32 _keyType)
+    function isKeyTypeSupported(
+        uint256 _extensionId,
+        bytes32 _keyType
+    )
         external view
         returns (bool);
 
@@ -374,7 +398,7 @@ interface ITeeExtensionRegistry {
         bytes32 _platform
     )
         external view
-        returns(bool);
+        returns (bool);
 
     /**
      * Get the info if the code hash and platform pair is disabled for the given extension.
@@ -388,7 +412,7 @@ interface ITeeExtensionRegistry {
         bytes32 _platform
     )
         external view
-        returns(bool);
+        returns (bool);
 
     /**
      * Returns the governance hash for the given code hash.
@@ -401,7 +425,7 @@ interface ITeeExtensionRegistry {
         bytes32 _codeHash
     )
         external view
-        returns(bytes32 _governanceHash);
+        returns (bytes32 _governanceHash);
 
     /**
      * Returns the code hash info (governance hash, version and platforms).
@@ -416,5 +440,9 @@ interface ITeeExtensionRegistry {
         bytes32 _codeHash
     )
         external view
-        returns(bytes32 _governanceHash, string memory _version, bytes32[] memory _platforms);
+        returns (
+            bytes32 _governanceHash,
+            string memory _version,
+            bytes32[] memory _platforms
+        );
 }

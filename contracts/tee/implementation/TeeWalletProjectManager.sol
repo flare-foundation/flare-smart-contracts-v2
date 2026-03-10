@@ -84,8 +84,12 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletProjectManager
      */
-    function setBackupManager(bytes32 _projectId, address _backupManager)
-        external onlyOwner(_projectId)
+    function setBackupManager(
+        bytes32 _projectId,
+        address _backupManager
+    )
+        external
+        onlyOwner(_projectId)
     {
         projects[_projectId].backupManager = _backupManager;
         emit BackupManagerSet(_projectId, _backupManager);
@@ -94,8 +98,12 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletProjectManager
      */
-    function proposeNewOwner(bytes32 _projectId, address _newOwner)
-        external onlyOwner(_projectId)
+    function proposeNewOwner(
+        bytes32 _projectId,
+        address _newOwner
+    )
+        external
+        onlyOwner(_projectId)
     {
         uint256 extensionId = projects[_projectId].extensionId;
         require(
@@ -109,7 +117,9 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletProjectManager
      */
-    function confirmOwnership(bytes32 _projectId)
+    function confirmOwnership(
+        bytes32 _projectId
+    )
         external
     {
         uint256 extensionId = projects[_projectId].extensionId;
@@ -123,7 +133,9 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletProjectManager
      */
-    function getOwner(bytes32 _projectId)
+    function getOwner(
+        bytes32 _projectId
+    )
         external view
         returns (address _projectOwner)
     {
@@ -133,7 +145,9 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletProjectManager
      */
-    function getExtensionId(bytes32 _projectId)
+    function getExtensionId(
+        bytes32 _projectId
+    )
         external view
         returns (uint256 _extensionId)
     {
@@ -143,7 +157,9 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletProjectManager
      */
-    function getKeyType(bytes32 _projectId)
+    function getKeyType(
+        bytes32 _projectId
+    )
         external view
         returns (bytes32 _keyType)
     {
@@ -153,7 +169,9 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletProjectManager
      */
-    function getSigningAlgo(bytes32 _projectId)
+    function getSigningAlgo(
+        bytes32 _projectId
+    )
         external view
         returns (bytes32 _signingAlgo)
     {
@@ -163,7 +181,9 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletProjectManager
      */
-    function getBackupManager(bytes32 _projectId)
+    function getBackupManager(
+        bytes32 _projectId
+    )
         external view
         returns (address _backupManager)
     {
@@ -187,7 +207,9 @@ contract TeeWalletProjectManager is ITeeWalletProjectManager, TeeBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
     }
 
-    function _checkOnlyOwner(bytes32 _projectId)
+    function _checkOnlyOwner(
+        bytes32 _projectId
+    )
         internal view
     {
         require(projects[_projectId].owner == msg.sender, OnlyOwner());

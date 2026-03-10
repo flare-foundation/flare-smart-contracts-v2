@@ -100,5 +100,9 @@ interface ITeeReplication {
      * @param _oldTeeId The old TEE machine id.
      * @return The new TEE machine id that is replicating the old TEE machine id or address(0) if not found.
      */
-    function getReplicatingTeeId(address _oldTeeId) external view returns(address);
+    function getReplicatingTeeId(
+        address _oldTeeId
+    )
+        external view
+        returns (address);
 }

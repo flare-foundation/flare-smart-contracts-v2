@@ -53,7 +53,8 @@ contract FtdcVerification is IFtdcVerification, GovernedProxyImplementation, UUP
         bytes calldata _signingPolicySignatures,
         bytes32 _messageHash
     )
-        external returns (uint256 _rewardEpochId)
+        external
+        returns (uint256 _rewardEpochId)
     {
         return relay.verifyCustomSignature(_signingPolicySignatures, _messageHash);
     }
@@ -65,7 +66,8 @@ contract FtdcVerification is IFtdcVerification, GovernedProxyImplementation, UUP
         Signature calldata _signature,
         bytes32 _messageHash
     )
-        external view returns (address _signingTeeId)
+        external view
+        returns (address _signingTeeId)
     {
         _signingTeeId = _verifyTeeSignature(_signature, _messageHash);
     }
@@ -77,7 +79,8 @@ contract FtdcVerification is IFtdcVerification, GovernedProxyImplementation, UUP
         Signature[] calldata _signatures,
         bytes32 _messageHash
     )
-        external view returns(address[] memory _signingTeeIds)
+        external view
+        returns (address[] memory _signingTeeIds)
     {
         _signingTeeIds = new address[](_signatures.length);
         for (uint256 i = 0; i < _signatures.length; i++) {
@@ -96,7 +99,8 @@ contract FtdcVerification is IFtdcVerification, GovernedProxyImplementation, UUP
         Signature[] calldata _signatures,
         bytes32 _messageHash
     )
-        external pure returns(address[] memory _cosigners)
+        external pure
+        returns (address[] memory _cosigners)
     {
         _cosigners = new address[](_signatures.length);
         for (uint256 i = 0; i < _signatures.length; i++) {
@@ -126,7 +130,10 @@ contract FtdcVerification is IFtdcVerification, GovernedProxyImplementation, UUP
      * @inheritdoc UUPSUpgradeable
      * @dev Only governance can call this method.
      */
-    function upgradeToAndCall(address _newImplementation, bytes memory _data)
+    function upgradeToAndCall(
+        address _newImplementation,
+        bytes memory _data
+    )
         public payable virtual override
         onlyGovernance
     {
@@ -137,7 +144,11 @@ contract FtdcVerification is IFtdcVerification, GovernedProxyImplementation, UUP
      * Unused. Present just to satisfy UUPSUpgradeable requirement.
      * The real check is in onlyGovernance modifier on upgradeToAndCall.
      */
-    function _authorizeUpgrade(address _newImplementation) internal virtual override {}
+    function _authorizeUpgrade(
+        address _newImplementation
+    )
+        internal virtual override
+    {}
 
     /**
      * Implementation of the AddressUpdatable abstract method.

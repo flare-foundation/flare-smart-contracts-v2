@@ -449,6 +449,15 @@ contract TeePaymentsTest is Test {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
         (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
+        ITeePayments.SetPaymentLimits memory message = ITeePayments.SetPaymentLimits(
+            walletId,
+            SOURCE_ID,
+            senderAddress,
+            0,
+            teeIdKeyIdPairs,
+            1000, // transactionLimit
+            10000 // dailyLimit
+        );
         vm.prank(walletOwner);
         vm.expectEmit();
         emit ITeeExtensionRegistry.TeeInstructionsSent(
@@ -458,7 +467,7 @@ contract TeePaymentsTest is Test {
             receivingTees,
             OP_TYPE,
             SET_PAYMENT_LIMITS,
-            abi.encode(ITeePayments.SetPaymentLimits(walletId, SOURCE_ID, senderAddress, 0, teeIdKeyIdPairs, 1000, 10000)),
+            abi.encode(message),
             admins,
             adminsThreshold,
             makeAddr("claimBack"),

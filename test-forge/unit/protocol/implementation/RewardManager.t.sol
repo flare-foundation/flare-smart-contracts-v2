@@ -395,7 +395,8 @@ contract RewardManagerTest is Test {
         emit IRewardManager.RewardClaimed(delegator, delegator, delegator, 0, RewardsV2Interface.ClaimType.WNAT, 0);
         // MIRROR rewards; should receive ceil(300 * 30/400) = 22
         vm.expectEmit();
-        emit IRewardManager.RewardClaimed(address(nodeId1), delegator, delegator, 0, RewardsV2Interface.ClaimType.MIRROR, 22);
+        emit IRewardManager.RewardClaimed(
+            address(nodeId1), delegator, delegator, 0, RewardsV2Interface.ClaimType.MIRROR, 22);
         // CCHAIN rewards; should receive ceil(400 * 40/500) = 400 - 360 = 32
         vm.expectEmit();
         emit IRewardManager.RewardClaimed(account1, delegator, delegator, 0, RewardsV2Interface.ClaimType.CCHAIN, 32);
@@ -723,7 +724,8 @@ contract RewardManagerTest is Test {
         emit IRewardManager.RewardClaimed(voter1, delegator, delegator, 0, RewardsV2Interface.ClaimType.WNAT, 34);
         // MIRROR rewards; should receive ceil(300 * 50/400) = 38
         vm.expectEmit();
-        emit IRewardManager.RewardClaimed(address(nodeId1), delegator, delegator, 0, RewardsV2Interface.ClaimType.MIRROR, 38);
+        emit IRewardManager.RewardClaimed(
+            address(nodeId1), delegator, delegator, 0, RewardsV2Interface.ClaimType.MIRROR, 38);
         // CCHAIN rewards; should receive ceil(400 * 50/500) = 400 - 360 = 40
         vm.expectEmit();
         emit IRewardManager.RewardClaimed(account1, delegator, delegator, 0, RewardsV2Interface.ClaimType.CCHAIN, 40);
@@ -939,7 +941,8 @@ contract RewardManagerTest is Test {
         // claim for reward epoch 0
         // // DIRECT rewards
         // vm.expectEmit();
-        // emit IRewardManager.RewardClaimed(voter1, voter1, voter1, rewardEpochData.id, body1.claimType, body1.amount);
+        // emit IRewardManager.RewardClaimed(
+        //    voter1, voter1, voter1, rewardEpochData.id, body1.claimType, body1.amount);
         // WNAT rewards; should receive floor(200 * 250 / 300) = 166
         vm.expectEmit();
         emit IRewardManager.RewardClaimed(voter1, voter1, voter1, 0, body2.claimType, 166);
@@ -1090,10 +1093,12 @@ contract RewardManagerTest is Test {
         emit IRewardManager.RewardClaimed(voter1, delegator1, delegator1, 0, RewardsV2Interface.ClaimType.WNAT, 17);
         // MIRROR rewards; should receive ceil(300 * 50/400) = 38
         vm.expectEmit();
-        emit IRewardManager.RewardClaimed(address(nodeId1), delegator1, delegator1, 0, RewardsV2Interface.ClaimType.MIRROR, 38);
+        emit IRewardManager.RewardClaimed(
+            address(nodeId1), delegator1, delegator1, 0, RewardsV2Interface.ClaimType.MIRROR, 38);
         // CCHAIN rewards; should receive ceil(400 * 50/500) = 400 - 360 = 40
         vm.expectEmit();
-        emit IRewardManager.RewardClaimed(account1, delegator1, delegator1, 0, RewardsV2Interface.ClaimType.CCHAIN, 40);
+        emit IRewardManager.RewardClaimed(
+            account1, delegator1, delegator1, 0, RewardsV2Interface.ClaimType.CCHAIN, 40);
         rewardManager.claim(delegator1, payable(delegator1), 0, false, proofs);
         assertEq(delegator1.balance, 17 + 38 + 40);
 
@@ -1661,12 +1666,14 @@ contract RewardManagerTest is Test {
         // mirror: floor(300 * 10 / 400) = 7;
         // cchain: floor(400 * 10 / 500) = 8;
         vm.expectEmit();
-        emit IRewardManager.RewardClaimed(voter1, rewardOwners[0], rewardOwners[0], rewardEpochData.id, body2.claimType, 6);
+        emit IRewardManager.RewardClaimed(
+            voter1, rewardOwners[0], rewardOwners[0], rewardEpochData.id, body2.claimType, 6);
         vm.expectEmit();
         emit IRewardManager.RewardClaimed(address(nodeId1), rewardOwners[0],
             rewardOwners[0], rewardEpochData.id, body3.claimType, 7);
         vm.expectEmit();
-        emit IRewardManager.RewardClaimed(account1, rewardOwners[0], rewardOwners[0], rewardEpochData.id, body4.claimType, 8);
+        emit IRewardManager.RewardClaimed(
+            account1, rewardOwners[0], rewardOwners[0], rewardEpochData.id, body4.claimType, 8);
 
         // owner2:
         // wnat: floor(200 * 20 / 300) = 13;
@@ -1674,12 +1681,14 @@ contract RewardManagerTest is Test {
         // cchain: floor(400 * 20 / 500) = 16;
         // owner 2 should receive floor(200 * 20 / 300) = 13
         vm.expectEmit();
-        emit IRewardManager.RewardClaimed(voter1, rewardOwners[1], rewardOwners[1], rewardEpochData.id, body2.claimType, 13);
+        emit IRewardManager.RewardClaimed(
+            voter1, rewardOwners[1], rewardOwners[1], rewardEpochData.id, body2.claimType, 13);
         vm.expectEmit();
         emit IRewardManager.RewardClaimed(address(nodeId1), rewardOwners[1],
             rewardOwners[1], rewardEpochData.id, body3.claimType, 15);
         vm.expectEmit();
-        emit IRewardManager.RewardClaimed(account1, rewardOwners[1], rewardOwners[1], rewardEpochData.id, body4.claimType, 16);
+        emit IRewardManager.RewardClaimed(
+            account1, rewardOwners[1], rewardOwners[1], rewardEpochData.id, body4.claimType, 16);
 
         rewardManager.autoClaim(rewardOwners, rewardEpochData.id, proofs);
         // executor should receive 1 * 2 = 2

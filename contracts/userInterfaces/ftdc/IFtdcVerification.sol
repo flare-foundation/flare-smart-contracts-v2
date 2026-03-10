@@ -35,7 +35,8 @@ interface IFtdcVerification {
         bytes calldata _signingPolicySignatures,
         bytes32 _messageHash
     )
-        external returns (uint256 _rewardEpochId);
+        external
+        returns (uint256 _rewardEpochId);
 
     /**
      * Verifies the TEE signature.
@@ -47,7 +48,8 @@ interface IFtdcVerification {
         Signature calldata _signature,
         bytes32 _messageHash
     )
-        external view returns (address _signingTeeId);
+        external view
+        returns (address _signingTeeId);
 
     /**
      * Verifies the TEE signatures.
@@ -59,7 +61,8 @@ interface IFtdcVerification {
         Signature[] calldata _signatures,
         bytes32 _messageHash
     )
-        external view returns (address[] memory _signingTeeIds);
+        external view
+        returns (address[] memory _signingTeeIds);
 
     /**
      * Verifies the cosigner signatures.
@@ -71,5 +74,6 @@ interface IFtdcVerification {
         Signature[] calldata _signatures,
         bytes32 _messageHash
     )
-        external view returns(address[] memory _cosigners);
+        external view
+        returns (address[] memory _cosigners);
 }

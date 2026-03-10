@@ -149,7 +149,11 @@ contract TeePayments is ITeePayments, TeeBase {
         PaymentInstruction calldata _paymentInstruction,
         address _claimBackAddress
     )
-        external payable returns (uint64 _nonce, uint64 _subNonce)
+        external payable
+        returns (
+            uint64 _nonce,
+            uint64 _subNonce
+        )
     {
         require(_paymentInstruction.amount > 0, PaymentAmountZero());
         require(
@@ -383,7 +387,8 @@ contract TeePayments is ITeePayments, TeeBase {
         uint64 _batchSize,
         uint64 _batchDurationSeconds
     )
-        external onlyWalletOwner(_account)
+        external
+        onlyWalletOwner(_account)
     {
         require(_batchSize > 0, BatchSizeZero());
         require(_batchSize <= maxBatchSize, BatchSizeTooLarge());
@@ -409,7 +414,8 @@ contract TeePayments is ITeePayments, TeeBase {
         int16[] calldata _factorsBIPS,
         uint16[] calldata _delaysSeconds
     )
-        external onlyWalletOwner(_account)
+        external
+        onlyWalletOwner(_account)
     {
         require(_factorsBIPS.length == _delaysSeconds.length, LengthsMismatch());
         _checkDelays(_delaysSeconds);
@@ -434,7 +440,8 @@ contract TeePayments is ITeePayments, TeeBase {
         uint256 _dailyLimit,
         address _claimBackAddress
     )
-        external payable onlyWalletOwner(_account)
+        external payable
+        onlyWalletOwner(_account)
     {
         require(_dailyLimit >= _transactionLimit, DailyLimitBelowTransactionLimit());
         bytes32 accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
@@ -452,7 +459,7 @@ contract TeePayments is ITeePayments, TeeBase {
         });
         (address[] memory admins, uint64 adminsThreshold) = teeWalletManager.getWalletAdminsAndThreshold(walletId);
 
-        _sendInstructions(
+        _sendSetPaymentLimitsInstructions(
             _toTeeIds(teeIdKeyIdPairs),
             abi.encode(message),
             admins,
@@ -470,7 +477,8 @@ contract TeePayments is ITeePayments, TeeBase {
     function addSupportedSourceIds(
         bytes32[] calldata _sourceIds
     )
-        external onlyGovernance
+        external
+        onlyGovernance
     {
         _addSupportedSourceIds(_sourceIds);
     }
@@ -480,7 +488,7 @@ contract TeePayments is ITeePayments, TeeBase {
      */
     function getOpType()
         external view
-        returns(bytes32)
+        returns (bytes32)
     {
         return opType;
     }
@@ -490,7 +498,7 @@ contract TeePayments is ITeePayments, TeeBase {
      */
     function getKeyType()
         external view
-        returns(bytes32)
+        returns (bytes32)
     {
         return keyType;
     }
@@ -498,14 +506,24 @@ contract TeePayments is ITeePayments, TeeBase {
     /**
      * @inheritdoc ITeePayments
      */
-    function getWalletAccounts(bytes32 _walletId) external view returns(PMWMultisigAccount[] memory) {
+    function getWalletAccounts(
+        bytes32 _walletId
+    )
+        external view
+        returns (PMWMultisigAccount[] memory)
+    {
         return walletAccounts[_walletId];
     }
 
     /**
      * @inheritdoc ITeePayments
      */
-    function getWalletId(PMWMultisigAccount calldata _account) external view returns (bytes32) {
+    function getWalletId(
+        PMWMultisigAccount calldata _account
+    )
+        external view
+        returns (bytes32)
+    {
         return _getWalletId(_account);
     }
 
@@ -516,7 +534,7 @@ contract TeePayments is ITeePayments, TeeBase {
         PMWMultisigAccount calldata _account
     )
         external view
-        returns(
+        returns (
             uint64 _batchSize,
             uint64 _batchDurationSeconds
         )
@@ -533,7 +551,10 @@ contract TeePayments is ITeePayments, TeeBase {
         PMWMultisigAccount calldata _account
     )
         external view
-        returns(int16[] memory _factorsBIPS, uint16[] memory _delaysSeconds)
+        returns (
+            int16[] memory _factorsBIPS,
+            uint16[] memory _delaysSeconds
+        )
     {
         bytes memory feeSchedule = accountFeeSchedule[_toAccountHash(_account.sourceId, _account.accountAddress)];
         uint256 length = feeSchedule.length / 4;
@@ -549,7 +570,9 @@ contract TeePayments is ITeePayments, TeeBase {
     /**
      * @inheritdoc ITeePayments
      */
-    function getAuthorizationAddress(PMWMultisigAccount calldata _account)
+    function getAuthorizationAddress(
+        PMWMultisigAccount calldata _account
+    )
         external view
         returns (address _authorizationAddress)
     {
@@ -559,14 +582,22 @@ contract TeePayments is ITeePayments, TeeBase {
     /**
      * @inheritdoc ITeePayments
      */
-    function getSupportedSourceIds() external view returns (bytes32[] memory) {
+    function getSupportedSourceIds()
+        external view
+        returns (bytes32[] memory)
+    {
         return supportedSourceIds.values();
     }
 
     /**
      * @inheritdoc ITeePayments
      */
-    function isSourceIdSupported(bytes32 _sourceId) external view returns (bool) {
+    function isSourceIdSupported(
+        bytes32 _sourceId
+    )
+        external view
+        returns (bool)
+    {
         return supportedSourceIds.contains(_sourceId);
     }
 
@@ -593,7 +624,7 @@ contract TeePayments is ITeePayments, TeeBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 
-    function _sendInstructions(
+    function _sendSetPaymentLimitsInstructions(
         address[] memory _teeIds,
         bytes memory _message,
         address[] memory _cosigners,
@@ -613,7 +644,11 @@ contract TeePayments is ITeePayments, TeeBase {
         );
     }
 
-    function _addSupportedSourceIds(bytes32[] calldata _sourceIds) internal {
+    function _addSupportedSourceIds(
+        bytes32[] calldata _sourceIds
+    )
+        internal
+    {
         for (uint256 i = 0; i < _sourceIds.length; i++) {
             require(_sourceIds[i] != bytes32(0), SourceIdZero(i));
             require(supportedSourceIds.add(_sourceIds[i]), SourceIdAlreadyExists(_sourceIds[i]));
@@ -621,24 +656,41 @@ contract TeePayments is ITeePayments, TeeBase {
         emit SupportedSourceIdsAdded(_sourceIds);
     }
 
-    function _checkOnlyWalletOwner(PMWMultisigAccount calldata _account) internal view {
+    function _checkOnlyWalletOwner(
+        PMWMultisigAccount calldata _account
+    )
+        internal view
+    {
         bytes32 walletId = _getWalletId(_account);
         bytes32 projectId = teeWalletManager.getWalletProjectId(walletId);
         require(teeWalletProjectManager.getOwner(projectId) == msg.sender, OnlyWalletOwner());
     }
 
-    function _checkAuthorizationAddress(bytes32 _accountHash) internal view {
+    function _checkAuthorizationAddress(
+        bytes32 _accountHash
+    )
+        internal view
+    {
         require(authorizationAddresses[_accountHash] == msg.sender, OnlyAuthorizationAddress());
     }
 
-    function _checkWalletStatus(bytes32 _walletId) internal view {
+    function _checkWalletStatus(
+        bytes32 _walletId
+    )
+        internal view
+    {
         require(
             teeWalletManager.getWalletStatus(_walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
             WalletNotInProduction()
         );
     }
 
-    function _getWalletId(PMWMultisigAccount calldata _account) internal view returns (bytes32) {
+    function _getWalletId(
+        PMWMultisigAccount calldata _account
+    )
+        internal view
+        returns (bytes32)
+    {
         return accountHashToWalletId[_toAccountHash(_account.sourceId, _account.accountAddress)];
     }
 
@@ -646,7 +698,7 @@ contract TeePayments is ITeePayments, TeeBase {
         TeeIdKeyIdPair[] memory _teeIdKeyIdPairs
     )
         internal pure
-        returns(address[] memory _teeIds)
+        returns (address[] memory _teeIds)
     {
         _teeIds = new address[](_teeIdKeyIdPairs.length);
         for (uint256 i = 0; i < _teeIdKeyIdPairs.length; i++) {
@@ -654,12 +706,21 @@ contract TeePayments is ITeePayments, TeeBase {
         }
     }
 
-    function _toAccountHash(bytes32 _sourceId, string memory _accountAddress) internal pure returns (bytes32) {
+    function _toAccountHash(
+        bytes32 _sourceId,
+        string memory _accountAddress
+    )
+        internal pure
+        returns (bytes32)
+    {
         return keccak256(abi.encode(_sourceId, _accountAddress));
     }
 
     // _factorsBIPS and _delaysSeconds have the same length
-    function _getFeeSchedule(int16[] calldata _factorsBIPS, uint16[] calldata _delaysSeconds)
+    function _getFeeSchedule(
+        int16[] calldata _factorsBIPS,
+        uint16[] calldata _delaysSeconds
+    )
         internal pure
         returns (bytes memory _feeSchedule)
     {
@@ -677,7 +738,11 @@ contract TeePayments is ITeePayments, TeeBase {
         }
     }
 
-    function _checkDelays(uint16[] calldata _delaysSeconds) internal pure {
+    function _checkDelays(
+        uint16[] calldata _delaysSeconds
+    )
+        internal pure
+    {
         for (uint256 i = 0; i < _delaysSeconds.length; i++) {
             require(i == 0 || _delaysSeconds[i] > _delaysSeconds[i - 1], InvalidFeeDelay(i));
         }

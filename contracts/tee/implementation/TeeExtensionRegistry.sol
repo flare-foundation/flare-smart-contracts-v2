@@ -156,7 +156,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         uint64 _cosignersThreshold,
         address _claimBackAddress
     )
-        external payable onlySystemInstructionsSender
+        external payable
+        onlySystemInstructionsSender
         returns (bytes32)
     {
         // remove duplicates
@@ -192,7 +193,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         uint64 _cosignersThreshold,
         address _claimBackAddress
     )
-        external payable onlySystemInstructionsSender
+        external payable
+        onlySystemInstructionsSender
         returns (bytes32)
     {
         return _sendInstructions(
@@ -235,7 +237,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         ITeeExtensionStateVerifier _teeExtensionStateVerifier,
         address _teeExtensionInstructionsSender
     )
-        external onlyOwner(_extensionId)
+        external
+        onlyOwner(_extensionId)
     {
         // Extension 0 is using system instructions senders and system state verifier.
         require(_extensionId != 0, SystemOwnedExtensionId());
@@ -256,7 +259,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         bytes32[] calldata _platforms,
         bytes32 _governanceHash
     )
-        external onlyOwner(_extensionId)
+        external
+        onlyOwner(_extensionId)
     {
         require(bytes(_version).length > 0, VersionEmpty());
         require(_codeHash != bytes32(0), CodeHashZero());
@@ -288,7 +292,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         bytes32 _codeHash,
         bytes32 _platform
     )
-        external onlyOwner(_extensionId)
+        external
+        onlyOwner(_extensionId)
     {
         TeeExtension storage extension = extensions[_extensionId];
         require(extension.codeHashToVersion[_codeHash].platforms.length() > 0, InvalidCodeHash());
@@ -324,7 +329,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         uint256 _extensionId,
         bytes32[] calldata _keyTypes
     )
-        external onlyOwner(_extensionId)
+        external
+        onlyOwner(_extensionId)
     {
         TeeExtension storage extension = extensions[_extensionId];
         for (uint256 i = 0; i < _keyTypes.length; i++) {
@@ -343,7 +349,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         uint256 _extensionId,
         bytes32[] memory _keyTypes
     )
-        external onlyOwner(_extensionId)
+        external
+        onlyOwner(_extensionId)
     {
         TeeExtension storage extension = extensions[_extensionId];
         for (uint256 i = 0; i < _keyTypes.length; i++) {
@@ -356,8 +363,12 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function proposeNewOwner(uint256 _extensionId, address _newOwner)
-        external onlyOwner(_extensionId)
+    function proposeNewOwner(
+        uint256 _extensionId,
+        address _newOwner
+    )
+        external
+        onlyOwner(_extensionId)
     {
         require(_extensionId != 0, SystemOwnedExtensionId());
         proposedExtensionOwner[_extensionId] = _newOwner;
@@ -367,7 +378,9 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function confirmOwnership(uint256 _extensionId)
+    function confirmOwnership(
+        uint256 _extensionId
+    )
         external
     {
         require(proposedExtensionOwner[_extensionId] == msg.sender, OnlyProposedOwner());
@@ -382,8 +395,11 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
      * @param _platforms List of platforms to add.
      * @dev Only governance can call this method.
      */
-    function addSystemSupportedPlatforms(bytes32[] calldata _platforms)
-        external onlyGovernance
+    function addSystemSupportedPlatforms(
+        bytes32[] calldata _platforms
+    )
+        external
+        onlyGovernance
     {
         for (uint256 i = 0; i < _platforms.length; i++) {
             require(_platforms[i] != bytes32(0), PlatformEmpty());
@@ -403,7 +419,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         bytes32[] calldata _keyTypes,
         bytes32[][] calldata _signingAlgosByKeyType
     )
-        external onlyGovernance
+        external
+        onlyGovernance
     {
         require(_keyTypes.length == _signingAlgosByKeyType.length, LengthsMismatch());
         for (uint256 i = 0; i < _keyTypes.length; i++) {
@@ -434,7 +451,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     function registerSystemInstructionsSenders(
         address[] calldata _instructionsSenders
     )
-        external onlyGovernance
+        external
+        onlyGovernance
     {
         for (uint256 i = 0; i < _instructionsSenders.length; ++i) {
             require(_instructionsSenders[i] != address(0), InvalidInstructionsSender());
@@ -455,7 +473,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     function unregisterSystemInstructionsSenders(
         address[] calldata _instructionsSenders
     )
-        external onlyGovernance
+        external
+        onlyGovernance
     {
         for (uint256 i = 0; i < _instructionsSenders.length; ++i) {
             require(
@@ -469,37 +488,53 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function getSystemSupportedPlatforms() external view returns(bytes32[] memory) {
+    function getSystemSupportedPlatforms()
+        external view
+        returns (bytes32[] memory)
+    {
         return systemSupportedPlatforms.values();
     }
 
     /**
     * @inheritdoc ITeeExtensionRegistry
     */
-    function getSystemSupportedKeyTypes() external view returns(bytes32[] memory) {
+    function getSystemSupportedKeyTypes()
+        external view
+        returns (bytes32[] memory)
+    {
         return systemSupportedKeyTypes.values();
     }
 
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function getSystemSupportedSigningAlgos(bytes32 _keyType) external view returns(bytes32[] memory) {
+    function getSystemSupportedSigningAlgos(
+        bytes32 _keyType
+    )
+        external view
+        returns (bytes32[] memory)
+    {
         return systemSupportedSigningAlgos[_keyType].values();
     }
 
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function getSystemInstructionsSenders() external view returns(address[] memory) {
+    function getSystemInstructionsSenders()
+        external view
+        returns (address[] memory)
+    {
         return systemInstructionsSenders.values();
     }
 
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function getExtensionOwner(uint256 _extensionId)
+    function getExtensionOwner(
+        uint256 _extensionId
+    )
         external view
-        returns(address)
+        returns (address)
     {
         return _getExtensionOwner(_extensionId);
     }
@@ -507,7 +542,9 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function getTeeExtensionStateVerifier(uint256 _extensionId)
+    function getTeeExtensionStateVerifier(
+        uint256 _extensionId
+    )
         external view
         returns (ITeeExtensionStateVerifier)
     {
@@ -517,7 +554,9 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     /**
      * @inheritdoc ITeeExtensionRegistry
      */
-    function getTeeExtensionInstructionsSender(uint256 _extensionId)
+    function getTeeExtensionInstructionsSender(
+        uint256 _extensionId
+    )
         external view
         returns (address)
     {
@@ -583,7 +622,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         bytes32 _platform
     )
         external view
-        returns(bool)
+        returns (bool)
     {
         if (extensions[_extensionId].codeHashPlatformDisabled[_codeHash][_platform]) {
             return false; // platform disabled
@@ -600,7 +639,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         bytes32 _platform
     )
         external view
-        returns(bool)
+        returns (bool)
     {
         return extensions[_extensionId].codeHashPlatformDisabled[_codeHash][_platform];
     }
@@ -613,7 +652,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         bytes32 _codeHash
     )
         external view
-        returns(bytes32)
+        returns (bytes32)
     {
         return extensions[_extensionId].codeHashToVersion[_codeHash].governanceHash;
     }
@@ -626,7 +665,11 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         bytes32 _codeHash
     )
         external view
-        returns(bytes32 _governanceHash, string memory _version, bytes32[] memory _platforms)
+        returns (
+            bytes32 _governanceHash,
+            string memory _version,
+            bytes32[] memory _platforms
+        )
     {
         TeeExtension storage extension = extensions[_extensionId];
         _governanceHash = extension.codeHashToVersion[_codeHash].governanceHash;
@@ -647,7 +690,8 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         uint64 _cosignersThreshold,
         address _claimBackAddress
     )
-        internal returns (bytes32)
+        internal
+        returns (bytes32)
     {
         require(_teeMachines.length > 0, NoTeeMachinesSpecified());
         require(_opType != bytes32(0), OperationTypeEmpty());
@@ -723,7 +767,9 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
     }
 
-    function _generateInstructionId(uint256 _extensionId)
+    function _generateInstructionId(
+        uint256 _extensionId
+    )
         internal
         returns (bytes32)
     {
@@ -731,7 +777,11 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         return keccak256(abi.encode(_extensionId, counter, blockhash(block.number - 1)));
     }
 
-    function _checkOnlyOwner(uint256 _extensionId) internal view {
+    function _checkOnlyOwner(
+        uint256 _extensionId
+    )
+        internal view
+    {
         require(msg.sender == _getExtensionOwner(_extensionId), OnlyOwner());
     }
 
@@ -741,9 +791,11 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
      * @param _extensionId The id of the extension.
      * @return The address of the extension owner.
      */
-    function _getExtensionOwner(uint256 _extensionId)
+    function _getExtensionOwner(
+        uint256 _extensionId
+    )
         internal view
-        returns(address)
+        returns (address)
     {
         if (_extensionId == 0) {
             return governance();
@@ -751,14 +803,20 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         return extensions[_extensionId].owner;
     }
 
-    function _isSystemOpType(bytes32 _opType)
+    function _isSystemOpType(
+        bytes32 _opType
+    )
         internal pure
-        returns(bool)
+        returns (bool)
     {
         return _opType[0] == SYSTEM_OP_TYPE_PREFIX[0] && _opType[1] == SYSTEM_OP_TYPE_PREFIX[1];
     }
 
-    function _removeDuplicates(address[] memory _teeIds) internal pure {
+    function _removeDuplicates(
+        address[] memory _teeIds
+    )
+        internal pure
+    {
         uint256 length = _teeIds.length;
         for (uint256 i = 0; i < length; i++) {
             for (uint256 j = i + 1; j < length; j++) {

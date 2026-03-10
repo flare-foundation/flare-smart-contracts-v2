@@ -854,7 +854,8 @@ contract FlareSystemsManagerTest is Test {
         vm.roll(signPolicyStartBlock + 100);
 
         vm.expectEmit();
-        emit IFlareSystemsManager.SigningPolicySigned(1, signingAddresses[0], voters[0], uint64(block.timestamp), true);
+        emit IFlareSystemsManager.SigningPolicySigned(
+            1, signingAddresses[0], voters[0], uint64(block.timestamp), true);
         flareSystemsManager.signNewSigningPolicy(1, newSigningPolicyHash, signature);
         (uint64 signTs, uint64 signBlock) = flareSystemsManager.getVoterSigningPolicySignInfo(1, voters[0]);
         assertEq(signTs, signPolicyStartTs + 100);
@@ -887,7 +888,8 @@ contract FlareSystemsManagerTest is Test {
 
         // voter0 signs
         vm.expectEmit();
-        emit IFlareSystemsManager.SigningPolicySigned(2, signingAddresses[0], voters[0], uint64(block.timestamp), false);
+        emit IFlareSystemsManager.SigningPolicySigned(
+            2, signingAddresses[0], voters[0], uint64(block.timestamp), false);
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
         (signTs, signBlock) = flareSystemsManager.getVoterSigningPolicySignInfo(2, voters[0]);
         assertEq(signTs, uint64(block.timestamp));
@@ -901,7 +903,8 @@ contract FlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
         signature = Signature(v, r, s);
         vm.expectEmit();
-        emit IFlareSystemsManager.SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
+        emit IFlareSystemsManager.SigningPolicySigned(
+            2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
         (signTs, signBlock) = flareSystemsManager.getVoterSigningPolicySignInfo(2, voters[1]);
@@ -998,7 +1001,8 @@ contract FlareSystemsManagerTest is Test {
         );
 
         vm.expectEmit();
-        emit IFlareSystemsManager.UptimeVoteSubmitted(1, signingAddresses[0], voters[0], nodeIds, uint64(block.timestamp));
+        emit IFlareSystemsManager.UptimeVoteSubmitted(
+            1, signingAddresses[0], voters[0], nodeIds, uint64(block.timestamp));
         flareSystemsManager.submitUptimeVote(1, nodeIds, signature);
 
         (uint64 submitTs, uint64 submitBlock) = flareSystemsManager.getVoterUptimeVoteSubmitInfo(1, voters[0]);
@@ -1026,7 +1030,8 @@ contract FlareSystemsManagerTest is Test {
         vm.warp(block.timestamp + 10);
         vm.roll(block.number + 20);
         vm.expectEmit();
-        emit IFlareSystemsManager.UptimeVoteSubmitted(1, signingAddresses[1], voters[1], nodeIds, uint64(block.timestamp));
+        emit IFlareSystemsManager.UptimeVoteSubmitted(
+            1, signingAddresses[1], voters[1], nodeIds, uint64(block.timestamp));
         flareSystemsManager.submitUptimeVote(1, nodeIds, signature);
         (submitTs, submitBlock) = flareSystemsManager.getVoterUptimeVoteSubmitInfo(1, voters[1]);
         assertEq(submitTs, uint64(submitTime1 + 10));
@@ -1235,7 +1240,8 @@ contract FlareSystemsManagerTest is Test {
             abi.encode(voters[0], votersWeight[0])
         );
         vm.expectEmit();
-        emit IFlareSystemsManager.UptimeVoteSigned(1, signingAddresses[0], voters[0], uptimeHash, uint64(block.timestamp), false);
+        emit IFlareSystemsManager.UptimeVoteSigned(
+            1, signingAddresses[0], voters[0], uptimeHash, uint64(block.timestamp), false);
         flareSystemsManager.signUptimeVote(1, uptimeHash, signature);
 
         // voter1 signs; threshold (500) is reached
@@ -1247,7 +1253,8 @@ contract FlareSystemsManagerTest is Test {
             abi.encode(voters[1], votersWeight[1])
         );
         vm.expectEmit();
-        emit IFlareSystemsManager.UptimeVoteSigned(1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
+        emit IFlareSystemsManager.UptimeVoteSigned(
+            1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
         flareSystemsManager.signUptimeVote(1, uptimeHash, signature);
 
         (uint64 signTs, uint64 signBlock) = flareSystemsManager.getVoterUptimeVoteSignInfo(1, voters[1]);
@@ -1400,7 +1407,8 @@ contract FlareSystemsManagerTest is Test {
             abi.encode(voters[1], votersWeight[1])
         );
         vm.expectEmit();
-        emit IFlareSystemsManager.SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
+        emit IFlareSystemsManager.SigningPolicySigned(
+            2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
         _mockToSigningPolicyHash(1, bytes32("signing policy1"));
@@ -1461,7 +1469,8 @@ contract FlareSystemsManagerTest is Test {
             abi.encode(voters[1], votersWeight[1])
         );
         vm.expectEmit();
-        emit IFlareSystemsManager.SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
+        emit IFlareSystemsManager.SigningPolicySigned(
+            2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
         _mockToSigningPolicyHash(1, bytes32("signing policy1"));
@@ -1529,7 +1538,8 @@ contract FlareSystemsManagerTest is Test {
             abi.encode(voters[1], votersWeight[1])
         );
         vm.expectEmit();
-        emit IFlareSystemsManager.SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
+        emit IFlareSystemsManager.SigningPolicySigned(
+            2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
         _mockToSigningPolicyHash(1, bytes32("signing policy1"));
@@ -1563,7 +1573,8 @@ contract FlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
         signature = Signature(v, r, s);
         vm.expectEmit();
-        emit IFlareSystemsManager.UptimeVoteSigned(1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
+        emit IFlareSystemsManager.UptimeVoteSigned(
+            1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
         flareSystemsManager.signUptimeVote(1, uptimeHash, signature);
 
         // uint64[] memory rewardsSignStart = new uint64[](2);
@@ -1654,7 +1665,8 @@ contract FlareSystemsManagerTest is Test {
             abi.encode(voters[1], votersWeight[1])
         );
         vm.expectEmit();
-        emit IFlareSystemsManager.SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
+        emit IFlareSystemsManager.SigningPolicySigned(
+            2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
         _mockToSigningPolicyHash(1, bytes32("signing policy1"));
@@ -1688,7 +1700,8 @@ contract FlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
         signature = Signature(v, r, s);
         vm.expectEmit();
-        emit IFlareSystemsManager.UptimeVoteSigned(1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
+        emit IFlareSystemsManager.UptimeVoteSigned(
+            1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
         flareSystemsManager.signUptimeVote(1, uptimeHash, signature);
 
         // sign rewards
@@ -1744,7 +1757,8 @@ contract FlareSystemsManagerTest is Test {
             abi.encode(voters[1], votersWeight[1])
         );
         vm.expectEmit();
-        emit IFlareSystemsManager.SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
+        emit IFlareSystemsManager.SigningPolicySigned(
+            2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
         _mockToSigningPolicyHash(1, bytes32("signing policy1"));
@@ -1780,7 +1794,8 @@ contract FlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(signingAddressesPk[1], signedMessageHash);
         signature = Signature(v, r, s);
         vm.expectEmit();
-        emit IFlareSystemsManager.UptimeVoteSigned(1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
+        emit IFlareSystemsManager.UptimeVoteSigned(
+            1, signingAddresses[1], voters[1], uptimeHash, uint64(block.timestamp), true);
         flareSystemsManager.signUptimeVote(1, uptimeHash, signature);
 
         // sign rewards
@@ -1852,7 +1867,8 @@ contract FlareSystemsManagerTest is Test {
             abi.encode(voters[1], votersWeight[1])
         );
         vm.expectEmit();
-        emit IFlareSystemsManager.SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
+        emit IFlareSystemsManager.SigningPolicySigned(
+            2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
         _mockToSigningPolicyHash(1, bytes32("signing policy1"));
@@ -1949,7 +1965,8 @@ contract FlareSystemsManagerTest is Test {
             abi.encode(voters[1], votersWeight[1])
         );
         vm.expectEmit();
-        emit IFlareSystemsManager.SigningPolicySigned(2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
+        emit IFlareSystemsManager.SigningPolicySigned(
+            2, signingAddresses[1], voters[1], uint64(block.timestamp), true);
         flareSystemsManager.signNewSigningPolicy(2, newSigningPolicyHash, signature);
 
         _mockToSigningPolicyHash(1, bytes32("signing policy1"));

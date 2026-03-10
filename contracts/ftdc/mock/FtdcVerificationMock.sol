@@ -29,12 +29,20 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
      * Constructor.
      * @param _addressUpdater The address of the AddressUpdater contract.
      */
-    constructor(address _addressUpdater) AddressUpdatable(_addressUpdater) {
+    constructor(
+        address _addressUpdater
+    )
+        AddressUpdatable(_addressUpdater)
+    {
         // empty constructor
     }
 
     // Mock function for testing purposes only.
-    function setSigningTeeIds(address[] calldata _signingTeeIds) external {
+    function setSigningTeeIds(
+        address[] calldata _signingTeeIds
+    )
+        external
+    {
         returnActiveTeeIds = false;
         signingTeeIds.replaceAll(_signingTeeIds);
     }
@@ -46,7 +54,8 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
         bytes calldata /*_relayMessage*/,
         bytes32 /*_messageHash*/
     )
-        external view returns (uint256 _rewardEpochId)
+        external view
+        returns (uint256 _rewardEpochId)
     {
         // no verification
         // always return the latest reward epoch id
@@ -60,7 +69,8 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
         Signature calldata /*_signature*/,
         bytes32 /*_messageHash*/
     )
-        external view returns (address _signingTeeId)
+        external view
+        returns (address _signingTeeId)
     {
         address[] memory teeIds;
         // no verification
@@ -81,7 +91,8 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
         Signature[] calldata /*_signatures*/,
         bytes32 /*_messageHash*/
     )
-        external view returns(address[] memory _signingTeeIds)
+        external view
+        returns (address[] memory _signingTeeIds)
     {
         // no verification
         if (returnActiveTeeIds) {
@@ -98,7 +109,8 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
         Signature[] calldata _signatures,
         bytes32 _messageHash
     )
-        external pure returns(address[] memory _cosigners)
+        external pure
+        returns (address[] memory _cosigners)
     {
         _cosigners = new address[](_signatures.length);
         for (uint256 i = 0; i < _signatures.length; i++) {

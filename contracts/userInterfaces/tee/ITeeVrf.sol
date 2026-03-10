@@ -68,5 +68,9 @@ interface ITeeVrf {
      * @param _walletId The wallet id.
      * @return The address authorized to request VRF for the wallet.
      */
-    function getVrfAuthorizationAddress(bytes32 _walletId) external view returns (address);
+    function getVrfAuthorizationAddress(
+        bytes32 _walletId
+    )
+        external view
+        returns (address);
 }

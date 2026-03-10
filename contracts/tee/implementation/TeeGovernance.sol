@@ -79,7 +79,8 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         address[] calldata _signers,
         uint64 _signersThreshold
     )
-        external onlyExtensionOwner(_extensionId)
+        external
+        onlyExtensionOwner(_extensionId)
     {
         TeeExtensionState storage extensionState = extensionStates[_extensionId];
         require(_signers.length > 0, NoSigners());
@@ -193,7 +194,10 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         bytes32 _governanceHash
     )
         external view
-        returns(address[] memory _signers, uint64 _signersThreshold)
+        returns (
+            address[] memory _signers,
+            uint64 _signersThreshold
+        )
     {
         return _getGovernance(_extensionId, _governanceHash);
     }
@@ -205,7 +209,10 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         uint256 _extensionId
     )
         external view
-        returns(address[] memory _signers, uint64 _signersThreshold)
+        returns (
+            address[] memory _signers,
+            uint64 _signersThreshold
+        )
     {
         bytes32 latestTeeGovernanceHash = extensionStates[_extensionId].latestTeeGovernanceHash;
         require(latestTeeGovernanceHash != bytes32(0), GovernanceNotSet());
@@ -233,7 +240,10 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         uint256 _nonce
     )
         external view
-        returns (address[] memory _pausingAddresses, Signature[] memory _signatures)
+        returns (
+            address[] memory _pausingAddresses,
+            Signature[] memory _signatures
+        )
     {
         require(_nonce < extensionStates[_extensionId].nextPausingAddressesNonce, InvalidNonce());
         return _getTeePausingAddresses(_extensionId, _nonce);
@@ -246,7 +256,11 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         uint256 _extensionId
     )
         external view
-        returns (uint256 _nonce, address[] memory _pausingAddresses, Signature[] memory _signatures)
+        returns (
+            uint256 _nonce,
+            address[] memory _pausingAddresses,
+            Signature[] memory _signatures
+        )
     {
         TeeExtensionState storage extensionState = extensionStates[_extensionId];
         require(extensionState.nextPausingAddressesNonce > 0, PausingAddressesNotSet());
@@ -301,7 +315,10 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         bytes32 _governanceHash
     )
         internal view
-        returns(address[] memory _signers, uint64 _signersThreshold)
+        returns (
+            address[] memory _signers,
+            uint64 _signersThreshold
+        )
     {
         TeeExtensionState storage extensionState = extensionStates[_extensionId];
         _signersThreshold = extensionState.governanceHashToTeeGovernance[_governanceHash].signersThreshold;
@@ -314,7 +331,10 @@ contract TeeGovernance is ITeeGovernance, TeeBase {
         uint256 _nonce
     )
         internal view
-        returns (address[] memory _pausingAddresses, Signature[] memory _signatures)
+        returns (
+            address[] memory _pausingAddresses,
+            Signature[] memory _signatures
+        )
     {
         TeeExtensionState storage extensionState = extensionStates[_extensionId];
         TeePausingAddressesState storage teePausingAddresses = extensionState.nonceToTeePausingAddresses[_nonce];

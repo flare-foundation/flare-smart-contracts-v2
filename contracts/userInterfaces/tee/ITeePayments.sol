@@ -125,7 +125,10 @@ interface ITeePayments {
         address _claimBackAddress
     )
         external payable
-        returns (uint64 _nonce, uint64 _subNonce);
+        returns (
+            uint64 _nonce,
+            uint64 _subNonce
+        );
 
     /**
      * Payment reissuance method.
@@ -217,27 +220,39 @@ interface ITeePayments {
      * Returns the operation type.
      * @return _opType The operation type.
      */
-    function getOpType() external view returns (bytes32);
+    function getOpType()
+        external view
+        returns (bytes32);
 
     /**
      * Returns the supported key type.
      * @return _keyType The key type.
      */
-    function getKeyType() external view returns (bytes32);
+    function getKeyType()
+        external view
+        returns (bytes32);
 
     /**
      * Returns wallet's accounts.
      * @param _walletId The wallet id.
      * @return _walletAccounts The wallet accounts.
      */
-    function getWalletAccounts(bytes32 _walletId) external view returns (PMWMultisigAccount[] memory _walletAccounts);
+    function getWalletAccounts(
+        bytes32 _walletId
+    )
+        external view
+        returns (PMWMultisigAccount[] memory _walletAccounts);
 
     /**
      * Returns wallet's id.
      * @param _account The PMW multisig account.
      * @return _walletId The wallet id.
      */
-    function getWalletId(PMWMultisigAccount calldata _account) external view returns (bytes32 _walletId);
+    function getWalletId(
+        PMWMultisigAccount calldata _account
+    )
+        external view
+        returns (bytes32 _walletId);
 
     /**
      * Returns wallet's batch settings.
@@ -249,7 +264,7 @@ interface ITeePayments {
         PMWMultisigAccount calldata _account
     )
         external view
-        returns(
+        returns (
             uint64 _batchSize,
             uint64 _batchDurationSeconds
         );
@@ -265,7 +280,7 @@ interface ITeePayments {
         PMWMultisigAccount calldata _account
     )
         external view
-        returns(
+        returns (
             int16[] memory _factorsBIPS,
             uint16[] memory _delaysSeconds
         );
@@ -275,7 +290,9 @@ interface ITeePayments {
      * @param _account The PMW multisig account.
      * @return _authorizationAddress The authorization address that can submit payment instructions for the account.
      */
-    function getAuthorizationAddress(PMWMultisigAccount calldata _account)
+    function getAuthorizationAddress(
+        PMWMultisigAccount calldata _account
+    )
         external view
         returns (address _authorizationAddress);
 
@@ -283,12 +300,18 @@ interface ITeePayments {
      * Returns the supported source ids.
      * @return _supportedSourceIds The supported source ids.
      */
-    function getSupportedSourceIds() external view returns (bytes32[] memory _supportedSourceIds);
+    function getSupportedSourceIds()
+        external view
+        returns (bytes32[] memory _supportedSourceIds);
 
     /**
      * Returns whether the given source id is supported.
      * @param _sourceId The source id to check.
      * @return True if the source id is supported, false otherwise.
      */
-    function isSourceIdSupported(bytes32 _sourceId) external view returns (bool);
+    function isSourceIdSupported(
+        bytes32 _sourceId
+    )
+        external view
+        returns (bool);
 }

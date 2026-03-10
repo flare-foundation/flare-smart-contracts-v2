@@ -85,8 +85,9 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
         bytes32 _sourceTeeGovernanceHash,
         bytes32 _targetTeeGovernanceHash
     )
-        external onlyExtensionOwner(_extensionId)
-        returns(uint256 _teeUpgradeId)
+        external
+        onlyExtensionOwner(_extensionId)
+        returns (uint256 _teeUpgradeId)
     {
         require(
             teeGovernance.isGovernanceHashValid(_extensionId, _sourceTeeGovernanceHash),
@@ -112,7 +113,9 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
         uint256 _teeUpgradeId,
         TeeUpgradePath[] calldata _upgradePaths
     )
-        external onlyValidTeeUpgradeId(_teeUpgradeId) onlyExtensionOwner(teeUpgrades[_teeUpgradeId].extensionId)
+        external
+        onlyValidTeeUpgradeId(_teeUpgradeId)
+        onlyExtensionOwner(teeUpgrades[_teeUpgradeId].extensionId)
     {
         require(teeUpgrades[_teeUpgradeId].messageHash == bytes32(0), UpgradeAlreadyFinalized());
         require(_upgradePaths.length > 0, NoUpgradePaths());
@@ -179,7 +182,9 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
     function finalizeTeeUpgrade(
         uint256 _teeUpgradeId
     )
-        external onlyValidTeeUpgradeId(_teeUpgradeId) onlyExtensionOwner(teeUpgrades[_teeUpgradeId].extensionId)
+        external
+        onlyValidTeeUpgradeId(_teeUpgradeId)
+        onlyExtensionOwner(teeUpgrades[_teeUpgradeId].extensionId)
     {
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
         require(teeUpgrade.messageHash == bytes32(0), UpgradeAlreadyFinalized());
@@ -195,7 +200,8 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
         uint256 _teeUpgradeId,
         Signature calldata _signature
     )
-        external onlyValidTeeUpgradeId(_teeUpgradeId)
+        external
+        onlyValidTeeUpgradeId(_teeUpgradeId)
     {
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
         require(!teeUpgrade.upgradeSigned, UpgradeAlreadySigned());
@@ -259,8 +265,9 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
         bytes32 _targetCodeHash,
         bytes32 _targetPlatform
     )
-        external view onlyValidTeeUpgradeId(_teeUpgradeId)
-        returns(bool)
+        external view
+        onlyValidTeeUpgradeId(_teeUpgradeId)
+        returns (bool)
     {
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
         require(_extensionId == teeUpgrade.extensionId, ExtensionIdMismatch());
@@ -283,8 +290,9 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
     function isTeeUpgradeFinalized(
         uint256 _teeUpgradeId
     )
-        external view onlyValidTeeUpgradeId(_teeUpgradeId)
-        returns(bool)
+        external view
+        onlyValidTeeUpgradeId(_teeUpgradeId)
+        returns (bool)
     {
         return teeUpgrades[_teeUpgradeId].messageHash != bytes32(0);
     }
@@ -295,8 +303,9 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
     function isTeeUpgradeSigned(
         uint256 _teeUpgradeId
     )
-        external view onlyValidTeeUpgradeId(_teeUpgradeId)
-        returns(bool)
+        external view
+        onlyValidTeeUpgradeId(_teeUpgradeId)
+        returns (bool)
     {
         return teeUpgrades[_teeUpgradeId].upgradeSigned;
     }
@@ -306,7 +315,7 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
      */
     function getTeeUpgradesCount()
         external view
-        returns(uint256)
+        returns (uint256)
     {
         return teeUpgrades.length;
     }
@@ -317,8 +326,9 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
     function getTeeUpgradePaths(
         uint256 _teeUpgradeId
     )
-        external view onlyValidTeeUpgradeId(_teeUpgradeId)
-        returns(TeeUpgradePath[] memory upgradePaths)
+        external view
+        onlyValidTeeUpgradeId(_teeUpgradeId)
+        returns (TeeUpgradePath[] memory upgradePaths)
     {
         return _getTeeUpgradePaths(_teeUpgradeId);
     }
@@ -329,8 +339,12 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
     function getTeeUpgradeSignatures(
         uint256 _teeUpgradeId
     )
-        external view onlyValidTeeUpgradeId(_teeUpgradeId)
-        returns(Signature[] memory sourceTeeGovernanceSignatures, Signature[] memory targetTeeGovernanceSignatures)
+        external view
+        onlyValidTeeUpgradeId(_teeUpgradeId)
+        returns (
+            Signature[] memory sourceTeeGovernanceSignatures,
+            Signature[] memory targetTeeGovernanceSignatures
+        )
     {
         TeeUpgrade storage teeUpgrade = teeUpgrades[_teeUpgradeId];
         sourceTeeGovernanceSignatures = teeUpgrade.sourceTeeGovernanceSignatures;
@@ -356,7 +370,7 @@ contract TeeVersionManager is ITeeVersionManager, TeeBase {
         uint256 _teeUpgradeId
     )
         internal view
-        returns(TeeUpgradePath[] memory _upgradePaths)
+        returns (TeeUpgradePath[] memory _upgradePaths)
     {
         TeeUpgradePathState[] storage teeUpgradePaths = teeUpgrades[_teeUpgradeId].upgradePaths;
         _upgradePaths = new TeeUpgradePath[](teeUpgradePaths.length);

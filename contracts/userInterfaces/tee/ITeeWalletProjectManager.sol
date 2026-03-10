@@ -61,7 +61,11 @@ interface ITeeWalletProjectManager {
      * @param _backupManager The backup manager address (can be address(0)).
      * Can only be called by the project owner.
      */
-    function setBackupManager(bytes32 _projectId, address _backupManager) external;
+    function setBackupManager(
+        bytes32 _projectId,
+        address _backupManager
+    )
+        external;
 
     /**
      * Proposes a new owner for the project - has to be on the allowlist.
@@ -71,7 +75,11 @@ interface ITeeWalletProjectManager {
      * @param _newOwner The new owner.
      * Can only be called by the current project owner.
      */
-    function proposeNewOwner(bytes32 _projectId, address _newOwner) external;
+    function proposeNewOwner(
+        bytes32 _projectId,
+        address _newOwner
+    )
+        external;
 
     /**
      * Confirms the ownership of the project.
@@ -79,40 +87,63 @@ interface ITeeWalletProjectManager {
      * @param _projectId The project id.
      * Can only be called by the proposed new owner.
      */
-    function confirmOwnership(bytes32 _projectId) external;
+    function confirmOwnership(
+        bytes32 _projectId
+    )
+        external;
 
     /**
      * Returns the project owner.
      * @param _projectId The project id.
      * @return _owner The owner.
      */
-    function getOwner(bytes32 _projectId) external view returns (address _owner);
+    function getOwner(
+        bytes32 _projectId
+    )
+        external view
+        returns (address _owner);
 
     /**
      * Returns the project extension id.
      * @param _projectId The project id.
      * @return _extensionId The extension id.
      */
-    function getExtensionId(bytes32 _projectId) external view returns (uint256 _extensionId);
+    function getExtensionId(
+        bytes32 _projectId
+    )
+        external view
+        returns (uint256 _extensionId);
 
     /**
      * Returns the project key type.
      * @param _projectId The project id.
      * @return _keyType The key type.
      */
-    function getKeyType(bytes32 _projectId) external view returns (bytes32 _keyType);
+    function getKeyType(
+        bytes32 _projectId
+    )
+        external view
+        returns (bytes32 _keyType);
 
     /**
      * Returns the project signing algorithm.
      * @param _projectId The project id.
      * @return _signingAlgo The signing algorithm.
      */
-    function getSigningAlgo(bytes32 _projectId) external view returns (bytes32 _signingAlgo);
+    function getSigningAlgo(
+        bytes32 _projectId
+    )
+        external view
+        returns (bytes32 _signingAlgo);
 
     /**
      * Returns the project backup manager.
      * @param _projectId The project id.
      * @return _backupManager The backup manager address.
      */
-    function getBackupManager(bytes32 _projectId) external view returns (address _backupManager);
+    function getBackupManager(
+        bytes32 _projectId
+    )
+        external view
+        returns (address _backupManager);
 }

@@ -144,7 +144,7 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
         //slither-disable-next-line arbitrary-send-eth
         rewardManager.receiveRewards{value: fee}(flareSystemsManager.getCurrentRewardEpochId(), false);
 
-        bytes32 instructionId = _sendInstructions(
+        bytes32 instructionId = _sendRequestAttestationInstructions(
             teeMachines,
             abi.encode(_attestationRequest),
             _cosigners,
@@ -167,7 +167,12 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
      * @param _minThresholdBIPS The minimum threshold in BIPS.
      * Can only be called by the governance.
      */
-    function setMinThresholdBIPS(uint16 _minThresholdBIPS) external onlyGovernance {
+    function setMinThresholdBIPS(
+        uint16 _minThresholdBIPS
+    )
+        external
+        onlyGovernance
+    {
         _setMinThresholdBIPS(_minThresholdBIPS);
     }
 
@@ -176,7 +181,12 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
      * @param _defaultNumberOfTees The default number of TEEs.
      * Can only be called by the governance.
      */
-    function setDefaultNumberOfTees(uint8 _defaultNumberOfTees) external onlyGovernance {
+    function setDefaultNumberOfTees(
+        uint8 _defaultNumberOfTees
+    )
+        external
+        onlyGovernance
+    {
         _setDefaultNumberOfTees(_defaultNumberOfTees);
     }
 
@@ -192,7 +202,10 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
      * @inheritdoc UUPSUpgradeable
      * @dev Only governance can call this method.
      */
-    function upgradeToAndCall(address _newImplementation, bytes memory _data)
+    function upgradeToAndCall(
+        address _newImplementation,
+        bytes memory _data
+    )
         public payable virtual override
         onlyGovernance
     {
@@ -203,7 +216,11 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
      * Unused. Present just to satisfy UUPSUpgradeable requirement.
      * The real check is in onlyGovernance modifier on upgradeToAndCall.
      */
-    function _authorizeUpgrade(address _newImplementation) internal virtual override {}
+    function _authorizeUpgrade(
+        address _newImplementation
+    )
+        internal virtual override
+    {}
 
     /**
      * @inheritdoc AddressUpdatable
@@ -228,19 +245,27 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
             _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcRequestFeeConfigurations"));
     }
 
-    function _setMinThresholdBIPS(uint16 _minThresholdBIPS) internal {
+    function _setMinThresholdBIPS(
+        uint16 _minThresholdBIPS
+    )
+        internal
+    {
         require(0 < _minThresholdBIPS && _minThresholdBIPS <= MAX_BIPS, MinThresholdInvalid());
         minThresholdBIPS = _minThresholdBIPS;
         emit MinThresholdBIPSSet(_minThresholdBIPS);
     }
 
-    function _setDefaultNumberOfTees(uint8 _defaultNumberOfTees) internal {
+    function _setDefaultNumberOfTees(
+        uint8 _defaultNumberOfTees
+    )
+        internal
+    {
         require(_defaultNumberOfTees > 0, DefaultNumberOfTeesZero());
         defaultNumberOfTees = _defaultNumberOfTees;
         emit DefaultNumberOfTeesSet(_defaultNumberOfTees);
     }
 
-    function _sendInstructions(
+    function _sendRequestAttestationInstructions(
         ITeeMachineRegistry.TeeMachine[] memory _teeMachines,
         bytes memory _message,
         address[] memory _cosigners,

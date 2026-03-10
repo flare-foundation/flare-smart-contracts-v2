@@ -43,7 +43,14 @@ contract FtdcRequestFeeConfigurations is IFtdcRequestFeeConfigurations, Governed
      * @param _fee The fee to set.
      * @dev Only governance can call this method.
      */
-    function setTypeAndSourceFee(bytes32 _type, bytes32 _source, uint256 _fee) external onlyGovernance {
+    function setTypeAndSourceFee(
+        bytes32 _type,
+        bytes32 _source,
+        uint256 _fee
+    )
+        external
+        onlyGovernance
+    {
         _setSingleTypeAndSourceFee(_type, _source, _fee);
     }
 
@@ -53,7 +60,13 @@ contract FtdcRequestFeeConfigurations is IFtdcRequestFeeConfigurations, Governed
      * @param _source The source to remove.
      * @dev Only governance can call this method.
      */
-    function removeTypeAndSourceFee(bytes32 _type, bytes32 _source) external onlyGovernance {
+    function removeTypeAndSourceFee(
+        bytes32 _type,
+        bytes32 _source
+    )
+        external
+        onlyGovernance
+    {
         _removeSingleTypeAndSourceFee(_type, _source);
     }
 
@@ -69,7 +82,8 @@ contract FtdcRequestFeeConfigurations is IFtdcRequestFeeConfigurations, Governed
         bytes32[] memory _sources,
         uint256[] memory _fees
     )
-        external onlyGovernance
+        external
+        onlyGovernance
     {
         require(_types.length == _sources.length && _types.length == _fees.length, LengthsMismatch());
         for (uint256 i = 0; i < _types.length; i++) {
@@ -87,7 +101,8 @@ contract FtdcRequestFeeConfigurations is IFtdcRequestFeeConfigurations, Governed
         bytes32[] memory _types,
         bytes32[] memory _sources
     )
-        external onlyGovernance
+        external
+        onlyGovernance
     {
         require(_types.length == _sources.length, LengthsMismatch());
         for (uint256 i = 0; i < _types.length; i++) {
@@ -96,9 +111,15 @@ contract FtdcRequestFeeConfigurations is IFtdcRequestFeeConfigurations, Governed
     }
 
     /**
-    * @inheritdoc IFtdcRequestFeeConfigurations
-    */
-    function getTypeAndSourceFee(bytes32 _type, bytes32 _source) external view returns (uint256 _fee) {
+     * @inheritdoc IFtdcRequestFeeConfigurations
+     */
+    function getTypeAndSourceFee(
+        bytes32 _type,
+        bytes32 _source
+    )
+        external view
+        returns (uint256 _fee)
+    {
         _fee = typeAndSourceFees[_joinTypeAndSource(_type, _source)];
         require(_fee > 0, TypeAndSourceCombinationNotSupported());
     }
@@ -115,7 +136,10 @@ contract FtdcRequestFeeConfigurations is IFtdcRequestFeeConfigurations, Governed
      * @inheritdoc UUPSUpgradeable
      * @dev Only governance can call this method.
      */
-    function upgradeToAndCall(address _newImplementation, bytes memory _data)
+    function upgradeToAndCall(
+        address _newImplementation,
+        bytes memory _data
+    )
         public payable virtual override
         onlyGovernance
     {
@@ -128,12 +152,22 @@ contract FtdcRequestFeeConfigurations is IFtdcRequestFeeConfigurations, Governed
      * Unused. Present just to satisfy UUPSUpgradeable requirement.
      * The real check is in onlyGovernance modifier on upgradeToAndCall.
      */
-    function _authorizeUpgrade(address _newImplementation) internal virtual override {}
+    function _authorizeUpgrade(
+        address _newImplementation
+    )
+        internal virtual override
+    {}
 
     /**
      * Sets the fee for a given type and source.
      */
-    function _setSingleTypeAndSourceFee(bytes32 _type, bytes32 _source, uint256 _fee) internal {
+    function _setSingleTypeAndSourceFee(
+        bytes32 _type,
+        bytes32 _source,
+        uint256 _fee
+    )
+        internal
+    {
         require(_fee > 0, FeeMustBeGreaterThanZero());
         typeAndSourceFees[_joinTypeAndSource(_type, _source)] = _fee;
         emit TypeAndSourceFeeSet(_type, _source, _fee);
@@ -142,7 +176,12 @@ contract FtdcRequestFeeConfigurations is IFtdcRequestFeeConfigurations, Governed
     /**
      * Removes a given type and source by setting the fee to 0.
      */
-    function _removeSingleTypeAndSourceFee(bytes32 _type, bytes32 _source) internal {
+    function _removeSingleTypeAndSourceFee(
+        bytes32 _type,
+        bytes32 _source
+    )
+        internal
+    {
         // Same as setting this to 0 but we want to emit a different event + gas savings
         require(typeAndSourceFees[_joinTypeAndSource(_type, _source)] > 0, FeeNotSet());
         delete typeAndSourceFees[_joinTypeAndSource(_type, _source)];
@@ -152,7 +191,13 @@ contract FtdcRequestFeeConfigurations is IFtdcRequestFeeConfigurations, Governed
     /**
      * Joins a type and source into a single bytes32 value.
      */
-    function _joinTypeAndSource(bytes32 _type, bytes32 _source) internal pure returns (bytes32) {
+    function _joinTypeAndSource(
+        bytes32 _type,
+        bytes32 _source
+    )
+        internal pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked(_type, _source));
     }
 }

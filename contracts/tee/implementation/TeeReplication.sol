@@ -66,7 +66,10 @@ contract TeeReplication is ITeeReplication, TeeBase {
     /**
      * @inheritdoc ITeeReplication
      */
-    function toPauseForUpgrade(address _teeId, address _claimBackAddress)
+    function toPauseForUpgrade(
+        address _teeId,
+        address _claimBackAddress
+    )
         external payable
         onlyOwner(_teeId)
     {
@@ -179,7 +182,8 @@ contract TeeReplication is ITeeReplication, TeeBase {
     function setPauseBeforeUpgradeMinDurationSeconds(
         uint256 _pauseBeforeUpgradeMinDurationSeconds
     )
-        external onlyGovernance
+        external
+        onlyGovernance
     {
         _setPauseBeforeUpgradeMinDurationSeconds(_pauseBeforeUpgradeMinDurationSeconds);
     }
@@ -187,7 +191,12 @@ contract TeeReplication is ITeeReplication, TeeBase {
     /**
      * @inheritdoc ITeeReplication
      */
-    function getReplicatingTeeId(address _oldTeeId) external view returns(address) {
+    function getReplicatingTeeId(
+        address _oldTeeId
+    )
+        external view
+        returns (address)
+    {
         return replications[_oldTeeId];
     }
 
@@ -239,15 +248,22 @@ contract TeeReplication is ITeeReplication, TeeBase {
         );
     }
 
-    function _validateAvailabilityCheckTs(address _teeId, uint256 _availabilityCheckTs) internal view {
+    function _validateAvailabilityCheckTs(
+        address _teeId,
+        uint256 _availabilityCheckTs
+    )
+        internal view
+    {
         require(_availabilityCheckTs >= teeMachineRegistry.getLastStatusChangeTs(_teeId),
             AvailabilityCheckTimestampInvalid()
         );
     }
 
-    function _getTeeMachineWithAttestationData(address _teeId)
+    function _getTeeMachineWithAttestationData(
+        address _teeId
+    )
         internal view
-        returns(ITeeMachineRegistry.TeeMachineWithAttestationData memory)
+        returns (ITeeMachineRegistry.TeeMachineWithAttestationData memory)
     {
         return teeMachineRegistry.getTeeMachineWithAttestationData(_teeId);
     }
@@ -294,7 +310,11 @@ contract TeeReplication is ITeeReplication, TeeBase {
         );
     }
 
-    function _checkOnlyOwner(address _teeId) internal view {
+    function _checkOnlyOwner(
+        address _teeId
+    )
+        internal view
+    {
         require(msg.sender == teeMachineRegistry.getTeeMachineOwner(_teeId), OnlyMachineOwner());
     }
 

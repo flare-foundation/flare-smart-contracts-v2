@@ -111,7 +111,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
         (address[] memory admins, uint64 adminsThreshold) =
             teeWalletManager.getWalletAdminsAndThreshold(_backupId.walletId);
 
-        _sendInstructions(
+        _sendBackupRestoreInstructions(
             _teeId,
             abi.encode(message),
             admins,
@@ -121,7 +121,7 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
         emit BackupRestoreTriggered(_teeId, _backupId.walletId, _backupId.keyId, message.nonce);
     }
 
-    function _sendInstructions(
+    function _sendBackupRestoreInstructions(
         address _teeId,
         bytes memory _message,
         address[] memory _cosigners,
@@ -166,7 +166,14 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
 
-    function _isKeyAvailable(address _teeId, bytes32 _walletId, uint64 _keyId) internal view returns(bool) {
+    function _isKeyAvailable(
+        address _teeId,
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        internal view
+        returns (bool)
+    {
         address[] memory teeIds = teeWalletKeyManager.getWalletKeyTeeIds(_walletId, _keyId);
         for(uint256 i = 0; i < teeIds.length; i++) {
             if (teeIds[i] == _teeId) {
@@ -176,7 +183,9 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
         return false;
     }
 
-    function _checkOnlyOwnerOrBackupManager(bytes32 _walletId)
+    function _checkOnlyOwnerOrBackupManager(
+        bytes32 _walletId
+    )
         internal view
     {
         bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);

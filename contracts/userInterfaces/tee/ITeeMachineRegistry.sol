@@ -126,7 +126,9 @@ interface ITeeMachineRegistry {
      * @param _teeId The TEE machine id.
      * Can be called by the TEE machine owner or by anyone in case version is obsolete.
      */
-    function pause(address _teeId)
+    function pause(
+        address _teeId
+    )
         external;
 
     /**
@@ -146,7 +148,9 @@ interface ITeeMachineRegistry {
      * @param _teeId The TEE machine id.
      * Can only be called by the extension owner.
      */
-    function ban(address _teeId)
+    function ban(
+        address _teeId
+    )
         external;
 
 
@@ -156,7 +160,9 @@ interface ITeeMachineRegistry {
      * @param _teeId The TEE machine id.
      * Can only be called by the extension owner.
      */
-    function unban(address _teeId)
+    function unban(
+        address _teeId
+    )
         external;
 
     /**
@@ -167,7 +173,10 @@ interface ITeeMachineRegistry {
      * @param _newOwner The new owner address.
      * Can only be called by the current TEE machine owner.
      */
-    function proposeNewOwner(address _teeId, address _newOwner)
+    function proposeNewOwner(
+        address _teeId,
+        address _newOwner
+    )
         external;
 
     /**
@@ -176,7 +185,9 @@ interface ITeeMachineRegistry {
      * @param _teeId The TEE machine id.
      * Can only be called by the proposed new owner.
      */
-    function confirmOwnership(address _teeId)
+    function confirmOwnership(
+        address _teeId
+    )
         external;
 
     /**
@@ -188,7 +199,11 @@ interface ITeeMachineRegistry {
      * @param _url The TEE machine URL.
      * Can only be called by the TEE machine owner.
      */
-    function updateTeeMachineSettings(address _teeId, address _teeProxyId, string calldata _url)
+    function updateTeeMachineSettings(
+        address _teeId,
+        address _teeProxyId,
+        string calldata _url
+    )
         external;
 
     /**
@@ -196,7 +211,9 @@ interface ITeeMachineRegistry {
      * @param _teeId The TEE machine id.
      * @return The status of the TEE machine.
      */
-    function getTeeMachineStatus(address _teeId)
+    function getTeeMachineStatus(
+        address _teeId
+    )
         external view
         returns (TeeStatus);
 
@@ -205,7 +222,9 @@ interface ITeeMachineRegistry {
      * @param _teeId The TEE machine id.
      * @return The owner address.
      */
-    function getTeeMachineOwner(address _teeId)
+    function getTeeMachineOwner(
+        address _teeId
+    )
         external view
         returns (address);
 
@@ -214,7 +233,9 @@ interface ITeeMachineRegistry {
      * @param _teeId The TEE machine id.
      * @return The initial signing policy id.
      */
-    function getInitialSigningPolicyId(address _teeId)
+    function getInitialSigningPolicyId(
+        address _teeId
+    )
         external view
         returns (uint32);
 
@@ -223,7 +244,9 @@ interface ITeeMachineRegistry {
      * @param _teeId The TEE machine id.
      * @return The TEE machine data.
      */
-    function getTeeMachine(address _teeId)
+    function getTeeMachine(
+        address _teeId
+    )
         external view
         returns (TeeMachine memory);
 
@@ -232,7 +255,9 @@ interface ITeeMachineRegistry {
      * @param _teeId The TEE machine id.
      * @return The TEE machine data.
      */
-    function getTeeMachineWithAttestationData(address _teeId)
+    function getTeeMachineWithAttestationData(
+        address _teeId
+    )
         external view
         returns (TeeMachineWithAttestationData memory);
 
@@ -242,9 +267,12 @@ interface ITeeMachineRegistry {
      * @param _count The number of TEE machine ids to return.
      * @return The list of TEE machine ids.
      */
-    function getRandomTeeIds(uint256 _extensionId, uint256 _count)
+    function getRandomTeeIds(
+        uint256 _extensionId,
+        uint256 _count
+    )
         external view
-        returns(address[] memory);
+        returns (address[] memory);
 
     /**
      * Get all active TEE machines.
@@ -259,7 +287,11 @@ interface ITeeMachineRegistry {
         uint256 _end
     )
         external view
-        returns(address[] memory _teeIds, string[] memory _urls, uint256 _totalLength);
+        returns (
+            address[] memory _teeIds,
+            string[] memory _urls,
+            uint256 _totalLength
+        );
 
     /**
      * Get active TEE machines.
@@ -267,16 +299,23 @@ interface ITeeMachineRegistry {
      * @return _teeIds The list of TEE machine ids.
      * @return _urls The list of TEE machine URLs.
      */
-    function getActiveTeeMachines(uint256 _extensionId)
+    function getActiveTeeMachines(
+        uint256 _extensionId
+    )
         external view
-        returns(address[] memory _teeIds, string[] memory _urls);
+        returns (
+            address[] memory _teeIds,
+            string[] memory _urls
+        );
 
     /**
      * Get the extension id for a TEE machine.
      * @param _teeId The TEE machine id.
      * @return The extension id.
      */
-    function getExtensionId(address _teeId)
+    function getExtensionId(
+        address _teeId
+    )
         external view
         returns (uint256);
 
@@ -285,7 +324,9 @@ interface ITeeMachineRegistry {
      * @param _teeId The TEE machine id.
      * @return The public key.
      */
-    function getPublicKey(address _teeId)
+    function getPublicKey(
+        address _teeId
+    )
         external view
         returns (PublicKey memory);
 
@@ -294,7 +335,9 @@ interface ITeeMachineRegistry {
      * @param _teeId The TEE machine id.
      * @return The last status change timestamp.
      */
-    function getLastStatusChangeTs(address _teeId)
+    function getLastStatusChangeTs(
+        address _teeId
+    )
         external view
         returns (uint256);
 }

@@ -99,7 +99,8 @@ interface ITeeWalletManager {
      * Can only be called by the project owner.
      */
     function createWallet(
-        bytes32 _projectId    )
+        bytes32 _projectId
+    )
         external
         returns (bytes32 _walletId);
 
@@ -123,7 +124,9 @@ interface ITeeWalletManager {
      * Emits WalletAdminConfirmed event.
      * @param _walletId The wallet id.
      */
-    function confirmAdmin(bytes32 _walletId)
+    function confirmAdmin(
+        bytes32 _walletId
+    )
         external;
 
     /**
@@ -146,7 +149,9 @@ interface ITeeWalletManager {
      * Emits WalletCosignerConfirmed event.
      * @param _walletId The wallet id.
      */
-    function confirmCosigner(bytes32 _walletId)
+    function confirmCosigner(
+        bytes32 _walletId
+    )
         external;
 
     /**
@@ -168,7 +173,10 @@ interface ITeeWalletManager {
      * @param _walletId The wallet id.
      * Can only be called by the wallet owner.
      */
-    function enableWallet(bytes32 _walletId) external;
+    function enableWallet(
+        bytes32 _walletId
+    )
+        external;
 
     /**
      * Pauses the wallet.
@@ -176,7 +184,10 @@ interface ITeeWalletManager {
      * @param _walletId The wallet id.
      * Can only be called by the wallet owner.
      */
-    function pauseWallet(bytes32 _walletId) external;
+    function pauseWallet(
+        bytes32 _walletId
+    )
+        external;
 
     /**
      * Set pausing addresses (for pausing keys) instruction method.
@@ -211,7 +222,9 @@ interface ITeeWalletManager {
      * @param _projectId The project id.
      * @return _walletIds The list of wallet ids.
      */
-    function getProjectWalletIds(bytes32 _projectId)
+    function getProjectWalletIds(
+        bytes32 _projectId
+    )
         external view
         returns (bytes32[] memory _walletIds);
 
@@ -220,7 +233,11 @@ interface ITeeWalletManager {
      * @param _walletId The wallet id.
      * @return _projectId The project id.
      */
-    function getWalletProjectId(bytes32 _walletId) external view returns (bytes32 _projectId);
+    function getWalletProjectId(
+        bytes32 _walletId
+    )
+        external view
+        returns (bytes32 _projectId);
 
     /**
      * Returns wallet's admins public keys and threshold.
@@ -228,9 +245,14 @@ interface ITeeWalletManager {
      * @return _adminsPublicKeys The wallet admins public keys.
      * @return _adminsThreshold The wallet admins threshold.
      */
-    function getWalletAdminsPublicKeysAndThreshold(bytes32 _walletId)
+    function getWalletAdminsPublicKeysAndThreshold(
+        bytes32 _walletId
+    )
         external view
-        returns (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold);
+        returns (
+            PublicKey[] memory _adminsPublicKeys,
+            uint64 _adminsThreshold
+        );
 
     /**
      * Returns wallet's admins and threshold.
@@ -238,9 +260,14 @@ interface ITeeWalletManager {
      * @return _admins The wallet admins.
      * @return _adminsThreshold The wallet admins threshold.
      */
-    function getWalletAdminsAndThreshold(bytes32 _walletId)
+    function getWalletAdminsAndThreshold(
+        bytes32 _walletId
+    )
         external view
-        returns (address[] memory _admins, uint64 _adminsThreshold);
+        returns (
+            address[] memory _admins,
+            uint64 _adminsThreshold
+        );
 
     /**
      * Returns wallet's cosigners and threshold.
@@ -248,14 +275,23 @@ interface ITeeWalletManager {
      * @return _cosigners The wallet cosigners.
      * @return _cosignersThreshold The wallet cosigners threshold.
      */
-    function getWalletCosignersAndThreshold(bytes32 _walletId)
+    function getWalletCosignersAndThreshold(
+        bytes32 _walletId
+    )
         external view
-        returns (address[] memory _cosigners, uint64 _cosignersThreshold);
+        returns (
+            address[] memory _cosigners,
+            uint64 _cosignersThreshold
+        );
 
     /**
      * Returns wallet's status.
      * @param _walletId The wallet id.
      * @param _status The status.
      */
-    function getWalletStatus(bytes32 _walletId) external view returns (WalletStatus _status);
+    function getWalletStatus(
+        bytes32 _walletId
+    )
+        external view
+        returns (WalletStatus _status);
 }

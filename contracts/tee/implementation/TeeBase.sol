@@ -28,7 +28,10 @@ abstract contract TeeBase is GovernedProxyImplementation, UUPSUpgradeable, Addre
      * @inheritdoc UUPSUpgradeable
      * @dev Only governance can call this method.
      */
-    function upgradeToAndCall(address _newImplementation, bytes memory _data)
+    function upgradeToAndCall(
+        address _newImplementation,
+        bytes memory _data
+    )
         public payable virtual override
         onlyGovernance
     {

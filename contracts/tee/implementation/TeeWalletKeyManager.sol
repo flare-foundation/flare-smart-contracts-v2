@@ -96,7 +96,8 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         bytes32 _walletId,
         uint64 _multisigThreshold
     )
-        external onlyOwner(_walletId)
+        external
+        onlyOwner(_walletId)
     {
         require(_multisigThreshold > 0, InvalidThreshold());
         _checkWalletStatus(_walletId);
@@ -159,7 +160,8 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         KeyExistence calldata _proof,
         Signature calldata _teeSignature
     )
-        external onlyOwnerOrBackupManager(_proof.walletId)
+        external
+        onlyOwnerOrBackupManager(_proof.walletId)
     {
         _checkTeeStatus(_proof.teeId);
         bytes32 walletId = _proof.walletId;
@@ -359,7 +361,8 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         bytes32 _walletId,
         uint64 _keyId
     )
-        external onlyTeeWalletBackupManager
+        external
+        onlyTeeWalletBackupManager
         returns (uint256 _nonce)
     {
         TeeWalletKeysState storage keys = walletKeys[_walletId];
@@ -371,9 +374,15 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletKeyManager
      */
-    function getWalletKeysInfo(bytes32 _walletId)
+    function getWalletKeysInfo(
+        bytes32 _walletId
+    )
         external view
-        returns (uint64 _multisigThreshold, uint64[] memory _keyIds, uint64 _counter)
+        returns (
+            uint64 _multisigThreshold,
+            uint64[] memory _keyIds,
+            uint64 _counter
+        )
     {
         TeeWalletKeysState storage keys = walletKeys[_walletId];
         return (keys.multisigThreshold, keys.keyIds, keys.keyIdCounter);
@@ -382,7 +391,10 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletKeyManager
      */
-    function getWalletKeyPublicKey(bytes32 _walletId, uint64 _keyId)
+    function getWalletKeyPublicKey(
+        bytes32 _walletId,
+        uint64 _keyId
+    )
         external view
         returns (bytes memory _publicKey)
     {
@@ -392,7 +404,10 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
     /**
      * @inheritdoc ITeeWalletKeyManager
      */
-    function getWalletKeyTeeIds(bytes32 _walletId, uint64 _keyId)
+    function getWalletKeyTeeIds(
+        bytes32 _walletId,
+        uint64 _keyId
+    )
         external view
         returns (address[] memory _teeIds)
     {
@@ -443,7 +458,10 @@ contract TeeWalletKeyManager is IITeeWalletKeyManager, TeeBase {
         );
     }
 
-    function _validateKeyExistenceConfigConstants(bytes32 _walletId, KeyConfigConstants calldata _configConstants)
+    function _validateKeyExistenceConfigConstants(
+        bytes32 _walletId,
+        KeyConfigConstants calldata _configConstants
+    )
         internal view
     {
         (PublicKey[] memory _adminsPublicKeys, uint64 _adminsThreshold) =

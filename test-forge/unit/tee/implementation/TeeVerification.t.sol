@@ -27,6 +27,10 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 // solhint-disable-next-line max-states-count
 contract TeeVerificationTest is Test {
 
+    bytes4 private constant SEND_SYSTEM_INSTRUCTIONS_SELECTOR = bytes4(keccak256(
+        "sendSystemInstructions(bytes32,(address,address,string)[],bytes32,bytes32,bytes,address[],uint64,address)"
+    ));
+
     TeeVerification private teeVerification;
     TeeVerification private teeVerificationImpl;
     TeeVerificationProxy private teeVerificationProxy;
@@ -195,9 +199,7 @@ contract TeeVerificationTest is Test {
         vm.mockCall(
             teeExtensionRegistry,
             abi.encodeWithSelector(
-                bytes4(keccak256(
-                    "sendSystemInstructions(bytes32,(address,address,string)[],bytes32,bytes32,bytes,address[],uint64,address)"
-                ))
+                SEND_SYSTEM_INSTRUCTIONS_SELECTOR
             ),
             abi.encode(bytes32("instructionId"))
         );
@@ -666,19 +668,25 @@ contract TeeVerificationTest is Test {
     function testRequestPMWMultisigAccountConfiguredAttestationRevertAccountAddressZero() public {
         walletAddress = "";
         vm.expectRevert(ITeeVerification.AccountAddressZero.selector);
-        teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId, address(0), address(0));
+        teeVerification.requestPMWMultisigAccountConfiguredAttestation(
+            walletId, sourceId, walletAddress, teeId, address(0), address(0)
+        );
     }
 
 
     function testRequestPMWMultisigAccountConfiguredAttestationRevertOnlyProductionOrPausedStatus() public {
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.INITIALIZED);
         vm.expectRevert(ITeeVerification.OnlyProductionOrPausedStatus.selector);
-        teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId, address(0), address(0));
+        teeVerification.requestPMWMultisigAccountConfiguredAttestation(
+            walletId, sourceId, walletAddress, teeId, address(0), address(0)
+        );
     }
 
 
     function testRequestPMWMultisigAccountConfiguredAttestation() public {
-        teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId, address(0), address(0));
+        teeVerification.requestPMWMultisigAccountConfiguredAttestation(
+            walletId, sourceId, walletAddress, teeId, address(0), address(0)
+        );
     }
 
     function testRequestPMWMultisigAccountConfiguredAttestationWithProofOwnerAndClaimBack() public {
@@ -688,7 +696,9 @@ contract TeeVerificationTest is Test {
             ftdcHub,
             _buildPMWExpectCallData(proofOwner, claimBack)
         );
-        teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId, proofOwner, claimBack);
+        teeVerification.requestPMWMultisigAccountConfiguredAttestation(
+            walletId, sourceId, walletAddress, teeId, proofOwner, claimBack
+        );
     }
 
 
@@ -946,11 +956,8 @@ contract TeeVerificationTest is Test {
             ),
             challenge: bytes32(0)
         });
-        bytes4 selector = bytes4(keccak256(
-            "sendSystemInstructions(bytes32,(address,address,string)[],bytes32,bytes32,bytes,address[],uint64,address)"
-        ));
         return abi.encodeWithSelector(
-            selector,
+            SEND_SYSTEM_INSTRUCTIONS_SELECTOR,
             bytes32(0),
             teeMachines,
             bytes32("F_REG"),

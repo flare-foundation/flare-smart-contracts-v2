@@ -24,7 +24,9 @@ interface ITeeFeeCalculator {
      * Returns the default fee.
      * @return The default fee.
      */
-    function getDefaultFee() external view returns (uint256);
+    function getDefaultFee()
+        external view
+        returns (uint256);
 
     /**
      * Returns the operation's fee.
@@ -36,7 +38,8 @@ interface ITeeFeeCalculator {
         bytes32 _opType,
         bytes32 _opCommand
     )
-        external view returns (uint256 _operationFee);
+        external view
+        returns (uint256 _operationFee);
 
     /**
      * Calculates the fee for the operation and list of tee ids that will receive instructions.
@@ -50,7 +53,8 @@ interface ITeeFeeCalculator {
         bytes32 _opCommand,
         address[] memory _teeIds
     )
-        external view returns (uint256 _fee);
+        external view
+        returns (uint256 _fee);
 
 
 }

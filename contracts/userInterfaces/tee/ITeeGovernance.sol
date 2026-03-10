@@ -90,7 +90,7 @@ interface ITeeGovernance {
         uint256 _extensionId
     )
         external view
-        returns(bytes32);
+        returns (bytes32);
 
     /**
      * Returns the TEE governance threshold for the given governance hash.
@@ -132,7 +132,10 @@ interface ITeeGovernance {
         bytes32 _governanceHash
     )
         external view
-        returns(address[] memory _signers, uint64 _signersThreshold);
+        returns (
+            address[] memory _signers,
+            uint64 _signersThreshold
+        );
 
     /**
      * Returns the latest governance.
@@ -144,7 +147,10 @@ interface ITeeGovernance {
         uint256 _extensionId
     )
         external view
-        returns(address[] memory _signers, uint64 _signersThreshold);
+        returns (
+            address[] memory _signers,
+            uint64 _signersThreshold
+        );
 
     /**
      * Checks if the governance hash is valid.
@@ -171,7 +177,10 @@ interface ITeeGovernance {
         uint256 _nonce
     )
         external view
-        returns (address[] memory _pausingAddresses, Signature[] memory _signatures);
+        returns (
+            address[] memory _pausingAddresses,
+            Signature[] memory _signatures
+        );
 
     /**
      * Returns the latest TEE pausing addresses.
@@ -184,7 +193,11 @@ interface ITeeGovernance {
         uint256 _extensionId
     )
         external view
-        returns (uint256 _nonce, address[] memory _pausingAddresses, Signature[] memory _signatures);
+        returns (
+            uint256 _nonce,
+            address[] memory _pausingAddresses,
+            Signature[] memory _signatures
+        );
 
     /**
      * Checks if the given address is a TEE pausing addresses signer.

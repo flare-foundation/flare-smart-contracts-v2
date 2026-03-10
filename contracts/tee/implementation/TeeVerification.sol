@@ -145,7 +145,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](1);
         teeMachines[0] = teeMachine;
 
-        _sendInstructions(
+        _sendRequestTeeAttestationInstructions(
              teeMachines,
             abi.encode(message),
             _claimBackAddress
@@ -253,7 +253,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         external
-        returns(bool)
+        returns (bool)
     {
         address teeId = _proof.requestBody.teeId;
         ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(teeId);
@@ -313,7 +313,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         IPMWMultisigAccountConfigured.Proof calldata _proof
     )
         external
-        returns(bool)
+        returns (bool)
     {
         IFtdcHub.FtdcResponseHeader calldata header = _proof.header;
         require(
@@ -362,7 +362,8 @@ contract TeeVerification is ITeeVerification, TeeBase {
         address[] calldata _cosigners,
         uint64 _cosignersThreshold
     )
-        external onlyGovernance
+        external
+        onlyGovernance
     {
         require(
             _cosigners.length >= _cosignersThreshold && (_cosigners.length == 0 || _cosignersThreshold > 0),
@@ -396,7 +397,8 @@ contract TeeVerification is ITeeVerification, TeeBase {
         uint24 _signingPolicyValidityDurationInRewardEpochs,
         uint64 _challengeValidityDurationSeconds
     )
-        external onlyGovernance
+        external
+        onlyGovernance
     {
         _updateSettings(
             _availabilityCheckValidityDurationSeconds,
@@ -410,7 +412,10 @@ contract TeeVerification is ITeeVerification, TeeBase {
      */
     function getCosigners()
         external view
-        returns(address[] memory _cosigners, uint64 _cosignersThreshold)
+        returns (
+            address[] memory _cosigners,
+            uint64 _cosignersThreshold
+        )
     {
         _cosigners = cosigners.values();
         _cosignersThreshold = cosignersThreshold;
@@ -421,7 +426,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
      */
     function getSettings()
         external view
-        returns(
+        returns (
             uint256 _availabilityCheckValidityDurationSeconds,
             uint256 _challengeValidityDurationSeconds
         )
@@ -433,9 +438,14 @@ contract TeeVerification is ITeeVerification, TeeBase {
     /**
      * @inheritdoc ITeeVerification
      */
-    function getAvailabilityCheckValidity(address _teeId)
+    function getAvailabilityCheckValidity(
+        address _teeId
+    )
         external view
-        returns(uint64 _endTs, uint32 _lastSigningPolicyId)
+        returns (
+            uint64 _endTs,
+            uint32 _lastSigningPolicyId
+        )
     {
         AvailabilityCheckValidity memory validity = availabilityCheckValidity[_teeId];
         _endTs = validity.endTs;
@@ -501,7 +511,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         internal
-        returns(bool)
+        returns (bool)
     {
         IFtdcHub.FtdcResponseHeader calldata header = _proof.header;
         require(
@@ -586,7 +596,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         return true;
     }
 
-    function _sendInstructions(
+    function _sendRequestTeeAttestationInstructions(
         ITeeMachineRegistry.TeeMachine[] memory _teeMachines,
         bytes memory _message,
         address _claimBackAddress
@@ -679,14 +689,16 @@ contract TeeVerification is ITeeVerification, TeeBase {
         uint256 _currentRewardEpochId
     )
         internal view
-        returns(bool)
+        returns (bool)
     {
         return _signingPolicyId + signingPolicyValidityDurationInRewardEpochs >= _currentRewardEpochId;
     }
 
-    function _getAttestingTeeId(address _teeId)
+    function _getAttestingTeeId(
+        address _teeId
+    )
         internal view
-        returns(address _attestingTeeId)
+        returns (address _attestingTeeId)
     {
         // TEE machines in status PAUSED_FOR_UPGRADE does not require attestation
         _attestingTeeId = teeReplication.getReplicatingTeeId(_teeId);
@@ -706,9 +718,11 @@ contract TeeVerification is ITeeVerification, TeeBase {
         require(_minDuration <= _duration && _duration <= _maxDuration, InvalidDuration());
     }
 
-    function _toCosignersMessageHash(bytes32 _messageHash)
+    function _toCosignersMessageHash(
+        bytes32 _messageHash
+    )
         internal pure
-        returns(bytes32)
+        returns (bytes32)
     {
         return keccak256(bytes.concat(hex"010000000000", _messageHash));
     }
