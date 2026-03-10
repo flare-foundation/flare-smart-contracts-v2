@@ -331,6 +331,17 @@ contract TeeVerificationTest is Test {
         teeVerification.requestTeeAttestation(teeId, address(0));
     }
 
+    function testRequestTeeAttestationWithClaimBackAddress() public {
+        address claimBack = makeAddr("claimBack");
+        vm.expectCall(
+            teeExtensionRegistry,
+            _buildTeeAttestationExpectCallData(claimBack)
+        );
+        vm.expectEmit();
+        emit ITeeVerification.TeeAttestationRequested(teeId, bytes32(0));
+        teeVerification.requestTeeAttestation(teeId, claimBack);
+    }
+
 
     // requestAvailabilityCheckAttestation
     function testRequestAvailabilityCheckAttestationRevertChallengeExpired() public {
@@ -349,6 +360,18 @@ contract TeeVerificationTest is Test {
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
         _mockGetReplicatingTeeId(address(0));
         teeVerification.requestAvailabilityCheckAttestation(teeId, instructionId, teeId, address(0), address(0));
+    }
+
+    function testRequestAvailabilityCheckAttestationWithProofOwnerAndClaimBack() public {
+        address proofOwner = makeAddr("proofOwner");
+        address claimBack = makeAddr("claimBack");
+        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
+        _mockGetReplicatingTeeId(address(0));
+        vm.expectCall(
+            ftdcHub,
+            _buildAvailabilityCheckExpectCallData(proofOwner, claimBack)
+        );
+        teeVerification.requestAvailabilityCheckAttestation(teeId, instructionId, teeId, proofOwner, claimBack);
     }
 
 
@@ -658,6 +681,16 @@ contract TeeVerificationTest is Test {
         teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId, address(0), address(0));
     }
 
+    function testRequestPMWMultisigAccountConfiguredAttestationWithProofOwnerAndClaimBack() public {
+        address proofOwner = makeAddr("proofOwner");
+        address claimBack = makeAddr("claimBack");
+        vm.expectCall(
+            ftdcHub,
+            _buildPMWExpectCallData(proofOwner, claimBack)
+        );
+        teeVerification.requestPMWMultisigAccountConfiguredAttestation(walletId, sourceId, walletAddress, teeId, proofOwner, claimBack);
+    }
+
 
     // verifyPMWMultisigAccountConfiguredProof
     function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidAttestation() public {
@@ -899,6 +932,100 @@ contract TeeVerificationTest is Test {
                 IITeeSystemStateVerifier.verifyTeeSystemState.selector
             ),
             abi.encode(_val)
+        );
+    }
+
+    function _buildTeeAttestationExpectCallData(
+        address _claimBack
+    ) private view returns (bytes memory) {
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](1);
+        teeMachines[0] = ITeeMachineRegistry.TeeMachine(teeId, teeProxyId, url);
+        ITeeVerification.TeeAttestation memory message = ITeeVerification.TeeAttestation({
+            teeMachine: ITeeMachineRegistry.TeeMachineWithAttestationData(
+                teeId, teeId, url, proof.responseBody.codeHash, proof.responseBody.platform
+            ),
+            challenge: bytes32(0)
+        });
+        bytes4 selector = bytes4(keccak256(
+            "sendSystemInstructions(bytes32,(address,address,string)[],bytes32,bytes32,bytes,address[],uint64,address)"
+        ));
+        return abi.encodeWithSelector(
+            selector,
+            bytes32(0),
+            teeMachines,
+            bytes32("F_REG"),
+            bytes32("TEE_ATTESTATION"),
+            abi.encode(message),
+            new address[](0),
+            uint64(0),
+            _claimBack
+        );
+    }
+
+    function _buildAvailabilityCheckExpectCallData(
+        address _proofOwner,
+        address _claimBack
+    ) private view returns (bytes memory) {
+        ITeeAvailabilityCheck.RequestBody memory requestBody = ITeeAvailabilityCheck.RequestBody({
+            teeId: teeId,
+            teeProxyId: teeProxyId,
+            url: url,
+            challenge: bytes32(0),
+            instructionId: instructionId
+        });
+        IFtdcHub.FtdcAttestationRequest memory attestationRequest = IFtdcHub.FtdcAttestationRequest({
+            header: IFtdcHub.FtdcRequestHeader({
+                attestationType: bytes32("TeeAvailabilityCheck"),
+                sourceId: sourceId,
+                thresholdBIPS: 0,
+                proofOwner: _proofOwner
+            }),
+            requestBody: abi.encode(requestBody)
+        });
+        address[] memory teeIdsParam = new address[](1);
+        teeIdsParam[0] = teeId;
+        return abi.encodeWithSelector(
+            IFtdcHub.requestAttestation.selector,
+            attestationRequest,
+            uint256(0),
+            teeIdsParam,
+            new address[](0),
+            uint64(0),
+            _claimBack
+        );
+    }
+
+    function _buildPMWExpectCallData(
+        address _proofOwner,
+        address _claimBack
+    ) private view returns (bytes memory) {
+        IPMWMultisigAccountConfigured.RequestBody memory requestBody = IPMWMultisigAccountConfigured.RequestBody({
+            accountAddress: walletAddress,
+            publicKeys: new bytes[](keyIds.length),
+            threshold: multisigThreshold
+        });
+        for (uint256 i = 0; i < keyIds.length; i++) {
+            requestBody.publicKeys[i] = publicKey;
+        }
+        IFtdcHub.FtdcAttestationRequest memory attestationRequest = IFtdcHub.FtdcAttestationRequest({
+            header: IFtdcHub.FtdcRequestHeader({
+                attestationType: PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
+                sourceId: sourceId,
+                thresholdBIPS: 0,
+                proofOwner: _proofOwner
+            }),
+            requestBody: abi.encode(requestBody)
+        });
+        address[] memory teeIdsParam = new address[](1);
+        teeIdsParam[0] = teeId;
+        return abi.encodeWithSelector(
+            IFtdcHub.requestAttestation.selector,
+            attestationRequest,
+            uint256(0),
+            teeIdsParam,
+            new address[](0),
+            uint64(0),
+            _claimBack
         );
     }
 }

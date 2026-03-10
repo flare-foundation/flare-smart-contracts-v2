@@ -550,6 +550,37 @@ contract TeeWalletManagerTest is Test {
         teeWalletManager.setPausingAddresses{value: 12345}(walletId, pausingAddresses, address(0));
     }
 
+    function testSetPausingAddressesWithClaimBackAddress() public {
+        testEnableWallet();
+        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
+            TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
+        address[] memory teeIds = new address[](1);
+        teeIds[0] = teeIdKeyIdPairs[0].teeId;
+        _mockCalculateFeeByTeeIds(teeIds, WALLET_OP_TYPE, SET_PAUSING_ADDRESSES, 1234);
+        _mockGetTeeMachine(teeIds[0]);
+        address[] memory pausingAddresses = new address[](2);
+        pausingAddresses[0] = makeAddr("pausingAddress1");
+        pausingAddresses[1] = makeAddr("pausingAddress2");
+        (address[] memory admins, uint64 adminsThreshold) =
+            teeWalletManager.getWalletAdminsAndThreshold(walletId);
+        vm.prank(projectOwner);
+        vm.expectEmit();
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
+            0,
+            keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
+            10,
+            receivingTees,
+            WALLET_OP_TYPE,
+            SET_PAUSING_ADDRESSES,
+            abi.encode(ITeeWalletManager.SetPausingAddresses(walletId, 0, teeIdKeyIdPairs, pausingAddresses)),
+            admins,
+            adminsThreshold,
+            makeAddr("claimBack"),
+            12345
+        );
+        teeWalletManager.setPausingAddresses{value: 12345}(walletId, pausingAddresses, makeAddr("claimBack"));
+    }
+
     function testSetPausingAddressesRevertOnlyWalletOwner() public {
         testEnableWallet();
         vm.expectRevert(ITeeWalletManager.OnlyOwner.selector);
@@ -622,6 +653,56 @@ contract TeeWalletManagerTest is Test {
             1234
         );
         teeWalletManager.resume{value: 1234}(walletId, keysData, address(0));
+    }
+
+    function testResumeWithClaimBackAddress() public {
+        address claimBack = makeAddr("claimBack");
+        testPauseWallet();
+
+        ITeeWalletManager.ResumeKeyData [] memory keysData = new ITeeWalletManager.ResumeKeyData[](2);
+        keysData[0] = ITeeWalletManager.ResumeKeyData({
+            keyId: 1,
+            teeId: makeAddr("tee1"),
+            nonce: 0
+        });
+        keysData[1] = ITeeWalletManager.ResumeKeyData({
+            keyId: 2,
+            teeId: makeAddr("tee2"),
+            nonce: 1
+        });
+        address[] memory teeIds = new address[](2);
+        teeIds[0] = keysData[0].teeId;
+        teeIds[1] = keysData[1].teeId;
+
+        uint64[] memory keyIds = new uint64[](2);
+        keyIds[0] = 1;
+        keyIds[1] = 2;
+        _mockGetWalletKeysInfo(walletId, 2, keyIds);
+        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PRODUCTION);
+        _mockCalculateFeeByTeeIds(teeIds, WALLET_OP_TYPE, RESUME, 1234);
+        ITeeWalletManager.Resume memory message = ITeeWalletManager.Resume(
+            walletId,
+            keysData
+        );
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](keysData.length);
+        teeMachines[0] = _mockGetTeeMachine(makeAddr("tee1"));
+        teeMachines[1] = _mockGetTeeMachine(makeAddr("tee2"));
+        vm.prank(projectOwner);
+        vm.expectEmit();
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
+            0,
+            keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
+            10,
+            teeMachines,
+            WALLET_OP_TYPE,
+            RESUME,
+            abi.encode(message),
+            new address[](0),
+            0,
+            claimBack,
+            1234
+        );
+        teeWalletManager.resume{value: 1234}(walletId, keysData, claimBack);
     }
 
     function testResumeRevertWrongStatus() public {

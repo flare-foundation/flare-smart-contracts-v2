@@ -110,7 +110,7 @@ interface ITeeVersionManager {
         external;
 
     /**
-     * Signs the TEE upgrade.
+     * Signs the TEE upgrade. Signer must be part of the source TEE governance and/or the target TEE governance.
      * Emits TeeUpgradeSourceSignatureAdded and/or TeeUpgradeTargetSignatureAdded event when a signature is added.
      * Emits TeeUpgradeSigned event when all required signatures are collected.
      * @param _teeUpgradeId The TEE upgrade id.

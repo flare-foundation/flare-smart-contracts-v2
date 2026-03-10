@@ -329,6 +329,47 @@ contract FtdcHubTest is Test {
         );
     }
 
+    function testRequestAttestationWithProofOwnerAndClaimBack() public {
+        _mockGetTeeMachineStatus(teeIds[0], ITeeMachineRegistry.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(teeIds[1], ITeeMachineRegistry.TeeStatus.PRODUCTION);
+        address[] memory teeIdsForFee = new address[](2);
+        teeIdsForFee[0] = teeIds[0];
+        teeIdsForFee[1] = teeIds[1];
+        _mockGetCurrentRewardEpochId(123);
+        bytes32 attestationType = "PMWPaymentStatus";
+        bytes32 sourceId = "XRP";
+        bytes memory attestationRequest = "attestationRequest";
+        address proofOwner = makeAddr("proofOwner");
+        address claimBack = makeAddr("claimBack");
+
+        IFtdcHub.FtdcAttestationRequest memory message = IFtdcHub.FtdcAttestationRequest({
+            header: IFtdcHub.FtdcRequestHeader({
+                attestationType: attestationType,
+                sourceId: sourceId,
+                thresholdBIPS: minThresholdBIPS,
+                proofOwner: proofOwner
+            }),
+            requestBody: attestationRequest
+        });
+        vm.expectEmit();
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
+            0,
+            keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
+            123,
+            _getTeeMachines(2),
+            FTDC_OP_TYPE,
+            PROVE,
+            abi.encode(message),
+            new address[](0),
+            0,
+            claimBack,
+            15
+        );
+        ftdcHub.requestAttestation{value: requestFee + 15} (
+            message, 0, teeIds, new address[](0), 0, claimBack
+        );
+    }
+
     // list of teeIds not provided and number is also not (it will take default)
     function testRequestAttestation2() public {
         _mockGetTeeMachineStatus(teeIds[0], ITeeMachineRegistry.TeeStatus.PRODUCTION);

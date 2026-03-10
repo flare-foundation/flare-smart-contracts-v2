@@ -26,6 +26,7 @@ contract TeeWalletKeyManagerTest is Test {
 
     bytes32 public constant WALLET_OP_TYPE = bytes32("F_WALLET");
     bytes32 public constant KEY_GENERATE = bytes32("KEY_GENERATE");
+    bytes32 public constant KEY_DELETE = bytes32("KEY_DELETE");
 
     TeeWalletKeyManager private teeWalletKeyManager;
     TeeWalletKeyManager private teeWalletKeyManagerImpl;
@@ -368,6 +369,60 @@ contract TeeWalletKeyManagerTest is Test {
         teeWalletKeyManager.addKey{value: 2 * fee}(teeId, walletId, address(0));
     }
 
+    function testAddKeyWithClaimBackAddress() public {
+        address claimBack = makeAddr("claimBack");
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](1);
+        teeMachines[0] = ITeeMachineRegistry.TeeMachine(teeId, makeAddr("teeProxy"), "url");
+        vm.mockCall(
+            teeMachineRegistry,
+            abi.encodeWithSelector(
+                ITeeMachineRegistry.getTeeMachine.selector, teeId
+            ),
+            abi.encode(teeMachines[0])
+        );
+        uint24 currentRewardEpochId = 8;
+        vm.mockCall(
+            flareSystemsManagerMock,
+            abi.encodeWithSelector(
+                ProtocolsV2Interface.getCurrentRewardEpochId.selector
+            ),
+            abi.encode(currentRewardEpochId)
+        );
+
+        ITeeWalletKeyManager.KeyGenerate memory message = ITeeWalletKeyManager.KeyGenerate({
+            teeId: teeId,
+            walletId: walletId,
+            keyId: keyId,
+            keyType: keyType,
+            signingAlgo: signingAlgo,
+            configConstants: ITeeWalletKeyManager.KeyConfigConstants({
+                adminsPublicKeys: publicKeys,
+                adminsThreshold: 1,
+                cosigners: cosigners,
+                cosignersThreshold: 1
+            })
+        });
+
+        vm.prank(owner);
+        vm.expectEmit();
+        emit ITeeWalletKeyManager.WalletKeyAdded(teeId, walletId, 0);
+        vm.expectEmit();
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
+            extensionId,
+            keccak256(abi.encode(extensionId, 0, blockhash(block.number - 1))),
+            currentRewardEpochId,
+            teeMachines,
+            WALLET_OP_TYPE,
+            KEY_GENERATE,
+            abi.encode(message),
+            new address[](0),
+            0,
+            claimBack,
+            2 * fee
+        );
+        teeWalletKeyManager.addKey{value: 2 * fee}(teeId, walletId, claimBack);
+    }
+
 
     // confirmKey
     function testConfirmKeyRevertOnlyOwnerOrBackupManager() public {
@@ -681,6 +736,76 @@ contract TeeWalletKeyManagerTest is Test {
         vm.expectEmit();
         emit ITeeWalletKeyManager.WalletKeyDeleted(teeId, walletId, keyId);
         teeWalletKeyManager.deleteKey{value: fee}(teeId, walletId, keyId, address(0));
+    }
+
+    function testDeleteKeyWithClaimBackAddress() public {
+        address claimBack = makeAddr("claimBack");
+        _setupConfirmKeyInWallet();
+        ITeeMachineRegistry.TeeMachine[] memory teeMachines = new ITeeMachineRegistry.TeeMachine[](1);
+        teeMachines[0] = ITeeMachineRegistry.TeeMachine(newTeeId, makeAddr("teeProxy"), "url");
+        vm.mockCall(
+            teeMachineRegistry,
+            abi.encodeWithSelector(
+                ITeeMachineRegistry.getTeeMachine.selector, newTeeId
+            ),
+            abi.encode(teeMachines[0])
+        );
+        uint24 currentRewardEpochId = 8;
+        vm.mockCall(
+            flareSystemsManagerMock,
+            abi.encodeWithSelector(
+                ProtocolsV2Interface.getCurrentRewardEpochId.selector
+            ),
+            abi.encode(currentRewardEpochId)
+        );
+        vm.prank(owner);
+        teeWalletKeyManager.addKey{value: fee}(newTeeId, walletId, address(0));
+        vm.prank(teeWalletBackupManager);
+        teeWalletKeyManager.increaseKeyNonce(newTeeId, walletId, keyId);
+        proof.teeId = newTeeId;
+        proof.restored = true;
+        teeSignature = _createSignature(newPrivateKey);
+        vm.prank(owner);
+        teeWalletKeyManager.confirmKey(proof, teeSignature);
+
+        address[] memory teeIds = teeWalletKeyManager.getWalletKeyTeeIds(walletId, keyId);
+        assertEq(teeIds.length, 2);
+
+        // Build expected event data
+        ITeeMachineRegistry.TeeMachine[] memory deleteTeeMachines = new ITeeMachineRegistry.TeeMachine[](1);
+        deleteTeeMachines[0] = ITeeMachineRegistry.TeeMachine(teeId, makeAddr("teeProxy"), "url");
+        vm.mockCall(
+            teeMachineRegistry,
+            abi.encodeWithSelector(
+                ITeeMachineRegistry.getTeeMachine.selector, teeId
+            ),
+            abi.encode(deleteTeeMachines[0])
+        );
+        ITeeWalletKeyManager.KeyDelete memory message = ITeeWalletKeyManager.KeyDelete({
+            teeId: teeId,
+            walletId: walletId,
+            keyId: keyId,
+            nonce: 2
+        });
+
+        vm.prank(owner);
+        vm.expectEmit();
+        emit ITeeWalletKeyManager.WalletKeyDeleted(teeId, walletId, keyId);
+        vm.expectEmit();
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
+            extensionId,
+            keccak256(abi.encode(extensionId, 2, blockhash(block.number - 1))),
+            currentRewardEpochId,
+            deleteTeeMachines,
+            WALLET_OP_TYPE,
+            KEY_DELETE,
+            abi.encode(message),
+            new address[](0),
+            0,
+            claimBack,
+            fee
+        );
+        teeWalletKeyManager.deleteKey{value: fee}(teeId, walletId, keyId, claimBack);
     }
 
 

@@ -444,6 +444,29 @@ contract TeePaymentsTest is Test {
         teePayments.setPaymentLimits{value: 988}(pmwMultisigAccount, transactionLimit, dailyLimit, address(0));
     }
 
+    function testSetPaymentLimitsWithClaimBackAddress() public {
+        testAddPMWMultisigAccount();
+        _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
+        (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
+            TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
+        vm.prank(walletOwner);
+        vm.expectEmit();
+        emit ITeeExtensionRegistry.TeeInstructionsSent(
+            0,
+            keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
+            10,
+            receivingTees,
+            OP_TYPE,
+            SET_PAYMENT_LIMITS,
+            abi.encode(ITeePayments.SetPaymentLimits(walletId, SOURCE_ID, senderAddress, 0, teeIdKeyIdPairs, 1000, 10000)),
+            admins,
+            adminsThreshold,
+            makeAddr("claimBack"),
+            988
+        );
+        teePayments.setPaymentLimits{value: 988}(pmwMultisigAccount, 1000, 10000, makeAddr("claimBack"));
+    }
+
     function testSetPaymentLimitsRevertDailyLower() public {
         testAddPMWMultisigAccount();
         vm.prank(walletOwner);

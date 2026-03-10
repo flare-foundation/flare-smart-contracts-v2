@@ -155,6 +155,37 @@ contract TeeVrfTest is Test {
         assertEq(returnedId, instructionId);
     }
 
+    function testRequestVrfWithClaimBackAddress() public {
+        address claimBack = makeAddr("claimBack");
+        address[] memory teeIds = new address[](1);
+        teeIds[0] = teeId;
+        _setupHappyPath(teeIds);
+        _mockSendInstructions(instructionId);
+
+        ITeeVrf.VrfInstructionMessage memory message = ITeeVrf.VrfInstructionMessage({
+            walletId: walletId,
+            keyId: keyId,
+            nonce: nonce
+        });
+
+        vm.expectCall(
+            mockTeeExtensionRegistry,
+            abi.encodeWithSelector(
+                ITeeExtensionRegistry.sendInstructions.selector,
+                teeIds,
+                bytes32("F_WALLET"),
+                bytes32("VRF"),
+                abi.encode(message),
+                new address[](0),
+                uint64(0),
+                claimBack
+            )
+        );
+        vm.prank(authAddress);
+        bytes32 returnedId = teeVrf.requestVrf(walletId, keyId, nonce, claimBack);
+        assertEq(returnedId, instructionId);
+    }
+
     function testRequestVrfForwardsValue() public {
         address[] memory teeIds = new address[](1);
         teeIds[0] = teeId;

@@ -160,6 +160,33 @@ contract TeeReplicationTest is Test {
         teeReplication.toPauseForUpgrade(teeId, address(0));
     }
 
+    function testToPauseForUpgradeWithClaimBackAddress() public {
+        address claimBack = makeAddr("claimBack");
+        _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PAUSED);
+        ITeeReplication.PauseForUpgrade memory message = ITeeReplication.PauseForUpgrade({
+            teeId: teeId,
+            initialTeeId: teeId
+        });
+        vm.expectCall(
+            teeExtensionRegistry,
+            abi.encodeWithSelector(
+                ITeeExtensionRegistry.sendInstructions.selector,
+                teeIds,
+                bytes32("F_REG"),
+                bytes32("TO_PAUSE_FOR_UPGRADE"),
+                abi.encode(message),
+                new address[](0),
+                uint64(0),
+                claimBack
+            )
+        );
+        vm.prank(owner);
+        vm.expectEmit();
+        emit ITeeReplication.TeeMachinePausedForUpgrade(teeId);
+        vm.warp(1 days);
+        teeReplication.toPauseForUpgrade(teeId, claimBack);
+    }
+
 
     // replicateFrom
     function testReplicateFromRevertOnlyMachineOwner() public {
@@ -270,6 +297,39 @@ contract TeeReplicationTest is Test {
         emit ITeeReplication.TeeMachineReplicationTriggered(teeId, newTeeId, teeUpgradeId);
         vm.prank(owner);
         teeReplication.replicateFrom(teeId, proof, teeUpgradeId, address(0));
+    }
+
+    function testReplicateFromWithClaimBackAddress() public {
+        address claimBack = makeAddr("claimBack");
+        ITeeAvailabilityCheck.Proof memory proof = _setupReplicateFrom();
+        ITeeReplication.ReplicateTeeMachine memory message = ITeeReplication.ReplicateTeeMachine({
+            oldTeeMachine: ITeeMachineRegistry.TeeMachineWithAttestationData(
+                teeId, teeId, url, keccak256("codeHash"), keccak256("platform")
+            ),
+            newTeeMachine: ITeeMachineRegistry.TeeMachineWithAttestationData(
+                newTeeId, newTeeId, url, keccak256("codeHash"), keccak256("platform")
+            )
+        });
+        address[] memory replicateTeeIds = new address[](2);
+        replicateTeeIds[0] = teeId;
+        replicateTeeIds[1] = newTeeId;
+        vm.expectCall(
+            teeExtensionRegistry,
+            abi.encodeWithSelector(
+                ITeeExtensionRegistry.sendInstructions.selector,
+                replicateTeeIds,
+                bytes32("F_REG"),
+                bytes32("REPLICATE_FROM"),
+                abi.encode(message),
+                new address[](0),
+                uint64(0),
+                claimBack
+            )
+        );
+        vm.expectEmit();
+        emit ITeeReplication.TeeMachineReplicationTriggered(teeId, newTeeId, teeUpgradeId);
+        vm.prank(owner);
+        teeReplication.replicateFrom(teeId, proof, teeUpgradeId, claimBack);
     }
 
 
