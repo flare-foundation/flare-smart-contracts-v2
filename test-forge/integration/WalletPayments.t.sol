@@ -602,8 +602,8 @@ contract WalletPaymentsTest is Test {
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
         teePayments.reissue{value: 50}(
-            account1, 0, 0, instructions, fees,
-            feeFactorScheduleBIPS, feeDelayScheduleSeconds,
+            account1, 0, 0, instructions,
+            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }
@@ -668,8 +668,8 @@ contract WalletPaymentsTest is Test {
         );
         vm.prank(authorizationAddress);
         teePayments.reissue{value: 60}(
-            account1, 2, 2, instructions, fees,
-            feeFactorScheduleBIPS, feeDelayScheduleSeconds,
+            account1, 2, 2, instructions,
+            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }

@@ -2068,7 +2068,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         await time.increase(1);
         const tx = await teePaymentsXRP.reissue({ sourceId: XRP_SOURCE_ID, accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh" }, 2, 2,
             [{ recipientAddress: "rJcBbUCtPg7b4Pfou23SgF18yMihWueK5B", tokenId: constants.ZERO_BYTES32, amount: "500", maxFee: 150, paymentReference: "0xa586ed066db13d66ebe984e1898a2c5fdd74927b21fe92d3b9913725cdaee75a" }],
-            [10000], [[]], [],
+            { maxFees: [10000], feeFactorScheduleBIPS: [[]], feeDelayScheduleSeconds: []},
             constants.ZERO_ADDRESS, { value: "10", from: TEE_WALLET_AUTHORIZATION_ADDRESSES[0] });
         const message = {
             walletId: WALLET1_ID,
@@ -2097,7 +2097,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
         const tx2 = await teePaymentsEVM.reissue({ sourceId: FLR_SOURCE_ID, accountAddress: accounts[200] }, 1, 1,
             [{ recipientAddress: accounts[150], tokenId: constants.ZERO_BYTES32, amount: "1500", maxFee: 1000, paymentReference: "0xa7ed203289b636afb50dfc134afdcf844e495ec686cda5fb958e5a0ddd039797" }],
-            [5000000], [[]], [],
+            { maxFees: [5000000], feeFactorScheduleBIPS: [[]], feeDelayScheduleSeconds: []},
             constants.ZERO_ADDRESS, { value: "10", from: TEE_WALLET_AUTHORIZATION_ADDRESSES[1] });
         const message2 = {
             walletId: WALLET2_ID,

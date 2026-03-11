@@ -23,6 +23,18 @@ interface ITeePayments {
         bytes32 paymentReference;
     }
 
+    /**
+     * @param maxFees The max fees of the payment instructions.
+     * @param feeFactorScheduleBIPS The factor schedules of the payment instructions (in BIPS). Part of max fee.
+     * @param feeDelayScheduleSeconds The time schedule of the payment instructions (in seconds from the start,
+      ordered ascending).
+     */
+    struct ReissueFeeSettings {
+        uint256[] maxFees;
+        int16[][] feeFactorScheduleBIPS;
+        uint16[] feeDelayScheduleSeconds;
+    }
+
     struct PaymentInstructionMessage {
         bytes32 walletId;
         TeeIdKeyIdPair[] teeIdKeyIdPairs;
@@ -63,6 +75,14 @@ interface ITeePayments {
         string accountAddress,
         int16[] factorsBIPS,
         uint16[] delaysSeconds
+    );
+
+    event PaymentLimitsSet(
+        bytes32 indexed walletId,
+        bytes32 sourceId,
+        string accountAddress,
+        uint256 transactionLimit,
+        uint256 dailyLimit
     );
 
     event PMWMultisigAccountAdded(
@@ -136,10 +156,7 @@ interface ITeePayments {
      * @param _nonce Batch nonce of the payment instructions to be reissued.
      * @param _firstSubNonce SubNonce of the first payment instruction in the batch.
      * @param _paymentInstructions List of the payment instructions.
-     * @param _maxFees The max fees of the payment instructions.
-     * @param _factorScheduleBIPS The factor schedules of the payment instructions (in BIPS). Part of max fee.
-     * @param _timeScheduleSeconds The time schedule of the payment instructions (in seconds from the start,
-      ordered ascending).
+     * @param _reissueFeeSettings The fee settings for the reissue.
      * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * Can only be called by the authorization address of the PMW multisig account.
      */
@@ -148,9 +165,7 @@ interface ITeePayments {
         uint64 _nonce,
         uint64 _firstSubNonce,
         PaymentInstruction[] calldata _paymentInstructions,
-        uint256[] calldata _maxFees,
-        int16[][] calldata _factorScheduleBIPS,
-        uint16[] calldata _timeScheduleSeconds,
+        ReissueFeeSettings calldata _reissueFeeSettings,
         address _claimBackAddress
     )
         external payable;
@@ -187,6 +202,7 @@ interface ITeePayments {
 
     /**
      * Method for setting the fee schedule.
+     * Emits FeeScheduleSet event.
      * @param _account The PMW multisig account.
      * @param _factorsBIPS The factor schedule of the payment instructions (in BIPS).
      * @param _delaysSeconds The time schedule of the payment instructions (in seconds from the start,
@@ -202,6 +218,7 @@ interface ITeePayments {
 
     /**
      * Set payment limits instruction method.
+     * Emits PaymentLimitsSet event.
      * @param _account The PMW multisig account.
      * @param _transactionLimit The transaction limit.
      * @param _dailyLimit The daily limit.
