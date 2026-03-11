@@ -156,27 +156,43 @@ contract TeeExtensionRegistryTest is Test {
     function testSendInstructionsRevertNoTeeMachinesSpecified() public {
         vm.expectRevert(ITeeExtensionRegistry.NoTeeMachinesSpecified.selector);
         teeExtensionRegistry.sendInstructions(
-            new address[](0), opType, opCommand, message, new address[](0), 0, address(0)
+            new address[](0),
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType, opCommand, message, new address[](0), 0, address(0)
+            )
         );
     }
 
 
     function testSendInstructionsRevertOperationTypeEmpty() public {
         vm.expectRevert(ITeeExtensionRegistry.OperationTypeEmpty.selector);
-        teeExtensionRegistry.sendInstructions(teeIds, bytes32(0), opCommand, message, new address[](0), 0, address(0));
+        teeExtensionRegistry.sendInstructions(
+            teeIds,
+            ITeeExtensionRegistry.TeeInstructionParams(
+                bytes32(0), opCommand, message, new address[](0), 0, address(0)
+            )
+        );
     }
 
 
     function testSendInstructionsRevertOperationCommandEmpty() public {
         vm.expectRevert(ITeeExtensionRegistry.OperationCommandEmpty.selector);
-        teeExtensionRegistry.sendInstructions(teeIds, opType, bytes32(0), message, new address[](0), 0, address(0));
+        teeExtensionRegistry.sendInstructions(
+            teeIds,
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType, bytes32(0), message, new address[](0), 0, address(0)
+            )
+        );
     }
 
 
     function testSendInstructionsRevertMessageEmpty() public {
         vm.expectRevert(ITeeExtensionRegistry.MessageEmpty.selector);
         teeExtensionRegistry.sendInstructions(
-            teeIds, opType, opCommand, new bytes(0), new address[](0), 0, address(0)
+            teeIds,
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType, opCommand, new bytes(0), new address[](0), 0, address(0)
+            )
         );
     }
 
@@ -184,13 +200,23 @@ contract TeeExtensionRegistryTest is Test {
     function testSendInstructionsRevertExtensionIdMismatch() public {
         _mockGetExtensionId(teeIds[1], extensionId + 1);
         vm.expectRevert(ITeeExtensionRegistry.ExtensionIdMismatch.selector);
-        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, new address[](0), 0, address(0));
+        teeExtensionRegistry.sendInstructions(
+            teeIds,
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType, opCommand, message, new address[](0), 0, address(0)
+            )
+        );
     }
 
 
     function testSendInstructionsRevertOnlyInstructionsSender() public {
         vm.expectRevert(ITeeExtensionRegistry.OnlyInstructionsSender.selector);
-        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, new address[](0), 0, address(0));
+        teeExtensionRegistry.sendInstructions(
+            teeIds,
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType, opCommand, message, new address[](0), 0, address(0)
+            )
+        );
     }
 
 
@@ -204,7 +230,10 @@ contract TeeExtensionRegistryTest is Test {
             )
         );
         teeExtensionRegistry.sendInstructions(
-            teeIds, opType, opCommand, message, new address[](0), 0, address(0)
+            teeIds,
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType, opCommand, message, new address[](0), 0, address(0)
+            )
         );
     }
 
@@ -213,7 +242,12 @@ contract TeeExtensionRegistryTest is Test {
         testRegister();
         _mockCalculateFeeByTeeIds(100000);
         vm.expectRevert(ITeeExtensionRegistry.FeeTooLow.selector);
-        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, new address[](0), 0, address(0));
+        teeExtensionRegistry.sendInstructions(
+            teeIds,
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType, opCommand, message, new address[](0), 0, address(0)
+            )
+        );
     }
 
 
@@ -221,14 +255,22 @@ contract TeeExtensionRegistryTest is Test {
         testRegister();
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PAUSED);
         vm.expectRevert(ITeeExtensionRegistry.TeeMachineNotAvailable.selector);
-        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, new address[](0), 0, address(0));
+        teeExtensionRegistry.sendInstructions(
+            teeIds,
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType, opCommand, message, new address[](0), 0, address(0)
+            )
+        );
     }
 
     function testSendInstructionsRevertCosignersThresholdTooHigh() public {
         testRegister();
         vm.expectRevert(ITeeExtensionRegistry.CosignersThresholdTooHigh.selector);
         teeExtensionRegistry.sendInstructions(
-            teeIds, opType, opCommand, message, new address[](0), 1, address(0)
+            teeIds,
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType, opCommand, message, new address[](0), 1, address(0)
+            )
         );
     }
 
@@ -262,7 +304,12 @@ contract TeeExtensionRegistryTest is Test {
             address(0),
             0
         );
-        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, cosigners, 1, address(0));
+        teeExtensionRegistry.sendInstructions(
+            teeIds,
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType, opCommand, message, cosigners, 1, address(0)
+            )
+        );
     }
 
     function testSendInstructionsWithDuplicatedTeeIds() public {
@@ -301,7 +348,12 @@ contract TeeExtensionRegistryTest is Test {
             address(0),
             0
         );
-        teeExtensionRegistry.sendInstructions(teeIds, opType, opCommand, message, cosigners, 1, address(0));
+        teeExtensionRegistry.sendInstructions(
+            teeIds,
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType, opCommand, message, cosigners, 1, address(0)
+            )
+        );
     }
 
     // register
@@ -770,12 +822,7 @@ contract TeeExtensionRegistryTest is Test {
         teeExtensionRegistry.sendSystemInstructions(
             instructionId,
             teeIds,
-            opType,
-            opCommand,
-            message,
-            new address[](0),
-            0,
-            address(0)
+            ITeeExtensionRegistry.TeeInstructionParams(opType, opCommand, message, new address[](0), 0, address(0))
         );
     }
 
@@ -795,12 +842,7 @@ contract TeeExtensionRegistryTest is Test {
         teeExtensionRegistry.sendSystemInstructions(
             instructionId,
             teeMachines,
-            opType,
-            opCommand,
-            message,
-            new address[](0),
-            0,
-            address(0)
+            ITeeExtensionRegistry.TeeInstructionParams(opType, opCommand, message, new address[](0), 0, address(0))
         );
     }
 
@@ -838,12 +880,7 @@ contract TeeExtensionRegistryTest is Test {
         teeExtensionRegistry.sendSystemInstructions(
             instructionId,
             teeIds,
-            opType,
-            opCommand,
-            message,
-            cosigners,
-            1,
-            address(0)
+            ITeeExtensionRegistry.TeeInstructionParams(opType, opCommand, message, cosigners, 1, address(0))
         );
     }
 
@@ -881,12 +918,7 @@ contract TeeExtensionRegistryTest is Test {
         teeExtensionRegistry.sendSystemInstructions(
             instructionId,
             teeMachines,
-            opType,
-            opCommand,
-            message,
-            cosigners,
-            1,
-            address(0)
+            ITeeExtensionRegistry.TeeInstructionParams(opType, opCommand, message, cosigners, 1, address(0))
         );
     }
 

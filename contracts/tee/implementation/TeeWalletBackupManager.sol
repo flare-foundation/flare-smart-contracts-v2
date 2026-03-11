@@ -134,12 +134,14 @@ contract TeeWalletBackupManager is ITeeWalletBackupManager, TeeBase {
         teeIds[0] = _teeId;
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             teeIds,
-            WALLET_OP_TYPE,
-            KEY_DATA_PROVIDER_RESTORE,
-            _message,
-            _cosigners,
-            _cosignersThreshold,
-            _claimBackAddress
+            ITeeExtensionRegistry.TeeInstructionParams(
+                WALLET_OP_TYPE,
+                KEY_DATA_PROVIDER_RESTORE,
+                _message,
+                _cosigners,
+                _cosignersThreshold,
+                _claimBackAddress
+            )
         );
     }
 

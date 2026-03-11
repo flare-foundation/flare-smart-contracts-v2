@@ -28,7 +28,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 contract TeeVerificationTest is Test {
 
     bytes4 private constant SEND_SYSTEM_INSTRUCTIONS_SELECTOR = bytes4(keccak256(
-        "sendSystemInstructions(bytes32,(address,address,string)[],bytes32,bytes32,bytes,address[],uint64,address)"
+        "sendSystemInstructions(bytes32,(address,address,string)[],(bytes32,bytes32,bytes,address[],uint64,address))"
     ));
 
     TeeVerification private teeVerification;
@@ -960,12 +960,14 @@ contract TeeVerificationTest is Test {
             SEND_SYSTEM_INSTRUCTIONS_SELECTOR,
             bytes32(0),
             teeMachines,
-            bytes32("F_REG"),
-            bytes32("TEE_ATTESTATION"),
-            abi.encode(message),
-            new address[](0),
-            uint64(0),
-            _claimBack
+            ITeeExtensionRegistry.TeeInstructionParams(
+                bytes32("F_REG"),
+                bytes32("TEE_ATTESTATION"),
+                abi.encode(message),
+                new address[](0),
+                uint64(0),
+                _claimBack
+            )
         );
     }
 

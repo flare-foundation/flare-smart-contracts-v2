@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import { TeeBase } from "./TeeBase.sol";
 import { IITeeExtensionRegistry } from "../interface/IITeeExtensionRegistry.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
 import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
 import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
@@ -642,12 +643,14 @@ contract TeePayments is ITeePayments, TeeBase {
         teeExtensionRegistry.sendSystemInstructions{value: _instructionsFee}(
             _instructionId,
             _teeIds,
-            opType,
-            _opCommand,
-            _message,
-            _cosigners,
-            _cosignersThreshold,
-            _claimBackAddress
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType,
+                _opCommand,
+                _message,
+                _cosigners,
+                _cosignersThreshold,
+                _claimBackAddress
+            )
         );
     }
 
@@ -662,12 +665,14 @@ contract TeePayments is ITeePayments, TeeBase {
     {
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             _teeIds,
-            opType,
-            SET_PAYMENT_LIMITS,
-            _message,
-            _cosigners,
-            _cosignersThreshold,
-            _claimBackAddress
+            ITeeExtensionRegistry.TeeInstructionParams(
+                opType,
+                SET_PAYMENT_LIMITS,
+                _message,
+                _cosigners,
+                _cosignersThreshold,
+                _claimBackAddress
+            )
         );
     }
 

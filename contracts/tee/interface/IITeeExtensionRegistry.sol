@@ -11,12 +11,7 @@ interface IITeeExtensionRegistry is ITeeExtensionRegistry {
      * Emits TeeInstructionsSent event.
      * @param _instructionId The instruction ID - auto generated in case of bytes32(0).
      * @param _teeIds The TEE machine IDs to which the instructions are sent (must all belong to the same extension).
-     * @param _opType The operation type.
-     * @param _opCommand The operation command.
-     * @param _message The message.
-     * @param _cosigners The cosigners.
-     * @param _cosignersThreshold The cosigners threshold.
-     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
+     * @param _instructionParams The instruction parameters.
      * @return The instruction ID.
      * Can only be called by the system instructions senders.
      * @dev No check for duplicated TEE machines is performed.
@@ -24,12 +19,7 @@ interface IITeeExtensionRegistry is ITeeExtensionRegistry {
     function sendSystemInstructions(
         bytes32 _instructionId,
         address[] memory _teeIds,
-        bytes32 _opType,
-        bytes32 _opCommand,
-        bytes memory _message,
-        address[] memory _cosigners,
-        uint64 _cosignersThreshold,
-        address _claimBackAddress
+        TeeInstructionParams memory _instructionParams
     )
         external payable
         returns (bytes32);
@@ -37,14 +27,9 @@ interface IITeeExtensionRegistry is ITeeExtensionRegistry {
     /**
      * Send instructions to the TEE machines - same as sendSystemInstructions but with full TEE machine data provided.
      * Emits TeeInstructionsSent event.
-     * @param _instructionId The instruction ID.
+     * @param _instructionId The instruction ID - auto generated in case of bytes32(0).
      * @param _teeMachines The TEE machines to which the instructions are sent (must all belong to the same extension).
-     * @param _opType The operation type.
-     * @param _opCommand The operation command.
-     * @param _message The message.
-     * @param _cosigners The cosigners.
-     * @param _cosignersThreshold The cosigners threshold.
-     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
+     * @param _instructionParams The instruction parameters.
      * @return The instruction ID.
      * Can only be called by the system instructions senders.
      * @dev No check for duplicated TEE machines is performed.
@@ -52,12 +37,7 @@ interface IITeeExtensionRegistry is ITeeExtensionRegistry {
     function sendSystemInstructions(
         bytes32 _instructionId,
         ITeeMachineRegistry.TeeMachine[] memory _teeMachines,
-        bytes32 _opType,
-        bytes32 _opCommand,
-        bytes memory _message,
-        address[] memory _cosigners,
-        uint64 _cosignersThreshold,
-        address _claimBackAddress
+        TeeInstructionParams memory _instructionParams
     )
         external payable
         returns (bytes32);

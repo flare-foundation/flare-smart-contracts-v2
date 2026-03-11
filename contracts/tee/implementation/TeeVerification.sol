@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import { TeeBase } from "./TeeBase.sol";
 import { IITeeExtensionRegistry } from "../interface/IITeeExtensionRegistry.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { IITeeSystemStateVerifier } from "../interface/IITeeSystemStateVerifier.sol";
 import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
@@ -606,12 +607,14 @@ contract TeeVerification is ITeeVerification, TeeBase {
         teeExtensionRegistry.sendSystemInstructions{value: msg.value}(
             bytes32(0),
             _teeMachines,
-            REG_OP_TYPE,
-            TEE_ATTESTATION,
-            _message,
-            new address[](0),
-            0,
-            _claimBackAddress
+            ITeeExtensionRegistry.TeeInstructionParams(
+                REG_OP_TYPE,
+                TEE_ATTESTATION,
+                _message,
+                new address[](0),
+                0,
+                _claimBackAddress
+            )
         );
     }
 

@@ -288,12 +288,14 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         (address[] memory admins, uint64 adminsThreshold) = _getWalletAdminsAndThreshold(_walletId);
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             _toTeeIds(teeIdKeyIdPairs),
-            WALLET_OP_TYPE,
-            SET_PAUSING_ADDRESSES,
-            abi.encode(message),
-            admins,
-            adminsThreshold,
-            _claimBackAddress
+            ITeeExtensionRegistry.TeeInstructionParams(
+                WALLET_OP_TYPE,
+                SET_PAUSING_ADDRESSES,
+                abi.encode(message),
+                admins,
+                adminsThreshold,
+                _claimBackAddress
+            )
         );
     }
 
@@ -340,12 +342,14 @@ contract TeeWalletManager is ITeeWalletManager, TeeBase {
         });
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             teeIds,
-            WALLET_OP_TYPE,
-            RESUME,
-            abi.encode(message),
-            new address[](0),
-            0,
-            _claimBackAddress
+            ITeeExtensionRegistry.TeeInstructionParams(
+                WALLET_OP_TYPE,
+                RESUME,
+                abi.encode(message),
+                new address[](0),
+                0,
+                _claimBackAddress
+            )
         );
     }
 

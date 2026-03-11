@@ -113,12 +113,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
      */
     function sendInstructions(
         address[] memory _teeIds,
-        bytes32 _opType,
-        bytes32 _opCommand,
-        bytes memory _message,
-        address[] memory _cosigners,
-        uint64 _cosignersThreshold,
-        address _claimBackAddress
+        ITeeExtensionRegistry.TeeInstructionParams memory _instructionParams
     )
         external payable
         returns (bytes32)
@@ -134,12 +129,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         return _sendInstructions(
             bytes32(0),
             teeMachines,
-            _opType,
-            _opCommand,
-            _message,
-            _cosigners,
-            _cosignersThreshold,
-            _claimBackAddress
+            _instructionParams
         );
     }
 
@@ -149,12 +139,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     function sendSystemInstructions(
         bytes32 _instructionId,
         address[] memory _teeIds,
-        bytes32 _opType,
-        bytes32 _opCommand,
-        bytes memory _message,
-        address[] memory _cosigners,
-        uint64 _cosignersThreshold,
-        address _claimBackAddress
+        ITeeExtensionRegistry.TeeInstructionParams memory _instructionParams
     )
         external payable
         onlySystemInstructionsSender
@@ -171,12 +156,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         return _sendInstructions(
             _instructionId,
             teeMachines,
-            _opType,
-            _opCommand,
-            _message,
-            _cosigners,
-            _cosignersThreshold,
-            _claimBackAddress
+            _instructionParams
         );
     }
 
@@ -186,12 +166,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     function sendSystemInstructions(
         bytes32 _instructionId,
         ITeeMachineRegistry.TeeMachine[] memory _teeMachines,
-        bytes32 _opType,
-        bytes32 _opCommand,
-        bytes memory _message,
-        address[] memory _cosigners,
-        uint64 _cosignersThreshold,
-        address _claimBackAddress
+        ITeeExtensionRegistry.TeeInstructionParams memory _instructionParams
     )
         external payable
         onlySystemInstructionsSender
@@ -200,12 +175,7 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         return _sendInstructions(
             _instructionId,
             _teeMachines,
-            _opType,
-            _opCommand,
-            _message,
-            _cosigners,
-            _cosignersThreshold,
-            _claimBackAddress
+            _instructionParams
         );
     }
 
@@ -683,27 +653,25 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
     function _sendInstructions(
         bytes32 _instructionId,
         ITeeMachineRegistry.TeeMachine[] memory _teeMachines,
-        bytes32 _opType,
-        bytes32 _opCommand,
-        bytes memory _message,
-        address[] memory _cosigners,
-        uint64 _cosignersThreshold,
-        address _claimBackAddress
+        ITeeExtensionRegistry.TeeInstructionParams memory _instructionParams
     )
         internal
         returns (bytes32)
     {
         require(_teeMachines.length > 0, NoTeeMachinesSpecified());
-        require(_opType != bytes32(0), OperationTypeEmpty());
-        require(_opCommand != bytes32(0), OperationCommandEmpty());
-        require(_message.length > 0, MessageEmpty());
-        require(_cosignersThreshold <= _cosigners.length, CosignersThresholdTooHigh());
+        require(_instructionParams.opType != bytes32(0), OperationTypeEmpty());
+        require(_instructionParams.opCommand != bytes32(0), OperationCommandEmpty());
+        require(_instructionParams.message.length > 0, MessageEmpty());
+        require(
+            _instructionParams.cosignersThreshold <= _instructionParams.cosigners.length,
+            CosignersThresholdTooHigh()
+        );
         address[] memory teeIds = new address[](_teeMachines.length);
         uint256 extensionId = teeMachineRegistry.getExtensionId(_teeMachines[0].teeId);
         if (_instructionId == bytes32(0)) {
             _instructionId = _generateInstructionId(extensionId);
         }
-        bool isSystemOpType = _isSystemOpType(_opType);
+        bool isSystemOpType = _isSystemOpType(_instructionParams.opType);
         for (uint256 i = 0; i < _teeMachines.length; i++) {
             address teeId = _teeMachines[i].teeId;
             require(i == 0 || teeMachineRegistry.getExtensionId(teeId) == extensionId, ExtensionIdMismatch());
@@ -718,11 +686,15 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
         }
         if (!systemInstructionsSenders.contains(msg.sender)) {
             require(msg.sender == extensions[extensionId].instructionsSender, OnlyInstructionsSender());
-            require(extensionId == 0 || !isSystemOpType, SystemOpTypeNotAllowed(_opType));
+            require(extensionId == 0 || !isSystemOpType, SystemOpTypeNotAllowed(_instructionParams.opType));
         }
 
         // Check fee
-        require(teeFeeCalculator.calculateFeeByTeeIds(_opType, _opCommand, teeIds) <= msg.value, FeeTooLow());
+        {
+            uint256 calculatedFee = teeFeeCalculator.calculateFeeByTeeIds(
+                _instructionParams.opType, _instructionParams.opCommand, teeIds);
+            require(calculatedFee <= msg.value, FeeTooLow());
+        }
 
         // send fee to the reward manager
         uint24 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
@@ -734,12 +706,12 @@ contract TeeExtensionRegistry is IITeeExtensionRegistry, TeeBase {
             _instructionId,
             currentRewardEpochId,
             _teeMachines,
-            _opType,
-            _opCommand,
-            _message,
-            _cosigners,
-            _cosignersThreshold,
-            _claimBackAddress,
+            _instructionParams.opType,
+            _instructionParams.opCommand,
+            _instructionParams.message,
+            _instructionParams.cosigners,
+            _instructionParams.cosignersThreshold,
+            _instructionParams.claimBackAddress,
             msg.value
         );
 

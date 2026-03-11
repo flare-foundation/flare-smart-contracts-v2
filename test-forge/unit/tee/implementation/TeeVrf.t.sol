@@ -173,12 +173,14 @@ contract TeeVrfTest is Test {
             abi.encodeWithSelector(
                 ITeeExtensionRegistry.sendInstructions.selector,
                 teeIds,
-                bytes32("F_WALLET"),
-                bytes32("VRF"),
-                abi.encode(message),
-                new address[](0),
-                uint64(0),
-                claimBack
+                ITeeExtensionRegistry.TeeInstructionParams(
+                    bytes32("F_WALLET"),
+                    bytes32("VRF"),
+                    abi.encode(message),
+                    new address[](0),
+                    uint64(0),
+                    claimBack
+                )
             )
         );
         vm.prank(authAddress);

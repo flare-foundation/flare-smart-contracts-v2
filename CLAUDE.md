@@ -77,3 +77,10 @@ All Solidity contracts and interfaces (excluding tests) must follow these format
 - Internal methods (unless in libraries) and private methods must start with `_`
 - All input and output parameters must start with `_` (except in `try/catch` blocks)
 - Public/external methods and non-parameter variables should not start with `_`
+
+## Linting
+
+- Contracts: `yarn lint` — checks all contracts and interfaces under `contracts/`
+- Tests: `yarn lint-forge` — checks all test files under `test-forge/`
+- Fix all linter **errors** before considering work done (warnings can be ignored)
+- Common rules: max line length 119 characters, named imports, proper function ordering

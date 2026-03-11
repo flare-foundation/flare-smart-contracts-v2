@@ -103,44 +103,31 @@ contract TeeExtensionInstructionsSenderMock {
 
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             _toTeeIds(teeIdKeyIdPairs),
-            OP_TYPE,
-            OP_COMMAND,
-            abi.encode(message),
-            cosigners,
-            cosignersThreshold,
-            _claimBackAddress
+            ITeeExtensionRegistry.TeeInstructionParams(
+                OP_TYPE,
+                OP_COMMAND,
+                abi.encode(message),
+                cosigners,
+                cosignersThreshold,
+                _claimBackAddress
+            )
         );
     }
 
     /**
      * Send custom instructions to available TEEs via the TeeExtensionRegistry.
      * @param _teeIds The TEE machine IDs to which the instructions are sent (must all belong to the same extension).
-     * @param _opType The operation type.
-     * @param _opCommand The operation command.
-     * @param _message The message.
-     * @param _cosigners The cosigners.
-     * @param _cosignersThreshold The cosigners threshold.
-     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
+     * @param _instructionParams The instruction parameters.
      */
     function sendInstructions(
         address[] calldata _teeIds,
-        bytes32 _opType,
-        bytes32 _opCommand,
-        bytes calldata _message,
-        address[] calldata _cosigners,
-        uint64 _cosignersThreshold,
-        address _claimBackAddress
+        ITeeExtensionRegistry.TeeInstructionParams calldata _instructionParams
     )
         external payable
     {
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             _teeIds,
-            _opType,
-            _opCommand,
-            _message,
-            _cosigners,
-            _cosignersThreshold,
-            _claimBackAddress
+            _instructionParams
         );
     }
 

@@ -239,12 +239,14 @@ contract TeeReplication is ITeeReplication, TeeBase {
     {
         teeExtensionRegistry.sendInstructions{value: msg.value}(
             _teeIds,
-            REG_OP_TYPE,
-            _opCommand,
-            _message,
-            new address[](0),
-            0,
-            _claimBackAddress
+            ITeeExtensionRegistry.TeeInstructionParams(
+                REG_OP_TYPE,
+                _opCommand,
+                _message,
+                new address[](0),
+                0,
+                _claimBackAddress
+            )
         );
     }
 

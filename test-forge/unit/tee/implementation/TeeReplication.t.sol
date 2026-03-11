@@ -172,12 +172,14 @@ contract TeeReplicationTest is Test {
             abi.encodeWithSelector(
                 ITeeExtensionRegistry.sendInstructions.selector,
                 teeIds,
-                bytes32("F_REG"),
-                bytes32("TO_PAUSE_FOR_UPGRADE"),
-                abi.encode(message),
-                new address[](0),
-                uint64(0),
-                claimBack
+                ITeeExtensionRegistry.TeeInstructionParams(
+                    bytes32("F_REG"),
+                    bytes32("TO_PAUSE_FOR_UPGRADE"),
+                    abi.encode(message),
+                    new address[](0),
+                    uint64(0),
+                    claimBack
+                )
             )
         );
         vm.prank(owner);
@@ -318,12 +320,14 @@ contract TeeReplicationTest is Test {
             abi.encodeWithSelector(
                 ITeeExtensionRegistry.sendInstructions.selector,
                 replicateTeeIds,
-                bytes32("F_REG"),
-                bytes32("REPLICATE_FROM"),
-                abi.encode(message),
-                new address[](0),
-                uint64(0),
-                claimBack
+                ITeeExtensionRegistry.TeeInstructionParams(
+                    bytes32("F_REG"),
+                    bytes32("REPLICATE_FROM"),
+                    abi.encode(message),
+                    new address[](0),
+                    uint64(0),
+                    claimBack
+                )
             )
         );
         vm.expectEmit();

@@ -10,6 +10,24 @@ import { ITeeMachineRegistry } from "./ITeeMachineRegistry.sol";
  */
 interface ITeeExtensionRegistry {
 
+    /**
+     * Struct containing the instruction parameters.
+     * @param _opType The operation type.
+     * @param _opCommand The operation command.
+     * @param _message The message.
+     * @param _cosigners The cosigners.
+     * @param _cosignersThreshold The cosigners threshold.
+     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
+     */
+    struct TeeInstructionParams {
+        bytes32 opType;
+        bytes32 opCommand;
+        bytes message;
+        address[] cosigners;
+        uint64 cosignersThreshold;
+        address claimBackAddress;
+    }
+
     event TeeInstructionsSent(
         uint256 indexed extensionId,
         bytes32 indexed instructionId,
@@ -127,23 +145,13 @@ interface ITeeExtensionRegistry {
      * Send instructions to the TEE machines. Instruction ID will be generated internally and returned.
      * Emits TeeInstructionsSent event.
      * @param _teeIds The TEE machine IDs to which the instructions are sent (must all belong to the same extension).
-     * @param _opType The operation type.
-     * @param _opCommand The operation command.
-     * @param _message The message.
-     * @param _cosigners The cosigners.
-     * @param _cosignersThreshold The cosigners threshold.
-     * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
+     * @param _instructionParams The instruction parameters.
      * @return _instructionId The generated instruction ID.
      * Can only be called by the TEE machines extension instructions sender.
      */
     function sendInstructions(
-        address[] memory _teeIds,
-        bytes32 _opType,
-        bytes32 _opCommand,
-        bytes memory _message,
-        address[] memory _cosigners,
-        uint64 _cosignersThreshold,
-        address _claimBackAddress
+        address[] calldata _teeIds,
+        TeeInstructionParams calldata _instructionParams
     )
         external payable
         returns (bytes32 _instructionId);

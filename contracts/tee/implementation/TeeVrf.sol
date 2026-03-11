@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import { TeeBase } from "./TeeBase.sol";
 import { IITeeExtensionRegistry } from "../interface/IITeeExtensionRegistry.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { ITeeVrf } from "../../userInterfaces/tee/ITeeVrf.sol";
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
@@ -93,12 +94,14 @@ contract TeeVrf is ITeeVrf, TeeBase {
         });
         _instructionId = teeExtensionRegistry.sendInstructions{value: msg.value}(
             teeIds,
-            WALLET_OP_TYPE,
-            VRF,
-            abi.encode(message),
-            new address[](0),
-            0,
-            _claimBackAddress
+            ITeeExtensionRegistry.TeeInstructionParams(
+                WALLET_OP_TYPE,
+                VRF,
+                abi.encode(message),
+                new address[](0),
+                0,
+                _claimBackAddress
+            )
         );
         emit VrfRequested(_walletId, _keyId, _instructionId);
     }

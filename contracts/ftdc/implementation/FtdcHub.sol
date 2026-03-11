@@ -9,6 +9,7 @@ import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IFtdcHub } from "../../userInterfaces/ftdc/IFtdcHub.sol";
 import { IITeeExtensionRegistry } from "../../tee/interface/IITeeExtensionRegistry.sol";
+import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { ITeeMachineRegistry } from  "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
@@ -279,12 +280,14 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
         return teeExtensionRegistry.sendSystemInstructions{value: _instructionsFee}(
             bytes32(0),
             _teeMachines,
-            FTDC_OP_TYPE,
-            PROVE,
-            _message,
-            _cosigners,
-            _cosignersThreshold,
-            _claimBackAddress
+            ITeeExtensionRegistry.TeeInstructionParams(
+                FTDC_OP_TYPE,
+                PROVE,
+                _message,
+                _cosigners,
+                _cosignersThreshold,
+                _claimBackAddress
+            )
         );
     }
 }
