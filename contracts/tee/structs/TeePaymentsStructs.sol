@@ -10,6 +10,8 @@ interface TeePaymentsStructs {
 
     function paymentInstructionStruct(ITeePayments.PaymentInstruction calldata) external;
 
+    function reissueFeeParamsStruct(ITeePayments.ReissueFeeParams calldata) external;
+
     function paymentInstructionMessageStruct(ITeePayments.PaymentInstructionMessage calldata) external;
 
     function setPaymentLimitsStruct(ITeePayments.SetPaymentLimits calldata) external;

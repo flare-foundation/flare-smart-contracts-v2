@@ -24,12 +24,13 @@ interface ITeePayments {
     }
 
     /**
+     * Reissue fee parameters structure.
      * @param maxFees The max fees of the payment instructions.
      * @param feeFactorScheduleBIPS The factor schedules of the payment instructions (in BIPS). Part of max fee.
      * @param feeDelayScheduleSeconds The time schedule of the payment instructions (in seconds from the start,
       ordered ascending).
      */
-    struct ReissueFeeSettings {
+    struct ReissueFeeParams {
         uint256[] maxFees;
         int16[][] feeFactorScheduleBIPS;
         uint16[] feeDelayScheduleSeconds;
@@ -156,7 +157,7 @@ interface ITeePayments {
      * @param _nonce Batch nonce of the payment instructions to be reissued.
      * @param _firstSubNonce SubNonce of the first payment instruction in the batch.
      * @param _paymentInstructions List of the payment instructions.
-     * @param _reissueFeeSettings The fee settings for the reissue.
+     * @param _reissueFeeParams The fee parameters for the reissue.
      * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      * Can only be called by the authorization address of the PMW multisig account.
      */
@@ -165,7 +166,7 @@ interface ITeePayments {
         uint64 _nonce,
         uint64 _firstSubNonce,
         PaymentInstruction[] calldata _paymentInstructions,
-        ReissueFeeSettings calldata _reissueFeeSettings,
+        ReissueFeeParams calldata _reissueFeeParams,
         address _claimBackAddress
     )
         external payable;

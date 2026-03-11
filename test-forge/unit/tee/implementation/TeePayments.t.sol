@@ -1094,7 +1094,7 @@ contract TeePaymentsTest is Test {
             1,
             1,
             new ITeePayments.PaymentInstruction[](0),
-            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }
@@ -1120,7 +1120,7 @@ contract TeePaymentsTest is Test {
             11,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }
@@ -1146,7 +1146,7 @@ contract TeePaymentsTest is Test {
             1,
             1,
             paymentInstructions,
-            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }
@@ -1171,7 +1171,7 @@ contract TeePaymentsTest is Test {
             1,
             1,
             paymentInstructions,
-            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }
@@ -1196,7 +1196,7 @@ contract TeePaymentsTest is Test {
             1,
             1,
             paymentInstructions,
-            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }
@@ -1223,7 +1223,7 @@ contract TeePaymentsTest is Test {
             11,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }
@@ -1249,7 +1249,7 @@ contract TeePaymentsTest is Test {
             13,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }
@@ -1275,7 +1275,7 @@ contract TeePaymentsTest is Test {
             11,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }
@@ -1302,7 +1302,7 @@ contract TeePaymentsTest is Test {
             11,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }
@@ -1329,7 +1329,7 @@ contract TeePaymentsTest is Test {
             11,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }
@@ -1355,7 +1355,7 @@ contract TeePaymentsTest is Test {
             11,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
             address(0)
         );
     }
@@ -1366,7 +1366,7 @@ contract TeePaymentsTest is Test {
         paymentInstructions[0] = _createPaymentInstruction(bytes32("ref1"));
         paymentInstructions[1] = _createPaymentInstruction(bytes32("ref2"));
         _mockGetWalletStatus(ITeeWalletManager.WalletStatus.PRODUCTION);
-        ITeePayments.ReissueFeeSettings memory feeSettings;
+        ITeePayments.ReissueFeeParams memory feeSettings;
         {
             uint256[] memory fees = new uint256[](2);
             fees[0] = 150;
@@ -1375,7 +1375,7 @@ contract TeePaymentsTest is Test {
             feeFactorScheduleBIPS[0] = new int16[](0);
             feeFactorScheduleBIPS[1] = new int16[](0);
             uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
-            feeSettings = ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds);
+            feeSettings = ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds);
         }
         vm.prank(authorizationAddress);
         (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
@@ -1456,7 +1456,7 @@ contract TeePaymentsTest is Test {
             fees[0] = 150;
             int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
             feeFactorScheduleBIPS[0] = new int16[](0);
-            feeSettings = ITeePayments.ReissueFeeSettings(
+            feeSettings = ITeePayments.ReissueFeeParams(
                 fees, feeFactorScheduleBIPS, new uint16[](0)
             );
         }
@@ -1526,7 +1526,7 @@ contract TeePaymentsTest is Test {
         bytes32 instructionId = keccak256(abi.encode(OP_TYPE, REISSUE, SOURCE_ID, senderAddress, 11, 0));
         (ITeeMachineRegistry.TeeMachine[] memory receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
-        ITeePayments.ReissueFeeSettings memory feeSettings;
+        ITeePayments.ReissueFeeParams memory feeSettings;
         {
             uint256[] memory fees = new uint256[](2);
             fees[0] = 150;
@@ -1535,7 +1535,7 @@ contract TeePaymentsTest is Test {
             feeFactorScheduleBIPS[0] = new int16[](0);
             feeFactorScheduleBIPS[1] = new int16[](0);
             uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
-            feeSettings = ITeePayments.ReissueFeeSettings(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds);
+            feeSettings = ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds);
         }
         ITeePayments.PaymentInstructionMessage memory message1 = ITeePayments.PaymentInstructionMessage(
             walletId,

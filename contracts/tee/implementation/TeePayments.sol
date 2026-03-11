@@ -223,27 +223,27 @@ contract TeePayments is ITeePayments, TeeBase {
         uint64 _nonce,
         uint64 _firstSubNonce,
         PaymentInstruction[] calldata _paymentInstructions,
-        ReissueFeeSettings calldata _reissueFeeSettings,
+        ReissueFeeParams calldata _reissueFeeParams,
         address _claimBackAddress
     )
         external payable
     {
         require(_paymentInstructions.length > 0, NoPaymentInstructions());
         require(
-            _paymentInstructions.length == _reissueFeeSettings.maxFees.length &&
-            (_reissueFeeSettings.maxFees.length == _reissueFeeSettings.feeFactorScheduleBIPS.length ||
-            _reissueFeeSettings.feeFactorScheduleBIPS.length == 0 &&
-            _reissueFeeSettings.feeDelayScheduleSeconds.length == 0),
+            _paymentInstructions.length == _reissueFeeParams.maxFees.length &&
+            (_reissueFeeParams.maxFees.length == _reissueFeeParams.feeFactorScheduleBIPS.length ||
+            _reissueFeeParams.feeFactorScheduleBIPS.length == 0 &&
+            _reissueFeeParams.feeDelayScheduleSeconds.length == 0),
             LengthsMismatch()
         );
-        for (uint256 i = 0; i < _reissueFeeSettings.feeFactorScheduleBIPS.length; i++) {
+        for (uint256 i = 0; i < _reissueFeeParams.feeFactorScheduleBIPS.length; i++) {
             require(
-                _reissueFeeSettings.feeFactorScheduleBIPS[i].length ==
-                _reissueFeeSettings.feeDelayScheduleSeconds.length,
+                _reissueFeeParams.feeFactorScheduleBIPS[i].length ==
+                _reissueFeeParams.feeDelayScheduleSeconds.length,
                 LengthsMismatch()
             );
         }
-        _checkDelays(_reissueFeeSettings.feeDelayScheduleSeconds);
+        _checkDelays(_reissueFeeParams.feeDelayScheduleSeconds);
         ReissueTempState memory tempState;
         tempState.accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
         tempState.claimBackAddress = _claimBackAddress;
@@ -285,7 +285,7 @@ contract TeePayments is ITeePayments, TeeBase {
         (tempState.cosigners, tempState.cosignersThreshold) =
             teeWalletManager.getWalletCosignersAndThreshold(message.walletId);
 
-        if (_reissueFeeSettings.feeDelayScheduleSeconds.length == 0) { // to save gas as not needed otherwise
+        if (_reissueFeeParams.feeDelayScheduleSeconds.length == 0) { // to save gas as not needed otherwise
             tempState.defaultFeeSchedule = (accountFeeSchedule[tempState.accountHash].length > 0) ?
                 accountFeeSchedule[tempState.accountHash] : DEFAULT_FEE_SCHEDULE;
         }
@@ -297,10 +297,10 @@ contract TeePayments is ITeePayments, TeeBase {
         tempState.remainingAmount = msg.value;
         for (uint256 i = 0; i < _paymentInstructions.length; i++) {
             bytes memory feeSchedule;
-            if (_reissueFeeSettings.feeFactorScheduleBIPS.length > 0) {
+            if (_reissueFeeParams.feeFactorScheduleBIPS.length > 0) {
                 feeSchedule = _getFeeSchedule(
-                    _reissueFeeSettings.feeFactorScheduleBIPS[i],
-                    _reissueFeeSettings.feeDelayScheduleSeconds
+                    _reissueFeeParams.feeFactorScheduleBIPS[i],
+                    _reissueFeeParams.feeDelayScheduleSeconds
                 );
             }
             if (feeSchedule.length == 0) {
@@ -310,7 +310,7 @@ contract TeePayments is ITeePayments, TeeBase {
             message.recipientAddress = _paymentInstructions[i].recipientAddress;
             message.tokenId = _paymentInstructions[i].tokenId;
             message.amount = _paymentInstructions[i].amount;
-            message.maxFee = _reissueFeeSettings.maxFees[i];
+            message.maxFee = _reissueFeeParams.maxFees[i];
             message.feeSchedule = feeSchedule;
             message.paymentReference = _paymentInstructions[i].paymentReference;
 
