@@ -338,6 +338,7 @@ export async function deployContracts(
   const relay = await Relay.new(
     relayInitialConfig,
     flareSystemsManager.address,
+    ZERO_ADDRESS
   );
 
   const submission = await Submission.new(
