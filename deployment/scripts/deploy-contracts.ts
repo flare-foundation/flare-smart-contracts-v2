@@ -264,7 +264,8 @@ export async function deployContracts(
 
   const relay = await Relay.new(
     relayInitialConfig,
-    flareSystemsManager.address
+    flareSystemsManager.address,
+    ZERO_ADDRESS
   );
 
   spewNewContractInfo(contracts, null, Relay.contractName, `Relay.sol`, relay.address, quiet);
