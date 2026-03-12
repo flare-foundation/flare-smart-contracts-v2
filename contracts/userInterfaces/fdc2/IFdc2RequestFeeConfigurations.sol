@@ -2,9 +2,9 @@
 pragma solidity >=0.7.6 <0.9;
 
 /**
- * FtdcRequestFeeConfigurations interface.
+ * Fdc2RequestFeeConfigurations interface.
  */
-interface IFtdcRequestFeeConfigurations  {
+interface IFdc2RequestFeeConfigurations  {
 
     // Event emitted when a type and source price is set.
     event TypeAndSourceFeeSet(bytes32 indexed attestationType, bytes32 indexed source, uint256 fee);

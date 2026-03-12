@@ -2,27 +2,27 @@
 pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
-import { FtdcHub } from "../../../../contracts/ftdc/implementation/FtdcHub.sol";
-import { FtdcHubProxy } from "../../../../contracts/ftdc/proxy/FtdcHubProxy.sol";
+import { Fdc2Hub } from "../../../../contracts/fdc2/implementation/Fdc2Hub.sol";
+import { Fdc2HubProxy } from "../../../../contracts/fdc2/proxy/Fdc2HubProxy.sol";
 import { TeeExtensionRegistry } from "../../../../contracts/tee/implementation/TeeExtensionRegistry.sol";
 import { TeeExtensionRegistryProxy } from "../../../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
 import { ITeeFeeCalculator } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculator.sol";
 import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { ITeeReplication } from "../../../../contracts/userInterfaces/tee/ITeeReplication.sol";
-import { IFtdcHub } from "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
-import { IFtdcRequestFeeConfigurations } from
-    "../../../../contracts/userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
+import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
+import { IFdc2RequestFeeConfigurations } from
+    "../../../../contracts/userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
-contract FtdcHubTest is Test {
+contract Fdc2HubTest is Test {
 
-    FtdcHub private ftdcHub;
-    FtdcHub private ftdcHubImpl;
-    FtdcHubProxy private ftdcHubProxy;
+    Fdc2Hub private fdc2Hub;
+    Fdc2Hub private fdc2HubImpl;
+    Fdc2HubProxy private fdc2HubProxy;
 
     address private governance;
     address private addressUpdater;
@@ -30,7 +30,7 @@ contract FtdcHubTest is Test {
     address private mockTeeFeeCalculator;
     address private mockTeeReplication;
     address private mockFlareSystemsManager;
-    address private mockFtdcRequestFeeConfigurations;
+    address private mockFdc2RequestFeeConfigurations;
     address private mockRewardManager;
 
     TeeExtensionRegistry private teeExtensionRegistry;
@@ -43,7 +43,7 @@ contract FtdcHubTest is Test {
     uint16 private minThresholdBIPS;
     uint8 private defaultNumberOfTees;
 
-    bytes32 private constant FTDC_OP_TYPE = bytes32("F_FTDC");
+    bytes32 private constant FDC2_OP_TYPE = bytes32("F_FDC2");
     bytes32 private constant PROVE = bytes32("PROVE");
     uint256 private requestFee = 10;
 
@@ -55,16 +55,16 @@ contract FtdcHubTest is Test {
         addressUpdater = makeAddr("addressUpdater");
         minThresholdBIPS = 5000;
         defaultNumberOfTees = 1;
-        ftdcHubImpl = new FtdcHub();
-        ftdcHubProxy = new FtdcHubProxy(
+        fdc2HubImpl = new Fdc2Hub();
+        fdc2HubProxy = new Fdc2HubProxy(
             IGovernanceSettings(address(this)),
             governance,
             addressUpdater,
             minThresholdBIPS,
             defaultNumberOfTees,
-            address(ftdcHubImpl)
+            address(fdc2HubImpl)
         );
-        ftdcHub = FtdcHub(address(ftdcHubProxy));
+        fdc2Hub = Fdc2Hub(address(fdc2HubProxy));
 
         teeExtensionRegistryImpl = new TeeExtensionRegistry();
         teeExtensionRegistryProxy = new TeeExtensionRegistryProxy(
@@ -79,7 +79,7 @@ contract FtdcHubTest is Test {
         mockTeeFeeCalculator = makeAddr("mockTeeFeeCalculator");
         mockTeeReplication = makeAddr("mockTeeReplication");
         mockFlareSystemsManager = makeAddr("mockFlareSystemsManager");
-        mockFtdcRequestFeeConfigurations = makeAddr("mockFtdcRequestFeeConfigurations");
+        mockFdc2RequestFeeConfigurations = makeAddr("mockFdc2RequestFeeConfigurations");
         mockRewardManager = makeAddr("rewardManager");
 
         // set contract addresses
@@ -96,11 +96,11 @@ contract FtdcHubTest is Test {
         contractAddresses[3] = address(teeExtensionRegistry);
         contractNameHashes[4] = keccak256(abi.encode("FlareSystemsManager"));
         contractAddresses[4] = mockFlareSystemsManager;
-        contractNameHashes[5] = keccak256(abi.encode("FtdcRequestFeeConfigurations"));
-        contractAddresses[5] = mockFtdcRequestFeeConfigurations;
+        contractNameHashes[5] = keccak256(abi.encode("Fdc2RequestFeeConfigurations"));
+        contractAddresses[5] = mockFdc2RequestFeeConfigurations;
         contractNameHashes[6] = keccak256(abi.encode("TeeReplication"));
         contractAddresses[6] = mockTeeReplication;
-        ftdcHub.updateContractAddresses(contractNameHashes, contractAddresses);
+        fdc2Hub.updateContractAddresses(contractNameHashes, contractAddresses);
 
         contractNameHashes = new bytes32[](6);
         contractAddresses = new address[](6);
@@ -119,10 +119,10 @@ contract FtdcHubTest is Test {
         teeExtensionRegistry.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
-        // set FtdcHub contract as system instructions sender on TeeExtensionRegistry
+        // set Fdc2Hub contract as system instructions sender on TeeExtensionRegistry
         vm.startPrank(governance);
         address[] memory systemInstructionsSender = new address[](1);
-        systemInstructionsSender[0] = address(ftdcHub);
+        systemInstructionsSender[0] = address(fdc2Hub);
         teeExtensionRegistry.registerSystemInstructionsSenders(systemInstructionsSender);
         vm.stopPrank();
         _mockReceiveRewards();
@@ -144,56 +144,56 @@ contract FtdcHubTest is Test {
 
     function testSetMinThresholdBIPS() public {
         uint16 newMinThresholdBIPS = 3000;
-        assertEq(ftdcHub.minThresholdBIPS(), minThresholdBIPS);
+        assertEq(fdc2Hub.minThresholdBIPS(), minThresholdBIPS);
         vm.prank(governance);
-        ftdcHub.setMinThresholdBIPS(newMinThresholdBIPS);
-        assertEq(ftdcHub.minThresholdBIPS(), newMinThresholdBIPS);
+        fdc2Hub.setMinThresholdBIPS(newMinThresholdBIPS);
+        assertEq(fdc2Hub.minThresholdBIPS(), newMinThresholdBIPS);
     }
 
     function testSetMinThresholdBIPSRevert() public {
         vm.prank(governance);
-        vm.expectRevert(IFtdcHub.MinThresholdInvalid.selector);
-        ftdcHub.setMinThresholdBIPS(0);
+        vm.expectRevert(IFdc2Hub.MinThresholdInvalid.selector);
+        fdc2Hub.setMinThresholdBIPS(0);
 
         vm.prank(governance);
-        vm.expectRevert(IFtdcHub.MinThresholdInvalid.selector);
-        ftdcHub.setMinThresholdBIPS(1e4 + 1);
+        vm.expectRevert(IFdc2Hub.MinThresholdInvalid.selector);
+        fdc2Hub.setMinThresholdBIPS(1e4 + 1);
 
         vm.expectRevert("only governance");
-        ftdcHub.setMinThresholdBIPS(3000);
+        fdc2Hub.setMinThresholdBIPS(3000);
     }
 
     function testDefaultNumberOfTees() public {
         uint8 newDefaultNumberOfTees = 5;
-        assertEq(ftdcHub.defaultNumberOfTees(), defaultNumberOfTees);
+        assertEq(fdc2Hub.defaultNumberOfTees(), defaultNumberOfTees);
         vm.prank(governance);
-        ftdcHub.setDefaultNumberOfTees(newDefaultNumberOfTees);
-        assertEq(ftdcHub.defaultNumberOfTees(), newDefaultNumberOfTees);
+        fdc2Hub.setDefaultNumberOfTees(newDefaultNumberOfTees);
+        assertEq(fdc2Hub.defaultNumberOfTees(), newDefaultNumberOfTees);
     }
 
     function testDefaultNumberOfTeesRevert() public {
         vm.prank(governance);
-        vm.expectRevert(IFtdcHub.DefaultNumberOfTeesZero.selector);
-        ftdcHub.setDefaultNumberOfTees(0);
+        vm.expectRevert(IFdc2Hub.DefaultNumberOfTeesZero.selector);
+        fdc2Hub.setDefaultNumberOfTees(0);
 
         vm.expectRevert("only governance");
-        ftdcHub.setDefaultNumberOfTees(5);
+        fdc2Hub.setDefaultNumberOfTees(5);
     }
 
     function testRequestAttestationRevertThresholdInvalid() public {
-        vm.expectRevert(IFtdcHub.ThresholdInvalid.selector);
-        ftdcHub.requestAttestation(
-            IFtdcHub.FtdcAttestationRequest({
-                header: IFtdcHub.FtdcRequestHeader("", "", minThresholdBIPS - 1, address(0)),
+        vm.expectRevert(IFdc2Hub.ThresholdInvalid.selector);
+        fdc2Hub.requestAttestation(
+            IFdc2Hub.Fdc2AttestationRequest({
+                header: IFdc2Hub.Fdc2RequestHeader("", "", minThresholdBIPS - 1, address(0)),
                 requestBody: ""
             }),
             1, new address[](0), new address[](0), 0, address(0)
         );
 
-        vm.expectRevert(IFtdcHub.ThresholdInvalid.selector);
-        ftdcHub.requestAttestation(
-            IFtdcHub.FtdcAttestationRequest({
-                header: IFtdcHub.FtdcRequestHeader("", "", 1e4 + 1, address(0)),
+        vm.expectRevert(IFdc2Hub.ThresholdInvalid.selector);
+        fdc2Hub.requestAttestation(
+            IFdc2Hub.Fdc2AttestationRequest({
+                header: IFdc2Hub.Fdc2RequestHeader("", "", 1e4 + 1, address(0)),
                 requestBody: ""
             }),
             1, new address[](0), new address[](0), 0, address(0)
@@ -201,12 +201,12 @@ contract FtdcHubTest is Test {
     }
 
     function testRequestAttestationRevertTeesInvalid() public {
-        vm.expectRevert(IFtdcHub.NumberOfTeesAndTeeIdsInvalid.selector);
+        vm.expectRevert(IFdc2Hub.NumberOfTeesAndTeeIdsInvalid.selector);
         teeIds = new address[](1);
         teeIds[0] = makeAddr("teeId");
-        ftdcHub.requestAttestation(
-            IFtdcHub.FtdcAttestationRequest({
-                header: IFtdcHub.FtdcRequestHeader("", "", minThresholdBIPS, address(0)),
+        fdc2Hub.requestAttestation(
+            IFdc2Hub.Fdc2AttestationRequest({
+                header: IFdc2Hub.Fdc2RequestHeader("", "", minThresholdBIPS, address(0)),
                 requestBody: ""
             }),
             2, teeIds, new address[](0), 0, address(0)
@@ -222,13 +222,13 @@ contract FtdcHubTest is Test {
         teeIds[1] = teeId;
         vm.expectRevert(
             abi.encodeWithSelector(
-                IFtdcHub.DuplicatedTeeId.selector,
+                IFdc2Hub.DuplicatedTeeId.selector,
                 teeId
             )
         );
-        ftdcHub.requestAttestation(
-            IFtdcHub.FtdcAttestationRequest({
-                header: IFtdcHub.FtdcRequestHeader("", "", minThresholdBIPS, address(0)),
+        fdc2Hub.requestAttestation(
+            IFdc2Hub.Fdc2AttestationRequest({
+                header: IFdc2Hub.Fdc2RequestHeader("", "", minThresholdBIPS, address(0)),
                 requestBody: ""
             }),
             2, teeIds, new address[](0), 0, address(0)
@@ -241,10 +241,10 @@ contract FtdcHubTest is Test {
         _mockGetTeeReplicatingTeeId(teeId, address(0));
         teeIds = new address[](1);
         teeIds[0] = teeId;
-        vm.expectRevert(IFtdcHub.TeeMachineNotAvailable.selector);
-        ftdcHub.requestAttestation(
-            IFtdcHub.FtdcAttestationRequest({
-                header: IFtdcHub.FtdcRequestHeader("", "", minThresholdBIPS, address(0)),
+        vm.expectRevert(IFdc2Hub.TeeMachineNotAvailable.selector);
+        fdc2Hub.requestAttestation(
+            IFdc2Hub.Fdc2AttestationRequest({
+                header: IFdc2Hub.Fdc2RequestHeader("", "", minThresholdBIPS, address(0)),
                 requestBody: ""
             }),
             1, teeIds, new address[](0), 0, address(0)
@@ -260,13 +260,13 @@ contract FtdcHubTest is Test {
         teeIds[0] = teeId;
         vm.expectRevert(
             abi.encodeWithSelector(
-                IFtdcHub.OnlySystemExtensionId.selector,
+                IFdc2Hub.OnlySystemExtensionId.selector,
                 teeId
             )
         );
-        ftdcHub.requestAttestation(
-            IFtdcHub.FtdcAttestationRequest({
-                header: IFtdcHub.FtdcRequestHeader("", "", minThresholdBIPS, address(0)),
+        fdc2Hub.requestAttestation(
+            IFdc2Hub.Fdc2AttestationRequest({
+                header: IFdc2Hub.Fdc2RequestHeader("", "", minThresholdBIPS, address(0)),
                 requestBody: ""
             }),
             0, teeIds, new address[](0), 0, address(0)
@@ -279,10 +279,10 @@ contract FtdcHubTest is Test {
         _mockGetTeeMachineStatus(teeId, ITeeMachineRegistry.TeeStatus.PRODUCTION);
         teeIds = new address[](1);
         teeIds[0] = teeId;
-        vm.expectRevert(IFtdcHub.FeeTooLow.selector);
-        ftdcHub.requestAttestation{value: requestFee - 1} (
-            IFtdcHub.FtdcAttestationRequest({
-                header: IFtdcHub.FtdcRequestHeader("", "", minThresholdBIPS, address(0)),
+        vm.expectRevert(IFdc2Hub.FeeTooLow.selector);
+        fdc2Hub.requestAttestation{value: requestFee - 1} (
+            IFdc2Hub.Fdc2AttestationRequest({
+                header: IFdc2Hub.Fdc2RequestHeader("", "", minThresholdBIPS, address(0)),
                 requestBody: ""
             }),
             1, teeIds, new address[](0), 0, address(0)
@@ -301,8 +301,8 @@ contract FtdcHubTest is Test {
         bytes32 sourceId = "XRP";
         bytes memory attestationRequest = "attestationRequest";
 
-        IFtdcHub.FtdcAttestationRequest memory message = IFtdcHub.FtdcAttestationRequest({
-            header: IFtdcHub.FtdcRequestHeader({
+        IFdc2Hub.Fdc2AttestationRequest memory message = IFdc2Hub.Fdc2AttestationRequest({
+            header: IFdc2Hub.Fdc2RequestHeader({
                 attestationType: attestationType,
                 sourceId: sourceId,
                 thresholdBIPS: minThresholdBIPS,
@@ -316,7 +316,7 @@ contract FtdcHubTest is Test {
             keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
             123,
             _getTeeMachines(2),
-            FTDC_OP_TYPE,
+            FDC2_OP_TYPE,
             PROVE,
             abi.encode(message),
             new address[](0),
@@ -324,7 +324,7 @@ contract FtdcHubTest is Test {
             address(0),
             15
         );
-        ftdcHub.requestAttestation{value: requestFee + 15} (
+        fdc2Hub.requestAttestation{value: requestFee + 15} (
             message, 0, teeIds, new address[](0), 0, address(0)
         );
     }
@@ -342,8 +342,8 @@ contract FtdcHubTest is Test {
         address proofOwner = makeAddr("proofOwner");
         address claimBack = makeAddr("claimBack");
 
-        IFtdcHub.FtdcAttestationRequest memory message = IFtdcHub.FtdcAttestationRequest({
-            header: IFtdcHub.FtdcRequestHeader({
+        IFdc2Hub.Fdc2AttestationRequest memory message = IFdc2Hub.Fdc2AttestationRequest({
+            header: IFdc2Hub.Fdc2RequestHeader({
                 attestationType: attestationType,
                 sourceId: sourceId,
                 thresholdBIPS: minThresholdBIPS,
@@ -357,7 +357,7 @@ contract FtdcHubTest is Test {
             keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
             123,
             _getTeeMachines(2),
-            FTDC_OP_TYPE,
+            FDC2_OP_TYPE,
             PROVE,
             abi.encode(message),
             new address[](0),
@@ -365,7 +365,7 @@ contract FtdcHubTest is Test {
             claimBack,
             15
         );
-        ftdcHub.requestAttestation{value: requestFee + 15} (
+        fdc2Hub.requestAttestation{value: requestFee + 15} (
             message, 0, teeIds, new address[](0), 0, claimBack
         );
     }
@@ -389,8 +389,8 @@ contract FtdcHubTest is Test {
         bytes32 sourceId = "XRP";
         bytes memory attestationRequest = "attestationRequest";
 
-        IFtdcHub.FtdcAttestationRequest memory message = IFtdcHub.FtdcAttestationRequest({
-            header: IFtdcHub.FtdcRequestHeader({
+        IFdc2Hub.Fdc2AttestationRequest memory message = IFdc2Hub.Fdc2AttestationRequest({
+            header: IFdc2Hub.Fdc2RequestHeader({
                 attestationType: attestationType,
                 sourceId: sourceId,
                 thresholdBIPS: minThresholdBIPS,
@@ -404,7 +404,7 @@ contract FtdcHubTest is Test {
             keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
             123,
             _getTeeMachines(1),
-            FTDC_OP_TYPE,
+            FDC2_OP_TYPE,
             PROVE,
             abi.encode(message),
             new address[](0),
@@ -412,7 +412,7 @@ contract FtdcHubTest is Test {
             address(0),
             15
         );
-        ftdcHub.requestAttestation{value: requestFee + 15} (
+        fdc2Hub.requestAttestation{value: requestFee + 15} (
             message, 0, new address[](0), new address[](0), 0, address(0)
         );
     }
@@ -436,8 +436,8 @@ contract FtdcHubTest is Test {
         bytes32 sourceId = "XRP";
         bytes memory attestationRequest = "attestationRequest";
 
-        IFtdcHub.FtdcAttestationRequest memory message = IFtdcHub.FtdcAttestationRequest({
-            header: IFtdcHub.FtdcRequestHeader({
+        IFdc2Hub.Fdc2AttestationRequest memory message = IFdc2Hub.Fdc2AttestationRequest({
+            header: IFdc2Hub.Fdc2RequestHeader({
                 attestationType: attestationType,
                 sourceId: sourceId,
                 thresholdBIPS: minThresholdBIPS,
@@ -451,7 +451,7 @@ contract FtdcHubTest is Test {
             keccak256(abi.encode(0, 0, blockhash(block.number - 1))),
             123,
             _getTeeMachines(2),
-            FTDC_OP_TYPE,
+            FDC2_OP_TYPE,
             PROVE,
             abi.encode(message),
             new address[](0),
@@ -459,7 +459,7 @@ contract FtdcHubTest is Test {
             address(0),
             15
         );
-        ftdcHub.requestAttestation{value: requestFee + 15} (
+        fdc2Hub.requestAttestation{value: requestFee + 15} (
             message, 2, new address[](0), new address[](0), 0, address(0)
         );
     }
@@ -490,8 +490,8 @@ contract FtdcHubTest is Test {
 
     function _mockGetTypeAndSourceFee() internal {
         vm.mockCall(
-            mockFtdcRequestFeeConfigurations,
-            abi.encodeWithSelector(IFtdcRequestFeeConfigurations.getTypeAndSourceFee.selector),
+            mockFdc2RequestFeeConfigurations,
+            abi.encodeWithSelector(IFdc2RequestFeeConfigurations.getTypeAndSourceFee.selector),
             abi.encode(requestFee)
         );
     }

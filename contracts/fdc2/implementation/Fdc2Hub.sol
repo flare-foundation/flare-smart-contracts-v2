@@ -7,22 +7,22 @@ import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import { IFtdcHub } from "../../userInterfaces/ftdc/IFtdcHub.sol";
+import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { IITeeExtensionRegistry } from "../../tee/interface/IITeeExtensionRegistry.sol";
 import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { ITeeMachineRegistry } from  "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
-import { IFtdcRequestFeeConfigurations } from "../../userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
+import { IFdc2RequestFeeConfigurations } from "../../userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
 
 /**
- * FtdcHub is used for requesting FTDC attestations.
+ * Fdc2Hub is used for requesting FDC2 attestations.
  */
-contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
+contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
 
     uint256 internal constant MAX_BIPS = 1e4;
-    bytes32 public constant FTDC_OP_TYPE = bytes32("F_FTDC");
+    bytes32 public constant FDC2_OP_TYPE = bytes32("F_FDC2");
     bytes32 public constant PROVE = bytes32("PROVE");
 
     /// TEE extension registry contract.
@@ -35,8 +35,8 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
     IFlareSystemsManager public flareSystemsManager;
     /// Reward manager contract.
     IIRewardManager public rewardManager;
-    /// FTDC request fee configurations contract.
-    IFtdcRequestFeeConfigurations public ftdcRequestFeeConfigurations;
+    /// FDC2 request fee configurations contract.
+    IFdc2RequestFeeConfigurations public fdc2RequestFeeConfigurations;
 
     /// The minimum threshold in BIPS.
     uint16 public minThresholdBIPS;
@@ -69,10 +69,10 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
     }
 
     /**
-     * @inheritdoc IFtdcHub
+     * @inheritdoc IFdc2Hub
      */
     function requestAttestation(
-        FtdcAttestationRequest calldata _attestationRequest,
+        Fdc2AttestationRequest calldata _attestationRequest,
         uint256 _numberOfTees,
         address[] memory _teeIds,
         address[] memory _cosigners,
@@ -140,7 +140,7 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
         }
         bytes32 attestationType = _attestationRequest.header.attestationType;
         bytes32 sourceId = _attestationRequest.header.sourceId;
-        uint256 fee = ftdcRequestFeeConfigurations.getTypeAndSourceFee(attestationType, sourceId);
+        uint256 fee = fdc2RequestFeeConfigurations.getTypeAndSourceFee(attestationType, sourceId);
         require(msg.value >= fee, FeeTooLow());
         //slither-disable-next-line arbitrary-send-eth
         rewardManager.receiveRewards{value: fee}(flareSystemsManager.getCurrentRewardEpochId(), false);
@@ -242,8 +242,8 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         rewardManager = IIRewardManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "RewardManager"));
-        ftdcRequestFeeConfigurations = IFtdcRequestFeeConfigurations(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcRequestFeeConfigurations"));
+        fdc2RequestFeeConfigurations = IFdc2RequestFeeConfigurations(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "Fdc2RequestFeeConfigurations"));
     }
 
     function _setMinThresholdBIPS(
@@ -281,7 +281,7 @@ contract FtdcHub is IFtdcHub, GovernedProxyImplementation, UUPSUpgradeable, Addr
             bytes32(0),
             _teeMachines,
             ITeeExtensionRegistry.TeeInstructionParams(
-                FTDC_OP_TYPE,
+                FDC2_OP_TYPE,
                 PROVE,
                 _message,
                 _cosigners,

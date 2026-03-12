@@ -5,15 +5,15 @@ import { GovernedProxyImplementation } from "../../governance/implementation/Gov
 import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
-import { IFtdcRequestFeeConfigurations } from "../../userInterfaces/ftdc/IFtdcRequestFeeConfigurations.sol";
+import { IFdc2RequestFeeConfigurations } from "../../userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
- * FtdcRequestFeeConfigurations contract.
+ * Fdc2RequestFeeConfigurations contract.
  *
  * This contract is used to manage the flare tee data connector requests fee configuration.
  */
-contract FtdcRequestFeeConfigurations is IFtdcRequestFeeConfigurations, GovernedProxyImplementation, UUPSUpgradeable {
+contract Fdc2RequestFeeConfigurations is IFdc2RequestFeeConfigurations, GovernedProxyImplementation, UUPSUpgradeable {
 
     /// Mapping of type and source to fee.
     mapping(bytes32 typeAndSource => uint256 fee) private typeAndSourceFees;
@@ -111,7 +111,7 @@ contract FtdcRequestFeeConfigurations is IFtdcRequestFeeConfigurations, Governed
     }
 
     /**
-     * @inheritdoc IFtdcRequestFeeConfigurations
+     * @inheritdoc IFdc2RequestFeeConfigurations
      */
     function getTypeAndSourceFee(
         bytes32 _type,

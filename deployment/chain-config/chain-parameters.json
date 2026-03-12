@@ -140,7 +140,7 @@
             ],
             "type": "object"
         },
-        "FtdcRequestFee": {
+        "Fdc2RequestFee": {
             "additionalProperties": false,
             "properties": {
                 "attestationType": {
@@ -464,18 +464,18 @@
             },
             "type": "array"
         },
-        "ftdcDefaultNumberOfTees": {
-            "description": "The default number of TEEs used in FTDC.",
+        "fdc2DefaultNumberOfTees": {
+            "description": "The default number of TEEs used in FDC2.",
             "type": "integer"
         },
-        "ftdcMinThresholdBIPS": {
-            "description": "The minimal threshold for FTDC in BIPS (e.g. 30%).",
+        "fdc2MinThresholdBIPS": {
+            "description": "The minimal threshold for FDC2 in BIPS (e.g. 30%).",
             "type": "integer"
         },
-        "ftdcRequestFees": {
-            "description": "The supported FTDC requests fee configurations.",
+        "fdc2RequestFees": {
+            "description": "The supported FDC2 requests fee configurations.",
             "items": {
-                "$ref": "#/definitions/FtdcRequestFee"
+                "$ref": "#/definitions/Fdc2RequestFee"
             },
             "type": "array"
         },
@@ -846,9 +846,9 @@
         "firstRewardEpochStartVotingRoundId",
         "firstVotingRoundStartTs",
         "flareDaemonizedContracts",
-        "ftdcDefaultNumberOfTees",
-        "ftdcMinThresholdBIPS",
-        "ftdcRequestFees",
+        "fdc2DefaultNumberOfTees",
+        "fdc2MinThresholdBIPS",
+        "fdc2RequestFees",
         "ftsoInflationConfigurations",
         "ftsoProtocolId",
         "ftsoProxies",

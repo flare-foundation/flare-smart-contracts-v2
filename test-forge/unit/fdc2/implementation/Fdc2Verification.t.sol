@@ -2,20 +2,20 @@
 pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
-import { FtdcVerification } from "../../../../contracts/ftdc/implementation/FtdcVerification.sol";
-import { FtdcVerificationProxy } from "../../../../contracts/ftdc/proxy/FtdcVerificationProxy.sol";
-import { IFtdcVerification } from "../../../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
+import { Fdc2Verification } from "../../../../contracts/fdc2/implementation/Fdc2Verification.sol";
+import { Fdc2VerificationProxy } from "../../../../contracts/fdc2/proxy/Fdc2VerificationProxy.sol";
+import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
 import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
-contract FtdcVerificationTest is Test {
+contract Fdc2VerificationTest is Test {
 
-    FtdcVerification private ftdcVerification;
-    FtdcVerification private ftdcVerificationImpl;
-    FtdcVerificationProxy private ftdcVerificationProxy;
+    Fdc2Verification private fdc2Verification;
+    Fdc2Verification private fdc2VerificationImpl;
+    Fdc2VerificationProxy private fdc2VerificationProxy;
 
     address private governance;
     address private addressUpdater;
@@ -44,14 +44,14 @@ contract FtdcVerificationTest is Test {
         addressUpdater = makeAddr("addressUpdater");
         governance = makeAddr("governance");
 
-        ftdcVerificationImpl = new FtdcVerification();
-        ftdcVerificationProxy = new FtdcVerificationProxy(
+        fdc2VerificationImpl = new Fdc2Verification();
+        fdc2VerificationProxy = new Fdc2VerificationProxy(
             IGovernanceSettings(address(this)),
             governance,
             addressUpdater,
-            address(ftdcVerificationImpl)
+            address(fdc2VerificationImpl)
         );
-        ftdcVerification = FtdcVerification(address(ftdcVerificationProxy));
+        fdc2Verification = Fdc2Verification(address(fdc2VerificationProxy));
 
         contractNameHashes = new bytes32[](3);
         contractAddresses = new address[](3);
@@ -63,10 +63,10 @@ contract FtdcVerificationTest is Test {
         contractAddresses[2] = makeAddr("Relay");
 
         vm.prank(addressUpdater);
-        ftdcVerification.updateContractAddresses(contractNameHashes, contractAddresses);
+        fdc2Verification.updateContractAddresses(contractNameHashes, contractAddresses);
 
-        relay = address(ftdcVerification.relay());
-        teeMachineRegistry = address(ftdcVerification.teeMachineRegistry());
+        relay = address(fdc2Verification.relay());
+        teeMachineRegistry = address(fdc2Verification.teeMachineRegistry());
 
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PRODUCTION);
         _mockGetExtensionId(0);
@@ -83,20 +83,20 @@ contract FtdcVerificationTest is Test {
     // verifyTeeSignature
     function testVerifyTeeSignatureRevertTeeMachineNotAvailable() public {
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PAUSED);
-        vm.expectRevert(IFtdcVerification.TeeMachineNotAvailable.selector);
-        ftdcVerification.verifyTeeSignature(signature, messageHash);
+        vm.expectRevert(IFdc2Verification.TeeMachineNotAvailable.selector);
+        fdc2Verification.verifyTeeSignature(signature, messageHash);
     }
 
 
     function testVerifyTeeSignatureRevertInvalidTeeMachineExtensionId() public {
         _mockGetExtensionId(1);
-        vm.expectRevert(IFtdcVerification.InvalidTeeMachineExtensionId.selector);
-        ftdcVerification.verifyTeeSignature(signature, messageHash);
+        vm.expectRevert(IFdc2Verification.InvalidTeeMachineExtensionId.selector);
+        fdc2Verification.verifyTeeSignature(signature, messageHash);
     }
 
     function testVerifyTeeSignature() public {
         address returnedTeeId =
-            ftdcVerification.verifyTeeSignature(signature, messageHash);
+            fdc2Verification.verifyTeeSignature(signature, messageHash);
         assertEq(returnedTeeId, teeId);
     }
 
@@ -106,8 +106,8 @@ contract FtdcVerificationTest is Test {
         Signature[] memory signatures = new Signature[](1);
         signatures[0] = signature;
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PAUSED);
-        vm.expectRevert(IFtdcVerification.TeeMachineNotAvailable.selector);
-        ftdcVerification.verifyTeeSignatures(signatures, messageHash);
+        vm.expectRevert(IFdc2Verification.TeeMachineNotAvailable.selector);
+        fdc2Verification.verifyTeeSignatures(signatures, messageHash);
     }
 
 
@@ -117,24 +117,24 @@ contract FtdcVerificationTest is Test {
         signatures[1] = signatures[0];
         vm.expectRevert(
             abi.encodeWithSelector(
-                IFtdcVerification.DuplicatedTeeId.selector,
+                IFdc2Verification.DuplicatedTeeId.selector,
                 teeId
             )
         );
-        ftdcVerification.verifyTeeSignatures(signatures, messageHash);
+        fdc2Verification.verifyTeeSignatures(signatures, messageHash);
     }
 
 
     function testVerifyTeeSignatures() public {
         Signature[] memory signatures = new Signature[](0);
         address[] memory teeIds =
-            ftdcVerification.verifyTeeSignatures(signatures, messageHash);
+            fdc2Verification.verifyTeeSignatures(signatures, messageHash);
         assertEq(teeIds.length, 0);
 
         signatures = new Signature[](2);
         signatures[0] = signature;
         signatures[1] = _createSignature(newPrivateKey);
-        teeIds = ftdcVerification.verifyTeeSignatures(signatures, messageHash);
+        teeIds = fdc2Verification.verifyTeeSignatures(signatures, messageHash);
         assertEq(teeIds.length, 2);
         assertEq(teeIds[0], teeId);
         assertEq(teeIds[1], newTeeId);
@@ -148,24 +148,24 @@ contract FtdcVerificationTest is Test {
         signatures[1] = signatures[0];
         vm.expectRevert(
             abi.encodeWithSelector(
-                IFtdcVerification.DuplicatedCosigner.selector,
+                IFdc2Verification.DuplicatedCosigner.selector,
                 teeId
             )
         );
-        ftdcVerification.verifyCosignerSignatures(signatures, messageHash);
+        fdc2Verification.verifyCosignerSignatures(signatures, messageHash);
     }
 
 
     function testVerifyCosignerSignatures() public {
         Signature[] memory signatures = new Signature[](0);
         address[] memory cosigners =
-            ftdcVerification.verifyCosignerSignatures(signatures, messageHash);
+            fdc2Verification.verifyCosignerSignatures(signatures, messageHash);
         assertEq(cosigners.length, 0);
 
         signatures = new Signature[](2);
         signatures[0] = signature;
         signatures[1] = _createSignature(newPrivateKey);
-        cosigners = ftdcVerification.verifyCosignerSignatures(signatures, messageHash);
+        cosigners = fdc2Verification.verifyCosignerSignatures(signatures, messageHash);
         assertEq(cosigners.length, 2);
         assertEq(cosigners[0], teeId);
         assertEq(cosigners[1], newTeeId);

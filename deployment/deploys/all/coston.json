@@ -413,8 +413,8 @@
     ]
   },
   {
-    "name": "FtdcHub",
-    "contractName": "FtdcHub.sol",
+    "name": "Fdc2Hub",
+    "contractName": "Fdc2Hub.sol",
     "addresses": [
       "0x7A966c48b7C5Ec437DfC7fAEBb561b934A22f549",
       "0x39Fd5418058932cb8b30a72623B0E6ae391D3768",
@@ -422,8 +422,8 @@
     ]
   },
   {
-    "name": "FtdcRequestFeeConfigurations",
-    "contractName": "FtdcRequestFeeConfigurations.sol",
+    "name": "Fdc2RequestFeeConfigurations",
+    "contractName": "Fdc2RequestFeeConfigurations.sol",
     "addresses": [
       "0xb2E902c636e6A27480cD334297Ea38d122fBcca3",
       "0x969e2F247e104cb3640D0715141392A3ef9c9e81",
@@ -431,8 +431,8 @@
     ]
   },
   {
-    "name": "FtdcVerification",
-    "contractName": "FtdcVerification.sol",
+    "name": "Fdc2Verification",
+    "contractName": "Fdc2Verification.sol",
     "addresses": [
       "0x473E39A51a776672aB1fD2C7Af18246d32f9f091",
       "0x854B7c6737F2D52041C006f6bF60AbCD516ca1cF",

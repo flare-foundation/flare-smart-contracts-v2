@@ -78,7 +78,7 @@ export const TEE_PAYMENT_CONFIGURATIONS = [
   {opType: "F_EVM", keyType: "EVM", sourceIds: ["FLR", "SGB"], maxBatchSize: 1, maxBatchDurationSeconds: 0},
 ];
 
-export const FTDC_FEE_CONFIGURATIONS = [
+export const FDC2_FEE_CONFIGURATIONS = [
     { attestationType: "TeeAvailabilityCheck", source: "TEE" },
     { attestationType: "PMWMultisigAccountConfigured", source: "XRP" },
     { attestationType: "PMWPaymentStatus", source: "XRP" },
@@ -116,7 +116,7 @@ export const TEE_OPERATION_FEES = [
   {opType: "F_EVM", opCommand: "REISSUE", feeWei: "1"},
   {opType: "F_EVM", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
   {opType: "F_WALLET", opCommand: "VRF", feeWei: "1"},
-  {opType: "F_FTDC", opCommand: "PROVE", feeWei: "1"}
+  {opType: "F_FDC2", opCommand: "PROVE", feeWei: "1"}
 ];
 
 let VOTING_EPOCH_DURATION_SEC: number;

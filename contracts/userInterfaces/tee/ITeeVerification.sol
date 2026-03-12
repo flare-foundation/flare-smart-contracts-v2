@@ -2,8 +2,8 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { ITeeMachineRegistry } from "./ITeeMachineRegistry.sol";
-import { ITeeAvailabilityCheck } from "../ftdc/ITeeAvailabilityCheck.sol";
-import { IPMWMultisigAccountConfigured } from "../ftdc/IPMWMultisigAccountConfigured.sol";
+import { ITeeAvailabilityCheck } from "../fdc2/ITeeAvailabilityCheck.sol";
+import { IPMWMultisigAccountConfigured } from "../fdc2/IPMWMultisigAccountConfigured.sol";
 
 /**
  * TeeVerification interface.
@@ -67,7 +67,7 @@ interface ITeeVerification {
         external payable;
 
     /**
-     * Request availability check attestation for a TEE machine - triggers FTDC availability check.
+     * Request availability check attestation for a TEE machine - triggers FDC2 availability check.
      * @param _teeId The TEE machine id.
      * @param _instructionId The instruction ID used for the TEE attestation check (challenge must match).
      * @param _testOnTeeId The TEE machine id to test on, if address(0) a random active TEE machine will be used.
@@ -105,7 +105,7 @@ interface ITeeVerification {
         returns (bool _responseDataValid);
 
     /**
-     * Request PMW multisig account configured attestation - triggers FTDC PMW multisig account configured check.
+     * Request PMW multisig account configured attestation - triggers FDC2 PMW multisig account configured check.
      * @param _walletId The wallet id.
      * @param _sourceId The source id (e.g., XRP, BTC).
      * @param _accountAddress The address of the multisig account.
@@ -137,7 +137,7 @@ interface ITeeVerification {
         returns (bool _responseDataValid);
 
     /**
-     * Returns the list of FTDC cosigners and their threshold used for the TEE machine registration.
+     * Returns the list of FDC2 cosigners and their threshold used for the TEE machine registration.
      * @return _cosigners The list of cosigners.
      * @return _cosignersThreshold The cosigners threshold.
      */

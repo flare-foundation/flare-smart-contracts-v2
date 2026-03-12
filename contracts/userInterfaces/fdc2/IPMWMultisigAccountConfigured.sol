@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IFtdcHub } from "../ftdc/IFtdcHub.sol";
-import { IFtdcVerification } from "../ftdc/IFtdcVerification.sol";
+import { IFdc2Hub } from "../fdc2/IFdc2Hub.sol";
+import { IFdc2Verification } from "../fdc2/IFdc2Verification.sol";
 
 bytes32 constant PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE = bytes32("PMWMultisigAccountConfigured");
 
@@ -14,8 +14,8 @@ interface IPMWMultisigAccountConfigured {
      * Proof for PMWMultisigAccountConfigured attestation type
      */
     struct Proof {
-        IFtdcVerification.FtdcSignatures signatures;
-        IFtdcHub.FtdcResponseHeader header;
+        IFdc2Verification.Fdc2Signatures signatures;
+        IFdc2Hub.Fdc2ResponseHeader header;
         RequestBody requestBody;
         ResponseBody responseBody;
     }

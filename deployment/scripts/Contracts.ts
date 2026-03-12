@@ -98,9 +98,9 @@ export class Contracts {
   public static readonly TEE_FEE_CALCULATOR = "TeeFeeCalculator";
   public static readonly TEE_REPLICATION = "TeeReplication";
   public static readonly TEE_REWARD_OFFERS_MANAGER = "TeeRewardOffersManager";
-  public static readonly FTDC_HUB = "FtdcHub";
-  public static readonly FTDC_REQUEST_FEE_CONFIGURATIONS = "FtdcRequestFeeConfigurations";
-  public static readonly FTDC_VERIFICATION = "FtdcVerification";
+  public static readonly FDC2_HUB = "Fdc2Hub";
+  public static readonly FDC2_REQUEST_FEE_CONFIGURATIONS = "Fdc2RequestFeeConfigurations";
+  public static readonly FDC2_VERIFICATION = "Fdc2Verification";
   public static readonly TEE_VRF = "TeeVrf";
 
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).

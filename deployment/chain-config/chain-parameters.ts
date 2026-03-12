@@ -541,19 +541,19 @@ export interface ChainParameters {
     teePaymentConfigurations: TeePaymentConfiguration[];
 
     /**
-     * The minimal threshold for FTDC in BIPS (e.g. 30%).
+     * The minimal threshold for FDC2 in BIPS (e.g. 30%).
      */
-    ftdcMinThresholdBIPS: integer;
+    fdc2MinThresholdBIPS: integer;
 
     /**
-     * The default number of TEEs used in FTDC.
+     * The default number of TEEs used in FDC2.
      */
-    ftdcDefaultNumberOfTees: integer;
+    fdc2DefaultNumberOfTees: integer;
 
     /**
-     *  The supported FTDC requests fee configurations.
+     *  The supported FDC2 requests fee configurations.
      */
-    ftdcRequestFees: FtdcRequestFee[];
+    fdc2RequestFees: Fdc2RequestFee[];
 }
 
 export interface FtsoInflationConfiguration {
@@ -807,7 +807,7 @@ export interface TeeOperationFee {
     feeWei: string;
 }
 
-export interface FtdcRequestFee {
+export interface Fdc2RequestFee {
     /**
      * The attestation type.
      */

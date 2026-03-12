@@ -7,7 +7,7 @@ import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionReg
 import { ITeeOwnerAllowlist } from "../../userInterfaces/tee/ITeeOwnerAllowlist.sol";
 import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
 import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
-import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
 import { PublicKeyUtils } from "../../utils/lib/PublicKeyUtils.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";

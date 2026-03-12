@@ -12,12 +12,12 @@ import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.so
 import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
 import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
-import { IFtdcHub } from "../../userInterfaces/ftdc/IFtdcHub.sol";
-import { IFtdcVerification } from "../../userInterfaces/ftdc/IFtdcVerification.sol";
+import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
+import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import { IPMWMultisigAccountConfigured, PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE }
-    from "../../userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
+    from "../../userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
-    from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+    from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
@@ -55,9 +55,9 @@ contract TeeVerification is ITeeVerification, TeeBase {
     /// TEE replication contract.
     ITeeReplication public teeReplication;
     /// Flare TEE data connector contract.
-    IFtdcHub public ftdcHub;
-    /// FTDC verification contract.
-    IFtdcVerification public ftdcVerification;
+    IFdc2Hub public fdc2Hub;
+    /// FDC2 verification contract.
+    IFdc2Verification public fdc2Verification;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
     /// Relay contract.
@@ -191,7 +191,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
             registrationCosignersThreshold = cosignersThreshold;
         }
 
-        _requestFtdcAttestation(
+        _requestFdc2Attestation(
             _testOnTeeId,
             registrationCosigners,
             registrationCosignersThreshold,
@@ -294,7 +294,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
             requestBody.publicKeys[i] = teeWalletKeyManager.getWalletKeyPublicKey(_walletId, keyIds[i]);
         }
 
-        _requestFtdcAttestation(
+        _requestFdc2Attestation(
             _testOnTeeId,
             cosigners.values(),
             cosignersThreshold,
@@ -316,7 +316,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         external
         returns (bool)
     {
-        IFtdcHub.FtdcResponseHeader calldata header = _proof.header;
+        IFdc2Hub.Fdc2ResponseHeader calldata header = _proof.header;
         require(
             header.thresholdBIPS == 0 &&
             header.attestationType == PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
@@ -353,7 +353,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
     }
 
     /**
-     * Sets the FTDC cosigners and their threshold used for the TEE machine registration.
+     * Sets the FDC2 cosigners and their threshold used for the TEE machine registration.
      * Emits CosignersSet event.
      * @param _cosigners The cosigners.
      * @param _cosignersThreshold The cosigners threshold.
@@ -476,10 +476,10 @@ contract TeeVerification is ITeeVerification, TeeBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeSystemStateVerifier"));
         teeReplication = ITeeReplication(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeReplication"));
-        ftdcHub = IFtdcHub(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcHub"));
-        ftdcVerification = IFtdcVerification(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "FtdcVerification"));
+        fdc2Hub = IFdc2Hub(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "Fdc2Hub"));
+        fdc2Verification = IFdc2Verification(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "Fdc2Verification"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
@@ -514,7 +514,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         internal
         returns (bool)
     {
-        IFtdcHub.FtdcResponseHeader calldata header = _proof.header;
+        IFdc2Hub.Fdc2ResponseHeader calldata header = _proof.header;
         require(
             header.thresholdBIPS == 0 &&
             header.attestationType == TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE &&
@@ -618,7 +618,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         );
     }
 
-    function _requestFtdcAttestation(
+    function _requestFdc2Attestation(
         address _testOnTeeId,
         address[] memory _cosigners,
         uint64 _cosignersThreshold,
@@ -638,8 +638,8 @@ contract TeeVerification is ITeeVerification, TeeBase {
         } else {
             numberOfTees = 1; // request on a random active TEE machine
         }
-        IFtdcHub.FtdcAttestationRequest memory attestationRequest = IFtdcHub.FtdcAttestationRequest({
-            header: IFtdcHub.FtdcRequestHeader({
+        IFdc2Hub.Fdc2AttestationRequest memory attestationRequest = IFdc2Hub.Fdc2AttestationRequest({
+            header: IFdc2Hub.Fdc2RequestHeader({
                 attestationType: _attestationType,
                 sourceId: _sourceId,
                 thresholdBIPS: 0,
@@ -647,7 +647,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
             }),
             requestBody: _requestBody
         });
-        ftdcHub.requestAttestation{value: msg.value}(
+        fdc2Hub.requestAttestation{value: msg.value}(
             attestationRequest,
             numberOfTees,
             teeIds,
@@ -664,7 +664,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
     )
         internal
     {
-        uint256 rewardEpochId = ftdcVerification.verifySigningPolicySignatures(_signatures, _messageHash);
+        uint256 rewardEpochId = fdc2Verification.verifySigningPolicySignatures(_signatures, _messageHash);
         require(
             rewardEpochId == _currentRewardEpochId || rewardEpochId + 1 == _currentRewardEpochId,
             InvalidSigningPolicy()
@@ -680,7 +680,7 @@ contract TeeVerification is ITeeVerification, TeeBase {
         if (cosignersThreshold == 0) {
             return; // no cosigners, nothing to check
         }
-        address[] memory cosignersList = ftdcVerification.verifyCosignerSignatures(_signatures, _messageHash);
+        address[] memory cosignersList = fdc2Verification.verifyCosignerSignatures(_signatures, _messageHash);
         require(cosignersList.length >= cosignersThreshold, CosignersThresholdNotMet());
         for (uint256 i = 0; i < cosignersList.length; i++) {
             require(cosigners.contains(cosignersList[i]), InvalidCosigner(cosignersList[i]));

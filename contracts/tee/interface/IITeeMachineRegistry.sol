@@ -2,7 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
-import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 
 interface IITeeMachineRegistry is ITeeMachineRegistry {
 

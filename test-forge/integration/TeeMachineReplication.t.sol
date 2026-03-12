@@ -13,12 +13,12 @@ import { TeeReplication } from "../../contracts/tee/implementation/TeeReplicatio
 import { TeeVerification } from "../../contracts/tee/implementation/TeeVerification.sol";
 import { TeeSystemStateVerifier } from "../../contracts/tee/implementation/TeeSystemStateVerifier.sol";
 import { TeeVersionManager } from "../../contracts/tee/implementation/TeeVersionManager.sol";
-import { FtdcVerification } from "../../contracts/ftdc/implementation/FtdcVerification.sol";
-import { FtdcVerificationProxy } from "../../contracts/ftdc/proxy/FtdcVerificationProxy.sol";
-import { FtdcHub } from "../../contracts/ftdc/implementation/FtdcHub.sol";
-import { FtdcHubProxy } from "../../contracts/ftdc/proxy/FtdcHubProxy.sol";
-import { FtdcRequestFeeConfigurations } from "../../contracts/ftdc/implementation/FtdcRequestFeeConfigurations.sol";
-import { FtdcRequestFeeConfigurationsProxy } from "../../contracts/ftdc/proxy/FtdcRequestFeeConfigurationsProxy.sol";
+import { Fdc2Verification } from "../../contracts/fdc2/implementation/Fdc2Verification.sol";
+import { Fdc2VerificationProxy } from "../../contracts/fdc2/proxy/Fdc2VerificationProxy.sol";
+import { Fdc2Hub } from "../../contracts/fdc2/implementation/Fdc2Hub.sol";
+import { Fdc2HubProxy } from "../../contracts/fdc2/proxy/Fdc2HubProxy.sol";
+import { Fdc2RequestFeeConfigurations } from "../../contracts/fdc2/implementation/Fdc2RequestFeeConfigurations.sol";
+import { Fdc2RequestFeeConfigurationsProxy } from "../../contracts/fdc2/proxy/Fdc2RequestFeeConfigurationsProxy.sol";
 
 import { TeeExtensionRegistryProxy } from "../../contracts/tee/proxy/TeeExtensionRegistryProxy.sol";
 import { TeeOwnerAllowlistProxy } from "../../contracts/tee/proxy/TeeOwnerAllowlistProxy.sol";
@@ -38,10 +38,10 @@ import { ITeeVerification } from "../../contracts/userInterfaces/tee/ITeeVerific
 import { IITeeSystemStateVerifier } from "../../contracts/tee/interface/IITeeSystemStateVerifier.sol";
 import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeVersionManager } from "../../contracts/userInterfaces/tee/ITeeVersionManager.sol";
-import { IFtdcVerification } from "../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
-import { IFtdcHub } from "../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
+import { IFdc2Verification } from "../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
+import { IFdc2Hub } from "../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
-    from "../../contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+    from "../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 
 import { ProtocolsV2Interface } from "../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { RandomNumberV2Interface } from "../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
@@ -72,15 +72,15 @@ contract TeeMachineReplicationTest is Test {
     TeeVerification private teeVerification;
     TeeSystemStateVerifier private teeSystemStateVerifier;
     TeeVersionManager private teeVersionManager;
-    FtdcHub private ftdcHub;
-    FtdcHub private ftdcHubImpl;
-    FtdcHubProxy private ftdcHubProxy;
-    FtdcVerification private ftdcVerification;
-    FtdcVerification private ftdcVerificationImpl;
-    FtdcVerificationProxy private ftdcVerificationProxy;
-    FtdcRequestFeeConfigurations private ftdcRequestFeeConfigurations;
-    FtdcRequestFeeConfigurations private ftdcRequestFeeConfigurationsImpl;
-    FtdcRequestFeeConfigurationsProxy private ftdcRequestFeeConfigurationsProxy;
+    Fdc2Hub private fdc2Hub;
+    Fdc2Hub private fdc2HubImpl;
+    Fdc2HubProxy private fdc2HubProxy;
+    Fdc2Verification private fdc2Verification;
+    Fdc2Verification private fdc2VerificationImpl;
+    Fdc2VerificationProxy private fdc2VerificationProxy;
+    Fdc2RequestFeeConfigurations private fdc2RequestFeeConfigurations;
+    Fdc2RequestFeeConfigurations private fdc2RequestFeeConfigurationsImpl;
+    Fdc2RequestFeeConfigurationsProxy private fdc2RequestFeeConfigurationsProxy;
 
     IGovernanceSettings private governanceSettings;
     address private initialGovernance;
@@ -237,33 +237,33 @@ contract TeeMachineReplicationTest is Test {
         );
         teeVersionManager = TeeVersionManager(address(teeVersionManagerProxy));
 
-        ftdcHubImpl = new FtdcHub();
-        ftdcHubProxy = new FtdcHubProxy(
+        fdc2HubImpl = new Fdc2Hub();
+        fdc2HubProxy = new Fdc2HubProxy(
             IGovernanceSettings(address(this)),
             initialGovernance,
             addressUpdater,
             5000,
             1,
-            address(ftdcHubImpl)
+            address(fdc2HubImpl)
         );
-        ftdcHub = FtdcHub(address(ftdcHubProxy));
+        fdc2Hub = Fdc2Hub(address(fdc2HubProxy));
 
-        ftdcVerificationImpl = new FtdcVerification();
-        ftdcVerificationProxy = new FtdcVerificationProxy(
+        fdc2VerificationImpl = new Fdc2Verification();
+        fdc2VerificationProxy = new Fdc2VerificationProxy(
             IGovernanceSettings(address(this)),
             initialGovernance,
             addressUpdater,
-            address(ftdcVerificationImpl)
+            address(fdc2VerificationImpl)
         );
-        ftdcVerification = FtdcVerification(address(ftdcVerificationProxy));
+        fdc2Verification = Fdc2Verification(address(fdc2VerificationProxy));
 
-        ftdcRequestFeeConfigurationsImpl = new FtdcRequestFeeConfigurations();
-        ftdcRequestFeeConfigurationsProxy = new FtdcRequestFeeConfigurationsProxy(
+        fdc2RequestFeeConfigurationsImpl = new Fdc2RequestFeeConfigurations();
+        fdc2RequestFeeConfigurationsProxy = new Fdc2RequestFeeConfigurationsProxy(
             IGovernanceSettings(address(this)),
             initialGovernance,
-            address(ftdcRequestFeeConfigurationsImpl)
+            address(fdc2RequestFeeConfigurationsImpl)
         );
-        ftdcRequestFeeConfigurations = FtdcRequestFeeConfigurations(address(ftdcRequestFeeConfigurationsProxy));
+        fdc2RequestFeeConfigurations = Fdc2RequestFeeConfigurations(address(fdc2RequestFeeConfigurationsProxy));
 
         // set signers and thresholds
         governanceSigners1.push();
@@ -323,9 +323,9 @@ contract TeeMachineReplicationTest is Test {
         contractNameHashes[13] = keccak256(abi.encode("TeeWalletProjectManager"));
         contractNameHashes[14] = keccak256(abi.encode("TeeWalletManager"));
         contractNameHashes[15] = keccak256(abi.encode("TeeWalletKeyManager"));
-        contractNameHashes[16] = keccak256(abi.encode("FtdcHub"));
-        contractNameHashes[17] = keccak256(abi.encode("FtdcVerification"));
-        contractNameHashes[18] = keccak256(abi.encode("FtdcRequestFeeConfigurations"));
+        contractNameHashes[16] = keccak256(abi.encode("Fdc2Hub"));
+        contractNameHashes[17] = keccak256(abi.encode("Fdc2Verification"));
+        contractNameHashes[18] = keccak256(abi.encode("Fdc2RequestFeeConfigurations"));
 
         address[] memory contractAddresses = new address[](19);
         contractAddresses[0] = addressUpdater;
@@ -344,9 +344,9 @@ contract TeeMachineReplicationTest is Test {
         contractAddresses[13] = makeAddr("TeeWalletProjectManager");
         contractAddresses[14] = makeAddr("TeeWalletManager");
         contractAddresses[15] = makeAddr("TeeWalletKeyManager");
-        contractAddresses[16] = address(ftdcHub);
-        contractAddresses[17] = address(ftdcVerification);
-        contractAddresses[18] = address(ftdcRequestFeeConfigurations);
+        contractAddresses[16] = address(fdc2Hub);
+        contractAddresses[17] = address(fdc2Verification);
+        contractAddresses[18] = address(fdc2RequestFeeConfigurations);
 
         vm.startPrank(addressUpdater);
         teeExtensionRegistry.updateContractAddresses(contractNameHashes, contractAddresses);
@@ -357,8 +357,8 @@ contract TeeMachineReplicationTest is Test {
         teeVerification.updateContractAddresses(contractNameHashes, contractAddresses);
         teeSystemStateVerifier.updateContractAddresses(contractNameHashes, contractAddresses);
         teeVersionManager.updateContractAddresses(contractNameHashes, contractAddresses);
-        ftdcVerification.updateContractAddresses(contractNameHashes, contractAddresses);
-        ftdcHub.updateContractAddresses(contractNameHashes, contractAddresses);
+        fdc2Verification.updateContractAddresses(contractNameHashes, contractAddresses);
+        fdc2Hub.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
         vm.startPrank(initialGovernance);
@@ -366,7 +366,7 @@ contract TeeMachineReplicationTest is Test {
         address[] memory systemInstructionsSenders = new address[](3);
         systemInstructionsSenders[0] = address(teeReplication);
         systemInstructionsSenders[1] = address(teeVerification);
-        systemInstructionsSenders[2] = address(ftdcHub);
+        systemInstructionsSenders[2] = address(fdc2Hub);
         teeExtensionRegistry.registerSystemInstructionsSenders(systemInstructionsSenders);
 
         // add supported platforms
@@ -387,8 +387,8 @@ contract TeeMachineReplicationTest is Test {
         fees[2] = 300;
         teeFeeCalculator.setOperationFees(opTypes, opCommands, fees);
 
-        // set ftdc fees
-        ftdcRequestFeeConfigurations.setTypeAndSourceFee(
+        // set fdc2 fees
+        fdc2RequestFeeConfigurations.setTypeAndSourceFee(
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             teeVerification.TEE_SOURCE_ID(),
             50
@@ -502,7 +502,7 @@ contract TeeMachineReplicationTest is Test {
     function testPutTeeMachineToProduction() public {
         testRegisterTeeMachine();
 
-        IFtdcHub.FtdcResponseHeader memory header = IFtdcHub.FtdcResponseHeader(
+        IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             teeVerification.TEE_SOURCE_ID(),
             0,
@@ -540,7 +540,7 @@ contract TeeMachineReplicationTest is Test {
         ));
         bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
 
-        IFtdcVerification.FtdcSignatures memory sigs;
+        IFdc2Verification.Fdc2Signatures memory sigs;
         sigs.cosignerSignatures = new Signature[](cosignersThreshold);
         for (uint256 i = 0; i < cosignersThreshold; i++) {
             sigs.cosignerSignatures[i] =
@@ -683,7 +683,7 @@ contract TeeMachineReplicationTest is Test {
             abi.encode(2)
         );
 
-        IFtdcHub.FtdcResponseHeader memory header = IFtdcHub.FtdcResponseHeader(
+        IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             teeVerification.TEE_SOURCE_ID(),
             0,
@@ -721,7 +721,7 @@ contract TeeMachineReplicationTest is Test {
         ));
         bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
 
-        IFtdcVerification.FtdcSignatures memory sigs;
+        IFdc2Verification.Fdc2Signatures memory sigs;
         sigs.cosignerSignatures = new Signature[](cosignersThreshold);
         for (uint256 i = 0; i < cosignersThreshold; i++) {
             sigs.cosignerSignatures[i] =
@@ -754,7 +754,7 @@ contract TeeMachineReplicationTest is Test {
     function testConfirmReplicate() public {
         testRequestTeeAttestation();
 
-        IFtdcHub.FtdcResponseHeader memory header = IFtdcHub.FtdcResponseHeader(
+        IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             teeVerification.TEE_SOURCE_ID(),
             0,
@@ -792,7 +792,7 @@ contract TeeMachineReplicationTest is Test {
         ));
         bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
 
-        IFtdcVerification.FtdcSignatures memory sigs;
+        IFdc2Verification.Fdc2Signatures memory sigs;
         sigs.cosignerSignatures = new Signature[](cosignersThreshold);
         for (uint256 i = 0; i < cosignersThreshold; i++) {
             sigs.cosignerSignatures[i] =

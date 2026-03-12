@@ -13,13 +13,13 @@ import { ITeeVerification } from "../../../../contracts/userInterfaces/tee/ITeeV
 import { ITeeReplication } from "../../../../contracts/userInterfaces/tee/ITeeReplication.sol";
 import { ITeeWalletKeyManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
 import { ITeeWalletProjectManager } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManager.sol";
-import { IFtdcHub } from "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
-import { IFtdcVerification } from "../../../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
-import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
+import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
+import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import {
     IPMWMultisigAccountConfigured,
     PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE
-} from "../../../../contracts/userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
+} from "../../../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -41,9 +41,9 @@ contract TeeVerificationTest is Test {
     address private teeMachineRegistry;
     address private teeReplication;
     address private teeExtensionRegistry;
-    address private ftdcHub;
+    address private fdc2Hub;
     address private flareSystemsManager;
-    address private ftdcVerification;
+    address private fdc2Verification;
     address private teeWalletManager;
     address private teeWalletKeyManager;
     address private teeWalletProjectManager;
@@ -131,8 +131,8 @@ contract TeeVerificationTest is Test {
         contractNameHashes[5] = keccak256(abi.encode("TeeWalletKeyManager"));
         contractNameHashes[6] = keccak256(abi.encode("TeeSystemStateVerifier"));
         contractNameHashes[7] = keccak256(abi.encode("TeeReplication"));
-        contractNameHashes[8] = keccak256(abi.encode("FtdcHub"));
-        contractNameHashes[9] = keccak256(abi.encode("FtdcVerification"));
+        contractNameHashes[8] = keccak256(abi.encode("Fdc2Hub"));
+        contractNameHashes[9] = keccak256(abi.encode("Fdc2Verification"));
         contractNameHashes[10] = keccak256(abi.encode("FlareSystemsManager"));
         contractNameHashes[11] = keccak256(abi.encode("Relay"));
         contractAddresses[0] = addressUpdater;
@@ -143,8 +143,8 @@ contract TeeVerificationTest is Test {
         contractAddresses[5] = makeAddr("TeeWalletKeyManager");
         contractAddresses[6] = makeAddr("TeeSystemStateVerifier");
         contractAddresses[7] = makeAddr("TeeReplication");
-        contractAddresses[8] = makeAddr("FtdcHub");
-        contractAddresses[9] = makeAddr("FtdcVerification");
+        contractAddresses[8] = makeAddr("Fdc2Hub");
+        contractAddresses[9] = makeAddr("Fdc2Verification");
         contractAddresses[10] = makeAddr("FlareSystemsManager");
         contractAddresses[11] = makeAddr("Relay");
 
@@ -155,9 +155,9 @@ contract TeeVerificationTest is Test {
         teeMachineRegistry = address(teeVerification.teeMachineRegistry());
         teeReplication = address(teeVerification.teeReplication());
         teeExtensionRegistry = address(teeVerification.teeExtensionRegistry());
-        ftdcHub = address(teeVerification.ftdcHub());
+        fdc2Hub = address(teeVerification.fdc2Hub());
         flareSystemsManager = address(teeVerification.flareSystemsManager());
-        ftdcVerification = address(teeVerification.ftdcVerification());
+        fdc2Verification = address(teeVerification.fdc2Verification());
         teeWalletManager = address(teeVerification.teeWalletManager());
         teeWalletKeyManager = address(teeVerification.teeWalletKeyManager());
         teeWalletProjectManager = address(teeVerification.teeWalletProjectManager());
@@ -213,9 +213,9 @@ contract TeeVerificationTest is Test {
         );
 
         vm.mockCall(
-            ftdcHub,
+            fdc2Hub,
             abi.encodeWithSelector(
-                IFtdcHub.requestAttestation.selector
+                IFdc2Hub.requestAttestation.selector
             ),
             abi.encode("")
         );
@@ -370,7 +370,7 @@ contract TeeVerificationTest is Test {
         _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
         _mockGetReplicatingTeeId(address(0));
         vm.expectCall(
-            ftdcHub,
+            fdc2Hub,
             _buildAvailabilityCheckExpectCallData(proofOwner, claimBack)
         );
         teeVerification.requestAvailabilityCheckAttestation(teeId, instructionId, teeId, proofOwner, claimBack);
@@ -693,7 +693,7 @@ contract TeeVerificationTest is Test {
         address proofOwner = makeAddr("proofOwner");
         address claimBack = makeAddr("claimBack");
         vm.expectCall(
-            ftdcHub,
+            fdc2Hub,
             _buildPMWExpectCallData(proofOwner, claimBack)
         );
         teeVerification.requestPMWMultisigAccountConfiguredAttestation(
@@ -882,9 +882,9 @@ contract TeeVerificationTest is Test {
 
     function _mockVerifySigningPolicySignatures(uint256 _rewardEpochId) private {
         vm.mockCall(
-            ftdcVerification,
+            fdc2Verification,
             abi.encodeWithSelector(
-                IFtdcVerification.verifySigningPolicySignatures.selector
+                IFdc2Verification.verifySigningPolicySignatures.selector
             ),
             abi.encode(_rewardEpochId)
         );
@@ -893,9 +893,9 @@ contract TeeVerificationTest is Test {
 
     function _mockVerifyCosignerSignatures(address[] memory _cosignersList) private {
         vm.mockCall(
-            ftdcVerification,
+            fdc2Verification,
             abi.encodeWithSelector(
-                IFtdcVerification.verifyCosignerSignatures.selector
+                IFdc2Verification.verifyCosignerSignatures.selector
             ),
             abi.encode(_cosignersList)
         );
@@ -982,8 +982,8 @@ contract TeeVerificationTest is Test {
             challenge: bytes32(0),
             instructionId: instructionId
         });
-        IFtdcHub.FtdcAttestationRequest memory attestationRequest = IFtdcHub.FtdcAttestationRequest({
-            header: IFtdcHub.FtdcRequestHeader({
+        IFdc2Hub.Fdc2AttestationRequest memory attestationRequest = IFdc2Hub.Fdc2AttestationRequest({
+            header: IFdc2Hub.Fdc2RequestHeader({
                 attestationType: bytes32("TeeAvailabilityCheck"),
                 sourceId: sourceId,
                 thresholdBIPS: 0,
@@ -994,7 +994,7 @@ contract TeeVerificationTest is Test {
         address[] memory teeIdsParam = new address[](1);
         teeIdsParam[0] = teeId;
         return abi.encodeWithSelector(
-            IFtdcHub.requestAttestation.selector,
+            IFdc2Hub.requestAttestation.selector,
             attestationRequest,
             uint256(0),
             teeIdsParam,
@@ -1016,8 +1016,8 @@ contract TeeVerificationTest is Test {
         for (uint256 i = 0; i < keyIds.length; i++) {
             requestBody.publicKeys[i] = publicKey;
         }
-        IFtdcHub.FtdcAttestationRequest memory attestationRequest = IFtdcHub.FtdcAttestationRequest({
-            header: IFtdcHub.FtdcRequestHeader({
+        IFdc2Hub.Fdc2AttestationRequest memory attestationRequest = IFdc2Hub.Fdc2AttestationRequest({
+            header: IFdc2Hub.Fdc2RequestHeader({
                 attestationType: PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
                 sourceId: sourceId,
                 thresholdBIPS: 0,
@@ -1028,7 +1028,7 @@ contract TeeVerificationTest is Test {
         address[] memory teeIdsParam = new address[](1);
         teeIdsParam[0] = teeId;
         return abi.encodeWithSelector(
-            IFtdcHub.requestAttestation.selector,
+            IFdc2Hub.requestAttestation.selector,
             attestationRequest,
             uint256(0),
             teeIdsParam,

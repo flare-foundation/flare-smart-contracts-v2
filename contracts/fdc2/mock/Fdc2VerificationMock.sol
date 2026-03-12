@@ -4,17 +4,17 @@ pragma solidity  ^0.8.27;
 import "../../utils/implementation/AddressUpdatable.sol";
 import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import "../../userInterfaces/IRelay.sol";
-import "../../userInterfaces/ftdc/IFtdcVerification.sol";
+import "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import "../../utils/lib/AddressSet.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
- * FtdcVerification MOCK contract.
+ * Fdc2Verification MOCK contract.
  *
- * This contract is used to verify FTDC attestations.
+ * This contract is used to verify FDC2 attestations.
  */
-contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
+contract Fdc2VerificationMock is IFdc2Verification, AddressUpdatable {
     using AddressSet for AddressSet.State;
 
     /// The TEE machine registry contract.
@@ -48,7 +48,7 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc IFtdcVerification
+     * @inheritdoc IFdc2Verification
      */
     function verifySigningPolicySignatures(
         bytes calldata /*_relayMessage*/,
@@ -63,7 +63,7 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc IFtdcVerification
+     * @inheritdoc IFdc2Verification
      */
     function verifyTeeSignature(
         Signature calldata /*_signature*/,
@@ -85,7 +85,7 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc IFtdcVerification
+     * @inheritdoc IFdc2Verification
      */
     function verifyTeeSignatures(
         Signature[] calldata /*_signatures*/,
@@ -103,7 +103,7 @@ contract FtdcVerificationMock is IFtdcVerification, AddressUpdatable {
     }
 
     /**
-     * @inheritdoc IFtdcVerification
+     * @inheritdoc IFdc2Verification
      */
     function verifyCosignerSignatures(
         Signature[] calldata _signatures,

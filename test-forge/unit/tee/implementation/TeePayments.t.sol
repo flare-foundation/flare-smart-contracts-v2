@@ -17,7 +17,7 @@ import { ITeeWalletKeyManager } from "../../../../contracts/userInterfaces/tee/I
 import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import {
     IPMWMultisigAccountConfigured
-} from "../../../../contracts/userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
+} from "../../../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";

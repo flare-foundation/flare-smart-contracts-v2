@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IFtdcHub } from "../../userInterfaces/ftdc/IFtdcHub.sol";
-import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
-import { IPMWPaymentStatus } from "../../userInterfaces/ftdc/IPMWPaymentStatus.sol";
-import { IPMWMultisigAccountConfigured } from "../../userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
+import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
+import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
+import { IPMWPaymentStatus } from "../../userInterfaces/fdc2/IPMWPaymentStatus.sol";
+import { IPMWMultisigAccountConfigured } from "../../userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 
 
-interface FtdcStructs {
+interface Fdc2Structs {
 
-    function ftdcRequestHeaderStruct(IFtdcHub.FtdcRequestHeader calldata) external;
-    function ftdcAttestationRequestStruct(IFtdcHub.FtdcAttestationRequest calldata) external;
-    function ftdcResponseHeaderStruct(IFtdcHub.FtdcResponseHeader calldata) external;
+    function fdc2RequestHeaderStruct(IFdc2Hub.Fdc2RequestHeader calldata) external;
+    function fdc2AttestationRequestStruct(IFdc2Hub.Fdc2AttestationRequest calldata) external;
+    function fdc2ResponseHeaderStruct(IFdc2Hub.Fdc2ResponseHeader calldata) external;
 
     function availabilityCheckTeeStateStruct(ITeeAvailabilityCheck.TeeState calldata) external;
     function availabilityCheckRequestBodyStruct(ITeeAvailabilityCheck.RequestBody calldata) external;

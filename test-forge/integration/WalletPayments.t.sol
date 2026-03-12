@@ -17,7 +17,7 @@ import { TeeFeeCalculatorProxy } from "../../contracts/tee/proxy/TeeFeeCalculato
 import { TeePayments } from "../../contracts/tee/implementation/TeePayments.sol";
 import { TeePaymentsProxy } from "../../contracts/tee/proxy/TeePaymentsProxy.sol";
 import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardManager.sol";
-import { IPMWMultisigAccountConfigured } from "../../contracts/userInterfaces/ftdc/IPMWMultisigAccountConfigured.sol";
+import { IPMWMultisigAccountConfigured } from "../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeWalletKeyManager } from "../../contracts/userInterfaces/tee/ITeeWalletKeyManager.sol";
 import { ITeeWalletBackupManager } from "../../contracts/userInterfaces/tee/ITeeWalletBackupManager.sol";
@@ -26,8 +26,8 @@ import { Signature } from "../../contracts/userInterfaces/ISignature.sol";
 import { ITeeMachineRegistry } from "../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ProtocolsV2Interface } from "../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { ITeeVerification } from "../../contracts/userInterfaces/tee/ITeeVerification.sol";
-import { IFtdcVerification } from "../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
-import { IFtdcHub } from "../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
+import { IFdc2Verification } from "../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
+import { IFdc2Hub } from "../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { ITeePayments } from "../../contracts/userInterfaces/tee/ITeePayments.sol";
 import { ITeeExtensionRegistry } from "../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -458,12 +458,12 @@ contract WalletPaymentsTest is Test {
         bytes[] memory publicKeys = new bytes[](1);
         publicKeys[0] = hex"03D11FBF992FCC3C7326E323687C234866E400229EA81C73EE4D0DBC1AB5DB22D3";
         IPMWMultisigAccountConfigured.Proof memory pmwAccountProof = IPMWMultisigAccountConfigured.Proof({
-            signatures: IFtdcVerification.FtdcSignatures({
+            signatures: IFdc2Verification.Fdc2Signatures({
                 signingPolicySignatures: "",
                 teeSignatures: new Signature[](0),
                 cosignerSignatures: new Signature[](0)
             }),
-            header: IFtdcHub.FtdcResponseHeader({
+            header: IFdc2Hub.Fdc2ResponseHeader({
                 attestationType: bytes32("PMWMultisigAccountConfigured"),
                 sourceId: XRP_SOURCE_ID,
                 thresholdBIPS: 0,

@@ -4,17 +4,17 @@ pragma solidity >=0.7.6 <0.9;
 import { Signature } from "../ISignature.sol";
 
 /**
- * FtdcVerification interface.
+ * Fdc2Verification interface.
  */
-interface IFtdcVerification {
+interface IFdc2Verification {
 
     /**
-     * Ftdc signatures.
+     * Fdc2 signatures.
      * @param signingPolicySignatures Signatures of signing policy in a format as used on the relay contract.
      * @param teeSignatures Signatures of the TEEs.
      * @param cosignerSignatures Signatures of the cosigners.
      */
-    struct FtdcSignatures {
+    struct Fdc2Signatures {
         bytes signingPolicySignatures;
         Signature[] teeSignatures;
         Signature[] cosignerSignatures;

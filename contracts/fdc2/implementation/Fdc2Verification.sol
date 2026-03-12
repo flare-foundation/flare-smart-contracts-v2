@@ -6,7 +6,7 @@ import { GovernedProxyImplementation } from "../../governance/implementation/Gov
 import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
-import { IFtdcVerification } from "../../userInterfaces/ftdc/IFtdcVerification.sol";
+import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -15,11 +15,11 @@ import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
- * FtdcVerification contract.
+ * Fdc2Verification contract.
  *
- * This contract is used to verify FTDC attestations.
+ * This contract is used to verify FDC2 attestations.
  */
-contract FtdcVerification is IFtdcVerification, GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
+contract Fdc2Verification is IFdc2Verification, GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
 
     /// The TEE machine registry contract.
     ITeeMachineRegistry public teeMachineRegistry;
@@ -47,7 +47,7 @@ contract FtdcVerification is IFtdcVerification, GovernedProxyImplementation, UUP
     }
 
     /**
-     * @inheritdoc IFtdcVerification
+     * @inheritdoc IFdc2Verification
      */
     function verifySigningPolicySignatures(
         bytes calldata _signingPolicySignatures,
@@ -60,7 +60,7 @@ contract FtdcVerification is IFtdcVerification, GovernedProxyImplementation, UUP
     }
 
     /**
-     * @inheritdoc IFtdcVerification
+     * @inheritdoc IFdc2Verification
      */
     function verifyTeeSignature(
         Signature calldata _signature,
@@ -73,7 +73,7 @@ contract FtdcVerification is IFtdcVerification, GovernedProxyImplementation, UUP
     }
 
     /**
-     * @inheritdoc IFtdcVerification
+     * @inheritdoc IFdc2Verification
      */
     function verifyTeeSignatures(
         Signature[] calldata _signatures,
@@ -93,7 +93,7 @@ contract FtdcVerification is IFtdcVerification, GovernedProxyImplementation, UUP
     }
 
     /**
-     * @inheritdoc IFtdcVerification
+     * @inheritdoc IFdc2Verification
      */
     function verifyCosignerSignatures(
         Signature[] calldata _signatures,

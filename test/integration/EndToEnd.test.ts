@@ -52,10 +52,10 @@ import { TeeRewardOffersManagerContract, TeeRewardOffersManagerInstance } from '
 import { TeePaymentsContract, TeePaymentsInstance } from '../../typechain-truffle/contracts/tee/implementation/TeePayments';
 import { TEE_OPERATION_FEES } from '../../deployment/tasks/run-simulation';
 import { requiredEventArgsFrom } from '../utils/Web3EventDecoder';
-import { FtdcHubContract, FtdcHubInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcHub';
-import { FtdcHubProxyContract } from '../../typechain-truffle/contracts/ftdc/proxy/FtdcHubProxy';
-import { FtdcRequestFeeConfigurationsContract, FtdcRequestFeeConfigurationsInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations';
-import { FtdcRequestFeeConfigurationsProxyContract } from '../../typechain-truffle/contracts/ftdc/proxy/FtdcRequestFeeConfigurationsProxy';
+import { Fdc2HubContract, Fdc2HubInstance } from '../../typechain-truffle/contracts/fdc2/implementation/Fdc2Hub';
+import { Fdc2HubProxyContract } from '../../typechain-truffle/contracts/fdc2/proxy/Fdc2HubProxy';
+import { Fdc2RequestFeeConfigurationsContract, Fdc2RequestFeeConfigurationsInstance } from '../../typechain-truffle/contracts/fdc2/implementation/Fdc2RequestFeeConfigurations';
+import { Fdc2RequestFeeConfigurationsProxyContract } from '../../typechain-truffle/contracts/fdc2/proxy/Fdc2RequestFeeConfigurationsProxy';
 import { TeeVerificationContract, TeeVerificationInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeVerification';
 import { TeeVerificationProxyContract } from '../../typechain-truffle/contracts/tee/proxy/TeeVerificationProxy';
 import { ECDSASignature } from '../../scripts/libs/protocol/ECDSASignature';
@@ -68,8 +68,8 @@ import { TeeExtensionRegistryInstance } from '../../typechain-truffle/contracts/
 import { TeeReplicationContract, TeeReplicationInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeReplication';
 import { TeeReplicationProxyContract } from '../../typechain-truffle/contracts/tee/proxy/TeeReplicationProxy';
 import { AddressUpdaterContract, AddressUpdaterInstance } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressUpdater';
-import { FtdcVerificationContract, FtdcVerificationInstance } from '../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification';
-import { FtdcVerificationProxyContract } from '../../typechain-truffle/contracts/ftdc/proxy/FtdcVerificationProxy';
+import { Fdc2VerificationContract, Fdc2VerificationInstance } from '../../typechain-truffle/contracts/fdc2/implementation/Fdc2Verification';
+import { Fdc2VerificationProxyContract } from '../../typechain-truffle/contracts/fdc2/proxy/Fdc2VerificationProxy';
 import { TeeVrfContract, TeeVrfInstance } from '../../typechain-truffle/contracts/tee/implementation/TeeVrf';
 import { TeeVrfProxyContract } from '../../typechain-truffle/contracts/tee/proxy/TeeVrfProxy';
 
@@ -128,12 +128,12 @@ const TeeReplicationProxy: TeeReplicationProxyContract = artifacts.require("TeeR
 const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
 const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
 const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
-const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
-const FtdcHubProxy: FtdcHubProxyContract = artifacts.require("FtdcHubProxy");
-const FtdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
-const FtdcRequestFeeConfigurationsProxy: FtdcRequestFeeConfigurationsProxyContract = artifacts.require("FtdcRequestFeeConfigurationsProxy");
-const FtdcVerification: FtdcVerificationContract = artifacts.require("FtdcVerification");
-const FtdcVerificationProxy: FtdcVerificationProxyContract = artifacts.require("FtdcVerificationProxy");
+const Fdc2Hub: Fdc2HubContract = artifacts.require("Fdc2Hub");
+const Fdc2HubProxy: Fdc2HubProxyContract = artifacts.require("Fdc2HubProxy");
+const Fdc2RequestFeeConfigurations: Fdc2RequestFeeConfigurationsContract = artifacts.require("Fdc2RequestFeeConfigurations");
+const Fdc2RequestFeeConfigurationsProxy: Fdc2RequestFeeConfigurationsProxyContract = artifacts.require("Fdc2RequestFeeConfigurationsProxy");
+const Fdc2Verification: Fdc2VerificationContract = artifacts.require("Fdc2Verification");
+const Fdc2VerificationProxy: Fdc2VerificationProxyContract = artifacts.require("Fdc2VerificationProxy");
 const TeeVrf: TeeVrfContract = artifacts.require("TeeVrf");
 const TeeVrfProxy: TeeVrfProxyContract = artifacts.require("TeeVrfProxy");
 
@@ -173,7 +173,7 @@ function getHash(type: any, parameter: any): string {
     return web3.utils.keccak256(web3.eth.abi.encodeParameter(type, parameter));
 }
 
-function getFtdcMessage(headerHash: string, requestBodyHash: string, responseBodyHash: string): string {
+function getFdc2Message(headerHash: string, requestBodyHash: string, responseBodyHash: string): string {
     return web3.utils.keccak256(web3.eth.abi.encodeParameters(
         ["bytes32", "bytes32", "bytes32"],
         [headerHash, requestBodyHash, responseBodyHash]
@@ -297,9 +297,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     let teePaymentsXRP: TeePaymentsInstance;
     let teePaymentsEVM: TeePaymentsInstance;
     let teeVrf: TeeVrfInstance;
-    let ftdcHub: FtdcHubInstance;
-    let ftdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsInstance;
-    let ftdcVerification: FtdcVerificationInstance;
+    let fdc2Hub: Fdc2HubInstance;
+    let fdc2RequestFeeConfigurations: Fdc2RequestFeeConfigurationsInstance;
+    let fdc2Verification: Fdc2VerificationInstance;
 
     const teeGovernanceSigners: string[] = [accounts[50], accounts[51], accounts[52], accounts[53], accounts[54], accounts[55]];
     const teeGovernanceSignersThreshold = 3;
@@ -659,45 +659,45 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         teeVrf = await TeeVrf.at(teeVrfProxy.address);
         addressUpdatableContracts.push(teeVrf.address);
 
-        const ftdcHubImpl: FtdcHubInstance = await FtdcHub.new();
-        const ftdcHubProxy = await FtdcHubProxy.new(
+        const fdc2HubImpl: Fdc2HubInstance = await Fdc2Hub.new();
+        const fdc2HubProxy = await Fdc2HubProxy.new(
             governanceSettings.address,
             accounts[0],
             addressUpdater.address,
             3000,
             1,
-            ftdcHubImpl.address
+            fdc2HubImpl.address
         );
-        ftdcHub = await FtdcHub.at(ftdcHubProxy.address);
-        addressUpdatableContracts.push(ftdcHub.address);
+        fdc2Hub = await Fdc2Hub.at(fdc2HubProxy.address);
+        addressUpdatableContracts.push(fdc2Hub.address);
 
-        const ftdcRequestFeeConfigurationsImpl: FtdcRequestFeeConfigurationsInstance = await FtdcRequestFeeConfigurations.new();
-        const ftdcRequestFeeConfigurationsProxy = await FtdcRequestFeeConfigurationsProxy.new(
+        const fdc2RequestFeeConfigurationsImpl: Fdc2RequestFeeConfigurationsInstance = await Fdc2RequestFeeConfigurations.new();
+        const fdc2RequestFeeConfigurationsProxy = await Fdc2RequestFeeConfigurationsProxy.new(
             governanceSettings.address,
             accounts[0],
-            ftdcRequestFeeConfigurationsImpl.address
+            fdc2RequestFeeConfigurationsImpl.address
         );
-        ftdcRequestFeeConfigurations = await FtdcRequestFeeConfigurations.at(ftdcRequestFeeConfigurationsProxy.address);
+        fdc2RequestFeeConfigurations = await Fdc2RequestFeeConfigurations.at(fdc2RequestFeeConfigurationsProxy.address);
 
-        const ftdcVerificationImpl: FtdcVerificationInstance = await FtdcVerification.new();
-        const ftdcVerificationProxy = await FtdcVerificationProxy.new(
+        const fdc2VerificationImpl: Fdc2VerificationInstance = await Fdc2Verification.new();
+        const fdc2VerificationProxy = await Fdc2VerificationProxy.new(
             governanceSettings.address,
             accounts[0],
             addressUpdater.address,
-            ftdcVerificationImpl.address
+            fdc2VerificationImpl.address
         );
-        ftdcVerification = await FtdcVerification.at(ftdcVerificationProxy.address);
-        addressUpdatableContracts.push(ftdcVerification.address);
-        // Set the FTDC request fee configurations
-        const ftdcRequestFees = [
+        fdc2Verification = await Fdc2Verification.at(fdc2VerificationProxy.address);
+        addressUpdatableContracts.push(fdc2Verification.address);
+        // Set the FDC2 request fee configurations
+        const fdc2RequestFees = [
             { attestationType: "TeeAvailabilityCheck", source: "TEE" },
             { attestationType: "PMWMultisigAccountConfigured", source: "XRP" },
             { attestationType: "PMWPaymentStatus", source: "XRP" },
             { attestationType: "PMWMultisigAccountConfigured", source: "FLR" },
             { attestationType: "PMWPaymentStatus", source: "FLR" }
         ];
-        for (const fdtcRequestFee of ftdcRequestFees) {
-            await ftdcRequestFeeConfigurations.setTypeAndSourceFee(
+        for (const fdtcRequestFee of fdc2RequestFees) {
+            await fdc2RequestFeeConfigurations.setTypeAndSourceFee(
                 web3.utils.utf8ToHex(fdtcRequestFee.attestationType).padEnd(66, "0"),
                 web3.utils.utf8ToHex(fdtcRequestFee.source).padEnd(66, "0"),
                 "1"
@@ -737,9 +737,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 Contracts.TEE_MACHINE_REGISTRY,
                 Contracts.TEE_FEE_CALCULATOR,
                 Contracts.TEE_SYSTEM_STATE_VERIFIER,
-                Contracts.FTDC_HUB,
-                Contracts.FTDC_VERIFICATION,
-                Contracts.FTDC_REQUEST_FEE_CONFIGURATIONS,
+                Contracts.FDC2_HUB,
+                Contracts.FDC2_VERIFICATION,
+                Contracts.FDC2_REQUEST_FEE_CONFIGURATIONS,
                 Contracts.TEE_REWARD_OFFERS_MANAGER,
                 Contracts.TEE_VERIFICATION,
                 Contracts.TEE_OWNER_ALLOWLIST,
@@ -778,9 +778,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
                 teeMachineRegistry.address,
                 teeFeeCalculator.address,
                 teeSystemStateVerifier.address,
-                ftdcHub.address,
-                ftdcVerification.address,
-                ftdcRequestFeeConfigurations.address,
+                fdc2Hub.address,
+                fdc2Verification.address,
+                fdc2RequestFeeConfigurations.address,
                 teeRewardOffersManager.address,
                 teeVerification.address,
                 teeOwnerAllowlist.address,
@@ -801,11 +801,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         // set system extension supported key types
         await teeExtensionRegistry.addSupportedKeyTypes(0, TEE_KEY_CONFIGURATIONS);
         // register system instructions senders
-        await teeExtensionRegistry.registerSystemInstructionsSenders([teeVerification.address, teeWalletManager.address, teeWalletKeyManager.address, teeWalletBackupManager.address, teeReplication.address, teePaymentsXRP.address, teePaymentsEVM.address, ftdcHub.address, teeVrf.address]);
+        await teeExtensionRegistry.registerSystemInstructionsSenders([teeVerification.address, teeWalletManager.address, teeWalletKeyManager.address, teeWalletBackupManager.address, teeReplication.address, teePaymentsXRP.address, teePaymentsEVM.address, fdc2Hub.address, teeVrf.address]);
         await teeOwnerAllowlist.allowAllTeeMachineOwners(0);
         await teeOwnerAllowlist.allowAllTeeWalletProjectOwners(0);
         // set reward offers manager list
-        await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, validatorRewardOffersManager.address, teeRewardOffersManager.address, teeExtensionRegistry.address, ftdcHub.address]);
+        await rewardManager.setRewardOffersManagerList([ftsoRewardOffersManager.address, validatorRewardOffersManager.address, teeRewardOffersManager.address, teeExtensionRegistry.address, fdc2Hub.address]);
 
         // set initial reward data
         await rewardManager.setInitialRewardData();
@@ -1499,8 +1499,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     it("Should trigger TEE machine availability check", async () => {
         assert(TEE_URLS.length === challenges.length && TEE_URLS.length === instructionIds.length && TEE_URLS.length === TEE_IDS.length && TEE_URLS.length === TEE_PROXY_IDS.length, "Arrays must be of the same length");
 
-        const ftdcAttestationRequestStruct = getStruct("FtdcStructs", "ftdcAttestationRequestStruct")
-        const availabilityCheckRequestBodyStruct = getStruct("FtdcStructs", "availabilityCheckRequestBodyStruct");
+        const fdc2AttestationRequestStruct = getStruct("Fdc2Structs", "fdc2AttestationRequestStruct")
+        const availabilityCheckRequestBodyStruct = getStruct("Fdc2Structs", "availabilityCheckRequestBodyStruct");
 
         for (let i = 0; i < TEE_IDS.length; i++) {
             const requestBody = {
@@ -1522,9 +1522,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             const tx = await teeVerification.requestAvailabilityCheckAttestation(TEE_IDS[i], instructionIds[i], TEE_IDS[i], constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, { value: "2" });
             const event = requiredEventArgsFrom(tx, teeExtensionRegistry, "TeeInstructionsSent") as any;
             expect(event.rewardEpochId).to.be.equal("2");
-            expect(event.opType).to.be.equal(web3.utils.utf8ToHex("F_FTDC").padEnd(66, "0"));
+            expect(event.opType).to.be.equal(web3.utils.utf8ToHex("F_FDC2").padEnd(66, "0"));
             expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("PROVE").padEnd(66, "0"));
-            expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(ftdcAttestationRequestStruct, message));
+            expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(fdc2AttestationRequestStruct, message));
         }
     });
 
@@ -1574,10 +1574,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             }
 
             // sign message
-            const headerHash = getHash(getStruct("FtdcStructs", "ftdcResponseHeaderStruct"), proof.header);
-            const requestBodyHash = getHash(getStruct("FtdcStructs", "availabilityCheckRequestBodyStruct"), proof.requestBody);
-            const responseBodyHash = getHash(getStruct("FtdcStructs", "availabilityCheckResponseBodyStruct"), proof.responseBody);
-            const message = getFtdcMessage(headerHash, requestBodyHash, responseBodyHash);
+            const headerHash = getHash(getStruct("Fdc2Structs", "fdc2ResponseHeaderStruct"), proof.header);
+            const requestBodyHash = getHash(getStruct("Fdc2Structs", "availabilityCheckRequestBodyStruct"), proof.requestBody);
+            const responseBodyHash = getHash(getStruct("Fdc2Structs", "availabilityCheckResponseBodyStruct"), proof.responseBody);
+            const message = getFdc2Message(headerHash, requestBodyHash, responseBodyHash);
             proof.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message);
 
             await time.increase(1);
@@ -1834,8 +1834,8 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     });
 
     it("Should trigger PMW Multisig account configured attestations", async () => {
-        const ftdcAttestationRequestStruct = getStruct("FtdcStructs", "ftdcAttestationRequestStruct")
-        const pmwMultisigAccountConfiguredRequestBodyStruct = getStruct("FtdcStructs", "pmwMultisigAccountConfiguredRequestBodyStruct");
+        const fdc2AttestationRequestStruct = getStruct("Fdc2Structs", "fdc2AttestationRequestStruct")
+        const pmwMultisigAccountConfiguredRequestBodyStruct = getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredRequestBodyStruct");
 
         const requestBody = {
             accountAddress: "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh",
@@ -1854,9 +1854,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         const tx = await teeVerification.requestPMWMultisigAccountConfiguredAttestation(WALLET1_ID, XRP_SOURCE_ID, "rUzM4ovjNkjSZ2jVJfZQ9321ikeNM6ASzh", TEE_IDS[0], constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, { value: "2" });
         const event = requiredEventArgsFrom(tx, teeExtensionRegistry, "TeeInstructionsSent") as any;
         expect(event.rewardEpochId).to.be.equal("2");
-        expect(event.opType).to.be.equal(web3.utils.utf8ToHex("F_FTDC").padEnd(66, "0"));
+        expect(event.opType).to.be.equal(web3.utils.utf8ToHex("F_FDC2").padEnd(66, "0"));
         expect(event.opCommand).to.be.equal(web3.utils.utf8ToHex("PROVE").padEnd(66, "0"));
-        expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(ftdcAttestationRequestStruct, message));
+        expect(event.message).to.be.equal(web3.eth.abi.encodeParameter(fdc2AttestationRequestStruct, message));
 
         const requestBody2 = {
             accountAddress: accounts[200],
@@ -1875,9 +1875,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         const tx2 = await teeVerification.requestPMWMultisigAccountConfiguredAttestation(WALLET2_ID, FLR_SOURCE_ID, accounts[200], TEE_IDS[0], constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, { value: "2" });
         const event2 = requiredEventArgsFrom(tx2, teeExtensionRegistry, "TeeInstructionsSent") as any;
         expect(event2.rewardEpochId).to.be.equal("2");
-        expect(event2.opType).to.be.equal(web3.utils.utf8ToHex("F_FTDC").padEnd(66, "0"));
+        expect(event2.opType).to.be.equal(web3.utils.utf8ToHex("F_FDC2").padEnd(66, "0"));
         expect(event2.opCommand).to.be.equal(web3.utils.utf8ToHex("PROVE").padEnd(66, "0"));
-        expect(event2.message).to.be.equal(web3.eth.abi.encodeParameter(ftdcAttestationRequestStruct, message2));
+        expect(event2.message).to.be.equal(web3.eth.abi.encodeParameter(fdc2AttestationRequestStruct, message2));
     });
 
     it("Should add PMW multisig accounts", async () => {
@@ -1908,10 +1908,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         }
 
         // sign message
-        const headerHash = getHash(getStruct("FtdcStructs", "ftdcResponseHeaderStruct"), proof.header);
-        const requestBodyHash = getHash(getStruct("FtdcStructs", "pmwMultisigAccountConfiguredRequestBodyStruct"), proof.requestBody);
-        const responseBodyHash = getHash(getStruct("FtdcStructs", "pmwMultisigAccountConfiguredResponseBodyStruct"), proof.responseBody);
-        const message = getFtdcMessage(headerHash, requestBodyHash, responseBodyHash);
+        const headerHash = getHash(getStruct("Fdc2Structs", "fdc2ResponseHeaderStruct"), proof.header);
+        const requestBodyHash = getHash(getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredRequestBodyStruct"), proof.requestBody);
+        const responseBodyHash = getHash(getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredResponseBodyStruct"), proof.responseBody);
+        const message = getFdc2Message(headerHash, requestBodyHash, responseBodyHash);
         proof.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message);
 
         const tx = await teePaymentsXRP.addPMWMultisigAccount(WALLET1_ID, proof, TEE_WALLET_AUTHORIZATION_ADDRESSES[0],{ from: TEE_WALLET_OWNERS[0] });
@@ -1951,10 +1951,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             }
         };
         // sign message
-        const headerHash2 = getHash(getStruct("FtdcStructs", "ftdcResponseHeaderStruct"), proof2.header);
-        const requestBodyHash2 = getHash(getStruct("FtdcStructs", "pmwMultisigAccountConfiguredRequestBodyStruct"), proof2.requestBody);
-        const responseBodyHash2 = getHash(getStruct("FtdcStructs", "pmwMultisigAccountConfiguredResponseBodyStruct"), proof2.responseBody);
-        const message2 = getFtdcMessage(headerHash2, requestBodyHash2, responseBodyHash2);
+        const headerHash2 = getHash(getStruct("Fdc2Structs", "fdc2ResponseHeaderStruct"), proof2.header);
+        const requestBodyHash2 = getHash(getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredRequestBodyStruct"), proof2.requestBody);
+        const responseBodyHash2 = getHash(getStruct("Fdc2Structs", "pmwMultisigAccountConfiguredResponseBodyStruct"), proof2.responseBody);
+        const message2 = getFdc2Message(headerHash2, requestBodyHash2, responseBodyHash2);
         proof2.signatures.signingPolicySignatures = await getNewSigningPolicySignatures(message2);
 
         const tx2 = await teePaymentsEVM.addPMWMultisigAccount(WALLET2_ID, proof2, TEE_WALLET_AUTHORIZATION_ADDRESSES[1], { from: TEE_WALLET_OWNERS[1] });

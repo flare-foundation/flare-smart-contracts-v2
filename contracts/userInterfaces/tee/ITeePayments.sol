@@ -2,7 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { TeeIdKeyIdPair } from "./ITeeIdKeyIdPair.sol";
-import { IPMWMultisigAccountConfigured } from "../ftdc/IPMWMultisigAccountConfigured.sol";
+import { IPMWMultisigAccountConfigured } from "../fdc2/IPMWMultisigAccountConfigured.sol";
 
 /**
  * TeePayments interface.

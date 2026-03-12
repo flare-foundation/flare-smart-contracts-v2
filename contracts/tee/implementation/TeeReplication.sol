@@ -8,7 +8,7 @@ import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol"
 import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
 import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 

@@ -9,9 +9,9 @@ import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/IT
 import { ITeeReplication } from "../../../../contracts/userInterfaces/tee/ITeeReplication.sol";
 import { ITeeVersionManager } from "../../../../contracts/userInterfaces/tee/ITeeVersionManager.sol";
 import { ITeeVerification } from "../../../../contracts/userInterfaces/tee/ITeeVerification.sol";
-import { IFtdcVerification } from "../../../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
-import { IFtdcHub } from "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
-import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
+import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
+import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { IITeeMachineRegistry } from "../../../../contracts/tee/interface/IITeeMachineRegistry.sol";
 import { IGovernanceSettings} from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IITeeSystemStateVerifier } from "../../../../contracts/tee/interface/IITeeSystemStateVerifier.sol";
@@ -560,8 +560,8 @@ contract TeeReplicationTest is Test {
         private
         returns (ITeeAvailabilityCheck.Proof memory)
     {
-        IFtdcVerification.FtdcSignatures memory sigs;
-        IFtdcHub.FtdcResponseHeader memory header;
+        IFdc2Verification.Fdc2Signatures memory sigs;
+        IFdc2Hub.Fdc2ResponseHeader memory header;
         header.timestamp = 1;
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             _teeId,

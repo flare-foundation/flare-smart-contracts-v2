@@ -250,18 +250,18 @@
     "address": "0xB75cfa1EE28dB3C2BF572909460e6e1c6A2bd1d3"
   },
   {
-    "name": "FtdcHub",
-    "contractName": "FtdcHub.sol",
+    "name": "Fdc2Hub",
+    "contractName": "Fdc2Hub.sol",
     "address": "0xcbf21163bC2A47E8a0FF69cC006C94684bC8Dc9b"
   },
   {
-    "name": "FtdcRequestFeeConfigurations",
-    "contractName": "FtdcRequestFeeConfigurations.sol",
+    "name": "Fdc2RequestFeeConfigurations",
+    "contractName": "Fdc2RequestFeeConfigurations.sol",
     "address": "0x9Aeb4C3959Ba15464241F7b8daf38Ac2Fa1Cca13"
   },
   {
-    "name": "FtdcVerification",
-    "contractName": "FtdcVerification.sol",
+    "name": "Fdc2Verification",
+    "contractName": "Fdc2Verification.sol",
     "address": "0x9B2767BEaFf0d48147390fA15f001162FdcB33e1"
   },
   {

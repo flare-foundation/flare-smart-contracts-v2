@@ -2,18 +2,18 @@
 pragma solidity >=0.7.6 <0.9;
 
 /**
- * FtdcHub interface.
+ * Fdc2Hub interface.
  */
-interface IFtdcHub {
+interface IFdc2Hub {
 
     /**
-     * FTDC attestation request header structure.
+     * FDC2 attestation request header structure.
      * @param attestationType The attestation type.
      * @param sourceId The source id.
      * @param thresholdBIPS The threshold in BIPS (optional, 0 uses signing policy threshold).
      * @param proofOwner The proof owner address (optional).
      */
-    struct FtdcRequestHeader {
+    struct Fdc2RequestHeader {
         bytes32 attestationType;
         bytes32 sourceId;
         uint16 thresholdBIPS;
@@ -21,16 +21,16 @@ interface IFtdcHub {
     }
 
     /**
-     * FTDC attestation request structure.
+     * FDC2 attestation request structure.
      * @param header The request header (attestation type, source id, thresholdBIPS and proof owner).
      * @param requestBody The request body.
      */
-    struct FtdcAttestationRequest {
-        FtdcRequestHeader header;
+    struct Fdc2AttestationRequest {
+        Fdc2RequestHeader header;
         bytes requestBody;
     }
 
-    struct FtdcResponseHeader {
+    struct Fdc2ResponseHeader {
         bytes32 attestationType;
         bytes32 sourceId;
         uint16 thresholdBIPS;
@@ -73,7 +73,7 @@ interface IFtdcHub {
      * @param _claimBackAddress An address that can claim back the fee if the instructions are not executed (optional).
      */
     function requestAttestation(
-        FtdcAttestationRequest calldata _attestationRequest,
+        Fdc2AttestationRequest calldata _attestationRequest,
         uint256 _numberOfTees,
         address[] memory _teeIds,
         address[] memory _cosigners,

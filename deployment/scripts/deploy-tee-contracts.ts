@@ -3,12 +3,12 @@
  */
 
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { FtdcHubContract } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcHub";
-import { FtdcHubProxyContract } from "../../typechain-truffle/contracts/ftdc/proxy/FtdcHubProxy";
-import { FtdcRequestFeeConfigurationsContract } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcRequestFeeConfigurations";
-import { FtdcRequestFeeConfigurationsProxyContract } from "../../typechain-truffle/contracts/ftdc/proxy/FtdcRequestFeeConfigurationsProxy";
-import { FtdcVerificationContract } from "../../typechain-truffle/contracts/ftdc/implementation/FtdcVerification";
-import { FtdcVerificationProxyContract } from "../../typechain-truffle/contracts/ftdc/proxy/FtdcVerificationProxy";
+import { Fdc2HubContract } from "../../typechain-truffle/contracts/fdc2/implementation/Fdc2Hub";
+import { Fdc2HubProxyContract } from "../../typechain-truffle/contracts/fdc2/proxy/Fdc2HubProxy";
+import { Fdc2RequestFeeConfigurationsContract } from "../../typechain-truffle/contracts/fdc2/implementation/Fdc2RequestFeeConfigurations";
+import { Fdc2RequestFeeConfigurationsProxyContract } from "../../typechain-truffle/contracts/fdc2/proxy/Fdc2RequestFeeConfigurationsProxy";
+import { Fdc2VerificationContract } from "../../typechain-truffle/contracts/fdc2/implementation/Fdc2Verification";
+import { Fdc2VerificationProxyContract } from "../../typechain-truffle/contracts/fdc2/proxy/Fdc2VerificationProxy";
 import { TeeExtensionRegistryContract } from "../../typechain-truffle/contracts/tee/implementation/TeeExtensionRegistry";
 import { TeeExtensionRegistryProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeExtensionRegistryProxy";
 import { TeeFeeCalculatorContract } from "../../typechain-truffle/contracts/tee/implementation/TeeFeeCalculator";
@@ -58,12 +58,12 @@ export async function deployTeeContracts(
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
   // Import contract artifacts
-  const FtdcHub: FtdcHubContract = artifacts.require("FtdcHub");
-  const FtdcHubProxy: FtdcHubProxyContract = artifacts.require("FtdcHubProxy");
-  const FtdcRequestFeeConfigurations: FtdcRequestFeeConfigurationsContract = artifacts.require("FtdcRequestFeeConfigurations");
-  const FtdcRequestFeeConfigurationsProxy: FtdcRequestFeeConfigurationsProxyContract = artifacts.require("FtdcRequestFeeConfigurationsProxy");
-  const FtdcVerification: FtdcVerificationContract = artifacts.require("FtdcVerification");
-  const FtdcVerificationProxy: FtdcVerificationProxyContract = artifacts.require("FtdcVerificationProxy");
+  const Fdc2Hub: Fdc2HubContract = artifacts.require("Fdc2Hub");
+  const Fdc2HubProxy: Fdc2HubProxyContract = artifacts.require("Fdc2HubProxy");
+  const Fdc2RequestFeeConfigurations: Fdc2RequestFeeConfigurationsContract = artifacts.require("Fdc2RequestFeeConfigurations");
+  const Fdc2RequestFeeConfigurationsProxy: Fdc2RequestFeeConfigurationsProxyContract = artifacts.require("Fdc2RequestFeeConfigurationsProxy");
+  const Fdc2Verification: Fdc2VerificationContract = artifacts.require("Fdc2Verification");
+  const Fdc2VerificationProxy: Fdc2VerificationProxyContract = artifacts.require("Fdc2VerificationProxy");
   const TeeExtensionRegistry: TeeExtensionRegistryContract = artifacts.require("TeeExtensionRegistry");
   const TeeExtensionRegistryProxy: TeeExtensionRegistryProxyContract = artifacts.require("TeeExtensionRegistryProxy");
   const TeeGovernance: TeeGovernanceContract = artifacts.require("TeeGovernance");
@@ -117,39 +117,39 @@ export async function deployTeeContracts(
   const rewardManager = contracts.getContractAddress(Contracts.REWARD_MANAGER);
 
   // deploy contracts
-  // FtdcHub
-  const ftdcHubImpl = await FtdcHub.new();
-  const ftdcHubProxy = await FtdcHubProxy.new(
+  // Fdc2Hub
+  const fdc2HubImpl = await Fdc2Hub.new();
+  const fdc2HubProxy = await Fdc2HubProxy.new(
     governanceSettings,
     deployerAccount.address,
     deployerAccount.address,
-    parameters.ftdcMinThresholdBIPS,
-    parameters.ftdcDefaultNumberOfTees,
-    ftdcHubImpl.address
+    parameters.fdc2MinThresholdBIPS,
+    parameters.fdc2DefaultNumberOfTees,
+    fdc2HubImpl.address
   );
-  const ftdcHub = await FtdcHub.at(ftdcHubProxy.address);
-  spewNewContractInfo(contracts, null, FtdcHub.contractName, `FtdcHub.sol`, ftdcHub.address, quiet);
+  const fdc2Hub = await Fdc2Hub.at(fdc2HubProxy.address);
+  spewNewContractInfo(contracts, null, Fdc2Hub.contractName, `Fdc2Hub.sol`, fdc2Hub.address, quiet);
 
-  // FtdcRequestFeeConfigurations
-  const ftdcRequestFeeConfigurationsImpl = await FtdcRequestFeeConfigurations.new();
-  const ftdcRequestFeeConfigurationsProxy = await FtdcRequestFeeConfigurationsProxy.new(
+  // Fdc2RequestFeeConfigurations
+  const fdc2RequestFeeConfigurationsImpl = await Fdc2RequestFeeConfigurations.new();
+  const fdc2RequestFeeConfigurationsProxy = await Fdc2RequestFeeConfigurationsProxy.new(
     governanceSettings,
     deployerAccount.address,
-    ftdcRequestFeeConfigurationsImpl.address
+    fdc2RequestFeeConfigurationsImpl.address
   );
-  const ftdcRequestFeeConfigurations = await FtdcRequestFeeConfigurations.at(ftdcRequestFeeConfigurationsProxy.address);
-  spewNewContractInfo(contracts, null, FtdcRequestFeeConfigurations.contractName, `FtdcRequestFeeConfigurations.sol`, ftdcRequestFeeConfigurations.address, quiet);
+  const fdc2RequestFeeConfigurations = await Fdc2RequestFeeConfigurations.at(fdc2RequestFeeConfigurationsProxy.address);
+  spewNewContractInfo(contracts, null, Fdc2RequestFeeConfigurations.contractName, `Fdc2RequestFeeConfigurations.sol`, fdc2RequestFeeConfigurations.address, quiet);
 
-  // FtdcVerification
-  const ftdcVerificationImpl = await FtdcVerification.new();
-  const ftdcVerificationProxy = await FtdcVerificationProxy.new(
+  // Fdc2Verification
+  const fdc2VerificationImpl = await Fdc2Verification.new();
+  const fdc2VerificationProxy = await Fdc2VerificationProxy.new(
     governanceSettings,
     deployerAccount.address,
     deployerAccount.address,
-    ftdcVerificationImpl.address
+    fdc2VerificationImpl.address
   );
-  const ftdcVerification = await FtdcVerification.at(ftdcVerificationProxy.address);
-  spewNewContractInfo(contracts, null, FtdcVerification.contractName, `FtdcVerification.sol`, ftdcVerification.address, quiet);
+  const fdc2Verification = await Fdc2Verification.at(fdc2VerificationProxy.address);
+  spewNewContractInfo(contracts, null, Fdc2Verification.contractName, `Fdc2Verification.sol`, fdc2Verification.address, quiet);
 
   // TeeExtensionRegistry
   const teeExtensionRegistryImpl = await TeeExtensionRegistry.new();
@@ -356,12 +356,12 @@ export async function deployTeeContracts(
   spewNewContractInfo(contracts, null, VrfVerifier.contractName, `VrfVerifier.sol`, vrfVerifier.address, quiet);
 
   // set contract addresses
-  await ftdcHub.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_MACHINE_REGISTRY, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_REPLICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.FTDC_REQUEST_FEE_CONFIGURATIONS]),
-    [addressUpdater, teeMachineRegistry.address, teeExtensionRegistry.address, teeReplication.address, flareSystemsManager, rewardManager, ftdcRequestFeeConfigurations.address],
+  await fdc2Hub.updateContractAddresses(
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_MACHINE_REGISTRY, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_REPLICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.REWARD_MANAGER, Contracts.FDC2_REQUEST_FEE_CONFIGURATIONS]),
+    [addressUpdater, teeMachineRegistry.address, teeExtensionRegistry.address, teeReplication.address, flareSystemsManager, rewardManager, fdc2RequestFeeConfigurations.address],
   );
 
-  await ftdcVerification.updateContractAddresses(
+  await fdc2Verification.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_MACHINE_REGISTRY, Contracts.RELAY]),
     [addressUpdater, teeMachineRegistry.address, relay],
   );
@@ -409,8 +409,8 @@ export async function deployTeeContracts(
   );
 
   await teeVerification.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_MACHINE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_SYSTEM_STATE_VERIFIER, Contracts.TEE_REPLICATION, Contracts.FTDC_HUB, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
-    [addressUpdater, teeExtensionRegistry.address, teeMachineRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address, teeSystemStateVerifier.address, teeReplication.address, ftdcHub.address, ftdcVerification.address, flareSystemsManager, relay]
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_MACHINE_REGISTRY, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_KEY_MANAGER, Contracts.TEE_SYSTEM_STATE_VERIFIER, Contracts.TEE_REPLICATION, Contracts.FDC2_HUB, Contracts.FDC2_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.RELAY]),
+    [addressUpdater, teeExtensionRegistry.address, teeMachineRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address, teeSystemStateVerifier.address, teeReplication.address, fdc2Hub.address, fdc2Verification.address, flareSystemsManager, relay]
   );
 
   await teeVersionManager.updateContractAddresses(
@@ -443,12 +443,12 @@ export async function deployTeeContracts(
     [addressUpdater, teeExtensionRegistry.address, teeMachineRegistry.address, teeWalletProjectManager.address, teeWalletManager.address, teeWalletKeyManager.address]
   );
 
-  // set FTDC request fee configurations
-  for (const ftdcRequestFee of parameters.ftdcRequestFees) {
-    await ftdcRequestFeeConfigurations.setTypeAndSourceFee(
-      web3.utils.utf8ToHex(ftdcRequestFee.attestationType).padEnd(66, "0"),
-      web3.utils.utf8ToHex(ftdcRequestFee.source).padEnd(66, "0"),
-      ftdcRequestFee.feeWei
+  // set FDC2 request fee configurations
+  for (const fdc2RequestFee of parameters.fdc2RequestFees) {
+    await fdc2RequestFeeConfigurations.setTypeAndSourceFee(
+      web3.utils.utf8ToHex(fdc2RequestFee.attestationType).padEnd(66, "0"),
+      web3.utils.utf8ToHex(fdc2RequestFee.source).padEnd(66, "0"),
+      fdc2RequestFee.feeWei
     );
   }
 
@@ -489,7 +489,7 @@ export async function deployTeeContracts(
     teeWalletManager.address,
     ...teePaymentsList.map(teePayments => teePayments.address),
     teeVrf.address,
-    ftdcHub.address
+    fdc2Hub.address
   ]);
 
   // TODO add allowed tee and project owners
@@ -515,14 +515,14 @@ export async function deployTeeContracts(
     1
   );
   await pmwPaymentStatusVerifierMock.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.FTDC_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER]),
-    [addressUpdater, teeExtensionRegistry.address, teeWalletManager.address, teeWalletProjectManager.address, ftdcVerification.address, flareSystemsManager]
+    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.TEE_EXTENSION_REGISTRY, Contracts.TEE_WALLET_MANAGER, Contracts.TEE_WALLET_PROJECT_MANAGER, Contracts.FDC2_VERIFICATION, Contracts.FLARE_SYSTEMS_MANAGER]),
+    [addressUpdater, teeExtensionRegistry.address, teeWalletManager.address, teeWalletProjectManager.address, fdc2Verification.address, flareSystemsManager]
   );
   spewNewContractInfo(contracts, null, PMWPaymentStatusVerifierMock.contractName, `PMWPaymentStatusVerifierMock.sol`, pmwPaymentStatusVerifierMock.address, quiet);
 
   // switch to production mode TODO
-  // await ftdcHub.switchToProductionMode();
-  // await ftdcRequestFeeConfigurations.switchToProductionMode();
+  // await fdc2Hub.switchToProductionMode();
+  // await fdc2RequestFeeConfigurations.switchToProductionMode();
 
   // await teeExtensionRegistry.switchToProductionMode();
   // await teeFeeCalculator.switchToProductionMode();

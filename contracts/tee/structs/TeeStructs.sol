@@ -2,7 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
-import { ITeeAvailabilityCheck } from "../../userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 
 interface TeeStructs {
 

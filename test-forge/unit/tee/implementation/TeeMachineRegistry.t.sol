@@ -6,11 +6,11 @@ import { TeeMachineRegistry } from "../../../../contracts/tee/implementation/Tee
 import { TeeMachineRegistryProxy } from "../../../../contracts/tee/proxy/TeeMachineRegistryProxy.sol";
 import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
 import { ITeeExtensionRegistry } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistry.sol";
-import { IFtdcVerification } from "../../../../contracts/userInterfaces/ftdc/IFtdcVerification.sol";
-import { IFtdcHub } from "../../../../contracts/userInterfaces/ftdc/IFtdcHub.sol";
+import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
+import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { ITeeVerification } from "../../../../contracts/userInterfaces/tee/ITeeVerification.sol";
 import { ITeeOwnerAllowlist } from "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlist.sol";
-import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/ftdc/ITeeAvailabilityCheck.sol";
+import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
@@ -998,8 +998,8 @@ contract TeeMachineRegistryTest is Test {
         private view
         returns (ITeeAvailabilityCheck.Proof memory)
     {
-        IFtdcVerification.FtdcSignatures memory sigs;
-        IFtdcHub.FtdcResponseHeader memory header;
+        IFdc2Verification.Fdc2Signatures memory sigs;
+        IFdc2Hub.Fdc2ResponseHeader memory header;
         header.timestamp = 1;
         ITeeAvailabilityCheck.RequestBody memory reqBody = ITeeAvailabilityCheck.RequestBody(
             _teeId,
