@@ -446,41 +446,20 @@
         {"opType": "F_WALLET", "opCommand": "KEY_DATA_PROVIDER_RESTORE", "feeWei": "1"},
         {"opType": "F_WALLET", "opCommand": "SET_PAUSING_ADDRESSES", "feeWei": "1"},
         {"opType": "F_WALLET", "opCommand": "RESUME", "feeWei": "1"},
+        {"opType": "F_WALLET", "opCommand": "VRF", "feeWei": "1"},
         {"opType": "F_XRP", "opCommand": "PAY", "feeWei": "1"},
         {"opType": "F_XRP", "opCommand": "REISSUE", "feeWei": "1"},
         {"opType": "F_XRP", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
-        {"opType": "F_BTC", "opCommand": "PAY", "feeWei": "1"},
-        {"opType": "F_BTC", "opCommand": "REISSUE", "feeWei": "1"},
-        {"opType": "F_BTC", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
-        {"opType": "F_DOGE", "opCommand": "PAY", "feeWei": "1"},
-        {"opType": "F_DOGE", "opCommand": "REISSUE", "feeWei": "1"},
-        {"opType": "F_DOGE", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
-        {"opType": "F_EVM", "opCommand": "PAY", "feeWei": "1"},
-        {"opType": "F_EVM", "opCommand": "REISSUE", "feeWei": "1"},
-        {"opType": "F_EVM", "opCommand": "SET_PAYMENT_LIMITS", "feeWei": "1"},
         {"opType": "F_FDC2", "opCommand": "PROVE", "feeWei": "1"}
     ],
     "teePaymentConfigurations": [
-        {"opType": "F_XRP", "keyType": "XRP", "sourceIds": ["testXRP"], "maxBatchSize": 1, "maxBatchDurationSeconds": 0},
-        {"opType": "F_BTC", "keyType": "BTC", "sourceIds": ["testBTC"], "maxBatchSize": 10, "maxBatchDurationSeconds": 600},
-        {"opType": "F_DOGE", "keyType": "DOGE", "sourceIds": ["testDOGE"], "maxBatchSize": 10, "maxBatchDurationSeconds": 60},
-        {"opType": "F_EVM", "keyType": "EVM", "sourceIds": ["testETH", "testFLR", "testSGB"], "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
+        {"opType": "F_XRP", "keyType": "XRP", "sourceIds": ["testXRP"], "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
     ],
     "fdc2MinThresholdBIPS": 3000,
     "fdc2DefaultNumberOfTees": 2,
     "fdc2RequestFees": [
         {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "feeWei": "1"},
         {"attestationType": "PMWMultisigAccountConfigured", "source": "testXRP", "feeWei": "1000000000000000000"},
-        {"attestationType": "PMWPaymentStatus", "source": "testXRP", "feeWei": "1000000000000000000"},
-        {"attestationType": "PMWMultisigAccountConfigured", "source": "testBTC", "feeWei": "1000000000000000000"},
-        {"attestationType": "PMWPaymentStatus", "source": "testBTC", "feeWei": "1000000000000000000"},
-        {"attestationType": "PMWMultisigAccountConfigured", "source": "testDOGE", "feeWei": "1000000000000000000"},
-        {"attestationType": "PMWPaymentStatus", "source": "testDOGE", "feeWei": "1000000000000000000"},
-        {"attestationType": "PMWMultisigAccountConfigured", "source": "testETH", "feeWei": "1000000000000000000"},
-        {"attestationType": "PMWPaymentStatus", "source": "testETH", "feeWei": "1000000000000000000"},
-        {"attestationType": "PMWMultisigAccountConfigured", "source": "testFLR", "feeWei": "1000000000000000000"},
-        {"attestationType": "PMWPaymentStatus", "source": "testFLR", "feeWei": "1000000000000000000"},
-        {"attestationType": "PMWMultisigAccountConfigured", "source": "testSGB", "feeWei": "1000000000000000000"},
-        {"attestationType": "PMWPaymentStatus", "source": "testSGB", "feeWei": "1000000000000000000"}
+        {"attestationType": "PMWPaymentStatus", "source": "testXRP", "feeWei": "1000000000000000000"}
     ]
 }
