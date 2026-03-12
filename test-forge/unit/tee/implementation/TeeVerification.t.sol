@@ -22,6 +22,7 @@ import {
 } from "../../../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
@@ -742,6 +743,135 @@ contract TeeVerificationTest is Test {
     }
 
 
+    // verifyPMWMultisigAccountConfiguredProof with TEE signatures
+    function testVerifyPMWMultisigAccountConfiguredProofWithTeeSignatures() public {
+        address[] memory signingTeeIds = new address[](1);
+        signingTeeIds[0] = teeId;
+        _mockVerifyTeeSignatures(signingTeeIds);
+        _addMockTeeSignatureToPmwProof();
+
+        bool isVerified =
+            teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
+        assertEq(isVerified, true);
+    }
+
+
+    function testVerifyPMWMultisigAccountConfiguredProofWithTeeSignaturesStatusError() public {
+        address[] memory signingTeeIds = new address[](1);
+        signingTeeIds[0] = teeId;
+        _mockVerifyTeeSignatures(signingTeeIds);
+        _addMockTeeSignatureToPmwProof();
+        pmwProof.responseBody.status = IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.ERROR;
+
+        bool isVerified =
+            teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
+        assertEq(isVerified, false);
+    }
+
+
+    // TEE signatures bypass signing policy - even with invalid signing policy, TEE sig path succeeds
+    function testVerifyPMWMultisigAccountConfiguredProofTeeSignaturesBypassSigningPolicy() public {
+        // set signing policy to return invalid epoch that would cause revert
+        _mockVerifySigningPolicySignatures(rewardEpochId + 100);
+        address[] memory signingTeeIds = new address[](1);
+        signingTeeIds[0] = teeId;
+        _mockVerifyTeeSignatures(signingTeeIds);
+        _addMockTeeSignatureToPmwProof();
+
+        bool isVerified =
+            teeVerification.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
+        assertEq(isVerified, true);
+    }
+
+
+    // confirmAvailability with TEE signatures
+    function testConfirmAvailabilityWithTeeSignatures() public {
+        address[] memory signingTeeIds = new address[](1);
+        signingTeeIds[0] = teeId;
+        _mockVerifyTeeSignatures(signingTeeIds);
+        _addMockTeeSignatureToProof();
+
+        vm.expectEmit();
+        emit ITeeVerification.AvailabilityCheckValidityExtended(
+            teeId,
+            owner,
+            proof.header.timestamp + 1 hours
+        );
+        teeVerification.confirmAvailability(proof);
+    }
+
+
+    // confirmAvailability with TEE signatures bypasses signing policy check
+    function testConfirmAvailabilityTeeSignaturesBypassSigningPolicy() public {
+        _mockVerifySigningPolicySignatures(rewardEpochId + 100);
+        address[] memory signingTeeIds = new address[](1);
+        signingTeeIds[0] = teeId;
+        _mockVerifyTeeSignatures(signingTeeIds);
+        _addMockTeeSignatureToProof();
+
+        vm.expectEmit();
+        emit ITeeVerification.AvailabilityCheckValidityExtended(
+            teeId,
+            owner,
+            proof.header.timestamp + 1 hours
+        );
+        teeVerification.confirmAvailability(proof);
+    }
+
+
+    // verifyAvailabilityCheckProof with TEE signatures
+    function testVerifyAvailabilityCheckProofWithTeeSignatures() public {
+        testSetCosigners();
+        address[] memory signingTeeIds = new address[](1);
+        signingTeeIds[0] = teeId;
+        _mockVerifyTeeSignatures(signingTeeIds);
+        _addMockTeeSignatureToProof();
+
+        assertTrue(teeVerification.verifyAvailabilityCheckProof(proof));
+    }
+
+
+    // verifyAvailabilityCheckProof with TEE signatures bypasses signing policy check
+    function testVerifyAvailabilityCheckProofTeeSignaturesBypassSigningPolicy() public {
+        testSetCosigners();
+        _mockVerifySigningPolicySignatures(rewardEpochId + 100);
+        address[] memory signingTeeIds = new address[](1);
+        signingTeeIds[0] = teeId;
+        _mockVerifyTeeSignatures(signingTeeIds);
+        _addMockTeeSignatureToProof();
+
+        assertTrue(teeVerification.verifyAvailabilityCheckProof(proof));
+    }
+
+
+    // verifyAvailabilityCheckProof with TEE signatures for INITIALIZED status (cosigners still checked)
+    function testVerifyAvailabilityCheckProofWithTeeSignaturesInitialized() public {
+        testSetCosigners();
+        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
+        address[] memory signingTeeIds = new address[](1);
+        signingTeeIds[0] = makeAddr("teeIdInProduction");
+        _mockVerifyTeeSignatures(signingTeeIds);
+        _addMockTeeSignatureToProof();
+
+        assertTrue(teeVerification.verifyAvailabilityCheckProof(proof));
+    }
+
+
+    // verifyAvailabilityCheckProof with TEE signatures - INITIALIZED status, cosigner check still fails
+    function testVerifyAvailabilityCheckProofWithTeeSignaturesInitializedRevertCosignersThresholdNotMet() public {
+        testSetCosigners();
+        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.INITIALIZED);
+        _mockVerifyCosignerSignatures(new address[](0));
+        address[] memory signingTeeIds = new address[](1);
+        signingTeeIds[0] = makeAddr("teeIdInProduction");
+        _mockVerifyTeeSignatures(signingTeeIds);
+        _addMockTeeSignatureToProof();
+
+        vm.expectRevert(ITeeVerification.CosignersThresholdNotMet.selector);
+        teeVerification.verifyAvailabilityCheckProof(proof);
+    }
+
+
     // setCosigners
     function testSetCosignersRevertOnlyGovernance() public {
         vm.expectRevert("only governance");
@@ -935,6 +1065,17 @@ contract TeeVerificationTest is Test {
     }
 
 
+    function _mockVerifyTeeSignatures(address[] memory _signingTeeIds) private {
+        vm.mockCall(
+            fdc2Verification,
+            abi.encodeWithSelector(
+                IFdc2Verification.verifyTeeSignatures.selector
+            ),
+            abi.encode(_signingTeeIds)
+        );
+    }
+
+
     function _mockVerifyTeeSystemState(bool _val) private {
         vm.mockCall(
             teeSystemStateVerifier,
@@ -943,6 +1084,14 @@ contract TeeVerificationTest is Test {
             ),
             abi.encode(_val)
         );
+    }
+
+    function _addMockTeeSignatureToProof() private {
+        proof.signatures.teeSignatures.push(Signature(27, bytes32(uint256(1)), bytes32(uint256(2))));
+    }
+
+    function _addMockTeeSignatureToPmwProof() private {
+        pmwProof.signatures.teeSignatures.push(Signature(27, bytes32(uint256(1)), bytes32(uint256(2))));
     }
 
     function _buildTeeAttestationExpectCallData(

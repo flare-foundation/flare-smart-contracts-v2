@@ -344,8 +344,18 @@ contract TeeVerification is ITeeVerification, TeeBase {
         ));
 
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        // check signing policy signatures
-        _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
+        // if TEE signatures are present, they must be valid and signed by TEE machines in PRODUCTION status
+        if (_proof.signatures.teeSignatures.length > 0) {
+            // making request through `requestPMWMultisigAccountConfiguredAttestation` it only tests on one TEE machine
+            fdc2Verification.verifyTeeSignatures(_proof.signatures.teeSignatures, messageHash);
+        } else {
+            // otherwise check signing policy signatures
+            _checkSigningPolicySignatures(
+                currentRewardEpochId,
+                messageHash,
+                _proof.signatures.signingPolicySignatures
+            );
+        }
         // check cosigners
         _checkCosignerSignatures(_toCosignersMessageHash(messageHash), _proof.signatures.cosignerSignatures);
 
@@ -539,9 +549,20 @@ contract TeeVerification is ITeeVerification, TeeBase {
             keccak256(abi.encode(requestBody)),
             keccak256(abi.encode(_proof.responseBody))
         ));
+
         uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
-        // check signing policy signatures
-        _checkSigningPolicySignatures(currentRewardEpochId, messageHash, _proof.signatures.signingPolicySignatures);
+        // if TEE signatures are present, they must be valid and signed by TEE machines in PRODUCTION status
+        if (_proof.signatures.teeSignatures.length > 0) {
+            // making request through `requestAvailabilityCheckAttestation` it only tests on one TEE machine
+            fdc2Verification.verifyTeeSignatures(_proof.signatures.teeSignatures, messageHash);
+        } else {
+            // otherwise check signing policy signatures
+            _checkSigningPolicySignatures(
+                currentRewardEpochId,
+                messageHash,
+                _proof.signatures.signingPolicySignatures
+            );
+        }
         // additionally check cosigners in case of initial availability check or active replication
         if (_status == ITeeMachineRegistry.TeeStatus.INITIALIZED ||
             _status == ITeeMachineRegistry.TeeStatus.REPLICATING)
