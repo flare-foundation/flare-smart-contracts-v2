@@ -210,6 +210,57 @@ contract FdcVerificationTest is Test {
         assertFalse(fdcVerification.verifyWeb2Json(proof));
     }
 
+    function testVerifyXRPPayment() public {
+        IXRPPayment.Response memory response;
+        response.attestationType = bytes32("XRPPayment");
+        response.votingRound = 1;
+
+        IXRPPayment.Proof memory proof = IXRPPayment.Proof({
+            merkleProof: new bytes32[](0),
+            data: response
+        });
+
+        bytes32 merkleRoot = keccak256(abi.encode(response));
+        // negative test - invalid merkle proof
+        _mockMerkleRoots(1, bytes32(0));
+        assertFalse(fdcVerification.verifyXRPPayment(proof));
+        // positive test
+        _mockMerkleRoots(1, merkleRoot);
+        assertTrue(fdcVerification.verifyXRPPayment(proof));
+        // negative test - invalid attestationType
+        response.attestationType = bytes32("InvalidType");
+        assertFalse(fdcVerification.verifyXRPPayment(proof));
+    }
+
+    function testVerifyXRPPaymentNonexistence() public {
+        IXRPPaymentNonexistence.Response memory response;
+        response.attestationType = bytes32("XRPPaymentNonexistence");
+        response.votingRound = 1;
+
+        IXRPPaymentNonexistence.Proof memory proof =
+            IXRPPaymentNonexistence.Proof({
+                merkleProof: new bytes32[](0),
+                data: response
+            });
+
+        bytes32 merkleRoot = keccak256(abi.encode(response));
+        // negative test - invalid merkle proof
+        _mockMerkleRoots(1, bytes32(0));
+        assertFalse(
+            fdcVerification.verifyXRPPaymentNonexistence(proof)
+        );
+        // positive test
+        _mockMerkleRoots(1, merkleRoot);
+        assertTrue(
+            fdcVerification.verifyXRPPaymentNonexistence(proof)
+        );
+        // negative test - invalid attestationType
+        response.attestationType = bytes32("InvalidType");
+        assertFalse(
+            fdcVerification.verifyXRPPaymentNonexistence(proof)
+        );
+    }
+
     //// Proxy upgrade
     function testUpgradeProxy() public {
         assertEq(fdcVerification.implementation(), address(fdcVerificationImplementation));

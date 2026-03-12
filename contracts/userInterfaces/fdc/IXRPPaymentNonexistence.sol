@@ -7,17 +7,17 @@ pragma solidity >=0.7.6 <0.9;
  * @custom:supported XRP, testXRP
  * @author Flare
  * @notice Assertion that an agreed-upon XRPpayment has not been made by a certain deadline.
- * A confirmed request shows that a transaction meeting certain criteria (address, amount, reference) did not appear 
+ * A confirmed request shows that a transaction meeting certain criteria (address, amount, reference) did not appear
  * in the specified block range.
  *
  *
- * This type of attestation can be used to e.g. provide grounds to liquidate funds locked by a smart contract on 
+ * This type of attestation can be used to e.g. provide grounds to liquidate funds locked by a smart contract on
  * Flare when a payment is missed.
  *
- * @custom:verification If `firstOverflowBlock` cannot be determined or does not have a sufficient 
- * [number of confirmations](/specs/attestations/configs.md#finalityconfirmation), the attestation 
+ * @custom:verification If `firstOverflowBlock` cannot be determined or does not have a sufficient
+ * [number of confirmations](/specs/attestations/configs.md#finalityconfirmation), the attestation
  * request is rejected.
- * 
+ *
  * If `firstOverflowBlockNumber` is higher or equal to `minimalBlockNumber`, the request is rejected.
  * The search range are blocks between heights including `minimalBlockNumber` and excluding `firstOverflowBlockNumber`.
  * If the verifier does not have a view of all blocks from `minimalBlockNumber` to `firstOverflowBlockNumber`,
@@ -28,13 +28,13 @@ pragma solidity >=0.7.6 <0.9;
  * Criteria for the transaction:
  * - The transaction is of type payment.
  * - The destination address hash matches the hash of the destination address of the transaction.
- * - If `checkFirstMemoData` is true, the hash of the MemoData field of the first Memo in the transaction matches 
+ * - If `checkFirstMemoData` is true, the hash of the MemoData field of the first Memo in the transaction matches
  * `firstMemoDataHash`.
  * - If `checkDestinationTag` is true, the destination tag of the transaction matches `destinationTag`.
  * - One of the following is true:
  *   - Transaction status is `SUCCESS` and the amount received by the specified destination address is greater
  *  than the specified `value`.
- *   - Transaction status is `RECEIVER_FAILURE` and the specified destination address would receive an amount 
+ *   - Transaction status is `RECEIVER_FAILURE` and the specified destination address would receive an amount
  * greater than the specified `value` had the transaction been successful.
  *
  *
@@ -49,7 +49,7 @@ interface IXRPPaymentNonexistence {
    * @param attestationType ID of the attestation type.
    * @param sourceId ID of the data source.
    * @param messageIntegrityCode `MessageIntegrityCode` that is derived from the expected response as defined.
-   * @param requestBody Data defining the request. Type (struct) and interpretation is determined by the 
+   * @param requestBody Data defining the request. Type (struct) and interpretation is determined by the
    * `attestationType`.
    */
   struct Request {
@@ -66,7 +66,7 @@ interface IXRPPaymentNonexistence {
    * @param votingRound The ID of the State Connector round in which the request was considered.
    * @param lowestUsedTimestamp The lowest timestamp used to generate the response.
    * @param requestBody Extracted from the request.
-   * @param responseBody Data defining the response. The verification rules for the construction of the response 
+   * @param responseBody Data defining the response. The verification rules for the construction of the response
    * body and the type are defined per specific `attestationType`.
    */
   struct Response {
@@ -99,10 +99,10 @@ interface IXRPPaymentNonexistence {
    * @param firstMemoDataHash Hash of the MemoData field of the first Memo in the transaction.
    * @param checkDestinationTag Whether to consider the destinationTag field in the search.
    * @param destinationTag Destination tag of the transaction.
-   * @custom:below If both `firstMemoDataHash` and `destinationTag` are zero, they are not considered in the 
-   * search and are ignored, effectively looking for any transaction with at least the specified amount sent to 
+   * @custom:below If both `firstMemoDataHash` and `destinationTag` are zero, they are not considered in the
+   * search and are ignored, effectively looking for any transaction with at least the specified amount sent to
    * the specified address.
-   * @param preferredProofPresenter Address of the preferred proof presenter.
+   * @param proofOwner Address authorized to use the proof, where applicable.
    */
   struct RequestBody {
     uint64 minimalBlockNumber;
@@ -114,7 +114,7 @@ interface IXRPPaymentNonexistence {
     bytes32 firstMemoDataHash;
     bool checkDestinationTag;
     uint256 destinationTag;
-    address preferredProofPresenter;
+    address proofOwner;
   }
 
   /**
@@ -124,7 +124,7 @@ interface IXRPPaymentNonexistence {
    * @param firstOverflowBlockTimestamp The timestamp of the firstOverflowBlock.
    * @custom:below `firstOverflowBlock` is the first block that has block number higher than `deadlineBlockNumber`
    * and timestamp later than `deadlineTimestamp`.
-   * The specified search range are blocks between heights including `minimalBlockNumber` and excluding 
+   * The specified search range are blocks between heights including `minimalBlockNumber` and excluding
    * `firstOverflowBlockNumber`.
    */
   struct ResponseBody {
