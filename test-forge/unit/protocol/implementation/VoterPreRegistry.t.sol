@@ -106,7 +106,7 @@ contract VoterPreRegistryTest is Test {
         _mockGetVoterForSigningPolicyAddress(initialSigningPolicyAddresses[0], 90, initialVoters[0]);
 
         // create signature
-        bytes32 messageHash = keccak256(abi.encode(11, initialVoters[1]));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, 11, initialVoters[1]));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(initialVotersSigningPolicyPk[0], signedMessageHash);
         Signature memory signature = Signature(v, r, s);
@@ -127,7 +127,7 @@ contract VoterPreRegistryTest is Test {
 
         _mockGetVoterForSigningPolicyAddress(newVoterSigningPolicyAddr, 90, newVoter);
         // create signature
-        bytes32 messageHash = keccak256(abi.encode(11, newVoter));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, 11, newVoter));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, signedMessageHash);
         Signature memory signature = Signature(v, r, s);
@@ -475,7 +475,7 @@ contract VoterPreRegistryTest is Test {
             Signature memory _signature
         )
     {
-        bytes32 messageHash = keccak256(abi.encode(_nextRewardEpochId, initialVoters[_voterIndex]));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, _nextRewardEpochId, initialVoters[_voterIndex]));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(initialVotersSigningPolicyPk[_voterIndex], signedMessageHash);
         _signature = Signature(v, r, s);

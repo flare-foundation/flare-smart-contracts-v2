@@ -813,7 +813,7 @@ contract VoterRegistryTest is Test {
 
         // add duplicate weight voter
         (uint8 v, bytes32 r, bytes32 s) =
-            vm.sign(pk, MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(1, voter))));
+            vm.sign(pk, MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(block.chainid, 1, voter))));
         signature = Signature(v, r, s);
         voterRegistry.registerVoter(voter, signature);
 
@@ -1255,7 +1255,7 @@ contract VoterRegistryTest is Test {
             Signature memory _signature
         )
     {
-        bytes32 messageHash = keccak256(abi.encode(_nextRewardEpochId, initialVoters[_voterIndex]));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, _nextRewardEpochId, initialVoters[_voterIndex]));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(initialVotersSigningPolicyPk[_voterIndex], signedMessageHash);
         _signature = Signature(v, r, s);

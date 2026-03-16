@@ -130,7 +130,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     function registerVoter(address _voter, Signature calldata _signature) external {
         (uint32 rewardEpochId, IIEntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
         // check signature
-        bytes32 messageHash = keccak256(abi.encode(rewardEpochId, _voter));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, rewardEpochId, _voter));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
         require(signingPolicyAddress == voterAddresses.signingPolicyAddress, "invalid signature");

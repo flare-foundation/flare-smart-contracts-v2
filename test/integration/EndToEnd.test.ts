@@ -584,9 +584,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     it("Should register a few voters", async () => {
         const rewardEpochId = 1;
         for (let i = 0; i < 4; i++) {
+            const chainId = await web3.eth.getChainId();
             const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-                ["uint24", "address"],
-                [rewardEpochId, registeredCAddresses[i]]));
+                ["uint256", "uint32", "address"],
+                [chainId, rewardEpochId, registeredCAddresses[i]]));
 
             const signature = web3.eth.accounts.sign(hash, privateKeys[30 + i].privateKey);
             expectEvent(await voterRegistry.registerVoter(registeredCAddresses[i], signature),
@@ -826,9 +827,10 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
     it("Should register a few voters for reward epoch 2", async () => {
         const rewardEpochId = 2;
         for (let i = 0; i < 4; i++) {
+            const chainId = await web3.eth.getChainId();
             const hash = web3.utils.keccak256(web3.eth.abi.encodeParameters(
-                ["uint24", "address"],
-                [rewardEpochId, registeredCAddresses[i]]));
+                ["uint256", "uint32", "address"],
+                [chainId, rewardEpochId, registeredCAddresses[i]]));
 
             const signature = web3.eth.accounts.sign(hash, privateKeys[30 + i].privateKey);
             expectEvent(await voterRegistry.registerVoter(registeredCAddresses[i], signature),

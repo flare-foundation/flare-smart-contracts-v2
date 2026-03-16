@@ -86,7 +86,7 @@ contract VoterPreRegistry is AddressUpdatable, IIVoterRegistrationTrigger, IVote
         // check if voter is registered in the current reward epoch
         require(voterRegistry.isVoterRegistered(_voter, rewardEpochId - 1), "voter currently not registered");
         // check signature
-        bytes32 messageHash = keccak256(abi.encode(rewardEpochId, _voter));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, rewardEpochId, _voter));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
         address voterAddress = entityManager.getVoterForSigningPolicyAddress(signingPolicyAddress, block.number);

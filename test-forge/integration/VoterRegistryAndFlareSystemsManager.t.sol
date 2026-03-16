@@ -290,7 +290,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             vm.expectEmit();
             emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
-                uint24(1),
+                uint32(1),
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
@@ -404,7 +404,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             vm.expectEmit();
             emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
-                uint24(1),
+                uint32(1),
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
@@ -418,7 +418,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         // voter2 tries to register again, this time with its delegation address (initialDelegationAddresses[2])
         // for its delegation address it did not register delegation address
         // -> it defaults to initialDelegationAddresses[2] -> should revert
-        bytes32 messageHash = keccak256(abi.encode(1, initialDelegationAddresses[2]));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, 1, initialDelegationAddresses[2]));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(fakeSubmitSignatureAddressPK, signedMessageHash);
         signature = Signature(v, r, s);
@@ -582,7 +582,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             vm.expectEmit();
             emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
-                uint24(1),
+                uint32(1),
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
@@ -596,7 +596,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         // register voter3; did not register its addresses before new signing policy initialization start block number
         // therefore its signing policy address is the same as its voter address
         // should not be able to register
-        bytes32 messageHash = keccak256(abi.encode(1, initialVoters[3]));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, 1, initialVoters[3]));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersPK[3], signedMessageHash);
         signature = Signature(v, r, s);
@@ -721,7 +721,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             vm.expectEmit();
             emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
-                uint24(2),
+                uint32(2),
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
@@ -937,7 +937,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 vm.expectEmit();
                 emit IVoterRegistry.VoterRegistered(
                     initialVoters[i],
-                    uint24(3),
+                    uint32(3),
                     initialSigningPolicyAddresses[i],
                     initialSubmitAddresses[i],
                     initialSubmitSignaturesAddresses[i],
@@ -1100,13 +1100,13 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             signature = _createSigningPolicyAddressSignature(i, 4);
             vm.expectEmit();
             if (i == 1) {
-                bytes32 messageHashRegister = keccak256(abi.encode(4, initialVoters[i]));
+                bytes32 messageHashRegister = keccak256(abi.encode(block.chainid, 4, initialVoters[i]));
                 bytes32 signedMessageHashRegister = MessageHashUtils.toEthSignedMessageHash(messageHashRegister);
                 (v, r, s) = vm.sign(newSigningPolicyPK, signedMessageHashRegister);
                 signature = Signature(v, r, s);
                 emit IVoterRegistry.VoterRegistered(
                     initialVoters[i],
-                    uint24(4),
+                    uint32(4),
                     newSigningPolicyAddress,
                     initialSubmitAddresses[i],
                     initialSubmitSignaturesAddresses[i],
@@ -1117,7 +1117,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             } else if (i != 3) {
                 emit IVoterRegistry.VoterRegistered(
                     initialVoters[i],
-                    uint24(4),
+                    uint32(4),
                     initialSigningPolicyAddresses[i],
                     initialSubmitAddresses[i],
                     initialSubmitSignaturesAddresses[i],
@@ -1128,7 +1128,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             } else {
                 emit IVoterRegistry.VoterRegistered(
                     initialVoters[i],
-                    uint24(4),
+                    uint32(4),
                     initialSigningPolicyAddresses[i],
                     newSubmitAddress,
                     initialSubmitSignaturesAddresses[i],
@@ -1345,7 +1345,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             vm.expectEmit();
             emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
-                uint24(1),
+                uint32(1),
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
@@ -1405,7 +1405,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             vm.expectEmit();
             emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
-                uint24(2),
+                uint32(2),
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
@@ -1557,7 +1557,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             Signature memory _signature
         )
     {
-        bytes32 messageHash = keccak256(abi.encode(_nextRewardEpochId, initialVoters[_voterIndex]));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, _nextRewardEpochId, initialVoters[_voterIndex]));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[_voterIndex], signedMessageHash);
         _signature = Signature(v, r, s);

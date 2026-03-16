@@ -811,8 +811,9 @@ async function defineInitialSigningPolicy(
 }
 
 async function registerVoter(rewardEpochId: number, acc: RegisteredAccount, voterRegistry: VoterRegistryInstance) {
+  const chainId = await web3.eth.getChainId();
   const hash = web3.utils.keccak256(
-    web3.eth.abi.encodeParameters(["uint24", "address"], [rewardEpochId, acc.identity.address])
+    web3.eth.abi.encodeParameters(["uint256", "uint32", "address"], [chainId, rewardEpochId, acc.identity.address])
   );
 
   const signature = web3.eth.accounts.sign(hash, acc.signingPolicy.privateKey);
