@@ -10,6 +10,8 @@ import {
   Fdc2RequestFeeConfigurationsProxyContract,
   Fdc2VerificationContract,
   Fdc2VerificationProxyContract,
+  PMWPaymentStatusVerifierMockContract,
+  TeeExtensionInstructionsSenderMockContract,
   TeeExtensionRegistryContract,
   TeeExtensionRegistryProxyContract,
   TeeFeeCalculatorContract,
@@ -57,8 +59,6 @@ export async function deployTeeContracts(
 ) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
-
-  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
   // Import contract artifacts
   const Fdc2Hub = artifacts.require("Fdc2Hub") as Fdc2HubContract;
@@ -501,7 +501,7 @@ export async function deployTeeContracts(
 
   // TODO remove mock deploys
 
-  const TeeExtensionInstructionsSenderMock = artifacts.require("TeeExtensionInstructionsSenderMock");
+  const TeeExtensionInstructionsSenderMock = artifacts.require("TeeExtensionInstructionsSenderMock") as TeeExtensionInstructionsSenderMockContract;
   const teeExtensionInstructionsSenderMock = await TeeExtensionInstructionsSenderMock.new(
     teeExtensionRegistry.address,
     teeWalletProjectManager.address,
@@ -510,7 +510,7 @@ export async function deployTeeContracts(
   );
   spewNewContractInfo(contracts, null, TeeExtensionInstructionsSenderMock.contractName, `TeeExtensionInstructionsSenderMock.sol`, teeExtensionInstructionsSenderMock.address, quiet);
 
-  const PMWPaymentStatusVerifierMock = artifacts.require("PMWPaymentStatusVerifierMock");
+  const PMWPaymentStatusVerifierMock = artifacts.require("PMWPaymentStatusVerifierMock") as PMWPaymentStatusVerifierMockContract;
   const pmwPaymentStatusVerifierMock = await PMWPaymentStatusVerifierMock.new(
     deployerAccount.address, // tmp address updater
     [],
