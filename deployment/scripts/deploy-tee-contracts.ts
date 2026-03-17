@@ -122,6 +122,7 @@ export async function deployTeeContracts(
   // deploy contracts
   // Fdc2Hub
   const fdc2HubImpl = await Fdc2Hub.new();
+  spewNewContractInfo(contracts, null, "Fdc2HubImplementation", `Fdc2Hub.sol`, fdc2HubImpl.address, quiet);
   const fdc2HubProxy = await Fdc2HubProxy.new(
     governanceSettings,
     deployerAccount.address,
@@ -131,20 +132,22 @@ export async function deployTeeContracts(
     fdc2HubImpl.address
   );
   const fdc2Hub = await Fdc2Hub.at(fdc2HubProxy.address);
-  spewNewContractInfo(contracts, null, Fdc2Hub.contractName, `Fdc2Hub.sol`, fdc2Hub.address, quiet);
+  spewNewContractInfo(contracts, null, Fdc2Hub.contractName, `Fdc2HubProxy.sol`, fdc2HubProxy.address, quiet);
 
   // Fdc2RequestFeeConfigurations
   const fdc2RequestFeeConfigurationsImpl = await Fdc2RequestFeeConfigurations.new();
+  spewNewContractInfo(contracts, null, "Fdc2RequestFeeConfigurationsImplementation", `Fdc2RequestFeeConfigurations.sol`, fdc2RequestFeeConfigurationsImpl.address, quiet);
   const fdc2RequestFeeConfigurationsProxy = await Fdc2RequestFeeConfigurationsProxy.new(
     governanceSettings,
     deployerAccount.address,
     fdc2RequestFeeConfigurationsImpl.address
   );
   const fdc2RequestFeeConfigurations = await Fdc2RequestFeeConfigurations.at(fdc2RequestFeeConfigurationsProxy.address);
-  spewNewContractInfo(contracts, null, Fdc2RequestFeeConfigurations.contractName, `Fdc2RequestFeeConfigurations.sol`, fdc2RequestFeeConfigurations.address, quiet);
+  spewNewContractInfo(contracts, null, Fdc2RequestFeeConfigurations.contractName, `Fdc2RequestFeeConfigurationsProxy.sol`, fdc2RequestFeeConfigurationsProxy.address, quiet);
 
   // Fdc2Verification
   const fdc2VerificationImpl = await Fdc2Verification.new();
+  spewNewContractInfo(contracts, null, "Fdc2VerificationImplementation", `Fdc2Verification.sol`, fdc2VerificationImpl.address, quiet);
   const fdc2VerificationProxy = await Fdc2VerificationProxy.new(
     governanceSettings,
     deployerAccount.address,
@@ -152,7 +155,7 @@ export async function deployTeeContracts(
     fdc2VerificationImpl.address
   );
   const fdc2Verification = await Fdc2Verification.at(fdc2VerificationProxy.address);
-  spewNewContractInfo(contracts, null, Fdc2Verification.contractName, `Fdc2Verification.sol`, fdc2Verification.address, quiet);
+  spewNewContractInfo(contracts, null, Fdc2Verification.contractName, `Fdc2VerificationProxy.sol`, fdc2VerificationProxy.address, quiet);
 
   // TeeExtensionRegistry
   const teeExtensionRegistryImpl = await TeeExtensionRegistry.new();
@@ -168,6 +171,7 @@ export async function deployTeeContracts(
 
   // TeeFeeCalculator
   const teeFeeCalculatorImpl = await TeeFeeCalculator.new();
+  spewNewContractInfo(contracts, null, "TeeFeeCalculatorImplementation", `TeeFeeCalculator.sol`, teeFeeCalculatorImpl.address, quiet);
   const teeFeeCalculatorProxy = await TeeFeeCalculatorProxy.new(
     governanceSettings,
     deployerAccount.address,
@@ -175,7 +179,7 @@ export async function deployTeeContracts(
     teeFeeCalculatorImpl.address
   );
   const teeFeeCalculator = await TeeFeeCalculator.at(teeFeeCalculatorProxy.address);
-  spewNewContractInfo(contracts, null, TeeFeeCalculator.contractName, `TeeFeeCalculator.sol`, teeFeeCalculator.address, quiet);
+  spewNewContractInfo(contracts, null, TeeFeeCalculator.contractName, `TeeFeeCalculatorProxy.sol`, teeFeeCalculatorProxy.address, quiet);
 
   // TeeGovernance
   const teeGovernanceImpl = await TeeGovernance.new();

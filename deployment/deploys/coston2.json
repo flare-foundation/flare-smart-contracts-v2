@@ -300,18 +300,33 @@
     "address": "0x2fa3D57fa4ED7cD44443166F240D8223D42cB38B"
   },
   {
-    "name": "Fdc2Hub",
+    "name": "Fdc2HubImplementation",
     "contractName": "Fdc2Hub.sol",
+    "address": "0x7A966c48b7C5Ec437DfC7fAEBb561b934A22f549"
+  },
+  {
+    "name": "Fdc2Hub",
+    "contractName": "Fdc2HubProxy.sol",
     "address": "0xb2E902c636e6A27480cD334297Ea38d122fBcca3"
   },
   {
-    "name": "Fdc2RequestFeeConfigurations",
+    "name": "Fdc2RequestFeeConfigurationsImplementation",
     "contractName": "Fdc2RequestFeeConfigurations.sol",
+    "address": "0x473E39A51a776672aB1fD2C7Af18246d32f9f091"
+  },
+  {
+    "name": "Fdc2RequestFeeConfigurations",
+    "contractName": "Fdc2RequestFeeConfigurationsProxy.sol",
     "address": "0x44C34ec407b71e31D9e1Fce537e50e024853A88A"
   },
   {
-    "name": "Fdc2Verification",
+    "name": "Fdc2VerificationImplementation",
     "contractName": "Fdc2Verification.sol",
+    "address": "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"
+  },
+  {
+    "name": "Fdc2Verification",
+    "contractName": "Fdc2VerificationProxy.sol",
     "address": "0xaD7Be49cF29256788B0fEb1387EfE869E2790e0F"
   },
   {
@@ -325,8 +340,13 @@
     "address": "0x3d478d43426081BD5854be9C7c5c183bfe76C981"
   },
   {
-    "name": "TeeFeeCalculator",
+    "name": "TeeFeeCalculatorImplementation",
     "contractName": "TeeFeeCalculator.sol",
+    "address":"0x13E29A6912Db644BC7A0058ec552440c3Ba9598D"
+  },
+  {
+    "name": "TeeFeeCalculator",
+    "contractName": "TeeFeeCalculatorProxy.sol",
     "address": "0xb606bdFB43169822622aC9D8A52613888729870b"
   },
   {
