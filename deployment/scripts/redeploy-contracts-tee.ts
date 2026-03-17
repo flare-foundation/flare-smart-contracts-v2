@@ -15,6 +15,7 @@ import { VoterRegistryContract, VoterRegistryInstance } from '../../typechain-tr
 import { VoterPreRegistryContract } from '../../typechain-truffle/contracts/protocol/implementation/VoterPreRegistry';
 import { FlareSystemsCalculatorContract } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsCalculator';
 import { FlareSystemsManagerContract, FlareSystemsManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager';
+import { Account } from 'web3-core';
 
 export async function redeployContractsTee(
   hre: HardhatRuntimeEnvironment,
@@ -28,18 +29,18 @@ export async function redeployContractsTee(
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-  const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
-  const VoterPreRegistry: VoterPreRegistryContract = artifacts.require("VoterPreRegistry");
-  const FlareSystemsCalculator: FlareSystemsCalculatorContract = artifacts.require("FlareSystemsCalculator");
-  const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
+  const VoterRegistry = artifacts.require("VoterRegistry") as VoterRegistryContract;
+  const VoterPreRegistry = artifacts.require("VoterPreRegistry") as VoterPreRegistryContract;
+  const FlareSystemsCalculator = artifacts.require("FlareSystemsCalculator") as FlareSystemsCalculatorContract;
+  const FlareSystemsManager = artifacts.require("FlareSystemsManager") as FlareSystemsManagerContract;
 
   // Define accounts in play for the deployment process
-  let deployerAccount: any;
+  let deployerAccount: Account;
 
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e)
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e));
   }
 
   // Wire up the default account that will do the deployment
@@ -61,7 +62,7 @@ export async function redeployContractsTee(
   const currentRewardEpochId = await flareSystemsManager.getCurrentRewardEpochId();
   const {0: registeredVoters, 1: registrationWeights} = await voterRegistryOld.getRegisteredVotersAndRegistrationWeights(currentRewardEpochId);
   const newSigningPolicyInitializationStartBlockNumber = await voterRegistryOld.newSigningPolicyInitializationStartBlockNumber(currentRewardEpochId);
-  const {0: weightsSums, 1: normalisedWeightsSum, 2: normalisedWeightsSumOfVotersWithPublicKeys} = await voterRegistryOld.getWeightsSums(currentRewardEpochId);
+  const {0: _weightsSums, 1: _normalisedWeightsSum, 2: normalisedWeightsSumOfVotersWithPublicKeys} = await voterRegistryOld.getWeightsSums(currentRewardEpochId);
 
   // Deploy new contracts
   const voterRegistry = await VoterRegistry.new(

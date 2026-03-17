@@ -43,7 +43,8 @@
     "addresses": [
       "0x51e375fda99181f052C2e28299e166D6984A5B89",
       "0x3BFdbe79BEf39Bae3F85636f525AcD3051Df4f64",
-      "0xc6E40401395DCc648bC4bBb38fE4552423cD9BAC"
+      "0xc6E40401395DCc648bC4bBb38fE4552423cD9BAC",
+      "0x6a0AF07b7972177B176d3D422555cbc98DfDe914"
     ]
   },
   {
@@ -51,7 +52,8 @@
     "contractName": "FlareSystemsCalculator.sol",
     "addresses": [
       "0x9D7207b1410De031523356882637dd01F460E958",
-      "0x9aF60c16192330EC98d04Ec9675d22dBb9892951"
+      "0x9aF60c16192330EC98d04Ec9675d22dBb9892951",
+      "0x93F4C0b43A221Cf0a57faa882Df5E3F6CAa5Aca8"
     ]
   },
   {
@@ -391,7 +393,8 @@
     "name": "VoterPreRegistry",
     "contractName": "VoterPreRegistry.sol",
     "addresses": [
-      "0x47469Af25c253B4fb9b2a207BF4069574C6CcBd7"
+      "0x47469Af25c253B4fb9b2a207BF4069574C6CcBd7",
+      "0xee963D1867d8B5f3D3E304802B40BC55B3eDeCB8"
     ]
   },
   {
