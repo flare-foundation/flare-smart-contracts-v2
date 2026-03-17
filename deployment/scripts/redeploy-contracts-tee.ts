@@ -11,10 +11,14 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
-import { VoterRegistryContract, VoterRegistryInstance } from '../../typechain-truffle/contracts/protocol/implementation/VoterRegistry';
-import { VoterPreRegistryContract } from '../../typechain-truffle/contracts/protocol/implementation/VoterPreRegistry';
-import { FlareSystemsCalculatorContract } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsCalculator';
-import { FlareSystemsManagerContract, FlareSystemsManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager';
+import {
+  FlareSystemsCalculatorContract,
+  FlareSystemsManagerContract,
+  FlareSystemsManagerInstance,
+  VoterPreRegistryContract,
+  VoterRegistryContract,
+  VoterRegistryInstance,
+} from '../../typechain-truffle';
 import { Account } from 'web3-core';
 
 export async function redeployContractsTee(

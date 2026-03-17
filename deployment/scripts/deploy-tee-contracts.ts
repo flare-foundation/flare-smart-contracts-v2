@@ -3,47 +3,50 @@
  */
 
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { Fdc2HubContract } from "../../typechain-truffle/contracts/fdc2/implementation/Fdc2Hub";
-import { Fdc2HubProxyContract } from "../../typechain-truffle/contracts/fdc2/proxy/Fdc2HubProxy";
-import { Fdc2RequestFeeConfigurationsContract } from "../../typechain-truffle/contracts/fdc2/implementation/Fdc2RequestFeeConfigurations";
-import { Fdc2RequestFeeConfigurationsProxyContract } from "../../typechain-truffle/contracts/fdc2/proxy/Fdc2RequestFeeConfigurationsProxy";
-import { Fdc2VerificationContract } from "../../typechain-truffle/contracts/fdc2/implementation/Fdc2Verification";
-import { Fdc2VerificationProxyContract } from "../../typechain-truffle/contracts/fdc2/proxy/Fdc2VerificationProxy";
-import { TeeExtensionRegistryContract } from "../../typechain-truffle/contracts/tee/implementation/TeeExtensionRegistry";
-import { TeeExtensionRegistryProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeExtensionRegistryProxy";
-import { TeeFeeCalculatorContract } from "../../typechain-truffle/contracts/tee/implementation/TeeFeeCalculator";
-import { TeeFeeCalculatorProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeFeeCalculatorProxy";
-import { TeeGovernanceContract } from "../../typechain-truffle/contracts/tee/implementation/TeeGovernance";
-import { TeeGovernanceProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeGovernanceProxy";
-import { TeeMachineRegistryContract } from "../../typechain-truffle/contracts/tee/implementation/TeeMachineRegistry";
-import { TeeMachineRegistryProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeMachineRegistryProxy";
-import { TeeOwnerAllowlistContract } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlist";
-import { TeeOwnerAllowlistProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeOwnerAllowlistProxy";
-import { TeePaymentsContract } from "../../typechain-truffle/contracts/tee/implementation/TeePayments";
-import { TeePaymentsProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeePaymentsProxy";
-import { TeeReplicationContract } from "../../typechain-truffle/contracts/tee/implementation/TeeReplication";
-import { TeeReplicationProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeReplicationProxy";
-import { TeeRewardOffersManagerContract } from "../../typechain-truffle/contracts/tee/implementation/TeeRewardOffersManager";
-import { TeeSystemStateVerifierContract } from "../../typechain-truffle/contracts/tee/implementation/TeeSystemStateVerifier";
-import { TeeSystemStateVerifierProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeSystemStateVerifierProxy";
-import { TeeVerificationContract } from "../../typechain-truffle/contracts/tee/implementation/TeeVerification";
-import { TeeVerificationProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeVerificationProxy";
-import { TeeVersionManagerContract } from "../../typechain-truffle/contracts/tee/implementation/TeeVersionManager";
-import { TeeVersionManagerProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeVersionManagerProxy";
-import { TeeWalletBackupManagerContract } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletBackupManager";
-import { TeeWalletBackupManagerProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeWalletBackupManagerProxy";
-import { TeeWalletKeyManagerContract } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletKeyManager";
-import { TeeWalletKeyManagerProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeWalletKeyManagerProxy";
-import { TeeWalletManagerContract } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletManager";
-import { TeeWalletManagerProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeWalletManagerProxy";
-import { TeeWalletProjectManagerContract } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletProjectManager";
-import { TeeWalletProjectManagerProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeWalletProjectManagerProxy";
-import { TeeVrfContract } from "../../typechain-truffle/contracts/tee/implementation/TeeVrf";
-import { TeeVrfProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeVrfProxy";
-import { VrfVerifierContract } from "../../typechain-truffle/contracts/tee/lib/VrfVerifier";
+import {
+  Fdc2HubContract,
+  Fdc2HubProxyContract,
+  Fdc2RequestFeeConfigurationsContract,
+  Fdc2RequestFeeConfigurationsProxyContract,
+  Fdc2VerificationContract,
+  Fdc2VerificationProxyContract,
+  TeeExtensionRegistryContract,
+  TeeExtensionRegistryProxyContract,
+  TeeFeeCalculatorContract,
+  TeeFeeCalculatorProxyContract,
+  TeeGovernanceContract,
+  TeeGovernanceProxyContract,
+  TeeMachineRegistryContract,
+  TeeMachineRegistryProxyContract,
+  TeeOwnerAllowlistContract,
+  TeeOwnerAllowlistProxyContract,
+  TeePaymentsContract,
+  TeePaymentsProxyContract,
+  TeeReplicationContract,
+  TeeReplicationProxyContract,
+  TeeRewardOffersManagerContract,
+  TeeSystemStateVerifierContract,
+  TeeSystemStateVerifierProxyContract,
+  TeeVerificationContract,
+  TeeVerificationProxyContract,
+  TeeVersionManagerContract,
+  TeeVersionManagerProxyContract,
+  TeeVrfContract,
+  TeeVrfProxyContract,
+  TeeWalletBackupManagerContract,
+  TeeWalletBackupManagerProxyContract,
+  TeeWalletKeyManagerContract,
+  TeeWalletKeyManagerProxyContract,
+  TeeWalletManagerContract,
+  TeeWalletManagerProxyContract,
+  TeeWalletProjectManagerContract,
+  TeeWalletProjectManagerProxyContract,
+  VrfVerifierContract,
+} from "../../typechain-truffle";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from "./deploy-utils";
+import { Account } from "web3-core";
 
 export async function deployTeeContracts(
   hre: HardhatRuntimeEnvironment,
@@ -58,47 +61,47 @@ export async function deployTeeContracts(
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
   // Import contract artifacts
-  const Fdc2Hub: Fdc2HubContract = artifacts.require("Fdc2Hub");
-  const Fdc2HubProxy: Fdc2HubProxyContract = artifacts.require("Fdc2HubProxy");
-  const Fdc2RequestFeeConfigurations: Fdc2RequestFeeConfigurationsContract = artifacts.require("Fdc2RequestFeeConfigurations");
-  const Fdc2RequestFeeConfigurationsProxy: Fdc2RequestFeeConfigurationsProxyContract = artifacts.require("Fdc2RequestFeeConfigurationsProxy");
-  const Fdc2Verification: Fdc2VerificationContract = artifacts.require("Fdc2Verification");
-  const Fdc2VerificationProxy: Fdc2VerificationProxyContract = artifacts.require("Fdc2VerificationProxy");
-  const TeeExtensionRegistry: TeeExtensionRegistryContract = artifacts.require("TeeExtensionRegistry");
-  const TeeExtensionRegistryProxy: TeeExtensionRegistryProxyContract = artifacts.require("TeeExtensionRegistryProxy");
-  const TeeGovernance: TeeGovernanceContract = artifacts.require("TeeGovernance");
-  const TeeGovernanceProxy: TeeGovernanceProxyContract = artifacts.require("TeeGovernanceProxy");
-  const TeeFeeCalculator: TeeFeeCalculatorContract = artifacts.require("TeeFeeCalculator");
-  const TeeFeeCalculatorProxy: TeeFeeCalculatorProxyContract = artifacts.require("TeeFeeCalculatorProxy");
-  const TeeMachineRegistry: TeeMachineRegistryContract = artifacts.require("TeeMachineRegistry");
-  const TeeMachineRegistryProxy: TeeMachineRegistryProxyContract = artifacts.require("TeeMachineRegistryProxy");
-  const TeeOwnerAllowlist: TeeOwnerAllowlistContract = artifacts.require("TeeOwnerAllowlist");
-  const TeeOwnerAllowlistProxy: TeeOwnerAllowlistProxyContract = artifacts.require("TeeOwnerAllowlistProxy");
-  const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
-  const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
-  const TeeReplication: TeeReplicationContract = artifacts.require("TeeReplication");
-  const TeeReplicationProxy: TeeReplicationProxyContract = artifacts.require("TeeReplicationProxy");
-  const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
-  const TeeSystemStateVerifier: TeeSystemStateVerifierContract = artifacts.require("TeeSystemStateVerifier");
-  const TeeSystemStateVerifierProxy: TeeSystemStateVerifierProxyContract = artifacts.require("TeeSystemStateVerifierProxy");
-  const TeeVerification: TeeVerificationContract = artifacts.require("TeeVerification");
-  const TeeVerificationProxy: TeeVerificationProxyContract = artifacts.require("TeeVerificationProxy");
-  const TeeVersionManager: TeeVersionManagerContract = artifacts.require("TeeVersionManager");
-  const TeeVersionManagerProxy: TeeVersionManagerProxyContract = artifacts.require("TeeVersionManagerProxy");
-  const TeeWalletBackupManager: TeeWalletBackupManagerContract = artifacts.require("TeeWalletBackupManager");
-  const TeeWalletBackupManagerProxy: TeeWalletBackupManagerProxyContract = artifacts.require("TeeWalletBackupManagerProxy");
-  const TeeWalletKeyManager: TeeWalletKeyManagerContract = artifacts.require("TeeWalletKeyManager");
-  const TeeWalletKeyManagerProxy: TeeWalletKeyManagerProxyContract = artifacts.require("TeeWalletKeyManagerProxy");
-  const TeeWalletManager: TeeWalletManagerContract = artifacts.require("TeeWalletManager");
-  const TeeWalletManagerProxy: TeeWalletManagerProxyContract = artifacts.require("TeeWalletManagerProxy");
-  const TeeWalletProjectManager: TeeWalletProjectManagerContract = artifacts.require("TeeWalletProjectManager");
-  const TeeWalletProjectManagerProxy: TeeWalletProjectManagerProxyContract = artifacts.require("TeeWalletProjectManagerProxy");
-  const TeeVrf: TeeVrfContract = artifacts.require("TeeVrf");
-  const TeeVrfProxy: TeeVrfProxyContract = artifacts.require("TeeVrfProxy");
-  const VrfVerifier: VrfVerifierContract = artifacts.require("VrfVerifier");
+  const Fdc2Hub = artifacts.require("Fdc2Hub") as Fdc2HubContract;
+  const Fdc2HubProxy = artifacts.require("Fdc2HubProxy") as Fdc2HubProxyContract;
+  const Fdc2RequestFeeConfigurations = artifacts.require("Fdc2RequestFeeConfigurations") as Fdc2RequestFeeConfigurationsContract;
+  const Fdc2RequestFeeConfigurationsProxy = artifacts.require("Fdc2RequestFeeConfigurationsProxy") as Fdc2RequestFeeConfigurationsProxyContract;
+  const Fdc2Verification = artifacts.require("Fdc2Verification") as Fdc2VerificationContract;
+  const Fdc2VerificationProxy = artifacts.require("Fdc2VerificationProxy") as Fdc2VerificationProxyContract;
+  const TeeExtensionRegistry = artifacts.require("TeeExtensionRegistry") as TeeExtensionRegistryContract;
+  const TeeExtensionRegistryProxy = artifacts.require("TeeExtensionRegistryProxy") as TeeExtensionRegistryProxyContract;
+  const TeeGovernance = artifacts.require("TeeGovernance") as TeeGovernanceContract;
+  const TeeGovernanceProxy = artifacts.require("TeeGovernanceProxy") as TeeGovernanceProxyContract;
+  const TeeFeeCalculator = artifacts.require("TeeFeeCalculator") as TeeFeeCalculatorContract;
+  const TeeFeeCalculatorProxy = artifacts.require("TeeFeeCalculatorProxy") as TeeFeeCalculatorProxyContract;
+  const TeeMachineRegistry = artifacts.require("TeeMachineRegistry") as TeeMachineRegistryContract;
+  const TeeMachineRegistryProxy = artifacts.require("TeeMachineRegistryProxy") as TeeMachineRegistryProxyContract;
+  const TeeOwnerAllowlist = artifacts.require("TeeOwnerAllowlist") as TeeOwnerAllowlistContract;
+  const TeeOwnerAllowlistProxy = artifacts.require("TeeOwnerAllowlistProxy") as TeeOwnerAllowlistProxyContract;
+  const TeePayments = artifacts.require("TeePayments") as TeePaymentsContract;
+  const TeePaymentsProxy = artifacts.require("TeePaymentsProxy") as TeePaymentsProxyContract;
+  const TeeReplication = artifacts.require("TeeReplication") as TeeReplicationContract;
+  const TeeReplicationProxy = artifacts.require("TeeReplicationProxy") as TeeReplicationProxyContract;
+  const TeeRewardOffersManager = artifacts.require("TeeRewardOffersManager") as TeeRewardOffersManagerContract;
+  const TeeSystemStateVerifier = artifacts.require("TeeSystemStateVerifier") as TeeSystemStateVerifierContract;
+  const TeeSystemStateVerifierProxy = artifacts.require("TeeSystemStateVerifierProxy") as TeeSystemStateVerifierProxyContract;
+  const TeeVerification = artifacts.require("TeeVerification") as TeeVerificationContract;
+  const TeeVerificationProxy = artifacts.require("TeeVerificationProxy") as TeeVerificationProxyContract;
+  const TeeVersionManager = artifacts.require("TeeVersionManager") as TeeVersionManagerContract;
+  const TeeVersionManagerProxy = artifacts.require("TeeVersionManagerProxy") as TeeVersionManagerProxyContract;
+  const TeeWalletBackupManager = artifacts.require("TeeWalletBackupManager") as TeeWalletBackupManagerContract;
+  const TeeWalletBackupManagerProxy = artifacts.require("TeeWalletBackupManagerProxy") as TeeWalletBackupManagerProxyContract;
+  const TeeWalletKeyManager = artifacts.require("TeeWalletKeyManager") as TeeWalletKeyManagerContract;
+  const TeeWalletKeyManagerProxy = artifacts.require("TeeWalletKeyManagerProxy") as TeeWalletKeyManagerProxyContract;
+  const TeeWalletManager = artifacts.require("TeeWalletManager") as TeeWalletManagerContract;
+  const TeeWalletManagerProxy = artifacts.require("TeeWalletManagerProxy") as TeeWalletManagerProxyContract;
+  const TeeWalletProjectManager = artifacts.require("TeeWalletProjectManager") as TeeWalletProjectManagerContract;
+  const TeeWalletProjectManagerProxy = artifacts.require("TeeWalletProjectManagerProxy") as TeeWalletProjectManagerProxyContract;
+  const TeeVrf = artifacts.require("TeeVrf") as TeeVrfContract;
+  const TeeVrfProxy = artifacts.require("TeeVrfProxy") as TeeVrfProxyContract;
+  const VrfVerifier = artifacts.require("VrfVerifier") as VrfVerifierContract;
 
   // Define accounts in play for the deployment process
-  let deployerAccount: any;
+  let deployerAccount: Account;
 
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);

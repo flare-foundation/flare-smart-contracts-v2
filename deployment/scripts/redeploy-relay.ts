@@ -7,7 +7,11 @@ import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
 import { RelayInitialConfig } from '../utils/RelayInitialConfig';
-import { FlareSystemsManagerContract, FlareSystemsManagerInstance, RelayContract } from '../../typechain-truffle';
+import {
+  FlareSystemsManagerContract,
+  FlareSystemsManagerInstance,
+  RelayContract,
+} from '../../typechain-truffle';
 import { Account } from 'web3-core';
 
 export async function redeployRelay(

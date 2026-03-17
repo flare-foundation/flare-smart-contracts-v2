@@ -92,41 +92,65 @@ import { getLogger } from "./logger";
 import { testDeployGovernanceSettings } from "./contract-helpers";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 import { RelayInitialConfig } from "./RelayInitialConfig";
-import { TeeMachineRegistryContract, TeeMachineRegistryInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeMachineRegistry";
-import { TeeWalletManagerContract, TeeWalletManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletManager";
-import { TeeFeeCalculatorContract, TeeFeeCalculatorInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeFeeCalculator";
-import { TeeFeeCalculatorProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeFeeCalculatorProxy";
-import { TeeRewardOffersManagerContract, TeeRewardOffersManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeRewardOffersManager";
-import { TeePaymentsContract, TeePaymentsInstance } from "../../typechain-truffle/contracts/tee/implementation/TeePayments";
-import { TeeWalletBackupManagerContract, TeeWalletBackupManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletBackupManager";
-import { TeeWalletProjectManagerContract, TeeWalletProjectManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletProjectManager";
-import { TeeVersionManagerContract, TeeVersionManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeVersionManager";
-import { TeeGovernanceContract, TeeGovernanceInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeGovernance";
-import { TeeWalletKeyManagerContract, TeeWalletKeyManagerInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeWalletKeyManager";
-import { Fdc2HubContract, Fdc2HubInstance } from "../../typechain-truffle/contracts/fdc2/implementation/Fdc2Hub";
-import { Fdc2HubProxyContract } from "../../typechain-truffle/contracts/fdc2/proxy/Fdc2HubProxy";
-import { Fdc2RequestFeeConfigurationsInstance } from "../../typechain-truffle/contracts/fdc2/implementation/Fdc2RequestFeeConfigurations";
-import { Fdc2RequestFeeConfigurationsProxyContract } from "../../typechain-truffle/contracts/fdc2/proxy/Fdc2RequestFeeConfigurationsProxy";
-import { TeeGovernanceProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeGovernanceProxy";
-import { TeeMachineRegistryProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeMachineRegistryProxy";
-import { Fdc2VerificationContract, Fdc2VerificationInstance } from "../../typechain-truffle/contracts/fdc2/implementation/Fdc2Verification";
-import { Fdc2VerificationProxyContract } from "../../typechain-truffle/contracts/fdc2/proxy/Fdc2VerificationProxy";
-import { TeeVerificationContract, TeeVerificationInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeVerification";
-import { TeeVerificationProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeVerificationProxy";
-import { TeeOwnerAllowlistContract, TeeOwnerAllowlistInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeOwnerAllowlist";
-import { TeeSystemStateVerifierProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeSystemStateVerifierProxy";
-import { TeeSystemStateVerifierContract, TeeSystemStateVerifierInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeSystemStateVerifier";
-import { AddressUpdaterContract, AddressUpdaterInstance } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/AddressUpdater";
-import { TeeOwnerAllowlistProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeOwnerAllowlistProxy";
-import { TeeExtensionRegistryContract, TeeExtensionRegistryInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeExtensionRegistry";
-import { TeeExtensionRegistryProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeExtensionRegistryProxy";
-import { TeeReplicationContract, TeeReplicationInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeReplication";
-import { TeeReplicationProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeReplicationProxy";
-import { TeeExtensionInstructionsSenderMockContract, TeeExtensionInstructionsSenderMockInstance } from "../../typechain-truffle/contracts/tee/mock/TeeExtensionInstructionsSenderMock";
-import { PMWPaymentStatusVerifierMockContract, PMWPaymentStatusVerifierMockInstance } from "../../typechain-truffle/contracts/fdc2/mock/PMWPaymentStatusVerifierMock";
-import { TeeVrfContract, TeeVrfInstance } from "../../typechain-truffle/contracts/tee/implementation/TeeVrf";
-import { TeeVrfProxyContract } from "../../typechain-truffle/contracts/tee/proxy/TeeVrfProxy";
-import { VrfVerifierContract, VrfVerifierInstance } from "../../typechain-truffle/contracts/tee/lib/VrfVerifier";
+import {
+  AddressUpdaterContract,
+  AddressUpdaterInstance,
+  Fdc2HubContract,
+  Fdc2HubInstance,
+  Fdc2HubProxyContract,
+  Fdc2RequestFeeConfigurationsInstance,
+  Fdc2RequestFeeConfigurationsProxyContract,
+  Fdc2VerificationContract,
+  Fdc2VerificationInstance,
+  Fdc2VerificationProxyContract,
+  PMWPaymentStatusVerifierMockContract,
+  PMWPaymentStatusVerifierMockInstance,
+  TeeExtensionInstructionsSenderMockContract,
+  TeeExtensionInstructionsSenderMockInstance,
+  TeeExtensionRegistryContract,
+  TeeExtensionRegistryInstance,
+  TeeExtensionRegistryProxyContract,
+  TeeFeeCalculatorContract,
+  TeeFeeCalculatorInstance,
+  TeeFeeCalculatorProxyContract,
+  TeeGovernanceContract,
+  TeeGovernanceInstance,
+  TeeGovernanceProxyContract,
+  TeeMachineRegistryContract,
+  TeeMachineRegistryInstance,
+  TeeMachineRegistryProxyContract,
+  TeeOwnerAllowlistContract,
+  TeeOwnerAllowlistInstance,
+  TeeOwnerAllowlistProxyContract,
+  TeePaymentsContract,
+  TeePaymentsInstance,
+  TeeReplicationContract,
+  TeeReplicationInstance,
+  TeeReplicationProxyContract,
+  TeeRewardOffersManagerContract,
+  TeeRewardOffersManagerInstance,
+  TeeSystemStateVerifierContract,
+  TeeSystemStateVerifierInstance,
+  TeeSystemStateVerifierProxyContract,
+  TeeVerificationContract,
+  TeeVerificationInstance,
+  TeeVerificationProxyContract,
+  TeeVersionManagerContract,
+  TeeVersionManagerInstance,
+  TeeVrfContract,
+  TeeVrfInstance,
+  TeeVrfProxyContract,
+  TeeWalletBackupManagerContract,
+  TeeWalletBackupManagerInstance,
+  TeeWalletKeyManagerContract,
+  TeeWalletKeyManagerInstance,
+  TeeWalletManagerContract,
+  TeeWalletManagerInstance,
+  TeeWalletProjectManagerContract,
+  TeeWalletProjectManagerInstance,
+  VrfVerifierContract,
+  VrfVerifierInstance,
+} from "../../typechain-truffle";
 
 export interface DeployedContracts {
   readonly addressUpdater: AddressUpdaterInstance;
