@@ -424,7 +424,7 @@
         {"attestationType": "Web2Json", "source": "testIgnite", "inflationShare": 1000, "minRequestsThreshold": 2, "mode": 0}
     ],
 
-    "teeSupportedPlatforms": ["GCP_INTEL_TDX", "GCP_AMD_SEV", "GCP_AMD_SEV_ES"],
+    "teeSupportedPlatforms": ["GCP_INTEL_TDX", "GCP_AMD_SEV", "GCP_AMD_SEV_ES", "TEST_PLATFORM"],
     "teeSupportedKeyTypesWithSigningAlgos": [
         {"keyType": "XRP", "signingAlgos": ["sha512half-secp256k1-ecdsa"]},
         {"keyType": "EVM", "signingAlgos": ["keccak256-secp256k1-ecdsa", "keccak256-secp256k1-vrf"]}
