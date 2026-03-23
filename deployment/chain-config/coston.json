@@ -424,7 +424,9 @@
         {"attestationType": "EVMTransaction", "source": "testFLR", "feeWei": "1000"},
         {"attestationType": "EVMTransaction", "source": "testSGB", "feeWei": "1000"},
         {"attestationType": "Web2Json", "source": "PublicWeb2", "feeWei": "1000"},
-        {"attestationType": "Web2Json", "source": "testIgnite", "feeWei": "1000000000000000000"}
+        {"attestationType": "Web2Json", "source": "testIgnite", "feeWei": "1000000000000000000"},
+        {"attestationType": "XRPPayment", "source": "testXRP", "feeWei": "1000"},
+        {"attestationType": "XRPPaymentNonexistence", "source": "testXRP", "feeWei": "1000"}
     ],
     "fdcInflationConfigurations": [
         {"attestationType": "AddressValidity", "source": "testXRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
