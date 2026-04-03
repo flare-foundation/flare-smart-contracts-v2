@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
-import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
-import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
-import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { IFlareTeeManager } from "../../userInterfaces/tee/IFlareTeeManager.sol";
+import { ITeeExtensionRegistryFacet } from "../../userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
+import { ITeeWalletManagerFacet } from "../../userInterfaces/tee/ITeeWalletManagerFacet.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 
 /**
@@ -34,14 +33,8 @@ contract TeeExtensionInstructionsSenderMock {
     bytes32 public constant OP_TYPE = bytes32("DEMO_EVM");
     bytes32 public constant OP_COMMAND = bytes32("SIGN");
 
-    /// TeeExtensionRegistry contract.
-    ITeeExtensionRegistry public teeExtensionRegistry;
-    /// TeeWalletProjectManager contract.
-    ITeeWalletProjectManager public teeWalletProjectManager;
-    /// TeeWalletManager contract.
-    ITeeWalletManager public teeWalletManager;
-    /// TeeWalletKeyManager contract.
-    ITeeWalletKeyManager public teeWalletKeyManager;
+    /// FlareTeeManager Diamond contract.
+    IFlareTeeManager public flareTeeManager;
 
     mapping(bytes32 walletId => address) private authorizationAddresses;
 
@@ -52,21 +45,12 @@ contract TeeExtensionInstructionsSenderMock {
 
     /**
      * Constructor.
-     * @param _teeExtensionRegistry The address of the TeeExtensionRegistry contract.
-     * @param _teeWalletProjectManager The address of the TeeWalletProjectManager contract.
-     * @param _teeWalletManager The address of the TeeWalletManager contract.
-     * @param _teeWalletKeyManager The address of the TeeWalletKeyManager contract.
+     * @param _flareTeeManager The address of the FlareTeeManager Diamond contract.
      */
     constructor(
-        ITeeExtensionRegistry _teeExtensionRegistry,
-        ITeeWalletProjectManager _teeWalletProjectManager,
-        ITeeWalletManager _teeWalletManager,
-        ITeeWalletKeyManager _teeWalletKeyManager
+        IFlareTeeManager _flareTeeManager
     ) {
-        teeExtensionRegistry = _teeExtensionRegistry;
-        teeWalletProjectManager = _teeWalletProjectManager;
-        teeWalletManager = _teeWalletManager;
-        teeWalletKeyManager = _teeWalletKeyManager;
+        flareTeeManager = _flareTeeManager;
     }
 
     /**
@@ -83,14 +67,14 @@ contract TeeExtensionInstructionsSenderMock {
         external payable
     {
         require(authorizationAddresses[_walletId] == msg.sender, OnlyAuthorizationAddress());
-        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        require(teeWalletProjectManager.getKeyType(projectId) == KEY_TYPE, WrongKeyType());
+        bytes32 projectId = flareTeeManager.getWalletProjectId(_walletId);
+        require(flareTeeManager.getKeyType(projectId) == KEY_TYPE, WrongKeyType());
         require(
-            teeWalletManager.getWalletStatus(_walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
+            flareTeeManager.getWalletStatus(_walletId) == ITeeWalletManagerFacet.WalletStatus.PRODUCTION,
             WalletNotInProduction()
         );
 
-        TeeIdKeyIdPair[] memory teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(_walletId);
+        TeeIdKeyIdPair[] memory teeIdKeyIdPairs = flareTeeManager.receivingTeesAndKeys(_walletId);
 
         SignTransaction memory message = SignTransaction({
             walletId: _walletId,
@@ -99,11 +83,11 @@ contract TeeExtensionInstructionsSenderMock {
         });
 
         (address[] memory cosigners, uint64 cosignersThreshold) =
-            teeWalletManager.getWalletCosignersAndThreshold(_walletId);
+            flareTeeManager.getWalletCosignersAndThreshold(_walletId);
 
-        teeExtensionRegistry.sendInstructions{value: msg.value}(
+        flareTeeManager.sendInstructions{value: msg.value}(
             _toTeeIds(teeIdKeyIdPairs),
-            ITeeExtensionRegistry.TeeInstructionParams(
+            ITeeExtensionRegistryFacet.TeeInstructionParams(
                 OP_TYPE,
                 OP_COMMAND,
                 abi.encode(message),
@@ -115,17 +99,17 @@ contract TeeExtensionInstructionsSenderMock {
     }
 
     /**
-     * Send custom instructions to available TEEs via the TeeExtensionRegistry.
+     * Send custom instructions to available TEEs via the FlareTeeManager.
      * @param _teeIds The TEE machine IDs to which the instructions are sent (must all belong to the same extension).
      * @param _instructionParams The instruction parameters.
      */
     function sendInstructions(
         address[] calldata _teeIds,
-        ITeeExtensionRegistry.TeeInstructionParams calldata _instructionParams
+        ITeeExtensionRegistryFacet.TeeInstructionParams calldata _instructionParams
     )
         external payable
     {
-        teeExtensionRegistry.sendInstructions{value: msg.value}(
+        flareTeeManager.sendInstructions{value: msg.value}(
             _teeIds,
             _instructionParams
         );
@@ -137,8 +121,8 @@ contract TeeExtensionInstructionsSenderMock {
     )
         external
     {
-        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        require(teeWalletProjectManager.getOwner(projectId) == msg.sender, OnlyOwner());
+        bytes32 projectId = flareTeeManager.getWalletProjectId(_walletId);
+        require(flareTeeManager.getOwner(projectId) == msg.sender, OnlyOwner());
         authorizationAddresses[_walletId] = _authorizationAddress;
     }
 

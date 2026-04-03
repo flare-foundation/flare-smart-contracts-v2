@@ -2,13 +2,10 @@
 pragma solidity ^0.8.27;
 
 import { TeeBase } from "./TeeBase.sol";
-import { IITeeExtensionRegistry } from "../interface/IITeeExtensionRegistry.sol";
-import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
+import { ITeeExtensionRegistryFacet } from "../../userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
+import { ITeeWalletManagerFacet } from "../../userInterfaces/tee/ITeeWalletManagerFacet.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
-import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
-import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
-import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
-import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { IPMWMultisigAccountConfigured } from "../../userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
@@ -82,16 +79,8 @@ contract TeePayments is ITeePayments, TeeBase {
     mapping(bytes32 accountHash => uint256) private setPaymentLimitsNonce;
     mapping(bytes32 accountHash => address) private authorizationAddresses;
 
-    /// TeeWalletProjectManager contract.
-    ITeeWalletProjectManager public teeWalletProjectManager;
-    /// TeeWalletManager contract.
-    ITeeWalletManager public teeWalletManager;
-    /// TeeWalletKeyManager contract.
-    ITeeWalletKeyManager public teeWalletKeyManager;
-    /// TeeVerification contract.
-    ITeeVerification public teeVerification;
-    /// TeeExtensionRegistry contract.
-    IITeeExtensionRegistry public teeExtensionRegistry;
+    /// FlareTeeManager Diamond contract.
+    IIFlareTeeManager public flareTeeManager;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
 
@@ -186,7 +175,7 @@ contract TeePayments is ITeePayments, TeeBase {
         message.walletId = tempState.walletId;
         message.sourceId = _account.sourceId;
         message.senderAddress = _account.accountAddress;
-        message.teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(message.walletId);
+        message.teeIdKeyIdPairs = flareTeeManager.receivingTeesAndKeys(message.walletId);
         message.recipientAddress = _paymentInstruction.recipientAddress;
         message.tokenId = _paymentInstruction.tokenId;
         message.amount = _paymentInstruction.amount;
@@ -198,7 +187,7 @@ contract TeePayments is ITeePayments, TeeBase {
         message.batchEndTs = state.batchEndTs;
 
         (tempState.cosigners, tempState.cosignersThreshold) =
-            teeWalletManager.getWalletCosignersAndThreshold(message.walletId);
+            flareTeeManager.getWalletCosignersAndThreshold(message.walletId);
 
         tempState.instructionId = keccak256(abi.encode(
             opType, PAY, message.sourceId, message.senderAddress, message.nonce
@@ -279,12 +268,12 @@ contract TeePayments is ITeePayments, TeeBase {
         }
         require(hashes[tempState.accountHash][message.nonce] == tempState.batchHash, BatchHashMismatch());
 
-        message.teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(message.walletId);
+        message.teeIdKeyIdPairs = flareTeeManager.receivingTeesAndKeys(message.walletId);
         tempState.teeIds = _toTeeIds(message.teeIdKeyIdPairs);
         tempState.reissueNumber = reissueCounter[tempState.accountHash][message.nonce]++;
 
         (tempState.cosigners, tempState.cosignersThreshold) =
-            teeWalletManager.getWalletCosignersAndThreshold(message.walletId);
+            flareTeeManager.getWalletCosignersAndThreshold(message.walletId);
 
         if (_reissueFeeParams.feeDelayScheduleSeconds.length == 0) { // to save gas as not needed otherwise
             tempState.defaultFeeSchedule = (accountFeeSchedule[tempState.accountHash].length > 0) ?
@@ -343,22 +332,22 @@ contract TeePayments is ITeePayments, TeeBase {
     )
         external
     {
-        bytes32 projectId = teeWalletManager.getWalletProjectId(_walletId);
-        require(teeWalletProjectManager.getOwner(projectId) == msg.sender, OnlyWalletOwner());
-        require(teeWalletProjectManager.getExtensionId(projectId) == 0, OnlySystemExtensionId());
-        require(teeWalletProjectManager.getKeyType(projectId) == keyType, WrongKeyType());
+        bytes32 projectId = flareTeeManager.getWalletProjectId(_walletId);
+        require(flareTeeManager.getOwner(projectId) == msg.sender, OnlyWalletOwner());
+        require(flareTeeManager.getExtensionId(projectId) == 0, OnlySystemExtensionId());
+        require(flareTeeManager.getKeyType(projectId) == keyType, WrongKeyType());
         require(bytes(_proof.requestBody.accountAddress).length > 0, AccountAddressZero());
         require(supportedSourceIds.contains(_proof.header.sourceId), UnsupportedSourceId());
         require(_authorizationAddress != address(0), AuthorizationAddressZero());
         bytes32 accountHash = _toAccountHash(_proof.header.sourceId, _proof.requestBody.accountAddress);
         require(accountHashToWalletId[accountHash] == 0, PMWMultisigAccountAddressAlreadySet());
-        ITeeWalletManager.WalletStatus walletStatus = teeWalletManager.getWalletStatus(_walletId);
+        ITeeWalletManagerFacet.WalletStatus walletStatus = flareTeeManager.getWalletStatus(_walletId);
         require(
-            walletStatus == ITeeWalletManager.WalletStatus.PRODUCTION ||
-            walletStatus == ITeeWalletManager.WalletStatus.PAUSED,
+            walletStatus == ITeeWalletManagerFacet.WalletStatus.PRODUCTION ||
+            walletStatus == ITeeWalletManagerFacet.WalletStatus.PAUSED,
             OnlyProductionOrPausedStatus()
         );
-        require(teeVerification.verifyPMWMultisigAccountConfiguredProof(_walletId, _proof), InvalidProof());
+        require(flareTeeManager.verifyPMWMultisigAccountConfiguredProof(_walletId, _proof), InvalidProof());
         accountHashToWalletId[accountHash] = _walletId;
         walletAccounts[_walletId].push(PMWMultisigAccount(_proof.header.sourceId, _proof.requestBody.accountAddress));
         states[accountHash].nonce = _proof.responseBody.sequence;
@@ -443,7 +432,7 @@ contract TeePayments is ITeePayments, TeeBase {
         require(_dailyLimit >= _transactionLimit, DailyLimitBelowTransactionLimit());
         bytes32 accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
         bytes32 walletId = accountHashToWalletId[accountHash];
-        TeeIdKeyIdPair[] memory teeIdKeyIdPairs = teeWalletKeyManager.receivingTeesAndKeys(walletId);
+        TeeIdKeyIdPair[] memory teeIdKeyIdPairs = flareTeeManager.receivingTeesAndKeys(walletId);
 
         SetPaymentLimits memory message = SetPaymentLimits({
             walletId: walletId,
@@ -454,7 +443,7 @@ contract TeePayments is ITeePayments, TeeBase {
             transactionLimit: _transactionLimit,
             dailyLimit: _dailyLimit
         });
-        (address[] memory admins, uint64 adminsThreshold) = teeWalletManager.getWalletAdminsAndThreshold(walletId);
+        (address[] memory admins, uint64 adminsThreshold) = flareTeeManager.getWalletAdminsAndThreshold(walletId);
 
         _sendSetPaymentLimitsInstructions(
             _toTeeIds(teeIdKeyIdPairs),
@@ -614,16 +603,8 @@ contract TeePayments is ITeePayments, TeeBase {
     )
         internal virtual override
     {
-        teeWalletProjectManager = ITeeWalletProjectManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
-        teeWalletManager = ITeeWalletManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
-        teeWalletKeyManager = ITeeWalletKeyManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletKeyManager"));
-        teeVerification = ITeeVerification(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeVerification"));
-        teeExtensionRegistry = IITeeExtensionRegistry(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
+        flareTeeManager = IIFlareTeeManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareTeeManager"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
     }
@@ -640,10 +621,10 @@ contract TeePayments is ITeePayments, TeeBase {
     )
         internal
     {
-        teeExtensionRegistry.sendSystemInstructions{value: _instructionsFee}(
+        flareTeeManager.sendSystemInstructions{value: _instructionsFee}(
             _instructionId,
             _teeIds,
-            ITeeExtensionRegistry.TeeInstructionParams(
+            ITeeExtensionRegistryFacet.TeeInstructionParams(
                 opType,
                 _opCommand,
                 _message,
@@ -663,9 +644,9 @@ contract TeePayments is ITeePayments, TeeBase {
     )
         internal
     {
-        teeExtensionRegistry.sendInstructions{value: msg.value}(
+        flareTeeManager.sendInstructions{value: msg.value}(
             _teeIds,
-            ITeeExtensionRegistry.TeeInstructionParams(
+            ITeeExtensionRegistryFacet.TeeInstructionParams(
                 opType,
                 SET_PAYMENT_LIMITS,
                 _message,
@@ -694,8 +675,8 @@ contract TeePayments is ITeePayments, TeeBase {
         internal view
     {
         bytes32 walletId = _getWalletId(_account);
-        bytes32 projectId = teeWalletManager.getWalletProjectId(walletId);
-        require(teeWalletProjectManager.getOwner(projectId) == msg.sender, OnlyWalletOwner());
+        bytes32 projectId = flareTeeManager.getWalletProjectId(walletId);
+        require(flareTeeManager.getOwner(projectId) == msg.sender, OnlyWalletOwner());
     }
 
     function _checkAuthorizationAddress(
@@ -712,7 +693,7 @@ contract TeePayments is ITeePayments, TeeBase {
         internal view
     {
         require(
-            teeWalletManager.getWalletStatus(_walletId) == ITeeWalletManager.WalletStatus.PRODUCTION,
+            flareTeeManager.getWalletStatus(_walletId) == ITeeWalletManagerFacet.WalletStatus.PRODUCTION,
             WalletNotInProduction()
         );
     }

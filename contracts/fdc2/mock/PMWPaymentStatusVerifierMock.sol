@@ -5,10 +5,8 @@ import { IPMWPaymentStatus, PMW_PAYMENT_STATUS_ATTESTATION_TYPE }
     from "../../userInterfaces/fdc2/IPMWPaymentStatus.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
-import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
-import { ITeeWalletProjectManager } from "../../userInterfaces/tee/ITeeWalletProjectManager.sol";
-import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import { ITeeVerification } from "../../userInterfaces/tee/ITeeVerification.sol";
+import { ITeeVerificationFacet } from "../../userInterfaces/tee/ITeeVerificationFacet.sol";
+import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
@@ -22,12 +20,6 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
     uint64 private teeThreshold;
     uint64 private cosignersThreshold;
 
-    /// TEE extension registry contract.
-    ITeeExtensionRegistry public teeExtensionRegistry;
-    /// TEE wallet manager contract.
-    ITeeWalletManager public teeWalletManager;
-    /// TEE wallet project manager contract.
-    ITeeWalletProjectManager public teeWalletProjectManager;
     /// FDC2 verification contract.
     IFdc2Verification public fdc2Verification;
     /// Flare systems manager contract.
@@ -81,7 +73,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
             header.thresholdBIPS == 0 &&
             header.attestationType == PMW_PAYMENT_STATUS_ATTESTATION_TYPE &&
             header.cosignersThreshold == cosignersThreshold,
-            ITeeVerification.InvalidAttestation()
+            ITeeVerificationFacet.InvalidAttestation()
         );
 
         IPMWPaymentStatus.ResponseBody calldata responseBody = _proof.responseBody;
@@ -135,12 +127,6 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
     )
         internal override
     {
-        teeExtensionRegistry = ITeeExtensionRegistry(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
-        teeWalletManager = ITeeWalletManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletManager"));
-        teeWalletProjectManager = ITeeWalletProjectManager(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeWalletProjectManager"));
         fdc2Verification = IFdc2Verification(
             _getContractAddress(_contractNameHashes, _contractAddresses, "Fdc2Verification"));
         flareSystemsManager = IFlareSystemsManager(
@@ -157,7 +143,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         uint256 rewardEpochId = fdc2Verification.verifySigningPolicySignatures(_signatures, _messageHash);
         require(
             rewardEpochId == _currentRewardEpochId || rewardEpochId + 1 == _currentRewardEpochId,
-            ITeeVerification.InvalidSigningPolicy()
+            ITeeVerificationFacet.InvalidSigningPolicy()
         );
     }
 
@@ -169,10 +155,10 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
     {
         require(
             _cosigners.length >= _cosignersThreshold && (_cosigners.length == 0 || _cosignersThreshold > 0),
-            ITeeVerification.InvalidThreshold()
+            ITeeCommonErrors.InvalidThreshold()
         );
         for (uint256 i = 0; i < _cosigners.length; i++) {
-            require(_cosigners[i] != address(0), ITeeVerification.InvalidCosigner(_cosigners[i]));
+            require(_cosigners[i] != address(0), ITeeCommonErrors.InvalidCosigner(_cosigners[i]));
         }
         cosigners.replaceAll(_cosigners);
         cosignersThreshold = _cosignersThreshold;
@@ -197,9 +183,9 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
             return; // no cosigners, nothing to check
         }
         address[] memory cosignersList = fdc2Verification.verifyCosignerSignatures(_signatures, _messageHash);
-        require(cosignersList.length >= cosignersThreshold, ITeeVerification.CosignersThresholdNotMet());
+        require(cosignersList.length >= cosignersThreshold, ITeeVerificationFacet.CosignersThresholdNotMet());
         for (uint256 i = 0; i < cosignersList.length; i++) {
-            require(cosigners.index[cosignersList[i]] != 0, ITeeVerification.InvalidCosigner(cosignersList[i]));
+            require(cosigners.index[cosignersList[i]] != 0, ITeeCommonErrors.InvalidCosigner(cosignersList[i]));
         }
     }
 

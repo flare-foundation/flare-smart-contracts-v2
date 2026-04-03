@@ -84,24 +84,11 @@ export class Contracts {
   public static readonly FDC_HUB = "FdcHub";
   public static readonly FDC_INFLATION_CONFIGURATIONS = "FdcInflationConfigurations";
   public static readonly FDC_REQUEST_FEE_CONFIGURATIONS = "FdcRequestFeeConfigurations";
-  public static readonly TEE_EXTENSION_REGISTRY = "TeeExtensionRegistry";
-  public static readonly TEE_OWNER_ALLOWLIST = "TeeOwnerAllowlist";
-  public static readonly TEE_GOVERNANCE = "TeeGovernance";
-  public static readonly TEE_VERSION_MANAGER = "TeeVersionManager";
-  public static readonly TEE_VERIFICATION = "TeeVerification";
-  public static readonly TEE_MACHINE_REGISTRY = "TeeMachineRegistry";
-  public static readonly TEE_WALLET_PROJECT_MANAGER = "TeeWalletProjectManager";
-  public static readonly TEE_WALLET_MANAGER = "TeeWalletManager";
-  public static readonly TEE_WALLET_KEY_MANAGER = "TeeWalletKeyManager";
-  public static readonly TEE_WALLET_BACKUP_MANAGER = "TeeWalletBackupManager";
-  public static readonly TEE_SYSTEM_STATE_VERIFIER = "TeeSystemStateVerifier";
-  public static readonly TEE_FEE_CALCULATOR = "TeeFeeCalculator";
-  public static readonly TEE_REPLICATION = "TeeReplication";
+  public static readonly FLARE_TEE_MANAGER = "FlareTeeManager";
   public static readonly TEE_REWARD_OFFERS_MANAGER = "TeeRewardOffersManager";
   public static readonly FDC2_HUB = "Fdc2Hub";
   public static readonly FDC2_REQUEST_FEE_CONFIGURATIONS = "Fdc2RequestFeeConfigurations";
   public static readonly FDC2_VERIFICATION = "Fdc2Verification";
-  public static readonly TEE_VRF = "TeeVrf";
 
   // NOTE: this is not exhaustive list. Constants here are defined on on-demand basis (usually motivated by tests).
 

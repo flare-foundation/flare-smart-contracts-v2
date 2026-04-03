@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { ITeeWalletKeyManager } from "../../userInterfaces/tee/ITeeWalletKeyManager.sol";
-import { ITeeWalletBackupManager } from "../../userInterfaces/tee/ITeeWalletBackupManager.sol";
-import { ITeeWalletManager } from "../../userInterfaces/tee/ITeeWalletManager.sol";
+import { ITeeWalletKeyManagerFacet } from "../../userInterfaces/tee/ITeeWalletKeyManagerFacet.sol";
+import { ITeeWalletBackupManagerFacet } from "../../userInterfaces/tee/ITeeWalletBackupManagerFacet.sol";
+import { ITeeWalletManagerFacet } from "../../userInterfaces/tee/ITeeWalletManagerFacet.sol";
 
 
 interface TeeWalletStructs {
 
-    function keyGenerateStruct(ITeeWalletKeyManager.KeyGenerate calldata) external;
+    function keyGenerateStruct(ITeeWalletKeyManagerFacet.KeyGenerate calldata) external;
 
-    function keyDeleteStruct(ITeeWalletKeyManager.KeyDelete calldata) external;
+    function keyDeleteStruct(ITeeWalletKeyManagerFacet.KeyDelete calldata) external;
 
-    function keyConfigConstantsStruct(ITeeWalletKeyManager.KeyConfigConstants calldata) external;
+    function keyConfigConstantsStruct(ITeeWalletKeyManagerFacet.KeyConfigConstants calldata) external;
 
-    function keyExistenceStruct(ITeeWalletKeyManager.KeyExistence calldata) external;
+    function keyExistenceStruct(ITeeWalletKeyManagerFacet.KeyExistence calldata) external;
 
-    function keyDataProviderRestoreStruct(ITeeWalletBackupManager.KeyDataProviderRestore calldata) external;
+    function keyDataProviderRestoreStruct(ITeeWalletBackupManagerFacet.KeyDataProviderRestore calldata) external;
 
-    function backupIdStruct(ITeeWalletBackupManager.BackupId calldata) external;
+    function backupIdStruct(ITeeWalletBackupManagerFacet.BackupId calldata) external;
 
-    function setPausingAddressesStruct(ITeeWalletManager.SetPausingAddresses calldata) external;
+    function setPausingAddressesStruct(ITeeWalletManagerFacet.SetPausingAddresses calldata) external;
 
-    function resumeStruct(ITeeWalletManager.Resume calldata) external;
+    function resumeStruct(ITeeWalletManagerFacet.Resume calldata) external;
 }

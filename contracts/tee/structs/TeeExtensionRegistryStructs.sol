@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
+import { ITeeExtensionRegistryFacet } from "../../userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
 
 
 interface TeeExtensionRegistryStructs {
 
-    function teeInstructionParamsStruct(ITeeExtensionRegistry.TeeInstructionParams calldata) external;
+    function teeInstructionParamsStruct(ITeeExtensionRegistryFacet.TeeInstructionParams calldata) external;
 }

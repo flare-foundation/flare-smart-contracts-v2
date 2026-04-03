@@ -7,11 +7,10 @@ import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
-import { IITeeExtensionRegistry } from "../../tee/interface/IITeeExtensionRegistry.sol";
-import { ITeeExtensionRegistry } from "../../userInterfaces/tee/ITeeExtensionRegistry.sol";
-import { ITeeMachineRegistry } from  "../../userInterfaces/tee/ITeeMachineRegistry.sol";
-import { ITeeReplication } from "../../userInterfaces/tee/ITeeReplication.sol";
+import { IFdc2Hub, FDC2_OP_TYPE } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
+import { IIFlareTeeManager } from "../../tee/interface/IIFlareTeeManager.sol";
+import { ITeeMachineRegistryFacet } from "../../userInterfaces/tee/ITeeMachineRegistryFacet.sol";
+import { ITeeExtensionRegistryFacet } from "../../userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
 import { IFdc2RequestFeeConfigurations } from "../../userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
@@ -22,15 +21,10 @@ import { IFdc2RequestFeeConfigurations } from "../../userInterfaces/fdc2/IFdc2Re
 contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
 
     uint256 internal constant MAX_BIPS = 1e4;
-    bytes32 public constant FDC2_OP_TYPE = bytes32("F_FDC2");
     bytes32 public constant PROVE = bytes32("PROVE");
 
-    /// TEE extension registry contract.
-    IITeeExtensionRegistry public teeExtensionRegistry;
-    /// TEE machine registry contract.
-    ITeeMachineRegistry public teeMachineRegistry;
-    /// TEE replication contract.
-    ITeeReplication public teeReplication;
+    /// FlareTeeManager Diamond contract.
+    IIFlareTeeManager public flareTeeManager;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
     /// Reward manager contract.
@@ -94,19 +88,19 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
         require(_cosigners.length >= _cosignersThreshold, CosignersThresholdInvalid());
         require(thresholdBIPS == 0 || thresholdBIPS >= MAX_BIPS / 2 ||
             _cosignersThreshold > _cosigners.length / 2, MultipleResponsesPossible());
-        ITeeMachineRegistry.TeeMachine[] memory teeMachines;
+        ITeeMachineRegistryFacet.TeeMachine[] memory teeMachines;
         if (_teeIds.length == 0) {
             if (_numberOfTees == 0) {
                 _numberOfTees = defaultNumberOfTees;
             }
-            _teeIds = teeMachineRegistry.getRandomTeeIds(0, _numberOfTees);
+            _teeIds = flareTeeManager.getRandomTeeIds(0, _numberOfTees);
             // all random tee machines are in PRODUCTION status and belong to the system extension
-            teeMachines = new ITeeMachineRegistry.TeeMachine[](_teeIds.length);
+            teeMachines = new ITeeMachineRegistryFacet.TeeMachine[](_teeIds.length);
             for (uint256 i = 0; i < _teeIds.length; i++) {
-                teeMachines[i] = teeMachineRegistry.getTeeMachine(_teeIds[i]);
+                teeMachines[i] = flareTeeManager.getTeeMachine(_teeIds[i]);
             }
         } else {
-            teeMachines = new ITeeMachineRegistry.TeeMachine[](_teeIds.length);
+            teeMachines = new ITeeMachineRegistryFacet.TeeMachine[](_teeIds.length);
             // For all TEE machines check their status and that they belong to the system extension.
             for (uint256 i = 0; i < _teeIds.length; i++) {
                 address teeId = _teeIds[i];
@@ -115,25 +109,25 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
                     require(teeId != _teeIds[j], DuplicatedTeeId(teeId));
                 }
                 // check the TEE machine status
-                ITeeMachineRegistry.TeeStatus status = teeMachineRegistry.getTeeMachineStatus(teeId);
-                if (status == ITeeMachineRegistry.TeeStatus.PAUSED_FOR_UPGRADE) {
+                ITeeMachineRegistryFacet.TeeStatus status = flareTeeManager.getTeeMachineStatus(teeId);
+                if (status == ITeeMachineRegistryFacet.TeeStatus.PAUSED_FOR_UPGRADE) {
                     // if the TEE machine is PAUSED_FOR_UPGRADE use its replicating TEE machine if exists, else revert
-                    address replicatingTeeId = teeReplication.getReplicatingTeeId(teeId);
+                    address replicatingTeeId = flareTeeManager.getReplicatingTeeId(teeId);
                     require(replicatingTeeId != address(0), TeeMachineNotAvailable());
-                    teeMachines[i] = teeMachineRegistry.getTeeMachine(replicatingTeeId);
+                    teeMachines[i] = flareTeeManager.getTeeMachine(replicatingTeeId);
                     teeMachines[i].teeId = teeId; // keep the original teeId
                 } else {
                     // else require the TEE machine to be in INITIALIZED or PRODUCTION status
                     require(
-                        status == ITeeMachineRegistry.TeeStatus.INITIALIZED ||
-                        status == ITeeMachineRegistry.TeeStatus.PRODUCTION,
+                        status == ITeeMachineRegistryFacet.TeeStatus.INITIALIZED ||
+                        status == ITeeMachineRegistryFacet.TeeStatus.PRODUCTION,
                         TeeMachineNotAvailable()
                     );
-                    teeMachines[i] = teeMachineRegistry.getTeeMachine(teeId);
+                    teeMachines[i] = flareTeeManager.getTeeMachine(teeId);
                 }
                 // check that the TEE machine belongs to the system extension
                 require(
-                    teeMachineRegistry.getExtensionId(teeId) == 0,
+                    flareTeeManager.getExtensionId(teeId) == 0,
                     OnlySystemExtensionId(teeId)
                 );
             }
@@ -232,12 +226,8 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
     )
         internal override
     {
-        teeExtensionRegistry = IITeeExtensionRegistry(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeExtensionRegistry"));
-        teeMachineRegistry = ITeeMachineRegistry(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
-        teeReplication = ITeeReplication(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeReplication"));
+        flareTeeManager = IIFlareTeeManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareTeeManager"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
         rewardManager = IIRewardManager(
@@ -267,7 +257,7 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
     }
 
     function _sendRequestAttestationInstructions(
-        ITeeMachineRegistry.TeeMachine[] memory _teeMachines,
+        ITeeMachineRegistryFacet.TeeMachine[] memory _teeMachines,
         bytes memory _message,
         address[] memory _cosigners,
         uint64 _cosignersThreshold,
@@ -277,10 +267,10 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
         internal
         returns (bytes32 _instructionId)
     {
-        return teeExtensionRegistry.sendSystemInstructions{value: _instructionsFee}(
+        return flareTeeManager.sendSystemInstructions{value: _instructionsFee}(
             bytes32(0),
             _teeMachines,
-            ITeeExtensionRegistry.TeeInstructionParams(
+            ITeeExtensionRegistryFacet.TeeInstructionParams(
                 FDC2_OP_TYPE,
                 PROVE,
                 _message,

@@ -1,0 +1,191 @@
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.7.6 <0.9;
+
+import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
+
+/**
+ * @title ITeeOwnerAllowlistFacet
+ * @notice Public interface for the TeeOwnerAllowlistFacet.
+ * @dev All methods are callable by extension owners (not governance).
+ */
+interface ITeeOwnerAllowlistFacet is ITeeCommonErrors {
+
+    event AllowedTeeMachineOwnersAdded(uint256 extensionId, address[] owners);
+    event AllowedTeeMachineOwnersRemoved(uint256 extensionId, address[] owners);
+    event AllowedTeeWalletProjectOwnersAdded(uint256 extensionId, address[] owners);
+    event AllowedTeeWalletProjectOwnersRemoved(uint256 extensionId, address[] owners);
+    event AllTeeMachineOwnersAllowed(uint256 extensionId);
+    event AllTeeMachineOwnersDisallowed(uint256 extensionId);
+    event AllTeeWalletProjectOwnersAllowed(uint256 extensionId);
+    event AllTeeWalletProjectOwnersDisallowed(uint256 extensionId);
+
+    error InvalidOwner();
+    error OwnerAlreadyAllowed(address owner);
+    error OwnerNotInAllowlist(address owner);
+
+    /**
+     * Adds a list of allowed TEE machine owners on the specified extension.
+     * Emits AllowedTeeMachineOwnersAdded event.
+     * @param _extensionId The id of the extension.
+     * @param _owners The list of addresses to add to the allowlist.
+     * Can only be called by the extension owner.
+     */
+    function addAllowedTeeMachineOwners(
+        uint256 _extensionId,
+        address[] memory _owners
+    )
+        external;
+
+    /**
+     * Removes a list of allowed TEE machine owners on the specified extension.
+     * Emits AllowedTeeMachineOwnersRemoved event.
+     * @param _extensionId The id of the extension.
+     * @param _owners The list of addresses to remove from the allowlist.
+     * Can only be called by the extension owner.
+     */
+    function removeAllowedTeeMachineOwners(
+        uint256 _extensionId,
+        address[] memory _owners
+    )
+        external;
+
+    /**
+     * Adds a list of allowed TEE wallet project owners on the specified extension.
+     * Emits AllowedTeeWalletProjectOwnersAdded event.
+     * @param _extensionId The id of the extension.
+     * @param _owners The list of addresses to add to the allowlist.
+     * Can only be called by the extension owner.
+     */
+    function addAllowedTeeWalletProjectOwners(
+        uint256 _extensionId,
+        address[] memory _owners
+    )
+        external;
+
+    /**
+     * Removes a list of allowed TEE wallet project owners on the specified extension.
+     * Emits AllowedTeeWalletProjectOwnersRemoved event.
+     * @param _extensionId The id of the extension.
+     * @param _owners The list of addresses to remove from the allowlist.
+     * Can only be called by the extension owner.
+     */
+    function removeAllowedTeeWalletProjectOwners(
+        uint256 _extensionId,
+        address[] memory _owners
+    )
+        external;
+
+    /**
+     * Allows all addresses to be TEE machine owners on the specified extension.
+     * Emits AllTeeMachineOwnersAllowed event.
+     * @param _extensionId The id of the extension.
+     * Can only be called by the extension owner.
+     */
+    function allowAllTeeMachineOwners(
+        uint256 _extensionId
+    )
+        external;
+
+    /**
+     * Disallows all addresses to be TEE machine owners on the specified extension.
+     * Emits AllTeeMachineOwnersDisallowed event.
+     * @param _extensionId The id of the extension.
+     * Can only be called by the extension owner.
+     */
+    function disallowAllTeeMachineOwners(
+        uint256 _extensionId
+    )
+        external;
+
+    /**
+     * Allows all addresses to be TEE wallet project owners on the specified extension.
+     * Emits AllTeeWalletProjectOwnersAllowed event.
+     * @param _extensionId The id of the extension.
+     * Can only be called by the extension owner.
+     */
+    function allowAllTeeWalletProjectOwners(
+        uint256 _extensionId
+    )
+        external;
+
+    /**
+     * Disallows all addresses to be TEE wallet project owners on the specified extension.
+     * Emits AllTeeWalletProjectOwnersDisallowed event.
+     * @param _extensionId The id of the extension.
+     * Can only be called by the extension owner.
+     */
+    function disallowAllTeeWalletProjectOwners(
+        uint256 _extensionId
+    )
+        external;
+
+    /**
+     * Returns the list of allowed TEE machine owners on the specified extension.
+     * @param _extensionId The id of the extension.
+     * @return _allowedOwners The list of allowed TEE machine owners.
+     */
+    function getAllowedTeeMachineOwners(
+        uint256 _extensionId
+    )
+        external view
+        returns (address[] memory _allowedOwners);
+
+    /**
+     * Returns the list of allowed TEE wallet project owners on the specified extension.
+     * @param _extensionId The id of the extension.
+     * @return _allowedOwners The list of allowed TEE wallet project owners.
+     */
+    function getAllowedTeeWalletProjectOwners(
+        uint256 _extensionId
+    )
+        external view
+        returns (address[] memory _allowedOwners);
+
+    /**
+     * Returns true if the owner is allowed to own a TEE machine on the specified extension.
+     * @param _extensionId The id of the extension.
+     * @param _owner The address of the owner.
+     * @return _isAllowed True if the owner is allowed, false otherwise.
+     */
+    function isAllowedTeeMachineOwner(
+        uint256 _extensionId,
+        address _owner
+    )
+        external view
+        returns (bool _isAllowed);
+
+    /**
+     * Returns true if the owner is allowed to own a TEE wallet project on the specified extension.
+     * @param _extensionId The id of the extension.
+     * @param _owner The address of the owner.
+     * @return _isAllowed True if the owner is allowed, false otherwise.
+     */
+    function isAllowedTeeWalletProjectOwner(
+        uint256 _extensionId,
+        address _owner
+    )
+        external view
+        returns (bool _isAllowed);
+
+    /**
+     * Returns true if all addresses are allowed to own a TEE machine on the specified extension.
+     * @param _extensionId The id of the extension.
+     * @return _allAllowed True if all addresses are allowed, false otherwise.
+     */
+    function allTeeMachineOwnersAllowed(
+        uint256 _extensionId
+    )
+        external view
+        returns (bool _allAllowed);
+
+    /**
+     * Returns true if all addresses are allowed to own a TEE wallet project on the specified extension.
+     * @param _extensionId The id of the extension.
+     * @return _allAllowed True if all addresses are allowed, false otherwise.
+     */
+    function allTeeWalletProjectOwnersAllowed(
+        uint256 _extensionId
+    )
+        external view
+        returns (bool _allAllowed);
+}

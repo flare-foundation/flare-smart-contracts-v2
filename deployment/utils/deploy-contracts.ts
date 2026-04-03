@@ -4,6 +4,8 @@ import { ISigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
 import {
   AddressBinderContract,
   AddressBinderInstance,
+  AddressUpdaterContract,
+  AddressUpdaterInstance,
   CChainStakeContract,
   CChainStakeInstance,
   CleanupBlockNumberManagerContract,
@@ -16,6 +18,15 @@ import {
   FastUpdaterInstance,
   FastUpdatesConfigurationContract,
   FastUpdatesConfigurationInstance,
+  Fdc2HubContract,
+  Fdc2HubInstance,
+  Fdc2HubProxyContract,
+  Fdc2RequestFeeConfigurationsContract,
+  Fdc2RequestFeeConfigurationsInstance,
+  Fdc2RequestFeeConfigurationsProxyContract,
+  Fdc2VerificationContract,
+  Fdc2VerificationInstance,
+  Fdc2VerificationProxyContract,
   FdcHubContract,
   FdcHubInstance,
   FdcInflationConfigurationsContract,
@@ -26,7 +37,9 @@ import {
   FlareSystemsCalculatorInstance,
   FlareSystemsManagerContract,
   FlareSystemsManagerInstance,
-  Fdc2RequestFeeConfigurationsContract,
+  FlareTeeManagerContract,
+  FlareTeeManagerInitContract,
+  FlareTeeManagerInstance,
   FtsoFeedDecimalsContract,
   FtsoFeedDecimalsInstance,
   FtsoFeedIdConverterContract,
@@ -47,33 +60,43 @@ import {
   PChainStakeMirrorInstance,
   PChainStakeMirrorVerifierContract,
   PChainStakeMirrorVerifierInstance,
+  PMWPaymentStatusVerifierMockContract,
+  PMWPaymentStatusVerifierMockInstance,
   RelayContract,
   RelayInstance,
   RewardManagerContract,
   RewardManagerInstance,
   SubmissionContract,
   SubmissionInstance,
+  TeeExtensionInstructionsSenderMockContract,
+  TeeExtensionInstructionsSenderMockInstance,
+  TeeExtensionRegistryFacetContract,
+  TeeFeeCalculatorFacetContract,
+  TeeOwnerAllowlistFacetContract,
+  TeePaymentsContract,
+  TeePaymentsInstance,
   TeePaymentsProxyContract,
-  TeeVersionManagerProxyContract,
-  TeeWalletBackupManagerProxyContract,
-  TeeWalletKeyManagerProxyContract,
-  TeeWalletManagerProxyContract,
-  TeeWalletProjectManagerProxyContract,
+  TeeRewardOffersManagerContract,
+  TeeRewardOffersManagerInstance,
   TestableFlareDaemonContract,
   TestableFlareDaemonInstance,
   VPContractContract,
   VPContractInstance,
   VoterRegistryContract,
   VoterRegistryInstance,
+  VrfVerifierContract,
+  VrfVerifierInstance,
   WNatContract,
   WNatDelegationFeeContract,
   WNatDelegationFeeInstance,
   WNatInstance,
 } from "../../typechain-truffle";
 
+import { AbiItem } from "web3-utils";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { Contracts } from "../scripts/Contracts";
 import { Account } from "web3-core";
+import { DAY1_FACETS, deployFacetsAndBuildCuts, addLaterFacetsToDiamond } from "../scripts/deploy-flare-tee-manager";
 import {
   TIMELOCK_SEC,
   systemSettings,
@@ -92,65 +115,6 @@ import { getLogger } from "./logger";
 import { testDeployGovernanceSettings } from "./contract-helpers";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 import { RelayInitialConfig } from "./RelayInitialConfig";
-import {
-  AddressUpdaterContract,
-  AddressUpdaterInstance,
-  Fdc2HubContract,
-  Fdc2HubInstance,
-  Fdc2HubProxyContract,
-  Fdc2RequestFeeConfigurationsInstance,
-  Fdc2RequestFeeConfigurationsProxyContract,
-  Fdc2VerificationContract,
-  Fdc2VerificationInstance,
-  Fdc2VerificationProxyContract,
-  PMWPaymentStatusVerifierMockContract,
-  PMWPaymentStatusVerifierMockInstance,
-  TeeExtensionInstructionsSenderMockContract,
-  TeeExtensionInstructionsSenderMockInstance,
-  TeeExtensionRegistryContract,
-  TeeExtensionRegistryInstance,
-  TeeExtensionRegistryProxyContract,
-  TeeFeeCalculatorContract,
-  TeeFeeCalculatorInstance,
-  TeeFeeCalculatorProxyContract,
-  TeeGovernanceContract,
-  TeeGovernanceInstance,
-  TeeGovernanceProxyContract,
-  TeeMachineRegistryContract,
-  TeeMachineRegistryInstance,
-  TeeMachineRegistryProxyContract,
-  TeeOwnerAllowlistContract,
-  TeeOwnerAllowlistInstance,
-  TeeOwnerAllowlistProxyContract,
-  TeePaymentsContract,
-  TeePaymentsInstance,
-  TeeReplicationContract,
-  TeeReplicationInstance,
-  TeeReplicationProxyContract,
-  TeeRewardOffersManagerContract,
-  TeeRewardOffersManagerInstance,
-  TeeSystemStateVerifierContract,
-  TeeSystemStateVerifierInstance,
-  TeeSystemStateVerifierProxyContract,
-  TeeVerificationContract,
-  TeeVerificationInstance,
-  TeeVerificationProxyContract,
-  TeeVersionManagerContract,
-  TeeVersionManagerInstance,
-  TeeVrfContract,
-  TeeVrfInstance,
-  TeeVrfProxyContract,
-  TeeWalletBackupManagerContract,
-  TeeWalletBackupManagerInstance,
-  TeeWalletKeyManagerContract,
-  TeeWalletKeyManagerInstance,
-  TeeWalletManagerContract,
-  TeeWalletManagerInstance,
-  TeeWalletProjectManagerContract,
-  TeeWalletProjectManagerInstance,
-  VrfVerifierContract,
-  VrfVerifierInstance,
-} from "../../typechain-truffle";
 
 export interface DeployedContracts {
   readonly addressUpdater: AddressUpdaterInstance;
@@ -183,19 +147,7 @@ export interface DeployedContracts {
   readonly nodePossessionVerifier: NodePossessionVerifierInstance;
   readonly feeCalculator: FeeCalculatorInstance;
   readonly fdcHub: FdcHubInstance;
-  readonly teeOwnerAllowlist: TeeOwnerAllowlistInstance;
-  readonly teeGovernance: TeeGovernanceInstance;
-  readonly teeVersionManager: TeeVersionManagerInstance;
-  readonly teeReplication: TeeReplicationInstance;
-  readonly teeExtensionRegistry: TeeExtensionRegistryInstance;
-  readonly teeVerification: TeeVerificationInstance;
-  readonly teeSystemStateVerifier: TeeSystemStateVerifierInstance;
-  readonly teeMachineRegistry: TeeMachineRegistryInstance;
-  readonly teeWalletProjectManager: TeeWalletProjectManagerInstance;
-  readonly teeWalletManager: TeeWalletManagerInstance;
-  readonly teeWalletKeyManager: TeeWalletKeyManagerInstance;
-  readonly teeWalletBackupManager: TeeWalletBackupManagerInstance;
-  readonly teeFeeCalculator: TeeFeeCalculatorInstance;
+  readonly flareTeeManager: FlareTeeManagerInstance; // FlareTeeManager Diamond instance
   readonly teeRewardOffersManager: TeeRewardOffersManagerInstance;
   readonly teePayments: TeePaymentsInstance[];
   readonly fdc2Hub: Fdc2HubInstance;
@@ -203,7 +155,6 @@ export interface DeployedContracts {
   readonly fdc2Verification: Fdc2VerificationInstance;
   readonly pmwPaymentStatusVerifierMock: PMWPaymentStatusVerifierMockInstance;
   readonly teeExtensionInstructionsSenderMock: TeeExtensionInstructionsSenderMockInstance;
-  readonly teeVrf: TeeVrfInstance;
   readonly vrfVerifier: VrfVerifierInstance;
 }
 
@@ -241,7 +192,6 @@ export async function deployContracts(
   const CChainStake = hre.artifacts.require("CChainStake") as CChainStakeContract;
   const WNatDelegationFee = hre.artifacts.require("WNatDelegationFee") as WNatDelegationFeeContract;
   const FtsoInflationConfigurations = hre.artifacts.require("FtsoInflationConfigurations") as FtsoInflationConfigurationsContract;
-  hre.artifacts.require("FtsoInflationConfigurations");
   const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = hre.artifacts.require("FtsoRewardOffersManager") as FtsoRewardOffersManagerContract;
   const FtsoFeedDecimals = hre.artifacts.require("FtsoFeedDecimals") as FtsoFeedDecimalsContract;
   const FtsoFeedPublisher = hre.artifacts.require("FtsoFeedPublisher") as FtsoFeedPublisherContract;
@@ -258,49 +208,21 @@ export async function deployContracts(
   const FastUpdatesConfiguration = hre.artifacts.require("FastUpdatesConfiguration") as FastUpdatesConfigurationContract;
   const FeeCalculator = hre.artifacts.require("FeeCalculator") as FeeCalculatorContract;
 
+  // Remaining separate UUPS proxy contracts
+  const TeeRewardOffersManager = hre.artifacts.require("TeeRewardOffersManager") as TeeRewardOffersManagerContract;
+  const TeePayments = hre.artifacts.require("TeePayments") as TeePaymentsContract;
+  const TeePaymentsProxy = hre.artifacts.require("TeePaymentsProxy") as TeePaymentsProxyContract;
+  const Fdc2Hub = hre.artifacts.require("Fdc2Hub") as Fdc2HubContract;
+  const Fdc2HubProxy = hre.artifacts.require("Fdc2HubProxy") as Fdc2HubProxyContract;
+  const Fdc2RequestFeeConfigurations = hre.artifacts.require("Fdc2RequestFeeConfigurations") as Fdc2RequestFeeConfigurationsContract;
+  const Fdc2RequestFeeConfigurationsProxy = hre.artifacts.require("Fdc2RequestFeeConfigurationsProxy") as Fdc2RequestFeeConfigurationsProxyContract;
+  const Fdc2Verification = hre.artifacts.require("Fdc2Verification") as Fdc2VerificationContract;
+  const Fdc2VerificationProxy = hre.artifacts.require("Fdc2VerificationProxy") as Fdc2VerificationProxyContract;
+  const AddressUpdater = hre.artifacts.require("AddressUpdater") as AddressUpdaterContract;
 
-  const TeeOwnerAllowlist: TeeOwnerAllowlistContract = artifacts.require("TeeOwnerAllowlist");
-  const TeeOwnerAllowlistProxy: TeeOwnerAllowlistProxyContract = artifacts.require("TeeOwnerAllowlistProxy");
-  const TeeGovernance: TeeGovernanceContract = artifacts.require("TeeGovernance");
-  const TeeGovernanceProxy: TeeGovernanceProxyContract = artifacts.require("TeeGovernanceProxy");
-  const TeeVersionManager: TeeVersionManagerContract = artifacts.require("TeeVersionManager");
-  const TeeVersionManagerProxy: TeeVersionManagerProxyContract = artifacts.require("TeeVersionManagerProxy");
-  const TeeReplication: TeeReplicationContract = artifacts.require("TeeReplication");
-  const TeeReplicationProxy: TeeReplicationProxyContract = artifacts.require("TeeReplicationProxy");
-  const TeeExtensionRegistry: TeeExtensionRegistryContract = artifacts.require("TeeExtensionRegistry");
-  const TeeExtensionRegistryProxy: TeeExtensionRegistryProxyContract = artifacts.require("TeeExtensionRegistryProxy");
-  const TeeVerification: TeeVerificationContract = artifacts.require("TeeVerification");
-  const TeeVerificationProxy: TeeVerificationProxyContract = artifacts.require("TeeVerificationProxy");
-  const TeeSystemStateVerifier: TeeSystemStateVerifierContract = artifacts.require("TeeSystemStateVerifier");
-  const TeeSystemStateVerifierProxy: TeeSystemStateVerifierProxyContract = artifacts.require("TeeSystemStateVerifierProxy");
-  const TeeMachineRegistry: TeeMachineRegistryContract = artifacts.require("TeeMachineRegistry");
-  const TeeMachineRegistryProxy: TeeMachineRegistryProxyContract = artifacts.require("TeeMachineRegistryProxy");
-  const TeeWalletProjectManager: TeeWalletProjectManagerContract = artifacts.require("TeeWalletProjectManager");
-  const TeeWalletProjectManagerProxy: TeeWalletProjectManagerProxyContract = artifacts.require("TeeWalletProjectManagerProxy");
-  const TeeWalletManager: TeeWalletManagerContract = artifacts.require("TeeWalletManager");
-  const TeeWalletManagerProxy: TeeWalletManagerProxyContract = artifacts.require("TeeWalletManagerProxy");
-  const TeeWalletKeyManager: TeeWalletKeyManagerContract = artifacts.require("TeeWalletKeyManager");
-  const TeeWalletKeyManagerProxy: TeeWalletKeyManagerProxyContract = artifacts.require("TeeWalletKeyManagerProxy");
-  const TeeWalletBackupManager: TeeWalletBackupManagerContract = artifacts.require("TeeWalletBackupManager");
-  const TeeWalletBackupManagerProxy: TeeWalletBackupManagerProxyContract = artifacts.require("TeeWalletBackupManagerProxy");
-  const TeeFeeCalculator: TeeFeeCalculatorContract = artifacts.require("TeeFeeCalculator");
-  const TeeFeeCalculatorProxy: TeeFeeCalculatorProxyContract = artifacts.require("TeeFeeCalculatorProxy");
-  const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
-  const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
-  const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
-  const Fdc2Hub: Fdc2HubContract = artifacts.require("Fdc2Hub");
-  const Fdc2HubProxy: Fdc2HubProxyContract = artifacts.require("Fdc2HubProxy");
-  const Fdc2RequestFeeConfigurations: Fdc2RequestFeeConfigurationsContract = artifacts.require("Fdc2RequestFeeConfigurations");
-  const Fdc2RequestFeeConfigurationsProxy: Fdc2RequestFeeConfigurationsProxyContract = artifacts.require("Fdc2RequestFeeConfigurationsProxy");
-  const Fdc2Verification: Fdc2VerificationContract = artifacts.require("Fdc2Verification");
-  const Fdc2VerificationProxy: Fdc2VerificationProxyContract = artifacts.require("Fdc2VerificationProxy");
-  const AddressUpdater: AddressUpdaterContract = artifacts.require("AddressUpdater");
-
-  const PMWPaymentStatusVerifierMock: PMWPaymentStatusVerifierMockContract = artifacts.require("PMWPaymentStatusVerifierMock");
-  const TeeExtensionInstructionsSenderMock: TeeExtensionInstructionsSenderMockContract = artifacts.require("TeeExtensionInstructionsSenderMock");
-  const TeeVrf: TeeVrfContract = artifacts.require("TeeVrf");
-  const TeeVrfProxy: TeeVrfProxyContract = artifacts.require("TeeVrfProxy");
-  const VrfVerifier: VrfVerifierContract = artifacts.require("VrfVerifier");
+  const PMWPaymentStatusVerifierMock = hre.artifacts.require("PMWPaymentStatusVerifierMock") as PMWPaymentStatusVerifierMockContract;
+  const TeeExtensionInstructionsSenderMock = hre.artifacts.require("TeeExtensionInstructionsSenderMock") as TeeExtensionInstructionsSenderMockContract;
+  const VrfVerifier = hre.artifacts.require("VrfVerifier") as VrfVerifierContract;
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
@@ -568,140 +490,59 @@ export async function deployContracts(
   addressUpdatableContracts.push(fdcInflationConfigurations.address);
   const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(governanceSettings.address, governanceAccount.address);
 
-  const teeOwnerAllowlistImpl = await TeeOwnerAllowlist.new();
-  const teeOwnerAllowlistProxy = await TeeOwnerAllowlistProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    teeOwnerAllowlistImpl.address
-  );
-  const teeOwnerAllowlist = await TeeOwnerAllowlist.at(teeOwnerAllowlistProxy.address);
-  addressUpdatableContracts.push(teeOwnerAllowlist.address);
+  // =========================================================================
+  // Deploy FlareTeeManager Diamond
+  // =========================================================================
 
-  const teeGovernanceImpl = await TeeGovernance.new();
-  const teeGovernanceProxy = await TeeGovernanceProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    teeGovernanceImpl.address
-  )
-  const teeGovernance = await TeeGovernance.at(teeGovernanceProxy.address);
-  addressUpdatableContracts.push(teeGovernance.address);
+  // Deploy day-1 facets and build FacetCut array
+  const { facetCuts } = await deployFacetsAndBuildCuts(hre, DAY1_FACETS);
 
-  const teeVersionManagerImpl = await TeeVersionManager.new();
-  const teeVersionManagerProxy = await TeeVersionManagerProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    teeVersionManagerImpl.address
-  );
-  const teeVersionManager = await TeeVersionManager.at(teeVersionManagerProxy.address);
-  addressUpdatableContracts.push(teeVersionManager.address);
-
-  const teeReplicationImpl = await TeeReplication.new();
-  const teeReplicationProxy = await TeeReplicationProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    60,
-    teeReplicationImpl.address
-  );
-  const teeReplication = await TeeReplication.at(teeReplicationProxy.address);
-  addressUpdatableContracts.push(teeReplication.address);
-
-  const teeExtensionRegistryImpl = await TeeExtensionRegistry.new();
-  const teeExtensionRegistryProxy = await TeeExtensionRegistryProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    teeExtensionRegistryImpl.address
-  );
-  const teeExtensionRegistry = await TeeExtensionRegistry.at(teeExtensionRegistryProxy.address);
-  addressUpdatableContracts.push(teeExtensionRegistry.address);
-
-  const teeVerificationImpl = await TeeVerification.new();
-  const teeVerificationProxy = await TeeVerificationProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    3600,
-    10,
-    600,
-    teeVerificationImpl.address
-  );
-  const teeVerification = await TeeVerification.at(teeVerificationProxy.address);
-  addressUpdatableContracts.push(teeVerification.address);
-
-  const teeSystemStateVerifierImpl = await TeeSystemStateVerifier.new();
-  const teeSystemStateVerifierProxy = await TeeSystemStateVerifierProxy.new(
-   governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    teeSystemStateVerifierImpl.address
-  );
-  const teeSystemStateVerifier = await TeeSystemStateVerifier.at(teeSystemStateVerifierProxy.address);
-  addressUpdatableContracts.push(teeSystemStateVerifier.address);
-
-  const teeMachineRegistryImpl = await TeeMachineRegistry.new();
-  const teeMachineRegistryProxy = await TeeMachineRegistryProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    teeMachineRegistryImpl.address
-  );
-  const teeMachineRegistry = await TeeMachineRegistry.at(teeMachineRegistryProxy.address);
-  addressUpdatableContracts.push(teeMachineRegistry.address);
-
-  const teeWalletProjectManagerImpl = await TeeWalletProjectManager.new();
-  const teeWalletProjectManagerProxy = await TeeWalletProjectManagerProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    teeWalletProjectManagerImpl.address
-  );
-  const teeWalletProjectManager = await TeeWalletProjectManager.at(teeWalletProjectManagerProxy.address);
-  addressUpdatableContracts.push(teeWalletProjectManager.address);
-
-  const teeWalletManagerImpl = await TeeWalletManager.new();
-  const teeWalletManagerProxy = await TeeWalletManagerProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    teeWalletManagerImpl.address
-  );
-  const teeWalletManager = await TeeWalletManager.at(teeWalletManagerProxy.address);
-  addressUpdatableContracts.push(teeWalletManager.address);
-
-  const teeWalletKeyManagerImpl = await TeeWalletKeyManager.new();
-  const teeWalletKeyManagerProxy = await TeeWalletKeyManagerProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    teeWalletKeyManagerImpl.address
-  );
-  const teeWalletKeyManager = await TeeWalletKeyManager.at(teeWalletKeyManagerProxy.address);
-  addressUpdatableContracts.push(teeWalletKeyManager.address);
-
-  const teeWalletBackupManagerImpl = await TeeWalletBackupManager.new();
-  const teeWalletBackupManagerProxy = await TeeWalletBackupManagerProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    teeWalletBackupManagerImpl.address
-  );
-  const teeWalletBackupManager = await TeeWalletBackupManager.at(teeWalletBackupManagerProxy.address);
-  addressUpdatableContracts.push(teeWalletBackupManager.address);
-
-  const teeFeeCalculatorImpl = await TeeFeeCalculator.new();
-  const teeFeeCalculatorProxy = await TeeFeeCalculatorProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    1,
-    teeFeeCalculatorImpl.address
-  );
-  const teeFeeCalculator = await TeeFeeCalculator.at(teeFeeCalculatorProxy.address
+  // Deploy FlareTeeManagerInit and encode init calldata
+  const FlareTeeManagerInit = hre.artifacts.require("FlareTeeManagerInit") as FlareTeeManagerInitContract;
+  const flareTeeManagerInit = await FlareTeeManagerInit.new();
+  const flareTeeManagerInitCalldata = hre.web3.eth.abi.encodeFunctionCall(
+    (FlareTeeManagerInit as unknown as { abi: AbiItem[] }).abi.find((item: AbiItem) => item.name === "init")!,
+    [
+      governanceSettings.address,
+      governanceAccount.address,
+      addressUpdater.address,
+      "3600",  // availabilityCheckValidityDurationSeconds
+      "10",    // signingPolicyValidityDurationInRewardEpochs
+      "600",   // challengeValidityDurationSeconds
+      "1",     // defaultFee
+    ]
   );
 
+  // Deploy FlareTeeManager Diamond
+  const FlareTeeManager = hre.artifacts.require("FlareTeeManager") as FlareTeeManagerContract;
+  const flareTeeManager = await FlareTeeManager.new(
+    facetCuts,
+    { init: flareTeeManagerInit.address, initCalldata: flareTeeManagerInitCalldata }
+  );
+  addressUpdatableContracts.push(flareTeeManager.address);
+
+  // Add later facets (replication, governance, version manager)
+  await addLaterFacetsToDiamond(hre, flareTeeManager.address, "60");
+
+  // Access Diamond facet interfaces for post-init configuration
+  const teeExtensionRegistry = await (hre.artifacts.require("TeeExtensionRegistryFacet") as TeeExtensionRegistryFacetContract).at(flareTeeManager.address);
+  const teeFeeCalculator = await (hre.artifacts.require("TeeFeeCalculatorFacet") as TeeFeeCalculatorFacetContract).at(flareTeeManager.address);
+  const teeOwnerAllowlist = await (hre.artifacts.require("TeeOwnerAllowlistFacet") as TeeOwnerAllowlistFacetContract).at(flareTeeManager.address);
+
+  // Set operation fees
+  const operationTypes: string[] = [];
+  const operationCommands: string[] = [];
+  const operationFees: string[] = [];
+  for (const teeOperationFee of TEE_OPERATION_FEES) {
+    operationTypes.push(web3.utils.utf8ToHex(teeOperationFee.opType).padEnd(66, "0"));
+    operationCommands.push(web3.utils.utf8ToHex(teeOperationFee.opCommand).padEnd(66, "0"));
+    operationFees.push(teeOperationFee.feeWei);
+  }
+  await teeFeeCalculator.setOperationFees(operationTypes, operationCommands, operationFees, { from: governanceAccount.address });
+
+  // =========================================================================
+  // Deploy remaining separate UUPS proxy contracts
+  // =========================================================================
   const teeRewardOffersManager = await TeeRewardOffersManager.new(
     governanceSettings.address,
     governanceAccount.address,
@@ -710,17 +551,7 @@ export async function deployContracts(
   );
   addressUpdatableContracts.push(teeRewardOffersManager.address);
 
-  const operationTypes = [];
-  const operationCommands = [];
-  const operationFees = [];
-  for (const teeOperationFee of TEE_OPERATION_FEES) {
-    operationTypes.push(web3.utils.utf8ToHex(teeOperationFee.opType).padEnd(66, "0"));
-    operationCommands.push(web3.utils.utf8ToHex(teeOperationFee.opCommand).padEnd(66, "0"));
-    operationFees.push(teeOperationFee.feeWei);
-  }
-  await teeFeeCalculator.setOperationFees(operationTypes, operationCommands, operationFees, { from: governanceAccount.address });
-
-  const teePaymentsList = [];
+  const teePaymentsList: TeePaymentsInstance[] = [];
   const teePaymentsImpl = await TeePayments.new();
   for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
     const teePaymentsProxy = await TeePaymentsProxy.new(
@@ -775,21 +606,8 @@ export async function deployContracts(
   addressUpdatableContracts.push(pmwPaymentStatusVerifierMock.address);
 
   const teeExtensionInstructionsSenderMock = await TeeExtensionInstructionsSenderMock.new(
-    teeExtensionRegistry.address,
-    teeWalletProjectManager.address,
-    teeWalletManager.address,
-    teeWalletKeyManager.address
+    flareTeeManager.address
   );
-
-  const teeVrfImpl = await TeeVrf.new();
-  const teeVrfProxy = await TeeVrfProxy.new(
-    governanceSettings.address,
-    governanceAccount.address,
-    addressUpdater.address,
-    teeVrfImpl.address
-  );
-  const teeVrf = await TeeVrf.at(teeVrfProxy.address);
-  addressUpdatableContracts.push(teeVrf.address);
 
   const vrfVerifier = await VrfVerifier.new();
 
@@ -836,24 +654,11 @@ export async function deployContracts(
       Contracts.FEE_CALCULATOR,
       Contracts.FDC_INFLATION_CONFIGURATIONS,
       Contracts.FDC_REQUEST_FEE_CONFIGURATIONS,
-      Contracts.TEE_GOVERNANCE,
-      Contracts.TEE_VERSION_MANAGER,
-      Contracts.TEE_EXTENSION_REGISTRY,
-      Contracts.TEE_MACHINE_REGISTRY,
-      Contracts.TEE_FEE_CALCULATOR,
-      Contracts.TEE_SYSTEM_STATE_VERIFIER,
+      Contracts.FLARE_TEE_MANAGER,
       Contracts.FDC2_HUB,
       Contracts.FDC2_VERIFICATION,
       Contracts.FDC2_REQUEST_FEE_CONFIGURATIONS,
       Contracts.TEE_REWARD_OFFERS_MANAGER,
-      Contracts.TEE_VERIFICATION,
-      Contracts.TEE_OWNER_ALLOWLIST,
-      Contracts.TEE_WALLET_MANAGER,
-      Contracts.TEE_WALLET_PROJECT_MANAGER,
-      Contracts.TEE_WALLET_KEY_MANAGER,
-      Contracts.TEE_WALLET_BACKUP_MANAGER,
-      Contracts.TEE_REPLICATION,
-      Contracts.TEE_VRF
     ],
     [
       addressUpdater.address,
@@ -883,24 +688,11 @@ export async function deployContracts(
       feeCalculator.address,
       fdcInflationConfigurations.address,
       fdcRequestFeeConfigurations.address,
-      teeGovernance.address,
-      teeVersionManager.address,
-      teeExtensionRegistry.address,
-      teeMachineRegistry.address,
-      teeFeeCalculator.address,
-      teeSystemStateVerifier.address,
+      flareTeeManager.address,
       fdc2Hub.address,
       fdc2Verification.address,
       fdc2RequestFeeConfigurations.address,
       teeRewardOffersManager.address,
-      teeVerification.address,
-      teeOwnerAllowlist.address,
-      teeWalletManager.address,
-      teeWalletProjectManager.address,
-      teeWalletKeyManager.address,
-      teeWalletBackupManager.address,
-      teeReplication.address,
-      teeVrf.address
     ],
     addressUpdatableContracts,
     { from: governanceAccount.address }
@@ -931,15 +723,11 @@ export async function deployContracts(
     { from: governanceAccount.address }
   );
 
+  // Only external contracts need to be registered as system instructions senders
+  // (Diamond facets call libraries internally, not via sendSystemInstructions)
   await teeExtensionRegistry.registerSystemInstructionsSenders(
     [
-      teeVerification.address,
-      teeWalletManager.address,
-      teeWalletKeyManager.address,
-      teeWalletBackupManager.address,
-      teeReplication.address,
       ...teePaymentsList.map(teePayments => teePayments.address),
-      teeVrf.address,
       fdc2Hub.address
     ],
     { from: governanceAccount.address }
@@ -954,7 +742,7 @@ export async function deployContracts(
     fastUpdateIncentiveManager.address,
     fdcHub.address,
     teeRewardOffersManager.address,
-    teeExtensionRegistry.address,
+    flareTeeManager.address,
     fdc2Hub.address],
     { from: governanceAccount.address }
   );
@@ -1094,7 +882,7 @@ export async function deployContracts(
     1,
     "v0.1.0",
     TEE_EXTENSION_CODE_HASH,
-    TEE_PLATFORMS.map(platform => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
+    TEE_PLATFORMS.map((platform: string) => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
     ZERO_BYTES32,
     { from: extensionOwnerAccount.address }
   );
@@ -1115,12 +903,7 @@ export async function deployContracts(
     `  Relay: ${relay.address},\n` +
     `  FastUpdater: ${fastUpdater.address},\n` +
     `  FdcHub: ${fdcHub.address},\n` +
-    `  TeeExtensionRegistry: ${teeExtensionRegistry.address},\n` +
-    `  TeeMachineRegistry: ${teeMachineRegistry.address},\n` +
-    `  TeeWalletProjectManager: ${teeWalletProjectManager.address},\n` +
-    `  TeeWalletManager: ${teeWalletManager.address},\n` +
-    `  TeeWalletKeyManager: ${teeWalletKeyManager.address},\n` +
-    `  TeeWalletBackupManager: ${teeWalletBackupManager.address},\n` +
+    `  FlareTeeManager: ${flareTeeManager.address},\n` +
     `  Fdc2Hub: ${fdc2Hub.address},\n`
   );
 
@@ -1157,19 +940,7 @@ export async function deployContracts(
     nodePossessionVerifier,
     feeCalculator,
     fdcHub,
-    teeOwnerAllowlist,
-    teeGovernance,
-    teeVersionManager,
-    teeVerification,
-    teeReplication,
-    teeExtensionRegistry,
-    teeSystemStateVerifier,
-    teeMachineRegistry,
-    teeWalletProjectManager,
-    teeWalletManager,
-    teeWalletKeyManager,
-    teeWalletBackupManager,
-    teeFeeCalculator,
+    flareTeeManager,
     teeRewardOffersManager,
     teePayments: teePaymentsList,
     fdc2Hub,
@@ -1177,7 +948,6 @@ export async function deployContracts(
     fdc2Verification,
     pmwPaymentStatusVerifierMock,
     teeExtensionInstructionsSenderMock,
-    teeVrf,
     vrfVerifier
   };
 
@@ -1185,7 +955,7 @@ export async function deployContracts(
 }
 
 export function serializeDeployedContractsAddresses(contracts: DeployedContracts, fname: string) {
-  const result: any = {};
+  const result: Record<string, string> = {};
   Object.entries(contracts).forEach(([name, data]) => {
     if (data instanceof Array) {
       for (let i = 0; i < data.length; i++) {

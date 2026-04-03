@@ -5,7 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Fdc2Verification } from "../../../../contracts/fdc2/implementation/Fdc2Verification.sol";
 import { Fdc2VerificationProxy } from "../../../../contracts/fdc2/proxy/Fdc2VerificationProxy.sol";
 import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
-import { ITeeMachineRegistry } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistry.sol";
+import { ITeeMachineRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -20,7 +20,7 @@ contract Fdc2VerificationTest is Test {
     address private governance;
     address private addressUpdater;
     address private relay;
-    address private teeMachineRegistry;
+    address private flareTeeManager;
 
     bytes private signingPolicySignatures;
     bytes32 private messageHash;
@@ -56,19 +56,19 @@ contract Fdc2VerificationTest is Test {
         contractNameHashes = new bytes32[](3);
         contractAddresses = new address[](3);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
-        contractNameHashes[1] = keccak256(abi.encode("TeeMachineRegistry"));
+        contractNameHashes[1] = keccak256(abi.encode("FlareTeeManager"));
         contractNameHashes[2] = keccak256(abi.encode("Relay"));
         contractAddresses[0] = addressUpdater;
-        contractAddresses[1] = makeAddr("TeeMachineRegistry");
+        contractAddresses[1] = makeAddr("FlareTeeManager");
         contractAddresses[2] = makeAddr("Relay");
 
         vm.prank(addressUpdater);
         fdc2Verification.updateContractAddresses(contractNameHashes, contractAddresses);
 
         relay = address(fdc2Verification.relay());
-        teeMachineRegistry = address(fdc2Verification.teeMachineRegistry());
+        flareTeeManager = address(fdc2Verification.flareTeeManager());
 
-        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(ITeeMachineRegistryFacet.TeeStatus.PRODUCTION);
         _mockGetExtensionId(0);
 
         vm.mockCall(
@@ -82,7 +82,7 @@ contract Fdc2VerificationTest is Test {
 
     // verifyTeeSignature
     function testVerifyTeeSignatureRevertTeeMachineNotAvailable() public {
-        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PAUSED);
+        _mockGetTeeMachineStatus(ITeeMachineRegistryFacet.TeeStatus.PAUSED);
         vm.expectRevert(IFdc2Verification.TeeMachineNotAvailable.selector);
         fdc2Verification.verifyTeeSignature(signature, messageHash);
     }
@@ -105,7 +105,7 @@ contract Fdc2VerificationTest is Test {
     function testVerifyTeeSignaturesRevertTeeMachineNotAvailable() public {
         Signature[] memory signatures = new Signature[](1);
         signatures[0] = signature;
-        _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus.PAUSED);
+        _mockGetTeeMachineStatus(ITeeMachineRegistryFacet.TeeStatus.PAUSED);
         vm.expectRevert(IFdc2Verification.TeeMachineNotAvailable.selector);
         fdc2Verification.verifyTeeSignatures(signatures, messageHash);
     }
@@ -172,18 +172,18 @@ contract Fdc2VerificationTest is Test {
     }
 
 
-    function _mockGetTeeMachineStatus(ITeeMachineRegistry.TeeStatus _status) private {
+    function _mockGetTeeMachineStatus(ITeeMachineRegistryFacet.TeeStatus _status) private {
         vm.mockCall(
-            teeMachineRegistry,
-            abi.encodeWithSelector(ITeeMachineRegistry.getTeeMachineStatus.selector),
+            flareTeeManager,
+            abi.encodeWithSelector(ITeeMachineRegistryFacet.getTeeMachineStatus.selector),
             abi.encode(_status)
         );
     }
 
     function _mockGetExtensionId(uint256 _extensionId) private {
         vm.mockCall(
-            teeMachineRegistry,
-            abi.encodeWithSelector(ITeeMachineRegistry.getExtensionId.selector),
+            flareTeeManager,
+            abi.encodeWithSelector(ITeeMachineRegistryFacet.getExtensionId.selector),
             abi.encode(_extensionId)
         );
     }

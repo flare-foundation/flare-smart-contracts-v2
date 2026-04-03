@@ -4,7 +4,8 @@ pragma solidity ^0.8.27;
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
 import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
-import { ITeeMachineRegistry } from "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import { IFlareTeeManager } from "../../userInterfaces/tee/IFlareTeeManager.sol";
+import { ITeeMachineRegistryFacet } from "../../userInterfaces/tee/ITeeMachineRegistryFacet.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
@@ -21,8 +22,8 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  */
 contract Fdc2Verification is IFdc2Verification, GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
 
-    /// The TEE machine registry contract.
-    ITeeMachineRegistry public teeMachineRegistry;
+    /// The FlareTeeManager Diamond contract.
+    IFlareTeeManager public flareTeeManager;
     /// The Relay contract.
     IRelay public relay;
 
@@ -160,8 +161,8 @@ contract Fdc2Verification is IFdc2Verification, GovernedProxyImplementation, UUP
     )
         internal virtual override
     {
-        teeMachineRegistry = ITeeMachineRegistry(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
+        flareTeeManager = IFlareTeeManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareTeeManager"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 
@@ -179,11 +180,11 @@ contract Fdc2Verification is IFdc2Verification, GovernedProxyImplementation, UUP
             _signature.s
         );
         require(
-            teeMachineRegistry.getExtensionId(_signingTeeId) == 0,
+            flareTeeManager.getExtensionId(_signingTeeId) == 0,
             InvalidTeeMachineExtensionId()
         );
         require(
-            teeMachineRegistry.getTeeMachineStatus(_signingTeeId) == ITeeMachineRegistry.TeeStatus.PRODUCTION,
+            flareTeeManager.getTeeMachineStatus(_signingTeeId) == ITeeMachineRegistryFacet.TeeStatus.PRODUCTION,
             TeeMachineNotAvailable()
         );
     }

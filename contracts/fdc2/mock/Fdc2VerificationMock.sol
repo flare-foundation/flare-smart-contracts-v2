@@ -2,7 +2,7 @@
 pragma solidity  ^0.8.27;
 
 import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/tee/ITeeMachineRegistry.sol";
+import "../../userInterfaces/tee/ITeeMachineRegistryFacet.sol";
 import "../../userInterfaces/IRelay.sol";
 import "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import "../../utils/lib/AddressSet.sol";
@@ -18,7 +18,7 @@ contract Fdc2VerificationMock is IFdc2Verification, AddressUpdatable {
     using AddressSet for AddressSet.State;
 
     /// The TEE machine registry contract.
-    ITeeMachineRegistry public teeMachineRegistry;
+    ITeeMachineRegistryFacet public teeMachineRegistry;
     /// The Relay contract.
     IRelay public relay;
 
@@ -138,7 +138,7 @@ contract Fdc2VerificationMock is IFdc2Verification, AddressUpdatable {
     )
         internal virtual override
     {
-        teeMachineRegistry = ITeeMachineRegistry(
+        teeMachineRegistry = ITeeMachineRegistryFacet(
             _getContractAddress(_contractNameHashes, _contractAddresses, "TeeMachineRegistry"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
