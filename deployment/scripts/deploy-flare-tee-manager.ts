@@ -13,7 +13,6 @@ import { AbiItem } from "web3-utils";
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from "./deploy-utils";
 import { ChainParameters, TeeKeyTypeWithSigningAlgos, TeePaymentConfiguration } from "../chain-config/chain-parameters";
-import { TeeReplicationInitContract } from "../../typechain-truffle";
 
 // Day-1 facets (deployed in initial diamond cut)
 export const DAY1_FACETS = [
@@ -137,7 +136,6 @@ export async function deployFlareTeeManager(
   quiet: boolean = false
 ): Promise<string> {
   const governanceSettings = oldContracts.getContractAddress(Contracts.GOVERNANCE_SETTINGS);
-  const addressUpdater = oldContracts.getContractAddress(Contracts.ADDRESS_UPDATER);
 
   // 1. Deploy all day-1 facet contracts
   const { facetCuts, facetAddresses } = await deployFacetsAndBuildCuts(hre, DAY1_FACETS);
@@ -162,8 +160,8 @@ export async function deployFlareTeeManager(
     (FlareTeeManagerInit.abi as AbiItem[]).find((item: AbiItem) => item.name === "init")!,
     [
       governanceSettings,
-      hre.web3.eth.defaultAccount!,
-      addressUpdater,
+      hre.web3.eth.defaultAccount!, // initial governance
+      hre.web3.eth.defaultAccount!, // tmp address updater
       parameters.teeAvailabilityCheckValidityDurationSeconds.toString(),
       parameters.teeSigningPolicyValidityDurationInRewardEpochs.toString(),
       parameters.teeChallengeValidityDurationSeconds.toString(),

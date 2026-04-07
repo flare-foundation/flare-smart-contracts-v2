@@ -7,6 +7,10 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 import { TeeVerification } from "../library/TeeVerification.sol";
 import { TeeFeeCalculator } from "../library/TeeFeeCalculator.sol";
 import { TeeExtensionRegistry } from "../library/TeeExtensionRegistry.sol";
+import { LibDiamond } from "../../diamond/libraries/LibDiamond.sol";
+import { IDiamondCut } from "../../diamond/interfaces/IDiamondCut.sol";
+import { IDiamondLoupe } from "../../diamond/interfaces/IDiamondLoupe.sol";
+import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
  * @title FlareTeeManagerInit
@@ -46,6 +50,13 @@ contract FlareTeeManagerInit is AddressUpdatable {
     )
         external
     {
+
+        // adding ERC165 data
+        LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
+        ds.supportedInterfaces[type(IERC165).interfaceId] = true;
+        ds.supportedInterfaces[type(IDiamondCut).interfaceId] = true;
+        ds.supportedInterfaces[type(IDiamondLoupe).interfaceId] = true;
+
         // Initialize governance (FlareGovernance ERC-7201 namespaced storage)
         FlareGovernance.initialise(_governanceSettings, _initialGovernance);
 

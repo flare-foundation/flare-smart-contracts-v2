@@ -522,7 +522,7 @@ export async function deployContracts(
   addressUpdatableContracts.push(flareTeeManager.address);
 
   // Add later facets (replication, governance, version manager)
-  await addLaterFacetsToDiamond(hre, flareTeeManager.address, "60");
+  // await addLaterFacetsToDiamond(hre, flareTeeManager.address, "60");
 
   // Access Diamond facet interfaces for post-init configuration
   const teeExtensionRegistry = await (hre.artifacts.require("TeeExtensionRegistryFacet") as TeeExtensionRegistryFacetContract).at(flareTeeManager.address);

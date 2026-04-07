@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
+import { IDiamondCut } from "../../diamond/interfaces/IDiamondCut.sol";
+import { IDiamondLoupe } from "../../diamond/interfaces/IDiamondLoupe.sol";
+import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { IITeeExtensionRegistryFacet } from "./IITeeExtensionRegistryFacet.sol";
 import { IITeeVerificationFacet } from "./IITeeVerificationFacet.sol";
 import { IITeeFeeCalculatorFacet } from "./IITeeFeeCalculatorFacet.sol";
@@ -25,8 +28,13 @@ import {
  * @title IIFlareTeeManager
  * @notice Aggregate internal interface for the FlareTeeManager Diamond.
  * @dev Extends the public aggregate with governance-only methods from II* interfaces.
+ *      Includes IDiamondCut, IDiamondLoupe, and IERC165 so that the deployment
+ *      selector-extraction script only needs this single interface as a filter.
  */
 interface IIFlareTeeManager is
+    IDiamondCut,
+    IDiamondLoupe,
+    IERC165,
     IITeeExtensionRegistryFacet,
     ITeeMachineRegistryFacet,
     IITeeVerificationFacet,

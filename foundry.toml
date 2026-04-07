@@ -5,7 +5,13 @@ libs = ["node_modules", "lib", "dependencies"]
 test = "test-forge"
 cache_path = 'cache-forge'
 evm_version = 'cancun'
-fs_permissions = [{ access = "read", path = "./artifacts-forge/"}]
+fs_permissions = [
+    { access = "read", path = "./artifacts-forge/"},
+    { access = "read", path = "./deployment/chain-config/"},
+    { access = "read", path = "./deployment/deploys/"},
+    { access = "read-write", path = "./deployment/output-internal/"},
+    { access = "write", path = "./deployment/deploys/"}
+]
 optimizer = true
 optimizer_runs = 200
 via_ir = false

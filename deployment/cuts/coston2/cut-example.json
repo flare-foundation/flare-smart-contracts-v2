@@ -1,0 +1,31 @@
+{
+  "diamond": "0x0000000000000000000000000000000000000000",
+  "facets": [
+    "FlareTeeManagerDiamondCutFacet",
+    "DiamondLoupeFacet",
+    "TeeExtensionRegistryFacet",
+    "TeeMachineRegistryFacet",
+    "TeeVerificationFacet",
+    "TeeWalletVerificationFacet",
+    "TeeFeeCalculatorFacet",
+    "TeeOwnerAllowlistFacet",
+    "TeeSystemStateVerifierFacet",
+    "TeeWalletManagerFacet",
+    "TeeWalletKeyManagerFacet",
+    "TeeWalletProjectManagerFacet",
+    "TeeWalletBackupManagerFacet",
+    "TeeVrfFacet",
+    "TeeAddressUpdatableFacet",
+    "TeeReplicationFacet",
+    "TeeGovernanceFacet",
+    "TeeVersionManagerFacet"
+  ],
+  "deleteAllOldMethods": false,
+  "deleteSelectorSigs": [],
+  "init": {
+    "contract": "FlareTeeManagerInit",
+    "method": "init",
+    "args": []
+  },
+  "execute": false
+}

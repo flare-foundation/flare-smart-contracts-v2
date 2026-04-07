@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
+import { IDiamondLoupe } from "../../diamond/interfaces/IDiamondLoupe.sol";
+import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { ITeeExtensionRegistryFacet } from "./ITeeExtensionRegistryFacet.sol";
 import { ITeeMachineRegistryFacet } from "./ITeeMachineRegistryFacet.sol";
 import { ITeeVerificationFacet } from "./ITeeVerificationFacet.sol";
@@ -23,8 +25,11 @@ import { ITeeVersionManagerFacet } from "./ITeeVersionManagerFacet.sol";
  * @dev Inherits all public facet interfaces. Used by external contracts
  *      (Fdc2Hub, Fdc2Verification, TeePayments) to cast the FlareTeeManager address
  *      and call any facet function. No size/gas impact — interfaces are compile-time only.
+ *      Includes IDiamondLoupe and IERC165 as public-facing diamond standard interfaces.
  */
 interface IFlareTeeManager is
+    IDiamondLoupe,
+    IERC165,
     ITeeExtensionRegistryFacet,
     ITeeMachineRegistryFacet,
     ITeeVerificationFacet,
