@@ -20,7 +20,7 @@ interface ITeeVerificationFacet is ITeeCommonErrors {
 
     event SettingsUpdated(
         uint64 availabilityCheckValidityDurationSeconds,
-        uint24 signingPolicyValidityDurationInRewardEpochs,
+        uint64 signingPolicyValidityDurationInRewardEpochs,
         uint64 challengeValidityDurationSeconds
     );
 

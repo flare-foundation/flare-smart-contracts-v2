@@ -253,6 +253,27 @@ library TeeVerification {
         return _signingPolicyId + getState().signingPolicyValidityDurationInRewardEpochs >= _currentRewardEpochId;
     }
 
+    function updateSettings(
+        uint64 _availabilityCheckValidityDurationSeconds,
+        uint64 _signingPolicyValidityDurationInRewardEpochs,
+        uint64 _challengeValidityDurationSeconds
+    )
+        internal
+    {
+        validateDuration(_availabilityCheckValidityDurationSeconds, 1 hours, 365 days);
+        validateDuration(_signingPolicyValidityDurationInRewardEpochs, 1, 100);
+        validateDuration(_challengeValidityDurationSeconds, 1 minutes, 1 days);
+        State storage s = getState();
+        s.availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
+        s.signingPolicyValidityDurationInRewardEpochs = _signingPolicyValidityDurationInRewardEpochs;
+        s.challengeValidityDurationSeconds = _challengeValidityDurationSeconds;
+        emit ITeeVerificationFacet.SettingsUpdated(
+            _availabilityCheckValidityDurationSeconds,
+            _signingPolicyValidityDurationInRewardEpochs,
+            _challengeValidityDurationSeconds
+        );
+    }
+
     function validateDuration(
         uint256 _duration,
         uint256 _minDuration,

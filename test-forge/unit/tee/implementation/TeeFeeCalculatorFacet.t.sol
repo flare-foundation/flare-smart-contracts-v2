@@ -24,16 +24,20 @@ contract TeeFeeCalculatorFacetTest is Test {
         governanceSettings = IGovernanceSettings(makeAddr("governanceSettings"));
         defaultFee = 1000;
 
-        flareTeeManager = FlareTeeManagerDeployer.deploy(FlareTeeManagerDeployer.DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
             governanceSettings: governanceSettings,
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: defaultFee,
+            defaultFee: defaultFee
+        }));
+        vm.startPrank(initialGovernance);
+        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
             pauseBeforeUpgradeMinDurationSeconds: 600
         }));
+        vm.stopPrank();
     }
 
 

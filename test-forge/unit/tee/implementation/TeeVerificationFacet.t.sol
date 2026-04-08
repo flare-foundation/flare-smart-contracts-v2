@@ -204,21 +204,6 @@ interface ITestVerificationStateHelper {
     ) external;
 }
 
-/**
- * @title DeployHelper
- * @notice External helper that wraps the library deploy call so vm.expectRevert works.
- */
-contract DeployHelper {
-    function deploy(
-        FlareTeeManagerDeployer.DeployParams memory _params
-    )
-        external
-        returns (IIFlareTeeManager)
-    {
-        return FlareTeeManagerDeployer.deploy(_params);
-    }
-}
-
 // solhint-disable-next-line max-states-count
 contract TeeVerificationFacetTest is Test {
 
@@ -287,16 +272,20 @@ contract TeeVerificationFacetTest is Test {
         fdc2Verification = makeAddr("Fdc2Verification");
         rewardManager = makeAddr("RewardManager");
 
-        flareTeeManager = FlareTeeManagerDeployer.deploy(FlareTeeManagerDeployer.DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
             availabilityCheckValidityDurationSeconds: 1 hours,
             signingPolicyValidityDurationInRewardEpochs: 1,
             challengeValidityDurationSeconds: 1 minutes,
-            defaultFee: 0,
+            defaultFee: 0
+        }));
+        vm.startPrank(initialGovernance);
+        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
             pauseBeforeUpgradeMinDurationSeconds: 600
         }));
+        vm.stopPrank();
 
         // Add TestVerificationStateHelper facet to the diamond
         TestVerificationStateHelper helperImpl = new TestVerificationStateHelper();
@@ -393,65 +382,17 @@ contract TeeVerificationFacetTest is Test {
 
 
     // initialize
-    function testInitializeRevertInvalidDurationAvailability() public {
-        DeployHelper deployer = new DeployHelper();
-        vm.expectRevert(ITeeCommonErrors.InvalidDuration.selector);
-        deployer.deploy(FlareTeeManagerDeployer.DeployParams({
-            governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
-            initialGovernance: initialGovernance,
-            addressUpdater: addressUpdater,
-            availabilityCheckValidityDurationSeconds: 1,
-            signingPolicyValidityDurationInRewardEpochs: 1,
-            challengeValidityDurationSeconds: 1,
-            defaultFee: 1000,
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-    }
-
-
-    function testInitializeRevertInvalidDurationSigningPolicy() public {
-        DeployHelper deployer = new DeployHelper();
-        vm.expectRevert(ITeeCommonErrors.InvalidDuration.selector);
-        deployer.deploy(FlareTeeManagerDeployer.DeployParams({
-            governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
-            initialGovernance: initialGovernance,
-            addressUpdater: addressUpdater,
-            availabilityCheckValidityDurationSeconds: 1 hours,
-            signingPolicyValidityDurationInRewardEpochs: 0,
-            challengeValidityDurationSeconds: 1,
-            defaultFee: 1000,
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-    }
-
-    function testInitializeRevertInvalidDurationChallenge() public {
-        DeployHelper deployer = new DeployHelper();
-        vm.expectRevert(ITeeCommonErrors.InvalidDuration.selector);
-        deployer.deploy(FlareTeeManagerDeployer.DeployParams({
-            governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
-            initialGovernance: initialGovernance,
-            addressUpdater: addressUpdater,
-            availabilityCheckValidityDurationSeconds: 1 hours,
-            signingPolicyValidityDurationInRewardEpochs: 1,
-            challengeValidityDurationSeconds: 1,
-            defaultFee: 1000,
-            pauseBeforeUpgradeMinDurationSeconds: 600
-        }));
-    }
-
-
     function testInitialize() public {
         vm.expectEmit();
         emit ITeeVerificationFacet.SettingsUpdated(1 hours, 1, 1 minutes);
-        FlareTeeManagerDeployer.deploy(FlareTeeManagerDeployer.DeployParams({
+        FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
             availabilityCheckValidityDurationSeconds: 1 hours,
             signingPolicyValidityDurationInRewardEpochs: 1,
             challengeValidityDurationSeconds: 1 minutes,
-            defaultFee: 1000,
-            pauseBeforeUpgradeMinDurationSeconds: 600
+            defaultFee: 1000
         }));
     }
 
@@ -966,6 +907,27 @@ contract TeeVerificationFacetTest is Test {
     }
 
 
+    function testUpdateSettingsRevertInvalidDurationAvailability() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(ITeeCommonErrors.InvalidDuration.selector);
+        flareTeeManager.updateSettings(1, 1, 1 minutes);
+    }
+
+
+    function testUpdateSettingsRevertInvalidDurationSigningPolicy() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(ITeeCommonErrors.InvalidDuration.selector);
+        flareTeeManager.updateSettings(1 hours, 0, 1 minutes);
+    }
+
+
+    function testUpdateSettingsRevertInvalidDurationChallenge() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(ITeeCommonErrors.InvalidDuration.selector);
+        flareTeeManager.updateSettings(1 hours, 1, 1);
+    }
+
+
     function testUpdateSettings() public {
         vm.prank(initialGovernance);
         vm.expectEmit();
@@ -1026,7 +988,7 @@ contract TeeVerificationFacetTest is Test {
             abi.encodeWithSelector(
                 ProtocolsV2Interface.getCurrentRewardEpochId.selector
             ),
-            abi.encode(uint24(_rewardEpochId))
+            abi.encode(_rewardEpochId)
         );
     }
 

@@ -132,16 +132,20 @@ contract WalletPaymentsTest is Test {
         });
 
         defaultFee = 3;
-        flareTeeManager = FlareTeeManagerDeployer.deploy(FlareTeeManagerDeployer.DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
             governanceSettings: governanceSettings,
             initialGovernance: governance,
             addressUpdater: addressUpdater,
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 10,
             challengeValidityDurationSeconds: 600,
-            defaultFee: defaultFee,
+            defaultFee: defaultFee
+        }));
+        vm.startPrank(governance);
+        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
             pauseBeforeUpgradeMinDurationSeconds: 600
         }));
+        vm.stopPrank();
 
         // =====================================================================
         // Deploy TeePayments (separate UUPS proxy)

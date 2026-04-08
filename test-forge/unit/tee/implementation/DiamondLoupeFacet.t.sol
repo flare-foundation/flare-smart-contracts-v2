@@ -20,16 +20,20 @@ contract DiamondLoupeFacetTest is Test {
         addressUpdater = makeAddr("AddressUpdater");
         governanceSettings = IGovernanceSettings(makeAddr("governanceSettings"));
 
-        flareTeeManager = FlareTeeManagerDeployer.deploy(FlareTeeManagerDeployer.DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
             governanceSettings: governanceSettings,
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 1000,
+            defaultFee: 1000
+        }));
+        vm.startPrank(initialGovernance);
+        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
             pauseBeforeUpgradeMinDurationSeconds: 600
         }));
+        vm.stopPrank();
 
         loupe = IDiamondLoupe(address(flareTeeManager));
     }

@@ -114,16 +114,20 @@ contract TeeVrfFacetTest is Test {
         flareSystemsManagerMock = makeAddr("FlareSystemsManager");
         rewardManagerMock = makeAddr("RewardManager");
 
-        flareTeeManager = FlareTeeManagerDeployer.deploy(FlareTeeManagerDeployer.DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: governance,
             addressUpdater: addressUpdater,
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0,
+            defaultFee: 0
+        }));
+        vm.startPrank(governance);
+        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
             pauseBeforeUpgradeMinDurationSeconds: 600
         }));
+        vm.stopPrank();
 
         // Update contract addresses
         bytes32[] memory nameHashes = new bytes32[](6);

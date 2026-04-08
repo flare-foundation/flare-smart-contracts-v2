@@ -193,20 +193,13 @@ contract TeeVerificationFacet is IITeeVerificationFacet, GovernedFacet {
     /// @inheritdoc IITeeVerificationFacet
     function updateSettings(
         uint64 _availabilityCheckValidityDurationSeconds,
-        uint24 _signingPolicyValidityDurationInRewardEpochs,
+        uint64 _signingPolicyValidityDurationInRewardEpochs,
         uint64 _challengeValidityDurationSeconds
     )
         external
         onlyGovernance
     {
-        TeeVerification.validateDuration(_availabilityCheckValidityDurationSeconds, 1 hours, 365 days);
-        TeeVerification.validateDuration(_signingPolicyValidityDurationInRewardEpochs, 1, 100);
-        TeeVerification.validateDuration(_challengeValidityDurationSeconds, 1 minutes, 1 days);
-        TeeVerification.State storage s = TeeVerification.getState();
-        s.availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
-        s.signingPolicyValidityDurationInRewardEpochs = _signingPolicyValidityDurationInRewardEpochs;
-        s.challengeValidityDurationSeconds = _challengeValidityDurationSeconds;
-        emit SettingsUpdated(
+        TeeVerification.updateSettings(
             _availabilityCheckValidityDurationSeconds,
             _signingPolicyValidityDurationInRewardEpochs,
             _challengeValidityDurationSeconds

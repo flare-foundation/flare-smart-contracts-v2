@@ -35,7 +35,7 @@ interface IITeeVerificationFacet is ITeeVerificationFacet {
      */
     function updateSettings(
         uint64 _availabilityCheckValidityDurationSeconds,
-        uint24 _signingPolicyValidityDurationInRewardEpochs,
+        uint64 _signingPolicyValidityDurationInRewardEpochs,
         uint64 _challengeValidityDurationSeconds
     )
         external;

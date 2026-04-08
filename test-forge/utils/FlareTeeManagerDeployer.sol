@@ -7,7 +7,7 @@ import { IDiamond } from "../../contracts/diamond/interfaces/IDiamond.sol";
 import { IDiamondCut } from "../../contracts/diamond/interfaces/IDiamondCut.sol";
 import { DiamondLoupeFacet } from "../../contracts/diamond/facets/DiamondLoupeFacet.sol";
 
-// TEE facets
+// TEE facets — day-1
 import { FlareTeeManagerDiamondCutFacet } from "../../contracts/tee/facets/FlareTeeManagerDiamondCutFacet.sol";
 import { TeeExtensionRegistryFacet } from "../../contracts/tee/facets/TeeExtensionRegistryFacet.sol";
 import { TeeMachineRegistryFacet } from "../../contracts/tee/facets/TeeMachineRegistryFacet.sol";
@@ -16,15 +16,21 @@ import { TeeFeeCalculatorFacet } from "../../contracts/tee/facets/TeeFeeCalculat
 import { TeeOwnerAllowlistFacet } from "../../contracts/tee/facets/TeeOwnerAllowlistFacet.sol";
 import { TeeSystemStateVerifierFacet } from "../../contracts/tee/facets/TeeSystemStateVerifierFacet.sol";
 import { TeeAddressUpdatableFacet } from "../../contracts/tee/facets/TeeAddressUpdatableFacet.sol";
-import { TeeReplicationFacet } from "../../contracts/tee/facets/TeeReplicationFacet.sol";
-import { TeeGovernanceFacet } from "../../contracts/tee/facets/TeeGovernanceFacet.sol";
-import { TeeVersionManagerFacet } from "../../contracts/tee/facets/TeeVersionManagerFacet.sol";
 import { TeeWalletProjectManagerFacet } from "../../contracts/tee/facets/TeeWalletProjectManagerFacet.sol";
 import { TeeWalletKeyManagerFacet } from "../../contracts/tee/facets/TeeWalletKeyManagerFacet.sol";
 import { TeeWalletManagerFacet } from "../../contracts/tee/facets/TeeWalletManagerFacet.sol";
 import { TeeWalletBackupManagerFacet } from "../../contracts/tee/facets/TeeWalletBackupManagerFacet.sol";
 import { TeeWalletVerificationFacet } from "../../contracts/tee/facets/TeeWalletVerificationFacet.sol";
 import { TeeVrfFacet } from "../../contracts/tee/facets/TeeVrfFacet.sol";
+
+// TEE facets — later
+import { TeeReplicationFacet } from "../../contracts/tee/facets/TeeReplicationFacet.sol";
+import { TeeGovernanceFacet } from "../../contracts/tee/facets/TeeGovernanceFacet.sol";
+import { TeeVersionManagerFacet } from "../../contracts/tee/facets/TeeVersionManagerFacet.sol";
+
+// Init contracts
+import { FlareTeeManagerInit } from "../../contracts/tee/facets/FlareTeeManagerInit.sol";
+import { TeeReplicationInit } from "../../contracts/tee/facets/TeeReplicationInit.sol";
 
 // TEE interfaces (for selector references)
 import { IITeeExtensionRegistryFacet } from "../../contracts/tee/interface/IITeeExtensionRegistryFacet.sol";
@@ -49,77 +55,19 @@ import { ITeeVrfFacet } from "../../contracts/userInterfaces/tee/ITeeVrfFacet.so
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 
 import { IFlareGovernance } from "../../contracts/userInterfaces/tee/IFlareGovernance.sol";
-import { FlareGovernance } from "../../contracts/tee/library/FlareGovernance.sol";
-import { AddressUpdatable } from "../../contracts/utils/implementation/AddressUpdatable.sol";
-import { TeeVerification } from "../../contracts/tee/library/TeeVerification.sol";
-import { TeeFeeCalculator } from "../../contracts/tee/library/TeeFeeCalculator.sol";
-import { TeeExtensionRegistry } from "../../contracts/tee/library/TeeExtensionRegistry.sol";
-import { TeeReplication } from "../../contracts/tee/library/TeeReplication.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import { ITeeVerificationFacet } from "../../contracts/userInterfaces/tee/ITeeVerificationFacet.sol";
-
-/**
- * @title FlareTeeManagerCombinedInit
- * @notice Combined init for FlareTeeManager Diamond that initializes both the core
- *         and replication settings in a single delegatecall from the constructor.
- */
-contract FlareTeeManagerCombinedInit is AddressUpdatable {
-
-    constructor() AddressUpdatable(address(1)) {
-        FlareGovernance.initialise(IGovernanceSettings(address(0x1111)), address(0x1111));
-    }
-
-    function init(
-        IGovernanceSettings _governanceSettings,
-        address _initialGovernance,
-        address _addressUpdater,
-        uint64 _availabilityCheckValidityDurationSeconds,
-        uint64 _signingPolicyValidityDurationInRewardEpochs,
-        uint64 _challengeValidityDurationSeconds,
-        uint256 _defaultFee,
-        uint256 _pauseBeforeUpgradeMinDurationSeconds
-    )
-        external
-    {
-        // Core FlareTeeManager init
-        FlareGovernance.initialise(_governanceSettings, _initialGovernance);
-        setAddressUpdaterValue(_addressUpdater);
-
-        TeeVerification.validateDuration(_availabilityCheckValidityDurationSeconds, 1 hours, 365 days);
-        TeeVerification.validateDuration(_signingPolicyValidityDurationInRewardEpochs, 1, 100);
-        TeeVerification.validateDuration(_challengeValidityDurationSeconds, 1 minutes, 1 days);
-
-        TeeVerification.State storage verState = TeeVerification.getState();
-        verState.availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
-        verState.signingPolicyValidityDurationInRewardEpochs = _signingPolicyValidityDurationInRewardEpochs;
-        verState.challengeValidityDurationSeconds = _challengeValidityDurationSeconds;
-
-        emit ITeeVerificationFacet.SettingsUpdated(
-            _availabilityCheckValidityDurationSeconds,
-            uint24(_signingPolicyValidityDurationInRewardEpochs),
-            _challengeValidityDurationSeconds
-        );
-
-        TeeFeeCalculator.getState().defaultFee = _defaultFee;
-        TeeExtensionRegistry.getState().extensionsCounter = 1;
-
-        // Replication init
-        TeeReplication.setPauseBeforeUpgradeMinDurationSeconds(_pauseBeforeUpgradeMinDurationSeconds);
-    }
-
-    function _updateContractAddresses(bytes32[] memory, address[] memory) internal pure override {
-        // intentionally empty
-    }
-}
 
 /**
  * @title FlareTeeManagerDeployer
- * @notice Shared test utility for deploying the FlareTeeManager Diamond with all facets.
- *         Can be used by any forge test that needs a fully-deployed FlareTeeManager.
+ * @notice Shared test utility for deploying the FlareTeeManager Diamond.
+ *         Mirrors the production deployment pattern (DeployFlareTeeManager.s.sol):
+ *         - deployDay1Facets(): creates diamond with 15 day-1 facets + FlareTeeManagerInit
+ *         - deployLaterFacets(): adds 3 later facets via diamondCut + TeeReplicationInit
+ *           Caller must vm.prank(initialGovernance) before calling deployLaterFacets.
  */
 library FlareTeeManagerDeployer {
 
-    struct DeployParams {
+    struct Day1DeployParams {
         IGovernanceSettings governanceSettings;
         address initialGovernance;
         address addressUpdater;
@@ -127,15 +75,18 @@ library FlareTeeManagerDeployer {
         uint64 signingPolicyValidityDurationInRewardEpochs;
         uint64 challengeValidityDurationSeconds;
         uint256 defaultFee;
+    }
+
+    struct LaterDeployParams {
         uint256 pauseBeforeUpgradeMinDurationSeconds;
     }
 
-    function deploy(DeployParams memory _params) internal returns (IIFlareTeeManager) {
-        IDiamond.FacetCut[] memory cuts = _buildFacetCuts();
+    function deployDay1Facets(Day1DeployParams memory _params) internal returns (IIFlareTeeManager) {
+        IDiamond.FacetCut[] memory cuts = _buildDay1FacetCuts();
 
-        FlareTeeManagerCombinedInit combinedInit = new FlareTeeManagerCombinedInit();
+        FlareTeeManagerInit initContract = new FlareTeeManagerInit();
         bytes memory initCalldata = abi.encodeCall(
-            FlareTeeManagerCombinedInit.init,
+            FlareTeeManagerInit.init,
             (
                 _params.governanceSettings,
                 _params.initialGovernance,
@@ -143,24 +94,48 @@ library FlareTeeManagerDeployer {
                 _params.availabilityCheckValidityDurationSeconds,
                 _params.signingPolicyValidityDurationInRewardEpochs,
                 _params.challengeValidityDurationSeconds,
-                _params.defaultFee,
-                _params.pauseBeforeUpgradeMinDurationSeconds
+                _params.defaultFee
             )
         );
 
-        FlareTeeManager flareTeeManagerDiamond = new FlareTeeManager(
+        FlareTeeManager diamond = new FlareTeeManager(
             cuts,
             FlareTeeManager.DiamondArgs({
-                init: address(combinedInit),
+                init: address(initContract),
                 initCalldata: initCalldata
             })
         );
 
-        return IIFlareTeeManager(address(flareTeeManagerDiamond));
+        return IIFlareTeeManager(address(diamond));
     }
 
-    function _buildFacetCuts() private returns (IDiamond.FacetCut[] memory cuts) {
-        cuts = new IDiamond.FacetCut[](18);
+    function deployLaterFacets(
+        IIFlareTeeManager _diamond,
+        LaterDeployParams memory _params
+    )
+        internal
+    {
+        IDiamond.FacetCut[] memory cuts = _buildLaterFacetCuts();
+
+        TeeReplicationInit replicationInit = new TeeReplicationInit();
+        bytes memory initCalldata = abi.encodeCall(
+            TeeReplicationInit.init,
+            (_params.pauseBeforeUpgradeMinDurationSeconds)
+        );
+
+        IDiamondCut(address(_diamond)).diamondCut(
+            cuts,
+            address(replicationInit),
+            initCalldata
+        );
+    }
+
+    // =========================================================================
+    // Day-1 facet cuts (15 facets)
+    // =========================================================================
+
+    function _buildDay1FacetCuts() private returns (IDiamond.FacetCut[] memory cuts) {
+        cuts = new IDiamond.FacetCut[](15);
 
         // 0: FlareTeeManagerDiamondCutFacet (diamondCut + FlareGovernance selectors)
         {
@@ -335,60 +310,7 @@ library FlareTeeManagerDeployer {
             );
         }
 
-        // 9: TeeReplicationFacet
-        {
-            bytes4[] memory s = new bytes4[](5);
-            s[0] = ITeeReplicationFacet.toPauseForUpgrade.selector;
-            s[1] = ITeeReplicationFacet.replicateFrom.selector;
-            s[2] = ITeeReplicationFacet.confirmReplicate.selector;
-            s[3] = ITeeReplicationFacet.getReplicatingTeeId.selector;
-            s[4] = IITeeReplicationFacet.setPauseBeforeUpgradeMinDurationSeconds.selector;
-            cuts[9] = IDiamond.FacetCut(
-                address(new TeeReplicationFacet()), IDiamond.FacetCutAction.Add, s
-            );
-        }
-
-        // 10: TeeGovernanceFacet
-        {
-            bytes4[] memory s = new bytes4[](14);
-            s[0] = ITeeGovernanceFacet.setNewTeeGovernance.selector;
-            s[1] = ITeeGovernanceFacet.getLatestTeeGovernanceHash.selector;
-            s[2] = ITeeGovernanceFacet.getTeeGovernanceThreshold.selector;
-            s[3] = ITeeGovernanceFacet.setTeePausingAddresses.selector;
-            s[4] = ITeeGovernanceFacet.signTeePausingAddresses.selector;
-            s[5] = ITeeGovernanceFacet.isTeeGovernanceSigner.selector;
-            s[6] = ITeeGovernanceFacet.getTeeGovernance.selector;
-            s[7] = ITeeGovernanceFacet.getLatestTeeGovernance.selector;
-            s[8] = ITeeGovernanceFacet.isGovernanceHashValid.selector;
-            s[9] = ITeeGovernanceFacet.getTeePausingAddresses.selector;
-            s[10] = ITeeGovernanceFacet.getLatestTeePausingAddresses.selector;
-            s[11] = ITeeGovernanceFacet.isTeePausingAddressesSigner.selector;
-            s[12] = ITeeGovernanceFacet.hasSignedTeePausingAddresses.selector;
-            // getSystemSupportedSigningAlgos is on TeeExtensionRegistryFacet, not here
-            cuts[10] = IDiamond.FacetCut(
-                address(new TeeGovernanceFacet()), IDiamond.FacetCutAction.Add, s
-            );
-        }
-
-        // 11: TeeVersionManagerFacet
-        {
-            bytes4[] memory s = new bytes4[](10);
-            s[0] = ITeeVersionManagerFacet.createNewTeeUpgrade.selector;
-            s[1] = ITeeVersionManagerFacet.addTeeUpgradePaths.selector;
-            s[2] = ITeeVersionManagerFacet.finalizeTeeUpgrade.selector;
-            s[3] = ITeeVersionManagerFacet.signTeeUpgrade.selector;
-            s[4] = ITeeVersionManagerFacet.isTeeUpgradeFinalized.selector;
-            s[5] = ITeeVersionManagerFacet.isTeeUpgradeSigned.selector;
-            s[6] = ITeeVersionManagerFacet.getTeeUpgradesCount.selector;
-            s[7] = ITeeVersionManagerFacet.getTeeUpgradePaths.selector;
-            s[8] = ITeeVersionManagerFacet.isTeeUpgradePathValid.selector;
-            s[9] = ITeeVersionManagerFacet.getTeeUpgradeSignatures.selector;
-            cuts[11] = IDiamond.FacetCut(
-                address(new TeeVersionManagerFacet()), IDiamond.FacetCutAction.Add, s
-            );
-        }
-
-        // 12: TeeWalletProjectManagerFacet
+        // 9: TeeWalletProjectManagerFacet
         {
             bytes4[] memory s = new bytes4[](9);
             s[0] = ITeeWalletProjectManagerFacet.createProject.selector;
@@ -400,12 +322,12 @@ library FlareTeeManagerDeployer {
             s[6] = ITeeWalletProjectManagerFacet.confirmOwnership.selector;
             s[7] = ITeeWalletProjectManagerFacet.getSigningAlgo.selector;
             s[8] = ITeeWalletProjectManagerFacet.getBackupManager.selector;
-            cuts[12] = IDiamond.FacetCut(
+            cuts[9] = IDiamond.FacetCut(
                 address(new TeeWalletProjectManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
 
-        // 13: TeeWalletKeyManagerFacet
+        // 10: TeeWalletKeyManagerFacet
         {
             bytes4[] memory s = new bytes4[](9);
             s[0] = ITeeWalletKeyManagerFacet.addKey.selector;
@@ -417,12 +339,12 @@ library FlareTeeManagerDeployer {
             s[6] = ITeeWalletKeyManagerFacet.cleanUpTeeIds.selector;
             s[7] = ITeeWalletKeyManagerFacet.getWalletKeyPublicKey.selector;
             s[8] = ITeeWalletKeyManagerFacet.getWalletKeyTeeIds.selector;
-            cuts[13] = IDiamond.FacetCut(
+            cuts[10] = IDiamond.FacetCut(
                 address(new TeeWalletKeyManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
 
-        // 14: TeeWalletManagerFacet
+        // 11: TeeWalletManagerFacet
         {
             bytes4[] memory s = new bytes4[](16);
             s[0] = ITeeWalletManagerFacet.createWallet.selector;
@@ -441,38 +363,98 @@ library FlareTeeManagerDeployer {
             s[13] = ITeeWalletManagerFacet.getProjectWalletIds.selector;
             s[14] = ITeeWalletManagerFacet.getWalletAdminsPublicKeysAndThreshold.selector;
             s[15] = ITeeWalletManagerFacet.getWalletAdminsAndThreshold.selector;
-            cuts[14] = IDiamond.FacetCut(
+            cuts[11] = IDiamond.FacetCut(
                 address(new TeeWalletManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
 
-        // 15: TeeWalletBackupManagerFacet
+        // 12: TeeWalletBackupManagerFacet
         {
             bytes4[] memory s = new bytes4[](1);
             s[0] = ITeeWalletBackupManagerFacet.backupRestore.selector;
-            cuts[15] = IDiamond.FacetCut(
+            cuts[12] = IDiamond.FacetCut(
                 address(new TeeWalletBackupManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
 
-        // 16: TeeWalletVerificationFacet
+        // 13: TeeWalletVerificationFacet
         {
             bytes4[] memory s = new bytes4[](2);
             s[0] = ITeeWalletVerificationFacet.verifyPMWMultisigAccountConfiguredProof.selector;
             s[1] = ITeeWalletVerificationFacet.requestPMWMultisigAccountConfiguredAttestation.selector;
-            cuts[16] = IDiamond.FacetCut(
+            cuts[13] = IDiamond.FacetCut(
                 address(new TeeWalletVerificationFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
 
-        // 17: TeeVrfFacet
+        // 14: TeeVrfFacet
         {
             bytes4[] memory s = new bytes4[](3);
             s[0] = ITeeVrfFacet.requestVrf.selector;
             s[1] = ITeeVrfFacet.setVrfAuthorizationAddress.selector;
             s[2] = ITeeVrfFacet.getVrfAuthorizationAddress.selector;
-            cuts[17] = IDiamond.FacetCut(
+            cuts[14] = IDiamond.FacetCut(
                 address(new TeeVrfFacet()), IDiamond.FacetCutAction.Add, s
+            );
+        }
+    }
+
+    // =========================================================================
+    // Later facet cuts (3 facets)
+    // =========================================================================
+
+    function _buildLaterFacetCuts() private returns (IDiamond.FacetCut[] memory cuts) {
+        cuts = new IDiamond.FacetCut[](3);
+
+        // 0: TeeReplicationFacet
+        {
+            bytes4[] memory s = new bytes4[](5);
+            s[0] = ITeeReplicationFacet.toPauseForUpgrade.selector;
+            s[1] = ITeeReplicationFacet.replicateFrom.selector;
+            s[2] = ITeeReplicationFacet.confirmReplicate.selector;
+            s[3] = ITeeReplicationFacet.getReplicatingTeeId.selector;
+            s[4] = IITeeReplicationFacet.setPauseBeforeUpgradeMinDurationSeconds.selector;
+            cuts[0] = IDiamond.FacetCut(
+                address(new TeeReplicationFacet()), IDiamond.FacetCutAction.Add, s
+            );
+        }
+
+        // 1: TeeGovernanceFacet
+        {
+            bytes4[] memory s = new bytes4[](14);
+            s[0] = ITeeGovernanceFacet.setNewTeeGovernance.selector;
+            s[1] = ITeeGovernanceFacet.getLatestTeeGovernanceHash.selector;
+            s[2] = ITeeGovernanceFacet.getTeeGovernanceThreshold.selector;
+            s[3] = ITeeGovernanceFacet.setTeePausingAddresses.selector;
+            s[4] = ITeeGovernanceFacet.signTeePausingAddresses.selector;
+            s[5] = ITeeGovernanceFacet.isTeeGovernanceSigner.selector;
+            s[6] = ITeeGovernanceFacet.getTeeGovernance.selector;
+            s[7] = ITeeGovernanceFacet.getLatestTeeGovernance.selector;
+            s[8] = ITeeGovernanceFacet.isGovernanceHashValid.selector;
+            s[9] = ITeeGovernanceFacet.getTeePausingAddresses.selector;
+            s[10] = ITeeGovernanceFacet.getLatestTeePausingAddresses.selector;
+            s[11] = ITeeGovernanceFacet.isTeePausingAddressesSigner.selector;
+            s[12] = ITeeGovernanceFacet.hasSignedTeePausingAddresses.selector;
+            cuts[1] = IDiamond.FacetCut(
+                address(new TeeGovernanceFacet()), IDiamond.FacetCutAction.Add, s
+            );
+        }
+
+        // 2: TeeVersionManagerFacet
+        {
+            bytes4[] memory s = new bytes4[](10);
+            s[0] = ITeeVersionManagerFacet.createNewTeeUpgrade.selector;
+            s[1] = ITeeVersionManagerFacet.addTeeUpgradePaths.selector;
+            s[2] = ITeeVersionManagerFacet.finalizeTeeUpgrade.selector;
+            s[3] = ITeeVersionManagerFacet.signTeeUpgrade.selector;
+            s[4] = ITeeVersionManagerFacet.isTeeUpgradeFinalized.selector;
+            s[5] = ITeeVersionManagerFacet.isTeeUpgradeSigned.selector;
+            s[6] = ITeeVersionManagerFacet.getTeeUpgradesCount.selector;
+            s[7] = ITeeVersionManagerFacet.getTeeUpgradePaths.selector;
+            s[8] = ITeeVersionManagerFacet.isTeeUpgradePathValid.selector;
+            s[9] = ITeeVersionManagerFacet.getTeeUpgradeSignatures.selector;
+            cuts[2] = IDiamond.FacetCut(
+                address(new TeeVersionManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
     }

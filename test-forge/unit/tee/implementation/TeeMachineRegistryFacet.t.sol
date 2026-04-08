@@ -133,16 +133,20 @@ contract TeeMachineRegistryFacetTest is Test {
         cosignersThreshold = 2;
 
         // Deploy the diamond
-        flareTeeManager = FlareTeeManagerDeployer.deploy(FlareTeeManagerDeployer.DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0,
+            defaultFee: 0
+        }));
+        vm.startPrank(initialGovernance);
+        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
             pauseBeforeUpgradeMinDurationSeconds: 600
         }));
+        vm.stopPrank();
 
         // Update contract addresses
         bytes32[] memory nameHashes = new bytes32[](6);

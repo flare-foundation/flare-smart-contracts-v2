@@ -64,10 +64,11 @@ contract FlareTeeManagerInit is AddressUpdatable {
         setAddressUpdaterValue(_addressUpdater);
 
         // Initialize verification settings
-        TeeVerification.State storage verState = TeeVerification.getState();
-        verState.availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
-        verState.signingPolicyValidityDurationInRewardEpochs = _signingPolicyValidityDurationInRewardEpochs;
-        verState.challengeValidityDurationSeconds = _challengeValidityDurationSeconds;
+        TeeVerification.updateSettings(
+            _availabilityCheckValidityDurationSeconds,
+            _signingPolicyValidityDurationInRewardEpochs,
+            _challengeValidityDurationSeconds
+        );
 
         // Set default fee
         TeeFeeCalculator.getState().defaultFee = _defaultFee;

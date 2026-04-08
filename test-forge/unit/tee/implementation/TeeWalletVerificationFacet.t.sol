@@ -182,16 +182,20 @@ contract TeeWalletVerificationFacetTest is Test {
         keyIds[0] = 1;
 
         // Deploy FlareTeeManager Diamond
-        flareTeeManager = FlareTeeManagerDeployer.deploy(FlareTeeManagerDeployer.DeployParams({
+        flareTeeManager = FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
             addressUpdater: addressUpdater,
             availabilityCheckValidityDurationSeconds: 1 hours,
             signingPolicyValidityDurationInRewardEpochs: 1,
             challengeValidityDurationSeconds: 1 minutes,
-            defaultFee: 1000,
+            defaultFee: 1000
+        }));
+        vm.startPrank(initialGovernance);
+        FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
             pauseBeforeUpgradeMinDurationSeconds: 600
         }));
+        vm.stopPrank();
 
         // Add PMWTestStateHelper facet to the diamond
         PMWTestStateHelper helperImpl = new PMWTestStateHelper();
@@ -423,7 +427,7 @@ contract TeeWalletVerificationFacetTest is Test {
         vm.mockCall(
             flareSystemsManager,
             abi.encodeWithSelector(ProtocolsV2Interface.getCurrentRewardEpochId.selector),
-            abi.encode(uint24(_rewardEpochId))
+            abi.encode(_rewardEpochId)
         );
     }
 
