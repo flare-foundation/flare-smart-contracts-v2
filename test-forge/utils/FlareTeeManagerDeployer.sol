@@ -55,6 +55,7 @@ import { ITeeVrfFacet } from "../../contracts/userInterfaces/tee/ITeeVrfFacet.so
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 
 import { IFlareGovernance } from "../../contracts/userInterfaces/tee/IFlareGovernance.sol";
+import { IIFlareGovernance } from "../../contracts/tee/interface/IIFlareGovernance.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
@@ -142,8 +143,8 @@ library FlareTeeManagerDeployer {
             bytes4[] memory s = new bytes4[](8);
             s[0] = IDiamondCut.diamondCut.selector;
             s[1] = IFlareGovernance.executeGovernanceCall.selector;
-            s[2] = IFlareGovernance.cancelGovernanceCall.selector;
-            s[3] = IFlareGovernance.switchToProductionMode.selector;
+            s[2] = IIFlareGovernance.cancelGovernanceCall.selector;
+            s[3] = IIFlareGovernance.switchToProductionMode.selector;
             s[4] = IFlareGovernance.governance.selector;
             s[5] = IFlareGovernance.governanceSettings.selector;
             s[6] = IFlareGovernance.productionMode.selector;

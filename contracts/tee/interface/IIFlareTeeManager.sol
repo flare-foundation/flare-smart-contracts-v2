@@ -19,7 +19,8 @@ import { ITeeVrfFacet } from "../../userInterfaces/tee/ITeeVrfFacet.sol";
 import { IITeeReplicationFacet } from "./IITeeReplicationFacet.sol";
 import { ITeeGovernanceFacet } from "../../userInterfaces/tee/ITeeGovernanceFacet.sol";
 import { ITeeVersionManagerFacet } from "../../userInterfaces/tee/ITeeVersionManagerFacet.sol";
-import { IFlareGovernance } from "../../userInterfaces/tee/IFlareGovernance.sol";
+import { IIFlareGovernance } from "./IIFlareGovernance.sol";
+import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import {
     IIAddressUpdatable
 } from "@flarenetwork/flare-periphery-contracts/flare/addressUpdater/interfaces/IIAddressUpdatable.sol";
@@ -35,6 +36,7 @@ interface IIFlareTeeManager is
     IDiamondCut,
     IDiamondLoupe,
     IERC165,
+    ITeeCommonErrors,
     IITeeExtensionRegistryFacet,
     ITeeMachineRegistryFacet,
     IITeeVerificationFacet,
@@ -50,7 +52,7 @@ interface IIFlareTeeManager is
     IITeeReplicationFacet,
     ITeeGovernanceFacet,
     ITeeVersionManagerFacet,
-    IFlareGovernance,
+    IIFlareGovernance,
     IIAddressUpdatable
 {
 }

@@ -65,7 +65,7 @@ contract TeeWalletKeyManagerFacet is ITeeWalletKeyManagerFacet {
         onlyOwner(_walletId)
         returns (uint64 _keyId)
     {
-        _checkTeeStatus(_teeId);
+        TeeMachineRegistry.checkTeeMachineInProduction(_teeId);
         _checkWalletStatus(_walletId);
         bytes32 projectId = TeeWalletManager.getWalletProjectId(_walletId);
         require(
@@ -110,7 +110,7 @@ contract TeeWalletKeyManagerFacet is ITeeWalletKeyManagerFacet {
         external
         onlyOwnerOrBackupManager(_proof.walletId)
     {
-        _checkTeeStatus(_proof.teeId);
+        TeeMachineRegistry.checkTeeMachineInProduction(_proof.teeId);
         bytes32 walletId = _proof.walletId;
         uint64 keyId = _proof.keyId;
         TeeWalletKeyManager.TeeWalletKeysState storage keys =
@@ -177,7 +177,7 @@ contract TeeWalletKeyManagerFacet is ITeeWalletKeyManagerFacet {
         external payable
         onlyOwner(_walletId)
     {
-        _checkTeeStatus(_teeId);
+        TeeMachineRegistry.checkTeeMachineInProduction(_teeId);
         bytes32 projectId = TeeWalletManager.getWalletProjectId(_walletId);
         require(
             TeeWalletProjectManager.getExtensionId(projectId) == TeeMachineRegistry.getExtensionId(_teeId),
@@ -345,17 +345,6 @@ contract TeeWalletKeyManagerFacet is ITeeWalletKeyManagerFacet {
         for (uint256 i = 0; i < cosigners.length; i++) {
             require(_configConstants.cosigners[i] == cosigners[i], InvalidAddress());
         }
-    }
-
-    function _checkTeeStatus(
-        address _teeId
-    )
-        private view
-    {
-        require(
-            TeeMachineRegistry.getTeeMachineStatus(_teeId) == ITeeMachineRegistryFacet.TeeStatus.PRODUCTION,
-            TeeMachineNotAvailable()
-        );
     }
 
     function _checkOnlyOwner(

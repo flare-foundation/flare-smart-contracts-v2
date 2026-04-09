@@ -10,7 +10,6 @@ import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { TeeVerification } from "../library/TeeVerification.sol";
 import { TeeMachineRegistry } from "../library/TeeMachineRegistry.sol";
-import { TeeExtensionRegistry } from "../library/TeeExtensionRegistry.sol";
 import { TeeReplication } from "../library/TeeReplication.sol";
 import { TeeExternalAddresses } from "../library/TeeExternalAddresses.sol";
 import { TeeInstructionSender } from "../library/TeeInstructionSender.sol";
@@ -129,23 +128,16 @@ contract TeeVerificationFacet is IITeeVerificationFacet, GovernedFacet {
         external
     {
         address teeId = _proof.requestBody.teeId;
-        ITeeMachineRegistryFacet.TeeStatus status = TeeMachineRegistry.getTeeMachineStatus(teeId);
-        require(status == ITeeMachineRegistryFacet.TeeStatus.PRODUCTION, TeeMachineNotAvailable());
-        require(
-            _proof.responseBody.status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
-            InvalidAvailabilityCheckStatus()
-        );
+        TeeMachineRegistry.checkTeeMachineInProduction(teeId);
+        TeeMachineRegistry.validateAvailabilityCheckStatus(_proof.responseBody.status);
         uint256 extensionId = TeeMachineRegistry.getExtensionId(teeId);
         ITeeMachineRegistryFacet.TeeMachineWithAttestationData memory teeMachine =
             TeeMachineRegistry.getTeeMachineWithAttestationData(teeId);
+        TeeMachineRegistry.checkCodeHashPlatformSupported(extensionId, teeMachine.codeHash, teeMachine.platform);
         require(
-            TeeExtensionRegistry.isCodeHashPlatformSupported(
-                extensionId, teeMachine.codeHash, teeMachine.platform
+            TeeVerification.verifyAvailabilityCheckProof(
+                teeMachine, ITeeMachineRegistryFacet.TeeStatus.PRODUCTION, _proof
             ),
-            VersionNotSupported()
-        );
-        require(
-            TeeVerification.verifyAvailabilityCheckProof(teeMachine, status, _proof),
             InvalidResponseData()
         );
         TeeVerification.extendAvailability(_proof);

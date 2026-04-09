@@ -72,25 +72,6 @@ interface IFlareGovernance {
         external;
 
     /**
-     * Cancel a timelocked governance call before it has been executed.
-     * @dev Only governance can call this method.
-     * @param _encodedCall ABI encoded call data (signature and parameters).
-     *      You should use `encodedCall` parameter from `GovernanceCallTimelocked` event.
-     */
-    function cancelGovernanceCall(
-        bytes calldata _encodedCall
-    )
-        external;
-
-    /**
-     * Enter the production mode after all the initial governance settings have been set.
-     * This enables timelocks and the governance is afterwards obtained by calling
-     * `governanceSettings.getGovernanceAddress()`.
-     */
-    function switchToProductionMode()
-        external;
-
-    /**
      * Returns the current effective governance address.
      */
     function governance()

@@ -18,6 +18,8 @@ import { ITeeVrfFacet } from "./ITeeVrfFacet.sol";
 import { ITeeReplicationFacet } from "./ITeeReplicationFacet.sol";
 import { ITeeGovernanceFacet } from "./ITeeGovernanceFacet.sol";
 import { ITeeVersionManagerFacet } from "./ITeeVersionManagerFacet.sol";
+import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
+import { IFlareGovernance } from "./IFlareGovernance.sol";
 
 /**
  * @title IFlareTeeManager
@@ -30,6 +32,7 @@ import { ITeeVersionManagerFacet } from "./ITeeVersionManagerFacet.sol";
 interface IFlareTeeManager is
     IDiamondLoupe,
     IERC165,
+    ITeeCommonErrors,
     ITeeExtensionRegistryFacet,
     ITeeMachineRegistryFacet,
     ITeeVerificationFacet,
@@ -44,6 +47,7 @@ interface IFlareTeeManager is
     ITeeVrfFacet,
     ITeeReplicationFacet,
     ITeeGovernanceFacet,
-    ITeeVersionManagerFacet
+    ITeeVersionManagerFacet,
+    IFlareGovernance
 {
 }

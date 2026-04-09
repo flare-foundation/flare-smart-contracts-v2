@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
+import { IIFlareGovernance } from "../../../../contracts/tee/interface/IIFlareGovernance.sol";
 import { IDiamondCut } from "../../../../contracts/diamond/interfaces/IDiamondCut.sol";
 import { IDiamond } from "../../../../contracts/diamond/interfaces/IDiamond.sol";
 import { IDiamondLoupe } from "../../../../contracts/diamond/interfaces/IDiamondLoupe.sol";
@@ -118,6 +119,6 @@ contract FlareTeeManagerDiamondCutFacetTest is Test {
 
         vm.prank(nonGovernance);
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
-        IFlareGovernance(address(flareTeeManager)).switchToProductionMode();
+        IIFlareGovernance(address(flareTeeManager)).switchToProductionMode();
     }
 }

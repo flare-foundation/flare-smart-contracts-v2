@@ -165,6 +165,17 @@ library TeeMachineRegistry {
         );
     }
 
+    function checkTeeMachineInProduction(
+        address _teeId
+    )
+        internal view
+    {
+        require(
+            getTeeMachineState(_teeId).status == ITeeMachineRegistryFacet.TeeStatus.PRODUCTION,
+            ITeeCommonErrors.TeeMachineNotAvailable()
+        );
+    }
+
     function checkTeeStatus(
         ITeeMachineRegistryFacet.TeeStatus _actualStatus,
         ITeeMachineRegistryFacet.TeeStatus _expectedStatus

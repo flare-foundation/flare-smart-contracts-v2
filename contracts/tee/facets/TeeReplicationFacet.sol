@@ -9,7 +9,6 @@ import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilit
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { TeeReplication } from "../library/TeeReplication.sol";
 import { TeeMachineRegistry } from "../library/TeeMachineRegistry.sol";
-import { TeeExtensionRegistry } from "../library/TeeExtensionRegistry.sol";
 import { TeeVerification } from "../library/TeeVerification.sol";
 import { TeeVersionManager } from "../library/TeeVersionManager.sol";
 import { TeeInstructionSender } from "../library/TeeInstructionSender.sol";
@@ -91,14 +90,16 @@ contract TeeReplicationFacet is IITeeReplicationFacet, GovernedFacet {
         );
         uint256 extensionId = TeeMachineRegistry.getExtensionId(_oldTeeId);
         require(extensionId == TeeMachineRegistry.getExtensionId(newTeeId), ExtensionMismatch());
-        _checkCodeHashPlatformSupported(extensionId, newTeeId);
-        _checkTeeMachinesCompatible(_teeUpgradeId, extensionId, _oldTeeId, newTeeId);
+        ITeeMachineRegistryFacet.TeeMachineWithAttestationData memory newTeeMachine =
+            TeeMachineRegistry.getTeeMachineWithAttestationData(newTeeId);
+        TeeMachineRegistry.checkCodeHashPlatformSupported(extensionId, newTeeMachine.codeHash, newTeeMachine.platform);
+        ITeeMachineRegistryFacet.TeeMachineWithAttestationData memory oldTeeMachine =
+            TeeMachineRegistry.getTeeMachineWithAttestationData(_oldTeeId);
+        _checkTeeMachinesCompatible(_teeUpgradeId, extensionId, oldTeeMachine, newTeeMachine);
         TeeMachineRegistry.validateAvailabilityCheckStatus(_proof.responseBody.status);
         TeeMachineRegistry.validateAvailabilityCheckTs(newTeeId, _proof.header.timestamp);
         require(_proof.responseBody.state.systemStateVersion != bytes32(0), InvalidSystemStateVersion());
 
-        ITeeMachineRegistryFacet.TeeMachineWithAttestationData memory newTeeMachine =
-            TeeMachineRegistry.getTeeMachineWithAttestationData(newTeeId);
         require(
             TeeVerification.verifyAvailabilityCheckProof(newTeeMachine, newStatus, _proof),
             ITeeCommonErrors.InvalidResponseData()
@@ -108,7 +109,7 @@ contract TeeReplicationFacet is IITeeReplicationFacet, GovernedFacet {
         TeeMachineRegistry.changeStatus(newTeeId, ITeeMachineRegistryFacet.TeeStatus.REPLICATING);
 
         ReplicateTeeMachine memory message = ReplicateTeeMachine({
-            oldTeeMachine: TeeMachineRegistry.getTeeMachineWithAttestationData(_oldTeeId),
+            oldTeeMachine: oldTeeMachine,
             newTeeMachine: newTeeMachine
         });
         address[] memory teeIds = new address[](2);
@@ -248,42 +249,22 @@ contract TeeReplicationFacet is IITeeReplicationFacet, GovernedFacet {
         );
     }
 
-    function _checkCodeHashPlatformSupported(
-        uint256 _extensionId,
-        address _teeId
-    )
-        private view
-    {
-        ITeeMachineRegistryFacet.TeeMachineWithAttestationData memory teeMachine =
-            TeeMachineRegistry.getTeeMachineWithAttestationData(_teeId);
-        require(
-            TeeExtensionRegistry.isCodeHashPlatformSupported(
-                _extensionId, teeMachine.codeHash, teeMachine.platform
-            ),
-            ITeeCommonErrors.VersionNotSupported()
-        );
-    }
-
     function _checkTeeMachinesCompatible(
         uint256 _teeUpgradeId,
         uint256 _extensionId,
-        address _oldTeeId,
-        address _newTeeId
+        ITeeMachineRegistryFacet.TeeMachineWithAttestationData memory _oldTeeMachine,
+        ITeeMachineRegistryFacet.TeeMachineWithAttestationData memory _newTeeMachine
     )
         private view
     {
-        ITeeMachineRegistryFacet.TeeMachineWithAttestationData memory oldTeeMachine =
-            TeeMachineRegistry.getTeeMachineWithAttestationData(_oldTeeId);
-        ITeeMachineRegistryFacet.TeeMachineWithAttestationData memory newTeeMachine =
-            TeeMachineRegistry.getTeeMachineWithAttestationData(_newTeeId);
         require(
             TeeVersionManager.isTeeUpgradePathValid(
                 _teeUpgradeId,
                 _extensionId,
-                oldTeeMachine.codeHash,
-                oldTeeMachine.platform,
-                newTeeMachine.codeHash,
-                newTeeMachine.platform
+                _oldTeeMachine.codeHash,
+                _oldTeeMachine.platform,
+                _newTeeMachine.codeHash,
+                _newTeeMachine.platform
             ),
             InvalidUpgradePath()
         );

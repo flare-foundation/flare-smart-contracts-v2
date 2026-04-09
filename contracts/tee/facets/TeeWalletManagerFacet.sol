@@ -3,7 +3,6 @@ pragma solidity ^0.8.27;
 
 import { ITeeWalletManagerFacet, WALLET_OP_TYPE } from "../../userInterfaces/tee/ITeeWalletManagerFacet.sol";
 import { ITeeExtensionRegistryFacet } from "../../userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
-import { ITeeMachineRegistryFacet } from "../../userInterfaces/tee/ITeeMachineRegistryFacet.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { PublicKeyUtils } from "../../utils/lib/PublicKeyUtils.sol";
@@ -285,11 +284,7 @@ contract TeeWalletManagerFacet is ITeeWalletManagerFacet {
                 }
             }
             require(found, WrongKeyId());
-            require(
-                TeeMachineRegistry.getTeeMachineStatus(_keysData[i].teeId) ==
-                    ITeeMachineRegistryFacet.TeeStatus.PRODUCTION,
-                TeeMachineNotAvailable()
-            );
+            TeeMachineRegistry.checkTeeMachineInProduction(_keysData[i].teeId);
             teeIds[i] = _keysData[i].teeId;
         }
 

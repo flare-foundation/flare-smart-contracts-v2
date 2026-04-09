@@ -37,10 +37,7 @@ contract TeeWalletBackupManagerFacet is ITeeWalletBackupManagerFacet {
             TeeWalletManager.getWalletProjectId(_backupId.walletId)
         );
 
-        require(
-            TeeMachineRegistry.getTeeMachineStatus(_teeId) == ITeeMachineRegistryFacet.TeeStatus.PRODUCTION,
-            TeeMachineNotAvailable()
-        );
+        TeeMachineRegistry.checkTeeMachineInProduction(_teeId);
         require(
             TeeMachineRegistry.getTeeMachineStatus(_backupId.teeId) !=
                 ITeeMachineRegistryFacet.TeeStatus.INITIALIZED,

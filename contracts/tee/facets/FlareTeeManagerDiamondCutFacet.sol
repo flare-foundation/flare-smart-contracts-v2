@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import { IDiamondCut } from "../../diamond/interfaces/IDiamondCut.sol";
 import { LibDiamond } from "../../diamond/libraries/LibDiamond.sol";
 import { IFlareGovernance } from "../../userInterfaces/tee/IFlareGovernance.sol";
+import { IIFlareGovernance } from "../interface/IIFlareGovernance.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { FlareGovernance } from "../library/FlareGovernance.sol";
 import { GovernedFacet } from "./GovernedFacet.sol";
@@ -17,7 +18,7 @@ import { GovernedFacet } from "./GovernedFacet.sol";
  *      All other facets use GovernedFacet (internal modifiers only, no public functions).
  *      Governance state is stored via FlareGovernance library (ERC-7201 namespaced storage).
  */
-contract FlareTeeManagerDiamondCutFacet is IDiamondCut, IFlareGovernance, GovernedFacet {
+contract FlareTeeManagerDiamondCutFacet is IDiamondCut, IIFlareGovernance, GovernedFacet {
 
     /**
      * @notice Add/replace/remove any number of functions and optionally execute
@@ -39,7 +40,7 @@ contract FlareTeeManagerDiamondCutFacet is IDiamondCut, IFlareGovernance, Govern
     }
 
     // =========================================================================
-    // IFlareGovernance — public governance API (only on this facet)
+    // IFlareGovernance / IIFlareGovernance — governance API (only on this facet)
     // =========================================================================
 
     /// @inheritdoc IFlareGovernance
@@ -51,7 +52,7 @@ contract FlareTeeManagerDiamondCutFacet is IDiamondCut, IFlareGovernance, Govern
         FlareGovernance.executeGovernanceCall(_encodedCall);
     }
 
-    /// @inheritdoc IFlareGovernance
+    /// @inheritdoc IIFlareGovernance
     function cancelGovernanceCall(
         bytes calldata _encodedCall
     )
@@ -60,7 +61,7 @@ contract FlareTeeManagerDiamondCutFacet is IDiamondCut, IFlareGovernance, Govern
         FlareGovernance.cancelGovernanceCall(_encodedCall);
     }
 
-    /// @inheritdoc IFlareGovernance
+    /// @inheritdoc IIFlareGovernance
     function switchToProductionMode()
         external
     {

@@ -678,7 +678,7 @@ contract TeeWalletKeyManagerFacetTest is Test {
 
     function testConfirmKeyRevertInvalidTeeSignature() public {
         _addKey();
-        // Register an invalidTeeId as PRODUCTION so _checkTeeStatus passes
+        // Register an invalidTeeId as PRODUCTION so checkTeeMachineInProduction passes
         address invalidTeeId = makeAddr("invalidTeeId");
         helper.setTeeMachineState(
             invalidTeeId,
