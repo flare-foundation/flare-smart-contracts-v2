@@ -14,7 +14,7 @@ CUT_JSON="$2"
 
 # Convert network to uppercase and build env var name
 NETWORK_UPPER=$(echo "$NETWORK" | tr '[:lower:]' '[:upper:]')
-RPC_ENV_VAR="${NETWORK_UPPER}_RPC_URL"
+RPC_ENV_VAR="${NETWORK_UPPER}_RPC"
 
 # Load env
 if [[ -f .env ]]; then
