@@ -61,7 +61,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 /**
  * @title FlareTeeManagerDeployer
  * @notice Shared test utility for deploying the FlareTeeManager Diamond.
- *         Mirrors the production deployment pattern (DeployFlareTeeManager.s.sol):
+ *         Mirrors the production deployment pattern (DeployTeeContracts.s.sol):
  *         - deployDay1Facets(): creates diamond with 15 day-1 facets + FlareTeeManagerInit
  *         - deployLaterFacets(): adds 3 later facets via diamondCut + TeeReplicationInit
  *           Caller must vm.prank(initialGovernance) before calling deployLaterFacets.

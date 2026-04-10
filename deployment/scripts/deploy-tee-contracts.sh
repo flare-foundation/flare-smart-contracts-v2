@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: scripts/deploy-flare-tee-manager.sh <network> <fullDeploy:boolean>
-# Example: scripts/deploy-flare-tee-manager.sh coston2 true
+# Usage: scripts/deploy-tee-contracts.sh <network> <fullDeploy:boolean>
+# Example: scripts/deploy-tee-contracts.sh coston2 true
+#
+# Deploys FlareTeeManager diamond, FDC2 contracts, TeePayments proxies,
+# TeeRewardOffersManager, VrfVerifier, and wires them all up.
+# The fullDeploy flag controls whether later facets (replication, governance,
+# version manager) are added to the diamond.
 
 if [[ $# -ne 2 ]]; then
   echo "Usage: $0 <network> <fullDeploy:boolean>" >&2
@@ -36,10 +41,12 @@ fi
 # Create output directory if it doesn't exist
 OUTPUT_DIR="deployment/output-internal/$NETWORK"
 mkdir -p "$OUTPUT_DIR"
+
 # Run forge script
-forge script deployment/scripts/DeployFlareTeeManager.s.sol:DeployFlareTeeManager \
+forge script deployment/scripts/DeployTeeContracts.s.sol:DeployTeeContracts \
   --rpc-url "${!RPC_ENV_VAR}" \
   --private-key "$DEPLOYER_PRIVATE_KEY" \
   --sig "run(bool)" "$FULL_DEPLOY" \
   --broadcast | tee forge-deploy-output.txt
+
 npx tsx deployment/scripts/save-deployed-addresses.ts
