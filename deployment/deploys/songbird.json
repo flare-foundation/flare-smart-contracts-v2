@@ -1,15 +1,5 @@
 [
   {
-    "name": "GovernanceSettings",
-    "contractName": "GovernanceSettings.sol",
-    "address": "0x183fAfF6997C98A812A3B98748Fc80241D08f312"
-  },
-  {
-    "name": "AddressUpdater",
-    "contractName": "AddressUpdater.sol",
-    "address": "0x884E1818eA005171CDe0dB5b83E9734454e0Ed6D"
-  },
-  {
     "name": "Submission",
     "contractName": "Submission.sol",
     "address": "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f"

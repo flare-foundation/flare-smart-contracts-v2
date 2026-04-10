@@ -5,6 +5,8 @@ pragma solidity ^0.8.27;
 import {Script, console2} from "forge-std/Script.sol";
 import {IGovernanceSettings} from
     "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import {IFlareContractRegistry} from
+    "@flarenetwork/flare-periphery-contracts/flare/IFlareContractRegistry.sol";
 import {IDiamond} from "../../contracts/diamond/interfaces/IDiamond.sol";
 import {IDiamondCut} from "../../contracts/diamond/interfaces/IDiamondCut.sol";
 import {IIFlareTeeManager} from
@@ -154,6 +156,10 @@ contract DeployTeeContracts is Script {
     address[] private teePaymentsAddresses;
     address private teeRewardOffersManagerAddr;
 
+    // Well-known FlareContractRegistry address (same on all Flare networks)
+    IFlareContractRegistry private constant FLARE_CONTRACT_REGISTRY =
+        IFlareContractRegistry(0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019);
+
     // =========================================================================
     // Entry point
     // =========================================================================
@@ -165,13 +171,10 @@ contract DeployTeeContracts is Script {
         string memory network = _resolveNetwork();
         string memory configFile =
             string.concat("deployment/chain-config/", network, ".json");
-        string memory deploysFile =
-            string.concat("deployment/deploys/", network, ".json");
         console2.log(string.concat("NETWORK: ", network));
 
         config = vm.readFile(configFile);
-        string memory deploys = vm.readFile(deploysFile);
-        _readDeployedAddresses(deploys);
+        _readDeployedAddresses(network);
 
         vm.startBroadcast();
 
@@ -221,31 +224,65 @@ contract DeployTeeContracts is Script {
     }
 
     // =========================================================================
-    // Read pre-deployed addresses from deploys JSON
+    // Read pre-deployed addresses
     // =========================================================================
 
-    function _readDeployedAddresses(string memory _deploys) internal {
-        governanceSettings =
-            _findDeployedAddress(_deploys, "GovernanceSettings");
-        addressUpdater =
-            _findDeployedAddress(_deploys, "AddressUpdater");
-        inflation =
-            _findDeployedAddress(_deploys, "Inflation");
-        flareSystemsManager =
-            _findDeployedAddress(_deploys, "FlareSystemsManager");
-        relay =
-            _findDeployedAddress(_deploys, "Relay");
-        rewardManager =
-            _findDeployedAddress(_deploys, "RewardManager");
+    function _readDeployedAddresses(string memory _network) internal {
+        if (_isScdev(_network)) {
+            _readDeployedAddressesFromJson(_network);
+        } else {
+            _readDeployedAddressesFromRegistry();
+        }
+    }
 
-        require(
-            governanceSettings != address(0),
-            "GovernanceSettings not found in deploys"
-        );
-        require(
-            addressUpdater != address(0),
-            "AddressUpdater not found in deploys"
-        );
+    function _readDeployedAddressesFromRegistry() internal {
+        string[] memory names = new string[](6);
+        names[0] = "GovernanceSettings";
+        names[1] = "AddressUpdater";
+        names[2] = "Inflation";
+        names[3] = "FlareSystemsManager";
+        names[4] = "Relay";
+        names[5] = "RewardManager";
+        address[] memory addrs =
+            FLARE_CONTRACT_REGISTRY.getContractAddressesByName(names);
+
+        governanceSettings = addrs[0];
+        addressUpdater = addrs[1];
+        inflation = addrs[2];
+        flareSystemsManager = addrs[3];
+        relay = addrs[4];
+        rewardManager = addrs[5];
+    }
+
+    function _readDeployedAddressesFromJson(
+        string memory _network
+    )
+        internal
+    {
+        string memory deploysFile =
+            string.concat("deployment/deploys/", _network, ".json");
+        string memory deploys = vm.readFile(deploysFile);
+
+        governanceSettings =
+            _findDeployedAddress(deploys, "GovernanceSettings");
+        addressUpdater =
+            _findDeployedAddress(deploys, "AddressUpdater");
+        inflation =
+            _findDeployedAddress(deploys, "Inflation");
+        flareSystemsManager =
+            _findDeployedAddress(deploys, "FlareSystemsManager");
+        relay =
+            _findDeployedAddress(deploys, "Relay");
+        rewardManager =
+            _findDeployedAddress(deploys, "RewardManager");
+    }
+
+    function _isScdev(string memory _network)
+        internal
+        pure
+        returns (bool)
+    {
+        return keccak256(bytes(_network)) == keccak256(bytes("scdev"));
     }
 
     // =========================================================================
