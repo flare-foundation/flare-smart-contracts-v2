@@ -59,9 +59,9 @@ contract TeePayments is ITeePayments, TeeBase {
     /// @dev default fee schedule: factor 1 (10000 BIPS = 0x2710), delay 0 seconds (0x0000)
     bytes public constant DEFAULT_FEE_SCHEDULE = hex"27100000";
 
-    bytes32 public constant PAY = bytes32("PAY");
-    bytes32 public constant REISSUE = bytes32("REISSUE");
-    bytes32 public constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
+    bytes32 internal constant PAY = bytes32("PAY");
+    bytes32 internal constant REISSUE = bytes32("REISSUE");
+    bytes32 internal constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
 
     bytes32 internal opType;
     bytes32 internal keyType;

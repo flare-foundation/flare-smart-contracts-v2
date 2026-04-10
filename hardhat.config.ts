@@ -25,7 +25,6 @@ import { redeployContracts } from "./deployment/scripts/redeploy-contracts";
 import { registerPublicKeys } from "./deployment/tasks/register-public-keys";
 import { deployFdcContracts } from "./deployment/scripts/deploy-fdc-contracts";
 import { redeployRelay } from "./deployment/scripts/redeploy-relay";
-import { deployTeeContracts } from "./deployment/scripts/deploy-tee-contracts";
 import { redeployContractsTee } from "./deployment/scripts/redeploy-contracts-tee";
 import { checkAddressUpdater } from "./scripts/check-address-updater";
 import fs from "fs";
@@ -372,23 +371,6 @@ task("redeploy-contracts-tee", "Redeploy contracts needed for TEE")
       const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
       const contracts = readContracts(network);
       await redeployContractsTee(hre, oldContracts, contracts, parameters, args.quiet);
-    } else {
-      throw Error("CHAIN_CONFIG environment variable not set.");
-    }
-  });
-
-task("deploy-tee", "Deploy TEE contracts")
-  .addFlag("quiet", "Suppress console output")
-  .setAction(async (args, hre, runSuper) => {
-    if (!process.env.OLD_CONTRACTS_PATH) {
-      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
-    }
-    const parameters = getChainConfigParameters(process.env.CHAIN_CONFIG);
-    if (parameters) {
-      const network = process.env.CHAIN_CONFIG!;
-      const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
-      const contracts = readContracts(network);
-      await deployTeeContracts(hre, oldContracts, contracts, parameters, args.quiet);
     } else {
       throw Error("CHAIN_CONFIG environment variable not set.");
     }

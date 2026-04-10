@@ -23,7 +23,7 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 contract TeeVerificationFacet is IITeeVerificationFacet, GovernedFacet {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    bytes32 public constant TEE_ATTESTATION = bytes32("TEE_ATTESTATION");
+    bytes32 internal constant TEE_ATTESTATION = bytes32("TEE_ATTESTATION");
 
     /// @inheritdoc ITeeVerificationFacet
     function requestTeeAttestation(

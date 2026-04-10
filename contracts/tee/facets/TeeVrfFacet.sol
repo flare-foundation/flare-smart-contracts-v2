@@ -17,7 +17,7 @@ import { TeeInstructionSender } from "../library/TeeInstructionSender.sol";
  */
 contract TeeVrfFacet is ITeeVrfFacet {
 
-    bytes32 public constant VRF = bytes32("VRF");
+    bytes32 internal constant VRF = bytes32("VRF");
 
     /// @custom:storage-location erc7201:tee.TeeVrf.State
     struct VrfState {

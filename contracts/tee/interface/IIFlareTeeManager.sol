@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IDiamondCut } from "../../diamond/interfaces/IDiamondCut.sol";
 import { IDiamondLoupe } from "../../diamond/interfaces/IDiamondLoupe.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import { IIFlareTeeManagerDiamondCutFacet } from "./IIFlareTeeManagerDiamondCutFacet.sol";
 import { IITeeExtensionRegistryFacet } from "./IITeeExtensionRegistryFacet.sol";
 import { IITeeVerificationFacet } from "./IITeeVerificationFacet.sol";
 import { IITeeFeeCalculatorFacet } from "./IITeeFeeCalculatorFacet.sol";
@@ -19,11 +19,8 @@ import { ITeeVrfFacet } from "../../userInterfaces/tee/ITeeVrfFacet.sol";
 import { IITeeReplicationFacet } from "./IITeeReplicationFacet.sol";
 import { ITeeGovernanceFacet } from "../../userInterfaces/tee/ITeeGovernanceFacet.sol";
 import { ITeeVersionManagerFacet } from "../../userInterfaces/tee/ITeeVersionManagerFacet.sol";
-import { IIFlareGovernance } from "./IIFlareGovernance.sol";
+import { IITeeAddressUpdatableFacet } from "./IITeeAddressUpdatableFacet.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
-import {
-    IIAddressUpdatable
-} from "@flarenetwork/flare-periphery-contracts/flare/addressUpdater/interfaces/IIAddressUpdatable.sol";
 
 /**
  * @title IIFlareTeeManager
@@ -33,10 +30,10 @@ import {
  *      selector-extraction script only needs this single interface as a filter.
  */
 interface IIFlareTeeManager is
-    IDiamondCut,
     IDiamondLoupe,
     IERC165,
     ITeeCommonErrors,
+    IIFlareTeeManagerDiamondCutFacet,
     IITeeExtensionRegistryFacet,
     ITeeMachineRegistryFacet,
     IITeeVerificationFacet,
@@ -52,7 +49,6 @@ interface IIFlareTeeManager is
     IITeeReplicationFacet,
     ITeeGovernanceFacet,
     ITeeVersionManagerFacet,
-    IIFlareGovernance,
-    IIAddressUpdatable
+    IITeeAddressUpdatableFacet
 {
 }

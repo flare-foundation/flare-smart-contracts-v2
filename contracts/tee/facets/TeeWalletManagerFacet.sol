@@ -18,8 +18,8 @@ import { TeeInstructionSender } from "../library/TeeInstructionSender.sol";
  */
 contract TeeWalletManagerFacet is ITeeWalletManagerFacet {
 
-    bytes32 public constant SET_PAUSING_ADDRESSES = bytes32("SET_PAUSING_ADDRESSES");
-    bytes32 public constant RESUME = bytes32("RESUME");
+    bytes32 internal constant SET_PAUSING_ADDRESSES = bytes32("SET_PAUSING_ADDRESSES");
+    bytes32 internal constant RESUME = bytes32("RESUME");
 
     modifier onlyOwner(bytes32 _walletId) {
         _checkOnlyOwner(_walletId);

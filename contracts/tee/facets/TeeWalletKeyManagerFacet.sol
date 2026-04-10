@@ -22,8 +22,8 @@ import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/Mes
  */
 contract TeeWalletKeyManagerFacet is ITeeWalletKeyManagerFacet {
 
-    bytes32 public constant KEY_GENERATE = bytes32("KEY_GENERATE");
-    bytes32 public constant KEY_DELETE = bytes32("KEY_DELETE");
+    bytes32 internal constant KEY_GENERATE = bytes32("KEY_GENERATE");
+    bytes32 internal constant KEY_DELETE = bytes32("KEY_DELETE");
 
     modifier onlyOwner(bytes32 _walletId) {
         _checkOnlyOwner(_walletId);

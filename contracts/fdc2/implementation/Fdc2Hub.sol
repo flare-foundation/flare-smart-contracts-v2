@@ -21,7 +21,7 @@ import { IFdc2RequestFeeConfigurations } from "../../userInterfaces/fdc2/IFdc2Re
 contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
 
     uint256 internal constant MAX_BIPS = 1e4;
-    bytes32 public constant PROVE = bytes32("PROVE");
+    bytes32 internal constant PROVE = bytes32("PROVE");
 
     /// FlareTeeManager Diamond contract.
     IIFlareTeeManager public flareTeeManager;

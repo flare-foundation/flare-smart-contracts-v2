@@ -19,7 +19,7 @@ import { TeeInstructionSender } from "../library/TeeInstructionSender.sol";
  */
 contract TeeWalletBackupManagerFacet is ITeeWalletBackupManagerFacet {
 
-    bytes32 public constant KEY_DATA_PROVIDER_RESTORE = bytes32("KEY_DATA_PROVIDER_RESTORE");
+    bytes32 internal constant KEY_DATA_PROVIDER_RESTORE = bytes32("KEY_DATA_PROVIDER_RESTORE");
 
     /**
      * @inheritdoc ITeeWalletBackupManagerFacet

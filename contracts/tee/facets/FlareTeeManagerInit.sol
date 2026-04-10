@@ -50,7 +50,6 @@ contract FlareTeeManagerInit is AddressUpdatable {
     )
         external
     {
-
         // adding ERC165 data
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
         ds.supportedInterfaces[type(IERC165).interfaceId] = true;

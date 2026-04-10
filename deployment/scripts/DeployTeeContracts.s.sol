@@ -211,6 +211,9 @@ contract DeployTeeContracts is Script {
         _registerSystemInstructionsSenders();
         _configureFdc2RequestFees();
 
+        // Phase 4: Switch all governed contracts to production mode
+        _switchToProductionMode();
+
         vm.stopBroadcast();
     }
 
@@ -885,6 +888,29 @@ contract DeployTeeContracts is Script {
                 vm.parseUint(fees[i].feeWei)
             );
         }
+    }
+
+    // =========================================================================
+    // Switch to production mode
+    // =========================================================================
+
+    function _switchToProductionMode() internal {
+        // FlareTeeManager diamond
+        FlareTeeManagerDiamondCutFacet(flareTeeManagerAddress)
+            .switchToProductionMode();
+        // FDC2 contracts (proxies, called through implementation interface)
+        Fdc2Hub(fdc2HubAddr).switchToProductionMode();
+        Fdc2RequestFeeConfigurations(fdc2FeeAddr)
+            .switchToProductionMode();
+        Fdc2Verification(fdc2VerificationAddr).switchToProductionMode();
+        // TeePayments proxies
+        for (uint256 i = 0; i < teePaymentsAddresses.length; i++) {
+            TeePayments(teePaymentsAddresses[i])
+                .switchToProductionMode();
+        }
+        // TeeRewardOffersManager
+        TeeRewardOffersManager(teeRewardOffersManagerAddr)
+            .switchToProductionMode();
     }
 
     // =========================================================================

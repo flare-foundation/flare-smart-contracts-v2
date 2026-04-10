@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IDiamondCut } from "../../diamond/interfaces/IDiamondCut.sol";
-import { LibDiamond } from "../../diamond/libraries/LibDiamond.sol";
+import { IIFlareTeeManagerDiamondCutFacet } from
+    "../interface/IIFlareTeeManagerDiamondCutFacet.sol";
 import { IFlareGovernance } from "../../userInterfaces/tee/IFlareGovernance.sol";
 import { IIFlareGovernance } from "../interface/IIFlareGovernance.sol";
+import { LibDiamond } from "../../diamond/libraries/LibDiamond.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { FlareGovernance } from "../library/FlareGovernance.sol";
 import { GovernedFacet } from "./GovernedFacet.sol";
@@ -18,7 +19,7 @@ import { GovernedFacet } from "./GovernedFacet.sol";
  *      All other facets use GovernedFacet (internal modifiers only, no public functions).
  *      Governance state is stored via FlareGovernance library (ERC-7201 namespaced storage).
  */
-contract FlareTeeManagerDiamondCutFacet is IDiamondCut, IIFlareGovernance, GovernedFacet {
+contract FlareTeeManagerDiamondCutFacet is IIFlareTeeManagerDiamondCutFacet, GovernedFacet {
 
     /**
      * @notice Add/replace/remove any number of functions and optionally execute

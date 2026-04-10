@@ -20,8 +20,8 @@ import { GovernedFacet } from "./GovernedFacet.sol";
  */
 contract TeeReplicationFacet is IITeeReplicationFacet, GovernedFacet {
 
-    bytes32 public constant TO_PAUSE_FOR_UPGRADE = bytes32("TO_PAUSE_FOR_UPGRADE");
-    bytes32 public constant REPLICATE_FROM = bytes32("REPLICATE_FROM");
+    bytes32 internal constant TO_PAUSE_FOR_UPGRADE = bytes32("TO_PAUSE_FOR_UPGRADE");
+    bytes32 internal constant REPLICATE_FROM = bytes32("REPLICATE_FROM");
 
     modifier onlyMachineOwner(address _teeId) {
         require(

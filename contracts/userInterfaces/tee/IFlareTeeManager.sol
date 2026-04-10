@@ -17,9 +17,10 @@ import { ITeeWalletBackupManagerFacet } from "./ITeeWalletBackupManagerFacet.sol
 import { ITeeVrfFacet } from "./ITeeVrfFacet.sol";
 import { ITeeReplicationFacet } from "./ITeeReplicationFacet.sol";
 import { ITeeGovernanceFacet } from "./ITeeGovernanceFacet.sol";
+import { ITeeAddressUpdatableFacet } from "./ITeeAddressUpdatableFacet.sol";
 import { ITeeVersionManagerFacet } from "./ITeeVersionManagerFacet.sol";
+import { IFlareTeeManagerDiamondCutFacet } from "./IFlareTeeManagerDiamondCutFacet.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
-import { IFlareGovernance } from "./IFlareGovernance.sol";
 
 /**
  * @title IFlareTeeManager
@@ -47,7 +48,8 @@ interface IFlareTeeManager is
     ITeeVrfFacet,
     ITeeReplicationFacet,
     ITeeGovernanceFacet,
+    ITeeAddressUpdatableFacet,
     ITeeVersionManagerFacet,
-    IFlareGovernance
+    IFlareTeeManagerDiamondCutFacet
 {
 }
