@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 // solhint-disable no-console
 
 import {Script, console2} from "forge-std/Script.sol";
+import {stdJson} from "forge-std/StdJson.sol";
 import {IGovernanceSettings} from
     "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import {IFlareContractRegistry} from
@@ -78,10 +79,17 @@ import {VrfVerifier} from "../../contracts/tee/lib/VrfVerifier.sol";
 // forge script deployment/scripts/DeployTeeContracts.s.sol:DeployTeeContracts --private-key $DEPLOYER_PRIVATE_KEY --rpc-url $COSTON2_RPC_URL --broadcast --sig "run(bool)" true
 
 contract DeployTeeContracts is Script {
+    using stdJson for string;
 
     // =========================================================================
     // JSON deserialization structs
     // =========================================================================
+
+    struct DeployedContract {
+        address addr;
+        string contractName;
+        string name;
+    }
 
     struct OperationFeeConfig {
         string feeWei;
@@ -262,19 +270,21 @@ contract DeployTeeContracts is Script {
         string memory deploysFile =
             string.concat("deployment/deploys/", _network, ".json");
         string memory deploys = vm.readFile(deploysFile);
+        DeployedContract[] memory contracts =
+            abi.decode(vm.parseJson(deploys), (DeployedContract[]));
 
         governanceSettings =
-            _findDeployedAddress(deploys, "GovernanceSettings");
+            _findDeployedAddress(contracts, "GovernanceSettings");
         addressUpdater =
-            _findDeployedAddress(deploys, "AddressUpdater");
+            _findDeployedAddress(contracts, "AddressUpdater");
         inflation =
-            _findDeployedAddress(deploys, "Inflation");
+            _findDeployedAddress(contracts, "Inflation");
         flareSystemsManager =
-            _findDeployedAddress(deploys, "FlareSystemsManager");
+            _findDeployedAddress(contracts, "FlareSystemsManager");
         relay =
-            _findDeployedAddress(deploys, "Relay");
+            _findDeployedAddress(contracts, "Relay");
         rewardManager =
-            _findDeployedAddress(deploys, "RewardManager");
+            _findDeployedAddress(contracts, "RewardManager");
     }
 
     function _isScdev(string memory _network)
@@ -1012,54 +1022,18 @@ contract DeployTeeContracts is Script {
     // =========================================================================
 
     function _findDeployedAddress(
-        string memory _json,
+        DeployedContract[] memory _contracts,
         string memory _name
     )
-        internal
+        internal pure
         returns (address)
     {
-        for (uint256 i = 0; ; i++) {
-            string memory namePath =
-                string.concat("[", vm.toString(i), "].name");
-            // solhint-disable-next-line no-inline-assembly
-            try this._parseJsonString(_json, namePath) returns (
-                string memory aName
-            ) {
-                if (
-                    keccak256(bytes(aName)) == keccak256(bytes(_name))
-                ) {
-                    string memory addrPath = string.concat(
-                        "[", vm.toString(i), "].address"
-                    );
-                    return this._parseJsonAddress(_json, addrPath);
-                }
-            } catch {
-                break;
+        bytes32 nameHash = keccak256(bytes(_name));
+        for (uint256 i = 0; i < _contracts.length; i++) {
+            if (keccak256(bytes(_contracts[i].name)) == nameHash) {
+                return _contracts[i].addr;
             }
         }
         return address(0);
-    }
-
-    // External helpers to allow try/catch on vm calls
-    function _parseJsonString(
-        string calldata _json,
-        string calldata _path
-    )
-        external
-        view
-        returns (string memory)
-    {
-        return vm.parseJsonString(_json, _path);
-    }
-
-    function _parseJsonAddress(
-        string calldata _json,
-        string calldata _path
-    )
-        external
-        view
-        returns (address)
-    {
-        return vm.parseJsonAddress(_json, _path);
     }
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "fs";
-import Web3, { AbiItem } from "web3";
+import Web3 from "web3";
+import { AbiItem } from "web3-utils";
 import { isFunctionFragment, parseArgs } from "./prep-cut";
 
 function resultToTuple(value: unknown): unknown {

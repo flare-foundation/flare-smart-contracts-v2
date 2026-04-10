@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import Web3, { AbiFunctionFragment } from "web3";
+import Web3 from "web3";
+import { AbiItem } from "web3-utils";
 import fs from "fs";
 import {
   selectorsFromLoupeData,
@@ -43,9 +44,9 @@ function main() {
   const deployed = selectorsFromLoupeData(loupeFacets);
 
   const planFacets = readFacetsFile(facetsFile);
-  const facets = planFacets.map((f) => {
+  const facets = planFacets.map(f => {
     const abi = loadAbi(f.contractName);
-    const functions = abi.filter((abi) => abi.type === "function") as Array<AbiFunctionFragment>;
+    const functions = abi.filter(abi => abi.type === "function");
     const selectors: string[] = [];
     for (const fn of functions) {
       selectors.push(toSelector(fn));
@@ -72,20 +73,18 @@ function main() {
       // build calldata using ABI from artifacts
       const abi = loadAbi(initContractName);
       const fn = abi
-        .filter(
-          (i): i is AbiFunctionFragment => i.type === "function" && typeof (i as AbiFunctionFragment).name === "string"
-        )
-        .find((i) => i.name === method);
+        .filter((i): i is AbiItem => i.type === "function" && typeof i.name === "string")
+        .find(i => i.name === method);
       if (!fn) {
         throw new Error(`Init method ${method} not found in ${initContractName} ABI`);
       }
-      const inputsForEncoding: AbiFunctionFragment["inputs"] = (fn.inputs || []).map((inp, idx) => ({
+      const inputsForEncoding: AbiItem["inputs"] = (fn.inputs || []).map((inp, idx) => ({
         name: inp.name || `arg${idx}`,
         type: inp.type,
       }));
       initCalldata = web3.eth.abi.encodeFunctionCall(
         { name: method, type: "function", inputs: inputsForEncoding },
-        argsArr
+        argsArr as string[]
       );
     }
   }
@@ -108,7 +107,7 @@ function main() {
   const encoded = web3.eth.abi.encodeParameters(
     [facetCutType, "address", "bytes"],
     [
-      result.cuts.map((c) => ({
+      result.cuts.map(c => ({
         facetAddress: c.facetAddress,
         action: c.action,
         functionSelectors: c.functionSelectors,

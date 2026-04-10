@@ -1,6 +1,7 @@
 import fs from "fs";
-import Web3, { AbiFunctionFragment, AbiItem } from "web3";
-import { DiamondSelectors, type DiamondCut } from "./diamond";
+import Web3 from "web3";
+import { AbiItem } from "web3-utils";
+import { DiamondSelectors, DiamondCut } from "./diamond";
 
 const web3 = new Web3();
 
@@ -86,7 +87,7 @@ export function selectorsFromLoupeData(
 }
 
 // narrow to function fragments before encoding; avoids passing constructors/events
-export function isFunctionFragment(item: unknown): item is AbiFunctionFragment {
+export function isFunctionFragment(item: unknown): item is AbiItem {
   return (
     typeof item === "object" &&
     item !== null &&
@@ -121,8 +122,11 @@ export function parseArgs(argv: string[]) {
 
 export function readFacetsFile(p: string) {
   // line format: address|contractName
-  const lines = fs.readFileSync(p, "utf8").split(/\r?\n/).filter(Boolean);
-  return lines.map((l) => {
+  const lines = fs
+    .readFileSync(p, "utf8")
+    .split(/\r?\n/)
+    .filter(Boolean);
+  return lines.map(l => {
     const parts = l.split("|");
     if (parts.length !== 2) {
       throw new Error(`Invalid facets line (expected address|contractName): ${l}`);
@@ -134,8 +138,11 @@ export function readFacetsFile(p: string) {
 
 export function readLoupeFile(p: string) {
   // line format: facetAddress|sel1,sel2,sel3
-  const lines = fs.readFileSync(p, "utf8").split(/\r?\n/).filter(Boolean);
-  return lines.map((l) => {
+  const lines = fs
+    .readFileSync(p, "utf8")
+    .split(/\r?\n/)
+    .filter(Boolean);
+  return lines.map(l => {
     const [facetAddress, selectors] = l.split("|");
     const functionSelectors = (selectors ? selectors.split(",") : []).filter(Boolean);
     return { facetAddress, functionSelectors };

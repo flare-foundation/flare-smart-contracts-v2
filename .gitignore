@@ -11,9 +11,7 @@ deployment/deploys/initialRewardEpochId.txt
 # Foundry files
 cache-forge/
 artifacts-forge/
-!/broadcast
-/broadcast/*/31337/
-/broadcast/**/dry-run/
+broadcast/
 
 # coverage files
 coverage/
@@ -46,3 +44,6 @@ sim/
 
 # Soldeer
 dependencies/
+
+# Facets deploy
+deployment/output-internal/

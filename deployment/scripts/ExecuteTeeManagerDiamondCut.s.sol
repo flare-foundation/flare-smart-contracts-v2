@@ -11,6 +11,12 @@ import {IDiamondLoupe} from "../../contracts/diamond/interfaces/IDiamondLoupe.so
 contract ExecuteTeeManagerDiamondCut is Script {
     using stdJson for string;
 
+    struct DeployedContract {
+        address addr;
+        string contractName;
+        string name;
+    }
+
     string private network;
     string private configFileName;
 
@@ -77,45 +83,12 @@ contract ExecuteTeeManagerDiamondCut is Script {
             }
         }
 
-        // if init contract is not already included in facets, deploy it separately
-        address initAddr = address(0);
-        bytes memory rawInit = json.parseRaw(".init");
-        if (rawInit.length > 0) {
-            bytes memory rawInitName = json.parseRaw(".init.contract");
-            require(rawInitName.length > 0, "init.contract is required if init object exists");
-            string memory initName = abi.decode(rawInitName, (string));
-            require(bytes(initName).length > 0, "init.contract cannot be empty");
-            bool foundInFacets = false;
-            for (uint256 i = 0; i < facetNames.length; i++) {
-                if (_stringEq(facetNames[i], initName)) {
-                    initAddr = facetAddrs[i];
-                    foundInFacets = true;
-                    break;
-                }
-            }
-            if (!foundInFacets) {
-                // try reuse from deploys if code matches; else deploy from artifact
-                address candidate = _findDeployedAddressFromFile(
-                    deployedContractsFile, initName
-                );
-                string memory artifactPath = string.concat(
-                    "artifacts-forge/", initName, ".sol/", initName, ".json"
-                );
-                if (_deployedCodeMatches(candidate, artifactPath)) {
-                    initAddr = candidate;
-                } else {
-                    initAddr = _deployFacet(initName);
-                    _updateAddressInFile(
-                        deployedContractsFile,
-                        initName,
-                        initAddr
-                    );
-                }
-            }
-        }
+        address initAddr = _resolveInitContract(
+            json, deployedContractsFile, facetNames, facetAddrs
+        );
         vm.stopBroadcast();
 
-        _testWithConfig(
+        _writeDeploymentOutput(
             diamond,
             facetAddrs,
             facetNames,
@@ -125,7 +98,44 @@ contract ExecuteTeeManagerDiamondCut is Script {
         );
     }
 
-    function _testWithConfig(
+    function _resolveInitContract(
+        string memory _json,
+        string memory _deployedContractsFile,
+        string[] memory _facetNames,
+        address[] memory _facetAddrs
+    )
+        internal
+        returns (address)
+    {
+        bytes memory rawInit = _json.parseRaw(".init");
+        if (rawInit.length == 0) {
+            return address(0);
+        }
+        bytes memory rawInitName = _json.parseRaw(".init.contract");
+        require(rawInitName.length > 0, "init.contract is required if init object exists");
+        string memory initName = abi.decode(rawInitName, (string));
+        require(bytes(initName).length > 0, "init.contract cannot be empty");
+        for (uint256 i = 0; i < _facetNames.length; i++) {
+            if (_stringEq(_facetNames[i], initName)) {
+                return _facetAddrs[i];
+            }
+        }
+        // not found in facets — try reuse from deploys if code matches; else deploy
+        address candidate = _findDeployedAddressFromFile(
+            _deployedContractsFile, initName
+        );
+        string memory artifactPath = string.concat(
+            "artifacts-forge/", initName, ".sol/", initName, ".json"
+        );
+        if (_deployedCodeMatches(candidate, artifactPath)) {
+            return candidate;
+        }
+        address deployed = _deployFacet(initName);
+        _updateAddressInFile(_deployedContractsFile, initName, deployed);
+        return deployed;
+    }
+
+    function _writeDeploymentOutput(
         address _diamond,
         address[] memory _facetAddrs,
         string[] memory _facetNames,
@@ -142,14 +152,31 @@ contract ExecuteTeeManagerDiamondCut is Script {
         mkdirCmd[2] = string.concat("deployment/output-internal/", network);
         vm.ffi(mkdirCmd);
 
+        bytes memory out = _buildCutData(
+            _diamond, _facetAddrs, _facetNames, _initAddress, _configPath
+        );
+
+        _executeOrLog(_diamond, out, _execute);
+    }
+
+    function _buildCutData(
+        address _diamond,
+        address[] memory _facetAddrs,
+        string[] memory _facetNames,
+        address _initAddress,
+        string memory _configPath
+    )
+        internal
+        returns (bytes memory)
+    {
         // 1. read facets from diamond loupe
         IDiamondLoupe.Facet[] memory loupeFacets = IDiamondLoupe(_diamond).facets();
         // 2. write minimal text inputs for TS script
         string memory facetsPath = string.concat(
-            "deployment/", "output-internal/", network, "/", "facets-", configFileName, ".txt"
+            "deployment/output-internal/", network, "/facets-", configFileName, ".txt"
         );
         string memory loupePath = string.concat(
-            "deployment/", "output-internal/", network, "/", "loupe-", configFileName, ".txt"
+            "deployment/output-internal/", network, "/loupe-", configFileName, ".txt"
         );
         _writeFacetsFile(facetsPath, _facetAddrs, _facetNames);
         _writeLoupeFile(loupePath, loupeFacets);
@@ -172,69 +199,94 @@ contract ExecuteTeeManagerDiamondCut is Script {
             cmd[k++] = "--init-address"; cmd[k++] = _addrToString(_initAddress);
         }
         cmd[k++] = "--config"; cmd[k++] = _configPath;
-        bytes memory out = vm.ffi(cmd);
-        // 4. decode ABI-encoded result
+        return vm.ffi(cmd);
+    }
+
+    function _executeOrLog(
+        address _diamond,
+        bytes memory _out,
+        bool _execute
+    )
+        internal
+    {
         (
             IDiamond.FacetCut[] memory cuts,
             address initAddr,
             bytes memory initData
-        ) = abi.decode(out, (IDiamond.FacetCut[], address, bytes));
-        // 5. execute or log
-        console2.log("---- DIAMOND CUT DATA: ----");
-        console2.log("diamond address:", _diamond);
-        console2.log("number of cuts:", cuts.length);
-        for (uint256 i = 0; i < cuts.length; i++) {
-            console2.log(string(abi.encodePacked("cuts[", vm.toString(i), "]:")));
-            console2.log("  facetAddress:", cuts[i].facetAddress);
-            console2.log("  action:", _actionName(cuts[i].action));
-            console2.log("  functionSelectors:");
-            for (uint256 j = 0; j < cuts[i].functionSelectors.length; j++) {
-                console2.log(string(
-                    abi.encodePacked(
-                        "    [", vm.toString(j), "]: 0x", _toHex(cuts[i].functionSelectors[j])
-                    )
-                ));
-            }
-        }
-        console2.log("init data:");
-        console2.log("  init address:", initAddr);
-        console2.log(string(abi.encodePacked("  init calldata: 0x", _toHexBytes(initData))));
-        bytes memory callData = abi.encodeWithSelector(
-            IDiamondCut.diamondCut.selector, cuts, initAddr, initData
-        );
-        console2.log(string(abi.encodePacked("diamondCut calldata: 0x", _toHexBytes(callData))));
+        ) = abi.decode(_out, (IDiamond.FacetCut[], address, bytes));
+
+        _logCutData(_diamond, cuts, initAddr, initData);
+
         if (_execute) {
             vm.startBroadcast();
             IDiamondCut(_diamond).diamondCut(cuts, initAddr, initData);
             vm.stopBroadcast();
         } else {
-            // write ABI-encoded result to output file
-            string memory encodedPath = string.concat(
-                "deployment/", "output-internal/", network, "/",
-                "diamond-cut-encoded-", configFileName, ".bin"
-            );
-            vm.writeFileBinary(encodedPath, out);
-            // path for formatted JSON output
-            string memory outputPath = string.concat(
-                "deployment/", "output-internal/", network, "/",
-                "decoded-", configFileName, ".json"
-            );
-            // call format-cut.ts via FFI
-            string[] memory prettyCmd = new string[](7);
-            prettyCmd[0] = "npx";
-            prettyCmd[1] = "tsx";
-            prettyCmd[2] = "deployment/utils/format-cut.ts";
-            prettyCmd[3] = "--encoded-path";
-            prettyCmd[4] = encodedPath;
-            prettyCmd[5] = "--output-path";
-            prettyCmd[6] = outputPath;
-            vm.ffi(prettyCmd);
-            string memory prettyJson = vm.readFile(outputPath);
-            console2.log("---- Diamond cut not executed. Data for manual execution: ----");
-            console2.log("decoded tuples (JSON):");
-            console2.log(prettyJson);
-            console2.log("---------------------------------------");
+            _writeOutputFiles(_out);
         }
+    }
+
+    function _logCutData(
+        address _diamond,
+        IDiamond.FacetCut[] memory _cuts,
+        address _initAddr,
+        bytes memory _initData
+    )
+        internal view
+    {
+        console2.log("---- DIAMOND CUT DATA: ----");
+        console2.log("diamond address:", _diamond);
+        console2.log("number of cuts:", _cuts.length);
+        for (uint256 i = 0; i < _cuts.length; i++) {
+            console2.log(string(abi.encodePacked("cuts[", vm.toString(i), "]:")));
+            console2.log("  facetAddress:", _cuts[i].facetAddress);
+            console2.log("  action:", _actionName(_cuts[i].action));
+            console2.log("  functionSelectors:");
+            for (uint256 j = 0; j < _cuts[i].functionSelectors.length; j++) {
+                console2.log(string(
+                    abi.encodePacked(
+                        "    [", vm.toString(j), "]: 0x", _toHex(_cuts[i].functionSelectors[j])
+                    )
+                ));
+            }
+        }
+        console2.log("init data:");
+        console2.log("  init address:", _initAddr);
+        console2.log(string(abi.encodePacked("  init calldata: 0x", _toHexBytes(_initData))));
+        bytes memory callData = abi.encodeWithSelector(
+            IDiamondCut.diamondCut.selector, _cuts, _initAddr, _initData
+        );
+        console2.log(string(abi.encodePacked("diamondCut calldata: 0x", _toHexBytes(callData))));
+    }
+
+    function _writeOutputFiles(
+        bytes memory _out
+    )
+        internal
+    {
+        string memory encodedPath = string.concat(
+            "deployment/output-internal/", network, "/",
+            "diamond-cut-encoded-", configFileName, ".bin"
+        );
+        vm.writeFileBinary(encodedPath, _out);
+        string memory outputPath = string.concat(
+            "deployment/output-internal/", network, "/",
+            "decoded-", configFileName, ".json"
+        );
+        string[] memory prettyCmd = new string[](7);
+        prettyCmd[0] = "npx";
+        prettyCmd[1] = "tsx";
+        prettyCmd[2] = "deployment/utils/format-cut.ts";
+        prettyCmd[3] = "--encoded-path";
+        prettyCmd[4] = encodedPath;
+        prettyCmd[5] = "--output-path";
+        prettyCmd[6] = outputPath;
+        vm.ffi(prettyCmd);
+        string memory prettyJson = vm.readFile(outputPath);
+        console2.log("---- Diamond cut not executed. Data for manual execution: ----");
+        console2.log("decoded tuples (JSON):");
+        console2.log(prettyJson);
+        console2.log("---------------------------------------");
     }
 
     function _writeFacetsFile(
@@ -334,27 +386,19 @@ contract ExecuteTeeManagerDiamondCut is Script {
     }
 
     function _findDeployedAddressFromFile(
-        string memory path,
-        string memory facetName
+        string memory _path,
+        string memory _facetName
     )
         internal view
         returns (address)
     {
-        string memory json = vm.readFile(path);
-        for (uint256 i = 0; ; i++) {
-            string memory idx = vm.toString(i);
-            string memory namePath = string.concat("[", idx, "].name");
-            bytes memory rawName = json.parseRaw(namePath);
-            if (rawName.length == 0) {
-                break;
-            }
-            string memory aName = abi.decode(rawName, (string));
-            if (_stringEq(aName, facetName)) {
-                string memory addrPath = string.concat("[", idx, "].address");
-                bytes memory rawAddr = json.parseRaw(addrPath);
-                if (rawAddr.length > 0) {
-                    return abi.decode(rawAddr, (address));
-                }
+        string memory json = vm.readFile(_path);
+        DeployedContract[] memory contracts =
+            abi.decode(vm.parseJson(json), (DeployedContract[]));
+        bytes32 nameHash = keccak256(bytes(_facetName));
+        for (uint256 i = 0; i < contracts.length; i++) {
+            if (keccak256(bytes(contracts[i].name)) == nameHash) {
+                return contracts[i].addr;
             }
         }
         return address(0);
