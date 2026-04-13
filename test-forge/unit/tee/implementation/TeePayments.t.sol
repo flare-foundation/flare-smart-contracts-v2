@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
+// solhint-disable no-unused-vars
 
 import { Test } from "forge-std/Test.sol";
 import { TeePayments } from "../../../../contracts/tee/implementation/TeePayments.sol";
@@ -7,8 +8,12 @@ import { TeePaymentsProxy } from "../../../../contracts/tee/proxy/TeePaymentsPro
 import { ITeeWalletManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletManagerFacet.sol";
 import { ITeePayments } from "../../../../contracts/userInterfaces/tee/ITeePayments.sol";
 import { ITeeExtensionRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
-import { ITeeWalletProjectManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManagerFacet.sol";
-import { ITeeFeeCalculatorFacet } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculatorFacet.sol";
+import {
+    ITeeWalletProjectManagerFacet
+} from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManagerFacet.sol";
+import {
+    ITeeFeeCalculatorFacet
+} from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculatorFacet.sol";
 import { ITeeWalletVerificationFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletVerificationFacet.sol";
 import { ITeeMachineRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
 import { ITeeWalletKeyManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManagerFacet.sol";
@@ -360,12 +365,12 @@ contract TeePaymentsTest is Test {
     function testSetPaymentLimits() public {
         testAddPMWMultisigAccount();
         _mockGetWalletStatus(ITeeWalletManagerFacet.WalletStatus.PRODUCTION);
-        (ITeeMachineRegistryFacet.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistryFacet.TeeMachine[] memory _receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         uint256 transactionLimit = 1000;
         uint256 dailyLimit = 10000;
-        bytes32 instructionId = keccak256(abi.encode(0, 0, blockhash(block.number - 1)));
-        ITeePayments.SetPaymentLimits memory message = ITeePayments.SetPaymentLimits(
+        bytes32 _instructionId = keccak256(abi.encode(0, 0, blockhash(block.number - 1)));
+        ITeePayments.SetPaymentLimits memory _message = ITeePayments.SetPaymentLimits(
             walletId,
             SOURCE_ID,
             senderAddress,
@@ -389,9 +394,9 @@ contract TeePaymentsTest is Test {
     function testSetPaymentLimitsWithClaimBackAddress() public {
         testAddPMWMultisigAccount();
         _mockGetWalletStatus(ITeeWalletManagerFacet.WalletStatus.PRODUCTION);
-        (ITeeMachineRegistryFacet.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistryFacet.TeeMachine[] memory _receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
-        ITeePayments.SetPaymentLimits memory message = ITeePayments.SetPaymentLimits(
+        ITeePayments.SetPaymentLimits memory _message = ITeePayments.SetPaymentLimits(
             walletId,
             SOURCE_ID,
             senderAddress,
@@ -478,7 +483,7 @@ contract TeePaymentsTest is Test {
 
     // batch duration is not set (default is 0)
     function testPay1() public {
-        (ITeeMachineRegistryFacet.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistryFacet.TeeMachine[] memory _receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         _mockGetWalletStatus(ITeeWalletManagerFacet.WalletStatus.PRODUCTION);
         vm.prank(walletOwner);
@@ -526,7 +531,7 @@ contract TeePaymentsTest is Test {
 
     // batch duration is > 0 but batch size is 1
     function testPay2() public {
-        (ITeeMachineRegistryFacet.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistryFacet.TeeMachine[] memory _receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         _mockGetWalletStatus(ITeeWalletManagerFacet.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
@@ -577,7 +582,7 @@ contract TeePaymentsTest is Test {
 
     // batch duration is > 0 and batch size is > 1
     function testPay3() public {
-        (ITeeMachineRegistryFacet.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistryFacet.TeeMachine[] memory _receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         _mockGetWalletStatus(ITeeWalletManagerFacet.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
@@ -694,7 +699,7 @@ contract TeePaymentsTest is Test {
 
     // two transactions in batch with nonce 10
     function testPay4() public {
-        (ITeeMachineRegistryFacet.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistryFacet.TeeMachine[] memory _receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         _mockGetWalletStatus(ITeeWalletManagerFacet.WalletStatus.PRODUCTION);
         vm.startPrank(walletOwner);
@@ -745,7 +750,7 @@ contract TeePaymentsTest is Test {
 
     // pay from secondary wallet
     function testPay5() public {
-        (ITeeMachineRegistryFacet.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistryFacet.TeeMachine[] memory _receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         bytes32 walletId2 = bytes32("walletId2");
         string memory senderAddress2 = "senderAddress2";
@@ -1077,9 +1082,11 @@ contract TeePaymentsTest is Test {
             feeSettings = ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds);
         }
         vm.prank(authorizationAddress);
-        (ITeeMachineRegistryFacet.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistryFacet.TeeMachine[] memory _receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
+        // solhint-disable-next-line no-unused-vars
         bytes32 instructionId = keccak256(abi.encode(OP_TYPE, REISSUE, SOURCE_ID, senderAddress, 11, 0));
+        // solhint-disable-next-line no-unused-vars
         ITeePayments.PaymentInstructionMessage memory message1 = ITeePayments.PaymentInstructionMessage(
             walletId,
             teeIdKeyIdPairs,
@@ -1095,7 +1102,7 @@ contract TeePaymentsTest is Test {
             11, // subNonce
             uint64(block.timestamp)
         );
-        ITeePayments.PaymentInstructionMessage memory message2 = ITeePayments.PaymentInstructionMessage(
+        ITeePayments.PaymentInstructionMessage memory _message2 = ITeePayments.PaymentInstructionMessage(
             walletId,
             teeIdKeyIdPairs,
             SOURCE_ID,
@@ -1181,7 +1188,7 @@ contract TeePaymentsTest is Test {
         _mockGetWalletStatus(ITeeWalletManagerFacet.WalletStatus.PRODUCTION);
         vm.prank(authorizationAddress);
         bytes32 instructionId = keccak256(abi.encode(OP_TYPE, REISSUE, SOURCE_ID, senderAddress, 11, 0));
-        (ITeeMachineRegistryFacet.TeeMachine[] memory receivingTees,
+        (ITeeMachineRegistryFacet.TeeMachine[] memory _receivingTees,
             TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
         ITeePayments.ReissueFeeParams memory feeSettings;
         {
@@ -1194,7 +1201,7 @@ contract TeePaymentsTest is Test {
             uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
             feeSettings = ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds);
         }
-        ITeePayments.PaymentInstructionMessage memory message1 = ITeePayments.PaymentInstructionMessage(
+        ITeePayments.PaymentInstructionMessage memory _message1 = ITeePayments.PaymentInstructionMessage(
             walletId,
             teeIdKeyIdPairs,
             SOURCE_ID,
@@ -1209,7 +1216,7 @@ contract TeePaymentsTest is Test {
             11, // subNonce
             uint64(block.timestamp)
         );
-        ITeePayments.PaymentInstructionMessage memory message2 = ITeePayments.PaymentInstructionMessage(
+        ITeePayments.PaymentInstructionMessage memory _message2 = ITeePayments.PaymentInstructionMessage(
             walletId,
             teeIdKeyIdPairs,
             SOURCE_ID,

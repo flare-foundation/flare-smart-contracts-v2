@@ -8,15 +8,15 @@ import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.
 import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
 
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IITeeReplicationFacet } from "../../../../contracts/tee/interface/IITeeReplicationFacet.sol";
 import { ITeeReplicationFacet } from "../../../../contracts/userInterfaces/tee/ITeeReplicationFacet.sol";
 import { ITeeMachineRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
-import { ITeeExtensionRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
-import { ITeeOwnerAllowlistFacet } from "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlistFacet.sol";
-import { ITeeGovernanceFacet } from "../../../../contracts/userInterfaces/tee/ITeeGovernanceFacet.sol";
 import { ITeeVersionManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeVersionManagerFacet.sol";
-import { ITeeVerificationFacet, TEE_SOURCE_ID } from "../../../../contracts/userInterfaces/tee/ITeeVerificationFacet.sol";
-import { ITeeSystemStateVerifierFacet } from "../../../../contracts/userInterfaces/tee/ITeeSystemStateVerifierFacet.sol";
+import {
+    TEE_SOURCE_ID
+} from "../../../../contracts/userInterfaces/tee/ITeeVerificationFacet.sol";
+import {
+    ITeeSystemStateVerifierFacet
+} from "../../../../contracts/userInterfaces/tee/ITeeSystemStateVerifierFacet.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
@@ -29,7 +29,6 @@ import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
-import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
@@ -249,14 +248,12 @@ contract TeeReplicationFacetTest is Test {
         vm.warp(block.timestamp + 1000);
     }
 
-
     // toPauseForUpgrade
     function testToPauseForUpgradeRevertOnlyOwner() public {
         _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
         vm.expectRevert(ITeeReplicationFacet.OnlyMachineOwner.selector);
         flareTeeManager.toPauseForUpgrade(teeId, address(0));
     }
-
 
     function testToPauseForUpgradeRevertInvalidTeeStatus() public {
         _registerTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
@@ -266,7 +263,6 @@ contract TeeReplicationFacetTest is Test {
         flareTeeManager.toPauseForUpgrade{value: 100}(teeId, address(0));
         vm.stopPrank();
     }
-
 
     function testToPauseForUpgradeRevertTooSoon() public {
         _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
@@ -278,7 +274,6 @@ contract TeeReplicationFacetTest is Test {
         vm.expectRevert(ITeeReplicationFacet.TooSoon.selector);
         flareTeeManager.toPauseForUpgrade{value: 100}(teeId, address(0));
     }
-
 
     function testToPauseForUpgrade() public {
         _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
@@ -304,7 +299,6 @@ contract TeeReplicationFacetTest is Test {
         emit ITeeReplicationFacet.TeeMachinePausedForUpgrade(teeId);
         flareTeeManager.toPauseForUpgrade{value: 100}(teeId, claimBack);
     }
-
 
     // replicateFrom
     function testReplicateFromRevertOnlyMachineOwner() public {
@@ -339,7 +333,6 @@ contract TeeReplicationFacetTest is Test {
         ITeeMachineRegistryFacet.TeeStatus newStatus = flareTeeManager.getTeeMachineStatus(newTeeId);
         assertEq(uint256(newStatus), uint256(ITeeMachineRegistryFacet.TeeStatus.REPLICATING));
     }
-
 
     function testReplicateFromRevertExtensionMismatch() public {
         _setupForReplication();
@@ -380,7 +373,6 @@ contract TeeReplicationFacetTest is Test {
         flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
     }
 
-
     function testReplicateFromRevertVersionNotSupported() public {
         _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
         vm.prank(owner);
@@ -410,7 +402,6 @@ contract TeeReplicationFacetTest is Test {
         vm.expectRevert(ITeeCommonErrors.VersionNotSupported.selector);
         flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
     }
-
 
     function testReplicateFromRevertInvalidUpgradePath() public {
         _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
@@ -456,7 +447,6 @@ contract TeeReplicationFacetTest is Test {
         flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
     }
 
-
     function testReplicateFromRevertTeeUpgradeNotSigned() public {
         _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
         vm.prank(owner);
@@ -485,7 +475,6 @@ contract TeeReplicationFacetTest is Test {
         flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
     }
 
-
     function testReplicateFromRevertInvalidAvailabilityCheckStatus() public {
         _setupForReplication();
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(
@@ -496,7 +485,6 @@ contract TeeReplicationFacetTest is Test {
         vm.expectRevert(ITeeCommonErrors.InvalidAvailabilityCheckStatus.selector);
         flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
     }
-
 
     function testReplicateFromRevertAvailabilityCheckTimestampInvalid() public {
         _setupForReplication();
@@ -526,7 +514,6 @@ contract TeeReplicationFacetTest is Test {
         flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
     }
 
-
     function testReplicateFrom() public {
         _setupForReplication();
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(
@@ -554,7 +541,6 @@ contract TeeReplicationFacetTest is Test {
         flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, claimBack);
     }
 
-
     // confirmReplicate
     function testConfirmReplicateRevertOnlyMachineOwner() public {
         _setupForReplication();
@@ -565,7 +551,6 @@ contract TeeReplicationFacetTest is Test {
         flareTeeManager.confirmReplicate(newTeeId, proof);
     }
 
-
     function testConfirmReplicateRevertReplicationNotValid() public {
         _setupForReplication();
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(
@@ -575,7 +560,6 @@ contract TeeReplicationFacetTest is Test {
         vm.expectRevert(ITeeReplicationFacet.ReplicationNotValid.selector);
         flareTeeManager.confirmReplicate(newTeeId, proof);
     }
-
 
     function testConfirmReplicate() public {
         testReplicateFrom();
@@ -602,13 +586,11 @@ contract TeeReplicationFacetTest is Test {
         flareTeeManager.confirmReplicate(newTeeId, proof);
     }
 
-
     // setPauseBeforeUpgradeMinDurationSeconds
     function testSetPauseBeforeUpgradeMinDurationSecondsRevertOnlyGovernance() public {
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         flareTeeManager.setPauseBeforeUpgradeMinDurationSeconds(1 days);
     }
-
 
     function testSetPauseBeforeUpgradeMinDurationSecondsRevertInvalidDuration1() public {
         vm.prank(initialGovernance);
@@ -622,7 +604,6 @@ contract TeeReplicationFacetTest is Test {
         flareTeeManager.setPauseBeforeUpgradeMinDurationSeconds(1);
     }
 
-
     function testSetPauseBeforeUpgradeMinDurationSeconds() public {
         vm.expectEmit();
         emit ITeeReplicationFacet.PauseBeforeUpgradeMinDurationSecondsSet(1 days);
@@ -630,13 +611,11 @@ contract TeeReplicationFacetTest is Test {
         flareTeeManager.setPauseBeforeUpgradeMinDurationSeconds(1 days);
     }
 
-
     // getReplicatingTeeId
     function testGetReplicatingTeeId() public {
         testReplicateFrom();
         assertEq(flareTeeManager.getReplicatingTeeId(teeId), newTeeId);
     }
-
 
     // =========================================================================
     // Helper functions
@@ -799,7 +778,10 @@ contract TeeReplicationFacetTest is Test {
         _addUpgradePaths(0);
         vm.prank(extensionOwner);
         flareTeeManager.finalizeTeeUpgrade(0);
-        _signTeeUpgrade(0, governanceSigners, governanceSignersThreshold, governanceSigners, governanceSignersThreshold);
+        _signTeeUpgrade(
+            0, governanceSigners, governanceSignersThreshold,
+            governanceSigners, governanceSignersThreshold
+        );
     }
 
     function _addUpgradePaths(uint256 _upgradeId) private {

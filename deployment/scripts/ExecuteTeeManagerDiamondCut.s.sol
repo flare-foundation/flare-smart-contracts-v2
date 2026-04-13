@@ -226,39 +226,6 @@ contract ExecuteTeeManagerDiamondCut is Script {
         }
     }
 
-    function _logCutData(
-        address _diamond,
-        IDiamond.FacetCut[] memory _cuts,
-        address _initAddr,
-        bytes memory _initData
-    )
-        internal view
-    {
-        console2.log("---- DIAMOND CUT DATA: ----");
-        console2.log("diamond address:", _diamond);
-        console2.log("number of cuts:", _cuts.length);
-        for (uint256 i = 0; i < _cuts.length; i++) {
-            console2.log(string(abi.encodePacked("cuts[", vm.toString(i), "]:")));
-            console2.log("  facetAddress:", _cuts[i].facetAddress);
-            console2.log("  action:", _actionName(_cuts[i].action));
-            console2.log("  functionSelectors:");
-            for (uint256 j = 0; j < _cuts[i].functionSelectors.length; j++) {
-                console2.log(string(
-                    abi.encodePacked(
-                        "    [", vm.toString(j), "]: 0x", _toHex(_cuts[i].functionSelectors[j])
-                    )
-                ));
-            }
-        }
-        console2.log("init data:");
-        console2.log("  init address:", _initAddr);
-        console2.log(string(abi.encodePacked("  init calldata: 0x", _toHexBytes(_initData))));
-        bytes memory callData = abi.encodeWithSelector(
-            IDiamondCut.diamondCut.selector, _cuts, _initAddr, _initData
-        );
-        console2.log(string(abi.encodePacked("diamondCut calldata: 0x", _toHexBytes(callData))));
-    }
-
     function _writeOutputFiles(
         bytes memory _out
     )
@@ -370,6 +337,39 @@ contract ExecuteTeeManagerDiamondCut is Script {
         revert("unlinked or missing artifact and no fallback");
     }
 
+    function _logCutData(
+        address _diamond,
+        IDiamond.FacetCut[] memory _cuts,
+        address _initAddr,
+        bytes memory _initData
+    )
+        internal view
+    {
+        console2.log("---- DIAMOND CUT DATA: ----");
+        console2.log("diamond address:", _diamond);
+        console2.log("number of cuts:", _cuts.length);
+        for (uint256 i = 0; i < _cuts.length; i++) {
+            console2.log(string(abi.encodePacked("cuts[", vm.toString(i), "]:")));
+            console2.log("  facetAddress:", _cuts[i].facetAddress);
+            console2.log("  action:", _actionName(_cuts[i].action));
+            console2.log("  functionSelectors:");
+            for (uint256 j = 0; j < _cuts[i].functionSelectors.length; j++) {
+                console2.log(string(
+                    abi.encodePacked(
+                        "    [", vm.toString(j), "]: 0x", _toHex(_cuts[i].functionSelectors[j])
+                    )
+                ));
+            }
+        }
+        console2.log("init data:");
+        console2.log("  init address:", _initAddr);
+        console2.log(string(abi.encodePacked("  init calldata: 0x", _toHexBytes(_initData))));
+        bytes memory callData = abi.encodeWithSelector(
+            IDiamondCut.diamondCut.selector, _cuts, _initAddr, _initData
+        );
+        console2.log(string(abi.encodePacked("diamondCut calldata: 0x", _toHexBytes(callData))));
+    }
+
     function _deployedCodeMatches(
         address _addr,
         string memory _artifactPath
@@ -448,7 +448,12 @@ contract ExecuteTeeManagerDiamondCut is Script {
         return keccak256(bytes(_a)) == keccak256(bytes(_b));
     }
 
-    function _toHex(bytes4 _selector) internal pure returns (string memory) {
+    function _toHex(
+        bytes4 _selector
+    )
+        internal pure
+        returns (string memory)
+    {
         bytes memory b = abi.encodePacked(_selector);
         bytes memory hexChars = "0123456789abcdef";
         bytes memory str = new bytes(8);
@@ -459,7 +464,12 @@ contract ExecuteTeeManagerDiamondCut is Script {
         return string(str);
     }
 
-    function _toHexBytes(bytes memory _data) internal pure returns (string memory) {
+    function _toHexBytes(
+        bytes memory _data
+    )
+        internal pure
+        returns (string memory)
+    {
         bytes memory hexChars = "0123456789abcdef";
         bytes memory str = new bytes(_data.length * 2);
         for (uint256 i = 0; i < _data.length; i++) {

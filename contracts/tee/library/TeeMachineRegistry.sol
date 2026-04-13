@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { ITeeMachineRegistryFacet, REG_OP_TYPE } from "../../userInterfaces/tee/ITeeMachineRegistryFacet.sol";
+import { ITeeMachineRegistryFacet } from "../../userInterfaces/tee/ITeeMachineRegistryFacet.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";

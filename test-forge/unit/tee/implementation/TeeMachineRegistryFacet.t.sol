@@ -2,21 +2,18 @@
 pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
-import { VmSafe } from "forge-std/Vm.sol";
 
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { ITeeMachineRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
-import { ITeeExtensionRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
-import { ITeeOwnerAllowlistFacet } from "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlistFacet.sol";
-import { ITeeGovernanceFacet } from "../../../../contracts/userInterfaces/tee/ITeeGovernanceFacet.sol";
-import { ITeeReplicationFacet } from "../../../../contracts/userInterfaces/tee/ITeeReplicationFacet.sol";
-import { ITeeVerificationFacet, TEE_SOURCE_ID } from "../../../../contracts/userInterfaces/tee/ITeeVerificationFacet.sol";
-import { ITeeSystemStateVerifierFacet } from "../../../../contracts/userInterfaces/tee/ITeeSystemStateVerifierFacet.sol";
-import { ITeeVersionManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeVersionManagerFacet.sol";
+import {
+    TEE_SOURCE_ID
+} from "../../../../contracts/userInterfaces/tee/ITeeVerificationFacet.sol";
+import {
+    ITeeSystemStateVerifierFacet
+} from "../../../../contracts/userInterfaces/tee/ITeeSystemStateVerifierFacet.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
-import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 
 import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
@@ -27,7 +24,6 @@ import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
-import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
@@ -264,7 +260,6 @@ contract TeeMachineRegistryFacetTest is Test {
         vm.warp(block.timestamp + 1000);
     }
 
-
     // =========================================================================
     // register
     // =========================================================================
@@ -277,14 +272,12 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
     }
 
-
     function testRegisterRevertInvalidTeePublicKey() public {
         teeMachineData.publicKey = PublicKey(0, 0);
         vm.prank(owner);
         vm.expectRevert(ITeeMachineRegistryFacet.InvalidTeePublicKey.selector);
         flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
     }
-
 
     function testRegisterRevertInvalidTeePublicKeyOrSignature() public {
         teeMachineData.publicKey = PublicKeyHelper.getRandomPublicKey(vm);
@@ -293,20 +286,17 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
     }
 
-
     function testRegisterRevertInvalidTeeProxyId() public {
         vm.prank(owner);
         vm.expectRevert(ITeeMachineRegistryFacet.InvalidTeeProxyId.selector);
         flareTeeManager.register(teeMachineData, teeMachineDataSignature, address(0), url, address(0));
     }
 
-
     function testRegisterRevertInvalidUrl() public {
         vm.prank(owner);
         vm.expectRevert(ITeeMachineRegistryFacet.InvalidUrl.selector);
         flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, "", address(0));
     }
-
 
     function testRegisterRevertAlreadyRegistered() public {
         vm.startPrank(owner);
@@ -315,7 +305,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
         vm.stopPrank();
     }
-
 
     function testRegisterRevertVersionNotSupported() public {
         // Create machine data with unsupported code hash
@@ -330,15 +319,15 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
     }
 
-
     function testRegister() public {
         vm.prank(owner);
         vm.expectEmit();
-        emit ITeeMachineRegistryFacet.TeeMachineRegistered(teeId, teeProxyId, owner, extensionId, url, codeHash, platform);
+        emit ITeeMachineRegistryFacet.TeeMachineRegistered(
+            teeId, teeProxyId, owner, extensionId, url, codeHash, platform
+        );
         flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
         registerTimestamps[teeId] = block.timestamp;
     }
-
 
     // =========================================================================
     // toProduction
@@ -351,7 +340,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.toProduction(proof);
     }
 
-
     function testToProductionRevertInvalidTeeStatus() public {
         testToProduction();
         ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(teeId, teeProxyId, url);
@@ -359,7 +347,6 @@ contract TeeMachineRegistryFacetTest is Test {
         vm.expectRevert(ITeeMachineRegistryFacet.InvalidTeeStatus.selector);
         flareTeeManager.toProduction(proof);
     }
-
 
     function testToProductionRevertVersionNotSupported() public {
         testRegister();
@@ -372,7 +359,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.toProduction(proof);
     }
 
-
     function testToProductionRevertInvalidAvailabilityCheckStatus() public {
         testRegister();
         ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(teeId, teeProxyId, url);
@@ -382,7 +368,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.toProduction(proof);
     }
 
-
     function testToProductionRevertAvailabilityCheckTimestampInvalid() public {
         testRegister();
         ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(teeId, teeProxyId, url);
@@ -391,7 +376,6 @@ contract TeeMachineRegistryFacetTest is Test {
         vm.expectRevert(ITeeCommonErrors.AvailabilityCheckTimestampInvalid.selector);
         flareTeeManager.toProduction(proof);
     }
-
 
     function testToProductionRevertInvalidResponseData() public {
         testRegister();
@@ -405,12 +389,10 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.toProduction(proof);
     }
 
-
     function testToProduction() public {
         testRegister();
         _changeStateToProduction();
     }
-
 
     // =========================================================================
     // pause
@@ -422,7 +404,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.pause(teeId);
     }
 
-
     function testPause() public {
         testToProduction();
         vm.prank(owner);
@@ -431,7 +412,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.pause(teeId);
     }
 
-
     function testPauseFromPausedWithProof() public {
         testPauseWithProof();
         vm.prank(owner);
@@ -439,7 +419,6 @@ contract TeeMachineRegistryFacetTest is Test {
         emit ITeeMachineRegistryFacet.TeeMachineStatusChanged(teeId, ITeeMachineRegistryFacet.TeeStatus.PAUSED);
         flareTeeManager.pause(teeId);
     }
-
 
     function testPauseAfterExpiredAvailabilityCheck() public {
         testToProduction();
@@ -450,7 +429,6 @@ contract TeeMachineRegistryFacetTest is Test {
         emit ITeeMachineRegistryFacet.TeeMachineStatusChanged(teeId, ITeeMachineRegistryFacet.TeeStatus.SUSPENDED);
         flareTeeManager.pause(teeId);
     }
-
 
     function testPauseWhenCodeHashPlatformDisabled() public {
         testToProduction();
@@ -463,12 +441,10 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.pause(teeId);
     }
 
-
     function testPauseRevertInvalidTeeStatus() public {
         vm.expectRevert(ITeeMachineRegistryFacet.TeeNotFound.selector);
         flareTeeManager.pause(teeId);
     }
-
 
     function testPauseRevertInvalidTeeStatus2() public {
         testPause();
@@ -476,7 +452,6 @@ contract TeeMachineRegistryFacetTest is Test {
         vm.prank(owner);
         flareTeeManager.pause(teeId);
     }
-
 
     // =========================================================================
     // pauseWithProof
@@ -489,7 +464,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.pauseWithProof(proof);
     }
 
-
     function testPauseWithProofRevertInvalidResponseDataOrAvailabilityCheckStatus() public {
         testToProduction();
         ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(teeId, teeProxyId, url);
@@ -500,7 +474,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.pauseWithProof(proof);
     }
 
-
     function testPauseWithProofRevertAvailabilityCheckTimestampInvalid() public {
         testToProduction();
         ITeeAvailabilityCheck.Proof memory proof = _createValidAvailabilityCheckProof(teeId, teeProxyId, url);
@@ -508,7 +481,6 @@ contract TeeMachineRegistryFacetTest is Test {
         vm.expectRevert(ITeeCommonErrors.AvailabilityCheckTimestampInvalid.selector);
         flareTeeManager.pauseWithProof(proof);
     }
-
 
     function testPauseWithProof() public {
         testToProduction();
@@ -522,7 +494,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.pauseWithProof(proof);
     }
 
-
     // =========================================================================
     // ban / unban
     // =========================================================================
@@ -533,7 +504,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.ban(teeId);
     }
 
-
     function testBan() public {
         testToProduction();
         vm.prank(extensionOwner);
@@ -542,7 +512,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.ban(teeId);
     }
 
-
     function testBanRevertInvalidTeeStatus() public {
         testRegister();
         vm.prank(extensionOwner);
@@ -550,13 +519,11 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.ban(teeId);
     }
 
-
     function testUnbanRevertOnlyExtensionOwner() public {
         testBan();
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
         flareTeeManager.unban(teeId);
     }
-
 
     function testUnban() public {
         testBan();
@@ -566,14 +533,12 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.unban(teeId);
     }
 
-
     function testUnbanRevertInvalidTeeStatus() public {
         testToProduction();
         vm.prank(extensionOwner);
         vm.expectRevert(ITeeMachineRegistryFacet.InvalidTeeStatus.selector);
         flareTeeManager.unban(teeId);
     }
-
 
     // =========================================================================
     // proposeNewOwner
@@ -584,7 +549,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.proposeNewOwner(teeId, address(0));
     }
 
-
     function testProposeNewOwnerRevertOwnerNotAllowed() public {
         testRegister();
         address notAllowed = makeAddr("notAllowed");
@@ -593,7 +557,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.proposeNewOwner(teeId, notAllowed);
     }
 
-
     function testProposeNewOwner() public {
         testRegister();
         vm.prank(owner);
@@ -601,7 +564,6 @@ contract TeeMachineRegistryFacetTest is Test {
         emit ITeeMachineRegistryFacet.NewOwnerProposed(teeId, owner, invalidOwner);
         flareTeeManager.proposeNewOwner(teeId, invalidOwner);
     }
-
 
     // =========================================================================
     // confirmOwnership
@@ -619,14 +581,12 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.confirmOwnership(teeId);
     }
 
-
     function testConfirmOwnershipRevertOnlyProposedOwner() public {
         testProposeNewOwner();
         vm.prank(owner);
         vm.expectRevert(ITeeCommonErrors.OnlyProposedOwner.selector);
         flareTeeManager.confirmOwnership(teeId);
     }
-
 
     function testConfirmOwnership() public {
         testProposeNewOwner();
@@ -635,7 +595,6 @@ contract TeeMachineRegistryFacetTest is Test {
         emit ITeeMachineRegistryFacet.NewOwnerConfirmed(teeId, invalidOwner);
         flareTeeManager.confirmOwnership(teeId);
     }
-
 
     // =========================================================================
     // updateTeeMachineSettings
@@ -646,7 +605,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.updateTeeMachineSettings(teeId, address(0), "newUrl");
     }
 
-
     function testUpdateTeeMachineSettingsRevertInvalidTeeProxyId() public {
         testRegister();
         vm.expectRevert(ITeeMachineRegistryFacet.InvalidTeeProxyId.selector);
@@ -654,14 +612,12 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.updateTeeMachineSettings(teeId, address(0), "newUrl");
     }
 
-
     function testUpdateTeeMachineSettingsRevertInvalidUrl() public {
         testRegister();
         vm.expectRevert(ITeeMachineRegistryFacet.InvalidUrl.selector);
         vm.prank(owner);
         flareTeeManager.updateTeeMachineSettings(teeId, makeAddr("newTeeProxyId"), "");
     }
-
 
     function testUpdateTeeMachineSettings() public {
         address newTeeProxyIdLocal = makeAddr("newTeeProxyId");
@@ -680,7 +636,6 @@ contract TeeMachineRegistryFacetTest is Test {
         assert(status == ITeeMachineRegistryFacet.TeeStatus.INITIALIZED);
     }
 
-
     function testUpdateTeeMachineSettingsAndPause() public {
         address newTeeProxyIdLocal = makeAddr("newTeeProxyId");
         string memory newUrl = "newUrl";
@@ -697,7 +652,6 @@ contract TeeMachineRegistryFacetTest is Test {
         ITeeMachineRegistryFacet.TeeStatus status = flareTeeManager.getTeeMachineStatus(teeId);
         assert(status == ITeeMachineRegistryFacet.TeeStatus.PAUSED);
     }
-
 
     function testUpdateTeeMachineSettingsAndPause2() public {
         address newTeeProxyIdLocal = makeAddr("newTeeProxyId");
@@ -716,7 +670,6 @@ contract TeeMachineRegistryFacetTest is Test {
         assert(status == ITeeMachineRegistryFacet.TeeStatus.PAUSED);
     }
 
-
     // =========================================================================
     // getTeeMachineStatus
     // =========================================================================
@@ -726,14 +679,12 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.getTeeMachineStatus(teeId);
     }
 
-
     function testGetTeeMachineStatus() public {
         testRegister();
         assertTrue(flareTeeManager.getTeeMachineStatus(teeId) == ITeeMachineRegistryFacet.TeeStatus.INITIALIZED);
         _changeStateToProduction();
         assertTrue(flareTeeManager.getTeeMachineStatus(teeId) == ITeeMachineRegistryFacet.TeeStatus.PRODUCTION);
     }
-
 
     // =========================================================================
     // getTeeMachineOwner
@@ -744,12 +695,10 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.getTeeMachineOwner(teeId);
     }
 
-
     function testGetTeeMachineOwner() public {
         testRegister();
         assertEq(flareTeeManager.getTeeMachineOwner(teeId), owner);
     }
-
 
     // =========================================================================
     // getInitialSigningPolicyId
@@ -760,12 +709,10 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.getInitialSigningPolicyId(teeId);
     }
 
-
     function testGetInitialSigningPolicyId() public {
         testRegister();
         assertEq(flareTeeManager.getInitialSigningPolicyId(teeId), 0);
     }
-
 
     // =========================================================================
     // getTeeMachine
@@ -776,7 +723,6 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.getTeeMachine(teeId);
     }
 
-
     function testGetTeeMachine() public {
         testRegister();
         ITeeMachineRegistryFacet.TeeMachine memory teeMachine = flareTeeManager.getTeeMachine(teeId);
@@ -784,7 +730,6 @@ contract TeeMachineRegistryFacetTest is Test {
         assertEq(teeMachine.teeProxyId, teeProxyId);
         assertEq(teeMachine.url, url);
     }
-
 
     // =========================================================================
     // getTeeMachineWithAttestationData
@@ -794,7 +739,6 @@ contract TeeMachineRegistryFacetTest is Test {
         vm.expectRevert(ITeeMachineRegistryFacet.TeeNotFound.selector);
         flareTeeManager.getTeeMachineWithAttestationData(teeId);
     }
-
 
     function testGetTeeMachineWithAttestationData() public {
         testRegister();
@@ -807,7 +751,6 @@ contract TeeMachineRegistryFacetTest is Test {
         assertEq(teeMachineAttData.platform, platform);
     }
 
-
     // =========================================================================
     // getRandomTeeIds
     // =========================================================================
@@ -816,7 +759,6 @@ contract TeeMachineRegistryFacetTest is Test {
         vm.expectRevert(ITeeMachineRegistryFacet.TooMany.selector);
         flareTeeManager.getRandomTeeIds(extensionId, 1);
     }
-
 
     function testGetRandomTeeIds() public {
         testToProduction();
@@ -830,7 +772,6 @@ contract TeeMachineRegistryFacetTest is Test {
         assertEq(teeIds.length, 1);
         assertTrue(teeIds[0] == teeId || teeIds[0] == newTeeId);
     }
-
 
     // =========================================================================
     // getAllActiveTeeMachines
@@ -852,7 +793,6 @@ contract TeeMachineRegistryFacetTest is Test {
         assertEq(totalLength, 1);
     }
 
-
     // =========================================================================
     // getActiveTeeMachines
     // =========================================================================
@@ -870,7 +810,6 @@ contract TeeMachineRegistryFacetTest is Test {
         assertEq(urls[0], url);
     }
 
-
     // =========================================================================
     // getExtensionId
     // =========================================================================
@@ -880,12 +819,10 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.getExtensionId(teeId);
     }
 
-
     function testGetExtensionId() public {
         testRegister();
         assertEq(flareTeeManager.getExtensionId(teeId), extensionId);
     }
-
 
     // =========================================================================
     // getLastStatusChangeTs
@@ -896,12 +833,10 @@ contract TeeMachineRegistryFacetTest is Test {
         flareTeeManager.getLastStatusChangeTs(teeId);
     }
 
-
     function testGetLastStatusChangeTs() public {
         testRegister();
         assertEq(flareTeeManager.getLastStatusChangeTs(teeId), block.timestamp);
     }
-
 
     // =========================================================================
     // Internal helpers

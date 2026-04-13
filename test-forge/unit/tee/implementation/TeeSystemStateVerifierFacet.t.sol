@@ -8,13 +8,11 @@ import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.
 import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
 
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { ITeeSystemStateVerifierFacet } from "../../../../contracts/userInterfaces/tee/ITeeSystemStateVerifierFacet.sol";
+import {
+    ITeeSystemStateVerifierFacet
+} from "../../../../contracts/userInterfaces/tee/ITeeSystemStateVerifierFacet.sol";
 import { ITeeMachineRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
-import { ITeeExtensionRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
-import { ITeeGovernanceFacet } from "../../../../contracts/userInterfaces/tee/ITeeGovernanceFacet.sol";
-import { ITeeOwnerAllowlistFacet } from "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlistFacet.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
-import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
@@ -24,6 +22,7 @@ import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewa
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 
+// solhint-disable-next-line max-states-count
 contract TeeSystemStateVerifierFacetTest is Test {
 
     IIFlareTeeManager private flareTeeManager;
@@ -194,7 +193,6 @@ contract TeeSystemStateVerifierFacetTest is Test {
         teeSystemState.teeGovernanceHash = teeGovernanceHash;
     }
 
-
     // verifyTeeSystemState
     function testVerifyTeeSystemStateNotValid1() public {
         teeSystemState.status = ITeeSystemStateVerifierFacet.TeeMachineStatus.PAUSED;
@@ -219,7 +217,6 @@ contract TeeSystemStateVerifierFacetTest is Test {
         );
         assertFalse(isValid);
     }
-
 
     function testVerifyTeeSystemStateReturnStateVersion() public {
         assertNotEq(teeGovernanceHash, bytes32(0));
@@ -284,14 +281,12 @@ contract TeeSystemStateVerifierFacetTest is Test {
         assertFalse(isValid);
     }
 
-
     function testVerifyTeeSystemStateRevertEvmError() public {
         vm.expectRevert();
         flareTeeManager.verifyTeeSystemState(
             teeId, stateVersion, new bytes(0)
         );
     }
-
 
     function testVerifyTeeSystemState() public {
         bool isValid = flareTeeManager.verifyTeeSystemState(

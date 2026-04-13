@@ -78,6 +78,7 @@ import {VrfVerifier} from "../../contracts/tee/lib/VrfVerifier.sol";
 // solhint-disable-next-line max-line-length
 // forge script deployment/scripts/DeployTeeContracts.s.sol:DeployTeeContracts --private-key $DEPLOYER_PRIVATE_KEY --rpc-url $COSTON2_RPC_URL --broadcast --sig "run(bool)" true
 
+// solhint-disable max-states-count
 contract DeployTeeContracts is Script {
     using stdJson for string;
 
@@ -218,23 +219,6 @@ contract DeployTeeContracts is Script {
     }
 
     // =========================================================================
-    // Network resolution
-    // =========================================================================
-
-    function _resolveNetwork()
-        internal
-        view
-        returns (string memory)
-    {
-        uint256 chainId = block.chainid;
-        if (chainId == 14) return "flare";
-        if (chainId == 19) return "songbird";
-        if (chainId == 16) return "coston";
-        if (chainId == 114) return "coston2";
-        return "scdev";
-    }
-
-    // =========================================================================
     // Read pre-deployed addresses
     // =========================================================================
 
@@ -288,14 +272,6 @@ contract DeployTeeContracts is Script {
             _findDeployedAddress(contracts, "Relay");
         rewardManager =
             _findDeployedAddress(contracts, "RewardManager");
-    }
-
-    function _isScdev(string memory _network)
-        internal
-        pure
-        returns (bool)
-    {
-        return keccak256(bytes(_network)) == keccak256(bytes("scdev"));
     }
 
     // =========================================================================
@@ -913,19 +889,6 @@ contract DeployTeeContracts is Script {
             .switchToProductionMode();
     }
 
-    // =========================================================================
-    // Contract name encoding (matches TS: keccak256(abi.encode(name)))
-    // =========================================================================
-
-    function _encodeContractName(
-        string memory _name
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_name));
-    }
 
     // =========================================================================
     // Logging (format matches save-deployed-addresses.ts parser)
@@ -936,8 +899,7 @@ contract DeployTeeContracts is Script {
         string memory _contractName,
         address _addr
     )
-        internal
-        view
+        internal view
     {
         console2.log(
             string.concat(
@@ -1044,6 +1006,34 @@ contract DeployTeeContracts is Script {
     }
 
     // =========================================================================
+    // Network resolution
+    // =========================================================================
+    function _resolveNetwork()
+        internal view
+        returns (string memory)
+    {
+        uint256 chainId = block.chainid;
+        if (chainId == 14) return "flare";
+        if (chainId == 19) return "songbird";
+        if (chainId == 16) return "coston";
+        if (chainId == 114) return "coston2";
+        return "scdev";
+    }
+
+    // =========================================================================
+    // Contract name encoding (matches TS: keccak256(abi.encode(name)))
+    // =========================================================================
+
+    function _encodeContractName(
+        string memory _name
+    )
+        internal pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_name));
+    }
+
+    // =========================================================================
     // Deploys file reader
     // =========================================================================
 
@@ -1061,5 +1051,17 @@ contract DeployTeeContracts is Script {
             }
         }
         return address(0);
+    }
+
+    // =========================================================================
+    // Network check for scdev (used to determine where to read pre-deployed addresses from)
+    // =========================================================================
+
+    function _isScdev(string memory _network)
+        internal
+        pure
+        returns (bool)
+    {
+        return keccak256(bytes(_network)) == keccak256(bytes("scdev"));
     }
 }

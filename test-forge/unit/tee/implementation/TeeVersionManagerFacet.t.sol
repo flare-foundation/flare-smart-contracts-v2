@@ -5,10 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { ITeeVersionManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeVersionManagerFacet.sol";
-import { ITeeExtensionRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
-import { ITeeGovernanceFacet } from "../../../../contracts/userInterfaces/tee/ITeeGovernanceFacet.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
-import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
@@ -123,13 +120,11 @@ contract TeeVersionManagerFacetTest is Test {
         flareTeeManager.addTeeVersion(extensionId, "v2.0.0", targetCodeHash, targetPlatforms, targetTeeGovernanceHash);
     }
 
-
     // createNewTeeUpgrade
     function testCreateNewTeeUpgradeRevertOnlyExtensionOwner() public {
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
         flareTeeManager.createNewTeeUpgrade(extensionId, sourceTeeGovernanceHash, targetTeeGovernanceHash);
     }
-
 
     function testCreateNewTeeUpgradeRevertInvalidFromGovernanceHash() public {
         vm.prank(owner);
@@ -137,13 +132,11 @@ contract TeeVersionManagerFacetTest is Test {
         flareTeeManager.createNewTeeUpgrade(extensionId, keccak256("invalidHash"), targetTeeGovernanceHash);
     }
 
-
     function testCreateNewTeeUpgradeRevertInvalidToGovernanceHash() public {
         vm.prank(owner);
         vm.expectRevert(ITeeVersionManagerFacet.InvalidToGovernanceHash.selector);
         flareTeeManager.createNewTeeUpgrade(extensionId, sourceTeeGovernanceHash, keccak256("invalidHash"));
     }
-
 
     function testCreateNewTeeUpgrade() public {
         vm.prank(owner);
@@ -160,14 +153,12 @@ contract TeeVersionManagerFacetTest is Test {
         );
     }
 
-
     // addTeeUpgradePaths
     function testAddTeeUpgradePathsRevertInvalidUpgradeId() public {
         ITeeVersionManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
         vm.expectRevert(ITeeVersionManagerFacet.InvalidUpgradeId.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
-
 
     function testAddTeeUpgradePathsRevertOnlyExtensionOwner() public {
         testCreateNewTeeUpgrade();
@@ -176,7 +167,6 @@ contract TeeVersionManagerFacetTest is Test {
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
-
     function testAddTeeUpgradePathsRevertUpgradeAlreadyFinalized() public {
         testFinalizeTeeUpgrade();
         ITeeVersionManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
@@ -184,7 +174,6 @@ contract TeeVersionManagerFacetTest is Test {
         vm.expectRevert(ITeeVersionManagerFacet.UpgradeAlreadyFinalized.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
-
 
     function testAddTeeUpgradePathsRevertNoUpgradePaths() public {
         testCreateNewTeeUpgrade();
@@ -195,7 +184,6 @@ contract TeeVersionManagerFacetTest is Test {
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
-
     function testAddTeeUpgradePathsRevertNoSourceVersions() public {
         testCreateNewTeeUpgrade();
         ITeeVersionManagerFacet.TeeUpgradePath[] memory upgradePaths =
@@ -204,7 +192,6 @@ contract TeeVersionManagerFacetTest is Test {
         vm.expectRevert(ITeeVersionManagerFacet.NoSourceVersions.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
-
 
     function testAddTeeUpgradePathsRevertNoTargetVersions() public {
         testCreateNewTeeUpgrade();
@@ -215,7 +202,6 @@ contract TeeVersionManagerFacetTest is Test {
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
-
     function testAddTeeUpgradePathsRevertSourceCodeHashAndPlatformNotSupported() public {
         testCreateNewTeeUpgrade();
         ITeeVersionManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
@@ -225,14 +211,15 @@ contract TeeVersionManagerFacetTest is Test {
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
-
     function testAddTeeUpgradePathsRevertSourceGovernanceHashMismatch() public {
         // Register a new code hash with the target governance hash, then use it as source
         bytes32 mismatchCodeHash = keccak256("mismatchCodeHash");
         bytes32[] memory mismatchPlatforms = new bytes32[](1);
         mismatchPlatforms[0] = sourcePlatform;
         vm.prank(owner);
-        flareTeeManager.addTeeVersion(extensionId, "v3.0.0", mismatchCodeHash, mismatchPlatforms, targetTeeGovernanceHash);
+        flareTeeManager.addTeeVersion(
+            extensionId, "v3.0.0", mismatchCodeHash, mismatchPlatforms, targetTeeGovernanceHash
+        );
 
         testCreateNewTeeUpgrade();
         ITeeVersionManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
@@ -241,7 +228,6 @@ contract TeeVersionManagerFacetTest is Test {
         vm.expectRevert(ITeeVersionManagerFacet.SourceGovernanceHashMismatch.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
-
 
     function testAddTeeUpgradePathsRevertSourceVersionAlreadyExists() public {
         testAddTeeUpgradePaths();
@@ -273,7 +259,6 @@ contract TeeVersionManagerFacetTest is Test {
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
-
     function testAddTeeUpgradePathsRevertTargetCodeHashAndPlatformNotSupported() public {
         testCreateNewTeeUpgrade();
         ITeeVersionManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
@@ -282,7 +267,6 @@ contract TeeVersionManagerFacetTest is Test {
         vm.expectRevert(ITeeVersionManagerFacet.TargetCodeHashAndPlatformNotSupported.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
-
 
     function testAddTeeUpgradePathsRevertTargetGovernanceHashMismatch() public {
         // Register a new code hash with the source governance hash, then use it as target
@@ -294,7 +278,9 @@ contract TeeVersionManagerFacetTest is Test {
         bytes32[] memory mismatchPlatforms = new bytes32[](1);
         mismatchPlatforms[0] = targetPlatform;
         vm.prank(owner);
-        flareTeeManager.addTeeVersion(extensionId, "v4.0.0", mismatchCodeHash, mismatchPlatforms, sourceTeeGovernanceHash);
+        flareTeeManager.addTeeVersion(
+            extensionId, "v4.0.0", mismatchCodeHash, mismatchPlatforms, sourceTeeGovernanceHash
+        );
 
         // Switch governance back to target
         vm.prank(owner);
@@ -317,20 +303,17 @@ contract TeeVersionManagerFacetTest is Test {
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
-
     // finalizeTeeUpgrade
     function testFinalizeTeeUpgradeRevertInvalidUpgradeId() public {
         vm.expectRevert(ITeeVersionManagerFacet.InvalidUpgradeId.selector);
         flareTeeManager.finalizeTeeUpgrade(teeUpgradeId);
     }
 
-
     function testFinalizeTeeUpgradeRevertOnlyExtensionOwner() public {
         testCreateNewTeeUpgrade();
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
         flareTeeManager.finalizeTeeUpgrade(teeUpgradeId);
     }
-
 
     function testFinalizeTeeUpgradeRevertUpgradeAlreadyFinalized() public {
         testFinalizeTeeUpgrade();
@@ -339,14 +322,12 @@ contract TeeVersionManagerFacetTest is Test {
         flareTeeManager.finalizeTeeUpgrade(teeUpgradeId);
     }
 
-
     function testFinalizeTeeUpgradeRevertNoUpgradePaths() public {
         testCreateNewTeeUpgrade();
         vm.prank(owner);
         vm.expectRevert(ITeeVersionManagerFacet.NoUpgradePaths.selector);
         flareTeeManager.finalizeTeeUpgrade(teeUpgradeId);
     }
-
 
     function testFinalizeTeeUpgrade() public {
         testAddTeeUpgradePaths();
@@ -356,14 +337,12 @@ contract TeeVersionManagerFacetTest is Test {
         flareTeeManager.finalizeTeeUpgrade(teeUpgradeId);
     }
 
-
     // signTeeUpgrade
     function testSignTeeUpgradeRevertInvalidUpgradeId() public {
         Signature memory signature = _createSourceSignature();
         vm.expectRevert(ITeeVersionManagerFacet.InvalidUpgradeId.selector);
         flareTeeManager.signTeeUpgrade(teeUpgradeId, signature);
     }
-
 
     function testSignTeeUpgradeRevertUpgradeAlreadySigned() public {
         testSignTeeUpgrade();
@@ -373,7 +352,6 @@ contract TeeVersionManagerFacetTest is Test {
         flareTeeManager.signTeeUpgrade(teeUpgradeId, signature);
     }
 
-
     function testSignTeeUpgradeRevertUpgradeNotFinalized() public {
         testCreateNewTeeUpgrade();
         Signature memory signature = _createSourceSignature();
@@ -381,7 +359,6 @@ contract TeeVersionManagerFacetTest is Test {
         vm.expectRevert(ITeeVersionManagerFacet.UpgradeNotFinalized.selector);
         flareTeeManager.signTeeUpgrade(teeUpgradeId, signature);
     }
-
 
     function testSignTeeUpgrade() public {
         testFinalizeTeeUpgrade();
@@ -417,7 +394,9 @@ contract TeeVersionManagerFacetTest is Test {
 
         // Create upgrade with threshold-2 source governance
         vm.prank(owner);
-        uint256 upgradeId = flareTeeManager.createNewTeeUpgrade(extensionId, newSourceGovHash, targetTeeGovernanceHash);
+        uint256 upgradeId = flareTeeManager.createNewTeeUpgrade(
+            extensionId, newSourceGovHash, targetTeeGovernanceHash
+        );
 
         ITeeVersionManagerFacet.TeeUpgradePath[] memory upgradePaths = new ITeeVersionManagerFacet.TeeUpgradePath[](1);
         upgradePaths[0].sourceVersions = new ITeeVersionManagerFacet.TeeNodeVersion[](1);
@@ -446,7 +425,6 @@ contract TeeVersionManagerFacetTest is Test {
         assertFalse(flareTeeManager.isTeeUpgradeSigned(upgradeId));
     }
 
-
     function testSignTeeUpgrade2() public {
         // Set target governance with threshold 2 (needs 2 target signatures)
         address[] memory newTargetSigners = new address[](2);
@@ -466,7 +444,9 @@ contract TeeVersionManagerFacetTest is Test {
 
         // Create upgrade with threshold-2 target governance
         vm.prank(owner);
-        uint256 upgradeId = flareTeeManager.createNewTeeUpgrade(extensionId, sourceTeeGovernanceHash, newTargetGovHash);
+        uint256 upgradeId = flareTeeManager.createNewTeeUpgrade(
+            extensionId, sourceTeeGovernanceHash, newTargetGovHash
+        );
 
         ITeeVersionManagerFacet.TeeUpgradePath[] memory upgradePaths = new ITeeVersionManagerFacet.TeeUpgradePath[](1);
         upgradePaths[0].sourceVersions = new ITeeVersionManagerFacet.TeeNodeVersion[](1);
@@ -495,8 +475,6 @@ contract TeeVersionManagerFacetTest is Test {
         assertFalse(flareTeeManager.isTeeUpgradeSigned(upgradeId));
     }
 
-
-
     // isTeeUpgradePathValid
     function testIsTeeUpgradePathValidRevertInvalidUpgradeId() public {
         vm.expectRevert(ITeeVersionManagerFacet.InvalidUpgradeId.selector);
@@ -504,7 +482,6 @@ contract TeeVersionManagerFacetTest is Test {
             teeUpgradeId, extensionId, sourceCodeHash, sourcePlatform, targetCodeHash, targetPlatform
         );
     }
-
 
     function testIsTeeUpgradePathValidRevertExtensionIdMismatch() public {
         testAddTeeUpgradePaths();
@@ -514,7 +491,6 @@ contract TeeVersionManagerFacetTest is Test {
         );
     }
 
-
     function testIsTeeUpgradePathValidRevertUpgradeNotFinalized() public {
         testAddTeeUpgradePaths();
         vm.expectRevert(ITeeVersionManagerFacet.UpgradeNotFinalized.selector);
@@ -523,7 +499,6 @@ contract TeeVersionManagerFacetTest is Test {
         );
     }
 
-
     function testIsTeeUpgradePathValidTrue() public {
         testFinalizeTeeUpgrade();
         bool isValid = flareTeeManager.isTeeUpgradePathValid(
@@ -531,7 +506,6 @@ contract TeeVersionManagerFacetTest is Test {
         );
         assertEq(isValid, true);
     }
-
 
     function testIsTeeUpgradePathValidFalse1() public {
         testFinalizeTeeUpgrade();
@@ -549,13 +523,11 @@ contract TeeVersionManagerFacetTest is Test {
         assertEq(isValid, false);
     }
 
-
     // isTeeUpgradeFinalized
     function testIsTeeUpgradeFinalizedRevertInvalidUpgradeId() public {
         vm.expectRevert(ITeeVersionManagerFacet.InvalidUpgradeId.selector);
         flareTeeManager.isTeeUpgradeFinalized(teeUpgradeId);
     }
-
 
     function testIsTeeUpgradeFinalizedFalse() public {
         testCreateNewTeeUpgrade();
@@ -565,7 +537,6 @@ contract TeeVersionManagerFacetTest is Test {
         );
     }
 
-
     function testIsTeeUpgradeFinalizedTrue() public {
         testFinalizeTeeUpgrade();
         assertEq(
@@ -574,13 +545,11 @@ contract TeeVersionManagerFacetTest is Test {
         );
     }
 
-
     // isTeeUpgradeSigned
     function testIsTeeUpgradeSignedRevertInvalidUpgradeId() public {
         vm.expectRevert(ITeeVersionManagerFacet.InvalidUpgradeId.selector);
         flareTeeManager.isTeeUpgradeSigned(teeUpgradeId);
     }
-
 
     function testIsTeeUpgradeSignedFalse() public {
         testCreateNewTeeUpgrade();
@@ -590,7 +559,6 @@ contract TeeVersionManagerFacetTest is Test {
         );
     }
 
-
     function testIsTeeUpgradeSignedTrue() public {
         testSignTeeUpgrade();
         assertEq(
@@ -598,7 +566,6 @@ contract TeeVersionManagerFacetTest is Test {
             true
         );
     }
-
 
     // getTeeUpgradesCount
     function testGetTeeUpgradesCount() public {
@@ -609,13 +576,11 @@ contract TeeVersionManagerFacetTest is Test {
         assertEq(count, 1);
     }
 
-
     // getTeeUpgradePaths
     function testGetTeeUpgradePathsRevertInvalidUpgradeId() public {
         vm.expectRevert(ITeeVersionManagerFacet.InvalidUpgradeId.selector);
         flareTeeManager.getTeeUpgradePaths(teeUpgradeId);
     }
-
 
     function testGetTeeUpgradePaths() public {
         ITeeVersionManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
@@ -627,13 +592,11 @@ contract TeeVersionManagerFacetTest is Test {
         assertEq(returnedUpgradePaths[0].sourceVersions[0].platform, upgradePaths[0].sourceVersions[0].platform);
     }
 
-
     // getTeeUpgradeSignatures
     function testGetTeeUpgradeSignaturesRevertInvalidUpgradeId() public {
         vm.expectRevert(ITeeVersionManagerFacet.InvalidUpgradeId.selector);
         flareTeeManager.getTeeUpgradeSignatures(teeUpgradeId);
     }
-
 
     function testGetTeeUpgradeSignatures() public {
         testSignTeeUpgrade();
@@ -649,7 +612,6 @@ contract TeeVersionManagerFacetTest is Test {
         assertEq(targetSignature.s, target[0].s);
     }
 
-
     function _getUpgradePaths()
         private view
         returns (ITeeVersionManagerFacet.TeeUpgradePath[] memory)
@@ -664,7 +626,6 @@ contract TeeVersionManagerFacetTest is Test {
         return upgradePaths;
     }
 
-
     function _createSourceSignature()
         private view
         returns (Signature memory)
@@ -672,7 +633,6 @@ contract TeeVersionManagerFacetTest is Test {
         bytes32 messageHash = keccak256(abi.encode(_getUpgradePaths()));
         return SignatureHelper.createSignature(vm, messageHash, sourcePrivateKeys[0]);
     }
-
 
     function _createTargetSignature()
         private view

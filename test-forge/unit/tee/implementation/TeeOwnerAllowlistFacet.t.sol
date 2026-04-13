@@ -5,9 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { ITeeOwnerAllowlistFacet } from "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlistFacet.sol";
-import { ITeeExtensionRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
-import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
@@ -25,7 +23,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
     address private extensionOwner2;
 
     address[] private owners;
-
 
     function setUp() public {
         extensionOwner = makeAddr("extensionOwner");
@@ -81,7 +78,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         extensionId2 = flareTeeManager.register(verifier, instructionsSender);
     }
 
-
     // =========================================================================
     // addAllowedTeeMachineOwners
     // =========================================================================
@@ -91,14 +87,12 @@ contract TeeOwnerAllowlistFacetTest is Test {
         flareTeeManager.addAllowedTeeMachineOwners(extensionId, owners);
     }
 
-
     function testAddAllowedTeeMachineOwners() public {
         vm.expectEmit();
         emit ITeeOwnerAllowlistFacet.AllowedTeeMachineOwnersAdded(extensionId, owners);
         vm.prank(extensionOwner);
         flareTeeManager.addAllowedTeeMachineOwners(extensionId, owners);
     }
-
 
     // =========================================================================
     // removeAllowedTeeMachineOwners
@@ -113,7 +107,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         flareTeeManager.removeAllowedTeeMachineOwners(extensionId, owners);
     }
 
-
     function testRemoveAllowedTeeMachineOwners() public {
         vm.prank(extensionOwner);
         flareTeeManager.addAllowedTeeMachineOwners(extensionId, owners);
@@ -127,7 +120,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         assertEq(allowedOwners.length, 0);
     }
 
-
     // =========================================================================
     // addAllowedTeeWalletProjectOwners
     // =========================================================================
@@ -137,14 +129,12 @@ contract TeeOwnerAllowlistFacetTest is Test {
         flareTeeManager.addAllowedTeeWalletProjectOwners(extensionId, owners);
     }
 
-
     function testAddAllowedTeeWalletProjectOwners() public {
         vm.expectEmit();
         emit ITeeOwnerAllowlistFacet.AllowedTeeWalletProjectOwnersAdded(extensionId, owners);
         vm.prank(extensionOwner);
         flareTeeManager.addAllowedTeeWalletProjectOwners(extensionId, owners);
     }
-
 
     // =========================================================================
     // removeAllowedTeeWalletProjectOwners
@@ -159,7 +149,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         flareTeeManager.removeAllowedTeeWalletProjectOwners(extensionId, owners);
     }
 
-
     function testRemoveAllowedTeeWalletProjectOwners() public {
         vm.prank(extensionOwner);
         flareTeeManager.addAllowedTeeWalletProjectOwners(extensionId, owners);
@@ -173,7 +162,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         assertEq(allowedOwners.length, 0);
     }
 
-
     // =========================================================================
     // allowAllTeeMachineOwners
     // =========================================================================
@@ -182,7 +170,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
         flareTeeManager.allowAllTeeMachineOwners(extensionId);
     }
-
 
     function testAllowAllTeeMachineOwners() public {
         assertFalse(flareTeeManager.isAllowedTeeMachineOwner(extensionId, owners[0]));
@@ -198,7 +185,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         assertTrue(flareTeeManager.isAllowedTeeMachineOwner(extensionId, owners[1]));
     }
 
-
     // =========================================================================
     // disallowAllTeeMachineOwners
     // =========================================================================
@@ -210,7 +196,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
         flareTeeManager.disallowAllTeeMachineOwners(extensionId);
     }
-
 
     function testDisallowAllTeeMachineOwners() public {
         vm.prank(extensionOwner);
@@ -227,7 +212,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         assertFalse(flareTeeManager.isAllowedTeeMachineOwner(extensionId, owners[0]));
     }
 
-
     // =========================================================================
     // allowAllTeeWalletProjectOwners
     // =========================================================================
@@ -236,7 +220,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
         flareTeeManager.allowAllTeeWalletProjectOwners(extensionId);
     }
-
 
     function testAllowAllTeeWalletProjectOwners() public {
         assertFalse(flareTeeManager.isAllowedTeeWalletProjectOwner(extensionId, owners[0]));
@@ -252,7 +235,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         assertTrue(flareTeeManager.isAllowedTeeWalletProjectOwner(extensionId, owners[1]));
     }
 
-
     // =========================================================================
     // disallowAllTeeWalletProjectOwners
     // =========================================================================
@@ -264,7 +246,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
         flareTeeManager.disallowAllTeeWalletProjectOwners(extensionId);
     }
-
 
     function testDisallowAllTeeWalletProjectOwners() public {
         vm.prank(extensionOwner);
@@ -280,7 +261,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         assertFalse(flareTeeManager.allTeeWalletProjectOwnersAllowed(extensionId));
         assertFalse(flareTeeManager.isAllowedTeeWalletProjectOwner(extensionId, owners[0]));
     }
-
 
     // =========================================================================
     // View functions
@@ -300,7 +280,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         assertEq(allowedTeeMachineOwners[1], owners[1]);
     }
 
-
     function testGetAllowedTeeProjectWalletOwners() public {
         address[] memory allowedTeeProjectWalletOwners;
 
@@ -315,7 +294,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         assertEq(allowedTeeProjectWalletOwners[1], owners[1]);
     }
 
-
     function testAllTeeMachineOwnersAllowed() public {
         assertFalse(flareTeeManager.allTeeMachineOwnersAllowed(extensionId));
 
@@ -324,7 +302,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         assertTrue(flareTeeManager.allTeeMachineOwnersAllowed(extensionId));
     }
 
-
     function testAllTeeWalletProjectOwnersAllowed() public {
         assertFalse(flareTeeManager.allTeeWalletProjectOwnersAllowed(extensionId));
 
@@ -332,7 +309,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         flareTeeManager.allowAllTeeWalletProjectOwners(extensionId);
         assertTrue(flareTeeManager.allTeeWalletProjectOwnersAllowed(extensionId));
     }
-
 
     function testIsAllowedTeeMachineOwner() public {
         assertFalse(flareTeeManager.isAllowedTeeMachineOwner(extensionId, owners[0]));
@@ -345,7 +321,6 @@ contract TeeOwnerAllowlistFacetTest is Test {
         assertTrue(flareTeeManager.isAllowedTeeMachineOwner(extensionId, owners[1]));
         assertFalse(flareTeeManager.isAllowedTeeMachineOwner(extensionId, makeAddr("nonOwner")));
     }
-
 
     function testIsAllowedTeeWalletProjectOwner() public {
         assertFalse(flareTeeManager.isAllowedTeeWalletProjectOwner(extensionId, owners[0]));

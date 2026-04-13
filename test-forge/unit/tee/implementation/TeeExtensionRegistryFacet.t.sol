@@ -6,13 +6,10 @@ import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { ITeeExtensionRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
-import { IITeeExtensionRegistryFacet } from "../../../../contracts/tee/interface/IITeeExtensionRegistryFacet.sol";
 import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { ITeeMachineRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
-import { ITeeGovernanceFacet } from "../../../../contracts/userInterfaces/tee/ITeeGovernanceFacet.sol";
-import { ITeeFeeCalculatorFacet } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculatorFacet.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
@@ -21,7 +18,6 @@ import { IDiamondCut } from "../../../../contracts/diamond/interfaces/IDiamondCu
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
 import { TeeMachineRegistry } from "../../../../contracts/tee/library/TeeMachineRegistry.sol";
 import { TeeExtensionRegistry } from "../../../../contracts/tee/library/TeeExtensionRegistry.sol";
-import { TeeExternalAddresses } from "../../../../contracts/tee/library/TeeExternalAddresses.sol";
 
 /**
  * @title TestTeeMachineSetupFacet
@@ -112,7 +108,6 @@ contract TeeExtensionRegistryFacetTest is Test {
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
-
     function setUp() public {
         owner = makeAddr("owner");
         newOwner = makeAddr("newOwner");
@@ -202,7 +197,9 @@ contract TeeExtensionRegistryFacetTest is Test {
 
         // Set extension owner and instructions sender directly via helper facet (avoids side effects from register())
         TestTeeMachineSetupFacet(address(flareTeeManager)).setupExtensionOwner(extensionId, owner);
-        TestTeeMachineSetupFacet(address(flareTeeManager)).setupExtensionInstructionsSender(extensionId, instructionsSenders[0]);
+        TestTeeMachineSetupFacet(address(flareTeeManager)).setupExtensionInstructionsSender(
+            extensionId, instructionsSenders[0]
+        );
 
         // Setup tee machine state via the helper facet
         _setupTeeMachine(teeIds[0], extensionId, url, ITeeMachineRegistryFacet.TeeStatus.PRODUCTION);
@@ -228,7 +225,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         );
     }
 
-
     // sendInstructions
     function testSendInstructionsRevertNoTeeMachinesSpecified() public {
         vm.expectRevert(ITeeExtensionRegistryFacet.NoTeeMachinesSpecified.selector);
@@ -239,7 +235,6 @@ contract TeeExtensionRegistryFacetTest is Test {
             )
         );
     }
-
 
     function testSendInstructionsRevertOperationTypeEmpty() public {
         vm.prank(instructionsSenders[0]);
@@ -252,7 +247,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         );
     }
 
-
     function testSendInstructionsRevertOperationCommandEmpty() public {
         vm.prank(instructionsSenders[0]);
         vm.expectRevert(ITeeExtensionRegistryFacet.OperationCommandEmpty.selector);
@@ -264,7 +258,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         );
     }
 
-
     function testSendInstructionsRevertMessageEmpty() public {
         vm.prank(instructionsSenders[0]);
         vm.expectRevert(ITeeExtensionRegistryFacet.MessageEmpty.selector);
@@ -275,7 +268,6 @@ contract TeeExtensionRegistryFacetTest is Test {
             )
         );
     }
-
 
     function testSendInstructionsRevertExtensionIdMismatch() public {
         _setupTeeMachine(teeIds[1], extensionId + 1, url, ITeeMachineRegistryFacet.TeeStatus.PRODUCTION);
@@ -289,7 +281,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         );
     }
 
-
     function testSendInstructionsRevertOnlyInstructionsSender() public {
         vm.expectRevert(ITeeExtensionRegistryFacet.OnlyInstructionsSender.selector);
         flareTeeManager.sendInstructions(
@@ -299,7 +290,6 @@ contract TeeExtensionRegistryFacetTest is Test {
             )
         );
     }
-
 
     function testSendInstructionsRevertSystemOpTypeNotAllowed() public {
         testRegister();
@@ -318,7 +308,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         );
     }
 
-
     function testSendInstructionsRevertFeeTooLow() public {
         testRegister();
         // Set a non-zero default fee via governance
@@ -332,7 +321,6 @@ contract TeeExtensionRegistryFacetTest is Test {
             )
         );
     }
-
 
     function testSendInstructionsRevertTeeMachineNotAvailable() public {
         testRegister();
@@ -445,7 +433,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.register(teeExtensionStateVerifier, address(0));
     }
 
-
     function testRegister() public {
         vm.prank(owner);
         vm.expectEmit();
@@ -456,14 +443,12 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.register(teeExtensionStateVerifier, address(this));
     }
 
-
     // setExtensionContracts
     function testSetExtensionContractsRevertOnlyOwner() public {
         testRegister();
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
         flareTeeManager.setExtensionContracts(extensionId, teeExtensionStateVerifier, owner);
     }
-
 
     function testSetExtensionContractsRevertSystemOwnedExtensionId() public {
         testRegister();
@@ -472,14 +457,12 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.setExtensionContracts(0, teeExtensionStateVerifier, address(0));
     }
 
-
     function testSetExtensionContractsRevertInvalidInstructionsSender() public {
         testRegister();
         vm.prank(owner);
         vm.expectRevert(ITeeExtensionRegistryFacet.InvalidInstructionsSender.selector);
         flareTeeManager.setExtensionContracts(extensionId, teeExtensionStateVerifier, address(0));
     }
-
 
     function testSetExtensionContracts() public {
         testRegister();
@@ -491,13 +474,11 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.setExtensionContracts(extensionId, teeExtensionStateVerifier, owner);
     }
 
-
     // addTeeVersion
     function testAddTeeVersionRevertOnlyOwner() public {
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
         flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
     }
-
 
     function testAddTeeVersionRevertVersionEmpty() public {
         testRegister();
@@ -506,7 +487,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.addTeeVersion(extensionId, "", codeHash, platforms, governanceHash);
     }
 
-
     function testAddTeeVersionRevertCodeHashZero() public {
         testRegister();
         vm.prank(owner);
@@ -514,14 +494,12 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.addTeeVersion(extensionId, version, "", platforms, governanceHash);
     }
 
-
     function testAddTeeVersionRevertNoPlatforms() public {
         testRegister();
         vm.prank(owner);
         vm.expectRevert(ITeeExtensionRegistryFacet.NoPlatforms.selector);
         flareTeeManager.addTeeVersion(extensionId, version, codeHash, new bytes32[](0), governanceHash);
     }
-
 
     function testAddTeeVersionRevertUnsupportedPlatform() public {
         testRegister();
@@ -535,14 +513,12 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
     }
 
-
     function testAddTeeVersionRevertVersionAlreadyExists() public {
         testAddTeeVersion();
         vm.prank(owner);
         vm.expectRevert(ITeeExtensionRegistryFacet.VersionAlreadyExists.selector);
         flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
     }
-
 
     function testAddTeeVersionRevertPlatformAlreadyExists() public {
         testRegister();
@@ -560,7 +536,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
     }
 
-
     function testAddTeeVersionRevertInvalidGovernanceHash() public {
         testRegister();
         testAddSystemSupportedPlatforms();
@@ -570,7 +545,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         vm.expectRevert(ITeeCommonErrors.InvalidGovernanceHash.selector);
         flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, wrongHash);
     }
-
 
     function testAddTeeVersion() public {
         testRegister();
@@ -583,7 +557,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
     }
 
-
     // disableCodeHashPlatform
     function testDisableCodeHashPlatformRevertOnlyOwner() public {
         testRegister();
@@ -593,7 +566,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.disableCodeHashPlatform(extensionId + 1, codeHash, platform);
     }
 
-
     function testDisableCodeHashPlatformRevertInvalidCodeHash() public {
         testRegister();
         vm.prank(owner);
@@ -601,14 +573,12 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.disableCodeHashPlatform(extensionId, keccak256("invalidCodeHash"), platform);
     }
 
-
     function testDisableCodeHashPlatformRevertInvalidPlatform() public {
         testAddTeeVersion();
         vm.prank(owner);
         vm.expectRevert(ITeeExtensionRegistryFacet.InvalidPlatform.selector);
         flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, keccak256("invalidPlatform"));
     }
-
 
     function testDisableCodeHashPlatform() public {
         testAddTeeVersion();
@@ -618,7 +588,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, platform);
     }
 
-
     function testDisableCodeHashPlatformAll() public {
         testAddTeeVersion();
         vm.prank(owner);
@@ -626,7 +595,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         emit ITeeExtensionRegistryFacet.CodeHashPlatformDisabled(extensionId, codeHash, platform);
         flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, bytes32(0));
     }
-
 
     // addSystemSupportedKeyTypesAndSigningAlgos
     function testAddSystemSupportedKeyTypesAndSigningAlgosRevertOnlyGovernance() public {
@@ -687,7 +655,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
     }
 
-
     // addSupportedKeyTypes
     function testAddSupportedKeyTypesRevertOnlyOwner() public {
         testRegister();
@@ -704,7 +671,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         vm.expectRevert(ITeeExtensionRegistryFacet.KeyTypeEmpty.selector);
         flareTeeManager.addSupportedKeyTypes(extensionId, keyTypes);
     }
-
 
     function testAddSupportedKeyTypesRevertKeyTypeNotSupported() public {
         testRegister();
@@ -736,7 +702,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.addSupportedKeyTypes(extensionId, keyTypes);
     }
 
-
     function testAddSupportedKeyTypes() public {
         testRegister();
         testAddSystemSupportedKeyTypesAndSigningAlgos();
@@ -745,7 +710,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         emit ITeeExtensionRegistryFacet.SupportedKeyTypesAdded(extensionId, keyTypes);
         flareTeeManager.addSupportedKeyTypes(extensionId, keyTypes);
     }
-
 
     // removeSupportedKeyTypes
     function testRemoveSupportedKeyTypesRevertOnlyOwner() public {
@@ -775,7 +739,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.removeSupportedKeyTypes(extensionId, keyTypes);
     }
 
-
     // proposeNewOwner
     function testProposeNewOwnerRevertOnlyOwner() public {
         testRegister();
@@ -783,14 +746,12 @@ contract TeeExtensionRegistryFacetTest is Test {
         ITeeExtensionRegistryFacet(address(flareTeeManager)).proposeNewOwner(extensionId, newOwner);
     }
 
-
     function testProposeNewOwnerRevertSystemOwnedExtensionId() public {
         testRegister();
         vm.prank(initialGovernance);
         vm.expectRevert(ITeeExtensionRegistryFacet.SystemOwnedExtensionId.selector);
         ITeeExtensionRegistryFacet(address(flareTeeManager)).proposeNewOwner(0, newOwner);
     }
-
 
     function testProposeNewOwner() public {
         testRegister();
@@ -800,14 +761,12 @@ contract TeeExtensionRegistryFacetTest is Test {
         ITeeExtensionRegistryFacet(address(flareTeeManager)).proposeNewOwner(extensionId, newOwner);
     }
 
-
     // confirmOwnership
     function testConfirmOwnershipRevertOnlyProposedOwner() public {
         testProposeNewOwner();
         vm.expectRevert(ITeeCommonErrors.OnlyProposedOwner.selector);
         flareTeeManager.confirmOwnership(extensionId);
     }
-
 
     function testConfirmOwnership() public {
         testProposeNewOwner();
@@ -821,13 +780,11 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.addTeeVersion(extensionId, "", codeHash, platforms, governanceHash);
     }
 
-
     // addSystemSupportedPlatforms
     function testAddSystemSupportedPlatformsRevertOnlyGovernance() public {
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         flareTeeManager.addSystemSupportedPlatforms(platforms);
     }
-
 
     function testAddSystemSupportedPlatformsRevertPlatformEmpty() public {
         platforms[0] = bytes32(0);
@@ -835,7 +792,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         vm.expectRevert(ITeeExtensionRegistryFacet.PlatformEmpty.selector);
         flareTeeManager.addSystemSupportedPlatforms(platforms);
     }
-
 
     function testAddSystemSupportedPlatformsRevertPlatformAlreadyExists() public {
         testAddSystemSupportedPlatforms();
@@ -848,7 +804,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         );
         flareTeeManager.addSystemSupportedPlatforms(platforms);
     }
-
 
     function testAddSystemSupportedPlatforms() public {
         vm.prank(initialGovernance);
@@ -869,7 +824,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.registerSystemInstructionsSenders(instructionsSenders);
     }
 
-
     function testRegisterSystemInstructionsSenders() public {
         vm.prank(initialGovernance);
         flareTeeManager.registerSystemInstructionsSenders(instructionsSenders);
@@ -886,7 +840,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.unregisterSystemInstructionsSenders(instructionsSenders);
     }
 
-
     function testUnregisterSystemInstructionsSenders() public {
         testRegisterSystemInstructionsSenders();
         vm.prank(initialGovernance);
@@ -897,15 +850,15 @@ contract TeeExtensionRegistryFacetTest is Test {
         assertEq(returnedInstructionsSenders.length, 0);
     }
 
-
-
     // sendSystemInstructions
     function testSendSystemInstructionsRevertOnlySystemInstructionsSender() public {
         vm.expectRevert(ITeeExtensionRegistryFacet.OnlySystemInstructionsSender.selector);
         flareTeeManager.sendSystemInstructions(
             instructionId,
             teeIds,
-            ITeeExtensionRegistryFacet.TeeInstructionParams(opType, opCommand, message, new address[](0), 0, address(0))
+            ITeeExtensionRegistryFacet.TeeInstructionParams(
+                opType, opCommand, message, new address[](0), 0, address(0)
+            )
         );
     }
 
@@ -925,7 +878,9 @@ contract TeeExtensionRegistryFacetTest is Test {
         flareTeeManager.sendSystemInstructions(
             instructionId,
             teeMachines,
-            ITeeExtensionRegistryFacet.TeeInstructionParams(opType, opCommand, message, new address[](0), 0, address(0))
+            ITeeExtensionRegistryFacet.TeeInstructionParams(
+                opType, opCommand, message, new address[](0), 0, address(0)
+            )
         );
     }
 
@@ -1005,7 +960,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         );
     }
 
-
     // getExtensionOwner
     function testGetExtensionOwner() public {
         assertEq(flareTeeManager.getExtensionOwner(extensionId + 1), address(0));
@@ -1013,7 +967,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         testRegister();
         assertEq(flareTeeManager.getExtensionOwner(extensionId), owner);
     }
-
 
     // getTeeExtensionStateVerifier
     function testGetTeeExtensionStateVerifier() public {
@@ -1028,7 +981,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         );
     }
 
-
     // getTeeExtensionInstructionsSender
     function testGetTeeExtensionInstructionsSender() public {
         // extensionId already has instructionsSender set via setUp helper
@@ -1039,7 +991,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         uint256 newExtId = flareTeeManager.extensionsCounter() - 1;
         assertEq(flareTeeManager.getTeeExtensionInstructionsSender(newExtId), address(this));
     }
-
 
     // getSupportedKeyTypes
     function testGetSupportedKeyTypes() public {
@@ -1053,7 +1004,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         assertEq(returnedSupportedKeyTypes[1], keyTypes[1]);
     }
 
-
     // isKeyTypeSupported
     function testIsKeyTypeSupported() public {
         testAddSupportedKeyTypes();
@@ -1064,7 +1014,6 @@ contract TeeExtensionRegistryFacetTest is Test {
             flareTeeManager.isKeyTypeSupported(extensionId, keyTypes[0])
         );
     }
-
 
     // isCodeHashPlatformSupported
     function testIsCodeHashPlatformSupported() public {
@@ -1079,7 +1028,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         assertFalse(val);
     }
 
-
     // isCodeHashPlatformDisabled
     function testIsCodeHashPlatformDisabled() public {
         bool val = flareTeeManager.isCodeHashPlatformDisabled(extensionId, codeHash, platform);
@@ -1093,7 +1041,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         assertTrue(val);
     }
 
-
     // getTeeGovernanceHash
     function testGetTeeGovernanceHash() public {
         bytes32 returnedGovernanceHash = flareTeeManager.getTeeGovernanceHash(extensionId, codeHash);
@@ -1102,7 +1049,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         returnedGovernanceHash = flareTeeManager.getTeeGovernanceHash(extensionId, codeHash);
         assertEq(returnedGovernanceHash, governanceHash);
     }
-
 
     // getCodeHashInfo
     function testGetCodeHashInfo() public {
@@ -1120,7 +1066,6 @@ contract TeeExtensionRegistryFacetTest is Test {
         assertEq(returnedPlatforms[0], platforms[0]);
     }
 
-
     function _setupTeeMachine(
         address _teeId,
         uint256 _extensionId,
@@ -1131,7 +1076,6 @@ contract TeeExtensionRegistryFacetTest is Test {
             _teeId, _extensionId, _teeId, _url, _status
         );
     }
-
 
     function _setupTeeGovernanceHash(
         uint256 _extensionId,

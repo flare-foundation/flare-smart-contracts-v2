@@ -6,10 +6,8 @@ import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { ITeeGovernanceFacet } from "../../../../contracts/userInterfaces/tee/ITeeGovernanceFacet.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
-import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
@@ -29,7 +27,6 @@ contract TeeGovernanceFacetTest is Test {
     address[] private pausingAddresses;
     address[] private signers;
     uint256[] private privateKeys;
-
 
     function setUp() public {
         realOwnerExtension1 = makeAddr("realOwnerExtension1");
@@ -92,7 +89,6 @@ contract TeeGovernanceFacetTest is Test {
         pausingAddresses[1] = makeAddr("pausingAddresses2");
     }
 
-
     // setNewTeeGovernance
     function testSetNewTeeGovernanceRevertOnlyExtensionOwner() public {
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
@@ -103,13 +99,11 @@ contract TeeGovernanceFacetTest is Test {
         );
     }
 
-
     function testSetNewTeeGovernanceRevertNoSigners() public {
         vm.prank(realOwnerExtension1);
         vm.expectRevert(ITeeGovernanceFacet.NoSigners.selector);
         flareTeeManager.setNewTeeGovernance(extensionId, new address[](0), 1);
     }
-
 
     function testSetNewTeeGovernanceRevertInvalidThreshold() public {
         vm.startPrank(realOwnerExtension1);
@@ -119,7 +113,6 @@ contract TeeGovernanceFacetTest is Test {
         flareTeeManager.setNewTeeGovernance(extensionId, signers, 3);
         vm.stopPrank();
     }
-
 
     function testSetNewTeeGovernanceRevertSignerAlreadyExists() public {
         signers[1] = signers[0];
@@ -132,7 +125,6 @@ contract TeeGovernanceFacetTest is Test {
         vm.prank(realOwnerExtension1);
         flareTeeManager.setNewTeeGovernance(extensionId, signers, 1);
     }
-
 
     function testSetNewTeeGovernance() public {
         bytes32 governanceHash1 = keccak256(abi.encode(signers, 1));
@@ -149,13 +141,11 @@ contract TeeGovernanceFacetTest is Test {
         vm.stopPrank();
     }
 
-
     // setTeePausingAddresses
     function testSetTeePausingAddressesRevertOnlyExtensionOwner() public {
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
         flareTeeManager.setTeePausingAddresses(extensionId, pausingAddresses);
     }
-
 
     function testSetTeePausingAddressesRevertPausingAddressAlreadyExists() public {
         pausingAddresses[1] = pausingAddresses[0];
@@ -168,7 +158,6 @@ contract TeeGovernanceFacetTest is Test {
         vm.prank(realOwnerExtension1);
         flareTeeManager.setTeePausingAddresses(extensionId, pausingAddresses);
     }
-
 
     function testSetTeePausingAddresses() public {
         address[] memory emptyPausingAddresses = new address[](0);
@@ -187,14 +176,12 @@ contract TeeGovernanceFacetTest is Test {
         vm.stopPrank();
     }
 
-
     // signTeePausingAddresses
     function testSignTeePausingAddressesRevertInvalidNonce() public {
         Signature memory signature = _getSignature(0, signers, privateKeys[0]);
         vm.expectRevert(ITeeCommonErrors.InvalidNonce.selector);
         flareTeeManager.signTeePausingAddresses(extensionId, 0, signature);
     }
-
 
     function testSignTeePausingAddressesRevertNotASigner() public {
         vm.prank(realOwnerExtension1);
@@ -209,7 +196,6 @@ contract TeeGovernanceFacetTest is Test {
         );
         flareTeeManager.signTeePausingAddresses(extensionId, 0, signature);
     }
-
 
     function testSignTeePausingAddressesAlreadySigned() public {
         Signature memory signature = _getSignature(0, pausingAddresses, privateKeys[0]);
@@ -228,7 +214,6 @@ contract TeeGovernanceFacetTest is Test {
         flareTeeManager.signTeePausingAddresses(extensionId, 0, signature);
     }
 
-
     function testSignTeePausingAddresses() public {
         Signature memory signature = _getSignature(0, pausingAddresses, privateKeys[0]);
 
@@ -242,7 +227,6 @@ contract TeeGovernanceFacetTest is Test {
         flareTeeManager.signTeePausingAddresses(extensionId, 0, signature);
     }
 
-
     // getLatestTeeGovernanceHash
     function testGetLatestTeeGovernanceHash() public {
         vm.prank(realOwnerExtension1);
@@ -251,7 +235,6 @@ contract TeeGovernanceFacetTest is Test {
         bytes32 governanceHash = keccak256(abi.encode(signers, 1));
         assertEq(flareTeeManager.getLatestTeeGovernanceHash(extensionId), governanceHash);
     }
-
 
     // getTeeGovernanceThreshold
     function testGetTeeGovernanceThreshold() public {
@@ -265,7 +248,6 @@ contract TeeGovernanceFacetTest is Test {
         assertEq(returnedThreshold, 1);
     }
 
-
     // isTeeGovernanceSigner
     function testIsTeeGovernanceSigner() public {
         vm.prank(realOwnerExtension1);
@@ -277,13 +259,11 @@ contract TeeGovernanceFacetTest is Test {
         assertTrue(flareTeeManager.isTeeGovernanceSigner(extensionId, governanceHash, signers[1]));
     }
 
-
     // getTeeGovernance
     function testGetTeeGovernanceRevertInvalidGovernanceHash() public {
         vm.expectRevert(ITeeCommonErrors.InvalidGovernanceHash.selector);
         flareTeeManager.getTeeGovernance(extensionId2, bytes32(0));
     }
-
 
     function testGetTeeGovernance() public {
         vm.prank(realOwnerExtension1);
@@ -298,13 +278,11 @@ contract TeeGovernanceFacetTest is Test {
         assertEq(returnedThreshold, 1);
     }
 
-
     // getLatestTeeGovernance
     function testGetLatestTeeGovernanceRevertGovernanceNotSet() public {
         vm.expectRevert(ITeeGovernanceFacet.GovernanceNotSet.selector);
         flareTeeManager.getLatestTeeGovernance(extensionId);
     }
-
 
     function testGetLatestTeeGovernance() public {
         vm.startPrank(realOwnerExtension1);
@@ -320,7 +298,6 @@ contract TeeGovernanceFacetTest is Test {
         assertEq(returnedSigners[1], signers[1]);
         assertEq(returnedThreshold, 2);
     }
-
 
     // isGovernanceHashValid
     function testIsGovernanceHashValid() public {
@@ -345,13 +322,11 @@ contract TeeGovernanceFacetTest is Test {
         );
     }
 
-
     // getTeePausingAddresses
     function testGetTeePausingAddressesRevertInvalidNonce() public {
         vm.expectRevert(ITeeCommonErrors.InvalidNonce.selector);
         flareTeeManager.getTeePausingAddresses(extensionId, 5);
     }
-
 
     function testGetTeePausingAddresses() public {
         vm.prank(realOwnerExtension1);
@@ -381,13 +356,11 @@ contract TeeGovernanceFacetTest is Test {
         assertEq(returnedSignatures.length, 2);
     }
 
-
     // getLatestTeePausingAddresses
     function testGetLatestTeePausingAddressesRevertPausingAddressesNotSet() public {
         vm.expectRevert(ITeeGovernanceFacet.PausingAddressesNotSet.selector);
         flareTeeManager.getLatestTeePausingAddresses(extensionId);
     }
-
 
     function testGetLatestTeePausingAddresses() public {
         vm.prank(realOwnerExtension1);
@@ -424,7 +397,6 @@ contract TeeGovernanceFacetTest is Test {
 
     }
 
-
     // isTeePausingAddressesSigner
     function testIsTeePausingAddressesSigner() public {
         assertFalse(flareTeeManager.isTeePausingAddressesSigner(extensionId, realOwnerExtension1));
@@ -440,13 +412,11 @@ contract TeeGovernanceFacetTest is Test {
         assertTrue(flareTeeManager.isTeePausingAddressesSigner(extensionId, signers[1]));
     }
 
-
     // hasSignedTeePausingAddresses
     function testHasSignedTeePausingAddressesRevertInvalidNonce() public {
         vm.expectRevert(ITeeCommonErrors.InvalidNonce.selector);
         flareTeeManager.hasSignedTeePausingAddresses(extensionId, 0, realOwnerExtension1);
     }
-
 
     function testHasSignedTeePausingAddresses() public {
         Signature memory signature = _getSignature(0, pausingAddresses, privateKeys[0]);
@@ -463,7 +433,6 @@ contract TeeGovernanceFacetTest is Test {
         assertFalse(flareTeeManager.hasSignedTeePausingAddresses(extensionId, 0, signers[1]));
     }
 
-
     function _areSignaturesEq(
         Signature memory _sig1,
         Signature memory _sig2
@@ -473,7 +442,6 @@ contract TeeGovernanceFacetTest is Test {
     {
         return _sig1.v == _sig2.v && _sig1.r == _sig2.r && _sig1.s == _sig2.s;
     }
-
 
     function _getSignature(
         uint256 _nonce,

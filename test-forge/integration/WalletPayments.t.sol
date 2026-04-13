@@ -9,17 +9,13 @@ import { IDiamondCut } from "../../contracts/diamond/interfaces/IDiamondCut.sol"
 import { IDiamond } from "../../contracts/diamond/interfaces/IDiamond.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { ITeeExtensionRegistryFacet } from "../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
-import { ITeeOwnerAllowlistFacet } from "../../contracts/userInterfaces/tee/ITeeOwnerAllowlistFacet.sol";
-import { ITeeWalletProjectManagerFacet } from "../../contracts/userInterfaces/tee/ITeeWalletProjectManagerFacet.sol";
 import { ITeeWalletKeyManagerFacet } from "../../contracts/userInterfaces/tee/ITeeWalletKeyManagerFacet.sol";
-import { ITeeWalletManagerFacet } from "../../contracts/userInterfaces/tee/ITeeWalletManagerFacet.sol";
 import { ITeeWalletBackupManagerFacet } from "../../contracts/userInterfaces/tee/ITeeWalletBackupManagerFacet.sol";
 import { ITeeWalletVerificationFacet } from "../../contracts/userInterfaces/tee/ITeeWalletVerificationFacet.sol";
 import { ITeeMachineRegistryFacet } from "../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
 import { ITeePayments } from "../../contracts/userInterfaces/tee/ITeePayments.sol";
 import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardManager.sol";
 import { IPMWMultisigAccountConfigured } from "../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
-import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
 import { Signature } from "../../contracts/userInterfaces/ISignature.sol";
 import { ProtocolsV2Interface } from "../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
@@ -301,7 +297,6 @@ contract WalletPaymentsTest is Test {
         vm.prank(cosigners[0]);
         flareTeeManager.confirmCosigner(walletId);
 
-
         vm.startPrank(projectOwner);
         flareTeeManager.closeWalletInitialization(walletId);
         uint64 keyId1 = flareTeeManager.addKey{value: defaultFee} (teeId1, walletId, address(0));
@@ -338,7 +333,6 @@ contract WalletPaymentsTest is Test {
 
         (, uint64[] memory keyIds ,) = flareTeeManager.getWalletKeysInfo(walletId);
         assertEq(keyIds.length, 2, "wrong number of keys");
-
 
         flareTeeManager.setMultisigThreshold(walletId, 2);
         flareTeeManager.enableWallet(walletId);
@@ -385,7 +379,6 @@ contract WalletPaymentsTest is Test {
                 sequence: 2
             })
         });
-
 
         // only wallet owner can add PMW account
         vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);

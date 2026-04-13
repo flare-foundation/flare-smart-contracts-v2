@@ -5,17 +5,12 @@ import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { ITeeWalletManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletManagerFacet.sol";
-import { ITeeWalletProjectManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManagerFacet.sol";
 import { ITeeWalletKeyManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManagerFacet.sol";
-import { ITeeExtensionRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
 import { ITeeMachineRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
-import { ITeeFeeCalculatorFacet } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculatorFacet.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
-import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { PublicKeyHelper } from "../../../utils/PublicKeyHelper.sol";
-import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
@@ -480,7 +475,10 @@ contract TeeWalletManagerFacetTest is Test {
         testConfirmCosigner();
         vm.prank(projectOwner);
         flareTeeManager.closeWalletInitialization(walletId);
-        assertEq(uint8(flareTeeManager.getWalletStatus(walletId)), uint8(ITeeWalletManagerFacet.WalletStatus.INITIALIZED));
+        assertEq(
+            uint8(flareTeeManager.getWalletStatus(walletId)),
+            uint8(ITeeWalletManagerFacet.WalletStatus.INITIALIZED)
+        );
     }
 
     // wrong status
@@ -547,7 +545,10 @@ contract TeeWalletManagerFacetTest is Test {
 
     function testEnableWallet() public {
         _setupProductionWallet();
-        assertEq(uint8(flareTeeManager.getWalletStatus(walletId)), uint8(ITeeWalletManagerFacet.WalletStatus.PRODUCTION));
+        assertEq(
+            uint8(flareTeeManager.getWalletStatus(walletId)),
+            uint8(ITeeWalletManagerFacet.WalletStatus.PRODUCTION)
+        );
     }
 
     function testPauseWallet() public {

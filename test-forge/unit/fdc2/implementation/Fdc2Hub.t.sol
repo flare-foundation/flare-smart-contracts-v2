@@ -6,7 +6,6 @@ import { Fdc2Hub } from "../../../../contracts/fdc2/implementation/Fdc2Hub.sol";
 import { Fdc2HubProxy } from "../../../../contracts/fdc2/proxy/Fdc2HubProxy.sol";
 import { ITeeFeeCalculatorFacet } from "../../../../contracts/userInterfaces/tee/ITeeFeeCalculatorFacet.sol";
 import { ITeeMachineRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
-import { ITeeExtensionRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
 import { ITeeReplicationFacet } from "../../../../contracts/userInterfaces/tee/ITeeReplicationFacet.sol";
 import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFdc2RequestFeeConfigurations } from
@@ -386,7 +385,6 @@ contract Fdc2HubTest is Test {
         );
     }
 
-
     function _mockGetTypeAndSourceFee() internal {
         vm.mockCall(
             mockFdc2RequestFeeConfigurations,
@@ -451,7 +449,9 @@ contract Fdc2HubTest is Test {
     function _mockSendSystemInstructions() internal {
         // sendSystemInstructions(bytes32,(address,address,string)[],(bytes32,bytes32,bytes,address[],uint64,address))
         bytes4 sel = bytes4(keccak256(
-            "sendSystemInstructions(bytes32,(address,address,string)[],(bytes32,bytes32,bytes,address[],uint64,address))"
+            "sendSystemInstructions(bytes32,"
+            "(address,address,string)[],"
+            "(bytes32,bytes32,bytes,address[],uint64,address))"
         ));
         vm.mockCall(
             flareTeeManager,

@@ -5,26 +5,18 @@ import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IDiamondLoupe } from "../../contracts/diamond/interfaces/IDiamondLoupe.sol";
-import { ITeeExtensionRegistryFacet } from "../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
 import { ITeeMachineRegistryFacet } from "../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
-import { ITeeVerificationFacet, TEE_SOURCE_ID } from "../../contracts/userInterfaces/tee/ITeeVerificationFacet.sol";
+import { TEE_SOURCE_ID } from "../../contracts/userInterfaces/tee/ITeeVerificationFacet.sol";
 import { ITeeGovernanceFacet } from "../../contracts/userInterfaces/tee/ITeeGovernanceFacet.sol";
-import { ITeeReplicationFacet } from "../../contracts/userInterfaces/tee/ITeeReplicationFacet.sol";
-import { ITeeVersionManagerFacet } from "../../contracts/userInterfaces/tee/ITeeVersionManagerFacet.sol";
 import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeSystemStateVerifierFacet } from "../../contracts/userInterfaces/tee/ITeeSystemStateVerifierFacet.sol";
-import { IFlareGovernance } from "../../contracts/userInterfaces/tee/IFlareGovernance.sol";
 import { ITeeWalletManagerFacet } from "../../contracts/userInterfaces/tee/ITeeWalletManagerFacet.sol";
 import { ITeeWalletKeyManagerFacet } from "../../contracts/userInterfaces/tee/ITeeWalletKeyManagerFacet.sol";
 import { ITeeWalletBackupManagerFacet } from "../../contracts/userInterfaces/tee/ITeeWalletBackupManagerFacet.sol";
-import { ITeeVrfFacet } from "../../contracts/userInterfaces/tee/ITeeVrfFacet.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { IFdc2Hub } from "../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFdc2Verification } from "../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
-import {
-    IFdc2RequestFeeConfigurations
-} from "../../contracts/userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
 import { IRelay } from "../../contracts/userInterfaces/IRelay.sol";
 import { Fdc2Hub } from "../../contracts/fdc2/implementation/Fdc2Hub.sol";
 import { Fdc2HubProxy } from "../../contracts/fdc2/proxy/Fdc2HubProxy.sol";
@@ -51,6 +43,7 @@ import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardMana
  *         together with the FDC2 contracts (Fdc2Hub, Fdc2Verification, Fdc2RequestFeeConfigurations).
  *         Only truly external infrastructure is mocked: Relay, FlareSystemsManager, RewardManager.
  */
+// solhint-disable func-name-mixedcase
 // solhint-disable-next-line max-states-count
 contract TeeAndFdc2Test is Test {
 

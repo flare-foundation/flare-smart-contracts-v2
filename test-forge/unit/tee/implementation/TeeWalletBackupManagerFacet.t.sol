@@ -7,24 +7,17 @@ import { VmSafe } from "forge-std/Vm.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { ITeeWalletBackupManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletBackupManagerFacet.sol";
-import { ITeeExtensionRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
+import {
+    ITeeWalletBackupManagerFacet
+} from "../../../../contracts/userInterfaces/tee/ITeeWalletBackupManagerFacet.sol";
 import { ITeeMachineRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
-import { ITeeWalletProjectManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManagerFacet.sol";
 import { ITeeWalletManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletManagerFacet.sol";
-import { ITeeWalletKeyManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManagerFacet.sol";
-import { ITeeOwnerAllowlistFacet } from "../../../../contracts/userInterfaces/tee/ITeeOwnerAllowlistFacet.sol";
-import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
-import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
-import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
-import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
-import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 
 import { IDiamond } from "../../../../contracts/diamond/interfaces/IDiamond.sol";
 import { IDiamondCut } from "../../../../contracts/diamond/interfaces/IDiamondCut.sol";
@@ -33,10 +26,6 @@ import { TeeMachineRegistry } from "../../../../contracts/tee/library/TeeMachine
 import { TeeWalletProjectManager } from "../../../../contracts/tee/library/TeeWalletProjectManager.sol";
 import { TeeWalletManager } from "../../../../contracts/tee/library/TeeWalletManager.sol";
 import { TeeWalletKeyManager } from "../../../../contracts/tee/library/TeeWalletKeyManager.sol";
-import { TeeExternalAddresses } from "../../../../contracts/tee/library/TeeExternalAddresses.sol";
-import { TeeExtensionRegistry } from "../../../../contracts/tee/library/TeeExtensionRegistry.sol";
-
-import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
@@ -415,7 +404,6 @@ contract TeeWalletBackupManagerFacetTest is Test {
         );
     }
 
-
     // =========================================================================
     // backupRestore - revert tests
     // =========================================================================
@@ -424,7 +412,6 @@ contract TeeWalletBackupManagerFacetTest is Test {
         vm.expectRevert(ITeeCommonErrors.OnlyOwnerOrBackupManager.selector);
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
-
 
     function testBackupRestoreRevertTeeMachineNotAvailable() public {
         // Set teeId to INITIALIZED status
@@ -442,7 +429,6 @@ contract TeeWalletBackupManagerFacetTest is Test {
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
-
     function testBackupRestoreRevertInvalidTeeMachine() public {
         // Set backupTeeId to INITIALIZED status
         ITestStateHelperFacet(address(flareTeeManager)).setTeeMachineState(
@@ -459,7 +445,6 @@ contract TeeWalletBackupManagerFacetTest is Test {
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
-
     function testBackupRestoreRevertKeyAlreadyAvailable() public {
         // Set key held by teeId (the target restore TEE)
         address[] memory keyTeeIds = new address[](1);
@@ -471,7 +456,6 @@ contract TeeWalletBackupManagerFacetTest is Test {
         vm.expectRevert(ITeeWalletBackupManagerFacet.KeyAlreadyAvailable.selector);
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
-
 
     function testBackupRestoreRevertKeyNotConfirmed() public {
         // Set key with empty public key
@@ -485,7 +469,6 @@ contract TeeWalletBackupManagerFacetTest is Test {
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
-
     function testBackupRestoreRevertInvalidPublicKey() public {
         // Set key with different public key than backupId.publicKey
         address[] memory keyTeeIds = new address[](1);
@@ -498,14 +481,12 @@ contract TeeWalletBackupManagerFacetTest is Test {
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
-
     function testBackupRestoreRevertUnsupportedRewardEpochId() public {
         backupId.rewardEpochId = 0;
         vm.prank(owner);
         vm.expectRevert(ITeeWalletBackupManagerFacet.UnsupportedRewardEpochId.selector);
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
-
 
     function testBackupRestoreRevertInvalidRewardEpochId() public {
         backupId.rewardEpochId = 20;
@@ -514,7 +495,6 @@ contract TeeWalletBackupManagerFacetTest is Test {
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
-
     function testBackupRestoreRevertInvalidKeyType() public {
         backupId.keyType = keccak256("InvalidKeyType");
         vm.prank(owner);
@@ -522,14 +502,12 @@ contract TeeWalletBackupManagerFacetTest is Test {
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
-
     function testBackupRestoreRevertInvalidSigningAlgo() public {
         backupId.signingAlgo = keccak256("InvalidSigningAlgo");
         vm.prank(owner);
         vm.expectRevert(ITeeCommonErrors.InvalidSigningAlgo.selector);
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
-
 
     function testBackupRestoreRevertExtensionIdMismatch1() public {
         // Set backupTeeId to a different extensionId
@@ -569,7 +547,6 @@ contract TeeWalletBackupManagerFacetTest is Test {
         vm.expectRevert(ITeeCommonErrors.ExtensionIdMismatch.selector);
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
-
 
     // =========================================================================
     // backupRestore - happy path

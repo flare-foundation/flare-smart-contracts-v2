@@ -493,10 +493,12 @@ contract TeeMachineReplicationTest is Test {
     function testAddTeeUpgradePaths() public {
         testCreateNewTeeUpgrade();
         ITeeVersionManagerFacet.TeeUpgradePath[] memory upgradePaths = new ITeeVersionManagerFacet.TeeUpgradePath[](1);
-        ITeeVersionManagerFacet.TeeNodeVersion[] memory sourceVersions = new ITeeVersionManagerFacet.TeeNodeVersion[](2);
+        ITeeVersionManagerFacet.TeeNodeVersion[] memory sourceVersions =
+            new ITeeVersionManagerFacet.TeeNodeVersion[](2);
         sourceVersions[0] = ITeeVersionManagerFacet.TeeNodeVersion(codeHash1, platforms1[0]);
         sourceVersions[1] = ITeeVersionManagerFacet.TeeNodeVersion(codeHash1, platforms1[1]);
-        ITeeVersionManagerFacet.TeeNodeVersion[] memory targetVersions = new ITeeVersionManagerFacet.TeeNodeVersion[](2);
+        ITeeVersionManagerFacet.TeeNodeVersion[] memory targetVersions =
+            new ITeeVersionManagerFacet.TeeNodeVersion[](2);
         targetVersions[0] = ITeeVersionManagerFacet.TeeNodeVersion(codeHash2, platforms2[0]);
         targetVersions[1] = ITeeVersionManagerFacet.TeeNodeVersion(codeHash2, platforms2[1]);
         upgradePaths[0] = ITeeVersionManagerFacet.TeeUpgradePath(sourceVersions, targetVersions);
@@ -550,7 +552,9 @@ contract TeeMachineReplicationTest is Test {
         vm.warp(block.timestamp + 1000);
         vm.prank(teeMachineOwner);
         vm.expectEmit();
-        emit ITeeMachineRegistryFacet.TeeMachineStatusChanged(teeId, ITeeMachineRegistryFacet.TeeStatus.PAUSED_FOR_UPGRADE);
+        emit ITeeMachineRegistryFacet.TeeMachineStatusChanged(
+            teeId, ITeeMachineRegistryFacet.TeeStatus.PAUSED_FOR_UPGRADE
+        );
         flareTeeManager.toPauseForUpgrade{value: 200}(teeId, address(0));
         assert(flareTeeManager.getTeeMachineStatus(teeId) == ITeeMachineRegistryFacet.TeeStatus.PAUSED_FOR_UPGRADE);
     }

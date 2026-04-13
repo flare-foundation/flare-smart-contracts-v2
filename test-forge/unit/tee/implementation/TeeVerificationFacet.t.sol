@@ -4,16 +4,12 @@ pragma solidity ^0.8.27;
 import { Test, Vm } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { ITeeVerificationFacet, TEE_SOURCE_ID } from "../../../../contracts/userInterfaces/tee/ITeeVerificationFacet.sol";
-import { IITeeVerificationFacet } from "../../../../contracts/tee/interface/IITeeVerificationFacet.sol";
+import {
+    ITeeVerificationFacet
+} from "../../../../contracts/userInterfaces/tee/ITeeVerificationFacet.sol";
 import { ITeeMachineRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
 import { ITeeExtensionRegistryFacet } from "../../../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
-import { ITeeReplicationFacet } from "../../../../contracts/userInterfaces/tee/ITeeReplicationFacet.sol";
-import { ITeeSystemStateVerifierFacet } from "../../../../contracts/userInterfaces/tee/ITeeSystemStateVerifierFacet.sol";
-import { ITeeWalletManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletManagerFacet.sol";
-import { ITeeWalletKeyManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletKeyManagerFacet.sol";
-import { ITeeWalletProjectManagerFacet } from "../../../../contracts/userInterfaces/tee/ITeeWalletProjectManagerFacet.sol";
 import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
 import { ITeeAvailabilityCheck } from "../../../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
@@ -22,7 +18,6 @@ import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LT
 import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
 import { IDiamond } from "../../../../contracts/diamond/interfaces/IDiamond.sol";
@@ -235,7 +230,6 @@ contract TeeVerificationFacetTest is Test {
     uint32 private signingPolicyId;
     bytes32 private instructionId;
 
-
     function setUp() public {
         owner = makeAddr("owner");
         teeId = makeAddr("teeId");
@@ -380,7 +374,6 @@ contract TeeVerificationFacetTest is Test {
         );
     }
 
-
     // initialize
     function testInitialize() public {
         vm.expectEmit();
@@ -395,7 +388,6 @@ contract TeeVerificationFacetTest is Test {
             defaultFee: 1000
         }));
     }
-
 
     // requestTeeAttestation
     function testRequestTeeAttestation() public {
@@ -434,7 +426,8 @@ contract TeeVerificationFacetTest is Test {
                     // fee
                 ) = abi.decode(
                     entries[i].data,
-                    (ITeeMachineRegistryFacet.TeeMachine[], bytes32, bytes32, bytes, address[], uint64, address, uint256)
+                    (ITeeMachineRegistryFacet.TeeMachine[], bytes32, bytes32,
+                    bytes, address[], uint64, address, uint256)
                 );
                 assertEq(loggedClaimBack, claimBack);
                 break;
@@ -442,7 +435,6 @@ contract TeeVerificationFacetTest is Test {
         }
         assertTrue(foundInstructionsSent);
     }
-
 
     // requestAvailabilityCheckAttestation
     function testRequestAvailabilityCheckAttestationRevertChallengeExpired() public {
@@ -455,7 +447,6 @@ contract TeeVerificationFacetTest is Test {
         );
         flareTeeManager.requestAvailabilityCheckAttestation(teeId, instructionId, teeId, address(0), address(0));
     }
-
 
     function testRequestAvailabilityCheckAttestation() public {
         stateHelper.setTeeMachineStatus(teeId, ITeeMachineRegistryFacet.TeeStatus.INITIALIZED);
@@ -475,7 +466,6 @@ contract TeeVerificationFacetTest is Test {
         flareTeeManager.requestAvailabilityCheckAttestation(teeId, instructionId, teeId, proofOwner, claimBack);
     }
 
-
     // confirmAvailability
     function testConfirmAvailabilityRevertTeeMachineNotAvailable() public {
         stateHelper.setTeeMachineStatus(teeId, ITeeMachineRegistryFacet.TeeStatus.PAUSED);
@@ -483,14 +473,12 @@ contract TeeVerificationFacetTest is Test {
         flareTeeManager.confirmAvailability(proof);
     }
 
-
     function testConfirmAvailabilityRevertInvalidAvailabilityCheckStatus() public {
         proof.responseBody.status = ITeeAvailabilityCheck.AvailabilityCheckStatus.OBSOLETE;
         vm.expectRevert(ITeeCommonErrors.InvalidAvailabilityCheckStatus.selector);
         flareTeeManager.confirmAvailability(proof);
 
     }
-
 
     function testConfirmAvailabilityRevertVersionNotSupported() public {
         stateHelper.setupCodeHashPlatform(
@@ -542,14 +530,12 @@ contract TeeVerificationFacetTest is Test {
         flareTeeManager.confirmAvailability(proof);
     }
 
-
     function testConfirmAvailabilityRevertInvalidResponseData() public {
         _mockGetCurrentRewardEpochId(uint24(rewardEpochId + 100));
         _mockVerifySigningPolicySignatures(rewardEpochId + 100);
         vm.expectRevert(ITeeCommonErrors.InvalidResponseData.selector);
         flareTeeManager.confirmAvailability(proof);
     }
-
 
     function testConfirmAvailabilityRevertInvalidResponseData1() public {
         // Make verifyTeeSystemState return false by setting a non-zero governance hash
@@ -560,13 +546,11 @@ contract TeeVerificationFacetTest is Test {
         flareTeeManager.confirmAvailability(proof);
     }
 
-
     function testConfirmAvailabilityRevertInvalidResponseData2() public {
         proof.responseBody.initialSigningPolicyId = signingPolicyId + 1;
         vm.expectRevert(ITeeCommonErrors.InvalidResponseData.selector);
         flareTeeManager.confirmAvailability(proof);
     }
-
 
     function testConfirmAvailability() public {
         vm.expectEmit();
@@ -577,7 +561,6 @@ contract TeeVerificationFacetTest is Test {
         );
         flareTeeManager.confirmAvailability(proof);
     }
-
 
     // confirmAvailability with TEE signatures
     function testConfirmAvailabilityWithTeeSignatures() public {
@@ -594,7 +577,6 @@ contract TeeVerificationFacetTest is Test {
         );
         flareTeeManager.confirmAvailability(proof);
     }
-
 
     // confirmAvailability with TEE signatures bypasses signing policy check
     function testConfirmAvailabilityTeeSignaturesBypassSigningPolicy() public {
@@ -613,7 +595,6 @@ contract TeeVerificationFacetTest is Test {
         flareTeeManager.confirmAvailability(proof);
     }
 
-
     // verifyAvailabilityCheckProof
     function testVerifyAvailabilityCheckProofRevertCosignersThresholdNotMet() public {
         testSetCosigners();
@@ -622,7 +603,6 @@ contract TeeVerificationFacetTest is Test {
         vm.expectRevert(ITeeVerificationFacet.CosignersThresholdNotMet.selector);
         flareTeeManager.verifyAvailabilityCheckProof(proof);
     }
-
 
     function testVerifyAvailabilityCheckProofRevertInvalidCosigner() public {
         testSetCosigners();
@@ -791,7 +771,6 @@ contract TeeVerificationFacetTest is Test {
         assertTrue(flareTeeManager.verifyAvailabilityCheckProof(proof));
     }
 
-
     // verifyAvailabilityCheckProof with TEE signatures
     function testVerifyAvailabilityCheckProofWithTeeSignatures() public {
         testSetCosigners();
@@ -802,7 +781,6 @@ contract TeeVerificationFacetTest is Test {
 
         assertTrue(flareTeeManager.verifyAvailabilityCheckProof(proof));
     }
-
 
     // verifyAvailabilityCheckProof with TEE signatures bypasses signing policy check
     function testVerifyAvailabilityCheckProofTeeSignaturesBypassSigningPolicy() public {
@@ -816,7 +794,6 @@ contract TeeVerificationFacetTest is Test {
         assertTrue(flareTeeManager.verifyAvailabilityCheckProof(proof));
     }
 
-
     // verifyAvailabilityCheckProof with TEE signatures for INITIALIZED status (cosigners still checked)
     function testVerifyAvailabilityCheckProofWithTeeSignaturesInitialized() public {
         testSetCosigners();
@@ -828,7 +805,6 @@ contract TeeVerificationFacetTest is Test {
 
         assertTrue(flareTeeManager.verifyAvailabilityCheckProof(proof));
     }
-
 
     // verifyAvailabilityCheckProof with TEE signatures - INITIALIZED status, cosigner check still fails
     function testVerifyAvailabilityCheckProofWithTeeSignaturesInitializedRevertCosignersThresholdNotMet() public {
@@ -844,13 +820,11 @@ contract TeeVerificationFacetTest is Test {
         flareTeeManager.verifyAvailabilityCheckProof(proof);
     }
 
-
     // setCosigners
     function testSetCosignersRevertOnlyGovernance() public {
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         flareTeeManager.setCosigners(cosigners, 10);
     }
-
 
     // cosigners.length < threshold
     function testSetCosignersRevertInvalidThreshold1() public {
@@ -865,7 +839,6 @@ contract TeeVerificationFacetTest is Test {
         vm.expectRevert(ITeeCommonErrors.InvalidThreshold.selector);
         flareTeeManager.setCosigners(cosigners, 0);
     }
-
 
     function testSetCosignersRevertInvalidCosigner() public {
         cosigners[0] = address(0);
@@ -891,7 +864,6 @@ contract TeeVerificationFacetTest is Test {
         flareTeeManager.setCosigners(cosigners, 1);
     }
 
-
     function testSetCosigners() public {
         vm.prank(initialGovernance);
         vm.expectEmit();
@@ -899,13 +871,11 @@ contract TeeVerificationFacetTest is Test {
         flareTeeManager.setCosigners(cosigners, 1);
     }
 
-
     // updateSettings
     function testUpdateSettingsRevertOnlyGovernance() public {
         vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         flareTeeManager.updateSettings(1, 1, 1);
     }
-
 
     function testUpdateSettingsRevertInvalidDurationAvailability() public {
         vm.prank(initialGovernance);
@@ -913,13 +883,11 @@ contract TeeVerificationFacetTest is Test {
         flareTeeManager.updateSettings(1, 1, 1 minutes);
     }
 
-
     function testUpdateSettingsRevertInvalidDurationSigningPolicy() public {
         vm.prank(initialGovernance);
         vm.expectRevert(ITeeCommonErrors.InvalidDuration.selector);
         flareTeeManager.updateSettings(1 hours, 0, 1 minutes);
     }
-
 
     function testUpdateSettingsRevertInvalidDurationChallenge() public {
         vm.prank(initialGovernance);
@@ -927,14 +895,12 @@ contract TeeVerificationFacetTest is Test {
         flareTeeManager.updateSettings(1 hours, 1, 1);
     }
 
-
     function testUpdateSettings() public {
         vm.prank(initialGovernance);
         vm.expectEmit();
         emit ITeeVerificationFacet.SettingsUpdated(1 hours, 1, 1 minutes);
         flareTeeManager.updateSettings(1 hours, 1, 1 minutes);
     }
-
 
     // getCosigners
     function testGetCosigners() public {
@@ -951,14 +917,12 @@ contract TeeVerificationFacetTest is Test {
         assertEq(returnedCosignersThreshold, 1);
     }
 
-
     // getSettings
     function testGetSettings() public {
         (uint256 availabilityCheck, uint256 challenge) = flareTeeManager.getSettings();
         assertEq(availabilityCheck, 1 hours);
         assertEq(challenge, 1 minutes);
     }
-
 
     function _mockVerifySigningPolicySignatures(uint256 _rewardEpochId) private {
         vm.mockCall(
@@ -970,7 +934,6 @@ contract TeeVerificationFacetTest is Test {
         );
     }
 
-
     function _mockVerifyCosignerSignatures(address[] memory _cosignersList) private {
         vm.mockCall(
             fdc2Verification,
@@ -981,7 +944,6 @@ contract TeeVerificationFacetTest is Test {
         );
     }
 
-
     function _mockGetCurrentRewardEpochId(uint24 _rewardEpochId) private {
         vm.mockCall(
             flareSystemsManager,
@@ -991,7 +953,6 @@ contract TeeVerificationFacetTest is Test {
             abi.encode(_rewardEpochId)
         );
     }
-
 
     function _mockVerifyTeeSignatures(address[] memory _signingTeeIds) private {
         vm.mockCall(
