@@ -25,7 +25,17 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
  * @notice Test-only facet added to the diamond to write TEE machine state directly
  *         into ERC-7201 storage, bypassing the full registration/attestation flow.
  */
-contract TestTeeMachineHelperFacet {
+interface ITestTeeMachineHelperFacet {
+    function setTeeMachineState(
+        address _teeId,
+        uint256 _extensionId,
+        address _owner,
+        ITeeMachineRegistryFacet.TeeStatus _status,
+        string calldata _url
+    ) external;
+}
+
+contract TestTeeMachineHelperFacet is ITestTeeMachineHelperFacet {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function setTeeMachineState(
@@ -56,16 +66,6 @@ contract TestTeeMachineHelperFacet {
             s.extensionActiveTeeIds[_extensionId].add(_teeId);
         }
     }
-}
-
-interface ITestTeeMachineHelperFacet {
-    function setTeeMachineState(
-        address _teeId,
-        uint256 _extensionId,
-        address _owner,
-        ITeeMachineRegistryFacet.TeeStatus _status,
-        string calldata _url
-    ) external;
 }
 
 contract TeeWalletManagerFacetTest is Test {

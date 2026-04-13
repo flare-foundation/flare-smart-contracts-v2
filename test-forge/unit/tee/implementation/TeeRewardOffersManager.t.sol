@@ -10,6 +10,10 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 
 contract TeeRewardOffersManagerTest is Test {
 
+    uint16 internal constant MAX_BIPS = 1e4;
+    uint24 internal constant PPM_MAX = 1e6;
+    uint64 internal constant DAY = 1 days;
+
     TeeRewardOffersManager private teeRewardOffersManager;
 
     address private governance;
@@ -22,12 +26,8 @@ contract TeeRewardOffersManagerTest is Test {
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
-    uint16 internal constant MAX_BIPS = 1e4;
-    uint24 internal constant PPM_MAX = 1e6;
     address private claimBackAddr;
     address private sender;
-
-    uint64 internal constant DAY = 1 days;
 
     function setUp() public {
         governance = makeAddr("governance");

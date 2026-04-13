@@ -11,6 +11,15 @@ import {IGovernanceSettings} from "@flarenetwork/flare-periphery-contracts/flare
 import "../../../../contracts/fastUpdates/lib/FixedPointArithmetic.sol" as FPA;
 contract FastUpdateIncentiveManagerTest is Test {
 
+    // FPA constants: RangeOrSampleFPA(x) = floor(x * 2^120)
+    uint256 private constant SAMPLE_SIZE = uint256(1) << 120;           // 1
+    uint256 private constant RANGE = uint256(1) << 107;                 // 2^-13
+    uint256 private constant SAMPLE_INCREASE_LIMIT = uint256(1) << 116; // 1/16
+    uint256 private constant RANGE_INCREASE_LIMIT = uint256(1) << 111;  // 2^-9
+    uint256 private constant RANGE_INCREASE_PRICE = 10 ** 24;
+    uint256 private constant SAMPLE_SIZE_INCREASE_PRICE = 1425;
+    uint256 private constant DURATION = 8;
+
     FastUpdateIncentiveManager private manager;
     address private rewardManager;
 
@@ -20,15 +29,6 @@ contract FastUpdateIncentiveManagerTest is Test {
     address private fastUpdater;
     address private flareSystemsManager;
     address private fastUpdatesConfiguration;
-
-    // FPA constants: RangeOrSampleFPA(x) = floor(x * 2^120)
-    uint256 private constant SAMPLE_SIZE = uint256(1) << 120;           // 1
-    uint256 private constant RANGE = uint256(1) << 107;                 // 2^-13
-    uint256 private constant SAMPLE_INCREASE_LIMIT = uint256(1) << 116; // 1/16
-    uint256 private constant RANGE_INCREASE_LIMIT = uint256(1) << 111;  // 2^-9
-    uint256 private constant RANGE_INCREASE_PRICE = 10 ** 24;
-    uint256 private constant SAMPLE_SIZE_INCREASE_PRICE = 1425;
-    uint256 private constant DURATION = 8;
 
     event InflationRewardsOffered(
         uint24 indexed rewardEpochId,

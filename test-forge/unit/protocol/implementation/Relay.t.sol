@@ -8,9 +8,6 @@ import {IIRelay} from "../../../../contracts/protocol/interface/IIRelay.sol";
 /* solhint-disable avoid-low-level-calls */
 contract RelayTest is Test {
 
-    Relay private relay;
-    Relay private relayWithSetter; // Relay with signingPolicySetter != 0
-
     // Test constants matching the TS tests
     uint256 private constant N = 100;              // Number of voters
     uint16 private constant SINGLE_WEIGHT = 500;
@@ -24,6 +21,9 @@ contract RelayTest is Test {
     uint16 private constant THRESHOLD_INCREASE_BIPS = 12000;
     uint32 private constant MSG_FINALIZATION_WINDOW = 3;
     uint32 private constant VOTING_ROUND_ID = 4411;
+
+    Relay private relay;
+    Relay private relayWithSetter; // Relay with signingPolicySetter != 0
 
     // Voter private keys and sorted addresses
     uint256[] private voterPKs;

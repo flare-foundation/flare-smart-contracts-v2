@@ -53,6 +53,12 @@ contract TeeTestMachineInit {
 // solhint-disable-next-line max-states-count
 contract WalletPaymentsTest is Test {
 
+    // tee payments
+    bytes32 constant private XRP_OP_TYPE = bytes32("F_XRP");
+    bytes32 constant private XRP_KEY_TYPE = bytes32("XRP_KEY");
+    bytes32 constant private XRP_SIGNING_ALGO = bytes32("XRP_SIGNING_ALGO");
+    bytes32 constant private XRP_SOURCE_ID = bytes32("XRP");
+
     IIFlareTeeManager private flareTeeManager;
 
     TeePayments private teePayments;
@@ -84,11 +90,6 @@ contract WalletPaymentsTest is Test {
     ITeeWalletBackupManagerFacet.BackupId private backupId;
     uint256 private defaultFee;
 
-    // tee payments
-    bytes32 constant private XRP_OP_TYPE = bytes32("F_XRP");
-    bytes32 constant private XRP_KEY_TYPE = bytes32("XRP_KEY");
-    bytes32 constant private XRP_SIGNING_ALGO = bytes32("XRP_SIGNING_ALGO");
-    bytes32 constant private XRP_SOURCE_ID = bytes32("XRP");
     string private accountAddress = "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe";
     ITeePayments.PMWMultisigAccount private account1;
 

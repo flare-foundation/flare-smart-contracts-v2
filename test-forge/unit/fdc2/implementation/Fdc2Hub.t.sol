@@ -17,6 +17,9 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 // solhint-disable-next-line max-states-count
 contract Fdc2HubTest is Test {
 
+    bytes32 private constant FDC2_OP_TYPE = bytes32("F_FDC2");
+    bytes32 private constant PROVE = bytes32("PROVE");
+
     Fdc2Hub private fdc2Hub;
     Fdc2Hub private fdc2HubImpl;
     Fdc2HubProxy private fdc2HubProxy;
@@ -34,8 +37,6 @@ contract Fdc2HubTest is Test {
     uint16 private minThresholdBIPS;
     uint8 private defaultNumberOfTees;
 
-    bytes32 private constant FDC2_OP_TYPE = bytes32("F_FDC2");
-    bytes32 private constant PROVE = bytes32("PROVE");
     uint256 private requestFee = 10;
 
     address[] private teeIds;

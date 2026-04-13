@@ -29,12 +29,61 @@ import { TeeWalletKeyManager } from "../../../../contracts/tee/library/TeeWallet
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
+interface ITestKeyManagerHelperFacet {
+    function setTeeMachineState(
+        address _teeId,
+        uint256 _extensionId,
+        address _owner,
+        ITeeMachineRegistryFacet.TeeStatus _status,
+        PublicKey calldata _publicKey,
+        uint32 _initialSigningPolicyId,
+        string calldata _url
+    ) external;
+
+    function setProjectState(
+        bytes32 _projectId,
+        address _owner,
+        uint256 _extensionId,
+        bytes32 _keyType,
+        bytes32 _signingAlgo,
+        address _backupManager
+    ) external;
+
+    function setWalletState(
+        bytes32 _walletId,
+        bytes32 _projectId,
+        ITeeWalletManagerFacet.WalletStatus _status,
+        PublicKey[] calldata _adminsPublicKeys,
+        uint64 _adminsThreshold,
+        address[] calldata _cosigners,
+        uint64 _cosignersThreshold
+    ) external;
+
+    function setKeyState(
+        bytes32 _walletId,
+        uint64 _keyId,
+        bytes calldata _publicKey,
+        address[] calldata _teeIds,
+        uint64 _keyIdCounter
+    ) external;
+
+    function setKeyIds(
+        bytes32 _walletId,
+        uint64[] calldata _keyIds
+    ) external;
+
+    function setMultisigThresholdDirect(
+        bytes32 _walletId,
+        uint64 _multisigThreshold
+    ) external;
+}
+
 /**
  * @title TestKeyManagerHelperFacet
  * @notice A test-only facet added to the diamond to write internal state directly,
  *         bypassing the complex registration, attestation, and wallet lifecycle flows.
  */
-contract TestKeyManagerHelperFacet {
+contract TestKeyManagerHelperFacet is ITestKeyManagerHelperFacet {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function setTeeMachineState(
@@ -166,55 +215,6 @@ contract TestKeyManagerHelperFacet {
         TeeWalletKeyManager.State storage s = TeeWalletKeyManager.getState();
         s.walletKeys[_walletId].multisigThreshold = _multisigThreshold;
     }
-}
-
-interface ITestKeyManagerHelperFacet {
-    function setTeeMachineState(
-        address _teeId,
-        uint256 _extensionId,
-        address _owner,
-        ITeeMachineRegistryFacet.TeeStatus _status,
-        PublicKey calldata _publicKey,
-        uint32 _initialSigningPolicyId,
-        string calldata _url
-    ) external;
-
-    function setProjectState(
-        bytes32 _projectId,
-        address _owner,
-        uint256 _extensionId,
-        bytes32 _keyType,
-        bytes32 _signingAlgo,
-        address _backupManager
-    ) external;
-
-    function setWalletState(
-        bytes32 _walletId,
-        bytes32 _projectId,
-        ITeeWalletManagerFacet.WalletStatus _status,
-        PublicKey[] calldata _adminsPublicKeys,
-        uint64 _adminsThreshold,
-        address[] calldata _cosigners,
-        uint64 _cosignersThreshold
-    ) external;
-
-    function setKeyState(
-        bytes32 _walletId,
-        uint64 _keyId,
-        bytes calldata _publicKey,
-        address[] calldata _teeIds,
-        uint64 _keyIdCounter
-    ) external;
-
-    function setKeyIds(
-        bytes32 _walletId,
-        uint64[] calldata _keyIds
-    ) external;
-
-    function setMultisigThresholdDirect(
-        bytes32 _walletId,
-        uint64 _multisigThreshold
-    ) external;
 }
 
 // solhint-disable-next-line max-states-count

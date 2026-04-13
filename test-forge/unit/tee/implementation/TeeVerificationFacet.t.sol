@@ -29,12 +29,62 @@ import { TeeReplication } from "../../../../contracts/tee/library/TeeReplication
 import { TeeExtensionRegistry } from "../../../../contracts/tee/library/TeeExtensionRegistry.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
+interface ITestVerificationStateHelper {
+    function setTeeMachineState(
+        address _teeId,
+        uint256 _extensionId,
+        address _owner,
+        address _teeProxyId,
+        string calldata _url,
+        ITeeMachineRegistryFacet.TeeStatus _status,
+        bytes32 _codeHash,
+        bytes32 _platform,
+        uint32 _initialSigningPolicyId,
+        address _initialTeeId
+    ) external;
+
+    function setTeeMachineStatus(
+        address _teeId,
+        ITeeMachineRegistryFacet.TeeStatus _status
+    ) external;
+
+    function setReplicatingTeeId(
+        address _oldTeeId,
+        address _newTeeId
+    ) external;
+
+    function setupCodeHashPlatform(
+        uint256 _extensionId,
+        bytes32 _codeHash,
+        bytes32 _platform,
+        bool _supported
+    ) external;
+
+    function setExtensionStateVerifier(
+        uint256 _extensionId,
+        address _stateVerifier
+    ) external;
+
+    function setTeeGovernanceHash(
+        uint256 _extensionId,
+        bytes32 _codeHash,
+        bytes32 _governanceHash
+    ) external;
+
+    function setChallenge(
+        address _teeId,
+        bytes32 _challenge,
+        uint256 _challengeTs
+    ) external;
+}
+
+
 /**
  * @title TestVerificationStateHelper
  * @notice Test-only facet added to the diamond to write directly to ERC-7201 storage,
  *         bypassing the full registration/attestation lifecycle flows.
  */
-contract TestVerificationStateHelper {
+contract TestVerificationStateHelper is ITestVerificationStateHelper {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
@@ -148,55 +198,6 @@ contract TestVerificationStateHelper {
         s.challenges[_teeId] = _challenge;
         s.challengeTs[_teeId] = _challengeTs;
     }
-}
-
-interface ITestVerificationStateHelper {
-    function setTeeMachineState(
-        address _teeId,
-        uint256 _extensionId,
-        address _owner,
-        address _teeProxyId,
-        string calldata _url,
-        ITeeMachineRegistryFacet.TeeStatus _status,
-        bytes32 _codeHash,
-        bytes32 _platform,
-        uint32 _initialSigningPolicyId,
-        address _initialTeeId
-    ) external;
-
-    function setTeeMachineStatus(
-        address _teeId,
-        ITeeMachineRegistryFacet.TeeStatus _status
-    ) external;
-
-    function setReplicatingTeeId(
-        address _oldTeeId,
-        address _newTeeId
-    ) external;
-
-    function setupCodeHashPlatform(
-        uint256 _extensionId,
-        bytes32 _codeHash,
-        bytes32 _platform,
-        bool _supported
-    ) external;
-
-    function setExtensionStateVerifier(
-        uint256 _extensionId,
-        address _stateVerifier
-    ) external;
-
-    function setTeeGovernanceHash(
-        uint256 _extensionId,
-        bytes32 _codeHash,
-        bytes32 _governanceHash
-    ) external;
-
-    function setChallenge(
-        address _teeId,
-        bytes32 _challenge,
-        uint256 _challengeTs
-    ) external;
 }
 
 // solhint-disable-next-line max-states-count

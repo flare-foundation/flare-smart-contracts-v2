@@ -23,6 +23,8 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 // solhint-disable-next-line max-states-count
 contract FdcVerificationTest is Test {
 
+    uint8 private constant FDC_PROTOCOL_ID = 200;
+
     FdcVerification private fdcVerification;
     FdcVerification private fdcVerificationImplementation;
     FdcVerificationProxy private fdcVerificationProxy;
@@ -34,8 +36,6 @@ contract FdcVerificationTest is Test {
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
-
-    uint8 private constant FDC_PROTOCOL_ID = 200;
 
     function setUp() public {
         governance = makeAddr("governance");

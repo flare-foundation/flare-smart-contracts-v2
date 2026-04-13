@@ -23,6 +23,12 @@ import { IIFtso } from "@flarenetwork/flare-periphery-contracts/flare/ftso/inter
 // solhint-disable-next-line max-states-count
 contract FtsoManagerProxyTest is Test {
 
+    uint16 private constant REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
+    uint8 private constant VOTING_EPOCH_DURATION_SEC = 90;
+    uint64 private constant REWARD_EPOCH_DURATION_IN_SEC =
+    uint64(REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS) * VOTING_EPOCH_DURATION_SEC;
+    uint24 private constant PPM_MAX = 1e6;
+
     FtsoManagerProxy private ftsoManagerProxy;
     address private flareDaemon;
     address private governance;
@@ -55,12 +61,6 @@ contract FtsoManagerProxyTest is Test {
     uint16[] private votersWeight;
 
     IIRewardEpochSwitchoverTrigger[] private switchoverContracts;
-
-    uint16 private constant REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
-    uint8 private constant VOTING_EPOCH_DURATION_SEC = 90;
-    uint64 private constant REWARD_EPOCH_DURATION_IN_SEC =
-    uint64(REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS) * VOTING_EPOCH_DURATION_SEC;
-    uint24 private constant PPM_MAX = 1e6;
 
     IFtso private ftso1;
     IFtso private ftso2;

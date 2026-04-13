@@ -13,6 +13,8 @@ import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FdcHubTest is Test {
+    uint64 internal constant DAY = 1 days;
+
     FdcHub private fdcHub;
     FdcInflationConfigurations private fdcInflationConfigurations;
     FdcRequestFeeConfigurations private fdcRequestFeeConfigurations;
@@ -35,8 +37,6 @@ contract FdcHubTest is Test {
     bytes32 private type2;
     bytes32 private source2;
     uint256 private fee2;
-
-    uint64 internal constant DAY = 1 days;
 
     function setUp() public {
         governance = makeAddr("governance");

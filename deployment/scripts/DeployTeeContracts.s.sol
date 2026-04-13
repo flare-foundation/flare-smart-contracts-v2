@@ -117,6 +117,10 @@ contract DeployTeeContracts is Script {
         string source;
     }
 
+    // Well-known FlareContractRegistry address (same on all Flare networks)
+    IFlareContractRegistry private constant FLARE_CONTRACT_REGISTRY =
+        IFlareContractRegistry(0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019);
+
     // =========================================================================
     // State variables (avoids stack-too-deep)
     // =========================================================================
@@ -164,10 +168,6 @@ contract DeployTeeContracts is Script {
     address private fdc2VerificationAddr;
     address[] private teePaymentsAddresses;
     address private teeRewardOffersManagerAddr;
-
-    // Well-known FlareContractRegistry address (same on all Flare networks)
-    IFlareContractRegistry private constant FLARE_CONTRACT_REGISTRY =
-        IFlareContractRegistry(0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019);
 
     // =========================================================================
     // Entry point

@@ -8,6 +8,8 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 
 contract GovernedTest is Test {
 
+    uint256 private constant HOUR = 3600;
+
     GovernedMock private governedMock;
 
     address private governance;
@@ -16,7 +18,6 @@ contract GovernedTest is Test {
 
     bytes4 private selectorChangeA = bytes4(keccak256("changeA(uint256)"));
     bytes4 private selectorChangeWithRevert = bytes4(keccak256("changeWithRevert(uint256)"));
-    uint256 private constant HOUR = 3600;
 
     function setUp() public {
         governance = makeAddr("governance");

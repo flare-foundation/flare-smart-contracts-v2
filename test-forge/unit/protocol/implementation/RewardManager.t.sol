@@ -18,6 +18,8 @@ contract RewardManagerTest is Test {
         uint256 vpBlock;
     }
 
+    address payable constant private BURN_ADDRESS = payable(0x000000000000000000000000000000000000dEaD);
+
     RewardManager private rewardManager;
     address private addressUpdater;
     address private governance;
@@ -37,7 +39,6 @@ contract RewardManagerTest is Test {
     address private voter1;
     bytes20 private nodeId1;
     address private account1;
-    address payable constant private BURN_ADDRESS = payable(0x000000000000000000000000000000000000dEaD);
     address private voter2;
     address private delegator;
     address private recipient;

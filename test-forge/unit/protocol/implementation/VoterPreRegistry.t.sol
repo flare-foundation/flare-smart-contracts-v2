@@ -19,6 +19,8 @@ import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/Mes
 // solhint-disable-next-line max-states-count
 contract VoterPreRegistryTest is Test {
 
+    uint256 private constant UINT16_MAX = type(uint16).max;
+
     VoterPreRegistry private voterPreRegistry;
     VoterRegistry private voterRegistry;
     address private mockFlareSystemsManager;
@@ -41,8 +43,6 @@ contract VoterPreRegistryTest is Test {
     bytes20[][] private initialNodeIds;
     IEntityManager.VoterAddresses[] private initialVotersRegisteredAddresses;
     uint256[] private initialVotersWeights;
-
-    uint256 private constant UINT16_MAX = type(uint16).max;
 
     function setUp() public {
         governance = makeAddr("governance");

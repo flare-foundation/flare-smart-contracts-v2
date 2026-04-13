@@ -27,6 +27,11 @@ contract PollingFoundationIntegrationTest is Test {
 
     address payable constant internal BURN_ADDRESS = payable(0x000000000000000000000000000000000000dEaD);
     uint256 internal constant MAX_BIPS = 1e4;
+    uint16 private constant REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
+    uint8 private constant VOTING_EPOCH_DURATION_SEC = 90;
+    uint64 private constant REWARD_EPOCH_DURATION_IN_SEC =
+    uint64(REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS) * VOTING_EPOCH_DURATION_SEC;
+    uint24 private constant PPM_MAX = 1e6;
 
     PollingFoundation private pollingFoundation;
 
@@ -57,12 +62,6 @@ contract PollingFoundationIntegrationTest is Test {
     uint256[] private privateKeys;
     uint256[] private initialVotePowers;
     address[] private proposers;
-
-    uint16 private constant REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
-    uint8 private constant VOTING_EPOCH_DURATION_SEC = 90;
-    uint64 private constant REWARD_EPOCH_DURATION_IN_SEC =
-    uint64(REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS) * VOTING_EPOCH_DURATION_SEC;
-    uint24 private constant PPM_MAX = 1e6;
 
     function setUp() public {
         vm.warp(300000);

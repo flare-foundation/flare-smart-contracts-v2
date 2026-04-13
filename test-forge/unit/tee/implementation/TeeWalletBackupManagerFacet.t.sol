@@ -29,12 +29,53 @@ import { TeeWalletKeyManager } from "../../../../contracts/tee/library/TeeWallet
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
+interface ITestStateHelperFacet {
+    function setTeeMachineState(
+        address _teeId,
+        uint256 _extensionId,
+        address _owner,
+        ITeeMachineRegistryFacet.TeeStatus _status,
+        PublicKey calldata _publicKey,
+        uint32 _initialSigningPolicyId,
+        string calldata _url
+    ) external;
+
+    function setProjectState(
+        bytes32 _projectId,
+        address _owner,
+        uint256 _extensionId,
+        bytes32 _keyType,
+        bytes32 _signingAlgo,
+        address _backupManager
+    ) external;
+
+    function setWalletState(
+        bytes32 _walletId,
+        bytes32 _projectId,
+        PublicKey[] calldata _adminsPublicKeys,
+        uint64 _adminsThreshold
+    ) external;
+
+    function setKeyState(
+        bytes32 _walletId,
+        uint64 _keyId,
+        bytes calldata _publicKey,
+        address[] calldata _teeIds,
+        uint64 _keyIdCounter
+    ) external;
+
+    function setExtensionInstructionCounter(
+        uint256 _extensionId,
+        uint256 _counter
+    ) external;
+}
+
 /**
  * @title TestStateHelperFacet
  * @notice A test-only facet added to the diamond to write internal state directly,
  *         bypassing the complex registration, attestation, and wallet lifecycle flows.
  */
-contract TestStateHelperFacet {
+contract TestStateHelperFacet is ITestStateHelperFacet {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function setTeeMachineState(
@@ -141,47 +182,6 @@ contract TestStateHelperFacet {
         // instructionCounter was removed from TeeExtension struct
         (_extensionId, _counter); // suppress unused variable warning
     }
-}
-
-interface ITestStateHelperFacet {
-    function setTeeMachineState(
-        address _teeId,
-        uint256 _extensionId,
-        address _owner,
-        ITeeMachineRegistryFacet.TeeStatus _status,
-        PublicKey calldata _publicKey,
-        uint32 _initialSigningPolicyId,
-        string calldata _url
-    ) external;
-
-    function setProjectState(
-        bytes32 _projectId,
-        address _owner,
-        uint256 _extensionId,
-        bytes32 _keyType,
-        bytes32 _signingAlgo,
-        address _backupManager
-    ) external;
-
-    function setWalletState(
-        bytes32 _walletId,
-        bytes32 _projectId,
-        PublicKey[] calldata _adminsPublicKeys,
-        uint64 _adminsThreshold
-    ) external;
-
-    function setKeyState(
-        bytes32 _walletId,
-        uint64 _keyId,
-        bytes calldata _publicKey,
-        address[] calldata _teeIds,
-        uint64 _keyIdCounter
-    ) external;
-
-    function setExtensionInstructionCounter(
-        uint256 _extensionId,
-        uint256 _counter
-    ) external;
 }
 
 // solhint-disable-next-line max-states-count

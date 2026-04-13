@@ -31,6 +31,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     uint8 private constant VOTING_EPOCH_DURATION_SEC = 90;
     uint64 private constant REWARD_EPOCH_DURATION_IN_SEC =
     uint64(REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS) * VOTING_EPOCH_DURATION_SEC;
+    uint256 private constant UINT16_MAX = type(uint16).max;
 
     VoterRegistry private voterRegistry;
     address private mockFlareSystemsManager;
@@ -85,8 +86,6 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     uint8 private v;
     bytes32 private r;
     bytes32 private s;
-
-    uint256 private constant UINT16_MAX = type(uint16).max;
 
     bytes private certificateRawTest;
     bytes private signatureTest;

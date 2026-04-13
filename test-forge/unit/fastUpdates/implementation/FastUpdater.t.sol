@@ -16,6 +16,12 @@ import {G1Point} from "../../../../contracts/userInterfaces/IBn256.sol";
 
 contract FastUpdaterTest is Test {
 
+    uint256 private constant EPOCH_LEN = 1000;
+    uint8 private constant SUBMISSION_WINDOW = 10;
+    uint256 private constant NUM_FEEDS = 20;
+    uint256 private constant SCALE = (1 << 127) + (1 << 111);
+    uint256 private constant SAMPLE_SIZE_VAL = uint256(8) << 120;
+
     FastUpdater private fastUpdater;
     address private incentiveManager;
     FastUpdatesConfiguration private fastUpdatesConfig;
@@ -26,13 +32,6 @@ contract FastUpdaterTest is Test {
     address private governance;
     address private addressUpdater;
     address private flareDaemon;
-
-    uint256 private constant EPOCH_LEN = 1000;
-    uint8 private constant SUBMISSION_WINDOW = 10;
-    uint256 private constant NUM_FEEDS = 20;
-
-    uint256 private constant SCALE = (1 << 127) + (1 << 111);
-    uint256 private constant SAMPLE_SIZE_VAL = uint256(8) << 120;
 
     bytes21[] private feedIds;
 

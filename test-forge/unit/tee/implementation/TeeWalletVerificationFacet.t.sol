@@ -34,12 +34,36 @@ import { TeeWalletManager } from "../../../../contracts/tee/library/TeeWalletMan
 import { TeeWalletKeyManager } from "../../../../contracts/tee/library/TeeWalletKeyManager.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
+
+interface IPMWTestStateHelper {
+    function setTeeMachineState(
+        address _teeId,
+        uint256 _extensionId,
+        address _owner,
+        ITeeMachineRegistryFacet.TeeStatus _status
+    ) external;
+
+    function setWalletState(
+        bytes32 _walletId,
+        bytes32 _projectId,
+        ITeeWalletManagerFacet.WalletStatus _status
+    ) external;
+
+    function setKeyState(
+        bytes32 _walletId,
+        uint64 _keyId,
+        bytes calldata _publicKey,
+        address _teeId,
+        uint64 _multisigThreshold
+    ) external;
+}
+
 /**
  * @title PMWTestStateHelper
  * @notice Test-only facet that writes directly to ERC-7201 diamond storage,
  *         bypassing the full wallet lifecycle flows.
  */
-contract PMWTestStateHelper {
+contract PMWTestStateHelper is IPMWTestStateHelper {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function setTeeMachineState(
@@ -102,30 +126,6 @@ contract PMWTestStateHelper {
         keyDef.teeIds.push(_teeId);
     }
 }
-
-interface IPMWTestStateHelper {
-    function setTeeMachineState(
-        address _teeId,
-        uint256 _extensionId,
-        address _owner,
-        ITeeMachineRegistryFacet.TeeStatus _status
-    ) external;
-
-    function setWalletState(
-        bytes32 _walletId,
-        bytes32 _projectId,
-        ITeeWalletManagerFacet.WalletStatus _status
-    ) external;
-
-    function setKeyState(
-        bytes32 _walletId,
-        uint64 _keyId,
-        bytes calldata _publicKey,
-        address _teeId,
-        uint64 _multisigThreshold
-    ) external;
-}
-
 
 // solhint-disable-next-line max-states-count
 contract TeeWalletVerificationFacetTest is Test {

@@ -25,6 +25,12 @@ import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 
 contract FlareSystemsManagerTest is Test {
 
+    uint16 private constant REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
+    uint8 private constant VOTING_EPOCH_DURATION_SEC = 90;
+    uint64 private constant REWARD_EPOCH_DURATION_IN_SEC =
+    uint64(REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS) * VOTING_EPOCH_DURATION_SEC;
+    uint24 private constant PPM_MAX = 1e6;
+
     FlareSystemsManager private flareSystemsManager;
     address private flareDaemon;
     address private governance;
@@ -48,12 +54,6 @@ contract FlareSystemsManagerTest is Test {
     uint16[] private votersWeight;
 
     IIRewardEpochSwitchoverTrigger[] private switchoverContracts;
-
-    uint16 private constant REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS = 3360; // 3.5 days
-    uint8 private constant VOTING_EPOCH_DURATION_SEC = 90;
-    uint64 private constant REWARD_EPOCH_DURATION_IN_SEC =
-    uint64(REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS) * VOTING_EPOCH_DURATION_SEC;
-    uint24 private constant PPM_MAX = 1e6;
 
     function setUp() public {
         vm.warp(1000);

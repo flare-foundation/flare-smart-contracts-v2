@@ -28,6 +28,13 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 //solhint-disable-next-line max-states-count
 contract TeePaymentsTest is Test {
 
+    bytes32 private constant OP_TYPE = bytes32("F_XRP");
+    bytes32 private constant KEY_TYPE = bytes32("XRP_KEY");
+    bytes32 private constant SOURCE_ID = bytes32("XRP");
+    bytes32 private constant PAY = bytes32("PAY");
+    bytes32 private constant REISSUE = bytes32("REISSUE");
+    bytes32 private constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
+
     TeePayments private teePayments;
     TeePayments private teePaymentsImpl;
     TeePaymentsProxy private teePaymentsProxy;
@@ -43,12 +50,6 @@ contract TeePaymentsTest is Test {
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
 
-    bytes32 private constant OP_TYPE = bytes32("F_XRP");
-    bytes32 private constant KEY_TYPE = bytes32("XRP_KEY");
-    bytes32 private constant SOURCE_ID = bytes32("XRP");
-    bytes32 private constant PAY = bytes32("PAY");
-    bytes32 private constant REISSUE = bytes32("REISSUE");
-    bytes32 private constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
     bytes32 private walletId = bytes32("walletId");
     address private walletOwner = makeAddr("walletOwner");
     string private senderAddress = "senderAddress";
