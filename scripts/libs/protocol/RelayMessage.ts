@@ -5,8 +5,8 @@ import { ISigningPolicy, SigningPolicy } from "./SigningPolicy";
 
 export interface IRelayMessage {
   signingPolicy: ISigningPolicy;
-  protocolMessageMerkleRoot?: IProtocolMessageMerkleRoot;
-  newSigningPolicy?: ISigningPolicy;
+  protocolMessageMerkleRoot?: IProtocolMessageMerkleRoot | undefined;
+  newSigningPolicy?: ISigningPolicy | undefined;
   signatures: IECDSASignatureWithIndex[];
 }
 

@@ -16,7 +16,7 @@ export async function getDataSource(readOnly = false) {
     database: sqliteDatabase,
     entities: [TLPTransaction, TLPEvents, TLPState],
     synchronize: !readOnly,
-    flags: readOnly ? 1 : undefined,
+    ...(readOnly ? { flags: 1 } : {}),
   });
   await retry(async () => {
     await dataSource.initialize();

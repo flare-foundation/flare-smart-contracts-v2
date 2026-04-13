@@ -10,10 +10,10 @@ export interface ISignaturePayload {
   message: IProtocolMessageMerkleRoot;
   signature: IECDSASignature;
   unsignedMessage: string;
-  signer?: string;
-  index?: number;
-  messageHash?: string;
-  weight?: number;
+  signer?: string | undefined;
+  index?: number | undefined;
+  messageHash?: string | undefined;
+  weight?: number | undefined;
 }
 
 export interface DepositSignatureData {
