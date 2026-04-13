@@ -31,6 +31,7 @@ pragma solidity >=0.7.6 <0.9;
  * - If `checkFirstMemoData` is true, the hash of the MemoData field of the first Memo in the transaction matches
  * `firstMemoDataHash`.
  * - If `checkDestinationTag` is true, the destination tag of the transaction matches `destinationTag`.
+ * At least one of the fields `checkFirstMemoData` and `checkDestinationTag` must be true for the request to be valid.
  * - One of the following is true:
  *   - Transaction status is `SUCCESS` and the amount received by the specified destination address is greater
  *  than the specified `value`.
@@ -95,10 +96,13 @@ interface IXRPPaymentNonexistence {
    * @param deadlineTimestamp The timestamp to be included in the search range.
    * @param destinationAddressHash The standard address hash of the address to which the payment had to be done.
    * @param amount The requested amount in minimal units that had to be payed.
-   * @param checkFirstMemoData Whether to consider the firstMemoDataHash field in the search.
+   * @param checkFirstMemoData Whether to consider the firstMemoDataHash field in the search. Notice:
+   * At least one `checkFirstMemoData` (this field) or `checkDestinationTag` must be true.
    * @param firstMemoDataHash Hash of the MemoData field of the first Memo in the transaction.
-   * @param checkDestinationTag Whether to consider the destinationTag field in the search.
+   * @param checkDestinationTag Whether to consider the destinationTag field in the search. Notice: 
+   * At least one `checkFirstMemoData` or `checkDestinationTag` (this field) must be true.
    * @param destinationTag Destination tag of the transaction.
+
    * @custom:below If both `firstMemoDataHash` and `destinationTag` are zero, they are not considered in the
    * search and are ignored, effectively looking for any transaction with at least the specified amount sent to
    * the specified address.
