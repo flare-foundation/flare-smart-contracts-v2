@@ -80,7 +80,7 @@ build-smart-contracts:
   before_script:
   - corepack enable && pnpm install --frozen-lockfile
   script:
-  - pnpm c
+  - pnpm compile
   cache:
   - key:
       files: [ pnpm-lock.yaml ]
@@ -188,7 +188,7 @@ coverage-hardhat:
   before_script:
   - corepack enable && pnpm install --frozen-lockfile 1>/dev/null
   script:
-  - pnpm run coverage
+  - pnpm coverage
   - cp coverage/cobertura-coverage.xml coverage-hardhat-cobertura.xml
   artifacts:
     name: coverage-hardhat
