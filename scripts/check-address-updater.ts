@@ -4,7 +4,6 @@ import { AddressUpdaterContract } from "../typechain-truffle/flattened/FlareSmar
 import axios from "axios";
 
 export async function checkAddressUpdater(hre: HardhatRuntimeEnvironment, contracts: Contracts) {
-
   interface Contract {
     name: string;
     contractName: string;
@@ -19,9 +18,7 @@ export async function checkAddressUpdater(hre: HardhatRuntimeEnvironment, contra
   const oldContracts: Contract[] = response.data;
 
   // get AddressUpdater address
-  const addressUpdaterContract = oldContracts.find(
-    (c: Contract) => c.name === "AddressUpdater"
-  );
+  const addressUpdaterContract = oldContracts.find((c: Contract) => c.name === "AddressUpdater");
   if (!addressUpdaterContract) throw new Error("AddressUpdater not found");
   const addressUpdater = await AddressUpdater.at(addressUpdaterContract.address);
 
@@ -54,10 +51,9 @@ const excludedContractNames = [
   "RNatAccount.sol",
   "DelegationAccount.sol",
   "USDTSwapper.sol",
-  "SFlrCustomFeed.sol"
+  "SFlrCustomFeed.sol",
 ];
 
 function exclude(contract: any): boolean {
-  return contract.name.endsWith("Implementation") ||
-    excludedContractNames.includes(contract.contractName);
+  return contract.name.endsWith("Implementation") || excludedContractNames.includes(contract.contractName);
 }

@@ -10,8 +10,7 @@ Web3 = Web3.default || Web3;
 const web3 = new Web3();
 
 function getInterfaceSelectors() {
-  const artifactPath =
-    "artifacts-forge/IIFlareTeeManager.sol/IIFlareTeeManager.json";
+  const artifactPath = "artifacts-forge/IIFlareTeeManager.sol/IIFlareTeeManager.json";
   const artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
   const interfaceSelectors = getInterfaceSelectorMap(artifact.abi);
   return interfaceSelectors;

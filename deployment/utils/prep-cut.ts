@@ -122,11 +122,8 @@ export function parseArgs(argv: string[]) {
 
 export function readFacetsFile(p: string) {
   // line format: address|contractName
-  const lines = fs
-    .readFileSync(p, "utf8")
-    .split(/\r?\n/)
-    .filter(Boolean);
-  return lines.map(l => {
+  const lines = fs.readFileSync(p, "utf8").split(/\r?\n/).filter(Boolean);
+  return lines.map((l) => {
     const parts = l.split("|");
     if (parts.length !== 2) {
       throw new Error(`Invalid facets line (expected address|contractName): ${l}`);
@@ -138,11 +135,8 @@ export function readFacetsFile(p: string) {
 
 export function readLoupeFile(p: string) {
   // line format: facetAddress|sel1,sel2,sel3
-  const lines = fs
-    .readFileSync(p, "utf8")
-    .split(/\r?\n/)
-    .filter(Boolean);
-  return lines.map(l => {
+  const lines = fs.readFileSync(p, "utf8").split(/\r?\n/).filter(Boolean);
+  return lines.map((l) => {
     const [facetAddress, selectors] = l.split("|");
     const functionSelectors = (selectors ? selectors.split(",") : []).filter(Boolean);
     return { facetAddress, functionSelectors };

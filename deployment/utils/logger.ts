@@ -33,7 +33,7 @@ export function getLogger(label: string): Logger {
       winston.format.label({
         label: label,
       }),
-      winston.format.printf(json => {
+      winston.format.printf((json) => {
         if (json.label) {
           return `${json.timestamp} - ${json.label}:[${json.level}]: ${json.message}`;
         } else {

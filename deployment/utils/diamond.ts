@@ -32,8 +32,8 @@ export class DiamondSelectors {
   }
 
   static fromABI(contract: { address: string; abi: AbiItem[] }, methodFilter?: (abi: AbiItem) => boolean) {
-    const functions = contract.abi.filter(abi => abi.type === "function" && (!methodFilter || methodFilter(abi)));
-    const selectorMap = new Map(functions.map(fn => [toSelector(fn), contract.address]));
+    const functions = contract.abi.filter((abi) => abi.type === "function" && (!methodFilter || methodFilter(abi)));
+    const selectorMap = new Map(functions.map((fn) => [toSelector(fn), contract.address]));
     return new DiamondSelectors(selectorMap);
   }
 
@@ -84,16 +84,16 @@ export class DiamondSelectors {
 
   restrict(functions: DiamondSelectors | Iterable<string | AbiItem>) {
     const keepSelectors = functions instanceof DiamondSelectors ? functions.selectorMap : toSelectorSet(functions);
-    return this.filter(sel => keepSelectors.has(sel));
+    return this.filter((sel) => keepSelectors.has(sel));
   }
 
   remove(functions: DiamondSelectors | Iterable<string | AbiItem>) {
     const removeSelectors = functions instanceof DiamondSelectors ? functions.selectorMap : toSelectorSet(functions);
-    return this.filter(sel => !removeSelectors.has(sel));
+    return this.filter((sel) => !removeSelectors.has(sel));
   }
 
   removeExisting(existing: DiamondSelectors) {
-    return this.filter(sel => this.selectorMap.get(sel) !== existing.selectorMap.get(sel));
+    return this.filter((sel) => this.selectorMap.get(sel) !== existing.selectorMap.get(sel));
   }
 
   // the delete selectors require facet address to be zero

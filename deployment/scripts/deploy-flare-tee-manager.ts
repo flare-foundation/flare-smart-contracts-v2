@@ -34,11 +34,7 @@ export const DAY1_FACETS = [
 ];
 
 // Deploy-later facets (added via diamondCut after initial deployment)
-export const LATER_FACETS = [
-  "TeeReplicationFacet",
-  "TeeGovernanceFacet",
-  "TeeVersionManagerFacet",
-];
+export const LATER_FACETS = ["TeeReplicationFacet", "TeeGovernanceFacet", "TeeVersionManagerFacet"];
 
 export enum FacetCutAction {
   Add = 0,
@@ -141,18 +137,19 @@ export async function deployFlareTeeManager(
   const { facetCuts, facetAddresses } = await deployFacetsAndBuildCuts(hre, DAY1_FACETS);
 
   for (const facetName of DAY1_FACETS) {
-    spewNewContractInfo(
-      contracts, null, facetName, `${facetName}.sol`,
-      facetAddresses[facetName], quiet
-    );
+    spewNewContractInfo(contracts, null, facetName, `${facetName}.sol`, facetAddresses[facetName], quiet);
   }
 
   // 2. Deploy FlareTeeManagerInit (init contract, not a facet)
   const FlareTeeManagerInit = hre.artifacts.require("FlareTeeManagerInit");
   const flareTeeManagerInit = await FlareTeeManagerInit.new();
   spewNewContractInfo(
-    contracts, null, "FlareTeeManagerInit", "FlareTeeManagerInit.sol",
-    flareTeeManagerInit.address, quiet
+    contracts,
+    null,
+    "FlareTeeManagerInit",
+    "FlareTeeManagerInit.sol",
+    flareTeeManagerInit.address,
+    quiet
   );
 
   // 3. Encode init calldata
@@ -171,14 +168,8 @@ export async function deployFlareTeeManager(
 
   // 4. Deploy FlareTeeManager Diamond
   const FlareTeeManager = hre.artifacts.require("FlareTeeManager");
-  const flareTeeManager = await FlareTeeManager.new(
-    facetCuts,
-    { init: flareTeeManagerInit.address, initCalldata }
-  );
-  spewNewContractInfo(
-    contracts, null, "FlareTeeManager", "FlareTeeManager.sol",
-    flareTeeManager.address, quiet
-  );
+  const flareTeeManager = await FlareTeeManager.new(facetCuts, { init: flareTeeManagerInit.address, initCalldata });
+  spewNewContractInfo(contracts, null, "FlareTeeManager", "FlareTeeManager.sol", flareTeeManager.address, quiet);
 
   // 5. Post-init configuration (governance calls are immediate before production mode)
   // Access facets through the diamond address
@@ -201,31 +192,29 @@ export async function deployFlareTeeManager(
 
   // Add system supported platforms
   await teeExtensionRegistry.addSystemSupportedPlatforms(
-    parameters.teeSupportedPlatforms.map(
-      (platform: string) => hre.web3.utils.utf8ToHex(platform).padEnd(66, "0")
-    )
+    parameters.teeSupportedPlatforms.map((platform: string) => hre.web3.utils.utf8ToHex(platform).padEnd(66, "0"))
   );
 
   // Add system supported key types and signing algorithms
   await teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(
-    parameters.teeSupportedKeyTypesWithSigningAlgos.map(
-      (cfg: TeeKeyTypeWithSigningAlgos) => hre.web3.utils.utf8ToHex(cfg.keyType).padEnd(66, "0")
+    parameters.teeSupportedKeyTypesWithSigningAlgos.map((cfg: TeeKeyTypeWithSigningAlgos) =>
+      hre.web3.utils.utf8ToHex(cfg.keyType).padEnd(66, "0")
     ),
-    parameters.teeSupportedKeyTypesWithSigningAlgos.map(
-      (cfg: TeeKeyTypeWithSigningAlgos) => cfg.signingAlgos.map(
-        (alg: string) => hre.web3.utils.utf8ToHex(alg).padEnd(66, "0")
-      )
-    ),
+    parameters.teeSupportedKeyTypesWithSigningAlgos.map((cfg: TeeKeyTypeWithSigningAlgos) =>
+      cfg.signingAlgos.map((alg: string) => hre.web3.utils.utf8ToHex(alg).padEnd(66, "0"))
+    )
   );
 
   // Add system extension supported key types
   await teeExtensionRegistry.addSupportedKeyTypes(
     0, // system extension id
-    [...new Set(
-      parameters.teePaymentConfigurations.map(
-        (cfg: TeePaymentConfiguration) => hre.web3.utils.utf8ToHex(cfg.keyType).padEnd(66, "0")
-      )
-    )]
+    [
+      ...new Set(
+        parameters.teePaymentConfigurations.map((cfg: TeePaymentConfiguration) =>
+          hre.web3.utils.utf8ToHex(cfg.keyType).padEnd(66, "0")
+        )
+      ),
+    ]
   );
 
   return flareTeeManager.address;
@@ -245,18 +234,19 @@ export async function addLaterFacets(
   const { facetCuts, facetAddresses } = await deployFacetsAndBuildCuts(hre, LATER_FACETS);
 
   for (const facetName of LATER_FACETS) {
-    spewNewContractInfo(
-      contracts, null, facetName, `${facetName}.sol`,
-      facetAddresses[facetName], quiet
-    );
+    spewNewContractInfo(contracts, null, facetName, `${facetName}.sol`, facetAddresses[facetName], quiet);
   }
 
   // Deploy TeeReplicationInit for the replication facet init
   const TeeReplicationInit = hre.artifacts.require("TeeReplicationInit");
   const teeReplicationInit = await TeeReplicationInit.new();
   spewNewContractInfo(
-    contracts, null, "TeeReplicationInit", "TeeReplicationInit.sol",
-    teeReplicationInit.address, quiet
+    contracts,
+    null,
+    "TeeReplicationInit",
+    "TeeReplicationInit.sol",
+    teeReplicationInit.address,
+    quiet
   );
 
   const initCalldata = hre.web3.eth.abi.encodeFunctionCall(

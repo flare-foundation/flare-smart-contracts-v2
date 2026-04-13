@@ -10,22 +10,34 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
-import { spewNewContractInfo } from './deploy-utils';
-import { ISigningPolicy, SigningPolicy } from '../../scripts/libs/protocol/SigningPolicy';
-import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
+import { spewNewContractInfo } from "./deploy-utils";
+import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
+import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
 import {
-  FtsoFeedIdConverterContract, EntityManagerContract, NodePossessionVerifierContract,
-  VoterRegistryContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract,
-  RewardManagerContract, FtsoRewardManagerProxyContract, SubmissionContract,
-  WNatDelegationFeeContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract,
-  FtsoFeedDecimalsContract, FtsoFeedPublisherContract, RelayContract,
-  FdcHubContract, FdcInflationConfigurationsContract, FdcRequestFeeConfigurationsContract,
-  IISupplyGovernanceContract
-} from '../../typechain-truffle';
-import { generateOffers, runOfferRewards } from './offer-rewards';
-import { RelayInitialConfig } from '../utils/RelayInitialConfig';
-import fs from 'fs';
-import { Account } from 'web3-core';
+  FtsoFeedIdConverterContract,
+  EntityManagerContract,
+  NodePossessionVerifierContract,
+  VoterRegistryContract,
+  FlareSystemsCalculatorContract,
+  FlareSystemsManagerContract,
+  RewardManagerContract,
+  FtsoRewardManagerProxyContract,
+  SubmissionContract,
+  WNatDelegationFeeContract,
+  FtsoInflationConfigurationsContract,
+  FtsoRewardOffersManagerContract,
+  FtsoFeedDecimalsContract,
+  FtsoFeedPublisherContract,
+  RelayContract,
+  FdcHubContract,
+  FdcInflationConfigurationsContract,
+  FdcRequestFeeConfigurationsContract,
+  IISupplyGovernanceContract,
+} from "../../typechain-truffle";
+import { generateOffers, runOfferRewards } from "./offer-rewards";
+import { RelayInitialConfig } from "../utils/RelayInitialConfig";
+import fs from "fs";
+import { Account } from "web3-core";
 
 export async function deployContracts(
   hre: HardhatRuntimeEnvironment,
@@ -49,7 +61,9 @@ export async function deployContracts(
   const FtsoRewardManagerProxy = artifacts.require("FtsoRewardManagerProxy") as FtsoRewardManagerProxyContract;
   const Submission = artifacts.require("Submission") as SubmissionContract;
   const WNatDelegationFee = artifacts.require("WNatDelegationFee") as WNatDelegationFeeContract;
-  const FtsoInflationConfigurations = artifacts.require("FtsoInflationConfigurations") as FtsoInflationConfigurationsContract;
+  const FtsoInflationConfigurations = artifacts.require(
+    "FtsoInflationConfigurations"
+  ) as FtsoInflationConfigurationsContract;
   const FtsoRewardOffersManager = artifacts.require("FtsoRewardOffersManager") as FtsoRewardOffersManagerContract;
   const FtsoFeedDecimals = artifacts.require("FtsoFeedDecimals") as FtsoFeedDecimalsContract;
   const FtsoFeedPublisher = artifacts.require("FtsoFeedPublisher") as FtsoFeedPublisherContract;
@@ -57,8 +71,12 @@ export async function deployContracts(
   const Relay = artifacts.require("Relay") as RelayContract;
   const Supply = artifacts.require("IISupplyGovernance") as IISupplyGovernanceContract;
   const FdcHub = artifacts.require("FdcHub") as FdcHubContract;
-  const FdcInflationConfigurations = artifacts.require("FdcInflationConfigurations") as FdcInflationConfigurationsContract;
-  const FdcRequestFeeConfigurations = artifacts.require("FdcRequestFeeConfigurations") as FdcRequestFeeConfigurationsContract;
+  const FdcInflationConfigurations = artifacts.require(
+    "FdcInflationConfigurations"
+  ) as FdcInflationConfigurationsContract;
+  const FdcRequestFeeConfigurations = artifacts.require(
+    "FdcRequestFeeConfigurations"
+  ) as FdcRequestFeeConfigurationsContract;
 
   // Define accounts in play for the deployment process
   let deployerAccount: Account;
@@ -241,7 +259,14 @@ export async function deployContracts(
     deployerAccount.address, // tmp address updater
     ftsoRewardManager
   );
-  spewNewContractInfo(contracts, null, "FtsoRewardManager", `FtsoRewardManagerProxy.sol`, ftsoRewardManagerProxy.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    "FtsoRewardManager",
+    `FtsoRewardManagerProxy.sol`,
+    ftsoRewardManagerProxy.address,
+    quiet
+  );
 
   const relayInitialConfig: RelayInitialConfig = {
     initialRewardEpochId: initialSigningPolicy.rewardEpochId,
@@ -255,14 +280,10 @@ export async function deployContracts(
     thresholdIncreaseBIPS: parameters.relayThresholdIncreaseBIPS,
     messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
     feeCollectionAddress: ZERO_ADDRESS,
-    feeConfigs: []
-  }
+    feeConfigs: [],
+  };
 
-  const relay = await Relay.new(
-    relayInitialConfig,
-    flareSystemsManager.address,
-    ZERO_ADDRESS
-  );
+  const relay = await Relay.new(relayInitialConfig, flareSystemsManager.address, ZERO_ADDRESS);
 
   spewNewContractInfo(contracts, null, Relay.contractName, `Relay.sol`, relay.address, quiet);
 
@@ -318,7 +339,7 @@ export async function deployContracts(
     parameters.decimalsUpdateOffset,
     parameters.defaultDecimals,
     initialRewardEpochId,
-    parameters.feedDecimalsList.map(fd => {
+    parameters.feedDecimalsList.map((fd) => {
       return {
         feedId: FtsoConfigurations.encodeFeedId(fd.feedId),
         decimals: fd.decimals,
@@ -360,14 +381,40 @@ export async function deployContracts(
     quiet
   );
 
-  const fdcHub = await FdcHub.new(governanceSettings, deployerAccount.address, deployerAccount.address, parameters.fdcRequestsOffsetSeconds);
+  const fdcHub = await FdcHub.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address,
+    parameters.fdcRequestsOffsetSeconds
+  );
   spewNewContractInfo(contracts, null, FdcHub.contractName, `FdcHub.sol`, fdcHub.address, quiet);
 
-  const fdcInflationConfigurations = await FdcInflationConfigurations.new(governanceSettings, deployerAccount.address, deployerAccount.address);
-  spewNewContractInfo(contracts, null, FdcInflationConfigurations.contractName, `FdcInflationConfigurations.sol`, fdcInflationConfigurations.address, quiet);
+  const fdcInflationConfigurations = await FdcInflationConfigurations.new(
+    governanceSettings,
+    deployerAccount.address,
+    deployerAccount.address
+  );
+  spewNewContractInfo(
+    contracts,
+    null,
+    FdcInflationConfigurations.contractName,
+    `FdcInflationConfigurations.sol`,
+    fdcInflationConfigurations.address,
+    quiet
+  );
 
-  const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(governanceSettings, deployerAccount.address);
-  spewNewContractInfo(contracts, null, FdcRequestFeeConfigurations.contractName, `FdcRequestFeeConfigurations.sol`, fdcRequestFeeConfigurations.address, quiet);
+  const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(
+    governanceSettings,
+    deployerAccount.address
+  );
+  spewNewContractInfo(
+    contracts,
+    null,
+    FdcRequestFeeConfigurations.contractName,
+    `FdcRequestFeeConfigurations.sol`,
+    fdcRequestFeeConfigurations.address,
+    quiet
+  );
 
   if (parameters.pChainStakeEnabled) {
     await flareSystemsCalculator.enablePChainStakeMirror();
@@ -406,18 +453,64 @@ export async function deployContracts(
   );
 
   await flareSystemsManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.SUBMISSION, Contracts.RELAY, Contracts.REWARD_MANAGER, Contracts.CLEANUP_BLOCK_NUMBER_MANAGER]),
-    [addressUpdater, voterRegistry.address, submission.address, relay.address, rewardManager.address, cleanupBlockNumberManager]
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.VOTER_REGISTRY,
+      Contracts.SUBMISSION,
+      Contracts.RELAY,
+      Contracts.REWARD_MANAGER,
+      Contracts.CLEANUP_BLOCK_NUMBER_MANAGER,
+    ]),
+    [
+      addressUpdater,
+      voterRegistry.address,
+      submission.address,
+      relay.address,
+      rewardManager.address,
+      cleanupBlockNumberManager,
+    ]
   );
 
   await rewardManager.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.VOTER_REGISTRY, Contracts.CLAIM_SETUP_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FLARE_SYSTEMS_CALCULATOR, Contracts.P_CHAIN_STAKE_MIRROR, Contracts.WNAT, Contracts.FTSO_REWARD_MANAGER]),
-    [addressUpdater, voterRegistry.address, claimSetupManager, flareSystemsManager.address, flareSystemsCalculator.address, pChainStakeMirror, wNat, ftsoRewardManagerProxy.address]
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.VOTER_REGISTRY,
+      Contracts.CLAIM_SETUP_MANAGER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.FLARE_SYSTEMS_CALCULATOR,
+      Contracts.P_CHAIN_STAKE_MIRROR,
+      Contracts.WNAT,
+      Contracts.FTSO_REWARD_MANAGER,
+    ]),
+    [
+      addressUpdater,
+      voterRegistry.address,
+      claimSetupManager,
+      flareSystemsManager.address,
+      flareSystemsCalculator.address,
+      pChainStakeMirror,
+      wNat,
+      ftsoRewardManagerProxy.address,
+    ]
   );
 
   await ftsoRewardManagerProxy.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.WNAT_DELEGATION_FEE, Contracts.WNAT, Contracts.CLAIM_SETUP_MANAGER]),
-    [addressUpdater, rewardManager.address, flareSystemsManager.address, wNatDelegationFee.address, wNat, claimSetupManager]
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.REWARD_MANAGER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.WNAT_DELEGATION_FEE,
+      Contracts.WNAT,
+      Contracts.CLAIM_SETUP_MANAGER,
+    ]),
+    [
+      addressUpdater,
+      rewardManager.address,
+      flareSystemsManager.address,
+      wNatDelegationFee.address,
+      wNat,
+      claimSetupManager,
+    ]
   );
 
   if (parameters.testDeployment) {
@@ -471,7 +564,7 @@ export async function deployContracts(
       Contracts.FTSO_FEED_DECIMALS,
       Contracts.INFLATION,
       Contracts.FDC_INFLATION_CONFIGURATIONS,
-      Contracts.FDC_REQUEST_FEE_CONFIGURATIONS
+      Contracts.FDC_REQUEST_FEE_CONFIGURATIONS,
     ]),
     [
       addressUpdater,
@@ -481,7 +574,7 @@ export async function deployContracts(
       ftsoFeedDecimals.address,
       inflation,
       fdcInflationConfigurations.address,
-      fdcRequestFeeConfigurations.address
+      fdcRequestFeeConfigurations.address,
     ]
   );
 
@@ -569,7 +662,7 @@ export async function deployContracts(
   }
 
   function encodeContractNames(names: string[]): string[] {
-    return names.map(name => encodeString(name));
+    return names.map((name) => encodeString(name));
   }
 
   function encodeString(text: string): string {

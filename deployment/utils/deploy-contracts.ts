@@ -182,7 +182,9 @@ export async function deployContracts(
   const PChainStakeMirror = hre.artifacts.require("PChainStakeMirror") as PChainStakeMirrorContract;
   const GovernanceVotePower = hre.artifacts.require("GovernanceVotePower") as GovernanceVotePowerContract;
   const AddressBinder = hre.artifacts.require("AddressBinder") as AddressBinderContract;
-  const PChainStakeMirrorVerifier = hre.artifacts.require("PChainStakeMirrorVerifier") as PChainStakeMirrorVerifierContract;
+  const PChainStakeMirrorVerifier = hre.artifacts.require(
+    "PChainStakeMirrorVerifier"
+  ) as PChainStakeMirrorVerifierContract;
   const EntityManager = hre.artifacts.require("EntityManager") as EntityManagerContract;
   const VoterRegistry = hre.artifacts.require("VoterRegistry") as VoterRegistryContract;
   const FlareSystemsCalculator = hre.artifacts.require("FlareSystemsCalculator") as FlareSystemsCalculatorContract;
@@ -191,21 +193,35 @@ export async function deployContracts(
   const Submission = hre.artifacts.require("Submission") as SubmissionContract;
   const CChainStake = hre.artifacts.require("CChainStake") as CChainStakeContract;
   const WNatDelegationFee = hre.artifacts.require("WNatDelegationFee") as WNatDelegationFeeContract;
-  const FtsoInflationConfigurations = hre.artifacts.require("FtsoInflationConfigurations") as FtsoInflationConfigurationsContract;
-  const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = hre.artifacts.require("FtsoRewardOffersManager") as FtsoRewardOffersManagerContract;
+  const FtsoInflationConfigurations = hre.artifacts.require(
+    "FtsoInflationConfigurations"
+  ) as FtsoInflationConfigurationsContract;
+  const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = hre.artifacts.require(
+    "FtsoRewardOffersManager"
+  ) as FtsoRewardOffersManagerContract;
   const FtsoFeedDecimals = hre.artifacts.require("FtsoFeedDecimals") as FtsoFeedDecimalsContract;
   const FtsoFeedPublisher = hre.artifacts.require("FtsoFeedPublisher") as FtsoFeedPublisherContract;
   const FtsoFeedIdConverter = hre.artifacts.require("FtsoFeedIdConverter") as FtsoFeedIdConverterContract;
-  const CleanupBlockNumberManager = hre.artifacts.require("CleanupBlockNumberManager") as CleanupBlockNumberManagerContract;
+  const CleanupBlockNumberManager = hre.artifacts.require(
+    "CleanupBlockNumberManager"
+  ) as CleanupBlockNumberManagerContract;
   const Relay = hre.artifacts.require("Relay") as RelayContract;
   const TestableFlareDaemon = hre.artifacts.require("TestableFlareDaemon") as TestableFlareDaemonContract;
   const NodePossessionVerifier = hre.artifacts.require("NodePossessionVerifier") as NodePossessionVerifierContract;
   const FdcHub = hre.artifacts.require("FdcHub") as FdcHubContract;
-  const FdcInflationConfigurations = hre.artifacts.require("FdcInflationConfigurations") as FdcInflationConfigurationsContract;
-  const FdcRequestFeeConfigurations = hre.artifacts.require("FdcRequestFeeConfigurations") as FdcRequestFeeConfigurationsContract;
-  const FastUpdateIncentiveManager = hre.artifacts.require("FastUpdateIncentiveManager") as FastUpdateIncentiveManagerContract;
+  const FdcInflationConfigurations = hre.artifacts.require(
+    "FdcInflationConfigurations"
+  ) as FdcInflationConfigurationsContract;
+  const FdcRequestFeeConfigurations = hre.artifacts.require(
+    "FdcRequestFeeConfigurations"
+  ) as FdcRequestFeeConfigurationsContract;
+  const FastUpdateIncentiveManager = hre.artifacts.require(
+    "FastUpdateIncentiveManager"
+  ) as FastUpdateIncentiveManagerContract;
   const FastUpdater = hre.artifacts.require("FastUpdater") as FastUpdaterContract;
-  const FastUpdatesConfiguration = hre.artifacts.require("FastUpdatesConfiguration") as FastUpdatesConfigurationContract;
+  const FastUpdatesConfiguration = hre.artifacts.require(
+    "FastUpdatesConfiguration"
+  ) as FastUpdatesConfigurationContract;
   const FeeCalculator = hre.artifacts.require("FeeCalculator") as FeeCalculatorContract;
 
   // Remaining separate UUPS proxy contracts
@@ -214,14 +230,22 @@ export async function deployContracts(
   const TeePaymentsProxy = hre.artifacts.require("TeePaymentsProxy") as TeePaymentsProxyContract;
   const Fdc2Hub = hre.artifacts.require("Fdc2Hub") as Fdc2HubContract;
   const Fdc2HubProxy = hre.artifacts.require("Fdc2HubProxy") as Fdc2HubProxyContract;
-  const Fdc2RequestFeeConfigurations = hre.artifacts.require("Fdc2RequestFeeConfigurations") as Fdc2RequestFeeConfigurationsContract;
-  const Fdc2RequestFeeConfigurationsProxy = hre.artifacts.require("Fdc2RequestFeeConfigurationsProxy") as Fdc2RequestFeeConfigurationsProxyContract;
+  const Fdc2RequestFeeConfigurations = hre.artifacts.require(
+    "Fdc2RequestFeeConfigurations"
+  ) as Fdc2RequestFeeConfigurationsContract;
+  const Fdc2RequestFeeConfigurationsProxy = hre.artifacts.require(
+    "Fdc2RequestFeeConfigurationsProxy"
+  ) as Fdc2RequestFeeConfigurationsProxyContract;
   const Fdc2Verification = hre.artifacts.require("Fdc2Verification") as Fdc2VerificationContract;
   const Fdc2VerificationProxy = hre.artifacts.require("Fdc2VerificationProxy") as Fdc2VerificationProxyContract;
   const AddressUpdater = hre.artifacts.require("AddressUpdater") as AddressUpdaterContract;
 
-  const PMWPaymentStatusVerifierMock = hre.artifacts.require("PMWPaymentStatusVerifierMock") as PMWPaymentStatusVerifierMockContract;
-  const TeeExtensionInstructionsSenderMock = hre.artifacts.require("TeeExtensionInstructionsSenderMock") as TeeExtensionInstructionsSenderMockContract;
+  const PMWPaymentStatusVerifierMock = hre.artifacts.require(
+    "PMWPaymentStatusVerifierMock"
+  ) as PMWPaymentStatusVerifierMockContract;
+  const TeeExtensionInstructionsSenderMock = hre.artifacts.require(
+    "TeeExtensionInstructionsSenderMock"
+  ) as TeeExtensionInstructionsSenderMockContract;
   const VrfVerifier = hre.artifacts.require("VrfVerifier") as VrfVerifierContract;
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
@@ -379,14 +403,10 @@ export async function deployContracts(
     thresholdIncreaseBIPS: 12000,
     messageFinalizationWindowInRewardEpochs: 100,
     feeCollectionAddress: ZERO_ADDRESS,
-    feeConfigs: []
-  }
+    feeConfigs: [],
+  };
 
-  const relay = await Relay.new(
-    relayInitialConfig,
-    flareSystemsManager.address,
-    ZERO_ADDRESS
-  );
+  const relay = await Relay.new(relayInitialConfig, flareSystemsManager.address, ZERO_ADDRESS);
 
   const submission = await Submission.new(
     governanceSettings.address,
@@ -486,9 +506,16 @@ export async function deployContracts(
   // FDC
   const fdcHub = await FdcHub.new(governanceSettings.address, governanceAccount.address, addressUpdater.address, 30);
   addressUpdatableContracts.push(fdcHub.address);
-  const fdcInflationConfigurations = await FdcInflationConfigurations.new(governanceSettings.address, governanceAccount.address, addressUpdater.address);
+  const fdcInflationConfigurations = await FdcInflationConfigurations.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    addressUpdater.address
+  );
   addressUpdatableContracts.push(fdcInflationConfigurations.address);
-  const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(governanceSettings.address, governanceAccount.address);
+  const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.new(
+    governanceSettings.address,
+    governanceAccount.address
+  );
 
   // =========================================================================
   // Deploy FlareTeeManager Diamond
@@ -506,28 +533,34 @@ export async function deployContracts(
       governanceSettings.address,
       governanceAccount.address,
       addressUpdater.address,
-      "3600",  // availabilityCheckValidityDurationSeconds
-      "10",    // signingPolicyValidityDurationInRewardEpochs
-      "600",   // challengeValidityDurationSeconds
-      "1",     // defaultFee
+      "3600", // availabilityCheckValidityDurationSeconds
+      "10", // signingPolicyValidityDurationInRewardEpochs
+      "600", // challengeValidityDurationSeconds
+      "1", // defaultFee
     ]
   );
 
   // Deploy FlareTeeManager Diamond
   const FlareTeeManager = hre.artifacts.require("FlareTeeManager") as FlareTeeManagerContract;
-  const flareTeeManager = await FlareTeeManager.new(
-    facetCuts,
-    { init: flareTeeManagerInit.address, initCalldata: flareTeeManagerInitCalldata }
-  );
+  const flareTeeManager = await FlareTeeManager.new(facetCuts, {
+    init: flareTeeManagerInit.address,
+    initCalldata: flareTeeManagerInitCalldata,
+  });
   addressUpdatableContracts.push(flareTeeManager.address);
 
   // Add later facets (replication, governance, version manager)
   // await addLaterFacetsToDiamond(hre, flareTeeManager.address, "60");
 
   // Access Diamond facet interfaces for post-init configuration
-  const teeExtensionRegistry = await (hre.artifacts.require("TeeExtensionRegistryFacet") as TeeExtensionRegistryFacetContract).at(flareTeeManager.address);
-  const teeFeeCalculator = await (hre.artifacts.require("TeeFeeCalculatorFacet") as TeeFeeCalculatorFacetContract).at(flareTeeManager.address);
-  const teeOwnerAllowlist = await (hre.artifacts.require("TeeOwnerAllowlistFacet") as TeeOwnerAllowlistFacetContract).at(flareTeeManager.address);
+  const teeExtensionRegistry = await (
+    hre.artifacts.require("TeeExtensionRegistryFacet") as TeeExtensionRegistryFacetContract
+  ).at(flareTeeManager.address);
+  const teeFeeCalculator = await (hre.artifacts.require("TeeFeeCalculatorFacet") as TeeFeeCalculatorFacetContract).at(
+    flareTeeManager.address
+  );
+  const teeOwnerAllowlist = await (
+    hre.artifacts.require("TeeOwnerAllowlistFacet") as TeeOwnerAllowlistFacetContract
+  ).at(flareTeeManager.address);
 
   // Set operation fees
   const operationTypes: string[] = [];
@@ -538,7 +571,9 @@ export async function deployContracts(
     operationCommands.push(web3.utils.utf8ToHex(teeOperationFee.opCommand).padEnd(66, "0"));
     operationFees.push(teeOperationFee.feeWei);
   }
-  await teeFeeCalculator.setOperationFees(operationTypes, operationCommands, operationFees, { from: governanceAccount.address });
+  await teeFeeCalculator.setOperationFees(operationTypes, operationCommands, operationFees, {
+    from: governanceAccount.address,
+  });
 
   // =========================================================================
   // Deploy remaining separate UUPS proxy contracts
@@ -562,7 +597,7 @@ export async function deployContracts(
       teePaymentConfig.maxBatchDurationSeconds,
       web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
       web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0"),
-      teePaymentConfig.sourceIds.map(sourceId => web3.utils.utf8ToHex(sourceId).padEnd(66, "0")),
+      teePaymentConfig.sourceIds.map((sourceId) => web3.utils.utf8ToHex(sourceId).padEnd(66, "0")),
       teePaymentsImpl.address
     );
     const teePayments = await TeePayments.at(teePaymentsProxy.address);
@@ -605,9 +640,7 @@ export async function deployContracts(
   const pmwPaymentStatusVerifierMock = await PMWPaymentStatusVerifierMock.new(addressUpdater.address, [], 0, 1);
   addressUpdatableContracts.push(pmwPaymentStatusVerifierMock.address);
 
-  const teeExtensionInstructionsSenderMock = await TeeExtensionInstructionsSenderMock.new(
-    flareTeeManager.address
-  );
+  const teeExtensionInstructionsSenderMock = await TeeExtensionInstructionsSenderMock.new(flareTeeManager.address);
 
   const vrfVerifier = await VrfVerifier.new();
 
@@ -699,13 +732,15 @@ export async function deployContracts(
   );
 
   await teeExtensionRegistry.addSystemSupportedPlatforms(
-    TEE_PLATFORMS.map(platform => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
+    TEE_PLATFORMS.map((platform) => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
     { from: governanceAccount.address }
   );
 
   await teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(
-    TEE_KEY_CONFIGURATIONS.map(teeKeyConfig => web3.utils.utf8ToHex(teeKeyConfig.keyType).padEnd(66, "0")),
-    TEE_KEY_CONFIGURATIONS.map(teeKeyConfig => teeKeyConfig.signingAlgos.map(alg => web3.utils.utf8ToHex(alg).padEnd(66, "0"))),
+    TEE_KEY_CONFIGURATIONS.map((teeKeyConfig) => web3.utils.utf8ToHex(teeKeyConfig.keyType).padEnd(66, "0")),
+    TEE_KEY_CONFIGURATIONS.map((teeKeyConfig) =>
+      teeKeyConfig.signingAlgos.map((alg) => web3.utils.utf8ToHex(alg).padEnd(66, "0"))
+    ),
     { from: governanceAccount.address }
   );
 
@@ -713,37 +748,43 @@ export async function deployContracts(
     0,
     "v0.1.0",
     TEE_CODE_HASH,
-    TEE_PLATFORMS.map(platform => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
+    TEE_PLATFORMS.map((platform) => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
     ZERO_BYTES32,
     { from: governanceAccount.address }
   );
 
   await teeExtensionRegistry.addSupportedKeyTypes(
-    0, [...new Set(TEE_PAYMENT_CONFIGURATIONS.map(teePaymentConfig => web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0")))],
+    0,
+    [
+      ...new Set(
+        TEE_PAYMENT_CONFIGURATIONS.map((teePaymentConfig) =>
+          web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0")
+        )
+      ),
+    ],
     { from: governanceAccount.address }
   );
 
   // Only external contracts need to be registered as system instructions senders
   // (Diamond facets call libraries internally, not via sendSystemInstructions)
   await teeExtensionRegistry.registerSystemInstructionsSenders(
-    [
-      ...teePaymentsList.map(teePayments => teePayments.address),
-      fdc2Hub.address
-    ],
+    [...teePaymentsList.map((teePayments) => teePayments.address), fdc2Hub.address],
     { from: governanceAccount.address }
-  )
+  );
 
   await teeOwnerAllowlist.allowAllTeeMachineOwners(0, { from: governanceAccount.address });
   await teeOwnerAllowlist.allowAllTeeWalletProjectOwners(0, { from: governanceAccount.address });
 
   // set reward offers manager list
-  await rewardManager.setRewardOffersManagerList([
-    ftsoRewardOffersManager.address,
-    fastUpdateIncentiveManager.address,
-    fdcHub.address,
-    teeRewardOffersManager.address,
-    flareTeeManager.address,
-    fdc2Hub.address],
+  await rewardManager.setRewardOffersManagerList(
+    [
+      ftsoRewardOffersManager.address,
+      fastUpdateIncentiveManager.address,
+      fdcHub.address,
+      teeRewardOffersManager.address,
+      flareTeeManager.address,
+      fdc2Hub.address,
+    ],
     { from: governanceAccount.address }
   );
 
@@ -767,22 +808,31 @@ export async function deployContracts(
 
   const testSGB = web3.utils.utf8ToHex("testSGB").padEnd(66, "0");
 
-  await fdcRequestFeeConfigurations.setTypeAndSourceFee(EVMTransactionType, testSGB, "1", { from: governanceAccount.address });
+  await fdcRequestFeeConfigurations.setTypeAndSourceFee(EVMTransactionType, testSGB, "1", {
+    from: governanceAccount.address,
+  });
 
   await fdcInflationConfigurations.addFdcConfigurations(
-    [{
-      attestationType: EVMTransactionType,
-      source: testSGB,
-      inflationShare: 100,
-      minRequestsThreshold: 2,
-      mode: 0
-    }],
+    [
+      {
+        attestationType: EVMTransactionType,
+        source: testSGB,
+        inflationShare: 100,
+        minRequestsThreshold: 2,
+        mode: 0,
+      },
+    ],
     { from: governanceAccount.address }
   );
 
   // set rewards offer switchover trigger contracts
   await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts(
-    [ftsoRewardOffersManager.address, fastUpdateIncentiveManager.address, fdcHub.address, teeRewardOffersManager.address],
+    [
+      ftsoRewardOffersManager.address,
+      fastUpdateIncentiveManager.address,
+      fdcHub.address,
+      teeRewardOffersManager.address,
+    ],
     { from: governanceAccount.address }
   );
 
@@ -849,13 +899,13 @@ export async function deployContracts(
   ]);
 
   // Register FastUpdater on Submission contract
-  const submitUpdatesSelector = hre.web3.eth.abi.encodeFunctionSignature("submitUpdates((uint256,(uint256,(uint256,uint256),uint256,uint256),bytes,(uint8,bytes32,bytes32)))");
-
-  await submission.setSubmitAndPassData(
-    fastUpdater.address,
-    submitUpdatesSelector,
-    { from: governanceAccount.address }
+  const submitUpdatesSelector = hre.web3.eth.abi.encodeFunctionSignature(
+    "submitUpdates((uint256,(uint256,(uint256,uint256),uint256,uint256),bytes,(uint8,bytes32,bytes32)))"
   );
+
+  await submission.setSubmitAndPassData(fastUpdater.address, submitUpdatesSelector, {
+    from: governanceAccount.address,
+  });
 
   await entityManager.setNodePossessionVerifier(mockContract.address, { from: governanceAccount.address }); // mock verifier
   await entityManager.setPublicKeyVerifier(fastUpdater.address, { from: governanceAccount.address });
@@ -872,11 +922,9 @@ export async function deployContracts(
   await flareDaemon.registerToDaemonize(registrations, { from: genesisGovernance });
 
   // TEE EXTENSION
-  await teeExtensionRegistry.register(
-    ZERO_ADDRESS,
-    teeExtensionInstructionsSenderMock.address,
-    { from: extensionOwnerAccount.address }
-  );
+  await teeExtensionRegistry.register(ZERO_ADDRESS, teeExtensionInstructionsSenderMock.address, {
+    from: extensionOwnerAccount.address,
+  });
 
   await teeExtensionRegistry.addTeeVersion(
     1,
@@ -898,13 +946,13 @@ export async function deployContracts(
 
   logger.info(
     `Finished deploying contracts:\n` +
-    `  FlareSystemsManager: ${flareSystemsManager.address},\n` +
-    `  Submission: ${submission.address},\n` +
-    `  Relay: ${relay.address},\n` +
-    `  FastUpdater: ${fastUpdater.address},\n` +
-    `  FdcHub: ${fdcHub.address},\n` +
-    `  FlareTeeManager: ${flareTeeManager.address},\n` +
-    `  Fdc2Hub: ${fdc2Hub.address},\n`
+      `  FlareSystemsManager: ${flareSystemsManager.address},\n` +
+      `  Submission: ${submission.address},\n` +
+      `  Relay: ${relay.address},\n` +
+      `  FastUpdater: ${fastUpdater.address},\n` +
+      `  FdcHub: ${fdcHub.address},\n` +
+      `  FlareTeeManager: ${flareTeeManager.address},\n` +
+      `  Fdc2Hub: ${fdc2Hub.address},\n`
   );
 
   logger.info(`Current network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
@@ -948,7 +996,7 @@ export async function deployContracts(
     fdc2Verification,
     pmwPaymentStatusVerifierMock,
     teeExtensionInstructionsSenderMock,
-    vrfVerifier
+    vrfVerifier,
   };
 
   return [contracts, rewardEpochStart, initialSigningPolicy];

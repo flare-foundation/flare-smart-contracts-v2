@@ -5,9 +5,16 @@ import Web3 from "web3";
 import { Account } from "web3-core";
 import { toBN } from "web3-utils";
 import { FtsoConfigurations } from "../../scripts/libs/protocol/FtsoConfigurations";
-import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
+import {
+  IProtocolMessageMerkleRoot,
+  ProtocolMessageMerkleRoot,
+} from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { RelayMessage } from "../../scripts/libs/protocol/RelayMessage";
-import { ISigningPolicy, SigningPolicy, SigningPolicyInitializedEvent } from "../../scripts/libs/protocol/SigningPolicy";
+import {
+  ISigningPolicy,
+  SigningPolicy,
+  SigningPolicyInitializedEvent,
+} from "../../scripts/libs/protocol/SigningPolicy";
 import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
 import * as util from "../../test/utils/key-to-address";
 import { PChainStakeMirrorVerifierInstance } from "../../typechain-truffle";
@@ -68,55 +75,55 @@ export const TEE_KEY_CONFIGURATIONS = [
   { keyType: "XRP", signingAlgos: ["sha512half-secp256k1-ecdsa"] },
   { keyType: "BTC", signingAlgos: ["sha256d-secp256k1-ecdsa"] },
   { keyType: "DOGE", signingAlgos: ["sha256d-secp256k1-ecdsa"] },
-  { keyType: "EVM", signingAlgos: ["keccak256-secp256k1-ecdsa", "keccak256-secp256k1-vrf"] }
+  { keyType: "EVM", signingAlgos: ["keccak256-secp256k1-ecdsa", "keccak256-secp256k1-vrf"] },
 ];
 
 export const TEE_PAYMENT_CONFIGURATIONS = [
-  {opType: "F_XRP", keyType: "XRP", sourceIds: ["XRP", "testXRP"], maxBatchSize: 1, maxBatchDurationSeconds: 0},
-  {opType: "F_BTC", keyType: "BTC", sourceIds: ["BTC"], maxBatchSize: 10, maxBatchDurationSeconds: 600},
-  {opType: "F_DOGE", keyType: "DOGE", sourceIds: ["DOGE"], maxBatchSize: 10, maxBatchDurationSeconds: 60},
-  {opType: "F_EVM", keyType: "EVM", sourceIds: ["FLR", "SGB"], maxBatchSize: 1, maxBatchDurationSeconds: 0},
+  { opType: "F_XRP", keyType: "XRP", sourceIds: ["XRP", "testXRP"], maxBatchSize: 1, maxBatchDurationSeconds: 0 },
+  { opType: "F_BTC", keyType: "BTC", sourceIds: ["BTC"], maxBatchSize: 10, maxBatchDurationSeconds: 600 },
+  { opType: "F_DOGE", keyType: "DOGE", sourceIds: ["DOGE"], maxBatchSize: 10, maxBatchDurationSeconds: 60 },
+  { opType: "F_EVM", keyType: "EVM", sourceIds: ["FLR", "SGB"], maxBatchSize: 1, maxBatchDurationSeconds: 0 },
 ];
 
 export const FDC2_FEE_CONFIGURATIONS = [
-    { attestationType: "TeeAvailabilityCheck", source: "TEE" },
-    { attestationType: "PMWMultisigAccountConfigured", source: "XRP" },
-    { attestationType: "PMWPaymentStatus", source: "XRP" },
-    { attestationType: "PMWMultisigAccountConfigured", source: "testXRP" },
-    { attestationType: "PMWPaymentStatus", source: "testXRP" },
-    { attestationType: "PMWMultisigAccountConfigured", source: "BTC" },
-    { attestationType: "PMWPaymentStatus", source: "BTC" },
-    { attestationType: "PMWMultisigAccountConfigured", source: "DOGE" },
-    { attestationType: "PMWPaymentStatus", source: "DOGE" },
-    { attestationType: "PMWMultisigAccountConfigured", source: "FLR" },
-    { attestationType: "PMWPaymentStatus", source: "FLR" },
-    { attestationType: "PMWMultisigAccountConfigured", source: "SGB" },
-    { attestationType: "PMWPaymentStatus", source: "SGB" }
-  ];
+  { attestationType: "TeeAvailabilityCheck", source: "TEE" },
+  { attestationType: "PMWMultisigAccountConfigured", source: "XRP" },
+  { attestationType: "PMWPaymentStatus", source: "XRP" },
+  { attestationType: "PMWMultisigAccountConfigured", source: "testXRP" },
+  { attestationType: "PMWPaymentStatus", source: "testXRP" },
+  { attestationType: "PMWMultisigAccountConfigured", source: "BTC" },
+  { attestationType: "PMWPaymentStatus", source: "BTC" },
+  { attestationType: "PMWMultisigAccountConfigured", source: "DOGE" },
+  { attestationType: "PMWPaymentStatus", source: "DOGE" },
+  { attestationType: "PMWMultisigAccountConfigured", source: "FLR" },
+  { attestationType: "PMWPaymentStatus", source: "FLR" },
+  { attestationType: "PMWMultisigAccountConfigured", source: "SGB" },
+  { attestationType: "PMWPaymentStatus", source: "SGB" },
+];
 
 export const TEE_OPERATION_FEES = [
-  {opType: "F_REG", opCommand: "TEE_ATTESTATION", feeWei: "1"},
-  {opType: "F_REG", opCommand: "TO_PAUSE_FOR_UPGRADE", feeWei: "1"},
-  {opType: "F_REG", opCommand: "REPLICATE_FROM", feeWei: "1"},
-  {opType: "F_WALLET", opCommand: "KEY_GENERATE", feeWei: "1"},
-  {opType: "F_WALLET", opCommand: "KEY_DELETE", feeWei: "1"},
-  {opType: "F_WALLET", opCommand: "KEY_DATA_PROVIDER_RESTORE", feeWei: "1"},
-  {opType: "F_WALLET", opCommand: "SET_PAUSING_ADDRESSES", feeWei: "1"},
-  {opType: "F_WALLET", opCommand: "RESUME", feeWei: "1"},
-  {opType: "F_XRP", opCommand: "PAY", feeWei: "1"},
-  {opType: "F_XRP", opCommand: "REISSUE", feeWei: "1"},
-  {opType: "F_XRP", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
-  {opType: "F_BTC", opCommand: "PAY", feeWei: "1"},
-  {opType: "F_BTC", opCommand: "REISSUE", feeWei: "1"},
-  {opType: "F_BTC", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
-  {opType: "F_DOGE", opCommand: "PAY", feeWei: "1"},
-  {opType: "F_DOGE", opCommand: "REISSUE", feeWei: "1"},
-  {opType: "F_DOGE", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
-  {opType: "F_EVM", opCommand: "PAY", feeWei: "1"},
-  {opType: "F_EVM", opCommand: "REISSUE", feeWei: "1"},
-  {opType: "F_EVM", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1"},
-  {opType: "F_WALLET", opCommand: "VRF", feeWei: "1"},
-  {opType: "F_FDC2", opCommand: "PROVE", feeWei: "1"}
+  { opType: "F_REG", opCommand: "TEE_ATTESTATION", feeWei: "1" },
+  { opType: "F_REG", opCommand: "TO_PAUSE_FOR_UPGRADE", feeWei: "1" },
+  { opType: "F_REG", opCommand: "REPLICATE_FROM", feeWei: "1" },
+  { opType: "F_WALLET", opCommand: "KEY_GENERATE", feeWei: "1" },
+  { opType: "F_WALLET", opCommand: "KEY_DELETE", feeWei: "1" },
+  { opType: "F_WALLET", opCommand: "KEY_DATA_PROVIDER_RESTORE", feeWei: "1" },
+  { opType: "F_WALLET", opCommand: "SET_PAUSING_ADDRESSES", feeWei: "1" },
+  { opType: "F_WALLET", opCommand: "RESUME", feeWei: "1" },
+  { opType: "F_XRP", opCommand: "PAY", feeWei: "1" },
+  { opType: "F_XRP", opCommand: "REISSUE", feeWei: "1" },
+  { opType: "F_XRP", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1" },
+  { opType: "F_BTC", opCommand: "PAY", feeWei: "1" },
+  { opType: "F_BTC", opCommand: "REISSUE", feeWei: "1" },
+  { opType: "F_BTC", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1" },
+  { opType: "F_DOGE", opCommand: "PAY", feeWei: "1" },
+  { opType: "F_DOGE", opCommand: "REISSUE", feeWei: "1" },
+  { opType: "F_DOGE", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1" },
+  { opType: "F_EVM", opCommand: "PAY", feeWei: "1" },
+  { opType: "F_EVM", opCommand: "REISSUE", feeWei: "1" },
+  { opType: "F_EVM", opCommand: "SET_PAYMENT_LIMITS", feeWei: "1" },
+  { opType: "F_WALLET", opCommand: "VRF", feeWei: "1" },
+  { opType: "F_FDC2", opCommand: "PROVE", feeWei: "1" },
 ];
 
 let VOTING_EPOCH_DURATION_SEC: number;
@@ -139,7 +146,7 @@ function processEnv() {
 
   SKIP_VOTER_REGISTRATION_SET = new Set<string>();
   if (process.env.SKIP_VOTER_REGISTRATION_SET) {
-    process.env.SKIP_VOTER_REGISTRATION_SET.split(",").forEach(x => {
+    process.env.SKIP_VOTER_REGISTRATION_SET.split(",").forEach((x) => {
       if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
         SKIP_VOTER_REGISTRATION_SET.add(x.trim().toLowerCase());
       }
@@ -148,7 +155,7 @@ function processEnv() {
 
   SKIP_SIGNING_POLICY_SIGNING_SET = new Set<string>();
   if (process.env.SKIP_SIGNING_POLICY_SIGNING_SET) {
-    process.env.SKIP_SIGNING_POLICY_SIGNING_SET.split(",").forEach(x => {
+    process.env.SKIP_SIGNING_POLICY_SIGNING_SET.split(",").forEach((x) => {
       if (/^0x[0-9a-f]{40}$/i.test(x.trim())) {
         SKIP_SIGNING_POLICY_SIGNING_SET.add(x.trim().toLowerCase());
       }
@@ -168,9 +175,9 @@ function processEnv() {
   }
 }
 
-export const rewardEpochDurationSeconds = function() {
+export const rewardEpochDurationSeconds = function () {
   return VOTING_EPOCH_DURATION_SEC * REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS;
-}
+};
 
 export const systemSettings = function (now: number) {
   return {
@@ -242,7 +249,11 @@ class EventStore {
  *
  * Note: This is still a work in progress and might be buggy.
  */
-export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys: HardhatNetworkAccountUserConfig[], voterCount: number) {
+export async function runSimulation(
+  hre: HardhatRuntimeEnvironment,
+  privateKeys: HardhatNetworkAccountUserConfig[],
+  voterCount: number
+) {
   processEnv();
   if (!fs.existsSync(SIMULATION_DUMP_FOLDER)) {
     fs.mkdirSync(SIMULATION_DUMP_FOLDER);
@@ -256,11 +267,16 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   logger.info(`Simulation specific files generated in ${SIMULATION_DUMP_FOLDER}`);
 
   // Account 0 is reserved for governance, 1-5 for contract address use, 10+ for voters.
-  const accounts = privateKeys.map(x => hre.web3.eth.accounts.privateKeyToAccount(x.privateKey));
+  const accounts = privateKeys.map((x) => hre.web3.eth.accounts.privateKeyToAccount(x.privateKey));
   const governanceAccount = accounts[0];
   const extensionOwnerAccount = accounts[1];
 
-  const [c, rewardEpochStart, initialSigningPolicy] = await deployContracts(accounts, hre, governanceAccount, extensionOwnerAccount);
+  const [c, rewardEpochStart, initialSigningPolicy] = await deployContracts(
+    accounts,
+    hre,
+    governanceAccount,
+    extensionOwnerAccount
+  );
   serializeDeployedContractsAddresses(c, DEPLOY_ADDRESSES_FILE);
   const submissionSelectors = {
     submit1: Web3.utils.sha3("submit1()")!.slice(2, 10),
@@ -279,7 +295,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   });
 
   logger.info(`Starting a mock c-chain indexer, data is recorded to SQLite database at ${MEMORY_DATABASE_FILE}`);
-  indexer.run().catch(e => {
+  indexer.run().catch((e) => {
     logger.error(`Indexer failed: ${errorString(e)}`);
   });
 
@@ -385,7 +401,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   while (true) {
     const response = await c.flareDaemon.trigger({ gas: 20000000 });
     // if (response.receipt.gasUsed > 100000) console.log("Gas used:", response.receipt.gasUsed);
-    const blockTimestamp = +(await hre.web3.eth.getBlock((response.receipt as { blockNumber: number }).blockNumber)).timestamp;
+    const blockTimestamp = +(await hre.web3.eth.getBlock((response.receipt as { blockNumber: number }).blockNumber))
+      .timestamp;
     let logs;
     // For events emitted by the FlareSystemsManager.
     const eventList = [
@@ -435,29 +452,35 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     const time = Date.now();
     const nextEpochStartMs = epochSettings.nextVotingEpochStartMs(time);
 
-    setTimeout(() => {
-      scheduleVotingEpochActions(skipSubmit);
-      void runVotingRound(
-        skipSubmit,
-        c,
-        signingPolicies,
-        registeredAccounts,
-        epochSettings,
-        events,
-        hre.web3,
-        SKIP_FINALIZATIONS
-      );
-    }, nextEpochStartMs - time + 1);
+    setTimeout(
+      () => {
+        scheduleVotingEpochActions(skipSubmit);
+        void runVotingRound(
+          skipSubmit,
+          c,
+          signingPolicies,
+          registeredAccounts,
+          epochSettings,
+          events,
+          hre.web3,
+          SKIP_FINALIZATIONS
+        );
+      },
+      nextEpochStartMs - time + 1
+    );
   }
 
   function scheduleOfferRewardsActions(eventStore: EventStore) {
     const time = Date.now();
     const nextEpochStartMs = epochSettings.nextRewardEpochStartMs(time);
 
-    setTimeout(() => {
-      scheduleOfferRewardsActions(eventStore);
-      void runOfferRewards(c, epochSettings, eventStore);
-    }, nextEpochStartMs - time + 1000);
+    setTimeout(
+      () => {
+        scheduleOfferRewardsActions(eventStore);
+        void runOfferRewards(c, epochSettings, eventStore);
+      },
+      nextEpochStartMs - time + 1000
+    );
   }
 
   async function processLog(log: Truffle.TransactionLog<never>, timestamp: number, events: EventStore) {
@@ -776,7 +799,7 @@ async function fakeFinalize(
   const signingPolicy = signingPolicies.get(rewardEpochId)!;
   const privateKeysInOrder = [];
   for (const voter of signingPolicy.voters) {
-    const acc = registeredAccounts.find(x => x.signingPolicy.address.toLowerCase() === voter.toLowerCase())!;
+    const acc = registeredAccounts.find((x) => x.signingPolicy.address.toLowerCase() === voter.toLowerCase())!;
     if (acc) {
       privateKeysInOrder.push(acc.signingPolicy.privateKey);
     } else {
@@ -894,7 +917,7 @@ function extractSigningPolicy(logArg: SigningPolicyInitializedEvent): ISigningPo
     threshold: +logArg.threshold,
     seed: "0x" + toBN(logArg.seed).toString("hex", 64),
     voters: logArg.voters,
-    weights: logArg.weights.map(x => +x),
+    weights: logArg.weights.map((x) => +x),
   };
 }
 
@@ -927,11 +950,11 @@ async function setMockStakingData(
 }
 
 export async function sleep(ms: number) {
-  await new Promise<void>(resolve => setTimeout(() => resolve(), ms));
+  await new Promise<void>((resolve) => setTimeout(() => resolve(), ms));
 }
 
 export function encodeContractNames(web3: Web3, names: string[]): string[] {
-  return names.map(name => encodeString(name, web3));
+  return names.map((name) => encodeString(name, web3));
 }
 
 export function encodeString(text: string, web3: Web3): string {

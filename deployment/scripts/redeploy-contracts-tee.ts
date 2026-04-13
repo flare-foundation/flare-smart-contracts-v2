@@ -7,10 +7,10 @@
  * json defining the created contracts.
  */
 
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { ChainParameters } from '../chain-config/chain-parameters';
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
-import { spewNewContractInfo } from './deploy-utils';
+import { spewNewContractInfo } from "./deploy-utils";
 import {
   FlareSystemsCalculatorContract,
   FlareSystemsManagerContract,
@@ -18,8 +18,8 @@ import {
   VoterPreRegistryContract,
   VoterRegistryContract,
   VoterRegistryInstance,
-} from '../../typechain-truffle';
-import { Account } from 'web3-core';
+} from "../../typechain-truffle";
+import { Account } from "web3-core";
 
 export async function redeployContractsTee(
   hre: HardhatRuntimeEnvironment,
@@ -57,16 +57,26 @@ export async function redeployContractsTee(
     : ZERO_ADDRESS;
   const wNat = oldContracts.getContractAddress(Contracts.WNAT);
 
-  const flareSystemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER));
-  const voterRegistryOld: VoterRegistryInstance = await VoterRegistry.at(contracts.getContractAddress(Contracts.VOTER_REGISTRY));
+  const flareSystemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.at(
+    contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER)
+  );
+  const voterRegistryOld: VoterRegistryInstance = await VoterRegistry.at(
+    contracts.getContractAddress(Contracts.VOTER_REGISTRY)
+  );
   const entityManager = contracts.getContractAddress(Contracts.ENTITY_MANAGER);
   const wNatDelegationFee = contracts.getContractAddress(Contracts.WNAT_DELEGATION_FEE);
 
   // Read current state
   const currentRewardEpochId = await flareSystemsManager.getCurrentRewardEpochId();
-  const {0: registeredVoters, 1: registrationWeights} = await voterRegistryOld.getRegisteredVotersAndRegistrationWeights(currentRewardEpochId);
-  const newSigningPolicyInitializationStartBlockNumber = await voterRegistryOld.newSigningPolicyInitializationStartBlockNumber(currentRewardEpochId);
-  const {0: _weightsSums, 1: _normalisedWeightsSum, 2: normalisedWeightsSumOfVotersWithPublicKeys} = await voterRegistryOld.getWeightsSums(currentRewardEpochId);
+  const { 0: registeredVoters, 1: registrationWeights } =
+    await voterRegistryOld.getRegisteredVotersAndRegistrationWeights(currentRewardEpochId);
+  const newSigningPolicyInitializationStartBlockNumber =
+    await voterRegistryOld.newSigningPolicyInitializationStartBlockNumber(currentRewardEpochId);
+  const {
+    0: _weightsSums,
+    1: _normalisedWeightsSum,
+    2: normalisedWeightsSumOfVotersWithPublicKeys,
+  } = await voterRegistryOld.getWeightsSums(currentRewardEpochId);
 
   // Deploy new contracts
   const voterRegistry = await VoterRegistry.new(
@@ -83,7 +93,14 @@ export async function redeployContractsTee(
   spewNewContractInfo(contracts, null, VoterRegistry.contractName, `VoterRegistry.sol`, voterRegistry.address, quiet);
 
   const voterPreRegistry = await VoterPreRegistry.new(deployerAccount.address); // tmp address updater
-  spewNewContractInfo(contracts, null, VoterPreRegistry.contractName, `VoterPreRegistry.sol`, voterPreRegistry.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    VoterPreRegistry.contractName,
+    `VoterPreRegistry.sol`,
+    voterPreRegistry.address,
+    quiet
+  );
 
   const flareSystemsCalculator = await FlareSystemsCalculator.new(
     governanceSettings,
@@ -94,7 +111,14 @@ export async function redeployContractsTee(
     parameters.signingPolicySignNonPunishableDurationBlocks,
     parameters.signingPolicySignNoRewardsDurationBlocks
   );
-  spewNewContractInfo(contracts, null, FlareSystemsCalculator.contractName, `FlareSystemsCalculator.sol`, flareSystemsCalculator.address, quiet);
+  spewNewContractInfo(
+    contracts,
+    null,
+    FlareSystemsCalculator.contractName,
+    `FlareSystemsCalculator.sol`,
+    flareSystemsCalculator.address,
+    quiet
+  );
 
   // update contract addresses
   await voterRegistry.updateContractAddresses(
@@ -108,7 +132,12 @@ export async function redeployContractsTee(
   );
 
   await voterPreRegistry.updateContractAddresses(
-    encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.VOTER_REGISTRY, Contracts.ENTITY_MANAGER]),
+    encodeContractNames([
+      Contracts.ADDRESS_UPDATER,
+      Contracts.FLARE_SYSTEMS_MANAGER,
+      Contracts.VOTER_REGISTRY,
+      Contracts.ENTITY_MANAGER,
+    ]),
     [addressUpdater, flareSystemsManager.address, voterRegistry.address, entityManager]
   );
 
@@ -143,11 +172,10 @@ export async function redeployContractsTee(
   }
 
   function encodeContractNames(names: string[]): string[] {
-    return names.map(name => encodeString(name));
+    return names.map((name) => encodeString(name));
   }
 
   function encodeString(text: string): string {
     return web3.utils.keccak256(web3.eth.abi.encodeParameters(["string"], [text]));
   }
 }
-

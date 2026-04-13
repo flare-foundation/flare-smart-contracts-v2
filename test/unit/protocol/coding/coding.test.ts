@@ -2,12 +2,12 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { config, contract, ethers, web3 } from "hardhat";
 import { HardhatNetworkAccountConfig } from "hardhat/types";
 import { ECDSASignatureWithIndex } from "../../../../scripts/libs/protocol/ECDSASignatureWithIndex";
-import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
-import { ISigningPolicy, SigningPolicy } from "../../../../scripts/libs/protocol/SigningPolicy";
 import {
-  IPayloadMessage,
-  PayloadMessage
-} from "../../../../scripts/libs/protocol/PayloadMessage";
+  IProtocolMessageMerkleRoot,
+  ProtocolMessageMerkleRoot,
+} from "../../../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
+import { ISigningPolicy, SigningPolicy } from "../../../../scripts/libs/protocol/SigningPolicy";
+import { IPayloadMessage, PayloadMessage } from "../../../../scripts/libs/protocol/PayloadMessage";
 import { getTestFile } from "../../../utils/constants";
 import { defaultTestSigningPolicy, generateSignatures } from "./coding-helpers";
 import { RelayMessage } from "../../../../scripts/libs/protocol/RelayMessage";
@@ -16,7 +16,9 @@ import { FtsoConfigurations } from "../../../../scripts/libs/protocol/FtsoConfig
 contract(`Coding; ${getTestFile(__filename)}`, async () => {
   let signers: SignerWithAddress[];
   let accountAddresses: string[];
-  const accountPrivateKeys = (config.networks.hardhat.accounts as HardhatNetworkAccountConfig[]).map(x => x.privateKey);
+  const accountPrivateKeys = (config.networks.hardhat.accounts as HardhatNetworkAccountConfig[]).map(
+    (x) => x.privateKey
+  );
   const N = 100;
   const singleWeight = 500;
   const firstRewardEpochVotingRoundId = 1000;
@@ -27,14 +29,10 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
   let newSigningPolicyData: ISigningPolicy;
 
   before(async () => {
-    accountAddresses = (await ethers.getSigners()).map(x => x.address);
-    signingPolicyData = defaultTestSigningPolicy(
-      accountAddresses,
-      N,
-      singleWeight
-    );
+    accountAddresses = (await ethers.getSigners()).map((x) => x.address);
+    signingPolicyData = defaultTestSigningPolicy(accountAddresses, N, singleWeight);
     signingPolicyData.rewardEpochId = rewardEpochId;
-    newSigningPolicyData = {...signingPolicyData};
+    newSigningPolicyData = { ...signingPolicyData };
     newSigningPolicyData.rewardEpochId++;
   });
 
@@ -43,7 +41,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
     const decoded = SigningPolicy.decode(encoded);
     expect(decoded).to.deep.equal(signingPolicyData);
     const decoded2 = SigningPolicy.decode(encoded + "123456", false);
-    expect(decoded2).to.deep.equal({...decoded, encodedLength: encoded.length - 2});
+    expect(decoded2).to.deep.equal({ ...decoded, encodedLength: encoded.length - 2 });
   });
 
   it("Should encode and decode ECDSA signature", async () => {
@@ -65,7 +63,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
     const decoded = ProtocolMessageMerkleRoot.decode(encoded);
     expect(decoded).to.deep.equal(messageData);
     const decoded2 = ProtocolMessageMerkleRoot.decode(encoded + "123456", false);
-    expect(decoded2).to.deep.equal({...decoded, encodedLength: encoded.length - 2});
+    expect(decoded2).to.deep.equal({ ...decoded, encodedLength: encoded.length - 2 });
   });
 
   it("Should encode and decode signature payloads", async () => {
@@ -95,11 +93,7 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
     } as IProtocolMessageMerkleRoot;
 
     const messageHash = ProtocolMessageMerkleRoot.hash(messageData);
-    const signatures = await generateSignatures(
-      accountPrivateKeys,
-      messageHash,
-      N / 2 + 1
-    );
+    const signatures = await generateSignatures(accountPrivateKeys, messageHash, N / 2 + 1);
 
     const relayMessage = {
       signingPolicy: signingPolicyData,
@@ -126,10 +120,12 @@ contract(`Coding; ${getTestFile(__filename)}`, async () => {
   });
 
   it("Should encode and decode ftso feeds", async () => {
-    const feeds = [{category: 1, name: "BTC/USD"}, {category: 126, name: "1TEST123"}];
+    const feeds = [
+      { category: 1, name: "BTC/USD" },
+      { category: 126, name: "1TEST123" },
+    ];
     const encoded = FtsoConfigurations.encodeFeedIds(feeds);
     const decoded = FtsoConfigurations.decodeFeedIds(encoded);
     expect(decoded).to.deep.equal(feeds);
   });
-
 });

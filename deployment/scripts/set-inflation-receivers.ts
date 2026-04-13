@@ -15,8 +15,8 @@ export async function setInflationReceivers(
   oldContracts: Contracts,
   contracts: Contracts,
   parameters: ChainParameters,
-  quiet: boolean = false) {
-
+  quiet: boolean = false
+) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
 
@@ -42,7 +42,7 @@ export async function setInflationReceivers(
   }
 
   if (!quiet) {
-    console.error(`Setting inflation receivers with address ${deployerAccount.address}`)
+    console.error(`Setting inflation receivers with address ${deployerAccount.address}`);
   }
 
   // Wire up the default account that will do the deployment
@@ -50,11 +50,15 @@ export async function setInflationReceivers(
 
   // Get contract definitions
   const Inflation = artifacts.require("IIInflationGovernance") as IIInflationGovernanceContract;
-  const InflationAllocation = artifacts.require("IIInflationAllocationGovernance") as IIInflationAllocationGovernanceContract;
+  const InflationAllocation = artifacts.require(
+    "IIInflationAllocationGovernance"
+  ) as IIInflationAllocationGovernanceContract;
 
   // Fetch inflation contracts
   const inflation = await Inflation.at(oldContracts.getContractAddress(Contracts.INFLATION));
-  const inflationAllocation = await InflationAllocation.at(oldContracts.getContractAddress(Contracts.INFLATION_ALLOCATION));
+  const inflationAllocation = await InflationAllocation.at(
+    oldContracts.getContractAddress(Contracts.INFLATION_ALLOCATION)
+  );
 
   // Set inflation topup configuration
   const receiversAddresses: string[] = [];
@@ -62,9 +66,13 @@ export async function setInflationReceivers(
 
   for (const ir of parameters.inflationReceivers) {
     if (!quiet) {
-      console.error(`Registering ${ir.contractName} on inflation with topup type ${ir.topUpType}, topup factor (x100) ${ir.topUpFactorx100} and sharing BIPS ${ir.sharingBIPS}`);
+      console.error(
+        `Registering ${ir.contractName} on inflation with topup type ${ir.topUpType}, topup factor (x100) ${ir.topUpFactorx100} and sharing BIPS ${ir.sharingBIPS}`
+      );
     }
-    const receiverAddress = ir.oldContract ? oldContracts.getContractAddress(ir.contractName) : contracts.getContractAddress(ir.contractName);
+    const receiverAddress = ir.oldContract
+      ? oldContracts.getContractAddress(ir.contractName)
+      : contracts.getContractAddress(ir.contractName);
     await inflation.setTopupConfiguration(receiverAddress, ir.topUpType, ir.topUpFactorx100);
     receiversAddresses.push(receiverAddress);
     inflationSharingBIPS.push(ir.sharingBIPS);

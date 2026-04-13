@@ -2,17 +2,13 @@
  * This script will deploy new relay contract.
  */
 
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { ChainParameters } from '../chain-config/chain-parameters';
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contracts } from "./Contracts";
-import { spewNewContractInfo } from './deploy-utils';
-import { RelayInitialConfig } from '../utils/RelayInitialConfig';
-import {
-  FlareSystemsManagerContract,
-  FlareSystemsManagerInstance,
-  RelayContract,
-} from '../../typechain-truffle';
-import { Account } from 'web3-core';
+import { spewNewContractInfo } from "./deploy-utils";
+import { RelayInitialConfig } from "../utils/RelayInitialConfig";
+import { FlareSystemsManagerContract, FlareSystemsManagerInstance, RelayContract } from "../../typechain-truffle";
+import { Account } from "web3-core";
 
 export async function redeployRelay(
   hre: HardhatRuntimeEnvironment,
@@ -34,13 +30,15 @@ export async function redeployRelay(
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e))
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e));
   }
 
   // Wire up the default account that will do the deployment
   web3.eth.defaultAccount = deployerAccount.address;
 
-  const flareSystemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER));
+  const flareSystemsManager: FlareSystemsManagerInstance = await FlareSystemsManager.at(
+    contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER)
+  );
   const oldRelay = await Relay.at(contracts.getContractAddress(Contracts.RELAY));
 
   const nextRewardEpochId = (await flareSystemsManager.getCurrentRewardEpochId()).toNumber() + 1;
@@ -58,14 +56,10 @@ export async function redeployRelay(
     thresholdIncreaseBIPS: parameters.relayThresholdIncreaseBIPS,
     messageFinalizationWindowInRewardEpochs: parameters.messageFinalizationWindowInRewardEpochs,
     feeCollectionAddress: ZERO_ADDRESS,
-    feeConfigs: []
-  }
+    feeConfigs: [],
+  };
 
-  const relay = await Relay.new(
-    relayInitialConfig,
-    flareSystemsManager.address,
-    oldRelay.address
-  );
+  const relay = await Relay.new(relayInitialConfig, flareSystemsManager.address, oldRelay.address);
   spewNewContractInfo(contracts, null, Relay.contractName, `Relay.sol`, relay.address, quiet);
 
   contracts.serialize();
@@ -73,4 +67,3 @@ export async function redeployRelay(
     console.error("Deploy complete.");
   }
 }
-

@@ -106,16 +106,12 @@ contracts.forEach((contract) => {
   // remove .sol from contractFile for the contract name
   const contractName = contractFile.replace(".sol", "");
   // find the full path of the contract file in TEE/FDC2/diamond directories
-  const matches: string[] = globSync(
-    `contracts/{tee,fdc2,diamond}/**/${contractFile}`
-  );
+  const matches: string[] = globSync(`contracts/{tee,fdc2,diamond}/**/${contractFile}`);
   if (matches.length === 0) {
     throw new Error(`Contract file not found: ${contractFile}`);
   }
   if (matches.length > 1) {
-    throw new Error(
-      `Multiple contract files found for ${contractFile}: ${matches.join(", ")}`
-    );
+    throw new Error(`Multiple contract files found for ${contractFile}: ${matches.join(", ")}`);
   }
   const contractPath = matches[0];
   const verifyCmd = `forge verify-contract \

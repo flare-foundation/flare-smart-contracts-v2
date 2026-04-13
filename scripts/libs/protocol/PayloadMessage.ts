@@ -1,4 +1,3 @@
-
 export interface IPayloadMessage<T> {
   protocolId: number;
   votingRoundId: number;
@@ -86,5 +85,4 @@ export namespace PayloadMessage {
     }
     return result;
   }
-
 }

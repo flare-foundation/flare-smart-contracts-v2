@@ -5,7 +5,7 @@ import fs from "fs";
 import { MEMORY_DATABASE_FILE } from "../../tasks/run-simulation";
 
 export async function getDataSource(readOnly = false) {
-  const sqliteDatabase = MEMORY_DATABASE_FILE
+  const sqliteDatabase = MEMORY_DATABASE_FILE;
   if (!readOnly && fs.existsSync(sqliteDatabase)) {
     fs.unlinkSync(sqliteDatabase);
   }

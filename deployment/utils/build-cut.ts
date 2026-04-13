@@ -44,9 +44,9 @@ function main() {
   const deployed = selectorsFromLoupeData(loupeFacets);
 
   const planFacets = readFacetsFile(facetsFile);
-  const facets = planFacets.map(f => {
+  const facets = planFacets.map((f) => {
     const abi = loadAbi(f.contractName);
-    const functions = abi.filter(abi => abi.type === "function");
+    const functions = abi.filter((abi) => abi.type === "function");
     const selectors: string[] = [];
     for (const fn of functions) {
       selectors.push(toSelector(fn));
@@ -74,7 +74,7 @@ function main() {
       const abi = loadAbi(initContractName);
       const fn = abi
         .filter((i): i is AbiItem => i.type === "function" && typeof i.name === "string")
-        .find(i => i.name === method);
+        .find((i) => i.name === method);
       if (!fn) {
         throw new Error(`Init method ${method} not found in ${initContractName} ABI`);
       }
@@ -107,7 +107,7 @@ function main() {
   const encoded = web3.eth.abi.encodeParameters(
     [facetCutType, "address", "bytes"],
     [
-      result.cuts.map(c => ({
+      result.cuts.map((c) => ({
         facetAddress: c.facetAddress,
         action: c.action,
         functionSelectors: c.functionSelectors,

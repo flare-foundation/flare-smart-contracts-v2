@@ -1,5 +1,3 @@
-
-
 import { ethers } from "ethers";
 
 export interface ISigningPolicy {
@@ -9,7 +7,7 @@ export interface ISigningPolicy {
   seed: string;
   voters: string[];
   weights: number[];
-  encodedLength?: number;  // used only as a parsing result when parsing signing policy encoded into Relay message
+  encodedLength?: number; // used only as a parsing result when parsing signing policy encoded into Relay message
 }
 
 export interface SigningPolicyInitializedEvent {
@@ -23,7 +21,6 @@ export interface SigningPolicyInitializedEvent {
   timestamp?: string | number;
 }
 export namespace SigningPolicy {
-
   //////////////////////////////////////////////////////////////////////////////
   // Signing policy byte encoding structure
   // 2 bytes - size
@@ -56,11 +53,11 @@ export namespace SigningPolicy {
     if (size > 2 ** 16 - 1) {
       throw Error("Too many signers");
     }
-    for(let i = 0; i < size; i++) {
-      if(!/^0x[0-9a-f]{40}$/i.test(policy.voters[i])) {
+    for (let i = 0; i < size; i++) {
+      if (!/^0x[0-9a-f]{40}$/i.test(policy.voters[i])) {
         throw Error(`Invalid signer address format: ${policy.voters[i]}`);
       }
-      if(policy.weights[i] < 0 || policy.weights[i] > 2 ** 16 - 1 || policy.weights[i] % 1 !== 0) {
+      if (policy.weights[i] < 0 || policy.weights[i] > 2 ** 16 - 1 || policy.weights[i] % 1 !== 0) {
         throw Error(`Invalid signer weight: ${policy.weights[i]}`);
       }
     }
@@ -100,7 +97,9 @@ export namespace SigningPolicy {
    * @returns
    */
   export function decode(encodedPolicy: string, exactEncoding = true): ISigningPolicy {
-    const encodedPolicyInternal = (encodedPolicy.startsWith("0x") ? encodedPolicy.slice(2) : encodedPolicy).toLowerCase();
+    const encodedPolicyInternal = (
+      encodedPolicy.startsWith("0x") ? encodedPolicy.slice(2) : encodedPolicy
+    ).toLowerCase();
     if (!/^[0-9a-f]*$/.test(encodedPolicyInternal)) {
       throw Error(`Invalid format - not hex string: ${encodedPolicy}`);
     }
@@ -132,7 +131,7 @@ export namespace SigningPolicy {
     if (totalWeight > 2 ** 16 - 1) {
       throw Error(`Total weight exceeds 16-byte value: ${totalWeight}`);
     }
-    const encodedLengthEntry = exactEncoding ? {} : {encodedLength: expectedLength};
+    const encodedLengthEntry = exactEncoding ? {} : { encodedLength: expectedLength };
     return {
       rewardEpochId,
       startVotingRoundId: startingVotingRoundId,
@@ -153,7 +152,7 @@ export namespace SigningPolicy {
    */
   export function hashEncoded(signingPolicy: string) {
     const signingPolicyInternal = signingPolicy.startsWith("0x") ? signingPolicy.slice(2) : signingPolicy;
-    const splitted = signingPolicyInternal.match(/.{1,64}/g)!.map(x => x.padEnd(64, "0"));
+    const splitted = signingPolicyInternal.match(/.{1,64}/g)!.map((x) => x.padEnd(64, "0"));
     let hash: string = ethers.keccak256("0x" + splitted[0] + splitted[1]);
     for (let i = 2; i < splitted.length; i++) {
       hash = ethers.keccak256("0x" + hash.slice(2) + splitted[i])!;
@@ -167,7 +166,7 @@ export namespace SigningPolicy {
    * @returns
    */
   export function normalizeAddresses(signingPolicy: ISigningPolicy) {
-    signingPolicy.voters = signingPolicy.voters.map(x => x.toLowerCase());
+    signingPolicy.voters = signingPolicy.voters.map((x) => x.toLowerCase());
     return signingPolicy;
   }
   /**
@@ -187,22 +186,25 @@ export namespace SigningPolicy {
    * @returns
    */
   export function equals(signingPolicy1: ISigningPolicy, signingPolicy2: ISigningPolicy) {
-    const test = signingPolicy1.rewardEpochId === signingPolicy2.rewardEpochId &&
-        signingPolicy1.startVotingRoundId === signingPolicy2.startVotingRoundId &&
-        signingPolicy1.threshold === signingPolicy2.threshold &&
-        signingPolicy1.seed === signingPolicy2.seed;
-    if(!test) {
+    const test =
+      signingPolicy1.rewardEpochId === signingPolicy2.rewardEpochId &&
+      signingPolicy1.startVotingRoundId === signingPolicy2.startVotingRoundId &&
+      signingPolicy1.threshold === signingPolicy2.threshold &&
+      signingPolicy1.seed === signingPolicy2.seed;
+    if (!test) {
       return false;
     }
-    if(signingPolicy1.voters.length !== signingPolicy2.voters.length) {
+    if (signingPolicy1.voters.length !== signingPolicy2.voters.length) {
       return false;
     }
-    for(let i = 0; i < signingPolicy1.voters.length; i++) {
-      if(signingPolicy1.voters[i].toLowerCase() !== signingPolicy2.voters[i].toLowerCase() || signingPolicy1.weights[i] !== signingPolicy2.weights[i]) {
+    for (let i = 0; i < signingPolicy1.voters.length; i++) {
+      if (
+        signingPolicy1.voters[i].toLowerCase() !== signingPolicy2.voters[i].toLowerCase() ||
+        signingPolicy1.weights[i] !== signingPolicy2.weights[i]
+      ) {
         return false;
       }
     }
     return true;
   }
-
 }

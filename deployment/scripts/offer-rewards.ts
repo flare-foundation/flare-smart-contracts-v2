@@ -1,8 +1,10 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "./Contracts";
 import {
-  FlareSystemsManagerContract, FtsoRewardOffersManagerContract,
-  FtsoRewardOffersManagerInstance, FlareSystemsManagerInstance
+  FlareSystemsManagerContract,
+  FtsoRewardOffersManagerContract,
+  FtsoRewardOffersManagerInstance,
+  FlareSystemsManagerInstance,
 } from "../../typechain-truffle";
 import { FtsoConfigurations, IFeedId } from "../../scripts/libs/protocol/FtsoConfigurations";
 import { ChainParameters } from "../chain-config/chain-parameters";

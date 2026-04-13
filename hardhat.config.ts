@@ -31,7 +31,7 @@ import fs from "fs";
 import { HardhatNetworkAccountUserConfig } from "hardhat/types";
 // Importing standalone simple library to surpass warnings in mock contracts and in mock contract imports
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const intercept = require('intercept-stdout') as (fn: (text: string) => string) => void;
+const intercept = require("intercept-stdout") as (fn: (text: string) => string) => void;
 
 dotenv.config();
 
@@ -68,7 +68,7 @@ const accounts = [
   //   0x26c43a1d431a4e5ee86cd55ed7ef9edf3641e901
   ...(JSON.parse(fs.readFileSync("deployment/test-1020-accounts.json").toString()) as HardhatNetworkAccountUserConfig[])
     .slice(0, process.env.TENDERLY === "true" ? 150 : 2000)
-    .filter(x => x.privateKey !== process.env.DEPLOYER_PRIVATE_KEY),
+    .filter((x) => x.privateKey !== process.env.DEPLOYER_PRIVATE_KEY),
   ...(process.env.GENESIS_GOVERNANCE_PRIVATE_KEY
     ? [{ privateKey: process.env.GENESIS_GOVERNANCE_PRIVATE_KEY, balance: "100000000000000000000000000000000" }]
     : []),
@@ -131,17 +131,15 @@ function readContracts(network: string, filePath?: string): Contracts {
 
 // Tasks
 // Override solc compile task and filter out useless warnings
-task(TASK_COMPILE).
-  setAction(async (args, hre, runSuper) => {
-    (intercept as (fn: (text: string) => string) => void)((text: string) => {
-      if (/MockContract.sol/.test(text)) return "";
-      if (/SuicidalMock.sol/.test(text)) return "";
-      if (/FlareSmartContracts.sol/.test(text)) return "";
-      return text;
-    });
-    await runSuper(args);
+task(TASK_COMPILE).setAction(async (args, hre, runSuper) => {
+  (intercept as (fn: (text: string) => string) => void)((text: string) => {
+    if (/MockContract.sol/.test(text)) return "";
+    if (/SuicidalMock.sol/.test(text)) return "";
+    if (/FlareSmartContracts.sol/.test(text)) return "";
+    return text;
   });
-
+  await runSuper(args);
+});
 
 task("run-simulation", `Runs local simulation.`) // prettier-ignore
   .addOptionalParam("voters", "Number of voters to simulate", "4")
@@ -149,24 +147,26 @@ task("run-simulation", `Runs local simulation.`) // prettier-ignore
     await runSimulation(hre, accounts, +args.voters);
   });
 
-task("transfer-and-wrap-funds", `Transfer and wrap funds.`).setAction(async (args: { quiet: boolean }, hre, _runSuper) => {
-  if (!process.env.CHAIN_CONFIG) {
-    throw Error("CHAIN_CONFIG environment variable not set.");
+task("transfer-and-wrap-funds", `Transfer and wrap funds.`).setAction(
+  async (args: { quiet: boolean }, hre, _runSuper) => {
+    if (!process.env.CHAIN_CONFIG) {
+      throw Error("CHAIN_CONFIG environment variable not set.");
+    }
+    if (!process.env.OLD_CONTRACTS_PATH) {
+      throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
+    }
+    if (!process.env.ENTITIES_FILE_PATH) {
+      throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.");
+    }
+    if (!process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY) {
+      throw Error("ACCOUNT_WITH_FUNDS_PRIVATE_KEY environment variable not set.");
+    }
+    const network = process.env.CHAIN_CONFIG;
+    const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
+    const entities = readEntities(process.env.ENTITIES_FILE_PATH);
+    await transferAndWrapFunds(hre, process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, oldContracts, entities, args.quiet);
   }
-  if (!process.env.OLD_CONTRACTS_PATH) {
-    throw Error("OLD_CONTRACTS_PATH environment variable not set. Must be json file path.");
-  }
-  if (!process.env.ENTITIES_FILE_PATH) {
-    throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.");
-  }
-  if (!process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY) {
-    throw Error("ACCOUNT_WITH_FUNDS_PRIVATE_KEY environment variable not set.");
-  }
-  const network = process.env.CHAIN_CONFIG;
-  const oldContracts = readContracts(network, process.env.OLD_CONTRACTS_PATH);
-  const entities = readEntities(process.env.ENTITIES_FILE_PATH);
-  await transferAndWrapFunds(hre, process.env.ACCOUNT_WITH_FUNDS_PRIVATE_KEY, oldContracts, entities, args.quiet);
-});
+);
 
 task("register-entities", `Entities registration.`).setAction(async (args: { quiet: boolean }, hre, _runSuper) => {
   if (!process.env.CHAIN_CONFIG) {
@@ -181,22 +181,24 @@ task("register-entities", `Entities registration.`).setAction(async (args: { qui
   await registerEntities(hre, contracts, entities, args.quiet);
 });
 
-task("register-public-keys", `Public keys registration.`).setAction(async (args: { quiet: boolean }, hre, _runSuper) => {
-  if (!process.env.CHAIN_CONFIG) {
-    throw Error("CHAIN_CONFIG environment variable not set.");
+task("register-public-keys", `Public keys registration.`).setAction(
+  async (args: { quiet: boolean }, hre, _runSuper) => {
+    if (!process.env.CHAIN_CONFIG) {
+      throw Error("CHAIN_CONFIG environment variable not set.");
+    }
+    if (!process.env.ENTITIES_FILE_PATH) {
+      throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.");
+    }
+    const network = process.env.CHAIN_CONFIG;
+    const contracts = readContracts(network);
+    const entities = readEntities(process.env.ENTITIES_FILE_PATH);
+    await registerPublicKeys(hre, contracts, entities, args.quiet);
   }
-  if (!process.env.ENTITIES_FILE_PATH) {
-    throw Error("ENTITIES_FILE_PATH environment variable not set. Must be json file path.");
-  }
-  const network = process.env.CHAIN_CONFIG;
-  const contracts = readContracts(network);
-  const entities = readEntities(process.env.ENTITIES_FILE_PATH);
-  await registerPublicKeys(hre, contracts, entities, args.quiet);
-});
+);
 
 task("provide-random-number-for-initial-reward-epoch", `Provide random number for initial reward epoch.`)
   .addOptionalParam("trigger", "Trigger Flare daemon", "")
-  .setAction(async (args: { quiet: boolean, trigger: string | boolean }, hre, _runSuper) => {
+  .setAction(async (args: { quiet: boolean; trigger: string | boolean }, hre, _runSuper) => {
     if (!process.env.INITIAL_VOTER_PRIVATE_KEY) {
       throw Error("INITIAL_VOTER_PRIVATE_KEY environment variable not set.");
     }
@@ -428,9 +430,9 @@ const config: HardhatUserConfig = {
           evmVersion: "cancun",
           optimizer: {
             enabled: true,
-            runs: 200
+            runs: 200,
           },
-          viaIR: COVERAGE
+          viaIR: COVERAGE,
         },
       },
       // contracts that imports P256
@@ -440,9 +442,9 @@ const config: HardhatUserConfig = {
           evmVersion: "cancun",
           optimizer: {
             enabled: true,
-            runs: 200
+            runs: 200,
           },
-          viaIR: COVERAGE
+          viaIR: COVERAGE,
         },
       },
       // EXTRA_OVERRIDES
@@ -459,32 +461,32 @@ const config: HardhatUserConfig = {
     scdev: {
       url: process.env.SCDEV_RPC || "http://127.0.0.1:9650/ext/bc/C/rpc",
       timeout: 40000,
-      accounts: accounts.map(x => x.privateKey),
+      accounts: accounts.map((x) => x.privateKey),
     },
     staging: {
       url: process.env.STAGING_RPC || "http://127.0.0.1:9650/ext/bc/C/rpc",
       timeout: 40000,
-      accounts: accounts.map(x => x.privateKey),
+      accounts: accounts.map((x) => x.privateKey),
     },
     songbird: {
       url: process.env.SONGBIRD_RPC || "https://songbird-api.flare.network/ext/C/rpc",
       timeout: 40000,
-      accounts: accounts.map(x => x.privateKey),
+      accounts: accounts.map((x) => x.privateKey),
     },
     flare: {
       url: process.env.FLARE_RPC || "https://flare-api.flare.network/ext/C/rpc",
       timeout: 40000,
-      accounts: accounts.map(x => x.privateKey),
+      accounts: accounts.map((x) => x.privateKey),
     },
     coston: {
       url: process.env.COSTON_RPC || "https://coston-api.flare.network/ext/C/rpc",
       timeout: 40000,
-      accounts: accounts.map(x => x.privateKey),
+      accounts: accounts.map((x) => x.privateKey),
     },
     coston2: {
       url: process.env.COSTON2_RPC || "https://coston2-api.flare.network/ext/C/rpc",
       timeout: 40000,
-      accounts: accounts.map(x => x.privateKey),
+      accounts: accounts.map((x) => x.privateKey),
     },
     hardhat: {
       accounts,

@@ -112,15 +112,26 @@ export class Contracts {
 
   deserializeJson(contractsJson: string, all: boolean = false) {
     if (all) {
-      const parsedContracts = JSON.parse(contractsJson) as Array<{ name: string; contractName: string; addresses: string[] }>;
+      const parsedContracts = JSON.parse(contractsJson) as Array<{
+        name: string;
+        contractName: string;
+        addresses: string[];
+      }>;
       parsedContracts.forEach((contract) => {
-        this.contractsAll.set(contract.name, new ContractList(contract.name, contract.contractName, contract.addresses));
-      })
+        this.contractsAll.set(
+          contract.name,
+          new ContractList(contract.name, contract.contractName, contract.addresses)
+        );
+      });
     } else {
-      const parsedContracts = JSON.parse(contractsJson) as Array<{ name: string; contractName: string; address: string; }>;
+      const parsedContracts = JSON.parse(contractsJson) as Array<{
+        name: string;
+        contractName: string;
+        address: string;
+      }>;
       parsedContracts.forEach((contract) => {
         this.contracts.set(contract.name, contract);
-      })
+      });
     }
   }
 
@@ -136,9 +147,9 @@ export class Contracts {
     }
   }
 
-  async getContractsMap(
-    hre: { artifacts: { require: (name: string) => { at: (address: string) => unknown } } }
-  ): Promise<Record<string, unknown>> {
+  async getContractsMap(hre: {
+    artifacts: { require: (name: string) => { at: (address: string) => unknown } };
+  }): Promise<Record<string, unknown>> {
     const contractsMap: Record<string, unknown> = {};
     for (const con of this.allContracts()) {
       const name = con.contractName.split(".")[0];

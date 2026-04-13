@@ -1,11 +1,31 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "./Contracts";
-import { EntityManagerContract, FlareSystemsCalculatorContract, FlareSystemsManagerContract, FtsoFeedDecimalsContract, FtsoFeedPublisherContract, FtsoInflationConfigurationsContract, FtsoRewardOffersManagerContract, RewardManagerContract, FtsoRewardManagerProxyContract, SubmissionContract, VoterRegistryContract, FdcHubContract, FdcInflationConfigurationsContract, FdcRequestFeeConfigurationsContract } from "../../typechain-truffle";
+import {
+  EntityManagerContract,
+  FlareSystemsCalculatorContract,
+  FlareSystemsManagerContract,
+  FtsoFeedDecimalsContract,
+  FtsoFeedPublisherContract,
+  FtsoInflationConfigurationsContract,
+  FtsoRewardOffersManagerContract,
+  RewardManagerContract,
+  FtsoRewardManagerProxyContract,
+  SubmissionContract,
+  VoterRegistryContract,
+  FdcHubContract,
+  FdcInflationConfigurationsContract,
+  FdcRequestFeeConfigurationsContract,
+} from "../../typechain-truffle";
 import { ChainParameters } from "../chain-config/chain-parameters";
 
 type Account = ReturnType<typeof web3.eth.accounts.privateKeyToAccount>;
 
-export async function switchToProductionMode(hre: HardhatRuntimeEnvironment, contracts: Contracts, parameters: ChainParameters, quiet: boolean = false) {
+export async function switchToProductionMode(
+  hre: HardhatRuntimeEnvironment,
+  contracts: Contracts,
+  parameters: ChainParameters,
+  quiet: boolean = false
+) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts as Truffle.Artifacts;
 
@@ -39,30 +59,46 @@ export async function switchToProductionMode(hre: HardhatRuntimeEnvironment, con
   const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
   const FtsoRewardManagerProxy: FtsoRewardManagerProxyContract = artifacts.require("FtsoRewardManagerProxy");
   const Submission: SubmissionContract = artifacts.require("Submission");
-  const FtsoInflationConfigurations: FtsoInflationConfigurationsContract = artifacts.require("FtsoInflationConfigurations");
+  const FtsoInflationConfigurations: FtsoInflationConfigurationsContract =
+    artifacts.require("FtsoInflationConfigurations");
   const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = artifacts.require("FtsoRewardOffersManager");
   const FtsoFeedDecimals: FtsoFeedDecimalsContract = artifacts.require("FtsoFeedDecimals");
   const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
   const FdcHub: FdcHubContract = artifacts.require("FdcHub");
-  const FdcInflationConfigurations: FdcInflationConfigurationsContract = artifacts.require("FdcInflationConfigurations");
-  const FdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = artifacts.require("FdcRequestFeeConfigurations");
+  const FdcInflationConfigurations: FdcInflationConfigurationsContract =
+    artifacts.require("FdcInflationConfigurations");
+  const FdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract =
+    artifacts.require("FdcRequestFeeConfigurations");
 
   // Get deployed contracts
   const entityManager = await EntityManager.at(contracts.getContractAddress(Contracts.ENTITY_MANAGER));
   const voterRegistry = await VoterRegistry.at(contracts.getContractAddress(Contracts.VOTER_REGISTRY));
-  const flareSystemsCalculator = await FlareSystemsCalculator.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_CALCULATOR));
-  const flareSystemsManager = await FlareSystemsManager.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER));
+  const flareSystemsCalculator = await FlareSystemsCalculator.at(
+    contracts.getContractAddress(Contracts.FLARE_SYSTEMS_CALCULATOR)
+  );
+  const flareSystemsManager = await FlareSystemsManager.at(
+    contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER)
+  );
   const rewardManager = await RewardManager.at(contracts.getContractAddress(Contracts.REWARD_MANAGER));
-  const ftsoRewardManagerProxy = await FtsoRewardManagerProxy.at(contracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER));
+  const ftsoRewardManagerProxy = await FtsoRewardManagerProxy.at(
+    contracts.getContractAddress(Contracts.FTSO_REWARD_MANAGER)
+  );
   const submission = await Submission.at(contracts.getContractAddress(Contracts.SUBMISSION));
-  const ftsoInflationConfigurations = await FtsoInflationConfigurations.at(contracts.getContractAddress(Contracts.FTSO_INFLATION_CONFIGURATIONS));
-  const ftsoRewardOffersManager = await FtsoRewardOffersManager.at(contracts.getContractAddress(Contracts.FTSO_REWARD_OFFERS_MANAGER));
+  const ftsoInflationConfigurations = await FtsoInflationConfigurations.at(
+    contracts.getContractAddress(Contracts.FTSO_INFLATION_CONFIGURATIONS)
+  );
+  const ftsoRewardOffersManager = await FtsoRewardOffersManager.at(
+    contracts.getContractAddress(Contracts.FTSO_REWARD_OFFERS_MANAGER)
+  );
   const ftsoFeedDecimals = await FtsoFeedDecimals.at(contracts.getContractAddress(Contracts.FTSO_FEED_DECIMALS));
   const ftsoFeedPublisher = await FtsoFeedPublisher.at(contracts.getContractAddress(Contracts.FTSO_FEED_PUBLISHER));
   const fdcHub = await FdcHub.at(contracts.getContractAddress(Contracts.FDC_HUB));
-  const fdcInflationConfigurations = await FdcInflationConfigurations.at(contracts.getContractAddress(Contracts.FDC_INFLATION_CONFIGURATIONS));
-  const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.at(contracts.getContractAddress(Contracts.FDC_REQUEST_FEE_CONFIGURATIONS));
-
+  const fdcInflationConfigurations = await FdcInflationConfigurations.at(
+    contracts.getContractAddress(Contracts.FDC_INFLATION_CONFIGURATIONS)
+  );
+  const fdcRequestFeeConfigurations = await FdcRequestFeeConfigurations.at(
+    contracts.getContractAddress(Contracts.FDC_REQUEST_FEE_CONFIGURATIONS)
+  );
 
   // switch to production mode
   await entityManager.switchToProductionMode();

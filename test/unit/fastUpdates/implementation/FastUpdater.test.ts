@@ -100,7 +100,7 @@ function getCurrentFeedCalldata(feedId: BytesLike): string {
   return getCurrentFeedSelector + encodedFeedId.slice(2);
 }
 
-contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
+contract(`FastUpdater.sol; ${getTestFile(__filename)}`, (accounts) => {
   let fastUpdater: FastUpdaterInstance;
   let fastUpdateIncentiveManager: FastUpdateIncentiveManagerInstance;
   let rewardManagerMock: MockContractInstance;
@@ -238,7 +238,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         flareSystemMock.address,
         fastUpdatesConfiguration.address,
         ftsoFeedPublisherMock.address,
-        feeCalculatorMock.address
+        feeCalculatorMock.address,
       ],
       { from: addressUpdater }
     );
@@ -255,13 +255,13 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
   describe(`Tests with ${NUM_FEEDS} feeds`, () => {
     beforeEach(async () => {
       await fastUpdatesConfiguration.addFeeds(
-        FEED_IDS.slice(0, NUM_FEEDS / 2).map(id => {
+        FEED_IDS.slice(0, NUM_FEEDS / 2).map((id) => {
           return { feedId: id, rewardBandValue: 2000, inflationShare: 200 };
         }),
         { from: governance }
       );
       await fastUpdatesConfiguration.addFeeds(
-        FEED_IDS.slice(NUM_FEEDS / 2, NUM_FEEDS).map(id => {
+        FEED_IDS.slice(NUM_FEEDS / 2, NUM_FEEDS).map((id) => {
           return { feedId: id, rewardBandValue: 2000, inflationShare: 200 };
         }),
         { from: governance }
@@ -466,7 +466,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       // destination fee address should receive the fee
       const balanceBefore = await web3.eth.getBalance(BURN_ADDRESS);
       await fastUpdater.fetchCurrentFeeds(indices, { value: "1", from: accounts[1] });
-      expect(Number(await web3.eth.getBalance(BURN_ADDRESS)) - (Number(balanceBefore))).to.be.equal(1);
+      expect(Number(await web3.eth.getBalance(BURN_ADDRESS)) - Number(balanceBefore)).to.be.equal(1);
     });
 
     it("should daemonize and emit all current feeds and decimals", async () => {
@@ -489,8 +489,8 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       }
 
       expectEvent(tx, "FastUpdateFeeds", {
-        feeds: expectedFeeds.map(x => toBN(x)),
-        decimals: expectedDecimals.map(x => toBN(x)),
+        feeds: expectedFeeds.map((x) => toBN(x)),
+        decimals: expectedDecimals.map((x) => toBN(x)),
       });
     });
   });
@@ -498,7 +498,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
   describe("Basic tests", () => {
     beforeEach(async () => {
       await fastUpdatesConfiguration.addFeeds(
-        FEED_IDS.slice(0, 20).map(id => {
+        FEED_IDS.slice(0, 20).map((id) => {
           return { feedId: id, rewardBandValue: 2000, inflationShare: 200 };
         }),
         { from: governance }
@@ -780,7 +780,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
             flareSystemMock.address,
             fastUpdatesConfigurationMock.address,
             ftsoFeedPublisherMock.address,
-            feeCalculatorMock.address
+            feeCalculatorMock.address,
           ],
           { from: addressUpdater }
         );
@@ -799,7 +799,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
             Contracts.VOTER_REGISTRY,
             Contracts.FAST_UPDATES_CONFIGURATION,
             Contracts.FTSO_FEED_PUBLISHER,
-            Contracts.FEE_CALCULATOR
+            Contracts.FEE_CALCULATOR,
           ]),
           [
             addressUpdater,
@@ -808,7 +808,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
             flareSystemMock.address,
             accounts[123],
             ftsoFeedPublisherMock.address,
-            feeCalculatorMock.address
+            feeCalculatorMock.address,
           ],
           { from: addressUpdater }
         );
@@ -883,7 +883,6 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         const getFeedIdsSelector = web3.utils.sha3("getFeedIds()")!.slice(0, 10);
         const feedIds = web3.eth.abi.encodeParameters(["bytes21[]"], [FEED_IDS.slice(0, 20)]);
         await fastUpdatesConfigurationMock.givenCalldataReturn(getFeedIdsSelector, feedIds);
-
 
         for (let i = 0; i < indices.length; i++) {
           const getCurrentFeed = getCurrentFeedCalldata(FEED_IDS[i]);
