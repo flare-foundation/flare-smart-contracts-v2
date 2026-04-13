@@ -21,7 +21,7 @@ variables:
     key:
       files: [ pnpm-lock.yaml ]
     paths:
-    - $YARN_CACHE_DIR
+    - $PNPM_STORE_DIR
     - node_modules/
     policy: pull
 
@@ -49,6 +49,7 @@ dependency_scanning:
 scanner-slither:
   image: node:24
   timeout: 10 minutes
+  tags: [ flarenetwork-lg ]
   needs: []
   cache: [ !reference [.partials, cache-nodejs] ]
   variables:
@@ -75,6 +76,7 @@ build-smart-contracts:
   needs: []
   image: node:24
   timeout: 10 minutes
+  tags: [ flarenetwork-lg ]
   before_script:
   - corepack enable && pnpm install --frozen-lockfile
   script:
@@ -83,7 +85,7 @@ build-smart-contracts:
   - key:
       files: [ pnpm-lock.yaml ]
     paths:
-    - $YARN_CACHE_DIR
+    - $PNPM_STORE_DIR
     - node_modules/
     policy: pull-push
   artifacts:

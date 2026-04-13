@@ -1,18 +1,22 @@
-FROM node:22 AS deps
+FROM node:24 AS deps
 
 WORKDIR /app
 
-COPY package.json yarn.lock /app
+RUN corepack enable
 
-RUN yarn --frozen-lockfile
+COPY package.json pnpm-lock.yaml .npmrc /app/
 
-FROM node:22 AS builder
+RUN pnpm install --frozen-lockfile
+
+FROM node:24 AS builder
 
 WORKDIR /app
+
+RUN corepack enable
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN yarn c
+RUN pnpm c
 
 CMD ["bash"]
