@@ -16,10 +16,10 @@ MUST pass all tests, and MUST be reviewed by at least one other contributor.
 
 ```bash
 # install dependencies
-yarn --frozen-lockfile
+pnpm --frozen-lockfile
 
 # compile contracts
-yarn compile
+pnpm compile
 ```
 
 ### Foundry
@@ -42,19 +42,19 @@ forge build
 
 ```bash
 # recompile contracts before running tests
-yarn compile
+pnpm compile
 
 # all hardhat tests
-yarn hardhat test
+pnpm hardhat test
 
 # only unit tests in hardhat environment
-yarn test_unit_hh
+pnpm test_unit_hh
 
 # only integration tests in hardhat environment
-yarn test_integration_hh
+pnpm test_integration_hh
 
 # generate coverage report
-yarn coverage
+pnpm coverage
 ```
 
 ### Foundry
@@ -70,7 +70,7 @@ forge test --mc <contract_name>
 forge test --mt <test_name>
 
 # generate coverage report
-yarn coverage-forge
+pnpm coverage-forge
 ```
 
 The default behavior for forge test is to only display a summary of passing and failing tests. To show more information change the verbosity level with the `-v` flag:
@@ -93,7 +93,7 @@ There are currently three linters included in this repository:
 
 ```bash
 # installs slither via pip if slither executable isn't found in PATH
-yarn install-slither
+pnpm install-slither
 ```
 
 If you wish to install slither yourself you can check their instructions [here](https://github.com/crytic/slither?tab=readme-ov-file#how-to-install).
@@ -102,16 +102,16 @@ If you wish to install slither yourself you can check their instructions [here](
 
 ```bash
 # run eslint on TypeScript
-yarn lint:check
+pnpm lint:check
 
 # run solhint on all Solidity
-yarn lint-sol
+pnpm lint-sol
 
 # run slither
-yarn slither
+pnpm slither
 
 # check formatting
-yarn format:check
+pnpm format:check
 ```
 
 ## Deployment
@@ -121,13 +121,13 @@ Supported networks: `flare`, `songbird`, `coston`, `coston2`, `scdev` (local).
 ### TEE Diamond deploy (Forge)
 
 ```bash
-yarn deploy_tee_contracts <network> <fullDeploy:boolean>
+pnpm deploy_tee_contracts <network> <fullDeploy:boolean>
 ```
 
 ### Diamond cut execution
 
 ```bash
-yarn tee_diamond_cut <network> <cut-config-name>
+pnpm tee_diamond_cut <network> <cut-config-name>
 ```
 
 Cut configurations are in `deployment/cuts/<network>/`.

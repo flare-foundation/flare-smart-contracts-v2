@@ -13,19 +13,19 @@ Solidity smart contracts implementing the Top Level Protocol on Flare Network. D
 
 ```bash
 # Install dependencies
-yarn install
+pnpm install
 
 # Compile contracts (Hardhat + typechain)
-yarn compile
+pnpm compile
 
 # Forge build
 forge build
 
 # Run Hardhat unit tests
-yarn test_unit_hh
+pnpm test_unit_hh
 
 # Run Hardhat integration tests
-yarn test_integration_hh
+pnpm test_integration_hh
 
 # Run all Forge tests
 forge test
@@ -37,16 +37,16 @@ forge test --match-contract TeeVerificationTest
 forge test --match-test testConfirmAvailability -vvv
 
 # Lint Solidity (contracts + tests + deployment)
-yarn lint-sol
+pnpm lint-sol
 
 # Lint TypeScript
-yarn lint:check
+pnpm lint:check
 
 # Check formatting
-yarn format:check
+pnpm format:check
 
 # Coverage (Forge)
-yarn coverage-forge
+pnpm coverage-forge
 ```
 
 ## Pre-commit Checklist
@@ -55,10 +55,10 @@ After making changes, run these before committing:
 
 ```bash
 forge build                # Solidity compilation
-yarn lint-sol              # Solidity linting (0 errors)
-yarn lint:check            # TypeScript linting (0 errors)
-yarn format:check          # Prettier formatting
-yarn coverage-forge        # Coverage (runs all Forge tests)
+pnpm lint-sol              # Solidity linting (0 errors)
+pnpm lint:check            # TypeScript linting (0 errors)
+pnpm format:check          # Prettier formatting
+pnpm coverage-forge        # Coverage (runs all Forge tests)
 ```
 
 ## Project Structure
@@ -216,8 +216,8 @@ All Solidity contracts and interfaces (excluding tests) must follow these format
 
 ### Linting
 
-- Solidity: `yarn lint-sol` — checks contracts, test-forge, and deployment .sol files
-- TypeScript: `yarn lint:check` — checks deployment, scripts, and test .ts files
+- Solidity: `pnpm lint-sol` — checks contracts, test-forge, and deployment .sol files
+- TypeScript: `pnpm lint:check` — checks deployment, scripts, and test .ts files
 - Fix all linter **errors** before considering work done (warnings can be ignored)
 - Common rules: max line length 119 characters, named imports, proper function ordering
 
@@ -239,11 +239,11 @@ Networks: `flare`, `songbird`, `coston`, `coston2`, `scdev` (local)
 
 ```bash
 # Full local deploy
-yarn full_deploy_local_hardhat
+pnpm full_deploy_local_hardhat
 
 # Simulation
-yarn sim-node          # Start local node
-yarn sim-run           # Run simulation
+pnpm sim-node          # Start local node
+pnpm sim-run           # Run simulation
 ```
 
 Chain parameters are in `deployment/chain-config/<network>.json`.

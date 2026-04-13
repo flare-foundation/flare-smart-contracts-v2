@@ -9,11 +9,11 @@
             "installDockerBuildx": true
         },
         "ghcr.io/devcontainers/features/node:1": {
-            "version": "18"
+            "version": "24"
         }
     },
     "postStartCommand": [
-        "yarn install --frozen-lockfile && yarn run compile",
+        "corepack enable && pnpm install --frozen-lockfile && pnpm run compile",
         "sudo apt-get update && sudo apt-get install -y python3-pip && pip3 install slither-analyzer --break-system-packages",
         "rm -f ./slither.json ./slither_badge.json"
     ],

@@ -232,13 +232,13 @@ class EventStore {
  *
  * Usage:
  *```
- *   yarn hardhat run-simulation
+ *   pnpm hardhat run-simulation
  *```
  * or
  *```
- *   yarn hardhat run-simulation --network local
+ *   pnpm hardhat run-simulation --network local
  *```
- * to run the simulation on an external Hardhat network (requires running `yarn hardhat node` in a separate process).
+ * to run the simulation on an external Hardhat network (requires running `pnpm hardhat node` in a separate process).
  *
  * Contract deployment uses similar logic to the one in end-to-end tests and requires time shifting and
  * mocked contracts. Hence initially the network time is in the past, and once all contracts are deployed
@@ -485,7 +485,7 @@ export async function runSimulation(
 
   // eslint-disable-next-line @typescript-eslint/require-await
   async function processLog(log: Truffle.TransactionLog<never>, timestamp: number, events: EventStore) {
-    logger.info(`Event ${log.event} emitted`);
+    logger.info(`Event ${String(log.event)} emitted`);
     if (log.event === "NewVotingRoundInitiated") {
       const votingRoundId = epochSettings.votingEpochForTime(timestamp * 1000);
       if (votingRoundId > events.initializedVotingRound) {

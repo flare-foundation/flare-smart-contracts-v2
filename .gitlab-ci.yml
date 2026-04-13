@@ -9,7 +9,7 @@ default:
   tags: [ flarenetwork ]
 
 variables:
-  YARN_CACHE_DIR: .yarn-cache
+  PNPM_STORE_DIR: .pnpm-store
 
 
 ##
@@ -19,7 +19,7 @@ variables:
 .partials:
   cache-nodejs:
     key:
-      files: [ yarn.lock ]
+      files: [ pnpm-lock.yaml ]
     paths:
     - $YARN_CACHE_DIR
     - node_modules/
@@ -58,7 +58,7 @@ scanner-slither:
   - apt-get update 1> /dev/null
   - apt-get install -y python3-pip 1> /dev/null
   - pip3 install slither-analyzer 1> /dev/null
-  - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
+  - corepack enable && pnpm install --frozen-lockfile
   - rm -f ./slither.json ./slither_badge.json
   script:
   - (slither . --json=./slither.json || if [ $? = 1 ]; then exit 1; else exit 0; fi)
@@ -76,12 +76,12 @@ build-smart-contracts:
   image: node:24
   timeout: 10 minutes
   before_script:
-  - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
+  - corepack enable && pnpm install --frozen-lockfile
   script:
-  - yarn c
+  - pnpm c
   cache:
   - key:
-      files: [ yarn.lock ]
+      files: [ pnpm-lock.yaml ]
     paths:
     - $YARN_CACHE_DIR
     - node_modules/
@@ -112,7 +112,7 @@ build-smart-contracts:
     GOVERNANCE_PUBLIC_KEY: "0xeAD9C93b79Ae7C1591b1FB5323BD777E86e150d4"
     GOVERNANCE_EXECUTOR_PUBLIC_KEY: "0xE5904695748fe4A84b40b3fc79De2277660BD1D3"
   before_script:
-  - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR 1>/dev/null
+  - corepack enable && pnpm install --frozen-lockfile 1>/dev/null
 
 test-unit-hardhat:
   extends: .test-node-sc
@@ -127,7 +127,7 @@ test-unit-hardhat:
       - ./test/unit/fastUpdates/lib/FixedPointArithmetic.test.ts
       - ./test/unit/fastUpdates/lib/Sortition.test.ts
   script:
-  - yarn hardhat test --network hardhat ${TEST_ARG}
+  - pnpm hardhat test --network hardhat ${TEST_ARG}
 
 test-unit-hardhat-md:
   extends: test-unit-hardhat
@@ -144,22 +144,22 @@ test-contract-end-to-end:
   extends: .test-node-sc
   tags: [ flarenetwork-lg ]
   script:
-  - yarn hardhat test ./test/integration/EndToEnd.test.ts
+  - pnpm hardhat test ./test/integration/EndToEnd.test.ts
 
 test-linter-sol:
   extends: .test-node-sc
   script:
-  - yarn lint-sol
+  - pnpm lint-sol
 
 test-linter-ts:
   extends: .test-node-sc
   script:
-  - yarn lint:check
+  - pnpm lint:check
 
 test-format:
   extends: .test-node-sc
   script:
-  - yarn format:check
+  - pnpm format:check
 
 test-unit-forge:
   extends: .test-node-sc
@@ -184,9 +184,9 @@ coverage-hardhat:
   tags: [ flarenetwork-lg-cpu ] # 16gb RAM
   cache: [ !reference [.partials, cache-nodejs] ]
   before_script:
-  - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR 1>/dev/null
+  - corepack enable && pnpm install --frozen-lockfile 1>/dev/null
   script:
-  - yarn run coverage
+  - pnpm run coverage
   - cp coverage/cobertura-coverage.xml coverage-hardhat-cobertura.xml
   artifacts:
     name: coverage-hardhat
@@ -212,7 +212,7 @@ coverage-forge-node_modules:
   before_script:
   - apt-get update -y && apt-get install -y rsync
   script:
-  - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
+  - corepack enable && pnpm install --frozen-lockfile
   - rsync -zarvm --include "*/" --include="*.sol" --include="*.js" --include="*.cjs" --include="*.mjs" --include="*.json" --exclude="*" node_modules/ node_modules.sol
   artifacts:
     expire_in: 5 minutes

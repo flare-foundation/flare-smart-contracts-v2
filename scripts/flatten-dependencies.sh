@@ -19,7 +19,7 @@ FIRSTFILE=$(head -n 1 $LISTFILE)
 TMPFILE="/tmp/$(basename $OUTFILE)"
 
 cd "$SUBPROJECT_DIR"
-yarn
+pnpm
 cd - > /dev/null
 
 if [[ "$SUBPROJECT_DIR" =~ flare-smart-contracts ]]; then
@@ -34,7 +34,7 @@ fi
 echo "Flattening to $OUTFILE..."
 cd "$SUBPROJECT_DIR"
 PRAGMA_SOLIDITY=$(grep '^pragma solidity' "$FIRSTFILE")
-yarn hardhat $HHCONFIG flatten ${FILES//$'\n'/ } > "$TMPFILE"
+pnpm hardhat $HHCONFIG flatten ${FILES//$'\n'/ } > "$TMPFILE"
 cd - > /dev/null
 
 rm -f $SUBPROJECT_DIR/contracts/extra-imports.sol
