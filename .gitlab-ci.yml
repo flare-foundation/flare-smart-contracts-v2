@@ -47,7 +47,7 @@ dependency_scanning:
 
 
 scanner-slither:
-  image: node:22
+  image: node:24
   timeout: 10 minutes
   needs: []
   cache: [ !reference [.partials, cache-nodejs] ]
@@ -73,7 +73,7 @@ scanner-slither:
 build-smart-contracts:
   stage: build
   needs: []
-  image: node:22
+  image: node:24
   timeout: 10 minutes
   before_script:
   - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR
@@ -99,7 +99,7 @@ build-smart-contracts:
 ##
 
 .test-node-sc:
-  image: node:22
+  image: node:24
   timeout: 10 minutes
   needs:
   - job: build-smart-contracts
@@ -178,7 +178,7 @@ test-unit-forge:
 ##
 
 coverage-hardhat:
-  image: node:22
+  image: node:24
   needs: []
   timeout: 30 minutes
   tags: [ flarenetwork-lg-cpu ] # 16gb RAM
@@ -205,7 +205,7 @@ coverage-hardhat:
 coverage-forge-node_modules:
   stage: .pre
   needs: []
-  image: node:22
+  image: node:24
   timeout: 7 minutes
   variables:
     DEBIAN_FRONTEND: noninteractive
@@ -239,7 +239,7 @@ coverage-forge:
     - lcov.info
 
 coverage-forge-reports:
-  image: node:22-alpine
+  image: node:24-alpine
   timeout: 4 minutes
   needs:
   - job: coverage-forge
