@@ -203,7 +203,7 @@ export function compareNumberArrays(a: BN[], b: number[]) {
 export function compareArrays<T>(a: T[], b: T[]) {
   expect(a.length, `Expected array length ${a.length} to equal ${b.length}`).to.equals(b.length);
   for (let i = 0; i < a.length; i++) {
-    expect(a[i], `Expected ${a[i]} to equal ${b[i]} at index ${i}`).to.equals(b[i]);
+    expect(a[i], `Expected ${String(a[i])} to equal ${String(b[i])} at index ${i}`).to.equals(b[i]);
   }
 }
 
@@ -211,10 +211,10 @@ export function compareSets<T>(a: T[] | Iterable<T>, b: T[] | Iterable<T>) {
   const aset = new Set(a);
   const bset = new Set(b);
   for (const elt of aset) {
-    assert.isTrue(bset.has(elt), `Element ${elt} missing in second set`);
+    assert.isTrue(bset.has(elt), `Element ${String(elt)} missing in second set`);
   }
   for (const elt of bset) {
-    assert.isTrue(aset.has(elt), `Element ${elt} missing in first set`);
+    assert.isTrue(aset.has(elt), `Element ${String(elt)} missing in first set`);
   }
 }
 
@@ -238,7 +238,7 @@ export function findRequiredEvent<E extends Truffle.AnyEvent, N extends E["name"
   res: Truffle.TransactionResponse<E>,
   name: N
 ): Truffle.TransactionLog<Extract<E, { name: N }>> {
-  const event = res.logs.find((e) => e.event === name) as Truffle.TransactionLog<Extract<E, { name: N }>> | undefined;
+  const event = res.logs.find((e) => e.event === name);
   if (event == null) {
     throw new Error(`Event ${name} not found`);
   }

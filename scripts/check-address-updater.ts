@@ -54,6 +54,6 @@ const excludedContractNames = [
   "SFlrCustomFeed.sol",
 ];
 
-function exclude(contract: any): boolean {
+function exclude(contract: { name: string; contractName: string }): boolean {
   return contract.name.endsWith("Implementation") || excludedContractNames.includes(contract.contractName);
 }

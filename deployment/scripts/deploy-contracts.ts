@@ -137,7 +137,7 @@ export async function deployContracts(
     // Get the timestamp for the just mined block
     firstVotingRoundStartTs = currentBlockTs;
     if (!quiet) {
-      console.error(`Using current block timestamp ${currentBlockTs} as first voting round start timestamp.`);
+      console.error(`Using current block timestamp ${currentBlockTs.toString()} as first voting round start timestamp.`);
     }
   } else {
     if (!quiet) {

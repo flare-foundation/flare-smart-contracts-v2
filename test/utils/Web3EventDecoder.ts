@@ -3,6 +3,7 @@ import Web3 from "web3";
 
 export declare type RawEvent = import("web3-core").Log;
 
+// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type TruffleExtractEvent<E extends Truffle.AnyEvent, N extends E["name"]> = Truffle.TransactionLog<
   Extract<E, { name: N }>
 >;
@@ -47,8 +48,10 @@ class Web3EventDecoder {
 
   constructor(contract: Truffle.ContractInstance, filter?: string[]) {
     for (const item of contract.abi) {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       if (item.type === "event" && (filter == null || filter.includes(item.name!))) {
-        this.eventTypes.set((item as any).signature, item);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.eventTypes.set((item as any).signature as string, item);
       }
     }
   }
@@ -59,6 +62,8 @@ class Web3EventDecoder {
     if (evtType == null) return null;
     // based on web3 docs, first topic has to be removed for non-anonymous events
     const topics = evtType.anonymous ? event.topics : event.topics.slice(1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     const decodedArgs: any = web3.eth.abi.decodeLog(evtType.inputs!, event.data, topics);
     // convert parameters based on type (BN for now)
     evtType.inputs!.forEach((arg, i) => {
@@ -82,6 +87,7 @@ class Web3EventDecoder {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
   decodeEvents(tx: Truffle.TransactionResponse<any> | TransactionReceipt): EvmEvent[] {
     // for truffle, must decode tx.receipt.rawLogs to also obtain logs from indirectly called contracts
     // for plain web3, just decode receipt.logs
@@ -94,7 +100,8 @@ class Web3EventDecoder {
   findEvent<E extends Truffle.AnyEvent, N extends E["name"]>(
     response: Truffle.TransactionResponse<E>,
     name: N
-  ): TruffleExtractEvent<E, N> | undefined {
+  ): // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+  TruffleExtractEvent<E, N> | undefined {
     const logs = this.decodeEvents(response);
     return logs.find((e) => e.event === name) as any;
   }

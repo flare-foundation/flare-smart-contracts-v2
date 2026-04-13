@@ -158,7 +158,7 @@ export class MockFinalizer {
         this.logger.info(`Finalized: ${ProtocolMessageMerkleRoot.print(messageData)}`);
       } catch (e) {
         this.logger.error(`Error finalizing ${ProtocolMessageMerkleRoot.print(messageData)}. Skipped`);
-        this.logger.error(`ERROR: ${e}`);
+        this.logger.error(`ERROR: ${String(e)}`);
       }
     }
   }

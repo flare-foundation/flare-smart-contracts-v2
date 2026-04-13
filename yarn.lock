@@ -669,6 +669,14 @@
   resolved "https://registry.yarnpkg.com/@fastify/busboy/-/busboy-2.1.0.tgz#0709e9f4cb252351c609c6e6d8d6779a8d25edff"
   integrity sha512-+KpH+QxZU7O4675t3mnkQKcZZg56u+K/Ct2K+N2AZYNVK8kyeo/bI18tI8aPm3tvNNRyTWfj6s5tnGNlcbQRsA==
 
+"@flarenetwork/eslint-config-flare@^0.0.2":
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/@flarenetwork/eslint-config-flare/-/eslint-config-flare-0.0.2.tgz#e74bdafc80cd38fc02cd5c23d839a48dd2ed39df"
+  integrity sha512-oZKdRkii3/TsKJQb5ChDh+S4ghfY5uXtaCBaK12QZOPanasfMBvk5IOXz2Z7ObmfjBxoB+XsjnUGYvnAvuosZw==
+  dependencies:
+    "@eslint/js" "^9.33.0"
+    typescript-eslint "^8.39.0"
+
 "@flarenetwork/flare-periphery-contracts@0.1.38":
   version "0.1.38"
   resolved "https://registry.yarnpkg.com/@flarenetwork/flare-periphery-contracts/-/flare-periphery-contracts-0.1.38.tgz#005087d61615b81dcefe8b0568a85db86ce6fdc7"
@@ -4069,6 +4077,11 @@ escodegen@1.8.x:
     optionator "^0.8.1"
   optionalDependencies:
     source-map "~0.2.0"
+
+eslint-config-prettier@^10.1.8:
+  version "10.1.8"
+  resolved "https://registry.yarnpkg.com/eslint-config-prettier/-/eslint-config-prettier-10.1.8.tgz#15734ce4af8c2778cc32f0b01b37b0b5cd1ecb97"
+  integrity sha512-82GZUjRS0p/jganf6q1rEO25VSoHH0hKPCTrgillPjdI/3bgBhAE1QzHrHTizjpRvy6pGAvKjDJtk2pF9NDq8w==
 
 eslint-scope@^4.0.3:
   version "4.0.3"

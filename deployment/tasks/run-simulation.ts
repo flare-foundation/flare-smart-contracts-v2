@@ -483,6 +483,7 @@ export async function runSimulation(
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async function processLog(log: Truffle.TransactionLog<never>, timestamp: number, events: EventStore) {
     logger.info(`Event ${log.event} emitted`);
     if (log.event === "NewVotingRoundInitiated") {
@@ -580,7 +581,7 @@ async function registerAccounts(
     });
 
     const key: SortitionKey = ParseSortitionKey(policySigningAccount.privateKey);
-    const msg = sha256(web3.utils.encodePacked(identityAccount.address)!);
+    const msg = sha256(web3.utils.encodePacked(identityAccount.address) as string);
 
     const signature: Signature = Sign(key, msg);
     const pkx = "0x" + web3.utils.padLeft(key.pk.x.toString(16), 64);

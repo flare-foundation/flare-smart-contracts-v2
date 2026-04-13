@@ -49,6 +49,7 @@ export namespace ECDSASignature {
    * @param index
    * @returns
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   export async function signMessageHash(messageHash: string, privateKey: string): Promise<IECDSASignature> {
     if (!/^0x[0-9a-f]{64}$/i.test(messageHash)) {
       throw Error(`Invalid message hash format: ${messageHash}`);

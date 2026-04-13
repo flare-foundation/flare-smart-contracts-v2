@@ -76,6 +76,7 @@ function hashRelayGovernanceConfig(config: RelayGovernanceConfig): string {
 }
 
 interface StateDataRaw {
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
   [key: number]: BN | boolean;
 }
 function stateDataName(stateDataRaw: StateDataRaw) {

@@ -106,6 +106,7 @@ export namespace ECDSASignatureWithIndex {
    * @param index
    * @returns
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   export async function signMessageHash(
     messageHash: string,
     privateKey: string,

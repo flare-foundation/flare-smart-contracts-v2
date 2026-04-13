@@ -208,8 +208,11 @@ function getStruct(contractName: string, functionName: string) {
 }
 
 function getSelectors(abi: any[]): string[] {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Interface } = require("ethers");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const iface = new Interface(abi.filter((item: any) => item.type === "function"));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return iface.fragments.filter((f: any) => f.type === "function").map((f: any) => f.selector);
 }
 
