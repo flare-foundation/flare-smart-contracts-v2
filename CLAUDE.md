@@ -36,14 +36,29 @@ forge test --match-contract TeeVerificationTest
 # Run specific Forge test
 forge test --match-test testConfirmAvailability -vvv
 
-# Lint contracts
-yarn lint
+# Lint Solidity (contracts + tests + deployment)
+yarn lint-sol
 
-# Lint Forge tests
-yarn lint-forge
+# Lint TypeScript
+yarn lint:check
+
+# Check formatting
+yarn format:check
 
 # Coverage (Forge)
 yarn coverage-forge
+```
+
+## Pre-commit Checklist
+
+After making changes, run these before committing:
+
+```bash
+forge build                # Solidity compilation
+yarn lint-sol              # Solidity linting (0 errors)
+yarn lint:check            # TypeScript linting (0 errors)
+yarn format:check          # Prettier formatting
+yarn coverage-forge        # Coverage (runs all Forge tests)
 ```
 
 ## Project Structure
@@ -201,8 +216,8 @@ All Solidity contracts and interfaces (excluding tests) must follow these format
 
 ### Linting
 
-- Contracts: `yarn lint` — checks all contracts and interfaces under `contracts/`
-- Tests: `yarn lint-forge` — checks all test files under `test-forge/`
+- Solidity: `yarn lint-sol` — checks contracts, test-forge, and deployment .sol files
+- TypeScript: `yarn lint:check` — checks deployment, scripts, and test .ts files
 - Fix all linter **errors** before considering work done (warnings can be ignored)
 - Common rules: max line length 119 characters, named imports, proper function ordering
 

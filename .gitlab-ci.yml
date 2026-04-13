@@ -146,15 +146,15 @@ test-contract-end-to-end:
   script:
   - yarn hardhat test ./test/integration/EndToEnd.test.ts
 
-test-linter:
+test-linter-sol:
   extends: .test-node-sc
   script:
-  - yarn lint
+  - yarn lint-sol
 
-test-linter-forge:
+test-linter-ts:
   extends: .test-node-sc
   script:
-  - yarn lint-forge
+  - yarn lint:check
 
 test-unit-forge:
   extends: .test-node-sc

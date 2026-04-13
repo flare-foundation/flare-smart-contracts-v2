@@ -101,17 +101,17 @@ If you wish to install slither yourself you can check their instructions [here](
 ### How to run
 
 ```bash
-# run eslint
-yarn eslint
+# run eslint on TypeScript
+yarn lint:check
 
-# run solhint on contracts
-yarn lint
-
-# run solhint on forge test contracts
-yarn lint-forge
+# run solhint on all Solidity
+yarn lint-sol
 
 # run slither
 yarn slither
+
+# check formatting
+yarn format:check
 ```
 
 ## Deployment
