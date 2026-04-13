@@ -207,6 +207,7 @@ coverage-forge-node_modules:
   needs: []
   image: node:24
   timeout: 7 minutes
+  tags: [ flarenetwork-lg ]
   variables:
     DEBIAN_FRONTEND: noninteractive
   before_script:
