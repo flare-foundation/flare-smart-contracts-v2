@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { ITeeFeeCalculatorFacet } from "../../userInterfaces/tee/ITeeFeeCalculatorFacet.sol";
-
 /**
  * @title TeeFeeCalculator
  * @notice Library for calculating fees for TEE operations.

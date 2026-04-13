@@ -13,14 +13,6 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  */
 interface IFlareGovernance {
 
-    error OnlyExecutor();
-    error OnlyGovernance();
-    error TimelockInvalidSelector();
-    error TimelockNotAllowedYet();
-    error AlreadyInProductionMode();
-    error GovernedAlreadyInitialized();
-    error GovernedAddressZero();
-
     /**
      * Governance call was timelocked. It can be executed after `allowedAfterTimestamp` by one of the executors.
      * @param encodedCall ABI encoded call data, to be used in executeGovernanceCall
@@ -59,6 +51,14 @@ interface IFlareGovernance {
      * @param governanceSettings the system contract holding governance address, timelock and executors settings
      */
     event GovernedProductionModeEntered(address governanceSettings);
+
+    error OnlyExecutor();
+    error OnlyGovernance();
+    error TimelockInvalidSelector();
+    error TimelockNotAllowedYet();
+    error AlreadyInProductionMode();
+    error GovernedAlreadyInitialized();
+    error GovernedAddressZero();
 
     /**
      * @notice Execute the timelocked governance calls once the timelock period expires.

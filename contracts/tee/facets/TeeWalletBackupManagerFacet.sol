@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import { ITeeWalletBackupManagerFacet } from "../../userInterfaces/tee/ITeeWalletBackupManagerFacet.sol";
 import { ITeeExtensionRegistryFacet } from "../../userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
 import { ITeeMachineRegistryFacet } from "../../userInterfaces/tee/ITeeMachineRegistryFacet.sol";
-import { ITeeWalletManagerFacet, WALLET_OP_TYPE } from "../../userInterfaces/tee/ITeeWalletManagerFacet.sol";
+import { WALLET_OP_TYPE } from "../../userInterfaces/tee/ITeeWalletManagerFacet.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { TeeWalletKeyManager } from "../library/TeeWalletKeyManager.sol";
 import { TeeWalletManager } from "../library/TeeWalletManager.sol";
