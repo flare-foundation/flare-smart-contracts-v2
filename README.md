@@ -4,11 +4,13 @@
 
 # Flare Systems Protocol - Smart Contracts
 
+[About](#about) | [Contributing](./CONTRIBUTING.md) | [Security](./SECURITY.md) | [Changelog](./CHANGELOG.md)
+
+## About
+
 The Flare Systems Protocol (FSP) is a foundational infrastructure designed to support Flare's enshrined protocols (sub-protocols).
 
-This repository implements solidity contracts for Flare Systems Protocol (FSP) and its sub-protocols, including Flare Time Series Oracle (FTSO) and Flare Data Connector (FDC).
-
-## Overview
+This repository implements solidity contracts for Flare Systems Protocol (FSP) and its sub-protocols, including Flare Time Series Oracle (FTSO), Flare Data Connector (FDC), and Trusted Execution Environment (TEE) management.
 
 A comprehensive diagram of all V1 and V2 smart contracts is available [here](https://content.flare.network/flare-smart-contracts-v1-v2-all_with_background.svg).
 
@@ -22,4 +24,4 @@ If you're interested in contributing, please see [CONTRIBUTING.md](./CONTRIBUTIN
 
 ## Security
 
-If you have found a possible vulnerability please see [SECURITY.md](./SECURITY.md)
+If you have found a possible vulnerability please see [SECURITY.md](./SECURITY.md).

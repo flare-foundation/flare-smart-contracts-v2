@@ -7,6 +7,9 @@ Any changes you make SHOULD be noted in the changelog.
 For merge request to be accepted, it MUST pass all linter and formatter checks,
 MUST pass all tests, and MUST be reviewed by at least one other contributor.
 
+> **IMPORTANT:** If you use AI assistance (GitHub Copilot, ChatGPT, Claude, etc.)
+> while contributing, you MUST disclose this in your merge request description.
+
 ## Set up your dev environment
 
 ### Hardhat
@@ -35,10 +38,7 @@ forge build
 
 ## Testing
 
-
 ### Hardhat
-
-#### How to run
 
 ```bash
 # recompile contracts before running tests
@@ -58,8 +58,6 @@ yarn coverage
 ```
 
 ### Foundry
-
-#### How to run
 
 ```bash
 # all forge tests
@@ -106,7 +104,7 @@ If you wish to install slither yourself you can check their instructions [here](
 # run eslint
 yarn eslint
 
-# run solhint
+# run solhint on contracts
 yarn lint
 
 # run solhint on forge test contracts
@@ -115,3 +113,22 @@ yarn lint-forge
 # run slither
 yarn slither
 ```
+
+## Deployment
+
+Supported networks: `flare`, `songbird`, `coston`, `coston2`, `scdev` (local).
+
+### TEE Diamond deploy (Forge)
+
+```bash
+yarn deploy_tee_contracts <network> <fullDeploy:boolean>
+```
+
+### Diamond cut execution
+
+```bash
+yarn tee_diamond_cut <network> <cut-config-name>
+```
+
+Cut configurations are in `deployment/cuts/<network>/`.
+Internal output files are written to `deployment/output-internal/` (gitignored).

@@ -101,6 +101,24 @@ Key remappings (in `remappings.txt`):
 
 Config in `hardhat.config.ts`. Uses Truffle5 + Web3 + Ethers plugins. Typechain generates types for ethers-v6, truffle-v5, and web3-v1.
 
+## Commits
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). No co-authored-by lines.
+
+| Type | When to use |
+| ---- | ----------- |
+| `feat` | Adding new features or functionality |
+| `fix` | Fixing a bug |
+| `refactor` | Restructuring code without changing behavior |
+| `test` | Adding or updating tests |
+| `docs` | Documentation changes |
+| `chore` | Maintenance tasks (dependencies, tooling, etc.) |
+| `ci` | CI/CD pipeline changes |
+| `chore(release)` | Creating a release |
+| `chore(deploy)` | Updating deploy parameters and scripts |
+
+`fix`, `feat`, and `refactor` modify production/audit-scoped code. `chore` and `test` should not modify audit-scoped files.
+
 ## Coding Conventions
 
 ### Solidity Function Definition Formatting
