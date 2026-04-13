@@ -2,7 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { SortitionCredential } from "./ISortition.sol";
-import "./ISignature.sol";
+import {Signature} from "./ISignature.sol";
 
 /**
  * Fast updater interface.

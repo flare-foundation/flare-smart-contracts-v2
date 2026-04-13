@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fastUpdates/implementation/FastUpdater.sol";
-import "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
-import "../../../../contracts/fastUpdates/mock/FlareSystemMock.sol";
-import "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
-import "../../../../contracts/userInterfaces/IFastUpdater.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {Test} from "forge-std/Test.sol";
+import {FastUpdater} from "../../../../contracts/fastUpdates/implementation/FastUpdater.sol";
+import {FastUpdatesConfiguration} from "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
+import {FlareSystemMock} from "../../../../contracts/fastUpdates/mock/FlareSystemMock.sol";
+import {IFtsoFeedPublisher} from "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
+import {IFastUpdater} from "../../../../contracts/userInterfaces/IFastUpdater.sol";
+import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {IGovernanceSettings} from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import {IFastUpdatesConfiguration} from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
+import {Signature} from "../../../../contracts/userInterfaces/ISignature.sol";
+import {SortitionCredential} from "../../../../contracts/userInterfaces/ISortition.sol";
+import {G1Point} from "../../../../contracts/userInterfaces/IBn256.sol";
 
 contract FastUpdaterTest is Test {
 

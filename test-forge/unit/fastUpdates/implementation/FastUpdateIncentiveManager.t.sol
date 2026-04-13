@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fastUpdates/implementation/FastUpdateIncentiveManager.sol";
-import "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
+import {Test} from "forge-std/Test.sol";
+import {FastUpdateIncentiveManager} from "../../../../contracts/fastUpdates/implementation/FastUpdateIncentiveManager.sol";
+import {IFastUpdatesConfiguration} from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
+import {IFastUpdateIncentiveManager} from "../../../../contracts/userInterfaces/IFastUpdateIncentiveManager.sol";
+import {IGovernanceSettings} from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import "../../../../contracts/fastUpdates/lib/FixedPointArithmetic.sol" as FPA;
 contract FastUpdateIncentiveManagerTest is Test {
 
     FastUpdateIncentiveManager private manager;

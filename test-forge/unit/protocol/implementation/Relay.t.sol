@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/Relay.sol";
+import {Test, Vm} from "forge-std/Test.sol";
+import {Relay} from "../../../../contracts/protocol/implementation/Relay.sol";
+import {IRelay} from "../../../../contracts/userInterfaces/IRelay.sol";
+import {IIRelay} from "../../../../contracts/protocol/interface/IIRelay.sol";
 /* solhint-disable avoid-low-level-calls */
 contract RelayTest is Test {
 
