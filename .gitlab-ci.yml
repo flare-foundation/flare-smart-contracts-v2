@@ -156,6 +156,11 @@ test-linter-ts:
   script:
   - yarn lint:check
 
+test-format:
+  extends: .test-node-sc
+  script:
+  - yarn format:check
+
 test-unit-forge:
   extends: .test-node-sc
   timeout: 10 minutes
