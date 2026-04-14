@@ -6,7 +6,6 @@ import {
 } from "@flarenetwork/flare-periphery-contracts/flare/tokenPools/interfaces/IIIncentivePoolReceiver.sol";
 import { TokenPoolBase } from "../../utils/implementation/TokenPoolBase.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
-import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/flare/tokenPools/interfaces/IITokenPool.sol";
 
 abstract contract IncentivePoolReceiver is TokenPoolBase, IIIncentivePoolReceiver, AddressUpdatable {
 

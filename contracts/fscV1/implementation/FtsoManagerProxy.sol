@@ -2,10 +2,6 @@
 pragma solidity ^0.8.20;
 
 import {
-    IIFtsoRewardManager
-} from "@flarenetwork/flare-periphery-contracts/flare/tokenPools/interfaces/IIFtsoRewardManager.sol";
-import { IIFtsoManager } from "@flarenetwork/flare-periphery-contracts/flare/ftso/interfaces/IIFtsoManager.sol";
-import {
     IIPriceSubmitter
 } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IIPriceSubmitter.sol";
 import { IIFtsoRegistry } from "@flarenetwork/flare-periphery-contracts/flare/utils/interfaces/IIFtsoRegistry.sol";
