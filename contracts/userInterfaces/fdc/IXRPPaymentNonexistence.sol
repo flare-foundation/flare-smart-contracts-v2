@@ -6,7 +6,7 @@ pragma solidity >=0.7.6 <0.9;
  * @custom:id 0x09
  * @custom:supported XRP, testXRP
  * @author Flare
- * @notice Assertion that an agreed-upon XRPpayment has not been made by a certain deadline.
+ * @notice Assertion that an agreed-upon XRP payment has not been made by a certain deadline.
  * A confirmed request shows that a transaction meeting certain criteria (address, amount, reference) did not appear
  * in the specified block range.
  *
@@ -95,14 +95,13 @@ interface IXRPPaymentNonexistence {
    * @param deadlineBlockNumber The blockNumber to be included in the search range.
    * @param deadlineTimestamp The timestamp to be included in the search range.
    * @param destinationAddressHash The standard address hash of the address to which the payment had to be done.
-   * @param amount The requested amount in minimal units that had to be payed.
+   * @param amount The requested amount in minimal units that had to be paid.
    * @param checkFirstMemoData Whether to consider the firstMemoDataHash field in the search. Notice:
    * At least one `checkFirstMemoData` (this field) or `checkDestinationTag` must be true.
    * @param firstMemoDataHash Hash of the MemoData field of the first Memo in the transaction.
-   * @param checkDestinationTag Whether to consider the destinationTag field in the search. Notice: 
+   * @param checkDestinationTag Whether to consider the destinationTag field in the search. Notice:
    * At least one `checkFirstMemoData` or `checkDestinationTag` (this field) must be true.
    * @param destinationTag Destination tag of the transaction.
-
    * @custom:below If both `firstMemoDataHash` and `destinationTag` are zero, they are not considered in the
    * search and are ignored, effectively looking for any transaction with at least the specified amount sent to
    * the specified address.

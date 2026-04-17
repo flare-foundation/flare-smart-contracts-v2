@@ -8,7 +8,7 @@ pragma solidity >=0.7.6 <0.9;
  * @author Flare
  * @notice A relay of a transaction on an XRPL chain that is of type payment in a native (XRP) currency.
  * The provable transaction is identified by its `transactionId`. The transactions represents a transfer
- * / attempt of transfer of XRP currency from a source address to a receiving address, and it also incudes relevant
+ * / attempt of transfer of XRP currency from a source address to a receiving address, and it also includes relevant
  * details such as amount sent, amount received, memos, destination tags, and success status.
  *
  * @custom:verification The transaction with `transactionId` is fetched from the RPC of the blockchain node or relevant
@@ -101,7 +101,7 @@ interface IXRPPayment {
      * @param intendedReceivedAmount Amount in minimal units intended to be received by the receiving address.
      * Relevant if the transaction is unsuccessful.
      * @param hasMemoData True if the transaction has a MemoData field, false otherwise.
-     * @param firstMemoData Raw bytes of MemoData filed of first Memo in the transaction, empty if no Memo is present.
+     * @param firstMemoData Raw bytes of MemoData field of first Memo in the transaction, empty if no Memo is present.
      * @param hasDestinationTag True if the transaction has a destination tag, false otherwise.
      * @param destinationTag Destination tag of the transaction, 0 if no destination tag is present,
      * see hasDestinationTag for indication if transaction has destination tag.
