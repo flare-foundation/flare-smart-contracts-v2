@@ -16,25 +16,25 @@ import { ChainParameters, TeeKeyTypeWithSigningAlgos, TeePaymentConfiguration } 
 
 // Day-1 facets (deployed in initial diamond cut)
 export const DAY1_FACETS = [
-  "FlareTeeManagerDiamondCutFacet",
+  "DiamondGovernanceFacet",
   "DiamondLoupeFacet",
-  "TeeExtensionRegistryFacet",
-  "TeeMachineRegistryFacet",
-  "TeeVerificationFacet",
-  "TeeWalletVerificationFacet",
-  "TeeFeeCalculatorFacet",
-  "TeeOwnerAllowlistFacet",
-  "TeeSystemStateVerifierFacet",
-  "TeeWalletManagerFacet",
-  "TeeWalletKeyManagerFacet",
-  "TeeWalletProjectManagerFacet",
-  "TeeWalletBackupManagerFacet",
-  "TeeVrfFacet",
-  "TeeAddressUpdatableFacet",
+  "ExtensionManagerFacet",
+  "InstructionsFacet",
+  "MachineManagerFacet",
+  "VerificationFacet",
+  "OperationFeesFacet",
+  "OwnerAllowlistFacet",
+  "SystemStateVerifierFacet",
+  "WalletManagerFacet",
+  "WalletKeyManagerFacet",
+  "WalletProjectManagerFacet",
+  "WalletBackupManagerFacet",
+  "VrfFacet",
+  "ExternalAddressesFacet",
 ];
 
 // Deploy-later facets (added via diamondCut after initial deployment)
-export const LATER_FACETS = ["TeeReplicationFacet", "TeeGovernanceFacet", "TeeVersionManagerFacet"];
+export const LATER_FACETS = ["ReplicationFacet", "ExtensionGovernanceFacet", "UpgradeManagerFacet"];
 
 export enum FacetCutAction {
   Add = 0,
@@ -109,12 +109,12 @@ export async function addLaterFacetsToDiamond(
 ): Promise<void> {
   const { facetCuts } = await deployFacetsAndBuildCuts(hre, LATER_FACETS);
 
-  // Deploy TeeReplicationInit for the replication facet init
-  const TeeReplicationInit = hre.artifacts.require("TeeReplicationInit");
-  const teeReplicationInit = await TeeReplicationInit.new();
+  // Deploy ReplicationInit for the replication facet init
+  const ReplicationInit = hre.artifacts.require("ReplicationInit");
+  const teeReplicationInit = await ReplicationInit.new();
 
   const initCalldata = hre.web3.eth.abi.encodeFunctionCall(
-    (TeeReplicationInit.abi as AbiItem[]).find((item: AbiItem) => item.name === "init")!,
+    (ReplicationInit.abi as AbiItem[]).find((item: AbiItem) => item.name === "init")!,
     [pauseBeforeUpgradeMinDurationSeconds]
   );
 
@@ -173,11 +173,11 @@ export async function deployFlareTeeManager(
 
   // 5. Post-init configuration (governance calls are immediate before production mode)
   // Access facets through the diamond address
-  const TeeExtensionRegistryFacet = hre.artifacts.require("TeeExtensionRegistryFacet");
-  const teeExtensionRegistry = await TeeExtensionRegistryFacet.at(flareTeeManager.address);
+  const ExtensionManagerFacet = hre.artifacts.require("ExtensionManagerFacet");
+  const extensionManager = await ExtensionManagerFacet.at(flareTeeManager.address);
 
-  const TeeFeeCalculatorFacet = hre.artifacts.require("TeeFeeCalculatorFacet");
-  const teeFeeCalculator = await TeeFeeCalculatorFacet.at(flareTeeManager.address);
+  const OperationFeesFacet = hre.artifacts.require("OperationFeesFacet");
+  const operationFeesFacet = await OperationFeesFacet.at(flareTeeManager.address);
 
   // Set operation fees
   const operationTypes: string[] = [];
@@ -188,15 +188,15 @@ export async function deployFlareTeeManager(
     operationCommands.push(hre.web3.utils.utf8ToHex(teeOperationFee.opCommand).padEnd(66, "0"));
     operationFees.push(teeOperationFee.feeWei);
   }
-  await teeFeeCalculator.setOperationFees(operationTypes, operationCommands, operationFees);
+  await operationFeesFacet.setOperationFees(operationTypes, operationCommands, operationFees);
 
   // Add system supported platforms
-  await teeExtensionRegistry.addSystemSupportedPlatforms(
+  await extensionManager.addSystemSupportedPlatforms(
     parameters.teeSupportedPlatforms.map((platform: string) => hre.web3.utils.utf8ToHex(platform).padEnd(66, "0"))
   );
 
   // Add system supported key types and signing algorithms
-  await teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(
+  await extensionManager.addSystemSupportedKeyTypesAndSigningAlgos(
     parameters.teeSupportedKeyTypesWithSigningAlgos.map((cfg: TeeKeyTypeWithSigningAlgos) =>
       hre.web3.utils.utf8ToHex(cfg.keyType).padEnd(66, "0")
     ),
@@ -206,7 +206,7 @@ export async function deployFlareTeeManager(
   );
 
   // Add system extension supported key types
-  await teeExtensionRegistry.addSupportedKeyTypes(
+  await extensionManager.addSupportedKeyTypes(
     0, // system extension id
     [
       ...new Set(
@@ -237,20 +237,20 @@ export async function addLaterFacets(
     spewNewContractInfo(contracts, null, facetName, `${facetName}.sol`, facetAddresses[facetName], quiet);
   }
 
-  // Deploy TeeReplicationInit for the replication facet init
-  const TeeReplicationInit = hre.artifacts.require("TeeReplicationInit");
-  const teeReplicationInit = await TeeReplicationInit.new();
+  // Deploy ReplicationInit for the replication facet init
+  const ReplicationInit = hre.artifacts.require("ReplicationInit");
+  const teeReplicationInit = await ReplicationInit.new();
   spewNewContractInfo(
     contracts,
     null,
-    "TeeReplicationInit",
-    "TeeReplicationInit.sol",
+    "ReplicationInit",
+    "ReplicationInit.sol",
     teeReplicationInit.address,
     quiet
   );
 
   const initCalldata = hre.web3.eth.abi.encodeFunctionCall(
-    (TeeReplicationInit.abi as AbiItem[]).find((item: AbiItem) => item.name === "init")!,
+    (ReplicationInit.abi as AbiItem[]).find((item: AbiItem) => item.name === "init")!,
     [parameters.teePauseBeforeUpgradeMinDurationSeconds.toString()]
   );
 

@@ -11,7 +11,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  *      backed by the FlareGovernance library.
  *      Unlike GovernedBase, this contract exposes NO public/external functions,
  *      so inheriting facets do not pollute their ABI with duplicate governance selectors.
- *      Only one facet (FlareTeeManagerDiamondCutFacet) should expose the governance
+ *      Only one facet (DiamondGovernanceFacet) should expose the governance
  *      public API; all others inherit this abstract contract.
  *
  *      The constructor marks the implementation as initialised with dummy values

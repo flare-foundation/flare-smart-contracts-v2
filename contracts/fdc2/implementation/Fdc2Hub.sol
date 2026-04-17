@@ -9,8 +9,8 @@ import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IFdc2Hub, FDC2_OP_TYPE } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { IIFlareTeeManager } from "../../tee/interface/IIFlareTeeManager.sol";
-import { ITeeMachineRegistryFacet } from "../../userInterfaces/tee/ITeeMachineRegistryFacet.sol";
-import { ITeeExtensionRegistryFacet } from "../../userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
+import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
+import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
 import { IFdc2RequestFeeConfigurations } from "../../userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
@@ -88,19 +88,19 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
         require(_cosigners.length >= _cosignersThreshold, CosignersThresholdInvalid());
         require(thresholdBIPS == 0 || thresholdBIPS >= MAX_BIPS / 2 ||
             _cosignersThreshold > _cosigners.length / 2, MultipleResponsesPossible());
-        ITeeMachineRegistryFacet.TeeMachine[] memory teeMachines;
+        IMachineManagerFacet.TeeMachine[] memory teeMachines;
         if (_teeIds.length == 0) {
             if (_numberOfTees == 0) {
                 _numberOfTees = defaultNumberOfTees;
             }
             _teeIds = flareTeeManager.getRandomTeeIds(0, _numberOfTees);
             // all random tee machines are in PRODUCTION status and belong to the system extension
-            teeMachines = new ITeeMachineRegistryFacet.TeeMachine[](_teeIds.length);
+            teeMachines = new IMachineManagerFacet.TeeMachine[](_teeIds.length);
             for (uint256 i = 0; i < _teeIds.length; i++) {
                 teeMachines[i] = flareTeeManager.getTeeMachine(_teeIds[i]);
             }
         } else {
-            teeMachines = new ITeeMachineRegistryFacet.TeeMachine[](_teeIds.length);
+            teeMachines = new IMachineManagerFacet.TeeMachine[](_teeIds.length);
             // For all TEE machines check their status and that they belong to the system extension.
             for (uint256 i = 0; i < _teeIds.length; i++) {
                 address teeId = _teeIds[i];
@@ -109,8 +109,8 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
                     require(teeId != _teeIds[j], DuplicatedTeeId(teeId));
                 }
                 // check the TEE machine status
-                ITeeMachineRegistryFacet.TeeStatus status = flareTeeManager.getTeeMachineStatus(teeId);
-                if (status == ITeeMachineRegistryFacet.TeeStatus.PAUSED_FOR_UPGRADE) {
+                IMachineManagerFacet.TeeStatus status = flareTeeManager.getTeeMachineStatus(teeId);
+                if (status == IMachineManagerFacet.TeeStatus.PAUSED_FOR_UPGRADE) {
                     // if the TEE machine is PAUSED_FOR_UPGRADE use its replicating TEE machine if exists, else revert
                     address replicatingTeeId = flareTeeManager.getReplicatingTeeId(teeId);
                     require(replicatingTeeId != address(0), TeeMachineNotAvailable());
@@ -119,8 +119,8 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
                 } else {
                     // else require the TEE machine to be in INITIALIZED or PRODUCTION status
                     require(
-                        status == ITeeMachineRegistryFacet.TeeStatus.INITIALIZED ||
-                        status == ITeeMachineRegistryFacet.TeeStatus.PRODUCTION,
+                        status == IMachineManagerFacet.TeeStatus.INITIALIZED ||
+                        status == IMachineManagerFacet.TeeStatus.PRODUCTION,
                         TeeMachineNotAvailable()
                     );
                     teeMachines[i] = flareTeeManager.getTeeMachine(teeId);
@@ -257,7 +257,7 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
     }
 
     function _sendRequestAttestationInstructions(
-        ITeeMachineRegistryFacet.TeeMachine[] memory _teeMachines,
+        IMachineManagerFacet.TeeMachine[] memory _teeMachines,
         bytes memory _message,
         address[] memory _cosigners,
         uint64 _cosignersThreshold,
@@ -270,7 +270,7 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
         return flareTeeManager.sendSystemInstructions{value: _instructionsFee}(
             bytes32(0),
             _teeMachines,
-            ITeeExtensionRegistryFacet.TeeInstructionParams(
+            IInstructionsFacet.TeeInstructionParams(
                 FDC2_OP_TYPE,
                 PROVE,
                 _message,

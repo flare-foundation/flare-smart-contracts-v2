@@ -44,7 +44,7 @@ const facetCutType = {
 } as const;
 
 const diamondCutArtifact = JSON.parse(
-  fs.readFileSync("artifacts-forge/FlareTeeManagerDiamondCutFacet.sol/FlareTeeManagerDiamondCutFacet.json", "utf8")
+  fs.readFileSync("artifacts-forge/DiamondGovernanceFacet.sol/DiamondGovernanceFacet.json", "utf8")
 ) as { abi: AbiItem[] };
 const diamondCutAbi = diamondCutArtifact.abi;
 

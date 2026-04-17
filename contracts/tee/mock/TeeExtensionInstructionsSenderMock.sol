@@ -2,8 +2,8 @@
 pragma solidity ^0.8.27;
 
 import { IFlareTeeManager } from "../../userInterfaces/tee/IFlareTeeManager.sol";
-import { ITeeExtensionRegistryFacet } from "../../userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
-import { ITeeWalletManagerFacet } from "../../userInterfaces/tee/ITeeWalletManagerFacet.sol";
+import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
+import { IWalletManagerFacet } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 
 /**
@@ -70,7 +70,7 @@ contract TeeExtensionInstructionsSenderMock {
         bytes32 projectId = flareTeeManager.getWalletProjectId(_walletId);
         require(flareTeeManager.getKeyType(projectId) == KEY_TYPE, WrongKeyType());
         require(
-            flareTeeManager.getWalletStatus(_walletId) == ITeeWalletManagerFacet.WalletStatus.PRODUCTION,
+            flareTeeManager.getWalletStatus(_walletId) == IWalletManagerFacet.WalletStatus.PRODUCTION,
             WalletNotInProduction()
         );
 
@@ -87,7 +87,7 @@ contract TeeExtensionInstructionsSenderMock {
 
         flareTeeManager.sendInstructions{value: msg.value}(
             _toTeeIds(teeIdKeyIdPairs),
-            ITeeExtensionRegistryFacet.TeeInstructionParams(
+            IInstructionsFacet.TeeInstructionParams(
                 OP_TYPE,
                 OP_COMMAND,
                 abi.encode(message),
@@ -105,7 +105,7 @@ contract TeeExtensionInstructionsSenderMock {
      */
     function sendInstructions(
         address[] calldata _teeIds,
-        ITeeExtensionRegistryFacet.TeeInstructionParams calldata _instructionParams
+        IInstructionsFacet.TeeInstructionParams calldata _instructionParams
     )
         external payable
     {

@@ -120,7 +120,7 @@ const PollingFoundation: PollingFoundationContract = artifacts.require("PollingF
 const PollingManagementGroup: PollingManagementGroupContract = artifacts.require("PollingManagementGroup");
 const FlareTeeManager = artifacts.require("FlareTeeManager");
 const FlareTeeManagerInit = artifacts.require("FlareTeeManagerInit");
-const TeeReplicationInit = artifacts.require("TeeReplicationInit");
+const ReplicationInit = artifacts.require("ReplicationInit");
 const IDiamondCut = artifacts.require("IDiamondCut");
 const IIFlareTeeManager = artifacts.require("IIFlareTeeManager");
 const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
@@ -658,23 +658,23 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
 
     // Deploy FlareTeeManager Diamond
     const DAY1_FACET_NAMES = [
-      "FlareTeeManagerDiamondCutFacet",
+      "DiamondGovernanceFacet",
       "DiamondLoupeFacet",
-      "TeeExtensionRegistryFacet",
-      "TeeMachineRegistryFacet",
-      "TeeVerificationFacet",
-      "TeeWalletVerificationFacet",
-      "TeeFeeCalculatorFacet",
-      "TeeOwnerAllowlistFacet",
-      "TeeSystemStateVerifierFacet",
-      "TeeWalletManagerFacet",
-      "TeeWalletKeyManagerFacet",
-      "TeeWalletProjectManagerFacet",
-      "TeeWalletBackupManagerFacet",
-      "TeeVrfFacet",
-      "TeeAddressUpdatableFacet",
+      "ExtensionManagerFacet",
+      "InstructionsFacet",
+      "MachineManagerFacet",
+      "VerificationFacet",
+      "OperationFeesFacet",
+      "OwnerAllowlistFacet",
+      "SystemStateVerifierFacet",
+      "WalletManagerFacet",
+      "WalletKeyManagerFacet",
+      "WalletProjectManagerFacet",
+      "WalletBackupManagerFacet",
+      "VrfFacet",
+      "ExternalAddressesFacet",
     ];
-    const LATER_FACET_NAMES = ["TeeReplicationFacet", "TeeGovernanceFacet", "TeeVersionManagerFacet"];
+    const LATER_FACET_NAMES = ["ReplicationFacet", "ExtensionGovernanceFacet", "UpgradeManagerFacet"];
 
     const facetCuts = [];
     const usedSelectors = new Set<string>();
@@ -714,13 +714,13 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         functionSelectors: selectors,
       });
     }
-    const teeReplicationInit = await TeeReplicationInit.new();
+    const replicationInit = await ReplicationInit.new();
     const replicationInitCalldata = web3.eth.abi.encodeFunctionCall(
-      TeeReplicationInit.abi.find((item: any) => item.name === "init"),
+      ReplicationInit.abi.find((item: any) => item.name === "init"),
       ["60"]
     );
     const flareTeeManagerDiamondCut = await IDiamondCut.at(flareTeeManagerDiamond.address);
-    await flareTeeManagerDiamondCut.diamondCut(laterFacetCuts, teeReplicationInit.address, replicationInitCalldata);
+    await flareTeeManagerDiamondCut.diamondCut(laterFacetCuts, replicationInit.address, replicationInitCalldata);
 
     // Get IIFlareTeeManager view at Diamond address (single interface covering all facets)
     flareTeeManager = await IIFlareTeeManager.at(flareTeeManagerDiamond.address);
@@ -1765,7 +1765,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         publicKey: TEE_PUBLIC_KEYS[i],
       };
 
-      const msg = getHash(getStruct("TeeMachineRegistryStructs", "teeMachineDataStruct"), teeMachineData);
+      const msg = getHash(getStruct("TeeMachineStructs", "teeMachineDataStruct"), teeMachineData);
       const signature = await ECDSASignature.signMessageHash(msg, privateKeys[20 + (i % 2)].privateKey);
 
       const tx = await flareTeeManager.register(

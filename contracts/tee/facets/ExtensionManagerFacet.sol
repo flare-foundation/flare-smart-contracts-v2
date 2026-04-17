@@ -1,0 +1,399 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.27;
+
+import { IIExtensionManagerFacet } from "../interface/IIExtensionManagerFacet.sol";
+import { IExtensionManagerFacet } from "../../userInterfaces/tee/IExtensionManagerFacet.sol";
+import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
+import { ExtensionManager } from "../library/ExtensionManager.sol";
+import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
+import { GovernedFacet } from "./GovernedFacet.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+
+/**
+ * @title ExtensionManagerFacet
+ * @notice Facet for TEE extension registration and instruction routing.
+ */
+contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
+    using EnumerableSet for EnumerableSet.Bytes32Set;
+
+    /// @inheritdoc IExtensionManagerFacet
+    function register(
+        ITeeExtensionStateVerifier _teeExtensionStateVerifier,
+        address _teeExtensionInstructionsSender
+    )
+        external
+        returns (uint256 _extensionId)
+    {
+        require(_teeExtensionInstructionsSender != address(0), InvalidInstructionsSender());
+        ExtensionManager.State storage s = ExtensionManager.getState();
+        _extensionId = s.extensionsCounter++;
+        ExtensionManager.TeeExtension storage newExtension = s.extensions[_extensionId];
+        newExtension.owner = msg.sender;
+        newExtension.stateVerifier = _teeExtensionStateVerifier;
+        newExtension.instructionsSender = _teeExtensionInstructionsSender;
+        emit TeeExtensionRegistered(_extensionId, msg.sender);
+        emit TeeExtensionContractsSet(_extensionId, _teeExtensionStateVerifier, _teeExtensionInstructionsSender);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function setExtensionContracts(
+        uint256 _extensionId,
+        ITeeExtensionStateVerifier _teeExtensionStateVerifier,
+        address _teeExtensionInstructionsSender
+    )
+        external
+    {
+        ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        require(_extensionId != 0, SystemOwnedExtensionId());
+        require(_teeExtensionInstructionsSender != address(0), InvalidInstructionsSender());
+        ExtensionManager.TeeExtension storage extension =
+            ExtensionManager.getState().extensions[_extensionId];
+        extension.stateVerifier = _teeExtensionStateVerifier;
+        extension.instructionsSender = _teeExtensionInstructionsSender;
+        emit TeeExtensionContractsSet(
+            _extensionId, _teeExtensionStateVerifier, _teeExtensionInstructionsSender
+        );
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function addTeeVersion(
+        uint256 _extensionId,
+        string calldata _version,
+        bytes32 _codeHash,
+        bytes32[] calldata _platforms,
+        bytes32 _governanceHash
+    )
+        external
+    {
+        ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        require(bytes(_version).length > 0, VersionEmpty());
+        require(_codeHash != bytes32(0), CodeHashZero());
+        require(_platforms.length > 0, NoPlatforms());
+        for (uint256 i = 0; i < _platforms.length; i++) {
+            require(ExtensionManager.isSystemSupportedPlatform(_platforms[i]), UnsupportedPlatform(_platforms[i]));
+        }
+        require(
+            _governanceHash == bytes32(0) ||
+                ExtensionGovernance.getLatestTeeGovernanceHash(_extensionId) == _governanceHash,
+            InvalidGovernanceHash()
+        );
+
+        ExtensionManager.TeeExtension storage extension =
+            ExtensionManager.getState().extensions[_extensionId];
+        require(extension.supportedCodeHashes.add(_codeHash), VersionAlreadyExists());
+        ExtensionManager.TeeVersion storage teeVersion = extension.codeHashToVersion[_codeHash];
+        teeVersion.version = _version;
+        for (uint256 i = 0; i < _platforms.length; i++) {
+            require(teeVersion.platforms.add(_platforms[i]), PlatformAlreadyExists(_platforms[i]));
+        }
+        teeVersion.governanceHash = _governanceHash;
+        emit TeeVersionAdded(_extensionId, _version, _codeHash, _platforms, _governanceHash);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function disableCodeHashPlatform(
+        uint256 _extensionId,
+        bytes32 _codeHash,
+        bytes32 _platform
+    )
+        external
+    {
+        ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        ExtensionManager.TeeExtension storage extension =
+            ExtensionManager.getState().extensions[_extensionId];
+        require(extension.codeHashToVersion[_codeHash].platforms.length() > 0, InvalidCodeHash());
+        bytes32[] memory platforms = extension.codeHashToVersion[_codeHash].platforms.values();
+        if (_platform != bytes32(0)) {
+            for (uint256 i = 0; i < platforms.length; i++) {
+                if (platforms[i] == _platform) {
+                    require(
+                        !extension.codeHashPlatformDisabled[_codeHash][_platform],
+                        CodeHashPlatformAlreadyDisabled()
+                    );
+                    extension.codeHashPlatformDisabled[_codeHash][_platform] = true;
+                    emit CodeHashPlatformDisabled(_extensionId, _codeHash, _platform);
+                    return;
+                }
+            }
+            revert InvalidPlatform();
+        } else {
+            for (uint256 i = 0; i < platforms.length; i++) {
+                if (extension.codeHashPlatformDisabled[_codeHash][platforms[i]]) {
+                    continue;
+                }
+                extension.codeHashPlatformDisabled[_codeHash][platforms[i]] = true;
+                emit CodeHashPlatformDisabled(_extensionId, _codeHash, platforms[i]);
+            }
+        }
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function addSupportedKeyTypes(
+        uint256 _extensionId,
+        bytes32[] calldata _keyTypes
+    )
+        external
+    {
+        ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        ExtensionManager.TeeExtension storage extension =
+            ExtensionManager.getState().extensions[_extensionId];
+        for (uint256 i = 0; i < _keyTypes.length; i++) {
+            bytes32 keyType = _keyTypes[i];
+            require(keyType != bytes32(0), KeyTypeEmpty());
+            require(ExtensionManager.isSystemSupportedKeyType(keyType), KeyTypeNotSupported(keyType));
+            require(extension.supportedKeyTypes.add(keyType), KeyTypeAlreadyExists(keyType));
+        }
+        emit SupportedKeyTypesAdded(_extensionId, _keyTypes);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function removeSupportedKeyTypes(
+        uint256 _extensionId,
+        bytes32[] memory _keyTypes
+    )
+        external
+    {
+        ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        ExtensionManager.TeeExtension storage extension =
+            ExtensionManager.getState().extensions[_extensionId];
+        for (uint256 i = 0; i < _keyTypes.length; i++) {
+            bytes32 keyType = _keyTypes[i];
+            require(extension.supportedKeyTypes.remove(keyType), KeyTypeNotSupported(keyType));
+        }
+        emit SupportedKeyTypesRemoved(_extensionId, _keyTypes);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function proposeNewOwner(
+        uint256 _extensionId,
+        address _newOwner
+    )
+        external
+    {
+        ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        require(_extensionId != 0, SystemOwnedExtensionId());
+        ExtensionManager.getState().proposedExtensionOwner[_extensionId] = _newOwner;
+        emit NewOwnerProposed(_extensionId, msg.sender, _newOwner);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function confirmOwnership(
+        uint256 _extensionId
+    )
+        external
+    {
+        ExtensionManager.State storage s = ExtensionManager.getState();
+        require(s.proposedExtensionOwner[_extensionId] == msg.sender, OnlyProposedOwner());
+        s.extensions[_extensionId].owner = msg.sender;
+        delete s.proposedExtensionOwner[_extensionId];
+        emit NewOwnerConfirmed(_extensionId, msg.sender);
+    }
+
+    /// @inheritdoc IIExtensionManagerFacet
+    function addSystemSupportedPlatforms(
+        bytes32[] calldata _platforms
+    )
+        external
+        onlyGovernance
+    {
+        ExtensionManager.State storage s = ExtensionManager.getState();
+        for (uint256 i = 0; i < _platforms.length; i++) {
+            require(_platforms[i] != bytes32(0), PlatformEmpty());
+            require(s.systemSupportedPlatforms.add(_platforms[i]), PlatformAlreadyExists(_platforms[i]));
+        }
+        emit SystemSupportedPlatformsAdded(_platforms);
+    }
+
+    /// @inheritdoc IIExtensionManagerFacet
+    function addSystemSupportedKeyTypesAndSigningAlgos(
+        bytes32[] calldata _keyTypes,
+        bytes32[][] calldata _signingAlgosByKeyType
+    )
+        external
+        onlyGovernance
+    {
+        require(_keyTypes.length == _signingAlgosByKeyType.length, LengthsMismatch());
+        ExtensionManager.State storage s = ExtensionManager.getState();
+        for (uint256 i = 0; i < _keyTypes.length; i++) {
+            bytes32 keyType = _keyTypes[i];
+            require(keyType != bytes32(0), KeyTypeEmpty());
+            bytes32[] calldata signingAlgos = _signingAlgosByKeyType[i];
+            require(signingAlgos.length > 0, NoSigningAlgos(keyType));
+            s.systemSupportedKeyTypes.add(keyType);
+
+            for (uint256 j = 0; j < signingAlgos.length; j++) {
+                bytes32 signingAlgo = signingAlgos[j];
+                require(signingAlgo != bytes32(0), SigningAlgoEmpty());
+                require(
+                    s.systemSupportedSigningAlgos[keyType].add(signingAlgo),
+                    SigningAlgoAlreadyExists(keyType, signingAlgo)
+                );
+            }
+        }
+        emit SystemSupportedKeyTypesAndSigningAlgosAdded(_keyTypes, _signingAlgosByKeyType);
+    }
+
+    // =========================================================================
+    // Getters
+    // =========================================================================
+
+    /// @inheritdoc IExtensionManagerFacet
+    function extensionsCounter()
+        external view
+        returns (uint256)
+    {
+        return ExtensionManager.getState().extensionsCounter;
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function getSystemSupportedPlatforms()
+        external view
+        returns (bytes32[] memory)
+    {
+        return ExtensionManager.getState().systemSupportedPlatforms.values();
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function getSystemSupportedKeyTypes()
+        external view
+        returns (bytes32[] memory)
+    {
+        return ExtensionManager.getState().systemSupportedKeyTypes.values();
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function getSystemSupportedSigningAlgos(
+        bytes32 _keyType
+    )
+        external view
+        returns (bytes32[] memory)
+    {
+        return ExtensionManager.getState().systemSupportedSigningAlgos[_keyType].values();
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function getExtensionOwner(
+        uint256 _extensionId
+    )
+        external view
+        returns (address)
+    {
+        return ExtensionManager.getExtensionOwner(_extensionId);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function getTeeExtensionStateVerifier(
+        uint256 _extensionId
+    )
+        external view
+        returns (ITeeExtensionStateVerifier)
+    {
+        return ExtensionManager.getTeeExtensionStateVerifier(_extensionId);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function getTeeExtensionInstructionsSender(
+        uint256 _extensionId
+    )
+        external view
+        returns (address)
+    {
+        return ExtensionManager.getExtensionInstructionsSender(_extensionId);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function isSigningAlgoSupported(
+        bytes32 _keyType,
+        bytes32 _signingAlgo
+    )
+        external view
+        returns (bool)
+    {
+        return ExtensionManager.isSigningAlgoSupported(_keyType, _signingAlgo);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function getSupportedKeyTypes(
+        uint256 _extensionId
+    )
+        external view
+        returns (bytes32[] memory _supportedKeyTypes)
+    {
+        return ExtensionManager.getState().extensions[_extensionId].supportedKeyTypes.values();
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function isKeyTypeSupported(
+        uint256 _extensionId,
+        bytes32 _keyType
+    )
+        external view
+        returns (bool)
+    {
+        return ExtensionManager.isKeyTypeSupported(_extensionId, _keyType);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function getSupportedCodeHashes(
+        uint256 _extensionId
+    )
+        external view
+        returns (bytes32[] memory _supportedCodeHashes)
+    {
+        return ExtensionManager.getState().extensions[_extensionId].supportedCodeHashes.values();
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function isCodeHashPlatformSupported(
+        uint256 _extensionId,
+        bytes32 _codeHash,
+        bytes32 _platform
+    )
+        external view
+        returns (bool)
+    {
+        return ExtensionManager.isCodeHashPlatformSupported(_extensionId, _codeHash, _platform);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function isCodeHashPlatformDisabled(
+        uint256 _extensionId,
+        bytes32 _codeHash,
+        bytes32 _platform
+    )
+        external view
+        returns (bool)
+    {
+        return ExtensionManager.isCodeHashPlatformDisabled(_extensionId, _codeHash, _platform);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function getTeeGovernanceHash(
+        uint256 _extensionId,
+        bytes32 _codeHash
+    )
+        external view
+        returns (bytes32)
+    {
+        return ExtensionManager.getTeeGovernanceHash(_extensionId, _codeHash);
+    }
+
+    /// @inheritdoc IExtensionManagerFacet
+    function getCodeHashInfo(
+        uint256 _extensionId,
+        bytes32 _codeHash
+    )
+        external view
+        returns (
+            bytes32 _governanceHash,
+            string memory _version,
+            bytes32[] memory _platforms
+        )
+    {
+        ExtensionManager.TeeExtension storage extension =
+            ExtensionManager.getState().extensions[_extensionId];
+        _governanceHash = extension.codeHashToVersion[_codeHash].governanceHash;
+        _version = extension.codeHashToVersion[_codeHash].version;
+        _platforms = extension.codeHashToVersion[_codeHash].platforms.values();
+    }
+}

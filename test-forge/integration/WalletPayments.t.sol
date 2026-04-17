@@ -8,11 +8,11 @@ import { TeePaymentsProxy } from "../../contracts/tee/proxy/TeePaymentsProxy.sol
 import { IDiamondCut } from "../../contracts/diamond/interfaces/IDiamondCut.sol";
 import { IDiamond } from "../../contracts/diamond/interfaces/IDiamond.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { ITeeExtensionRegistryFacet } from "../../contracts/userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
-import { ITeeWalletKeyManagerFacet } from "../../contracts/userInterfaces/tee/ITeeWalletKeyManagerFacet.sol";
-import { ITeeWalletBackupManagerFacet } from "../../contracts/userInterfaces/tee/ITeeWalletBackupManagerFacet.sol";
-import { ITeeWalletVerificationFacet } from "../../contracts/userInterfaces/tee/ITeeWalletVerificationFacet.sol";
-import { ITeeMachineRegistryFacet } from "../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
+import { IInstructionsFacet } from "../../contracts/userInterfaces/tee/IInstructionsFacet.sol";
+import { IWalletKeyManagerFacet } from "../../contracts/userInterfaces/tee/IWalletKeyManagerFacet.sol";
+import { IWalletBackupManagerFacet } from "../../contracts/userInterfaces/tee/IWalletBackupManagerFacet.sol";
+import { IVerificationFacet } from "../../contracts/userInterfaces/tee/IVerificationFacet.sol";
+import { IMachineManagerFacet } from "../../contracts/userInterfaces/tee/IMachineManagerFacet.sol";
 import { ITeePayments } from "../../contracts/userInterfaces/tee/ITeePayments.sol";
 import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardManager.sol";
 import { IPMWMultisigAccountConfigured } from "../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
@@ -23,7 +23,7 @@ import { IFdc2Verification } from "../../contracts/userInterfaces/fdc2/IFdc2Veri
 import { IFdc2Hub } from "../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import { TeeMachineRegistry } from "../../contracts/tee/library/TeeMachineRegistry.sol";
+import { MachineManager } from "../../contracts/tee/library/MachineManager.sol";
 
 /**
  * Helper init contract to inject TEE machine state directly into Diamond storage.
@@ -39,13 +39,13 @@ contract TeeTestMachineInit {
     )
         external
     {
-        TeeMachineRegistry.State storage state = TeeMachineRegistry.getState();
-        TeeMachineRegistry.TeeMachineState storage m = state.teeMachineStates[_teeId];
+        MachineManager.State storage state = MachineManager.getState();
+        MachineManager.TeeMachineState storage m = state.teeMachineStates[_teeId];
         m.owner = _owner;
         m.teeProxyId = _teeProxyId;
         m.url = _url;
         m.extensionId = _extensionId;
-        m.status = ITeeMachineRegistryFacet.TeeStatus.PRODUCTION;
+        m.status = IMachineManagerFacet.TeeStatus.PRODUCTION;
         m.initialTeeId = _teeId;
     }
 }
@@ -76,18 +76,18 @@ contract WalletPaymentsTest is Test {
     address private authorizationAddress;
     address private teeId1;
     address private teeId2;
-    ITeeMachineRegistryFacet.TeeMachine private teeMachine1;
-    ITeeMachineRegistryFacet.TeeMachine private teeMachine2;
+    IMachineManagerFacet.TeeMachine private teeMachine1;
+    IMachineManagerFacet.TeeMachine private teeMachine2;
     uint256 private privateKey1;
     uint256 private privateKey2;
     bytes32 private walletId;
     address private projectOwner;
     bytes private opTypeConstants;
     uint64 private keyId;
-    ITeeWalletKeyManagerFacet.KeyExistence private keyExistenceProof;
+    IWalletKeyManagerFacet.KeyExistence private keyExistenceProof;
     address[] private pausingAddresses;
     address[] private cosigners;
-    ITeeWalletBackupManagerFacet.BackupId private backupId;
+    IWalletBackupManagerFacet.BackupId private backupId;
     uint256 private defaultFee;
 
     string private accountAddress = "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe";
@@ -120,8 +120,8 @@ contract WalletPaymentsTest is Test {
         // tee machines
         (teeId1, privateKey1) = makeAddrAndKey("teeId1");
         (teeId2, privateKey2) = makeAddrAndKey("teeId2");
-        teeMachine1 = ITeeMachineRegistryFacet.TeeMachine(teeId1, makeAddr("teeProxyId1"), "url1");
-        teeMachine2 = ITeeMachineRegistryFacet.TeeMachine(teeId2, makeAddr("teeProxyId2"), "url2");
+        teeMachine1 = IMachineManagerFacet.TeeMachine(teeId1, makeAddr("teeProxyId1"), "url1");
+        teeMachine2 = IMachineManagerFacet.TeeMachine(teeId2, makeAddr("teeProxyId2"), "url2");
 
         account1 = ITeePayments.PMWMultisigAccount({
             sourceId: XRP_SOURCE_ID,
@@ -168,7 +168,7 @@ contract WalletPaymentsTest is Test {
         // Update contract addresses
         // =====================================================================
 
-        // FlareTeeManager Diamond: TeeAddressUpdatableFacet resolves
+        // FlareTeeManager Diamond: ExternalAddressesFacet resolves
         //   FlareSystemsManager, RewardManager, Relay, Fdc2Hub, Fdc2Verification
         vm.startPrank(addressUpdater);
         contractNameHashes = new bytes32[](6);
@@ -348,7 +348,7 @@ contract WalletPaymentsTest is Test {
         vm.mockCall(
             address(flareTeeManager),
             abi.encodeWithSelector(
-                ITeeWalletVerificationFacet.verifyPMWMultisigAccountConfiguredProof.selector,
+                IVerificationFacet.verifyPMWMultisigAccountConfiguredProof.selector,
                 walletId
             ),
             abi.encode(true)
@@ -435,7 +435,7 @@ contract WalletPaymentsTest is Test {
         bytes32 instructionId = keccak256(abi.encode(
             XRP_OP_TYPE, bytes32("PAY"), XRP_SOURCE_ID, account1.accountAddress, 2
         ));
-        ITeeMachineRegistryFacet.TeeMachine[] memory teeMachines = new ITeeMachineRegistryFacet.TeeMachine[](2);
+        IMachineManagerFacet.TeeMachine[] memory teeMachines = new IMachineManagerFacet.TeeMachine[](2);
         teeMachines[0] = teeMachine1;
         teeMachines[1] = teeMachine2;
         ITeePayments.PaymentInstructionMessage memory message = ITeePayments.PaymentInstructionMessage({
@@ -455,13 +455,13 @@ contract WalletPaymentsTest is Test {
         });
 
         // if fee too low revert
-        vm.expectRevert(ITeeExtensionRegistryFacet.FeeTooLow.selector);
+        vm.expectRevert(IInstructionsFacet.FeeTooLow.selector);
         vm.prank(authorizationAddress);
         teePayments.pay(account1, instruction, address(0));
 
         vm.prank(authorizationAddress);
         vm.expectEmit();
-        emit ITeeExtensionRegistryFacet.TeeInstructionsSent(
+        emit IInstructionsFacet.TeeInstructionsSent(
             0,
             instructionId,
             13,
@@ -528,7 +528,7 @@ contract WalletPaymentsTest is Test {
         bytes32 instructionId = keccak256(abi.encode(
             XRP_OP_TYPE, bytes32("REISSUE"), XRP_SOURCE_ID, account1.accountAddress, 2, reissueNumber
         ));
-        ITeeMachineRegistryFacet.TeeMachine[] memory teeMachines = new ITeeMachineRegistryFacet.TeeMachine[](2);
+        IMachineManagerFacet.TeeMachine[] memory teeMachines = new IMachineManagerFacet.TeeMachine[](2);
         teeMachines[0] = teeMachine1;
         teeMachines[1] = teeMachine2;
         // move to the end of batch
@@ -550,7 +550,7 @@ contract WalletPaymentsTest is Test {
         });
 
         vm.expectEmit();
-        emit ITeeExtensionRegistryFacet.TeeInstructionsSent(
+        emit IInstructionsFacet.TeeInstructionsSent(
             0,
             instructionId,
             13,

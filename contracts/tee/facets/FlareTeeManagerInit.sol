@@ -4,9 +4,9 @@ pragma solidity ^0.8.27;
 import { FlareGovernance } from "../library/FlareGovernance.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import { TeeVerification } from "../library/TeeVerification.sol";
-import { TeeFeeCalculator } from "../library/TeeFeeCalculator.sol";
-import { TeeExtensionRegistry } from "../library/TeeExtensionRegistry.sol";
+import { Verification } from "../library/Verification.sol";
+import { OperationFees } from "../library/OperationFees.sol";
+import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { LibDiamond } from "../../diamond/libraries/LibDiamond.sol";
 import { IDiamondCut } from "../../diamond/interfaces/IDiamondCut.sol";
 import { IDiamondLoupe } from "../../diamond/interfaces/IDiamondLoupe.sol";
@@ -63,21 +63,21 @@ contract FlareTeeManagerInit is AddressUpdatable {
         setAddressUpdaterValue(_addressUpdater);
 
         // Initialize verification settings
-        TeeVerification.updateSettings(
+        Verification.updateSettings(
             _availabilityCheckValidityDurationSeconds,
             _signingPolicyValidityDurationInRewardEpochs,
             _challengeValidityDurationSeconds
         );
 
         // Set default fee
-        TeeFeeCalculator.getState().defaultFee = _defaultFee;
+        OperationFees.getState().defaultFee = _defaultFee;
 
         // Reserve extension id 0 for system use
-        TeeExtensionRegistry.getState().extensionsCounter = 1;
+        ExtensionManager.getState().extensionsCounter = 1;
     }
 
     /**
-     * @dev Not used — TeeAddressUpdatableFacet handles address updates.
+     * @dev Not used — ExternalAddressesFacet handles address updates.
      */
     function _updateContractAddresses(
         bytes32[] memory,

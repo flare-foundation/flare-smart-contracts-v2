@@ -5,14 +5,14 @@ import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IDiamondLoupe } from "../../contracts/diamond/interfaces/IDiamondLoupe.sol";
-import { ITeeMachineRegistryFacet } from "../../contracts/userInterfaces/tee/ITeeMachineRegistryFacet.sol";
-import { TEE_SOURCE_ID } from "../../contracts/userInterfaces/tee/ITeeVerificationFacet.sol";
-import { ITeeGovernanceFacet } from "../../contracts/userInterfaces/tee/ITeeGovernanceFacet.sol";
+import { IMachineManagerFacet } from "../../contracts/userInterfaces/tee/IMachineManagerFacet.sol";
+import { TEE_SOURCE_ID } from "../../contracts/userInterfaces/tee/IVerificationFacet.sol";
+import { IExtensionGovernanceFacet } from "../../contracts/userInterfaces/tee/IExtensionGovernanceFacet.sol";
 import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
-import { ITeeSystemStateVerifierFacet } from "../../contracts/userInterfaces/tee/ITeeSystemStateVerifierFacet.sol";
-import { ITeeWalletManagerFacet } from "../../contracts/userInterfaces/tee/ITeeWalletManagerFacet.sol";
-import { ITeeWalletKeyManagerFacet } from "../../contracts/userInterfaces/tee/ITeeWalletKeyManagerFacet.sol";
-import { ITeeWalletBackupManagerFacet } from "../../contracts/userInterfaces/tee/ITeeWalletBackupManagerFacet.sol";
+import { ISystemStateVerifierFacet } from "../../contracts/userInterfaces/tee/ISystemStateVerifierFacet.sol";
+import { IWalletManagerFacet } from "../../contracts/userInterfaces/tee/IWalletManagerFacet.sol";
+import { IWalletKeyManagerFacet } from "../../contracts/userInterfaces/tee/IWalletKeyManagerFacet.sol";
+import { IWalletBackupManagerFacet } from "../../contracts/userInterfaces/tee/IWalletBackupManagerFacet.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../contracts/userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { IFdc2Hub } from "../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
@@ -39,7 +39,7 @@ import { IIRewardManager } from "../../contracts/protocol/interface/IIRewardMana
 
 /**
  * @title TeeAndFdc2Test
- * @notice End-to-end integration test for the TEE day-1 diamond (15 facets, no later facets)
+ * @notice End-to-end integration test for the TEE day-1 diamond (16 facets, no later facets)
  *         together with the FDC2 contracts (Fdc2Hub, Fdc2Verification, Fdc2RequestFeeConfigurations).
  *         Only truly external infrastructure is mocked: Relay, FlareSystemsManager, RewardManager.
  */
@@ -190,10 +190,10 @@ contract TeeAndFdc2Test is Test {
 
     function testDay1_excludedSelectorsRevert() public {
         vm.expectRevert(
-            abi.encodeWithSignature("FunctionNotFound(bytes4)", ITeeGovernanceFacet.setNewTeeGovernance.selector)
+            abi.encodeWithSignature("FunctionNotFound(bytes4)", IExtensionGovernanceFacet.setNewTeeGovernance.selector)
         );
         address(flareTeeManager).call(
-            abi.encodeWithSelector(ITeeGovernanceFacet.setNewTeeGovernance.selector, 0, new address[](0), 0)
+            abi.encodeWithSelector(IExtensionGovernanceFacet.setNewTeeGovernance.selector, 0, new address[](0), 0)
         );
     }
 
@@ -206,13 +206,13 @@ contract TeeAndFdc2Test is Test {
         _registerTeeMachine();
         assertEq(
             uint256(flareTeeManager.getTeeMachineStatus(teeId)),
-            uint256(ITeeMachineRegistryFacet.TeeStatus.INITIALIZED)
+            uint256(IMachineManagerFacet.TeeStatus.INITIALIZED)
         );
 
         _toProduction(teeId, teeProxyId, teeUrl);
         assertEq(
             uint256(flareTeeManager.getTeeMachineStatus(teeId)),
-            uint256(ITeeMachineRegistryFacet.TeeStatus.PRODUCTION)
+            uint256(IMachineManagerFacet.TeeStatus.PRODUCTION)
         );
     }
 
@@ -241,7 +241,7 @@ contract TeeAndFdc2Test is Test {
         flareTeeManager.closeWalletInitialization(walletId);
         assertEq(
             uint256(flareTeeManager.getWalletStatus(walletId)),
-            uint256(ITeeWalletManagerFacet.WalletStatus.INITIALIZED)
+            uint256(IWalletManagerFacet.WalletStatus.INITIALIZED)
         );
     }
 
@@ -299,7 +299,7 @@ contract TeeAndFdc2Test is Test {
         _registerTeeMachineWith(restorePrivKey, restorePubKey, restoreProxy, restoreUrl);
         _toProduction(restoreTeeId, restoreProxy, restoreUrl);
 
-        ITeeWalletBackupManagerFacet.BackupId memory backupIdStruct = ITeeWalletBackupManagerFacet.BackupId(
+        IWalletBackupManagerFacet.BackupId memory backupIdStruct = IWalletBackupManagerFacet.BackupId(
             teeId, walletId, keyIdVal, keyType, signingAlgo,
             bytes("generatedPubKey"), 1, bytes32("randomNonce")
         );
@@ -448,7 +448,7 @@ contract TeeAndFdc2Test is Test {
     )
         private
     {
-        ITeeMachineRegistryFacet.TeeMachineData memory data = ITeeMachineRegistryFacet.TeeMachineData({
+        IMachineManagerFacet.TeeMachineData memory data = IMachineManagerFacet.TeeMachineData({
             extensionId: extensionId,
             publicKey: _pubKey,
             initialOwner: teeOwner,
@@ -496,8 +496,8 @@ contract TeeAndFdc2Test is Test {
             _teeId, _proxyId, _url, challenge, keccak256(abi.encode(extensionId))
         );
 
-        ITeeSystemStateVerifierFacet.TeeSystemState memory sysState = ITeeSystemStateVerifierFacet.TeeSystemState(
-            ITeeSystemStateVerifierFacet.TeeMachineStatus.ACTIVE, _teeId, bytes32(0)
+        ISystemStateVerifierFacet.TeeSystemState memory sysState = ISystemStateVerifierFacet.TeeSystemState(
+            ISystemStateVerifierFacet.TeeMachineStatus.ACTIVE, _teeId, bytes32(0)
         );
 
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
@@ -578,7 +578,7 @@ contract TeeAndFdc2Test is Test {
         (address[] memory walletCosigners, uint64 walletCosignersThreshold) =
             flareTeeManager.getWalletCosignersAndThreshold(_walletId);
 
-        ITeeWalletKeyManagerFacet.KeyExistence memory proof = ITeeWalletKeyManagerFacet.KeyExistence({
+        IWalletKeyManagerFacet.KeyExistence memory proof = IWalletKeyManagerFacet.KeyExistence({
             teeId: _teeId,
             walletId: _walletId,
             keyId: _keyId,
@@ -587,7 +587,7 @@ contract TeeAndFdc2Test is Test {
             publicKey: bytes("generatedPubKey"),
             nonce: 0,
             restored: false,
-            configConstants: ITeeWalletKeyManagerFacet.KeyConfigConstants(
+            configConstants: IWalletKeyManagerFacet.KeyConfigConstants(
                 admins, adminsThreshold, walletCosigners, walletCosignersThreshold
             ),
             settingsVersion: bytes32(0),
@@ -618,7 +618,7 @@ contract TeeAndFdc2Test is Test {
         // Use the existing public key and nonce=1 (set by backupRestore)
         bytes memory existingPubKey = flareTeeManager.getWalletKeyPublicKey(_walletId, _keyId);
 
-        ITeeWalletKeyManagerFacet.KeyExistence memory proof = ITeeWalletKeyManagerFacet.KeyExistence({
+        IWalletKeyManagerFacet.KeyExistence memory proof = IWalletKeyManagerFacet.KeyExistence({
             teeId: _teeId,
             walletId: _walletId,
             keyId: _keyId,
@@ -627,7 +627,7 @@ contract TeeAndFdc2Test is Test {
             publicKey: existingPubKey,
             nonce: 1,
             restored: true,
-            configConstants: ITeeWalletKeyManagerFacet.KeyConfigConstants(
+            configConstants: IWalletKeyManagerFacet.KeyConfigConstants(
                 admins, adminsThreshold, walletCosigners, walletCosignersThreshold
             ),
             settingsVersion: bytes32(0),

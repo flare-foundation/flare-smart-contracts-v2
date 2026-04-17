@@ -3,23 +3,23 @@ pragma solidity >=0.7.6 <0.9;
 
 import { IDiamondLoupe } from "../../diamond/interfaces/IDiamondLoupe.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import { ITeeExtensionRegistryFacet } from "./ITeeExtensionRegistryFacet.sol";
-import { ITeeMachineRegistryFacet } from "./ITeeMachineRegistryFacet.sol";
-import { ITeeVerificationFacet } from "./ITeeVerificationFacet.sol";
-import { ITeeWalletVerificationFacet } from "./ITeeWalletVerificationFacet.sol";
-import { ITeeFeeCalculatorFacet } from "./ITeeFeeCalculatorFacet.sol";
-import { ITeeOwnerAllowlistFacet } from "./ITeeOwnerAllowlistFacet.sol";
-import { ITeeSystemStateVerifierFacet } from "./ITeeSystemStateVerifierFacet.sol";
-import { ITeeWalletManagerFacet } from "./ITeeWalletManagerFacet.sol";
-import { ITeeWalletKeyManagerFacet } from "./ITeeWalletKeyManagerFacet.sol";
-import { ITeeWalletProjectManagerFacet } from "./ITeeWalletProjectManagerFacet.sol";
-import { ITeeWalletBackupManagerFacet } from "./ITeeWalletBackupManagerFacet.sol";
-import { ITeeVrfFacet } from "./ITeeVrfFacet.sol";
-import { ITeeReplicationFacet } from "./ITeeReplicationFacet.sol";
-import { ITeeGovernanceFacet } from "./ITeeGovernanceFacet.sol";
-import { ITeeAddressUpdatableFacet } from "./ITeeAddressUpdatableFacet.sol";
-import { ITeeVersionManagerFacet } from "./ITeeVersionManagerFacet.sol";
-import { IFlareTeeManagerDiamondCutFacet } from "./IFlareTeeManagerDiamondCutFacet.sol";
+import { IExtensionManagerFacet } from "./IExtensionManagerFacet.sol";
+import { IInstructionsFacet } from "./IInstructionsFacet.sol";
+import { IMachineManagerFacet } from "./IMachineManagerFacet.sol";
+import { IVerificationFacet } from "./IVerificationFacet.sol";
+import { IOperationFeesFacet } from "./IOperationFeesFacet.sol";
+import { IOwnerAllowlistFacet } from "./IOwnerAllowlistFacet.sol";
+import { ISystemStateVerifierFacet } from "./ISystemStateVerifierFacet.sol";
+import { IWalletManagerFacet } from "./IWalletManagerFacet.sol";
+import { IWalletKeyManagerFacet } from "./IWalletKeyManagerFacet.sol";
+import { IWalletProjectManagerFacet } from "./IWalletProjectManagerFacet.sol";
+import { IWalletBackupManagerFacet } from "./IWalletBackupManagerFacet.sol";
+import { IVrfFacet } from "./IVrfFacet.sol";
+import { IReplicationFacet } from "./IReplicationFacet.sol";
+import { IExtensionGovernanceFacet } from "./IExtensionGovernanceFacet.sol";
+import { IExternalAddressesFacet } from "./IExternalAddressesFacet.sol";
+import { IUpgradeManagerFacet } from "./IUpgradeManagerFacet.sol";
+import { IDiamondGovernanceFacet } from "./IDiamondGovernanceFacet.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 /**
@@ -34,22 +34,22 @@ interface IFlareTeeManager is
     IDiamondLoupe,
     IERC165,
     ITeeCommonErrors,
-    ITeeExtensionRegistryFacet,
-    ITeeMachineRegistryFacet,
-    ITeeVerificationFacet,
-    ITeeWalletVerificationFacet,
-    ITeeFeeCalculatorFacet,
-    ITeeOwnerAllowlistFacet,
-    ITeeSystemStateVerifierFacet,
-    ITeeWalletManagerFacet,
-    ITeeWalletKeyManagerFacet,
-    ITeeWalletProjectManagerFacet,
-    ITeeWalletBackupManagerFacet,
-    ITeeVrfFacet,
-    ITeeReplicationFacet,
-    ITeeGovernanceFacet,
-    ITeeAddressUpdatableFacet,
-    ITeeVersionManagerFacet,
-    IFlareTeeManagerDiamondCutFacet
+    IExtensionManagerFacet,
+    IInstructionsFacet,
+    IMachineManagerFacet,
+    IVerificationFacet,
+    IOperationFeesFacet,
+    IOwnerAllowlistFacet,
+    ISystemStateVerifierFacet,
+    IWalletManagerFacet,
+    IWalletKeyManagerFacet,
+    IWalletProjectManagerFacet,
+    IWalletBackupManagerFacet,
+    IVrfFacet,
+    IReplicationFacet,
+    IExtensionGovernanceFacet,
+    IExternalAddressesFacet,
+    IUpgradeManagerFacet,
+    IDiamondGovernanceFacet
 {
 }

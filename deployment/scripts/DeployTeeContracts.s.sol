@@ -17,45 +17,45 @@ import {FlareTeeManager} from
 // Diamond init contracts
 import {FlareTeeManagerInit} from
     "../../contracts/tee/facets/FlareTeeManagerInit.sol";
-import {TeeReplicationInit} from
-    "../../contracts/tee/facets/TeeReplicationInit.sol";
+import {ReplicationInit} from
+    "../../contracts/tee/facets/ReplicationInit.sol";
 // Day-1 facets
-import {FlareTeeManagerDiamondCutFacet} from
-    "../../contracts/tee/facets/FlareTeeManagerDiamondCutFacet.sol";
+import {DiamondGovernanceFacet} from
+    "../../contracts/tee/facets/DiamondGovernanceFacet.sol";
 import {DiamondLoupeFacet} from
     "../../contracts/diamond/facets/DiamondLoupeFacet.sol";
-import {TeeExtensionRegistryFacet} from
-    "../../contracts/tee/facets/TeeExtensionRegistryFacet.sol";
-import {TeeMachineRegistryFacet} from
-    "../../contracts/tee/facets/TeeMachineRegistryFacet.sol";
-import {TeeVerificationFacet} from
-    "../../contracts/tee/facets/TeeVerificationFacet.sol";
-import {TeeWalletVerificationFacet} from
-    "../../contracts/tee/facets/TeeWalletVerificationFacet.sol";
-import {TeeFeeCalculatorFacet} from
-    "../../contracts/tee/facets/TeeFeeCalculatorFacet.sol";
-import {TeeOwnerAllowlistFacet} from
-    "../../contracts/tee/facets/TeeOwnerAllowlistFacet.sol";
-import {TeeSystemStateVerifierFacet} from
-    "../../contracts/tee/facets/TeeSystemStateVerifierFacet.sol";
-import {TeeWalletManagerFacet} from
-    "../../contracts/tee/facets/TeeWalletManagerFacet.sol";
-import {TeeWalletKeyManagerFacet} from
-    "../../contracts/tee/facets/TeeWalletKeyManagerFacet.sol";
-import {TeeWalletProjectManagerFacet} from
-    "../../contracts/tee/facets/TeeWalletProjectManagerFacet.sol";
-import {TeeWalletBackupManagerFacet} from
-    "../../contracts/tee/facets/TeeWalletBackupManagerFacet.sol";
-import {TeeVrfFacet} from "../../contracts/tee/facets/TeeVrfFacet.sol";
-import {TeeAddressUpdatableFacet} from
-    "../../contracts/tee/facets/TeeAddressUpdatableFacet.sol";
+import {ExtensionManagerFacet} from
+    "../../contracts/tee/facets/ExtensionManagerFacet.sol";
+import {InstructionsFacet} from
+    "../../contracts/tee/facets/InstructionsFacet.sol";
+import {MachineManagerFacet} from
+    "../../contracts/tee/facets/MachineManagerFacet.sol";
+import {VerificationFacet} from
+    "../../contracts/tee/facets/VerificationFacet.sol";
+import {OperationFeesFacet} from
+    "../../contracts/tee/facets/OperationFeesFacet.sol";
+import {OwnerAllowlistFacet} from
+    "../../contracts/tee/facets/OwnerAllowlistFacet.sol";
+import {SystemStateVerifierFacet} from
+    "../../contracts/tee/facets/SystemStateVerifierFacet.sol";
+import {WalletManagerFacet} from
+    "../../contracts/tee/facets/WalletManagerFacet.sol";
+import {WalletKeyManagerFacet} from
+    "../../contracts/tee/facets/WalletKeyManagerFacet.sol";
+import {WalletProjectManagerFacet} from
+    "../../contracts/tee/facets/WalletProjectManagerFacet.sol";
+import {WalletBackupManagerFacet} from
+    "../../contracts/tee/facets/WalletBackupManagerFacet.sol";
+import {VrfFacet} from "../../contracts/tee/facets/VrfFacet.sol";
+import {ExternalAddressesFacet} from
+    "../../contracts/tee/facets/ExternalAddressesFacet.sol";
 // Later facets
-import {TeeReplicationFacet} from
-    "../../contracts/tee/facets/TeeReplicationFacet.sol";
-import {TeeGovernanceFacet} from
-    "../../contracts/tee/facets/TeeGovernanceFacet.sol";
-import {TeeVersionManagerFacet} from
-    "../../contracts/tee/facets/TeeVersionManagerFacet.sol";
+import {ReplicationFacet} from
+    "../../contracts/tee/facets/ReplicationFacet.sol";
+import {ExtensionGovernanceFacet} from
+    "../../contracts/tee/facets/ExtensionGovernanceFacet.sol";
+import {UpgradeManagerFacet} from
+    "../../contracts/tee/facets/UpgradeManagerFacet.sol";
 // FDC2 contracts
 import {Fdc2Hub} from "../../contracts/fdc2/implementation/Fdc2Hub.sol";
 import {Fdc2HubProxy} from "../../contracts/fdc2/proxy/Fdc2HubProxy.sol";
@@ -72,7 +72,7 @@ import {TeePayments} from "../../contracts/tee/implementation/TeePayments.sol";
 import {TeePaymentsProxy} from "../../contracts/tee/proxy/TeePaymentsProxy.sol";
 import {TeeRewardOffersManager} from
     "../../contracts/tee/implementation/TeeRewardOffersManager.sol";
-import {VrfVerifier} from "../../contracts/tee/lib/VrfVerifier.sol";
+import {VrfVerifier} from "../../contracts/tee/implementation/VrfVerifier.sol";
 
 // solhint-disable no-console
 // solhint-disable-next-line max-line-length
@@ -141,26 +141,26 @@ contract DeployTeeContracts is Script {
     IDiamond.FacetCut[] private laterFacets;
 
     // Day-1 facet instances (for logging)
-    FlareTeeManagerDiamondCutFacet private diamondCutFacet;
+    DiamondGovernanceFacet private diamondCutFacet;
     DiamondLoupeFacet private diamondLoupeFacet;
-    TeeExtensionRegistryFacet private teeExtensionRegistryFacet;
-    TeeMachineRegistryFacet private teeMachineRegistryFacet;
-    TeeVerificationFacet private teeVerificationFacet;
-    TeeWalletVerificationFacet private teeWalletVerificationFacet;
-    TeeFeeCalculatorFacet private teeFeeCalculatorFacet;
-    TeeOwnerAllowlistFacet private teeOwnerAllowlistFacet;
-    TeeSystemStateVerifierFacet private teeSystemStateVerifierFacet;
-    TeeWalletManagerFacet private teeWalletManagerFacet;
-    TeeWalletKeyManagerFacet private teeWalletKeyManagerFacet;
-    TeeWalletProjectManagerFacet private teeWalletProjectManagerFacet;
-    TeeWalletBackupManagerFacet private teeWalletBackupManagerFacet;
-    TeeVrfFacet private teeVrfFacet;
-    TeeAddressUpdatableFacet private teeAddressUpdatableFacet;
+    ExtensionManagerFacet private extensionManagerFacet;
+    InstructionsFacet private instructionsFacet;
+    MachineManagerFacet private machineManagerFacet;
+    VerificationFacet private verificationFacet;
+    OperationFeesFacet private operationFeesFacet;
+    OwnerAllowlistFacet private ownerAllowlistFacet;
+    SystemStateVerifierFacet private systemStateVerifierFacet;
+    WalletManagerFacet private walletManagerFacet;
+    WalletKeyManagerFacet private walletKeyManagerFacet;
+    WalletProjectManagerFacet private walletProjectManagerFacet;
+    WalletBackupManagerFacet private walletBackupManagerFacet;
+    VrfFacet private vrfFacet;
+    ExternalAddressesFacet private externalAddressesFacet;
 
     // Later facet instances (for logging)
-    TeeReplicationFacet private teeReplicationFacet;
-    TeeGovernanceFacet private teeGovernanceFacet;
-    TeeVersionManagerFacet private teeVersionManagerFacet;
+    ReplicationFacet private replicationFacet;
+    ExtensionGovernanceFacet private extensionGovernanceFacet;
+    UpgradeManagerFacet private upgradeManagerFacet;
 
     // Deployed contract addresses
     address private fdc2HubAddr;
@@ -299,70 +299,69 @@ contract DeployTeeContracts is Script {
     }
 
     function _deployDay1Facets() internal {
-        diamondCutFacet = new FlareTeeManagerDiamondCutFacet();
+        diamondCutFacet = new DiamondGovernanceFacet();
         diamondLoupeFacet = new DiamondLoupeFacet();
-        teeExtensionRegistryFacet = new TeeExtensionRegistryFacet();
-        teeMachineRegistryFacet = new TeeMachineRegistryFacet();
-        teeVerificationFacet = new TeeVerificationFacet();
-        teeWalletVerificationFacet = new TeeWalletVerificationFacet();
-        teeFeeCalculatorFacet = new TeeFeeCalculatorFacet();
-        teeOwnerAllowlistFacet = new TeeOwnerAllowlistFacet();
-        teeSystemStateVerifierFacet = new TeeSystemStateVerifierFacet();
-        teeWalletManagerFacet = new TeeWalletManagerFacet();
-        teeWalletKeyManagerFacet = new TeeWalletKeyManagerFacet();
-        teeWalletProjectManagerFacet = new TeeWalletProjectManagerFacet();
-        teeWalletBackupManagerFacet = new TeeWalletBackupManagerFacet();
-        teeVrfFacet = new TeeVrfFacet();
-        teeAddressUpdatableFacet = new TeeAddressUpdatableFacet();
+        extensionManagerFacet = new ExtensionManagerFacet();
+        instructionsFacet = new InstructionsFacet();
+        machineManagerFacet = new MachineManagerFacet();
+        verificationFacet = new VerificationFacet();
+        operationFeesFacet = new OperationFeesFacet();
+        ownerAllowlistFacet = new OwnerAllowlistFacet();
+        systemStateVerifierFacet = new SystemStateVerifierFacet();
+        walletManagerFacet = new WalletManagerFacet();
+        walletKeyManagerFacet = new WalletKeyManagerFacet();
+        walletProjectManagerFacet = new WalletProjectManagerFacet();
+        walletBackupManagerFacet = new WalletBackupManagerFacet();
+        vrfFacet = new VrfFacet();
+        externalAddressesFacet = new ExternalAddressesFacet();
 
         day1Facets.push(_addFacet(
-            address(diamondCutFacet), "FlareTeeManagerDiamondCutFacet"
+            address(diamondCutFacet), "DiamondGovernanceFacet"
         ));
         day1Facets.push(_addFacet(
             address(diamondLoupeFacet), "DiamondLoupeFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeExtensionRegistryFacet), "TeeExtensionRegistryFacet"
+            address(extensionManagerFacet), "ExtensionManagerFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeMachineRegistryFacet), "TeeMachineRegistryFacet"
+            address(instructionsFacet), "InstructionsFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeVerificationFacet), "TeeVerificationFacet"
+            address(machineManagerFacet), "MachineManagerFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeWalletVerificationFacet),
-            "TeeWalletVerificationFacet"
+            address(verificationFacet), "VerificationFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeFeeCalculatorFacet), "TeeFeeCalculatorFacet"
+            address(operationFeesFacet), "OperationFeesFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeOwnerAllowlistFacet), "TeeOwnerAllowlistFacet"
+            address(ownerAllowlistFacet), "OwnerAllowlistFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeSystemStateVerifierFacet),
-            "TeeSystemStateVerifierFacet"
+            address(systemStateVerifierFacet),
+            "SystemStateVerifierFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeWalletManagerFacet), "TeeWalletManagerFacet"
+            address(walletManagerFacet), "WalletManagerFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeWalletKeyManagerFacet), "TeeWalletKeyManagerFacet"
+            address(walletKeyManagerFacet), "WalletKeyManagerFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeWalletProjectManagerFacet),
-            "TeeWalletProjectManagerFacet"
+            address(walletProjectManagerFacet),
+            "WalletProjectManagerFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeWalletBackupManagerFacet),
-            "TeeWalletBackupManagerFacet"
+            address(walletBackupManagerFacet),
+            "WalletBackupManagerFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeVrfFacet), "TeeVrfFacet"
+            address(vrfFacet), "VrfFacet"
         ));
         day1Facets.push(_addFacet(
-            address(teeAddressUpdatableFacet), "TeeAddressUpdatableFacet"
+            address(externalAddressesFacet), "ExternalAddressesFacet"
         ));
     }
 
@@ -545,18 +544,18 @@ contract DeployTeeContracts is Script {
     // =========================================================================
 
     function _deployLaterFacets() internal {
-        teeReplicationFacet = new TeeReplicationFacet();
-        teeGovernanceFacet = new TeeGovernanceFacet();
-        teeVersionManagerFacet = new TeeVersionManagerFacet();
+        replicationFacet = new ReplicationFacet();
+        extensionGovernanceFacet = new ExtensionGovernanceFacet();
+        upgradeManagerFacet = new UpgradeManagerFacet();
 
         laterFacets.push(_addFacet(
-            address(teeReplicationFacet), "TeeReplicationFacet"
+            address(replicationFacet), "ReplicationFacet"
         ));
         laterFacets.push(_addFacet(
-            address(teeGovernanceFacet), "TeeGovernanceFacet"
+            address(extensionGovernanceFacet), "ExtensionGovernanceFacet"
         ));
         laterFacets.push(_addFacet(
-            address(teeVersionManagerFacet), "TeeVersionManagerFacet"
+            address(upgradeManagerFacet), "UpgradeManagerFacet"
         ));
     }
 
@@ -565,19 +564,19 @@ contract DeployTeeContracts is Script {
             vm.parseJsonUint(
                 config, ".teePauseBeforeUpgradeMinDurationSeconds"
             );
-        TeeReplicationInit teeReplicationInit = new TeeReplicationInit();
+        ReplicationInit teeReplicationInit = new ReplicationInit();
         IDiamondCut(flareTeeManagerAddress).diamondCut(
             laterFacets,
             address(teeReplicationInit),
             abi.encodeWithSelector(
-                TeeReplicationInit.init.selector,
+                ReplicationInit.init.selector,
                 pauseBeforeUpgradeMinDurationSeconds
             )
         );
 
         _logDeployed(
-            "TeeReplicationInit",
-            "TeeReplicationInit.sol",
+            "ReplicationInit",
+            "ReplicationInit.sol",
             address(teeReplicationInit)
         );
     }
@@ -770,7 +769,7 @@ contract DeployTeeContracts is Script {
         addrs[3] = relay;
         addrs[4] = fdc2HubAddr;
         addrs[5] = fdc2VerificationAddr;
-        TeeAddressUpdatableFacet(flareTeeManagerAddress)
+        ExternalAddressesFacet(flareTeeManagerAddress)
             .updateContractAddresses(names, addrs);
     }
 
@@ -844,7 +843,7 @@ contract DeployTeeContracts is Script {
             senders[i] = teePaymentsAddresses[i];
         }
         senders[teePaymentsAddresses.length] = fdc2HubAddr;
-        TeeExtensionRegistryFacet(flareTeeManagerAddress)
+        InstructionsFacet(flareTeeManagerAddress)
             .registerSystemInstructionsSenders(senders);
     }
 
@@ -872,7 +871,7 @@ contract DeployTeeContracts is Script {
 
     function _switchToProductionMode() internal {
         // FlareTeeManager diamond
-        FlareTeeManagerDiamondCutFacet(flareTeeManagerAddress)
+        DiamondGovernanceFacet(flareTeeManagerAddress)
             .switchToProductionMode();
         // FDC2 contracts (proxies, called through implementation interface)
         Fdc2Hub(fdc2HubAddr).switchToProductionMode();
@@ -911,8 +910,8 @@ contract DeployTeeContracts is Script {
 
     function _logDay1FacetAddresses() internal view {
         _logDeployed(
-            "FlareTeeManagerDiamondCutFacet",
-            "FlareTeeManagerDiamondCutFacet.sol",
+            "DiamondGovernanceFacet",
+            "DiamondGovernanceFacet.sol",
             address(diamondCutFacet)
         );
         _logDeployed(
@@ -921,87 +920,87 @@ contract DeployTeeContracts is Script {
             address(diamondLoupeFacet)
         );
         _logDeployed(
-            "TeeExtensionRegistryFacet",
-            "TeeExtensionRegistryFacet.sol",
-            address(teeExtensionRegistryFacet)
+            "ExtensionManagerFacet",
+            "ExtensionManagerFacet.sol",
+            address(extensionManagerFacet)
         );
         _logDeployed(
-            "TeeMachineRegistryFacet",
-            "TeeMachineRegistryFacet.sol",
-            address(teeMachineRegistryFacet)
+            "InstructionsFacet",
+            "InstructionsFacet.sol",
+            address(instructionsFacet)
         );
         _logDeployed(
-            "TeeVerificationFacet",
-            "TeeVerificationFacet.sol",
-            address(teeVerificationFacet)
+            "MachineManagerFacet",
+            "MachineManagerFacet.sol",
+            address(machineManagerFacet)
         );
         _logDeployed(
-            "TeeWalletVerificationFacet",
-            "TeeWalletVerificationFacet.sol",
-            address(teeWalletVerificationFacet)
+            "VerificationFacet",
+            "VerificationFacet.sol",
+            address(verificationFacet)
         );
         _logDeployed(
-            "TeeFeeCalculatorFacet",
-            "TeeFeeCalculatorFacet.sol",
-            address(teeFeeCalculatorFacet)
+            "OperationFeesFacet",
+            "OperationFeesFacet.sol",
+            address(operationFeesFacet)
         );
         _logDeployed(
-            "TeeOwnerAllowlistFacet",
-            "TeeOwnerAllowlistFacet.sol",
-            address(teeOwnerAllowlistFacet)
+            "OwnerAllowlistFacet",
+            "OwnerAllowlistFacet.sol",
+            address(ownerAllowlistFacet)
         );
         _logDeployed(
-            "TeeSystemStateVerifierFacet",
-            "TeeSystemStateVerifierFacet.sol",
-            address(teeSystemStateVerifierFacet)
+            "SystemStateVerifierFacet",
+            "SystemStateVerifierFacet.sol",
+            address(systemStateVerifierFacet)
         );
         _logDeployed(
-            "TeeWalletManagerFacet",
-            "TeeWalletManagerFacet.sol",
-            address(teeWalletManagerFacet)
+            "WalletManagerFacet",
+            "WalletManagerFacet.sol",
+            address(walletManagerFacet)
         );
         _logDeployed(
-            "TeeWalletKeyManagerFacet",
-            "TeeWalletKeyManagerFacet.sol",
-            address(teeWalletKeyManagerFacet)
+            "WalletKeyManagerFacet",
+            "WalletKeyManagerFacet.sol",
+            address(walletKeyManagerFacet)
         );
         _logDeployed(
-            "TeeWalletProjectManagerFacet",
-            "TeeWalletProjectManagerFacet.sol",
-            address(teeWalletProjectManagerFacet)
+            "WalletProjectManagerFacet",
+            "WalletProjectManagerFacet.sol",
+            address(walletProjectManagerFacet)
         );
         _logDeployed(
-            "TeeWalletBackupManagerFacet",
-            "TeeWalletBackupManagerFacet.sol",
-            address(teeWalletBackupManagerFacet)
+            "WalletBackupManagerFacet",
+            "WalletBackupManagerFacet.sol",
+            address(walletBackupManagerFacet)
         );
         _logDeployed(
-            "TeeVrfFacet",
-            "TeeVrfFacet.sol",
-            address(teeVrfFacet)
+            "VrfFacet",
+            "VrfFacet.sol",
+            address(vrfFacet)
         );
         _logDeployed(
-            "TeeAddressUpdatableFacet",
-            "TeeAddressUpdatableFacet.sol",
-            address(teeAddressUpdatableFacet)
+            "ExternalAddressesFacet",
+            "ExternalAddressesFacet.sol",
+            address(externalAddressesFacet)
         );
     }
 
     function _logLaterFacetAddresses() internal view {
         _logDeployed(
-            "TeeReplicationFacet",
-            "TeeReplicationFacet.sol",
-            address(teeReplicationFacet)
+            "ReplicationFacet",
+            "ReplicationFacet.sol",
+            address(replicationFacet)
         );
         _logDeployed(
-            "TeeGovernanceFacet",
-            "TeeGovernanceFacet.sol",
-            address(teeGovernanceFacet)
+            "ExtensionGovernanceFacet",
+            "ExtensionGovernanceFacet.sol",
+            address(extensionGovernanceFacet)
         );
         _logDeployed(
-            "TeeVersionManagerFacet",
-            "TeeVersionManagerFacet.sol",
-            address(teeVersionManagerFacet)
+            "UpgradeManagerFacet",
+            "UpgradeManagerFacet.sol",
+            address(upgradeManagerFacet)
         );
     }
 
@@ -1058,8 +1057,7 @@ contract DeployTeeContracts is Script {
     // =========================================================================
 
     function _isScdev(string memory _network)
-        internal
-        pure
+        internal pure
         returns (bool)
     {
         return keccak256(bytes(_network)) == keccak256(bytes("scdev"));

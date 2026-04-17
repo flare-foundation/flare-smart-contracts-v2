@@ -3,8 +3,8 @@ pragma solidity ^0.8.27;
 
 import { TeeBase } from "./TeeBase.sol";
 import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
-import { ITeeExtensionRegistryFacet } from "../../userInterfaces/tee/ITeeExtensionRegistryFacet.sol";
-import { ITeeWalletManagerFacet } from "../../userInterfaces/tee/ITeeWalletManagerFacet.sol";
+import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
+import { IWalletManagerFacet } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { IPMWMultisigAccountConfigured } from "../../userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
@@ -341,10 +341,10 @@ contract TeePayments is ITeePayments, TeeBase {
         require(_authorizationAddress != address(0), AuthorizationAddressZero());
         bytes32 accountHash = _toAccountHash(_proof.header.sourceId, _proof.requestBody.accountAddress);
         require(accountHashToWalletId[accountHash] == 0, PMWMultisigAccountAddressAlreadySet());
-        ITeeWalletManagerFacet.WalletStatus walletStatus = flareTeeManager.getWalletStatus(_walletId);
+        IWalletManagerFacet.WalletStatus walletStatus = flareTeeManager.getWalletStatus(_walletId);
         require(
-            walletStatus == ITeeWalletManagerFacet.WalletStatus.PRODUCTION ||
-            walletStatus == ITeeWalletManagerFacet.WalletStatus.PAUSED,
+            walletStatus == IWalletManagerFacet.WalletStatus.PRODUCTION ||
+            walletStatus == IWalletManagerFacet.WalletStatus.PAUSED,
             OnlyProductionOrPausedStatus()
         );
         require(flareTeeManager.verifyPMWMultisigAccountConfiguredProof(_walletId, _proof), InvalidProof());
@@ -624,7 +624,7 @@ contract TeePayments is ITeePayments, TeeBase {
         flareTeeManager.sendSystemInstructions{value: _instructionsFee}(
             _instructionId,
             _teeIds,
-            ITeeExtensionRegistryFacet.TeeInstructionParams(
+            IInstructionsFacet.TeeInstructionParams(
                 opType,
                 _opCommand,
                 _message,
@@ -646,7 +646,7 @@ contract TeePayments is ITeePayments, TeeBase {
     {
         flareTeeManager.sendInstructions{value: msg.value}(
             _teeIds,
-            ITeeExtensionRegistryFacet.TeeInstructionParams(
+            IInstructionsFacet.TeeInstructionParams(
                 opType,
                 SET_PAYMENT_LIMITS,
                 _message,
@@ -693,7 +693,7 @@ contract TeePayments is ITeePayments, TeeBase {
         internal view
     {
         require(
-            flareTeeManager.getWalletStatus(_walletId) == ITeeWalletManagerFacet.WalletStatus.PRODUCTION,
+            flareTeeManager.getWalletStatus(_walletId) == IWalletManagerFacet.WalletStatus.PRODUCTION,
             WalletNotInProduction()
         );
     }

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { ITeeVrfFacet } from "../../userInterfaces/tee/ITeeVrfFacet.sol";
+import { IVrfFacet } from "../../userInterfaces/tee/IVrfFacet.sol";
 
 interface TeeVrfStructs {
 
-    function vrfInstructionMessageStruct(ITeeVrfFacet.VrfInstructionMessage calldata) external;
+    function vrfInstructionMessageStruct(IVrfFacet.VrfInstructionMessage calldata) external;
 }

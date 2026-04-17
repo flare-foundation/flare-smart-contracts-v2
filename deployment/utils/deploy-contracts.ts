@@ -70,9 +70,10 @@ import {
   SubmissionInstance,
   TeeExtensionInstructionsSenderMockContract,
   TeeExtensionInstructionsSenderMockInstance,
-  TeeExtensionRegistryFacetContract,
-  TeeFeeCalculatorFacetContract,
-  TeeOwnerAllowlistFacetContract,
+  ExtensionManagerFacetContract,
+  InstructionsFacetContract,
+  OperationFeesFacetContract,
+  OwnerAllowlistFacetContract,
   TeePaymentsContract,
   TeePaymentsInstance,
   TeePaymentsProxyContract,
@@ -552,14 +553,17 @@ export async function deployContracts(
   // await addLaterFacetsToDiamond(hre, flareTeeManager.address, "60");
 
   // Access Diamond facet interfaces for post-init configuration
-  const teeExtensionRegistry = await (
-    hre.artifacts.require("TeeExtensionRegistryFacet") as TeeExtensionRegistryFacetContract
+  const extensionManager = await (
+    hre.artifacts.require("ExtensionManagerFacet") as ExtensionManagerFacetContract
   ).at(flareTeeManager.address);
-  const teeFeeCalculator = await (hre.artifacts.require("TeeFeeCalculatorFacet") as TeeFeeCalculatorFacetContract).at(
+  const operationFeesFacet = await (hre.artifacts.require("OperationFeesFacet") as OperationFeesFacetContract).at(
     flareTeeManager.address
   );
-  const teeOwnerAllowlist = await (
-    hre.artifacts.require("TeeOwnerAllowlistFacet") as TeeOwnerAllowlistFacetContract
+  const ownerAllowlist = await (
+    hre.artifacts.require("OwnerAllowlistFacet") as OwnerAllowlistFacetContract
+  ).at(flareTeeManager.address);
+  const instructionsFacet = await (
+    hre.artifacts.require("InstructionsFacet") as InstructionsFacetContract
   ).at(flareTeeManager.address);
 
   // Set operation fees
@@ -571,7 +575,7 @@ export async function deployContracts(
     operationCommands.push(web3.utils.utf8ToHex(teeOperationFee.opCommand).padEnd(66, "0"));
     operationFees.push(teeOperationFee.feeWei);
   }
-  await teeFeeCalculator.setOperationFees(operationTypes, operationCommands, operationFees, {
+  await operationFeesFacet.setOperationFees(operationTypes, operationCommands, operationFees, {
     from: governanceAccount.address,
   });
 
@@ -731,12 +735,12 @@ export async function deployContracts(
     { from: governanceAccount.address }
   );
 
-  await teeExtensionRegistry.addSystemSupportedPlatforms(
+  await extensionManager.addSystemSupportedPlatforms(
     TEE_PLATFORMS.map((platform) => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
     { from: governanceAccount.address }
   );
 
-  await teeExtensionRegistry.addSystemSupportedKeyTypesAndSigningAlgos(
+  await extensionManager.addSystemSupportedKeyTypesAndSigningAlgos(
     TEE_KEY_CONFIGURATIONS.map((teeKeyConfig) => web3.utils.utf8ToHex(teeKeyConfig.keyType).padEnd(66, "0")),
     TEE_KEY_CONFIGURATIONS.map((teeKeyConfig) =>
       teeKeyConfig.signingAlgos.map((alg) => web3.utils.utf8ToHex(alg).padEnd(66, "0"))
@@ -744,7 +748,7 @@ export async function deployContracts(
     { from: governanceAccount.address }
   );
 
-  await teeExtensionRegistry.addTeeVersion(
+  await extensionManager.addTeeVersion(
     0,
     "v0.1.0",
     TEE_CODE_HASH,
@@ -753,7 +757,7 @@ export async function deployContracts(
     { from: governanceAccount.address }
   );
 
-  await teeExtensionRegistry.addSupportedKeyTypes(
+  await extensionManager.addSupportedKeyTypes(
     0,
     [
       ...new Set(
@@ -767,13 +771,13 @@ export async function deployContracts(
 
   // Only external contracts need to be registered as system instructions senders
   // (Diamond facets call libraries internally, not via sendSystemInstructions)
-  await teeExtensionRegistry.registerSystemInstructionsSenders(
+  await instructionsFacet.registerSystemInstructionsSenders(
     [...teePaymentsList.map((teePayments) => teePayments.address), fdc2Hub.address],
     { from: governanceAccount.address }
   );
 
-  await teeOwnerAllowlist.allowAllTeeMachineOwners(0, { from: governanceAccount.address });
-  await teeOwnerAllowlist.allowAllTeeWalletProjectOwners(0, { from: governanceAccount.address });
+  await ownerAllowlist.allowAllTeeMachineOwners(0, { from: governanceAccount.address });
+  await ownerAllowlist.allowAllTeeWalletProjectOwners(0, { from: governanceAccount.address });
 
   // set reward offers manager list
   await rewardManager.setRewardOffersManagerList(
@@ -922,11 +926,11 @@ export async function deployContracts(
   await flareDaemon.registerToDaemonize(registrations, { from: genesisGovernance });
 
   // TEE EXTENSION
-  await teeExtensionRegistry.register(ZERO_ADDRESS, teeExtensionInstructionsSenderMock.address, {
+  await extensionManager.register(ZERO_ADDRESS, teeExtensionInstructionsSenderMock.address, {
     from: extensionOwnerAccount.address,
   });
 
-  await teeExtensionRegistry.addTeeVersion(
+  await extensionManager.addTeeVersion(
     1,
     "v0.1.0",
     TEE_EXTENSION_CODE_HASH,
@@ -935,14 +939,14 @@ export async function deployContracts(
     { from: extensionOwnerAccount.address }
   );
 
-  await teeExtensionRegistry.addSupportedKeyTypes(
+  await extensionManager.addSupportedKeyTypes(
     1,
     [await teeExtensionInstructionsSenderMock.KEY_TYPE()], // EVM
     { from: extensionOwnerAccount.address }
   );
 
-  await teeOwnerAllowlist.allowAllTeeMachineOwners(1, { from: extensionOwnerAccount.address });
-  await teeOwnerAllowlist.allowAllTeeWalletProjectOwners(1, { from: extensionOwnerAccount.address });
+  await ownerAllowlist.allowAllTeeMachineOwners(1, { from: extensionOwnerAccount.address });
+  await ownerAllowlist.allowAllTeeWalletProjectOwners(1, { from: extensionOwnerAccount.address });
 
   logger.info(
     `Finished deploying contracts:\n` +

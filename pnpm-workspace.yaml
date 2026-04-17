@@ -1,2 +1,6 @@
 nodeLinker: hoisted
 minimumReleaseAge: 10080
+onlyBuiltDependencies:
+  - sqlite3
+  - keccak
+  - secp256k1

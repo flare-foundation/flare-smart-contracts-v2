@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
-import { VrfVerifier } from "../../../../contracts/tee/lib/VrfVerifier.sol";
+import { VrfVerifier } from "../../../../contracts/tee/implementation/VrfVerifier.sol";
 
 contract VrfVerifierTest is Test {
 
