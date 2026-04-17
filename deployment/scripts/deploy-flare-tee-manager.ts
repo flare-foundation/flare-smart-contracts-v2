@@ -34,7 +34,7 @@ export const DAY1_FACETS = [
 ];
 
 // Deploy-later facets (added via diamondCut after initial deployment)
-export const LATER_FACETS = ["ReplicationFacet", "ExtensionGovernanceFacet", "UpgradeManagerFacet"];
+export const LATER_FACETS = ["ReplicationFacet", "ExtensionGovernanceFacet", "UpgradeManagerFacet", "WalletResumeFacet"];
 
 export enum FacetCutAction {
   Add = 0,

@@ -66,6 +66,7 @@ const teeContractNames = new Set([
   "ReplicationFacet",
   "ExtensionGovernanceFacet",
   "UpgradeManagerFacet",
+  "WalletResumeFacet",
   "ReplicationInit",
 ]);
 

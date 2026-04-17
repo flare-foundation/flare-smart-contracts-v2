@@ -674,7 +674,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       "VrfFacet",
       "ExternalAddressesFacet",
     ];
-    const LATER_FACET_NAMES = ["ReplicationFacet", "ExtensionGovernanceFacet", "UpgradeManagerFacet"];
+    const LATER_FACET_NAMES = ["ReplicationFacet", "ExtensionGovernanceFacet", "UpgradeManagerFacet", "WalletResumeFacet"];
 
     const facetCuts = [];
     const usedSelectors = new Set<string>();

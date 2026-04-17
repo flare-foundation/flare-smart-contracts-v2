@@ -30,7 +30,6 @@ library WalletManager {
         uint256 walletCounter;
         mapping(bytes32 walletId => TeeWalletState) wallets;
         mapping(bytes32 projectId => bytes32[] walletIds) projectWallets;
-        mapping(bytes32 walletId => uint256) setPausingAddressesNonce;
     }
 
     bytes32 internal constant STATE_POSITION = keccak256(

@@ -3,7 +3,7 @@ pragma solidity >=0.7.6 <0.9;
 
 import { IWalletKeyManagerFacet } from "../../userInterfaces/tee/IWalletKeyManagerFacet.sol";
 import { IWalletBackupManagerFacet } from "../../userInterfaces/tee/IWalletBackupManagerFacet.sol";
-import { IWalletManagerFacet } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
+import { IWalletResumeFacet } from "../../userInterfaces/tee/IWalletResumeFacet.sol";
 
 
 interface TeeWalletStructs {
@@ -20,7 +20,7 @@ interface TeeWalletStructs {
 
     function backupIdStruct(IWalletBackupManagerFacet.BackupId calldata) external;
 
-    function setPausingAddressesStruct(IWalletManagerFacet.SetPausingAddresses calldata) external;
+    function setPausingAddressesStruct(IWalletResumeFacet.SetPausingAddresses calldata) external;
 
-    function resumeStruct(IWalletManagerFacet.Resume calldata) external;
+    function resumeStruct(IWalletResumeFacet.Resume calldata) external;
 }

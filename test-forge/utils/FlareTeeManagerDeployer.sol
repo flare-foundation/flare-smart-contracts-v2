@@ -27,6 +27,7 @@ import { VrfFacet } from "../../contracts/tee/facets/VrfFacet.sol";
 import { ReplicationFacet } from "../../contracts/tee/facets/ReplicationFacet.sol";
 import { ExtensionGovernanceFacet } from "../../contracts/tee/facets/ExtensionGovernanceFacet.sol";
 import { UpgradeManagerFacet } from "../../contracts/tee/facets/UpgradeManagerFacet.sol";
+import { WalletResumeFacet } from "../../contracts/tee/facets/WalletResumeFacet.sol";
 
 // Init contracts
 import { FlareTeeManagerInit } from "../../contracts/tee/facets/FlareTeeManagerInit.sol";
@@ -51,6 +52,7 @@ import { IOperationFeesFacet } from "../../contracts/userInterfaces/tee/IOperati
 import { IWalletProjectManagerFacet } from "../../contracts/userInterfaces/tee/IWalletProjectManagerFacet.sol";
 import { IWalletKeyManagerFacet } from "../../contracts/userInterfaces/tee/IWalletKeyManagerFacet.sol";
 import { IWalletManagerFacet } from "../../contracts/userInterfaces/tee/IWalletManagerFacet.sol";
+import { IWalletResumeFacet } from "../../contracts/userInterfaces/tee/IWalletResumeFacet.sol";
 import { IWalletBackupManagerFacet } from "../../contracts/userInterfaces/tee/IWalletBackupManagerFacet.sol";
 import { IVrfFacet } from "../../contracts/userInterfaces/tee/IVrfFacet.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
@@ -64,7 +66,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * @notice Shared test utility for deploying the FlareTeeManager Diamond.
  *         Mirrors the production deployment pattern (DeployTeeContracts.s.sol):
  *         - deployDay1Facets(): creates diamond with 15 day-1 facets + FlareTeeManagerInit
- *         - deployLaterFacets(): adds 3 later facets via diamondCut + ReplicationInit
+ *         - deployLaterFacets(): adds 4 later facets via diamondCut + ReplicationInit
  *           Caller must vm.prank(initialGovernance) before calling deployLaterFacets.
  */
 library FlareTeeManagerDeployer {
@@ -358,7 +360,7 @@ library FlareTeeManagerDeployer {
 
         // 13: WalletManagerFacet
         {
-            bytes4[] memory s = new bytes4[](16);
+            bytes4[] memory s = new bytes4[](14);
             s[0] = IWalletManagerFacet.createWallet.selector;
             s[1] = IWalletManagerFacet.setAdmins.selector;
             s[2] = IWalletManagerFacet.confirmAdmin.selector;
@@ -370,11 +372,9 @@ library FlareTeeManagerDeployer {
             s[8] = IWalletManagerFacet.getWalletCosignersAndThreshold.selector;
             s[9] = IWalletManagerFacet.getWalletStatus.selector;
             s[10] = IWalletManagerFacet.pauseWallet.selector;
-            s[11] = IWalletManagerFacet.setPausingAddresses.selector;
-            s[12] = IWalletManagerFacet.resume.selector;
-            s[13] = IWalletManagerFacet.getProjectWalletIds.selector;
-            s[14] = IWalletManagerFacet.getWalletAdminsPublicKeysAndThreshold.selector;
-            s[15] = IWalletManagerFacet.getWalletAdminsAndThreshold.selector;
+            s[11] = IWalletManagerFacet.getProjectWalletIds.selector;
+            s[12] = IWalletManagerFacet.getWalletAdminsPublicKeysAndThreshold.selector;
+            s[13] = IWalletManagerFacet.getWalletAdminsAndThreshold.selector;
             cuts[12] = IDiamond.FacetCut(
                 address(new WalletManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -402,11 +402,11 @@ library FlareTeeManagerDeployer {
     }
 
     // =========================================================================
-    // Later facet cuts (3 facets)
+    // Later facet cuts (4 facets)
     // =========================================================================
 
     function _buildLaterFacetCuts() private returns (IDiamond.FacetCut[] memory cuts) {
-        cuts = new IDiamond.FacetCut[](3);
+        cuts = new IDiamond.FacetCut[](4);
 
         // 0: ReplicationFacet
         {
@@ -457,6 +457,16 @@ library FlareTeeManagerDeployer {
             s[9] = IUpgradeManagerFacet.getTeeUpgradeSignatures.selector;
             cuts[2] = IDiamond.FacetCut(
                 address(new UpgradeManagerFacet()), IDiamond.FacetCutAction.Add, s
+            );
+        }
+
+        // 3: WalletResumeFacet
+        {
+            bytes4[] memory s = new bytes4[](2);
+            s[0] = IWalletResumeFacet.setPausingAddresses.selector;
+            s[1] = IWalletResumeFacet.resume.selector;
+            cuts[3] = IDiamond.FacetCut(
+                address(new WalletResumeFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
     }

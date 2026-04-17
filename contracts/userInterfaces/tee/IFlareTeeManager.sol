@@ -11,6 +11,7 @@ import { IOperationFeesFacet } from "./IOperationFeesFacet.sol";
 import { IOwnerAllowlistFacet } from "./IOwnerAllowlistFacet.sol";
 import { ISystemStateVerifierFacet } from "./ISystemStateVerifierFacet.sol";
 import { IWalletManagerFacet } from "./IWalletManagerFacet.sol";
+import { IWalletResumeFacet } from "./IWalletResumeFacet.sol";
 import { IWalletKeyManagerFacet } from "./IWalletKeyManagerFacet.sol";
 import { IWalletProjectManagerFacet } from "./IWalletProjectManagerFacet.sol";
 import { IWalletBackupManagerFacet } from "./IWalletBackupManagerFacet.sol";
@@ -42,6 +43,7 @@ interface IFlareTeeManager is
     IOwnerAllowlistFacet,
     ISystemStateVerifierFacet,
     IWalletManagerFacet,
+    IWalletResumeFacet,
     IWalletKeyManagerFacet,
     IWalletProjectManagerFacet,
     IWalletBackupManagerFacet,

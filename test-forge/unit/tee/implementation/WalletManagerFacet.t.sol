@@ -70,10 +70,6 @@ contract TestTeeMachineHelperFacet is ITestTeeMachineHelperFacet {
 
 contract WalletManagerFacetTest is Test {
 
-    bytes32 constant private SET_PAUSING_ADDRESSES = bytes32("SET_PAUSING_ADDRESSES");
-    bytes32 public constant WALLET_OP_TYPE = bytes32("F_WALLET");
-    bytes32 public constant RESUME = bytes32("RESUME");
-
     IIFlareTeeManager private flareTeeManager;
     ITestTeeMachineHelperFacet private teeMachineHelper;
 
@@ -563,34 +559,6 @@ contract WalletManagerFacetTest is Test {
         vm.prank(projectOwner);
         vm.expectRevert(ITeeCommonErrors.InvalidWalletStatus.selector); // only production
         flareTeeManager.pauseWallet(walletId);
-    }
-
-    function testSetPausingAddressesRevertOnlyWalletOwner() public {
-        _setupProductionWallet();
-        vm.expectRevert(ITeeCommonErrors.OnlyOwner.selector);
-        flareTeeManager.setPausingAddresses(walletId, new address[](2), address(0));
-    }
-
-    function testSetPausingAddressesRevertWrongStatus() public {
-        testCreateWallet();
-        vm.prank(projectOwner);
-        vm.expectRevert(ITeeCommonErrors.OnlyProductionOrPausedStatus.selector);
-        flareTeeManager.setPausingAddresses(walletId, new address[](2), address(0));
-    }
-
-    function testResumeRevertWrongStatus() public {
-        testCreateWallet();
-        vm.expectRevert(ITeeCommonErrors.OnlyProductionOrPausedStatus.selector);
-        vm.prank(projectOwner);
-        flareTeeManager.resume(walletId, new IWalletManagerFacet.ResumeKeyData[](0), address(0));
-    }
-
-    function testResumeRevertOnlyOwner() public {
-        _setupProductionWallet();
-        vm.prank(projectOwner);
-        flareTeeManager.pauseWallet(walletId);
-        vm.expectRevert(ITeeCommonErrors.OnlyOwner.selector);
-        flareTeeManager.resume(walletId, new IWalletManagerFacet.ResumeKeyData[](0), address(0));
     }
 
     //// helper functions

@@ -13,6 +13,7 @@ import { IWalletKeyManagerFacet } from "../../userInterfaces/tee/IWalletKeyManag
 import { IOwnerAllowlistFacet } from "../../userInterfaces/tee/IOwnerAllowlistFacet.sol";
 import { ISystemStateVerifierFacet } from "../../userInterfaces/tee/ISystemStateVerifierFacet.sol";
 import { IWalletManagerFacet } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
+import { IWalletResumeFacet } from "../../userInterfaces/tee/IWalletResumeFacet.sol";
 import { IWalletProjectManagerFacet } from "../../userInterfaces/tee/IWalletProjectManagerFacet.sol";
 import { IWalletBackupManagerFacet } from "../../userInterfaces/tee/IWalletBackupManagerFacet.sol";
 import { IVrfFacet } from "../../userInterfaces/tee/IVrfFacet.sol";
@@ -43,6 +44,7 @@ interface IIFlareTeeManager is
     IWalletKeyManagerFacet,
     ISystemStateVerifierFacet,
     IWalletManagerFacet,
+    IWalletResumeFacet,
     IWalletProjectManagerFacet,
     IWalletBackupManagerFacet,
     IVrfFacet,

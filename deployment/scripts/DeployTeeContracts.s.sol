@@ -56,6 +56,8 @@ import {ExtensionGovernanceFacet} from
     "../../contracts/tee/facets/ExtensionGovernanceFacet.sol";
 import {UpgradeManagerFacet} from
     "../../contracts/tee/facets/UpgradeManagerFacet.sol";
+import {WalletResumeFacet} from
+    "../../contracts/tee/facets/WalletResumeFacet.sol";
 // FDC2 contracts
 import {Fdc2Hub} from "../../contracts/fdc2/implementation/Fdc2Hub.sol";
 import {Fdc2HubProxy} from "../../contracts/fdc2/proxy/Fdc2HubProxy.sol";
@@ -161,6 +163,7 @@ contract DeployTeeContracts is Script {
     ReplicationFacet private replicationFacet;
     ExtensionGovernanceFacet private extensionGovernanceFacet;
     UpgradeManagerFacet private upgradeManagerFacet;
+    WalletResumeFacet private walletResumeFacet;
 
     // Deployed contract addresses
     address private fdc2HubAddr;
@@ -547,6 +550,7 @@ contract DeployTeeContracts is Script {
         replicationFacet = new ReplicationFacet();
         extensionGovernanceFacet = new ExtensionGovernanceFacet();
         upgradeManagerFacet = new UpgradeManagerFacet();
+        walletResumeFacet = new WalletResumeFacet();
 
         laterFacets.push(_addFacet(
             address(replicationFacet), "ReplicationFacet"
@@ -556,6 +560,9 @@ contract DeployTeeContracts is Script {
         ));
         laterFacets.push(_addFacet(
             address(upgradeManagerFacet), "UpgradeManagerFacet"
+        ));
+        laterFacets.push(_addFacet(
+            address(walletResumeFacet), "WalletResumeFacet"
         ));
     }
 
@@ -1001,6 +1008,11 @@ contract DeployTeeContracts is Script {
             "UpgradeManagerFacet",
             "UpgradeManagerFacet.sol",
             address(upgradeManagerFacet)
+        );
+        _logDeployed(
+            "WalletResumeFacet",
+            "WalletResumeFacet.sol",
+            address(walletResumeFacet)
         );
     }
 

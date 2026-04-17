@@ -18,7 +18,8 @@
     "ExternalAddressesFacet",
     "ReplicationFacet",
     "ExtensionGovernanceFacet",
-    "UpgradeManagerFacet"
+    "UpgradeManagerFacet",
+    "WalletResumeFacet"
   ],
   "deleteAllOldMethods": false,
   "deleteSelectorSigs": [],
