@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./IWeb2Json.sol";
+import { IWeb2Json } from "./IWeb2Json.sol";
 
 interface IWeb2JsonVerification {
 
