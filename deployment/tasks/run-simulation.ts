@@ -79,10 +79,40 @@ export const TEE_KEY_CONFIGURATIONS = [
 ];
 
 export const TEE_PAYMENT_CONFIGURATIONS = [
-  { opType: "F_XRP", keyType: "XRP", sourceIds: ["XRP", "testXRP"], maxBatchSize: 1, maxBatchDurationSeconds: 0 },
-  { opType: "F_BTC", keyType: "BTC", sourceIds: ["BTC"], maxBatchSize: 10, maxBatchDurationSeconds: 600 },
-  { opType: "F_DOGE", keyType: "DOGE", sourceIds: ["DOGE"], maxBatchSize: 10, maxBatchDurationSeconds: 60 },
-  { opType: "F_EVM", keyType: "EVM", sourceIds: ["FLR", "SGB"], maxBatchSize: 1, maxBatchDurationSeconds: 0 },
+  {
+    opType: "F_XRP",
+    keyType: "XRP",
+    sourceConfigs: [
+      { sourceId: "XRP", maxFeeSchedules: 10, maxFeeDelaySeconds: 600 },
+      { sourceId: "testXRP", maxFeeSchedules: 10, maxFeeDelaySeconds: 600 },
+    ],
+    maxBatchSize: 1,
+    maxBatchDurationSeconds: 0,
+  },
+  {
+    opType: "F_BTC",
+    keyType: "BTC",
+    sourceConfigs: [{ sourceId: "BTC", maxFeeSchedules: 10, maxFeeDelaySeconds: 3600 }],
+    maxBatchSize: 10,
+    maxBatchDurationSeconds: 600,
+  },
+  {
+    opType: "F_DOGE",
+    keyType: "DOGE",
+    sourceConfigs: [{ sourceId: "DOGE", maxFeeSchedules: 10, maxFeeDelaySeconds: 600 }],
+    maxBatchSize: 10,
+    maxBatchDurationSeconds: 60,
+  },
+  {
+    opType: "F_EVM",
+    keyType: "EVM",
+    sourceConfigs: [
+      { sourceId: "FLR", maxFeeSchedules: 10, maxFeeDelaySeconds: 60 },
+      { sourceId: "SGB", maxFeeSchedules: 10, maxFeeDelaySeconds: 60 },
+    ],
+    maxBatchSize: 1,
+    maxBatchDurationSeconds: 0,
+  },
 ];
 
 export const FDC2_FEE_CONFIGURATIONS = [

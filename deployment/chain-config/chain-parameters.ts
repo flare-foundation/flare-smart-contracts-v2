@@ -761,6 +761,23 @@ export interface TeeKeyTypeWithSigningAlgos {
   signingAlgos: string[];
 }
 
+export interface TeePaymentSourceConfig {
+  /**
+   * Source id string (e.g., "XRP", "BTC").
+   */
+  sourceId: string;
+
+  /**
+   * Maximum number of (factor, delay) pairs allowed in a fee schedule for this source.
+   */
+  maxFeeSchedules: integer;
+
+  /**
+   * Maximum delay (in seconds) allowed in a fee schedule entry for this source.
+   */
+  maxFeeDelaySeconds: integer;
+}
+
 export interface TeePaymentConfiguration {
   /**
    * Payment operation type - F_XRP, F_BTC, F_DOGE, F_EVM,...
@@ -773,9 +790,9 @@ export interface TeePaymentConfiguration {
   keyType: string;
 
   /**
-   * Source ids.
+   * Per-source id configuration (source id + fee schedule limits).
    */
-  sourceIds: string[];
+  sourceConfigs: TeePaymentSourceConfig[];
 
   /**
    *  Max batch size.

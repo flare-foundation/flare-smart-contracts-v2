@@ -34,7 +34,12 @@ export const DAY1_FACETS = [
 ];
 
 // Deploy-later facets (added via diamondCut after initial deployment)
-export const LATER_FACETS = ["ReplicationFacet", "ExtensionGovernanceFacet", "UpgradeManagerFacet", "WalletResumeFacet"];
+export const LATER_FACETS = [
+  "ReplicationFacet",
+  "ExtensionGovernanceFacet",
+  "UpgradeManagerFacet",
+  "WalletResumeFacet",
+];
 
 export enum FacetCutAction {
   Add = 0,
@@ -111,7 +116,7 @@ export async function addLaterFacetsToDiamond(
 
   // Deploy ReplicationInit for the replication facet init
   const ReplicationInit = hre.artifacts.require("ReplicationInit");
-  const teeReplicationInit = await ReplicationInit.new();
+  const replicationInit = await ReplicationInit.new();
 
   const initCalldata = hre.web3.eth.abi.encodeFunctionCall(
     (ReplicationInit.abi as AbiItem[]).find((item: AbiItem) => item.name === "init")!,
@@ -121,7 +126,7 @@ export async function addLaterFacetsToDiamond(
   // Execute diamondCut on FlareTeeManager
   const IDiamondCut = hre.artifacts.require("IDiamondCut");
   const flareTeeManager = await IDiamondCut.at(flareTeeManagerAddress);
-  await flareTeeManager.diamondCut(facetCuts, teeReplicationInit.address, initCalldata);
+  await flareTeeManager.diamondCut(facetCuts, replicationInit.address, initCalldata);
 }
 
 export async function deployFlareTeeManager(
@@ -239,15 +244,8 @@ export async function addLaterFacets(
 
   // Deploy ReplicationInit for the replication facet init
   const ReplicationInit = hre.artifacts.require("ReplicationInit");
-  const teeReplicationInit = await ReplicationInit.new();
-  spewNewContractInfo(
-    contracts,
-    null,
-    "ReplicationInit",
-    "ReplicationInit.sol",
-    teeReplicationInit.address,
-    quiet
-  );
+  const replicationInit = await ReplicationInit.new();
+  spewNewContractInfo(contracts, null, "ReplicationInit", "ReplicationInit.sol", replicationInit.address, quiet);
 
   const initCalldata = hre.web3.eth.abi.encodeFunctionCall(
     (ReplicationInit.abi as AbiItem[]).find((item: AbiItem) => item.name === "init")!,
@@ -257,5 +255,5 @@ export async function addLaterFacets(
   // Execute diamondCut on FlareTeeManager
   const IDiamondCut = hre.artifacts.require("IDiamondCut");
   const flareTeeManager = await IDiamondCut.at(flareTeeManagerAddress);
-  await flareTeeManager.diamondCut(facetCuts, teeReplicationInit.address, initCalldata);
+  await flareTeeManager.diamondCut(facetCuts, replicationInit.address, initCalldata);
 }

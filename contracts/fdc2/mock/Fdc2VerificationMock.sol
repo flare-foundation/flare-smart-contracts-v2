@@ -2,7 +2,7 @@
 pragma solidity  ^0.8.27;
 
 import {AddressUpdatable} from "../../utils/implementation/AddressUpdatable.sol";
-import {IMachineManagerFacet} from "../../userInterfaces/tee/IMachineManagerFacet.sol";
+import {IFlareTeeManager} from "../../userInterfaces/tee/IFlareTeeManager.sol";
 import {IRelay} from "../../userInterfaces/IRelay.sol";
 import {IFdc2Verification} from "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import {Signature} from "../../userInterfaces/ISignature.sol";
@@ -18,8 +18,8 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
 contract Fdc2VerificationMock is IFdc2Verification, AddressUpdatable {
     using AddressSet for AddressSet.State;
 
-    /// The TEE machine registry contract.
-    IMachineManagerFacet public teeMachineRegistry;
+    /// The FlareTeeManager diamond.
+    IFlareTeeManager public flareTeeManager;
     /// The Relay contract.
     IRelay public relay;
 
@@ -76,7 +76,7 @@ contract Fdc2VerificationMock is IFdc2Verification, AddressUpdatable {
         address[] memory teeIds;
         // no verification
         if (returnActiveTeeIds) {
-            (teeIds,) = teeMachineRegistry.getActiveTeeMachines(0);
+            (teeIds,) = flareTeeManager.getActiveTeeMachines(0);
         } else {
             teeIds = signingTeeIds.list;
         }
@@ -97,7 +97,7 @@ contract Fdc2VerificationMock is IFdc2Verification, AddressUpdatable {
     {
         // no verification
         if (returnActiveTeeIds) {
-            (_signingTeeIds,) = teeMachineRegistry.getActiveTeeMachines(0);
+            (_signingTeeIds,) = flareTeeManager.getActiveTeeMachines(0);
         } else {
             _signingTeeIds = signingTeeIds.list;
         }
@@ -139,8 +139,8 @@ contract Fdc2VerificationMock is IFdc2Verification, AddressUpdatable {
     )
         internal virtual override
     {
-        teeMachineRegistry = IMachineManagerFacet(
-            _getContractAddress(_contractNameHashes, _contractAddresses, "MachineManager"));
+        flareTeeManager = IFlareTeeManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "FlareTeeManager"));
         relay = IRelay(_getContractAddress(_contractNameHashes, _contractAddresses, "Relay"));
     }
 }

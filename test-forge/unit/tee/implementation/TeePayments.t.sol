@@ -5,8 +5,14 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { TeePayments } from "../../../../contracts/tee/implementation/TeePayments.sol";
 import { TeePaymentsProxy } from "../../../../contracts/tee/proxy/TeePaymentsProxy.sol";
+import { TeePaymentsRegistry } from "../../../../contracts/tee/implementation/TeePaymentsRegistry.sol";
+import { TeePaymentsRegistryProxy } from "../../../../contracts/tee/proxy/TeePaymentsRegistryProxy.sol";
 import { IWalletManagerFacet } from "../../../../contracts/userInterfaces/tee/IWalletManagerFacet.sol";
 import { ITeePayments } from "../../../../contracts/userInterfaces/tee/ITeePayments.sol";
+import { ITeePaymentsRegistry } from "../../../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
+import {
+    ITeePaymentsFeeScheduleManager
+} from "../../../../contracts/userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
 import { IInstructionsFacet } from "../../../../contracts/userInterfaces/tee/IInstructionsFacet.sol";
 import {
     IWalletProjectManagerFacet
@@ -33,16 +39,18 @@ contract TeePaymentsTest is Test {
     bytes32 private constant SOURCE_ID = bytes32("XRP");
     bytes32 private constant PAY = bytes32("PAY");
     bytes32 private constant REISSUE = bytes32("REISSUE");
-    bytes32 private constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
+    bytes private constant DEFAULT_FEE_SCHEDULE = hex"27100000";
 
     TeePayments private teePayments;
     TeePayments private teePaymentsImpl;
     TeePaymentsProxy private teePaymentsProxy;
+    TeePaymentsRegistry private teePaymentsRegistry;
 
     address private mockFSM;
     address private mockRewardManager;
 
     address private flareTeeManager;
+    address private teePaymentsFeeScheduleManager;
 
     address private governance;
     address private addressUpdater;
@@ -56,7 +64,6 @@ contract TeePaymentsTest is Test {
     uint256 private fee = 123;
     address private authorizationAddress = makeAddr("authorizationAddress");
     bytes32 private projectId = bytes32("projectId");
-    bytes32[] private sourceIds;
     ITeePayments.PMWMultisigAccount private pmwMultisigAccount;
     IPMWMultisigAccountConfigured.Proof private proof;
     address[] private admins;
@@ -70,10 +77,7 @@ contract TeePaymentsTest is Test {
         mockFSM = makeAddr("mockFlareSystemsManager");
         mockRewardManager = makeAddr("rewardManager");
 
-
         teePaymentsImpl = new TeePayments();
-        sourceIds = new bytes32[](1);
-        sourceIds[0] = SOURCE_ID;
         teePaymentsProxy = new TeePaymentsProxy(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
@@ -82,22 +86,43 @@ contract TeePaymentsTest is Test {
             300, // max batch duration seconds
             OP_TYPE,
             KEY_TYPE,
-            sourceIds,
             address(teePaymentsImpl)
         );
         teePayments = TeePayments(address(teePaymentsProxy));
 
+        // Deploy real TeePaymentsRegistry for use by TeePayments
+        TeePaymentsRegistry registryImpl = new TeePaymentsRegistry();
+        TeePaymentsRegistryProxy registryProxy = new TeePaymentsRegistryProxy(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            address(registryImpl)
+        );
+        teePaymentsRegistry = TeePaymentsRegistry(address(registryProxy));
+
+        // Register test sourceId -> this TeePayments in the registry
+        ITeePaymentsRegistry.SourceRegistration[] memory regs =
+            new ITeePaymentsRegistry.SourceRegistration[](1);
+        regs[0] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID, address(teePayments));
+        vm.prank(governance);
+        teePaymentsRegistry.registerSources(regs);
+
         flareTeeManager = makeAddr("flareTeeManager");
+        teePaymentsFeeScheduleManager = makeAddr("teePaymentsFeeScheduleManager");
 
         vm.startPrank(addressUpdater);
-        contractNameHashes = new bytes32[](3);
-        contractAddresses = new address[](3);
+        contractNameHashes = new bytes32[](5);
+        contractAddresses = new address[](5);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("FlareTeeManager"));
         contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
+        contractNameHashes[3] = keccak256(abi.encode("TeePaymentsFeeScheduleManager"));
+        contractNameHashes[4] = keccak256(abi.encode("TeePaymentsRegistry"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = flareTeeManager;
         contractAddresses[2] = mockFSM;
+        contractAddresses[3] = teePaymentsFeeScheduleManager;
+        contractAddresses[4] = address(teePaymentsRegistry);
         teePayments.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
 
@@ -130,7 +155,8 @@ contract TeePaymentsTest is Test {
         _mockGetExtensionId(0);
         _mockCalculateFeeByTeeIds(PAY, fee);
         _mockCalculateFeeByTeeIds(REISSUE, fee);
-        _mockCalculateFeeByTeeIds(SET_PAYMENT_LIMITS, fee);
+        _mockGetEffectiveSchedule(DEFAULT_FEE_SCHEDULE);
+        _mockValidateAndEncodeSchedules();
 
         cosigners = new address[](2);
         cosigners[0] = makeAddr("cosigner1");
@@ -156,7 +182,6 @@ contract TeePaymentsTest is Test {
             300, // max batch duration seconds
             OP_TYPE,
             KEY_TYPE,
-            sourceIds,
             address(teePaymentsImpl)
         );
     }
@@ -171,7 +196,6 @@ contract TeePaymentsTest is Test {
             300, // max batch duration seconds
             bytes32(0), // op type
             KEY_TYPE,
-            sourceIds,
             address(teePaymentsImpl)
         );
     }
@@ -186,44 +210,6 @@ contract TeePaymentsTest is Test {
             300, // max batch duration seconds
             OP_TYPE,
             bytes32(0), // key type
-            sourceIds,
-            address(teePaymentsImpl)
-        );
-    }
-
-    function testDeploySupportedSourceIdsLengthZero() public {
-        vm.expectRevert(ITeePayments.SupportedSourceIdsLengthZero.selector);
-        sourceIds = new bytes32[](0);
-        new TeePaymentsProxy(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
-            addressUpdater,
-            5, // max batch size
-            300, // max batch duration seconds
-            OP_TYPE, // op type
-            KEY_TYPE,
-            sourceIds,
-            address(teePaymentsImpl)
-        );
-    }
-
-    function testDeploySourceIdZero() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ITeePayments.SourceIdZero.selector,
-                0
-            )
-        );
-        sourceIds[0] = bytes32(0);
-        new TeePaymentsProxy(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
-            addressUpdater,
-            5, // max batch size
-            300, // max batch duration seconds
-            OP_TYPE, // op type
-            KEY_TYPE,
-            sourceIds,
             address(teePaymentsImpl)
         );
     }
@@ -298,6 +284,27 @@ contract TeePaymentsTest is Test {
         teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
     }
 
+    function testAddPMWMultisigAccountRevertRegistryPointsElsewhere() public {
+        _mockGetWalletStatus(IWalletManagerFacet.WalletStatus.PRODUCTION);
+        // Rebind SOURCE_ID in registry to a different TeePayments (strict: unregister + register).
+        bytes32[] memory remove = new bytes32[](1);
+        remove[0] = SOURCE_ID;
+        vm.prank(governance);
+        teePaymentsRegistry.unregisterSources(remove);
+
+        address otherTeePayments = makeAddr("otherTeePayments");
+        vm.etch(otherTeePayments, hex"01");
+        ITeePaymentsRegistry.SourceRegistration[] memory regs =
+            new ITeePaymentsRegistry.SourceRegistration[](1);
+        regs[0] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID, otherTeePayments);
+        vm.prank(governance);
+        teePaymentsRegistry.registerSources(regs);
+
+        vm.prank(walletOwner);
+        vm.expectRevert(ITeePayments.UnsupportedSourceId.selector);
+        teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
+    }
+
     function testAddPMWMultisigAccountRevertAuthorizationAddressZero() public {
         _mockGetWalletStatus(IWalletManagerFacet.WalletStatus.PRODUCTION);
         vm.prank(walletOwner);
@@ -361,74 +368,6 @@ contract TeePaymentsTest is Test {
 
     function testGetOpType() public {
         assertEq(teePayments.getOpType(), OP_TYPE);
-    }
-
-    function testSetPaymentLimits() public {
-        testAddPMWMultisigAccount();
-        _mockGetWalletStatus(IWalletManagerFacet.WalletStatus.PRODUCTION);
-        (IMachineManagerFacet.TeeMachine[] memory _receivingTees,
-            TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
-        uint256 transactionLimit = 1000;
-        uint256 dailyLimit = 10000;
-        bytes32 _instructionId = keccak256(abi.encode(0, 0, blockhash(block.number - 1)));
-        ITeePayments.SetPaymentLimits memory _message = ITeePayments.SetPaymentLimits(
-            walletId,
-            SOURCE_ID,
-            senderAddress,
-            0,
-            teeIdKeyIdPairs,
-            transactionLimit,
-            dailyLimit
-        );
-        vm.prank(walletOwner);
-        vm.expectEmit();
-        emit ITeePayments.PaymentLimitsSet(
-            walletId,
-            SOURCE_ID,
-            senderAddress,
-            transactionLimit,
-            dailyLimit
-        );
-        teePayments.setPaymentLimits{value: 988}(pmwMultisigAccount, transactionLimit, dailyLimit, address(0));
-    }
-
-    function testSetPaymentLimitsWithClaimBackAddress() public {
-        testAddPMWMultisigAccount();
-        _mockGetWalletStatus(IWalletManagerFacet.WalletStatus.PRODUCTION);
-        (IMachineManagerFacet.TeeMachine[] memory _receivingTees,
-            TeeIdKeyIdPair[] memory teeIdKeyIdPairs) = _mockReceivingTeesAndKeys();
-        ITeePayments.SetPaymentLimits memory _message = ITeePayments.SetPaymentLimits(
-            walletId,
-            SOURCE_ID,
-            senderAddress,
-            0,
-            teeIdKeyIdPairs,
-            1000, // transactionLimit
-            10000 // dailyLimit
-        );
-        vm.prank(walletOwner);
-        teePayments.setPaymentLimits{value: 988}(pmwMultisigAccount, 1000, 10000, makeAddr("claimBack"));
-    }
-
-    function testSetPaymentLimitsRevertDailyLower() public {
-        testAddPMWMultisigAccount();
-        vm.prank(walletOwner);
-        vm.expectRevert(ITeePayments.DailyLimitBelowTransactionLimit.selector);
-        teePayments.setPaymentLimits{value: 988}(pmwMultisigAccount, 1000, 500, address(0));
-    }
-
-    function testSetPaymentLimitsRevertOnlyWalletOwner() public {
-        testAddPMWMultisigAccount();
-        vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);
-        teePayments.setPaymentLimits(pmwMultisigAccount, 1000, 10000, address(0));
-    }
-
-    function testSetPaymentLimitsRevertOnlyWalletOwner2() public {
-        // account not added
-        _mockGetWalletProjectId(bytes32(0), bytes32(0));
-        _mockGetOwner(bytes32(0), address(0));
-        vm.expectRevert(ITeePayments.OnlyWalletOwner.selector);
-        teePayments.setPaymentLimits(pmwMultisigAccount, 1000, 10000, address(0));
     }
 
     // NOTE: FeeTooLow tests removed — fee validation is FlareTeeManager's responsibility,
@@ -815,15 +754,15 @@ contract TeePaymentsTest is Test {
         vm.expectRevert(ITeePayments.NoPaymentInstructions.selector);
         uint256[] memory fees = new uint256[](1);
         fees[0] = 200;
-        int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
-        feeFactorScheduleBIPS[0] = new int16[](0);
-        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
+        int16[][] memory factorsBIPSPerPayment = new int16[][](1);
+        factorsBIPSPerPayment[0] = new int16[](0);
+        uint16[] memory delaysSeconds = new uint16[](0);
         teePayments.reissue(
             pmwMultisigAccount,
             1,
             1,
             new ITeePayments.PaymentInstruction[](0),
-            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
@@ -838,10 +777,10 @@ contract TeePaymentsTest is Test {
         uint256[] memory fees = new uint256[](2);
         fees[0] = 200;
         fees[1] = 200;
-        int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
-        feeFactorScheduleBIPS[0] = new int16[](0);
-        feeFactorScheduleBIPS[1] = new int16[](0);
-        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
+        int16[][] memory factorsBIPSPerPayment = new int16[][](2);
+        factorsBIPSPerPayment[0] = new int16[](0);
+        factorsBIPSPerPayment[1] = new int16[](0);
+        uint16[] memory delaysSeconds = new uint16[](0);
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         vm.expectRevert(ITeePayments.WalletNotInProduction.selector);
@@ -851,7 +790,7 @@ contract TeePaymentsTest is Test {
             1,
             1,
             paymentInstructions,
-            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
@@ -864,10 +803,10 @@ contract TeePaymentsTest is Test {
         uint256[] memory fees = new uint256[](2);
         fees[0] = 200;
         fees[1] = 200;
-        int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
-        feeFactorScheduleBIPS[0] = new int16[](0);
-        feeFactorScheduleBIPS[1] = new int16[](0);
-        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
+        int16[][] memory factorsBIPSPerPayment = new int16[][](2);
+        factorsBIPSPerPayment[0] = new int16[](0);
+        factorsBIPSPerPayment[1] = new int16[](0);
+        uint16[] memory delaysSeconds = new uint16[](0);
         vm.prank(walletOwner);
         teePayments.addPMWMultisigAccount(walletId, proof, authorizationAddress);
         vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
@@ -876,7 +815,7 @@ contract TeePaymentsTest is Test {
             1,
             1,
             paymentInstructions,
-            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
@@ -889,10 +828,10 @@ contract TeePaymentsTest is Test {
         uint256[] memory fees = new uint256[](2);
         fees[0] = 200;
         fees[1] = 200;
-        int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
-        feeFactorScheduleBIPS[0] = new int16[](0);
-        feeFactorScheduleBIPS[1] = new int16[](0);
-        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
+        int16[][] memory factorsBIPSPerPayment = new int16[][](2);
+        factorsBIPSPerPayment[0] = new int16[](0);
+        factorsBIPSPerPayment[1] = new int16[](0);
+        uint16[] memory delaysSeconds = new uint16[](0);
         // account not added
         _mockGetWalletProjectId(bytes32(0), bytes32(0));
         vm.expectRevert(ITeePayments.OnlyAuthorizationAddress.selector);
@@ -901,7 +840,7 @@ contract TeePaymentsTest is Test {
             1,
             1,
             paymentInstructions,
-            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
@@ -916,10 +855,10 @@ contract TeePaymentsTest is Test {
         uint256[] memory fees = new uint256[](2);
         fees[0] = 150;
         fees[1] = 150;
-        int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
-        feeFactorScheduleBIPS[0] = new int16[](0);
-        feeFactorScheduleBIPS[1] = new int16[](0);
-        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
+        int16[][] memory factorsBIPSPerPayment = new int16[][](2);
+        factorsBIPSPerPayment[0] = new int16[](0);
+        factorsBIPSPerPayment[1] = new int16[](0);
+        uint16[] memory delaysSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         // batch with nonce 11 is not yet finished
         vm.expectRevert(ITeePayments.BatchNotYetEnded.selector);
@@ -928,7 +867,7 @@ contract TeePaymentsTest is Test {
             11,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
@@ -943,10 +882,10 @@ contract TeePaymentsTest is Test {
         uint256[] memory fees = new uint256[](2);
         fees[0] = 150;
         fees[1] = 150;
-        int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
-        feeFactorScheduleBIPS[0] = new int16[](0);
-        feeFactorScheduleBIPS[1] = new int16[](0);
-        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
+        int16[][] memory factorsBIPSPerPayment = new int16[][](2);
+        factorsBIPSPerPayment[0] = new int16[](0);
+        factorsBIPSPerPayment[1] = new int16[](0);
+        uint16[] memory delaysSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.BatchNotYetEnded.selector);
         teePayments.reissue{value: fee * 2}(
@@ -954,7 +893,7 @@ contract TeePaymentsTest is Test {
             13,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
@@ -968,10 +907,10 @@ contract TeePaymentsTest is Test {
         uint256[] memory fees = new uint256[](2);
         fees[0] = 150;
         fees[1] = 150;
-        int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
-        feeFactorScheduleBIPS[0] = new int16[](0);
-        feeFactorScheduleBIPS[1] = new int16[](0);
-        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
+        int16[][] memory factorsBIPSPerPayment = new int16[][](2);
+        factorsBIPSPerPayment[0] = new int16[](0);
+        factorsBIPSPerPayment[1] = new int16[](0);
+        uint16[] memory delaysSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         // batch with nonce 11 is finished
         vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
@@ -980,7 +919,7 @@ contract TeePaymentsTest is Test {
             11,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
@@ -994,10 +933,10 @@ contract TeePaymentsTest is Test {
         uint256[] memory fees = new uint256[](2);
         fees[0] = 150;
         fees[1] = 150;
-        int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
-        feeFactorScheduleBIPS[0] = new int16[](0);
-        feeFactorScheduleBIPS[1] = new int16[](0);
-        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
+        int16[][] memory factorsBIPSPerPayment = new int16[][](2);
+        factorsBIPSPerPayment[0] = new int16[](0);
+        factorsBIPSPerPayment[1] = new int16[](0);
+        uint16[] memory delaysSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
@@ -1007,12 +946,12 @@ contract TeePaymentsTest is Test {
             11,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
 
-    // feeFactorScheduleBIPS.length != paymentInstructions.length
+    // factorsBIPSPerPayment.length != paymentInstructions.length
     function testReissueRevertLengthsMismatch1() public {
         testPay4();
         ITeePayments.PaymentInstruction[] memory paymentInstructions = new ITeePayments.PaymentInstruction[](2);
@@ -1022,9 +961,9 @@ contract TeePaymentsTest is Test {
         uint256[] memory fees = new uint256[](2);
         fees[0] = 150;
         fees[1] = 150;
-        int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
-        feeFactorScheduleBIPS[0] = new int16[](0);
-        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
+        int16[][] memory factorsBIPSPerPayment = new int16[][](1);
+        factorsBIPSPerPayment[0] = new int16[](0);
+        uint16[] memory delaysSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
@@ -1034,7 +973,7 @@ contract TeePaymentsTest is Test {
             11,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
@@ -1048,9 +987,9 @@ contract TeePaymentsTest is Test {
         _mockGetWalletStatus(IWalletManagerFacet.WalletStatus.PRODUCTION);
         uint256[] memory fees = new uint256[](1);
         fees[0] = 150;
-        int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
-        feeFactorScheduleBIPS[0] = new int16[](0);
-        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
+        int16[][] memory factorsBIPSPerPayment = new int16[][](1);
+        factorsBIPSPerPayment[0] = new int16[](0);
+        uint16[] memory delaysSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         // batch with nonce 11 not yet finished but batch end timestamp passed
         vm.warp(500 + 301);
@@ -1060,7 +999,7 @@ contract TeePaymentsTest is Test {
             11,
             11,
             paymentInstructions,
-            ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(fees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
@@ -1076,11 +1015,11 @@ contract TeePaymentsTest is Test {
             uint256[] memory fees = new uint256[](2);
             fees[0] = 150;
             fees[1] = 150;
-            int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
-            feeFactorScheduleBIPS[0] = new int16[](0);
-            feeFactorScheduleBIPS[1] = new int16[](0);
-            uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
-            feeSettings = ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds);
+            int16[][] memory factorsBIPSPerPayment = new int16[][](2);
+            factorsBIPSPerPayment[0] = new int16[](0);
+            factorsBIPSPerPayment[1] = new int16[](0);
+            uint16[] memory delaysSeconds = new uint16[](0);
+            feeSettings = ITeePayments.ReissueFeeParams(fees, factorsBIPSPerPayment, delaysSeconds);
         }
         vm.prank(authorizationAddress);
         (IMachineManagerFacet.TeeMachine[] memory _receivingTees,
@@ -1133,10 +1072,10 @@ contract TeePaymentsTest is Test {
         {
             uint256[] memory fees = new uint256[](1);
             fees[0] = 150;
-            int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
-            feeFactorScheduleBIPS[0] = new int16[](0);
+            int16[][] memory factorsBIPSPerPayment = new int16[][](1);
+            factorsBIPSPerPayment[0] = new int16[](0);
             feeSettings = ITeePayments.ReissueFeeParams(
-                fees, feeFactorScheduleBIPS, new uint16[](0)
+                fees, factorsBIPSPerPayment, new uint16[](0)
             );
         }
         instructionId = keccak256(abi.encode(OP_TYPE, REISSUE, SOURCE_ID, senderAddress, 13, 0));
@@ -1196,11 +1135,11 @@ contract TeePaymentsTest is Test {
             uint256[] memory fees = new uint256[](2);
             fees[0] = 150;
             fees[1] = 150;
-            int16[][] memory feeFactorScheduleBIPS = new int16[][](2);
-            feeFactorScheduleBIPS[0] = new int16[](0);
-            feeFactorScheduleBIPS[1] = new int16[](0);
-            uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
-            feeSettings = ITeePayments.ReissueFeeParams(fees, feeFactorScheduleBIPS, feeDelayScheduleSeconds);
+            int16[][] memory factorsBIPSPerPayment = new int16[][](2);
+            factorsBIPSPerPayment[0] = new int16[](0);
+            factorsBIPSPerPayment[1] = new int16[](0);
+            uint16[] memory delaysSeconds = new uint16[](0);
+            feeSettings = ITeePayments.ReissueFeeParams(fees, factorsBIPSPerPayment, delaysSeconds);
         }
         ITeePayments.PaymentInstructionMessage memory _message1 = ITeePayments.PaymentInstructionMessage(
             walletId,
@@ -1254,59 +1193,6 @@ contract TeePaymentsTest is Test {
         );
     }
 
-    function testAddSupportedSourceIds() public {
-        bytes32[] memory supportedSourceIds = teePayments.getSupportedSourceIds();
-        assertEq(supportedSourceIds.length, 1);
-        assertEq(supportedSourceIds[0], SOURCE_ID);
-
-        bytes32 newSourceId1 = bytes32("NEW_SOURCE_ID1");
-        bytes32 newSourceId2 = bytes32("NEW_SOURCE_ID2");
-        assertTrue(teePayments.isSourceIdSupported(SOURCE_ID));
-        assertFalse(teePayments.isSourceIdSupported(newSourceId1));
-        assertFalse(teePayments.isSourceIdSupported(newSourceId2));
-
-        vm.prank(governance);
-        bytes32[] memory newSourceIds = new bytes32[](2);
-        newSourceIds[0] = newSourceId1;
-        newSourceIds[1] = newSourceId2;
-        vm.expectEmit();
-        emit ITeePayments.SupportedSourceIdsAdded(newSourceIds);
-        teePayments.addSupportedSourceIds(newSourceIds);
-        assertEq(teePayments.getSupportedSourceIds().length, 3);
-        assertEq(teePayments.getSupportedSourceIds()[0], SOURCE_ID);
-        assertEq(teePayments.getSupportedSourceIds()[1], newSourceId1);
-        assertEq(teePayments.getSupportedSourceIds()[2], newSourceId2);
-        assertTrue(teePayments.isSourceIdSupported(SOURCE_ID));
-        assertTrue(teePayments.isSourceIdSupported(newSourceId2));
-        assertTrue(teePayments.isSourceIdSupported(newSourceId1));
-    }
-
-    function testAddSupportedSourceIdsRevertOnlyGovernance() public {
-        bytes32 newSourceId1 = bytes32("NEW_SOURCE_ID1");
-        bytes32 newSourceId2 = bytes32("NEW_SOURCE_ID2");
-        bytes32[] memory newSourceIds = new bytes32[](2);
-        newSourceIds[0] = newSourceId1;
-        newSourceIds[1] = newSourceId2;
-        vm.expectRevert("only governance");
-        teePayments.addSupportedSourceIds(newSourceIds);
-    }
-
-    function testAddSupportedSourceIdsRevertAlreadyExists() public {
-        bytes32 newSourceId1 = bytes32("NEW_SOURCE_ID1");
-        bytes32 newSourceId2 = SOURCE_ID; // already supported
-        bytes32[] memory newSourceIds = new bytes32[](2);
-        newSourceIds[0] = newSourceId1;
-        newSourceIds[1] = newSourceId2;
-        vm.prank(governance);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ITeePayments.SourceIdAlreadyExists.selector,
-                SOURCE_ID
-            )
-        );
-        teePayments.addSupportedSourceIds(newSourceIds);
-    }
-
     //// Proxy upgrade
     function testUpgradeProxy() public {
         assertEq(teePayments.maxBatchSize(), 5);
@@ -1340,8 +1226,7 @@ contract TeePaymentsTest is Test {
                 6,
                 400,
                 OP_TYPE,
-                KEY_TYPE,
-                sourceIds
+                KEY_TYPE
             )
         ));
     }
@@ -1520,6 +1405,22 @@ contract TeePaymentsTest is Test {
             flareTeeManager,
             abi.encodeWithSelector(IInstructionsFacet.sendInstructions.selector),
             abi.encode(bytes32(uint256(1)))
+        );
+    }
+
+    function _mockGetEffectiveSchedule(bytes memory _schedule) internal {
+        vm.mockCall(
+            teePaymentsFeeScheduleManager,
+            abi.encodeWithSelector(ITeePaymentsFeeScheduleManager.getEffectiveSchedule.selector),
+            abi.encode(_schedule)
+        );
+    }
+
+    function _mockValidateAndEncodeSchedules() internal {
+        vm.mockCall(
+            teePaymentsFeeScheduleManager,
+            abi.encodeWithSelector(ITeePaymentsFeeScheduleManager.validateAndEncodeSchedules.selector),
+            abi.encode(new bytes[](0))
         );
     }
 

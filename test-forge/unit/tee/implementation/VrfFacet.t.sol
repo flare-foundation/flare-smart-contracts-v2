@@ -20,7 +20,7 @@ import { WalletKeyManager } from "../../../../contracts/tee/library/WalletKeyMan
 /**
  * Helper init contract to inject TEE machine state directly into Diamond storage.
  */
-contract TeeVrfTestMachineInit {
+contract VrfTestMachineInit {
     function initMachine(
         address _teeId,
         address _owner,
@@ -45,7 +45,7 @@ contract TeeVrfTestMachineInit {
 /**
  * Helper init contract to inject wallet, project and key state into Diamond storage.
  */
-contract TeeVrfTestWalletInit {
+contract VrfTestWalletInit {
     function initProject(
         bytes32 _projectId,
         address _owner,
@@ -90,8 +90,8 @@ contract VrfFacetTest is Test {
 
     IIFlareTeeManager private flareTeeManager;
 
-    TeeVrfTestMachineInit private machineInit;
-    TeeVrfTestWalletInit private walletInit;
+    VrfTestMachineInit private machineInit;
+    VrfTestWalletInit private walletInit;
 
     address private governance;
     address private addressUpdater;
@@ -146,8 +146,8 @@ contract VrfFacetTest is Test {
         flareTeeManager.updateContractAddresses(nameHashes, addresses);
 
         // Deploy helper init contracts
-        machineInit = new TeeVrfTestMachineInit();
-        walletInit = new TeeVrfTestWalletInit();
+        machineInit = new VrfTestMachineInit();
+        walletInit = new VrfTestWalletInit();
 
         // Mock external calls that Instructions makes
         vm.mockCall(
@@ -379,7 +379,7 @@ contract VrfFacetTest is Test {
         IDiamondCut(address(flareTeeManager)).diamondCut(
             emptyCuts,
             address(walletInit),
-            abi.encodeCall(TeeVrfTestWalletInit.initProject, (_projectId, _owner, _extensionId))
+            abi.encodeCall(VrfTestWalletInit.initProject, (_projectId, _owner, _extensionId))
         );
     }
 
@@ -393,7 +393,7 @@ contract VrfFacetTest is Test {
         IDiamondCut(address(flareTeeManager)).diamondCut(
             emptyCuts,
             address(walletInit),
-            abi.encodeCall(TeeVrfTestWalletInit.initWallet, (_walletId, _projectId, _status))
+            abi.encodeCall(VrfTestWalletInit.initWallet, (_walletId, _projectId, _status))
         );
     }
 
@@ -407,7 +407,7 @@ contract VrfFacetTest is Test {
         IDiamondCut(address(flareTeeManager)).diamondCut(
             emptyCuts,
             address(walletInit),
-            abi.encodeCall(TeeVrfTestWalletInit.initWalletKey, (_walletId, _keyId, _teeIds))
+            abi.encodeCall(VrfTestWalletInit.initWalletKey, (_walletId, _keyId, _teeIds))
         );
     }
 
@@ -420,7 +420,7 @@ contract VrfFacetTest is Test {
         IDiamondCut(address(flareTeeManager)).diamondCut(
             emptyCuts,
             address(machineInit),
-            abi.encodeCall(TeeVrfTestMachineInit.initMachine, (
+            abi.encodeCall(VrfTestMachineInit.initMachine, (
                 _teeId, makeAddr("teeOwner"), makeAddr("teeProxyId"), "https://tee.url", 0, _status
             ))
         );

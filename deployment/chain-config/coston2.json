@@ -451,7 +451,7 @@
         {"opType": "F_FDC2", "opCommand": "PROVE", "feeWei": "1"}
     ],
     "teePaymentConfigurations": [
-        {"opType": "F_XRP", "keyType": "XRP", "sourceIds": ["testXRP"], "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
+        {"opType": "F_XRP", "keyType": "XRP", "sourceConfigs": [{"sourceId": "testXRP", "maxFeeSchedules": 10, "maxFeeDelaySeconds": 600}], "maxBatchSize": 1, "maxBatchDurationSeconds": 0}
     ],
     "fdc2MinThresholdBIPS": 3000,
     "fdc2DefaultNumberOfTees": 2,

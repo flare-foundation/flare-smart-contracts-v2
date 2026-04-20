@@ -75,8 +75,14 @@ import {
   OperationFeesFacetContract,
   OwnerAllowlistFacetContract,
   TeePaymentsContract,
+  TeePaymentsFeeScheduleManagerContract,
+  TeePaymentsFeeScheduleManagerInstance,
+  TeePaymentsFeeScheduleManagerProxyContract,
   TeePaymentsInstance,
   TeePaymentsProxyContract,
+  TeePaymentsRegistryContract,
+  TeePaymentsRegistryInstance,
+  TeePaymentsRegistryProxyContract,
   TeeRewardOffersManagerContract,
   TeeRewardOffersManagerInstance,
   TestableFlareDaemonContract,
@@ -97,7 +103,7 @@ import { AbiItem } from "web3-utils";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { Contracts } from "../scripts/Contracts";
 import { Account } from "web3-core";
-import { DAY1_FACETS, deployFacetsAndBuildCuts, addLaterFacetsToDiamond } from "../scripts/deploy-flare-tee-manager";
+import { DAY1_FACETS, deployFacetsAndBuildCuts } from "../scripts/deploy-flare-tee-manager";
 import {
   TIMELOCK_SEC,
   systemSettings,
@@ -150,6 +156,8 @@ export interface DeployedContracts {
   readonly fdcHub: FdcHubInstance;
   readonly flareTeeManager: FlareTeeManagerInstance; // FlareTeeManager Diamond instance
   readonly teeRewardOffersManager: TeeRewardOffersManagerInstance;
+  readonly teePaymentsFeeScheduleManager: TeePaymentsFeeScheduleManagerInstance;
+  readonly teePaymentsRegistry: TeePaymentsRegistryInstance;
   readonly teePayments: TeePaymentsInstance[];
   readonly fdc2Hub: Fdc2HubInstance;
   readonly fdc2RequestFeeConfigurations: Fdc2RequestFeeConfigurationsInstance;
@@ -229,6 +237,16 @@ export async function deployContracts(
   const TeeRewardOffersManager = hre.artifacts.require("TeeRewardOffersManager") as TeeRewardOffersManagerContract;
   const TeePayments = hre.artifacts.require("TeePayments") as TeePaymentsContract;
   const TeePaymentsProxy = hre.artifacts.require("TeePaymentsProxy") as TeePaymentsProxyContract;
+  const TeePaymentsFeeScheduleManager = hre.artifacts.require(
+    "TeePaymentsFeeScheduleManager"
+  ) as TeePaymentsFeeScheduleManagerContract;
+  const TeePaymentsFeeScheduleManagerProxy = hre.artifacts.require(
+    "TeePaymentsFeeScheduleManagerProxy"
+  ) as TeePaymentsFeeScheduleManagerProxyContract;
+  const TeePaymentsRegistry = hre.artifacts.require("TeePaymentsRegistry") as TeePaymentsRegistryContract;
+  const TeePaymentsRegistryProxy = hre.artifacts.require(
+    "TeePaymentsRegistryProxy"
+  ) as TeePaymentsRegistryProxyContract;
   const Fdc2Hub = hre.artifacts.require("Fdc2Hub") as Fdc2HubContract;
   const Fdc2HubProxy = hre.artifacts.require("Fdc2HubProxy") as Fdc2HubProxyContract;
   const Fdc2RequestFeeConfigurations = hre.artifacts.require(
@@ -549,22 +567,19 @@ export async function deployContracts(
   });
   addressUpdatableContracts.push(flareTeeManager.address);
 
-  // Add later facets (replication, governance, version manager)
-  // await addLaterFacetsToDiamond(hre, flareTeeManager.address, "60");
-
   // Access Diamond facet interfaces for post-init configuration
-  const extensionManager = await (
-    hre.artifacts.require("ExtensionManagerFacet") as ExtensionManagerFacetContract
-  ).at(flareTeeManager.address);
+  const extensionManager = await (hre.artifacts.require("ExtensionManagerFacet") as ExtensionManagerFacetContract).at(
+    flareTeeManager.address
+  );
   const operationFeesFacet = await (hre.artifacts.require("OperationFeesFacet") as OperationFeesFacetContract).at(
     flareTeeManager.address
   );
-  const ownerAllowlist = await (
-    hre.artifacts.require("OwnerAllowlistFacet") as OwnerAllowlistFacetContract
-  ).at(flareTeeManager.address);
-  const instructionsFacet = await (
-    hre.artifacts.require("InstructionsFacet") as InstructionsFacetContract
-  ).at(flareTeeManager.address);
+  const ownerAllowlist = await (hre.artifacts.require("OwnerAllowlistFacet") as OwnerAllowlistFacetContract).at(
+    flareTeeManager.address
+  );
+  const instructionsFacet = await (hre.artifacts.require("InstructionsFacet") as InstructionsFacetContract).at(
+    flareTeeManager.address
+  );
 
   // Set operation fees
   const operationTypes: string[] = [];
@@ -590,8 +605,33 @@ export async function deployContracts(
   );
   addressUpdatableContracts.push(teeRewardOffersManager.address);
 
+  // Shared fee schedule manager — deployed before TeePayments so it can be injected via AddressUpdater
+  const teePaymentsFeeScheduleManagerImpl = await TeePaymentsFeeScheduleManager.new();
+  const teePaymentsFeeScheduleManagerProxy = await TeePaymentsFeeScheduleManagerProxy.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    addressUpdater.address,
+    teePaymentsFeeScheduleManagerImpl.address
+  );
+  const teePaymentsFeeScheduleManager = await TeePaymentsFeeScheduleManager.at(
+    teePaymentsFeeScheduleManagerProxy.address
+  );
+  addressUpdatableContracts.push(teePaymentsFeeScheduleManager.address);
+
+  // Shared sourceId -> TeePayments registry
+  const teePaymentsRegistryImpl = await TeePaymentsRegistry.new();
+  const teePaymentsRegistryProxy = await TeePaymentsRegistryProxy.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    addressUpdater.address,
+    teePaymentsRegistryImpl.address
+  );
+  const teePaymentsRegistry = await TeePaymentsRegistry.at(teePaymentsRegistryProxy.address);
+  addressUpdatableContracts.push(teePaymentsRegistry.address);
+
   const teePaymentsList: TeePaymentsInstance[] = [];
   const teePaymentsImpl = await TeePayments.new();
+  const sourceRegistrations: { sourceId: string; teePayments: string }[] = [];
   for (const teePaymentConfig of TEE_PAYMENT_CONFIGURATIONS) {
     const teePaymentsProxy = await TeePaymentsProxy.new(
       governanceSettings.address,
@@ -601,12 +641,17 @@ export async function deployContracts(
       teePaymentConfig.maxBatchDurationSeconds,
       web3.utils.utf8ToHex(teePaymentConfig.opType).padEnd(66, "0"),
       web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0"),
-      teePaymentConfig.sourceIds.map((sourceId) => web3.utils.utf8ToHex(sourceId).padEnd(66, "0")),
       teePaymentsImpl.address
     );
     const teePayments = await TeePayments.at(teePaymentsProxy.address);
     teePaymentsList.push(teePayments);
     addressUpdatableContracts.push(teePayments.address);
+    for (const src of teePaymentConfig.sourceConfigs) {
+      sourceRegistrations.push({
+        sourceId: web3.utils.utf8ToHex(src.sourceId).padEnd(66, "0"),
+        teePayments: teePayments.address,
+      });
+    }
   }
 
   // FDC2
@@ -696,6 +741,8 @@ export async function deployContracts(
       Contracts.FDC2_VERIFICATION,
       Contracts.FDC2_REQUEST_FEE_CONFIGURATIONS,
       Contracts.TEE_REWARD_OFFERS_MANAGER,
+      Contracts.TEE_PAYMENTS_FEE_SCHEDULE_MANAGER,
+      Contracts.TEE_PAYMENTS_REGISTRY,
     ],
     [
       addressUpdater.address,
@@ -730,10 +777,17 @@ export async function deployContracts(
       fdc2Verification.address,
       fdc2RequestFeeConfigurations.address,
       teeRewardOffersManager.address,
+      teePaymentsFeeScheduleManager.address,
+      teePaymentsRegistry.address,
     ],
     addressUpdatableContracts,
     { from: governanceAccount.address }
   );
+
+  // Register sourceId -> TeePayments bindings in the registry
+  if (sourceRegistrations.length > 0) {
+    await teePaymentsRegistry.registerSources(sourceRegistrations, { from: governanceAccount.address });
+  }
 
   await extensionManager.addSystemSupportedPlatforms(
     TEE_PLATFORMS.map((platform) => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
@@ -775,6 +829,22 @@ export async function deployContracts(
     [...teePaymentsList.map((teePayments) => teePayments.address), fdc2Hub.address],
     { from: governanceAccount.address }
   );
+
+  // Configure initial per-sourceId fee schedule limits (generous defaults for tests)
+  const allSourceIds = new Set<string>();
+  for (const cfg of TEE_PAYMENT_CONFIGURATIONS) {
+    for (const src of cfg.sourceConfigs) {
+      allSourceIds.add(src.sourceId);
+    }
+  }
+  const feeScheduleConfigInputs = Array.from(allSourceIds).map((srcId) => ({
+    maxDelaySeconds: 65535, // uint16 max
+    maxSchedules: 10,
+    sourceId: web3.utils.utf8ToHex(srcId).padEnd(66, "0"),
+  }));
+  await teePaymentsFeeScheduleManager.setFeeScheduleConfigs(feeScheduleConfigInputs, {
+    from: governanceAccount.address,
+  });
 
   await ownerAllowlist.allowAllTeeMachineOwners(0, { from: governanceAccount.address });
   await ownerAllowlist.allowAllTeeWalletProjectOwners(0, { from: governanceAccount.address });
@@ -994,6 +1064,8 @@ export async function deployContracts(
     fdcHub,
     flareTeeManager,
     teeRewardOffersManager,
+    teePaymentsFeeScheduleManager,
+    teePaymentsRegistry,
     teePayments: teePaymentsList,
     fdc2Hub,
     fdc2RequestFeeConfigurations,

@@ -4,7 +4,19 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../utils/FlareTeeManagerDeployer.sol";
 import { TeePayments } from "../../contracts/tee/implementation/TeePayments.sol";
+import {
+    TeePaymentsFeeScheduleManager
+} from "../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol";
+import {
+    TeePaymentsFeeScheduleManagerProxy
+} from "../../contracts/tee/proxy/TeePaymentsFeeScheduleManagerProxy.sol";
+import { TeePaymentsRegistry } from "../../contracts/tee/implementation/TeePaymentsRegistry.sol";
+import { TeePaymentsRegistryProxy } from "../../contracts/tee/proxy/TeePaymentsRegistryProxy.sol";
 import { TeePaymentsProxy } from "../../contracts/tee/proxy/TeePaymentsProxy.sol";
+import {
+    ITeePaymentsFeeScheduleManager
+} from "../../contracts/userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
+import { ITeePaymentsRegistry } from "../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
 import { IDiamondCut } from "../../contracts/diamond/interfaces/IDiamondCut.sol";
 import { IDiamond } from "../../contracts/diamond/interfaces/IDiamond.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
@@ -29,7 +41,7 @@ import { MachineManager } from "../../contracts/tee/library/MachineManager.sol";
  * Helper init contract to inject TEE machine state directly into Diamond storage.
  * Used by the test to bypass the full registration/attestation flow.
  */
-contract TeeTestMachineInit {
+contract TestMachineInit {
     function initMachine(
         address _teeId,
         address _owner,
@@ -62,6 +74,8 @@ contract WalletPaymentsTest is Test {
     IIFlareTeeManager private flareTeeManager;
 
     TeePayments private teePayments;
+    TeePaymentsFeeScheduleManager private teePaymentsFeeScheduleManager;
+    TeePaymentsRegistry private teePaymentsRegistry;
 
     address private governance;
     address private addressUpdater;
@@ -148,8 +162,26 @@ contract WalletPaymentsTest is Test {
         // Deploy TeePayments (separate UUPS proxy)
         // =====================================================================
 
-        bytes32[] memory supportedSourceIds = new bytes32[](1);
-        supportedSourceIds[0] = XRP_SOURCE_ID;
+        // Deploy shared fee schedule registry first (resolved by TeePayments via AddressUpdater)
+        TeePaymentsFeeScheduleManager feeMgrImpl = new TeePaymentsFeeScheduleManager();
+        TeePaymentsFeeScheduleManagerProxy feeMgrProxy = new TeePaymentsFeeScheduleManagerProxy(
+            governanceSettings,
+            governance,
+            addressUpdater,
+            address(feeMgrImpl)
+        );
+        teePaymentsFeeScheduleManager = TeePaymentsFeeScheduleManager(address(feeMgrProxy));
+
+        // Deploy TeePaymentsRegistry (resolved by TeePayments via AddressUpdater)
+        TeePaymentsRegistry registryImpl = new TeePaymentsRegistry();
+        TeePaymentsRegistryProxy registryProxy = new TeePaymentsRegistryProxy(
+            governanceSettings,
+            governance,
+            addressUpdater,
+            address(registryImpl)
+        );
+        teePaymentsRegistry = TeePaymentsRegistry(address(registryProxy));
+
         TeePayments teePaymentsImpl = new TeePayments();
         TeePaymentsProxy teePaymentsProxy = new TeePaymentsProxy(
             governanceSettings,
@@ -159,10 +191,16 @@ contract WalletPaymentsTest is Test {
             1,
             XRP_OP_TYPE,
             XRP_KEY_TYPE,
-            supportedSourceIds,
             address(teePaymentsImpl)
         );
         teePayments = TeePayments(address(teePaymentsProxy));
+
+        // Register sourceId -> TeePayments in the registry
+        ITeePaymentsRegistry.SourceRegistration[] memory regs =
+            new ITeePaymentsRegistry.SourceRegistration[](1);
+        regs[0] = ITeePaymentsRegistry.SourceRegistration(XRP_SOURCE_ID, address(teePayments));
+        vm.prank(governance);
+        teePaymentsRegistry.registerSources(regs);
 
         // =====================================================================
         // Update contract addresses
@@ -189,30 +227,53 @@ contract WalletPaymentsTest is Test {
             contractNameHashes, contractAddresses
         );
 
-        // TeePayments resolves: AddressUpdater, FlareTeeManager, FlareSystemsManager
+        // TeePayments resolves: AddressUpdater, FlareTeeManager, FlareSystemsManager,
+        // TeePaymentsFeeScheduleManager, TeePaymentsRegistry
+        contractNameHashes = new bytes32[](5);
+        contractAddresses = new address[](5);
+        contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
+        contractNameHashes[1] = keccak256(abi.encode("FlareTeeManager"));
+        contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
+        contractNameHashes[3] = keccak256(abi.encode("TeePaymentsFeeScheduleManager"));
+        contractNameHashes[4] = keccak256(abi.encode("TeePaymentsRegistry"));
+        contractAddresses[0] = addressUpdater;
+        contractAddresses[1] = address(flareTeeManager);
+        contractAddresses[2] = flareSystemsManagerMock;
+        contractAddresses[3] = address(teePaymentsFeeScheduleManager);
+        contractAddresses[4] = address(teePaymentsRegistry);
+        teePayments.updateContractAddresses(contractNameHashes, contractAddresses);
+
+        // TeePaymentsFeeScheduleManager resolves: AddressUpdater, FlareTeeManager, TeePaymentsRegistry
         contractNameHashes = new bytes32[](3);
         contractAddresses = new address[](3);
         contractNameHashes[0] = keccak256(abi.encode("AddressUpdater"));
         contractNameHashes[1] = keccak256(abi.encode("FlareTeeManager"));
-        contractNameHashes[2] = keccak256(abi.encode("FlareSystemsManager"));
+        contractNameHashes[2] = keccak256(abi.encode("TeePaymentsRegistry"));
         contractAddresses[0] = addressUpdater;
         contractAddresses[1] = address(flareTeeManager);
-        contractAddresses[2] = flareSystemsManagerMock;
-        teePayments.updateContractAddresses(contractNameHashes, contractAddresses);
+        contractAddresses[2] = address(teePaymentsRegistry);
+        teePaymentsFeeScheduleManager.updateContractAddresses(contractNameHashes, contractAddresses);
         vm.stopPrank();
+
+        // Configure source limits so custom fee schedules can be validated if used
+        ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput[] memory feeConfigInputs =
+            new ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput[](1);
+        feeConfigInputs[0] = ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput(65535, 10, XRP_SOURCE_ID);
+        vm.prank(governance);
+        teePaymentsFeeScheduleManager.setFeeScheduleConfigs(feeConfigInputs);
 
         // =====================================================================
         // Inject TEE machine state directly into Diamond storage
         // (vm.mockCall can't intercept internal library calls within the Diamond)
         // =====================================================================
         {
-            TeeTestMachineInit machineInit = new TeeTestMachineInit();
+            TestMachineInit machineInit = new TestMachineInit();
             IDiamond.FacetCut[] memory emptyCuts = new IDiamond.FacetCut[](0);
             vm.prank(governance);
             IDiamondCut(address(flareTeeManager)).diamondCut(
                 emptyCuts,
                 address(machineInit),
-                abi.encodeCall(TeeTestMachineInit.initMachine, (
+                abi.encodeCall(TestMachineInit.initMachine, (
                     teeId1, makeAddr("teeOwner1"), teeMachine1.teeProxyId, teeMachine1.url, 0
                 ))
             );
@@ -220,7 +281,7 @@ contract WalletPaymentsTest is Test {
             IDiamondCut(address(flareTeeManager)).diamondCut(
                 emptyCuts,
                 address(machineInit),
-                abi.encodeCall(TeeTestMachineInit.initMachine, (
+                abi.encodeCall(TestMachineInit.initMachine, (
                     teeId2, makeAddr("teeOwner2"), teeMachine2.teeProxyId, teeMachine2.url, 0
                 ))
             );
@@ -493,14 +554,14 @@ contract WalletPaymentsTest is Test {
         instructions[0] = instruction;
         uint256[] memory reissueFees = new uint256[](1);
         reissueFees[0] = 30;
-        int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
-        feeFactorScheduleBIPS[0] = new int16[](0);
-        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
+        int16[][] memory factorsBIPSPerPayment = new int16[][](1);
+        factorsBIPSPerPayment[0] = new int16[](0);
+        uint16[] memory delaysSeconds = new uint16[](0);
         vm.prank(authorizationAddress);
         vm.expectRevert(ITeePayments.BatchHashMismatch.selector);
         teePayments.reissue{value: 50}(
             account1, 0, 0, instructions,
-            ITeePayments.ReissueFeeParams(reissueFees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(reissueFees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }
@@ -520,9 +581,9 @@ contract WalletPaymentsTest is Test {
         instructions[0] = instruction;
         uint256[] memory reissueFees = new uint256[](1);
         reissueFees[0] = 30;
-        int16[][] memory feeFactorScheduleBIPS = new int16[][](1);
-        feeFactorScheduleBIPS[0] = new int16[](0);
-        uint16[] memory feeDelayScheduleSeconds = new uint16[](0);
+        int16[][] memory factorsBIPSPerPayment = new int16[][](1);
+        factorsBIPSPerPayment[0] = new int16[](0);
+        uint16[] memory delaysSeconds = new uint16[](0);
 
         uint256 reissueNumber = 0;
         bytes32 instructionId = keccak256(abi.encode(
@@ -566,7 +627,7 @@ contract WalletPaymentsTest is Test {
         vm.prank(authorizationAddress);
         teePayments.reissue{value: 60}(
             account1, 2, 2, instructions,
-            ITeePayments.ReissueFeeParams(reissueFees, feeFactorScheduleBIPS, feeDelayScheduleSeconds),
+            ITeePayments.ReissueFeeParams(reissueFees, factorsBIPSPerPayment, delaysSeconds),
             address(0)
         );
     }

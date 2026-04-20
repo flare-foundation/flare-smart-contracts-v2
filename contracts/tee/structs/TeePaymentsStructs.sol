@@ -2,6 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
+import { ITeePaymentsLimitsManager } from "../../userInterfaces/tee/ITeePaymentsLimitsManager.sol";
 
 
 interface TeePaymentsStructs {
@@ -14,6 +15,6 @@ interface TeePaymentsStructs {
 
     function paymentInstructionMessageStruct(ITeePayments.PaymentInstructionMessage calldata) external;
 
-    function setPaymentLimitsStruct(ITeePayments.SetPaymentLimits calldata) external;
+    function setPaymentLimitsStruct(ITeePaymentsLimitsManager.SetPaymentLimitsMessage calldata) external;
 
 }

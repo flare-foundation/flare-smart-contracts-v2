@@ -19,13 +19,13 @@ contract VrfFacet is IVrfFacet {
 
     bytes32 internal constant VRF = bytes32("VRF");
 
-    /// @custom:storage-location erc7201:tee.TeeVrf.State
+    /// @custom:storage-location erc7201:tee.Vrf.State
     struct VrfState {
         mapping(bytes32 walletId => address) vrfAuthorizationAddresses;
     }
 
     bytes32 internal constant VRF_STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("tee.TeeVrf.State")) - 1)
+        abi.encode(uint256(keccak256("tee.Vrf.State")) - 1)
     ) & ~bytes32(uint256(0xff));
 
     /**

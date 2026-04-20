@@ -6,10 +6,13 @@ import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
 import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
 import { IWalletManagerFacet } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
+import {
+    ITeePaymentsFeeScheduleManager
+} from "../../userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
+import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegistry.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { IPMWMultisigAccountConfigured } from "../../userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
-import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 
@@ -17,7 +20,6 @@ import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.so
  * TeePayments is a contract used for instructing TEE based wallets payments.
  */
 contract TeePayments is ITeePayments, TeeBase {
-    using EnumerableSet for EnumerableSet.Bytes32Set;
 
     struct AccountState {
         uint64 nonce;
@@ -25,8 +27,6 @@ contract TeePayments is ITeePayments, TeeBase {
         uint64 batchEndTs;
         uint24 batchRewardEpochId;
         uint40 batchCounter;
-        /// multiple of 4 bytes (int16 factor in BIPS, uint16 delay in seconds from start, sorted ascending)
-        bytes feeSchedule;
     }
 
     struct AccountSettings {
@@ -52,20 +52,14 @@ contract TeePayments is ITeePayments, TeeBase {
         bytes32 instructionId;
         address[] cosigners;
         uint64 cosignersThreshold;
-        bytes defaultFeeSchedule;
         address claimBackAddress;
     }
 
-    /// @dev default fee schedule: factor 1 (10000 BIPS = 0x2710), delay 0 seconds (0x0000)
-    bytes public constant DEFAULT_FEE_SCHEDULE = hex"27100000";
-
     bytes32 internal constant PAY = bytes32("PAY");
     bytes32 internal constant REISSUE = bytes32("REISSUE");
-    bytes32 internal constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
 
     bytes32 internal opType;
     bytes32 internal keyType;
-    EnumerableSet.Bytes32Set internal supportedSourceIds;
     uint64 public maxBatchSize;
     uint64 public maxBatchDurationSeconds;
 
@@ -73,16 +67,18 @@ contract TeePayments is ITeePayments, TeeBase {
     mapping(bytes32 accountHash => bytes32 walletId) private accountHashToWalletId;
     mapping(bytes32 accountHash => AccountState) private states;
     mapping(bytes32 accountHash => AccountSettings) private settings;
-    mapping(bytes32 accountHash => bytes) private accountFeeSchedule;
     mapping(bytes32 accountHash => mapping(uint256 nonce => bytes32)) private hashes;
     mapping(bytes32 accountHash => mapping(uint256 nonce => uint256)) private reissueCounter;
-    mapping(bytes32 accountHash => uint256) private setPaymentLimitsNonce;
     mapping(bytes32 accountHash => address) private authorizationAddresses;
 
     /// FlareTeeManager Diamond contract.
     IIFlareTeeManager public flareTeeManager;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
+    /// Shared fee schedule registry.
+    ITeePaymentsFeeScheduleManager public teePaymentsFeeScheduleManager;
+    /// Shared sourceId -> TeePayments registry.
+    ITeePaymentsRegistry public teePaymentsRegistry;
 
     modifier onlyWalletOwner(PMWMultisigAccount calldata _account) {
         _checkOnlyWalletOwner(_account);
@@ -105,15 +101,13 @@ contract TeePayments is ITeePayments, TeeBase {
         uint64 _maxBatchSize,
         uint64 _maxBatchDurationSeconds,
         bytes32 _opType,
-        bytes32 _keyType,
-        bytes32[] calldata _supportedSourceIds
+        bytes32 _keyType
     )
         external virtual
     {
         require(_maxBatchSize > 0, MaxBatchSizeZero());
         require(_opType != bytes32(0), OpTypeZero());
         require(_keyType != bytes32(0), KeyTypeZero());
-        require(_supportedSourceIds.length > 0, SupportedSourceIdsLengthZero());
 
         TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
 
@@ -121,7 +115,6 @@ contract TeePayments is ITeePayments, TeeBase {
         maxBatchDurationSeconds = _maxBatchDurationSeconds;
         opType = _opType;
         keyType = _keyType;
-        _addSupportedSourceIds(_supportedSourceIds);
     }
 
     /**
@@ -160,7 +153,6 @@ contract TeePayments is ITeePayments, TeeBase {
             state.batchRewardEpochId = currentRewardEpochId;
             state.batchEndTs = uint64(block.timestamp) + setting.batchDurationSeconds;
             state.batchCounter = 1;
-            state.feeSchedule = accountFeeSchedule[accountHash];
             hashes[accountHash][state.nonce++] = _getBatchHash(_paymentInstruction, state.subNonce);
         } else {
             ++state.batchCounter;
@@ -180,7 +172,12 @@ contract TeePayments is ITeePayments, TeeBase {
         message.tokenId = _paymentInstruction.tokenId;
         message.amount = _paymentInstruction.amount;
         message.maxFee = _paymentInstruction.maxFee;
-        message.feeSchedule = state.feeSchedule.length > 0 ? state.feeSchedule : DEFAULT_FEE_SCHEDULE;
+        bytes32 projectId = flareTeeManager.getWalletProjectId(tempState.walletId);
+        message.feeSchedule = teePaymentsFeeScheduleManager.getEffectiveSchedule(
+            projectId,
+            _account.sourceId,
+            accountHash
+        );
         message.paymentReference = _paymentInstruction.paymentReference;
         message.nonce = state.nonce - 1;
         message.subNonce = state.subNonce++;
@@ -220,20 +217,12 @@ contract TeePayments is ITeePayments, TeeBase {
     {
         require(_paymentInstructions.length > 0, NoPaymentInstructions());
         require(
-            _paymentInstructions.length == _reissueFeeParams.maxFees.length &&
-            (_reissueFeeParams.maxFees.length == _reissueFeeParams.feeFactorScheduleBIPS.length ||
-            _reissueFeeParams.feeFactorScheduleBIPS.length == 0 &&
-            _reissueFeeParams.feeDelayScheduleSeconds.length == 0),
+            _paymentInstructions.length == _reissueFeeParams.maxFeePerPayment.length &&
+            (_reissueFeeParams.maxFeePerPayment.length == _reissueFeeParams.factorsBIPSPerPayment.length ||
+            _reissueFeeParams.factorsBIPSPerPayment.length == 0 &&
+            _reissueFeeParams.delaysSeconds.length == 0),
             LengthsMismatch()
         );
-        for (uint256 i = 0; i < _reissueFeeParams.feeFactorScheduleBIPS.length; i++) {
-            require(
-                _reissueFeeParams.feeFactorScheduleBIPS[i].length ==
-                _reissueFeeParams.feeDelayScheduleSeconds.length,
-                LengthsMismatch()
-            );
-        }
-        _checkDelays(_reissueFeeParams.feeDelayScheduleSeconds);
         ReissueTempState memory tempState;
         tempState.accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
         tempState.claimBackAddress = _claimBackAddress;
@@ -275,9 +264,19 @@ contract TeePayments is ITeePayments, TeeBase {
         (tempState.cosigners, tempState.cosignersThreshold) =
             flareTeeManager.getWalletCosignersAndThreshold(message.walletId);
 
-        if (_reissueFeeParams.feeDelayScheduleSeconds.length == 0) { // to save gas as not needed otherwise
-            tempState.defaultFeeSchedule = (accountFeeSchedule[tempState.accountHash].length > 0) ?
-                accountFeeSchedule[tempState.accountHash] : DEFAULT_FEE_SCHEDULE;
+        bytes32 projectId = flareTeeManager.getWalletProjectId(message.walletId);
+        bytes memory defaultFeeSchedule = teePaymentsFeeScheduleManager.getEffectiveSchedule(
+            projectId,
+            _account.sourceId,
+            tempState.accountHash
+        );
+        bytes[] memory encodedSchedules;
+        if (_reissueFeeParams.factorsBIPSPerPayment.length > 0) {
+            encodedSchedules = teePaymentsFeeScheduleManager.validateAndEncodeSchedules(
+                _account.sourceId,
+                _reissueFeeParams.factorsBIPSPerPayment,
+                _reissueFeeParams.delaysSeconds
+            );
         }
 
         tempState.instructionId = keccak256(abi.encode(
@@ -286,21 +285,15 @@ contract TeePayments is ITeePayments, TeeBase {
         // reissue batch
         tempState.remainingAmount = msg.value;
         for (uint256 i = 0; i < _paymentInstructions.length; i++) {
-            bytes memory feeSchedule;
-            if (_reissueFeeParams.feeFactorScheduleBIPS.length > 0) {
-                feeSchedule = _getFeeSchedule(
-                    _reissueFeeParams.feeFactorScheduleBIPS[i],
-                    _reissueFeeParams.feeDelayScheduleSeconds
-                );
-            }
-            if (feeSchedule.length == 0) {
-                feeSchedule = tempState.defaultFeeSchedule;
-            }
+            bytes memory feeSchedule =
+                (encodedSchedules.length > 0 && encodedSchedules[i].length > 0)
+                    ? encodedSchedules[i]
+                    : defaultFeeSchedule;
 
             message.recipientAddress = _paymentInstructions[i].recipientAddress;
             message.tokenId = _paymentInstructions[i].tokenId;
             message.amount = _paymentInstructions[i].amount;
-            message.maxFee = _reissueFeeParams.maxFees[i];
+            message.maxFee = _reissueFeeParams.maxFeePerPayment[i];
             message.feeSchedule = feeSchedule;
             message.paymentReference = _paymentInstructions[i].paymentReference;
 
@@ -337,7 +330,10 @@ contract TeePayments is ITeePayments, TeeBase {
         require(flareTeeManager.getExtensionId(projectId) == 0, OnlySystemExtensionId());
         require(flareTeeManager.getKeyType(projectId) == keyType, WrongKeyType());
         require(bytes(_proof.requestBody.accountAddress).length > 0, AccountAddressZero());
-        require(supportedSourceIds.contains(_proof.header.sourceId), UnsupportedSourceId());
+        require(
+            teePaymentsRegistry.getTeePaymentsForSource(_proof.header.sourceId) == address(this),
+            UnsupportedSourceId()
+        );
         require(_authorizationAddress != address(0), AuthorizationAddressZero());
         bytes32 accountHash = _toAccountHash(_proof.header.sourceId, _proof.requestBody.accountAddress);
         require(accountHashToWalletId[accountHash] == 0, PMWMultisigAccountAddressAlreadySet());
@@ -390,90 +386,6 @@ contract TeePayments is ITeePayments, TeeBase {
             _batchSize,
             _batchDurationSeconds
         );
-    }
-
-    /**
-     * @inheritdoc ITeePayments
-     */
-    function setFeeSchedule(
-        PMWMultisigAccount calldata _account,
-        int16[] calldata _factorsBIPS,
-        uint16[] calldata _delaysSeconds
-    )
-        external
-        onlyWalletOwner(_account)
-    {
-        require(_factorsBIPS.length == _delaysSeconds.length, LengthsMismatch());
-        _checkDelays(_delaysSeconds);
-        bytes memory feeSchedule = _getFeeSchedule(_factorsBIPS, _delaysSeconds);
-        bytes32 accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
-        accountFeeSchedule[accountHash] = feeSchedule;
-        emit FeeScheduleSet(
-            accountHashToWalletId[accountHash],
-            _account.sourceId,
-            _account.accountAddress,
-            _factorsBIPS,
-            _delaysSeconds
-        );
-    }
-
-    /**
-     * @inheritdoc ITeePayments
-     */
-    function setPaymentLimits(
-        PMWMultisigAccount calldata _account,
-        uint256 _transactionLimit,
-        uint256 _dailyLimit,
-        address _claimBackAddress
-    )
-        external payable
-        onlyWalletOwner(_account)
-    {
-        require(_dailyLimit >= _transactionLimit, DailyLimitBelowTransactionLimit());
-        bytes32 accountHash = _toAccountHash(_account.sourceId, _account.accountAddress);
-        bytes32 walletId = accountHashToWalletId[accountHash];
-        TeeIdKeyIdPair[] memory teeIdKeyIdPairs = flareTeeManager.receivingTeesAndKeys(walletId);
-
-        SetPaymentLimits memory message = SetPaymentLimits({
-            walletId: walletId,
-            sourceId: _account.sourceId,
-            accountAddress: _account.accountAddress,
-            nonce: setPaymentLimitsNonce[accountHash]++,
-            teeIdKeyIdPairs: teeIdKeyIdPairs,
-            transactionLimit: _transactionLimit,
-            dailyLimit: _dailyLimit
-        });
-        (address[] memory admins, uint64 adminsThreshold) = flareTeeManager.getWalletAdminsAndThreshold(walletId);
-
-        _sendSetPaymentLimitsInstructions(
-            _toTeeIds(teeIdKeyIdPairs),
-            abi.encode(message),
-            admins,
-            adminsThreshold,
-            _claimBackAddress
-        );
-        emit PaymentLimitsSet(
-            walletId,
-            _account.sourceId,
-            _account.accountAddress,
-            _transactionLimit,
-            _dailyLimit
-        );
-    }
-
-    /**
-     * Adds supported source ids.
-     * Emits SupportedSourceIdsAdded events.
-     * @param _sourceIds The source ids to add.
-     * Can only be called by the governance.
-     */
-    function addSupportedSourceIds(
-        bytes32[] calldata _sourceIds
-    )
-        external
-        onlyGovernance
-    {
-        _addSupportedSourceIds(_sourceIds);
     }
 
     /**
@@ -540,29 +452,6 @@ contract TeePayments is ITeePayments, TeeBase {
     /**
      * @inheritdoc ITeePayments
      */
-    function getFeeSchedule(
-        PMWMultisigAccount calldata _account
-    )
-        external view
-        returns (
-            int16[] memory _factorsBIPS,
-            uint16[] memory _delaysSeconds
-        )
-    {
-        bytes memory feeSchedule = accountFeeSchedule[_toAccountHash(_account.sourceId, _account.accountAddress)];
-        uint256 length = feeSchedule.length / 4;
-        _factorsBIPS = new int16[](length);
-        _delaysSeconds = new uint16[](length);
-        for (uint256 i = 0; i < length; i++) {
-            uint256 offset = i * 4;
-            _factorsBIPS[i] = int16(uint16(uint8(feeSchedule[offset])) << 8 | uint16(uint8(feeSchedule[offset + 1])));
-            _delaysSeconds[i] = uint16(uint8(feeSchedule[offset + 2])) << 8 | uint16(uint8(feeSchedule[offset + 3]));
-        }
-    }
-
-    /**
-     * @inheritdoc ITeePayments
-     */
     function getAuthorizationAddress(
         PMWMultisigAccount calldata _account
     )
@@ -570,28 +459,6 @@ contract TeePayments is ITeePayments, TeeBase {
         returns (address _authorizationAddress)
     {
         return authorizationAddresses[_toAccountHash(_account.sourceId, _account.accountAddress)];
-    }
-
-    /**
-     * @inheritdoc ITeePayments
-     */
-    function getSupportedSourceIds()
-        external view
-        returns (bytes32[] memory)
-    {
-        return supportedSourceIds.values();
-    }
-
-    /**
-     * @inheritdoc ITeePayments
-     */
-    function isSourceIdSupported(
-        bytes32 _sourceId
-    )
-        external view
-        returns (bool)
-    {
-        return supportedSourceIds.contains(_sourceId);
     }
 
     /**
@@ -607,6 +474,10 @@ contract TeePayments is ITeePayments, TeeBase {
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareTeeManager"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
+        teePaymentsFeeScheduleManager = ITeePaymentsFeeScheduleManager(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsFeeScheduleManager"));
+        teePaymentsRegistry = ITeePaymentsRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsRegistry"));
     }
 
     function _sendPaymentInstructions(
@@ -633,40 +504,6 @@ contract TeePayments is ITeePayments, TeeBase {
                 _claimBackAddress
             )
         );
-    }
-
-    function _sendSetPaymentLimitsInstructions(
-        address[] memory _teeIds,
-        bytes memory _message,
-        address[] memory _cosigners,
-        uint64 _cosignersThreshold,
-        address _claimBackAddress
-    )
-        internal
-    {
-        flareTeeManager.sendInstructions{value: msg.value}(
-            _teeIds,
-            IInstructionsFacet.TeeInstructionParams(
-                opType,
-                SET_PAYMENT_LIMITS,
-                _message,
-                _cosigners,
-                _cosignersThreshold,
-                _claimBackAddress
-            )
-        );
-    }
-
-    function _addSupportedSourceIds(
-        bytes32[] calldata _sourceIds
-    )
-        internal
-    {
-        for (uint256 i = 0; i < _sourceIds.length; i++) {
-            require(_sourceIds[i] != bytes32(0), SourceIdZero(i));
-            require(supportedSourceIds.add(_sourceIds[i]), SourceIdAlreadyExists(_sourceIds[i]));
-        }
-        emit SupportedSourceIdsAdded(_sourceIds);
     }
 
     function _checkOnlyWalletOwner(
@@ -729,38 +566,6 @@ contract TeePayments is ITeePayments, TeeBase {
         return keccak256(abi.encode(_sourceId, _accountAddress));
     }
 
-    // _factorsBIPS and _delaysSeconds have the same length
-    function _getFeeSchedule(
-        int16[] calldata _factorsBIPS,
-        uint16[] calldata _delaysSeconds
-    )
-        internal pure
-        returns (bytes memory _feeSchedule)
-    {
-        _feeSchedule = new bytes(_factorsBIPS.length * 4);
-        for (uint256 i = 0; i < _factorsBIPS.length; i++) {
-            require(
-                -10000 <= _factorsBIPS[i] && _factorsBIPS[i] <= 10000 && _factorsBIPS[i] != 0,
-                InvalidFeeFactor(i)
-            );
-            uint256 offset = i * 4;
-            _feeSchedule[offset] = bytes1(uint8(uint16(_factorsBIPS[i]) >> 8));
-            _feeSchedule[offset + 1] = bytes1(uint8(uint16(_factorsBIPS[i])));
-            _feeSchedule[offset + 2] = bytes1(uint8(_delaysSeconds[i] >> 8));
-            _feeSchedule[offset + 3] = bytes1(uint8(_delaysSeconds[i]));
-        }
-    }
-
-    function _checkDelays(
-        uint16[] calldata _delaysSeconds
-    )
-        internal pure
-    {
-        for (uint256 i = 0; i < _delaysSeconds.length; i++) {
-            require(i == 0 || _delaysSeconds[i] > _delaysSeconds[i - 1], InvalidFeeDelay(i));
-        }
-    }
-
     function _getBatchHash(
         PaymentInstruction calldata _paymentInstruction,
         uint256 _subNonce
@@ -771,7 +576,7 @@ contract TeePayments is ITeePayments, TeeBase {
         return keccak256(abi.encode(_paymentInstruction, _subNonce));
     }
 
-     function _getBatchHash(
+    function _getBatchHash(
         bytes32 _previousHash,
         PaymentInstruction calldata _paymentInstruction,
         uint256 _subNonce

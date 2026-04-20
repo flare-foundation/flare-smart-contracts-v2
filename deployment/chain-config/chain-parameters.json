@@ -347,10 +347,10 @@
                     "description": "Payment operation type - F_XRP, F_BTC, F_DOGE, F_EVM,...",
                     "type": "string"
                 },
-                "sourceIds": {
-                    "description": "Source ids.",
+                "sourceConfigs": {
+                    "description": "Per-source id configuration (source id + fee schedule limits).",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/TeePaymentSourceConfig"
                     },
                     "type": "array"
                 }
@@ -360,7 +360,30 @@
                 "maxBatchDurationSeconds",
                 "maxBatchSize",
                 "opType",
-                "sourceIds"
+                "sourceConfigs"
+            ],
+            "type": "object"
+        },
+        "TeePaymentSourceConfig": {
+            "additionalProperties": false,
+            "properties": {
+                "maxFeeDelaySeconds": {
+                    "description": "Maximum delay (in seconds) allowed in a fee schedule entry for this source.",
+                    "type": "integer"
+                },
+                "maxFeeSchedules": {
+                    "description": "Maximum number of (factor, delay) pairs allowed in a fee schedule for this source.",
+                    "type": "integer"
+                },
+                "sourceId": {
+                    "description": "Source id string (e.g., \"XRP\", \"BTC\").",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "maxFeeDelaySeconds",
+                "maxFeeSchedules",
+                "sourceId"
             ],
             "type": "object"
         }

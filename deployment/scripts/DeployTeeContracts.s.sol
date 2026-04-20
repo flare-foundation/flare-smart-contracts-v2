@@ -72,6 +72,22 @@ import {Fdc2VerificationProxy} from
 // TEE UUPS contracts
 import {TeePayments} from "../../contracts/tee/implementation/TeePayments.sol";
 import {TeePaymentsProxy} from "../../contracts/tee/proxy/TeePaymentsProxy.sol";
+import {TeePaymentsFeeScheduleManager} from
+    "../../contracts/tee/implementation/TeePaymentsFeeScheduleManager.sol";
+import {TeePaymentsFeeScheduleManagerProxy} from
+    "../../contracts/tee/proxy/TeePaymentsFeeScheduleManagerProxy.sol";
+import {ITeePaymentsFeeScheduleManager} from
+    "../../contracts/userInterfaces/tee/ITeePaymentsFeeScheduleManager.sol";
+import {TeePaymentsLimitsManager} from
+    "../../contracts/tee/implementation/TeePaymentsLimitsManager.sol";
+import {TeePaymentsLimitsManagerProxy} from
+    "../../contracts/tee/proxy/TeePaymentsLimitsManagerProxy.sol";
+import {TeePaymentsRegistry} from
+    "../../contracts/tee/implementation/TeePaymentsRegistry.sol";
+import {TeePaymentsRegistryProxy} from
+    "../../contracts/tee/proxy/TeePaymentsRegistryProxy.sol";
+import {ITeePaymentsRegistry} from
+    "../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
 import {TeeRewardOffersManager} from
     "../../contracts/tee/implementation/TeeRewardOffersManager.sol";
 import {VrfVerifier} from "../../contracts/tee/implementation/VrfVerifier.sol";
@@ -105,12 +121,20 @@ contract DeployTeeContracts is Script {
         string[] signingAlgos;
     }
 
+    // NOTE: stdJson parses struct fields in alphabetical order of JSON keys.
+    // Keep field names alphabetical: maxFeeDelaySeconds, maxFeeSchedules, sourceId.
+    struct PaymentSourceConfig {
+        uint256 maxFeeDelaySeconds;
+        uint256 maxFeeSchedules;
+        string sourceId;
+    }
+
     struct PaymentConfiguration {
         string keyType;
         uint256 maxBatchDurationSeconds;
         uint256 maxBatchSize;
         string opType;
-        string[] sourceIds;
+        PaymentSourceConfig[] sourceConfigs;
     }
 
     struct Fdc2RequestFee {
@@ -171,6 +195,12 @@ contract DeployTeeContracts is Script {
     address private fdc2VerificationAddr;
     address[] private teePaymentsAddresses;
     address private teeRewardOffersManagerAddr;
+    address private teePaymentsFeeScheduleManagerAddr;
+    address private teePaymentsLimitsManagerAddr;
+    address private teePaymentsRegistryAddr;
+
+    // Registry entries — one entry per configured sourceId across all TeePayments proxies.
+    ITeePaymentsRegistry.SourceRegistration[] private sourceRegistrations;
 
     // =========================================================================
     // Entry point
@@ -206,17 +236,28 @@ contract DeployTeeContracts is Script {
 
         // Phase 2: Deploy remaining TEE contracts
         _deployFdc2Contracts();
+        _deployTeePaymentsRegistry();
         _deployTeePayments();
+        _deployTeePaymentsFeeScheduleManager();
+        if (_fullDeploy) {
+            _deployTeePaymentsLimitsManager();
+        } else {
+            console2.log(
+                "Skipping TeePaymentsLimitsManager as per input flag"
+            );
+        }
         _deployTeeRewardOffersManager();
         _deployVrfVerifier();
 
         // Phase 3: Wire up and configure
-        _wireUpContractAddresses();
-        _registerSystemInstructionsSenders();
+        _wireUpContractAddresses(_fullDeploy);
+        _registerSystemInstructionsSenders(_fullDeploy);
         _configureFdc2RequestFees();
+        _registerTeePaymentsSources();
+        _configureFeeScheduleSourceLimits();
 
         // Phase 4: Switch all governed contracts to production mode
-        _switchToProductionMode();
+        _switchToProductionMode(_fullDeploy);
 
         vm.stopBroadcast();
     }
@@ -571,10 +612,10 @@ contract DeployTeeContracts is Script {
             vm.parseJsonUint(
                 config, ".teePauseBeforeUpgradeMinDurationSeconds"
             );
-        ReplicationInit teeReplicationInit = new ReplicationInit();
+        ReplicationInit replicationInit = new ReplicationInit();
         IDiamondCut(flareTeeManagerAddress).diamondCut(
             laterFacets,
-            address(teeReplicationInit),
+            address(replicationInit),
             abi.encodeWithSelector(
                 ReplicationInit.init.selector,
                 pauseBeforeUpgradeMinDurationSeconds
@@ -584,7 +625,7 @@ contract DeployTeeContracts is Script {
         _logDeployed(
             "ReplicationInit",
             "ReplicationInit.sol",
-            address(teeReplicationInit)
+            address(replicationInit)
         );
     }
 
@@ -685,6 +726,22 @@ contract DeployTeeContracts is Script {
                 "TeePaymentsProxy.sol",
                 proxyAddr
             );
+
+            // Track sourceId -> TeePayments binding for the registry.
+            for (
+                uint256 j = 0;
+                j < paymentConfigs[i].sourceConfigs.length;
+                j++
+            ) {
+                sourceRegistrations.push(
+                    ITeePaymentsRegistry.SourceRegistration({
+                        sourceId: bytes32(
+                            bytes(paymentConfigs[i].sourceConfigs[j].sourceId)
+                        ),
+                        teePayments: proxyAddr
+                    })
+                );
+            }
         }
     }
 
@@ -697,10 +754,6 @@ contract DeployTeeContracts is Script {
     {
         bytes32 opType = bytes32(bytes(_pc.opType));
         bytes32 keyType = bytes32(bytes(_pc.keyType));
-        bytes32[] memory sourceIds = new bytes32[](_pc.sourceIds.length);
-        for (uint256 j = 0; j < _pc.sourceIds.length; j++) {
-            sourceIds[j] = bytes32(bytes(_pc.sourceIds[j]));
-        }
 
         TeePaymentsProxy proxy = new TeePaymentsProxy(
             IGovernanceSettings(governanceSettings),
@@ -710,7 +763,6 @@ contract DeployTeeContracts is Script {
             uint64(_pc.maxBatchDurationSeconds),
             opType,
             keyType,
-            sourceIds,
             _impl
         );
         return address(proxy);
@@ -739,6 +791,87 @@ contract DeployTeeContracts is Script {
     }
 
     // =========================================================================
+    // Deploy TeePaymentsRegistry (always deployed, before TeePayments)
+    // =========================================================================
+
+    function _deployTeePaymentsRegistry() internal {
+        TeePaymentsRegistry impl = new TeePaymentsRegistry();
+        _logDeployed(
+            "TeePaymentsRegistryImplementation",
+            "TeePaymentsRegistry.sol",
+            address(impl)
+        );
+
+        TeePaymentsRegistryProxy proxy = new TeePaymentsRegistryProxy(
+            IGovernanceSettings(governanceSettings),
+            deployer,
+            deployer,
+            address(impl)
+        );
+        teePaymentsRegistryAddr = address(proxy);
+        _logDeployed(
+            "TeePaymentsRegistry",
+            "TeePaymentsRegistryProxy.sol",
+            teePaymentsRegistryAddr
+        );
+    }
+
+    // =========================================================================
+    // Deploy TeePaymentsFeeScheduleManager (always deployed)
+    // =========================================================================
+
+    function _deployTeePaymentsFeeScheduleManager() internal {
+        TeePaymentsFeeScheduleManager impl =
+            new TeePaymentsFeeScheduleManager();
+        _logDeployed(
+            "TeePaymentsFeeScheduleManagerImplementation",
+            "TeePaymentsFeeScheduleManager.sol",
+            address(impl)
+        );
+
+        TeePaymentsFeeScheduleManagerProxy proxy =
+            new TeePaymentsFeeScheduleManagerProxy(
+                IGovernanceSettings(governanceSettings),
+                deployer,
+                deployer,
+                address(impl)
+            );
+        teePaymentsFeeScheduleManagerAddr = address(proxy);
+        _logDeployed(
+            "TeePaymentsFeeScheduleManager",
+            "TeePaymentsFeeScheduleManagerProxy.sol",
+            teePaymentsFeeScheduleManagerAddr
+        );
+    }
+
+    // =========================================================================
+    // Deploy TeePaymentsLimitsManager (gated by _fullDeploy)
+    // =========================================================================
+
+    function _deployTeePaymentsLimitsManager() internal {
+        TeePaymentsLimitsManager impl = new TeePaymentsLimitsManager();
+        _logDeployed(
+            "TeePaymentsLimitsManagerImplementation",
+            "TeePaymentsLimitsManager.sol",
+            address(impl)
+        );
+
+        TeePaymentsLimitsManagerProxy proxy =
+            new TeePaymentsLimitsManagerProxy(
+                IGovernanceSettings(governanceSettings),
+                deployer,
+                deployer,
+                address(impl)
+            );
+        teePaymentsLimitsManagerAddr = address(proxy);
+        _logDeployed(
+            "TeePaymentsLimitsManager",
+            "TeePaymentsLimitsManagerProxy.sol",
+            teePaymentsLimitsManagerAddr
+        );
+    }
+
+    // =========================================================================
     // Deploy VrfVerifier
     // =========================================================================
 
@@ -753,12 +886,27 @@ contract DeployTeeContracts is Script {
     // Wire up contract addresses
     // =========================================================================
 
-    function _wireUpContractAddresses() internal {
+    function _wireUpContractAddresses(bool _fullDeploy) internal {
         _wireFlareTeeManager();
         _wireFdc2Hub();
         _wireFdc2Verification();
         _wireTeePayments();
         _wireTeeRewardOffersManager();
+        _wireTeePaymentsFeeScheduleManager();
+        _wireTeePaymentsRegistry();
+        if (_fullDeploy) {
+            _wireTeePaymentsLimitsManager();
+        }
+    }
+
+    function _wireTeePaymentsRegistry() internal {
+        // Registry has no upstream dependencies; still needs AddressUpdater wired for consistency.
+        bytes32[] memory names = new bytes32[](1);
+        names[0] = _encodeContractName("AddressUpdater");
+        address[] memory addrs = new address[](1);
+        addrs[0] = addressUpdater;
+        TeePaymentsRegistry(teePaymentsRegistryAddr)
+            .updateContractAddresses(names, addrs);
     }
 
     function _wireFlareTeeManager() internal {
@@ -810,14 +958,18 @@ contract DeployTeeContracts is Script {
     }
 
     function _wireTeePayments() internal {
-        bytes32[] memory names = new bytes32[](3);
+        bytes32[] memory names = new bytes32[](5);
         names[0] = _encodeContractName("AddressUpdater");
         names[1] = _encodeContractName("FlareTeeManager");
         names[2] = _encodeContractName("FlareSystemsManager");
-        address[] memory addrs = new address[](3);
+        names[3] = _encodeContractName("TeePaymentsFeeScheduleManager");
+        names[4] = _encodeContractName("TeePaymentsRegistry");
+        address[] memory addrs = new address[](5);
         addrs[0] = addressUpdater;
         addrs[1] = flareTeeManagerAddress;
         addrs[2] = flareSystemsManager;
+        addrs[3] = teePaymentsFeeScheduleManagerAddr;
+        addrs[4] = teePaymentsRegistryAddr;
         for (uint256 i = 0; i < teePaymentsAddresses.length; i++) {
             TeePayments(teePaymentsAddresses[i])
                 .updateContractAddresses(names, addrs);
@@ -839,19 +991,120 @@ contract DeployTeeContracts is Script {
             .updateContractAddresses(names, addrs);
     }
 
+    function _wireTeePaymentsFeeScheduleManager() internal {
+        bytes32[] memory names = new bytes32[](3);
+        names[0] = _encodeContractName("AddressUpdater");
+        names[1] = _encodeContractName("FlareTeeManager");
+        names[2] = _encodeContractName("TeePaymentsRegistry");
+        address[] memory addrs = new address[](3);
+        addrs[0] = addressUpdater;
+        addrs[1] = flareTeeManagerAddress;
+        addrs[2] = teePaymentsRegistryAddr;
+        TeePaymentsFeeScheduleManager(teePaymentsFeeScheduleManagerAddr)
+            .updateContractAddresses(names, addrs);
+    }
+
+    function _wireTeePaymentsLimitsManager() internal {
+        bytes32[] memory names = new bytes32[](3);
+        names[0] = _encodeContractName("AddressUpdater");
+        names[1] = _encodeContractName("FlareTeeManager");
+        names[2] = _encodeContractName("TeePaymentsRegistry");
+        address[] memory addrs = new address[](3);
+        addrs[0] = addressUpdater;
+        addrs[1] = flareTeeManagerAddress;
+        addrs[2] = teePaymentsRegistryAddr;
+        TeePaymentsLimitsManager(teePaymentsLimitsManagerAddr)
+            .updateContractAddresses(names, addrs);
+    }
+
     // =========================================================================
     // Register system instructions senders
     // =========================================================================
 
-    function _registerSystemInstructionsSenders() internal {
+    function _registerSystemInstructionsSenders(
+        bool _fullDeploy
+    )
+        internal
+    {
+        uint256 extraSenders = _fullDeploy ? 2 : 1;
         address[] memory senders =
-            new address[](teePaymentsAddresses.length + 1);
+            new address[](teePaymentsAddresses.length + extraSenders);
         for (uint256 i = 0; i < teePaymentsAddresses.length; i++) {
             senders[i] = teePaymentsAddresses[i];
         }
         senders[teePaymentsAddresses.length] = fdc2HubAddr;
+        if (_fullDeploy) {
+            senders[teePaymentsAddresses.length + 1] =
+                teePaymentsLimitsManagerAddr;
+        }
+        console2.log(
+            "Registering system instructions senders, count:",
+            senders.length
+        );
         InstructionsFacet(flareTeeManagerAddress)
             .registerSystemInstructionsSenders(senders);
+    }
+
+    // =========================================================================
+    // Configure TeePaymentsFeeScheduleManager per-source limits
+    // =========================================================================
+
+    function _configureFeeScheduleSourceLimits() internal {
+        PaymentConfiguration[] memory paymentConfigs = abi.decode(
+            vm.parseJson(config, ".teePaymentConfigurations"),
+            (PaymentConfiguration[])
+        );
+
+        uint256 totalSources;
+        for (uint256 i = 0; i < paymentConfigs.length; i++) {
+            totalSources += paymentConfigs[i].sourceConfigs.length;
+        }
+        if (totalSources == 0) return;
+
+        ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput[] memory inputs =
+            new ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput[](
+                totalSources
+            );
+        uint256 k;
+        for (uint256 i = 0; i < paymentConfigs.length; i++) {
+            for (uint256 j = 0; j < paymentConfigs[i].sourceConfigs.length; j++) {
+                PaymentSourceConfig memory src = paymentConfigs[i].sourceConfigs[j];
+                inputs[k++] = ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput({
+                    maxDelaySeconds: uint16(src.maxFeeDelaySeconds),
+                    maxSchedules: uint8(src.maxFeeSchedules),
+                    sourceId: bytes32(bytes(src.sourceId))
+                });
+            }
+        }
+
+        console2.log(
+            "Setting fee schedule source config, count:", totalSources
+        );
+        TeePaymentsFeeScheduleManager(teePaymentsFeeScheduleManagerAddr)
+            .setFeeScheduleConfigs(inputs);
+    }
+
+    // =========================================================================
+    // Register sourceId -> TeePayments in the registry (single batch call)
+    // =========================================================================
+
+    function _registerTeePaymentsSources() internal {
+        if (sourceRegistrations.length == 0) return;
+
+        ITeePaymentsRegistry.SourceRegistration[] memory inputs =
+            new ITeePaymentsRegistry.SourceRegistration[](
+                sourceRegistrations.length
+            );
+        for (uint256 i = 0; i < sourceRegistrations.length; i++) {
+            inputs[i] = sourceRegistrations[i];
+        }
+
+        console2.log(
+            "Registering sourceIds in TeePaymentsRegistry, count:",
+            sourceRegistrations.length
+        );
+        TeePaymentsRegistry(teePaymentsRegistryAddr)
+            .registerSources(inputs);
     }
 
     // =========================================================================
@@ -862,6 +1115,10 @@ contract DeployTeeContracts is Script {
         Fdc2RequestFee[] memory fees = abi.decode(
             vm.parseJson(config, ".fdc2RequestFees"),
             (Fdc2RequestFee[])
+        );
+        console2.log(
+            "Setting FDC2 request fees, count:",
+            fees.length
         );
         for (uint256 i = 0; i < fees.length; i++) {
             Fdc2RequestFeeConfigurations(fdc2FeeAddr).setTypeAndSourceFee(
@@ -876,7 +1133,10 @@ contract DeployTeeContracts is Script {
     // Switch to production mode
     // =========================================================================
 
-    function _switchToProductionMode() internal {
+    function _switchToProductionMode(bool _fullDeploy) internal {
+        console2.log(
+            "Switching to production mode"
+        );
         // FlareTeeManager diamond
         DiamondGovernanceFacet(flareTeeManagerAddress)
             .switchToProductionMode();
@@ -893,28 +1153,37 @@ contract DeployTeeContracts is Script {
         // TeeRewardOffersManager
         TeeRewardOffersManager(teeRewardOffersManagerAddr)
             .switchToProductionMode();
+        // TeePaymentsFeeScheduleManager (always deployed)
+        TeePaymentsFeeScheduleManager(teePaymentsFeeScheduleManagerAddr)
+            .switchToProductionMode();
+        // TeePaymentsRegistry (always deployed)
+        TeePaymentsRegistry(teePaymentsRegistryAddr)
+            .switchToProductionMode();
+        // TeePaymentsLimitsManager (only in full deploy)
+        if (_fullDeploy) {
+            TeePaymentsLimitsManager(teePaymentsLimitsManagerAddr)
+                .switchToProductionMode();
+        }
     }
 
+    // =========================================================================
+    // Network resolution
+    // =========================================================================
+    function _resolveNetwork()
+        internal view
+        returns (string memory)
+    {
+        uint256 chainId = block.chainid;
+        if (chainId == 14) return "flare";
+        if (chainId == 19) return "songbird";
+        if (chainId == 16) return "coston";
+        if (chainId == 114) return "coston2";
+        return "scdev";
+    }
 
     // =========================================================================
     // Logging (format matches save-deployed-addresses.ts parser)
     // =========================================================================
-
-    function _logDeployed(
-        string memory _name,
-        string memory _contractName,
-        address _addr
-    )
-        internal view
-    {
-        console2.log(
-            string.concat(
-                "DEPLOYED: ", _name, ", ", _contractName, ": ",
-                vm.toString(_addr)
-            )
-        );
-    }
-
     function _logDay1FacetAddresses() internal view {
         _logDeployed(
             "DiamondGovernanceFacet",
@@ -1016,19 +1285,19 @@ contract DeployTeeContracts is Script {
         );
     }
 
-    // =========================================================================
-    // Network resolution
-    // =========================================================================
-    function _resolveNetwork()
-        internal view
-        returns (string memory)
+    function _logDeployed(
+        string memory _name,
+        string memory _contractName,
+        address _addr
+    )
+        internal pure
     {
-        uint256 chainId = block.chainid;
-        if (chainId == 14) return "flare";
-        if (chainId == 19) return "songbird";
-        if (chainId == 16) return "coston";
-        if (chainId == 114) return "coston2";
-        return "scdev";
+        console2.log(
+            string.concat(
+                "DEPLOYED: ", _name, ", ", _contractName, ": ",
+                vm.toString(_addr)
+            )
+        );
     }
 
     // =========================================================================
