@@ -2,6 +2,29 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "additionalProperties": false,
     "definitions": {
+        "Fdc2RequestFee": {
+            "additionalProperties": false,
+            "properties": {
+                "attestationType": {
+                    "description": "The attestation type.",
+                    "type": "string"
+                },
+                "feeWei": {
+                    "description": "The fee per request. In Wei.",
+                    "type": "string"
+                },
+                "source": {
+                    "description": "The source.",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "attestationType",
+                "feeWei",
+                "source"
+            ],
+            "type": "object"
+        },
         "FdcInflationConfiguration": {
             "additionalProperties": false,
             "properties": {
@@ -137,29 +160,6 @@
                 "contractName",
                 "gasLimit",
                 "oldContract"
-            ],
-            "type": "object"
-        },
-        "Fdc2RequestFee": {
-            "additionalProperties": false,
-            "properties": {
-                "attestationType": {
-                    "description": "The attestation type.",
-                    "type": "string"
-                },
-                "feeWei": {
-                    "description": "The fee per request. In Wei.",
-                    "type": "string"
-                },
-                "source": {
-                    "description": "The source.",
-                    "type": "string"
-                }
-            },
-            "required": [
-                "attestationType",
-                "feeWei",
-                "source"
             ],
             "type": "object"
         },
@@ -428,6 +428,21 @@
             "description": "Deployer private key. Overriden if provided in `.env` file as `DEPLOYER_PRIVATE_KEY`",
             "type": "string"
         },
+        "fdc2DefaultNumberOfTees": {
+            "description": "The default number of TEEs used in FDC2.",
+            "type": "integer"
+        },
+        "fdc2MinThresholdBIPS": {
+            "description": "The minimal threshold for FDC2 in BIPS (e.g. 30%).",
+            "type": "integer"
+        },
+        "fdc2RequestFees": {
+            "description": "The supported FDC2 requests fee configurations.",
+            "items": {
+                "$ref": "#/definitions/Fdc2RequestFee"
+            },
+            "type": "array"
+        },
         "fdcInflationConfigurations": {
             "description": "The inflation configurations for the FDC protocol.",
             "items": {
@@ -484,21 +499,6 @@
             "description": "Flare daemonized contracts. Order matters. Inflation should be first.",
             "items": {
                 "$ref": "#/definitions/FlareDaemonizedContract"
-            },
-            "type": "array"
-        },
-        "fdc2DefaultNumberOfTees": {
-            "description": "The default number of TEEs used in FDC2.",
-            "type": "integer"
-        },
-        "fdc2MinThresholdBIPS": {
-            "description": "The minimal threshold for FDC2 in BIPS (e.g. 30%).",
-            "type": "integer"
-        },
-        "fdc2RequestFees": {
-            "description": "The supported FDC2 requests fee configurations.",
-            "items": {
-                "$ref": "#/definitions/Fdc2RequestFee"
             },
             "type": "array"
         },
@@ -858,6 +858,9 @@
         "defaultFeePercentageBIPS",
         "defaultFeeWei",
         "deployerPrivateKey",
+        "fdc2DefaultNumberOfTees",
+        "fdc2MinThresholdBIPS",
+        "fdc2RequestFees",
         "fdcInflationConfigurations",
         "fdcProtocolId",
         "fdcRequestFees",
@@ -869,9 +872,6 @@
         "firstRewardEpochStartVotingRoundId",
         "firstVotingRoundStartTs",
         "flareDaemonizedContracts",
-        "fdc2DefaultNumberOfTees",
-        "fdc2MinThresholdBIPS",
-        "fdc2RequestFees",
         "ftsoInflationConfigurations",
         "ftsoProtocolId",
         "ftsoProxies",
