@@ -106,7 +106,7 @@ contract Fdc2VerificationMock is IFdc2Verification, AddressUpdatable {
     /**
      * @inheritdoc IFdc2Verification
      */
-    function verifyCosignerSignatures(
+    function recoverCosigners(
         Signature[] calldata _signatures,
         bytes32 _messageHash
     )

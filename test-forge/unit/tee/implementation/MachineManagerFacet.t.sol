@@ -866,7 +866,7 @@ contract MachineManagerFacetTest is Test {
      * - Correct request body matching the challenge and machine data
      * - Correct response body with valid system state and code hash
      * - Cosigner signatures (for INITIALIZED status)
-     * - Mock for fdc2Verification.verifyCosignerSignatures
+     * - Mock for fdc2Verification.recoverCosigners
      */
     function _createValidAvailabilityCheckProof(
         address _teeId,
@@ -937,7 +937,7 @@ contract MachineManagerFacetTest is Test {
         }
         vm.mockCall(
             fdc2Verification,
-            abi.encodeWithSelector(IFdc2Verification.verifyCosignerSignatures.selector),
+            abi.encodeWithSelector(IFdc2Verification.recoverCosigners.selector),
             abi.encode(cosignerAddresses)
         );
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
 import { VrfVerifier } from "../../../../contracts/tee/implementation/VrfVerifier.sol";
+import { IVrfVerifier } from "../../../../contracts/userInterfaces/tee/IVrfVerifier.sol";
 
 contract VrfVerifierTest is Test {
 
@@ -14,7 +15,7 @@ contract VrfVerifierTest is Test {
 
     function testVerifyValidProof() public {
         (
-            VrfVerifier.Proof memory proof,
+            IVrfVerifier.Proof memory proof,
             uint256 pkX,
             uint256 pkY,
             bytes memory nonce
@@ -26,7 +27,7 @@ contract VrfVerifierTest is Test {
 
     function testSameRandomnessForSameNonce() public {
         (
-            VrfVerifier.Proof memory proof1,,,
+            IVrfVerifier.Proof memory proof1,,,
         ) = _generateProof("valid", "deterministic-nonce");
 
         bytes32 r1 = verifier.randomnessFromProof(
@@ -34,7 +35,7 @@ contract VrfVerifierTest is Test {
         );
 
         (
-            VrfVerifier.Proof memory proof2,,,
+            IVrfVerifier.Proof memory proof2,,,
         ) = _generateProof("valid", "deterministic-nonce");
 
         bytes32 r2 = verifier.randomnessFromProof(
@@ -49,14 +50,14 @@ contract VrfVerifierTest is Test {
 
     function testDifferentRandomnessForDifferentNonces() public {
         (
-            VrfVerifier.Proof memory proof1,
+            IVrfVerifier.Proof memory proof1,
             uint256 pkX1,
             uint256 pkY1,
             bytes memory nonce1
         ) = _generateProof("valid", "nonce-a");
 
         (
-            VrfVerifier.Proof memory proof2,
+            IVrfVerifier.Proof memory proof2,
             uint256 pkX2,
             uint256 pkY2,
             bytes memory nonce2
@@ -77,32 +78,32 @@ contract VrfVerifierTest is Test {
 
     function testRejectWrongPublicKey() public {
         (
-            VrfVerifier.Proof memory proof,
+            IVrfVerifier.Proof memory proof,
             uint256 pkX,
             uint256 pkY,
             bytes memory nonce
         ) = _generateProof("wrong_pk", "test-nonce");
 
-        vm.expectRevert(VrfVerifier.InvalidUWitness.selector);
+        vm.expectRevert(IVrfVerifier.InvalidUWitness.selector);
         verifier.verifyRandomness(proof, pkX, pkY, nonce);
     }
 
     function testRejectTamperedGamma() public {
         (
-            VrfVerifier.Proof memory proof,
+            IVrfVerifier.Proof memory proof,
             uint256 pkX,
             uint256 pkY,
             bytes memory nonce
         ) = _generateProof("tampered_gamma", "test-nonce");
 
-        vm.expectRevert(VrfVerifier.InvalidCGammaWitness.selector);
+        vm.expectRevert(IVrfVerifier.InvalidCGammaWitness.selector);
         verifier.verifyRandomness(proof, pkX, pkY, nonce);
     }
 
     function testVerifyMultipleKeyPairs() public {
         for (uint256 i = 0; i < 3; i++) {
             (
-                VrfVerifier.Proof memory proof,
+                IVrfVerifier.Proof memory proof,
                 uint256 pkX,
                 uint256 pkY,
                 bytes memory nonce
@@ -119,7 +120,7 @@ contract VrfVerifierTest is Test {
     )
         internal
         returns (
-            VrfVerifier.Proof memory _proof,
+            IVrfVerifier.Proof memory _proof,
             uint256 _pkX,
             uint256 _pkY,
             bytes memory _nonceBytes
@@ -133,7 +134,7 @@ contract VrfVerifierTest is Test {
         bytes memory result = vm.ffi(command);
         (_proof, _pkX, _pkY, _nonceBytes) = abi.decode(
             result,
-            (VrfVerifier.Proof, uint256, uint256, bytes)
+            (IVrfVerifier.Proof, uint256, uint256, bytes)
         );
     }
 }

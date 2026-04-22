@@ -188,7 +188,7 @@ library Verification {
         }
         ExternalAddresses.State storage ext = ExternalAddresses.getState();
         address[] memory cosignersList = IFdc2Verification(ext.fdc2Verification)
-            .verifyCosignerSignatures(_signatures, _messageHash);
+            .recoverCosigners(_signatures, _messageHash);
         require(cosignersList.length >= s.cosignersThreshold, IVerificationFacet.CosignersThresholdNotMet());
         for (uint256 i = 0; i < cosignersList.length; i++) {
             require(s.cosigners.contains(cosignersList[i]), ITeeCommonErrors.InvalidCosigner(cosignersList[i]));

@@ -26,7 +26,7 @@ interface IFdc2Verification {
     error DuplicatedCosigner(address cosigner);
 
     /**
-     * Verifies the signing policy signatures.
+     * Verifies the signing policy signatures using the signing policy threshold.
      * @param _signingPolicySignatures The signing policy signatures to verify ("relay message" format).
      * @param _messageHash The message hash to verify.
      * @return _rewardEpochId The reward epoch id of the signing policy.
@@ -65,12 +65,14 @@ interface IFdc2Verification {
         returns (address[] memory _signingTeeIds);
 
     /**
-     * Verifies the cosigner signatures.
-     * @param _signatures The cosigner signatures to verify.
-     * @param _messageHash The message hash to verify.
-     * @return _cosigners The cosigner addresses.
+     * Recovers the cosigner addresses from the given signatures and checks for duplicates.
+     * Does not perform any identity or policy validation — callers must validate the returned
+     * addresses against their own cosigner set.
+     * @param _signatures The cosigner signatures.
+     * @param _messageHash The signed message hash.
+     * @return _cosigners The recovered (unique) cosigner addresses.
      */
-    function verifyCosignerSignatures(
+    function recoverCosigners(
         Signature[] calldata _signatures,
         bytes32 _messageHash
     )

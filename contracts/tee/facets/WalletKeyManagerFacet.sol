@@ -126,6 +126,10 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
                 _proof.signingAlgo == WalletProjectManager.getSigningAlgo(projectId),
                 InvalidSigningAlgo()
             );
+            require(
+                WalletProjectManager.getExtensionId(projectId) == MachineManager.getExtensionId(_proof.teeId),
+                ExtensionIdMismatch()
+            );
         }
 
         _validateKeyExistenceConfigConstants(walletId, _proof.configConstants);

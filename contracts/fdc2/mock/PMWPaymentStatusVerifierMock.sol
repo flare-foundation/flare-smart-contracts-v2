@@ -5,6 +5,7 @@ import { IPMWPaymentStatus, PMW_PAYMENT_STATUS_ATTESTATION_TYPE }
     from "../../userInterfaces/fdc2/IPMWPaymentStatus.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
+import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegistry.sol";
 import { IVerificationFacet } from "../../userInterfaces/tee/IVerificationFacet.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
@@ -24,10 +25,13 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
     IFdc2Verification public fdc2Verification;
     /// Flare systems manager contract.
     IFlareSystemsManager public flareSystemsManager;
+    /// TEE payments registry
+    ITeePaymentsRegistry public teePaymentsRegistry;
 
     error TeeThresholdNotMet();
     error AmountTooLow();
     error TeeThresholdZero();
+    error UnsupportedSourceId();
 
     /**
      * Constructor.
@@ -49,7 +53,6 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
     }
 
     function verify(
-        ITeePayments _teePayments,
         IPMWPaymentStatus.Proof calldata _proof
     )
         external
@@ -62,13 +65,17 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         IFdc2Hub.Fdc2ResponseHeader calldata header = _proof.header;
         IPMWPaymentStatus.RequestBody calldata requestBody = _proof.requestBody;
 
-        bytes32 walletId = _teePayments.getWalletId(ITeePayments.PMWMultisigAccount({
+        address teePaymentsAddress = teePaymentsRegistry.getTeePaymentsForSource(header.sourceId);
+        require (teePaymentsAddress != address(0), UnsupportedSourceId());
+        ITeePayments teePayments = ITeePayments(teePaymentsAddress);
+
+        bytes32 walletId = teePayments.getWalletId(ITeePayments.PMWMultisigAccount({
             sourceId: header.sourceId,
             accountAddress: requestBody.senderAddress
         }));
 
         require(
-            _teePayments.getOpType() == requestBody.opType &&
+            teePayments.getOpType() == requestBody.opType &&
             walletId != bytes32(0) &&
             header.thresholdBIPS == 0 &&
             header.attestationType == PMW_PAYMENT_STATUS_ATTESTATION_TYPE &&
@@ -131,6 +138,8 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
             _getContractAddress(_contractNameHashes, _contractAddresses, "Fdc2Verification"));
         flareSystemsManager = IFlareSystemsManager(
             _getContractAddress(_contractNameHashes, _contractAddresses, "FlareSystemsManager"));
+        teePaymentsRegistry = ITeePaymentsRegistry(
+            _getContractAddress(_contractNameHashes, _contractAddresses, "TeePaymentsRegistry"));
     }
 
     function _checkSigningPolicySignatures(
@@ -182,7 +191,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         if (cosignersThreshold == 0) {
             return; // no cosigners, nothing to check
         }
-        address[] memory cosignersList = fdc2Verification.verifyCosignerSignatures(_signatures, _messageHash);
+        address[] memory cosignersList = fdc2Verification.recoverCosigners(_signatures, _messageHash);
         require(cosignersList.length >= cosignersThreshold, IVerificationFacet.CosignersThresholdNotMet());
         for (uint256 i = 0; i < cosignersList.length; i++) {
             require(cosigners.index[cosignersList[i]] != 0, ITeeCommonErrors.InvalidCosigner(cosignersList[i]));

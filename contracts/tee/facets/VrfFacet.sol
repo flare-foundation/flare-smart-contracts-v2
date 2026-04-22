@@ -10,6 +10,7 @@ import { WalletProjectManager } from "../library/WalletProjectManager.sol";
 import { WalletKeyManager } from "../library/WalletKeyManager.sol";
 import { MachineManager } from "../library/MachineManager.sol";
 import { Instructions } from "../library/Instructions.sol";
+import { Vrf } from "../library/Vrf.sol";
 
 /**
  * @title VrfFacet
@@ -18,15 +19,6 @@ import { Instructions } from "../library/Instructions.sol";
 contract VrfFacet is IVrfFacet {
 
     bytes32 internal constant VRF = bytes32("VRF");
-
-    /// @custom:storage-location erc7201:tee.Vrf.State
-    struct VrfState {
-        mapping(bytes32 walletId => address) vrfAuthorizationAddresses;
-    }
-
-    bytes32 internal constant VRF_STATE_POSITION = keccak256(
-        abi.encode(uint256(keccak256("tee.Vrf.State")) - 1)
-    ) & ~bytes32(uint256(0xff));
 
     /**
      * @inheritdoc IVrfFacet
@@ -41,7 +33,7 @@ contract VrfFacet is IVrfFacet {
         returns (bytes32 _instructionId)
     {
         require(_nonce.length > 0, NonceEmpty());
-        require(_getVrfState().vrfAuthorizationAddresses[_walletId] == msg.sender, OnlyAuthorizationAddress());
+        require(Vrf.getState().vrfAuthorizationAddresses[_walletId] == msg.sender, OnlyAuthorizationAddress());
         require(
             WalletManager.getWalletStatus(_walletId) == IWalletManagerFacet.WalletStatus.PRODUCTION,
             WalletNotInProduction()
@@ -93,7 +85,7 @@ contract VrfFacet is IVrfFacet {
     {
         bytes32 projectId = WalletManager.getWalletProjectId(_walletId);
         require(WalletProjectManager.getOwner(projectId) == msg.sender, OnlyWalletOwner());
-        _getVrfState().vrfAuthorizationAddresses[_walletId] = _authorizationAddress;
+        Vrf.getState().vrfAuthorizationAddresses[_walletId] = _authorizationAddress;
         emit VrfAuthorizationAddressSet(_walletId, _authorizationAddress);
     }
 
@@ -106,17 +98,6 @@ contract VrfFacet is IVrfFacet {
         external view
         returns (address)
     {
-        return _getVrfState().vrfAuthorizationAddresses[_walletId];
-    }
-
-    function _getVrfState()
-        private pure
-        returns (VrfState storage _state)
-    {
-        bytes32 position = VRF_STATE_POSITION;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            _state.slot := position
-        }
+        return Vrf.getState().vrfAuthorizationAddresses[_walletId];
     }
 }

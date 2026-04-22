@@ -473,7 +473,7 @@ contract VerificationFacetTest is Test {
         // Mock external contract calls
         _mockVerifySigningPolicySignatures(rewardEpochId);
         _mockGetCurrentRewardEpochId(uint24(rewardEpochId));
-        _mockVerifyCosignerSignatures(cosigners);
+        _mockRecoverCosigners(cosigners);
 
         vm.mockCall(
             relay,
@@ -754,7 +754,7 @@ contract VerificationFacetTest is Test {
     // verifyAvailabilityCheckProof
     function testVerifyAvailabilityCheckProofRevertCosignersThresholdNotMet() public {
         testSetCosigners();
-        _mockVerifyCosignerSignatures(new address[](0));
+        _mockRecoverCosigners(new address[](0));
         stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.INITIALIZED);
         vm.expectRevert(IVerificationFacet.CosignersThresholdNotMet.selector);
         flareTeeManager.verifyAvailabilityCheckProof(proof);
@@ -764,7 +764,7 @@ contract VerificationFacetTest is Test {
         testSetCosigners();
         address[] memory invalidCosigners = new address[](1);
         invalidCosigners[0] = makeAddr("invalidCosigner");
-        _mockVerifyCosignerSignatures(invalidCosigners);
+        _mockRecoverCosigners(invalidCosigners);
         stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.INITIALIZED);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -968,7 +968,7 @@ contract VerificationFacetTest is Test {
     {
         testSetCosigners();
         stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.INITIALIZED);
-        _mockVerifyCosignerSignatures(new address[](0));
+        _mockRecoverCosigners(new address[](0));
         address[] memory signingTeeIds = new address[](1);
         signingTeeIds[0] = makeAddr("teeIdInProduction");
         _mockVerifyTeeSignatures(signingTeeIds);
@@ -1202,11 +1202,11 @@ contract VerificationFacetTest is Test {
         );
     }
 
-    function _mockVerifyCosignerSignatures(address[] memory _cosignersList) private {
+    function _mockRecoverCosigners(address[] memory _cosignersList) private {
         vm.mockCall(
             fdc2Verification,
             abi.encodeWithSelector(
-                IFdc2Verification.verifyCosignerSignatures.selector
+                IFdc2Verification.recoverCosigners.selector
             ),
             abi.encode(_cosignersList)
         );

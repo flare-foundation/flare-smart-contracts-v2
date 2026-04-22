@@ -724,7 +724,7 @@ contract ReplicationFacetTest is Test {
         );
         vm.mockCall(
             fdc2Verification,
-            abi.encodeWithSelector(IFdc2Verification.verifyCosignerSignatures.selector),
+            abi.encodeWithSelector(IFdc2Verification.recoverCosigners.selector),
             abi.encode(_getSignersAddresses(cosigners))
         );
 
@@ -973,7 +973,7 @@ contract ReplicationFacetTest is Test {
         );
         vm.mockCall(
             fdc2Verification,
-            abi.encodeWithSelector(IFdc2Verification.verifyCosignerSignatures.selector),
+            abi.encodeWithSelector(IFdc2Verification.recoverCosigners.selector),
             abi.encode(_getSignersAddresses(cosigners))
         );
     }

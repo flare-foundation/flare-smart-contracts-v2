@@ -141,8 +141,8 @@ contract Fdc2VerificationTest is Test {
     }
 
 
-    // verifyCosignerSignatures
-    function testVerifyCosignerSignaturesRevertDuplicatedCosigner() public {
+    // recoverCosigners
+    function testRecoverCosignersRevertDuplicatedCosigner() public {
         Signature[] memory signatures = new Signature[](2);
         signatures[0] = signature;
         signatures[1] = signatures[0];
@@ -152,20 +152,20 @@ contract Fdc2VerificationTest is Test {
                 teeId
             )
         );
-        fdc2Verification.verifyCosignerSignatures(signatures, messageHash);
+        fdc2Verification.recoverCosigners(signatures, messageHash);
     }
 
 
-    function testVerifyCosignerSignatures() public {
+    function testRecoverCosigners() public {
         Signature[] memory signatures = new Signature[](0);
         address[] memory cosigners =
-            fdc2Verification.verifyCosignerSignatures(signatures, messageHash);
+            fdc2Verification.recoverCosigners(signatures, messageHash);
         assertEq(cosigners.length, 0);
 
         signatures = new Signature[](2);
         signatures[0] = signature;
         signatures[1] = _createSignature(newPrivateKey);
-        cosigners = fdc2Verification.verifyCosignerSignatures(signatures, messageHash);
+        cosigners = fdc2Verification.recoverCosigners(signatures, messageHash);
         assertEq(cosigners.length, 2);
         assertEq(cosigners[0], teeId);
         assertEq(cosigners[1], newTeeId);

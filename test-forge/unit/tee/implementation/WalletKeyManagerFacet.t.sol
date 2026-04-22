@@ -604,6 +604,24 @@ contract WalletKeyManagerFacetTest is Test {
         flareTeeManager.confirmKey(proof, teeSignature);
     }
 
+    function testConfirmKeyRevertExtensionIdMismatch() public {
+        _addKey();
+        // Change teeId to a different extensionId (still PRODUCTION)
+        helper.setTeeMachineState(
+            teeId,
+            extensionId + 1,
+            teeMachineOwner,
+            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            PublicKey(bytes32(0), bytes32(0)),
+            1,
+            "https://tee.url"
+        );
+        teeSignature = _createSignature(teePrivateKey);
+        vm.prank(owner);
+        vm.expectRevert(ITeeCommonErrors.ExtensionIdMismatch.selector);
+        flareTeeManager.confirmKey(proof, teeSignature);
+    }
+
     function testConfirmKeyRevertInvalidSettings() public {
         _addKey();
         proof.settings = bytes("invalidSettings");

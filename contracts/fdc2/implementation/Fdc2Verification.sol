@@ -96,7 +96,7 @@ contract Fdc2Verification is IFdc2Verification, GovernedProxyImplementation, UUP
     /**
      * @inheritdoc IFdc2Verification
      */
-    function verifyCosignerSignatures(
+    function recoverCosigners(
         Signature[] calldata _signatures,
         bytes32 _messageHash
     )

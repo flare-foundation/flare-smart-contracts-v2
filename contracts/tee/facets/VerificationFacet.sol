@@ -308,7 +308,7 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
         IFdc2Hub.Fdc2ResponseHeader calldata header = _proof.header;
         require(
             header.thresholdBIPS == 0 &&
-                header.attestationType == PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
+            header.attestationType == PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
             InvalidAttestation()
         );
 
