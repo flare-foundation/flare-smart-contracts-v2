@@ -39,8 +39,17 @@ const teeContractNames = new Set([
   "Fdc2RequestFeeConfigurations",
   "Fdc2VerificationImplementation",
   "Fdc2Verification",
-  // TeePayments
+  // TeePayments (impl + per-source proxies are matched below via prefix)
   "TeePaymentsImplementation",
+  // TeePaymentsRegistry (impl + proxy)
+  "TeePaymentsRegistryImplementation",
+  "TeePaymentsRegistry",
+  // TeePaymentsFeeScheduleManager (impl + proxy)
+  "TeePaymentsFeeScheduleManagerImplementation",
+  "TeePaymentsFeeScheduleManager",
+  // TeePaymentsLimitsManager (impl + proxy, deployed only on full deploys)
+  "TeePaymentsLimitsManagerImplementation",
+  "TeePaymentsLimitsManager",
   // TeeRewardOffersManager
   "TeeRewardOffersManager",
   // VrfVerifier
