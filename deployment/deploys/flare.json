@@ -313,5 +313,10 @@
     "name": "ChainlinkAdapterStFlr",
     "contractName": "ChainlinkAdapterProxy.sol",
     "address": "0x71ca43Df4FEe2F6cAD86AF4d51bF6E3E302C660E"
+  },
+  {
+    "name": "ChainlinkAdapterSFlr",
+    "contractName": "ChainlinkAdapterProxy.sol",
+    "address": "0x7335684a9b77b1f7aDEf007c95BD292351fAAFa7"
   }
 ]
