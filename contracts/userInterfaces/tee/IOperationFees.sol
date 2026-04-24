@@ -4,10 +4,10 @@ pragma solidity >=0.7.6 <0.9;
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 /**
- * @title IOperationFeesFacet
+ * @title IOperationFees
  * @notice Public interface for the OperationFeesFacet.
  */
-interface IOperationFeesFacet is ITeeCommonErrors {
+interface IOperationFees is ITeeCommonErrors {
 
     /// Event emitted when default fee is set.
     event DefaultFeeSet(

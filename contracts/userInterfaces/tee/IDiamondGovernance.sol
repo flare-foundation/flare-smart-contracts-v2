@@ -4,11 +4,11 @@ pragma solidity >=0.7.6 <0.9;
 import { IFlareGovernance } from "./IFlareGovernance.sol";
 
 /**
- * @title IDiamondGovernanceFacet
+ * @title IDiamondGovernance
  * @notice Public interface for the DiamondGovernanceFacet.
  * @dev Exposes the Flare governance API (governance, productionMode, etc.).
  *      The governance-only diamondCut method is in the internal interface.
  */
-interface IDiamondGovernanceFacet is
+interface IDiamondGovernance is
     IFlareGovernance
 {}

@@ -5,7 +5,7 @@ import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.so
 import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
 import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
 import { IFlareTeeManager } from "../../userInterfaces/tee/IFlareTeeManager.sol";
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
@@ -184,7 +184,7 @@ contract Fdc2Verification is IFdc2Verification, GovernedProxyImplementation, UUP
             InvalidTeeMachineExtensionId()
         );
         require(
-            flareTeeManager.getTeeMachineStatus(_signingTeeId) == IMachineManagerFacet.TeeStatus.PRODUCTION,
+            flareTeeManager.getTeeMachineStatus(_signingTeeId) == IMachineManager.TeeStatus.PRODUCTION,
             TeeMachineNotAvailable()
         );
     }

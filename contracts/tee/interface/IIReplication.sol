@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IReplicationFacet } from "../../userInterfaces/tee/IReplicationFacet.sol";
+import { IReplication } from "../../userInterfaces/tee/IReplication.sol";
 
 /**
- * @title IIReplicationFacet
+ * @title IIReplication
  * @notice Internal interface for the ReplicationFacet.
  * @dev Extends the public interface with governance-only methods.
  */
-interface IIReplicationFacet is IReplicationFacet {
+interface IIReplication is IReplication {
 
     /**
      * Sets the minimum duration (in paused status) before a TEE machine can be upgraded.

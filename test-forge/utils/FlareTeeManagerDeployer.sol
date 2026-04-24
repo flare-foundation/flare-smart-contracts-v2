@@ -34,27 +34,27 @@ import { FlareTeeManagerInit } from "../../contracts/tee/facets/FlareTeeManagerI
 import { ReplicationInit } from "../../contracts/tee/facets/ReplicationInit.sol";
 
 // TEE interfaces (for selector references)
-import { IIExtensionManagerFacet } from "../../contracts/tee/interface/IIExtensionManagerFacet.sol";
-import { IIInstructionsFacet } from "../../contracts/tee/interface/IIInstructionsFacet.sol";
-import { IIVerificationFacet } from "../../contracts/tee/interface/IIVerificationFacet.sol";
-import { IIOperationFeesFacet } from "../../contracts/tee/interface/IIOperationFeesFacet.sol";
-import { IIReplicationFacet } from "../../contracts/tee/interface/IIReplicationFacet.sol";
-import { IExtensionManagerFacet } from "../../contracts/userInterfaces/tee/IExtensionManagerFacet.sol";
-import { IInstructionsFacet } from "../../contracts/userInterfaces/tee/IInstructionsFacet.sol";
-import { IMachineManagerFacet } from "../../contracts/userInterfaces/tee/IMachineManagerFacet.sol";
-import { IOwnerAllowlistFacet } from "../../contracts/userInterfaces/tee/IOwnerAllowlistFacet.sol";
-import { IExtensionGovernanceFacet } from "../../contracts/userInterfaces/tee/IExtensionGovernanceFacet.sol";
-import { IReplicationFacet } from "../../contracts/userInterfaces/tee/IReplicationFacet.sol";
-import { IVerificationFacet } from "../../contracts/userInterfaces/tee/IVerificationFacet.sol";
-import { ISystemStateVerifierFacet } from "../../contracts/userInterfaces/tee/ISystemStateVerifierFacet.sol";
-import { IUpgradeManagerFacet } from "../../contracts/userInterfaces/tee/IUpgradeManagerFacet.sol";
-import { IOperationFeesFacet } from "../../contracts/userInterfaces/tee/IOperationFeesFacet.sol";
-import { IWalletProjectManagerFacet } from "../../contracts/userInterfaces/tee/IWalletProjectManagerFacet.sol";
-import { IWalletKeyManagerFacet } from "../../contracts/userInterfaces/tee/IWalletKeyManagerFacet.sol";
-import { IWalletManagerFacet } from "../../contracts/userInterfaces/tee/IWalletManagerFacet.sol";
-import { IWalletResumeFacet } from "../../contracts/userInterfaces/tee/IWalletResumeFacet.sol";
-import { IWalletBackupManagerFacet } from "../../contracts/userInterfaces/tee/IWalletBackupManagerFacet.sol";
-import { IVrfFacet } from "../../contracts/userInterfaces/tee/IVrfFacet.sol";
+import { IIExtensionManager } from "../../contracts/tee/interface/IIExtensionManager.sol";
+import { IIInstructions } from "../../contracts/tee/interface/IIInstructions.sol";
+import { IIVerification } from "../../contracts/tee/interface/IIVerification.sol";
+import { IIOperationFees } from "../../contracts/tee/interface/IIOperationFees.sol";
+import { IIReplication } from "../../contracts/tee/interface/IIReplication.sol";
+import { IExtensionManager } from "../../contracts/userInterfaces/tee/IExtensionManager.sol";
+import { IInstructions } from "../../contracts/userInterfaces/tee/IInstructions.sol";
+import { IMachineManager } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
+import { IOwnerAllowlist } from "../../contracts/userInterfaces/tee/IOwnerAllowlist.sol";
+import { IExtensionGovernance } from "../../contracts/userInterfaces/tee/IExtensionGovernance.sol";
+import { IReplication } from "../../contracts/userInterfaces/tee/IReplication.sol";
+import { IVerification } from "../../contracts/userInterfaces/tee/IVerification.sol";
+import { ISystemStateVerifier } from "../../contracts/userInterfaces/tee/ISystemStateVerifier.sol";
+import { IUpgradeManager } from "../../contracts/userInterfaces/tee/IUpgradeManager.sol";
+import { IOperationFees } from "../../contracts/userInterfaces/tee/IOperationFees.sol";
+import { IWalletProjectManager } from "../../contracts/userInterfaces/tee/IWalletProjectManager.sol";
+import { IWalletKeyManager } from "../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { IWalletManager } from "../../contracts/userInterfaces/tee/IWalletManager.sol";
+import { IWalletResume } from "../../contracts/userInterfaces/tee/IWalletResume.sol";
+import { IWalletBackupManager } from "../../contracts/userInterfaces/tee/IWalletBackupManager.sol";
+import { IVrf } from "../../contracts/userInterfaces/tee/IVrf.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 
 import { IFlareGovernance } from "../../contracts/userInterfaces/tee/IFlareGovernance.sol";
@@ -172,31 +172,31 @@ library FlareTeeManagerDeployer {
         // 2: ExtensionManagerFacet
         {
             bytes4[] memory s = new bytes4[](25);
-            s[0] = IExtensionManagerFacet.register.selector;
-            s[1] = IExtensionManagerFacet.addTeeVersion.selector;
-            s[2] = IExtensionManagerFacet.getExtensionOwner.selector;
-            s[3] = IExtensionManagerFacet.getTeeExtensionStateVerifier.selector;
-            s[4] = IExtensionManagerFacet.getTeeExtensionInstructionsSender.selector;
-            s[5] = IExtensionManagerFacet.isCodeHashPlatformSupported.selector;
-            s[6] = IExtensionManagerFacet.getTeeGovernanceHash.selector;
-            s[7] = IExtensionManagerFacet.getCodeHashInfo.selector;
-            s[8] = IIExtensionManagerFacet.addSystemSupportedPlatforms.selector;
-            s[9] = IIExtensionManagerFacet.addSystemSupportedKeyTypesAndSigningAlgos.selector;
-            s[10] = IExtensionManagerFacet.addSupportedKeyTypes.selector;
-            s[11] = IExtensionManagerFacet.extensionsCounter.selector;
-            s[12] = IExtensionManagerFacet.isKeyTypeSupported.selector;
-            s[13] = IExtensionManagerFacet.setExtensionContracts.selector;
-            s[14] = IExtensionManagerFacet.disableCodeHashPlatform.selector;
-            s[15] = IExtensionManagerFacet.removeSupportedKeyTypes.selector;
-            s[16] = IExtensionManagerFacet.proposeNewOwner.selector;
-            s[17] = IExtensionManagerFacet.confirmOwnership.selector;
-            s[18] = IExtensionManagerFacet.getSystemSupportedPlatforms.selector;
-            s[19] = IExtensionManagerFacet.getSystemSupportedKeyTypes.selector;
-            s[20] = IExtensionManagerFacet.isSigningAlgoSupported.selector;
-            s[21] = IExtensionManagerFacet.getSupportedCodeHashes.selector;
-            s[22] = IExtensionManagerFacet.isCodeHashPlatformDisabled.selector;
-            s[23] = IExtensionManagerFacet.getSystemSupportedSigningAlgos.selector;
-            s[24] = IExtensionManagerFacet.getSupportedKeyTypes.selector;
+            s[0] = IExtensionManager.register.selector;
+            s[1] = IExtensionManager.addTeeVersion.selector;
+            s[2] = IExtensionManager.getExtensionOwner.selector;
+            s[3] = IExtensionManager.getTeeExtensionStateVerifier.selector;
+            s[4] = IExtensionManager.getTeeExtensionInstructionsSender.selector;
+            s[5] = IExtensionManager.isCodeHashPlatformSupported.selector;
+            s[6] = IExtensionManager.getTeeGovernanceHash.selector;
+            s[7] = IExtensionManager.getCodeHashInfo.selector;
+            s[8] = IIExtensionManager.addSystemSupportedPlatforms.selector;
+            s[9] = IIExtensionManager.addSystemSupportedKeyTypesAndSigningAlgos.selector;
+            s[10] = IExtensionManager.addSupportedKeyTypes.selector;
+            s[11] = IExtensionManager.extensionsCounter.selector;
+            s[12] = IExtensionManager.isKeyTypeSupported.selector;
+            s[13] = IExtensionManager.setExtensionContracts.selector;
+            s[14] = IExtensionManager.disableCodeHashPlatform.selector;
+            s[15] = IExtensionManager.removeSupportedKeyTypes.selector;
+            s[16] = IExtensionManager.proposeNewOwner.selector;
+            s[17] = IExtensionManager.confirmOwnership.selector;
+            s[18] = IExtensionManager.getSystemSupportedPlatforms.selector;
+            s[19] = IExtensionManager.getSystemSupportedKeyTypes.selector;
+            s[20] = IExtensionManager.isSigningAlgoSupported.selector;
+            s[21] = IExtensionManager.getSupportedCodeHashes.selector;
+            s[22] = IExtensionManager.isCodeHashPlatformDisabled.selector;
+            s[23] = IExtensionManager.getSystemSupportedSigningAlgos.selector;
+            s[24] = IExtensionManager.getSupportedKeyTypes.selector;
             cuts[2] = IDiamond.FacetCut(
                 address(new ExtensionManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -205,7 +205,7 @@ library FlareTeeManagerDeployer {
         // 3: InstructionsFacet
         {
             bytes4[] memory s = new bytes4[](6);
-            s[0] = IInstructionsFacet.sendInstructions.selector;
+            s[0] = IInstructions.sendInstructions.selector;
             // sendSystemInstructions overloads
             s[1] = bytes4(keccak256(
                 "sendSystemInstructions(bytes32,address[],"
@@ -215,9 +215,9 @@ library FlareTeeManagerDeployer {
                 "sendSystemInstructions(bytes32,(address,address,string)[],"
                 "(bytes32,bytes32,bytes,address[],uint64,address))"
             ));
-            s[3] = IIInstructionsFacet.registerSystemInstructionsSenders.selector;
-            s[4] = IIInstructionsFacet.unregisterSystemInstructionsSenders.selector;
-            s[5] = IInstructionsFacet.getSystemInstructionsSenders.selector;
+            s[3] = IIInstructions.registerSystemInstructionsSenders.selector;
+            s[4] = IIInstructions.unregisterSystemInstructionsSenders.selector;
+            s[5] = IInstructions.getSystemInstructionsSenders.selector;
             cuts[3] = IDiamond.FacetCut(
                 address(new InstructionsFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -226,26 +226,26 @@ library FlareTeeManagerDeployer {
         // 5: MachineManagerFacet
         {
             bytes4[] memory s = new bytes4[](20);
-            s[0] = IMachineManagerFacet.register.selector;
-            s[1] = IMachineManagerFacet.toProduction.selector;
-            s[2] = IMachineManagerFacet.pause.selector;
-            s[3] = IMachineManagerFacet.getTeeMachineStatus.selector;
-            s[4] = IMachineManagerFacet.getExtensionId.selector;
-            s[5] = IMachineManagerFacet.getTeeMachine.selector;
-            s[6] = IMachineManagerFacet.getInitialSigningPolicyId.selector;
-            s[7] = IMachineManagerFacet.pauseWithProof.selector;
-            s[8] = IMachineManagerFacet.ban.selector;
-            s[9] = IMachineManagerFacet.unban.selector;
-            s[10] = IMachineManagerFacet.proposeNewOwner.selector;
-            s[11] = IMachineManagerFacet.confirmOwnership.selector;
-            s[12] = IMachineManagerFacet.updateTeeMachineSettings.selector;
-            s[13] = IMachineManagerFacet.getTeeMachineOwner.selector;
-            s[14] = IMachineManagerFacet.getTeeMachineWithAttestationData.selector;
-            s[15] = IMachineManagerFacet.getRandomTeeIds.selector;
-            s[16] = IMachineManagerFacet.getAllActiveTeeMachines.selector;
-            s[17] = IMachineManagerFacet.getActiveTeeMachines.selector;
-            s[18] = IMachineManagerFacet.getPublicKey.selector;
-            s[19] = IMachineManagerFacet.getLastStatusChangeTs.selector;
+            s[0] = IMachineManager.register.selector;
+            s[1] = IMachineManager.toProduction.selector;
+            s[2] = IMachineManager.pause.selector;
+            s[3] = IMachineManager.getTeeMachineStatus.selector;
+            s[4] = IMachineManager.getExtensionId.selector;
+            s[5] = IMachineManager.getTeeMachine.selector;
+            s[6] = IMachineManager.getInitialSigningPolicyId.selector;
+            s[7] = IMachineManager.pauseWithProof.selector;
+            s[8] = IMachineManager.ban.selector;
+            s[9] = IMachineManager.unban.selector;
+            s[10] = IMachineManager.proposeNewOwner.selector;
+            s[11] = IMachineManager.confirmOwnership.selector;
+            s[12] = IMachineManager.updateTeeMachineSettings.selector;
+            s[13] = IMachineManager.getTeeMachineOwner.selector;
+            s[14] = IMachineManager.getTeeMachineWithAttestationData.selector;
+            s[15] = IMachineManager.getRandomTeeIds.selector;
+            s[16] = IMachineManager.getAllActiveTeeMachines.selector;
+            s[17] = IMachineManager.getActiveTeeMachines.selector;
+            s[18] = IMachineManager.getPublicKey.selector;
+            s[19] = IMachineManager.getLastStatusChangeTs.selector;
             cuts[4] = IDiamond.FacetCut(
                 address(new MachineManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -254,17 +254,17 @@ library FlareTeeManagerDeployer {
         // 6: VerificationFacet (includes wallet verification)
         {
             bytes4[] memory s = new bytes4[](11);
-            s[0] = IVerificationFacet.requestTeeAttestation.selector;
-            s[1] = IIVerificationFacet.setCosigners.selector;
-            s[2] = IVerificationFacet.requestAvailabilityCheckAttestation.selector;
-            s[3] = IVerificationFacet.confirmAvailability.selector;
-            s[4] = IVerificationFacet.verifyAvailabilityCheckProof.selector;
-            s[5] = IIVerificationFacet.updateSettings.selector;
-            s[6] = IVerificationFacet.getCosigners.selector;
-            s[7] = IVerificationFacet.getSettings.selector;
-            s[8] = IVerificationFacet.getAvailabilityCheckValidity.selector;
-            s[9] = IVerificationFacet.requestPMWMultisigAccountConfiguredAttestation.selector;
-            s[10] = IVerificationFacet.verifyPMWMultisigAccountConfiguredProof.selector;
+            s[0] = IVerification.requestTeeAttestation.selector;
+            s[1] = IIVerification.setCosigners.selector;
+            s[2] = IVerification.requestAvailabilityCheckAttestation.selector;
+            s[3] = IVerification.confirmAvailability.selector;
+            s[4] = IVerification.verifyAvailabilityCheckProof.selector;
+            s[5] = IIVerification.updateSettings.selector;
+            s[6] = IVerification.getCosigners.selector;
+            s[7] = IVerification.getSettings.selector;
+            s[8] = IVerification.getAvailabilityCheckValidity.selector;
+            s[9] = IVerification.requestPMWMultisigAccountConfiguredAttestation.selector;
+            s[10] = IVerification.verifyPMWMultisigAccountConfiguredProof.selector;
             cuts[5] = IDiamond.FacetCut(
                 address(new VerificationFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -273,11 +273,11 @@ library FlareTeeManagerDeployer {
         // 7: OperationFeesFacet
         {
             bytes4[] memory s = new bytes4[](5);
-            s[0] = IIOperationFeesFacet.setOperationFees.selector;
-            s[1] = IIOperationFeesFacet.setDefaultFee.selector;
-            s[2] = IOperationFeesFacet.getDefaultFee.selector;
-            s[3] = IOperationFeesFacet.getOperationFee.selector;
-            s[4] = IOperationFeesFacet.calculateFeeByTeeIds.selector;
+            s[0] = IIOperationFees.setOperationFees.selector;
+            s[1] = IIOperationFees.setDefaultFee.selector;
+            s[2] = IOperationFees.getDefaultFee.selector;
+            s[3] = IOperationFees.getOperationFee.selector;
+            s[4] = IOperationFees.calculateFeeByTeeIds.selector;
             cuts[6] = IDiamond.FacetCut(
                 address(new OperationFeesFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -286,20 +286,20 @@ library FlareTeeManagerDeployer {
         // 8: OwnerAllowlistFacet
         {
             bytes4[] memory s = new bytes4[](14);
-            s[0] = IOwnerAllowlistFacet.addAllowedTeeMachineOwners.selector;
-            s[1] = IOwnerAllowlistFacet.isAllowedTeeMachineOwner.selector;
-            s[2] = IOwnerAllowlistFacet.getAllowedTeeMachineOwners.selector;
-            s[3] = IOwnerAllowlistFacet.addAllowedTeeWalletProjectOwners.selector;
-            s[4] = IOwnerAllowlistFacet.isAllowedTeeWalletProjectOwner.selector;
-            s[5] = IOwnerAllowlistFacet.removeAllowedTeeMachineOwners.selector;
-            s[6] = IOwnerAllowlistFacet.removeAllowedTeeWalletProjectOwners.selector;
-            s[7] = IOwnerAllowlistFacet.allowAllTeeMachineOwners.selector;
-            s[8] = IOwnerAllowlistFacet.disallowAllTeeMachineOwners.selector;
-            s[9] = IOwnerAllowlistFacet.allowAllTeeWalletProjectOwners.selector;
-            s[10] = IOwnerAllowlistFacet.disallowAllTeeWalletProjectOwners.selector;
-            s[11] = IOwnerAllowlistFacet.getAllowedTeeWalletProjectOwners.selector;
-            s[12] = IOwnerAllowlistFacet.allTeeMachineOwnersAllowed.selector;
-            s[13] = IOwnerAllowlistFacet.allTeeWalletProjectOwnersAllowed.selector;
+            s[0] = IOwnerAllowlist.addAllowedTeeMachineOwners.selector;
+            s[1] = IOwnerAllowlist.isAllowedTeeMachineOwner.selector;
+            s[2] = IOwnerAllowlist.getAllowedTeeMachineOwners.selector;
+            s[3] = IOwnerAllowlist.addAllowedTeeWalletProjectOwners.selector;
+            s[4] = IOwnerAllowlist.isAllowedTeeWalletProjectOwner.selector;
+            s[5] = IOwnerAllowlist.removeAllowedTeeMachineOwners.selector;
+            s[6] = IOwnerAllowlist.removeAllowedTeeWalletProjectOwners.selector;
+            s[7] = IOwnerAllowlist.allowAllTeeMachineOwners.selector;
+            s[8] = IOwnerAllowlist.disallowAllTeeMachineOwners.selector;
+            s[9] = IOwnerAllowlist.allowAllTeeWalletProjectOwners.selector;
+            s[10] = IOwnerAllowlist.disallowAllTeeWalletProjectOwners.selector;
+            s[11] = IOwnerAllowlist.getAllowedTeeWalletProjectOwners.selector;
+            s[12] = IOwnerAllowlist.allTeeMachineOwnersAllowed.selector;
+            s[13] = IOwnerAllowlist.allTeeWalletProjectOwnersAllowed.selector;
             cuts[7] = IDiamond.FacetCut(
                 address(new OwnerAllowlistFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -308,7 +308,7 @@ library FlareTeeManagerDeployer {
         // 9: SystemStateVerifierFacet
         {
             bytes4[] memory s = new bytes4[](1);
-            s[0] = ISystemStateVerifierFacet.verifyTeeSystemState.selector;
+            s[0] = ISystemStateVerifier.verifyTeeSystemState.selector;
             cuts[8] = IDiamond.FacetCut(
                 address(new SystemStateVerifierFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -327,15 +327,15 @@ library FlareTeeManagerDeployer {
         // 11: WalletProjectManagerFacet
         {
             bytes4[] memory s = new bytes4[](9);
-            s[0] = IWalletProjectManagerFacet.createProject.selector;
-            s[1] = IWalletProjectManagerFacet.getOwner.selector;
-            s[2] = IWalletProjectManagerFacet.getExtensionId.selector;
-            s[3] = IWalletProjectManagerFacet.getKeyType.selector;
-            s[4] = IWalletProjectManagerFacet.setBackupManager.selector;
-            s[5] = IWalletProjectManagerFacet.proposeNewOwner.selector;
-            s[6] = IWalletProjectManagerFacet.confirmOwnership.selector;
-            s[7] = IWalletProjectManagerFacet.getSigningAlgo.selector;
-            s[8] = IWalletProjectManagerFacet.getBackupManager.selector;
+            s[0] = IWalletProjectManager.createProject.selector;
+            s[1] = IWalletProjectManager.getOwner.selector;
+            s[2] = IWalletProjectManager.getExtensionId.selector;
+            s[3] = IWalletProjectManager.getKeyType.selector;
+            s[4] = IWalletProjectManager.setBackupManager.selector;
+            s[5] = IWalletProjectManager.proposeNewOwner.selector;
+            s[6] = IWalletProjectManager.confirmOwnership.selector;
+            s[7] = IWalletProjectManager.getSigningAlgo.selector;
+            s[8] = IWalletProjectManager.getBackupManager.selector;
             cuts[10] = IDiamond.FacetCut(
                 address(new WalletProjectManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -344,15 +344,15 @@ library FlareTeeManagerDeployer {
         // 12: WalletKeyManagerFacet
         {
             bytes4[] memory s = new bytes4[](9);
-            s[0] = IWalletKeyManagerFacet.addKey.selector;
-            s[1] = IWalletKeyManagerFacet.confirmKey.selector;
-            s[2] = IWalletKeyManagerFacet.setMultisigThreshold.selector;
-            s[3] = IWalletKeyManagerFacet.receivingTeesAndKeys.selector;
-            s[4] = IWalletKeyManagerFacet.getWalletKeysInfo.selector;
-            s[5] = IWalletKeyManagerFacet.deleteKey.selector;
-            s[6] = IWalletKeyManagerFacet.cleanUpTeeIds.selector;
-            s[7] = IWalletKeyManagerFacet.getWalletKeyPublicKey.selector;
-            s[8] = IWalletKeyManagerFacet.getWalletKeyTeeIds.selector;
+            s[0] = IWalletKeyManager.addKey.selector;
+            s[1] = IWalletKeyManager.confirmKey.selector;
+            s[2] = IWalletKeyManager.setMultisigThreshold.selector;
+            s[3] = IWalletKeyManager.receivingTeesAndKeys.selector;
+            s[4] = IWalletKeyManager.getWalletKeysInfo.selector;
+            s[5] = IWalletKeyManager.deleteKey.selector;
+            s[6] = IWalletKeyManager.cleanUpTeeIds.selector;
+            s[7] = IWalletKeyManager.getWalletKeyPublicKey.selector;
+            s[8] = IWalletKeyManager.getWalletKeyTeeIds.selector;
             cuts[11] = IDiamond.FacetCut(
                 address(new WalletKeyManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -361,20 +361,20 @@ library FlareTeeManagerDeployer {
         // 13: WalletManagerFacet
         {
             bytes4[] memory s = new bytes4[](14);
-            s[0] = IWalletManagerFacet.createWallet.selector;
-            s[1] = IWalletManagerFacet.setAdmins.selector;
-            s[2] = IWalletManagerFacet.confirmAdmin.selector;
-            s[3] = IWalletManagerFacet.setCosigners.selector;
-            s[4] = IWalletManagerFacet.confirmCosigner.selector;
-            s[5] = IWalletManagerFacet.closeWalletInitialization.selector;
-            s[6] = IWalletManagerFacet.enableWallet.selector;
-            s[7] = IWalletManagerFacet.getWalletProjectId.selector;
-            s[8] = IWalletManagerFacet.getWalletCosignersAndThreshold.selector;
-            s[9] = IWalletManagerFacet.getWalletStatus.selector;
-            s[10] = IWalletManagerFacet.pauseWallet.selector;
-            s[11] = IWalletManagerFacet.getProjectWalletIds.selector;
-            s[12] = IWalletManagerFacet.getWalletAdminsPublicKeysAndThreshold.selector;
-            s[13] = IWalletManagerFacet.getWalletAdminsAndThreshold.selector;
+            s[0] = IWalletManager.createWallet.selector;
+            s[1] = IWalletManager.setAdmins.selector;
+            s[2] = IWalletManager.confirmAdmin.selector;
+            s[3] = IWalletManager.setCosigners.selector;
+            s[4] = IWalletManager.confirmCosigner.selector;
+            s[5] = IWalletManager.closeWalletInitialization.selector;
+            s[6] = IWalletManager.enableWallet.selector;
+            s[7] = IWalletManager.getWalletProjectId.selector;
+            s[8] = IWalletManager.getWalletCosignersAndThreshold.selector;
+            s[9] = IWalletManager.getWalletStatus.selector;
+            s[10] = IWalletManager.pauseWallet.selector;
+            s[11] = IWalletManager.getProjectWalletIds.selector;
+            s[12] = IWalletManager.getWalletAdminsPublicKeysAndThreshold.selector;
+            s[13] = IWalletManager.getWalletAdminsAndThreshold.selector;
             cuts[12] = IDiamond.FacetCut(
                 address(new WalletManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -383,7 +383,7 @@ library FlareTeeManagerDeployer {
         // 14: WalletBackupManagerFacet
         {
             bytes4[] memory s = new bytes4[](1);
-            s[0] = IWalletBackupManagerFacet.backupRestore.selector;
+            s[0] = IWalletBackupManager.backupRestore.selector;
             cuts[13] = IDiamond.FacetCut(
                 address(new WalletBackupManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -392,9 +392,9 @@ library FlareTeeManagerDeployer {
         // 15: VrfFacet
         {
             bytes4[] memory s = new bytes4[](3);
-            s[0] = IVrfFacet.requestVrf.selector;
-            s[1] = IVrfFacet.setVrfAuthorizationAddress.selector;
-            s[2] = IVrfFacet.getVrfAuthorizationAddress.selector;
+            s[0] = IVrf.requestVrf.selector;
+            s[1] = IVrf.setVrfAuthorizationAddress.selector;
+            s[2] = IVrf.getVrfAuthorizationAddress.selector;
             cuts[14] = IDiamond.FacetCut(
                 address(new VrfFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -411,11 +411,11 @@ library FlareTeeManagerDeployer {
         // 0: ReplicationFacet
         {
             bytes4[] memory s = new bytes4[](5);
-            s[0] = IReplicationFacet.toPauseForUpgrade.selector;
-            s[1] = IReplicationFacet.replicateFrom.selector;
-            s[2] = IReplicationFacet.confirmReplicate.selector;
-            s[3] = IReplicationFacet.getReplicatingTeeId.selector;
-            s[4] = IIReplicationFacet.setPauseBeforeUpgradeMinDurationSeconds.selector;
+            s[0] = IReplication.toPauseForUpgrade.selector;
+            s[1] = IReplication.replicateFrom.selector;
+            s[2] = IReplication.confirmReplicate.selector;
+            s[3] = IReplication.getReplicatingTeeId.selector;
+            s[4] = IIReplication.setPauseBeforeUpgradeMinDurationSeconds.selector;
             cuts[0] = IDiamond.FacetCut(
                 address(new ReplicationFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -424,19 +424,19 @@ library FlareTeeManagerDeployer {
         // 1: ExtensionGovernanceFacet
         {
             bytes4[] memory s = new bytes4[](14);
-            s[0] = IExtensionGovernanceFacet.setNewTeeGovernance.selector;
-            s[1] = IExtensionGovernanceFacet.getLatestTeeGovernanceHash.selector;
-            s[2] = IExtensionGovernanceFacet.getTeeGovernanceThreshold.selector;
-            s[3] = IExtensionGovernanceFacet.setTeePausingAddresses.selector;
-            s[4] = IExtensionGovernanceFacet.signTeePausingAddresses.selector;
-            s[5] = IExtensionGovernanceFacet.isTeeGovernanceSigner.selector;
-            s[6] = IExtensionGovernanceFacet.getTeeGovernance.selector;
-            s[7] = IExtensionGovernanceFacet.getLatestTeeGovernance.selector;
-            s[8] = IExtensionGovernanceFacet.isGovernanceHashValid.selector;
-            s[9] = IExtensionGovernanceFacet.getTeePausingAddresses.selector;
-            s[10] = IExtensionGovernanceFacet.getLatestTeePausingAddresses.selector;
-            s[11] = IExtensionGovernanceFacet.isTeePausingAddressesSigner.selector;
-            s[12] = IExtensionGovernanceFacet.hasSignedTeePausingAddresses.selector;
+            s[0] = IExtensionGovernance.setNewTeeGovernance.selector;
+            s[1] = IExtensionGovernance.getLatestTeeGovernanceHash.selector;
+            s[2] = IExtensionGovernance.getTeeGovernanceThreshold.selector;
+            s[3] = IExtensionGovernance.setTeePausingAddresses.selector;
+            s[4] = IExtensionGovernance.signTeePausingAddresses.selector;
+            s[5] = IExtensionGovernance.isTeeGovernanceSigner.selector;
+            s[6] = IExtensionGovernance.getTeeGovernance.selector;
+            s[7] = IExtensionGovernance.getLatestTeeGovernance.selector;
+            s[8] = IExtensionGovernance.isGovernanceHashValid.selector;
+            s[9] = IExtensionGovernance.getTeePausingAddresses.selector;
+            s[10] = IExtensionGovernance.getLatestTeePausingAddresses.selector;
+            s[11] = IExtensionGovernance.isTeePausingAddressesSigner.selector;
+            s[12] = IExtensionGovernance.hasSignedTeePausingAddresses.selector;
             cuts[1] = IDiamond.FacetCut(
                 address(new ExtensionGovernanceFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -445,16 +445,16 @@ library FlareTeeManagerDeployer {
         // 2: UpgradeManagerFacet
         {
             bytes4[] memory s = new bytes4[](10);
-            s[0] = IUpgradeManagerFacet.createNewTeeUpgrade.selector;
-            s[1] = IUpgradeManagerFacet.addTeeUpgradePaths.selector;
-            s[2] = IUpgradeManagerFacet.finalizeTeeUpgrade.selector;
-            s[3] = IUpgradeManagerFacet.signTeeUpgrade.selector;
-            s[4] = IUpgradeManagerFacet.isTeeUpgradeFinalized.selector;
-            s[5] = IUpgradeManagerFacet.isTeeUpgradeSigned.selector;
-            s[6] = IUpgradeManagerFacet.getTeeUpgradesCount.selector;
-            s[7] = IUpgradeManagerFacet.getTeeUpgradePaths.selector;
-            s[8] = IUpgradeManagerFacet.isTeeUpgradePathValid.selector;
-            s[9] = IUpgradeManagerFacet.getTeeUpgradeSignatures.selector;
+            s[0] = IUpgradeManager.createNewTeeUpgrade.selector;
+            s[1] = IUpgradeManager.addTeeUpgradePaths.selector;
+            s[2] = IUpgradeManager.finalizeTeeUpgrade.selector;
+            s[3] = IUpgradeManager.signTeeUpgrade.selector;
+            s[4] = IUpgradeManager.isTeeUpgradeFinalized.selector;
+            s[5] = IUpgradeManager.isTeeUpgradeSigned.selector;
+            s[6] = IUpgradeManager.getTeeUpgradesCount.selector;
+            s[7] = IUpgradeManager.getTeeUpgradePaths.selector;
+            s[8] = IUpgradeManager.isTeeUpgradePathValid.selector;
+            s[9] = IUpgradeManager.getTeeUpgradeSignatures.selector;
             cuts[2] = IDiamond.FacetCut(
                 address(new UpgradeManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -463,8 +463,8 @@ library FlareTeeManagerDeployer {
         // 3: WalletResumeFacet
         {
             bytes4[] memory s = new bytes4[](2);
-            s[0] = IWalletResumeFacet.setPausingAddresses.selector;
-            s[1] = IWalletResumeFacet.resume.selector;
+            s[0] = IWalletResume.setPausingAddresses.selector;
+            s[1] = IWalletResume.resume.selector;
             cuts[3] = IDiamond.FacetCut(
                 address(new WalletResumeFacet()), IDiamond.FacetCutAction.Add, s
             );

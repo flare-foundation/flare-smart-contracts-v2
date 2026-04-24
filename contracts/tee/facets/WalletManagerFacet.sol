@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IWalletManagerFacet } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
+import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
 import { PublicKeyUtils } from "../../utils/lib/PublicKeyUtils.sol";
 import { WalletManager } from "../library/WalletManager.sol";
@@ -12,7 +12,7 @@ import { WalletKeyManager } from "../library/WalletKeyManager.sol";
  * @title WalletManagerFacet
  * @notice Facet for TEE wallet lifecycle management.
  */
-contract WalletManagerFacet is IWalletManagerFacet {
+contract WalletManagerFacet is IWalletManager {
 
     modifier onlyOwner(bytes32 _walletId) {
         _checkOnlyOwner(_walletId);
@@ -20,7 +20,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function createWallet(
         bytes32 _projectId
@@ -40,7 +40,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function setAdmins(
         bytes32 _walletId,
@@ -75,7 +75,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function confirmAdmin(
         bytes32 _walletId
@@ -96,7 +96,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function setCosigners(
         bytes32 _walletId,
@@ -124,7 +124,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function confirmCosigner(
         bytes32 _walletId
@@ -144,7 +144,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function closeWalletInitialization(
         bytes32 _walletId
@@ -170,7 +170,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function enableWallet(
         bytes32 _walletId
@@ -192,7 +192,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function pauseWallet(
         bytes32 _walletId
@@ -207,7 +207,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function getProjectWalletIds(
         bytes32 _projectId
@@ -219,7 +219,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function getWalletProjectId(
         bytes32 _walletId
@@ -231,7 +231,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function getWalletAdminsPublicKeysAndThreshold(
         bytes32 _walletId
@@ -246,7 +246,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function getWalletAdminsAndThreshold(
         bytes32 _walletId
@@ -261,7 +261,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function getWalletCosignersAndThreshold(
         bytes32 _walletId
@@ -276,7 +276,7 @@ contract WalletManagerFacet is IWalletManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletManagerFacet
+     * @inheritdoc IWalletManager
      */
     function getWalletStatus(
         bytes32 _walletId

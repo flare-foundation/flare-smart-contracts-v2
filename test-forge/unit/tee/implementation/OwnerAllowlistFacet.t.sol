@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IOwnerAllowlistFacet } from "../../../../contracts/userInterfaces/tee/IOwnerAllowlistFacet.sol";
+import { IOwnerAllowlist } from "../../../../contracts/userInterfaces/tee/IOwnerAllowlist.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -89,7 +89,7 @@ contract OwnerAllowlistFacetTest is Test {
 
     function testAddAllowedTeeMachineOwners() public {
         vm.expectEmit();
-        emit IOwnerAllowlistFacet.AllowedTeeMachineOwnersAdded(extensionId, owners);
+        emit IOwnerAllowlist.AllowedTeeMachineOwnersAdded(extensionId, owners);
         vm.prank(extensionOwner);
         flareTeeManager.addAllowedTeeMachineOwners(extensionId, owners);
     }
@@ -112,7 +112,7 @@ contract OwnerAllowlistFacetTest is Test {
         flareTeeManager.addAllowedTeeMachineOwners(extensionId, owners);
 
         vm.expectEmit();
-        emit IOwnerAllowlistFacet.AllowedTeeMachineOwnersRemoved(extensionId, owners);
+        emit IOwnerAllowlist.AllowedTeeMachineOwnersRemoved(extensionId, owners);
         vm.prank(extensionOwner);
         flareTeeManager.removeAllowedTeeMachineOwners(extensionId, owners);
 
@@ -131,7 +131,7 @@ contract OwnerAllowlistFacetTest is Test {
 
     function testAddAllowedTeeWalletProjectOwners() public {
         vm.expectEmit();
-        emit IOwnerAllowlistFacet.AllowedTeeWalletProjectOwnersAdded(extensionId, owners);
+        emit IOwnerAllowlist.AllowedTeeWalletProjectOwnersAdded(extensionId, owners);
         vm.prank(extensionOwner);
         flareTeeManager.addAllowedTeeWalletProjectOwners(extensionId, owners);
     }
@@ -154,7 +154,7 @@ contract OwnerAllowlistFacetTest is Test {
         flareTeeManager.addAllowedTeeWalletProjectOwners(extensionId, owners);
 
         vm.expectEmit();
-        emit IOwnerAllowlistFacet.AllowedTeeWalletProjectOwnersRemoved(extensionId, owners);
+        emit IOwnerAllowlist.AllowedTeeWalletProjectOwnersRemoved(extensionId, owners);
         vm.prank(extensionOwner);
         flareTeeManager.removeAllowedTeeWalletProjectOwners(extensionId, owners);
 
@@ -204,7 +204,7 @@ contract OwnerAllowlistFacetTest is Test {
         assertTrue(flareTeeManager.isAllowedTeeMachineOwner(extensionId, owners[0]));
 
         vm.expectEmit();
-        emit IOwnerAllowlistFacet.AllTeeMachineOwnersDisallowed(extensionId);
+        emit IOwnerAllowlist.AllTeeMachineOwnersDisallowed(extensionId);
         vm.prank(extensionOwner);
         flareTeeManager.disallowAllTeeMachineOwners(extensionId);
 
@@ -254,7 +254,7 @@ contract OwnerAllowlistFacetTest is Test {
         assertTrue(flareTeeManager.isAllowedTeeWalletProjectOwner(extensionId, owners[0]));
 
         vm.expectEmit();
-        emit IOwnerAllowlistFacet.AllTeeWalletProjectOwnersDisallowed(extensionId);
+        emit IOwnerAllowlist.AllTeeWalletProjectOwnersDisallowed(extensionId);
         vm.prank(extensionOwner);
         flareTeeManager.disallowAllTeeWalletProjectOwners(extensionId);
 

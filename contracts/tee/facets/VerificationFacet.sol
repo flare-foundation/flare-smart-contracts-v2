@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IIVerificationFacet } from "../interface/IIVerificationFacet.sol";
-import { IVerificationFacet, TEE_SOURCE_ID } from "../../userInterfaces/tee/IVerificationFacet.sol";
-import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
-import { IMachineManagerFacet, REG_OP_TYPE } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
-import { IWalletManagerFacet } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
+import { IIVerification } from "../interface/IIVerification.sol";
+import { IVerification, TEE_SOURCE_ID } from "../../userInterfaces/tee/IVerification.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
+import { IMachineManager, REG_OP_TYPE } from "../../userInterfaces/tee/IMachineManager.sol";
+import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { IPMWMultisigAccountConfigured, PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE }
@@ -28,12 +28,12 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
  * @title VerificationFacet
  * @notice Facet for TEE machine attestation, availability checks, and wallet (PMW) verification.
  */
-contract VerificationFacet is IIVerificationFacet, GovernedFacet {
+contract VerificationFacet is IIVerification, GovernedFacet {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     bytes32 internal constant TEE_ATTESTATION = bytes32("TEE_ATTESTATION");
 
-    /// @inheritdoc IVerificationFacet
+    /// @inheritdoc IVerification
     function requestTeeAttestation(
         address _teeId,
         address _claimBackAddress
@@ -53,9 +53,9 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
 
         address attestingTeeId = _getAttestingTeeId(_teeId);
 
-        IMachineManagerFacet.TeeMachineWithAttestationData memory teeMachineWithAttestationData =
+        IMachineManager.TeeMachineWithAttestationData memory teeMachineWithAttestationData =
             MachineManager.getTeeMachineWithAttestationData(attestingTeeId);
-        IMachineManagerFacet.TeeMachine memory teeMachine = MachineManager.getTeeMachine(attestingTeeId);
+        IMachineManager.TeeMachine memory teeMachine = MachineManager.getTeeMachine(attestingTeeId);
         teeMachineWithAttestationData.teeId = _teeId;
         teeMachine.teeId = _teeId;
 
@@ -63,14 +63,14 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
             teeMachine: teeMachineWithAttestationData,
             challenge: challenge
         });
-        IMachineManagerFacet.TeeMachine[] memory teeMachines =
-            new IMachineManagerFacet.TeeMachine[](1);
+        IMachineManager.TeeMachine[] memory teeMachines =
+            new IMachineManager.TeeMachine[](1);
         teeMachines[0] = teeMachine;
 
         Instructions.sendInstructions(
             bytes32(0),
             teeMachines,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 REG_OP_TYPE,
                 TEE_ATTESTATION,
                 abi.encode(message),
@@ -82,7 +82,7 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
         emit TeeAttestationRequested(_teeId, challenge);
     }
 
-    /// @inheritdoc IVerificationFacet
+    /// @inheritdoc IVerification
     function requestAvailabilityCheckAttestation(
         address _teeId,
         bytes32 _instructionId,
@@ -98,7 +98,7 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
             ChallengeExpired(s.challengeTs[_teeId])
         );
         address attestingTeeId = _getAttestingTeeId(_teeId);
-        IMachineManagerFacet.TeeMachine memory teeMachine = MachineManager.getTeeMachine(attestingTeeId);
+        IMachineManager.TeeMachine memory teeMachine = MachineManager.getTeeMachine(attestingTeeId);
         ITeeAvailabilityCheck.RequestBody memory requestBody = ITeeAvailabilityCheck.RequestBody({
             teeId: _teeId,
             teeProxyId: teeMachine.teeProxyId,
@@ -109,9 +109,9 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
 
         address[] memory registrationCosigners = new address[](0);
         uint64 registrationCosignersThreshold = 0;
-        IMachineManagerFacet.TeeStatus status = MachineManager.getTeeMachineStatus(attestingTeeId);
-        if (status == IMachineManagerFacet.TeeStatus.INITIALIZED ||
-            status == IMachineManagerFacet.TeeStatus.REPLICATING)
+        IMachineManager.TeeStatus status = MachineManager.getTeeMachineStatus(attestingTeeId);
+        if (status == IMachineManager.TeeStatus.INITIALIZED ||
+            status == IMachineManager.TeeStatus.REPLICATING)
         {
             registrationCosigners = s.cosigners.values();
             registrationCosignersThreshold = s.cosignersThreshold;
@@ -129,7 +129,7 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
         );
     }
 
-    /// @inheritdoc IVerificationFacet
+    /// @inheritdoc IVerification
     function confirmAvailability(
         ITeeAvailabilityCheck.Proof calldata _proof
     )
@@ -139,19 +139,19 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
         MachineManager.checkTeeMachineInProduction(teeId);
         MachineManager.validateAvailabilityCheckStatus(_proof.responseBody.status);
         uint256 extensionId = MachineManager.getExtensionId(teeId);
-        IMachineManagerFacet.TeeMachineWithAttestationData memory teeMachine =
+        IMachineManager.TeeMachineWithAttestationData memory teeMachine =
             MachineManager.getTeeMachineWithAttestationData(teeId);
         MachineManager.checkCodeHashPlatformSupported(extensionId, teeMachine.codeHash, teeMachine.platform);
         require(
             Verification.verifyAvailabilityCheckProof(
-                teeMachine, IMachineManagerFacet.TeeStatus.PRODUCTION, _proof
+                teeMachine, IMachineManager.TeeStatus.PRODUCTION, _proof
             ),
             InvalidResponseData()
         );
         Verification.extendAvailability(_proof);
     }
 
-    /// @inheritdoc IVerificationFacet
+    /// @inheritdoc IVerification
     function verifyAvailabilityCheckProof(
         ITeeAvailabilityCheck.Proof calldata _proof
     )
@@ -159,13 +159,13 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
         returns (bool)
     {
         address teeId = _proof.requestBody.teeId;
-        IMachineManagerFacet.TeeStatus status = MachineManager.getTeeMachineStatus(teeId);
-        IMachineManagerFacet.TeeMachineWithAttestationData memory teeMachine =
+        IMachineManager.TeeStatus status = MachineManager.getTeeMachineStatus(teeId);
+        IMachineManager.TeeMachineWithAttestationData memory teeMachine =
             MachineManager.getTeeMachineWithAttestationData(teeId);
         return Verification.verifyAvailabilityCheckProof(teeMachine, status, _proof);
     }
 
-    /// @inheritdoc IIVerificationFacet
+    /// @inheritdoc IIVerification
     function setCosigners(
         address[] calldata _cosigners,
         uint64 _cosignersThreshold
@@ -190,7 +190,7 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
         emit CosignersSet(_cosigners, _cosignersThreshold);
     }
 
-    /// @inheritdoc IIVerificationFacet
+    /// @inheritdoc IIVerification
     function updateSettings(
         uint64 _availabilityCheckValidityDurationSeconds,
         uint64 _signingPolicyValidityDurationInRewardEpochs,
@@ -210,7 +210,7 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
     // Getters
     // =========================================================================
 
-    /// @inheritdoc IVerificationFacet
+    /// @inheritdoc IVerification
     function getCosigners()
         external view
         returns (
@@ -223,7 +223,7 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
         _cosignersThreshold = s.cosignersThreshold;
     }
 
-    /// @inheritdoc IVerificationFacet
+    /// @inheritdoc IVerification
     function getSettings()
         external view
         returns (
@@ -236,7 +236,7 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
         _challengeValidityDurationSeconds = s.challengeValidityDurationSeconds;
     }
 
-    /// @inheritdoc IVerificationFacet
+    /// @inheritdoc IVerification
     function getAvailabilityCheckValidity(
         address _teeId
     )
@@ -253,7 +253,7 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
     // Wallet verification (PMW)
     // =========================================================================
 
-    /// @inheritdoc IVerificationFacet
+    /// @inheritdoc IVerification
     function requestPMWMultisigAccountConfiguredAttestation(
         bytes32 _walletId,
         bytes32 _sourceId,
@@ -265,10 +265,10 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
         external payable
     {
         require(bytes(_accountAddress).length > 0, AccountAddressZero());
-        IWalletManagerFacet.WalletStatus walletStatus = WalletManager.getWalletStatus(_walletId);
+        IWalletManager.WalletStatus walletStatus = WalletManager.getWalletStatus(_walletId);
         require(
-            walletStatus == IWalletManagerFacet.WalletStatus.PRODUCTION ||
-                walletStatus == IWalletManagerFacet.WalletStatus.PAUSED,
+            walletStatus == IWalletManager.WalletStatus.PRODUCTION ||
+                walletStatus == IWalletManager.WalletStatus.PAUSED,
             OnlyProductionOrPausedStatus()
         );
 
@@ -297,7 +297,7 @@ contract VerificationFacet is IIVerificationFacet, GovernedFacet {
         );
     }
 
-    /// @inheritdoc IVerificationFacet
+    /// @inheritdoc IVerification
     function verifyPMWMultisigAccountConfiguredProof(
         bytes32 _walletId,
         IPMWMultisigAccountConfigured.Proof calldata _proof

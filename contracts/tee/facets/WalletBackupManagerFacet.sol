@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IWalletBackupManagerFacet } from "../../userInterfaces/tee/IWalletBackupManagerFacet.sol";
-import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
-import { WALLET_OP_TYPE } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
+import { IWalletBackupManager } from "../../userInterfaces/tee/IWalletBackupManager.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
+import { WALLET_OP_TYPE } from "../../userInterfaces/tee/IWalletManager.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { WalletKeyManager } from "../library/WalletKeyManager.sol";
 import { WalletManager } from "../library/WalletManager.sol";
@@ -17,12 +17,12 @@ import { Instructions } from "../library/Instructions.sol";
  * @title WalletBackupManagerFacet
  * @notice Facet for TEE wallet key backup and restore.
  */
-contract WalletBackupManagerFacet is IWalletBackupManagerFacet {
+contract WalletBackupManagerFacet is IWalletBackupManager {
 
     bytes32 internal constant KEY_DATA_PROVIDER_RESTORE = bytes32("KEY_DATA_PROVIDER_RESTORE");
 
     /**
-     * @inheritdoc IWalletBackupManagerFacet
+     * @inheritdoc IWalletBackupManager
      */
     function backupRestore(
         address _teeId,
@@ -40,7 +40,7 @@ contract WalletBackupManagerFacet is IWalletBackupManagerFacet {
         MachineManager.checkTeeMachineInProduction(_teeId);
         require(
             MachineManager.getTeeMachineStatus(_backupId.teeId) !=
-                IMachineManagerFacet.TeeStatus.INITIALIZED,
+                IMachineManager.TeeStatus.INITIALIZED,
             InvalidTeeMachine()
         );
         require(!_isKeyAvailable(_teeId, _backupId.walletId, _backupId.keyId), KeyAlreadyAvailable());
@@ -90,7 +90,7 @@ contract WalletBackupManagerFacet is IWalletBackupManagerFacet {
         Instructions.sendInstructions(
             bytes32(0),
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 WALLET_OP_TYPE,
                 KEY_DATA_PROVIDER_RESTORE,
                 abi.encode(message),

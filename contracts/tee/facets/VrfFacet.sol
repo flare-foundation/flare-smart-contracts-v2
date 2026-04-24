@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IVrfFacet } from "../../userInterfaces/tee/IVrfFacet.sol";
-import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
-import { IWalletManagerFacet, WALLET_OP_TYPE } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
+import { IVrf } from "../../userInterfaces/tee/IVrf.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
+import { IWalletManager, WALLET_OP_TYPE } from "../../userInterfaces/tee/IWalletManager.sol";
 import { WalletManager } from "../library/WalletManager.sol";
 import { WalletProjectManager } from "../library/WalletProjectManager.sol";
 import { WalletKeyManager } from "../library/WalletKeyManager.sol";
@@ -16,12 +16,12 @@ import { Vrf } from "../library/Vrf.sol";
  * @title VrfFacet
  * @notice Facet for instructing TEE machines to generate VRF proofs.
  */
-contract VrfFacet is IVrfFacet {
+contract VrfFacet is IVrf {
 
     bytes32 internal constant VRF = bytes32("VRF");
 
     /**
-     * @inheritdoc IVrfFacet
+     * @inheritdoc IVrf
      */
     function requestVrf(
         bytes32 _walletId,
@@ -35,7 +35,7 @@ contract VrfFacet is IVrfFacet {
         require(_nonce.length > 0, NonceEmpty());
         require(Vrf.getState().vrfAuthorizationAddresses[_walletId] == msg.sender, OnlyAuthorizationAddress());
         require(
-            WalletManager.getWalletStatus(_walletId) == IWalletManagerFacet.WalletStatus.PRODUCTION,
+            WalletManager.getWalletStatus(_walletId) == IWalletManager.WalletStatus.PRODUCTION,
             WalletNotInProduction()
         );
         address[] memory teeIds = WalletKeyManager.getWalletKeyTeeIds(_walletId, _keyId);
@@ -43,7 +43,7 @@ contract VrfFacet is IVrfFacet {
         uint256 productionTeeCount = 0;
         for (uint256 i = 0; i < teeIds.length; i++) {
             if (MachineManager.getTeeMachineStatus(teeIds[i]) ==
-                IMachineManagerFacet.TeeStatus.PRODUCTION)
+                IMachineManager.TeeStatus.PRODUCTION)
             {
                 teeIds[productionTeeCount] = teeIds[i];
                 productionTeeCount++;
@@ -62,7 +62,7 @@ contract VrfFacet is IVrfFacet {
         _instructionId = Instructions.sendInstructions(
             bytes32(0),
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 WALLET_OP_TYPE,
                 VRF,
                 abi.encode(message),
@@ -75,7 +75,7 @@ contract VrfFacet is IVrfFacet {
     }
 
     /**
-     * @inheritdoc IVrfFacet
+     * @inheritdoc IVrf
      */
     function setVrfAuthorizationAddress(
         bytes32 _walletId,
@@ -90,7 +90,7 @@ contract VrfFacet is IVrfFacet {
     }
 
     /**
-     * @inheritdoc IVrfFacet
+     * @inheritdoc IVrf
      */
     function getVrfAuthorizationAddress(
         bytes32 _walletId

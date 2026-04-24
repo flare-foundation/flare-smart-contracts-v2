@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IExtensionManagerFacet } from "../../userInterfaces/tee/IExtensionManagerFacet.sol";
+import { IExtensionManager } from "../../userInterfaces/tee/IExtensionManager.sol";
 
 /**
- * @title IIExtensionManagerFacet
+ * @title IIExtensionManager
  * @notice Internal interface for the ExtensionManagerFacet.
  * @dev Extends the public interface with governance-only methods.
  */
-interface IIExtensionManagerFacet is IExtensionManagerFacet {
+interface IIExtensionManager is IExtensionManager {
 
     /**
      * Add system supported platforms.

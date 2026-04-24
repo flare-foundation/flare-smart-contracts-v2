@@ -294,9 +294,7 @@ contracts/
       <Entity>Proxy.sol              # Optional beacon proxies managed by Diamond
 
   userInterfaces/
-    I<Domain>Facet.sol               # Public interfaces (I prefix) — exposed to external callers
-    facets/
-      II<FacetName>.sol              # Full facet interfaces (admin + public)
+    I<Domain>.sol                    # Public interfaces (I prefix) — exposed to external callers
 ```
 
 ### Key Pattern 1: Facet = Thin Wrapper, Library = Logic
@@ -354,8 +352,10 @@ bytes32 internal constant STATE_POSITION = keccak256(
 
 | Prefix | Location | Purpose | Example |
 |--------|----------|---------|---------|
-| `I` | `userInterfaces/` | Public API for external callers | `IConfigFacet` |
-| `II` | `<domain>/interface/` | Internal/admin — extends I-interface | `IIConfigFacet` |
+| `I` | `userInterfaces/` | Public API for external callers | `IConfig` |
+| `II` | `<domain>/interface/` | Internal/admin — extends I-interface | `IIConfig` |
+
+Interface names do NOT carry a `Facet` suffix even when they describe a single EIP-2535 facet's API — the suffix belongs on the *contract* (e.g., `ConfigFacet`), not on the interface that describes its behavior.
 
 The aggregate `II<MainController>` interface inherits ALL `II*` interfaces and represents the full Diamond API.
 
@@ -490,8 +490,8 @@ The upgrade script:
 2. **For each domain, create:**
    - `library/<Domain>.sol` — move logic here, add ERC-7201 State struct
    - `facets/<Domain>Facet.sol` — thin wrapper inheriting `GovernedProxyImplementation`, using `onlyGovernance` modifier
-   - `userInterfaces/I<Domain>Facet.sol` — public interface
-   - `interface/II<Domain>Facet.sol` — extends public interface with admin functions
+   - `userInterfaces/I<Domain>.sol` — public interface
+   - `interface/II<Domain>.sol` — extends public interface with admin functions
 3. **Create aggregate interface** — `II<MainController>` inheriting all `II*` interfaces
 4. **Create DiamondCutFacet** — inherits `GovernedProxyImplementation`, uses `onlyGovernance` instead of `LibDiamond.enforceIsContractOwner()`
 5. **Create Init contract** — calls `GovernedBase.initialise()` + initializes all library states

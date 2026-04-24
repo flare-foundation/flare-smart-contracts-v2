@@ -7,10 +7,10 @@ import { Signature } from "../ISignature.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 /**
- * @title IWalletKeyManagerFacet
+ * @title IWalletKeyManager
  * @notice Public interface for the WalletKeyManagerFacet.
  */
-interface IWalletKeyManagerFacet is ITeeCommonErrors {
+interface IWalletKeyManager is ITeeCommonErrors {
 
     struct KeyGenerate {
         address teeId;

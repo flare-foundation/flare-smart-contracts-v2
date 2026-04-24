@@ -8,10 +8,10 @@ import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.
 
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import {
-    IWalletBackupManagerFacet
-} from "../../../../contracts/userInterfaces/tee/IWalletBackupManagerFacet.sol";
-import { IMachineManagerFacet } from "../../../../contracts/userInterfaces/tee/IMachineManagerFacet.sol";
-import { IWalletManagerFacet } from "../../../../contracts/userInterfaces/tee/IWalletManagerFacet.sol";
+    IWalletBackupManager
+} from "../../../../contracts/userInterfaces/tee/IWalletBackupManager.sol";
+import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
+import { IWalletManager } from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
@@ -29,12 +29,12 @@ import { WalletKeyManager } from "../../../../contracts/tee/library/WalletKeyMan
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-interface ITestStateHelperFacet {
+interface ITestStateHelper {
     function setTeeMachineState(
         address _teeId,
         uint256 _extensionId,
         address _owner,
-        IMachineManagerFacet.TeeStatus _status,
+        IMachineManager.TeeStatus _status,
         PublicKey calldata _publicKey,
         uint32 _initialSigningPolicyId,
         string calldata _url
@@ -75,14 +75,14 @@ interface ITestStateHelperFacet {
  * @notice A test-only facet added to the diamond to write internal state directly,
  *         bypassing the complex registration, attestation, and wallet lifecycle flows.
  */
-contract TestStateHelperFacet is ITestStateHelperFacet {
+contract TestStateHelperFacet is ITestStateHelper {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function setTeeMachineState(
         address _teeId,
         uint256 _extensionId,
         address _owner,
-        IMachineManagerFacet.TeeStatus _status,
+        IMachineManager.TeeStatus _status,
         PublicKey calldata _publicKey,
         uint32 _initialSigningPolicyId,
         string calldata _url
@@ -103,7 +103,7 @@ contract TestStateHelperFacet is ITestStateHelperFacet {
             platform: bytes32(0),
             url: _url
         });
-        if (_status == IMachineManagerFacet.TeeStatus.PRODUCTION) {
+        if (_status == IMachineManager.TeeStatus.PRODUCTION) {
             s.activeTeeIds.add(_teeId);
             s.extensionActiveTeeIds[_extensionId].add(_teeId);
         }
@@ -140,7 +140,7 @@ contract TestStateHelperFacet is ITestStateHelperFacet {
         WalletManager.State storage s = WalletManager.getState();
         WalletManager.TeeWalletState storage wallet = s.wallets[_walletId];
         wallet.projectId = _projectId;
-        wallet.status = IWalletManagerFacet.WalletStatus.PRODUCTION;
+        wallet.status = IWalletManager.WalletStatus.PRODUCTION;
         wallet.adminsThreshold = _adminsThreshold;
         while (wallet.adminsPublicKeys.length > 0) {
             wallet.adminsPublicKeys.pop();
@@ -203,7 +203,7 @@ contract WalletBackupManagerFacetTest is Test {
     address private teeMachineOwner;
     bytes32 private projectId;
     bytes32 private walletId;
-    IWalletBackupManagerFacet.BackupId private backupId;
+    IWalletBackupManager.BackupId private backupId;
     string private backupUrl;
     uint64 private keyId;
     bytes private publicKey;
@@ -251,7 +251,7 @@ contract WalletBackupManagerFacetTest is Test {
         adminPk2 = PublicKey(bytes32(w2.publicKeyX), bytes32(w2.publicKeyY));
         adminsThreshold = 2;
 
-        backupId = IWalletBackupManagerFacet.BackupId(
+        backupId = IWalletBackupManager.BackupId(
             backupTeeId,
             walletId,
             keyId,
@@ -287,11 +287,11 @@ contract WalletBackupManagerFacetTest is Test {
 
         TestStateHelperFacet helperImpl = new TestStateHelperFacet();
         bytes4[] memory helperSelectors = new bytes4[](5);
-        helperSelectors[0] = ITestStateHelperFacet.setTeeMachineState.selector;
-        helperSelectors[1] = ITestStateHelperFacet.setProjectState.selector;
-        helperSelectors[2] = ITestStateHelperFacet.setWalletState.selector;
-        helperSelectors[3] = ITestStateHelperFacet.setKeyState.selector;
-        helperSelectors[4] = ITestStateHelperFacet.setExtensionInstructionCounter.selector;
+        helperSelectors[0] = ITestStateHelper.setTeeMachineState.selector;
+        helperSelectors[1] = ITestStateHelper.setProjectState.selector;
+        helperSelectors[2] = ITestStateHelper.setWalletState.selector;
+        helperSelectors[3] = ITestStateHelper.setKeyState.selector;
+        helperSelectors[4] = ITestStateHelper.setExtensionInstructionCounter.selector;
 
         IDiamond.FacetCut[] memory cuts = new IDiamond.FacetCut[](1);
         cuts[0] = IDiamond.FacetCut(
@@ -328,14 +328,14 @@ contract WalletBackupManagerFacetTest is Test {
         // Set up diamond state through the helper facet
         // =====================================================================
 
-        ITestStateHelperFacet helper = ITestStateHelperFacet(address(flareTeeManager));
+        ITestStateHelper helper = ITestStateHelper(address(flareTeeManager));
 
         // Set teeId as PRODUCTION TEE machine
         helper.setTeeMachineState(
             teeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             PublicKey(bytes32(0), bytes32(0)),
             1, // initialSigningPolicyId
             "https://tee.url"
@@ -346,7 +346,7 @@ contract WalletBackupManagerFacetTest is Test {
             backupTeeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://backup.tee.url"
@@ -357,7 +357,7 @@ contract WalletBackupManagerFacetTest is Test {
             keyHolderTeeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://keyholder.tee.url"
@@ -415,11 +415,11 @@ contract WalletBackupManagerFacetTest is Test {
 
     function testBackupRestoreRevertTeeMachineNotAvailable() public {
         // Set teeId to INITIALIZED status
-        ITestStateHelperFacet(address(flareTeeManager)).setTeeMachineState(
+        ITestStateHelper(address(flareTeeManager)).setTeeMachineState(
             teeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.INITIALIZED,
+            IMachineManager.TeeStatus.INITIALIZED,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"
@@ -431,16 +431,16 @@ contract WalletBackupManagerFacetTest is Test {
 
     function testBackupRestoreRevertInvalidTeeMachine() public {
         // Set backupTeeId to INITIALIZED status
-        ITestStateHelperFacet(address(flareTeeManager)).setTeeMachineState(
+        ITestStateHelper(address(flareTeeManager)).setTeeMachineState(
             backupTeeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.INITIALIZED,
+            IMachineManager.TeeStatus.INITIALIZED,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://backup.tee.url"
         );
-        vm.expectRevert(IWalletBackupManagerFacet.InvalidTeeMachine.selector);
+        vm.expectRevert(IWalletBackupManager.InvalidTeeMachine.selector);
         vm.prank(owner);
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
@@ -449,11 +449,11 @@ contract WalletBackupManagerFacetTest is Test {
         // Set key held by teeId (the target restore TEE)
         address[] memory keyTeeIds = new address[](1);
         keyTeeIds[0] = teeId;
-        ITestStateHelperFacet(address(flareTeeManager)).setKeyState(
+        ITestStateHelper(address(flareTeeManager)).setKeyState(
             walletId, keyId, publicKey, keyTeeIds, keyId + 1
         );
         vm.prank(owner);
-        vm.expectRevert(IWalletBackupManagerFacet.KeyAlreadyAvailable.selector);
+        vm.expectRevert(IWalletBackupManager.KeyAlreadyAvailable.selector);
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
@@ -461,11 +461,11 @@ contract WalletBackupManagerFacetTest is Test {
         // Set key with empty public key
         address[] memory keyTeeIds = new address[](1);
         keyTeeIds[0] = keyHolderTeeId;
-        ITestStateHelperFacet(address(flareTeeManager)).setKeyState(
+        ITestStateHelper(address(flareTeeManager)).setKeyState(
             walletId, keyId, bytes(""), keyTeeIds, keyId + 1
         );
         vm.prank(owner);
-        vm.expectRevert(IWalletBackupManagerFacet.KeyNotConfirmed.selector);
+        vm.expectRevert(IWalletBackupManager.KeyNotConfirmed.selector);
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
@@ -473,7 +473,7 @@ contract WalletBackupManagerFacetTest is Test {
         // Set key with different public key than backupId.publicKey
         address[] memory keyTeeIds = new address[](1);
         keyTeeIds[0] = keyHolderTeeId;
-        ITestStateHelperFacet(address(flareTeeManager)).setKeyState(
+        ITestStateHelper(address(flareTeeManager)).setKeyState(
             walletId, keyId, bytes("invalidKey"), keyTeeIds, keyId + 1
         );
         vm.prank(owner);
@@ -484,14 +484,14 @@ contract WalletBackupManagerFacetTest is Test {
     function testBackupRestoreRevertUnsupportedRewardEpochId() public {
         backupId.rewardEpochId = 0;
         vm.prank(owner);
-        vm.expectRevert(IWalletBackupManagerFacet.UnsupportedRewardEpochId.selector);
+        vm.expectRevert(IWalletBackupManager.UnsupportedRewardEpochId.selector);
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
     function testBackupRestoreRevertInvalidRewardEpochId() public {
         backupId.rewardEpochId = 20;
         vm.prank(owner);
-        vm.expectRevert(IWalletBackupManagerFacet.InvalidRewardEpochId.selector);
+        vm.expectRevert(IWalletBackupManager.InvalidRewardEpochId.selector);
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
     }
 
@@ -511,11 +511,11 @@ contract WalletBackupManagerFacetTest is Test {
 
     function testBackupRestoreRevertExtensionIdMismatch1() public {
         // Set backupTeeId to a different extensionId
-        ITestStateHelperFacet(address(flareTeeManager)).setTeeMachineState(
+        ITestStateHelper(address(flareTeeManager)).setTeeMachineState(
             backupTeeId,
             extensionId + 1,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://backup.tee.url"
@@ -525,20 +525,20 @@ contract WalletBackupManagerFacetTest is Test {
         flareTeeManager.backupRestore(teeId, backupId, backupUrl, address(0));
 
         // Restore backupTeeId, set teeId to a different extensionId
-        ITestStateHelperFacet(address(flareTeeManager)).setTeeMachineState(
+        ITestStateHelper(address(flareTeeManager)).setTeeMachineState(
             backupTeeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://backup.tee.url"
         );
-        ITestStateHelperFacet(address(flareTeeManager)).setTeeMachineState(
+        ITestStateHelper(address(flareTeeManager)).setTeeMachineState(
             teeId,
             extensionId + 1,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"
@@ -555,7 +555,7 @@ contract WalletBackupManagerFacetTest is Test {
     function testBackupRestore() public {
         vm.prank(owner);
         vm.expectEmit(true, true, true, true);
-        emit IWalletBackupManagerFacet.BackupRestoreTriggered(
+        emit IWalletBackupManager.BackupRestoreTriggered(
             teeId,
             walletId,
             keyId,
@@ -567,7 +567,7 @@ contract WalletBackupManagerFacetTest is Test {
     function testBackupRestoreByBackupManager() public {
         vm.prank(backupManager);
         vm.expectEmit(true, true, true, true);
-        emit IWalletBackupManagerFacet.BackupRestoreTriggered(
+        emit IWalletBackupManager.BackupRestoreTriggered(
             teeId,
             walletId,
             keyId,

@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IExtensionGovernanceFacet } from "../../../../contracts/userInterfaces/tee/IExtensionGovernanceFacet.sol";
+import { IExtensionGovernance } from "../../../../contracts/userInterfaces/tee/IExtensionGovernance.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -101,7 +101,7 @@ contract ExtensionGovernanceFacetTest is Test {
 
     function testSetNewTeeGovernanceRevertNoSigners() public {
         vm.prank(realOwnerExtension1);
-        vm.expectRevert(IExtensionGovernanceFacet.NoSigners.selector);
+        vm.expectRevert(IExtensionGovernance.NoSigners.selector);
         flareTeeManager.setNewTeeGovernance(extensionId, new address[](0), 1);
     }
 
@@ -118,7 +118,7 @@ contract ExtensionGovernanceFacetTest is Test {
         signers[1] = signers[0];
         vm.expectRevert(
             abi.encodeWithSelector(
-                IExtensionGovernanceFacet.SignerAlreadyExists.selector,
+                IExtensionGovernance.SignerAlreadyExists.selector,
                 signers[0]
             )
         );
@@ -130,7 +130,7 @@ contract ExtensionGovernanceFacetTest is Test {
         bytes32 governanceHash1 = keccak256(abi.encode(signers, 1));
         vm.startPrank(realOwnerExtension1);
         vm.expectEmit();
-        emit IExtensionGovernanceFacet.NewTeeGovernanceSet(extensionId, governanceHash1, signers, 1);
+        emit IExtensionGovernance.NewTeeGovernanceSet(extensionId, governanceHash1, signers, 1);
         flareTeeManager.setNewTeeGovernance(extensionId, signers, 1);
 
         bytes32 governanceHash2 = keccak256(abi.encode(signers, 2));
@@ -151,7 +151,7 @@ contract ExtensionGovernanceFacetTest is Test {
         pausingAddresses[1] = pausingAddresses[0];
         vm.expectRevert(
             abi.encodeWithSelector(
-                IExtensionGovernanceFacet.PausingAddressAlreadyExists.selector,
+                IExtensionGovernance.PausingAddressAlreadyExists.selector,
                 pausingAddresses[0]
             )
         );
@@ -165,12 +165,12 @@ contract ExtensionGovernanceFacetTest is Test {
         vm.startPrank(realOwnerExtension1);
         // empty
         vm.expectEmit();
-        emit IExtensionGovernanceFacet.NewPausingAddressesSet(extensionId, 0, emptyPausingAddresses);
+        emit IExtensionGovernance.NewPausingAddressesSet(extensionId, 0, emptyPausingAddresses);
         flareTeeManager.setTeePausingAddresses(extensionId, emptyPausingAddresses);
 
         // new list
         vm.expectEmit();
-        emit IExtensionGovernanceFacet.NewPausingAddressesSet(extensionId, 1, pausingAddresses);
+        emit IExtensionGovernance.NewPausingAddressesSet(extensionId, 1, pausingAddresses);
         flareTeeManager.setTeePausingAddresses(extensionId, pausingAddresses);
 
         vm.stopPrank();
@@ -190,7 +190,7 @@ contract ExtensionGovernanceFacetTest is Test {
         Signature memory signature = _getSignature(0, pausingAddresses, privateKeys[0]);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IExtensionGovernanceFacet.NotASigner.selector,
+                IExtensionGovernance.NotASigner.selector,
                 signers[0]
             )
         );
@@ -207,7 +207,7 @@ contract ExtensionGovernanceFacetTest is Test {
         flareTeeManager.signTeePausingAddresses(extensionId, 0, signature);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IExtensionGovernanceFacet.AlreadySigned.selector,
+                IExtensionGovernance.AlreadySigned.selector,
                 signers[0]
             )
         );
@@ -223,7 +223,7 @@ contract ExtensionGovernanceFacetTest is Test {
         vm.stopPrank();
 
         vm.expectEmit();
-        emit IExtensionGovernanceFacet.NewPausingAddressesSigned(extensionId, 0, signers[0], signature);
+        emit IExtensionGovernance.NewPausingAddressesSigned(extensionId, 0, signers[0], signature);
         flareTeeManager.signTeePausingAddresses(extensionId, 0, signature);
     }
 
@@ -280,7 +280,7 @@ contract ExtensionGovernanceFacetTest is Test {
 
     // getLatestTeeGovernance
     function testGetLatestTeeGovernanceRevertGovernanceNotSet() public {
-        vm.expectRevert(IExtensionGovernanceFacet.GovernanceNotSet.selector);
+        vm.expectRevert(IExtensionGovernance.GovernanceNotSet.selector);
         flareTeeManager.getLatestTeeGovernance(extensionId);
     }
 
@@ -358,7 +358,7 @@ contract ExtensionGovernanceFacetTest is Test {
 
     // getLatestTeePausingAddresses
     function testGetLatestTeePausingAddressesRevertPausingAddressesNotSet() public {
-        vm.expectRevert(IExtensionGovernanceFacet.PausingAddressesNotSet.selector);
+        vm.expectRevert(IExtensionGovernance.PausingAddressesNotSet.selector);
         flareTeeManager.getLatestTeePausingAddresses(extensionId);
     }
 

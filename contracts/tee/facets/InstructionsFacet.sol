@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IIInstructionsFacet } from "../interface/IIInstructionsFacet.sol";
-import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
-import { IExtensionManagerFacet } from "../../userInterfaces/tee/IExtensionManagerFacet.sol";
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
+import { IIInstructions } from "../interface/IIInstructions.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
+import { IExtensionManager } from "../../userInterfaces/tee/IExtensionManager.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { MachineManager } from "../library/MachineManager.sol";
 import { Instructions } from "../library/Instructions.sol";
@@ -15,10 +15,10 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
  * @title InstructionsFacet
  * @notice Facet for TEE instruction routing and system instructions sender management.
  */
-contract InstructionsFacet is IIInstructionsFacet, GovernedFacet {
+contract InstructionsFacet is IIInstructions, GovernedFacet {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    /// @inheritdoc IInstructionsFacet
+    /// @inheritdoc IInstructions
     function sendInstructions(
         address[] memory _teeIds,
         TeeInstructionParams memory _instructionParams
@@ -27,8 +27,8 @@ contract InstructionsFacet is IIInstructionsFacet, GovernedFacet {
         returns (bytes32)
     {
         Instructions.removeDuplicates(_teeIds);
-        IMachineManagerFacet.TeeMachine[] memory teeMachines =
-            new IMachineManagerFacet.TeeMachine[](_teeIds.length);
+        IMachineManager.TeeMachine[] memory teeMachines =
+            new IMachineManager.TeeMachine[](_teeIds.length);
         for (uint256 i = 0; i < _teeIds.length; i++) {
             teeMachines[i] = MachineManager.getTeeMachine(_teeIds[i]);
         }
@@ -48,7 +48,7 @@ contract InstructionsFacet is IIInstructionsFacet, GovernedFacet {
         return Instructions.sendInstructions(bytes32(0), teeMachines, _instructionParams);
     }
 
-    /// @inheritdoc IIInstructionsFacet
+    /// @inheritdoc IIInstructions
     function sendSystemInstructions(
         bytes32 _instructionId,
         address[] memory _teeIds,
@@ -62,18 +62,18 @@ contract InstructionsFacet is IIInstructionsFacet, GovernedFacet {
             OnlySystemInstructionsSender()
         );
         Instructions.removeDuplicates(_teeIds);
-        IMachineManagerFacet.TeeMachine[] memory teeMachines =
-            new IMachineManagerFacet.TeeMachine[](_teeIds.length);
+        IMachineManager.TeeMachine[] memory teeMachines =
+            new IMachineManager.TeeMachine[](_teeIds.length);
         for (uint256 i = 0; i < _teeIds.length; i++) {
             teeMachines[i] = MachineManager.getTeeMachine(_teeIds[i]);
         }
         return Instructions.sendInstructions(_instructionId, teeMachines, _instructionParams);
     }
 
-    /// @inheritdoc IIInstructionsFacet
+    /// @inheritdoc IIInstructions
     function sendSystemInstructions(
         bytes32 _instructionId,
-        IMachineManagerFacet.TeeMachine[] memory _teeMachines,
+        IMachineManager.TeeMachine[] memory _teeMachines,
         TeeInstructionParams memory _instructionParams
     )
         external payable
@@ -86,7 +86,7 @@ contract InstructionsFacet is IIInstructionsFacet, GovernedFacet {
         return Instructions.sendInstructions(_instructionId, _teeMachines, _instructionParams);
     }
 
-    /// @inheritdoc IIInstructionsFacet
+    /// @inheritdoc IIInstructions
     function registerSystemInstructionsSenders(
         address[] calldata _instructionsSenders
     )
@@ -95,7 +95,7 @@ contract InstructionsFacet is IIInstructionsFacet, GovernedFacet {
     {
         Instructions.State storage s = Instructions.getState();
         for (uint256 i = 0; i < _instructionsSenders.length; ++i) {
-            require(_instructionsSenders[i] != address(0), IExtensionManagerFacet.InvalidInstructionsSender());
+            require(_instructionsSenders[i] != address(0), IExtensionManager.InvalidInstructionsSender());
             require(
                 s.systemInstructionsSenders.add(_instructionsSenders[i]),
                 SystemInstructionsSenderAlreadyExists(_instructionsSenders[i])
@@ -104,7 +104,7 @@ contract InstructionsFacet is IIInstructionsFacet, GovernedFacet {
         emit SystemInstructionsSendersRegistered(_instructionsSenders);
     }
 
-    /// @inheritdoc IIInstructionsFacet
+    /// @inheritdoc IIInstructions
     function unregisterSystemInstructionsSenders(
         address[] calldata _instructionsSenders
     )
@@ -125,7 +125,7 @@ contract InstructionsFacet is IIInstructionsFacet, GovernedFacet {
     // Getters
     // =========================================================================
 
-    /// @inheritdoc IInstructionsFacet
+    /// @inheritdoc IInstructions
     function getSystemInstructionsSenders()
         external view
         returns (address[] memory)

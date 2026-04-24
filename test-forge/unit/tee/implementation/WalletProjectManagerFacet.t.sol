@@ -5,8 +5,8 @@ import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import {
-    IWalletProjectManagerFacet
-} from "../../../../contracts/userInterfaces/tee/IWalletProjectManagerFacet.sol";
+    IWalletProjectManager
+} from "../../../../contracts/userInterfaces/tee/IWalletProjectManager.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -130,7 +130,7 @@ contract WalletProjectManagerFacetTest is Test {
     function testCreateProjectRevertSigningAlgoNotSupported() public {
         bytes32 unsupportedSigningAlgo = keccak256(abi.encode("unsupportedSigningAlgo"));
         vm.prank(projectOwner1);
-        vm.expectRevert(IWalletProjectManagerFacet.SigningAlgoNotSupported.selector);
+        vm.expectRevert(IWalletProjectManager.SigningAlgoNotSupported.selector);
         flareTeeManager.createProject(extensionId, keyType1, unsupportedSigningAlgo);
     }
 
@@ -181,7 +181,7 @@ contract WalletProjectManagerFacetTest is Test {
         address backupManager = makeAddr("backupManager");
         vm.prank(projectOwner1);
         vm.expectEmit();
-        emit IWalletProjectManagerFacet.BackupManagerSet(projectId, backupManager);
+        emit IWalletProjectManager.BackupManagerSet(projectId, backupManager);
         flareTeeManager.setBackupManager(projectId, backupManager);
         assertEq(backupManager, flareTeeManager.getBackupManager(projectId));
     }
@@ -216,7 +216,7 @@ contract WalletProjectManagerFacetTest is Test {
 
         vm.prank(projectOwner1);
         vm.expectEmit();
-        emit IWalletProjectManagerFacet.NewOwnerProposed(projectId1, newOwner);
+        emit IWalletProjectManager.NewOwnerProposed(projectId1, newOwner);
         flareTeeManager.proposeNewOwner(projectId1, newOwner);
     }
 
@@ -236,7 +236,7 @@ contract WalletProjectManagerFacetTest is Test {
         address newOwner = makeAddr("newOwner");
         vm.prank(newOwner);
         vm.expectEmit();
-        emit IWalletProjectManagerFacet.OwnershipConfirmed(projectId1, newOwner);
+        emit IWalletProjectManager.OwnershipConfirmed(projectId1, newOwner);
         flareTeeManager.confirmOwnership(projectId1);
         assertEq(newOwner, flareTeeManager.getOwner(projectId1));
     }

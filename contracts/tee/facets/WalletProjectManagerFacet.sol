@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IWalletProjectManagerFacet } from "../../userInterfaces/tee/IWalletProjectManagerFacet.sol";
+import { IWalletProjectManager } from "../../userInterfaces/tee/IWalletProjectManager.sol";
 import { WalletProjectManager } from "../library/WalletProjectManager.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
@@ -10,10 +10,10 @@ import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
  * @title WalletProjectManagerFacet
  * @notice Facet for TEE wallet project management.
  */
-contract WalletProjectManagerFacet is IWalletProjectManagerFacet {
+contract WalletProjectManagerFacet is IWalletProjectManager {
 
     /**
-     * @inheritdoc IWalletProjectManagerFacet
+     * @inheritdoc IWalletProjectManager
      */
     function createProject(
         uint256 _extensionId,
@@ -42,7 +42,7 @@ contract WalletProjectManagerFacet is IWalletProjectManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletProjectManagerFacet
+     * @inheritdoc IWalletProjectManager
      */
     function setBackupManager(
         bytes32 _projectId,
@@ -56,7 +56,7 @@ contract WalletProjectManagerFacet is IWalletProjectManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletProjectManagerFacet
+     * @inheritdoc IWalletProjectManager
      */
     function proposeNewOwner(
         bytes32 _projectId,
@@ -76,7 +76,7 @@ contract WalletProjectManagerFacet is IWalletProjectManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletProjectManagerFacet
+     * @inheritdoc IWalletProjectManager
      */
     function confirmOwnership(
         bytes32 _projectId
@@ -96,7 +96,7 @@ contract WalletProjectManagerFacet is IWalletProjectManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletProjectManagerFacet
+     * @inheritdoc IWalletProjectManager
      */
     function getOwner(
         bytes32 _projectId
@@ -108,7 +108,7 @@ contract WalletProjectManagerFacet is IWalletProjectManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletProjectManagerFacet
+     * @inheritdoc IWalletProjectManager
      */
     function getExtensionId(
         bytes32 _projectId
@@ -120,7 +120,7 @@ contract WalletProjectManagerFacet is IWalletProjectManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletProjectManagerFacet
+     * @inheritdoc IWalletProjectManager
      */
     function getKeyType(
         bytes32 _projectId
@@ -132,7 +132,7 @@ contract WalletProjectManagerFacet is IWalletProjectManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletProjectManagerFacet
+     * @inheritdoc IWalletProjectManager
      */
     function getSigningAlgo(
         bytes32 _projectId
@@ -144,7 +144,7 @@ contract WalletProjectManagerFacet is IWalletProjectManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletProjectManagerFacet
+     * @inheritdoc IWalletProjectManager
      */
     function getBackupManager(
         bytes32 _projectId

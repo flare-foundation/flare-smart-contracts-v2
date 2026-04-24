@@ -2,10 +2,10 @@
 pragma solidity >=0.7.6 <0.9;
 
 /**
- * @title IVrfFacet
+ * @title IVrf
  * @notice Public interface for the VrfFacet.
  */
-interface IVrfFacet {
+interface IVrf {
 
     struct VrfInstructionMessage {
         bytes32 walletId;

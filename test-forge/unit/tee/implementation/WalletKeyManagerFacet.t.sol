@@ -7,9 +7,9 @@ import { VmSafe } from "forge-std/Vm.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IWalletKeyManagerFacet } from "../../../../contracts/userInterfaces/tee/IWalletKeyManagerFacet.sol";
-import { IWalletManagerFacet } from "../../../../contracts/userInterfaces/tee/IWalletManagerFacet.sol";
-import { IMachineManagerFacet } from "../../../../contracts/userInterfaces/tee/IMachineManagerFacet.sol";
+import { IWalletKeyManager } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { IWalletManager } from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
+import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
@@ -29,12 +29,12 @@ import { WalletKeyManager } from "../../../../contracts/tee/library/WalletKeyMan
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-interface ITestKeyManagerHelperFacet {
+interface ITestKeyManagerHelper {
     function setTeeMachineState(
         address _teeId,
         uint256 _extensionId,
         address _owner,
-        IMachineManagerFacet.TeeStatus _status,
+        IMachineManager.TeeStatus _status,
         PublicKey calldata _publicKey,
         uint32 _initialSigningPolicyId,
         string calldata _url
@@ -52,7 +52,7 @@ interface ITestKeyManagerHelperFacet {
     function setWalletState(
         bytes32 _walletId,
         bytes32 _projectId,
-        IWalletManagerFacet.WalletStatus _status,
+        IWalletManager.WalletStatus _status,
         PublicKey[] calldata _adminsPublicKeys,
         uint64 _adminsThreshold,
         address[] calldata _cosigners,
@@ -83,14 +83,14 @@ interface ITestKeyManagerHelperFacet {
  * @notice A test-only facet added to the diamond to write internal state directly,
  *         bypassing the complex registration, attestation, and wallet lifecycle flows.
  */
-contract TestKeyManagerHelperFacet is ITestKeyManagerHelperFacet {
+contract TestKeyManagerHelperFacet is ITestKeyManagerHelper {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function setTeeMachineState(
         address _teeId,
         uint256 _extensionId,
         address _owner,
-        IMachineManagerFacet.TeeStatus _status,
+        IMachineManager.TeeStatus _status,
         PublicKey calldata _publicKey,
         uint32 _initialSigningPolicyId,
         string calldata _url
@@ -111,7 +111,7 @@ contract TestKeyManagerHelperFacet is ITestKeyManagerHelperFacet {
             platform: bytes32(0),
             url: _url
         });
-        if (_status == IMachineManagerFacet.TeeStatus.PRODUCTION) {
+        if (_status == IMachineManager.TeeStatus.PRODUCTION) {
             s.activeTeeIds.add(_teeId);
             s.extensionActiveTeeIds[_extensionId].add(_teeId);
         }
@@ -140,7 +140,7 @@ contract TestKeyManagerHelperFacet is ITestKeyManagerHelperFacet {
     function setWalletState(
         bytes32 _walletId,
         bytes32 _projectId,
-        IWalletManagerFacet.WalletStatus _status,
+        IWalletManager.WalletStatus _status,
         PublicKey[] calldata _adminsPublicKeys,
         uint64 _adminsThreshold,
         address[] calldata _cosigners,
@@ -225,7 +225,7 @@ contract WalletKeyManagerFacetTest is Test {
     bytes32 public constant KEY_DELETE = bytes32("KEY_DELETE");
 
     IIFlareTeeManager private flareTeeManager;
-    ITestKeyManagerHelperFacet private helper;
+    ITestKeyManagerHelper private helper;
 
     address private owner;
     address private backupManager;
@@ -251,7 +251,7 @@ contract WalletKeyManagerFacetTest is Test {
     PublicKey[] private adminsPublicKeys;
     address[] private cosigners;
 
-    IWalletKeyManagerFacet.KeyExistence private proof;
+    IWalletKeyManager.KeyExistence private proof;
     Signature private teeSignature;
 
     function setUp() public {
@@ -324,12 +324,12 @@ contract WalletKeyManagerFacetTest is Test {
 
         TestKeyManagerHelperFacet helperImpl = new TestKeyManagerHelperFacet();
         bytes4[] memory helperSelectors = new bytes4[](6);
-        helperSelectors[0] = ITestKeyManagerHelperFacet.setTeeMachineState.selector;
-        helperSelectors[1] = ITestKeyManagerHelperFacet.setProjectState.selector;
-        helperSelectors[2] = ITestKeyManagerHelperFacet.setWalletState.selector;
-        helperSelectors[3] = ITestKeyManagerHelperFacet.setKeyState.selector;
-        helperSelectors[4] = ITestKeyManagerHelperFacet.setKeyIds.selector;
-        helperSelectors[5] = ITestKeyManagerHelperFacet.setMultisigThresholdDirect.selector;
+        helperSelectors[0] = ITestKeyManagerHelper.setTeeMachineState.selector;
+        helperSelectors[1] = ITestKeyManagerHelper.setProjectState.selector;
+        helperSelectors[2] = ITestKeyManagerHelper.setWalletState.selector;
+        helperSelectors[3] = ITestKeyManagerHelper.setKeyState.selector;
+        helperSelectors[4] = ITestKeyManagerHelper.setKeyIds.selector;
+        helperSelectors[5] = ITestKeyManagerHelper.setMultisigThresholdDirect.selector;
 
         IDiamond.FacetCut[] memory cuts = new IDiamond.FacetCut[](1);
         cuts[0] = IDiamond.FacetCut(
@@ -341,7 +341,7 @@ contract WalletKeyManagerFacetTest is Test {
         vm.prank(initialGovernance);
         IDiamondCut(address(flareTeeManager)).diamondCut(cuts, address(0), "");
 
-        helper = ITestKeyManagerHelperFacet(address(flareTeeManager));
+        helper = ITestKeyManagerHelper(address(flareTeeManager));
 
         // =====================================================================
         // Update external contract addresses
@@ -373,7 +373,7 @@ contract WalletKeyManagerFacetTest is Test {
             teeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"
@@ -384,7 +384,7 @@ contract WalletKeyManagerFacetTest is Test {
             newTeeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://newtee.url"
@@ -406,7 +406,7 @@ contract WalletKeyManagerFacetTest is Test {
         helper.setWalletState(
             walletId,
             projectId,
-            IWalletManagerFacet.WalletStatus.INITIALIZED,
+            IWalletManager.WalletStatus.INITIALIZED,
             admins,
             1,
             cosigners,
@@ -451,7 +451,7 @@ contract WalletKeyManagerFacetTest is Test {
         helper.setWalletState(
             walletId,
             projectId,
-            IWalletManagerFacet.WalletStatus.PRODUCTION,
+            IWalletManager.WalletStatus.PRODUCTION,
             new PublicKey[](0),
             0,
             new address[](0),
@@ -465,7 +465,7 @@ contract WalletKeyManagerFacetTest is Test {
     function testSetMultisigThreshold() public {
         vm.prank(owner);
         vm.expectEmit();
-        emit IWalletKeyManagerFacet.WalletMultisigThresholdSet(walletId, 1);
+        emit IWalletKeyManager.WalletMultisigThresholdSet(walletId, 1);
         flareTeeManager.setMultisigThreshold(walletId, 1);
     }
 
@@ -483,7 +483,7 @@ contract WalletKeyManagerFacetTest is Test {
             teeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PAUSED,
+            IMachineManager.TeeStatus.PAUSED,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"
@@ -497,7 +497,7 @@ contract WalletKeyManagerFacetTest is Test {
         helper.setWalletState(
             walletId,
             projectId,
-            IWalletManagerFacet.WalletStatus.PRODUCTION,
+            IWalletManager.WalletStatus.PRODUCTION,
             new PublicKey[](0),
             0,
             new address[](0),
@@ -514,7 +514,7 @@ contract WalletKeyManagerFacetTest is Test {
             teeId,
             extensionId + 1,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"
@@ -527,7 +527,7 @@ contract WalletKeyManagerFacetTest is Test {
     function testAddKey() public {
         vm.prank(owner);
         vm.expectEmit();
-        emit IWalletKeyManagerFacet.WalletKeyAdded(teeId, walletId, 0);
+        emit IWalletKeyManager.WalletKeyAdded(teeId, walletId, 0);
         uint64 returnedKeyId = flareTeeManager.addKey{value: 0}(teeId, walletId, address(0));
         assertEq(returnedKeyId, 0);
 
@@ -540,7 +540,7 @@ contract WalletKeyManagerFacetTest is Test {
         address claimBack = makeAddr("claimBack");
         vm.prank(owner);
         vm.expectEmit();
-        emit IWalletKeyManagerFacet.WalletKeyAdded(teeId, walletId, 0);
+        emit IWalletKeyManager.WalletKeyAdded(teeId, walletId, 0);
         flareTeeManager.addKey{value: 0}(teeId, walletId, claimBack);
     }
 
@@ -560,7 +560,7 @@ contract WalletKeyManagerFacetTest is Test {
             teeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.REPLICATING,
+            IMachineManager.TeeStatus.REPLICATING,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"
@@ -573,7 +573,7 @@ contract WalletKeyManagerFacetTest is Test {
     function testConfirmKeyRevertInvalidKeyId() public {
         // keyIdCounter is 0 by default, so keyId 0 is invalid
         vm.prank(owner);
-        vm.expectRevert(IWalletKeyManagerFacet.InvalidKeyId.selector);
+        vm.expectRevert(IWalletKeyManager.InvalidKeyId.selector);
         flareTeeManager.confirmKey(proof, teeSignature);
     }
 
@@ -611,7 +611,7 @@ contract WalletKeyManagerFacetTest is Test {
             teeId,
             extensionId + 1,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"
@@ -627,7 +627,7 @@ contract WalletKeyManagerFacetTest is Test {
         proof.settings = bytes("invalidSettings");
         teeSignature = _createSignature(teePrivateKey);
         vm.prank(owner);
-        vm.expectRevert(IWalletKeyManagerFacet.InvalidSettings.selector);
+        vm.expectRevert(IWalletKeyManager.InvalidSettings.selector);
         flareTeeManager.confirmKey(proof, teeSignature);
     }
 
@@ -636,7 +636,7 @@ contract WalletKeyManagerFacetTest is Test {
         proof.settingsVersion = bytes32("invalidVersion");
         teeSignature = _createSignature(teePrivateKey);
         vm.prank(owner);
-        vm.expectRevert(IWalletKeyManagerFacet.InvalidSettings.selector);
+        vm.expectRevert(IWalletKeyManager.InvalidSettings.selector);
         flareTeeManager.confirmKey(proof, teeSignature);
     }
 
@@ -690,7 +690,7 @@ contract WalletKeyManagerFacetTest is Test {
         proof.configConstants.cosigners[0] = makeAddr("invalidCosigner");
         teeSignature = _createSignature(teePrivateKey);
         vm.prank(owner);
-        vm.expectRevert(IWalletKeyManagerFacet.InvalidAddress.selector);
+        vm.expectRevert(IWalletKeyManager.InvalidAddress.selector);
         flareTeeManager.confirmKey(proof, teeSignature);
     }
 
@@ -702,7 +702,7 @@ contract WalletKeyManagerFacetTest is Test {
             invalidTeeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://invalid.url"
@@ -710,7 +710,7 @@ contract WalletKeyManagerFacetTest is Test {
         proof.teeId = invalidTeeId;
         teeSignature = _createSignature(teePrivateKey);
         vm.prank(owner);
-        vm.expectRevert(IWalletKeyManagerFacet.InvalidTeeSignature.selector);
+        vm.expectRevert(IWalletKeyManager.InvalidTeeSignature.selector);
         flareTeeManager.confirmKey(proof, teeSignature);
     }
 
@@ -731,7 +731,7 @@ contract WalletKeyManagerFacetTest is Test {
         helper.setWalletState(
             walletId,
             projectId,
-            IWalletManagerFacet.WalletStatus.PRODUCTION,
+            IWalletManager.WalletStatus.PRODUCTION,
             admins,
             1,
             cosigners,
@@ -760,7 +760,7 @@ contract WalletKeyManagerFacetTest is Test {
         // proof.restored is already true from setUp
         teeSignature = _createSignature(teePrivateKey);
         vm.prank(owner);
-        vm.expectRevert(IWalletKeyManagerFacet.KeyNotGeneratedOnTeeMachine.selector);
+        vm.expectRevert(IWalletKeyManager.KeyNotGeneratedOnTeeMachine.selector);
         flareTeeManager.confirmKey(proof, teeSignature);
     }
 
@@ -770,7 +770,7 @@ contract WalletKeyManagerFacetTest is Test {
         teeSignature = _createSignature(teePrivateKey);
         vm.prank(owner);
         vm.expectEmit();
-        emit IWalletKeyManagerFacet.WalletKeyConfirmed(
+        emit IWalletKeyManager.WalletKeyConfirmed(
             teeId,
             walletId,
             proof.keyId,
@@ -791,7 +791,7 @@ contract WalletKeyManagerFacetTest is Test {
         testConfirmKeyNotInWallet();
         teeSignature = _createSignature(teePrivateKey);
         vm.prank(owner);
-        vm.expectRevert(IWalletKeyManagerFacet.KeyNotRestoredOnTeeMachine.selector);
+        vm.expectRevert(IWalletKeyManager.KeyNotRestoredOnTeeMachine.selector);
         flareTeeManager.confirmKey(proof, teeSignature);
     }
 
@@ -871,7 +871,7 @@ contract WalletKeyManagerFacetTest is Test {
         proof.nonce = 3;
         teeSignature = _createSignature(teePrivateKey);
         vm.prank(owner);
-        vm.expectRevert(IWalletKeyManagerFacet.TeeIdAlreadyAdded.selector);
+        vm.expectRevert(IWalletKeyManager.TeeIdAlreadyAdded.selector);
         flareTeeManager.confirmKey(proof, teeSignature);
     }
 
@@ -884,7 +884,7 @@ contract WalletKeyManagerFacetTest is Test {
         teeSignature = _createSignature(teePrivateKey);
         vm.prank(owner);
         vm.expectEmit();
-        emit IWalletKeyManagerFacet.WalletKeyConfirmed(
+        emit IWalletKeyManager.WalletKeyConfirmed(
             teeId,
             walletId,
             keyId,
@@ -908,7 +908,7 @@ contract WalletKeyManagerFacetTest is Test {
         teeSignature = _createSignature(newTeePrivateKey);
         vm.prank(owner);
         vm.expectEmit();
-        emit IWalletKeyManagerFacet.WalletKeyConfirmed(
+        emit IWalletKeyManager.WalletKeyConfirmed(
             newTeeId,
             walletId,
             keyId,
@@ -937,7 +937,7 @@ contract WalletKeyManagerFacetTest is Test {
             teeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.INITIALIZED,
+            IMachineManager.TeeStatus.INITIALIZED,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"
@@ -952,7 +952,7 @@ contract WalletKeyManagerFacetTest is Test {
             teeId,
             extensionId + 1,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"
@@ -966,7 +966,7 @@ contract WalletKeyManagerFacetTest is Test {
         testConfirmKeyNotInWallet();
         // non-existent keyId
         vm.prank(owner);
-        vm.expectRevert(IWalletKeyManagerFacet.InvalidKeyId.selector);
+        vm.expectRevert(IWalletKeyManager.InvalidKeyId.selector);
         flareTeeManager.deleteKey(teeId, walletId, keyId + 1, address(0));
     }
 
@@ -1003,7 +1003,7 @@ contract WalletKeyManagerFacetTest is Test {
         // Now delete teeId from the key
         vm.prank(owner);
         vm.expectEmit();
-        emit IWalletKeyManagerFacet.WalletKeyDeleted(teeId, walletId, keyId);
+        emit IWalletKeyManager.WalletKeyDeleted(teeId, walletId, keyId);
         flareTeeManager.deleteKey{value: 0}(teeId, walletId, keyId, address(0));
 
         // teeId should be removed
@@ -1017,7 +1017,7 @@ contract WalletKeyManagerFacetTest is Test {
         address claimBack = makeAddr("claimBack");
         vm.prank(owner);
         vm.expectEmit();
-        emit IWalletKeyManagerFacet.WalletKeyDeleted(teeId, walletId, keyId);
+        emit IWalletKeyManager.WalletKeyDeleted(teeId, walletId, keyId);
         flareTeeManager.deleteKey{value: 0}(teeId, walletId, keyId, claimBack);
     }
 
@@ -1036,7 +1036,7 @@ contract WalletKeyManagerFacetTest is Test {
         testConfirmKeyNotInWallet();
         // non-existent keyId
         vm.prank(owner);
-        vm.expectRevert(IWalletKeyManagerFacet.InvalidKeyId.selector);
+        vm.expectRevert(IWalletKeyManager.InvalidKeyId.selector);
         flareTeeManager.cleanUpTeeIds(walletId, keyId + 1);
     }
 
@@ -1055,14 +1055,14 @@ contract WalletKeyManagerFacetTest is Test {
             teeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.REPLICATING,
+            IMachineManager.TeeStatus.REPLICATING,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"
         );
         vm.prank(owner);
         vm.expectEmit();
-        emit IWalletKeyManagerFacet.WalletKeyDeleted(teeId, walletId, keyId);
+        emit IWalletKeyManager.WalletKeyDeleted(teeId, walletId, keyId);
         flareTeeManager.cleanUpTeeIds(walletId, keyId);
 
         // teeId should be removed
@@ -1078,7 +1078,7 @@ contract WalletKeyManagerFacetTest is Test {
         testConfirmKeyNotInWallet();
         vm.prank(owner);
         flareTeeManager.setMultisigThreshold(walletId, 2);
-        vm.expectRevert(IWalletKeyManagerFacet.ThresholdNotMet.selector);
+        vm.expectRevert(IWalletKeyManager.ThresholdNotMet.selector);
         flareTeeManager.receivingTeesAndKeys(walletId);
     }
 
@@ -1094,7 +1094,7 @@ contract WalletKeyManagerFacetTest is Test {
             teeId,
             extensionId,
             teeMachineOwner,
-            IMachineManagerFacet.TeeStatus.PAUSED,
+            IMachineManager.TeeStatus.PAUSED,
             PublicKey(bytes32(0), bytes32(0)),
             1,
             "https://tee.url"
@@ -1102,7 +1102,7 @@ contract WalletKeyManagerFacetTest is Test {
         uint64[] memory keyIds = new uint64[](1);
         keyIds[0] = keyId;
         vm.expectEmit();
-        emit IWalletKeyManagerFacet.WalletKeysNotAvailable(walletId, keyIds);
+        emit IWalletKeyManager.WalletKeysNotAvailable(walletId, keyIds);
         pairs = flareTeeManager.receivingTeesAndKeys(walletId);
         assertEq(pairs.length, 0);
     }

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IIReplicationFacet } from "../interface/IIReplicationFacet.sol";
-import { IReplicationFacet } from "../../userInterfaces/tee/IReplicationFacet.sol";
-import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
-import { IMachineManagerFacet, REG_OP_TYPE } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
+import { IIReplication } from "../interface/IIReplication.sol";
+import { IReplication } from "../../userInterfaces/tee/IReplication.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
+import { IMachineManager, REG_OP_TYPE } from "../../userInterfaces/tee/IMachineManager.sol";
 import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { Replication } from "../library/Replication.sol";
@@ -18,7 +18,7 @@ import { GovernedFacet } from "./GovernedFacet.sol";
  * @title ReplicationFacet
  * @notice Facet for TEE machine replication and upgrade management.
  */
-contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
+contract ReplicationFacet is IIReplication, GovernedFacet {
 
     bytes32 internal constant TO_PAUSE_FOR_UPGRADE = bytes32("TO_PAUSE_FOR_UPGRADE");
     bytes32 internal constant REPLICATE_FROM = bytes32("REPLICATE_FROM");
@@ -31,7 +31,7 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
         _;
     }
 
-    /// @inheritdoc IReplicationFacet
+    /// @inheritdoc IReplication
     function toPauseForUpgrade(
         address _teeId,
         address _claimBackAddress
@@ -39,23 +39,23 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
         external payable
         onlyMachineOwner(_teeId)
     {
-        IMachineManagerFacet.TeeStatus status = MachineManager.getTeeMachineStatus(_teeId);
+        IMachineManager.TeeStatus status = MachineManager.getTeeMachineStatus(_teeId);
         MachineManager.checkTeeStatus(
             status,
-            IMachineManagerFacet.TeeStatus.PAUSED,
-            IMachineManagerFacet.TeeStatus.PAUSED_FOR_UPGRADE
+            IMachineManager.TeeStatus.PAUSED,
+            IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE
         );
-        if (status == IMachineManagerFacet.TeeStatus.PAUSED) {
+        if (status == IMachineManager.TeeStatus.PAUSED) {
             Replication.State storage s = Replication.getState();
             require(
                 MachineManager.getLastStatusChangeTs(_teeId) +
                     s.pauseBeforeUpgradeMinDurationSeconds < block.timestamp,
                 TooSoon()
             );
-            MachineManager.changeStatus(_teeId, IMachineManagerFacet.TeeStatus.PAUSED_FOR_UPGRADE);
+            MachineManager.changeStatus(_teeId, IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE);
         }
 
-        IMachineManagerFacet.TeeMachineWithAttestationData memory teeMachine =
+        IMachineManager.TeeMachineWithAttestationData memory teeMachine =
             MachineManager.getTeeMachineWithAttestationData(_teeId);
         PauseForUpgrade memory message = PauseForUpgrade({
             teeId: _teeId,
@@ -67,7 +67,7 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
         emit TeeMachinePausedForUpgrade(_teeId);
     }
 
-    /// @inheritdoc IReplicationFacet
+    /// @inheritdoc IReplication
     function replicateFrom(
         address _oldTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof,
@@ -79,21 +79,21 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
         onlyMachineOwner(_proof.requestBody.teeId)
     {
         address newTeeId = _proof.requestBody.teeId;
-        IMachineManagerFacet.TeeStatus oldStatus = MachineManager.getTeeMachineStatus(_oldTeeId);
-        MachineManager.checkTeeStatus(oldStatus, IMachineManagerFacet.TeeStatus.PAUSED_FOR_UPGRADE);
-        IMachineManagerFacet.TeeStatus newStatus = MachineManager.getTeeMachineStatus(newTeeId);
+        IMachineManager.TeeStatus oldStatus = MachineManager.getTeeMachineStatus(_oldTeeId);
+        MachineManager.checkTeeStatus(oldStatus, IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE);
+        IMachineManager.TeeStatus newStatus = MachineManager.getTeeMachineStatus(newTeeId);
         require(
-            newStatus == IMachineManagerFacet.TeeStatus.INITIALIZED ||
+            newStatus == IMachineManager.TeeStatus.INITIALIZED ||
             (Replication.getReplicatingTeeId(_oldTeeId) == newTeeId &&
-                newStatus == IMachineManagerFacet.TeeStatus.REPLICATING), // retry
-            IMachineManagerFacet.InvalidTeeStatus()
+                newStatus == IMachineManager.TeeStatus.REPLICATING), // retry
+            IMachineManager.InvalidTeeStatus()
         );
         uint256 extensionId = MachineManager.getExtensionId(_oldTeeId);
         require(extensionId == MachineManager.getExtensionId(newTeeId), ExtensionMismatch());
-        IMachineManagerFacet.TeeMachineWithAttestationData memory newTeeMachine =
+        IMachineManager.TeeMachineWithAttestationData memory newTeeMachine =
             MachineManager.getTeeMachineWithAttestationData(newTeeId);
         MachineManager.checkCodeHashPlatformSupported(extensionId, newTeeMachine.codeHash, newTeeMachine.platform);
-        IMachineManagerFacet.TeeMachineWithAttestationData memory oldTeeMachine =
+        IMachineManager.TeeMachineWithAttestationData memory oldTeeMachine =
             MachineManager.getTeeMachineWithAttestationData(_oldTeeId);
         _checkTeeMachinesCompatible(_teeUpgradeId, extensionId, oldTeeMachine, newTeeMachine);
         MachineManager.validateAvailabilityCheckStatus(_proof.responseBody.status);
@@ -106,7 +106,7 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
         );
 
         Replication.getState().replicatingTeeIds[_oldTeeId] = newTeeId;
-        MachineManager.changeStatus(newTeeId, IMachineManagerFacet.TeeStatus.REPLICATING);
+        MachineManager.changeStatus(newTeeId, IMachineManager.TeeStatus.REPLICATING);
 
         ReplicateTeeMachine memory message = ReplicateTeeMachine({
             oldTeeMachine: oldTeeMachine,
@@ -119,7 +119,7 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
         emit TeeMachineReplicationTriggered(_oldTeeId, newTeeId, _teeUpgradeId);
     }
 
-    /// @inheritdoc IReplicationFacet
+    /// @inheritdoc IReplication
     function confirmReplicate(
         address _newTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof
@@ -139,7 +139,7 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
         emit TeeMachineReplicationConfirmed(oldTeeId, _newTeeId);
     }
 
-    /// @inheritdoc IIReplicationFacet
+    /// @inheritdoc IIReplication
     function setPauseBeforeUpgradeMinDurationSeconds(
         uint256 _pauseBeforeUpgradeMinDurationSeconds
     )
@@ -149,7 +149,7 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
         Replication.setPauseBeforeUpgradeMinDurationSeconds(_pauseBeforeUpgradeMinDurationSeconds);
     }
 
-    /// @inheritdoc IReplicationFacet
+    /// @inheritdoc IReplication
     function getReplicatingTeeId(
         address _oldTeeId
     )
@@ -176,13 +176,13 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
             MachineManager.getTeeMachineState(_newTeeId);
 
         MachineManager.checkTeeStatus(
-            oldState.status, IMachineManagerFacet.TeeStatus.PAUSED_FOR_UPGRADE
+            oldState.status, IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE
         );
         MachineManager.checkTeeStatus(
-            newState.status, IMachineManagerFacet.TeeStatus.REPLICATING
+            newState.status, IMachineManager.TeeStatus.REPLICATING
         );
         assert(_newTeeId == newState.initialTeeId);
-        require(oldState.owner == newState.owner, IMachineManagerFacet.OwnerMismatch());
+        require(oldState.owner == newState.owner, IMachineManager.OwnerMismatch());
         require(
             oldState.extensionId == newState.extensionId,
             ITeeCommonErrors.ExtensionIdMismatch()
@@ -200,15 +200,15 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
         oldState.platform = newState.platform;
         oldState.url = newState.url;
         oldState.initialSigningPolicyId = _proof.responseBody.initialSigningPolicyId;
-        oldState.status = IMachineManagerFacet.TeeStatus.REPLICATING;
+        oldState.status = IMachineManager.TeeStatus.REPLICATING;
 
         // delete the new TEE machine state
         MachineManager.State storage regState = MachineManager.getState();
         delete regState.teeMachineStates[_newTeeId];
 
         // verify the availability check proof for the updated TEE machine data
-        IMachineManagerFacet.TeeMachineWithAttestationData memory oldTeeMachine =
-            IMachineManagerFacet.TeeMachineWithAttestationData({
+        IMachineManager.TeeMachineWithAttestationData memory oldTeeMachine =
+            IMachineManager.TeeMachineWithAttestationData({
                 teeId: oldTeeId,
                 initialTeeId: oldState.initialTeeId,
                 url: oldState.url,
@@ -217,13 +217,13 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
             });
         require(
             Verification.verifyAvailabilityCheckProof(
-                oldTeeMachine, IMachineManagerFacet.TeeStatus.REPLICATING, _proof
+                oldTeeMachine, IMachineManager.TeeStatus.REPLICATING, _proof
             ),
             ITeeCommonErrors.InvalidResponseData()
         );
 
         // put TEE machine into production
-        MachineManager.changeStatus(oldTeeId, IMachineManagerFacet.TeeStatus.PRODUCTION);
+        MachineManager.changeStatus(oldTeeId, IMachineManager.TeeStatus.PRODUCTION);
         Verification.extendAvailability(_proof);
     }
 
@@ -238,7 +238,7 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
         Instructions.sendInstructions(
             bytes32(0),
             _teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 REG_OP_TYPE,
                 _opCommand,
                 _message,
@@ -252,8 +252,8 @@ contract ReplicationFacet is IIReplicationFacet, GovernedFacet {
     function _checkTeeMachinesCompatible(
         uint256 _teeUpgradeId,
         uint256 _extensionId,
-        IMachineManagerFacet.TeeMachineWithAttestationData memory _oldTeeMachine,
-        IMachineManagerFacet.TeeMachineWithAttestationData memory _newTeeMachine
+        IMachineManager.TeeMachineWithAttestationData memory _oldTeeMachine,
+        IMachineManager.TeeMachineWithAttestationData memory _newTeeMachine
     )
         private view
     {

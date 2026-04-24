@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IUpgradeManagerFacet } from "../../userInterfaces/tee/IUpgradeManagerFacet.sol";
+import { IUpgradeManager } from "../../userInterfaces/tee/IUpgradeManager.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { UpgradeManager } from "../library/UpgradeManager.sol";
 import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
@@ -13,7 +13,7 @@ import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/Mes
  * @title UpgradeManagerFacet
  * @notice Facet for managing TEE upgrade versions and signing.
  */
-contract UpgradeManagerFacet is IUpgradeManagerFacet {
+contract UpgradeManagerFacet is IUpgradeManager {
 
     modifier onlyValidTeeUpgradeId(uint256 _teeUpgradeId) {
         require(
@@ -23,7 +23,7 @@ contract UpgradeManagerFacet is IUpgradeManagerFacet {
         _;
     }
 
-    /// @inheritdoc IUpgradeManagerFacet
+    /// @inheritdoc IUpgradeManager
     function createNewTeeUpgrade(
         uint256 _extensionId,
         bytes32 _sourceTeeGovernanceHash,
@@ -53,7 +53,7 @@ contract UpgradeManagerFacet is IUpgradeManagerFacet {
         );
     }
 
-    /// @inheritdoc IUpgradeManagerFacet
+    /// @inheritdoc IUpgradeManager
     function addTeeUpgradePaths(
         uint256 _teeUpgradeId,
         TeeUpgradePath[] calldata _upgradePaths
@@ -123,7 +123,7 @@ contract UpgradeManagerFacet is IUpgradeManagerFacet {
         emit TeeUpgradePathsAdded(_teeUpgradeId, _upgradePaths);
     }
 
-    /// @inheritdoc IUpgradeManagerFacet
+    /// @inheritdoc IUpgradeManager
     function finalizeTeeUpgrade(
         uint256 _teeUpgradeId
     )
@@ -139,7 +139,7 @@ contract UpgradeManagerFacet is IUpgradeManagerFacet {
         emit TeeUpgradeFinalized(_teeUpgradeId);
     }
 
-    /// @inheritdoc IUpgradeManagerFacet
+    /// @inheritdoc IUpgradeManager
     function signTeeUpgrade(
         uint256 _teeUpgradeId,
         Signature calldata _signature
@@ -195,7 +195,7 @@ contract UpgradeManagerFacet is IUpgradeManagerFacet {
         }
     }
 
-    /// @inheritdoc IUpgradeManagerFacet
+    /// @inheritdoc IUpgradeManager
     function isTeeUpgradePathValid(
         uint256 _teeUpgradeId,
         uint256 _extensionId,
@@ -212,7 +212,7 @@ contract UpgradeManagerFacet is IUpgradeManagerFacet {
         );
     }
 
-    /// @inheritdoc IUpgradeManagerFacet
+    /// @inheritdoc IUpgradeManager
     function isTeeUpgradeFinalized(
         uint256 _teeUpgradeId
     )
@@ -223,7 +223,7 @@ contract UpgradeManagerFacet is IUpgradeManagerFacet {
         return UpgradeManager.getState().teeUpgrades[_teeUpgradeId].messageHash != bytes32(0);
     }
 
-    /// @inheritdoc IUpgradeManagerFacet
+    /// @inheritdoc IUpgradeManager
     function isTeeUpgradeSigned(
         uint256 _teeUpgradeId
     )
@@ -233,7 +233,7 @@ contract UpgradeManagerFacet is IUpgradeManagerFacet {
         return UpgradeManager.isTeeUpgradeSigned(_teeUpgradeId);
     }
 
-    /// @inheritdoc IUpgradeManagerFacet
+    /// @inheritdoc IUpgradeManager
     function getTeeUpgradesCount()
         external view
         returns (uint256)
@@ -241,7 +241,7 @@ contract UpgradeManagerFacet is IUpgradeManagerFacet {
         return UpgradeManager.getState().teeUpgrades.length;
     }
 
-    /// @inheritdoc IUpgradeManagerFacet
+    /// @inheritdoc IUpgradeManager
     function getTeeUpgradePaths(
         uint256 _teeUpgradeId
     )
@@ -252,7 +252,7 @@ contract UpgradeManagerFacet is IUpgradeManagerFacet {
         return _getTeeUpgradePaths(_teeUpgradeId);
     }
 
-    /// @inheritdoc IUpgradeManagerFacet
+    /// @inheritdoc IUpgradeManager
     function getTeeUpgradeSignatures(
         uint256 _teeUpgradeId
     )

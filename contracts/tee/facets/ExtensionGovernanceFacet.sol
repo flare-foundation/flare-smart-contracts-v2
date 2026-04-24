@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IExtensionGovernanceFacet } from "../../userInterfaces/tee/IExtensionGovernanceFacet.sol";
+import { IExtensionGovernance } from "../../userInterfaces/tee/IExtensionGovernance.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
@@ -15,10 +15,10 @@ import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/Mes
  * @title ExtensionGovernanceFacet
  * @notice Facet for managing TEE extension governance signers and pausing addresses.
  */
-contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
+contract ExtensionGovernanceFacet is IExtensionGovernance {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function setNewTeeGovernance(
         uint256 _extensionId,
         address[] calldata _signers,
@@ -49,7 +49,7 @@ contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
         }
     }
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function setTeePausingAddresses(
         uint256 _extensionId,
         address[] calldata _pausingAddresses
@@ -73,7 +73,7 @@ contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
         emit NewPausingAddressesSet(_extensionId, nonce, _pausingAddresses);
     }
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function signTeePausingAddresses(
         uint256 _extensionId,
         uint256 _nonce,
@@ -99,7 +99,7 @@ contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
         emit NewPausingAddressesSigned(_extensionId, _nonce, signer, _signature);
     }
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function getLatestTeeGovernanceHash(
         uint256 _extensionId
     )
@@ -109,7 +109,7 @@ contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
         return ExtensionGovernance.getLatestTeeGovernanceHash(_extensionId);
     }
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function getTeeGovernanceThreshold(
         uint256 _extensionId,
         bytes32 _governanceHash
@@ -120,7 +120,7 @@ contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
         return ExtensionGovernance.getTeeGovernanceThreshold(_extensionId, _governanceHash);
     }
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function isTeeGovernanceSigner(
         uint256 _extensionId,
         bytes32 _governanceHash,
@@ -132,7 +132,7 @@ contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
         return ExtensionGovernance.isTeeGovernanceSigner(_extensionId, _governanceHash, _signer);
     }
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function getTeeGovernance(
         uint256 _extensionId,
         bytes32 _governanceHash
@@ -146,7 +146,7 @@ contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
         return _getGovernance(_extensionId, _governanceHash);
     }
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function getLatestTeeGovernance(
         uint256 _extensionId
     )
@@ -161,7 +161,7 @@ contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
         return _getGovernance(_extensionId, latestHash);
     }
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function isGovernanceHashValid(
         uint256 _extensionId,
         bytes32 _governanceHash
@@ -172,7 +172,7 @@ contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
         return ExtensionGovernance.isGovernanceHashValid(_extensionId, _governanceHash);
     }
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function getTeePausingAddresses(
         uint256 _extensionId,
         uint256 _nonce
@@ -188,7 +188,7 @@ contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
         return _getTeePausingAddresses(_extensionId, _nonce);
     }
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function getLatestTeePausingAddresses(
         uint256 _extensionId
     )
@@ -206,7 +206,7 @@ contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
         (_pausingAddresses, _signatures) = _getTeePausingAddresses(_extensionId, _nonce);
     }
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function isTeePausingAddressesSigner(
         uint256 _extensionId,
         address _signer
@@ -217,7 +217,7 @@ contract ExtensionGovernanceFacet is IExtensionGovernanceFacet {
         return ExtensionGovernance.getState().extensionStates[_extensionId].teePausingAddressesSigner[_signer];
     }
 
-    /// @inheritdoc IExtensionGovernanceFacet
+    /// @inheritdoc IExtensionGovernance
     function hasSignedTeePausingAddresses(
         uint256 _extensionId,
         uint256 _nonce,

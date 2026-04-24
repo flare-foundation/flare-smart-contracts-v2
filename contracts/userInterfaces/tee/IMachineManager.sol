@@ -9,10 +9,10 @@ import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 bytes32 constant REG_OP_TYPE = bytes32("F_REG");
 
 /**
- * @title IMachineManagerFacet
+ * @title IMachineManager
  * @notice Public interface for the MachineManagerFacet.
  */
-interface IMachineManagerFacet is ITeeCommonErrors {
+interface IMachineManager is ITeeCommonErrors {
 
     enum TeeStatus { INITIALIZED, PRODUCTION, SUSPENDED, PAUSED, PAUSED_FOR_UPGRADE, REPLICATING, BANNED }
 

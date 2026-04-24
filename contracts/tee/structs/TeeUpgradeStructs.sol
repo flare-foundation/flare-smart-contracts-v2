@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IUpgradeManagerFacet } from "../../userInterfaces/tee/IUpgradeManagerFacet.sol";
-import { IReplicationFacet } from "../../userInterfaces/tee/IReplicationFacet.sol";
+import { IUpgradeManager } from "../../userInterfaces/tee/IUpgradeManager.sol";
+import { IReplication } from "../../userInterfaces/tee/IReplication.sol";
 
 
 interface TeeUpgradeStructs {
 
-    function teeNodeVersionStruct(IUpgradeManagerFacet.TeeNodeVersion calldata) external;
+    function teeNodeVersionStruct(IUpgradeManager.TeeNodeVersion calldata) external;
 
-    function teeUpgradePathStruct(IUpgradeManagerFacet.TeeUpgradePath calldata) external;
+    function teeUpgradePathStruct(IUpgradeManager.TeeUpgradePath calldata) external;
 
-    function pauseForUpgradeStruct(IReplicationFacet.PauseForUpgrade calldata) external;
+    function pauseForUpgradeStruct(IReplication.PauseForUpgrade calldata) external;
 
-    function replicateTeeMachineStruct(IReplicationFacet.ReplicateTeeMachine calldata) external;
+    function replicateTeeMachineStruct(IReplication.ReplicateTeeMachine calldata) external;
 }

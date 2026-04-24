@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IMachineManagerFacet } from "./IMachineManagerFacet.sol";
+import { IMachineManager } from "./IMachineManager.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 /**
- * @title IInstructionsFacet
+ * @title IInstructions
  * @notice Public interface for the InstructionsFacet.
  */
-interface IInstructionsFacet is ITeeCommonErrors {
+interface IInstructions is ITeeCommonErrors {
 
     /**
      * Struct containing the instruction parameters.
@@ -32,7 +32,7 @@ interface IInstructionsFacet is ITeeCommonErrors {
         uint256 indexed extensionId,
         bytes32 indexed instructionId,
         uint32 indexed rewardEpochId,
-        IMachineManagerFacet.TeeMachine[] teeMachines,
+        IMachineManager.TeeMachine[] teeMachines,
         bytes32 opType,
         bytes32 opCommand,
         bytes message,

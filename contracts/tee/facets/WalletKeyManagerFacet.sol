@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IWalletKeyManagerFacet } from "../../userInterfaces/tee/IWalletKeyManagerFacet.sol";
-import { IWalletManagerFacet, WALLET_OP_TYPE } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
-import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
+import { IWalletKeyManager } from "../../userInterfaces/tee/IWalletKeyManager.sol";
+import { IWalletManager, WALLET_OP_TYPE } from "../../userInterfaces/tee/IWalletManager.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
@@ -20,7 +20,7 @@ import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/Mes
  * @title WalletKeyManagerFacet
  * @notice Facet for TEE wallet key management.
  */
-contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
+contract WalletKeyManagerFacet is IWalletKeyManager {
 
     bytes32 internal constant KEY_GENERATE = bytes32("KEY_GENERATE");
     bytes32 internal constant KEY_DELETE = bytes32("KEY_DELETE");
@@ -36,7 +36,7 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletKeyManagerFacet
+     * @inheritdoc IWalletKeyManager
      */
     function setMultisigThreshold(
         bytes32 _walletId,
@@ -54,7 +54,7 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletKeyManagerFacet
+     * @inheritdoc IWalletKeyManager
      */
     function addKey(
         address _teeId,
@@ -101,7 +101,7 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletKeyManagerFacet
+     * @inheritdoc IWalletKeyManager
      */
     function confirmKey(
         KeyExistence calldata _proof,
@@ -170,7 +170,7 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletKeyManagerFacet
+     * @inheritdoc IWalletKeyManager
      */
     function deleteKey(
         address _teeId,
@@ -218,7 +218,7 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletKeyManagerFacet
+     * @inheritdoc IWalletKeyManager
      */
     function cleanUpTeeIds(
         bytes32 _walletId,
@@ -234,7 +234,7 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
         address[] storage teeIds = keyDefinition.teeIds;
         for (uint256 i = teeIds.length; i > 0; i--) {
             if (MachineManager.getTeeMachineStatus(teeIds[i - 1]) !=
-                IMachineManagerFacet.TeeStatus.PRODUCTION)
+                IMachineManager.TeeStatus.PRODUCTION)
             {
                 emit WalletKeyDeleted(teeIds[i - 1], _walletId, _keyId);
                 teeIds[i - 1] = teeIds[teeIds.length - 1];
@@ -244,7 +244,7 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletKeyManagerFacet
+     * @inheritdoc IWalletKeyManager
      */
     function receivingTeesAndKeys(
         bytes32 _walletId
@@ -256,7 +256,7 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletKeyManagerFacet
+     * @inheritdoc IWalletKeyManager
      */
     function getWalletKeysInfo(
         bytes32 _walletId
@@ -272,7 +272,7 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletKeyManagerFacet
+     * @inheritdoc IWalletKeyManager
      */
     function getWalletKeyPublicKey(
         bytes32 _walletId,
@@ -285,7 +285,7 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
     }
 
     /**
-     * @inheritdoc IWalletKeyManagerFacet
+     * @inheritdoc IWalletKeyManager
      */
     function getWalletKeyTeeIds(
         bytes32 _walletId,
@@ -314,7 +314,7 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
         Instructions.sendInstructions(
             bytes32(0),
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 WALLET_OP_TYPE,
                 _opCommand,
                 _message,
@@ -375,7 +375,7 @@ contract WalletKeyManagerFacet is IWalletKeyManagerFacet {
         private view
     {
         require(
-            WalletManager.getWalletStatus(_walletId) == IWalletManagerFacet.WalletStatus.INITIALIZED,
+            WalletManager.getWalletStatus(_walletId) == IWalletManager.WalletStatus.INITIALIZED,
             InvalidWalletStatus()
         );
     }

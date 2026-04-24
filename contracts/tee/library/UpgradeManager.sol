@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IUpgradeManagerFacet } from "../../userInterfaces/tee/IUpgradeManagerFacet.sol";
+import { IUpgradeManager } from "../../userInterfaces/tee/IUpgradeManager.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
 
@@ -13,7 +13,7 @@ import { Signature } from "../../userInterfaces/ISignature.sol";
 library UpgradeManager {
 
     struct TeeUpgradePathState {
-        IUpgradeManagerFacet.TeeUpgradePath upgradePath;
+        IUpgradeManager.TeeUpgradePath upgradePath;
         mapping(bytes32 sourceTeeNodeVersionHash => bool) sourceTeeNodeVersionExists;
         mapping(bytes32 targetTeeNodeVersionHash => bool) targetTeeNodeVersionExists;
     }
@@ -53,15 +53,15 @@ library UpgradeManager {
         returns (bool)
     {
         State storage s = getState();
-        require(_teeUpgradeId < s.teeUpgrades.length, IUpgradeManagerFacet.InvalidUpgradeId());
+        require(_teeUpgradeId < s.teeUpgrades.length, IUpgradeManager.InvalidUpgradeId());
         TeeUpgrade storage teeUpgrade = s.teeUpgrades[_teeUpgradeId];
         require(_extensionId == teeUpgrade.extensionId, ITeeCommonErrors.ExtensionIdMismatch());
-        require(teeUpgrade.messageHash != bytes32(0), IUpgradeManagerFacet.UpgradeNotFinalized());
+        require(teeUpgrade.messageHash != bytes32(0), IUpgradeManager.UpgradeNotFinalized());
         bytes32 sourceVersionHash = keccak256(
-            abi.encode(IUpgradeManagerFacet.TeeNodeVersion(_sourceCodeHash, _sourcePlatform))
+            abi.encode(IUpgradeManager.TeeNodeVersion(_sourceCodeHash, _sourcePlatform))
         );
         bytes32 targetVersionHash = keccak256(
-            abi.encode(IUpgradeManagerFacet.TeeNodeVersion(_targetCodeHash, _targetPlatform))
+            abi.encode(IUpgradeManager.TeeNodeVersion(_targetCodeHash, _targetPlatform))
         );
         for (uint256 i = 0; i < teeUpgrade.upgradePaths.length; i++) {
             TeeUpgradePathState storage upgradePathState = teeUpgrade.upgradePaths[i];
@@ -81,7 +81,7 @@ library UpgradeManager {
         returns (bool)
     {
         State storage s = getState();
-        require(_teeUpgradeId < s.teeUpgrades.length, IUpgradeManagerFacet.InvalidUpgradeId());
+        require(_teeUpgradeId < s.teeUpgrades.length, IUpgradeManager.InvalidUpgradeId());
         return s.teeUpgrades[_teeUpgradeId].upgradeSigned;
     }
 

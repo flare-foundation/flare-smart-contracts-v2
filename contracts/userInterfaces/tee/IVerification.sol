@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IMachineManagerFacet } from "./IMachineManagerFacet.sol";
+import { IMachineManager } from "./IMachineManager.sol";
 import { ITeeAvailabilityCheck } from "../fdc2/ITeeAvailabilityCheck.sol";
 import { IPMWMultisigAccountConfigured } from "../fdc2/IPMWMultisigAccountConfigured.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
@@ -9,13 +9,13 @@ import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 bytes32 constant TEE_SOURCE_ID = bytes32("TEE");
 
 /**
- * @title IVerificationFacet
+ * @title IVerification
  * @notice Public interface for TEE machine and wallet verification.
  */
-interface IVerificationFacet is ITeeCommonErrors {
+interface IVerification is ITeeCommonErrors {
 
     struct TeeAttestation {
-        IMachineManagerFacet.TeeMachineWithAttestationData teeMachine;
+        IMachineManager.TeeMachineWithAttestationData teeMachine;
         bytes32 challenge;
     }
 

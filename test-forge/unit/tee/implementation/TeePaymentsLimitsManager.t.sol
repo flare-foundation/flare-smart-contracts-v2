@@ -16,15 +16,15 @@ import {
 import { ITeePaymentsRegistry } from "../../../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
 import { ITeePayments } from "../../../../contracts/userInterfaces/tee/ITeePayments.sol";
 import {
-    IWalletProjectManagerFacet
-} from "../../../../contracts/userInterfaces/tee/IWalletProjectManagerFacet.sol";
+    IWalletProjectManager
+} from "../../../../contracts/userInterfaces/tee/IWalletProjectManager.sol";
 import {
-    IWalletManagerFacet
-} from "../../../../contracts/userInterfaces/tee/IWalletManagerFacet.sol";
+    IWalletManager
+} from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
 import {
-    IWalletKeyManagerFacet
-} from "../../../../contracts/userInterfaces/tee/IWalletKeyManagerFacet.sol";
-import { IInstructionsFacet } from "../../../../contracts/userInterfaces/tee/IInstructionsFacet.sol";
+    IWalletKeyManager
+} from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { IInstructions } from "../../../../contracts/userInterfaces/tee/IInstructions.sol";
 import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
@@ -194,9 +194,9 @@ contract TeePaymentsLimitsManagerTest is Test {
         vm.expectCall(
             flareTeeManager,
             abi.encodeWithSelector(
-                IInstructionsFacet.sendInstructions.selector,
+                IInstructions.sendInstructions.selector,
                 teeIds,
-                IInstructionsFacet.TeeInstructionParams(
+                IInstructions.TeeInstructionParams(
                     OP_TYPE,
                     SET_PAYMENT_LIMITS,
                     abi.encode(message),
@@ -254,7 +254,7 @@ contract TeePaymentsLimitsManagerTest is Test {
     function _mockGetWalletProjectId(bytes32 _walletId, bytes32 _projectId) internal {
         vm.mockCall(
             flareTeeManager,
-            abi.encodeWithSelector(IWalletManagerFacet.getWalletProjectId.selector, _walletId),
+            abi.encodeWithSelector(IWalletManager.getWalletProjectId.selector, _walletId),
             abi.encode(_projectId)
         );
     }
@@ -262,7 +262,7 @@ contract TeePaymentsLimitsManagerTest is Test {
     function _mockGetOwner(bytes32 _projectId, address _owner) internal {
         vm.mockCall(
             flareTeeManager,
-            abi.encodeWithSelector(IWalletProjectManagerFacet.getOwner.selector, _projectId),
+            abi.encodeWithSelector(IWalletProjectManager.getOwner.selector, _projectId),
             abi.encode(_owner)
         );
     }
@@ -270,7 +270,7 @@ contract TeePaymentsLimitsManagerTest is Test {
     function _mockGetWalletAdminsAndThreshold(bytes32 _walletId) internal {
         vm.mockCall(
             flareTeeManager,
-            abi.encodeWithSelector(IWalletManagerFacet.getWalletAdminsAndThreshold.selector, _walletId),
+            abi.encodeWithSelector(IWalletManager.getWalletAdminsAndThreshold.selector, _walletId),
             abi.encode(admins, adminsThreshold)
         );
     }
@@ -278,7 +278,7 @@ contract TeePaymentsLimitsManagerTest is Test {
     function _mockReceivingTeesAndKeys() internal {
         vm.mockCall(
             flareTeeManager,
-            abi.encodeWithSelector(IWalletKeyManagerFacet.receivingTeesAndKeys.selector),
+            abi.encodeWithSelector(IWalletKeyManager.receivingTeesAndKeys.selector),
             abi.encode(teeIdKeyIdPairs)
         );
     }
@@ -286,7 +286,7 @@ contract TeePaymentsLimitsManagerTest is Test {
     function _mockSendInstructions() internal {
         vm.mockCall(
             flareTeeManager,
-            abi.encodeWithSelector(IInstructionsFacet.sendInstructions.selector),
+            abi.encodeWithSelector(IInstructions.sendInstructions.selector),
             abi.encode(bytes32(uint256(1)))
         );
     }

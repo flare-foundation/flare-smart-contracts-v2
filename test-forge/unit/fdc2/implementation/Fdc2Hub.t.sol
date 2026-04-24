@@ -4,9 +4,9 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { Fdc2Hub } from "../../../../contracts/fdc2/implementation/Fdc2Hub.sol";
 import { Fdc2HubProxy } from "../../../../contracts/fdc2/proxy/Fdc2HubProxy.sol";
-import { IOperationFeesFacet } from "../../../../contracts/userInterfaces/tee/IOperationFeesFacet.sol";
-import { IMachineManagerFacet } from "../../../../contracts/userInterfaces/tee/IMachineManagerFacet.sol";
-import { IReplicationFacet } from "../../../../contracts/userInterfaces/tee/IReplicationFacet.sol";
+import { IOperationFees } from "../../../../contracts/userInterfaces/tee/IOperationFees.sol";
+import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
+import { IReplication } from "../../../../contracts/userInterfaces/tee/IReplication.sol";
 import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFdc2RequestFeeConfigurations } from
     "../../../../contracts/userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
@@ -170,7 +170,7 @@ contract Fdc2HubTest is Test {
 
     function testRequestAttestationRevertDuplicatedTeeId() public {
         address teeId = makeAddr("teeId");
-        _mockGetTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.PAUSED_FOR_UPGRADE);
+        _mockGetTeeMachineStatus(teeId, IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE);
         _mockGetTeeReplicatingTeeId(teeId, address(0));
         teeIds = new address[](2);
         teeIds[0] = teeId;
@@ -192,7 +192,7 @@ contract Fdc2HubTest is Test {
 
     function testRequestAttestationRevertTeeMachineNotAvailable() public {
         address teeId = makeAddr("teeId");
-        _mockGetTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.PAUSED_FOR_UPGRADE);
+        _mockGetTeeMachineStatus(teeId, IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE);
         _mockGetTeeReplicatingTeeId(teeId, address(0));
         teeIds = new address[](1);
         teeIds[0] = teeId;
@@ -210,7 +210,7 @@ contract Fdc2HubTest is Test {
         _mockGetExtensionId(1);
         address teeId = makeAddr("teeId");
         _mockGetTeeMachine(teeId, "url");
-        _mockGetTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(teeId, IMachineManager.TeeStatus.PRODUCTION);
         teeIds = new address[](1);
         teeIds[0] = teeId;
         vm.expectRevert(
@@ -231,7 +231,7 @@ contract Fdc2HubTest is Test {
     function testRequestAttestationRevertFeeTooLow() public {
         address teeId = makeAddr("teeId");
         _mockGetTeeMachine(teeId, "url");
-        _mockGetTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(teeId, IMachineManager.TeeStatus.PRODUCTION);
         teeIds = new address[](1);
         teeIds[0] = teeId;
         vm.expectRevert(IFdc2Hub.FeeTooLow.selector);
@@ -246,8 +246,8 @@ contract Fdc2HubTest is Test {
 
     // list of teeIds provided
     function testRequestAttestation1() public {
-        _mockGetTeeMachineStatus(teeIds[0], IMachineManagerFacet.TeeStatus.PRODUCTION);
-        _mockGetTeeMachineStatus(teeIds[1], IMachineManagerFacet.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(teeIds[0], IMachineManager.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(teeIds[1], IMachineManager.TeeStatus.PRODUCTION);
         address[] memory teeIdsForFee = new address[](2);
         teeIdsForFee[0] = teeIds[0];
         teeIdsForFee[1] = teeIds[1];
@@ -271,8 +271,8 @@ contract Fdc2HubTest is Test {
     }
 
     function testRequestAttestationWithProofOwnerAndClaimBack() public {
-        _mockGetTeeMachineStatus(teeIds[0], IMachineManagerFacet.TeeStatus.PRODUCTION);
-        _mockGetTeeMachineStatus(teeIds[1], IMachineManagerFacet.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(teeIds[0], IMachineManager.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(teeIds[1], IMachineManager.TeeStatus.PRODUCTION);
         address[] memory teeIdsForFee = new address[](2);
         teeIdsForFee[0] = teeIds[0];
         teeIdsForFee[1] = teeIds[1];
@@ -299,14 +299,14 @@ contract Fdc2HubTest is Test {
 
     // list of teeIds not provided and number is also not (it will take default)
     function testRequestAttestation2() public {
-        _mockGetTeeMachineStatus(teeIds[0], IMachineManagerFacet.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(teeIds[0], IMachineManager.TeeStatus.PRODUCTION);
         address[] memory teeIdsForFee = new address[](1);
         teeIdsForFee[0] = teeIds[0];
 
         vm.mockCall(
             flareTeeManager,
             abi.encodeWithSelector(
-                IMachineManagerFacet.getRandomTeeIds.selector, 0, 1
+                IMachineManager.getRandomTeeIds.selector, 0, 1
             ),
             abi.encode(teeIdsForFee)
         );
@@ -332,12 +332,12 @@ contract Fdc2HubTest is Test {
 
     // list of teeIds is not provided but the number is
     function testRequestAttestation3() public {
-        _mockGetTeeMachineStatus(teeIds[0], IMachineManagerFacet.TeeStatus.PRODUCTION);
-        _mockGetTeeMachineStatus(teeIds[1], IMachineManagerFacet.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(teeIds[0], IMachineManager.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(teeIds[1], IMachineManager.TeeStatus.PRODUCTION);
         vm.mockCall(
             flareTeeManager,
             abi.encodeWithSelector(
-                IMachineManagerFacet.getRandomTeeIds.selector, 0, 2
+                IMachineManager.getRandomTeeIds.selector, 0, 2
             ),
             abi.encode(teeIds)
         );
@@ -364,11 +364,11 @@ contract Fdc2HubTest is Test {
     }
 
     /// Helper and mock functions ///
-    function _mockGetTeeMachineStatus(address _teeId, IMachineManagerFacet.TeeStatus _status) internal {
+    function _mockGetTeeMachineStatus(address _teeId, IMachineManager.TeeStatus _status) internal {
         vm.mockCall(
             flareTeeManager,
             abi.encodeWithSelector(
-                IMachineManagerFacet.getTeeMachineStatus.selector,
+                IMachineManager.getTeeMachineStatus.selector,
                 _teeId
             ),
             abi.encode(_status)
@@ -379,7 +379,7 @@ contract Fdc2HubTest is Test {
         vm.mockCall(
             flareTeeManager,
             abi.encodeWithSelector(
-                IReplicationFacet.getReplicatingTeeId.selector,
+                IReplication.getReplicatingTeeId.selector,
                 _teeId
             ),
             abi.encode(_replicatingTeeId)
@@ -398,10 +398,10 @@ contract Fdc2HubTest is Test {
         vm.mockCall(
             flareTeeManager,
             abi.encodeWithSelector(
-                IMachineManagerFacet.getTeeMachine.selector,
+                IMachineManager.getTeeMachine.selector,
                 _teeId
             ),
-            abi.encode(IMachineManagerFacet.TeeMachine({
+            abi.encode(IMachineManager.TeeMachine({
                 teeId: _teeId,
                 teeProxyId: _teeId, // for testing purposes
                 url: _url
@@ -431,7 +431,7 @@ contract Fdc2HubTest is Test {
         vm.mockCall(
             flareTeeManager,
             abi.encodeWithSelector(
-                IMachineManagerFacet.getExtensionId.selector
+                IMachineManager.getExtensionId.selector
             ),
             abi.encode(_extensionId)
         );
@@ -441,7 +441,7 @@ contract Fdc2HubTest is Test {
         vm.mockCall(
             flareTeeManager,
             abi.encodeWithSelector(
-                IOperationFeesFacet.calculateFeeByTeeIds.selector
+                IOperationFees.calculateFeeByTeeIds.selector
             ),
             abi.encode(_fee)
         );
@@ -465,12 +465,12 @@ contract Fdc2HubTest is Test {
         uint256 _num
     )
         internal view
-        returns (IMachineManagerFacet.TeeMachine[] memory _teeMachines)
+        returns (IMachineManager.TeeMachine[] memory _teeMachines)
     {
-        _teeMachines = new IMachineManagerFacet.TeeMachine[](_num);
+        _teeMachines = new IMachineManager.TeeMachine[](_num);
 
         for (uint256 i = 0; i < _num; i++) {
-            _teeMachines[i] = IMachineManagerFacet.TeeMachine({
+            _teeMachines[i] = IMachineManager.TeeMachine({
                 teeId: teeIds[i],
                 teeProxyId: teeIds[i], // for testing purposes
                 url: urls[i]

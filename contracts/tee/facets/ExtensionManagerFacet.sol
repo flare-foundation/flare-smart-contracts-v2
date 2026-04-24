@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IIExtensionManagerFacet } from "../interface/IIExtensionManagerFacet.sol";
-import { IExtensionManagerFacet } from "../../userInterfaces/tee/IExtensionManagerFacet.sol";
+import { IIExtensionManager } from "../interface/IIExtensionManager.sol";
+import { IExtensionManager } from "../../userInterfaces/tee/IExtensionManager.sol";
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
@@ -13,10 +13,10 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
  * @title ExtensionManagerFacet
  * @notice Facet for TEE extension registration and instruction routing.
  */
-contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
+contract ExtensionManagerFacet is IIExtensionManager, GovernedFacet {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function register(
         ITeeExtensionStateVerifier _teeExtensionStateVerifier,
         address _teeExtensionInstructionsSender
@@ -35,7 +35,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         emit TeeExtensionContractsSet(_extensionId, _teeExtensionStateVerifier, _teeExtensionInstructionsSender);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function setExtensionContracts(
         uint256 _extensionId,
         ITeeExtensionStateVerifier _teeExtensionStateVerifier,
@@ -55,7 +55,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         );
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function addTeeVersion(
         uint256 _extensionId,
         string calldata _version,
@@ -90,7 +90,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         emit TeeVersionAdded(_extensionId, _version, _codeHash, _platforms, _governanceHash);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function disableCodeHashPlatform(
         uint256 _extensionId,
         bytes32 _codeHash,
@@ -127,7 +127,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         }
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function addSupportedKeyTypes(
         uint256 _extensionId,
         bytes32[] calldata _keyTypes
@@ -146,7 +146,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         emit SupportedKeyTypesAdded(_extensionId, _keyTypes);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function removeSupportedKeyTypes(
         uint256 _extensionId,
         bytes32[] memory _keyTypes
@@ -163,7 +163,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         emit SupportedKeyTypesRemoved(_extensionId, _keyTypes);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function proposeNewOwner(
         uint256 _extensionId,
         address _newOwner
@@ -176,7 +176,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         emit NewOwnerProposed(_extensionId, msg.sender, _newOwner);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function confirmOwnership(
         uint256 _extensionId
     )
@@ -189,7 +189,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         emit NewOwnerConfirmed(_extensionId, msg.sender);
     }
 
-    /// @inheritdoc IIExtensionManagerFacet
+    /// @inheritdoc IIExtensionManager
     function addSystemSupportedPlatforms(
         bytes32[] calldata _platforms
     )
@@ -204,7 +204,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         emit SystemSupportedPlatformsAdded(_platforms);
     }
 
-    /// @inheritdoc IIExtensionManagerFacet
+    /// @inheritdoc IIExtensionManager
     function addSystemSupportedKeyTypesAndSigningAlgos(
         bytes32[] calldata _keyTypes,
         bytes32[][] calldata _signingAlgosByKeyType
@@ -237,7 +237,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
     // Getters
     // =========================================================================
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function extensionsCounter()
         external view
         returns (uint256)
@@ -245,7 +245,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.getState().extensionsCounter;
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function getSystemSupportedPlatforms()
         external view
         returns (bytes32[] memory)
@@ -253,7 +253,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.getState().systemSupportedPlatforms.values();
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function getSystemSupportedKeyTypes()
         external view
         returns (bytes32[] memory)
@@ -261,7 +261,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.getState().systemSupportedKeyTypes.values();
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function getSystemSupportedSigningAlgos(
         bytes32 _keyType
     )
@@ -271,7 +271,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.getState().systemSupportedSigningAlgos[_keyType].values();
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function getExtensionOwner(
         uint256 _extensionId
     )
@@ -281,7 +281,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.getExtensionOwner(_extensionId);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function getTeeExtensionStateVerifier(
         uint256 _extensionId
     )
@@ -291,7 +291,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.getTeeExtensionStateVerifier(_extensionId);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function getTeeExtensionInstructionsSender(
         uint256 _extensionId
     )
@@ -301,7 +301,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.getExtensionInstructionsSender(_extensionId);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function isSigningAlgoSupported(
         bytes32 _keyType,
         bytes32 _signingAlgo
@@ -312,7 +312,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.isSigningAlgoSupported(_keyType, _signingAlgo);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function getSupportedKeyTypes(
         uint256 _extensionId
     )
@@ -322,7 +322,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.getState().extensions[_extensionId].supportedKeyTypes.values();
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function isKeyTypeSupported(
         uint256 _extensionId,
         bytes32 _keyType
@@ -333,7 +333,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.isKeyTypeSupported(_extensionId, _keyType);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function getSupportedCodeHashes(
         uint256 _extensionId
     )
@@ -343,7 +343,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.getState().extensions[_extensionId].supportedCodeHashes.values();
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function isCodeHashPlatformSupported(
         uint256 _extensionId,
         bytes32 _codeHash,
@@ -355,7 +355,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.isCodeHashPlatformSupported(_extensionId, _codeHash, _platform);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function isCodeHashPlatformDisabled(
         uint256 _extensionId,
         bytes32 _codeHash,
@@ -367,7 +367,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.isCodeHashPlatformDisabled(_extensionId, _codeHash, _platform);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function getTeeGovernanceHash(
         uint256 _extensionId,
         bytes32 _codeHash
@@ -378,7 +378,7 @@ contract ExtensionManagerFacet is IIExtensionManagerFacet, GovernedFacet {
         return ExtensionManager.getTeeGovernanceHash(_extensionId, _codeHash);
     }
 
-    /// @inheritdoc IExtensionManagerFacet
+    /// @inheritdoc IExtensionManager
     function getCodeHashInfo(
         uint256 _extensionId,
         bytes32 _codeHash

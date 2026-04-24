@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 
 
 interface TeeMachineStructs {
 
-    function teeMachineDataStruct(IMachineManagerFacet.TeeMachineData calldata) external;
+    function teeMachineDataStruct(IMachineManager.TeeMachineData calldata) external;
 
-    function teeMachineStruct(IMachineManagerFacet.TeeMachine calldata) external;
+    function teeMachineStruct(IMachineManager.TeeMachine calldata) external;
 
     function teeMachineWithAttestationDataStruct(
-        IMachineManagerFacet.TeeMachineWithAttestationData calldata
+        IMachineManager.TeeMachineWithAttestationData calldata
     ) external;
 }

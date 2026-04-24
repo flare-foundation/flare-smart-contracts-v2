@@ -3,24 +3,24 @@ pragma solidity >=0.7.6 <0.9;
 
 import { IDiamondLoupe } from "../../diamond/interfaces/IDiamondLoupe.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import { IExtensionManagerFacet } from "./IExtensionManagerFacet.sol";
-import { IInstructionsFacet } from "./IInstructionsFacet.sol";
-import { IMachineManagerFacet } from "./IMachineManagerFacet.sol";
-import { IVerificationFacet } from "./IVerificationFacet.sol";
-import { IOperationFeesFacet } from "./IOperationFeesFacet.sol";
-import { IOwnerAllowlistFacet } from "./IOwnerAllowlistFacet.sol";
-import { ISystemStateVerifierFacet } from "./ISystemStateVerifierFacet.sol";
-import { IWalletManagerFacet } from "./IWalletManagerFacet.sol";
-import { IWalletResumeFacet } from "./IWalletResumeFacet.sol";
-import { IWalletKeyManagerFacet } from "./IWalletKeyManagerFacet.sol";
-import { IWalletProjectManagerFacet } from "./IWalletProjectManagerFacet.sol";
-import { IWalletBackupManagerFacet } from "./IWalletBackupManagerFacet.sol";
-import { IVrfFacet } from "./IVrfFacet.sol";
-import { IReplicationFacet } from "./IReplicationFacet.sol";
-import { IExtensionGovernanceFacet } from "./IExtensionGovernanceFacet.sol";
-import { IExternalAddressesFacet } from "./IExternalAddressesFacet.sol";
-import { IUpgradeManagerFacet } from "./IUpgradeManagerFacet.sol";
-import { IDiamondGovernanceFacet } from "./IDiamondGovernanceFacet.sol";
+import { IExtensionManager } from "./IExtensionManager.sol";
+import { IInstructions } from "./IInstructions.sol";
+import { IMachineManager } from "./IMachineManager.sol";
+import { IVerification } from "./IVerification.sol";
+import { IOperationFees } from "./IOperationFees.sol";
+import { IOwnerAllowlist } from "./IOwnerAllowlist.sol";
+import { ISystemStateVerifier } from "./ISystemStateVerifier.sol";
+import { IWalletManager } from "./IWalletManager.sol";
+import { IWalletResume } from "./IWalletResume.sol";
+import { IWalletKeyManager } from "./IWalletKeyManager.sol";
+import { IWalletProjectManager } from "./IWalletProjectManager.sol";
+import { IWalletBackupManager } from "./IWalletBackupManager.sol";
+import { IVrf } from "./IVrf.sol";
+import { IReplication } from "./IReplication.sol";
+import { IExtensionGovernance } from "./IExtensionGovernance.sol";
+import { IExternalAddresses } from "./IExternalAddresses.sol";
+import { IUpgradeManager } from "./IUpgradeManager.sol";
+import { IDiamondGovernance } from "./IDiamondGovernance.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 /**
@@ -35,23 +35,23 @@ interface IFlareTeeManager is
     IDiamondLoupe,
     IERC165,
     ITeeCommonErrors,
-    IExtensionManagerFacet,
-    IInstructionsFacet,
-    IMachineManagerFacet,
-    IVerificationFacet,
-    IOperationFeesFacet,
-    IOwnerAllowlistFacet,
-    ISystemStateVerifierFacet,
-    IWalletManagerFacet,
-    IWalletResumeFacet,
-    IWalletKeyManagerFacet,
-    IWalletProjectManagerFacet,
-    IWalletBackupManagerFacet,
-    IVrfFacet,
-    IReplicationFacet,
-    IExtensionGovernanceFacet,
-    IExternalAddressesFacet,
-    IUpgradeManagerFacet,
-    IDiamondGovernanceFacet
+    IExtensionManager,
+    IInstructions,
+    IMachineManager,
+    IVerification,
+    IOperationFees,
+    IOwnerAllowlist,
+    ISystemStateVerifier,
+    IWalletManager,
+    IWalletResume,
+    IWalletKeyManager,
+    IWalletProjectManager,
+    IWalletBackupManager,
+    IVrf,
+    IReplication,
+    IExtensionGovernance,
+    IExternalAddresses,
+    IUpgradeManager,
+    IDiamondGovernance
 {
 }

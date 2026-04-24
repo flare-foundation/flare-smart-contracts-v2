@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
@@ -97,19 +97,19 @@ library Instructions {
 
     function sendInstructions(
         bytes32 _instructionId,
-        IMachineManagerFacet.TeeMachine[] memory _teeMachines,
-        IInstructionsFacet.TeeInstructionParams memory _instructionParams
+        IMachineManager.TeeMachine[] memory _teeMachines,
+        IInstructions.TeeInstructionParams memory _instructionParams
     )
         internal
         returns (bytes32)
     {
-        require(_teeMachines.length > 0, IInstructionsFacet.NoTeeMachinesSpecified());
-        require(_instructionParams.opType != bytes32(0), IInstructionsFacet.OperationTypeEmpty());
-        require(_instructionParams.opCommand != bytes32(0), IInstructionsFacet.OperationCommandEmpty());
-        require(_instructionParams.message.length > 0, IInstructionsFacet.MessageEmpty());
+        require(_teeMachines.length > 0, IInstructions.NoTeeMachinesSpecified());
+        require(_instructionParams.opType != bytes32(0), IInstructions.OperationTypeEmpty());
+        require(_instructionParams.opCommand != bytes32(0), IInstructions.OperationCommandEmpty());
+        require(_instructionParams.message.length > 0, IInstructions.MessageEmpty());
         require(
             _instructionParams.cosignersThreshold <= _instructionParams.cosigners.length,
-            IInstructionsFacet.CosignersThresholdTooHigh()
+            IInstructions.CosignersThresholdTooHigh()
         );
 
         uint256 extensionId;
@@ -130,7 +130,7 @@ library Instructions {
                 if (!_isSystemOpType) {
                     require(
                         MachineManager.getTeeMachineStatus(teeId) ==
-                            IMachineManagerFacet.TeeStatus.PRODUCTION,
+                            IMachineManager.TeeStatus.PRODUCTION,
                         ITeeCommonErrors.TeeMachineNotAvailable()
                     );
                 }
@@ -140,7 +140,7 @@ library Instructions {
             uint256 calculatedFee = OperationFees.calculateFeeByTeeIds(
                 _instructionParams.opType, _instructionParams.opCommand, teeIds
             );
-            require(calculatedFee <= msg.value, IInstructionsFacet.FeeTooLow());
+            require(calculatedFee <= msg.value, IInstructions.FeeTooLow());
         }
 
         // Send fee to reward manager and emit event
@@ -151,7 +151,7 @@ library Instructions {
             currentRewardEpochId, false
         );
 
-        emit IInstructionsFacet.TeeInstructionsSent(
+        emit IInstructions.TeeInstructionsSent(
             extensionId,
             _instructionId,
             uint32(currentRewardEpochId),
@@ -174,13 +174,13 @@ library Instructions {
     function sendInstructions(
         bytes32 _instructionId,
         address[] memory _teeIds,
-        IInstructionsFacet.TeeInstructionParams memory _instructionParams
+        IInstructions.TeeInstructionParams memory _instructionParams
     )
         internal
         returns (bytes32)
     {
-        IMachineManagerFacet.TeeMachine[] memory teeMachines =
-            new IMachineManagerFacet.TeeMachine[](_teeIds.length);
+        IMachineManager.TeeMachine[] memory teeMachines =
+            new IMachineManager.TeeMachine[](_teeIds.length);
         for (uint256 i = 0; i < _teeIds.length; i++) {
             teeMachines[i] = MachineManager.getTeeMachine(_teeIds[i]);
         }

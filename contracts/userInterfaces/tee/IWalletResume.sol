@@ -3,13 +3,13 @@ pragma solidity >=0.7.6 <0.9;
 
 import { TeeIdKeyIdPair } from "./ITeeIdKeyIdPair.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
-import { IWalletManagerFacet } from "./IWalletManagerFacet.sol";
+import { IWalletManager } from "./IWalletManager.sol";
 
 /**
- * @title IWalletResumeFacet
+ * @title IWalletResume
  * @notice Public interface for the WalletResumeFacet.
  */
-interface IWalletResumeFacet is ITeeCommonErrors {
+interface IWalletResume is ITeeCommonErrors {
 
     struct SetPausingAddresses {
         bytes32 walletId;

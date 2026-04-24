@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IUpgradeManagerFacet } from "../../../../contracts/userInterfaces/tee/IUpgradeManagerFacet.sol";
+import { IUpgradeManager } from "../../../../contracts/userInterfaces/tee/IUpgradeManager.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
@@ -128,20 +128,20 @@ contract UpgradeManagerFacetTest is Test {
 
     function testCreateNewTeeUpgradeRevertInvalidFromGovernanceHash() public {
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.InvalidFromGovernanceHash.selector);
+        vm.expectRevert(IUpgradeManager.InvalidFromGovernanceHash.selector);
         flareTeeManager.createNewTeeUpgrade(extensionId, keccak256("invalidHash"), targetTeeGovernanceHash);
     }
 
     function testCreateNewTeeUpgradeRevertInvalidToGovernanceHash() public {
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.InvalidToGovernanceHash.selector);
+        vm.expectRevert(IUpgradeManager.InvalidToGovernanceHash.selector);
         flareTeeManager.createNewTeeUpgrade(extensionId, sourceTeeGovernanceHash, keccak256("invalidHash"));
     }
 
     function testCreateNewTeeUpgrade() public {
         vm.prank(owner);
         vm.expectEmit();
-        emit IUpgradeManagerFacet.TeeUpgradeStarted(
+        emit IUpgradeManager.TeeUpgradeStarted(
             extensionId,
             teeUpgradeId,
             sourceTeeGovernanceHash,
@@ -155,59 +155,59 @@ contract UpgradeManagerFacetTest is Test {
 
     // addTeeUpgradePaths
     function testAddTeeUpgradePathsRevertInvalidUpgradeId() public {
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
-        vm.expectRevert(IUpgradeManagerFacet.InvalidUpgradeId.selector);
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
+        vm.expectRevert(IUpgradeManager.InvalidUpgradeId.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
     function testAddTeeUpgradePathsRevertOnlyExtensionOwner() public {
         testCreateNewTeeUpgrade();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
     function testAddTeeUpgradePathsRevertUpgradeAlreadyFinalized() public {
         testFinalizeTeeUpgrade();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.UpgradeAlreadyFinalized.selector);
+        vm.expectRevert(IUpgradeManager.UpgradeAlreadyFinalized.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
     function testAddTeeUpgradePathsRevertNoUpgradePaths() public {
         testCreateNewTeeUpgrade();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths =
-            new IUpgradeManagerFacet.TeeUpgradePath[](0);
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths =
+            new IUpgradeManager.TeeUpgradePath[](0);
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.NoUpgradePaths.selector);
+        vm.expectRevert(IUpgradeManager.NoUpgradePaths.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
     function testAddTeeUpgradePathsRevertNoSourceVersions() public {
         testCreateNewTeeUpgrade();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths =
-            new IUpgradeManagerFacet.TeeUpgradePath[](1);
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths =
+            new IUpgradeManager.TeeUpgradePath[](1);
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.NoSourceVersions.selector);
+        vm.expectRevert(IUpgradeManager.NoSourceVersions.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
     function testAddTeeUpgradePathsRevertNoTargetVersions() public {
         testCreateNewTeeUpgrade();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
-        upgradePaths[0].targetVersions = new IUpgradeManagerFacet.TeeNodeVersion[](0);
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
+        upgradePaths[0].targetVersions = new IUpgradeManager.TeeNodeVersion[](0);
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.NoTargetVersions.selector);
+        vm.expectRevert(IUpgradeManager.NoTargetVersions.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
     function testAddTeeUpgradePathsRevertSourceCodeHashAndPlatformNotSupported() public {
         testCreateNewTeeUpgrade();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
         upgradePaths[0].sourceVersions[0].codeHash = keccak256("unsupportedCodeHash");
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.SourceCodeHashAndPlatformNotSupported.selector);
+        vm.expectRevert(IUpgradeManager.SourceCodeHashAndPlatformNotSupported.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
@@ -222,49 +222,49 @@ contract UpgradeManagerFacetTest is Test {
         );
 
         testCreateNewTeeUpgrade();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
         upgradePaths[0].sourceVersions[0].codeHash = mismatchCodeHash;
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.SourceGovernanceHashMismatch.selector);
+        vm.expectRevert(IUpgradeManager.SourceGovernanceHashMismatch.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
     function testAddTeeUpgradePathsRevertSourceVersionAlreadyExists() public {
         testAddTeeUpgradePaths();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = new IUpgradeManagerFacet.TeeUpgradePath[](1);
-        upgradePaths[0].sourceVersions = new IUpgradeManagerFacet.TeeNodeVersion[](2);
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = new IUpgradeManager.TeeUpgradePath[](1);
+        upgradePaths[0].sourceVersions = new IUpgradeManager.TeeNodeVersion[](2);
         upgradePaths[0].sourceVersions[0] =
-            IUpgradeManagerFacet.TeeNodeVersion(sourceCodeHash, sourcePlatform);
+            IUpgradeManager.TeeNodeVersion(sourceCodeHash, sourcePlatform);
         upgradePaths[0].sourceVersions[1] = upgradePaths[0].sourceVersions[0];
-        upgradePaths[0].targetVersions = new IUpgradeManagerFacet.TeeNodeVersion[](1);
+        upgradePaths[0].targetVersions = new IUpgradeManager.TeeNodeVersion[](1);
         upgradePaths[0].targetVersions[0] =
-            IUpgradeManagerFacet.TeeNodeVersion(targetCodeHash, targetPlatform);
+            IUpgradeManager.TeeNodeVersion(targetCodeHash, targetPlatform);
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.SourceVersionAlreadyExists.selector);
+        vm.expectRevert(IUpgradeManager.SourceVersionAlreadyExists.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
     function testAddTeeUpgradePathsRevertTargetVersionAlreadyExists() public {
         testAddTeeUpgradePaths();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = new IUpgradeManagerFacet.TeeUpgradePath[](1);
-        upgradePaths[0].sourceVersions = new IUpgradeManagerFacet.TeeNodeVersion[](1);
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = new IUpgradeManager.TeeUpgradePath[](1);
+        upgradePaths[0].sourceVersions = new IUpgradeManager.TeeNodeVersion[](1);
         upgradePaths[0].sourceVersions[0] =
-            IUpgradeManagerFacet.TeeNodeVersion(sourceCodeHash, sourcePlatform);
-        upgradePaths[0].targetVersions = new IUpgradeManagerFacet.TeeNodeVersion[](2);
+            IUpgradeManager.TeeNodeVersion(sourceCodeHash, sourcePlatform);
+        upgradePaths[0].targetVersions = new IUpgradeManager.TeeNodeVersion[](2);
         upgradePaths[0].targetVersions[0] =
-            IUpgradeManagerFacet.TeeNodeVersion(targetCodeHash, targetPlatform);
+            IUpgradeManager.TeeNodeVersion(targetCodeHash, targetPlatform);
         upgradePaths[0].targetVersions[1] = upgradePaths[0].targetVersions[0];
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.TargetVersionAlreadyExists.selector);
+        vm.expectRevert(IUpgradeManager.TargetVersionAlreadyExists.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
     function testAddTeeUpgradePathsRevertTargetCodeHashAndPlatformNotSupported() public {
         testCreateNewTeeUpgrade();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
         upgradePaths[0].targetVersions[0].codeHash = keccak256("unsupportedTargetCodeHash");
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.TargetCodeHashAndPlatformNotSupported.selector);
+        vm.expectRevert(IUpgradeManager.TargetCodeHashAndPlatformNotSupported.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
@@ -287,25 +287,25 @@ contract UpgradeManagerFacetTest is Test {
         flareTeeManager.setNewTeeGovernance(extensionId, targetSigners, 1);
 
         testCreateNewTeeUpgrade();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
         upgradePaths[0].targetVersions[0].codeHash = mismatchCodeHash;
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.TargetGovernanceHashMismatch.selector);
+        vm.expectRevert(IUpgradeManager.TargetGovernanceHashMismatch.selector);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
     function testAddTeeUpgradePaths() public {
         testCreateNewTeeUpgrade();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
         vm.prank(owner);
         vm.expectEmit();
-        emit IUpgradeManagerFacet.TeeUpgradePathsAdded(teeUpgradeId, upgradePaths);
+        emit IUpgradeManager.TeeUpgradePathsAdded(teeUpgradeId, upgradePaths);
         flareTeeManager.addTeeUpgradePaths(teeUpgradeId, upgradePaths);
     }
 
     // finalizeTeeUpgrade
     function testFinalizeTeeUpgradeRevertInvalidUpgradeId() public {
-        vm.expectRevert(IUpgradeManagerFacet.InvalidUpgradeId.selector);
+        vm.expectRevert(IUpgradeManager.InvalidUpgradeId.selector);
         flareTeeManager.finalizeTeeUpgrade(teeUpgradeId);
     }
 
@@ -318,14 +318,14 @@ contract UpgradeManagerFacetTest is Test {
     function testFinalizeTeeUpgradeRevertUpgradeAlreadyFinalized() public {
         testFinalizeTeeUpgrade();
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.UpgradeAlreadyFinalized.selector);
+        vm.expectRevert(IUpgradeManager.UpgradeAlreadyFinalized.selector);
         flareTeeManager.finalizeTeeUpgrade(teeUpgradeId);
     }
 
     function testFinalizeTeeUpgradeRevertNoUpgradePaths() public {
         testCreateNewTeeUpgrade();
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.NoUpgradePaths.selector);
+        vm.expectRevert(IUpgradeManager.NoUpgradePaths.selector);
         flareTeeManager.finalizeTeeUpgrade(teeUpgradeId);
     }
 
@@ -333,14 +333,14 @@ contract UpgradeManagerFacetTest is Test {
         testAddTeeUpgradePaths();
         vm.prank(owner);
         vm.expectEmit();
-        emit IUpgradeManagerFacet.TeeUpgradeFinalized(teeUpgradeId);
+        emit IUpgradeManager.TeeUpgradeFinalized(teeUpgradeId);
         flareTeeManager.finalizeTeeUpgrade(teeUpgradeId);
     }
 
     // signTeeUpgrade
     function testSignTeeUpgradeRevertInvalidUpgradeId() public {
         Signature memory signature = _createSourceSignature();
-        vm.expectRevert(IUpgradeManagerFacet.InvalidUpgradeId.selector);
+        vm.expectRevert(IUpgradeManager.InvalidUpgradeId.selector);
         flareTeeManager.signTeeUpgrade(teeUpgradeId, signature);
     }
 
@@ -348,7 +348,7 @@ contract UpgradeManagerFacetTest is Test {
         testSignTeeUpgrade();
         Signature memory signature = _createSourceSignature();
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.UpgradeAlreadySigned.selector);
+        vm.expectRevert(IUpgradeManager.UpgradeAlreadySigned.selector);
         flareTeeManager.signTeeUpgrade(teeUpgradeId, signature);
     }
 
@@ -356,7 +356,7 @@ contract UpgradeManagerFacetTest is Test {
         testCreateNewTeeUpgrade();
         Signature memory signature = _createSourceSignature();
         vm.prank(owner);
-        vm.expectRevert(IUpgradeManagerFacet.UpgradeNotFinalized.selector);
+        vm.expectRevert(IUpgradeManager.UpgradeNotFinalized.selector);
         flareTeeManager.signTeeUpgrade(teeUpgradeId, signature);
     }
 
@@ -371,7 +371,7 @@ contract UpgradeManagerFacetTest is Test {
         Signature memory targetSignature = _createTargetSignature();
         vm.prank(targetSigners[0]);
         vm.expectEmit();
-        emit IUpgradeManagerFacet.TeeUpgradeSigned(teeUpgradeId);
+        emit IUpgradeManager.TeeUpgradeSigned(teeUpgradeId);
         flareTeeManager.signTeeUpgrade(teeUpgradeId, targetSignature);
     }
 
@@ -398,13 +398,13 @@ contract UpgradeManagerFacetTest is Test {
             extensionId, newSourceGovHash, targetTeeGovernanceHash
         );
 
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = new IUpgradeManagerFacet.TeeUpgradePath[](1);
-        upgradePaths[0].sourceVersions = new IUpgradeManagerFacet.TeeNodeVersion[](1);
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = new IUpgradeManager.TeeUpgradePath[](1);
+        upgradePaths[0].sourceVersions = new IUpgradeManager.TeeNodeVersion[](1);
         upgradePaths[0].sourceVersions[0] =
-            IUpgradeManagerFacet.TeeNodeVersion(newSourceCodeHash, sourcePlatform);
-        upgradePaths[0].targetVersions = new IUpgradeManagerFacet.TeeNodeVersion[](1);
+            IUpgradeManager.TeeNodeVersion(newSourceCodeHash, sourcePlatform);
+        upgradePaths[0].targetVersions = new IUpgradeManager.TeeNodeVersion[](1);
         upgradePaths[0].targetVersions[0] =
-            IUpgradeManagerFacet.TeeNodeVersion(targetCodeHash, targetPlatform);
+            IUpgradeManager.TeeNodeVersion(targetCodeHash, targetPlatform);
         vm.prank(owner);
         flareTeeManager.addTeeUpgradePaths(upgradeId, upgradePaths);
         vm.prank(owner);
@@ -448,13 +448,13 @@ contract UpgradeManagerFacetTest is Test {
             extensionId, sourceTeeGovernanceHash, newTargetGovHash
         );
 
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = new IUpgradeManagerFacet.TeeUpgradePath[](1);
-        upgradePaths[0].sourceVersions = new IUpgradeManagerFacet.TeeNodeVersion[](1);
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = new IUpgradeManager.TeeUpgradePath[](1);
+        upgradePaths[0].sourceVersions = new IUpgradeManager.TeeNodeVersion[](1);
         upgradePaths[0].sourceVersions[0] =
-            IUpgradeManagerFacet.TeeNodeVersion(sourceCodeHash, sourcePlatform);
-        upgradePaths[0].targetVersions = new IUpgradeManagerFacet.TeeNodeVersion[](1);
+            IUpgradeManager.TeeNodeVersion(sourceCodeHash, sourcePlatform);
+        upgradePaths[0].targetVersions = new IUpgradeManager.TeeNodeVersion[](1);
         upgradePaths[0].targetVersions[0] =
-            IUpgradeManagerFacet.TeeNodeVersion(newTargetCodeHash, targetPlatform);
+            IUpgradeManager.TeeNodeVersion(newTargetCodeHash, targetPlatform);
         vm.prank(owner);
         flareTeeManager.addTeeUpgradePaths(upgradeId, upgradePaths);
         vm.prank(owner);
@@ -477,7 +477,7 @@ contract UpgradeManagerFacetTest is Test {
 
     // isTeeUpgradePathValid
     function testIsTeeUpgradePathValidRevertInvalidUpgradeId() public {
-        vm.expectRevert(IUpgradeManagerFacet.InvalidUpgradeId.selector);
+        vm.expectRevert(IUpgradeManager.InvalidUpgradeId.selector);
         flareTeeManager.isTeeUpgradePathValid(
             teeUpgradeId, extensionId, sourceCodeHash, sourcePlatform, targetCodeHash, targetPlatform
         );
@@ -493,7 +493,7 @@ contract UpgradeManagerFacetTest is Test {
 
     function testIsTeeUpgradePathValidRevertUpgradeNotFinalized() public {
         testAddTeeUpgradePaths();
-        vm.expectRevert(IUpgradeManagerFacet.UpgradeNotFinalized.selector);
+        vm.expectRevert(IUpgradeManager.UpgradeNotFinalized.selector);
         flareTeeManager.isTeeUpgradePathValid(
             teeUpgradeId, extensionId, sourceCodeHash, sourcePlatform, targetCodeHash, targetPlatform
         );
@@ -525,7 +525,7 @@ contract UpgradeManagerFacetTest is Test {
 
     // isTeeUpgradeFinalized
     function testIsTeeUpgradeFinalizedRevertInvalidUpgradeId() public {
-        vm.expectRevert(IUpgradeManagerFacet.InvalidUpgradeId.selector);
+        vm.expectRevert(IUpgradeManager.InvalidUpgradeId.selector);
         flareTeeManager.isTeeUpgradeFinalized(teeUpgradeId);
     }
 
@@ -547,7 +547,7 @@ contract UpgradeManagerFacetTest is Test {
 
     // isTeeUpgradeSigned
     function testIsTeeUpgradeSignedRevertInvalidUpgradeId() public {
-        vm.expectRevert(IUpgradeManagerFacet.InvalidUpgradeId.selector);
+        vm.expectRevert(IUpgradeManager.InvalidUpgradeId.selector);
         flareTeeManager.isTeeUpgradeSigned(teeUpgradeId);
     }
 
@@ -578,14 +578,14 @@ contract UpgradeManagerFacetTest is Test {
 
     // getTeeUpgradePaths
     function testGetTeeUpgradePathsRevertInvalidUpgradeId() public {
-        vm.expectRevert(IUpgradeManagerFacet.InvalidUpgradeId.selector);
+        vm.expectRevert(IUpgradeManager.InvalidUpgradeId.selector);
         flareTeeManager.getTeeUpgradePaths(teeUpgradeId);
     }
 
     function testGetTeeUpgradePaths() public {
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = _getUpgradePaths();
         testSignTeeUpgrade();
-        IUpgradeManagerFacet.TeeUpgradePath[] memory returnedUpgradePaths =
+        IUpgradeManager.TeeUpgradePath[] memory returnedUpgradePaths =
             flareTeeManager.getTeeUpgradePaths(teeUpgradeId);
         assertEq(returnedUpgradePaths.length, 1);
         assertEq(returnedUpgradePaths[0].sourceVersions[0].codeHash, upgradePaths[0].sourceVersions[0].codeHash);
@@ -594,7 +594,7 @@ contract UpgradeManagerFacetTest is Test {
 
     // getTeeUpgradeSignatures
     function testGetTeeUpgradeSignaturesRevertInvalidUpgradeId() public {
-        vm.expectRevert(IUpgradeManagerFacet.InvalidUpgradeId.selector);
+        vm.expectRevert(IUpgradeManager.InvalidUpgradeId.selector);
         flareTeeManager.getTeeUpgradeSignatures(teeUpgradeId);
     }
 
@@ -614,15 +614,15 @@ contract UpgradeManagerFacetTest is Test {
 
     function _getUpgradePaths()
         private view
-        returns (IUpgradeManagerFacet.TeeUpgradePath[] memory)
+        returns (IUpgradeManager.TeeUpgradePath[] memory)
     {
-        IUpgradeManagerFacet.TeeUpgradePath[] memory upgradePaths = new IUpgradeManagerFacet.TeeUpgradePath[](1);
-        upgradePaths[0].sourceVersions = new IUpgradeManagerFacet.TeeNodeVersion[](1);
+        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = new IUpgradeManager.TeeUpgradePath[](1);
+        upgradePaths[0].sourceVersions = new IUpgradeManager.TeeNodeVersion[](1);
         upgradePaths[0].sourceVersions[0] =
-            IUpgradeManagerFacet.TeeNodeVersion(sourceCodeHash, sourcePlatform);
-        upgradePaths[0].targetVersions = new IUpgradeManagerFacet.TeeNodeVersion[](1);
+            IUpgradeManager.TeeNodeVersion(sourceCodeHash, sourcePlatform);
+        upgradePaths[0].targetVersions = new IUpgradeManager.TeeNodeVersion[](1);
         upgradePaths[0].targetVersions[0] =
-            IUpgradeManagerFacet.TeeNodeVersion(targetCodeHash, targetPlatform);
+            IUpgradeManager.TeeNodeVersion(targetCodeHash, targetPlatform);
         return upgradePaths;
     }
 

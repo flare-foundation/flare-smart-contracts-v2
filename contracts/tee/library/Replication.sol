@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IReplicationFacet } from "../../userInterfaces/tee/IReplicationFacet.sol";
+import { IReplication } from "../../userInterfaces/tee/IReplication.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 
 /**
@@ -37,7 +37,7 @@ library Replication {
     {
         require(1 minutes <= _duration && _duration <= 1 days, ITeeCommonErrors.InvalidDuration());
         getState().pauseBeforeUpgradeMinDurationSeconds = _duration;
-        emit IReplicationFacet.PauseBeforeUpgradeMinDurationSecondsSet(_duration);
+        emit IReplication.PauseBeforeUpgradeMinDurationSecondsSet(_duration);
     }
 
     function getState()

@@ -4,10 +4,10 @@ pragma solidity >=0.7.6 <0.9;
 import { Signature } from "../ISignature.sol";
 
 /**
- * @title IUpgradeManagerFacet
+ * @title IUpgradeManager
  * @notice Public interface for the UpgradeManagerFacet.
  */
-interface IUpgradeManagerFacet {
+interface IUpgradeManager {
 
     struct TeeNodeVersion {
         bytes32 codeHash;

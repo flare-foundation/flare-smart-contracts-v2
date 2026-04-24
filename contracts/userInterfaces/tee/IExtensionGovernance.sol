@@ -5,10 +5,10 @@ import { Signature } from "../ISignature.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 /**
- * @title IExtensionGovernanceFacet
+ * @title IExtensionGovernance
  * @notice Public interface for the ExtensionGovernanceFacet.
  */
-interface IExtensionGovernanceFacet is ITeeCommonErrors {
+interface IExtensionGovernance is ITeeCommonErrors {
 
     event NewTeeGovernanceSet(
         uint256 indexed extensionId,

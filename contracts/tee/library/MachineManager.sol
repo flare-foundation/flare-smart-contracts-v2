@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
@@ -25,7 +25,7 @@ library MachineManager {
         uint32 initialSigningPolicyId;
         address owner;
         address teeProxyId;
-        IMachineManagerFacet.TeeStatus status;
+        IMachineManager.TeeStatus status;
         uint256 lastStatusChangeTs;
         bytes32 codeHash;
         bytes32 platform;
@@ -49,10 +49,10 @@ library MachineManager {
         address _teeId
     )
         internal view
-        returns (IMachineManagerFacet.TeeMachine memory _teeMachine)
+        returns (IMachineManager.TeeMachine memory _teeMachine)
     {
         TeeMachineState storage s = getTeeMachineState(_teeId);
-        _teeMachine = IMachineManagerFacet.TeeMachine({
+        _teeMachine = IMachineManager.TeeMachine({
             teeId: _teeId,
             teeProxyId: s.teeProxyId,
             url: s.url
@@ -63,10 +63,10 @@ library MachineManager {
         address _teeId
     )
         internal view
-        returns (IMachineManagerFacet.TeeMachineWithAttestationData memory)
+        returns (IMachineManager.TeeMachineWithAttestationData memory)
     {
         TeeMachineState storage s = getTeeMachineState(_teeId);
-        return IMachineManagerFacet.TeeMachineWithAttestationData({
+        return IMachineManager.TeeMachineWithAttestationData({
             teeId: _teeId,
             initialTeeId: s.initialTeeId,
             url: s.url,
@@ -88,7 +88,7 @@ library MachineManager {
         address _teeId
     )
         internal view
-        returns (IMachineManagerFacet.TeeStatus)
+        returns (IMachineManager.TeeStatus)
     {
         return getTeeMachineState(_teeId).status;
     }
@@ -131,7 +131,7 @@ library MachineManager {
 
     function changeStatus(
         address _teeId,
-        IMachineManagerFacet.TeeStatus _newStatus
+        IMachineManager.TeeStatus _newStatus
     )
         internal
     {
@@ -139,17 +139,17 @@ library MachineManager {
         TeeMachineState storage state = s.teeMachineStates[_teeId];
         state.status = _newStatus;
         state.lastStatusChangeTs = block.timestamp;
-        if (_newStatus == IMachineManagerFacet.TeeStatus.PRODUCTION) {
+        if (_newStatus == IMachineManager.TeeStatus.PRODUCTION) {
             s.extensionActiveTeeIds[state.extensionId].add(_teeId);
             s.activeTeeIds.add(_teeId);
         } else if (
-            _newStatus == IMachineManagerFacet.TeeStatus.PAUSED ||
-            _newStatus == IMachineManagerFacet.TeeStatus.PAUSED_FOR_UPGRADE
+            _newStatus == IMachineManager.TeeStatus.PAUSED ||
+            _newStatus == IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE
         ) {
             s.extensionActiveTeeIds[state.extensionId].remove(_teeId);
             s.activeTeeIds.remove(_teeId);
         }
-        emit IMachineManagerFacet.TeeMachineStatusChanged(_teeId, _newStatus);
+        emit IMachineManager.TeeMachineStatusChanged(_teeId, _newStatus);
     }
 
     function checkCodeHashPlatformSupported(
@@ -171,30 +171,30 @@ library MachineManager {
         internal view
     {
         require(
-            getTeeMachineState(_teeId).status == IMachineManagerFacet.TeeStatus.PRODUCTION,
+            getTeeMachineState(_teeId).status == IMachineManager.TeeStatus.PRODUCTION,
             ITeeCommonErrors.TeeMachineNotAvailable()
         );
     }
 
     function checkTeeStatus(
-        IMachineManagerFacet.TeeStatus _actualStatus,
-        IMachineManagerFacet.TeeStatus _expectedStatus
+        IMachineManager.TeeStatus _actualStatus,
+        IMachineManager.TeeStatus _expectedStatus
     )
         internal pure
     {
-        require(_actualStatus == _expectedStatus, IMachineManagerFacet.InvalidTeeStatus());
+        require(_actualStatus == _expectedStatus, IMachineManager.InvalidTeeStatus());
     }
 
     function checkTeeStatus(
-        IMachineManagerFacet.TeeStatus _actualStatus,
-        IMachineManagerFacet.TeeStatus _expectedStatus1,
-        IMachineManagerFacet.TeeStatus _expectedStatus2
+        IMachineManager.TeeStatus _actualStatus,
+        IMachineManager.TeeStatus _expectedStatus1,
+        IMachineManager.TeeStatus _expectedStatus2
     )
         internal pure
     {
         require(
             _actualStatus == _expectedStatus1 || _actualStatus == _expectedStatus2,
-            IMachineManagerFacet.InvalidTeeStatus()
+            IMachineManager.InvalidTeeStatus()
         );
     }
 
@@ -228,7 +228,7 @@ library MachineManager {
         returns (TeeMachineState storage _state)
     {
         _state = getState().teeMachineStates[_teeId];
-        require(_state.owner != address(0), IMachineManagerFacet.TeeNotFound());
+        require(_state.owner != address(0), IMachineManager.TeeNotFound());
     }
 
     function getState()

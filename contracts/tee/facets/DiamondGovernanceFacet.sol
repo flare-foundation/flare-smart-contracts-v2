@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IIDiamondGovernanceFacet } from
-    "../interface/IIDiamondGovernanceFacet.sol";
+import { IIDiamondGovernance } from
+    "../interface/IIDiamondGovernance.sol";
 import { IFlareGovernance } from "../../userInterfaces/tee/IFlareGovernance.sol";
 import { IIFlareGovernance } from "../interface/IIFlareGovernance.sol";
 import { LibDiamond } from "../../diamond/libraries/LibDiamond.sol";
@@ -19,7 +19,7 @@ import { GovernedFacet } from "./GovernedFacet.sol";
  *      All other facets use GovernedFacet (internal modifiers only, no public functions).
  *      Governance state is stored via FlareGovernance library (ERC-7201 namespaced storage).
  */
-contract DiamondGovernanceFacet is IIDiamondGovernanceFacet, GovernedFacet {
+contract DiamondGovernanceFacet is IIDiamondGovernance, GovernedFacet {
 
     /**
      * @notice Add/replace/remove any number of functions and optionally execute

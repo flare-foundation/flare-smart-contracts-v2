@@ -5,10 +5,10 @@ import { ITeeExtensionStateVerifier } from "./ITeeExtensionStateVerifier.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 /**
- * @title IExtensionManagerFacet
+ * @title IExtensionManager
  * @notice Public interface for the ExtensionManagerFacet.
  */
-interface IExtensionManagerFacet is ITeeCommonErrors {
+interface IExtensionManager is ITeeCommonErrors {
 
     event TeeExtensionRegistered(
         uint256 indexed extensionId,

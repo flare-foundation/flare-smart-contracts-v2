@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IIOperationFeesFacet } from "../interface/IIOperationFeesFacet.sol";
-import { IOperationFeesFacet } from "../../userInterfaces/tee/IOperationFeesFacet.sol";
+import { IIOperationFees } from "../interface/IIOperationFees.sol";
+import { IOperationFees } from "../../userInterfaces/tee/IOperationFees.sol";
 import { OperationFees } from "../library/OperationFees.sol";
 import { GovernedFacet } from "./GovernedFacet.sol";
 
@@ -13,10 +13,10 @@ import { GovernedFacet } from "./GovernedFacet.sol";
  *      Governance methods use `onlyGovernance` from GovernedBase (inherited
  *      via delegatecall into Diamond storage).
  */
-contract OperationFeesFacet is IIOperationFeesFacet, GovernedFacet {
+contract OperationFeesFacet is IIOperationFees, GovernedFacet {
 
     /**
-     * @inheritdoc IIOperationFeesFacet
+     * @inheritdoc IIOperationFees
      */
     function setOperationFees(
         bytes32[] calldata _opTypes,
@@ -38,7 +38,7 @@ contract OperationFeesFacet is IIOperationFeesFacet, GovernedFacet {
     }
 
     /**
-     * @inheritdoc IIOperationFeesFacet
+     * @inheritdoc IIOperationFees
      */
     function setDefaultFee(
         uint256 _defaultFee
@@ -51,7 +51,7 @@ contract OperationFeesFacet is IIOperationFeesFacet, GovernedFacet {
     }
 
     /**
-     * @inheritdoc IOperationFeesFacet
+     * @inheritdoc IOperationFees
      */
     function getDefaultFee()
         external view
@@ -61,7 +61,7 @@ contract OperationFeesFacet is IIOperationFeesFacet, GovernedFacet {
     }
 
     /**
-     * @inheritdoc IOperationFeesFacet
+     * @inheritdoc IOperationFees
      */
     function getOperationFee(
         bytes32 _opType,
@@ -74,7 +74,7 @@ contract OperationFeesFacet is IIOperationFeesFacet, GovernedFacet {
     }
 
     /**
-     * @inheritdoc IOperationFeesFacet
+     * @inheritdoc IOperationFees
      */
     function calculateFeeByTeeIds(
         bytes32 _opType,

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IMachineManagerFacet, REG_OP_TYPE } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
-import { IVerificationFacet } from "../../userInterfaces/tee/IVerificationFacet.sol";
-import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
+import { IMachineManager, REG_OP_TYPE } from "../../userInterfaces/tee/IMachineManager.sol";
+import { IVerification } from "../../userInterfaces/tee/IVerification.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
@@ -24,10 +24,10 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
  * @title MachineManagerFacet
  * @notice Facet for TEE machine registration and status management.
  */
-contract MachineManagerFacet is IMachineManagerFacet {
+contract MachineManagerFacet is IMachineManager {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function register(
         TeeMachineData calldata _teeMachineData,
         Signature calldata _teeMachineDataSignature,
@@ -87,7 +87,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         );
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function toProduction(
         ITeeAvailabilityCheck.Proof calldata _proof
     )
@@ -106,7 +106,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         MachineManager.validateAvailabilityCheckStatus(_proof.responseBody.status);
         MachineManager.validateAvailabilityCheckTs(teeId, _proof.header.timestamp);
 
-        IMachineManagerFacet.TeeMachineWithAttestationData memory teeMachine =
+        IMachineManager.TeeMachineWithAttestationData memory teeMachine =
             MachineManager.getTeeMachineWithAttestationData(teeId);
         require(Verification.verifyAvailabilityCheckProof(teeMachine, status, _proof), InvalidResponseData());
 
@@ -122,7 +122,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         emit TeeMachineStatusChanged(teeId, TeeStatus.PRODUCTION);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function pause(
         address _teeId
     )
@@ -151,7 +151,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         emit TeeMachineStatusChanged(_teeId, newStatus);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function pauseWithProof(
         ITeeAvailabilityCheck.Proof calldata _proof
     )
@@ -163,7 +163,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         require(state.owner != address(0), TeeNotFound());
         MachineManager.checkTeeStatus(state.status, TeeStatus.PRODUCTION);
 
-        IMachineManagerFacet.TeeMachineWithAttestationData memory teeMachine =
+        IMachineManager.TeeMachineWithAttestationData memory teeMachine =
             MachineManager.getTeeMachineWithAttestationData(teeId);
         bool responseDataValid = Verification.verifyAvailabilityCheckProof(
             teeMachine, state.status, _proof
@@ -182,7 +182,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         emit TeeMachineStatusChanged(teeId, TeeStatus.SUSPENDED);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function ban(
         address _teeId
     )
@@ -204,7 +204,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         emit TeeMachineStatusChanged(_teeId, TeeStatus.BANNED);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function unban(
         address _teeId
     )
@@ -218,7 +218,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         emit TeeMachineStatusChanged(_teeId, TeeStatus.PAUSED);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function proposeNewOwner(
         address _teeId,
         address _newOwner
@@ -235,7 +235,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         emit NewOwnerProposed(_teeId, msg.sender, _newOwner);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function confirmOwnership(
         address _teeId
     )
@@ -250,7 +250,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         emit NewOwnerConfirmed(_teeId, msg.sender);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function updateTeeMachineSettings(
         address _teeId,
         address _teeProxyId,
@@ -280,7 +280,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
     // Getters
     // =========================================================================
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function getTeeMachineStatus(
         address _teeId
     )
@@ -290,7 +290,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         return MachineManager.getTeeMachineStatus(_teeId);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function getTeeMachineOwner(
         address _teeId
     )
@@ -300,7 +300,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         return MachineManager.getTeeMachineOwner(_teeId);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function getInitialSigningPolicyId(
         address _teeId
     )
@@ -310,7 +310,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         return MachineManager.getInitialSigningPolicyId(_teeId);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function getTeeMachine(
         address _teeId
     )
@@ -320,7 +320,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         return MachineManager.getTeeMachine(_teeId);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function getTeeMachineWithAttestationData(
         address _teeId
     )
@@ -330,7 +330,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         return MachineManager.getTeeMachineWithAttestationData(_teeId);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function getRandomTeeIds(
         uint256 _extensionId,
         uint256 _count
@@ -362,7 +362,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         }
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function getAllActiveTeeMachines(
         uint256 _start,
         uint256 _end
@@ -387,7 +387,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         }
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function getActiveTeeMachines(
         uint256 _extensionId
     )
@@ -406,7 +406,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         }
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function getExtensionId(
         address _teeId
     )
@@ -416,7 +416,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         return MachineManager.getExtensionId(_teeId);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function getPublicKey(
         address _teeId
     )
@@ -426,7 +426,7 @@ contract MachineManagerFacet is IMachineManagerFacet {
         return MachineManager.getPublicKey(_teeId);
     }
 
-    /// @inheritdoc IMachineManagerFacet
+    /// @inheritdoc IMachineManager
     function getLastStatusChangeTs(
         address _teeId
     )
@@ -452,21 +452,21 @@ contract MachineManagerFacet is IMachineManagerFacet {
         vs.challenges[_teeId] = challenge;
         vs.challengeTs[_teeId] = block.timestamp;
 
-        IMachineManagerFacet.TeeMachineWithAttestationData memory teeMachineWithAttestationData =
+        IMachineManager.TeeMachineWithAttestationData memory teeMachineWithAttestationData =
             MachineManager.getTeeMachineWithAttestationData(_teeId);
-        IMachineManagerFacet.TeeMachine memory teeMachine = MachineManager.getTeeMachine(_teeId);
+        IMachineManager.TeeMachine memory teeMachine = MachineManager.getTeeMachine(_teeId);
 
-        IVerificationFacet.TeeAttestation memory message = IVerificationFacet.TeeAttestation({
+        IVerification.TeeAttestation memory message = IVerification.TeeAttestation({
             teeMachine: teeMachineWithAttestationData,
             challenge: challenge
         });
 
-        IMachineManagerFacet.TeeMachine[] memory teeMachines =
-            new IMachineManagerFacet.TeeMachine[](1);
+        IMachineManager.TeeMachine[] memory teeMachines =
+            new IMachineManager.TeeMachine[](1);
         teeMachines[0] = teeMachine;
 
-        IInstructionsFacet.TeeInstructionParams memory instrParams =
-            IInstructionsFacet.TeeInstructionParams(
+        IInstructions.TeeInstructionParams memory instrParams =
+            IInstructions.TeeInstructionParams(
                 REG_OP_TYPE,
                 bytes32("TEE_ATTESTATION"),
                 abi.encode(message),
@@ -476,6 +476,6 @@ contract MachineManagerFacet is IMachineManagerFacet {
             );
 
         Instructions.sendInstructions(bytes32(0), teeMachines, instrParams);
-        emit IVerificationFacet.TeeAttestationRequested(_teeId, challenge);
+        emit IVerification.TeeAttestationRequested(_teeId, challenge);
     }
 }

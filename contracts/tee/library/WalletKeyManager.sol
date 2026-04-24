@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IWalletKeyManagerFacet } from "../../userInterfaces/tee/IWalletKeyManagerFacet.sol";
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
+import { IWalletKeyManager } from "../../userInterfaces/tee/IWalletKeyManager.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { MachineManager } from "./MachineManager.sol";
 
@@ -80,7 +80,7 @@ library WalletKeyManager {
     {
         TeeWalletKeysState storage keys = getState().walletKeys[_walletId];
         KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
-        require(keyDefinition.publicKey.length > 0, IWalletKeyManagerFacet.InvalidKeyId());
+        require(keyDefinition.publicKey.length > 0, IWalletKeyManager.InvalidKeyId());
         return ++keyDefinition.nonces[_teeId];
     }
 
@@ -111,9 +111,9 @@ library WalletKeyManager {
             uint64 keyId = keys.keyIds[i];
             KeyDefinition storage keyDefinition = keys.keyDefinitions[keyId];
             for (uint256 j = 0; j < keyDefinition.teeIds.length; j++) {
-                IMachineManagerFacet.TeeStatus status =
+                IMachineManager.TeeStatus status =
                     MachineManager.getTeeMachineStatus(keyDefinition.teeIds[j]);
-                if (status == IMachineManagerFacet.TeeStatus.PRODUCTION) {
+                if (status == IMachineManager.TeeStatus.PRODUCTION) {
                     keyAvailable = true;
                     teeIds[count] = keyDefinition.teeIds[j];
                     keyIds[count] = keyId;
@@ -126,7 +126,7 @@ library WalletKeyManager {
                 unavailableKeyIds[unavailableKeyIdsCounter++] = keyId;
             }
         }
-        require(threshold >= keys.multisigThreshold, IWalletKeyManagerFacet.ThresholdNotMet());
+        require(threshold >= keys.multisigThreshold, IWalletKeyManager.ThresholdNotMet());
         _teeIdKeyIdPairs = new TeeIdKeyIdPair[](count);
         for (uint256 i = 0; i < count; i++) {
             _teeIdKeyIdPairs[i] = TeeIdKeyIdPair({
@@ -137,7 +137,7 @@ library WalletKeyManager {
         if (unavailableKeyIdsCounter > 0) {
             // solhint-disable-next-line no-inline-assembly
             assembly { mstore(unavailableKeyIds, unavailableKeyIdsCounter) }
-            emit IWalletKeyManagerFacet.WalletKeysNotAvailable(_walletId, unavailableKeyIds);
+            emit IWalletKeyManager.WalletKeysNotAvailable(_walletId, unavailableKeyIds);
         }
     }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IOwnerAllowlistFacet } from "../../userInterfaces/tee/IOwnerAllowlistFacet.sol";
+import { IOwnerAllowlist } from "../../userInterfaces/tee/IOwnerAllowlist.sol";
 import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -10,10 +10,10 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
  * @title OwnerAllowlistFacet
  * @notice Facet for managing TEE machine owner and wallet project owner allowlists.
  */
-contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
+contract OwnerAllowlistFacet is IOwnerAllowlist {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function addAllowedTeeMachineOwners(
         uint256 _extensionId,
         address[] memory _owners
@@ -32,7 +32,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         emit AllowedTeeMachineOwnersAdded(_extensionId, _owners);
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function removeAllowedTeeMachineOwners(
         uint256 _extensionId,
         address[] memory _owners
@@ -50,7 +50,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         emit AllowedTeeMachineOwnersRemoved(_extensionId, _owners);
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function addAllowedTeeWalletProjectOwners(
         uint256 _extensionId,
         address[] memory _owners
@@ -69,7 +69,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         emit AllowedTeeWalletProjectOwnersAdded(_extensionId, _owners);
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function removeAllowedTeeWalletProjectOwners(
         uint256 _extensionId,
         address[] memory _owners
@@ -87,7 +87,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         emit AllowedTeeWalletProjectOwnersRemoved(_extensionId, _owners);
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function allowAllTeeMachineOwners(
         uint256 _extensionId
     )
@@ -98,7 +98,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         emit AllTeeMachineOwnersAllowed(_extensionId);
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function disallowAllTeeMachineOwners(
         uint256 _extensionId
     )
@@ -109,7 +109,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         emit AllTeeMachineOwnersDisallowed(_extensionId);
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function allowAllTeeWalletProjectOwners(
         uint256 _extensionId
     )
@@ -120,7 +120,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         emit AllTeeWalletProjectOwnersAllowed(_extensionId);
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function disallowAllTeeWalletProjectOwners(
         uint256 _extensionId
     )
@@ -131,7 +131,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         emit AllTeeWalletProjectOwnersDisallowed(_extensionId);
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function allTeeMachineOwnersAllowed(
         uint256 _extensionId
     )
@@ -141,7 +141,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         return OwnerAllowlist.getState().allTeeMachineOwnersAllowed[_extensionId];
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function allTeeWalletProjectOwnersAllowed(
         uint256 _extensionId
     )
@@ -151,7 +151,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         return OwnerAllowlist.getState().allTeeWalletProjectOwnersAllowed[_extensionId];
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function getAllowedTeeMachineOwners(
         uint256 _extensionId
     )
@@ -161,7 +161,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         return OwnerAllowlist.getState().allowedTeeMachineOwners[_extensionId].values();
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function getAllowedTeeWalletProjectOwners(
         uint256 _extensionId
     )
@@ -171,7 +171,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         return OwnerAllowlist.getState().allowedTeeWalletProjectOwners[_extensionId].values();
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function isAllowedTeeMachineOwner(
         uint256 _extensionId,
         address _owner
@@ -182,7 +182,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlistFacet {
         return OwnerAllowlist.isAllowedTeeMachineOwner(_extensionId, _owner);
     }
 
-    /// @inheritdoc IOwnerAllowlistFacet
+    /// @inheritdoc IOwnerAllowlist
     function isAllowedTeeWalletProjectOwner(
         uint256 _extensionId,
         address _owner

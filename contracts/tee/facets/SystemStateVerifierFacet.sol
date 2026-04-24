@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { ISystemStateVerifierFacet } from "../../userInterfaces/tee/ISystemStateVerifierFacet.sol";
+import { ISystemStateVerifier } from "../../userInterfaces/tee/ISystemStateVerifier.sol";
 import { SystemStateVerifier } from "../library/SystemStateVerifier.sol";
 
 /**
  * @title SystemStateVerifierFacet
  * @notice Facet exposing TEE system state verification.
  */
-contract SystemStateVerifierFacet is ISystemStateVerifierFacet {
+contract SystemStateVerifierFacet is ISystemStateVerifier {
 
     /**
-     * @inheritdoc ISystemStateVerifierFacet
+     * @inheritdoc ISystemStateVerifier
      */
     function verifyTeeSystemState(
         address _teeId,

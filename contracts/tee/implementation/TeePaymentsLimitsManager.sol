@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import { TeeBase } from "./TeeBase.sol";
 import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
-import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
 import { ITeePaymentsLimitsManager } from "../../userInterfaces/tee/ITeePaymentsLimitsManager.sol";
 import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegistry.sol";
@@ -89,7 +89,7 @@ contract TeePaymentsLimitsManager is ITeePaymentsLimitsManager, TeeBase {
 
         flareTeeManager.sendInstructions{value: msg.value}(
             _toTeeIds(teeIdKeyIdPairs),
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 ITeePayments(teePayments).getOpType(),
                 SET_PAYMENT_LIMITS,
                 encodedMessage,

@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 
 /**
- * @title IIInstructionsFacet
+ * @title IIInstructions
  * @notice Internal interface for the InstructionsFacet.
  * @dev Extends the public interface with governance-only methods and methods
  *      called by external contracts outside the Diamond (e.g. Fdc2Hub, TeePayments).
  */
-interface IIInstructionsFacet is IInstructionsFacet {
+interface IIInstructions is IInstructions {
 
     /**
      * Send instructions to the TEE machines - same as sendInstructions but with instruction ID
@@ -46,7 +46,7 @@ interface IIInstructionsFacet is IInstructionsFacet {
      */
     function sendSystemInstructions(
         bytes32 _instructionId,
-        IMachineManagerFacet.TeeMachine[] memory _teeMachines,
+        IMachineManager.TeeMachine[] memory _teeMachines,
         TeeInstructionParams memory _instructionParams
     )
         external payable

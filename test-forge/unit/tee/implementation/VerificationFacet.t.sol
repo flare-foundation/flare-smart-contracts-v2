@@ -5,11 +5,11 @@ import { Test, Vm } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import {
-    IVerificationFacet
-} from "../../../../contracts/userInterfaces/tee/IVerificationFacet.sol";
-import { IMachineManagerFacet } from "../../../../contracts/userInterfaces/tee/IMachineManagerFacet.sol";
-import { IInstructionsFacet } from "../../../../contracts/userInterfaces/tee/IInstructionsFacet.sol";
-import { IWalletManagerFacet } from "../../../../contracts/userInterfaces/tee/IWalletManagerFacet.sol";
+    IVerification
+} from "../../../../contracts/userInterfaces/tee/IVerification.sol";
+import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
+import { IInstructions } from "../../../../contracts/userInterfaces/tee/IInstructions.sol";
+import { IWalletManager } from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
@@ -43,7 +43,7 @@ interface ITestVerificationStateHelper {
         address _owner,
         address _teeProxyId,
         string calldata _url,
-        IMachineManagerFacet.TeeStatus _status,
+        IMachineManager.TeeStatus _status,
         bytes32 _codeHash,
         bytes32 _platform,
         uint32 _initialSigningPolicyId,
@@ -54,12 +54,12 @@ interface ITestVerificationStateHelper {
         address _teeId,
         uint256 _extensionId,
         address _owner,
-        IMachineManagerFacet.TeeStatus _status
+        IMachineManager.TeeStatus _status
     ) external;
 
     function setTeeMachineStatus(
         address _teeId,
-        IMachineManagerFacet.TeeStatus _status
+        IMachineManager.TeeStatus _status
     ) external;
 
     function setReplicatingTeeId(
@@ -94,7 +94,7 @@ interface ITestVerificationStateHelper {
     function setWalletState(
         bytes32 _walletId,
         bytes32 _projectId,
-        IWalletManagerFacet.WalletStatus _status
+        IWalletManager.WalletStatus _status
     ) external;
 
     function setKeyState(
@@ -122,7 +122,7 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
         address _owner,
         address _teeProxyId,
         string calldata _url,
-        IMachineManagerFacet.TeeStatus _status,
+        IMachineManager.TeeStatus _status,
         bytes32 _codeHash,
         bytes32 _platform,
         uint32 _initialSigningPolicyId,
@@ -144,7 +144,7 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
             platform: _platform,
             url: _url
         });
-        if (_status == IMachineManagerFacet.TeeStatus.PRODUCTION) {
+        if (_status == IMachineManager.TeeStatus.PRODUCTION) {
             s.activeTeeIds.add(_teeId);
             s.extensionActiveTeeIds[_extensionId].add(_teeId);
         }
@@ -154,7 +154,7 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
         address _teeId,
         uint256 _extensionId,
         address _owner,
-        IMachineManagerFacet.TeeStatus _status
+        IMachineManager.TeeStatus _status
     )
         external
     {
@@ -172,7 +172,7 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
             platform: bytes32(0),
             url: ""
         });
-        if (_status == IMachineManagerFacet.TeeStatus.PRODUCTION) {
+        if (_status == IMachineManager.TeeStatus.PRODUCTION) {
             s.activeTeeIds.add(_teeId);
             s.extensionActiveTeeIds[_extensionId].add(_teeId);
         }
@@ -180,14 +180,14 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
 
     function setTeeMachineStatus(
         address _teeId,
-        IMachineManagerFacet.TeeStatus _status
+        IMachineManager.TeeStatus _status
     )
         external
     {
         MachineManager.State storage s = MachineManager.getState();
         MachineManager.TeeMachineState storage state = s.teeMachineStates[_teeId];
         state.status = _status;
-        if (_status == IMachineManagerFacet.TeeStatus.PRODUCTION) {
+        if (_status == IMachineManager.TeeStatus.PRODUCTION) {
             s.activeTeeIds.add(_teeId);
             s.extensionActiveTeeIds[state.extensionId].add(_teeId);
         } else {
@@ -258,7 +258,7 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
     function setWalletState(
         bytes32 _walletId,
         bytes32 _projectId,
-        IWalletManagerFacet.WalletStatus _status
+        IWalletManager.WalletStatus _status
     )
         external
     {
@@ -455,7 +455,7 @@ contract VerificationFacetTest is Test {
             owner,
             teeProxyId,
             url,
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             proof.responseBody.codeHash,
             proof.responseBody.platform,
             signingPolicyId,
@@ -511,7 +511,7 @@ contract VerificationFacetTest is Test {
         keyIds[0] = 1;
 
         // Set wallet state
-        stateHelper.setWalletState(walletId, projectId, IWalletManagerFacet.WalletStatus.PRODUCTION);
+        stateHelper.setWalletState(walletId, projectId, IWalletManager.WalletStatus.PRODUCTION);
 
         // Set key state
         stateHelper.setKeyState(walletId, keyIds[0], publicKey, teeId, multisigThreshold);
@@ -533,7 +533,7 @@ contract VerificationFacetTest is Test {
     // initialize
     function testInitialize() public {
         vm.expectEmit();
-        emit IVerificationFacet.SettingsUpdated(1 hours, 1, 1 minutes);
+        emit IVerification.SettingsUpdated(1 hours, 1, 1 minutes);
         FlareTeeManagerDeployer.deployDay1Facets(FlareTeeManagerDeployer.Day1DeployParams({
             governanceSettings: IGovernanceSettings(makeAddr("governanceSettings")),
             initialGovernance: initialGovernance,
@@ -549,13 +549,13 @@ contract VerificationFacetTest is Test {
     function testRequestTeeAttestation() public {
         bytes32 challenge = bytes32(0);
         vm.expectEmit();
-        emit IVerificationFacet.TeeAttestationRequested(teeId, challenge);
+        emit IVerification.TeeAttestationRequested(teeId, challenge);
         flareTeeManager.requestTeeAttestation(teeId, address(0));
 
         vm.warp(2 minutes);
         challenge = keccak256(abi.encode(teeId, block.timestamp, randomNumber));
         vm.expectEmit();
-        emit IVerificationFacet.TeeAttestationRequested(teeId, challenge);
+        emit IVerification.TeeAttestationRequested(teeId, challenge);
         flareTeeManager.requestTeeAttestation(teeId, address(0));
     }
 
@@ -566,7 +566,7 @@ contract VerificationFacetTest is Test {
         // Verify TeeInstructionsSent event carries the claimBackAddress
         Vm.Log[] memory entries = vm.getRecordedLogs();
         bool foundInstructionsSent = false;
-        bytes32 instructionsSentTopic = IInstructionsFacet.TeeInstructionsSent.selector;
+        bytes32 instructionsSentTopic = IInstructions.TeeInstructionsSent.selector;
         for (uint256 i = 0; i < entries.length; i++) {
             if (entries[i].topics[0] == instructionsSentTopic) {
                 foundInstructionsSent = true;
@@ -582,7 +582,7 @@ contract VerificationFacetTest is Test {
                     // fee
                 ) = abi.decode(
                     entries[i].data,
-                    (IMachineManagerFacet.TeeMachine[], bytes32, bytes32,
+                    (IMachineManager.TeeMachine[], bytes32, bytes32,
                     bytes, address[], uint64, address, uint256)
                 );
                 assertEq(loggedClaimBack, claimBack);
@@ -597,7 +597,7 @@ contract VerificationFacetTest is Test {
         vm.warp(2 hours);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IVerificationFacet.ChallengeExpired.selector,
+                IVerification.ChallengeExpired.selector,
                 0
             )
         );
@@ -605,7 +605,7 @@ contract VerificationFacetTest is Test {
     }
 
     function testRequestAvailabilityCheckAttestation() public {
-        stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.INITIALIZED);
+        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
         stateHelper.setReplicatingTeeId(teeId, address(0));
         flareTeeManager.requestAvailabilityCheckAttestation(teeId, instructionId, teeId, address(0), address(0));
     }
@@ -613,7 +613,7 @@ contract VerificationFacetTest is Test {
     function testRequestAvailabilityCheckAttestationWithProofOwnerAndClaimBack() public {
         address proofOwner = makeAddr("proofOwner");
         address claimBack = makeAddr("claimBack");
-        stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.INITIALIZED);
+        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
         stateHelper.setReplicatingTeeId(teeId, address(0));
         vm.expectCall(
             fdc2Hub,
@@ -624,7 +624,7 @@ contract VerificationFacetTest is Test {
 
     // confirmAvailability
     function testConfirmAvailabilityRevertTeeMachineNotAvailable() public {
-        stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.PAUSED);
+        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.PAUSED);
         vm.expectRevert(ITeeCommonErrors.TeeMachineNotAvailable.selector);
         flareTeeManager.confirmAvailability(proof);
     }
@@ -647,19 +647,19 @@ contract VerificationFacetTest is Test {
 
     function testConfirmAvailabilityRevertInvalidAttestation1() public {
         proof.header.thresholdBIPS = 1;
-        vm.expectRevert(IVerificationFacet.InvalidAttestation.selector);
+        vm.expectRevert(IVerification.InvalidAttestation.selector);
         flareTeeManager.confirmAvailability(proof);
     }
 
     function testConfirmAvailabilityRevertInvalidAttestation2() public {
         proof.header.attestationType = keccak256("invalidAttestationType");
-        vm.expectRevert(IVerificationFacet.InvalidAttestation.selector);
+        vm.expectRevert(IVerification.InvalidAttestation.selector);
         flareTeeManager.confirmAvailability(proof);
     }
 
     function testConfirmAvailabilityRevertInvalidAttestation3() public {
         proof.header.sourceId = keccak256("invalidSourceId");
-        vm.expectRevert(IVerificationFacet.InvalidAttestation.selector);
+        vm.expectRevert(IVerification.InvalidAttestation.selector);
         flareTeeManager.confirmAvailability(proof);
     }
 
@@ -673,7 +673,7 @@ contract VerificationFacetTest is Test {
         vm.warp(2 hours);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IVerificationFacet.ChallengeExpired.selector,
+                IVerification.ChallengeExpired.selector,
                 0
             )
         );
@@ -682,7 +682,7 @@ contract VerificationFacetTest is Test {
 
     function testConfirmAvailabilityRevertInvalidSigningPolicy() public {
         _mockVerifySigningPolicySignatures(rewardEpochId + 2);
-        vm.expectRevert(IVerificationFacet.InvalidSigningPolicy.selector);
+        vm.expectRevert(IVerification.InvalidSigningPolicy.selector);
         flareTeeManager.confirmAvailability(proof);
     }
 
@@ -710,7 +710,7 @@ contract VerificationFacetTest is Test {
 
     function testConfirmAvailability() public {
         vm.expectEmit();
-        emit IVerificationFacet.AvailabilityCheckValidityExtended(
+        emit IVerification.AvailabilityCheckValidityExtended(
             teeId,
             owner,
             proof.header.timestamp + 1 hours
@@ -726,7 +726,7 @@ contract VerificationFacetTest is Test {
         _addMockTeeSignatureToProof();
 
         vm.expectEmit();
-        emit IVerificationFacet.AvailabilityCheckValidityExtended(
+        emit IVerification.AvailabilityCheckValidityExtended(
             teeId,
             owner,
             proof.header.timestamp + 1 hours
@@ -743,7 +743,7 @@ contract VerificationFacetTest is Test {
         _addMockTeeSignatureToProof();
 
         vm.expectEmit();
-        emit IVerificationFacet.AvailabilityCheckValidityExtended(
+        emit IVerification.AvailabilityCheckValidityExtended(
             teeId,
             owner,
             proof.header.timestamp + 1 hours
@@ -755,8 +755,8 @@ contract VerificationFacetTest is Test {
     function testVerifyAvailabilityCheckProofRevertCosignersThresholdNotMet() public {
         testSetCosigners();
         _mockRecoverCosigners(new address[](0));
-        stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.INITIALIZED);
-        vm.expectRevert(IVerificationFacet.CosignersThresholdNotMet.selector);
+        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
+        vm.expectRevert(IVerification.CosignersThresholdNotMet.selector);
         flareTeeManager.verifyAvailabilityCheckProof(proof);
     }
 
@@ -765,7 +765,7 @@ contract VerificationFacetTest is Test {
         address[] memory invalidCosigners = new address[](1);
         invalidCosigners[0] = makeAddr("invalidCosigner");
         _mockRecoverCosigners(invalidCosigners);
-        stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.INITIALIZED);
+        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
         vm.expectRevert(
             abi.encodeWithSelector(
                 ITeeCommonErrors.InvalidCosigner.selector,
@@ -792,19 +792,19 @@ contract VerificationFacetTest is Test {
 
     function testVerifyAvailabilityCheckRevertInvalidRequestBody1() public {
         proof.requestBody.url = "invalidUrl";
-        vm.expectRevert(IVerificationFacet.InvalidRequestBody.selector);
+        vm.expectRevert(IVerification.InvalidRequestBody.selector);
         flareTeeManager.verifyAvailabilityCheckProof(proof);
     }
 
     function testVerifyAvailabilityCheckRevertInvalidRequestBody2() public {
         proof.requestBody.challenge = keccak256("invalidChallenge");
-        vm.expectRevert(IVerificationFacet.InvalidRequestBody.selector);
+        vm.expectRevert(IVerification.InvalidRequestBody.selector);
         flareTeeManager.verifyAvailabilityCheckProof(proof);
     }
 
     function testVerifyAvailabilityCheckRevertInvalidRequestBody3() public {
         proof.requestBody.teeProxyId = makeAddr("invalidTeeProxyId");
-        vm.expectRevert(IVerificationFacet.InvalidRequestBody.selector);
+        vm.expectRevert(IVerification.InvalidRequestBody.selector);
         flareTeeManager.verifyAvailabilityCheckProof(proof);
     }
 
@@ -833,7 +833,7 @@ contract VerificationFacetTest is Test {
         vm.prank(initialGovernance);
         flareTeeManager.updateSettings(1 hours, 4, 1 minutes);
         testSetCosigners();
-        stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.INITIALIZED);
+        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
         _mockGetCurrentRewardEpochId(uint24(rewardEpochId + 2));
         _mockVerifySigningPolicySignatures(rewardEpochId + 2);
         proof.responseBody.lastSigningPolicyId = uint32(rewardEpochId);
@@ -883,14 +883,14 @@ contract VerificationFacetTest is Test {
     // machine status == INITIALIZED
     function testVerifyAvailabilityCheckProof9() public {
         proof.responseBody.initialSigningPolicyId = signingPolicyId + 1;
-        stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.INITIALIZED);
+        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
         assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
     }
 
     // initialSigningPolicyId + signingPolicyValidityDurationInRewardEpochs (== 1) < currentRewardEpochId
     // machine status == INITIALIZED
     function testVerifyAvailabilityCheckProof10() public {
-        stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.INITIALIZED);
+        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
         _mockGetCurrentRewardEpochId(10);
         _mockVerifySigningPolicySignatures(10);
         proof.responseBody.initialSigningPolicyId = 1;
@@ -953,7 +953,7 @@ contract VerificationFacetTest is Test {
     // verifyAvailabilityCheckProof with TEE signatures for INITIALIZED status (cosigners still checked)
     function testVerifyAvailabilityCheckProofWithTeeSignaturesInitialized() public {
         testSetCosigners();
-        stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.INITIALIZED);
+        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
         address[] memory signingTeeIds = new address[](1);
         signingTeeIds[0] = makeAddr("teeIdInProduction");
         _mockVerifyTeeSignatures(signingTeeIds);
@@ -967,14 +967,14 @@ contract VerificationFacetTest is Test {
         public
     {
         testSetCosigners();
-        stateHelper.setTeeMachineStatus(teeId, IMachineManagerFacet.TeeStatus.INITIALIZED);
+        stateHelper.setTeeMachineStatus(teeId, IMachineManager.TeeStatus.INITIALIZED);
         _mockRecoverCosigners(new address[](0));
         address[] memory signingTeeIds = new address[](1);
         signingTeeIds[0] = makeAddr("teeIdInProduction");
         _mockVerifyTeeSignatures(signingTeeIds);
         _addMockTeeSignatureToProof();
 
-        vm.expectRevert(IVerificationFacet.CosignersThresholdNotMet.selector);
+        vm.expectRevert(IVerification.CosignersThresholdNotMet.selector);
         flareTeeManager.verifyAvailabilityCheckProof(proof);
     }
 
@@ -1025,7 +1025,7 @@ contract VerificationFacetTest is Test {
     function testSetCosigners() public {
         vm.prank(initialGovernance);
         vm.expectEmit();
-        emit IVerificationFacet.CosignersSet(cosigners, 1);
+        emit IVerification.CosignersSet(cosigners, 1);
         flareTeeManager.setCosigners(cosigners, 1);
     }
 
@@ -1056,7 +1056,7 @@ contract VerificationFacetTest is Test {
     function testUpdateSettings() public {
         vm.prank(initialGovernance);
         vm.expectEmit();
-        emit IVerificationFacet.SettingsUpdated(1 hours, 1, 1 minutes);
+        emit IVerification.SettingsUpdated(1 hours, 1, 1 minutes);
         flareTeeManager.updateSettings(1 hours, 1, 1 minutes);
     }
 
@@ -1087,7 +1087,7 @@ contract VerificationFacetTest is Test {
     // =========================================================================
 
     function testRequestPMWMultisigAccountConfiguredAttestationRevertAccountAddressZero() public {
-        vm.expectRevert(IVerificationFacet.AccountAddressZero.selector);
+        vm.expectRevert(IVerification.AccountAddressZero.selector);
         flareTeeManager.requestPMWMultisigAccountConfiguredAttestation(
             walletId, sourceId, "", address(0), address(0), address(0)
         );
@@ -1096,7 +1096,7 @@ contract VerificationFacetTest is Test {
     function testRequestPMWMultisigAccountConfiguredAttestationRevertOnlyProductionOrPausedStatus()
         public
     {
-        stateHelper.setWalletState(walletId, projectId, IWalletManagerFacet.WalletStatus.CREATED);
+        stateHelper.setWalletState(walletId, projectId, IWalletManager.WalletStatus.CREATED);
         vm.expectRevert(ITeeCommonErrors.OnlyProductionOrPausedStatus.selector);
         flareTeeManager.requestPMWMultisigAccountConfiguredAttestation(
             walletId, sourceId, walletAddress, address(0), address(0), address(0)
@@ -1123,25 +1123,25 @@ contract VerificationFacetTest is Test {
 
     function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidAttestation() public {
         pmwProof.header.thresholdBIPS = 1;
-        vm.expectRevert(IVerificationFacet.InvalidAttestation.selector);
+        vm.expectRevert(IVerification.InvalidAttestation.selector);
         flareTeeManager.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
     }
 
     function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidAttestation2() public {
         pmwProof.header.attestationType = keccak256("invalidAttestationType");
-        vm.expectRevert(IVerificationFacet.InvalidAttestation.selector);
+        vm.expectRevert(IVerification.InvalidAttestation.selector);
         flareTeeManager.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
     }
 
     function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidRequestBody1() public {
         pmwProof.requestBody.threshold = multisigThreshold + 1;
-        vm.expectRevert(IVerificationFacet.InvalidRequestBody.selector);
+        vm.expectRevert(IVerification.InvalidRequestBody.selector);
         flareTeeManager.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
     }
 
     function testVerifyPMWMultisigAccountConfiguredProofRevertInvalidRequestBody2() public {
         pmwProof.requestBody.publicKeys[0] = hex"ff";
-        vm.expectRevert(IVerificationFacet.InvalidRequestBody.selector);
+        vm.expectRevert(IVerification.InvalidRequestBody.selector);
         flareTeeManager.verifyPMWMultisigAccountConfiguredProof(walletId, pmwProof);
     }
 
@@ -1245,10 +1245,10 @@ contract VerificationFacetTest is Test {
     function _buildTeeAttestationExpectCallData(
         address _claimBack
     ) private view returns (bytes memory) {
-        IMachineManagerFacet.TeeMachine[] memory teeMachines = new IMachineManagerFacet.TeeMachine[](1);
-        teeMachines[0] = IMachineManagerFacet.TeeMachine(teeId, teeProxyId, url);
-        IVerificationFacet.TeeAttestation memory message = IVerificationFacet.TeeAttestation({
-            teeMachine: IMachineManagerFacet.TeeMachineWithAttestationData(
+        IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](1);
+        teeMachines[0] = IMachineManager.TeeMachine(teeId, teeProxyId, url);
+        IVerification.TeeAttestation memory message = IVerification.TeeAttestation({
+            teeMachine: IMachineManager.TeeMachineWithAttestationData(
                 teeId, teeId, url, proof.responseBody.codeHash, proof.responseBody.platform
             ),
             challenge: bytes32(0)
@@ -1257,7 +1257,7 @@ contract VerificationFacetTest is Test {
             SEND_SYSTEM_INSTRUCTIONS_SELECTOR,
             bytes32(0),
             teeMachines,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 bytes32("F_REG"),
                 bytes32("TEE_ATTESTATION"),
                 abi.encode(message),

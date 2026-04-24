@@ -4,11 +4,11 @@ pragma solidity >=0.7.6 <0.9;
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 /**
- * @title IOwnerAllowlistFacet
+ * @title IOwnerAllowlist
  * @notice Public interface for the OwnerAllowlistFacet.
  * @dev All methods are callable by extension owners (not governance).
  */
-interface IOwnerAllowlistFacet is ITeeCommonErrors {
+interface IOwnerAllowlist is ITeeCommonErrors {
 
     event AllowedTeeMachineOwnersAdded(uint256 extensionId, address[] owners);
     event AllowedTeeMachineOwnersRemoved(uint256 extensionId, address[] owners);

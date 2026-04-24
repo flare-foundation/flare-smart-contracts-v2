@@ -5,7 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Fdc2Verification } from "../../../../contracts/fdc2/implementation/Fdc2Verification.sol";
 import { Fdc2VerificationProxy } from "../../../../contracts/fdc2/proxy/Fdc2VerificationProxy.sol";
 import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
-import { IMachineManagerFacet } from "../../../../contracts/userInterfaces/tee/IMachineManagerFacet.sol";
+import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
@@ -68,7 +68,7 @@ contract Fdc2VerificationTest is Test {
         relay = address(fdc2Verification.relay());
         flareTeeManager = address(fdc2Verification.flareTeeManager());
 
-        _mockGetTeeMachineStatus(IMachineManagerFacet.TeeStatus.PRODUCTION);
+        _mockGetTeeMachineStatus(IMachineManager.TeeStatus.PRODUCTION);
         _mockGetExtensionId(0);
 
         vm.mockCall(
@@ -82,7 +82,7 @@ contract Fdc2VerificationTest is Test {
 
     // verifyTeeSignature
     function testVerifyTeeSignatureRevertTeeMachineNotAvailable() public {
-        _mockGetTeeMachineStatus(IMachineManagerFacet.TeeStatus.PAUSED);
+        _mockGetTeeMachineStatus(IMachineManager.TeeStatus.PAUSED);
         vm.expectRevert(IFdc2Verification.TeeMachineNotAvailable.selector);
         fdc2Verification.verifyTeeSignature(signature, messageHash);
     }
@@ -105,7 +105,7 @@ contract Fdc2VerificationTest is Test {
     function testVerifyTeeSignaturesRevertTeeMachineNotAvailable() public {
         Signature[] memory signatures = new Signature[](1);
         signatures[0] = signature;
-        _mockGetTeeMachineStatus(IMachineManagerFacet.TeeStatus.PAUSED);
+        _mockGetTeeMachineStatus(IMachineManager.TeeStatus.PAUSED);
         vm.expectRevert(IFdc2Verification.TeeMachineNotAvailable.selector);
         fdc2Verification.verifyTeeSignatures(signatures, messageHash);
     }
@@ -172,10 +172,10 @@ contract Fdc2VerificationTest is Test {
     }
 
 
-    function _mockGetTeeMachineStatus(IMachineManagerFacet.TeeStatus _status) private {
+    function _mockGetTeeMachineStatus(IMachineManager.TeeStatus _status) private {
         vm.mockCall(
             flareTeeManager,
-            abi.encodeWithSelector(IMachineManagerFacet.getTeeMachineStatus.selector),
+            abi.encodeWithSelector(IMachineManager.getTeeMachineStatus.selector),
             abi.encode(_status)
         );
     }
@@ -183,7 +183,7 @@ contract Fdc2VerificationTest is Test {
     function _mockGetExtensionId(uint256 _extensionId) private {
         vm.mockCall(
             flareTeeManager,
-            abi.encodeWithSelector(IMachineManagerFacet.getExtensionId.selector),
+            abi.encodeWithSelector(IMachineManager.getExtensionId.selector),
             abi.encode(_extensionId)
         );
     }

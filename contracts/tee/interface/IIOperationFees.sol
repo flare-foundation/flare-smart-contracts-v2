@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IOperationFeesFacet } from "../../userInterfaces/tee/IOperationFeesFacet.sol";
+import { IOperationFees } from "../../userInterfaces/tee/IOperationFees.sol";
 
 /**
- * @title IIOperationFeesFacet
+ * @title IIOperationFees
  * @notice Internal interface for the OperationFeesFacet.
  * @dev Extends the public interface with governance-only methods.
  */
-interface IIOperationFeesFacet is IOperationFeesFacet {
+interface IIOperationFees is IOperationFees {
 
     /**
      * Sets fees for operations.

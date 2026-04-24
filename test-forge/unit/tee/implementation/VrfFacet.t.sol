@@ -4,9 +4,9 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IVrfFacet } from "../../../../contracts/userInterfaces/tee/IVrfFacet.sol";
-import { IMachineManagerFacet } from "../../../../contracts/userInterfaces/tee/IMachineManagerFacet.sol";
-import { IWalletManagerFacet } from "../../../../contracts/userInterfaces/tee/IWalletManagerFacet.sol";
+import { IVrf } from "../../../../contracts/userInterfaces/tee/IVrf.sol";
+import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
+import { IWalletManager } from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IDiamondCut } from "../../../../contracts/diamond/interfaces/IDiamondCut.sol";
 import { IDiamond } from "../../../../contracts/diamond/interfaces/IDiamond.sol";
@@ -27,7 +27,7 @@ contract VrfTestMachineInit {
         address _teeProxyId,
         string calldata _url,
         uint256 _extensionId,
-        IMachineManagerFacet.TeeStatus _status
+        IMachineManager.TeeStatus _status
     )
         external
     {
@@ -61,7 +61,7 @@ contract VrfTestWalletInit {
     function initWallet(
         bytes32 _walletId,
         bytes32 _projectId,
-        IWalletManagerFacet.WalletStatus _status
+        IWalletManager.WalletStatus _status
     )
         external
     {
@@ -173,7 +173,7 @@ contract VrfFacetTest is Test {
         _initProject(projectId, walletOwner, 0);
 
         // Inject wallet state (default CREATED status; tests override as needed)
-        _initWallet(walletId, projectId, IWalletManagerFacet.WalletStatus.CREATED);
+        _initWallet(walletId, projectId, IWalletManager.WalletStatus.CREATED);
 
         // Fund test addresses
         vm.deal(authAddress, 1 ether);
@@ -185,7 +185,7 @@ contract VrfFacetTest is Test {
 
     function testRequestVrfRevertNonceEmpty() public {
         vm.prank(authAddress);
-        vm.expectRevert(IVrfFacet.NonceEmpty.selector);
+        vm.expectRevert(IVrf.NonceEmpty.selector);
         flareTeeManager.requestVrf(walletId, keyId, bytes(""), address(0));
     }
 
@@ -195,31 +195,31 @@ contract VrfFacetTest is Test {
         flareTeeManager.setVrfAuthorizationAddress(walletId, authAddress);
 
         vm.prank(makeAddr("randomCaller"));
-        vm.expectRevert(IVrfFacet.OnlyAuthorizationAddress.selector);
+        vm.expectRevert(IVrf.OnlyAuthorizationAddress.selector);
         flareTeeManager.requestVrf(walletId, keyId, nonce, address(0));
     }
 
     function testRequestVrfRevertOnlyAuthorizationAddressNoAuthSet() public {
         // no auth address set (default address(0))
         vm.prank(walletOwner);
-        vm.expectRevert(IVrfFacet.OnlyAuthorizationAddress.selector);
+        vm.expectRevert(IVrf.OnlyAuthorizationAddress.selector);
         flareTeeManager.requestVrf(walletId, keyId, nonce, address(0));
     }
 
     function testRequestVrfRevertWalletNotInProduction() public {
         _setupAuthAddress();
-        _initWallet(walletId, projectId, IWalletManagerFacet.WalletStatus.INITIALIZED);
+        _initWallet(walletId, projectId, IWalletManager.WalletStatus.INITIALIZED);
         vm.prank(authAddress);
-        vm.expectRevert(IVrfFacet.WalletNotInProduction.selector);
+        vm.expectRevert(IVrf.WalletNotInProduction.selector);
         flareTeeManager.requestVrf(walletId, keyId, nonce, address(0));
     }
 
     function testRequestVrfRevertNoTeesForKey() public {
         _setupAuthAddress();
-        _initWallet(walletId, projectId, IWalletManagerFacet.WalletStatus.PRODUCTION);
+        _initWallet(walletId, projectId, IWalletManager.WalletStatus.PRODUCTION);
         // no tee ids for the key (empty by default)
         vm.prank(authAddress);
-        vm.expectRevert(IVrfFacet.NoTeesForKey.selector);
+        vm.expectRevert(IVrf.NoTeesForKey.selector);
         flareTeeManager.requestVrf(walletId, keyId, nonce, address(0));
     }
 
@@ -228,13 +228,13 @@ contract VrfFacetTest is Test {
         teeIds[0] = makeAddr("tee0");
         teeIds[1] = makeAddr("tee1");
         _setupAuthAddress();
-        _initWallet(walletId, projectId, IWalletManagerFacet.WalletStatus.PRODUCTION);
+        _initWallet(walletId, projectId, IWalletManager.WalletStatus.PRODUCTION);
         _initWalletKey(walletId, keyId, teeIds);
         // all TEEs are not in PRODUCTION
-        _initTeeMachine(teeIds[0], IMachineManagerFacet.TeeStatus.INITIALIZED);
-        _initTeeMachine(teeIds[1], IMachineManagerFacet.TeeStatus.SUSPENDED);
+        _initTeeMachine(teeIds[0], IMachineManager.TeeStatus.INITIALIZED);
+        _initTeeMachine(teeIds[1], IMachineManager.TeeStatus.SUSPENDED);
         vm.prank(authAddress);
-        vm.expectRevert(IVrfFacet.NoTeesForKey.selector);
+        vm.expectRevert(IVrf.NoTeesForKey.selector);
         flareTeeManager.requestVrf(walletId, keyId, nonce, address(0));
     }
 
@@ -245,7 +245,7 @@ contract VrfFacetTest is Test {
 
         vm.prank(authAddress);
         vm.expectEmit(true, false, false, false, address(flareTeeManager));
-        emit IVrfFacet.VrfRequested(walletId, 0, bytes32(0));
+        emit IVrf.VrfRequested(walletId, 0, bytes32(0));
         bytes32 returnedId = flareTeeManager.requestVrf(walletId, keyId, nonce, address(0));
         assertTrue(returnedId != bytes32(0));
     }
@@ -285,7 +285,7 @@ contract VrfFacetTest is Test {
 
         vm.prank(authAddress);
         vm.expectEmit(true, false, false, false, address(flareTeeManager));
-        emit IVrfFacet.VrfRequested(walletId, 0, bytes32(0));
+        emit IVrf.VrfRequested(walletId, 0, bytes32(0));
         bytes32 returnedId = flareTeeManager.requestVrf(walletId, keyId, nonce, address(0));
         assertTrue(returnedId != bytes32(0));
     }
@@ -296,15 +296,15 @@ contract VrfFacetTest is Test {
         teeIds[1] = makeAddr("teeSuspended");
         teeIds[2] = makeAddr("teeProduction2");
         _setupAuthAddress();
-        _initWallet(walletId, projectId, IWalletManagerFacet.WalletStatus.PRODUCTION);
+        _initWallet(walletId, projectId, IWalletManager.WalletStatus.PRODUCTION);
         _initWalletKey(walletId, keyId, teeIds);
-        _initTeeMachine(teeIds[0], IMachineManagerFacet.TeeStatus.PRODUCTION);
-        _initTeeMachine(teeIds[1], IMachineManagerFacet.TeeStatus.SUSPENDED);
-        _initTeeMachine(teeIds[2], IMachineManagerFacet.TeeStatus.PRODUCTION);
+        _initTeeMachine(teeIds[0], IMachineManager.TeeStatus.PRODUCTION);
+        _initTeeMachine(teeIds[1], IMachineManager.TeeStatus.SUSPENDED);
+        _initTeeMachine(teeIds[2], IMachineManager.TeeStatus.PRODUCTION);
 
         vm.prank(authAddress);
         vm.expectEmit(true, false, false, false, address(flareTeeManager));
-        emit IVrfFacet.VrfRequested(walletId, 0, bytes32(0));
+        emit IVrf.VrfRequested(walletId, 0, bytes32(0));
         bytes32 returnedId = flareTeeManager.requestVrf(walletId, keyId, nonce, address(0));
         assertTrue(returnedId != bytes32(0));
     }
@@ -316,7 +316,7 @@ contract VrfFacetTest is Test {
     function testSetVrfAuthorizationAddress() public {
         vm.prank(walletOwner);
         vm.expectEmit();
-        emit IVrfFacet.VrfAuthorizationAddressSet(walletId, authAddress);
+        emit IVrf.VrfAuthorizationAddressSet(walletId, authAddress);
         flareTeeManager.setVrfAuthorizationAddress(walletId, authAddress);
 
         assertEq(flareTeeManager.getVrfAuthorizationAddress(walletId), authAddress);
@@ -331,7 +331,7 @@ contract VrfFacetTest is Test {
         // then set to zero to disable
         vm.prank(walletOwner);
         vm.expectEmit();
-        emit IVrfFacet.VrfAuthorizationAddressSet(walletId, address(0));
+        emit IVrf.VrfAuthorizationAddressSet(walletId, address(0));
         flareTeeManager.setVrfAuthorizationAddress(walletId, address(0));
 
         assertEq(flareTeeManager.getVrfAuthorizationAddress(walletId), address(0));
@@ -339,7 +339,7 @@ contract VrfFacetTest is Test {
 
     function testSetVrfAuthorizationAddressRevertOnlyWalletOwner() public {
         vm.prank(makeAddr("notOwner"));
-        vm.expectRevert(IVrfFacet.OnlyWalletOwner.selector);
+        vm.expectRevert(IVrf.OnlyWalletOwner.selector);
         flareTeeManager.setVrfAuthorizationAddress(walletId, authAddress);
     }
 
@@ -362,10 +362,10 @@ contract VrfFacetTest is Test {
 
     function _setupHappyPath(address[] memory _teeIds) internal {
         _setupAuthAddress();
-        _initWallet(walletId, projectId, IWalletManagerFacet.WalletStatus.PRODUCTION);
+        _initWallet(walletId, projectId, IWalletManager.WalletStatus.PRODUCTION);
         _initWalletKey(walletId, keyId, _teeIds);
         for (uint256 i = 0; i < _teeIds.length; i++) {
-            _initTeeMachine(_teeIds[i], IMachineManagerFacet.TeeStatus.PRODUCTION);
+            _initTeeMachine(_teeIds[i], IMachineManager.TeeStatus.PRODUCTION);
         }
     }
 
@@ -386,7 +386,7 @@ contract VrfFacetTest is Test {
     function _initWallet(
         bytes32 _walletId,
         bytes32 _projectId,
-        IWalletManagerFacet.WalletStatus _status
+        IWalletManager.WalletStatus _status
     ) internal {
         IDiamond.FacetCut[] memory emptyCuts = new IDiamond.FacetCut[](0);
         vm.prank(governance);
@@ -413,7 +413,7 @@ contract VrfFacetTest is Test {
 
     function _initTeeMachine(
         address _teeId,
-        IMachineManagerFacet.TeeStatus _status
+        IMachineManager.TeeStatus _status
     ) internal {
         IDiamond.FacetCut[] memory emptyCuts = new IDiamond.FacetCut[](0);
         vm.prank(governance);

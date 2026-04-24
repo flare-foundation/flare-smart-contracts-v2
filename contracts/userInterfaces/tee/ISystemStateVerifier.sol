@@ -2,10 +2,10 @@
 pragma solidity >=0.7.6 <0.9;
 
 /**
- * @title ISystemStateVerifierFacet
+ * @title ISystemStateVerifier
  * @notice Public interface for the SystemStateVerifierFacet.
  */
-interface ISystemStateVerifierFacet {
+interface ISystemStateVerifier {
 
     enum TeeMachineStatus { ACTIVE, PAUSED, PAUSED_FOR_UPGRADE }
 

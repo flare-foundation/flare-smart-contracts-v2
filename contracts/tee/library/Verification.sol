@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
-import { IVerificationFacet, TEE_SOURCE_ID } from "../../userInterfaces/tee/IVerificationFacet.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
+import { IVerification, TEE_SOURCE_ID } from "../../userInterfaces/tee/IVerification.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
@@ -56,8 +56,8 @@ library Verification {
      * _proof.responseBody.status must be checked by the caller.
      */
     function verifyAvailabilityCheckProof(
-        IMachineManagerFacet.TeeMachineWithAttestationData memory _teeMachineWithAttestationData,
-        IMachineManagerFacet.TeeStatus _status,
+        IMachineManager.TeeMachineWithAttestationData memory _teeMachineWithAttestationData,
+        IMachineManager.TeeStatus _status,
         ITeeAvailabilityCheck.Proof calldata _proof
     )
         internal
@@ -74,7 +74,7 @@ library Verification {
                 header.thresholdBIPS == 0 &&
                 header.attestationType == TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE &&
                 header.sourceId == TEE_SOURCE_ID,
-                IVerificationFacet.InvalidAttestation()
+                IVerification.InvalidAttestation()
             );
             require(
                 header.timestamp < block.timestamp && header.timestamp >= s.challengeTs[teeId],
@@ -82,18 +82,18 @@ library Verification {
             );
             require(
                 s.challengeTs[teeId] + s.challengeValidityDurationSeconds > block.timestamp,
-                IVerificationFacet.ChallengeExpired(s.challengeTs[teeId])
+                IVerification.ChallengeExpired(s.challengeTs[teeId])
             );
         }
 
         // Validate request body
         {
-            IMachineManagerFacet.TeeMachine memory teeMachine = MachineManager.getTeeMachine(teeId);
+            IMachineManager.TeeMachine memory teeMachine = MachineManager.getTeeMachine(teeId);
             require(
                 keccak256(bytes(_proof.requestBody.url)) == keccak256(bytes(teeMachine.url)) &&
                 _proof.requestBody.teeProxyId == teeMachine.teeProxyId &&
                 _proof.requestBody.challenge == s.challenges[teeId],
-                IVerificationFacet.InvalidRequestBody()
+                IVerification.InvalidRequestBody()
             );
         }
 
@@ -116,8 +116,8 @@ library Verification {
         }
 
         // Cosigner check for initial availability check or active replication
-        if (_status == IMachineManagerFacet.TeeStatus.INITIALIZED ||
-            _status == IMachineManagerFacet.TeeStatus.REPLICATING)
+        if (_status == IMachineManager.TeeStatus.INITIALIZED ||
+            _status == IMachineManager.TeeStatus.REPLICATING)
         {
             checkCosignerSignatures(toCosignersMessageHash(messageHash), _proof.signatures.cosignerSignatures);
         }
@@ -145,7 +145,7 @@ library Verification {
             validity.endTs = endTs;
             validity.lastSigningPolicyId = _proof.responseBody.lastSigningPolicyId;
             address owner = MachineManager.getTeeMachineOwner(teeId);
-            emit IVerificationFacet.AvailabilityCheckValidityExtended(teeId, owner, endTs);
+            emit IVerification.AvailabilityCheckValidityExtended(teeId, owner, endTs);
         }
     }
 
@@ -172,7 +172,7 @@ library Verification {
             .verifySigningPolicySignatures(_signatures, _messageHash);
         require(
             rewardEpochId == _currentRewardEpochId || rewardEpochId + 1 == _currentRewardEpochId,
-            IVerificationFacet.InvalidSigningPolicy()
+            IVerification.InvalidSigningPolicy()
         );
     }
 
@@ -189,7 +189,7 @@ library Verification {
         ExternalAddresses.State storage ext = ExternalAddresses.getState();
         address[] memory cosignersList = IFdc2Verification(ext.fdc2Verification)
             .recoverCosigners(_signatures, _messageHash);
-        require(cosignersList.length >= s.cosignersThreshold, IVerificationFacet.CosignersThresholdNotMet());
+        require(cosignersList.length >= s.cosignersThreshold, IVerification.CosignersThresholdNotMet());
         for (uint256 i = 0; i < cosignersList.length; i++) {
             require(s.cosigners.contains(cosignersList[i]), ITeeCommonErrors.InvalidCosigner(cosignersList[i]));
         }
@@ -267,7 +267,7 @@ library Verification {
         s.availabilityCheckValidityDurationSeconds = _availabilityCheckValidityDurationSeconds;
         s.signingPolicyValidityDurationInRewardEpochs = _signingPolicyValidityDurationInRewardEpochs;
         s.challengeValidityDurationSeconds = _challengeValidityDurationSeconds;
-        emit IVerificationFacet.SettingsUpdated(
+        emit IVerification.SettingsUpdated(
             _availabilityCheckValidityDurationSeconds,
             _signingPolicyValidityDurationInRewardEpochs,
             _challengeValidityDurationSeconds
@@ -303,8 +303,8 @@ library Verification {
     // =========================================================================
 
     function _validateResponseBody(
-        IMachineManagerFacet.TeeMachineWithAttestationData memory _teeMachineWithAttestationData,
-        IMachineManagerFacet.TeeStatus _status,
+        IMachineManager.TeeMachineWithAttestationData memory _teeMachineWithAttestationData,
+        IMachineManager.TeeStatus _status,
         address _teeId,
         uint256 _currentRewardEpochId,
         ITeeAvailabilityCheck.ResponseBody calldata _responseBody
@@ -313,8 +313,8 @@ library Verification {
         returns (bool)
     {
         // Check signing policy validity
-        if (_status == IMachineManagerFacet.TeeStatus.INITIALIZED ||
-            _status == IMachineManagerFacet.TeeStatus.REPLICATING)
+        if (_status == IMachineManager.TeeStatus.INITIALIZED ||
+            _status == IMachineManager.TeeStatus.REPLICATING)
         {
             if (_responseBody.initialSigningPolicyId > _currentRewardEpochId ||
                 !isSigningPolicyValid(_responseBody.initialSigningPolicyId, _currentRewardEpochId))

@@ -5,12 +5,12 @@ import { Test } from "forge-std/Test.sol";
 
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IExtensionManagerFacet } from "../../../../contracts/userInterfaces/tee/IExtensionManagerFacet.sol";
-import { IInstructionsFacet } from "../../../../contracts/userInterfaces/tee/IInstructionsFacet.sol";
+import { IExtensionManager } from "../../../../contracts/userInterfaces/tee/IExtensionManager.sol";
+import { IInstructions } from "../../../../contracts/userInterfaces/tee/IInstructions.sol";
 import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import { IMachineManagerFacet } from "../../../../contracts/userInterfaces/tee/IMachineManagerFacet.sol";
+import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
@@ -31,7 +31,7 @@ contract TestTeeMachineSetupFacet {
         uint256 _extensionId,
         address _teeProxyId,
         string calldata _url,
-        IMachineManagerFacet.TeeStatus _status
+        IMachineManager.TeeStatus _status
     )
         external
     {
@@ -203,8 +203,8 @@ contract ExtensionManagerFacetTest is Test {
         );
 
         // Setup tee machine state via the helper facet
-        _setupTeeMachine(teeIds[0], extensionId, url, IMachineManagerFacet.TeeStatus.PRODUCTION);
-        _setupTeeMachine(teeIds[1], extensionId, url, IMachineManagerFacet.TeeStatus.PRODUCTION);
+        _setupTeeMachine(teeIds[0], extensionId, url, IMachineManager.TeeStatus.PRODUCTION);
+        _setupTeeMachine(teeIds[1], extensionId, url, IMachineManager.TeeStatus.PRODUCTION);
 
         // Setup tee governance hash via the facet
         _setupTeeGovernanceHash(extensionId, governanceHash);
@@ -228,10 +228,10 @@ contract ExtensionManagerFacetTest is Test {
 
     // sendInstructions
     function testSendInstructionsRevertNoTeeMachinesSpecified() public {
-        vm.expectRevert(IInstructionsFacet.NoTeeMachinesSpecified.selector);
+        vm.expectRevert(IInstructions.NoTeeMachinesSpecified.selector);
         flareTeeManager.sendInstructions(
             new address[](0),
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, opCommand, message, new address[](0), 0, address(0)
             )
         );
@@ -239,10 +239,10 @@ contract ExtensionManagerFacetTest is Test {
 
     function testSendInstructionsRevertOperationTypeEmpty() public {
         vm.prank(instructionsSenders[0]);
-        vm.expectRevert(IInstructionsFacet.OperationTypeEmpty.selector);
+        vm.expectRevert(IInstructions.OperationTypeEmpty.selector);
         flareTeeManager.sendInstructions(
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 bytes32(0), opCommand, message, new address[](0), 0, address(0)
             )
         );
@@ -250,10 +250,10 @@ contract ExtensionManagerFacetTest is Test {
 
     function testSendInstructionsRevertOperationCommandEmpty() public {
         vm.prank(instructionsSenders[0]);
-        vm.expectRevert(IInstructionsFacet.OperationCommandEmpty.selector);
+        vm.expectRevert(IInstructions.OperationCommandEmpty.selector);
         flareTeeManager.sendInstructions(
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, bytes32(0), message, new address[](0), 0, address(0)
             )
         );
@@ -261,32 +261,32 @@ contract ExtensionManagerFacetTest is Test {
 
     function testSendInstructionsRevertMessageEmpty() public {
         vm.prank(instructionsSenders[0]);
-        vm.expectRevert(IInstructionsFacet.MessageEmpty.selector);
+        vm.expectRevert(IInstructions.MessageEmpty.selector);
         flareTeeManager.sendInstructions(
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, opCommand, new bytes(0), new address[](0), 0, address(0)
             )
         );
     }
 
     function testSendInstructionsRevertExtensionIdMismatch() public {
-        _setupTeeMachine(teeIds[1], extensionId + 1, url, IMachineManagerFacet.TeeStatus.PRODUCTION);
+        _setupTeeMachine(teeIds[1], extensionId + 1, url, IMachineManager.TeeStatus.PRODUCTION);
         vm.prank(instructionsSenders[0]);
         vm.expectRevert(ITeeCommonErrors.ExtensionIdMismatch.selector);
         flareTeeManager.sendInstructions(
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, opCommand, message, new address[](0), 0, address(0)
             )
         );
     }
 
     function testSendInstructionsRevertOnlyInstructionsSender() public {
-        vm.expectRevert(IInstructionsFacet.OnlyInstructionsSender.selector);
+        vm.expectRevert(IInstructions.OnlyInstructionsSender.selector);
         flareTeeManager.sendInstructions(
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, opCommand, message, new address[](0), 0, address(0)
             )
         );
@@ -297,13 +297,13 @@ contract ExtensionManagerFacetTest is Test {
         opType = bytes32("F_");
         vm.expectRevert(
             abi.encodeWithSelector(
-                IInstructionsFacet.SystemOpTypeNotAllowed.selector,
+                IInstructions.SystemOpTypeNotAllowed.selector,
                 opType
             )
         );
         flareTeeManager.sendInstructions(
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, opCommand, message, new address[](0), 0, address(0)
             )
         );
@@ -314,10 +314,10 @@ contract ExtensionManagerFacetTest is Test {
         // Set a non-zero default fee via governance
         vm.prank(initialGovernance);
         flareTeeManager.setDefaultFee(100000);
-        vm.expectRevert(IInstructionsFacet.FeeTooLow.selector);
+        vm.expectRevert(IInstructions.FeeTooLow.selector);
         flareTeeManager.sendInstructions(
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, opCommand, message, new address[](0), 0, address(0)
             )
         );
@@ -325,11 +325,11 @@ contract ExtensionManagerFacetTest is Test {
 
     function testSendInstructionsRevertTeeMachineNotAvailable() public {
         testRegister();
-        _setupTeeMachine(teeIds[0], extensionId, url, IMachineManagerFacet.TeeStatus.PAUSED);
+        _setupTeeMachine(teeIds[0], extensionId, url, IMachineManager.TeeStatus.PAUSED);
         vm.expectRevert(ITeeCommonErrors.TeeMachineNotAvailable.selector);
         flareTeeManager.sendInstructions(
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, opCommand, message, new address[](0), 0, address(0)
             )
         );
@@ -337,23 +337,23 @@ contract ExtensionManagerFacetTest is Test {
 
     function testSendInstructionsRevertCosignersThresholdTooHigh() public {
         testRegister();
-        vm.expectRevert(IInstructionsFacet.CosignersThresholdTooHigh.selector);
+        vm.expectRevert(IInstructions.CosignersThresholdTooHigh.selector);
         flareTeeManager.sendInstructions(
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, opCommand, message, new address[](0), 1, address(0)
             )
         );
     }
 
     function testSendInstructions() public {
-        IMachineManagerFacet.TeeMachine[] memory teeMachines = new IMachineManagerFacet.TeeMachine[](2);
-        teeMachines[0] = IMachineManagerFacet.TeeMachine(
+        IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](2);
+        teeMachines[0] = IMachineManager.TeeMachine(
             teeIds[0],
             teeIds[0],
             url
         );
-        teeMachines[1] = IMachineManagerFacet.TeeMachine(
+        teeMachines[1] = IMachineManager.TeeMachine(
             teeIds[1],
             teeIds[1],
             url
@@ -363,7 +363,7 @@ contract ExtensionManagerFacetTest is Test {
         address[] memory cosigners = new address[](2);
         cosigners[0] = makeAddr("cosigner1");
         cosigners[1] = makeAddr("cosigner2");
-        emit IInstructionsFacet.TeeInstructionsSent(
+        emit IInstructions.TeeInstructionsSent(
             extensionId,
             instructionId,
             currentRewardEpochId,
@@ -378,7 +378,7 @@ contract ExtensionManagerFacetTest is Test {
         );
         flareTeeManager.sendInstructions(
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, opCommand, message, cosigners, 1, address(0)
             )
         );
@@ -391,13 +391,13 @@ contract ExtensionManagerFacetTest is Test {
         teeIds[2] = makeAddr("teeId2");
         teeIds[3] = teeIds[0];
         teeIds[4] = teeIds[2];
-        IMachineManagerFacet.TeeMachine[] memory teeMachines = new IMachineManagerFacet.TeeMachine[](2);
-        teeMachines[0] = IMachineManagerFacet.TeeMachine(
+        IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](2);
+        teeMachines[0] = IMachineManager.TeeMachine(
             teeIds[0],
             teeIds[0],
             url
         );
-        teeMachines[1] = IMachineManagerFacet.TeeMachine(
+        teeMachines[1] = IMachineManager.TeeMachine(
             teeIds[2],
             teeIds[2],
             url
@@ -407,7 +407,7 @@ contract ExtensionManagerFacetTest is Test {
         address[] memory cosigners = new address[](2);
         cosigners[0] = makeAddr("cosigner1");
         cosigners[1] = makeAddr("cosigner2");
-        emit IInstructionsFacet.TeeInstructionsSent(
+        emit IInstructions.TeeInstructionsSent(
             extensionId,
             instructionId,
             currentRewardEpochId,
@@ -422,7 +422,7 @@ contract ExtensionManagerFacetTest is Test {
         );
         flareTeeManager.sendInstructions(
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, opCommand, message, cosigners, 1, address(0)
             )
         );
@@ -430,15 +430,15 @@ contract ExtensionManagerFacetTest is Test {
 
     // register
     function testRegisterRevertInvalidInstructionsSender() public {
-        vm.expectRevert(IExtensionManagerFacet.InvalidInstructionsSender.selector);
+        vm.expectRevert(IExtensionManager.InvalidInstructionsSender.selector);
         flareTeeManager.register(teeExtensionStateVerifier, address(0));
     }
 
     function testRegister() public {
         vm.prank(owner);
         vm.expectEmit();
-        emit IExtensionManagerFacet.TeeExtensionRegistered(extensionId, owner);
-        emit IExtensionManagerFacet.TeeExtensionContractsSet(
+        emit IExtensionManager.TeeExtensionRegistered(extensionId, owner);
+        emit IExtensionManager.TeeExtensionContractsSet(
             extensionId, teeExtensionStateVerifier, address(this)
         );
         flareTeeManager.register(teeExtensionStateVerifier, address(this));
@@ -454,14 +454,14 @@ contract ExtensionManagerFacetTest is Test {
     function testSetExtensionContractsRevertSystemOwnedExtensionId() public {
         testRegister();
         vm.prank(initialGovernance);
-        vm.expectRevert(IExtensionManagerFacet.SystemOwnedExtensionId.selector);
+        vm.expectRevert(IExtensionManager.SystemOwnedExtensionId.selector);
         flareTeeManager.setExtensionContracts(0, teeExtensionStateVerifier, address(0));
     }
 
     function testSetExtensionContractsRevertInvalidInstructionsSender() public {
         testRegister();
         vm.prank(owner);
-        vm.expectRevert(IExtensionManagerFacet.InvalidInstructionsSender.selector);
+        vm.expectRevert(IExtensionManager.InvalidInstructionsSender.selector);
         flareTeeManager.setExtensionContracts(extensionId, teeExtensionStateVerifier, address(0));
     }
 
@@ -469,7 +469,7 @@ contract ExtensionManagerFacetTest is Test {
         testRegister();
         vm.prank(owner);
         vm.expectEmit();
-        emit IExtensionManagerFacet.TeeExtensionContractsSet(
+        emit IExtensionManager.TeeExtensionContractsSet(
             extensionId, teeExtensionStateVerifier, owner
         );
         flareTeeManager.setExtensionContracts(extensionId, teeExtensionStateVerifier, owner);
@@ -484,21 +484,21 @@ contract ExtensionManagerFacetTest is Test {
     function testAddTeeVersionRevertVersionEmpty() public {
         testRegister();
         vm.prank(owner);
-        vm.expectRevert(IExtensionManagerFacet.VersionEmpty.selector);
+        vm.expectRevert(IExtensionManager.VersionEmpty.selector);
         flareTeeManager.addTeeVersion(extensionId, "", codeHash, platforms, governanceHash);
     }
 
     function testAddTeeVersionRevertCodeHashZero() public {
         testRegister();
         vm.prank(owner);
-        vm.expectRevert(IExtensionManagerFacet.CodeHashZero.selector);
+        vm.expectRevert(IExtensionManager.CodeHashZero.selector);
         flareTeeManager.addTeeVersion(extensionId, version, "", platforms, governanceHash);
     }
 
     function testAddTeeVersionRevertNoPlatforms() public {
         testRegister();
         vm.prank(owner);
-        vm.expectRevert(IExtensionManagerFacet.NoPlatforms.selector);
+        vm.expectRevert(IExtensionManager.NoPlatforms.selector);
         flareTeeManager.addTeeVersion(extensionId, version, codeHash, new bytes32[](0), governanceHash);
     }
 
@@ -507,7 +507,7 @@ contract ExtensionManagerFacetTest is Test {
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IExtensionManagerFacet.UnsupportedPlatform.selector,
+                IExtensionManager.UnsupportedPlatform.selector,
                 platforms[0]
             )
         );
@@ -517,7 +517,7 @@ contract ExtensionManagerFacetTest is Test {
     function testAddTeeVersionRevertVersionAlreadyExists() public {
         testAddTeeVersion();
         vm.prank(owner);
-        vm.expectRevert(IExtensionManagerFacet.VersionAlreadyExists.selector);
+        vm.expectRevert(IExtensionManager.VersionAlreadyExists.selector);
         flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
     }
 
@@ -530,7 +530,7 @@ contract ExtensionManagerFacetTest is Test {
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IExtensionManagerFacet.PlatformAlreadyExists.selector,
+                IExtensionManager.PlatformAlreadyExists.selector,
                 platforms[1]
             )
         );
@@ -552,7 +552,7 @@ contract ExtensionManagerFacetTest is Test {
         testAddSystemSupportedPlatforms();
         vm.prank(owner);
         vm.expectEmit();
-        emit IExtensionManagerFacet.TeeVersionAdded(
+        emit IExtensionManager.TeeVersionAdded(
             extensionId, version, codeHash, platforms, governanceHash
         );
         flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
@@ -570,14 +570,14 @@ contract ExtensionManagerFacetTest is Test {
     function testDisableCodeHashPlatformRevertInvalidCodeHash() public {
         testRegister();
         vm.prank(owner);
-        vm.expectRevert(IExtensionManagerFacet.InvalidCodeHash.selector);
+        vm.expectRevert(IExtensionManager.InvalidCodeHash.selector);
         flareTeeManager.disableCodeHashPlatform(extensionId, keccak256("invalidCodeHash"), platform);
     }
 
     function testDisableCodeHashPlatformRevertInvalidPlatform() public {
         testAddTeeVersion();
         vm.prank(owner);
-        vm.expectRevert(IExtensionManagerFacet.InvalidPlatform.selector);
+        vm.expectRevert(IExtensionManager.InvalidPlatform.selector);
         flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, keccak256("invalidPlatform"));
     }
 
@@ -585,7 +585,7 @@ contract ExtensionManagerFacetTest is Test {
         testAddTeeVersion();
         vm.prank(owner);
         vm.expectEmit();
-        emit IExtensionManagerFacet.CodeHashPlatformDisabled(extensionId, codeHash, platform);
+        emit IExtensionManager.CodeHashPlatformDisabled(extensionId, codeHash, platform);
         flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, platform);
     }
 
@@ -593,7 +593,7 @@ contract ExtensionManagerFacetTest is Test {
         testAddTeeVersion();
         vm.prank(owner);
         vm.expectEmit();
-        emit IExtensionManagerFacet.CodeHashPlatformDisabled(extensionId, codeHash, platform);
+        emit IExtensionManager.CodeHashPlatformDisabled(extensionId, codeHash, platform);
         flareTeeManager.disableCodeHashPlatform(extensionId, codeHash, bytes32(0));
     }
 
@@ -613,7 +613,7 @@ contract ExtensionManagerFacetTest is Test {
     function testAddSystemSupportedKeyTypesAndSigningAlgosRevertKeyTypeEmpty() public {
         keyTypes[0] = bytes32(0);
         vm.prank(initialGovernance);
-        vm.expectRevert(IExtensionManagerFacet.KeyTypeEmpty.selector);
+        vm.expectRevert(IExtensionManager.KeyTypeEmpty.selector);
         flareTeeManager.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
     }
 
@@ -622,7 +622,7 @@ contract ExtensionManagerFacetTest is Test {
         vm.prank(initialGovernance);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IExtensionManagerFacet.NoSigningAlgos.selector,
+                IExtensionManager.NoSigningAlgos.selector,
                 keyTypes[0]
             )
         );
@@ -632,7 +632,7 @@ contract ExtensionManagerFacetTest is Test {
     function testAddSystemSupportedKeyTypesAndSigningAlgosRevertSigningAlgoEmpty() public {
         signingAlgosByKeyType[0][0] = bytes32(0);
         vm.prank(initialGovernance);
-        vm.expectRevert(IExtensionManagerFacet.SigningAlgoEmpty.selector);
+        vm.expectRevert(IExtensionManager.SigningAlgoEmpty.selector);
         flareTeeManager.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
     }
 
@@ -641,7 +641,7 @@ contract ExtensionManagerFacetTest is Test {
         vm.prank(initialGovernance);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IExtensionManagerFacet.SigningAlgoAlreadyExists.selector,
+                IExtensionManager.SigningAlgoAlreadyExists.selector,
                 keyTypes[1],
                 signingAlgosByKeyType[1][0]
             )
@@ -652,7 +652,7 @@ contract ExtensionManagerFacetTest is Test {
     function testAddSystemSupportedKeyTypesAndSigningAlgos() public {
         vm.prank(initialGovernance);
         vm.expectEmit();
-        emit IExtensionManagerFacet.SystemSupportedKeyTypesAndSigningAlgosAdded(keyTypes, signingAlgosByKeyType);
+        emit IExtensionManager.SystemSupportedKeyTypesAndSigningAlgosAdded(keyTypes, signingAlgosByKeyType);
         flareTeeManager.addSystemSupportedKeyTypesAndSigningAlgos(keyTypes, signingAlgosByKeyType);
     }
 
@@ -669,7 +669,7 @@ contract ExtensionManagerFacetTest is Test {
         testAddSystemSupportedKeyTypesAndSigningAlgos();
         keyTypes[0] = bytes32(0);
         vm.prank(owner);
-        vm.expectRevert(IExtensionManagerFacet.KeyTypeEmpty.selector);
+        vm.expectRevert(IExtensionManager.KeyTypeEmpty.selector);
         flareTeeManager.addSupportedKeyTypes(extensionId, keyTypes);
     }
 
@@ -696,7 +696,7 @@ contract ExtensionManagerFacetTest is Test {
         vm.prank(owner);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IExtensionManagerFacet.KeyTypeAlreadyExists.selector,
+                IExtensionManager.KeyTypeAlreadyExists.selector,
                 keyType
             )
         );
@@ -708,7 +708,7 @@ contract ExtensionManagerFacetTest is Test {
         testAddSystemSupportedKeyTypesAndSigningAlgos();
         vm.prank(owner);
         vm.expectEmit();
-        emit IExtensionManagerFacet.SupportedKeyTypesAdded(extensionId, keyTypes);
+        emit IExtensionManager.SupportedKeyTypesAdded(extensionId, keyTypes);
         flareTeeManager.addSupportedKeyTypes(extensionId, keyTypes);
     }
 
@@ -736,7 +736,7 @@ contract ExtensionManagerFacetTest is Test {
         testAddSupportedKeyTypes();
         vm.prank(owner);
         vm.expectEmit();
-        emit IExtensionManagerFacet.SupportedKeyTypesRemoved(extensionId, keyTypes);
+        emit IExtensionManager.SupportedKeyTypesRemoved(extensionId, keyTypes);
         flareTeeManager.removeSupportedKeyTypes(extensionId, keyTypes);
     }
 
@@ -744,22 +744,22 @@ contract ExtensionManagerFacetTest is Test {
     function testProposeNewOwnerRevertOnlyOwner() public {
         testRegister();
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
-        IExtensionManagerFacet(address(flareTeeManager)).proposeNewOwner(extensionId, newOwner);
+        IExtensionManager(address(flareTeeManager)).proposeNewOwner(extensionId, newOwner);
     }
 
     function testProposeNewOwnerRevertSystemOwnedExtensionId() public {
         testRegister();
         vm.prank(initialGovernance);
-        vm.expectRevert(IExtensionManagerFacet.SystemOwnedExtensionId.selector);
-        IExtensionManagerFacet(address(flareTeeManager)).proposeNewOwner(0, newOwner);
+        vm.expectRevert(IExtensionManager.SystemOwnedExtensionId.selector);
+        IExtensionManager(address(flareTeeManager)).proposeNewOwner(0, newOwner);
     }
 
     function testProposeNewOwner() public {
         testRegister();
         vm.prank(owner);
         vm.expectEmit();
-        emit IExtensionManagerFacet.NewOwnerProposed(extensionId, owner, newOwner);
-        IExtensionManagerFacet(address(flareTeeManager)).proposeNewOwner(extensionId, newOwner);
+        emit IExtensionManager.NewOwnerProposed(extensionId, owner, newOwner);
+        IExtensionManager(address(flareTeeManager)).proposeNewOwner(extensionId, newOwner);
     }
 
     // confirmOwnership
@@ -773,11 +773,11 @@ contract ExtensionManagerFacetTest is Test {
         testProposeNewOwner();
         vm.prank(newOwner);
         vm.expectEmit();
-        emit IExtensionManagerFacet.NewOwnerConfirmed(extensionId, newOwner);
+        emit IExtensionManager.NewOwnerConfirmed(extensionId, newOwner);
         flareTeeManager.confirmOwnership(extensionId);
         // should not revert OnlyOwner
         vm.prank(newOwner);
-        vm.expectRevert(IExtensionManagerFacet.VersionEmpty.selector);
+        vm.expectRevert(IExtensionManager.VersionEmpty.selector);
         flareTeeManager.addTeeVersion(extensionId, "", codeHash, platforms, governanceHash);
     }
 
@@ -790,7 +790,7 @@ contract ExtensionManagerFacetTest is Test {
     function testAddSystemSupportedPlatformsRevertPlatformEmpty() public {
         platforms[0] = bytes32(0);
         vm.prank(initialGovernance);
-        vm.expectRevert(IExtensionManagerFacet.PlatformEmpty.selector);
+        vm.expectRevert(IExtensionManager.PlatformEmpty.selector);
         flareTeeManager.addSystemSupportedPlatforms(platforms);
     }
 
@@ -799,7 +799,7 @@ contract ExtensionManagerFacetTest is Test {
         vm.prank(initialGovernance);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IExtensionManagerFacet.PlatformAlreadyExists.selector,
+                IExtensionManager.PlatformAlreadyExists.selector,
                 platforms[0]
                )
         );
@@ -809,7 +809,7 @@ contract ExtensionManagerFacetTest is Test {
     function testAddSystemSupportedPlatforms() public {
         vm.prank(initialGovernance);
         vm.expectEmit();
-        emit IExtensionManagerFacet.SystemSupportedPlatformsAdded(platforms);
+        emit IExtensionManager.SystemSupportedPlatformsAdded(platforms);
         flareTeeManager.addSystemSupportedPlatforms(platforms);
         // getSystemSupportedPlatforms
         bytes32[] memory supportedPlatforms = flareTeeManager.getSystemSupportedPlatforms();
@@ -853,33 +853,33 @@ contract ExtensionManagerFacetTest is Test {
 
     // sendSystemInstructions
     function testSendSystemInstructionsRevertOnlySystemInstructionsSender() public {
-        vm.expectRevert(IInstructionsFacet.OnlySystemInstructionsSender.selector);
+        vm.expectRevert(IInstructions.OnlySystemInstructionsSender.selector);
         flareTeeManager.sendSystemInstructions(
             instructionId,
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, opCommand, message, new address[](0), 0, address(0)
             )
         );
     }
 
     function testSendSystemInstructionsRevertOnlySystemInstructionsSender2() public {
-        IMachineManagerFacet.TeeMachine[] memory teeMachines = new IMachineManagerFacet.TeeMachine[](2);
-        teeMachines[0] = IMachineManagerFacet.TeeMachine(
+        IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](2);
+        teeMachines[0] = IMachineManager.TeeMachine(
             teeIds[0],
             teeIds[0],
             url
         );
-        teeMachines[1] = IMachineManagerFacet.TeeMachine(
+        teeMachines[1] = IMachineManager.TeeMachine(
             teeIds[1],
             teeIds[1],
             url
         );
-        vm.expectRevert(IInstructionsFacet.OnlySystemInstructionsSender.selector);
+        vm.expectRevert(IInstructions.OnlySystemInstructionsSender.selector);
         flareTeeManager.sendSystemInstructions(
             instructionId,
             teeMachines,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType, opCommand, message, new address[](0), 0, address(0)
             )
         );
@@ -887,13 +887,13 @@ contract ExtensionManagerFacetTest is Test {
 
     function testSendSystemInstructions() public {
         testRegisterSystemInstructionsSenders();
-        IMachineManagerFacet.TeeMachine[] memory teeMachines = new IMachineManagerFacet.TeeMachine[](2);
-        teeMachines[0] = IMachineManagerFacet.TeeMachine(
+        IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](2);
+        teeMachines[0] = IMachineManager.TeeMachine(
             teeIds[0],
             teeIds[0],
             url
         );
-        teeMachines[1] = IMachineManagerFacet.TeeMachine(
+        teeMachines[1] = IMachineManager.TeeMachine(
             teeIds[1],
             teeIds[1],
             url
@@ -902,7 +902,7 @@ contract ExtensionManagerFacetTest is Test {
         address[] memory cosigners = new address[](2);
         cosigners[0] = makeAddr("cosigner1");
         cosigners[1] = makeAddr("cosigner2");
-        emit IInstructionsFacet.TeeInstructionsSent(
+        emit IInstructions.TeeInstructionsSent(
             extensionId,
             instructionId,
             currentRewardEpochId,
@@ -919,19 +919,19 @@ contract ExtensionManagerFacetTest is Test {
         flareTeeManager.sendSystemInstructions(
             instructionId,
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(opType, opCommand, message, cosigners, 1, address(0))
+            IInstructions.TeeInstructionParams(opType, opCommand, message, cosigners, 1, address(0))
         );
     }
 
     function testSendSystemInstructions2() public {
         testRegisterSystemInstructionsSenders();
-        IMachineManagerFacet.TeeMachine[] memory teeMachines = new IMachineManagerFacet.TeeMachine[](2);
-        teeMachines[0] = IMachineManagerFacet.TeeMachine(
+        IMachineManager.TeeMachine[] memory teeMachines = new IMachineManager.TeeMachine[](2);
+        teeMachines[0] = IMachineManager.TeeMachine(
             teeIds[0],
             teeIds[0],
             url
         );
-        teeMachines[1] = IMachineManagerFacet.TeeMachine(
+        teeMachines[1] = IMachineManager.TeeMachine(
             teeIds[1],
             teeIds[1],
             url
@@ -940,7 +940,7 @@ contract ExtensionManagerFacetTest is Test {
         address[] memory cosigners = new address[](2);
         cosigners[0] = makeAddr("cosigner1");
         cosigners[1] = makeAddr("cosigner2");
-        emit IInstructionsFacet.TeeInstructionsSent(
+        emit IInstructions.TeeInstructionsSent(
             extensionId,
             instructionId,
             currentRewardEpochId,
@@ -957,7 +957,7 @@ contract ExtensionManagerFacetTest is Test {
         flareTeeManager.sendSystemInstructions(
             instructionId,
             teeMachines,
-            IInstructionsFacet.TeeInstructionParams(opType, opCommand, message, cosigners, 1, address(0))
+            IInstructions.TeeInstructionParams(opType, opCommand, message, cosigners, 1, address(0))
         );
     }
 
@@ -1071,7 +1071,7 @@ contract ExtensionManagerFacetTest is Test {
         address _teeId,
         uint256 _extensionId,
         string memory _url,
-        IMachineManagerFacet.TeeStatus _status
+        IMachineManager.TeeStatus _status
     ) private {
         TestTeeMachineSetupFacet(address(flareTeeManager)).setupTeeMachineState(
             _teeId, _extensionId, _teeId, _url, _status

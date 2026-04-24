@@ -3,8 +3,8 @@ pragma solidity ^0.8.27;
 
 import { TeeBase } from "./TeeBase.sol";
 import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
-import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
-import { IWalletManagerFacet } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
+import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
 import {
     ITeePaymentsFeeScheduleManager
@@ -337,10 +337,10 @@ contract TeePayments is ITeePayments, TeeBase {
         require(_authorizationAddress != address(0), AuthorizationAddressZero());
         bytes32 accountHash = _toAccountHash(_proof.header.sourceId, _proof.requestBody.accountAddress);
         require(accountHashToWalletId[accountHash] == 0, PMWMultisigAccountAddressAlreadySet());
-        IWalletManagerFacet.WalletStatus walletStatus = flareTeeManager.getWalletStatus(_walletId);
+        IWalletManager.WalletStatus walletStatus = flareTeeManager.getWalletStatus(_walletId);
         require(
-            walletStatus == IWalletManagerFacet.WalletStatus.PRODUCTION ||
-            walletStatus == IWalletManagerFacet.WalletStatus.PAUSED,
+            walletStatus == IWalletManager.WalletStatus.PRODUCTION ||
+            walletStatus == IWalletManager.WalletStatus.PAUSED,
             OnlyProductionOrPausedStatus()
         );
         require(flareTeeManager.verifyPMWMultisigAccountConfiguredProof(_walletId, _proof), InvalidProof());
@@ -495,7 +495,7 @@ contract TeePayments is ITeePayments, TeeBase {
         flareTeeManager.sendSystemInstructions{value: _instructionsFee}(
             _instructionId,
             _teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 opType,
                 _opCommand,
                 _message,
@@ -530,7 +530,7 @@ contract TeePayments is ITeePayments, TeeBase {
         internal view
     {
         require(
-            flareTeeManager.getWalletStatus(_walletId) == IWalletManagerFacet.WalletStatus.PRODUCTION,
+            flareTeeManager.getWalletStatus(_walletId) == IWalletManager.WalletStatus.PRODUCTION,
             WalletNotInProduction()
         );
     }

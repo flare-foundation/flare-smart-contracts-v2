@@ -6,7 +6,7 @@ import { IPMWPaymentStatus, PMW_PAYMENT_STATUS_ATTESTATION_TYPE }
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
 import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegistry.sol";
-import { IVerificationFacet } from "../../userInterfaces/tee/IVerificationFacet.sol";
+import { IVerification } from "../../userInterfaces/tee/IVerification.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
@@ -80,7 +80,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
             header.thresholdBIPS == 0 &&
             header.attestationType == PMW_PAYMENT_STATUS_ATTESTATION_TYPE &&
             header.cosignersThreshold == cosignersThreshold,
-            IVerificationFacet.InvalidAttestation()
+            IVerification.InvalidAttestation()
         );
 
         IPMWPaymentStatus.ResponseBody calldata responseBody = _proof.responseBody;
@@ -152,7 +152,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         uint256 rewardEpochId = fdc2Verification.verifySigningPolicySignatures(_signatures, _messageHash);
         require(
             rewardEpochId == _currentRewardEpochId || rewardEpochId + 1 == _currentRewardEpochId,
-            IVerificationFacet.InvalidSigningPolicy()
+            IVerification.InvalidSigningPolicy()
         );
     }
 
@@ -192,7 +192,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
             return; // no cosigners, nothing to check
         }
         address[] memory cosignersList = fdc2Verification.recoverCosigners(_signatures, _messageHash);
-        require(cosignersList.length >= cosignersThreshold, IVerificationFacet.CosignersThresholdNotMet());
+        require(cosignersList.length >= cosignersThreshold, IVerification.CosignersThresholdNotMet());
         for (uint256 i = 0; i < cosignersList.length; i++) {
             require(cosigners.index[cosignersList[i]] != 0, ITeeCommonErrors.InvalidCosigner(cosignersList[i]));
         }

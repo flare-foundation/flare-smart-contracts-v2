@@ -4,10 +4,10 @@ pragma solidity >=0.7.6 <0.9;
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 /**
- * @title IWalletProjectManagerFacet
+ * @title IWalletProjectManager
  * @notice Public interface for the WalletProjectManagerFacet.
  */
-interface IWalletProjectManagerFacet is ITeeCommonErrors {
+interface IWalletProjectManager is ITeeCommonErrors {
 
     event ProjectCreated(
         bytes32 indexed projectId,

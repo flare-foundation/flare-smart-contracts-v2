@@ -9,9 +9,9 @@ import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
 
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import {
-    ISystemStateVerifierFacet
-} from "../../../../contracts/userInterfaces/tee/ISystemStateVerifierFacet.sol";
-import { IMachineManagerFacet } from "../../../../contracts/userInterfaces/tee/IMachineManagerFacet.sol";
+    ISystemStateVerifier
+} from "../../../../contracts/userInterfaces/tee/ISystemStateVerifier.sol";
+import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
@@ -44,7 +44,7 @@ contract SystemStateVerifierFacetTest is Test {
     string private teeUrl;
 
     bytes32 private stateVersion;
-    ISystemStateVerifierFacet.TeeSystemState private teeSystemState;
+    ISystemStateVerifier.TeeSystemState private teeSystemState;
     bytes32 private teeGovernanceHash;
 
     bytes32 private codeHash;
@@ -166,7 +166,7 @@ contract SystemStateVerifierFacetTest is Test {
         flareTeeManager.addAllowedTeeMachineOwners(extensionId, owners);
 
         // Register TEE machine
-        IMachineManagerFacet.TeeMachineData memory teeMachineData = IMachineManagerFacet.TeeMachineData({
+        IMachineManager.TeeMachineData memory teeMachineData = IMachineManager.TeeMachineData({
             extensionId: extensionId,
             publicKey: teePublicKey,
             initialOwner: teeMachineOwner,
@@ -188,14 +188,14 @@ contract SystemStateVerifierFacetTest is Test {
         );
 
         // Set up the expected valid system state
-        teeSystemState.status = ISystemStateVerifierFacet.TeeMachineStatus.ACTIVE;
+        teeSystemState.status = ISystemStateVerifier.TeeMachineStatus.ACTIVE;
         teeSystemState.initialTeeId = teeId;
         teeSystemState.teeGovernanceHash = teeGovernanceHash;
     }
 
     // verifyTeeSystemState
     function testVerifyTeeSystemStateNotValid1() public {
-        teeSystemState.status = ISystemStateVerifierFacet.TeeMachineStatus.PAUSED;
+        teeSystemState.status = ISystemStateVerifier.TeeMachineStatus.PAUSED;
         bool isValid = flareTeeManager.verifyTeeSystemState(
             teeId, stateVersion, abi.encode(teeSystemState)
         );
@@ -253,7 +253,7 @@ contract SystemStateVerifierFacetTest is Test {
         pub2.y = bytes32(wallet2.publicKeyY);
         address teeId2 = wallet2.addr;
 
-        IMachineManagerFacet.TeeMachineData memory data2 = IMachineManagerFacet.TeeMachineData({
+        IMachineManager.TeeMachineData memory data2 = IMachineManager.TeeMachineData({
             extensionId: extId2,
             publicKey: pub2,
             initialOwner: teeMachineOwner,

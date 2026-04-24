@@ -4,10 +4,10 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IWalletManagerFacet } from "../../../../contracts/userInterfaces/tee/IWalletManagerFacet.sol";
-import { IWalletResumeFacet } from "../../../../contracts/userInterfaces/tee/IWalletResumeFacet.sol";
-import { IWalletKeyManagerFacet } from "../../../../contracts/userInterfaces/tee/IWalletKeyManagerFacet.sol";
-import { IMachineManagerFacet } from "../../../../contracts/userInterfaces/tee/IMachineManagerFacet.sol";
+import { IWalletManager } from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
+import { IWalletResume } from "../../../../contracts/userInterfaces/tee/IWalletResume.sol";
+import { IWalletKeyManager } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
+import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { PublicKey } from "../../../../contracts/userInterfaces/IPublicKey.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";
@@ -26,24 +26,24 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
  * @notice Test-only facet added to the diamond to write TEE machine state directly
  *         into ERC-7201 storage, bypassing the full registration/attestation flow.
  */
-interface ITestTeeMachineHelperFacet {
+interface ITestTeeMachineHelper {
     function setTeeMachineState(
         address _teeId,
         uint256 _extensionId,
         address _owner,
-        IMachineManagerFacet.TeeStatus _status,
+        IMachineManager.TeeStatus _status,
         string calldata _url
     ) external;
 }
 
-contract TestTeeMachineHelperFacetForResume is ITestTeeMachineHelperFacet {
+contract TestTeeMachineHelperFacetForResume is ITestTeeMachineHelper {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     function setTeeMachineState(
         address _teeId,
         uint256 _extensionId,
         address _owner,
-        IMachineManagerFacet.TeeStatus _status,
+        IMachineManager.TeeStatus _status,
         string calldata _url
     )
         external
@@ -62,7 +62,7 @@ contract TestTeeMachineHelperFacetForResume is ITestTeeMachineHelperFacet {
             platform: bytes32(0),
             url: _url
         });
-        if (_status == IMachineManagerFacet.TeeStatus.PRODUCTION) {
+        if (_status == IMachineManager.TeeStatus.PRODUCTION) {
             s.activeTeeIds.add(_teeId);
             s.extensionActiveTeeIds[_extensionId].add(_teeId);
         }
@@ -72,7 +72,7 @@ contract TestTeeMachineHelperFacetForResume is ITestTeeMachineHelperFacet {
 contract WalletResumeFacetTest is Test {
 
     IIFlareTeeManager private flareTeeManager;
-    ITestTeeMachineHelperFacet private teeMachineHelper;
+    ITestTeeMachineHelper private teeMachineHelper;
 
     address private mockFSM;
     address private mockRewardManager;
@@ -110,7 +110,7 @@ contract WalletResumeFacetTest is Test {
         // Add TestTeeMachineHelperFacet to the diamond
         TestTeeMachineHelperFacetForResume helperImpl = new TestTeeMachineHelperFacetForResume();
         bytes4[] memory helperSelectors = new bytes4[](1);
-        helperSelectors[0] = ITestTeeMachineHelperFacet.setTeeMachineState.selector;
+        helperSelectors[0] = ITestTeeMachineHelper.setTeeMachineState.selector;
 
         IDiamond.FacetCut[] memory cuts = new IDiamond.FacetCut[](1);
         cuts[0] = IDiamond.FacetCut(
@@ -122,7 +122,7 @@ contract WalletResumeFacetTest is Test {
         vm.prank(initialGovernance);
         IDiamondCut(address(flareTeeManager)).diamondCut(cuts, address(0), "");
 
-        teeMachineHelper = ITestTeeMachineHelperFacet(address(flareTeeManager));
+        teeMachineHelper = ITestTeeMachineHelper(address(flareTeeManager));
 
         // Update contract addresses
         bytes32[] memory nameHashes = new bytes32[](6);
@@ -200,7 +200,7 @@ contract WalletResumeFacetTest is Test {
         _createWallet();
         vm.expectRevert(ITeeCommonErrors.OnlyProductionOrPausedStatus.selector);
         vm.prank(projectOwner);
-        flareTeeManager.resume(walletId, new IWalletResumeFacet.ResumeKeyData[](0), address(0));
+        flareTeeManager.resume(walletId, new IWalletResume.ResumeKeyData[](0), address(0));
     }
 
     function testResumeRevertOnlyOwner() public {
@@ -208,7 +208,7 @@ contract WalletResumeFacetTest is Test {
         vm.prank(projectOwner);
         flareTeeManager.pauseWallet(walletId);
         vm.expectRevert(ITeeCommonErrors.OnlyOwner.selector);
-        flareTeeManager.resume(walletId, new IWalletResumeFacet.ResumeKeyData[](0), address(0));
+        flareTeeManager.resume(walletId, new IWalletResume.ResumeKeyData[](0), address(0));
     }
 
     //// helper functions
@@ -271,7 +271,7 @@ contract WalletResumeFacetTest is Test {
             teeAddr,
             extensionId,
             makeAddr("teeMachineOwner"),
-            IMachineManagerFacet.TeeStatus.PRODUCTION,
+            IMachineManager.TeeStatus.PRODUCTION,
             "https://tee.url"
         );
 
@@ -285,7 +285,7 @@ contract WalletResumeFacetTest is Test {
         bytes32 keyType = flareTeeManager.getKeyType(flareTeeManager.getWalletProjectId(_walletId));
         bytes32 signingAlgo = flareTeeManager.getSigningAlgo(flareTeeManager.getWalletProjectId(_walletId));
 
-        IWalletKeyManagerFacet.KeyExistence memory proof;
+        IWalletKeyManager.KeyExistence memory proof;
         proof.teeId = teeAddr;
         proof.walletId = _walletId;
         proof.nonce = 0;

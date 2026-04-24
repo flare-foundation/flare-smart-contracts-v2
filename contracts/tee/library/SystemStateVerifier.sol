@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { ISystemStateVerifierFacet } from "../../userInterfaces/tee/ISystemStateVerifierFacet.sol";
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
+import { ISystemStateVerifier } from "../../userInterfaces/tee/ISystemStateVerifier.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { MachineManager } from "./MachineManager.sol";
 import { ExtensionManager } from "./ExtensionManager.sol";
 
@@ -21,17 +21,17 @@ library SystemStateVerifier {
         internal view
         returns (bool)
     {
-        IMachineManagerFacet.TeeMachineWithAttestationData memory teeMachine =
+        IMachineManager.TeeMachineWithAttestationData memory teeMachine =
             MachineManager.getTeeMachineWithAttestationData(_teeId);
         uint256 extensionId = MachineManager.getExtensionId(_teeId);
         bytes32 teeGovernanceHash = ExtensionManager.getTeeGovernanceHash(extensionId, teeMachine.codeHash);
         if (_stateVersion == bytes32(0)) {
             return _state.length == 0 && teeGovernanceHash == bytes32(0);
         }
-        ISystemStateVerifierFacet.TeeSystemState memory state =
-            abi.decode(_state, (ISystemStateVerifierFacet.TeeSystemState));
+        ISystemStateVerifier.TeeSystemState memory state =
+            abi.decode(_state, (ISystemStateVerifier.TeeSystemState));
         return
-            state.status == ISystemStateVerifierFacet.TeeMachineStatus.ACTIVE &&
+            state.status == ISystemStateVerifier.TeeMachineStatus.ACTIVE &&
             state.initialTeeId == teeMachine.initialTeeId &&
             state.teeGovernanceHash == teeGovernanceHash;
     }

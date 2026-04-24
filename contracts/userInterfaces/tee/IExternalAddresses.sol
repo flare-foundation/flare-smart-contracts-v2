@@ -4,12 +4,12 @@ pragma solidity >=0.7.6 <0.9;
 import { IAddressUpdatable } from "../IAddressUpdatable.sol";
 
 /**
- * @title IExternalAddressesFacet
+ * @title IExternalAddresses
  * @notice Public interface for the ExternalAddressesFacet.
  *         Provides getters for the address updater and external
  *         contract addresses resolved by the AddressUpdater.
  */
-interface IExternalAddressesFacet is IAddressUpdatable {
+interface IExternalAddresses is IAddressUpdatable {
 
     /**
      * Returns the FlareSystemsManager contract address.

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IWalletResumeFacet } from "../../userInterfaces/tee/IWalletResumeFacet.sol";
-import { IWalletManagerFacet, WALLET_OP_TYPE } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
-import { IInstructionsFacet } from "../../userInterfaces/tee/IInstructionsFacet.sol";
+import { IWalletResume } from "../../userInterfaces/tee/IWalletResume.sol";
+import { IWalletManager, WALLET_OP_TYPE } from "../../userInterfaces/tee/IWalletManager.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { TeeIdKeyIdPair } from "../../userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { WalletManager } from "../library/WalletManager.sol";
 import { WalletKeyManager } from "../library/WalletKeyManager.sol";
@@ -16,7 +16,7 @@ import { WalletResume } from "../library/WalletResume.sol";
  * @title WalletResumeFacet
  * @notice Facet for TEE wallet pausing-address and resume operations.
  */
-contract WalletResumeFacet is IWalletResumeFacet {
+contract WalletResumeFacet is IWalletResume {
 
     bytes32 internal constant SET_PAUSING_ADDRESSES = bytes32("SET_PAUSING_ADDRESSES");
     bytes32 internal constant RESUME = bytes32("RESUME");
@@ -27,7 +27,7 @@ contract WalletResumeFacet is IWalletResumeFacet {
     }
 
     /**
-     * @inheritdoc IWalletResumeFacet
+     * @inheritdoc IWalletResume
      */
     function setPausingAddresses(
         bytes32 _walletId,
@@ -37,10 +37,10 @@ contract WalletResumeFacet is IWalletResumeFacet {
         external payable
         onlyOwner(_walletId)
     {
-        IWalletManagerFacet.WalletStatus walletStatus = WalletManager.getWalletStatus(_walletId);
+        IWalletManager.WalletStatus walletStatus = WalletManager.getWalletStatus(_walletId);
         require(
-            walletStatus == IWalletManagerFacet.WalletStatus.PRODUCTION
-                || walletStatus == IWalletManagerFacet.WalletStatus.PAUSED,
+            walletStatus == IWalletManager.WalletStatus.PRODUCTION
+                || walletStatus == IWalletManager.WalletStatus.PAUSED,
             OnlyProductionOrPausedStatus()
         );
         TeeIdKeyIdPair[] memory teeIdKeyIdPairs = WalletKeyManager.receivingTeesAndKeys(_walletId);
@@ -58,7 +58,7 @@ contract WalletResumeFacet is IWalletResumeFacet {
         Instructions.sendInstructions(
             bytes32(0),
             _toTeeIds(teeIdKeyIdPairs),
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 WALLET_OP_TYPE,
                 SET_PAUSING_ADDRESSES,
                 abi.encode(message),
@@ -70,7 +70,7 @@ contract WalletResumeFacet is IWalletResumeFacet {
     }
 
     /**
-     * @inheritdoc IWalletResumeFacet
+     * @inheritdoc IWalletResume
      */
     function resume(
         bytes32 _walletId,
@@ -80,10 +80,10 @@ contract WalletResumeFacet is IWalletResumeFacet {
         external payable
         onlyOwner(_walletId)
     {
-        IWalletManagerFacet.WalletStatus walletStatus = WalletManager.getWalletStatus(_walletId);
+        IWalletManager.WalletStatus walletStatus = WalletManager.getWalletStatus(_walletId);
         require(
-            walletStatus == IWalletManagerFacet.WalletStatus.PRODUCTION
-                || walletStatus == IWalletManagerFacet.WalletStatus.PAUSED,
+            walletStatus == IWalletManager.WalletStatus.PRODUCTION
+                || walletStatus == IWalletManager.WalletStatus.PAUSED,
             OnlyProductionOrPausedStatus()
         );
 
@@ -110,7 +110,7 @@ contract WalletResumeFacet is IWalletResumeFacet {
         Instructions.sendInstructions(
             bytes32(0),
             teeIds,
-            IInstructionsFacet.TeeInstructionParams(
+            IInstructions.TeeInstructionParams(
                 WALLET_OP_TYPE,
                 RESUME,
                 abi.encode(message),

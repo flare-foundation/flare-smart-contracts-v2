@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IIExternalAddressesFacet } from
-    "../interface/IIExternalAddressesFacet.sol";
-import { IExternalAddressesFacet } from
-    "../../userInterfaces/tee/IExternalAddressesFacet.sol";
+import { IIExternalAddresses } from
+    "../interface/IIExternalAddresses.sol";
+import { IExternalAddresses } from
+    "../../userInterfaces/tee/IExternalAddresses.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { ExternalAddresses } from "../library/ExternalAddresses.sol";
 
@@ -14,7 +14,7 @@ import { ExternalAddresses } from "../library/ExternalAddresses.sol";
  * @dev Inherits AddressUpdatable (which uses its own diamond-compatible storage slot)
  *      and overrides _updateContractAddresses to populate ExternalAddresses.
  */
-contract ExternalAddressesFacet is IIExternalAddressesFacet, AddressUpdatable {
+contract ExternalAddressesFacet is IIExternalAddresses, AddressUpdatable {
 
     /**
      * @dev Constructor sets addressUpdater to address(1) to prevent the implementation
@@ -23,27 +23,27 @@ contract ExternalAddressesFacet is IIExternalAddressesFacet, AddressUpdatable {
      */
     constructor() AddressUpdatable(address(1)) {}
 
-    /// @inheritdoc IExternalAddressesFacet
+    /// @inheritdoc IExternalAddresses
     function flareSystemsManager() external view returns (address) {
         return ExternalAddresses.getState().flareSystemsManager;
     }
 
-    /// @inheritdoc IExternalAddressesFacet
+    /// @inheritdoc IExternalAddresses
     function rewardManager() external view returns (address) {
         return ExternalAddresses.getState().rewardManager;
     }
 
-    /// @inheritdoc IExternalAddressesFacet
+    /// @inheritdoc IExternalAddresses
     function relay() external view returns (address) {
         return ExternalAddresses.getState().relay;
     }
 
-    /// @inheritdoc IExternalAddressesFacet
+    /// @inheritdoc IExternalAddresses
     function fdc2Hub() external view returns (address) {
         return ExternalAddresses.getState().fdc2Hub;
     }
 
-    /// @inheritdoc IExternalAddressesFacet
+    /// @inheritdoc IExternalAddresses
     function fdc2Verification() external view returns (address) {
         return ExternalAddresses.getState().fdc2Verification;
     }

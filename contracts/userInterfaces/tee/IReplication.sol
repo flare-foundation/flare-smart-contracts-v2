@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IMachineManagerFacet } from "./IMachineManagerFacet.sol";
+import { IMachineManager } from "./IMachineManager.sol";
 import { ITeeAvailabilityCheck } from "../fdc2/ITeeAvailabilityCheck.sol";
 
 /**
- * @title IReplicationFacet
+ * @title IReplication
  * @notice Public interface for the ReplicationFacet.
  */
-interface IReplicationFacet {
+interface IReplication {
 
     struct PauseForUpgrade {
         address teeId;
@@ -16,8 +16,8 @@ interface IReplicationFacet {
     }
 
     struct ReplicateTeeMachine {
-        IMachineManagerFacet.TeeMachineWithAttestationData oldTeeMachine;
-        IMachineManagerFacet.TeeMachineWithAttestationData newTeeMachine;
+        IMachineManager.TeeMachineWithAttestationData oldTeeMachine;
+        IMachineManager.TeeMachineWithAttestationData newTeeMachine;
     }
 
     event PauseBeforeUpgradeMinDurationSecondsSet(

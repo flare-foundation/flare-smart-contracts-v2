@@ -16,11 +16,11 @@ import {
 import { ITeePaymentsRegistry } from "../../../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
 import { ITeePayments } from "../../../../contracts/userInterfaces/tee/ITeePayments.sol";
 import {
-    IWalletProjectManagerFacet
-} from "../../../../contracts/userInterfaces/tee/IWalletProjectManagerFacet.sol";
+    IWalletProjectManager
+} from "../../../../contracts/userInterfaces/tee/IWalletProjectManager.sol";
 import {
-    IWalletManagerFacet
-} from "../../../../contracts/userInterfaces/tee/IWalletManagerFacet.sol";
+    IWalletManager
+} from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 // solhint-disable-next-line max-states-count
@@ -693,7 +693,7 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
     function _mockGetOwner(bytes32 _projectId, address _owner) internal {
         vm.mockCall(
             flareTeeManager,
-            abi.encodeWithSelector(IWalletProjectManagerFacet.getOwner.selector, _projectId),
+            abi.encodeWithSelector(IWalletProjectManager.getOwner.selector, _projectId),
             abi.encode(_owner)
         );
     }
@@ -709,7 +709,7 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
     function _mockGetWalletProjectId(bytes32 _walletId, bytes32 _projectId) internal {
         vm.mockCall(
             flareTeeManager,
-            abi.encodeWithSelector(IWalletManagerFacet.getWalletProjectId.selector, _walletId),
+            abi.encodeWithSelector(IWalletManager.getWalletProjectId.selector, _walletId),
             abi.encode(_projectId)
         );
     }

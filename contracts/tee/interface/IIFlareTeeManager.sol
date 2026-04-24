@@ -3,24 +3,24 @@ pragma solidity >=0.7.6 <0.9;
 
 import { IDiamondLoupe } from "../../diamond/interfaces/IDiamondLoupe.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import { IIDiamondGovernanceFacet } from "./IIDiamondGovernanceFacet.sol";
-import { IIExtensionManagerFacet } from "./IIExtensionManagerFacet.sol";
-import { IIInstructionsFacet } from "./IIInstructionsFacet.sol";
-import { IIVerificationFacet } from "./IIVerificationFacet.sol";
-import { IIOperationFeesFacet } from "./IIOperationFeesFacet.sol";
-import { IMachineManagerFacet } from "../../userInterfaces/tee/IMachineManagerFacet.sol";
-import { IWalletKeyManagerFacet } from "../../userInterfaces/tee/IWalletKeyManagerFacet.sol";
-import { IOwnerAllowlistFacet } from "../../userInterfaces/tee/IOwnerAllowlistFacet.sol";
-import { ISystemStateVerifierFacet } from "../../userInterfaces/tee/ISystemStateVerifierFacet.sol";
-import { IWalletManagerFacet } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
-import { IWalletResumeFacet } from "../../userInterfaces/tee/IWalletResumeFacet.sol";
-import { IWalletProjectManagerFacet } from "../../userInterfaces/tee/IWalletProjectManagerFacet.sol";
-import { IWalletBackupManagerFacet } from "../../userInterfaces/tee/IWalletBackupManagerFacet.sol";
-import { IVrfFacet } from "../../userInterfaces/tee/IVrfFacet.sol";
-import { IIReplicationFacet } from "./IIReplicationFacet.sol";
-import { IExtensionGovernanceFacet } from "../../userInterfaces/tee/IExtensionGovernanceFacet.sol";
-import { IUpgradeManagerFacet } from "../../userInterfaces/tee/IUpgradeManagerFacet.sol";
-import { IIExternalAddressesFacet } from "./IIExternalAddressesFacet.sol";
+import { IIDiamondGovernance } from "./IIDiamondGovernance.sol";
+import { IIExtensionManager } from "./IIExtensionManager.sol";
+import { IIInstructions } from "./IIInstructions.sol";
+import { IIVerification } from "./IIVerification.sol";
+import { IIOperationFees } from "./IIOperationFees.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
+import { IWalletKeyManager } from "../../userInterfaces/tee/IWalletKeyManager.sol";
+import { IOwnerAllowlist } from "../../userInterfaces/tee/IOwnerAllowlist.sol";
+import { ISystemStateVerifier } from "../../userInterfaces/tee/ISystemStateVerifier.sol";
+import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
+import { IWalletResume } from "../../userInterfaces/tee/IWalletResume.sol";
+import { IWalletProjectManager } from "../../userInterfaces/tee/IWalletProjectManager.sol";
+import { IWalletBackupManager } from "../../userInterfaces/tee/IWalletBackupManager.sol";
+import { IVrf } from "../../userInterfaces/tee/IVrf.sol";
+import { IIReplication } from "./IIReplication.sol";
+import { IExtensionGovernance } from "../../userInterfaces/tee/IExtensionGovernance.sol";
+import { IUpgradeManager } from "../../userInterfaces/tee/IUpgradeManager.sol";
+import { IIExternalAddresses } from "./IIExternalAddresses.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 
 /**
@@ -34,23 +34,23 @@ interface IIFlareTeeManager is
     IDiamondLoupe,
     IERC165,
     ITeeCommonErrors,
-    IIDiamondGovernanceFacet,
-    IIExtensionManagerFacet,
-    IIInstructionsFacet,
-    IMachineManagerFacet,
-    IIVerificationFacet,
-    IIOperationFeesFacet,
-    IOwnerAllowlistFacet,
-    IWalletKeyManagerFacet,
-    ISystemStateVerifierFacet,
-    IWalletManagerFacet,
-    IWalletResumeFacet,
-    IWalletProjectManagerFacet,
-    IWalletBackupManagerFacet,
-    IVrfFacet,
-    IIReplicationFacet,
-    IExtensionGovernanceFacet,
-    IUpgradeManagerFacet,
-    IIExternalAddressesFacet
+    IIDiamondGovernance,
+    IIExtensionManager,
+    IIInstructions,
+    IMachineManager,
+    IIVerification,
+    IIOperationFees,
+    IOwnerAllowlist,
+    IWalletKeyManager,
+    ISystemStateVerifier,
+    IWalletManager,
+    IWalletResume,
+    IWalletProjectManager,
+    IWalletBackupManager,
+    IVrf,
+    IIReplication,
+    IExtensionGovernance,
+    IUpgradeManager,
+    IIExternalAddresses
 {
 }

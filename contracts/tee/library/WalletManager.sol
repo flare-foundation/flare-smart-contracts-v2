@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IWalletManagerFacet } from "../../userInterfaces/tee/IWalletManagerFacet.sol";
+import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
 import { PublicKeyUtils } from "../../utils/lib/PublicKeyUtils.sol";
@@ -16,7 +16,7 @@ library WalletManager {
 
     struct TeeWalletState {
         bytes32 projectId;
-        IWalletManagerFacet.WalletStatus status;
+        IWalletManager.WalletStatus status;
         PublicKey[] adminsPublicKeys;
         uint64 adminsThreshold;
         mapping(address admin => bool) adminConfirmations;
@@ -49,7 +49,7 @@ library WalletManager {
         bytes32 _walletId
     )
         internal view
-        returns (IWalletManagerFacet.WalletStatus)
+        returns (IWalletManager.WalletStatus)
     {
         return getState().wallets[_walletId].status;
     }
@@ -100,8 +100,8 @@ library WalletManager {
     }
 
     function checkWalletStatus(
-        IWalletManagerFacet.WalletStatus _actualStatus,
-        IWalletManagerFacet.WalletStatus _expectedStatus
+        IWalletManager.WalletStatus _actualStatus,
+        IWalletManager.WalletStatus _expectedStatus
     )
         internal pure
     {

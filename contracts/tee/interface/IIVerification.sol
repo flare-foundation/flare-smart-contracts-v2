@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IVerificationFacet } from "../../userInterfaces/tee/IVerificationFacet.sol";
+import { IVerification } from "../../userInterfaces/tee/IVerification.sol";
 
 /**
- * @title IIVerificationFacet
+ * @title IIVerification
  * @notice Internal interface for the VerificationFacet.
  * @dev Contains governance-only methods: setCosigners, updateSettings.
  */
-interface IIVerificationFacet is IVerificationFacet {
+interface IIVerification is IVerification {
 
     /**
      * Sets the FDC2 cosigners and their threshold used for the TEE machine registration.

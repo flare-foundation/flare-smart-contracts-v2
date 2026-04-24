@@ -4,7 +4,7 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
-import { IOperationFeesFacet } from "../../../../contracts/userInterfaces/tee/IOperationFeesFacet.sol";
+import { IOperationFees } from "../../../../contracts/userInterfaces/tee/IOperationFees.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
@@ -83,7 +83,7 @@ contract OperationFeesFacetTest is Test {
 
         vm.prank(initialGovernance);
         vm.expectEmit();
-        emit IOperationFeesFacet.OperationFeesSet(opTypes, opCommands, fees);
+        emit IOperationFees.OperationFeesSet(opTypes, opCommands, fees);
         flareTeeManager.setOperationFees(opTypes, opCommands, fees);
 
         // assert
@@ -101,7 +101,7 @@ contract OperationFeesFacetTest is Test {
     function testSetDefaultFee() public {
         vm.prank(initialGovernance);
         vm.expectEmit();
-        emit IOperationFeesFacet.DefaultFeeSet(defaultFee + 1);
+        emit IOperationFees.DefaultFeeSet(defaultFee + 1);
         flareTeeManager.setDefaultFee(defaultFee + 1);
     }
 

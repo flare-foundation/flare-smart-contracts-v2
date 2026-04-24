@@ -5,10 +5,10 @@ import { PublicKey } from "../IPublicKey.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 /**
- * @title IWalletBackupManagerFacet
+ * @title IWalletBackupManager
  * @notice Public interface for the WalletBackupManagerFacet.
  */
-interface IWalletBackupManagerFacet is ITeeCommonErrors {
+interface IWalletBackupManager is ITeeCommonErrors {
 
     struct KeyDataProviderRestore {
         PublicKey teePublicKey;

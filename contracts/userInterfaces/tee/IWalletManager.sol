@@ -7,10 +7,10 @@ import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 bytes32 constant WALLET_OP_TYPE = bytes32("F_WALLET");
 
 /**
- * @title IWalletManagerFacet
+ * @title IWalletManager
  * @notice Public interface for the WalletManagerFacet.
  */
-interface IWalletManagerFacet is ITeeCommonErrors {
+interface IWalletManager is ITeeCommonErrors {
 
     enum WalletStatus {
         CREATED,
