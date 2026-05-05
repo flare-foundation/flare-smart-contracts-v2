@@ -14,6 +14,10 @@ This repository implements solidity contracts for Flare Systems Protocol (FSP) a
 
 A comprehensive diagram of all V1 and V2 smart contracts is available [here](https://content.flare.network/flare-smart-contracts-v1-v2-all_with_background.svg).
 
+## Documentation
+
+In-tree protocol documentation lives under [`docs/specs/`](./docs/specs/) — start at the [index](./docs/specs/index.md) for navigation. The docs cover FSP, FTSO, FDC + FDC2, FCC, plus governance / staking / RNat / inflation, all written code-first against the contracts on this branch.
+
 ## Development and contribution
 
 If you want to use FTSO or FDC in your project, start on [developer hub - FTSO](https://dev.flare.network/ftso/overview) or [developer hub - FDC](https://dev.flare.network/fdc/overview).

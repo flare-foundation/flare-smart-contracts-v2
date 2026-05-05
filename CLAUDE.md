@@ -61,6 +61,23 @@ pnpm format:check          # Prettier formatting
 pnpm coverage-forge        # Coverage (runs all Forge tests)
 ```
 
+Also: **update [`docs/specs/`](./docs/specs/) to reflect any code changes you made** — see the [Documentation](#documentation) section below.
+
+## Documentation
+
+Protocol docs live under [`docs/specs/`](./docs/specs/), organized by sub-protocol (FSP, FTSO, FDC, FCC) plus the cross-cutting modules (governance, staking, RNat, inflation). Docs are written **code-first**: every claim should be traceable to a `.sol` file on the current branch, and citations use markdown links of the form `[ContractName](../../../contracts/.../X.sol)`.
+
+**Whenever code changes, update the matching docs in the same PR.** Specifically:
+
+- **Add / remove a contract, facet, library, or public method** → update the relevant module doc(s) and [`docs/specs/ApiReference.md`](./docs/specs/ApiReference.md) if a public `I*` interface is added, removed, or has its surface changed.
+- **Change behavior** (method semantics, events emitted, modifiers, state transitions, validation rules, fee math, access control) → update the prose that describes it. Re-read the affected doc end-to-end after the code change to make sure the surrounding context still holds.
+- **Rename** a contract, function, or field → update every prose citation. Code-symbol citations in docs must match the actual code verbatim (including British spellings like `normalisedWeights` when the field is named that way).
+- **Update** event signatures, error names, or struct shapes → propagate to any doc that quotes the shape.
+
+Trivial changes (whitespace, comment-only edits, test-only edits, pure refactors that preserve behavior, NatSpec updates, formatting) don't require doc updates. The goal is that `docs/specs/` always reflects current contract behavior on this branch.
+
+If the doc change is non-trivial, consider committing it as a separate `docs:` commit alongside the code commit rather than bundling everything into one large diff.
+
 ## Project Structure
 
 ```
