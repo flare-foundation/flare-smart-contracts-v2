@@ -12,6 +12,16 @@ export interface ISigningPolicy {
   encodedLength?: number;  // used only as a parsing result when parsing signing policy encoded into Relay message
 }
 
+export interface SigningPolicyInitializedEvent {
+  rewardEpochId: string | number;
+  startVotingRoundId: string | number;
+  threshold: string | number;
+  seed: string;
+  voters: string[];
+  weights: string[] | number[];
+  signingPolicyBytes?: string;
+  timestamp?: string | number;
+}
 export namespace SigningPolicy {
 
   //////////////////////////////////////////////////////////////////////////////
@@ -143,9 +153,9 @@ export namespace SigningPolicy {
    */
   export function hashEncoded(signingPolicy: string) {
     const signingPolicyInternal = signingPolicy.startsWith("0x") ? signingPolicy.slice(2) : signingPolicy;
-    const splitted = signingPolicyInternal.match(/.{1,64}/g)!.map(x => x.padEnd(64, "0"))!;
-    let hash: string = ethers.keccak256("0x" + splitted[0] + splitted[1])!;
-    for (let i = 2; i < splitted!.length; i++) {
+    const splitted = signingPolicyInternal.match(/.{1,64}/g)!.map(x => x.padEnd(64, "0"));
+    let hash: string = ethers.keccak256("0x" + splitted[0] + splitted[1]);
+    for (let i = 2; i < splitted.length; i++) {
       hash = ethers.keccak256("0x" + hash.slice(2) + splitted[i])!;
     }
     return hash;
@@ -153,8 +163,8 @@ export namespace SigningPolicy {
 
   /**
    * Normalizes addresses in signing policy by converting them to lower case.
-   * @param signingPolicy 
-   * @returns 
+   * @param signingPolicy
+   * @returns
    */
   export function normalizeAddresses(signingPolicy: ISigningPolicy) {
     signingPolicy.voters = signingPolicy.voters.map(x => x.toLowerCase());
@@ -162,8 +172,8 @@ export namespace SigningPolicy {
   }
   /**
    * Calculates signing policy hash from signing policy object
-   * @param signingPolicy 
-   * @returns 
+   * @param signingPolicy
+   * @returns
    */
   export function hash(signingPolicy: ISigningPolicy) {
     return SigningPolicy.hashEncoded(SigningPolicy.encode(signingPolicy));
@@ -172,9 +182,9 @@ export namespace SigningPolicy {
   /**
    * Checks if two signing policies are equal as objects. Essentially checks if all properties are equal,
    * except the encodedLength property.
-   * @param signingPolicy1 
-   * @param signingPolicy2 
-   * @returns 
+   * @param signingPolicy1
+   * @param signingPolicy2
+   * @returns
    */
   export function equals(signingPolicy1: ISigningPolicy, signingPolicy2: ISigningPolicy) {
     const test = signingPolicy1.rewardEpochId === signingPolicy2.rewardEpochId &&
@@ -191,7 +201,7 @@ export namespace SigningPolicy {
       if(signingPolicy1.voters[i].toLowerCase() !== signingPolicy2.voters[i].toLowerCase() || signingPolicy1.weights[i] !== signingPolicy2.weights[i]) {
         return false;
       }
-    }  
+    }
     return true;
   }
 

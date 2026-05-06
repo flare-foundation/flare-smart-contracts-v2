@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/staking/implementation/ValidatorRewardOffersManager.sol";
-import "../../../../contracts/protocol/implementation/RewardManager.sol";
+import { Test } from "forge-std/Test.sol";
+import {
+    ValidatorRewardOffersManager
+} from "../../../../contracts/staking/implementation/ValidatorRewardOffersManager.sol";
+import { RewardManager } from "../../../../contracts/protocol/implementation/RewardManager.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { IValidatorRewardOffersManager } from "../../../../contracts/userInterfaces/IValidatorRewardOffersManager.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract ValidatorRewardOffersManagerTest is Test {
 
@@ -25,13 +30,6 @@ contract ValidatorRewardOffersManagerTest is Test {
     address private sender;
 
     uint64 internal constant DAY = 1 days;
-
-    event InflationRewardsOffered(
-        // reward epoch id
-        uint24 indexed rewardEpochId,
-        // amount (in wei) of reward in native coin
-        uint256 amount
-    );
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -127,7 +125,7 @@ contract ValidatorRewardOffersManagerTest is Test {
         // totalRewardAmount = 5000 * DAY / (2*DAY - DAY) = 5000
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit IValidatorRewardOffersManager.InflationRewardsOffered(
             2 + 1,
             5000
         );
@@ -142,7 +140,7 @@ contract ValidatorRewardOffersManagerTest is Test {
         // totalInflationReceivedWei == totalInflationRewardsOfferedWei -> amounts should be zero
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit IValidatorRewardOffersManager.InflationRewardsOffered(
             2 + 1,
             0 // amount
         );
@@ -171,7 +169,7 @@ contract ValidatorRewardOffersManagerTest is Test {
         // totalRewardAmount = 1667 * DAY / DAY = 1667
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit IValidatorRewardOffersManager.InflationRewardsOffered(
             2 + 1,
             3333
         );
@@ -187,7 +185,7 @@ contract ValidatorRewardOffersManagerTest is Test {
         _mockGetCurrentEpochId(3);
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit IValidatorRewardOffersManager.InflationRewardsOffered(
             4,
             1667
         );

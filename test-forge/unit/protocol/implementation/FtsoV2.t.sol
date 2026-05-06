@@ -1,16 +1,27 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.22;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/FtsoV2.sol";
-import "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
-import "../../../../contracts/userInterfaces/IFeeCalculator.sol";
+import { Test } from "forge-std/Test.sol";
+import { FtsoV2 } from "../../../../contracts/protocol/implementation/FtsoV2.sol";
+import { IFtsoFeedPublisher } from "../../../../contracts/userInterfaces/IFtsoFeedPublisher.sol";
+import { IFastUpdatesConfiguration } from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
+import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
+import { ISFlr } from "../../../../contracts/customFeeds/implementation/SFlrCustomFeed.sol";
+import { FtsoV2Interface } from "../../../../contracts/userInterfaces/LTS/FtsoV2Interface.sol";
 import { FastUpdater } from "../../../../contracts/fastUpdates/implementation/FastUpdater.sol";
-import "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
-import "../../../../contracts/fastUpdates/implementation/FastUpdateIncentiveManager.sol";
-import "../../../../contracts/customFeeds/implementation/SFlrCustomFeed.sol";
-import "../../../../contracts/fastUpdates/implementation/FeeCalculator.sol";
-import "../../../../contracts/protocol/implementation/FtsoV2Proxy.sol";
+import {
+    FastUpdatesConfiguration
+} from "../../../../contracts/fastUpdates/implementation/FastUpdatesConfiguration.sol";
+import {
+    FastUpdateIncentiveManager
+} from "../../../../contracts/fastUpdates/implementation/FastUpdateIncentiveManager.sol";
+import { SFlrCustomFeed } from "../../../../contracts/customFeeds/implementation/SFlrCustomFeed.sol";
+import { FeeCalculator } from "../../../../contracts/fastUpdates/implementation/FeeCalculator.sol";
+import { FtsoV2Proxy } from "../../../../contracts/protocol/implementation/FtsoV2Proxy.sol";
+import { SampleSize, Fee, Range } from "../../../../contracts/fastUpdates/lib/FixedPointArithmetic.sol";
+import { IICustomFeed } from "../../../../contracts/customFeeds/interface/IICustomFeed.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/flare/IFlareContractRegistry.sol";
 
 // solhint-disable-next-line max-states-count
 contract FtsoV2Test is Test {
@@ -53,11 +64,6 @@ contract FtsoV2Test is Test {
 
     address private voter;
 
-    event CustomFeedAdded(bytes21 indexed feedId, IICustomFeed customFeed);
-    event CustomFeedReplaced(bytes21 indexed feedId, IICustomFeed oldCustomFeed, IICustomFeed newCustomFeed);
-    event CustomFeedRemoved(bytes21 indexed feedId);
-    event FeedIdChanged(bytes21 indexed oldFeedId, bytes21 indexed newFeedId);
-
     function setUp() public {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
@@ -98,12 +104,12 @@ contract FtsoV2Test is Test {
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            FPA.SampleSize.wrap(SAMPLE_SIZE),
-            FPA.Range.wrap(RANGE),
-            FPA.SampleSize.wrap(SAMPLE_INCREASE_LIMIT),
-            FPA.Range.wrap(RANGE_INCREASE_LIMIT),
-            FPA.Fee.wrap(SAMPLE_SIZE_INCREASE_PRICE),
-            FPA.Fee.wrap(RANGE_INCREASE_PRICE),
+            SampleSize.wrap(SAMPLE_SIZE),
+            Range.wrap(RANGE),
+            SampleSize.wrap(SAMPLE_INCREASE_LIMIT),
+            Range.wrap(RANGE_INCREASE_LIMIT),
+            Fee.wrap(SAMPLE_SIZE_INCREASE_PRICE),
+            Fee.wrap(RANGE_INCREASE_PRICE),
             DURATION
         );
 
@@ -444,7 +450,7 @@ contract FtsoV2Test is Test {
         assertEq(ftsoV2.getSupportedFeedIds().length, 0);
         assertEq(ftsoV2.getCustomFeeds().length, 0);
         vm.expectEmit();
-        emit CustomFeedAdded(sflrFeedId, sFlrCustomFeed);
+        emit FtsoV2.CustomFeedAdded(sflrFeedId, sFlrCustomFeed);
         _addSFlrCustomFeed();
         assertEq(ftsoV2.getSupportedFeedIds().length, 1);
         assertEq(ftsoV2.getCustomFeeds()[0].feedId, sflrFeedId);
@@ -493,7 +499,7 @@ contract FtsoV2Test is Test {
         customFeeds[0] = newFeed;
         vm.prank(governance);
         vm.expectEmit();
-        emit CustomFeedReplaced(sflrFeedId, sFlrCustomFeed, newFeed);
+        emit FtsoV2.CustomFeedReplaced(sflrFeedId, sFlrCustomFeed, newFeed);
         ftsoV2.replaceCustomFeeds(customFeeds);
         assertEq(ftsoV2.getCustomFeeds().length, 1);
         assertEq(ftsoV2.getCustomFeeds()[0].feedId, sflrFeedId);
@@ -810,7 +816,7 @@ contract FtsoV2Test is Test {
         feedIdChanges[0] = FtsoV2Interface.FeedIdChange(bytes21("oldSGB"), bytes21("SGB"));
         vm.prank(governance);
         vm.expectEmit();
-        emit FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
+        emit FtsoV2Interface.FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
         ftsoV2.changeFeedIds(feedIdChanges);
 
         // calculate fee
@@ -834,9 +840,9 @@ contract FtsoV2Test is Test {
         feedIdChanges[1] = FtsoV2Interface.FeedIdChange(bytes21("oldBTC"), bytes21("BTC"));
         vm.prank(governance);
         vm.expectEmit();
-        emit FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
+        emit FtsoV2Interface.FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
         vm.expectEmit();
-        emit FeedIdChanged(feedIdChanges[1].oldFeedId, feedIdChanges[1].newFeedId);
+        emit FtsoV2Interface.FeedIdChanged(feedIdChanges[1].oldFeedId, feedIdChanges[1].newFeedId);
         ftsoV2.changeFeedIds(feedIdChanges);
         assertEq(ftsoV2.getFeedIdChanges().length, 2);
         assertEq(ftsoV2.getFeedIdChanges()[0].oldFeedId, bytes21("oldSGB"));
@@ -866,7 +872,7 @@ contract FtsoV2Test is Test {
         feedIdChanges[0] = FtsoV2Interface.FeedIdChange(bytes21("oldSGB"), bytes21(0));
         vm.prank(governance);
         vm.expectEmit();
-        emit FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
+        emit FtsoV2Interface.FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
         ftsoV2.changeFeedIds(feedIdChanges);
         assertEq(ftsoV2.getFeedIdChanges().length, 2);
         assertEq(ftsoV2.getFeedIdChanges()[0].oldFeedId, bytes21("oldETH"));
@@ -930,7 +936,7 @@ contract FtsoV2Test is Test {
         feedIdChanges[0] = FtsoV2Interface.FeedIdChange(bytes21("oldSGB"), bytes21("newSGB"));
         vm.prank(governance);
         vm.expectEmit();
-        emit FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
+        emit FtsoV2Interface.FeedIdChanged(feedIdChanges[0].oldFeedId, feedIdChanges[0].newFeedId);
         ftsoV2.changeFeedIds(feedIdChanges);
         assertEq(ftsoV2.getFeedIdChanges().length, 1);
         assertEq(ftsoV2.getFeedIdChanges()[0].oldFeedId, bytes21("oldSGB"));
@@ -979,7 +985,7 @@ contract FtsoV2Test is Test {
         IICustomFeed[] memory customFeeds = new IICustomFeed[](1);
         customFeeds[0] = sFlrCustomFeed;
         vm.expectEmit();
-        emit CustomFeedAdded(sflrFeedId, sFlrCustomFeed);
+        emit FtsoV2.CustomFeedAdded(sflrFeedId, sFlrCustomFeed);
         vm.prank(governance);
         ftsoV2.upgradeToAndCall(
             address(newFtsoV2Impl),

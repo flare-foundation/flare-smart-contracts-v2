@@ -1,22 +1,25 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "flare-smart-contracts/contracts/genesis/interface/IFlareDaemonize.sol";
-import "../../governance/implementation/Governed.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../utils/lib/SafePct.sol";
-import "../interface/IIRewardEpochSwitchoverTrigger.sol";
-import "../interface/IIVoterRegistrationTrigger.sol";
-import "../interface/IICleanupBlockNumberManager.sol";
-import "../interface/IIFlareSystemsManager.sol";
-import "../interface/IIVoterRegistry.sol";
-import "../interface/IIRewardManager.sol";
-import "../interface/IIRelay.sol";
-import "../interface/IISubmission.sol";
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { IFlareDaemonize } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IFlareDaemonize.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { ProtocolsV2Interface } from "../../userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { SafePct } from "../../utils/lib/SafePct.sol";
+import { IIRewardEpochSwitchoverTrigger } from "../interface/IIRewardEpochSwitchoverTrigger.sol";
+import { IIVoterRegistrationTrigger } from "../interface/IIVoterRegistrationTrigger.sol";
+import { IICleanupBlockNumberManager } from "../interface/IICleanupBlockNumberManager.sol";
+import { IIFlareSystemsManager } from "../interface/IIFlareSystemsManager.sol";
+import { IIVoterRegistry } from "../interface/IIVoterRegistry.sol";
+import { IIRewardManager } from "../interface/IIRewardManager.sol";
+import { IIRelay } from "../interface/IIRelay.sol";
+import { IISubmission } from "../interface/IISubmission.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * FlareSystemsManager is responsible for initialization of reward epochs and voting rounds using FlareDaemon calls.

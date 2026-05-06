@@ -1,15 +1,28 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../contracts/protocol/implementation/VoterRegistry.sol";
-import "../../contracts/protocol/implementation/EntityManager.sol";
-import "../../contracts/protocol/implementation/FlareSystemsCalculator.sol";
-import "../../contracts/protocol/implementation/FlareSystemsManager.sol";
-import "../mock/MockNodePossessionVerification.sol";
-import "../mock/MockPublicKeyVerification.sol";
-import "../../contracts/protocol/implementation/VoterPreRegistry.sol";
+import { Test } from "forge-std/Test.sol";
+import { VoterRegistry } from "../../contracts/protocol/implementation/VoterRegistry.sol";
+import { EntityManager } from "../../contracts/protocol/implementation/EntityManager.sol";
+import { FlareSystemsCalculator } from "../../contracts/protocol/implementation/FlareSystemsCalculator.sol";
+import { FlareSystemsManager } from "../../contracts/protocol/implementation/FlareSystemsManager.sol";
+import { MockNodePossessionVerification } from "../mock/MockNodePossessionVerification.sol";
+import { MockPublicKeyVerification } from "../mock/MockPublicKeyVerification.sol";
+import { VoterPreRegistry } from "../../contracts/protocol/implementation/VoterPreRegistry.sol";
 import { RandomNumberV2Interface } from "../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { IRelay } from "../../contracts/userInterfaces/IRelay.sol";
+import { IEntityManager } from "../../contracts/userInterfaces/IEntityManager.sol";
+import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
+import { Signature } from "../../contracts/userInterfaces/ISignature.sol";
+import { IFlareSystemsManager } from "../../contracts/userInterfaces/IFlareSystemsManager.sol";
+import { IWNatDelegationFee } from "../../contracts/userInterfaces/IWNatDelegationFee.sol";
+import { IVoterRegistry } from "../../contracts/userInterfaces/IVoterRegistry.sol";
+import { IVoterPreRegistry } from "../../contracts/userInterfaces/IVoterPreRegistry.sol";
+import { IIRelay } from "../../contracts/protocol/interface/IIRelay.sol";
+import { IISubmission } from "../../contracts/protocol/interface/IISubmission.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+
 // solhint-disable-next-line max-states-count
 contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
@@ -52,8 +65,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     address[] private initialSubmitAddresses;
     address[] private initialSubmitSignaturesAddresses;
     address[] private initialSigningPolicyAddresses;
-    bytes32[] private initialPublicKeyParts1;
-    bytes32[] private initialPublicKeyParts2;
+    PublicKey[] private initialPublicKeys;
     bytes20[][] private initialNodeIds;
     uint256[] private initialVotersRegistrationWeight;
     IEntityManager.VoterAddresses[] private initialVotersRegisteredAddresses;
@@ -65,7 +77,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     bytes private validPublicKeyData = abi.encode(1, 2, 3);
     bytes20[] private voter3RegisteredNodesAtVpBlock;
     uint256[] private voter3RegisteredPChainVPAtVpBlock;
-    IVoterRegistry.Signature private signature;
+    Signature private signature;
     IFlareSystemsManager.Signature private signatureFSM;
 
     bytes32 private newSigningPolicyHash;
@@ -78,40 +90,6 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
     bytes private certificateRawTest;
     bytes private signatureTest;
-
-    event BeneficiaryChilled(bytes20 indexed beneficiary, uint256 untilRewardEpochId);
-    event VoterRemoved(address indexed voter, uint256 indexed rewardEpochId);
-    event VoterRegistered(
-        address indexed voter,
-        uint24 indexed rewardEpochId,
-        address indexed signingPolicyAddress,
-        address submitAddress,
-        address submitSignaturesAddress,
-        bytes32 publicKeyPart1,
-        bytes32 publicKeyPart2,
-        uint256 registrationWeight
-    );
-    event VotePowerBlockSelected(
-        uint24 indexed rewardEpochId,   // Reward epoch id
-        uint64 votePowerBlock,          // Vote power block for given reward epoch
-        uint64 timestamp                // Timestamp when this happened
-    );
-    event SigningPolicySigned(
-        uint24 indexed rewardEpochId,           // Reward epoch id
-        address indexed signingPolicyAddress,   // Address which signed this
-        address indexed voter,                  // Voter (entity)
-        uint64 timestamp,                       // Timestamp when this happened
-        bool thresholdReached                   // Indicates if signing threshold was reached
-    );
-    event UptimeVoteSigned(
-        uint24 indexed rewardEpochId,           // Reward epoch id
-        address indexed signingPolicyAddress,   // Address which signed this
-        address indexed voter,                  // Voter (entity)
-        bytes32 uptimeVoteHash,                 // Uptime vote hash
-        uint64 timestamp,                       // Timestamp when this happened
-        bool thresholdReached                   // Indicates if signing threshold was reached
-    );
-    event VoterPreRegistered(address indexed voter, uint256 indexed rewardEpochId);
 
     function setUp() public {
         vm.warp(1000);
@@ -310,15 +288,15 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             signature = _createSigningPolicyAddressSignature(i, 1);
             vm.expectEmit();
-            emit VoterRegistered(
+            emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
-                uint24(1),
+                uint32(1),
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
-                initialVotersRegistrationWeight[i]
+                initialPublicKeys[i],
+                initialVotersRegistrationWeight[i],
+                signature
             );
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
@@ -424,15 +402,15 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         for (uint256 i = 0; i < initialVoters.length - 1; i++) {
             signature = _createSigningPolicyAddressSignature(i, 1);
             vm.expectEmit();
-            emit VoterRegistered(
+            emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
-                uint24(1),
+                uint32(1),
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
-                initialVotersRegistrationWeight[i]
+                initialPublicKeys[i],
+                initialVotersRegistrationWeight[i],
+                signature
             );
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
@@ -440,10 +418,10 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         // voter2 tries to register again, this time with its delegation address (initialDelegationAddresses[2])
         // for its delegation address it did not register delegation address
         // -> it defaults to initialDelegationAddresses[2] -> should revert
-        bytes32 messageHash = keccak256(abi.encode(1, initialDelegationAddresses[2]));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, 1, initialDelegationAddresses[2]));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(fakeSubmitSignatureAddressPK, signedMessageHash);
-        signature = IVoterRegistry.Signature(v, r, s);
+        signature = Signature(v, r, s);
         vm.expectRevert("delegation address not set");
         voterRegistry.registerVoter(initialDelegationAddresses[2], signature);
 
@@ -501,8 +479,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             entityManager.proposeSigningPolicyAddress(initialSigningPolicyAddresses[i]);
             if (i == 0) {
                 entityManager.registerPublicKey(
-                    initialPublicKeyParts1[i],
-                    initialPublicKeyParts2[i],
+                    initialPublicKeys[i].x,
+                    initialPublicKeys[i].y,
                     validPublicKeyData
                 );
             }
@@ -602,15 +580,15 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         for (uint256 i = 1; i < initialVoters.length - 1; i++) {
             signature = _createSigningPolicyAddressSignature(i, 1);
             vm.expectEmit();
-            emit VoterRegistered(
+            emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
-                uint24(1),
+                uint32(1),
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
-                initialVotersRegistrationWeight[i]
+                initialPublicKeys[i],
+                initialVotersRegistrationWeight[i],
+                signature
             );
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
@@ -618,10 +596,10 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         // register voter3; did not register its addresses before new signing policy initialization start block number
         // therefore its signing policy address is the same as its voter address
         // should not be able to register
-        bytes32 messageHash = keccak256(abi.encode(1, initialVoters[3]));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, 1, initialVoters[3]));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersPK[3], signedMessageHash);
-        signature = IVoterRegistry.Signature(v, r, s);
+        signature = Signature(v, r, s);
         voter3RegisteredNodesAtVpBlock = new bytes20[](2);
         voter3RegisteredNodesAtVpBlock[0] = initialNodeIds[3][0];
         voter3RegisteredNodesAtVpBlock[1] = initialNodeIds[3][1];
@@ -741,15 +719,15 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             signature = _createSigningPolicyAddressSignature(i, 2);
             vm.expectEmit();
-            emit VoterRegistered(
+            emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
-                uint24(2),
+                uint32(2),
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
-                initialVotersRegistrationWeight[i]
+                initialPublicKeys[i],
+                initialVotersRegistrationWeight[i],
+                signature
             );
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
@@ -884,7 +862,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[1], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         vm.expectEmit();
-        emit UptimeVoteSigned(
+        emit IFlareSystemsManager.UptimeVoteSigned(
             1,
             initialSigningPolicyAddresses[1],
             initialVoters[1],
@@ -925,7 +903,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[2], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         vm.expectEmit();
-        emit SigningPolicySigned(
+        emit IFlareSystemsManager.SigningPolicySigned(
             2,
             initialSigningPolicyAddresses[2],
             initialVoters[2],
@@ -957,15 +935,15 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
                 vm.expectRevert("voter weight zero");
             } else {
                 vm.expectEmit();
-                emit VoterRegistered(
+                emit IVoterRegistry.VoterRegistered(
                     initialVoters[i],
-                    uint24(3),
+                    uint32(3),
                     initialSigningPolicyAddresses[i],
                     initialSubmitAddresses[i],
                     initialSubmitSignaturesAddresses[i],
-                    initialPublicKeyParts1[i],
-                    initialPublicKeyParts2[i],
-                    initialVotersRegistrationWeight[i]
+                    initialPublicKeys[i],
+                    initialVotersRegistrationWeight[i],
+                    signature
                 );
             }
             voterRegistry.registerVoter(initialVoters[i], signature);
@@ -1013,7 +991,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[1], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         vm.expectEmit();
-        emit SigningPolicySigned(
+        emit IFlareSystemsManager.SigningPolicySigned(
             3,
             initialSigningPolicyAddresses[1],
             initialVoters[1],
@@ -1026,7 +1004,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[3], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         vm.expectEmit();
-        emit SigningPolicySigned(
+        emit IFlareSystemsManager.SigningPolicySigned(
             3,
             initialSigningPolicyAddresses[3],
             initialVoters[3],
@@ -1122,41 +1100,41 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             signature = _createSigningPolicyAddressSignature(i, 4);
             vm.expectEmit();
             if (i == 1) {
-                bytes32 messageHashRegister = keccak256(abi.encode(4, initialVoters[i]));
+                bytes32 messageHashRegister = keccak256(abi.encode(block.chainid, 4, initialVoters[i]));
                 bytes32 signedMessageHashRegister = MessageHashUtils.toEthSignedMessageHash(messageHashRegister);
                 (v, r, s) = vm.sign(newSigningPolicyPK, signedMessageHashRegister);
-                signature = IVoterRegistry.Signature(v, r, s);
-                emit VoterRegistered(
+                signature = Signature(v, r, s);
+                emit IVoterRegistry.VoterRegistered(
                     initialVoters[i],
-                    uint24(4),
+                    uint32(4),
                     newSigningPolicyAddress,
                     initialSubmitAddresses[i],
                     initialSubmitSignaturesAddresses[i],
-                    initialPublicKeyParts1[i],
-                    initialPublicKeyParts2[i],
-                    initialVotersRegistrationWeight[i]
+                    initialPublicKeys[i],
+                    initialVotersRegistrationWeight[i],
+                    signature
                 );
             } else if (i != 3) {
-                emit VoterRegistered(
+                emit IVoterRegistry.VoterRegistered(
                     initialVoters[i],
-                    uint24(4),
+                    uint32(4),
                     initialSigningPolicyAddresses[i],
                     initialSubmitAddresses[i],
                     initialSubmitSignaturesAddresses[i],
-                    initialPublicKeyParts1[i],
-                    initialPublicKeyParts2[i],
-                    initialVotersRegistrationWeight[i]
+                    initialPublicKeys[i],
+                    initialVotersRegistrationWeight[i],
+                    signature
                 );
             } else {
-                emit VoterRegistered(
+                emit IVoterRegistry.VoterRegistered(
                     initialVoters[i],
-                    uint24(4),
+                    uint32(4),
                     initialSigningPolicyAddresses[i],
                     newSubmitAddress,
                     initialSubmitSignaturesAddresses[i],
-                    initialPublicKeyParts1[i],
-                    initialPublicKeyParts2[i],
-                    initialVotersRegistrationWeight[i]
+                    initialPublicKeys[i],
+                    initialVotersRegistrationWeight[i],
+                    signature
                 );
             }
             voterRegistry.registerVoter(initialVoters[i], signature);
@@ -1211,7 +1189,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[1], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         vm.expectEmit();
-        emit SigningPolicySigned(
+        emit IFlareSystemsManager.SigningPolicySigned(
             4,
             initialSigningPolicyAddresses[1],
             initialVoters[1],
@@ -1228,7 +1206,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[3], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         vm.expectEmit();
-        emit SigningPolicySigned(
+        emit IFlareSystemsManager.SigningPolicySigned(
             4,
             initialSigningPolicyAddresses[3],
             initialVoters[3],
@@ -1282,7 +1260,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[0], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         vm.expectEmit();
-        emit SigningPolicySigned(
+        emit IFlareSystemsManager.SigningPolicySigned(
             5,
             initialSigningPolicyAddresses[0],
             initialVoters[0],
@@ -1300,7 +1278,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(newSigningPolicyPK, signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         vm.expectEmit();
-        emit SigningPolicySigned(
+        emit IFlareSystemsManager.SigningPolicySigned(
             5,
             newSigningPolicyAddress,
             initialVoters[1],
@@ -1312,7 +1290,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[3], signedMessageHash);
         signatureFSM = IFlareSystemsManager.Signature(v, r, s);
         vm.expectEmit();
-        emit SigningPolicySigned(
+        emit IFlareSystemsManager.SigningPolicySigned(
             5,
             initialSigningPolicyAddresses[3],
             initialVoters[3],
@@ -1327,9 +1305,6 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         // set voter registration trigger contract on FSM
         vm.prank(governance);
         flareSystemsManager.setVoterRegistrationTriggerContract(voterPreRegistry);
-        // set system registration contract on voter registry
-        vm.prank(governance);
-        voterRegistry.setSystemRegistrationContractAddress(address(voterPreRegistry));
 
         uint64 currentTime = uint64(block.timestamp) + REWARD_EPOCH_DURATION_IN_SEC - 2 * 3600;
         vm.warp(currentTime);
@@ -1368,15 +1343,15 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             signature = _createSigningPolicyAddressSignature(i, 1);
             vm.expectEmit();
-            emit VoterRegistered(
+            emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
-                uint24(1),
+                uint32(1),
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
-                initialVotersRegistrationWeight[i]
+                initialPublicKeys[i],
+                initialVotersRegistrationWeight[i],
+                signature
             );
             voterRegistry.registerVoter(initialVoters[i], signature);
         }
@@ -1400,7 +1375,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         // pre-register voters
         for (uint256 i = 0; i < initialVoters.length; i++) {
             signature = _createSigningPolicyAddressSignature(i, currentEpochId + 1);
-            emit VoterPreRegistered(initialVoters[i], 11 + 1);
+            emit IVoterPreRegistry.VoterPreRegistered(initialVoters[i], 11 + 1);
             voterPreRegistry.preRegisterVoter(initialVoters[i], signature);
         }
         registeredAddresses = voterRegistry.getRegisteredVoters(2);
@@ -1426,16 +1401,17 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         initialVotersRegistrationWeight[2] = _calculateWeight(200 + 30 + 40);
         initialVotersRegistrationWeight[3] = _calculateWeight(200 + 40 + 50 + 60);
         for (uint256 i = 0; i < initialVoters.length; i++) {
-        vm.expectEmit();
-        emit VoterRegistered(
+            signature = _createSigningPolicyAddressSignature(i, currentEpochId + 1);
+            vm.expectEmit();
+            emit IVoterRegistry.VoterRegistered(
                 initialVoters[i],
-                uint24(2),
+                uint32(2),
                 initialSigningPolicyAddresses[i],
                 initialSubmitAddresses[i],
                 initialSubmitSignaturesAddresses[i],
-                initialPublicKeyParts1[i],
-                initialPublicKeyParts2[i],
-                initialVotersRegistrationWeight[i]
+                initialPublicKeys[i],
+                initialVotersRegistrationWeight[i],
+                signature
             );
         }
         // trigger voter registration
@@ -1448,7 +1424,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
     ////////
 
-    function _registerAddressesAndNodes() private {
+    function _registerAddressesAndNodes() internal {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             // register voters' addresses, public keys and node IDs
             vm.roll(block.number + 10);
@@ -1459,8 +1435,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             entityManager.proposeSigningPolicyAddress(initialSigningPolicyAddresses[i]);
             if (i == 0) {
                 entityManager.registerPublicKey(
-                    initialPublicKeyParts1[i],
-                    initialPublicKeyParts2[i],
+                    initialPublicKeys[i].x,
+                    initialPublicKeys[i].y,
                     validPublicKeyData
                 );
             }
@@ -1492,7 +1468,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         }
     }
 
-    function _setVotePowers(uint256 _vpBlock) private {
+    function _setVotePowers(uint256 _vpBlock) internal {
         for (uint256 i = 0; i < initialVoters.length; i++) {
             // set wNat voter power
             vm.mockCall(
@@ -1556,11 +1532,11 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
             // public keys
             if (i == 0) {
-                initialPublicKeyParts1.push(keccak256(abi.encode("publicKey1")));
-                initialPublicKeyParts2.push(keccak256(abi.encode("publicKey2")));
+                initialPublicKeys.push(
+                    PublicKey(keccak256(abi.encode("publicKey1")), keccak256(abi.encode("publicKey2")))
+                );
             } else {
-                initialPublicKeyParts1.push(bytes32(0));
-                initialPublicKeyParts2.push(bytes32(0));
+                initialPublicKeys.push();
             }
 
             initialNodeIds.push(new bytes20[](i));
@@ -1578,13 +1554,13 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
     )
         internal
         returns (
-            IVoterRegistry.Signature memory _signature
+            Signature memory _signature
         )
     {
-        bytes32 messageHash = keccak256(abi.encode(_nextRewardEpochId, initialVoters[_voterIndex]));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, _nextRewardEpochId, initialVoters[_voterIndex]));
         signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         (v, r, s) = vm.sign(initialVotersSigningPolicyPk[_voterIndex], signedMessageHash);
-        _signature = IVoterRegistry.Signature(v, r, s);
+        _signature = Signature(v, r, s);
     }
 
     function _mockGetVoterRegistrationData(uint256 _vpBlock, bool _enabled) internal {
@@ -1595,11 +1571,7 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         );
     }
 
-    function _calculateWeight(uint256 _value) internal view returns (uint256) {
-        return calculator.sqrt(_value) * calculator.sqrt(calculator.sqrt(_value));
-    }
-
-    function _mockToSigningPolicyHash(uint256 _epochId, bytes32 _hash) private {
+    function _mockToSigningPolicyHash(uint256 _epochId, bytes32 _hash) internal {
         vm.mockCall(
             mockRelay,
             abi.encodeWithSelector(IRelay.toSigningPolicyHash.selector, _epochId),
@@ -1625,5 +1597,9 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         );
         vm.prank(flareDaemon);
         flareSystemsManager.daemonize();
+    }
+
+    function _calculateWeight(uint256 _value) internal view returns (uint256) {
+        return calculator.sqrt(_value) * calculator.sqrt(calculator.sqrt(_value));
     }
 }

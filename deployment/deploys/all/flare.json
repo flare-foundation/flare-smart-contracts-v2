@@ -31,7 +31,8 @@
     "name": "NodePossessionVerifier",
     "contractName": "NodePossessionVerifier.sol",
     "addresses": [
-      "0x168F316F4f2FEd0AA99C3c73456ed11ba2FF8cB0"
+      "0x168F316F4f2FEd0AA99C3c73456ed11ba2FF8cB0",
+      "0x54380a03d5fe92bd5D95d31411886Faa85844A1b"
     ]
   },
   {
@@ -398,6 +399,13 @@
     "addresses": [
       "0xF51b848fd3fe825398514473BA366E6653EFc142",
       "0xa33EebB9Da61095a8bE132B6AA5CaDF30D7BE947"
+    ]
+  },
+  {
+    "name": "StXrpCustomFeed",
+    "contractName": "StXrpCustomFeed.sol",
+    "addresses": [
+      "0x69A25267E870D8DF434935583227a68a2Ce04208"
     ]
   },
   {

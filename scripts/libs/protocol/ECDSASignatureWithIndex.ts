@@ -63,10 +63,10 @@ export namespace ECDSASignatureWithIndex {
   /**
    * Encodes list of signatures with indices into 0x-prefixed hex string representing byte encoding
    * First 2 bytes are number of signatures
-   * @param signatures 
-   * @returns 
+   * @param signatures
+   * @returns
    */
-  export function encodeSignatureList(signatures: IECDSASignatureWithIndex[]): string {    
+  export function encodeSignatureList(signatures: IECDSASignatureWithIndex[]): string {
     let encoded = "0x" + signatures.length.toString(16).padStart(4, "0");
     for (const signature of signatures) {
       encoded += encode(signature).slice(2);
@@ -76,8 +76,8 @@ export namespace ECDSASignatureWithIndex {
 
   /**
    * Decodes list of signatures with indices from hex string (can be 0x-prefixed or not).
-   * @param encoded 
-   * @returns 
+   * @param encoded
+   * @returns
    */
   export function decodeSignatureList(encoded: string): IECDSASignatureWithIndex[] {
     const encodedInternal = encoded.startsWith("0x") ? encoded.slice(2) : encoded;
@@ -91,7 +91,7 @@ export namespace ECDSASignatureWithIndex {
     if(encodedInternal.length !== 4 + count * 134) {
       throw Error(`Invalid encoded signature list length: ${encodedInternal.length}`);
     }
-    let signatures: IECDSASignatureWithIndex[] = [];
+    const signatures: IECDSASignatureWithIndex[] = [];
     for (let i = 0; i < count; i++) {
       const signature = decode("0x" + encodedInternal.slice(4 + i * 134, 4 + (i + 1) * 134));
       signatures.push(signature);
@@ -101,10 +101,10 @@ export namespace ECDSASignatureWithIndex {
 
   /**
    * Signs message hash with ECDSA using private key
-   * @param messageHash 
-   * @param privateKey 
-   * @param index 
-   * @returns 
+   * @param messageHash
+   * @param privateKey
+   * @param index
+   * @returns
    */
   export async function signMessageHash(
     messageHash: string,
@@ -114,7 +114,7 @@ export namespace ECDSASignatureWithIndex {
     if (!/^0x[0-9a-f]{64}$/i.test(messageHash)) {
       throw Error(`Invalid message hash format: ${messageHash}`);
     }
-    let signatureObject = web3.eth.accounts.sign(messageHash, privateKey);
+    const signatureObject = web3.eth.accounts.sign(messageHash, privateKey);
     return {
       v: parseInt(signatureObject.v.slice(2), 16),
       r: signatureObject.r,
@@ -125,9 +125,9 @@ export namespace ECDSASignatureWithIndex {
 
   /**
    * Recovers signer address from message hash and signature
-   * @param messageHash 
-   * @param signature 
-   * @returns 
+   * @param messageHash
+   * @param signature
+   * @returns
    */
   export function recoverSigner(messageHash: string, signature: IECDSASignatureWithIndex): string {
     return web3.eth.accounts.recover(messageHash, "0x" + signature.v.toString(16), signature.r, signature.s).toLowerCase();
@@ -135,9 +135,9 @@ export namespace ECDSASignatureWithIndex {
 
   /**
    * Compares two signatures with indices
-   * @param a 
-   * @param b 
-   * @returns 
+   * @param a
+   * @param b
+   * @returns
    */
   export function equals(a: IECDSASignatureWithIndex, b: IECDSASignatureWithIndex): boolean {
     return a.v === b.v && a.r === b.r && a.s === b.s && a.index === b.index;

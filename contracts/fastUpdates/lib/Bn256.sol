@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import {G1Point} from "../../userInterfaces/IBn256.sol";
+import { G1Point } from "../../userInterfaces/IBn256.sol";
 
 /**
  * @title Operations on bn256 aka alt_bn128

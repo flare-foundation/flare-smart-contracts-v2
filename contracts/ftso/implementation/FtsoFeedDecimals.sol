@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "../../governance/implementation/Governed.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../userInterfaces/IFtsoFeedDecimals.sol";
-
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { IFtsoFeedDecimals } from "../../userInterfaces/IFtsoFeedDecimals.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FtsoFeedDecimals is Governed, AddressUpdatable, IFtsoFeedDecimals {
 

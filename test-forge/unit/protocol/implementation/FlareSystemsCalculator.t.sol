@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/FlareSystemsCalculator.sol";
+import { Test } from "forge-std/Test.sol";
+import { FlareSystemsCalculator } from "../../../../contracts/protocol/implementation/FlareSystemsCalculator.sol";
+import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
+import { IVoterRegistry } from "../../../../contracts/userInterfaces/IVoterRegistry.sol";
+import { IEntityManager } from "../../../../contracts/userInterfaces/IEntityManager.sol";
+import { IWNatDelegationFee } from "../../../../contracts/userInterfaces/IWNatDelegationFee.sol";
+import { IFlareSystemsCalculator } from "../../../../contracts/userInterfaces/IFlareSystemsCalculator.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract FlareSystemsCalculatorTest is Test {
     FlareSystemsCalculator private calculator;
@@ -17,17 +24,6 @@ contract FlareSystemsCalculatorTest is Test {
     uint256 internal constant TOTAL_WNAT_VOTE_POWER = 1e7;
     uint256 internal constant WNAT_WEIGHT = 2e5;
     uint16 internal constant DELEGATION_FEE_BIPS = 15;
-
-    event VoterRegistrationInfo(
-        address indexed voter,
-        uint24 indexed rewardEpochId,
-        address delegationAddress,
-        uint16 delegationFeeBIPS,
-        uint256 wNatWeight,
-        uint256 wNatCappedWeight,
-        bytes20[] nodeIds,
-        uint256[] nodeWeights
-    );
 
     function setUp() public {
         govSetting = IGovernanceSettings(makeAddr("govSetting"));
@@ -185,7 +181,7 @@ contract FlareSystemsCalculatorTest is Test {
         );
 
         vm.expectEmit();
-        emit VoterRegistrationInfo(
+        emit IFlareSystemsCalculator.VoterRegistrationInfo(
             voter,
             rewardEpochId,
             delegationAddress,
@@ -278,7 +274,7 @@ contract FlareSystemsCalculatorTest is Test {
         nodeWeights[1] = 0; // chilled
         nodeWeights[2] = 0; // chilled
         vm.expectEmit();
-        emit VoterRegistrationInfo(
+        emit IFlareSystemsCalculator.VoterRegistrationInfo(
             voter,
             rewardEpochId,
             delegationAddress,
@@ -369,7 +365,7 @@ contract FlareSystemsCalculatorTest is Test {
         nodeWeights[1] = 0;
         nodeWeights[2] = 0;
         vm.expectEmit();
-        emit VoterRegistrationInfo(
+        emit IFlareSystemsCalculator.VoterRegistrationInfo(
             voter,
             rewardEpochId,
             delegationAddress,

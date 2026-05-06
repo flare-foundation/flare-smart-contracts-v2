@@ -91,7 +91,7 @@ export class MockDBIndexer {
             firstDatabaseIndexState.index = block.number;
             firstDatabaseIndexState.block_timestamp = block.timestamp;
             firstDatabaseIndexState.updated = new Date();
-          }  
+          }
 
           lastDatabaseIndexState.index = block.number;
           lastDatabaseIndexState.block_timestamp = block.timestamp;
@@ -146,7 +146,7 @@ export class MockDBIndexer {
           await this.dataSource.getRepository(TLPEvents).save(event);
         }
       }
-    } catch (e) {
+    } catch {
       console.error(`Tx: ${JSON.stringify(tx, null, 2)}`);
     }
   }

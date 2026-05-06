@@ -11,33 +11,19 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { ChainParameters } from '../chain-config/chain-parameters';
 import { Contracts } from "./Contracts";
 import { spewNewContractInfo } from './deploy-utils';
-import { PChainStakeMirrorVerifierContract, PChainStakeMirrorVerifierInstance } from '../../typechain-truffle/contracts/staking/implementation/PChainStakeMirrorVerifier';
 import { FtsoConfigurations } from '../../scripts/libs/protocol/FtsoConfigurations';
-import { RNatContract } from '../../typechain-truffle/contracts/rNat/implementation/RNat';
-import { RNatAccountContract } from '../../typechain-truffle/contracts/rNat/implementation/RNatAccount';
-import { WNatContract } from '../../typechain-truffle/flattened/FlareSmartContracts.sol/WNat';
 import { RelayInitialConfig } from '../utils/RelayInitialConfig';
-import { RelayContract, RelayInstance } from '../../typechain-truffle/contracts/protocol/implementation/Relay';
-import { RewardManagerContract, RewardManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/RewardManager';
-import { FlareSystemsManagerContract, FlareSystemsManagerInstance } from '../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager';
-import { PollingFoundationContract } from '../../typechain-truffle/contracts/governance/implementation/PollingFoundation';
-import { PollingManagementGroupContract } from '../../typechain-truffle/contracts/governance/implementation/PollingManagementGroup';
-import { ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance } from '../../typechain-truffle/contracts/staking/implementation/ValidatorRewardOffersManager';
-import { FastUpdateIncentiveManagerContract, FastUpdateIncentiveManagerInstance } from '../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdateIncentiveManager';
-import { FastUpdaterContract } from '../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdater';
-import { FastUpdatesConfigurationContract, FastUpdatesConfigurationInstance } from '../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdatesConfiguration';
-import { FeeCalculatorContract } from '../../typechain-truffle/contracts/fastUpdates/implementation/FeeCalculator';
-import { FtsoManagerProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/FtsoManagerProxy';
-import { FtsoProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/FtsoProxy';
-import { FtsoV2Contract } from '../../typechain-truffle/contracts/protocol/implementation/FtsoV2';
-import { FtsoV2ProxyContract } from '../../typechain-truffle/contracts/protocol/implementation/FtsoV2Proxy';
-import { PriceSubmitterProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/PriceSubmitterProxy';
-import { VoterWhitelisterProxyContract } from '../../typechain-truffle/contracts/fscV1/implementation/VoterWhitelisterProxy';
-import { FtsoRewardManagerProxyContract, FtsoRewardManagerProxyInstance } from '../../typechain-truffle/contracts/fscV1/implementation/FtsoRewardManagerProxy';
-import { EntityManagerContract } from '../../typechain-truffle/contracts/protocol/implementation/EntityManager';
-import { VoterRegistryContract } from '../../typechain-truffle/contracts/protocol/implementation/VoterRegistry';
-import { VoterPreRegistryContract } from '../../typechain-truffle/contracts/protocol/implementation/VoterPreRegistry';
-import { SFlrCustomFeedContract } from '../../typechain-truffle/contracts/customFeeds/implementation/SFlrCustomFeed.sol/SFlrCustomFeed';
+import {
+  PChainStakeMirrorVerifierContract, PChainStakeMirrorVerifierInstance, RNatContract, RNatAccountContract, WNatContract, RelayContract, RelayInstance, RewardManagerContract, RewardManagerInstance,
+  FlareSystemsManagerContract, FlareSystemsManagerInstance, PollingFoundationContract,
+  PollingManagementGroupContract, ValidatorRewardOffersManagerContract, ValidatorRewardOffersManagerInstance,
+  FastUpdateIncentiveManagerContract, FastUpdateIncentiveManagerInstance, FastUpdaterContract,
+  FastUpdatesConfigurationContract, FastUpdatesConfigurationInstance, FeeCalculatorContract,
+  FtsoManagerProxyContract, FtsoProxyContract, FtsoV2Contract, FtsoV2ProxyContract,
+  PriceSubmitterProxyContract, VoterWhitelisterProxyContract, FtsoRewardManagerProxyContract, FtsoRewardManagerProxyInstance, EntityManagerContract, VoterPreRegistryContract, SFlrCustomFeedContract, StXrpCustomFeedContract
+
+} from '../../typechain-truffle';
+import { Account } from 'web3-core';
 
 export async function redeployContracts(
   hre: HardhatRuntimeEnvironment,
@@ -48,7 +34,7 @@ export async function redeployContracts(
 ) {
   const web3 = hre.web3;
   const artifacts = hre.artifacts;
-  const BN = web3.utils.toBN;
+  const BN = (value: string | number) => web3.utils.toBN(value);
 
   const initialDeploy = true;
   const deployRNat = false;
@@ -56,31 +42,31 @@ export async function redeployContracts(
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
   const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
-  const Relay: RelayContract = artifacts.require("Relay");
-  const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
-  const PollingFoundation: PollingFoundationContract = artifacts.require("PollingFoundation");
-  const PollingManagementGroup: PollingManagementGroupContract = artifacts.require("PollingManagementGroup");
-  const ValidatorRewardOffersManager: ValidatorRewardOffersManagerContract = artifacts.require("ValidatorRewardOffersManager");
-  const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract = artifacts.require("PChainStakeMirrorVerifier");
-  const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract = artifacts.require("FastUpdateIncentiveManager");
-  const FastUpdater: FastUpdaterContract = artifacts.require("FastUpdater");
-  const FastUpdatesConfiguration: FastUpdatesConfigurationContract = artifacts.require("FastUpdatesConfiguration");
-  const FeeCalculator: FeeCalculatorContract = artifacts.require("FeeCalculator");
-  const WNat: WNatContract = artifacts.require("WNat");
-  const RNat: RNatContract = artifacts.require("RNat");
-  const RNatAccount: RNatAccountContract = artifacts.require("RNatAccount");
-  const FtsoManagerProxy: FtsoManagerProxyContract = artifacts.require("FtsoManagerProxy");
-  const FtsoProxy: FtsoProxyContract = artifacts.require("FtsoProxy");
-  const FtsoV2Implementation: FtsoV2Contract = artifacts.require("FtsoV2");
-  const FtsoV2Proxy: FtsoV2ProxyContract = artifacts.require("FtsoV2Proxy");
-  const PriceSubmitterProxy: PriceSubmitterProxyContract = artifacts.require("PriceSubmitterProxy");
-  const VoterWhitelisterProxy: VoterWhitelisterProxyContract = artifacts.require("VoterWhitelisterProxy");
-  const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
-  const FtsoRewardManagerProxy: FtsoRewardManagerProxyContract = artifacts.require("FtsoRewardManagerProxy");
-  const EntityManager: EntityManagerContract = artifacts.require("EntityManager");
-  const VoterRegistry: VoterRegistryContract = artifacts.require("VoterRegistry");
-  const VoterPreRegistry: VoterPreRegistryContract = artifacts.require("VoterPreRegistry");
-  const SFlrCustomFeed: SFlrCustomFeedContract = artifacts.require("SFlrCustomFeed");
+  const Relay = artifacts.require("Relay") as RelayContract;
+  const FlareSystemsManager = artifacts.require("FlareSystemsManager") as FlareSystemsManagerContract;
+  const PollingFoundation = artifacts.require("PollingFoundation") as PollingFoundationContract;
+  const PollingManagementGroup = artifacts.require("PollingManagementGroup") as PollingManagementGroupContract;
+  const ValidatorRewardOffersManager = artifacts.require("ValidatorRewardOffersManager") as ValidatorRewardOffersManagerContract;
+  const PChainStakeMirrorVerifier = artifacts.require("PChainStakeMirrorVerifier") as PChainStakeMirrorVerifierContract;
+  const FastUpdateIncentiveManager = artifacts.require("FastUpdateIncentiveManager") as FastUpdateIncentiveManagerContract;
+  const FastUpdater = artifacts.require("FastUpdater") as FastUpdaterContract;
+  const FastUpdatesConfiguration = artifacts.require("FastUpdatesConfiguration") as FastUpdatesConfigurationContract;
+  const FeeCalculator = artifacts.require("FeeCalculator") as FeeCalculatorContract;
+  const WNat = artifacts.require("WNat") as WNatContract;
+  const RNat = artifacts.require("RNat") as RNatContract;
+  const RNatAccount = artifacts.require("RNatAccount") as RNatAccountContract;
+  const FtsoManagerProxy = artifacts.require("FtsoManagerProxy") as FtsoManagerProxyContract;
+  const FtsoProxy = artifacts.require("FtsoProxy") as FtsoProxyContract;
+  const FtsoV2Implementation = artifacts.require("FtsoV2") as FtsoV2Contract;
+  const FtsoV2Proxy = artifacts.require("FtsoV2Proxy") as FtsoV2ProxyContract;
+  const PriceSubmitterProxy = artifacts.require("PriceSubmitterProxy") as PriceSubmitterProxyContract;
+  const VoterWhitelisterProxy = artifacts.require("VoterWhitelisterProxy") as VoterWhitelisterProxyContract;
+  const RewardManager = artifacts.require("RewardManager") as RewardManagerContract;
+  const FtsoRewardManagerProxy = artifacts.require("FtsoRewardManagerProxy") as FtsoRewardManagerProxyContract;
+  const EntityManager = artifacts.require("EntityManager") as EntityManagerContract;
+  const VoterPreRegistry = artifacts.require("VoterPreRegistry") as VoterPreRegistryContract;
+  const SFlrCustomFeed = artifacts.require("SFlrCustomFeed") as SFlrCustomFeedContract;
+  const StXrpCustomFeed = artifacts.require("StXrpCustomFeed") as StXrpCustomFeedContract;
 
   let validatorRewardOffersManager: ValidatorRewardOffersManagerInstance;
   let pChainStakeMirrorVerifier: PChainStakeMirrorVerifierInstance;
@@ -89,12 +75,12 @@ export async function redeployContracts(
   let ftsoRewardManagerProxy: FtsoRewardManagerProxyInstance;
 
   // Define accounts in play for the deployment process
-  let deployerAccount: any;
+  let deployerAccount: Account;
 
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e)
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e));
   }
 
   // Wire up the default account that will do the deployment
@@ -118,6 +104,28 @@ export async function redeployContracts(
   const flareSystemsCalculator = contracts.getContractAddress(Contracts.FLARE_SYSTEMS_CALCULATOR);
   const wNatDelegationFee = contracts.getContractAddress(Contracts.WNAT_DELEGATION_FEE);
   const ftsoRewardOffersManager = contracts.getContractAddress(Contracts.FTSO_REWARD_OFFERS_MANAGER);
+
+  let ftsoRegistry: string;
+  try {
+    ftsoRegistry = oldContracts.getContractAddress(Contracts.FTSO_REGISTRY);
+  } catch {
+    const ftsoManagerProxyOld = await FtsoManagerProxy.at(contracts.getContractAddress(Contracts.FTSO_MANAGER));
+    ftsoRegistry = await ftsoManagerProxyOld.ftsoRegistry();
+  }
+
+  let ftsoManager: string;
+  try {
+    ftsoManager = oldContracts.getContractAddress(Contracts.FTSO_MANAGER);
+  } catch {
+    ftsoManager = contracts.getContractAddress(Contracts.FTSO_MANAGER);
+  }
+
+  let priceSubmitter: string;
+  try {
+    priceSubmitter = oldContracts.getContractAddress(Contracts.PRICE_SUBMITTER);
+  } catch {
+    priceSubmitter = "0x1000000000000000000000000000000000000003";
+  }
 
   // Deploy the contracts
   if (!initialDeploy) {
@@ -313,7 +321,7 @@ export async function redeployContracts(
     governanceSettings,
     deployerAccount.address,
     deployerAccount.address, // tmp address updater
-    oldContracts.getContractAddress(Contracts.FTSO_MANAGER) // old ftso manager
+    ftsoManager
   );
   spewNewContractInfo(contracts, null, "FtsoManager", `FtsoManagerProxy.sol`, ftsoManagerProxy.address, quiet);
 
@@ -349,7 +357,7 @@ export async function redeployContracts(
   spewNewContractInfo(contracts, null, "PriceSubmitter", `PriceSubmitterProxy.sol`, priceSubmitterProxy.address, quiet);
 
   const voterWhitelisterProxy = await VoterWhitelisterProxy.new(
-    oldContracts.getContractAddress(Contracts.PRICE_SUBMITTER)
+    priceSubmitter
   );
   spewNewContractInfo(contracts, null, "VoterWhitelister", `VoterWhitelisterProxy.sol`, voterWhitelisterProxy.address, quiet);
 
@@ -411,7 +419,7 @@ export async function redeployContracts(
 
   await ftsoManagerProxy.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.FTSO_REWARD_MANAGER, Contracts.FTSO_REGISTRY, Contracts.REWARD_MANAGER, Contracts.FLARE_SYSTEMS_MANAGER, Contracts.FAST_UPDATER, Contracts.FAST_UPDATES_CONFIGURATION, Contracts.RELAY]),
-    [addressUpdater, ftsoRewardManagerProxy.address, oldContracts.getContractAddress(Contracts.FTSO_REGISTRY), rewardManager.address, flareSystemsManager.address, fastUpdater.address, fastUpdatesConfiguration.address, relay.address]
+    [addressUpdater, ftsoRewardManagerProxy.address, ftsoRegistry, rewardManager.address, flareSystemsManager.address, fastUpdater.address, fastUpdatesConfiguration.address, relay.address]
   );
 
   await ftsoV2.updateContractAddresses(
@@ -421,25 +429,31 @@ export async function redeployContracts(
 
   await priceSubmitterProxy.updateContractAddresses(
     encodeContractNames([Contracts.ADDRESS_UPDATER, Contracts.RELAY, Contracts.FTSO_REGISTRY, Contracts.FTSO_MANAGER, Contracts.VOTER_WHITELISTER]),
-    [addressUpdater, relay.address, oldContracts.getContractAddress(Contracts.FTSO_REGISTRY), ftsoManagerProxy.address, voterWhitelisterProxy.address]
+    [addressUpdater, relay.address, ftsoRegistry, ftsoManagerProxy.address, voterWhitelisterProxy.address]
   );
 
   if (hre.network.name === "flare") {
     const sFlrCustomFeed = await SFlrCustomFeed.new(
-      FtsoConfigurations.encodeFeedId({"category": 33, "name": "sFLR/USD"}),
-      FtsoConfigurations.encodeFeedId({"category": 1, "name": "FLR/USD"}),
+      FtsoConfigurations.encodeFeedId({ "category": 33, "name": "sFLR/USD" }),
+      FtsoConfigurations.encodeFeedId({ "category": 1, "name": "FLR/USD" }),
       oldContracts.getContractAddress(Contracts.FLARE_CONTRACT_REGISTRY),
       "0x12e605bc104e93B45e1aD99F9e555f659051c2BB");
-      spewNewContractInfo(contracts, null, "SFlrCustomFeed", `SFlrCustomFeed.sol`, sFlrCustomFeed.address, quiet);
-      await ftsoV2.addCustomFeeds([sFlrCustomFeed.address]);
+    spewNewContractInfo(contracts, null, "SFlrCustomFeed", `SFlrCustomFeed.sol`, sFlrCustomFeed.address, quiet);
+
+    const stXrpCustomFeed = await StXrpCustomFeed.new(
+      FtsoConfigurations.encodeFeedId({ "category": 33, "name": "stXRP/USD" }),
+      FtsoConfigurations.encodeFeedId({ "category": 1, "name": "XRP/USD" }),
+      oldContracts.getContractAddress(Contracts.FLARE_CONTRACT_REGISTRY),
+      "0x4c18ff3c89632c3dd62e796c0afa5c07c4c1b2b3");
+    spewNewContractInfo(contracts, null, "StXrpCustomFeed", `StXrpCustomFeed.sol`, stXrpCustomFeed.address, quiet);
+
+    await ftsoV2.addCustomFeeds([sFlrCustomFeed.address, stXrpCustomFeed.address]);
   }
 
   if (initialDeploy) {
     const entityManagerContract = await EntityManager.at(entityManager);
     await entityManagerContract.setPublicKeyVerifier(fastUpdater.address);
     await flareSystemsManager.setVoterRegistrationTriggerContract(voterPreRegistry.address);
-    const voterRegistryContract = await VoterRegistry.at(voterRegistry);
-    await voterRegistryContract.setSystemRegistrationContractAddress(voterPreRegistry.address);
     // cannot add feeds to fast updater, we need first finalizations
   } else {
     // reset feeds
@@ -447,7 +461,7 @@ export async function redeployContracts(
     await fastUpdater.resetFeeds([...Array(numberOfFeeds.toNumber()).keys()]);
 
     await ftsoV2.changeFeedIds([
-      {oldFeedId: FtsoConfigurations.encodeFeedId({"category": 1, "name": "MATIC/USD"}), newFeedId: FtsoConfigurations.encodeFeedId({category: 1, name: "POL/USD"})}]
+      { oldFeedId: FtsoConfigurations.encodeFeedId({ "category": 1, "name": "MATIC/USD" }), newFeedId: FtsoConfigurations.encodeFeedId({ category: 1, name: "POL/USD" }) }]
     );
   }
 

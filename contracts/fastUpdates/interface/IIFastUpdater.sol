@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "flare-smart-contracts/contracts/genesis/interface/IFlareDaemonize.sol";
+import { IFlareDaemonize } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IFlareDaemonize.sol";
 import { IFastUpdater } from "../../userInterfaces/IFastUpdater.sol";
-import "../../protocol/interface/IIPublicKeyVerifier.sol";
+import { IIPublicKeyVerifier } from "../../protocol/interface/IIPublicKeyVerifier.sol";
 
 
 /**

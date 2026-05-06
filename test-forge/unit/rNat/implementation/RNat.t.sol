@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/rNat/implementation/RNat.sol";
-import "../../../../contracts/rNat/implementation/RNatAccount.sol";
-import "../../../mock/IWNatMock.sol";
-import "flare-smart-contracts/contracts/token/interface/IIVPContract.sol";
-import "flare-smart-contracts/contracts/token/interface/IIGovernanceVotePower.sol";
-import "../../../../contracts/userInterfaces/ICChainStake.sol";
-import "../../../../contracts/mock/ERC20Mock.sol";
+import { Test, Vm } from "forge-std/Test.sol";
+import { RNat } from "../../../../contracts/rNat/implementation/RNat.sol";
+import { RNatAccount } from "../../../../contracts/rNat/implementation/RNatAccount.sol";
+import { ERC20Mock } from "../../../../contracts/mock/ERC20Mock.sol";
+import { IRNat } from "../../../../contracts/userInterfaces/IRNat.sol";
+import { IWNatMock } from "../../../mock/IWNatMock.sol";
+import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIVPContract.sol";
+import {
+    IIGovernanceVotePower
+} from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
+import { IClaimSetupManager } from "@flarenetwork/flare-periphery-contracts/flare/IClaimSetupManager.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract RNatTest is Test {
 
@@ -28,7 +32,6 @@ contract RNatTest is Test {
     address private fundingAddress;
     address private incentivePool;
 
-
     // projects
     string[] private projectNames;
     address[] private projectDistributors;
@@ -39,10 +42,6 @@ contract RNatTest is Test {
 
     bytes32[] private contractNameHashes;
     address[] private contractAddresses;
-
-    event RewardsClaimed(uint256 indexed projectId, uint256 indexed month, address indexed owner, uint128 amount);
-    event ClaimingPermissionUpdated(uint256[] projectIds, bool disabled);
-    event DistributionPermissionUpdated(uint256[] projectIds, bool disabled);
 
     function setUp() public {
         vm.warp(1000);
@@ -613,7 +612,7 @@ contract RNatTest is Test {
         // unassign unclaimed rewards
         vm.prank(governance);
         vm.expectEmit();
-        emit DistributionPermissionUpdated(projectIds, true);
+        emit IRNat.DistributionPermissionUpdated(projectIds, true);
         rNat.unassignUnclaimedRewards(0, months);
 
         (assigned, distributed, claimed, unassignedUnclaimed) =
@@ -876,7 +875,7 @@ contract RNatTest is Test {
         uint256[] memory projectsToDisable = new uint256[](1);
         projectsToDisable[0] = 0;
         vm.expectEmit();
-        emit ClaimingPermissionUpdated(projectsToDisable, true);
+        emit IRNat.ClaimingPermissionUpdated(projectsToDisable, true);
         rNat.disableClaiming(projectsToDisable);
 
         assertEq(rNat.getClaimableRewards(0, rewardRecipients1[1]), 0);
@@ -895,7 +894,7 @@ contract RNatTest is Test {
         projectsToEnable[0] = 0;
         vm.prank(governance);
         vm.expectEmit();
-        emit ClaimingPermissionUpdated(projectsToEnable, false);
+        emit IRNat.ClaimingPermissionUpdated(projectsToEnable, false);
         rNat.enableClaiming(projectsToEnable);
 
         // second recipient for project 1 claims
@@ -971,7 +970,7 @@ contract RNatTest is Test {
         projectIds[0] = 0;
         vm.prank(rewardRecipients1[1]);
         vm.expectEmit();
-        emit RewardsClaimed(0, 0, rewardRecipients1[1], 50);
+        emit IRNat.RewardsClaimed(0, 0, rewardRecipients1[1], 50);
         rNat.claimRewards(projectIds, 0);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();

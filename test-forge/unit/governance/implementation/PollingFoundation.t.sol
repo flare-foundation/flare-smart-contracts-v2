@@ -1,10 +1,24 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/governance/implementation/PollingFoundation.sol";
-import "../../../mock/ExecuteMock.sol";
-import "../../../mock/ExecuteMockSquare.sol";
+import { Test } from "forge-std/Test.sol";
+import { PollingFoundation } from "../../../../contracts/governance/implementation/PollingFoundation.sol";
+import { GovernorVotes } from "../../../../contracts/governance/implementation/GovernorVotes.sol";
+
+import { IIPollingFoundation } from "../../../../contracts/governance/interface/IIPollingFoundation.sol";
+import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
+import { IGovernor } from "../../../../contracts/userInterfaces/IGovernor.sol";
+import { IRandomProvider } from "../../../../contracts/userInterfaces/IRandomProvider.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { ExecuteMock } from "../../../mock/ExecuteMock.sol";
+import { ExecuteMockSquare } from "../../../mock/ExecuteMockSquare.sol";
+import { IGovernanceVotePower } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceVotePower.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IISupply } from "@flarenetwork/flare-periphery-contracts/flare/inflation/interfaces/IISupply.sol";
+import {
+    IIGovernanceVotePower
+} from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 // solhint-disable-next-line max-states-count
 contract PollingFoundationTest is Test {
@@ -42,19 +56,6 @@ contract PollingFoundationTest is Test {
 
     IIPollingFoundation.GovernorSettingsWithoutExecParams private settings;
     IGovernor.GovernorSettings private settingsExec;
-
-    event VoteCast(
-        address indexed voter,
-        uint256 indexed proposalId,
-        uint8 support,
-        uint256 votePower,
-        string reason,
-        uint256 forVotePower,
-        uint256 againstVotePower
-    );
-
-    event ProposalExecuted(uint256 indexed proposalId);
-
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -338,7 +339,7 @@ contract PollingFoundationTest is Test {
         vm.startPrank(voters[2]);
         vm.expectEmit();
         uint256 vpVoter2 = pollingFoundation.getVotes(voters[2], vpBlock);
-        emit VoteCast(
+        emit IGovernor.VoteCast(
             voters[2],
             proposalId,
             uint8(GovernorVotes.VoteType.Against),
@@ -393,7 +394,15 @@ contract PollingFoundationTest is Test {
 
         // voter0 votes by sig
         vm.expectEmit();
-        emit VoteCast(voters[0], proposalId, uint8(GovernorVotes.VoteType.Against), 100, "", 0, 100);
+        emit IGovernor.VoteCast(
+            voters[0],
+            proposalId,
+            uint8(GovernorVotes.VoteType.Against),
+            100,
+            "",
+            0,
+            100
+        );
         pollingFoundation.castVoteBySig(proposalId, uint8(GovernorVotes.VoteType.Against), v, r, s);
 
         assertTrue(pollingFoundation.hasVoted(proposalId, voters[0]));
@@ -430,7 +439,7 @@ contract PollingFoundationTest is Test {
         vm.warp(block.timestamp + 3600);
         vm.prank(proposers[0]);
         vm.expectEmit();
-        emit ProposalExecuted(proposalId);
+        emit IGovernor.ProposalExecuted(proposalId);
         pollingFoundation.execute(proposalId);
         assertEq(uint256(pollingFoundation.state(proposalId)), uint256(IGovernor.ProposalState.Executed));
     }

@@ -130,44 +130,40 @@ export async function deployContracts(
   const INFLATION_ADDR = accounts[5].address;
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-  const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
+  const _ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
-  const MockContract: MockContractContract = hre.artifacts.require("MockContract");
-  const WNat: WNatContract = hre.artifacts.require("WNat");
-  const VPContract: VPContractContract = hre.artifacts.require("VPContract");
-  const PChainStakeMirror: PChainStakeMirrorContract = hre.artifacts.require("PChainStakeMirror");
-  const GovernanceVotePower: GovernanceVotePowerContract = hre.artifacts.require("GovernanceVotePower" as any);
-  const AddressBinder: AddressBinderContract = hre.artifacts.require("AddressBinder");
-  const PChainStakeMirrorVerifier: PChainStakeMirrorVerifierContract =
-    hre.artifacts.require("PChainStakeMirrorVerifier");
-  const EntityManager: EntityManagerContract = hre.artifacts.require("EntityManager");
-  const VoterRegistry: VoterRegistryContract = hre.artifacts.require("VoterRegistry");
-  const FlareSystemsCalculator: FlareSystemsCalculatorContract = hre.artifacts.require("FlareSystemsCalculator");
-  const FlareSystemsManager: FlareSystemsManagerContract = hre.artifacts.require("FlareSystemsManager");
-  const RewardManager: RewardManagerContract = hre.artifacts.require("RewardManager");
-  const Submission: SubmissionContract = hre.artifacts.require("Submission");
-  const CChainStake: CChainStakeContract = hre.artifacts.require("CChainStake");
-  const WNatDelegationFee: WNatDelegationFeeContract = hre.artifacts.require("WNatDelegationFee");
-  const FtsoInflationConfigurations: FtsoInflationConfigurationsContract =
-    hre.artifacts.require("FtsoInflationConfigurations");
-  const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = hre.artifacts.require("FtsoRewardOffersManager");
-  const FtsoFeedDecimals: FtsoFeedDecimalsContract = hre.artifacts.require("FtsoFeedDecimals");
-  const FtsoFeedPublisher: FtsoFeedPublisherContract = hre.artifacts.require("FtsoFeedPublisher");
-  const FtsoFeedIdConverter: FtsoFeedIdConverterContract = hre.artifacts.require("FtsoFeedIdConverter");
-  const CleanupBlockNumberManager: CleanupBlockNumberManagerContract =
-    hre.artifacts.require("CleanupBlockNumberManager");
-  const Relay: RelayContract = hre.artifacts.require("Relay");
-  const TestableFlareDaemon: TestableFlareDaemonContract = hre.artifacts.require("TestableFlareDaemon");
-  const NodePossessionVerifier: NodePossessionVerifierContract = hre.artifacts.require("NodePossessionVerifier");
-  const FdcHub: FdcHubContract = hre.artifacts.require("FdcHub");
-  const FdcInflationConfigurations: FdcInflationConfigurationsContract = hre.artifacts.require("FdcInflationConfigurations");
-  const FdcRequestFeeConfigurations: FdcRequestFeeConfigurationsContract = hre.artifacts.require("FdcRequestFeeConfigurations");
-
-  const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract =
-    artifacts.require("FastUpdateIncentiveManager");
-  const FastUpdater: FastUpdaterContract = artifacts.require("FastUpdater");
-  const FastUpdatesConfiguration: FastUpdatesConfigurationContract = artifacts.require("FastUpdatesConfiguration");
-  const FeeCalculator: FeeCalculatorContract = artifacts.require("FeeCalculator");
+  const MockContract = hre.artifacts.require("MockContract") as MockContractContract;
+  const WNat = hre.artifacts.require("WNat") as WNatContract;
+  const VPContract = hre.artifacts.require("VPContract") as VPContractContract;
+  const PChainStakeMirror = hre.artifacts.require("PChainStakeMirror") as PChainStakeMirrorContract;
+  const GovernanceVotePower = hre.artifacts.require("GovernanceVotePower") as GovernanceVotePowerContract;
+  const AddressBinder = hre.artifacts.require("AddressBinder") as AddressBinderContract;
+  const PChainStakeMirrorVerifier = hre.artifacts.require("PChainStakeMirrorVerifier") as PChainStakeMirrorVerifierContract;
+  const EntityManager = hre.artifacts.require("EntityManager") as EntityManagerContract;
+  const VoterRegistry = hre.artifacts.require("VoterRegistry") as VoterRegistryContract;
+  const FlareSystemsCalculator = hre.artifacts.require("FlareSystemsCalculator") as FlareSystemsCalculatorContract;
+  const FlareSystemsManager = hre.artifacts.require("FlareSystemsManager") as FlareSystemsManagerContract;
+  const RewardManager = hre.artifacts.require("RewardManager") as RewardManagerContract;
+  const Submission = hre.artifacts.require("Submission") as SubmissionContract;
+  const CChainStake = hre.artifacts.require("CChainStake") as CChainStakeContract;
+  const WNatDelegationFee = hre.artifacts.require("WNatDelegationFee") as WNatDelegationFeeContract;
+  const FtsoInflationConfigurations = hre.artifacts.require("FtsoInflationConfigurations") as FtsoInflationConfigurationsContract;
+  hre.artifacts.require("FtsoInflationConfigurations");
+  const FtsoRewardOffersManager: FtsoRewardOffersManagerContract = hre.artifacts.require("FtsoRewardOffersManager") as FtsoRewardOffersManagerContract;
+  const FtsoFeedDecimals = hre.artifacts.require("FtsoFeedDecimals") as FtsoFeedDecimalsContract;
+  const FtsoFeedPublisher = hre.artifacts.require("FtsoFeedPublisher") as FtsoFeedPublisherContract;
+  const FtsoFeedIdConverter = hre.artifacts.require("FtsoFeedIdConverter") as FtsoFeedIdConverterContract;
+  const CleanupBlockNumberManager = hre.artifacts.require("CleanupBlockNumberManager") as CleanupBlockNumberManagerContract;
+  const Relay = hre.artifacts.require("Relay") as RelayContract;
+  const TestableFlareDaemon = hre.artifacts.require("TestableFlareDaemon") as TestableFlareDaemonContract;
+  const NodePossessionVerifier = hre.artifacts.require("NodePossessionVerifier") as NodePossessionVerifierContract;
+  const FdcHub = hre.artifacts.require("FdcHub") as FdcHubContract;
+  const FdcInflationConfigurations = hre.artifacts.require("FdcInflationConfigurations") as FdcInflationConfigurationsContract;
+  const FdcRequestFeeConfigurations = hre.artifacts.require("FdcRequestFeeConfigurations") as FdcRequestFeeConfigurationsContract;
+  const FastUpdateIncentiveManager = hre.artifacts.require("FastUpdateIncentiveManager") as FastUpdateIncentiveManagerContract;
+  const FastUpdater = hre.artifacts.require("FastUpdater") as FastUpdaterContract;
+  const FastUpdatesConfiguration = hre.artifacts.require("FastUpdatesConfiguration") as FastUpdatesConfigurationContract;
+  const FeeCalculator = hre.artifacts.require("FeeCalculator") as FeeCalculatorContract;
 
   logger.info(`Deploying contracts, initial network time: ${new Date((await time.latest()) * 1000).toISOString()}`);
 
@@ -399,7 +395,7 @@ export async function deployContracts(
     "0x00100000000000000000000000000000",
     "0x00008000000000000000000000000000",
     1425,
-    BigInt(10) ** BigInt(24),
+    (10n ** 24n).toString(),
     8
   );
 
@@ -733,7 +729,9 @@ export async function deployContracts(
   const DECIMALS = [2, 4, 5, 3, 4];
 
   for (let i = 0; i < 5; i++) {
-    const getCurrentFeed = ftsoFeedPublisher.contract.methods.getCurrentFeed(FEED_IDS[i]).encodeABI();
+    const getCurrentFeedSelector = hre.web3.eth.abi.encodeFunctionSignature("getCurrentFeed(bytes21)");
+    const encodedFeedId = web3.eth.abi.encodeParameter("bytes21", FEED_IDS[i]);
+    const getCurrentFeed = getCurrentFeedSelector + encodedFeedId.slice(2);
     const feed = web3.eth.abi.encodeParameters(
       ["tuple(uint32,bytes21,int32,uint16,int8)"], // IFtsoFeedPublisher.Feed (uint32 votingRoundId, bytes21 id, int32 value, uint16 turnoutBIPS, int8 decimals)
       [[FIRST_REWARD_EPOCH_VOTING_ROUND_ID, FEED_IDS[i], ANCHOR_FEEDS[i], 6000, DECIMALS[i]]]
@@ -751,17 +749,11 @@ export async function deployContracts(
   ]);
 
   // Register FastUpdater on Submission contract
+  const submitUpdatesSelector = hre.web3.eth.abi.encodeFunctionSignature("submitUpdates((uint256,(uint256,(uint256,uint256),uint256,uint256),bytes,(uint8,bytes32,bytes32)))");
+
   await submission.setSubmitAndPassData(
     fastUpdater.address,
-    fastUpdater.contract.methods
-      .submitUpdates({
-        sortitionBlock: 0,
-        sortitionCredential: { replicate: 0, gamma: { x: 0, y: 0 }, c: 0, s: 0 },
-        deltas: "0x",
-        signature: { v: 0, r: ZERO_BYTES32, s: ZERO_BYTES32 },
-      })
-      .encodeABI()
-      .slice(0, 10), // first 4 bytes is function selector
+    submitUpdatesSelector,
     { from: governanceAccount.address }
   );
 
@@ -821,9 +813,11 @@ export async function deployContracts(
 }
 
 export function serializeDeployedContractsAddresses(contracts: DeployedContracts, fname: string) {
-  const result: any = {};
-  Object.entries(contracts).forEach(([name, contract]) => {
-    result[contract.constructor.contractName] = (contract as any).address;
+  type ContractWithAddress = { address: string; constructor: { contractName: string } };
+  const result: Record<string, string> = {};
+  Object.values(contracts).forEach((contract) => {
+    const c = contract as ContractWithAddress;
+    result[c.constructor.contractName] = c.address;
   });
   fs.writeFileSync(fname, JSON.stringify(result, null, 2));
 }

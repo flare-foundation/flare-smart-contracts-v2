@@ -1,6 +1,8 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "./Contracts";
 import { ChainParameters, integer } from "../chain-config/chain-parameters";
+import { Account } from "web3-core";
+import { IIInflationGovernanceContract, IIInflationAllocationGovernanceContract } from "../../typechain-truffle";
 
 /**
  * This script will set inflation receivers on Inflation contract.
@@ -23,20 +25,20 @@ export async function setInflationReceivers(
   }
 
   // Define accounts in play for the deployment process
-  let deployerAccount: any;
-  let genesisGovernanceAccount: any;
+  let deployerAccount: Account;
+  let _genesisGovernanceAccount: Account;
 
   // Get deployer account
   try {
     deployerAccount = web3.eth.accounts.privateKeyToAccount(parameters.deployerPrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e)
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e));
   }
 
   try {
-    genesisGovernanceAccount = web3.eth.accounts.privateKeyToAccount(parameters.genesisGovernancePrivateKey);
+    _genesisGovernanceAccount = web3.eth.accounts.privateKeyToAccount(parameters.genesisGovernancePrivateKey);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e)
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e));
   }
 
   if (!quiet) {
@@ -47,8 +49,8 @@ export async function setInflationReceivers(
   web3.eth.defaultAccount = deployerAccount.address;
 
   // Get contract definitions
-  const Inflation = artifacts.require("IIInflationGovernance");
-  const InflationAllocation = artifacts.require("IIInflationAllocationGovernance");
+  const Inflation = artifacts.require("IIInflationGovernance") as IIInflationGovernanceContract;
+  const InflationAllocation = artifacts.require("IIInflationAllocationGovernance") as IIInflationAllocationGovernanceContract;
 
   // Fetch inflation contracts
   const inflation = await Inflation.at(oldContracts.getContractAddress(Contracts.INFLATION));

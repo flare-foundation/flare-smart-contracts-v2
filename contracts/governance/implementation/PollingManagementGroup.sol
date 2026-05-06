@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "../interface/IIPollingManagementGroup.sol";
-import "../../userInterfaces/IRewardManager.sol";
-import "../../userInterfaces/IEntityManager.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../protocol/interface/IIVoterRegistry.sol";
-import "../../protocol/interface/IIFlareSystemsManager.sol";
-import "../../utils/lib/SafePct.sol";
-import "./Governed.sol";
-import "../../utils/lib/AddressSet.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
+import { IIPollingManagementGroup } from "../interface/IIPollingManagementGroup.sol";
+import { IIFlareSystemsManager } from "../../protocol/interface/IIFlareSystemsManager.sol";
+import { IPollingManagementGroup } from "../../userInterfaces/IPollingManagementGroup.sol";
+import { RewardsV2Interface } from "../../userInterfaces/LTS/RewardsV2Interface.sol";
+import { IRewardManager } from "../../userInterfaces/IRewardManager.sol";
+import { IEntityManager } from "../../userInterfaces/IEntityManager.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IIVoterRegistry } from "../../protocol/interface/IIVoterRegistry.sol";
+import { SafePct } from "../../utils/lib/SafePct.sol";
+import { Governed } from "./Governed.sol";
+import { AddressSet } from "../../utils/lib/AddressSet.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title Polling Management Group

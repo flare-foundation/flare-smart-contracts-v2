@@ -1,6 +1,6 @@
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import fs from "fs";
-import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { HardhatNetworkAccountUserConfig, HardhatRuntimeEnvironment } from "hardhat/types";
 import Web3 from "web3";
 import { Account } from "web3-core";
 import { toBN } from "web3-utils";
@@ -10,12 +10,11 @@ import {
   ProtocolMessageMerkleRoot,
 } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { RelayMessage } from "../../scripts/libs/protocol/RelayMessage";
-import { ISigningPolicy, SigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
+import { ISigningPolicy, SigningPolicy, SigningPolicyInitializedEvent } from "../../scripts/libs/protocol/SigningPolicy";
 import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
 import * as util from "../../test/utils/key-to-address";
 import { PChainStakeMirrorVerifierInstance } from "../../typechain-truffle";
-import { MockContractInstance } from "../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract";
-import { VoterRegistryInstance } from "../../typechain-truffle/contracts/protocol/implementation/VoterRegistry";
+import { MockContractInstance, VoterRegistryInstance } from "../../typechain-truffle";
 import { EpochSettings } from "../utils/EpochSettings";
 import { DeployedContracts, deployContracts, serializeDeployedContractsAddresses } from "../utils/deploy-contracts";
 import { errorString } from "../utils/error";
@@ -40,7 +39,7 @@ export const REWARD_EPOCH_DURATION_IN_SEC = REWARD_EPOCH_DURATION_IN_VOTING_EPOC
 export const FIRST_REWARD_EPOCH_VOTING_ROUND_ID = 1000;
 const FIRST_REWARD_EPOCH_START_VOTING_ROUND_ID = 1000;
 
-export function bigIntReplacer(key: string, value: any): any {
+export function bigIntReplacer(key: string, value: unknown): unknown {
   if (typeof value === "bigint") {
     return value.toString() + "n";
   }
@@ -178,7 +177,7 @@ class EventStore {
  *
  * Note: This is still a work in progress and might be buggy.
  */
-export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys: any[], voterCount: number) {
+export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys: HardhatNetworkAccountUserConfig[], voterCount: number) {
   if (!fs.existsSync(SIMULATION_DUMP_FOLDER)) {
     fs.mkdirSync(SIMULATION_DUMP_FOLDER);
   }
@@ -285,7 +284,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   await c.flareDaemon.trigger({ gas: 20000000 });
 
   const currentRewardEpochId = (await c.flareSystemsManager.getCurrentRewardEpochId()).toNumber();
-  if (currentRewardEpochId != 1) {
+  if (currentRewardEpochId !== 1) {
     throw new Error("Reward epoch after setup expected to be 1");
   }
 
@@ -302,8 +301,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     systemTime +
     1;
 
-  setTimeout(async () => {
-    await runSigningPolicyProtocol();
+  setTimeout(() => {
+    void runSigningPolicyProtocol();
   }, timeUntilSigningPolicyProtocolStart);
 
   scheduleOfferRewardsActions(events);
@@ -319,7 +318,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   while (true) {
     const response = await c.flareDaemon.trigger({ gas: 20000000 });
     // if (response.receipt.gasUsed > 100000) console.log("Gas used:", response.receipt.gasUsed);
-    const blockTimestamp = +(await hre.web3.eth.getBlock(response.receipt.blockNumber)).timestamp;
+    const blockTimestamp = +(await hre.web3.eth.getBlock((response.receipt as { blockNumber: number }).blockNumber)).timestamp;
     let logs;
     // For events emitted by the FlareSystemsManager.
     const eventList = [
@@ -358,8 +357,8 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
   }
 
   async function runSigningPolicyProtocol() {
-    setTimeout(async () => {
-      await runSigningPolicyProtocol();
+    setTimeout(() => {
+      void runSigningPolicyProtocol();
     }, epochSettings.rewardEpochDurationSec * 1000);
 
     await defineNextSigningPolicy(governanceAccount, c, events.rewardEpochEvents, registeredAccounts);
@@ -369,9 +368,9 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     const time = Date.now();
     const nextEpochStartMs = epochSettings.nextVotingEpochStartMs(time);
 
-    setTimeout(async () => {
+    setTimeout(() => {
       scheduleVotingEpochActions(skipSubmit);
-      await runVotingRound(
+      void runVotingRound(
         skipSubmit,
         c,
         signingPolicies,
@@ -388,15 +387,15 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
     const time = Date.now();
     const nextEpochStartMs = epochSettings.nextRewardEpochStartMs(time);
 
-    setTimeout(async () => {
+    setTimeout(() => {
       scheduleOfferRewardsActions(eventStore);
-      await runOfferRewards(c, epochSettings, eventStore);
+      void runOfferRewards(c, epochSettings, eventStore);
     }, nextEpochStartMs - time + 1000);
   }
 
-  async function processLog(log: any, timestamp: number, events: EventStore) {
+  async function processLog(log: Truffle.TransactionLog<never>, timestamp: number, events: EventStore) {
     logger.info(`Event ${log.event} emitted`);
-    if (log.event == "NewVotingRoundInitiated") {
+    if (log.event === "NewVotingRoundInitiated") {
       const votingRoundId = epochSettings.votingEpochForTime(timestamp * 1000);
       if (votingRoundId > events.initializedVotingRound) {
         events.initializedVotingRound = votingRoundId;
@@ -407,7 +406,7 @@ export async function runSimulation(hre: HardhatRuntimeEnvironment, privateKeys:
       existing.push(log.event);
       events.rewardEpochEvents.set(rewardEpochId, existing);
 
-      if (log.event == "SigningPolicyInitialized") {
+      if (log.event === "SigningPolicyInitialized") {
         const signingPolicy = extractSigningPolicy(log.args);
         signingPolicies.set(signingPolicy.rewardEpochId, signingPolicy);
         logger.info("New signing policy:\n" + JSON.stringify(signingPolicy, null, 2));
@@ -436,7 +435,7 @@ async function registerAccounts(
   const weightGwei = 1000;
   let accountOffset = 10;
 
-  const logger = getLogger("");
+  const _logger = getLogger("");
 
   for (let i = 0; i < voterCount; i++) {
     const nodeId = "0x0123456789012345678901234567890123456" + i.toString().padStart(3, "0");
@@ -469,7 +468,7 @@ async function registerAccounts(
     );
     await c.pChainStakeMirror.mirrorStake(data, []);
 
-    await c.wNat.deposit({ value: weightGwei * GWEI, from: delegationAccount.address });
+    await c.wNat.deposit({ value: toBN(weightGwei * GWEI), from: delegationAccount.address });
 
     await c.entityManager.registerNodeId(nodeId, "0x", "0x", { from: identityAccount.address });
     await c.entityManager.proposeDelegationAddress(delegationAccount.address, { from: identityAccount.address });
@@ -575,11 +574,13 @@ async function defineNextSigningPolicy(
         from: governanceAccount.address,
       }
     );
-    if (signResponse.logs[0]?.event != "SigningPolicySigned") {
+    if (signResponse.logs[0]?.event !== "SigningPolicySigned") {
       throw new Error("Expected signing policy to be signed");
     }
 
-    const args = signResponse.logs[0].args as any;
+    const args = signResponse.logs[0].args as {
+      thresholdReached: boolean;
+    };
     if (args.thresholdReached) {
       logger.info(`Signed policy with account ${acc.signingPolicy.address} - threshold reached`);
       return;
@@ -609,10 +610,10 @@ async function runOfferRewards(
     rewards += offer.amount;
   }
   try {
-    await c.ftsoRewardOffersManager.offerRewards(nextRewardEpochId, OFFERS, { value: rewards });
+    await c.ftsoRewardOffersManager.offerRewards(nextRewardEpochId, OFFERS, { value: String(rewards) });
     logger.info("Rewards offered");
   } catch (e) {
-    logger.error("Rewards not offered: " + e);
+    logger.error("Rewards not offered: " + String(e));
   }
 }
 
@@ -708,7 +709,7 @@ async function fakeFinalize(
   const signingPolicy = signingPolicies.get(rewardEpochId)!;
   const privateKeysInOrder = [];
   for (const voter of signingPolicy.voters) {
-    const acc = registeredAccounts.find(x => x.signingPolicy.address.toLowerCase() == voter.toLowerCase())!;
+    const acc = registeredAccounts.find(x => x.signingPolicy.address.toLowerCase() === voter.toLowerCase())!;
     if (acc) {
       privateKeysInOrder.push(acc.signingPolicy.privateKey);
     } else {
@@ -756,7 +757,7 @@ async function defineInitialSigningPolicy(
 
   const response = await c.flareDaemon.trigger({ gas: 20000000 });
   const logs = decodeRawLogs(response, c.flareSystemsManager, "RandomAcquisitionStarted");
-  if (logs.length == 0) {
+  if (logs.length === 0) {
     throw new Error("Expected random acquisition to start");
   }
 
@@ -782,7 +783,7 @@ async function defineInitialSigningPolicy(
 
   const response2 = await c.flareDaemon.trigger({ gas: 20000000 });
   const logs2 = decodeRawLogs(response2, c.flareSystemsManager, "VotePowerBlockSelected");
-  if (logs2.length == 0) {
+  if (logs2.length === 0) {
     throw new Error("Expected random acquisition to start");
   }
 
@@ -801,7 +802,7 @@ async function defineInitialSigningPolicy(
   const response3 = await c.flareDaemon.trigger({ gas: 20000000 });
   const logs3 = decodeRawLogs(response3, c.relay, "SigningPolicyInitialized");
 
-  if (logs3.length == 0) {
+  if (logs3.length === 0) {
     throw new Error("Expected signing policy to be initialized");
   } else {
     const arg = logs3[0].args;
@@ -810,22 +811,23 @@ async function defineInitialSigningPolicy(
 }
 
 async function registerVoter(rewardEpochId: number, acc: RegisteredAccount, voterRegistry: VoterRegistryInstance) {
+  const chainId = await web3.eth.getChainId();
   const hash = web3.utils.keccak256(
-    web3.eth.abi.encodeParameters(["uint24", "address"], [rewardEpochId, acc.identity.address])
+    web3.eth.abi.encodeParameters(["uint256", "uint32", "address"], [chainId, rewardEpochId, acc.identity.address])
   );
 
   const signature = web3.eth.accounts.sign(hash, acc.signingPolicy.privateKey);
   await voterRegistry.registerVoter(acc.identity.address, signature, { from: acc.submitSignatures.address });
 }
 
-function extractSigningPolicy(logArg: any) {
+function extractSigningPolicy(logArg: SigningPolicyInitializedEvent): ISigningPolicy {
   return {
     rewardEpochId: +logArg.rewardEpochId,
     startVotingRoundId: +logArg.startVotingRoundId,
     threshold: +logArg.threshold,
     seed: "0x" + toBN(logArg.seed).toString("hex", 64),
     voters: logArg.voters,
-    weights: logArg.weights.map((x: any) => +x),
+    weights: logArg.weights.map(x => +x),
   };
 }
 
@@ -851,7 +853,8 @@ async function setMockStakingData(
     weight: weight,
   };
 
-  const verifyPChainStakingMethod = pChainVerifier.contract.methods.verifyStake(data, []).encodeABI();
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  const verifyPChainStakingMethod: string = pChainVerifier.contract.methods.verifyStake(data, []).encodeABI();
   await verifierMock.givenCalldataReturnBool(verifyPChainStakingMethod, stakingProved);
   return data;
 }
@@ -860,11 +863,11 @@ export async function sleep(ms: number) {
   await new Promise<void>(resolve => setTimeout(() => resolve(), ms));
 }
 
-export function encodeContractNames(web3: any, names: string[]): string[] {
+export function encodeContractNames(web3: Web3, names: string[]): string[] {
   return names.map(name => encodeString(name, web3));
 }
 
-export function encodeString(text: string, web3: any): string {
+export function encodeString(text: string, web3: Web3): string {
   return web3.utils.keccak256(web3.eth.abi.encodeParameters(["string"], [text]));
 }
 export function getSigningPolicyHash(signingPolicy: ISigningPolicy): string {

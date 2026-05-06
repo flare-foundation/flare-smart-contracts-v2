@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./LTS/RewardsV2Interface.sol";
+import { RewardsV2Interface } from "./LTS/RewardsV2Interface.sol";
 
 /**
  * RewardManager interface.

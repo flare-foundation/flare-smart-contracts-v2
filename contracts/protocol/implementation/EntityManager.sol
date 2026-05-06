@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "../lib/AddressHistory.sol";
-import "../lib/NodesHistory.sol";
-import "../lib/PublicKeyHistory.sol";
-import "../interface/IIEntityManager.sol";
-import "../interface/IINodePossessionVerifier.sol";
-import "../interface/IIPublicKeyVerifier.sol";
-import "../../governance/implementation/Governed.sol";
+import { AddressHistory } from "../lib/AddressHistory.sol";
+import { NodesHistory } from "../lib/NodesHistory.sol";
+import { PublicKeyHistory } from "../lib/PublicKeyHistory.sol";
+import { IIEntityManager } from "../interface/IIEntityManager.sol";
+import { IINodePossessionVerifier } from "../interface/IINodePossessionVerifier.sol";
+import { IIPublicKeyVerifier } from "../interface/IIPublicKeyVerifier.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { IEntityManager } from "../../userInterfaces/IEntityManager.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
  * Entity manager contract.

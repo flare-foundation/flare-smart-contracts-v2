@@ -86,7 +86,7 @@ export async function retryWithTimeout<T>(
   );
 }
 
-/** Throws {@link TimeoutError} if the {@link promise} is does not resolve in {@link timeoutMs} milliseconds. */
+/** Throws {@link TimeoutError} if the {@link promise} does not resolve in {@link timeoutMs} milliseconds. */
 export function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs: number = DEFAULT_TIMEOUT_MS): Promise<T> {
   const timeoutError = new TimeoutError(timeoutMs);
   const timeout = new Promise<never>((_, reject) => {

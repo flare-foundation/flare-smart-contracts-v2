@@ -12,7 +12,6 @@ import { IWeb2JsonVerification } from "./fdc/IWeb2JsonVerification.sol";
 import { IXRPPaymentVerification } from "./fdc/IXRPPaymentVerification.sol";
 import { IXRPPaymentNonexistenceVerification } from "./fdc/IXRPPaymentNonexistenceVerification.sol";
 
-
 /**
  * FdcVerification interface.
  */

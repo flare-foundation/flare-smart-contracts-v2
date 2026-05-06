@@ -1,8 +1,9 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "../scripts/Contracts";
-import { WNatContract } from "../../typechain-truffle/flattened/FlareSmartContracts.sol/WNat";
+import { WNatContract } from "../../typechain-truffle";
 import { Entity } from "../utils/Entity";
 import { waitFinalize3 } from "../scripts/deploy-utils";
+import { Account } from "web3-core";
 
 /**
  * This script will transfer funds from deployer account to provided accounts and wrap them.
@@ -24,20 +25,20 @@ export async function transferAndWrapFunds(
     console.error("Transferring and wrapping funds...");
   }
 
-  let accountWithFunds: any;
+  let accountWithFunds: Account;
 
   // Get default account
   try {
     accountWithFunds = web3.eth.accounts.privateKeyToAccount(privateKeyWithFunds);
   } catch (e) {
-    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + e)
+    throw Error("Check .env file, if the private keys are correct and are prefixed by '0x'.\n" + String(e));
   }
 
   // Wire up the default account that will send the transactions
   web3.eth.defaultAccount = accountWithFunds.address;
 
   // Get contract definitions
-  const WNat: WNatContract = artifacts.require("WNat");
+  const WNat = artifacts.require("WNat") as WNatContract;
 
   // Fetch WNat contract
   const wNat = await WNat.at(contracts.getContractAddress(Contracts.WNAT));

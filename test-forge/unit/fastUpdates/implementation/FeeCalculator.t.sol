@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fastUpdates/implementation/FeeCalculator.sol";
+import { Test } from "forge-std/Test.sol";
+import { FeeCalculator } from "../../../../contracts/fastUpdates/implementation/FeeCalculator.sol";
+import { IFastUpdatesConfiguration } from "../../../../contracts/userInterfaces/IFastUpdatesConfiguration.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IIFeeCalculator } from "../../../../contracts/fastUpdates/interface/IIFeeCalculator.sol";
 
 contract FeeCalculatorTest is Test {
 
@@ -17,12 +20,6 @@ contract FeeCalculatorTest is Test {
     bytes21[] private feedIds;
 
     uint256[] private indices8 = new uint256[](8);
-
-    event FeedFeeSet(bytes21 indexed feedId, uint256 fee);
-    event CategoryFeeSet(uint8 indexed category, uint256 fee);
-    event FeedFeeRemoved(bytes21 indexed feedId);
-    event CategoryFeeRemoved(uint8 indexed category);
-    event DefaultFeeSet(uint256 fee);
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -58,7 +55,7 @@ contract FeeCalculatorTest is Test {
         assertEq(feeCalculator.defaultFee(), 10);
         vm.prank(governance);
         vm.expectEmit();
-        emit DefaultFeeSet(100);
+        emit IIFeeCalculator.DefaultFeeSet(100);
         feeCalculator.setDefaultFee(100);
         assertEq(feeCalculator.defaultFee(), 100);
     }
@@ -83,9 +80,9 @@ contract FeeCalculatorTest is Test {
         fees[1] = 20;
         vm.prank(governance);
         vm.expectEmit();
-        emit CategoryFeeSet(1, 10);
+        emit IIFeeCalculator.CategoryFeeSet(1, 10);
         vm.expectEmit();
-        emit CategoryFeeSet(2, 20);
+        emit IIFeeCalculator.CategoryFeeSet(2, 20);
         feeCalculator.setCategoriesFees(categories, fees);
         assertEq(feeCalculator.getCategoryFee(1), 10);
         assertEq(feeCalculator.getCategoryFee(2), 20);
@@ -129,7 +126,7 @@ contract FeeCalculatorTest is Test {
         for (uint256 i = 0; i < 8; i++) {
             fees[i] = i * 10;
             vm.expectEmit();
-            emit FeedFeeSet(feedIds[i], i * 10);
+            emit IIFeeCalculator.FeedFeeSet(feedIds[i], i * 10);
         }
         vm.prank(governance);
         feeCalculator.setFeedsFees(feedIds, fees);
@@ -170,9 +167,9 @@ contract FeeCalculatorTest is Test {
         feedsToRemove[1] = feedIds[1];
 
         vm.expectEmit();
-        emit FeedFeeRemoved(feedIds[0]);
+        emit IIFeeCalculator.FeedFeeRemoved(feedIds[0]);
         vm.expectEmit();
-        emit FeedFeeRemoved(feedIds[1]);
+        emit IIFeeCalculator.FeedFeeRemoved(feedIds[1]);
         vm.prank(governance);
         feeCalculator.removeFeedsFees(feedsToRemove);
 
@@ -191,7 +188,7 @@ contract FeeCalculatorTest is Test {
         categoriesToRemove[0] = 1;
 
         vm.expectEmit();
-        emit CategoryFeeRemoved(1);
+        emit IIFeeCalculator.CategoryFeeRemoved(1);
         vm.prank(governance);
         feeCalculator.removeCategoriesFees(categoriesToRemove);
 
@@ -362,12 +359,6 @@ contract FeeCalculatorTest is Test {
     }
 
     ////
-    function _getFeedId(uint8 _category, string memory _name) internal pure returns(bytes21) {
-        bytes memory nameBytes = bytes(_name);
-        require(nameBytes.length <= 20, "name too long");
-        return bytes21(bytes.concat(bytes1(_category), nameBytes));
-    }
-
     function _setFeedIds() internal {
         feedIds = new bytes21[](8);
         for (uint256 i = 0; i < 8; i++) {
@@ -384,6 +375,12 @@ contract FeeCalculatorTest is Test {
                 abi.encode(feedIds[i])
             );
         }
+    }
+
+    function _getFeedId(uint8 _category, string memory _name) internal pure returns(bytes21) {
+        bytes memory nameBytes = bytes(_name);
+        require(nameBytes.length <= 20, "name too long");
+        return bytes21(bytes.concat(bytes1(_category), nameBytes));
     }
 
 }

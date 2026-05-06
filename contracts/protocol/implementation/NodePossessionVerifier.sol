@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.24;
 
-import "../interface/IINodePossessionVerifier.sol";
+import { IINodePossessionVerifier } from "../interface/IINodePossessionVerifier.sol";
+import { P256 } from "@openzeppelin/contracts/utils/cryptography/P256.sol";
+import { RSA } from "@openzeppelin/contracts/utils/cryptography/RSA.sol";
+import { Bytes } from "@openzeppelin/contracts/utils/Bytes.sol";
 
 /**
  * Node possession verification contract.
  */
 contract NodePossessionVerifier is IINodePossessionVerifier {
 
-    // OID = 1.2.840.113549.1.1.11
-    bytes internal constant PKCS1_V15_SHA256 = hex"003031300d060960864801650304020105000420";
-    uint256 internal constant PKCS1_V15_SHA256_LENGTH = 20; // PKCS1_V15_SHA256.length
+    bytes internal constant ECDSA_ALGORITHM_ID = hex"06072a8648ce3d020106082a8648ce3d030107";
+    bytes internal constant RSA_ALGORITHM_ID = hex"06092a864886f70d0101010500";
+    // N value of the P-256 curve
+    uint256 internal constant N = 0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551;
 
     /**
      * @inheritdoc IINodePossessionVerifier
@@ -25,82 +29,31 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
     {
         bytes20 nodeIdFromPublicKey = ripemd160(abi.encodePacked(sha256(abi.encodePacked(_certificateRaw))));
         require(nodeIdFromPublicKey == _nodeId, "invalid node id");
-        (bytes memory modulus, bytes memory exponent) = extractPublicKeyFromRawCertificate(_certificateRaw);
         bytes32 message = sha256(abi.encodePacked(bytes32(0), _voter));
-        require(verifyPKCS1v15SHA256(message, _signature, modulus, exponent), "invalid signature");
-    }
-
-    // https://www.rfc-editor.org/rfc/rfc8017.html
-    /** Verifies a PKCS1v1.5 with SHA256 signature.
-      * @param _messageSHA256 SHA256 hash of the message.
-      * @param _signature RSA signature.
-      * @param _modulus RSA modulus.
-      * @param _exponent RSA public exponent.
-      * @return True if the signature is valid, false otherwise.
-      */
-    function verifyPKCS1v15SHA256(
-        bytes32 _messageSHA256,
-        bytes calldata _signature,
-        bytes memory _modulus,
-        bytes memory _exponent
-    )
-        public view returns(bool)
-    {
-        uint256 length = _modulus.length;
-        if (length < 512) {
-            return false; // invalid modulus length
-        }
-
-        if (_signature.length != length) {
-            return false; // invalid signature length
-        }
-
-        //slither-disable-next-line encode-packed-collision
-        (bool success, bytes memory result) = address(0x05).staticcall(
-            abi.encodePacked(_signature.length, _exponent.length, _modulus.length, _signature, _exponent, _modulus)
-        );
-        if (!success) {
-            return false; // bigModExp failed
-        }
-        assert(result.length == length);
-
-        if (result[0] != 0x00 || result[1] != 0x01) {
-            return false; // invalid start
-        }
-
-        uint256 paddingEnd = length - PKCS1_V15_SHA256_LENGTH -  32 ; // 32 is the length of the message sha256 hash
-        for (uint256 i = 2; i < paddingEnd; i++) {
-            if (result[i] != 0xff) {
-                return false; // invalid padding
+        (bytes memory part1, bytes memory part2, bool isECDSA) = extractPublicKeyFromRawCertificate(_certificateRaw);
+        if (isECDSA) {
+            (bytes32 r, bytes32 s) = extractSignature(_signature);
+            uint256 sUint = uint256(s);
+            if (sUint > N / 2) {
+                sUint = N - sUint;
             }
+            require(P256.verify(message, r, bytes32(sUint), bytes32(part1), bytes32(part2)), "invalid signature");
+        } else {
+            require(RSA.pkcs1Sha256(message, _signature, part2, part1), "invalid signature");
         }
-
-        for (uint256 i = 0; i < PKCS1_V15_SHA256_LENGTH; i++) {
-            if (result[paddingEnd + i] != PKCS1_V15_SHA256[i]) {
-                return false; // invalid sha256 version
-            }
-        }
-
-
-        for (uint256 i = 0; i < 32; i++) {
-            if (result[paddingEnd + PKCS1_V15_SHA256_LENGTH + i] != _messageSHA256[i]) {
-                return false; // invalid message sha256 hash
-            }
-        }
-
-        return true;
     }
 
     /**
      * Extracts the public key from a raw certificate.
      * Returns the modulus and exponent of the public key.
      * @param _certificateRaw The raw certificate.
-     * @return _modulus The modulus of the public key.
-     * @return _exponent The exponent of the public key.
+     * @return _part1 The modulus (N) of the public key (for RSA) or X part of the public key (for ECDSA).
+     * @return _part2 The exponent (E) of the public key (for RSA) or Y part of the public key (for ECDSA).
+     * @return _isECDSA True if the public key is ECDSA, false if RSA.
      */
     function extractPublicKeyFromRawCertificate(bytes calldata _certificateRaw)
         public view
-        returns (bytes memory _modulus, bytes memory _exponent)
+        returns (bytes memory _part1, bytes memory _part2, bool _isECDSA)
     {
         (uint256 length, bytes memory data, bool success) = readASN1Element(_certificateRaw, 0x30, true);
         require(success, "couldn't read certificate element");
@@ -114,60 +67,122 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
         require(success, "couldn't read version element");
 
         // serial number
-        data = this.sliceStart(data, length);
+        data = Bytes.slice(data, length);
         (length, , success) = this.readASN1Element(data, 0x02, false);
         require(success, "couldn't read serial number element");
 
         // signature algorithm identifier
-        data = this.sliceStart(data, length);
+        data = Bytes.slice(data, length);
         (length, , success) = this.readASN1Element(data, 0x30, false);
         require(success, "couldn't read signature algorithm identifier");
 
         // issuer
-        data = this.sliceStart(data, length);
+        data = Bytes.slice(data, length);
         (length, , success) = this.readASN1Element(data, 0x30, false);
         require(success, "couldn't read issuer element");
 
         // validity
-        data = this.sliceStart(data, length);
+        data = Bytes.slice(data, length);
         (length, , success) = this.readASN1Element(data, 0x30, false);
         require(success, "couldn't read validity element");
 
         // subject
-        data = this.sliceStart(data, length);
+        data = Bytes.slice(data, length);
         (length, , success) = this.readASN1Element(data, 0x30, false);
         require(success, "couldn't read subject element");
 
         // subject public key info
-        data = this.sliceStart(data, length);
+        data = Bytes.slice(data, length);
         (, data, success) = this.readASN1Element(data, 0x30, true);
         require(success, "couldn't read subject public key info element");
 
         // algorithm
-        (length, , success) = this.readASN1Element(data, 0x30, false);
+        bytes memory algorithm;
+        (length, algorithm, success) = this.readASN1Element(data, 0x30, true);
         require(success, "couldn't read algorithm element");
 
-        // public key
-        data = this.sliceStart(data, length);
-        (, data, success) = this.readASN1Element(data, 0x03, true);
-        require(success, "couldn't read public key element");
+        if (keccak256(algorithm) == keccak256(ECDSA_ALGORITHM_ID)) { // ECDSA
+            // public key
+            data = Bytes.slice(data, length);
+            (, data, success) = this.readASN1Element(data, 0x03, true);
+            require(success, "couldn't read public key element");
 
-        // Get N and E from public key
-        // Note to skip the first byte, which is the number of unused bits
-        data = this.sliceStart(data, 1);
-        (, data, success) = this.readASN1Element(data, 0x30, true);
-        require(success, "couldn't read public key data");
+            // skip the first byte, which is 0x00
+            data = Bytes.slice(data, 1);
 
-        // N and E
-        (length, _modulus, success) = this.readASN1Element(data, 0x02, true);
-        require(success, "couldn't read N element");
-        // skip the first byte, which is 0x00
-        _modulus = this.sliceStart(_modulus, 1);
+            require(data.length == 65 && data[0] == bytes1(0x04), "unsupported public key format");
+            _part1 = Bytes.slice(data, 1, 33); // X
+            _part2 = Bytes.slice(data, 33, 65); // Y
+            _isECDSA = true;
+        } else if (keccak256(algorithm) == keccak256(RSA_ALGORITHM_ID)) { // RSA
+            // public key
+            data = Bytes.slice(data, length);
+            (, data, success) = this.readASN1Element(data, 0x03, true);
+            require(success, "couldn't read public key element");
 
-        // E
-        data = this.sliceStart(data, length);
-        (, _exponent, success) = this.readASN1Element(data, 0x02, true);
-        require(success, "couldn't read E element");
+            // get N and E from public key
+            // skip the first byte, which is the number of unused bits
+            data = Bytes.slice(data, 1);
+            (, data, success) = this.readASN1Element(data, 0x30, true);
+            require(success, "couldn't read public key data");
+
+            // N and E
+            (length, _part1, success) = this.readASN1Element(data, 0x02, true);
+            require(success, "couldn't read N element");
+            if (_part1.length > 1 && _part1[0] == bytes1(0x00)) {
+                // skip the first byte, which is 0x00
+                _part1 = Bytes.slice(_part1, 1);
+            }
+
+            // E
+            data = Bytes.slice(data, length);
+            (, _part2, success) = this.readASN1Element(data, 0x02, true);
+            require(success, "couldn't read E element");
+            if (_part2.length > 1 && _part2[0] == bytes1(0x00)) {
+                // skip the first byte, which is 0x00
+                _part2 = Bytes.slice(_part2, 1);
+            }
+        } else {
+            revert("algorithm not supported");
+        }
+    }
+
+    /**
+     * Extracts r and s values from an ECDSA signature in ASN.1 DER format.
+     * @param _signature The ECDSA signature in ASN.1 DER format.
+     * @return _r The r value of the signature.
+     * @return _s The s value of the signature.
+     */
+    function extractSignature(bytes calldata _signature)
+        public view
+        returns(bytes32 _r, bytes32 _s)
+    {
+        bytes memory rs;
+        (uint256 length, bytes memory data, bool success) = readASN1Element(_signature, 0x30, true);
+        require(success, "couldn't read signature");
+        require(length == _signature.length, "invalid signature length");
+        (length, rs, success) = this.readASN1Element(data, 0x02, true);
+        require(success, "couldn't read r");
+        if (rs.length < 33) {
+            _r = bytes32(rs);
+        } else if (rs.length == 33 && rs[0] == bytes1(0x00)) {
+            // skip the first byte, which is 0x00
+            _r = bytes32(Bytes.slice(rs, 1));
+        } else {
+            revert("invalid r");
+        }
+        data = Bytes.slice(data, length);
+        (length , rs, success) = this.readASN1Element(data, 0x02, true);
+        require(success, "couldn't read s");
+        require(length == data.length, "invalid data length");
+        if (rs.length < 33) {
+            _s = bytes32(rs);
+        } else if (rs.length == 33 && rs[0] == bytes1(0x00)) {
+            // skip the first byte, which is 0x00
+            _s = bytes32(Bytes.slice(rs, 1));
+        } else {
+            revert("invalid s");
+        }
     }
 
     /**
@@ -226,13 +241,5 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
             _extractedData = _data[headerLength : _length];
         }
         _success = true;
-    }
-
-    /**
-     * Slices a byte array from a start index to the end.
-     */
-    function sliceStart(bytes calldata _data, uint256 _start) public pure returns(bytes memory slicedData) {
-        require(_start <= _data.length, "start index out of bounds");
-        return _data[_start:];
     }
 }

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "./IIFastUpdaterView.sol";
-import "../../userInterfaces/IFastUpdatesConfiguration.sol";
-import "../../userInterfaces/IRelay.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
+import { IIFastUpdaterView } from "./IIFastUpdaterView.sol";
+import { IFastUpdatesConfiguration } from "../../userInterfaces/IFastUpdatesConfiguration.sol";
+import { IRelay } from "../../userInterfaces/IRelay.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 
 /**
  * FtsoManagerProxy internal interface.

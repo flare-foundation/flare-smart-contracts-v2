@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "flare-smart-contracts/contracts/inflation/interface/IISupply.sol";
-import "flare-smart-contracts/contracts/token/interface/IIGovernanceVotePower.sol";
-import "../../userInterfaces/IGovernor.sol";
-import "../../userInterfaces/ISubmission.sol";
-import "./GovernorProposals.sol";
-import "./GovernorVotes.sol";
-import "../../protocol/interface/IIFlareSystemsManager.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../utils/lib/SafePct.sol";
-import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { IISupply } from "@flarenetwork/flare-periphery-contracts/flare/inflation/interfaces/IISupply.sol";
+import {
+    IIGovernanceVotePower
+} from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
+import { IGovernor } from "../../userInterfaces/IGovernor.sol";
+import { ISubmission } from "../../userInterfaces/ISubmission.sol";
+import { GovernorProposals } from "./GovernorProposals.sol";
+import { GovernorVotes } from "./GovernorVotes.sol";
+import { IIFlareSystemsManager } from "../../protocol/interface/IIFlareSystemsManager.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { SafePct } from "../../utils/lib/SafePct.sol";
+import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 abstract contract Governor is IGovernor, EIP712, GovernorProposals, GovernorVotes, AddressUpdatable {
     using SafePct for uint256;

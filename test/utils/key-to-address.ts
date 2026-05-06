@@ -1,8 +1,8 @@
 
-import * as elliptic from "elliptic"
+import * as elliptic from "elliptic";
 import { sha256, keccak, ripemd160 } from 'ethereumjs-util';
-const EC: typeof elliptic.ec = elliptic.ec
-const ec: elliptic.ec = new EC("secp256k1")
+const EC: typeof elliptic.ec = elliptic.ec;
+const ec: elliptic.ec = new EC("secp256k1");
 
 import BN from "bn.js";
 
@@ -15,11 +15,19 @@ export function privateKeyToPublicKeyPair(privateKey: Buffer): Buffer[] {
 
 export function compressPublicKey(x: Buffer, y: Buffer): Buffer {
   const prefix = ((new BN(y)).isEven()) ? 0x02 : 0x03;
-  return Buffer.concat([Buffer.from([prefix]), x]);
+  const out = new Uint8Array(33);
+  out[0] = prefix;
+  out.set(x, 1);
+  return Buffer.from(out);
 }
 
 export function encodePublicKey(x: Buffer, y: Buffer, compress: boolean): Buffer {
-  return (compress) ? compressPublicKey(x, y) : Buffer.concat([Buffer.from([0x04]), x, y]);
+  if (compress) return compressPublicKey(x, y);
+  const out = new Uint8Array(65);
+  out[0] = 0x04;
+  out.set(x, 1);
+  out.set(y, 33);
+  return Buffer.from(out);
 }
 
 export function publicPairToPublicKeyWith0xPrefix(x: Buffer, y: Buffer): string {
@@ -32,5 +40,8 @@ export function publicKeyToAvalancheAddress(x: Buffer, y: Buffer) {
 }
 
 export function publicKeyToEthereumAddress(x: Buffer, y: Buffer) {
-  return keccak(Buffer.concat([x, y])).slice(-20);
+  const out = new Uint8Array(64);
+  out.set(x, 0);
+  out.set(y, 32);
+  return keccak(Buffer.from(out)).slice(-20);
 }

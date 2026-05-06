@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "../interface/IIEntityManager.sol";
-import "../interface/IIFlareSystemsCalculator.sol";
-import "../interface/IIVoterRegistry.sol";
-import "../interface/IIFlareSystemsManager.sol";
-import "../../governance/implementation/Governed.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../utils/lib/SafePct.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { IIEntityManager } from "../interface/IIEntityManager.sol";
+import { IIFlareSystemsCalculator } from "../interface/IIFlareSystemsCalculator.sol";
+import { IIVoterRegistry } from "../interface/IIVoterRegistry.sol";
+import { IIFlareSystemsManager } from "../interface/IIFlareSystemsManager.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { SafePct } from "../../utils/lib/SafePct.sol";
+import { IVoterRegistry } from "../../userInterfaces/IVoterRegistry.sol";
+import { Signature } from "../../userInterfaces/ISignature.sol";
+import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * VoterRegistry contract.
@@ -29,6 +33,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
 
     uint256 internal constant UINT16_MAX = type(uint16).max;
     uint256 internal constant UINT256_MAX = type(uint256).max;
+    uint256 private constant MAX_VOTERS = 300; // aligned with Relay contract
 
     /// Maximum number of voters in one reward epoch.
     uint256 public maxVoters;
@@ -40,7 +45,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     // mapping: rewardEpochId => list of registered voters and their weights
     mapping(uint256 rewardEpochId => VotersAndWeights) internal register;
 
-    // mapping: rewardEpochId => block number of new signing policy initialisation start
+    // mapping: rewardEpochId => block number of new signing policy initialization start
     /// Snapshot of the voters' addresses for a given reward epoch.
     mapping(uint256 rewardEpochId => uint256) public newSigningPolicyInitializationStartBlockNumber;
 
@@ -52,20 +57,12 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     /// The FlareSystemsCalculator contract.
     IIFlareSystemsCalculator public flareSystemsCalculator;
 
-    /// The address of the system registration contract.
-    address public systemRegistrationContractAddress;
     /// Indicates if the voter must have the public key set when registering.
     bool public publicKeyRequired;
 
     /// Only FlareSystemsManager contract can call this method.
     modifier onlyFlareSystemsManager {
         require(msg.sender == address(flareSystemsManager), "only flare system manager");
-        _;
-    }
-
-    /// Only system registration contract can call this method.
-    modifier onlySystemRegistrationContract {
-        require(msg.sender == systemRegistrationContractAddress, "only system registration contract");
         _;
     }
 
@@ -96,7 +93,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     )
         Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
     {
-        require(_maxVoters <= UINT16_MAX, "_maxVoters too high");
+        require(_maxVoters <= MAX_VOTERS, "_maxVoters too high");
         maxVoters = _maxVoters;
 
         uint256 length = _initialVoters.length;
@@ -131,23 +128,14 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      * @inheritdoc IVoterRegistry
      */
     function registerVoter(address _voter, Signature calldata _signature) external {
-        (uint24 rewardEpochId, IIEntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
+        (uint32 rewardEpochId, IIEntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
         // check signature
-        bytes32 messageHash = keccak256(abi.encode(rewardEpochId, _voter));
+        bytes32 messageHash = keccak256(abi.encode(block.chainid, rewardEpochId, _voter));
         bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
         address signingPolicyAddress = ECDSA.recover(signedMessageHash, _signature.v, _signature.r, _signature.s);
         require(signingPolicyAddress == voterAddresses.signingPolicyAddress, "invalid signature");
         // register voter
-        _registerVoter(_voter, rewardEpochId, voterAddresses);
-    }
-
-    /**
-     * @inheritdoc IIVoterRegistry
-     */
-    function systemRegistration(address _voter) external onlySystemRegistrationContract {
-        (uint24 rewardEpochId, IIEntityManager.VoterAddresses memory voterAddresses) = _getRegistrationData(_voter);
-        // register voter
-        _registerVoter(_voter, rewardEpochId, voterAddresses);
+        _registerVoter(_voter, rewardEpochId, _signature, voterAddresses);
     }
 
     /**
@@ -158,14 +146,14 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      */
     function chill(
         bytes20[] calldata _beneficiaryList,
-        uint256 _noOfRewardEpochs
+        uint32 _noOfRewardEpochs
     )
         external onlyGovernance
         returns(
-            uint256 _untilRewardEpochId
+            uint32 _untilRewardEpochId
         )
     {
-        uint256 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
+        uint32 currentRewardEpochId = flareSystemsManager.getCurrentRewardEpochId();
         _untilRewardEpochId = currentRewardEpochId + _noOfRewardEpochs + 1;
         for(uint256 i = 0; i < _beneficiaryList.length; i++) {
             chilledUntilRewardEpochId[_beneficiaryList[i]] = _untilRewardEpochId;
@@ -178,17 +166,9 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      * @dev Only governance can call this method.
      */
     function setMaxVoters(uint256 _maxVoters) external onlyGovernance {
-        require(_maxVoters <= UINT16_MAX, "_maxVoters too high");
+        require(_maxVoters <= MAX_VOTERS, "_maxVoters too high");
         require(_maxVoters >= flareSystemsManager.signingPolicyMinNumberOfVoters(), "_maxVoters too low");
         maxVoters = _maxVoters;
-    }
-
-    /**
-     * Sets system registration contract.
-     * @dev Only governance can call this method.
-     */
-    function setSystemRegistrationContractAddress(address _systemRegistrationContractAddress) external onlyGovernance {
-        systemRegistrationContractAddress = _systemRegistrationContractAddress;
     }
 
     /**
@@ -526,26 +506,22 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
      * Request to register `_voter` account - implementation.
      * @param _voter The voter address.
      * @param _rewardEpochId The reward epoch id.
+     * @param _signature The signature with the signing policy address.
      * @param _voterAddresses The voter's addresses.
      */
     function _registerVoter(
         address _voter,
-        uint24 _rewardEpochId,
+        uint32 _rewardEpochId,
+        Signature calldata _signature,
         IIEntityManager.VoterAddresses memory _voterAddresses
     )
         internal
     {
-        (uint256 votePowerBlock, bool enabled) = flareSystemsManager.getVoterRegistrationData(_rewardEpochId);
-        require(votePowerBlock != 0, "vote power block zero");
-        require(enabled, "voter registration not enabled");
-        require(entityManager.getDelegationAddressOfAt(_voter, votePowerBlock) != _voter,
-            "delegation address not set");
-        uint256 weight = flareSystemsCalculator.calculateRegistrationWeight(_voter, _rewardEpochId, votePowerBlock);
-        require(weight > 0, "voter weight zero");
+        uint256 weight = _getVoterWeight(_voter, _rewardEpochId);
 
-        (bytes32 publicKeyPart1, bytes32 publicKeyPart2) =
+        (bytes32 publicKeyX, bytes32 publicKeyY) =
             entityManager.getPublicKeyOfAt(_voter, newSigningPolicyInitializationStartBlockNumber[_rewardEpochId]);
-        if (publicKeyRequired && publicKeyPart1 == bytes32(0) && publicKeyPart2 == bytes32(0)) {
+        if (publicKeyRequired && publicKeyX == bytes32(0) && publicKeyY == bytes32(0)) {
             revert("public key required");
         }
 
@@ -563,14 +539,14 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
             votersAndWeights.voters.push(_voter);
             votersAndWeights.weights[_voter] = weight;
         } else {
-            // find minimum to kick out (if needed)
+            // find the most recently registered (highest index) among those with the lowest weight
             uint256 minIndex = 0;
             uint256 minIndexWeight = UINT256_MAX;
-
             for (uint256 i = 0; i < length; i++) {
                 address voter = votersAndWeights.voters[i];
                 uint256 voterWeight = votersAndWeights.weights[voter];
-                if (minIndexWeight > voterWeight) {
+                // on ties, prefer the highest index (most recent) to favor early participants
+                if (minIndexWeight >= voterWeight) {
                     minIndexWeight = voterWeight;
                     minIndex = i;
                 }
@@ -595,10 +571,35 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
             _voterAddresses.signingPolicyAddress,
             _voterAddresses.submitAddress,
             _voterAddresses.submitSignaturesAddress,
-            publicKeyPart1,
-            publicKeyPart2,
-            weight
+            PublicKey(publicKeyX, publicKeyY),
+            weight,
+            _signature
         );
+    }
+
+    /**
+     * Returns the weight of a voter for a given reward epoch.
+     * @param _voter The voter address.
+     * @param _rewardEpochId The reward epoch id.
+     * @return _weight The registration weight of the voter.
+     */
+    function _getVoterWeight(
+        address _voter,
+        uint32 _rewardEpochId
+    )
+        internal
+        returns (uint256 _weight)
+    {
+        // get vote power block and check if voter registration is enabled
+        (uint256 votePowerBlock, bool enabled) = flareSystemsManager.getVoterRegistrationData(_rewardEpochId);
+        require(votePowerBlock != 0, "vote power block zero");
+        require(enabled, "voter registration not enabled");
+        // check if delegation address is set (not the same as voter address)
+        require(entityManager.getDelegationAddressOfAt(_voter, votePowerBlock) != _voter,
+            "delegation address not set");
+        // calculate registration weight
+        _weight = flareSystemsCalculator.calculateRegistrationWeight(_voter, _rewardEpochId, votePowerBlock);
+        require(_weight > 0, "voter weight zero");
     }
 
     /**
@@ -610,7 +611,7 @@ contract VoterRegistry is Governed, AddressUpdatable, IIVoterRegistry {
     function _getRegistrationData(address _voter)
         internal view
         returns(
-            uint24 _rewardEpochId,
+            uint32 _rewardEpochId,
             IIEntityManager.VoterAddresses memory _voterAddresses
         )
     {

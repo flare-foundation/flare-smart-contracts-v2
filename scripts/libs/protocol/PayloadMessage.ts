@@ -47,7 +47,7 @@ export namespace PayloadMessage {
       throw Error(`Invalid format - not even length: ${message.length}`);
     }
     let i = 0;
-    let result: IPayloadMessage<string>[] = [];
+    const result: IPayloadMessage<string>[] = [];
     while (i < messageInternal.length) {
       // 14 = 2 + 8 + 4
       if (messageInternal.length - i < 14) {
@@ -73,12 +73,12 @@ export namespace PayloadMessage {
   /**
    * Concatenates hex strings into one hex string.
    * In the process it checks if each string is a valid hex string.
-   * @param hexStrings 
-   * @returns 
+   * @param hexStrings
+   * @returns
    */
   export function concatenateHexStrings(hexStrings: string[]): string {
     let result = "0x";
-    for (let hexString of hexStrings) {
+    for (const hexString of hexStrings) {
       if (!/^0x([0-9a-f][0-9a-f])*$/i.test(hexString)) {
         throw Error(`Invalid hex string format: ${hexString}`);
       }

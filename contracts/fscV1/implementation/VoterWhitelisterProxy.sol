@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "flare-smart-contracts/contracts/genesis/interface/IIPriceSubmitter.sol";
+import {
+    IIPriceSubmitter
+} from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IIPriceSubmitter.sol";
 
 /**
  * VoterWhitelisterProxy contract.

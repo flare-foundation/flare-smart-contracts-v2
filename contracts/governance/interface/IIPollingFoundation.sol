@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/IGovernor.sol";
-import "./IIGovernorProposer.sol";
+import { IGovernor } from "../../userInterfaces/IGovernor.sol";
+import { IIGovernorProposer } from "./IIGovernorProposer.sol";
 
 interface IIPollingFoundation is IGovernor, IIGovernorProposer {
 
@@ -18,7 +18,7 @@ interface IIPollingFoundation is IGovernor, IIGovernorProposer {
     /**
      * Creates a new proposal without execution parameters.
      * @param _description String description of the proposal.
-     * @param _settings Settings of the poposal.
+     * @param _settings Settings of the proposal.
      * @return Proposal id (unique identifier obtained by hashing proposal data).
      * Emits a ProposalCreated event.
      */
@@ -33,7 +33,7 @@ interface IIPollingFoundation is IGovernor, IIGovernorProposer {
      * @param _values Array of values with which the calls are to be invoked.
      * @param _calldatas Array of call data to be invoked.
      * @param _description String description of the proposal.
-     * @param _settings Settings of the poposal.
+     * @param _settings Settings of the proposal.
      * @return Proposal id (unique identifier obtained by hashing proposal data).
      * Emits a ProposalCreated event.
      */

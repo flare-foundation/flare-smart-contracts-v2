@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "../../governance/implementation/Governed.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../protocol/interface/IIRewardManager.sol";
-import "../../protocol/implementation/RewardOffersManagerBase.sol";
-import "../../userInterfaces/IFastUpdatesConfiguration.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
+import { RewardOffersManagerBase } from "../../protocol/implementation/RewardOffersManagerBase.sol";
+import { InflationReceiver } from "../../inflation/implementation/InflationReceiver.sol";
+import { IFastUpdatesConfiguration } from "../../userInterfaces/IFastUpdatesConfiguration.sol";
+import { IFastUpdateIncentiveManager } from "../../userInterfaces/IFastUpdateIncentiveManager.sol";
 import { IncreaseManager } from "./IncreaseManager.sol";
-import "../interface/IIFastUpdateIncentiveManager.sol";
-import "../../utils/lib/SafePct.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
+import { IIFastUpdateIncentiveManager } from "../interface/IIFastUpdateIncentiveManager.sol";
+import { TokenPoolBase } from "../../utils/implementation/TokenPoolBase.sol";
+import { SafePct } from "../../utils/lib/SafePct.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/flare/tokenPools/interfaces/IITokenPool.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import "../lib/FixedPointArithmetic.sol" as FPA;
 
 /**

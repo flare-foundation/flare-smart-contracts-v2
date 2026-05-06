@@ -40,12 +40,12 @@ export class SignerEmulator {
         protocolId: message.messageToSign.protocolId,
         votingRoundId: message.messageToSign.votingRoundId,
         payload: SignaturePayload.encode(signaturePayload)
-      }) 
+      })
     }));
     return PayloadMessage.concatenateHexStrings(signaturePayloadHexList);
   }
 
-  public async sendMessages(messages: SignDepositMessage[]): Promise<any> {
+  public async sendMessages(messages: SignDepositMessage[]): Promise<void> {
     await web3.eth.sendTransaction({
       from: this.address,
       to: this.submissionContractAddress,
@@ -54,7 +54,7 @@ export class SignerEmulator {
     if (this.loggingEnabled) {
       this.logger!.info(`Voter ${this.address} sent:`);
       for (const message of messages) {
-        this.logger!.info(`   ${ProtocolMessageMerkleRoot.print(message.messageToSign)}, ${message.unsignedMessage}`)
+        this.logger!.info(`${ProtocolMessageMerkleRoot.print(message.messageToSign)}, ${message.unsignedMessage}`)
       }
     }
   }

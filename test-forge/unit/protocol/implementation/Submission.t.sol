@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/Submission.sol";
-import "../../../mock/PassContract.sol";
+import { Test } from "forge-std/Test.sol";
+import { Submission } from "../../../../contracts/protocol/implementation/Submission.sol";
+import { PassContract } from "../../../mock/PassContract.sol";
+import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract SubmissionTest is Test {
     Submission private submission;
@@ -11,13 +13,9 @@ contract SubmissionTest is Test {
     address[] private users;
 
     bytes32[] private nameHashes;
-
     address[] private addresses;
-
     address[] private emptyAddresses;
-
     address private mockRelay;
-
 
     function setUp() public {
         submission = new Submission(

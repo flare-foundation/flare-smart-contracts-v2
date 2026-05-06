@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.22;
 
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
-import "./FtsoV2.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { FtsoV2 } from "./FtsoV2.sol";
 
 
 contract FtsoV2Proxy is ERC1967Proxy {

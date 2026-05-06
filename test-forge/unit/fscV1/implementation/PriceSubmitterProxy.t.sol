@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fscV1/implementation/PriceSubmitterProxy.sol";
+import { Test } from "forge-std/Test.sol";
+import { PriceSubmitterProxy } from "../../../../contracts/fscV1/implementation/PriceSubmitterProxy.sol";
+import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
 
 contract PriceSubmitterProxyTest is Test {
 

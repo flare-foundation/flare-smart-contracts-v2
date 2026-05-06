@@ -3,15 +3,17 @@ import { expectRevert } from '@openzeppelin/test-helpers';
 import { getTestFile } from "../../../utils/constants";
 import { encodeContractNames } from '../../../utils/test-helpers';
 import { Contracts } from '../../../../deployment/scripts/Contracts';
-import { RelayContract } from '../../../../typechain-truffle/contracts/protocol/implementation/Relay';
-import { MockContractContract, MockContractInstance } from '../../../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract';
-import { RewardManagerContract } from '../../../../typechain-truffle';
-import { RewardManagerInstance } from '../../../../typechain-truffle/contracts/protocol/implementation/RewardManager';
+import {
+  RewardManagerContract,
+  RewardManagerInstance,
+  MockContractContract,
+  MockContractInstance
+} from '../../../../typechain-truffle';
 
 const RewardManager: RewardManagerContract = artifacts.require("RewardManager");
 const MockContract: MockContractContract = artifacts.require("MockContract");
 
-contract(`RewardManager.sol; ${getTestFile(__filename)}`, async accounts => {
+contract(`RewardManager.sol; ${getTestFile(__filename)}`, accounts => {
 
   let rewardManager: RewardManagerInstance;
   let flareSystemsManager: MockContractInstance;
@@ -30,7 +32,7 @@ contract(`RewardManager.sol; ${getTestFile(__filename)}`, async accounts => {
   it("Should revert for invalid claim type", async () => {
     const GET_CURRENT_REWARD_EPOCH_ID_SELECTOR = web3.utils.sha3("getCurrentRewardEpochId()")!.slice(0, 10); // first 4 bytes is function selector
     await flareSystemsManager.givenMethodReturnUint(GET_CURRENT_REWARD_EPOCH_ID_SELECTOR, 3);
-    await expectRevert.unspecified(rewardManager.claim(accounts[1], accounts[2], 1, true, [{merkleProof: [], body: {rewardEpochId: 0, beneficiary: accounts[1], amount: 100, claimType: 5}}], { from: accounts[1] }));
+    await expectRevert.unspecified(rewardManager.claim(accounts[1], accounts[2], 1, true, [{ merkleProof: [], body: { rewardEpochId: 0, beneficiary: accounts[1], amount: 100, claimType: 5 } }], { from: accounts[1] }));
   });
 
 });

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/IWNatDelegationFee.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
-
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IWNatDelegationFee } from "../../userInterfaces/IWNatDelegationFee.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { ProtocolsV2Interface } from "../../userInterfaces/LTS/ProtocolsV2Interface.sol";
 
 contract WNatDelegationFee is AddressUpdatable, IWNatDelegationFee {
 

@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fdc/implementation/FdcHub.sol";
-import "../../../../contracts/fdc/implementation/FdcInflationConfigurations.sol";
-import "../../../../contracts/fdc/implementation/FdcRequestFeeConfigurations.sol";
-import "../../../../contracts/protocol/implementation/RewardManager.sol";
+import { Test } from "forge-std/Test.sol";
+import { FdcHub } from "../../../../contracts/fdc/implementation/FdcHub.sol";
+import { FdcInflationConfigurations } from "../../../../contracts/fdc/implementation/FdcInflationConfigurations.sol";
+import { FdcRequestFeeConfigurations } from "../../../../contracts/fdc/implementation/FdcRequestFeeConfigurations.sol";
+import { RewardManager } from "../../../../contracts/protocol/implementation/RewardManager.sol";
+import { IFdcInflationConfigurations } from "../../../../contracts/userInterfaces/IFdcInflationConfigurations.sol";
+import { IFdcHub } from "../../../../contracts/userInterfaces/IFdcHub.sol";
+import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
+import { IIFlareSystemsManager } from "../../../../contracts/protocol/interface/IIFlareSystemsManager.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FdcHubTest is Test {
     FdcHub private fdcHub;
@@ -32,16 +37,6 @@ contract FdcHubTest is Test {
     uint256 private fee2;
 
     uint64 internal constant DAY = 1 days;
-
-    event AttestationRequest(bytes data, uint256 fee);
-    event InflationRewardsOffered(
-        // reward epoch id
-        uint24 indexed rewardEpochId,
-        // fdc configurations
-        IFdcInflationConfigurations.FdcConfiguration[] fdcConfigurations,
-        // amount (in wei) of reward in native coin
-        uint256 amount
-    );
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -167,7 +162,7 @@ contract FdcHubTest is Test {
 
         vm.prank(user);
         vm.expectEmit();
-        emit AttestationRequest(abi.encodePacked(type1, source1), 123);
+        emit IFdcHub.AttestationRequest(abi.encodePacked(type1, source1), 123);
         fdcHub.requestAttestation { value: 123 }(abi.encodePacked(type1, source1));
         vm.assertEq(address(rewardManager).balance, 123);
 
@@ -202,7 +197,7 @@ contract FdcHubTest is Test {
         vm.prank(user);
         vm.expectEmit();
         bytes32 typeAndSource = _joinTypeAndSource(type1, source1);
-        emit AttestationRequest(abi.encodePacked(type1, source1, typeAndSource, typeAndSource,
+        emit IFdcHub.AttestationRequest(abi.encodePacked(type1, source1, typeAndSource, typeAndSource,
             typeAndSource, typeAndSource, typeAndSource, typeAndSource, typeAndSource, typeAndSource), 123);
         fdcHub.requestAttestation { value: 123 }(abi.encodePacked(type1, source1, typeAndSource, typeAndSource,
             typeAndSource, typeAndSource, typeAndSource, typeAndSource, typeAndSource, typeAndSource));
@@ -233,7 +228,7 @@ contract FdcHubTest is Test {
 
         vm.prank(user);
         vm.expectEmit();
-        emit AttestationRequest(abi.encodePacked(type1, source1), 123);
+        emit IFdcHub.AttestationRequest(abi.encodePacked(type1, source1), 123);
         fdcHub.requestAttestation { value: 123 }(abi.encodePacked(type1, source1));
         vm.assertEq(address(rewardManager).balance, 123);
 
@@ -267,7 +262,7 @@ contract FdcHubTest is Test {
 
         vm.prank(user);
         vm.expectEmit();
-        emit AttestationRequest(abi.encodePacked(type1, source1), 123);
+        emit IFdcHub.AttestationRequest(abi.encodePacked(type1, source1), 123);
         fdcHub.requestAttestation { value: 123 }(abi.encodePacked(type1, source1));
         vm.assertEq(address(rewardManager).balance, 123);
 
@@ -314,7 +309,7 @@ contract FdcHubTest is Test {
         // totalRewardAmount = 5000 * DAY / (2*DAY - DAY) = 5000
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit IFdcHub.InflationRewardsOffered(
             2 + 1,
             fdcConfigurations,
             5000
@@ -330,7 +325,7 @@ contract FdcHubTest is Test {
         // totalInflationReceivedWei == totalInflationRewardsOfferedWei -> amounts should be zero
         vm.prank(mockFlareSystemsManager);
         vm.expectEmit();
-        emit InflationRewardsOffered(
+        emit IFdcHub.InflationRewardsOffered(
             2 + 1,
             fdcConfigurations,
             0 // amount

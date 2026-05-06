@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/lib/AddressHistory.sol";
+import { Test } from "forge-std/Test.sol";
+import { AddressHistory } from "../../../../contracts/protocol/lib/AddressHistory.sol";
 
 contract AddressHistoryTest is Test {
     using AddressHistory for AddressHistory.CheckPointHistoryState;

@@ -1,12 +1,10 @@
 import { bn254 } from "@noble/curves/bn254";
 import { expect } from "chai";
-
-import { g1compress, randomInt } from "../../../utils/sortition";
-
+import { randomInt } from "../../../utils/sortition";
 import { getTestFile } from "../../../utils/constants";
-import { Bn256MockContract, Bn256MockInstance } from "../../../../typechain-truffle";
+import { Bn256MockInstance } from "../../../../typechain-truffle";
 
-const Bn256Mock = artifacts.require("Bn256Mock") as Bn256MockContract;
+const Bn256Mock = artifacts.require("Bn256Mock");
 
 contract(`Bn256.sol; ${getTestFile(__filename)}`, accounts => {
   let bn256Instance: Bn256MockInstance;
