@@ -367,6 +367,8 @@
         {"attestationType": "EVMTransaction", "source": "ETH", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
         {"attestationType": "EVMTransaction", "source": "FLR", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
         {"attestationType": "EVMTransaction", "source": "SGB", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
-        {"attestationType": "Web2Json", "source": "Ignite", "inflationShare": 1000, "minRequestsThreshold": 2, "mode": 0}
+        {"attestationType": "Web2Json", "source": "Ignite", "inflationShare": 1000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "XRPPayment", "source": "XRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0},
+        {"attestationType": "XRPPaymentNonexistence", "source": "XRP", "inflationShare": 10000, "minRequestsThreshold": 2, "mode": 0}
     ]
 }
