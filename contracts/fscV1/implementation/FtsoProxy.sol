@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "flare-smart-contracts/contracts/userInterfaces/IFtso.sol";
-import "../../fscV1/interface/IIFtsoManagerProxy.sol";
+import { IFtso } from "@flarenetwork/flare-periphery-contracts/flare/IFtso.sol";
+import { IIFtsoManagerProxy} from "../../fscV1/interface/IIFtsoManagerProxy.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 
 /**
  * FtsoProxy is a compatibility contract replacing Ftso contract
@@ -39,13 +40,6 @@ contract FtsoProxy is IFtso {
     /**
      * @inheritdoc IFtso
      */
-    function active() external pure returns (bool) {
-        return true;
-    }
-
-    /**
-     * @inheritdoc IFtso
-     */
     function getCurrentEpochId() external view returns (uint256) {
         return ftsoManager.flareSystemsManager().getCurrentVotingEpochId();
     }
@@ -64,14 +58,6 @@ contract FtsoProxy is IFtso {
      */
     function getRandom(uint256 _votingRoundId) external view returns (uint256 _randomNumber) {
         (_randomNumber, , ) = ftsoManager.relay().getRandomNumberHistorical(_votingRoundId);
-    }
-
-    /**
-     * @inheritdoc IFtso
-     * @dev Deprecated - reverts
-     */
-    function getEpochPrice(uint256) external pure returns (uint256) {
-        revert("not supported");
     }
 
     /**
@@ -113,21 +99,6 @@ contract FtsoProxy is IFtso {
 
     /**
      * @inheritdoc IFtso
-     * @dev Deprecated - reverts
-     */
-    function getEpochPriceForVoter(uint256, address) external pure returns (uint256) {
-        revert("not supported");
-    }
-
-    /**
-     * @inheritdoc IFtso
-     */
-    function getCurrentPrice() external view returns (uint256, uint256) {
-        return _getCurrentPrice();
-    }
-
-    /**
-     * @inheritdoc IFtso
      */
     function getCurrentPriceWithDecimals()
         external view
@@ -140,7 +111,6 @@ contract FtsoProxy is IFtso {
         (_value, _timestamp) = _getCurrentPrice();
         _decimals = ASSET_PRICE_USD_DECIMALS;
     }
-
 
     /**
      * @inheritdoc IFtso
@@ -167,18 +137,9 @@ contract FtsoProxy is IFtso {
 
     /**
      * @inheritdoc IFtso
-     * @dev Deprecated - reverts
      */
-    function getCurrentPriceFromTrustedProviders() external pure returns (uint256, uint256) {
-        revert("not supported");
-    }
-
-    /**
-     * @inheritdoc IFtso
-     * @dev Deprecated - reverts
-     */
-    function getCurrentPriceWithDecimalsFromTrustedProviders() external pure returns (uint256, uint256, uint256) {
-        revert("not supported");
+    function getCurrentPrice() external view returns (uint256, uint256) {
+        return _getCurrentPrice();
     }
 
     /**
@@ -201,6 +162,46 @@ contract FtsoProxy is IFtso {
         } else {
             _price = _price * (10 ** uint256(decimalsDiff));
         }
+    }
+
+    /**
+     * @inheritdoc IFtso
+     */
+    function active() external pure returns (bool) {
+        return true;
+    }
+
+    /**
+     * @inheritdoc IFtso
+     * @dev Deprecated - reverts
+     */
+    function getEpochPrice(uint256) external pure returns (uint256) {
+        revert("not supported");
+    }
+
+
+    /**
+     * @inheritdoc IFtso
+     * @dev Deprecated - reverts
+     */
+    function getEpochPriceForVoter(uint256, address) external pure returns (uint256) {
+        revert("not supported");
+    }
+
+    /**
+     * @inheritdoc IFtso
+     * @dev Deprecated - reverts
+     */
+    function getCurrentPriceFromTrustedProviders() external pure returns (uint256, uint256) {
+        revert("not supported");
+    }
+
+    /**
+     * @inheritdoc IFtso
+     * @dev Deprecated - reverts
+     */
+    function getCurrentPriceWithDecimalsFromTrustedProviders() external pure returns (uint256, uint256, uint256) {
+        revert("not supported");
     }
 
 }

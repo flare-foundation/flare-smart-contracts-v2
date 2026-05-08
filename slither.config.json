@@ -1,5 +1,5 @@
 {
-    "filter_paths": "/mock/|@openzeppelin/contracts/utils/math/Math.sol",
+    "filter_paths": "/mock/|@openzeppelin/contracts/utils/math/Math.sol|flattened/FlareSmartContracts.sol|node_modules",
     "detectors_to_exclude": "naming-convention",
     "compile_force_framework": "hardhat"
 }

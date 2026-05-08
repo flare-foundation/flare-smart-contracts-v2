@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../mock/GovernedMock.sol";
+import { Test } from "forge-std/Test.sol";
+import { GovernedMock } from "../../../mock/GovernedMock.sol";
+import { GovernedBase } from "../../../../contracts/governance/implementation/GovernedBase.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract GovernedTest is Test {
 
@@ -15,12 +17,6 @@ contract GovernedTest is Test {
     bytes4 private selectorChangeA = bytes4(keccak256("changeA(uint256)"));
     bytes4 private selectorChangeWithRevert = bytes4(keccak256("changeWithRevert(uint256)"));
     uint256 private constant HOUR = 3600;
-
-    event GovernanceCallTimelocked(bytes4 selector, uint256 allowedAfterTimestamp, bytes encodedCall);
-    event TimelockedGovernanceCallExecuted(bytes4 selector, uint256 timestamp);
-    event TimelockedGovernanceCallCanceled(bytes4 selector, uint256 timestamp);
-    event GovernanceInitialised(address initialGovernance);
-    event GovernedProductionModeEntered(address governanceSettings);
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -44,7 +40,7 @@ contract GovernedTest is Test {
     function testInitialise() public {
         assertEq(governedMock.governance(), address(0));
         vm.expectEmit();
-        emit GovernanceInitialised(initialGovernance);
+        emit GovernedBase.GovernanceInitialised(initialGovernance);
         governedMock.initialise(IGovernanceSettings(governanceSettings), initialGovernance);
         assertEq(governedMock.governance(), initialGovernance);
     }
@@ -69,7 +65,7 @@ contract GovernedTest is Test {
         testInitialise();
         vm.prank(initialGovernance);
         vm.expectEmit();
-        emit GovernedProductionModeEntered(governanceSettings);
+        emit GovernedBase.GovernedProductionModeEntered(governanceSettings);
         governedMock.switchToProductionMode();
         assertEq(governedMock.governance(), governance);
     }
@@ -94,7 +90,7 @@ contract GovernedTest is Test {
 
         vm.warp(block.timestamp + HOUR);
         vm.expectEmit();
-        emit TimelockedGovernanceCallExecuted(selectorChangeA, block.timestamp);
+        emit GovernedBase.TimelockedGovernanceCallExecuted(selectorChangeA, block.timestamp);
         governedMock.executeGovernanceCall(selectorChangeA);
         assertEq(governedMock.a(), 3);
         vm.stopPrank();
@@ -165,7 +161,7 @@ contract GovernedTest is Test {
 
         vm.warp(block.timestamp + HOUR - 60);
         vm.expectEmit();
-        emit TimelockedGovernanceCallCanceled(selectorChangeA, block.timestamp);
+        emit GovernedBase.TimelockedGovernanceCallCanceled(selectorChangeA, block.timestamp);
         governedMock.cancelGovernanceCall(selectorChangeA);
         vm.stopPrank();
     }

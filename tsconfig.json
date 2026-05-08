@@ -11,8 +11,13 @@
     "strict": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "sourceMap": true,
+    "noUncheckedSideEffectImports": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "newLine": "lf",
     "outDir": "dist",
-    "typeRoots": ["node_modules/@types", "types"]
+    "typeRoots": ["node_modules/@types", "lib/types"]
   },
   "include": [
     "./deployment",
@@ -21,7 +26,9 @@
     "./typechain-truffle",
     "./typechain-web3",
     "./test",
-    "./scripts"
+    "./scripts/libs",
+    "./lib",
+    "types"
   ],
   "files": ["./hardhat.config.ts"]
 }

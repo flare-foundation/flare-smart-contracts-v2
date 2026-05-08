@@ -1,14 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "./CloneFactory.sol";
-import "../interface/IIRNat.sol";
-import "../interface/IIRNatAccount.sol";
-import "../../governance/implementation/Governed.sol";
-import "../../incentivePool/implementation/IncentivePoolReceiver.sol";
-import "../../protocol/interface/IIClaimSetupManager.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-
+import { CloneFactory } from "./CloneFactory.sol";
+import { IIRNat } from "../interface/IIRNat.sol";
+import { IIRNatAccount } from "../interface/IIRNatAccount.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { IncentivePoolReceiver } from "../../incentivePool/implementation/IncentivePoolReceiver.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IIClaimSetupManager } from "../../protocol/interface/IIClaimSetupManager.sol";
+import { IRNat } from "../../userInterfaces/IRNat.sol";
+import { IRNatAccount } from "../../userInterfaces/IRNatAccount.sol";
+import { IWNat } from "../../userInterfaces/IWNat.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/flare/tokenPools/interfaces/IITokenPool.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /**
  * RNat is a non-transferable linearly vested token (12 months). This contract is used for managing all processes

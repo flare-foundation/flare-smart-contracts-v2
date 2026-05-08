@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "flare-smart-contracts/contracts/inflation/interface/IIInflationReceiver.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../utils/implementation/TokenPoolBase.sol";
+import {
+    IIInflationReceiver
+} from "@flarenetwork/flare-periphery-contracts/flare/inflation/interfaces/IIInflationReceiver.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { TokenPoolBase } from "../../utils/implementation/TokenPoolBase.sol";
 
 /**
  * InflationReceiver contract.

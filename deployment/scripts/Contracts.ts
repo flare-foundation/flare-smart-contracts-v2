@@ -1,5 +1,4 @@
-import { Readable } from "stream";
-
+import fs from "fs";
 export class Contract {
   name: string;
   contractName: string;
@@ -100,21 +99,21 @@ export class Contracts {
     } else {
       this.filePath = filePath;
     }
-    const fs = require("fs");
     if (!fs.existsSync(filePath)) return;
     const contractsJson = fs.readFileSync(filePath);
-    if (contractsJson.length == 0) return;
-    this.deserializeJson(contractsJson, all);
+    if (contractsJson.length === 0) return;
+    this.deserializeJson(contractsJson.toString(), all);
   }
 
   deserializeJson(contractsJson: string, all: boolean = false) {
-    const parsedContracts = JSON.parse(contractsJson);
     if (all) {
-      parsedContracts.forEach((contract: { name: string; contractName: string, addresses: string[]; }) => {
+      const parsedContracts = JSON.parse(contractsJson) as Array<{ name: string; contractName: string; addresses: string[] }>;
+      parsedContracts.forEach((contract) => {
         this.contractsAll.set(contract.name, new ContractList(contract.name, contract.contractName, contract.addresses));
       })
     } else {
-      parsedContracts.forEach((contract: { name: string; contractName: string, address: string; }) => {
+      const parsedContracts = JSON.parse(contractsJson) as Array<{ name: string; contractName: string; address: string; }>;
+      parsedContracts.forEach((contract) => {
         this.contracts.set(contract.name, contract);
       })
     }
@@ -132,12 +131,14 @@ export class Contracts {
     }
   }
 
-  async getContractsMap(hre: any): Promise<any> {
-    const contractsMap: any = {};
-    for (let con of this.allContracts()) {
+  async getContractsMap(
+    hre: { artifacts: { require: (name: string) => { at: (address: string) => unknown } } }
+  ): Promise<Record<string, unknown>> {
+    const contractsMap: Record<string, unknown> = {};
+    for (const con of this.allContracts()) {
       const name = con.contractName.split(".")[0];
       const alias = con.name[0].toLowerCase() + con.name.slice(1);
-      const contract = hre.artifacts.require(name as any);
+      const contract = hre.artifacts.require(name);
       contractsMap[alias] = await contract.at(con.address);
     }
     return contractsMap;
@@ -162,7 +163,6 @@ export class Contracts {
   }
 
   serialize() {
-    const fs = require("fs");
     if (this.filePath) {
       fs.writeFileSync(this.filePath, JSON.stringify(Array.from(this.contracts.values()), null, 2));
     }

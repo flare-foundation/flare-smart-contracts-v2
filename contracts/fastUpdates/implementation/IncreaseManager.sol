@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "./CircularListManager.sol";
-import "../../userInterfaces/IIncreaseManager.sol";
+import { CircularListManager } from "./CircularListManager.sol";
+import { IIncreaseManager } from "../../userInterfaces/IIncreaseManager.sol";
 import "../lib/FixedPointArithmetic.sol" as FPA;
 
 abstract contract IncreaseManager is IIncreaseManager, CircularListManager {

@@ -1,28 +1,32 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-
-import "../../governance/implementation/Governed.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../userInterfaces/IFlareSystemsManager.sol";
-import "../../userInterfaces/IFtsoFeedPublisher.sol";
-import "../../userInterfaces/IFastUpdatesConfiguration.sol";
-import "../../protocol/interface/IIVoterRegistry.sol";
-import "../interface/IIFastUpdater.sol";
-import "../lib/Bn256.sol";
-import "../lib/FixedPointArithmetic.sol" as FPA;
-import "../interface/IIFastUpdateIncentiveManager.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { IFtsoFeedPublisher } from "../../userInterfaces/IFtsoFeedPublisher.sol";
+import { IFastUpdatesConfiguration } from "../../userInterfaces/IFastUpdatesConfiguration.sol";
+import { IFastUpdater } from "../../userInterfaces/IFastUpdater.sol";
+import { IIVoterRegistry } from "../../protocol/interface/IIVoterRegistry.sol";
+import { IIFastUpdater } from "../interface/IIFastUpdater.sol";
+import { IIPublicKeyVerifier } from "../../protocol/interface/IIPublicKeyVerifier.sol";
+import { Bn256 } from "../lib/Bn256.sol";
+import { Scale, oneS, SampleSize } from "../lib/FixedPointArithmetic.sol";
+import { IIFastUpdateIncentiveManager } from "../interface/IIFastUpdateIncentiveManager.sol";
 import { SortitionState, verifySortitionCredential, verifySignature } from "../lib/Sortition.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import "../../utils/lib/SafePct.sol";
-import "../../utils/lib/AddressSet.sol";
-import "../interface/IIFeeCalculator.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { SafePct } from "../../utils/lib/SafePct.sol";
+import { AddressSet } from "../../utils/lib/AddressSet.sol";
+import { IIFeeCalculator } from "../interface/IIFeeCalculator.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareDaemonize } from "@flarenetwork/flare-periphery-contracts/flare/genesis/interfaces/IFlareDaemonize.sol";
+import { G1Point } from "../../userInterfaces/IBn256.sol";
 
 // The number of units of weight distributed among providers is 1 << VIRTUAL_PROVIDER_BITS
 uint256 constant VIRTUAL_PROVIDER_BITS = 12;
 // Value p is split into three parts,
-// since FPA.Scale is 128 bits value with 120 bits for decimals all 3 parts
+// since Scale is 128 bits value with 120 bits for decimals all 3 parts
 // need to be smaller than UINT_SPLIT number of bits
 uint256 constant UINT_SPLIT = 256 - (120 + VIRTUAL_PROVIDER_BITS);
 uint256 constant SMALL_P = Bn256.p & (2 ** UINT_SPLIT - 1);
@@ -116,7 +120,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
      * @dev This variable holds the values for the current scale of change. It is
      * keept up to date by the daemon.
      */
-    FPA.Scale internal currentScale = FPA.oneS;
+    Scale internal currentScale = oneS;
 
     bytes[] internal submittedDeltas;
     uint256 internal currentDelta;
@@ -203,7 +207,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
 
         assert(8 * feeds.length >= decimals.length);
         uint256 currentVotingRoundId = _getCurrentVotingEpochId();
-        FPA.Scale scale = fastUpdateIncentiveManager.getBaseScale();
+        Scale scale = fastUpdateIncentiveManager.getBaseScale();
         uint256 value;
         int8 decimal;
         for (uint256 i = 0; i < _indices.length; i++) {
@@ -456,7 +460,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
 
         _timestamp = _getLastSubmissionTs();
         _feeds = new uint256[](_indices.length);
-        FPA.Scale scale = currentScale;
+        Scale scale = currentScale;
 
         // solhint-disable-next-line no-inline-assembly
         assembly {
@@ -699,7 +703,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     /// Internal method that iterates over all feeds and adjusts their scale (num.
     /// of decimals).
     function _adjustScaleOfFeeds() internal {
-        FPA.Scale scale = fastUpdateIncentiveManager.getBaseScale();
+        Scale scale = fastUpdateIncentiveManager.getBaseScale();
         uint256 i;
         bytes32 feeds8;
         uint256 feed;
@@ -755,7 +759,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     /// Internal method that applies the submitted updates to the current feed values.
     function _applySubmitted() internal {
         lastSubmissionTs = _getLastSubmissionTs();
-        FPA.Scale scale = currentScale;
+        Scale scale = currentScale;
         // solhint-disable-next-line no-inline-assembly
         assembly {
             let arg := mload(0x40)
@@ -939,16 +943,16 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
      * @return _cutoff The score cutoff for this block.
      */
     function _currentScoreCutoff() internal view returns (uint256 _cutoff) {
-        FPA.SampleSize expectedSampleSize = fastUpdateIncentiveManager.getExpectedSampleSize();
+        SampleSize expectedSampleSize = fastUpdateIncentiveManager.getExpectedSampleSize();
         // The formula is: (exp. s.size)/(num. prov.) = (score)/(score range)
         //   score range = p = 21888242871839275222246405745257275088696311157297823662689037894645226208583
         //   num. providers = 2**VIRTUAL_PROVIDER_BITS
         //   exp. sample size = "expectedSampleSize8x120 >> 120", in that we keep the fractional bits:
-        _cutoff = BIG_P * uint256(FPA.SampleSize.unwrap(expectedSampleSize)) <<
+        _cutoff = BIG_P * uint256(SampleSize.unwrap(expectedSampleSize)) <<
             (2*UINT_SPLIT - VIRTUAL_PROVIDER_BITS - 120);
-        _cutoff += MEDIUM_P * uint256(FPA.SampleSize.unwrap(expectedSampleSize)) >>
+        _cutoff += MEDIUM_P * uint256(SampleSize.unwrap(expectedSampleSize)) >>
             (VIRTUAL_PROVIDER_BITS + 120 - UINT_SPLIT);
-        _cutoff += (SMALL_P * uint256(FPA.SampleSize.unwrap(expectedSampleSize))) >>
+        _cutoff += (SMALL_P * uint256(SampleSize.unwrap(expectedSampleSize))) >>
             (VIRTUAL_PROVIDER_BITS + 120);
     }
 
@@ -994,7 +998,7 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
     /// Internal method for modifying the decimal representation of feeds. It assures that the value
     /// of the feed is always smaller than 2**29 (i.e. has upper 3 bits 0 for the case that the value
     /// is increased) and that every update (multiplication with scale) has at least 3 bits of accuracy.
-    function _adjustDecimals(uint256 _value, int8 _decimals, FPA.Scale _scale) internal pure returns (uint256, int8) {
+    function _adjustDecimals(uint256 _value, int8 _decimals, Scale _scale) internal pure returns (uint256, int8) {
         if (_value == 0) {
             return (_value, _decimals);
         }
@@ -1009,12 +1013,12 @@ contract FastUpdater is Governed, IIFastUpdater, AddressUpdatable {
         }
 
         // adjust if the value is too small to be affected by multiplying with scale
-        uint256 scaledValue = (newValue * FPA.Scale.unwrap(_scale)) >> 127;
+        uint256 scaledValue = (newValue * Scale.unwrap(_scale)) >> 127;
         uint256 delta = scaledValue - newValue;
         while ((delta >> 3) == 0 && newDecimals < 2**7 - 1 && (newValue >> 28) == 0) {
             newValue = newValue * 10;
             newDecimals = newDecimals + 1;
-            scaledValue = (newValue * FPA.Scale.unwrap(_scale)) >> 127;
+            scaledValue = (newValue * Scale.unwrap(_scale)) >> 127;
             delta = scaledValue - newValue;
         }
 

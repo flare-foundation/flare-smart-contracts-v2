@@ -7,46 +7,34 @@ import * as util from "../../../utils/key-to-address";
 import { Sign, generateSortitionKey, generateVerifiableRandomnessProof, randomInt } from "../../../utils/sortition";
 import type { Proof, Signature, SortitionKey } from "../../../utils/sortition";
 import { RangeOrSampleFPA } from "../../../utils/fixed-point-arithmetic";
-import type {
-  FastUpdateIncentiveManagerContract,
-  FastUpdateIncentiveManagerInstance,
-} from "../../../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdateIncentiveManager";
-import type {
-  FastUpdaterContract,
-  FastUpdaterInstance,
-} from "../../../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdater";
-import type {
-  FlareSystemMockContract,
+import {
+  FastUpdatesConfigurationInstance,
+  FtsoFeedPublisherInstance,
   FlareSystemMockInstance,
-} from "../../../../typechain-truffle/contracts/fastUpdates/mock/FlareSystemMock";
+  MockContractInstance,
+  FastUpdaterInstance,
+  FastUpdateIncentiveManagerInstance,
+  FastUpdaterContract,
+  FtsoFeedPublisherContract,
+  FastUpdatesConfigurationContract,
+  FastUpdateIncentiveManagerContract,
+  FlareSystemMockContract,
+  MockContractContract,
+} from "../../../../typechain-truffle";
+import { FtsoConfigurations } from "../../../../scripts/libs/protocol/FtsoConfigurations";
+import { encodePacked, toBN } from "web3-utils";
 import { ECDSASignature } from "../../../../scripts/libs/protocol/ECDSASignature";
 import { getTestFile } from "../../../utils/constants";
 import { encodeContractNames } from "../../../utils/test-helpers";
 import { Contracts } from "../../../../deployment/scripts/Contracts";
-import {
-  MockContractContract,
-  MockContractInstance,
-} from "../../../../typechain-truffle/@gnosis.pm/mock-contract/contracts/MockContract.sol/MockContract";
 import { constants, expectEvent, expectRevert, time } from "@openzeppelin/test-helpers";
-import {
-  FtsoFeedPublisherContract,
-  FtsoFeedPublisherInstance,
-} from "../../../../typechain-truffle/contracts/ftso/implementation/FtsoFeedPublisher";
-import {
-  FastUpdatesConfigurationContract,
-  FastUpdatesConfigurationInstance,
-} from "../../../../typechain-truffle/contracts/fastUpdates/implementation/FastUpdatesConfiguration";
-import { FtsoConfigurations } from "../../../../scripts/libs/protocol/FtsoConfigurations";
-import { encodePacked, toBN } from "web3-utils";
 
-const FastUpdater = artifacts.require("FastUpdater") as FastUpdaterContract;
-const FastUpdateIncentiveManager = artifacts.require(
-  "FastUpdateIncentiveManager"
-) as FastUpdateIncentiveManagerContract;
-const FastUpdatesConfiguration = artifacts.require("FastUpdatesConfiguration") as FastUpdatesConfigurationContract;
-const FtsoFeedPublisher = artifacts.require("FtsoFeedPublisher") as FtsoFeedPublisherContract;
-const FlareSystemMock = artifacts.require("FlareSystemMock") as FlareSystemMockContract;
-const MockContract = artifacts.require("MockContract") as MockContractContract;
+const FastUpdater: FastUpdaterContract = artifacts.require("FastUpdater");
+const FastUpdateIncentiveManager: FastUpdateIncentiveManagerContract = artifacts.require("FastUpdateIncentiveManager");
+const FastUpdatesConfiguration: FastUpdatesConfigurationContract = artifacts.require("FastUpdatesConfiguration");
+const FtsoFeedPublisher: FtsoFeedPublisherContract = artifacts.require("FtsoFeedPublisher");
+const FlareSystemMock: FlareSystemMockContract = artifacts.require("FlareSystemMock");
+const MockContract: MockContractContract = artifacts.require("MockContract");
 
 let TEST_REWARD_EPOCH: bigint;
 
@@ -66,7 +54,10 @@ const SCALE = 1 + RANGE / SAMPLE_SIZE;
 const RANGE_INCREASE_PRICE = BigInt(10) ** BigInt(24);
 const SAMPLE_SIZE_INCREASE_PRICE = 1425;
 
-const NUM_FEEDS: number = 1000;
+const COVERAGE = process.env.COVERAGE === "1" || process.env.COVERAGE === "true";
+// coverage mode injects extra instrumentation (code) increasing gas, CPU and memory usage
+// large feed loops magnify the overhead; reduce number of feeds when COVERAGE=1
+const NUM_FEEDS: number = COVERAGE ? 200 : 1000;
 const FEED_IDS = [
   FtsoConfigurations.encodeFeedId({ category: 1, name: "BTC/USD" }),
   FtsoConfigurations.encodeFeedId({ category: 1, name: "ETH/USD" }),
@@ -87,11 +78,26 @@ for (let i = 0; i < NUM_FEEDS; i++) {
   indices.push(i);
 }
 
-function shuffleArray(array: any[]) {
+function shuffleArray(array: unknown[]) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [array[i], array[j]] = [array[j], array[i]];
   }
+}
+
+function getFeedIdCalldata(index: number): string {
+  // Get selector for getFeedId(uint256[])
+  const getFeedIdSelector = web3.utils.sha3("getFeedId(uint256)")!.slice(0, 10);
+  // ABI encode the argument (index)
+  const encodedIndex = web3.eth.abi.encodeParameter("uint256", index);
+  // Calldata = selector + encoded argument (remove 0x from encodedIndex)
+  return getFeedIdSelector + encodedIndex.slice(2);
+}
+
+function getCurrentFeedCalldata(feedId: BytesLike): string {
+  const getCurrentFeedSelector = web3.utils.sha3("getCurrentFeed(bytes21)")!.slice(0, 10);
+  const encodedFeedId = web3.eth.abi.encodeParameter("bytes21", feedId);
+  return getCurrentFeedSelector + encodedFeedId.slice(2);
 }
 
 contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
@@ -119,12 +125,11 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
     ftsoFeedPublisherInterface = await FtsoFeedPublisher.new(accounts[0], accounts[0], accounts[0], 100, 200);
     ftsoFeedPublisherMock = await MockContract.new();
     for (let i = 0; i < NUM_FEEDS; i++) {
-      const getCurrentFeed = ftsoFeedPublisherInterface.contract.methods.getCurrentFeed(FEED_IDS[i]).encodeABI();
       const feed = web3.eth.abi.encodeParameters(
         ["tuple(uint32,bytes21,int32,uint16,int8)"], // IFtsoFeedPublisher.Feed (uint32 votingRoundId, bytes21 id, int32 value, uint16 turnoutBIPS, int8 decimals)
         [[0, FEED_IDS[i], ANCHOR_FEEDS[i], 6000, DECIMALS[i]]]
       );
-      await ftsoFeedPublisherMock.givenCalldataReturn(getCurrentFeed, feed);
+      await ftsoFeedPublisherMock.givenCalldataReturn(getCurrentFeedCalldata(FEED_IDS[i]), feed);
     }
 
     feeCalculatorMock = await MockContract.new();
@@ -170,10 +175,10 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         weight: VOTER_WEIGHT,
       };
 
-      let prvKey = privateKeys[i + 1].privateKey.slice(2);
-      let prvkeyBuffer = Buffer.from(prvKey, "hex");
-      let [x2, y2] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
-      let addr = toChecksumAddress("0x" + util.publicKeyToEthereumAddress(x2, y2).toString("hex"));
+      const prvKey = privateKeys[i + 1].privateKey.slice(2);
+      const prvkeyBuffer = Buffer.from(prvKey, "hex");
+      const [x2, y2] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
+      const addr = toChecksumAddress("0x" + util.publicKeyToEthereumAddress(x2, y2).toString("hex"));
       voters.push(addr);
       await flareSystemMock.registerAsVoter(TEST_REWARD_EPOCH.toString(), addr, policy);
     }
@@ -243,11 +248,11 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       const tx = await fastUpdater.daemonize({
         from: flareDaemon,
       });
-      expect(tx.receipt.gasUsed).to.be.lessThan(4000000);
+      expect((tx.receipt as { gasUsed: number }).gasUsed).to.be.lessThan(4000000);
     }
   });
 
-  describe(`Tests with ${NUM_FEEDS} feeds`, async () => {
+  describe(`Tests with ${NUM_FEEDS} feeds`, () => {
     beforeEach(async () => {
       await fastUpdatesConfiguration.addFeeds(
         FEED_IDS.slice(0, NUM_FEEDS / 2).map(id => {
@@ -275,8 +280,8 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       const startingFeeds = await fastUpdater.fetchCurrentFeeds.call(indices, { value: "1" });
       const startingFeedsVal: number[] = startingFeeds[0].map((x: BN) => x.toNumber());
       const startingFeedsDec: number[] = startingFeeds[1].map((x: BN) => x.toNumber());
-      var expectedFeeds: number[] = [];
-      var expectedDecimals: number[] = [];
+      const expectedFeeds: number[] = [];
+      const expectedDecimals: number[] = [];
       for (let i = 0; i < NUM_FEEDS; i++) {
         expectedFeeds[i] = ANCHOR_FEEDS[i];
         expectedDecimals[i] = DECIMALS[i];
@@ -310,7 +315,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
           for (let rep = 0; rep < (weights[i] ?? 0); rep++) {
             const repStr = rep.toString();
             const proof: Proof = generateVerifiableRandomnessProof(
-              sortitionKeys[i] as SortitionKey,
+              sortitionKeys[i],
               baseSeed,
               submissionBlockNum,
               repStr
@@ -328,7 +333,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
 
             if (proof.gamma.x < scoreCutoff) {
               let update = deltas;
-              if (numSubmitted == 1) {
+              if (numSubmitted === 1) {
                 // use a different update with different length for this test
                 update = differentDeltas;
               }
@@ -361,8 +366,11 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
               const tx = await fastUpdater.submitUpdates(newFastUpdate, {
                 from: accounts[0],
               });
-              expect(tx.receipt.gasUsed).to.be.lessThan(300000);
-              console.log(`Gas used for submitting updates: ${tx.receipt.gasUsed}`);
+              const gasUsed = (tx.receipt as { gasUsed: number }).gasUsed;
+              if (!COVERAGE) {
+                expect(gasUsed).to.be.lessThan(300000);
+              }
+              console.log(`Gas used for submitting updates: ${gasUsed}`);
               expectEvent(tx, "FastUpdateFeedsSubmitted", { signingPolicyAddress: voters[i] });
               expect((await fastUpdater.numberOfUpdatesInBlock(await web3.eth.getBlockNumber())).toNumber()).to.be.gt(
                 0
@@ -390,19 +398,19 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       }
 
       // See effect of feed updates made
-      let newFeeds: number[] = [];
+      const newFeeds: number[] = [];
       for (let i = 0; i < NUM_FEEDS; i++) {
         let newFeed = startingFeedsVal[i];
         for (let j = 0; j < numSubmitted; j++) {
           let delta = feed[i];
-          if (j == 1) {
+          if (j === 1) {
             delta = differentFeed[i];
           }
 
-          if (delta == "+") {
+          if (delta === "+") {
             newFeed *= SCALE;
           }
-          if (delta == "-") {
+          if (delta === "-") {
             newFeed /= SCALE;
           }
           newFeed = Math.floor(newFeed);
@@ -413,9 +421,9 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       shuffleArray(indices);
       let allCurrentFeeds = await fastUpdater.fetchAllCurrentFeeds.call({ value: "1" });
       expect(allCurrentFeeds[0].length).to.be.equal(NUM_FEEDS);
-      let feeds = await fastUpdater.fetchCurrentFeeds.call(indices, { value: "1" });
+      const feeds = await fastUpdater.fetchCurrentFeeds.call(indices, { value: "1" });
       let feedsVal: number[] = feeds[0].map((x: BN) => x.toNumber());
-      let feedsDec: number[] = feeds[1].map((x: BN) => x.toNumber());
+      const feedsDec: number[] = feeds[1].map((x: BN) => x.toNumber());
       for (let i = 0; i < NUM_FEEDS; i++) {
         const index = indices.indexOf(i);
         expect(feedsVal[index]).to.be.equal(newFeeds[i]);
@@ -428,7 +436,9 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       const tx = await fastUpdater.daemonize({
         from: flareDaemon,
       });
-      expect(tx.receipt.gasUsed).to.be.lessThan(4000000);
+      if (!COVERAGE) {
+        expect((tx.receipt as { gasUsed: number }).gasUsed).to.be.lessThan(4000000);
+      }
 
       // set addresses that can fetch the feeds for free
       await fastUpdater.setFreeFetchAddresses([accounts[0], accounts[123]], { from: governance });
@@ -467,8 +477,8 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         from: flareDaemon,
       });
 
-      var expectedFeeds: number[] = [];
-      var expectedDecimals: number[] = [];
+      const expectedFeeds: number[] = [];
+      const expectedDecimals: number[] = [];
       for (let i = 0; i < NUM_FEEDS; i++) {
         expectedFeeds[i] = ANCHOR_FEEDS[i];
         expectedDecimals[i] = DECIMALS[i];
@@ -485,7 +495,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
     });
   });
 
-  describe("Basic tests", async () => {
+  describe("Basic tests", () => {
     beforeEach(async () => {
       await fastUpdatesConfiguration.addFeeds(
         FEED_IDS.slice(0, 20).map(id => {
@@ -552,10 +562,10 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         weight: VOTER_WEIGHT,
       };
 
-      let prvKey = privateKeys[11].privateKey.slice(2);
-      let prvkeyBuffer = Buffer.from(prvKey, "hex");
-      let [x2, y2] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
-      let addr = toChecksumAddress("0x" + util.publicKeyToEthereumAddress(x2, y2).toString("hex"));
+      const prvKey = privateKeys[11].privateKey.slice(2);
+      const prvkeyBuffer = Buffer.from(prvKey, "hex");
+      const [x2, y2] = util.privateKeyToPublicKeyPair(prvkeyBuffer);
+      const addr = toChecksumAddress("0x" + util.publicKeyToEthereumAddress(x2, y2).toString("hex"));
       await flareSystemMock.registerAsVoter(TEST_REWARD_EPOCH.toString(), addr, policy);
       const signature = await ECDSASignature.signMessageHash(
         "0x1122334455667788990011223344556677889900112233445566778899001122",
@@ -749,7 +759,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       await expectRevert(fastUpdater.setFreeFetchAddresses([]), "only governance");
     });
 
-    describe("Remove and reset feeds", async () => {
+    describe("Remove and reset feeds", () => {
       beforeEach(async () => {
         fastUpdatesConfigurationMock = await MockContract.new();
 
@@ -833,62 +843,59 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
       });
 
       it("should revert resetting feeds if index is not supported", async () => {
-        const getFeedId = fastUpdatesConfiguration.contract.methods.getFeedId([0]).encodeABI();
         const feedId = web3.eth.abi.encodeParameters(["bytes21"], ["0x".padEnd(42, "0")]);
-        await fastUpdatesConfigurationMock.givenCalldataReturn(getFeedId, feedId);
+        await fastUpdatesConfigurationMock.givenCalldataReturn(getFeedIdCalldata(0), feedId);
         await expectRevert(fastUpdater.resetFeeds([0], { from: governance }), "index not supported");
       });
 
       it("should revert resetting feeds if feed is too old", async () => {
-        const getFeedId = fastUpdatesConfiguration.contract.methods.getFeedId([0]).encodeABI();
         const feedId = web3.eth.abi.encodeParameters(["bytes21"], [FEED_IDS[0]]);
-        await fastUpdatesConfigurationMock.givenCalldataReturn(getFeedId, feedId);
+        await fastUpdatesConfigurationMock.givenCalldataReturn(getFeedIdCalldata(0), feedId);
 
         await time.increase(1200000);
         await expectRevert(fastUpdater.resetFeeds([0], { from: governance }), "feed too old");
       });
 
       it("should revert resetting feeds if feed value is zero", async () => {
-        const getFeedId = fastUpdatesConfiguration.contract.methods.getFeedId([5]).encodeABI();
         const encodedFeedId = FtsoConfigurations.encodeFeedId({ category: 1, name: "TestValue0/USD" });
         const feedId = web3.eth.abi.encodeParameters(["bytes21"], [encodedFeedId]);
-        await fastUpdatesConfigurationMock.givenCalldataReturn(getFeedId, feedId);
+        await fastUpdatesConfigurationMock.givenCalldataReturn(getFeedIdCalldata(5), feedId);
 
-        const getCurrentFeed = ftsoFeedPublisherInterface.contract.methods.getCurrentFeed(encodedFeedId).encodeABI();
         const feed = web3.eth.abi.encodeParameters(
           ["tuple(uint32,bytes21,int32,uint16,int8)"], // IFtsoFeedPublisher.Feed (uint32 votingRoundId, bytes21 id, int32 value, uint16 turnoutBIPS, int8 decimals)
           [[0, encodedFeedId, 0, 6000, 5]]
         );
-        await ftsoFeedPublisherMock.givenCalldataReturn(getCurrentFeed, feed);
+        await ftsoFeedPublisherMock.givenCalldataReturn(getCurrentFeedCalldata(encodedFeedId), feed);
 
         await expectRevert(fastUpdater.resetFeeds([5], { from: governance }), "feed value zero or negative");
       });
 
       it("should reset feeds", async () => {
-        let indices = [0, 2, 8, 11];
-        let newDecimals = [5, 6, 7, -8];
+        const indices = [0, 2, 8, 11];
+        const newDecimals = [5, 6, 7, -8];
         for (let i = 0; i < indices.length; i++) {
-          const getFeedId = fastUpdatesConfiguration.contract.methods.getFeedId([indices[i]]).encodeABI();
+          const getFeedId = getFeedIdCalldata(indices[i]);
           const feedId = web3.eth.abi.encodeParameters(["bytes21"], [FEED_IDS[i]]);
           await fastUpdatesConfigurationMock.givenCalldataReturn(getFeedId, feedId);
         }
 
-        const getFeedIds = fastUpdatesConfiguration.contract.methods.getFeedIds().encodeABI();
+        // Get selector for getFeedIds()
+        const getFeedIdsSelector = web3.utils.sha3("getFeedIds()")!.slice(0, 10);
         const feedIds = web3.eth.abi.encodeParameters(["bytes21[]"], [FEED_IDS.slice(0, 20)]);
-        await fastUpdatesConfigurationMock.givenCalldataReturn(getFeedIds, feedIds);
+        await fastUpdatesConfigurationMock.givenCalldataReturn(getFeedIdsSelector, feedIds);
+
 
         for (let i = 0; i < indices.length; i++) {
-          const getCurrentFeed = ftsoFeedPublisherInterface.contract.methods.getCurrentFeed(FEED_IDS[i]).encodeABI();
-          let feed;
-          feed = web3.eth.abi.encodeParameters(
+          const getCurrentFeed = getCurrentFeedCalldata(FEED_IDS[i]);
+          const feed = web3.eth.abi.encodeParameters(
             ["tuple(uint32,bytes21,int32,uint16,int8)"], // IFtsoFeedPublisher.Feed (uint32 votingRoundId, bytes21 id, int32 value, uint16 turnoutBIPS, int8 decimals)
             [[0, FEED_IDS[i], (i + 1) * 148, 6000, newDecimals[i]]]
           );
           await ftsoFeedPublisherMock.givenCalldataReturn(getCurrentFeed, feed);
         }
 
-        let updateDecimals = DECIMALS.slice();
-        let updatedAnchorFeeds = ANCHOR_FEEDS.slice();
+        const updateDecimals = DECIMALS.slice();
+        const updatedAnchorFeeds = ANCHOR_FEEDS.slice();
         for (let i = 0; i < indices.length; i++) {
           updateDecimals[indices[i]] = newDecimals[i];
           updatedAnchorFeeds[indices[i]] = (i + 1) * 148;
@@ -899,7 +906,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         }
 
         await fastUpdater.resetFeeds(indices, { from: governance });
-        let currentFeeds = await fastUpdater.fetchCurrentFeeds.call([0, 2, 8, 11, 13], { value: "1" });
+        const currentFeeds = await fastUpdater.fetchCurrentFeeds.call([0, 2, 8, 11, 13], { value: "1" });
         for (let i = 0; i < indices.length; i++) {
           expect(currentFeeds[0][i].toNumber()).to.equals(updatedAnchorFeeds[indices[i]]);
           expect(currentFeeds[1][i].toNumber()).to.equals(updateDecimals[indices[i]]);
@@ -907,7 +914,7 @@ contract(`FastUpdater.sol; ${getTestFile(__filename)}`, accounts => {
         expect(currentFeeds[0][4].toNumber()).to.equals(1300000);
         expect(currentFeeds[1][4].toNumber()).to.equals(3);
 
-        let allCurrentFeeds = await fastUpdater.fetchAllCurrentFeeds.call({ value: "1" });
+        const allCurrentFeeds = await fastUpdater.fetchAllCurrentFeeds.call({ value: "1" });
         expect(allCurrentFeeds[0].length).to.be.equal(20);
         for (let i = 0; i < 20; i++) {
           while (Math.floor(updatedAnchorFeeds[i] * (SCALE - 1)) < 8) {

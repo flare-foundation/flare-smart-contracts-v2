@@ -10,9 +10,7 @@ import type { Proof, Signature, SortitionKey } from '../../../utils/sortition'
 import { getTestFile } from '../../../utils/constants'
 import { SortitionMockContract, SortitionMockInstance } from '../../../../typechain-truffle'
 
-const SortitionContract = artifacts.require(
-    'SortitionMock'
-) as SortitionMockContract
+const SortitionContract = artifacts.require('SortitionMock');
 
 contract(
     `Sortition.sol; ${getTestFile(__filename)}`,
@@ -31,14 +29,14 @@ contract(
         it('should verify signature', async () => {
             const key: SortitionKey = generateSortitionKey()
             const msg = "0x0000000000000000000000000000000000000000000000000000000000000002";
-            
+
             const signature: Signature = Sign(key, msg);
-            
+
             const check = await sortition.verifySignatureTest(
-                [key.pk.x.toString(), key.pk.y.toString()],
+                {x: key.pk.x.toString(), y: key.pk.y.toString()},
                 msg,
                 signature.s.toString(),
-                [signature.r.x.toString(), signature.r.y.toString()]
+                {x: signature.r.x.toString(), y: signature.r.y.toString()}
             )
 
             expect(check).to.equal(true)

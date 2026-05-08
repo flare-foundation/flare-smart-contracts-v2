@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "./Governor.sol";
-import "./Governed.sol";
-import "./GovernorProposer.sol";
-import "../interface/IIPollingFoundation.sol";
-
+import { Governor } from "./Governor.sol";
+import { Governed } from "./Governed.sol";
+import { GovernorProposer } from "./GovernorProposer.sol";
+import { IIPollingFoundation } from "../interface/IIPollingFoundation.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
  * Polling Foundation contract used for proposing and voting about governance proposals.

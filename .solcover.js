@@ -7,8 +7,6 @@ module.exports = {
     'protocol/interface/',
     'protocol/merkle/',
     'userInterfaces/',
-
-
 ],
   istanbulReporter: ['html', 'json', 'cobertura', 'text-summary', 'lcov']
 };

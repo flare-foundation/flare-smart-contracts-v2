@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
 /**
  * @dev Compute percentages safely without phantom overflows.
@@ -46,12 +46,9 @@ library SafePct {
      */
     function mulDivRoundUp(uint256 x, uint256 y, uint256 z) internal pure returns (uint256) {
         uint256 resultRoundDown = mulDiv(x, y, z);
-        unchecked {
-            // safe - if z == 0, above mulDiv call would revert
-            uint256 remainder = mulmod(x, y, z);
-            // safe - overflow only possible if z == 1, but then remainder == 0
-            return remainder == 0 ? resultRoundDown : resultRoundDown + 1;
-        }
+        // safe - if z == 0, above mulDiv call would revert
+        uint256 remainder = mulmod(x, y, z);
+        return remainder == 0 ? resultRoundDown : resultRoundDown + 1;
     }
 
     /**

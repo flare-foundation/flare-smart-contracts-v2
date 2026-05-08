@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-// import {Test, console2} from "forge-std/Test.sol";
-import "forge-std/Test.sol";
-import "../../../../contracts/protocol/implementation/EntityManager.sol";
-import "../../../mock/MockNodePossessionVerification.sol";
-import "../../../mock/MockPublicKeyVerification.sol";
+import { Test, Vm } from "forge-std/Test.sol";
+import { EntityManager } from "../../../../contracts/protocol/implementation/EntityManager.sol";
+import { MockNodePossessionVerification } from "../../../mock/MockNodePossessionVerification.sol";
+import { MockPublicKeyVerification } from "../../../mock/MockPublicKeyVerification.sol";
+import { IINodePossessionVerifier } from "../../../../contracts/protocol/interface/IINodePossessionVerifier.sol";
+import { IIPublicKeyVerifier } from "../../../../contracts/protocol/interface/IIPublicKeyVerifier.sol";
+import { IEntityManager } from "../../../../contracts/userInterfaces/IEntityManager.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract EntityManagerTest is Test {
 
@@ -21,28 +24,6 @@ contract EntityManagerTest is Test {
     address private governanceSettings;
     MockPublicKeyVerification private mockPublicKeyVerification;
     bytes private validPublicKeyData = abi.encode(1, 2, 3);
-
-    event NodeIdRegistered(address indexed voter, bytes20 indexed nodeId);
-    event NodeIdUnregistered(address indexed voter, bytes20 indexed nodeId);
-    event SubmitAddressProposed(address indexed voter, address indexed submitAddress);
-    event SubmitAddressRegistrationConfirmed(address indexed voter, address indexed signingAddress);
-    event MaxNodeIdsPerEntitySet(uint256 maxNodeIdsPerEntity);
-    event SubmitSignaturesAddressProposed(
-        address indexed voter, address indexed submitSignaturesAddress);
-    event SubmitSignaturesAddressRegistrationConfirmed(
-        address indexed voter, address indexed submitSignaturesAddress);
-    event SigningPolicyAddressProposed(
-        address indexed voter, address indexed signingPolicyAddress);
-    event SigningPolicyAddressRegistrationConfirmed(
-        address indexed voter, address indexed signingPolicyAddress);
-    event DelegationAddressProposed(
-        address indexed voter, address indexed delegationAddress);
-    event DelegationAddressRegistrationConfirmed(
-        address indexed voter, address indexed delegationAddress);
-    event PublicKeyRegistered(
-        address indexed voter, bytes32 indexed part1, bytes32 indexed part2);
-    event PublicKeyUnregistered(
-        address indexed voter, bytes32 indexed part1, bytes32 indexed part2);
 
     function setUp() public {
         governance = makeAddr("governance");
@@ -77,7 +58,7 @@ contract EntityManagerTest is Test {
 
         vm.prank(user1);
         vm.expectEmit();
-        emit NodeIdRegistered(user1, nodeId1);
+        emit IEntityManager.NodeIdRegistered(user1, nodeId1);
         vm.roll(101);
         entityManager.registerNodeId(nodeId1, "", "");
         bytes20[] memory nodeIds = entityManager.getNodeIdsOfAt(user1, 101);
@@ -118,7 +99,7 @@ contract EntityManagerTest is Test {
 
         vm.prank(user1);
         vm.expectEmit();
-        emit NodeIdRegistered(user1, nodeId1);
+        emit IEntityManager.NodeIdRegistered(user1, nodeId1);
         vm.roll(101);
         entityManager.registerNodeId(nodeId1, certificateRaw, signature);
 
@@ -193,7 +174,7 @@ contract EntityManagerTest is Test {
         // only governance
         vm.prank(governance);
         vm.expectEmit();
-        emit MaxNodeIdsPerEntitySet(5);
+        emit IEntityManager.MaxNodeIdsPerEntitySet(5);
         entityManager.setMaxNodeIdsPerEntity(5);
         assertEq(entityManager.maxNodeIdsPerEntity(), 5);
     }
@@ -239,7 +220,7 @@ contract EntityManagerTest is Test {
 
         // unregister
         vm.expectEmit();
-        emit NodeIdUnregistered(user1, nodeId1);
+        emit IEntityManager.NodeIdUnregistered(user1, nodeId1);
         entityManager.unregisterNodeId(nodeId1);
         nodeIds = entityManager.getNodeIdsOfAt(user1, block.number);
         assertEq(nodeIds.length, 0);
@@ -249,7 +230,7 @@ contract EntityManagerTest is Test {
         address dataProvider1 = makeAddr("dataProvider1");
         vm.prank(user1);
         vm.expectEmit();
-        emit SubmitAddressProposed(user1, dataProvider1);
+        emit IEntityManager.SubmitAddressProposed(user1, dataProvider1);
         entityManager.proposeSubmitAddress(dataProvider1);
     }
 
@@ -274,7 +255,7 @@ contract EntityManagerTest is Test {
         vm.roll(200);
         vm.prank(dataProvider1);
         vm.expectEmit();
-        emit SubmitAddressRegistrationConfirmed(user1, dataProvider1);
+        emit IEntityManager.SubmitAddressRegistrationConfirmed(user1, dataProvider1);
         entityManager.confirmSubmitAddressRegistration(user1);
         assertEq(entityManager.getSubmitAddresses(voters, 200)[0], dataProvider1);
 
@@ -325,7 +306,7 @@ contract EntityManagerTest is Test {
         address submitSignaturesAddr1 = makeAddr("submitSignaturesAddr1");
         vm.prank(user1);
         vm.expectEmit();
-        emit SubmitSignaturesAddressProposed(user1, submitSignaturesAddr1);
+        emit IEntityManager.SubmitSignaturesAddressProposed(user1, submitSignaturesAddr1);
         entityManager.proposeSubmitSignaturesAddress(submitSignaturesAddr1);
     }
 
@@ -351,7 +332,7 @@ contract EntityManagerTest is Test {
         vm.roll(200);
         vm.prank(submitSignaturesAddr1);
         vm.expectEmit();
-        emit SubmitSignaturesAddressRegistrationConfirmed(user1, submitSignaturesAddr1);
+        emit IEntityManager.SubmitSignaturesAddressRegistrationConfirmed(user1, submitSignaturesAddr1);
         entityManager.confirmSubmitSignaturesAddressRegistration(user1);
         assertEq(entityManager.getSubmitSignaturesAddresses(voters, 200)[0], submitSignaturesAddr1);
 
@@ -403,7 +384,7 @@ contract EntityManagerTest is Test {
         address signingPolicyAddr1 = makeAddr("signingPolicyAddr1");
         vm.prank(user1);
         vm.expectEmit();
-        emit SigningPolicyAddressProposed(user1, signingPolicyAddr1);
+        emit IEntityManager.SigningPolicyAddressProposed(user1, signingPolicyAddr1);
         entityManager.proposeSigningPolicyAddress(signingPolicyAddr1);
     }
 
@@ -428,7 +409,7 @@ contract EntityManagerTest is Test {
         vm.roll(200);
         vm.prank(signingPolicyAddr1);
         vm.expectEmit();
-        emit SigningPolicyAddressRegistrationConfirmed(user1, signingPolicyAddr1);
+        emit IEntityManager.SigningPolicyAddressRegistrationConfirmed(user1, signingPolicyAddr1);
         entityManager.confirmSigningPolicyAddressRegistration(user1);
         assertEq(entityManager.getSigningPolicyAddresses(voters, 200)[0], signingPolicyAddr1);
 
@@ -478,7 +459,7 @@ contract EntityManagerTest is Test {
     function testProposeDelegationAddress() public {
         vm.prank(user1);
         vm.expectEmit();
-        emit DelegationAddressProposed(user1, delegationAddr1);
+        emit IEntityManager.DelegationAddressProposed(user1, delegationAddr1);
         entityManager.proposeDelegationAddress(delegationAddr1);
     }
 
@@ -502,7 +483,7 @@ contract EntityManagerTest is Test {
         vm.roll(200);
         vm.prank(delegationAddr1);
         vm.expectEmit();
-        emit DelegationAddressRegistrationConfirmed(user1, delegationAddr1);
+        emit IEntityManager.DelegationAddressRegistrationConfirmed(user1, delegationAddr1);
         entityManager.confirmDelegationAddressRegistration(user1);
         assertEq(entityManager.getDelegationAddresses(voters, 200)[0], delegationAddr1);
 
@@ -647,7 +628,7 @@ contract EntityManagerTest is Test {
         vm.roll(100);
         vm.prank(user1);
         vm.expectEmit();
-        emit PublicKeyRegistered(user1, publicKey1, publicKey2);
+        emit IEntityManager.PublicKeyRegistered(user1, publicKey1, publicKey2);
         entityManager.registerPublicKey(publicKey1, publicKey2, validPublicKeyData);
         (bytes32 publicKey1_, bytes32 publicKey2_) = entityManager.getPublicKeyOf(user1);
         assertEq(publicKey1_, publicKey1);
@@ -686,8 +667,8 @@ contract EntityManagerTest is Test {
         bytes32 publicKey22 = bytes32("publicKey22");
         vm.prank(user1);
         vm.expectEmit();
-        emit PublicKeyUnregistered(user1, publicKey11, publicKey12);
-        emit PublicKeyRegistered(user1, publicKey21, publicKey22);
+        emit IEntityManager.PublicKeyUnregistered(user1, publicKey11, publicKey12);
+        emit IEntityManager.PublicKeyRegistered(user1, publicKey21, publicKey22);
         entityManager.registerPublicKey(publicKey21, publicKey22, validPublicKeyData);
         (pk1, pk2) = entityManager.getPublicKeyOf(user1);
         assertEq(pk1, publicKey21);
@@ -707,7 +688,7 @@ contract EntityManagerTest is Test {
         entityManager.registerPublicKey(publicKey1, publicKey2, validPublicKeyData);
 
         vm.expectEmit();
-        emit PublicKeyUnregistered(user1, publicKey1, publicKey2);
+        emit IEntityManager.PublicKeyUnregistered(user1, publicKey1, publicKey2);
         entityManager.unregisterPublicKey();
         vm.stopPrank();
     }
@@ -785,19 +766,19 @@ contract EntityManagerTest is Test {
 
         vm.prank(governance);
         vm.expectEmit();
-        emit DelegationAddressProposed(user1, delegationAddr1);
+        emit IEntityManager.DelegationAddressProposed(user1, delegationAddr1);
         vm.expectEmit();
-        emit DelegationAddressRegistrationConfirmed(user1, delegationAddr1);
+        emit IEntityManager.DelegationAddressRegistrationConfirmed(user1, delegationAddr1);
         vm.expectEmit();
-        emit NodeIdRegistered(user1, initialVotersData[0].nodeIds[0]);
+        emit IEntityManager.NodeIdRegistered(user1, initialVotersData[0].nodeIds[0]);
         vm.expectEmit();
-        emit DelegationAddressProposed(user2, delegationAddr2);
+        emit IEntityManager.DelegationAddressProposed(user2, delegationAddr2);
         vm.expectEmit();
-        emit DelegationAddressRegistrationConfirmed(user2, delegationAddr2);
+        emit IEntityManager.DelegationAddressRegistrationConfirmed(user2, delegationAddr2);
         vm.expectEmit();
-        emit NodeIdRegistered(user2, initialVotersData[1].nodeIds[0]);
+        emit IEntityManager.NodeIdRegistered(user2, initialVotersData[1].nodeIds[0]);
         vm.expectEmit();
-        emit NodeIdRegistered(user2, initialVotersData[1].nodeIds[1]);
+        emit IEntityManager.NodeIdRegistered(user2, initialVotersData[1].nodeIds[1]);
 
         entityManager.setInitialVoterData(initialVotersData);
     }
@@ -809,11 +790,11 @@ contract EntityManagerTest is Test {
 
         vm.prank(governance);
         vm.expectEmit();
-        emit NodeIdRegistered(user1, initialVotersData[0].nodeIds[0]);
+        emit IEntityManager.NodeIdRegistered(user1, initialVotersData[0].nodeIds[0]);
         vm.expectEmit();
-        emit NodeIdRegistered(user2, initialVotersData[1].nodeIds[0]);
+        emit IEntityManager.NodeIdRegistered(user2, initialVotersData[1].nodeIds[0]);
         vm.expectEmit();
-        emit NodeIdRegistered(user2, initialVotersData[1].nodeIds[1]);
+        emit IEntityManager.NodeIdRegistered(user2, initialVotersData[1].nodeIds[1]);
 
         vm.recordLogs();
         entityManager.setInitialVoterData(initialVotersData);

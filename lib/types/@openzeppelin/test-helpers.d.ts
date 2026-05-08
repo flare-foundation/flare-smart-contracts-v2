@@ -1,10 +1,10 @@
-/// <reference types="../../../typechain-truffle/types" /> 
+/// <reference types="../../../typechain-truffle/types" />
 
 declare module "@openzeppelin/test-helpers" {
     import BN from "bn.js";
 
     export type BalanceUnit = 'wei' | 'gwei' | 'ether';
-    
+
     export type StringForBN<T> = { [K in keyof T]: T[K] extends BN ? BN | string : T[K] };
 
     export namespace constants {
@@ -78,7 +78,7 @@ declare module "@openzeppelin/test-helpers" {
 
     export namespace expectEvent {
         /**
-         * Same as expectEvent, but for events emitted in an arbitrary transaction (of hash txHash), by an arbitrary contract 
+         * Same as expectEvent, but for events emitted in an arbitrary transaction (of hash txHash), by an arbitrary contract
          * (emitter, the contract instance), even if it was indirectly called (i.e. if it was called by another smart contract and not an externally owned account).
          * Note: emitter must be the deployed contract instance emitting the expected event.
          * Note 2: unlike expectEvent, returns a Promise.
@@ -131,26 +131,26 @@ declare module "@openzeppelin/test-helpers" {
      * @param promise response of a transaction
      * @param message the expected revert message
      */
-    export function expectRevert(promise: Promise<any>, message: string): Promise<void>;
+    export function expectRevert(promise: Promise<unknown>, message: string): Promise<void>;
 
     export namespace expectRevert {
         /**
          * Like expectRevert, asserts that promise was rejected due to a reverted transaction caused by a require or revert statement, but doesn’t check the revert reason.
          * @param promise response of a transaction
          */
-        function unspecified(promise: Promise<any>): Promise<void>;
+        function unspecified(promise: Promise<unknown>): Promise<void>;
 
         /**
          * Asserts that promise was rejected due to a reverted transaction caused by an assert statement or an invalid opcode.
          * @param promise response of a transaction
          */
-        function assertion(promise: Promise<any>): Promise<void>;
+        function assertion(promise: Promise<unknown>): Promise<void>;
 
         /**
          * Asserts that promise was rejected due to a transaction running out of gas.
          * @param promise response of a transaction
          */
-        function outOfGas(promise: Promise<any>): Promise<void>;
+        function outOfGas(promise: Promise<unknown>): Promise<void>;
     }
 
     export namespace send {
@@ -160,12 +160,12 @@ declare module "@openzeppelin/test-helpers" {
          * @param to account address
          * @param value number of wei
          */
-        function ether(from: string, to: string, value: BN | number | string): Promise<any>;
+        function ether(from: string, to: string, value: BN | number | string): Promise<unknown>;
 
         /**
          * Sends a transaction to contract target, calling method name with argValues, which are of type argTypes (as per the method’s signature).
          */
-        function transaction(target: string, name: string, argsTypes: any, argsValues: any, opts?: Truffle.TransactionDetails): Promise<any>;
+        function transaction(target: string, name: string, argsTypes: unknown, argsValues: unknown, opts?: Truffle.TransactionDetails): Promise<unknown>;
     }
 
     export namespace time {
@@ -237,11 +237,11 @@ declare module "@openzeppelin/test-helpers" {
     }
 
     export namespace makeInterfaceId {
-        function ERC165(interfaces?: any[]): any;
-        function ERC1820(name: any): any;
+        function ERC165(interfaces?: unknown[]): unknown;
+        function ERC1820(name: unknown): unknown;
     }
 
     export namespace singletons {
-        function ERC1820Registry(funder: any): Promise<any>;
+        function ERC1820Registry(funder: unknown): Promise<unknown>;
     }
 }

@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.7.6;
 
-import "../userInterfaces/ICChainStake.sol";
+import { ICChainStake } from "../userInterfaces/ICChainStake.sol";
 import { IIGovernanceVotePower, IGovernanceVotePower, WNat, CheckPointsByAddress,
         DelegateCheckPointsByAddress, IVPToken, IPChainStakeMirror, SafeMath, SafeCast }
     from "../../flattened/FlareSmartContracts.sol";
-
 
 /**
  * Contract managing governance vote power and its delegation.
@@ -83,42 +82,6 @@ contract GovernanceVotePower is IIGovernanceVotePower {
     }
 
     /**
-     * @inheritdoc IGovernanceVotePower
-     */
-    function delegate(address _to) public override {
-        require(_to != msg.sender, "can't delegate to yourself");
-
-        uint256 senderBalance = ownerToken.balanceOf(msg.sender)
-            .add(pChainStakeMirror.balanceOf(msg.sender))
-            .add(cChainStake.balanceOf(msg.sender));
-
-        address currentTo = getDelegateOfAtNow(msg.sender);
-
-        // msg.sender has already delegated
-        if (currentTo != address(0)) {
-            _subVP(msg.sender, currentTo, senderBalance);
-        }
-
-        // write delegate's address to checkpoint
-        delegatesHistory.writeAddress(msg.sender, _to);
-        // cleanup checkpoints
-        delegatesHistory.cleanupOldCheckpoints(msg.sender, CLEANUP_COUNT, cleanupBlockNumber);
-
-        if (_to != address(0)) {
-            _addVP(msg.sender, _to, senderBalance);
-        }
-
-        emit DelegateChanged(msg.sender, currentTo, _to);
-    }
-
-    /**
-     * @inheritdoc IGovernanceVotePower
-     */
-    function undelegate() public override {
-        delegate(address(0));
-    }
-
-    /**
      * @inheritdoc IIGovernanceVotePower
      */
     function updateAtTokenTransfer(
@@ -167,13 +130,6 @@ contract GovernanceVotePower is IIGovernanceVotePower {
 
     /**
      * @inheritdoc IIGovernanceVotePower
-     */
-    function getCleanupBlockNumber() external view override returns(uint256) {
-        return cleanupBlockNumber;
-    }
-
-    /**
-     * @inheritdoc IIGovernanceVotePower
      *
      * @dev This method can be called by the ownerToken only.
      */
@@ -207,6 +163,49 @@ contract GovernanceVotePower is IIGovernanceVotePower {
         uint256 _count
     ) external onlyCleaner returns (uint256) {
         return delegatesHistory.cleanupOldCheckpoints(_owner, _count, cleanupBlockNumber);
+    }
+
+    /**
+     * @inheritdoc IIGovernanceVotePower
+     */
+    function getCleanupBlockNumber() external view override returns(uint256) {
+        return cleanupBlockNumber;
+    }
+
+    /**
+     * @inheritdoc IGovernanceVotePower
+     */
+    function delegate(address _to) public override {
+        require(_to != msg.sender, "can't delegate to yourself");
+
+        uint256 senderBalance = ownerToken.balanceOf(msg.sender)
+            .add(pChainStakeMirror.balanceOf(msg.sender))
+            .add(cChainStake.balanceOf(msg.sender));
+
+        address currentTo = getDelegateOfAtNow(msg.sender);
+
+        // msg.sender has already delegated
+        if (currentTo != address(0)) {
+            _subVP(msg.sender, currentTo, senderBalance);
+        }
+
+        // write delegate's address to checkpoint
+        delegatesHistory.writeAddress(msg.sender, _to);
+        // cleanup checkpoints
+        delegatesHistory.cleanupOldCheckpoints(msg.sender, CLEANUP_COUNT, cleanupBlockNumber);
+
+        if (_to != address(0)) {
+            _addVP(msg.sender, _to, senderBalance);
+        }
+
+        emit DelegateChanged(msg.sender, currentTo, _to);
+    }
+
+    /**
+     * @inheritdoc IGovernanceVotePower
+     */
+    function undelegate() public override {
+        delegate(address(0));
     }
 
     /**

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "flare-smart-contracts/contracts/userInterfaces/IFlareContractRegistry.sol";
-import "../../userInterfaces/IFeeCalculator.sol";
-import "../../userInterfaces/IFastUpdater.sol";
-import "../../userInterfaces/IFastUpdatesConfiguration.sol";
-import "../interface/IICustomFeed.sol";
+import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/flare/IFlareContractRegistry.sol";
+import { IFeeCalculator } from "../../userInterfaces/IFeeCalculator.sol";
+import { IFastUpdater } from "../../userInterfaces/IFastUpdater.sol";
+import { IFastUpdatesConfiguration } from "../../userInterfaces/IFastUpdatesConfiguration.sol";
+import { IICustomFeed } from "../interface/IICustomFeed.sol";
 
 interface ISFlr {
     function getPooledFlrByShares(uint256) external view returns (uint256);

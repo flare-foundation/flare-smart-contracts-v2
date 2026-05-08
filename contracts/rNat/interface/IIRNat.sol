@@ -2,7 +2,7 @@
 pragma solidity >=0.7.6 <0.9;
 
 
-import "../../userInterfaces/IRNat.sol";
+import { IRNat } from "../../userInterfaces/IRNat.sol";
 
 /**
  * Internal interface for the `RNat` contract.

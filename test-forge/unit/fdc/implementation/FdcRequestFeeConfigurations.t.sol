@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/fdc/implementation/FdcHub.sol";
-import "../../../../contracts/fdc/implementation/FdcInflationConfigurations.sol";
-import "../../../../contracts/fdc/implementation/FdcRequestFeeConfigurations.sol";
-import "../../../../contracts/protocol/implementation/RewardManager.sol";
+import { Test} from "forge-std/Test.sol";
+import { FdcRequestFeeConfigurations } from "../../../../contracts/fdc/implementation/FdcRequestFeeConfigurations.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract FdcRequestFeeConfigurationsTest is Test {
     FdcRequestFeeConfigurations private fdcRequestFeeConfigurations;

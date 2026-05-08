@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
@@ -30,10 +30,11 @@ import { IXRPPayment } from "../../userInterfaces/fdc/IXRPPayment.sol";
 import { IXRPPaymentVerification } from "../../userInterfaces/fdc/IXRPPaymentVerification.sol";
 import { IXRPPaymentNonexistence } from "../../userInterfaces/fdc/IXRPPaymentNonexistence.sol";
 import { IXRPPaymentNonexistenceVerification } from "../../userInterfaces/fdc/IXRPPaymentNonexistenceVerification.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
+
 /**
  * FdcVerification contract.
  *

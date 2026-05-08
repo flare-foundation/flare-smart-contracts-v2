@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/IEntityManager.sol";
+import { IEntityManager } from "../../userInterfaces/IEntityManager.sol";
 
 /**
  * EntityManager internal interface.

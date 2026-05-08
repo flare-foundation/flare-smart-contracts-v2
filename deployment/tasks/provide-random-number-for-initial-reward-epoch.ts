@@ -1,8 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "../scripts/Contracts";
 import { ChainParameters } from "../chain-config/chain-parameters";
-import { FlareSystemsManagerContract } from "../../typechain-truffle/contracts/protocol/implementation/FlareSystemsManager";
-import { RelayContract } from "../../typechain-truffle/contracts/protocol/implementation/Relay";
+import { FlareSystemsManagerContract, RelayContract } from "../../typechain-truffle";
 import { ISigningPolicy } from "../../scripts/libs/protocol/SigningPolicy";
 import { IProtocolMessageMerkleRoot, ProtocolMessageMerkleRoot } from "../../scripts/libs/protocol/ProtocolMessageMerkleRoot";
 import { generateSignatures } from "../../test/unit/protocol/coding/coding-helpers";
@@ -36,8 +35,8 @@ export async function provideRandomNumberForInitialRewardEpoch(
   web3.eth.defaultAccount = initialVoter;
 
   // Get contract definitions
-  const FlareSystemsManager: FlareSystemsManagerContract = artifacts.require("FlareSystemsManager");
-  const Relay: RelayContract = artifacts.require("Relay");
+  const FlareSystemsManager = artifacts.require("FlareSystemsManager") as FlareSystemsManagerContract;
+  const Relay = artifacts.require("Relay") as RelayContract;
 
   // Fetch contracts
   const flareSystemsManager = await FlareSystemsManager.at(contracts.getContractAddress(Contracts.FLARE_SYSTEMS_MANAGER));
@@ -45,7 +44,7 @@ export async function provideRandomNumberForInitialRewardEpoch(
 
   const RELAY_SELECTOR = web3.utils.sha3("relay()")!.slice(0, 10); // first 4 bytes is function selector
   const TRIGGER_SELECTOR = web3.utils.sha3("trigger()")!.slice(0, 10); // first 4 bytes is function selector
-  const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
+  const _ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
   const initialRewardEpochId = (await flareSystemsManager.getCurrentRewardEpochId()).toNumber();
   const flareDaemonAddress = await flareSystemsManager.flareDaemon();

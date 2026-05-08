@@ -1,13 +1,27 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../contracts/governance/implementation/PollingFoundation.sol";
-import "../../contracts/protocol/implementation/FlareSystemsManager.sol";
-import "flare-smart-contracts/contracts/token/interface/IIGovernanceVotePower.sol";
-import "../../contracts/userInterfaces/IWNat.sol";
-import "flare-smart-contracts/contracts/token/interface/IIVPContract.sol";
+import {Test } from "forge-std/Test.sol";
+import { PollingFoundation } from "../../contracts/governance/implementation/PollingFoundation.sol";
+import { FlareSystemsManager } from "../../contracts/protocol/implementation/FlareSystemsManager.sol";
+import { IIPollingFoundation } from "../../contracts/governance/interface/IIPollingFoundation.sol";
+import { IIVoterRegistry } from "../../contracts/protocol/interface/IIVoterRegistry.sol";
+import { IISubmission } from "../../contracts/protocol/interface/IISubmission.sol";
+import { IIRelay } from "../../contracts/protocol/interface/IIRelay.sol";
+import { IWNat } from "../../contracts/userInterfaces/IWNat.sol";
+import { IGovernor } from "../../contracts/userInterfaces/IGovernor.sol";
+import { IRelay } from "../../contracts/userInterfaces/IRelay.sol";
+import { IVoterRegistry } from "../../contracts/userInterfaces/IVoterRegistry.sol";
+import { IRandomProvider } from "../../contracts/userInterfaces/IRandomProvider.sol";
 import { RandomNumberV2Interface } from "../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
+import { GovernorVotes } from "../../contracts/governance/implementation/GovernorVotes.sol";
+import {
+    IIGovernanceVotePower
+} from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIGovernanceVotePower.sol";
+import { IIVPContract } from "@flarenetwork/flare-periphery-contracts/flare/token/interfaces/IIVPContract.sol";
+import { IISupply } from "@flarenetwork/flare-periphery-contracts/flare/inflation/interfaces/IISupply.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+
 // solhint-disable-next-line max-states-count
 contract PollingFoundationIntegrationTest is Test {
 
@@ -32,7 +46,6 @@ contract PollingFoundationIntegrationTest is Test {
     IIVPContract private vpContract;
 
     IIPollingFoundation.GovernorSettingsWithoutExecParams private settings;
-    IGovernor.GovernorSettings private settingsExec;
 
     FlareSystemsManager.Settings private fsmSettings;
     FlareSystemsManager.InitialSettings private initialSettings;
@@ -50,19 +63,6 @@ contract PollingFoundationIntegrationTest is Test {
     uint64 private constant REWARD_EPOCH_DURATION_IN_SEC =
     uint64(REWARD_EPOCH_DURATION_IN_VOTING_EPOCHS) * VOTING_EPOCH_DURATION_SEC;
     uint24 private constant PPM_MAX = 1e6;
-
-    event VoteCast(
-        address indexed voter,
-        uint256 indexed proposalId,
-        uint8 support,
-        uint256 votePower,
-        string reason,
-        uint256 forVotePower,
-        uint256 againstVotePower
-    );
-
-    event ProposalExecuted(uint256 indexed proposalId);
-
 
     function setUp() public {
         vm.warp(300000);
@@ -344,7 +344,7 @@ contract PollingFoundationIntegrationTest is Test {
         // voter 2 wrapped additional funds before vote power block
         vm.prank(voters[2]);
         vm.expectEmit();
-        emit VoteCast(voters[2], proposalId, uint8(GovernorVotes.VoteType.Against), 500, "", 300, 500);
+        emit IGovernor.VoteCast(voters[2], proposalId, uint8(GovernorVotes.VoteType.Against), 500, "", 300, 500);
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.Against));
         vm.prank(voters[3]);
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.For));
@@ -422,7 +422,7 @@ contract PollingFoundationIntegrationTest is Test {
         vm.roll(block.number + 200);
         vm.prank(voters[0]);
         vm.expectEmit();
-        emit VoteCast(voters[0], proposalId, uint8(GovernorVotes.VoteType.For), 0, "", 0, 0);
+        emit IGovernor.VoteCast(voters[0], proposalId, uint8(GovernorVotes.VoteType.For), 0, "", 0, 0);
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.For));
         vm.prank(voters[1]);
         pollingFoundation.castVote(proposalId, uint8(GovernorVotes.VoteType.For));

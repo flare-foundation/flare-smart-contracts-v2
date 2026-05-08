@@ -3,21 +3,21 @@ import { pascalCase } from "pascal-case";
 import { ChainParameters } from "../chain-config/chain-parameters";
 import { Contract, Contracts } from "./Contracts";
 import { readFileSync } from "fs";
+import Ajv from "ajv"
+import chainParametersSchema from '../chain-config/chain-parameters.json';
 
-
-const Ajv = require('ajv');
 const ajv = new Ajv();
-const validateParamaterSchema = ajv.compile(require('../chain-config/chain-parameters.json'));
+const validateParamaterSchema = ajv.compile(chainParametersSchema);
 
 // Load parameters with validation against schema chain-parameters.json
 export function loadParameters(filename: string): ChainParameters {
   const jsonText = readFileSync(filename).toString();
-  const parameters = JSON.parse(jsonText);
+  const parameters = JSON.parse(jsonText) as ChainParameters;
   return validateParameters(parameters);
 }
 
 // Validate already decoded parameters; to be used with require
-export function validateParameters(parameters: any): ChainParameters {
+export function validateParameters(parameters: ChainParameters): ChainParameters {
   if (!validateParamaterSchema(parameters)) {
     throw new Error(`Invalid format of parameter file`);
   }
@@ -74,14 +74,12 @@ export function spewNewContractInfo(contracts: Contracts, addressUpdaterContract
  * @param func
  * @returns
  */
- export async function waitFinalize3(hre: HardhatRuntimeEnvironment, address: string, func: () => any) {
+export async function waitFinalize3<T>(hre: HardhatRuntimeEnvironment, address: string, func: () => Promise<T>): Promise<T> {
   const web3 = hre.web3;
-  let nonce = await web3.eth.getTransactionCount(address);
-  let res = await func();
-  while ((await web3.eth.getTransactionCount(address)) == nonce) {
-    await new Promise((resolve: any) => { setTimeout(() => { resolve() }, 1000) })
+  const nonce = await web3.eth.getTransactionCount(address);
+  const res = await func();
+  while ((await web3.eth.getTransactionCount(address)) === nonce) {
+    await new Promise<void>(resolve => { setTimeout(resolve, 1000); });
   }
   return res;
 }
-
-

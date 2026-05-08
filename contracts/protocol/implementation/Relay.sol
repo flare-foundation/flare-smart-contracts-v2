@@ -1283,12 +1283,12 @@ contract Relay is IIRelay {
                             // Note that the value of isSecureRandom outside the random
                             // generating protocol is meaningless.
                             // These two fields are used for the emitted event
-                            mstore(add(memPtrFor, M_5_isSecureRandom), 
+                            mstore(add(memPtrFor, M_5_isSecureRandom),
                                 structValue(
                                     mload(memPtrFor),
                                     MSG_NMR_BOFF_isSecureRandom,
                                     MSG_NMR_MASK_isSecureRandom
-                                )                            
+                                )
                             )
                             mstore(add(memPtrFor, M_3), "ProtocolMessageRelayed(uint8,uin")
                             mstore(add(memPtrFor, M_4), "t32,bool,bytes32)")
@@ -1381,7 +1381,7 @@ contract Relay is IIRelay {
                             return(0,0)
                         } // if protocolId == stateData.randomNumberProtocolId
                     } // if protocolId > 0
-                    // this should never happen as particular cases are handled above and returns 
+                    // this should never happen as particular cases are handled above and returns
                     // are done from there
                     revertWithMessage(mload(0x40), "This should never happen", 24)
                 }

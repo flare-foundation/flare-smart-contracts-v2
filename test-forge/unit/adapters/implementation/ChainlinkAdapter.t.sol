@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
 import { ChainlinkAdapter } from "../../../../contracts/adapters/implementation/ChainlinkAdapter.sol";
 import { ChainlinkAdapterProxy } from "../../../../contracts/adapters/implementation/ChainlinkAdapterProxy.sol";
-import { IGovernanceSettings } from "flare-smart-contracts/contracts/userInterfaces/IGovernanceSettings.sol";
-import { IFlareContractRegistry } from "flare-smart-contracts/contracts/userInterfaces/IFlareContractRegistry.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareContractRegistry } from "@flarenetwork/flare-periphery-contracts/flare/IFlareContractRegistry.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 contract ChainlinkAdapterTest is Test {

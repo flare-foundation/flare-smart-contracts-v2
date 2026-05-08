@@ -1,13 +1,25 @@
 [profile.default]
 src = "contracts"
 out = "artifacts-forge"
-libs = ["node_modules", "lib"]
+libs = ["node_modules", "lib", "dependencies"]
 test = "test-forge"
 cache_path = 'cache-forge'
-evm_version = 'london'
+evm_version = 'cancun'
 fs_permissions = [{ access = "read", path = "./artifacts-forge/"}]
 optimizer = true
 optimizer_runs = 200
+
+[dependencies]
+forge-std = "1.10.0"
+"@openzeppelin-contracts" = "5.4.0"
+flare-periphery = "0.1.38"
+
+[soldeer]
+remappings_generate = false
+remappings_regenerate = false
+remappings_version = false
+remappings_location = "txt"
+recursive_deps = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
@@ -17,3 +29,9 @@ songbird = "${SONGBIRD_RPC}"
 coston2 = "${COSTON2_RPC}"
 coston = "${COSTON2_RPC}"
 staging = "${STAGING_RPC}"
+
+[profile.coverage]
+# Remap OZ P256 library to mock library to avoid stack to deep in coverage
+remappings = [
+  "@openzeppelin/contracts/utils/cryptography/P256.sol=contracts/mock/MockP256.sol"
+]

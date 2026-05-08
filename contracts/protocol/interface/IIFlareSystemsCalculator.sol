@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import "../../userInterfaces/IFlareSystemsCalculator.sol";
+import { IFlareSystemsCalculator } from "../../userInterfaces/IFlareSystemsCalculator.sol";
 
 /**
  * FlareSystemsCalculator internal interface.
@@ -19,7 +19,7 @@ interface IIFlareSystemsCalculator is IFlareSystemsCalculator {
      */
     function calculateRegistrationWeight(
         address _voter,
-        uint24 _rewardEpochId,
+        uint32 _rewardEpochId,
         uint256 _votePowerBlockNumber
     )
         external

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "../interface/IIFtsoFeedPublisher.sol";
-import "../../userInterfaces/IRelay.sol";
-import "../../utils/implementation/AddressUpdatable.sol";
-import "../../governance/implementation/Governed.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-
+import { IIFtsoFeedPublisher } from "../interface/IIFtsoFeedPublisher.sol";
+import { IFtsoFeedPublisher } from "../../userInterfaces/IFtsoFeedPublisher.sol";
+import { IRelay } from "../../userInterfaces/IRelay.sol";
+import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { Governed } from "../../governance/implementation/Governed.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
  * FtsoFeedPublisher contract.

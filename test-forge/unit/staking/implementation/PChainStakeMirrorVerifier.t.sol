@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../../../../contracts/staking/implementation/PChainStakeMirrorVerifier.sol";
+import { Test } from "forge-std/Test.sol";
+import { PChainStakeMirrorVerifier } from "../../../../contracts/mock/PChainStakeMirrorVerifier.sol";
+import { IRelay } from "../../../../contracts/userInterfaces/IRelay.sol";
+import {
+  IPChainStakeMirrorVerifier
+} from "@flarenetwork/flare-periphery-contracts/flare/IPChainStakeMirrorVerifier.sol";
+import {
+  IPChainStakeMirrorMultiSigVoting
+} from "@flarenetwork/flare-periphery-contracts/flare/IPChainStakeMirrorMultiSigVoting.sol";
 
 contract PChainStakeMirrorVerifierTest is Test {
   PChainStakeMirrorVerifier private verifier;

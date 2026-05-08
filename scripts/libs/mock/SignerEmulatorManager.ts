@@ -54,9 +54,9 @@ export class SignerEmulatorManager {
         await sleep(Math.floor(Math.random() * this.signerEmulationConfig.varianceMs));
         await signerEmulator.sendMessages(messages);
       }));
-      // Periodical repeat  
+      // Periodical repeat
       const delay = (startTime + epochSettings.votingEpochDurationSec * 1000) - Date.now()
-      console.log(`Sleep delay: ${delay}`)    
+      console.log(`Sleep delay: ${delay}`)
       await sleep(delay > 0 ? delay : 0);
     }
   }

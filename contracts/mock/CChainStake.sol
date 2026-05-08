@@ -2,11 +2,11 @@
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
-import { IICleanable, GovernedAndFlareDaemonized, FlareDaemon, IFlareDaemonize, ReentrancyGuard,
-         IIGovernanceVotePower, AddressUpdatable, SafePct, SafeMath, SafeCast }
+import { IICleanable, GovernedAndFlareDaemonized, IFlareDaemonize, ReentrancyGuard,
+         IIGovernanceVotePower, AddressUpdatable, SafePct, SafeMath, SafeCast, FlareDaemon, CheckPointable }
     from "../../flattened/FlareSmartContracts.sol";
-import "../userInterfaces/ICChainStake.sol";
-import "./CChainStakeBase.sol";
+import { ICChainStake } from "../userInterfaces/ICChainStake.sol";
+import { CChainStakeBase } from "./CChainStakeBase.sol";
 
 
 

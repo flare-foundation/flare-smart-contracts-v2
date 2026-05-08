@@ -167,9 +167,8 @@ test-unit-forge:
   timeout: 10 minutes
   tags: [ flarenetwork-md ]
   image: ghcr.io/foundry-rs/foundry:stable
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
   before_script:
+  - forge soldeer install
   - forge install --no-git
   - forge build
   script:
@@ -183,7 +182,7 @@ coverage-hardhat:
   image: node:18
   needs: []
   timeout: 30 minutes
-  tags: [ flarenetwork-lg ]
+  tags: [ flarenetwork-lg-cpu ] # 16gb RAM
   cache: [ !reference [.partials, cache-nodejs] ]
   before_script:
   - yarn install --frozen-lockfile --cache-folder $YARN_CACHE_DIR 1>/dev/null
@@ -228,14 +227,13 @@ coverage-forge:
     artifacts: true
   tags: [ flarenetwork-md ]
   timeout: 10 minutes
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
   before_script:
   - mv node_modules.sol node_modules
+  - forge soldeer install
   - forge install --no-git
   - forge build
   script:
-  - forge coverage --report summary --report lcov
+  - FOUNDRY_PROFILE=coverage forge coverage --report summary --report lcov
   artifacts:
     expire_in: 30 days
     paths:

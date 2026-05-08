@@ -1,6 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { Contracts } from "../scripts/Contracts";
-import { EntityManagerContract } from "../../typechain-truffle/contracts/protocol/implementation/EntityManager";
+import { EntityManagerContract } from "../../typechain-truffle";
 import { Entity } from "../utils/Entity";
 import { waitFinalize3 } from "../scripts/deploy-utils";
 import { ParseSortitionKey, Sign, Signature, SortitionKey } from "../../test/utils/sortition";
@@ -26,7 +26,7 @@ export async function registerPublicKeys(
   }
 
   // Get contract definitions
-  const EntityManager: EntityManagerContract = artifacts.require("EntityManager");
+  const EntityManager = artifacts.require("EntityManager") as EntityManagerContract;
 
   // Fetch EntityManager contract
   const entityManager = await EntityManager.at(contracts.getContractAddress(Contracts.ENTITY_MANAGER));

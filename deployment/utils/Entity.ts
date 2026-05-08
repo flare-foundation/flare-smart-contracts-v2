@@ -1,3 +1,5 @@
+import fs from "fs";
+
 interface Account {
   address: string;
   privateKey: string;
@@ -19,11 +21,10 @@ export interface Entity {
 }
 
 export function readEntities(filePath: string): Entity[] {
-  const fs = require("fs");
   if (!fs.existsSync(filePath)) throw new Error(`File not found: ${filePath}`);
   const entitiesJson = fs.readFileSync(filePath);
-  if (entitiesJson.length == 0) return [];
-  return JSON.parse(entitiesJson);
+  if (entitiesJson.length === 0) return [];
+  return JSON.parse(entitiesJson.toString()) as Entity[];
 }
 
 export function getEntityAccounts(filePath: string): PrivateKeyWithBalance[] {
