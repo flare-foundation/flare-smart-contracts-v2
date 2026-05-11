@@ -220,7 +220,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         await time.advanceBlock();
 
         voterRegistry = await VoterRegistry.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 100, 0, (await time.latestBlock()).toNumber() - 1, 0, initialVoters, initialWeights);
-        flareSystemsCalculator = await FlareSystemsCalculator.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2500, 20 * 60, 600, 600);
+        flareSystemsCalculator = await FlareSystemsCalculator.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, 2500, 20 * 60, 600, 600, 5);
 
         initialSigningPolicy = {
             rewardEpochId: 0,
@@ -318,7 +318,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
 
         submission = await Submission.new(governanceSettings.address, accounts[0], ADDRESS_UPDATER, false);
 
-        wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER, 2, 2000);
+        wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER, 2, 2000, 2000);
 
         ftsoInflationConfigurations = await FtsoInflationConfigurations.new(governanceSettings.address, accounts[0]);
 
@@ -607,7 +607,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
             threshold: Math.floor(65535 / 2),
             seed: web3.utils.keccak256(RANDOM_ROOT),
             voters: accounts.slice(30, 34),
-            weights: [34664, 20660, 6334, 3875]
+            weights: [34848, 20727, 6229, 3729]
         };
 
         const receipt = await flareSystemsManager.daemonize();
@@ -848,7 +848,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         await expectEvent.inTransaction(receipt.tx, relay, "SigningPolicyInitialized",
             {
                 rewardEpochId: toBN(2), startVotingRoundId: toBN(votingRoundId), voters: accounts.slice(30, 34),
-                seed: toBN(web3.utils.keccak256(RANDOM_ROOT2)), threshold: toBN(32767), weights: [toBN(34664), toBN(20660), toBN(6334), toBN(3875)]
+                seed: toBN(web3.utils.keccak256(RANDOM_ROOT2)), threshold: toBN(32767), weights: [toBN(34848), toBN(20727), toBN(6229), toBN(3729)]
             });
         // tempSigningPolicyEncoded = SigningPolicy.encode({
         //     rewardEpochId: 2,
@@ -856,7 +856,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, accounts => {
         //     voters: accounts.slice(30, 34),
         //     seed: web3.utils.keccak256(RANDOM_ROOT2),
         //     threshold: 32767,
-        //     weights: [34664, 20660, 6334, 3875]
+        //     weights: [34848, 20727, 6229, 3729]
         // })
 
     });

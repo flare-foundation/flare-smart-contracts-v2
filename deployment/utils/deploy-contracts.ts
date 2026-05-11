@@ -276,7 +276,8 @@ export async function deployContracts(
     2500,
     200,
     100,
-    100
+    100,
+    5
   );
 
   const initialSigningPolicy: ISigningPolicy = {
@@ -344,7 +345,7 @@ export async function deployContracts(
     false
   );
 
-  const wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER_ADDR, 2, 2000);
+  const wNatDelegationFee = await WNatDelegationFee.new(ADDRESS_UPDATER_ADDR, 2, 2000, 2000);
 
   const ftsoInflationConfigurations = await FtsoInflationConfigurations.new(
     governanceSettings.address,

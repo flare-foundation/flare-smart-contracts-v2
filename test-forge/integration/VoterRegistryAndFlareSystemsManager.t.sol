@@ -124,7 +124,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
             WNAT_CAP_PPM,
             1200,
             600,
-            600
+            600,
+            5
         );
 
         // flare systems manager contract
@@ -274,9 +275,9 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         initialVotersRegistrationWeight = new uint256[](4);
         initialVotersRegistrationWeight[0] = _calculateWeight(100);
-        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 20);
-        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 30 + 40);
-        initialVotersRegistrationWeight[3] = _calculateWeight(200 + 40 + 50 + 60);
+        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 5 * 20);
+        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 5 * (30 + 40));
+        initialVotersRegistrationWeight[3] = _calculateWeight(200 + 5 * (40 + 50 + 60));
 
         vm.prank(governance);
         calculator.enablePChainStakeMirror();
@@ -388,9 +389,9 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         initialVotersRegistrationWeight = new uint256[](4);
         initialVotersRegistrationWeight[0] = _calculateWeight(100);
-        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 20);
-        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 30 + 40);
-        initialVotersRegistrationWeight[3] = _calculateWeight(0 + 40 + 50 + 60);
+        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 5 * 20);
+        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 5 * (30 + 40));
+        initialVotersRegistrationWeight[3] = _calculateWeight(0 + 5 * (40 + 50 + 60));
 
         vm.prank(governance);
         calculator.enablePChainStakeMirror();
@@ -566,9 +567,9 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         initialVotersRegistrationWeight = new uint256[](4);
         initialVotersRegistrationWeight[0] = _calculateWeight(100);
-        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 20);
-        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 30 + 40);
-        initialVotersRegistrationWeight[3] = _calculateWeight(0 + 40 + 50 + 0);
+        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 5 * 20);
+        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 5 * (30 + 40));
+        initialVotersRegistrationWeight[3] = _calculateWeight(0 + 5 * (40 + 50 + 0));
 
         vm.prank(governance);
         calculator.enablePChainStakeMirror();
@@ -709,9 +710,9 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         initialVotersRegistrationWeight = new uint256[](4);
         initialVotersRegistrationWeight[0] = _calculateWeight(100);
-        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 20);
-        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 30 + 40);
-        initialVotersRegistrationWeight[3] = _calculateWeight(200 + 40 + 50 + 60);
+        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 5 * 20);
+        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 5 * (30 + 40));
+        initialVotersRegistrationWeight[3] = _calculateWeight(200 + 5 * (40 + 50 + 60));
 
         vm.prank(governance);
         voterRegistry.setMaxVoters(4);
@@ -847,9 +848,9 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         initialVotersRegistrationWeight = new uint256[](4);
         initialVotersRegistrationWeight[0] = _calculateWeight(100);
-        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 20);
+        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 5 * 20);
         initialVotersRegistrationWeight[2] = _calculateWeight(0 + 0 + 0);
-        initialVotersRegistrationWeight[3] = _calculateWeight(0 + 0 + 0 + 60);
+        initialVotersRegistrationWeight[3] = _calculateWeight(0 + 5 * (0 + 0 + 60));
 
         //// sign uptime vote
         // voter0 can't sign because it is not registered for reward epoch 1
@@ -1093,8 +1094,8 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         initialVotersRegistrationWeight = new uint256[](4);
         initialVotersRegistrationWeight[0] = _calculateWeight(23);
         initialVotersRegistrationWeight[1] = _calculateWeight(200 + 0);
-        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 30 + 40);
-        initialVotersRegistrationWeight[3] = _calculateWeight(200 + 40 + 50 + 60);
+        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 5 * (30 + 40));
+        initialVotersRegistrationWeight[3] = _calculateWeight(200 + 5 * (40 + 50 + 60));
 
         for (uint256 i = 0; i < initialVoters.length; i++) {
             signature = _createSigningPolicyAddressSignature(i, 4);
@@ -1327,9 +1328,9 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
 
         initialVotersRegistrationWeight = new uint256[](4);
         initialVotersRegistrationWeight[0] = _calculateWeight(100);
-        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 20);
-        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 30 + 40);
-        initialVotersRegistrationWeight[3] = _calculateWeight(200 + 40 + 50 + 60);
+        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 5 * 20);
+        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 5 * (30 + 40));
+        initialVotersRegistrationWeight[3] = _calculateWeight(200 + 5 * (40 + 50 + 60));
 
         vm.prank(governance);
         calculator.enablePChainStakeMirror();
@@ -1397,9 +1398,9 @@ contract VoterRegistryAndFlareSystemsManagerTest is Test {
         _setVotePowers(block.number - 55);
         initialVotersRegistrationWeight = new uint256[](4);
         initialVotersRegistrationWeight[0] = _calculateWeight(100);
-        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 20);
-        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 30 + 40);
-        initialVotersRegistrationWeight[3] = _calculateWeight(200 + 40 + 50 + 60);
+        initialVotersRegistrationWeight[1] = _calculateWeight(200 + 5 * 20);
+        initialVotersRegistrationWeight[2] = _calculateWeight(200 + 5 * (30 + 40));
+        initialVotersRegistrationWeight[3] = _calculateWeight(200 + 5 * (40 + 50 + 60));
         for (uint256 i = 0; i < initialVoters.length; i++) {
             signature = _createSigningPolicyAddressSignature(i, currentEpochId + 1);
             vm.expectEmit();

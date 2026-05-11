@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.27;
 
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { IWNatDelegationFee } from "../../userInterfaces/IWNatDelegationFee.sol";
@@ -20,6 +20,8 @@ contract WNatDelegationFee is AddressUpdatable, IWNatDelegationFee {
     uint24 public immutable feePercentageUpdateOffset;
     /// The default fee percentage value.
     uint16 public immutable defaultFeePercentageBIPS;
+    /// The minimum fee percentage value voters can set (in BIPS).
+    uint16 public immutable minFeeBIPS;
     //slither-disable-next-line uninitialized-state
     mapping(address voter => FeePercentage[]) internal voterFeePercentages;
 
@@ -31,24 +33,32 @@ contract WNatDelegationFee is AddressUpdatable, IWNatDelegationFee {
      * @param _addressUpdater The address of the AddressUpdater contract.
      * @param _feePercentageUpdateOffset The offset in reward epochs for the fee percentage value to become effective.
      * @param _defaultFeePercentageBIPS The default fee percentage value.
+     * @param _minFeeBIPS The minimum fee percentage value voters can set (in BIPS).
      */
     constructor(
         address _addressUpdater,
         uint24 _feePercentageUpdateOffset,
-        uint16 _defaultFeePercentageBIPS
+        uint16 _defaultFeePercentageBIPS,
+        uint16 _minFeeBIPS
     )
         AddressUpdatable(_addressUpdater)
     {
-        require(_feePercentageUpdateOffset > 1, "offset too small");
+        require(_feePercentageUpdateOffset > 1, OffsetTooSmall());
+        require(_minFeeBIPS <= MAX_BIPS, MinFeePercentageInvalid());
+        require(
+            _defaultFeePercentageBIPS >= _minFeeBIPS && _defaultFeePercentageBIPS <= MAX_BIPS,
+            DefaultFeePercentageInvalid()
+        );
         feePercentageUpdateOffset = _feePercentageUpdateOffset;
         defaultFeePercentageBIPS = _defaultFeePercentageBIPS;
+        minFeeBIPS = _minFeeBIPS;
     }
 
     /**
      * @inheritdoc IWNatDelegationFee
      */
     function setVoterFeePercentage(uint16 _feePercentageBIPS) external returns (uint256) {
-        require(_feePercentageBIPS <= MAX_BIPS, "fee percentage invalid");
+        require(_feePercentageBIPS >= minFeeBIPS && _feePercentageBIPS <= MAX_BIPS, FeePercentageInvalid());
 
         uint24 rewardEpochId = _getCurrentRewardEpochId() + feePercentageUpdateOffset;
         FeePercentage[] storage fps = voterFeePercentages[msg.sender];
@@ -94,7 +104,7 @@ contract WNatDelegationFee is AddressUpdatable, IWNatDelegationFee {
         external view
         returns (uint16)
     {
-        require(_rewardEpochId <= _getCurrentRewardEpochId() + feePercentageUpdateOffset, "invalid reward epoch id");
+        require(_rewardEpochId <= _getCurrentRewardEpochId() + feePercentageUpdateOffset, InvalidRewardEpochId());
         return _getVoterFeePercentage(_voter, _rewardEpochId);
     }
 

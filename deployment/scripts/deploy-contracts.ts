@@ -165,7 +165,8 @@ export async function deployContracts(
     parameters.wNatCapPPM,
     parameters.signingPolicySignNonPunishableDurationSeconds,
     parameters.signingPolicySignNonPunishableDurationBlocks,
-    parameters.signingPolicySignNoRewardsDurationBlocks
+    parameters.signingPolicySignNoRewardsDurationBlocks,
+    parameters.stakingFactor
   );
   spewNewContractInfo(
     contracts,
@@ -272,7 +273,8 @@ export async function deployContracts(
   const wNatDelegationFee = await WNatDelegationFee.new(
     deployerAccount.address, // tmp address updater
     parameters.feePercentageUpdateOffset,
-    parameters.defaultFeePercentageBIPS
+    parameters.defaultFeePercentageBIPS,
+    parameters.minFeeBIPS
   );
   spewNewContractInfo(
     contracts,
