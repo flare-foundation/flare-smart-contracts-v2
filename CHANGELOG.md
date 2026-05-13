@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * Removed `unchecked` block in `SafePct.mulDivRoundUp` to prevent a potential overflow
+* `NodePossessionVerifier.extractSignature` now correctly decodes DER `r`/`s` whose minimal
+  encoding is shorter than 32 bytes; the previous `bytes32(rs)` cast left-aligned the source
+  and right-padded with zeros, corrupting the integer value
+* `NodePossessionVerifier.verifyNodePossession` guards `s` against `s >= N` before the low-s
+  flip, reverting with `"invalid signature"` rather than an arithmetic-underflow panic
 
 
 ## [[v1.2.0]((https://github.com/flare-foundation/flare-smart-contracts-v2/releases/tag/v1.2.0)])] - 2026-04-17

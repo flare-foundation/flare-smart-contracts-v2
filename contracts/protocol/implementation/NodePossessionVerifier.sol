@@ -34,7 +34,7 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
         if (isECDSA) {
             (bytes32 r, bytes32 s) = extractSignature(_signature);
             uint256 sUint = uint256(s);
-            if (sUint > N / 2) {
+            if (sUint < N && sUint > N / 2) {
                 sUint = N - sUint;
             }
             require(P256.verify(message, r, bytes32(sUint), bytes32(part1), bytes32(part2)), "invalid signature");
@@ -164,7 +164,7 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
         (length, rs, success) = this.readASN1Element(data, 0x02, true);
         require(success, "couldn't read r");
         if (rs.length < 33) {
-            _r = bytes32(rs);
+            _r = bytes32(uint256(bytes32(rs)) >> ((32 - rs.length) * 8)); // left-pad with zeros
         } else if (rs.length == 33 && rs[0] == bytes1(0x00)) {
             // skip the first byte, which is 0x00
             _r = bytes32(Bytes.slice(rs, 1));
@@ -176,7 +176,7 @@ contract NodePossessionVerifier is IINodePossessionVerifier {
         require(success, "couldn't read s");
         require(length == data.length, "invalid data length");
         if (rs.length < 33) {
-            _s = bytes32(rs);
+            _s = bytes32(uint256(bytes32(rs)) >> ((32 - rs.length) * 8)); // left-pad with zeros
         } else if (rs.length == 33 && rs[0] == bytes1(0x00)) {
             // skip the first byte, which is 0x00
             _s = bytes32(Bytes.slice(rs, 1));

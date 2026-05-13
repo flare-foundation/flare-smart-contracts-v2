@@ -281,6 +281,77 @@ contract NodePossessionVerifierTest is Test {
         nodePossessionVerifier.extractSignature(signature);
     }
 
+    // Regression for the short-DER bug: a 31-byte r must be left-padded with a zero byte,
+    // not left-aligned (which would multiply the integer by 256).
+    function testExtractSignaturePadsShortR() public view {
+        bytes memory rBytes = hex"112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"; // 31 bytes
+        bytes memory sBytes = hex"7f223344556677889900aabbccddeeff112233445566778899aabbccddeeff00"; // 32 bytes
+        bytes memory der = _wrapDer(rBytes, sBytes);
+
+        (bytes32 r, bytes32 s) = nodePossessionVerifier.extractSignature(der);
+
+        // r is the 31-byte big-endian integer; expected bytes32 has one leading 0x00 byte
+        bytes32 expectedR = bytes32(abi.encodePacked(bytes1(0), rBytes));
+        assertEq(r, expectedR, "short r must be right-aligned");
+        assertEq(s, bytes32(sBytes), "32-byte s unchanged");
+        // Cross-check: the buggy (left-aligned) value would be exactly r << 8 bits larger
+        assertTrue(r != bytes32(abi.encodePacked(rBytes, bytes1(0))), "must not be left-aligned");
+    }
+
+    // Same fix on the s side.
+    function testExtractSignaturePadsShortS() public view {
+        bytes memory rBytes = hex"7f223344556677889900aabbccddeeff112233445566778899aabbccddeeff00"; // 32 bytes
+        bytes memory sBytes = hex"112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"; // 31 bytes
+        bytes memory der = _wrapDer(rBytes, sBytes);
+
+        (bytes32 r, bytes32 s) = nodePossessionVerifier.extractSignature(der);
+
+        bytes32 expectedS = bytes32(abi.encodePacked(bytes1(0), sBytes));
+        assertEq(r, bytes32(rBytes));
+        assertEq(s, expectedS, "short s must be right-aligned");
+        assertTrue(s != bytes32(abi.encodePacked(sBytes, bytes1(0))), "must not be left-aligned");
+    }
+
+    // Boundary: a 1-byte r (extreme leading-zero case) is right-aligned.
+    function testExtractSignatureVeryShortR() public view {
+        bytes memory rBytes = hex"01";
+        bytes memory sBytes = hex"7f223344556677889900aabbccddeeff112233445566778899aabbccddeeff00";
+        bytes memory der = _wrapDer(rBytes, sBytes);
+
+        (bytes32 r, bytes32 s) = nodePossessionVerifier.extractSignature(der);
+        assertEq(r, bytes32(uint256(0x01)));
+        assertEq(s, bytes32(sBytes));
+    }
+
+    // Golden path: 32-byte r and s round-trip unchanged.
+    function testExtractSignature32ByteRS() public view {
+        bytes memory rBytes = hex"7f223344556677889900aabbccddeeff112233445566778899aabbccddeeff00";
+        bytes memory sBytes = hex"03223344556677889900aabbccddeeff112233445566778899aabbccddeeff11";
+        bytes memory der = _wrapDer(rBytes, sBytes);
+
+        (bytes32 r, bytes32 s) = nodePossessionVerifier.extractSignature(der);
+        assertEq(r, bytes32(rBytes));
+        assertEq(s, bytes32(sBytes));
+    }
+
+    // Canonical 33-byte DER: leading 0x00 sign byte for top-bit-set values is stripped.
+    function testExtractSignature33ByteCanonical() public view {
+        bytes memory rBytes = hex"00ff223344556677889900aabbccddeeff112233445566778899aabbccddeeff11";
+        bytes memory sBytes = hex"0080112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+        bytes memory der = _wrapDer(rBytes, sBytes);
+
+        (bytes32 r, bytes32 s) = nodePossessionVerifier.extractSignature(der);
+        // expected: rBytes[1..33] / sBytes[1..33]
+        bytes memory rNoPrefix = new bytes(32);
+        bytes memory sNoPrefix = new bytes(32);
+        for (uint256 i = 0; i < 32; i++) {
+            rNoPrefix[i] = rBytes[i + 1];
+            sNoPrefix[i] = sBytes[i + 1];
+        }
+        assertEq(r, bytes32(rNoPrefix));
+        assertEq(s, bytes32(sNoPrefix));
+    }
+
     //// readASN1Element tests
     // data too short
     function testReadASN1ElementUnsuccessful() public {
@@ -320,6 +391,19 @@ contract NodePossessionVerifierTest is Test {
         bytes1 expectedTag = hex"ab";
         (, , bool success) = nodePossessionVerifier.readASN1Element(data, expectedTag, false);
         assertEq(success, false);
+    }
+
+    //// extractSignature: short / canonical / golden-path round-trip tests
+    // Helper: wrap given r and s integer bodies as a DER SEQUENCE { INTEGER r, INTEGER s }.
+    // Assumes total inner length < 128 so a single length byte is enough.
+    function _wrapDer(bytes memory _rBytes, bytes memory _sBytes) private pure returns (bytes memory) {
+        uint256 inner = 2 + _rBytes.length + 2 + _sBytes.length;
+        require(inner < 128, "test helper: inner too long");
+        return abi.encodePacked(
+            bytes1(0x30), bytes1(uint8(inner)),
+            bytes1(0x02), bytes1(uint8(_rBytes.length)), _rBytes,
+            bytes1(0x02), bytes1(uint8(_sBytes.length)), _sBytes
+        );
     }
 }
 
