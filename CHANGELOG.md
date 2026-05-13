@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## Unreleased
 
 ### Added
 
@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * `Signature` and `PublicKey` structs moved to shared interfaces `ISignature.sol` / `IPublicKey.sol`
 * Solidity pragma relaxed from `0.8.20` to `^0.8.20` across the contracts
   (`NodePossessionVerifier` requires `^0.8.24` for the OpenZeppelin P-256 lib)
+* `NodePossessionVerifier` parser uses internal calls instead of external self-calls for
+  ASN.1 reads, saving ~20K gas per registration
 * Migrated package manager from yarn to pnpm
 * Upgraded Node.js to v24, tsconfig target to ES2024, module to Node20
 * Adopted `@flarenetwork/eslint-config-flare` and `@flarenetwork/prettier-config-flare`
@@ -44,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   flip, reverting with `"invalid signature"` rather than an arithmetic-underflow panic
 
 
-## [[v1.2.0]((https://github.com/flare-foundation/flare-smart-contracts-v2/releases/tag/v1.2.0)])] - 2026-04-17
+## [v1.2.0]((https://github.com/flare-foundation/flare-smart-contracts-v2/releases/tag/v1.2.0)]) - 2026-04-17
 
 ### Added
 
