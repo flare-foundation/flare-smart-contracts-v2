@@ -213,13 +213,9 @@ export async function deployFlareTeeManager(
   // Add system extension supported key types
   await extensionManager.addSupportedKeyTypes(
     0, // system extension id
-    [
-      ...new Set(
-        parameters.teePaymentConfigurations.map((cfg: TeePaymentConfiguration) =>
-          hre.web3.utils.utf8ToHex(cfg.keyType).padEnd(66, "0")
-        )
-      ),
-    ]
+    parameters.teeSupportedKeyTypesWithSigningAlgos.map((cfg: TeeKeyTypeWithSigningAlgos) =>
+      hre.web3.utils.utf8ToHex(cfg.keyType).padEnd(66, "0")
+    )
   );
 
   return flareTeeManager.address;

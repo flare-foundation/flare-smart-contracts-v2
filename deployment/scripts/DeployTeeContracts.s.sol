@@ -470,7 +470,6 @@ contract DeployTeeContracts is Script {
         _configureOperationFees();
         _configureSystemPlatforms();
         _configureKeyTypesAndSigningAlgos();
-        _configureExtensionKeyTypes();
     }
 
     function _configureOperationFees() internal {
@@ -543,44 +542,12 @@ contract DeployTeeContracts is Script {
         flareTeeManager.addSystemSupportedKeyTypesAndSigningAlgos(
             keyTypeBytes, signingAlgosBytes
         );
-    }
-
-    function _configureExtensionKeyTypes() internal {
-        PaymentConfiguration[] memory paymentConfigs = abi.decode(
-            vm.parseJson(config, ".teePaymentConfigurations"),
-            (PaymentConfiguration[])
-        );
-        if (paymentConfigs.length == 0) return;
-
-        // collect unique key types
-        bytes32[] memory tempKeyTypes =
-            new bytes32[](paymentConfigs.length);
-        uint256 uniqueCount = 0;
-        for (uint256 i = 0; i < paymentConfigs.length; i++) {
-            bytes32 kt = bytes32(bytes(paymentConfigs[i].keyType));
-            bool found = false;
-            for (uint256 j = 0; j < uniqueCount; j++) {
-                if (tempKeyTypes[j] == kt) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                tempKeyTypes[uniqueCount] = kt;
-                uniqueCount++;
-            }
-        }
-
-        bytes32[] memory uniqueKeyTypes = new bytes32[](uniqueCount);
-        for (uint256 i = 0; i < uniqueCount; i++) {
-            uniqueKeyTypes[i] = tempKeyTypes[i];
-        }
 
         console2.log(
-            "Adding extension supported key types (system ext 0), count:",
-            uniqueCount
+            "Adding system extension (ext 0) supported key types, count:",
+            keyTypes.length
         );
-        flareTeeManager.addSupportedKeyTypes(0, uniqueKeyTypes);
+        flareTeeManager.addSupportedKeyTypes(0, keyTypeBytes);
     }
 
     // =========================================================================

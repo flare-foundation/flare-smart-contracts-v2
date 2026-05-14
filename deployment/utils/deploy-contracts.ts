@@ -813,13 +813,7 @@ export async function deployContracts(
 
   await extensionManager.addSupportedKeyTypes(
     0,
-    [
-      ...new Set(
-        TEE_PAYMENT_CONFIGURATIONS.map((teePaymentConfig) =>
-          web3.utils.utf8ToHex(teePaymentConfig.keyType).padEnd(66, "0")
-        )
-      ),
-    ],
+    TEE_KEY_CONFIGURATIONS.map((teeKeyConfig) => web3.utils.utf8ToHex(teeKeyConfig.keyType).padEnd(66, "0")),
     { from: governanceAccount.address }
   );
 
