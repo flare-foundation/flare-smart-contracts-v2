@@ -554,6 +554,11 @@ export interface ChainParameters {
    *  The supported FDC2 requests fee configurations.
    */
   fdc2RequestFees: Fdc2RequestFee[];
+
+  /**
+   * The inflation configurations for the FDC2 protocol.
+   */
+  fdc2InflationConfigurations: Fdc2InflationConfiguration[];
 }
 
 export interface FtsoInflationConfiguration {
@@ -837,4 +842,31 @@ export interface Fdc2RequestFee {
    * The fee per request. In Wei.
    */
   feeWei: string;
+}
+
+export interface Fdc2InflationConfiguration {
+  /**
+   * The attestation type.
+   */
+  attestationType: string;
+
+  /**
+   * The source.
+   */
+  source: string;
+
+  /**
+   * Inflation share/weight for this configuration.
+   */
+  inflationShare: integer;
+
+  /**
+   * Minimal reward eligibility threshold in number of requests.
+   */
+  minRequestsThreshold: integer;
+
+  /**
+   * Mode (additional settings interpreted on the client side off-chain).
+   */
+  mode: integer;
 }

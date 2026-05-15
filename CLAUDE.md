@@ -231,6 +231,18 @@ All Solidity contracts and interfaces (excluding tests) must follow these format
 - All input and output parameters must start with `_` (except in `try/catch` blocks)
 - Public/external methods and non-parameter variables should not start with `_`
 
+### Errors and Events Placement
+
+**All custom errors and events must be declared in the public user interface (`I*` under `contracts/userInterfaces/`), never in the implementation contract.** The implementation just uses them by name (since it `is I*`, the error/event is in scope).
+
+This applies to:
+- Custom errors used in `require(..., MyError())` or `revert MyError(...)`
+- Events emitted by the contract
+
+Rationale: external callers, tests, and other contracts consume the ABI via the interface. Declaring errors/events on the interface keeps them in the public surface, lets consumers reference them as `IMyContract.MyError.selector` / `IMyContract.MyEvent`, and avoids the duplication or drift that happens when they live on the implementation.
+
+This rule applies to **new code only** — do not retroactively move errors/events on legacy contracts (`FdcHub`, `FdcInflationConfigurations`, etc.) that use the older string-`require` or implementation-declared style; touch them only if you're already changing the file's behavior.
+
 ### Linting
 
 - Solidity: `pnpm lint-sol` — checks contracts, test-forge, and deployment .sol files

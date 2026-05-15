@@ -271,5 +271,6 @@
         {"attestationType": "TeeAvailabilityCheck", "source": "TEE", "feeWei": "1"},
         {"attestationType": "PMWPaymentStatus", "source": "testXRP", "feeWei": "1"},
         {"attestationType": "PMWMultisigAccountConfigured", "source": "testXRP", "feeWei": "1"}
-    ]
+    ],
+    "fdc2InflationConfigurations": []
 }

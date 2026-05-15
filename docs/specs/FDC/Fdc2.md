@@ -140,6 +140,51 @@ function getTypeAndSourceFee(bytes32 type, bytes32 source) external view returns
 
 The mapping is keyed by `keccak256(abi.encodePacked(type, source))`. A fee of `0` means "not configured" and `getTypeAndSourceFee` reverts. This contract is **UUPS-upgradeable** (unlike the legacy one), behind a proxy.
 
+## Inflation and reward offers
+
+FDC2 inflation flows through two dedicated contracts that sit **alongside** [`Fdc2Hub`](../../../contracts/fdc2/implementation/Fdc2Hub.sol) rather than inside it — the same structural choice the TEE protocol made with [`TeeRewardOffersManager`](../../../contracts/tee/implementation/TeeRewardOffersManager.sol). `Fdc2Hub` itself only handles per-attestation request fees (already covered above); the inflation pool is the concern of these two contracts:
+
+### `Fdc2InflationConfigurations`
+
+A governance-managed array of `Fdc2Configuration` entries — one per `(attestationType, sourceId)` pair that should receive a slice of FDC2 inflation:
+
+```solidity
+struct Fdc2Configuration {
+    bytes32 attestationType;
+    bytes32 sourceId;
+    uint24 inflationShare;
+    uint8 minRequestsThreshold;
+    uint224 mode;
+}
+
+function addFdc2Configurations(Fdc2Configuration[] calldata) external onlyGovernance;
+function replaceFdc2Configurations(uint256[] calldata indices, Fdc2Configuration[] calldata) external onlyGovernance;
+function removeFdc2Configuration(uint256 index) external onlyGovernance;
+function getFdc2Configuration(uint256 index) external view returns (Fdc2Configuration memory);
+function getFdc2Configurations() external view returns (Fdc2Configuration[] memory);
+```
+
+Each `addFdc2Configurations` / `replaceFdc2Configurations` call validates the entry by calling `Fdc2RequestFeeConfigurations.getTypeAndSourceFee(attestationType, sourceId)` — this reverts with `TypeAndSourceCombinationNotSupported` if no fee has been registered, preventing inflation entries for pairs the hub will not accept.
+
+### `Fdc2RewardOffersManager`
+
+A standalone inflation receiver and reward-offers emitter. It extends [`RewardOffersManagerBase`](../../../contracts/protocol/implementation/RewardOffersManagerBase.sol) — the same base class used by [`FdcHub`](../../../contracts/fdc/implementation/FdcHub.sol) and [`TeeRewardOffersManager`](../../../contracts/tee/implementation/TeeRewardOffersManager.sol) — and follows the same lifecycle:
+
+1. The `Inflation` contract calls `setDailyAuthorizedInflation(amount)` and later `receiveInflation()` (with native value), accruing `totalInflationReceivedWei` on this contract.
+2. At each reward-epoch switchover, `FlareSystemsManager` calls `triggerRewardEpochSwitchover(epochId, endTs, durationSeconds)`. The manager pro-rates the unoffered inflation balance over the time frame, emits
+
+   ```solidity
+   event InflationRewardsOffered(
+       uint24 indexed rewardEpochId,
+       IFdc2InflationConfigurations.Fdc2Configuration[] fdc2Configurations,
+       uint256 amount
+   );
+   ```
+
+   carrying the full configurations array so off-chain reward-distribution clients can split the pool by `inflationShare`, and forwards the native value to `RewardManager.receiveRewards{value: amount}(rewardEpochId, true)` (the `true` flag marks the funds as inflation-derived, in contrast to per-request fees from `Fdc2Hub` which use `false`).
+
+Like `FdcHub` / `TeeRewardOffersManager`, `Fdc2RewardOffersManager` is governed (not UUPS) and is wired to `RewardManager`, `FlareSystemsManager`, `Inflation`, and `Fdc2InflationConfigurations` through `AddressUpdater`. Both contracts use Flare's standard governance with timelock; deployment seeds the configurations array from chain-config (`fdc2InflationConfigurations` block).
+
 ## How a typical FDC2 flow looks
 
 1. Application contract on Flare:
@@ -172,7 +217,7 @@ The FCC fee paid up-front by the requester gets settled at the TEE machine layer
 | Per-request TEE selection | N/A | Random or explicit |
 | Cosigner approval | N/A | Up to `_cosignersThreshold` of `_cosigners[]` |
 | Cross-chain verification | Difficult (proves Merkle root which references signing policy) | Direct (signing-policy signatures verifiable anywhere policy hash is known) |
-| Inflation pool | Yes (`FdcInflationConfigurations`) | No (fees alone, plus FCC operation fees) |
+| Inflation pool | Yes ([`FdcInflationConfigurations`](../../../contracts/fdc/implementation/FdcInflationConfigurations.sol)) | Yes ([`Fdc2InflationConfigurations`](../../../contracts/fdc2/implementation/Fdc2InflationConfigurations.sol) + standalone [`Fdc2RewardOffersManager`](../../../contracts/fdc2/implementation/Fdc2RewardOffersManager.sol)) |
 | Verification primitive | Merkle proof against `Relay` root | ECDSA signature verification |
 
 Both modules are simultaneously active. Applications choose based on latency / cross-chain / threshold needs.

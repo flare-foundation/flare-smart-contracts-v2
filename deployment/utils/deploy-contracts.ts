@@ -21,9 +21,13 @@ import {
   Fdc2HubContract,
   Fdc2HubInstance,
   Fdc2HubProxyContract,
+  Fdc2InflationConfigurationsContract,
+  Fdc2InflationConfigurationsInstance,
   Fdc2RequestFeeConfigurationsContract,
   Fdc2RequestFeeConfigurationsInstance,
   Fdc2RequestFeeConfigurationsProxyContract,
+  Fdc2RewardOffersManagerContract,
+  Fdc2RewardOffersManagerInstance,
   Fdc2VerificationContract,
   Fdc2VerificationInstance,
   Fdc2VerificationProxyContract,
@@ -160,7 +164,9 @@ export interface DeployedContracts {
   readonly teePaymentsRegistry: TeePaymentsRegistryInstance;
   readonly teePayments: TeePaymentsInstance[];
   readonly fdc2Hub: Fdc2HubInstance;
+  readonly fdc2InflationConfigurations: Fdc2InflationConfigurationsInstance;
   readonly fdc2RequestFeeConfigurations: Fdc2RequestFeeConfigurationsInstance;
+  readonly fdc2RewardOffersManager: Fdc2RewardOffersManagerInstance;
   readonly fdc2Verification: Fdc2VerificationInstance;
   readonly pmwPaymentStatusVerifierMock: PMWPaymentStatusVerifierMockInstance;
   readonly teeExtensionInstructionsSenderMock: TeeExtensionInstructionsSenderMockInstance;
@@ -249,12 +255,16 @@ export async function deployContracts(
   ) as TeePaymentsRegistryProxyContract;
   const Fdc2Hub = hre.artifacts.require("Fdc2Hub") as Fdc2HubContract;
   const Fdc2HubProxy = hre.artifacts.require("Fdc2HubProxy") as Fdc2HubProxyContract;
+  const Fdc2InflationConfigurations = hre.artifacts.require(
+    "Fdc2InflationConfigurations"
+  ) as Fdc2InflationConfigurationsContract;
   const Fdc2RequestFeeConfigurations = hre.artifacts.require(
     "Fdc2RequestFeeConfigurations"
   ) as Fdc2RequestFeeConfigurationsContract;
   const Fdc2RequestFeeConfigurationsProxy = hre.artifacts.require(
     "Fdc2RequestFeeConfigurationsProxy"
   ) as Fdc2RequestFeeConfigurationsProxyContract;
+  const Fdc2RewardOffersManager = hre.artifacts.require("Fdc2RewardOffersManager") as Fdc2RewardOffersManagerContract;
   const Fdc2Verification = hre.artifacts.require("Fdc2Verification") as Fdc2VerificationContract;
   const Fdc2VerificationProxy = hre.artifacts.require("Fdc2VerificationProxy") as Fdc2VerificationProxyContract;
   const AddressUpdater = hre.artifacts.require("AddressUpdater") as AddressUpdaterContract;
@@ -685,6 +695,20 @@ export async function deployContracts(
   const fdc2Verification = await Fdc2Verification.at(fdc2VerificationProxy.address);
   addressUpdatableContracts.push(fdc2Verification.address);
 
+  const fdc2InflationConfigurations = await Fdc2InflationConfigurations.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    addressUpdater.address
+  );
+  addressUpdatableContracts.push(fdc2InflationConfigurations.address);
+
+  const fdc2RewardOffersManager = await Fdc2RewardOffersManager.new(
+    governanceSettings.address,
+    governanceAccount.address,
+    addressUpdater.address
+  );
+  addressUpdatableContracts.push(fdc2RewardOffersManager.address);
+
   // MOCKS
   const pmwPaymentStatusVerifierMock = await PMWPaymentStatusVerifierMock.new(addressUpdater.address, [], 0, 1);
   addressUpdatableContracts.push(pmwPaymentStatusVerifierMock.address);
@@ -740,6 +764,8 @@ export async function deployContracts(
       Contracts.FDC2_HUB,
       Contracts.FDC2_VERIFICATION,
       Contracts.FDC2_REQUEST_FEE_CONFIGURATIONS,
+      Contracts.FDC2_INFLATION_CONFIGURATIONS,
+      Contracts.FDC2_REWARD_OFFERS_MANAGER,
       Contracts.TEE_REWARD_OFFERS_MANAGER,
       Contracts.TEE_PAYMENTS_FEE_SCHEDULE_MANAGER,
       Contracts.TEE_PAYMENTS_REGISTRY,
@@ -776,6 +802,8 @@ export async function deployContracts(
       fdc2Hub.address,
       fdc2Verification.address,
       fdc2RequestFeeConfigurations.address,
+      fdc2InflationConfigurations.address,
+      fdc2RewardOffersManager.address,
       teeRewardOffersManager.address,
       teePaymentsFeeScheduleManager.address,
       teePaymentsRegistry.address,
@@ -852,6 +880,7 @@ export async function deployContracts(
       teeRewardOffersManager.address,
       flareTeeManager.address,
       fdc2Hub.address,
+      fdc2RewardOffersManager.address,
     ],
     { from: governanceAccount.address }
   );
@@ -869,6 +898,8 @@ export async function deployContracts(
   await fdcHub.receiveInflation({ value: inflationFunds, from: INFLATION_ADDR });
   await teeRewardOffersManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION_ADDR });
   await teeRewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION_ADDR });
+  await fdc2RewardOffersManager.setDailyAuthorizedInflation(inflationFunds, { from: INFLATION_ADDR });
+  await fdc2RewardOffersManager.receiveInflation({ value: inflationFunds, from: INFLATION_ADDR });
 
   // set FDC types + sources + fees
 
@@ -893,6 +924,18 @@ export async function deployContracts(
     { from: governanceAccount.address }
   );
 
+  // set FDC2 inflation configurations (one per registered request-fee pair)
+  await fdc2InflationConfigurations.addFdc2Configurations(
+    FDC2_FEE_CONFIGURATIONS.map((cfg) => ({
+      attestationType: web3.utils.utf8ToHex(cfg.attestationType).padEnd(66, "0"),
+      sourceId: web3.utils.utf8ToHex(cfg.source).padEnd(66, "0"),
+      inflationShare: 100,
+      minRequestsThreshold: 2,
+      mode: 0,
+    })),
+    { from: governanceAccount.address }
+  );
+
   // set rewards offer switchover trigger contracts
   await flareSystemsManager.setRewardEpochSwitchoverTriggerContracts(
     [
@@ -900,6 +943,7 @@ export async function deployContracts(
       fastUpdateIncentiveManager.address,
       fdcHub.address,
       teeRewardOffersManager.address,
+      fdc2RewardOffersManager.address,
     ],
     { from: governanceAccount.address }
   );
@@ -1062,7 +1106,9 @@ export async function deployContracts(
     teePaymentsRegistry,
     teePayments: teePaymentsList,
     fdc2Hub,
+    fdc2InflationConfigurations,
     fdc2RequestFeeConfigurations,
+    fdc2RewardOffersManager,
     fdc2Verification,
     pmwPaymentStatusVerifierMock,
     teeExtensionInstructionsSenderMock,

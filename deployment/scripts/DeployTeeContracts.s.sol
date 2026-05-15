@@ -61,10 +61,16 @@ import {WalletResumeFacet} from
 // FDC2 contracts
 import {Fdc2Hub} from "../../contracts/fdc2/implementation/Fdc2Hub.sol";
 import {Fdc2HubProxy} from "../../contracts/fdc2/proxy/Fdc2HubProxy.sol";
+import {Fdc2InflationConfigurations} from
+    "../../contracts/fdc2/implementation/Fdc2InflationConfigurations.sol";
+import {IFdc2InflationConfigurations} from
+    "../../contracts/userInterfaces/fdc2/IFdc2InflationConfigurations.sol";
 import {Fdc2RequestFeeConfigurations} from
     "../../contracts/fdc2/implementation/Fdc2RequestFeeConfigurations.sol";
 import {Fdc2RequestFeeConfigurationsProxy} from
     "../../contracts/fdc2/proxy/Fdc2RequestFeeConfigurationsProxy.sol";
+import {Fdc2RewardOffersManager} from
+    "../../contracts/fdc2/implementation/Fdc2RewardOffersManager.sol";
 import {Fdc2Verification} from
     "../../contracts/fdc2/implementation/Fdc2Verification.sol";
 import {Fdc2VerificationProxy} from
@@ -143,6 +149,16 @@ contract DeployTeeContracts is Script {
         string source;
     }
 
+    // NOTE: stdJson parses struct fields in alphabetical order of JSON keys.
+    // Keep field names alphabetical: attestationType, inflationShare, minRequestsThreshold, mode, source.
+    struct Fdc2InflationConfig {
+        string attestationType;
+        uint256 inflationShare;
+        uint256 minRequestsThreshold;
+        uint256 mode;
+        string source;
+    }
+
     // Well-known FlareContractRegistry address (same on all Flare networks)
     IFlareContractRegistry private constant FLARE_CONTRACT_REGISTRY =
         IFlareContractRegistry(0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019);
@@ -192,6 +208,8 @@ contract DeployTeeContracts is Script {
     // Deployed contract addresses
     address private fdc2HubAddr;
     address private fdc2FeeAddr;
+    address private fdc2InflationConfigurationsAddr;
+    address private fdc2RewardOffersManagerAddr;
     address private fdc2VerificationAddr;
     address[] private teePaymentsAddresses;
     address private teeRewardOffersManagerAddr;
@@ -247,12 +265,15 @@ contract DeployTeeContracts is Script {
             );
         }
         _deployTeeRewardOffersManager();
+        _deployFdc2InflationConfigurations();
+        _deployFdc2RewardOffersManager();
         _deployVrfVerifier();
 
         // Phase 3: Wire up and configure
         _wireUpContractAddresses(_fullDeploy);
         _registerSystemInstructionsSenders(_fullDeploy);
         _configureFdc2RequestFees();
+        _configureFdc2InflationConfigurations();
         _registerTeePaymentsSources();
         _configureFeeScheduleSourceLimits();
 
@@ -736,6 +757,42 @@ contract DeployTeeContracts is Script {
     }
 
     // =========================================================================
+    // Deploy Fdc2InflationConfigurations
+    // =========================================================================
+
+    function _deployFdc2InflationConfigurations() internal {
+        Fdc2InflationConfigurations mgr = new Fdc2InflationConfigurations(
+            IGovernanceSettings(governanceSettings),
+            deployer,
+            deployer
+        );
+        fdc2InflationConfigurationsAddr = address(mgr);
+        _logDeployed(
+            "Fdc2InflationConfigurations",
+            "Fdc2InflationConfigurations.sol",
+            fdc2InflationConfigurationsAddr
+        );
+    }
+
+    // =========================================================================
+    // Deploy Fdc2RewardOffersManager
+    // =========================================================================
+
+    function _deployFdc2RewardOffersManager() internal {
+        Fdc2RewardOffersManager mgr = new Fdc2RewardOffersManager(
+            IGovernanceSettings(governanceSettings),
+            deployer,
+            deployer
+        );
+        fdc2RewardOffersManagerAddr = address(mgr);
+        _logDeployed(
+            "Fdc2RewardOffersManager",
+            "Fdc2RewardOffersManager.sol",
+            fdc2RewardOffersManagerAddr
+        );
+    }
+
+    // =========================================================================
     // Deploy TeeRewardOffersManager
     // =========================================================================
 
@@ -857,6 +914,8 @@ contract DeployTeeContracts is Script {
         _wireFlareTeeManager();
         _wireFdc2Hub();
         _wireFdc2Verification();
+        _wireFdc2InflationConfigurations();
+        _wireFdc2RewardOffersManager();
         _wireTeePayments();
         _wireTeeRewardOffersManager();
         _wireTeePaymentsFeeScheduleManager();
@@ -941,6 +1000,34 @@ contract DeployTeeContracts is Script {
             TeePayments(teePaymentsAddresses[i])
                 .updateContractAddresses(names, addrs);
         }
+    }
+
+    function _wireFdc2InflationConfigurations() internal {
+        bytes32[] memory names = new bytes32[](2);
+        names[0] = _encodeContractName("AddressUpdater");
+        names[1] = _encodeContractName("Fdc2RequestFeeConfigurations");
+        address[] memory addrs = new address[](2);
+        addrs[0] = addressUpdater;
+        addrs[1] = fdc2FeeAddr;
+        Fdc2InflationConfigurations(fdc2InflationConfigurationsAddr)
+            .updateContractAddresses(names, addrs);
+    }
+
+    function _wireFdc2RewardOffersManager() internal {
+        bytes32[] memory names = new bytes32[](5);
+        names[0] = _encodeContractName("AddressUpdater");
+        names[1] = _encodeContractName("RewardManager");
+        names[2] = _encodeContractName("FlareSystemsManager");
+        names[3] = _encodeContractName("Inflation");
+        names[4] = _encodeContractName("Fdc2InflationConfigurations");
+        address[] memory addrs = new address[](5);
+        addrs[0] = addressUpdater;
+        addrs[1] = rewardManager;
+        addrs[2] = flareSystemsManager;
+        addrs[3] = inflation;
+        addrs[4] = fdc2InflationConfigurationsAddr;
+        Fdc2RewardOffersManager(fdc2RewardOffersManagerAddr)
+            .updateContractAddresses(names, addrs);
     }
 
     function _wireTeeRewardOffersManager() internal {
@@ -1097,6 +1184,38 @@ contract DeployTeeContracts is Script {
     }
 
     // =========================================================================
+    // Set FDC2 inflation configurations
+    // =========================================================================
+
+    function _configureFdc2InflationConfigurations() internal {
+        Fdc2InflationConfig[] memory inflationConfigs = abi.decode(
+            vm.parseJson(config, ".fdc2InflationConfigurations"),
+            (Fdc2InflationConfig[])
+        );
+        console2.log(
+            "Setting FDC2 inflation configurations, count:",
+            inflationConfigs.length
+        );
+        if (inflationConfigs.length == 0) return;
+
+        IFdc2InflationConfigurations.Fdc2Configuration[] memory configs =
+            new IFdc2InflationConfigurations.Fdc2Configuration[](
+                inflationConfigs.length
+            );
+        for (uint256 i = 0; i < inflationConfigs.length; i++) {
+            configs[i] = IFdc2InflationConfigurations.Fdc2Configuration({
+                attestationType: bytes32(bytes(inflationConfigs[i].attestationType)),
+                sourceId: bytes32(bytes(inflationConfigs[i].source)),
+                inflationShare: uint24(inflationConfigs[i].inflationShare),
+                minRequestsThreshold: uint8(inflationConfigs[i].minRequestsThreshold),
+                mode: uint224(inflationConfigs[i].mode)
+            });
+        }
+        Fdc2InflationConfigurations(fdc2InflationConfigurationsAddr)
+            .addFdc2Configurations(configs);
+    }
+
+    // =========================================================================
     // Switch to production mode
     // =========================================================================
 
@@ -1112,6 +1231,11 @@ contract DeployTeeContracts is Script {
         Fdc2RequestFeeConfigurations(fdc2FeeAddr)
             .switchToProductionMode();
         Fdc2Verification(fdc2VerificationAddr).switchToProductionMode();
+        // Fdc2InflationConfigurations and Fdc2RewardOffersManager
+        Fdc2InflationConfigurations(fdc2InflationConfigurationsAddr)
+            .switchToProductionMode();
+        Fdc2RewardOffersManager(fdc2RewardOffersManagerAddr)
+            .switchToProductionMode();
         // TeePayments proxies
         for (uint256 i = 0; i < teePaymentsAddresses.length; i++) {
             TeePayments(teePaymentsAddresses[i])

@@ -428,5 +428,6 @@
         {"attestationType": "PMWPaymentStatus", "source": "FLR", "feeWei": "1000000000000000000"},
         {"attestationType": "PMWMultisigAccountConfigured", "source": "SGB", "feeWei": "1000000000000000000"},
         {"attestationType": "PMWPaymentStatus", "source": "SGB", "feeWei": "1000000000000000000"}
-    ]
+    ],
+    "fdc2InflationConfigurations": []
 }
