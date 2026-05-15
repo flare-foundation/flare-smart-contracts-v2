@@ -119,16 +119,22 @@ export const FDC2_FEE_CONFIGURATIONS = [
   { attestationType: "TeeAvailabilityCheck", source: "TEE" },
   { attestationType: "PMWMultisigAccountConfigured", source: "XRP" },
   { attestationType: "PMWPaymentStatus", source: "XRP" },
+  { attestationType: "PMWFeeProof", source: "XRP" },
   { attestationType: "PMWMultisigAccountConfigured", source: "testXRP" },
   { attestationType: "PMWPaymentStatus", source: "testXRP" },
+  { attestationType: "PMWFeeProof", source: "testXRP" },
   { attestationType: "PMWMultisigAccountConfigured", source: "BTC" },
   { attestationType: "PMWPaymentStatus", source: "BTC" },
+  { attestationType: "PMWFeeProof", source: "BTC" },
   { attestationType: "PMWMultisigAccountConfigured", source: "DOGE" },
   { attestationType: "PMWPaymentStatus", source: "DOGE" },
+  { attestationType: "PMWFeeProof", source: "DOGE" },
   { attestationType: "PMWMultisigAccountConfigured", source: "FLR" },
   { attestationType: "PMWPaymentStatus", source: "FLR" },
+  { attestationType: "PMWFeeProof", source: "FLR" },
   { attestationType: "PMWMultisigAccountConfigured", source: "SGB" },
   { attestationType: "PMWPaymentStatus", source: "SGB" },
+  { attestationType: "PMWFeeProof", source: "SGB" },
 ];
 
 export const TEE_OPERATION_FEES = [
