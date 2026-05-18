@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
-import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
-import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
+import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { IFlareTeeManager } from "../../userInterfaces/tee/IFlareTeeManager.sol";
 import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
@@ -11,8 +9,6 @@ import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.s
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
@@ -20,7 +16,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  *
  * This contract is used to verify FDC2 attestations.
  */
-contract Fdc2Verification is IFdc2Verification, GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
+contract Fdc2Verification is IFdc2Verification, FlareUpgradeableBase {
 
     /// The FlareTeeManager Diamond contract.
     IFlareTeeManager public flareTeeManager;
@@ -30,7 +26,7 @@ contract Fdc2Verification is IFdc2Verification, GovernedProxyImplementation, UUP
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor() GovernedProxyImplementation() AddressUpdatable(address(0)) {}
+    constructor() FlareUpgradeableBase() {}
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
@@ -43,8 +39,7 @@ contract Fdc2Verification is IFdc2Verification, GovernedProxyImplementation, UUP
     )
         external virtual
     {
-        GovernedBase.initialise(_governanceSettings, _initialGovernance);
-        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
+        FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
     }
 
     /**
@@ -118,38 +113,6 @@ contract Fdc2Verification is IFdc2Verification, GovernedProxyImplementation, UUP
             _cosigners[i] = cosigner;
         }
     }
-
-    /**
-     * Returns the current implementation address.
-     * @return The current implementation address.
-     */
-    function implementation() external view returns (address) {
-        return ERC1967Utils.getImplementation();
-    }
-
-    /**
-     * @inheritdoc UUPSUpgradeable
-     * @dev Only governance can call this method.
-     */
-    function upgradeToAndCall(
-        address _newImplementation,
-        bytes memory _data
-    )
-        public payable virtual override
-        onlyGovernance
-    {
-        super.upgradeToAndCall(_newImplementation, _data);
-    }
-
-    /**
-     * Unused. Present just to satisfy UUPSUpgradeable requirement.
-     * The real check is in onlyGovernance modifier on upgradeToAndCall.
-     */
-    function _authorizeUpgrade(
-        address _newImplementation
-    )
-        internal virtual override
-    {}
 
     /**
      * Implementation of the AddressUpdatable abstract method.

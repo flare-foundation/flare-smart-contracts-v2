@@ -23,11 +23,13 @@ import {
   Fdc2HubProxyContract,
   Fdc2InflationConfigurationsContract,
   Fdc2InflationConfigurationsInstance,
+  Fdc2InflationConfigurationsProxyContract,
   Fdc2RequestFeeConfigurationsContract,
   Fdc2RequestFeeConfigurationsInstance,
   Fdc2RequestFeeConfigurationsProxyContract,
   Fdc2RewardOffersManagerContract,
   Fdc2RewardOffersManagerInstance,
+  Fdc2RewardOffersManagerProxyContract,
   Fdc2VerificationContract,
   Fdc2VerificationInstance,
   Fdc2VerificationProxyContract,
@@ -89,6 +91,7 @@ import {
   TeePaymentsRegistryProxyContract,
   TeeRewardOffersManagerContract,
   TeeRewardOffersManagerInstance,
+  TeeRewardOffersManagerProxyContract,
   TestableFlareDaemonContract,
   TestableFlareDaemonInstance,
   VPContractContract,
@@ -241,6 +244,9 @@ export async function deployContracts(
 
   // Remaining separate UUPS proxy contracts
   const TeeRewardOffersManager = hre.artifacts.require("TeeRewardOffersManager") as TeeRewardOffersManagerContract;
+  const TeeRewardOffersManagerProxy = hre.artifacts.require(
+    "TeeRewardOffersManagerProxy"
+  ) as TeeRewardOffersManagerProxyContract;
   const TeePayments = hre.artifacts.require("TeePayments") as TeePaymentsContract;
   const TeePaymentsProxy = hre.artifacts.require("TeePaymentsProxy") as TeePaymentsProxyContract;
   const TeePaymentsFeeScheduleManager = hre.artifacts.require(
@@ -258,6 +264,9 @@ export async function deployContracts(
   const Fdc2InflationConfigurations = hre.artifacts.require(
     "Fdc2InflationConfigurations"
   ) as Fdc2InflationConfigurationsContract;
+  const Fdc2InflationConfigurationsProxy = hre.artifacts.require(
+    "Fdc2InflationConfigurationsProxy"
+  ) as Fdc2InflationConfigurationsProxyContract;
   const Fdc2RequestFeeConfigurations = hre.artifacts.require(
     "Fdc2RequestFeeConfigurations"
   ) as Fdc2RequestFeeConfigurationsContract;
@@ -265,6 +274,9 @@ export async function deployContracts(
     "Fdc2RequestFeeConfigurationsProxy"
   ) as Fdc2RequestFeeConfigurationsProxyContract;
   const Fdc2RewardOffersManager = hre.artifacts.require("Fdc2RewardOffersManager") as Fdc2RewardOffersManagerContract;
+  const Fdc2RewardOffersManagerProxy = hre.artifacts.require(
+    "Fdc2RewardOffersManagerProxy"
+  ) as Fdc2RewardOffersManagerProxyContract;
   const Fdc2Verification = hre.artifacts.require("Fdc2Verification") as Fdc2VerificationContract;
   const Fdc2VerificationProxy = hre.artifacts.require("Fdc2VerificationProxy") as Fdc2VerificationProxyContract;
   const AddressUpdater = hre.artifacts.require("AddressUpdater") as AddressUpdaterContract;
@@ -607,12 +619,15 @@ export async function deployContracts(
   // =========================================================================
   // Deploy remaining separate UUPS proxy contracts
   // =========================================================================
-  const teeRewardOffersManager = await TeeRewardOffersManager.new(
+  const teeRewardOffersManagerImpl = await TeeRewardOffersManager.new();
+  const teeRewardOffersManagerProxy = await TeeRewardOffersManagerProxy.new(
     governanceSettings.address,
     governanceAccount.address,
     addressUpdater.address,
-    100000 // 10%
+    100000, // 10%
+    teeRewardOffersManagerImpl.address
   );
+  const teeRewardOffersManager = await TeeRewardOffersManager.at(teeRewardOffersManagerProxy.address);
   addressUpdatableContracts.push(teeRewardOffersManager.address);
 
   // Shared fee schedule manager — deployed before TeePayments so it can be injected via AddressUpdater
@@ -681,6 +696,7 @@ export async function deployContracts(
   const fdc2RequestFeeConfigurationsProxy = await Fdc2RequestFeeConfigurationsProxy.new(
     governanceSettings.address,
     governanceAccount.address,
+    addressUpdater.address,
     fdc2RequestFeeConfigurationsImpl.address
   );
   const fdc2RequestFeeConfigurations = await Fdc2RequestFeeConfigurations.at(fdc2RequestFeeConfigurationsProxy.address);
@@ -695,18 +711,24 @@ export async function deployContracts(
   const fdc2Verification = await Fdc2Verification.at(fdc2VerificationProxy.address);
   addressUpdatableContracts.push(fdc2Verification.address);
 
-  const fdc2InflationConfigurations = await Fdc2InflationConfigurations.new(
+  const fdc2InflationConfigurationsImpl = await Fdc2InflationConfigurations.new();
+  const fdc2InflationConfigurationsProxy = await Fdc2InflationConfigurationsProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    addressUpdater.address
+    addressUpdater.address,
+    fdc2InflationConfigurationsImpl.address
   );
+  const fdc2InflationConfigurations = await Fdc2InflationConfigurations.at(fdc2InflationConfigurationsProxy.address);
   addressUpdatableContracts.push(fdc2InflationConfigurations.address);
 
-  const fdc2RewardOffersManager = await Fdc2RewardOffersManager.new(
+  const fdc2RewardOffersManagerImpl = await Fdc2RewardOffersManager.new();
+  const fdc2RewardOffersManagerProxy = await Fdc2RewardOffersManagerProxy.new(
     governanceSettings.address,
     governanceAccount.address,
-    addressUpdater.address
+    addressUpdater.address,
+    fdc2RewardOffersManagerImpl.address
   );
+  const fdc2RewardOffersManager = await Fdc2RewardOffersManager.at(fdc2RewardOffersManagerProxy.address);
   addressUpdatableContracts.push(fdc2RewardOffersManager.address);
 
   // MOCKS

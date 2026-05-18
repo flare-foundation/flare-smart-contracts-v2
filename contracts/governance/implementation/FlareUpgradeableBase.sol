@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
+import { GovernedProxyImplementation } from "./GovernedProxyImplementation.sol";
+import { GovernedBase } from "./GovernedBase.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
-import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 
 /**
- * Base class for TEE governed proxy implementations that support UUPS upgradeability and address updatability.
+ * Base class for Flare governed proxy implementations that support UUPS upgradeability and address updatability.
  **/
-abstract contract TeeBase is GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
+abstract contract FlareUpgradeableBase is GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
 
     constructor() GovernedProxyImplementation() AddressUpdatable(address(0)) {}
 

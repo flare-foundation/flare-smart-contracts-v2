@@ -3,8 +3,7 @@ pragma solidity ^0.8.27;
 
 import { IFdc2InflationConfigurations } from "../../userInterfaces/fdc2/IFdc2InflationConfigurations.sol";
 import { IFdc2RequestFeeConfigurations } from "../../userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
-import { Governed } from "../../governance/implementation/Governed.sol";
-import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
+import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
@@ -12,7 +11,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  *
  * This contract is used to manage the FDC2 inflation configurations.
  */
-contract Fdc2InflationConfigurations is Governed, AddressUpdatable, IFdc2InflationConfigurations {
+contract Fdc2InflationConfigurations is FlareUpgradeableBase, IFdc2InflationConfigurations {
 
     /// The FDC2 request fee configurations contract.
     IFdc2RequestFeeConfigurations public fdc2RequestFeeConfigurations;
@@ -21,18 +20,26 @@ contract Fdc2InflationConfigurations is Governed, AddressUpdatable, IFdc2Inflati
     Fdc2Configuration[] internal fdc2Configurations;
 
     /**
-     * Constructor.
-     * @param _governanceSettings The address of the GovernanceSettings contract.
-     * @param _initialGovernance The initial governance address.
-     * @param _addressUpdater The address of the AddressUpdater contract.
+     * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor(
+    constructor() FlareUpgradeableBase() {}
+
+    /**
+     * Proxyable initialization method. Can be called only once, from the proxy constructor
+     * (single call is assured by GovernedBase.initialise).
+     * @param _governanceSettings The governance settings interface.
+     * @param _initialGovernance The initial governance address.
+     * @param _addressUpdater The address updater contract.
+     */
+    function initialize(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
         address _addressUpdater
     )
-        Governed(_governanceSettings, _initialGovernance) AddressUpdatable(_addressUpdater)
-    { }
+        external virtual
+    {
+        FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
+    }
 
     /**
      * Allows governance to add new FDC2 configurations.

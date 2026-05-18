@@ -80,6 +80,7 @@ import {
   TeePaymentsProxyContract,
   TeeRewardOffersManagerContract,
   TeeRewardOffersManagerInstance,
+  TeeRewardOffersManagerProxyContract,
   ValidatorRewardOffersManagerContract,
   ValidatorRewardOffersManagerInstance,
   VoterRegistryContract,
@@ -133,6 +134,8 @@ const ReplicationInit = artifacts.require("ReplicationInit");
 const IDiamondCut = artifacts.require("IDiamondCut");
 const IIFlareTeeManager = artifacts.require("IIFlareTeeManager");
 const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
+const TeeRewardOffersManagerProxy: TeeRewardOffersManagerProxyContract =
+  artifacts.require("TeeRewardOffersManagerProxy");
 const TeePayments: TeePaymentsContract = artifacts.require("TeePayments");
 const TeePaymentsProxy: TeePaymentsProxyContract = artifacts.require("TeePaymentsProxy");
 const TeePaymentsFeeScheduleManager: TeePaymentsFeeScheduleManagerContract = artifacts.require(
@@ -755,12 +758,15 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     flareTeeManager = await IIFlareTeeManager.at(flareTeeManagerDiamond.address);
     addressUpdatableContracts.push(flareTeeManager.address);
 
-    teeRewardOffersManager = await TeeRewardOffersManager.new(
+    const teeRewardOffersManagerImpl = await TeeRewardOffersManager.new();
+    const teeRewardOffersManagerProxy = await TeeRewardOffersManagerProxy.new(
       governanceSettings.address,
       accounts[0],
       addressUpdater.address,
-      100000
-    ); // 10%
+      100000, // 10%
+      teeRewardOffersManagerImpl.address
+    );
+    teeRewardOffersManager = await TeeRewardOffersManager.at(teeRewardOffersManagerProxy.address);
     addressUpdatableContracts.push(teeRewardOffersManager.address);
 
     const operationTypes = [];
@@ -850,6 +856,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     const fdc2RequestFeeConfigurationsProxy = await Fdc2RequestFeeConfigurationsProxy.new(
       governanceSettings.address,
       accounts[0],
+      addressUpdater.address,
       fdc2RequestFeeConfigurationsImpl.address
     );
     fdc2RequestFeeConfigurations = await Fdc2RequestFeeConfigurations.at(fdc2RequestFeeConfigurationsProxy.address);

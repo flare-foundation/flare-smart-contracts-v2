@@ -63,6 +63,8 @@ import {Fdc2Hub} from "../../contracts/fdc2/implementation/Fdc2Hub.sol";
 import {Fdc2HubProxy} from "../../contracts/fdc2/proxy/Fdc2HubProxy.sol";
 import {Fdc2InflationConfigurations} from
     "../../contracts/fdc2/implementation/Fdc2InflationConfigurations.sol";
+import {Fdc2InflationConfigurationsProxy} from
+    "../../contracts/fdc2/proxy/Fdc2InflationConfigurationsProxy.sol";
 import {IFdc2InflationConfigurations} from
     "../../contracts/userInterfaces/fdc2/IFdc2InflationConfigurations.sol";
 import {Fdc2RequestFeeConfigurations} from
@@ -71,6 +73,8 @@ import {Fdc2RequestFeeConfigurationsProxy} from
     "../../contracts/fdc2/proxy/Fdc2RequestFeeConfigurationsProxy.sol";
 import {Fdc2RewardOffersManager} from
     "../../contracts/fdc2/implementation/Fdc2RewardOffersManager.sol";
+import {Fdc2RewardOffersManagerProxy} from
+    "../../contracts/fdc2/proxy/Fdc2RewardOffersManagerProxy.sol";
 import {Fdc2Verification} from
     "../../contracts/fdc2/implementation/Fdc2Verification.sol";
 import {Fdc2VerificationProxy} from
@@ -96,6 +100,8 @@ import {ITeePaymentsRegistry} from
     "../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
 import {TeeRewardOffersManager} from
     "../../contracts/tee/implementation/TeeRewardOffersManager.sol";
+import {TeeRewardOffersManagerProxy} from
+    "../../contracts/tee/proxy/TeeRewardOffersManagerProxy.sol";
 import {VrfVerifier} from "../../contracts/tee/implementation/VrfVerifier.sol";
 
 // solhint-disable no-console
@@ -655,6 +661,7 @@ contract DeployTeeContracts is Script {
             new Fdc2RequestFeeConfigurationsProxy(
                 IGovernanceSettings(governanceSettings),
                 deployer,
+                deployer,
                 address(fdc2FeeImpl)
             );
         fdc2FeeAddr = address(fdc2FeeProxy);
@@ -761,15 +768,23 @@ contract DeployTeeContracts is Script {
     // =========================================================================
 
     function _deployFdc2InflationConfigurations() internal {
-        Fdc2InflationConfigurations mgr = new Fdc2InflationConfigurations(
-            IGovernanceSettings(governanceSettings),
-            deployer,
-            deployer
+        Fdc2InflationConfigurations impl = new Fdc2InflationConfigurations();
+        _logDeployed(
+            "Fdc2InflationConfigurationsImplementation",
+            "Fdc2InflationConfigurations.sol",
+            address(impl)
         );
-        fdc2InflationConfigurationsAddr = address(mgr);
+        Fdc2InflationConfigurationsProxy proxy =
+            new Fdc2InflationConfigurationsProxy(
+                IGovernanceSettings(governanceSettings),
+                deployer,
+                deployer,
+                address(impl)
+            );
+        fdc2InflationConfigurationsAddr = address(proxy);
         _logDeployed(
             "Fdc2InflationConfigurations",
-            "Fdc2InflationConfigurations.sol",
+            "Fdc2InflationConfigurationsProxy.sol",
             fdc2InflationConfigurationsAddr
         );
     }
@@ -779,15 +794,23 @@ contract DeployTeeContracts is Script {
     // =========================================================================
 
     function _deployFdc2RewardOffersManager() internal {
-        Fdc2RewardOffersManager mgr = new Fdc2RewardOffersManager(
-            IGovernanceSettings(governanceSettings),
-            deployer,
-            deployer
+        Fdc2RewardOffersManager impl = new Fdc2RewardOffersManager();
+        _logDeployed(
+            "Fdc2RewardOffersManagerImplementation",
+            "Fdc2RewardOffersManager.sol",
+            address(impl)
         );
-        fdc2RewardOffersManagerAddr = address(mgr);
+        Fdc2RewardOffersManagerProxy proxy =
+            new Fdc2RewardOffersManagerProxy(
+                IGovernanceSettings(governanceSettings),
+                deployer,
+                deployer,
+                address(impl)
+            );
+        fdc2RewardOffersManagerAddr = address(proxy);
         _logDeployed(
             "Fdc2RewardOffersManager",
-            "Fdc2RewardOffersManager.sol",
+            "Fdc2RewardOffersManagerProxy.sol",
             fdc2RewardOffersManagerAddr
         );
     }
@@ -800,16 +823,23 @@ contract DeployTeeContracts is Script {
         uint24 teeOwnersPPM =
             uint24(vm.parseJsonUint(config, ".teeOwnersPPM"));
 
-        TeeRewardOffersManager mgr = new TeeRewardOffersManager(
+        TeeRewardOffersManager impl = new TeeRewardOffersManager();
+        _logDeployed(
+            "TeeRewardOffersManagerImplementation",
+            "TeeRewardOffersManager.sol",
+            address(impl)
+        );
+        TeeRewardOffersManagerProxy proxy = new TeeRewardOffersManagerProxy(
             IGovernanceSettings(governanceSettings),
             deployer,
             deployer,
-            teeOwnersPPM
+            teeOwnersPPM,
+            address(impl)
         );
-        teeRewardOffersManagerAddr = address(mgr);
+        teeRewardOffersManagerAddr = address(proxy);
         _logDeployed(
             "TeeRewardOffersManager",
-            "TeeRewardOffersManager.sol",
+            "TeeRewardOffersManagerProxy.sol",
             teeRewardOffersManagerAddr
         );
     }

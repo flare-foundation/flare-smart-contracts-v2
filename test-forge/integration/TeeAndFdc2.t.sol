@@ -149,7 +149,7 @@ contract TeeAndFdc2Test is Test {
 
         Fdc2RequestFeeConfigurations fdc2FeeImpl = new Fdc2RequestFeeConfigurations();
         Fdc2RequestFeeConfigurationsProxy fdc2FeeProxy = new Fdc2RequestFeeConfigurationsProxy(
-            IGovernanceSettings(address(this)), initialGovernance, address(fdc2FeeImpl)
+            IGovernanceSettings(address(this)), initialGovernance, addressUpdater, address(fdc2FeeImpl)
         );
         fdc2RequestFeeConfigurations = Fdc2RequestFeeConfigurations(address(fdc2FeeProxy));
 

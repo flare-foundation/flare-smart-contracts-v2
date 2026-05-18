@@ -28,7 +28,7 @@ contracts/tee/
 ├── facets/          # ~22 facets, thin delegates
 ├── library/         # ~15 libraries, business logic
 ├── interface/       # II* internal interfaces (facet ↔ library)
-├── implementation/  # FlareTeeManager + shared utility contracts (TeeBase, TeePayments, ...)
+├── implementation/  # FlareTeeManager + shared utility contracts (TeePayments, TeeRewardOffersManager, ...)
 ├── proxy/           # beacon proxies for TEE-managed accounts
 ├── structs/         # shared data structures
 └── mock/            # test mocks

@@ -183,7 +183,7 @@ A standalone inflation receiver and reward-offers emitter. It extends [`RewardOf
 
    carrying the full configurations array so off-chain reward-distribution clients can split the pool by `inflationShare`, and forwards the native value to `RewardManager.receiveRewards{value: amount}(rewardEpochId, true)` (the `true` flag marks the funds as inflation-derived, in contrast to per-request fees from `Fdc2Hub` which use `false`).
 
-Like `FdcHub` / `TeeRewardOffersManager`, `Fdc2RewardOffersManager` is governed (not UUPS) and is wired to `RewardManager`, `FlareSystemsManager`, `Inflation`, and `Fdc2InflationConfigurations` through `AddressUpdater`. Both contracts use Flare's standard governance with timelock; deployment seeds the configurations array from chain-config (`fdc2InflationConfigurations` block).
+Both `Fdc2RewardOffersManager` and `Fdc2InflationConfigurations` are UUPS-upgradeable through governance: each is deployed as an implementation contract behind an [`ERC1967Proxy`](contracts/fdc2/proxy/Fdc2RewardOffersManagerProxy.sol) and shares the [`RewardOffersManagerProxyBase`](contracts/protocol/implementation/RewardOffersManagerProxyBase.sol) / [`FlareUpgradeableBase`](contracts/governance/implementation/FlareUpgradeableBase.sol) boilerplate (governance timelock + `upgradeToAndCall` gated by `onlyGovernance`). `Fdc2RewardOffersManager` is wired to `RewardManager`, `FlareSystemsManager`, `Inflation`, and `Fdc2InflationConfigurations` through `AddressUpdater`; deployment seeds the configurations array from chain-config (`fdc2InflationConfigurations` block).
 
 ## How a typical FDC2 flow looks
 

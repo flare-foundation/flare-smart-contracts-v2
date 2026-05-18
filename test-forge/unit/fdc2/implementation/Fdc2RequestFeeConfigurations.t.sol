@@ -47,6 +47,7 @@ contract Fdc2RequestFeeConfigurationsTest is Test {
         fdc2RequestFeeConfigurationsProxy = new Fdc2RequestFeeConfigurationsProxy(
             IGovernanceSettings(address(this)),
             initialGovernance,
+            address(0),
             address(fdc2RequestFeeConfigurationsImpl)
         );
         fdc2RequestFeeConfigurations = Fdc2RequestFeeConfigurations(address(fdc2RequestFeeConfigurationsProxy));

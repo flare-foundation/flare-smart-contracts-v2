@@ -4,6 +4,8 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { Fdc2RewardOffersManager } from
     "../../../../contracts/fdc2/implementation/Fdc2RewardOffersManager.sol";
+import { Fdc2RewardOffersManagerProxy } from
+    "../../../../contracts/fdc2/proxy/Fdc2RewardOffersManagerProxy.sol";
 import { RewardManager } from "../../../../contracts/protocol/implementation/RewardManager.sol";
 import { IFdc2RewardOffersManager } from
     "../../../../contracts/userInterfaces/fdc2/IFdc2RewardOffersManager.sol";
@@ -32,11 +34,14 @@ contract Fdc2RewardOffersManagerTest is Test {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
 
-        fdc2RewardOffersManager = new Fdc2RewardOffersManager(
+        Fdc2RewardOffersManager impl = new Fdc2RewardOffersManager();
+        Fdc2RewardOffersManagerProxy proxy = new Fdc2RewardOffersManagerProxy(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
-            addressUpdater
+            addressUpdater,
+            address(impl)
         );
+        fdc2RewardOffersManager = Fdc2RewardOffersManager(address(proxy));
 
         mockFlareSystemsManager = makeAddr("flareSystemsManager");
         mockInflation = makeAddr("inflation");

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { TeeBase } from "./TeeBase.sol";
+import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
 import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { ITeePayments } from "../../userInterfaces/tee/ITeePayments.sol";
@@ -18,7 +18,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * reads the opType dynamically, and forwards SET_PAYMENT_LIMITS instructions to the
  * wallet admins via FlareTeeManager.sendInstructions().
  */
-contract TeePaymentsLimitsManager is ITeePaymentsLimitsManager, TeeBase {
+contract TeePaymentsLimitsManager is ITeePaymentsLimitsManager, FlareUpgradeableBase {
 
     bytes32 internal constant SET_PAYMENT_LIMITS = bytes32("SET_PAYMENT_LIMITS");
 
@@ -32,7 +32,7 @@ contract TeePaymentsLimitsManager is ITeePaymentsLimitsManager, TeeBase {
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor() TeeBase() {}
+    constructor() FlareUpgradeableBase() {}
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
@@ -48,7 +48,7 @@ contract TeePaymentsLimitsManager is ITeePaymentsLimitsManager, TeeBase {
     )
         external virtual
     {
-        TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
+        FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
     }
 
     /**

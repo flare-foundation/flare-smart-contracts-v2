@@ -4,6 +4,8 @@ pragma solidity ^0.8.27;
 import { Test } from "forge-std/Test.sol";
 import { Fdc2InflationConfigurations } from
     "../../../../contracts/fdc2/implementation/Fdc2InflationConfigurations.sol";
+import { Fdc2InflationConfigurationsProxy } from
+    "../../../../contracts/fdc2/proxy/Fdc2InflationConfigurationsProxy.sol";
 import { IFdc2InflationConfigurations } from
     "../../../../contracts/userInterfaces/fdc2/IFdc2InflationConfigurations.sol";
 import { IFdc2RequestFeeConfigurations } from
@@ -30,11 +32,14 @@ contract Fdc2InflationConfigurationsTest is Test {
         addressUpdater = makeAddr("addressUpdater");
         mockFdc2RequestFeeConfigurations = makeAddr("fdc2RequestFeeConfigurations");
 
-        inflationConfigs = new Fdc2InflationConfigurations(
+        Fdc2InflationConfigurations impl = new Fdc2InflationConfigurations();
+        Fdc2InflationConfigurationsProxy proxy = new Fdc2InflationConfigurationsProxy(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
-            addressUpdater
+            addressUpdater,
+            address(impl)
         );
+        inflationConfigs = Fdc2InflationConfigurations(address(proxy));
 
         vm.prank(addressUpdater);
         contractNameHashes = new bytes32[](2);

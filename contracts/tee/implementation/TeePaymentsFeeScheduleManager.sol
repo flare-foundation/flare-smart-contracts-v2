@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { TeeBase } from "./TeeBase.sol";
+import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
 import {
     IITeePaymentsFeeScheduleManager
@@ -29,7 +29,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * -> walletId -> projectId), so a project owner cannot stomp on another project's account
  * schedules.
  */
-contract TeePaymentsFeeScheduleManager is IITeePaymentsFeeScheduleManager, TeeBase {
+contract TeePaymentsFeeScheduleManager is IITeePaymentsFeeScheduleManager, FlareUpgradeableBase {
 
     /// @dev default fee schedule: factor 1 (10000 BIPS = 0x2710), delay 0 seconds (0x0000)
     bytes internal constant DEFAULT_FEE_SCHEDULE = hex"27100000";
@@ -46,7 +46,7 @@ contract TeePaymentsFeeScheduleManager is IITeePaymentsFeeScheduleManager, TeeBa
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor() TeeBase() {}
+    constructor() FlareUpgradeableBase() {}
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
@@ -62,7 +62,7 @@ contract TeePaymentsFeeScheduleManager is IITeePaymentsFeeScheduleManager, TeeBa
     )
         external virtual
     {
-        TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
+        FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
     }
 
     /**

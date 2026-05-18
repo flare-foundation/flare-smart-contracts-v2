@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { TeeBase } from "./TeeBase.sol";
+import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { ITeePaymentsRegistry } from "../../userInterfaces/tee/ITeePaymentsRegistry.sol";
 import { IITeePaymentsRegistry } from "../interface/IITeePaymentsRegistry.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
@@ -14,7 +14,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * Governance-only register/unregister. Stores forward map, reverse map, and an
  * enumerable set of distinct TeePayments contracts with at least one bound sourceId.
  */
-contract TeePaymentsRegistry is IITeePaymentsRegistry, TeeBase {
+contract TeePaymentsRegistry is IITeePaymentsRegistry, FlareUpgradeableBase {
     using EnumerableSet for EnumerableSet.Bytes32Set;
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -26,7 +26,7 @@ contract TeePaymentsRegistry is IITeePaymentsRegistry, TeeBase {
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor() TeeBase() {}
+    constructor() FlareUpgradeableBase() {}
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
@@ -42,7 +42,7 @@ contract TeePaymentsRegistry is IITeePaymentsRegistry, TeeBase {
     )
         external virtual
     {
-        TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
+        FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
     }
 
     /**

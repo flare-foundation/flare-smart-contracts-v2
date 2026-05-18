@@ -3,9 +3,9 @@ pragma solidity ^0.8.27;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import { Fdc2RequestFeeConfigurations } from "../implementation/Fdc2RequestFeeConfigurations.sol";
+import { Fdc2RewardOffersManager } from "../implementation/Fdc2RewardOffersManager.sol";
 
-contract Fdc2RequestFeeConfigurationsProxy is ERC1967Proxy {
+contract Fdc2RewardOffersManagerProxy is ERC1967Proxy {
     constructor(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
@@ -14,7 +14,7 @@ contract Fdc2RequestFeeConfigurationsProxy is ERC1967Proxy {
     )
         ERC1967Proxy(_implementationAddress,
             abi.encodeCall(
-                Fdc2RequestFeeConfigurations.initialize,
+                Fdc2RewardOffersManager.initialize,
                 (
                     _governanceSettings,
                     _initialGovernance,

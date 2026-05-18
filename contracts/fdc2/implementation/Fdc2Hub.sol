@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
+import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
-import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
-import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IFdc2Hub, FDC2_OP_TYPE } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { IIFlareTeeManager } from "../../tee/interface/IIFlareTeeManager.sol";
@@ -18,7 +15,7 @@ import { IFdc2RequestFeeConfigurations } from "../../userInterfaces/fdc2/IFdc2Re
 /**
  * Fdc2Hub is used for requesting FDC2 attestations.
  */
-contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
+contract Fdc2Hub is IFdc2Hub, FlareUpgradeableBase {
 
     uint256 internal constant MAX_BIPS = 1e4;
     bytes32 internal constant PROVE = bytes32("PROVE");
@@ -40,7 +37,7 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor() GovernedProxyImplementation() AddressUpdatable(address(0)) {}
+    constructor() FlareUpgradeableBase() {}
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
@@ -55,8 +52,7 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
     )
         external virtual
     {
-        GovernedBase.initialise(_governanceSettings, _initialGovernance);
-        AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
+        FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
 
         _setMinThresholdBIPS(_minThresholdBIPS);
         _setDefaultNumberOfTees(_defaultNumberOfTees);
@@ -184,38 +180,6 @@ contract Fdc2Hub is IFdc2Hub, GovernedProxyImplementation, UUPSUpgradeable, Addr
     {
         _setDefaultNumberOfTees(_defaultNumberOfTees);
     }
-
-    /**
-     * Returns the current implementation address.
-     * @return The current implementation address.
-     */
-    function implementation() external view returns (address) {
-        return ERC1967Utils.getImplementation();
-    }
-
-    /**
-     * @inheritdoc UUPSUpgradeable
-     * @dev Only governance can call this method.
-     */
-    function upgradeToAndCall(
-        address _newImplementation,
-        bytes memory _data
-    )
-        public payable virtual override
-        onlyGovernance
-    {
-        super.upgradeToAndCall(_newImplementation, _data);
-    }
-
-    /**
-     * Unused. Present just to satisfy UUPSUpgradeable requirement.
-     * The real check is in onlyGovernance modifier on upgradeToAndCall.
-     */
-    function _authorizeUpgrade(
-        address _newImplementation
-    )
-        internal virtual override
-    {}
 
     /**
      * @inheritdoc AddressUpdatable

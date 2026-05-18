@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { TeeBase } from "./TeeBase.sol";
+import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { IIFlareTeeManager } from "../interface/IIFlareTeeManager.sol";
 import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
@@ -19,7 +19,7 @@ import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.so
 /**
  * TeePayments is a contract used for instructing TEE based wallets payments.
  */
-contract TeePayments is ITeePayments, TeeBase {
+contract TeePayments is ITeePayments, FlareUpgradeableBase {
 
     struct AccountState {
         uint64 nonce;
@@ -88,7 +88,7 @@ contract TeePayments is ITeePayments, TeeBase {
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor() TeeBase() {}
+    constructor() FlareUpgradeableBase() {}
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
@@ -109,7 +109,7 @@ contract TeePayments is ITeePayments, TeeBase {
         require(_opType != bytes32(0), OpTypeZero());
         require(_keyType != bytes32(0), KeyTypeZero());
 
-        TeeBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
+        FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
 
         maxBatchSize = _maxBatchSize;
         maxBatchDurationSeconds = _maxBatchDurationSeconds;

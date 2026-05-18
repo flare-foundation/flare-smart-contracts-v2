@@ -177,6 +177,7 @@ contract TeeMachineReplicationTest is Test {
         fdc2RequestFeeConfigurationsProxy = new Fdc2RequestFeeConfigurationsProxy(
             IGovernanceSettings(address(this)),
             initialGovernance,
+            addressUpdater,
             address(fdc2RequestFeeConfigurationsImpl)
         );
         fdc2RequestFeeConfigurations = Fdc2RequestFeeConfigurations(address(fdc2RequestFeeConfigurationsProxy));

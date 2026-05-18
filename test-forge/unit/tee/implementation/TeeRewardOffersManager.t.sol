@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import { Test } from "forge-std/Test.sol";
 import { TeeRewardOffersManager } from "../../../../contracts/tee/implementation/TeeRewardOffersManager.sol";
+import { TeeRewardOffersManagerProxy } from "../../../../contracts/tee/proxy/TeeRewardOffersManagerProxy.sol";
 import { RewardManager } from "../../../../contracts/protocol/implementation/RewardManager.sol";
 import { ITeeRewardOffersManager } from "../../../../contracts/userInterfaces/tee/ITeeRewardOffersManager.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
@@ -33,12 +34,7 @@ contract TeeRewardOffersManagerTest is Test {
         governance = makeAddr("governance");
         addressUpdater = makeAddr("addressUpdater");
 
-        teeRewardOffersManager = new TeeRewardOffersManager(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
-            addressUpdater,
-            1234
-        );
+        teeRewardOffersManager = _deployProxied(1234);
 
         mockRewardManager = makeAddr("rewardManager");
         mockFlareSystemsManager = makeAddr("flareSystemsManager");
@@ -98,13 +94,27 @@ contract TeeRewardOffersManagerTest is Test {
     }
 
     function testConstructorRevertInvalidTeeOwnersPPMValue() public {
+        TeeRewardOffersManager impl = new TeeRewardOffersManager();
         vm.expectRevert(ITeeRewardOffersManager.InvalidTeeOwnersPPMValue.selector);
-        teeRewardOffersManager = new TeeRewardOffersManager(
+        new TeeRewardOffersManagerProxy(
             IGovernanceSettings(makeAddr("governanceSettings")),
             governance,
             addressUpdater,
-            1e7
+            1e7,
+            address(impl)
         );
+    }
+
+    function _deployProxied(uint24 _teeOwnersPPM) internal returns (TeeRewardOffersManager) {
+        TeeRewardOffersManager impl = new TeeRewardOffersManager();
+        TeeRewardOffersManagerProxy proxy = new TeeRewardOffersManagerProxy(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            _teeOwnersPPM,
+            address(impl)
+        );
+        return TeeRewardOffersManager(address(proxy));
     }
 
     function testGetContractName() public {

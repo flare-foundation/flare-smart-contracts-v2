@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
-import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
+import { FlareUpgradeableBase } from "../../governance/implementation/FlareUpgradeableBase.sol";
 import { IFdc2RequestFeeConfigurations } from "../../userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
@@ -13,7 +10,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  *
  * This contract is used to manage the flare tee data connector requests fee configuration.
  */
-contract Fdc2RequestFeeConfigurations is IFdc2RequestFeeConfigurations, GovernedProxyImplementation, UUPSUpgradeable {
+contract Fdc2RequestFeeConfigurations is IFdc2RequestFeeConfigurations, FlareUpgradeableBase {
 
     /// Mapping of type and source to fee.
     mapping(bytes32 typeAndSource => uint256 fee) private typeAndSourceFees;
@@ -21,7 +18,7 @@ contract Fdc2RequestFeeConfigurations is IFdc2RequestFeeConfigurations, Governed
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
      */
-    constructor() GovernedProxyImplementation() {}
+    constructor() FlareUpgradeableBase() {}
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
@@ -29,11 +26,12 @@ contract Fdc2RequestFeeConfigurations is IFdc2RequestFeeConfigurations, Governed
      */
     function initialize(
         IGovernanceSettings _governanceSettings,
-        address _initialGovernance
+        address _initialGovernance,
+        address _addressUpdater
     )
         external virtual
     {
-        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
     }
 
     /**
@@ -124,38 +122,16 @@ contract Fdc2RequestFeeConfigurations is IFdc2RequestFeeConfigurations, Governed
         require(_fee > 0, TypeAndSourceCombinationNotSupported());
     }
 
-    /**
-     * Returns the current implementation address.
-     * @return The current implementation address.
-     */
-    function implementation() external view returns (address) {
-        return ERC1967Utils.getImplementation();
-    }
-
-    /**
-     * @inheritdoc UUPSUpgradeable
-     * @dev Only governance can call this method.
-     */
-    function upgradeToAndCall(
-        address _newImplementation,
-        bytes memory _data
-    )
-        public payable virtual override
-        onlyGovernance
-    {
-        super.upgradeToAndCall(_newImplementation, _data);
-    }
-
     ////////////////////////// Internal functions ///////////////////////////////////////////////
 
     /**
-     * Unused. Present just to satisfy UUPSUpgradeable requirement.
-     * The real check is in onlyGovernance modifier on upgradeToAndCall.
+     * No-op AddressUpdatable override; the contract has no inter-contract dependencies.
      */
-    function _authorizeUpgrade(
-        address _newImplementation
+    function _updateContractAddresses(
+        bytes32[] memory /* _contractNameHashes */,
+        address[] memory /* _contractAddresses */
     )
-        internal virtual override
+        internal override
     {}
 
     /**
