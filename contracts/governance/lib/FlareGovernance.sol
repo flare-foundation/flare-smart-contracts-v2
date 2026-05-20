@@ -19,6 +19,7 @@ import { IFlareGovernance } from "../../userInterfaces/IFlareGovernance.sol";
  */
 library FlareGovernance {
 
+    /// @custom:storage-location erc7201:flare.FlareGovernance.State
     struct State {
         IGovernanceSettings governanceSettings;
         bool initialised;
@@ -30,11 +31,16 @@ library FlareGovernance {
 
     // ERC-7201 namespaced storage slot
     // keccak256(abi.encode(uint256(keccak256("flare.FlareGovernance.State")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 internal constant STATE_POSITION =
+    bytes32 private constant STATE_POSITION =
         keccak256(abi.encode(uint256(keccak256("flare.FlareGovernance.State")) - 1)) & ~bytes32(uint256(0xff));
 
+    /**
+     * @dev Private — outside callers must use the dedicated accessor functions below.
+     *      Mirrors the encapsulation of legacy `GovernedBase`'s private state vars and
+     *      OZ `Initializable._getInitializableStorage`.
+     */
     function getState()
-        internal pure
+        private pure
         returns (State storage _state)
     {
         bytes32 position = STATE_POSITION;
@@ -42,6 +48,26 @@ library FlareGovernance {
         assembly {
             _state.slot := position
         }
+    }
+
+    /**
+     * Returns the governance settings contract.
+     */
+    function governanceSettings()
+        internal view
+        returns (IGovernanceSettings)
+    {
+        return getState().governanceSettings;
+    }
+
+    /**
+     * True after switching to production mode.
+     */
+    function productionMode()
+        internal view
+        returns (bool)
+    {
+        return getState().productionMode;
     }
 
     /**

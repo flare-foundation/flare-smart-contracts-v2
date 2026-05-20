@@ -60,7 +60,7 @@ abstract contract FlareGovernedBase is IIFlareGovernance, FlareGovernedAccess {
         external view
         returns (IGovernanceSettings)
     {
-        return FlareGovernance.getState().governanceSettings;
+        return FlareGovernance.governanceSettings();
     }
 
     /// @inheritdoc IFlareGovernance
@@ -68,7 +68,7 @@ abstract contract FlareGovernedBase is IIFlareGovernance, FlareGovernedAccess {
         external view
         returns (bool)
     {
-        return FlareGovernance.getState().productionMode;
+        return FlareGovernance.productionMode();
     }
 
     /// @inheritdoc IFlareGovernance

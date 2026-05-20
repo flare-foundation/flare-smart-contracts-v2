@@ -24,7 +24,7 @@ contract Fdc2RewardOffersManager is RewardOffersManagerProxyBase, IFdc2RewardOff
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
-     * (single call is assured by GovernedBase.initialise).
+     * (single call is assured by the `initializer` modifier).
      */
     function initialize(
         IGovernanceSettings _governanceSettings,
@@ -32,6 +32,7 @@ contract Fdc2RewardOffersManager is RewardOffersManagerProxyBase, IFdc2RewardOff
         address _addressUpdater
     )
         external virtual
+        initializer
     {
         initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
     }

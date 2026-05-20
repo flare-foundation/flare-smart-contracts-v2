@@ -22,7 +22,7 @@ contract Fdc2RequestFeeConfigurations is IFdc2RequestFeeConfigurations, FlareUpg
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
-     * (single call is assured by GovernedBase.initialise).
+     * (single call is assured by the `initializer` modifier).
      */
     function initialize(
         IGovernanceSettings _governanceSettings,
@@ -30,6 +30,7 @@ contract Fdc2RequestFeeConfigurations is IFdc2RequestFeeConfigurations, FlareUpg
         address _addressUpdater
     )
         external virtual
+        initializer
     {
         FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
     }

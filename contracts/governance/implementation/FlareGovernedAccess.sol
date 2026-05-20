@@ -2,7 +2,7 @@
 pragma solidity ^0.8.27;
 
 import { FlareGovernance } from "../lib/FlareGovernance.sol";
-import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 /**
  * @title FlareGovernedAccess
@@ -14,15 +14,21 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  *          re-export the public governance API (only `DiamondGovernanceFacet` does).
  *        - Indirectly by `FlareGovernedBase`, which adds the public governance API on top.
  *
- *      The constructor marks the implementation as initialised with dummy values
- *      to prevent direct use of the implementation/facet contract (anti-selfdestruct
- *      pattern, same as `GovernedProxyImplementation`).
+ *      Inherits OpenZeppelin's `Initializable` and calls `_disableInitializers()` in
+ *      the constructor — this is the implementation-side anti-selfdestruct, locking
+ *      OZ's `_initialized` flag on the impl so the impl bytecode cannot be initialised
+ *      directly. The proxy/diamond storage has its own `_initialized` slot (ERC-7201
+ *      namespaced), which is what concrete `initializer`-modifier-guarded entry points
+ *      check at runtime.
+ *
+ *      The `FlareGovernance` library keeps its own `bool initialised` guard as a
+ *      defense-in-depth layer that also fires if an existing proxy is upgraded to new
+ *      bytecode whose OZ slot is virgin but whose FlareGovernance state is already set.
  */
-abstract contract FlareGovernedAccess {
-    address private constant EMPTY_ADDRESS = 0x0000000000000000000000000000000000001111;
+abstract contract FlareGovernedAccess is Initializable {
 
     constructor() {
-        FlareGovernance.initialise(IGovernanceSettings(EMPTY_ADDRESS), EMPTY_ADDRESS);
+        _disableInitializers();
     }
 
     modifier onlyGovernance() {

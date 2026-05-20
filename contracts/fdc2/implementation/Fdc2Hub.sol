@@ -41,7 +41,7 @@ contract Fdc2Hub is IFdc2Hub, FlareUpgradeableBase {
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
-     * (single call is assured by GovernedBase.initialise).
+     * (single call is assured by the `initializer` modifier).
      */
     function initialize(
         IGovernanceSettings _governanceSettings,
@@ -51,6 +51,7 @@ contract Fdc2Hub is IFdc2Hub, FlareUpgradeableBase {
         uint8 _defaultNumberOfTees
     )
         external virtual
+        initializer
     {
         FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
 

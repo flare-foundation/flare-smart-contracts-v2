@@ -25,7 +25,7 @@ contract TeeRewardOffersManager is RewardOffersManagerProxyBase, ITeeRewardOffer
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
-     * (single call is assured by GovernedBase.initialise).
+     * (single call is assured by the `initializer` modifier).
      */
     function initialize(
         IGovernanceSettings _governanceSettings,
@@ -34,6 +34,7 @@ contract TeeRewardOffersManager is RewardOffersManagerProxyBase, ITeeRewardOffer
         uint24 _teeOwnersPPM
     )
         external virtual
+        initializer
     {
         initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
         require(_teeOwnersPPM <= PPM_MAX, InvalidTeeOwnersPPMValue());

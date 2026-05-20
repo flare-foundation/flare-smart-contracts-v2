@@ -179,6 +179,7 @@ abstract contract RewardOffersManagerProxyBase is
         address _addressUpdater
     )
         internal virtual
+        onlyInitializing
     {
         FlareGovernance.initialise(_governanceSettings, _initialGovernance);
         AddressUpdatable.setAddressUpdaterValue(_addressUpdater);

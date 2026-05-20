@@ -23,8 +23,13 @@ A second, structurally-similar governance stack lives in [`contracts/governance/
 
 Two abstracts sit above the library:
 
-- [`FlareGovernedAccess`](../../contracts/governance/implementation/FlareGovernedAccess.sol) — provides `onlyGovernance` / `onlyImmediateGovernance` modifiers and the anti-selfdestruct constructor. **No public functions.** Used by TEE Diamond facets that share the diamond's governance state but must not pollute its ABI with duplicate selectors.
-- [`FlareGovernedBase`](../../contracts/governance/implementation/FlareGovernedBase.sol) — extends `FlareGovernedAccess` and adds the seven public functions. Inherited by [`FlareUpgradeableBase`](../../contracts/governance/implementation/FlareUpgradeableBase.sol) (the UUPS base used by FDC2 and TEE non-Diamond contracts) and by the TEE Diamond's [`DiamondGovernanceFacet`](../../contracts/tee/facets/DiamondGovernanceFacet.sol).
+- [`FlareGovernedAccess`](../../contracts/governance/implementation/FlareGovernedAccess.sol) — provides `onlyGovernance` / `onlyImmediateGovernance` modifiers. Inherits OpenZeppelin's [`Initializable`](../../dependencies/@openzeppelin-contracts-5.4.0/proxy/utils/Initializable.sol) and calls `_disableInitializers()` in its constructor as the implementation-side anti-selfdestruct. **No public functions** — used by TEE Diamond facets that share the diamond's governance state but must not pollute its ABI with duplicate selectors.
+- [`FlareGovernedBase`](../../contracts/governance/implementation/FlareGovernedBase.sol) — extends `FlareGovernedAccess` and adds the seven public governance functions. Inherited by [`FlareUpgradeableBase`](../../contracts/governance/implementation/FlareUpgradeableBase.sol) (the UUPS base used by FDC2 and TEE non-Diamond contracts) and by the TEE Diamond's [`DiamondGovernanceFacet`](../../contracts/tee/facets/DiamondGovernanceFacet.sol).
+
+The initialization lifecycle is enforced at two layers:
+
+- **OpenZeppelin's `Initializable`** — every concrete `initialize(...)` external function carries the `initializer` modifier, and `initializeBase(...)` carries `onlyInitializing`. OZ tracks state in its own ERC-7201 slot (`openzeppelin.storage.Initializable`). This is the primary single-call guard, and unlocks `reinitializer(uint64)` for future versioned migrations.
+- **`FlareGovernance` library** — keeps its own `bool initialised` flag inside the namespaced State struct (defense in depth). The library's `initialise(...)` reverts with `IFlareGovernance.GovernedAlreadyInitialized` if called a second time on the same storage — relevant if an existing proxy is upgraded to new bytecode whose OZ slot is virgin (zero) but whose FlareGovernance state is already set.
 
 Scope today: this library backs the TEE Diamond and every FDC2 / TEE UUPS contract. All other governed contracts in the repo (FdcHub, FtsoRewardOffersManager, ValidatorRewardOffersManager, FastUpdateIncentiveManager, ChainlinkAdapter, FtsoV2Proxy, the protocol contracts, etc.) continue to use the legacy `GovernedBase`-derived stack above.
 

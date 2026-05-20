@@ -7,6 +7,7 @@ import { FlareUpgradeableBase } from
 import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 import { IIFlareGovernance } from "../../../../contracts/governance/interface/IIFlareGovernance.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**
@@ -22,6 +23,7 @@ contract FlareGovernedBaseTestHarness is FlareUpgradeableBase {
         address _initialGovernance
     )
         external
+        initializer
     {
         initializeBase(_governanceSettings, _initialGovernance, address(0));
     }
@@ -79,6 +81,21 @@ contract FlareGovernedBaseTest is Test {
     }
 
     function testReinitializeRevertsAlreadyInitialized() public {
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        harness.initialize(governanceSettings, initialGovernance);
+    }
+
+    function testLibraryGuardCatchesInPlaceUpgradeReinit() public {
+        // Simulate an in-place UUPS upgrade to new bytecode that adds Initializable:
+        // OZ's `_initialized` slot would be virgin (0) on the existing proxy, even
+        // though the FlareGovernance state is already initialised. The library's
+        // own `bool initialised` guard must catch the re-init attempt and revert
+        // with the explicit IFlareGovernance.GovernedAlreadyInitialized error.
+        // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.Initializable")) - 1)) & ~bytes32(uint256(0xff))
+        bytes32 ozInitializableSlot =
+            0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00;
+        vm.store(address(harness), ozInitializableSlot, bytes32(0));
+
         vm.expectRevert(IFlareGovernance.GovernedAlreadyInitialized.selector);
         harness.initialize(governanceSettings, initialGovernance);
     }

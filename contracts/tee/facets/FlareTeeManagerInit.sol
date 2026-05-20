@@ -10,6 +10,7 @@ import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { LibDiamond } from "../../diamond/libraries/LibDiamond.sol";
 import { IDiamondCut } from "../../diamond/interfaces/IDiamondCut.sol";
 import { IDiamondLoupe } from "../../diamond/interfaces/IDiamondLoupe.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
@@ -19,14 +20,15 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
  *      address updater, verification settings, and default fee.
  *      This contract is NOT a facet — it is only used during diamondCut init.
  */
-contract FlareTeeManagerInit is AddressUpdatable {
+contract FlareTeeManagerInit is Initializable, AddressUpdatable {
 
     /**
-     * @dev Constructor marks this implementation as initialised to prevent
-     *      direct usage (same pattern as GovernedProxyImplementation).
+     * @dev Constructor locks OZ's `_initialized` flag to prevent direct use of this
+     *      contract's bytecode (anti-selfdestruct). The diamond's storage at the OZ
+     *      slot is what governs the `initializer` guard on `init(...)` at runtime.
      */
     constructor() AddressUpdatable(address(1)) {
-        FlareGovernance.initialise(IGovernanceSettings(address(0x1111)), address(0x1111));
+        _disableInitializers();
     }
 
     /**
@@ -49,6 +51,7 @@ contract FlareTeeManagerInit is AddressUpdatable {
         uint256 _defaultFee
     )
         external
+        initializer
     {
         // adding ERC165 data
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();

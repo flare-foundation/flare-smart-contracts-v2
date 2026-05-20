@@ -31,6 +31,7 @@ import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/P
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 //solhint-disable-next-line max-states-count
 contract TeePaymentsTest is Test {
@@ -1218,7 +1219,7 @@ contract TeePaymentsTest is Test {
     function testUpgradeProxyAndInitializeRevert() public {
         TeePayments newTeePaymentsImpl = new TeePayments();
         vm.prank(governance);
-        vm.expectRevert(IFlareGovernance.GovernedAlreadyInitialized.selector);
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
         teePayments.upgradeToAndCall(address(newTeePaymentsImpl), abi.encodeCall(
             TeePayments.initialize, (
                 IGovernanceSettings(makeAddr("governanceSettings")),

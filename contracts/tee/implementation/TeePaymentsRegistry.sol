@@ -41,6 +41,7 @@ contract TeePaymentsRegistry is IITeePaymentsRegistry, FlareUpgradeableBase {
         address _addressUpdater
     )
         external virtual
+        initializer
     {
         FlareUpgradeableBase.initializeBase(_governanceSettings, _initialGovernance, _addressUpdater);
     }

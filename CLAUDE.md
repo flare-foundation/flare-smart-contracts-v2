@@ -363,6 +363,7 @@ contract ConfigFacet is FlareGovernedAccess {
 
 // Library (contains all logic and storage)
 library Config {
+    /// @custom:storage-location erc7201:<namespace>.Config.State
     struct State {
         address param;
         uint256 fee;
@@ -390,14 +391,22 @@ library Config {
 Every library must use its own isolated storage slot:
 
 ```solidity
+/// @custom:storage-location erc7201:<namespace>.<LibName>.State
+struct State {
+    /* fields */
+}
+
 bytes32 internal constant STATE_POSITION = keccak256(
     abi.encode(uint256(keccak256("<namespace>.<LibName>.State")) - 1)
 ) & ~bytes32(uint256(0xff));
 ```
 
-- Each library has its own isolated storage slot — no collision between libraries sharing Diamond's storage context
-- State struct contains all mappings/arrays/values for that domain
-- All access goes through `getState()` which returns a storage pointer
+- **`@custom:storage-location` annotation is mandatory** on every namespaced State struct. The string after `erc7201:` must match the keccak input verbatim — tooling (Foundry, OZ upgrade tooling, static analyzers) relies on the match to verify storage layout.
+- **Namespace prefix indicates scope.** Module-specific libraries use the module name (e.g. `tee.MachineManager.State` for [contracts/tee/library/MachineManager.sol](contracts/tee/library/MachineManager.sol)). Project-wide libraries use the `flare` prefix (e.g. `flare.FlareGovernance.State`, `flare.LibDiamond.DiamondStorage`, `flare.diamond.AddressUpdatable.ADDRESS_STORAGE_POSITION`).
+- Each library has its own isolated storage slot — no collision between libraries sharing Diamond's storage context.
+- State struct contains all mappings/arrays/values for that domain.
+- All access goes through `getState()` which returns a storage pointer.
+- **For security-sensitive libraries** (governance and similar), consider making `getState()` and `STATE_POSITION` `private` and exposing only specific field accessors (e.g. `governanceSettings()`, `productionMode()`). [`FlareGovernance`](contracts/governance/lib/FlareGovernance.sol) follows this stricter pattern — same posture as OZ `Initializable._getInitializableStorage()` and legacy `GovernedBase`'s private state vars. The default `internal` pattern shown above is fine for everything else.
 
 ### Key Pattern 3: Interface Naming Convention
 
@@ -445,8 +454,14 @@ contract DiamondGovernanceFacet is IIDiamondGovernance, FlareGovernedBase {
 
 ### Key Pattern 5: Initialization
 
+The new stack layers OpenZeppelin's [`Initializable`](dependencies/@openzeppelin-contracts-5.4.0/proxy/utils/Initializable.sol) on top of the `FlareGovernance` library. `FlareGovernedAccess` already inherits `Initializable` and calls `_disableInitializers()` in its constructor; concrete `initialize(...)` / `init(...)` external entry points carry the `initializer` modifier; internal helpers like `initializeBase(...)` carry `onlyInitializing`. Future versioned migrations use `reinitializer(uint64 version)`.
+
 ```solidity
-contract MyInit {
+contract MyInit is Initializable, AddressUpdatable {
+    constructor() AddressUpdatable(address(1)) {
+        _disableInitializers();
+    }
+
     function init(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
@@ -454,6 +469,7 @@ contract MyInit {
         uint256 _param2
     )
         external
+        initializer
     {
         // Initialize governance (FlareGovernance ERC-7201 namespaced storage)
         FlareGovernance.initialise(_governanceSettings, _initialGovernance);
@@ -473,7 +489,7 @@ contract MyInit {
 ```
 
 Called once during deployment via `diamondCut(cuts, initAddress, initCalldata)`.
-Must call `GovernedBase.initialise()` to set up governance — this replaces `owner` setup.
+The `initializer` modifier (OZ) is the primary re-init guard; `FlareGovernance.initialise()` keeps its own `bool initialised` check as defense-in-depth (catches in-place UUPS upgrades where OZ's slot is virgin but the FlareGovernance state is already set).
 
 ### Key Pattern 6: Selector Registration
 

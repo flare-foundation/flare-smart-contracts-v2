@@ -92,7 +92,7 @@ contract TeePayments is ITeePayments, FlareUpgradeableBase {
 
     /**
      * Proxyable initialization method. Can be called only once, from the proxy constructor
-     * (single call is assured by GovernedBase.initialise).
+     * (single call is assured by the `initializer` modifier).
      */
     function initialize(
         IGovernanceSettings _governanceSettings,
@@ -104,6 +104,7 @@ contract TeePayments is ITeePayments, FlareUpgradeableBase {
         bytes32 _keyType
     )
         external virtual
+        initializer
     {
         require(_maxBatchSize > 0, MaxBatchSizeZero());
         require(_opType != bytes32(0), OpTypeZero());
