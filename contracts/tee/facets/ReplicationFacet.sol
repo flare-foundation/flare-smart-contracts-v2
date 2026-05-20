@@ -12,13 +12,13 @@ import { MachineManager } from "../library/MachineManager.sol";
 import { Verification } from "../library/Verification.sol";
 import { UpgradeManager } from "../library/UpgradeManager.sol";
 import { Instructions } from "../library/Instructions.sol";
-import { GovernedFacet } from "./GovernedFacet.sol";
+import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 
 /**
  * @title ReplicationFacet
  * @notice Facet for TEE machine replication and upgrade management.
  */
-contract ReplicationFacet is IIReplication, GovernedFacet {
+contract ReplicationFacet is IIReplication, FlareGovernedAccess {
 
     bytes32 internal constant TO_PAUSE_FOR_UPGRADE = bytes32("TO_PAUSE_FOR_UPGRADE");
     bytes32 internal constant REPLICATE_FROM = bytes32("REPLICATE_FROM");

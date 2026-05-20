@@ -4,7 +4,7 @@ pragma solidity >=0.7.6 <0.9;
 import { IDiamondCut } from "../../diamond/interfaces/IDiamondCut.sol";
 import { IDiamondGovernance } from
     "../../userInterfaces/tee/IDiamondGovernance.sol";
-import { IIFlareGovernance } from "./IIFlareGovernance.sol";
+import { IIFlareGovernance } from "../../governance/interface/IIFlareGovernance.sol";
 
 /**
  * @title IIDiamondGovernance

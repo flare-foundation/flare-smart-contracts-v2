@@ -19,7 +19,7 @@ import {
 } from "../../../../contracts/userInterfaces/tee/ISystemStateVerifier.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
-import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 
 import { IFdc2Verification } from "../../../../contracts/userInterfaces/fdc2/IFdc2Verification.sol";
 import { IFdc2Hub } from "../../../../contracts/userInterfaces/fdc2/IFdc2Hub.sol";

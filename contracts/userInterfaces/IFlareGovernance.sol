@@ -5,11 +5,12 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 
 /**
  * @title IFlareGovernance
- * @notice Public interface for Flare governance functions exposed through the FlareTeeManager Diamond.
- * @dev Only DiamondGovernanceFacet implements these; other facets use internal-only
- *      modifiers from GovernedFacet. Uses hash-based timelock — the executor provides
- *      the full encoded call at execution time, verified against the stored hash.
- *      Matches the FAssets IGoverned interface pattern.
+ * @notice Public interface for Flare governance — the hash-based timelock variant.
+ * @dev Implemented by `FlareGovernedBase` (used by FlareUpgradeableBase-derived UUPS
+ *      contracts) and by `DiamondGovernanceFacet` on the TEE Diamond. Other facets
+ *      use internal-only modifiers from `FlareGovernedAccess`. Uses hash-based timelock —
+ *      the executor provides the full encoded call at execution time, verified
+ *      against the stored hash. Matches the FAssets IGoverned interface pattern.
  */
 interface IFlareGovernance {
 

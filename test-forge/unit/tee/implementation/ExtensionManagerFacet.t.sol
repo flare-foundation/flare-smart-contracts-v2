@@ -7,7 +7,7 @@ import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IExtensionManager } from "../../../../contracts/userInterfaces/tee/IExtensionManager.sol";
 import { IInstructions } from "../../../../contracts/userInterfaces/tee/IInstructions.sol";
-import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";

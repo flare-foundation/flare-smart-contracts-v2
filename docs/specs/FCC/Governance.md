@@ -2,7 +2,7 @@
 
 FCC has its own governance system, distinct from system-wide [`Governor`](../Governance.md). The diamond holds two governance layers:
 
-- **Diamond governance** — controls the diamond itself: `diamondCut` (add / replace / remove facets), update diamond-init-time settings, governance-only setters on every facet that has them. Implemented by [`DiamondGovernanceFacet`](../../../contracts/tee/facets/DiamondGovernanceFacet.sol) + [`GovernedFacet`](../../../contracts/tee/facets/GovernedFacet.sol) + [`library/FlareGovernance`](../../../contracts/tee/library/FlareGovernance.sol).
+- **Diamond governance** — controls the diamond itself: `diamondCut` (add / replace / remove facets), update diamond-init-time settings, governance-only setters on every facet that has them. Implemented by [`DiamondGovernanceFacet`](../../../contracts/tee/facets/DiamondGovernanceFacet.sol) (inherits [`FlareGovernedBase`](../../../contracts/governance/implementation/FlareGovernedBase.sol) for the public API) + [`FlareGovernedAccess`](../../../contracts/governance/implementation/FlareGovernedAccess.sol) (modifiers-only base for the other facets) + [`FlareGovernance`](../../../contracts/governance/lib/FlareGovernance.sol) library (ERC-7201 namespaced storage, hash-based timelock).
 - **Extension governance** — per-extension governance signer sets that approve TEE software upgrades for that extension. Implemented by [`ExtensionGovernanceFacet`](../../../contracts/tee/facets/ExtensionGovernanceFacet.sol) + [`library/ExtensionGovernance`](../../../contracts/tee/library/ExtensionGovernance.sol).
 
 Plus a related upgrade flow:
@@ -15,13 +15,13 @@ This page walks through each.
 
 ## Diamond governance
 
-The diamond's governance state lives in the `FlareGovernance` library — an ERC-7201-namespaced version of the standard `GovernedBase` pattern (see [Governance / `Governor` & `Governed`](../Governance.md)). Initialized once in `FlareTeeManagerInit.init`:
+The diamond's governance state lives in the `FlareGovernance` library — an ERC-7201-namespaced variant of the standard `GovernedBase` pattern (see [Governance / `Governor` & `Governed`](../Governance.md)). It is shared project-wide: the same library backs `FlareUpgradeableBase` (the UUPS base used by FDC2 + TEE non-Diamond contracts) and the TEE Diamond facets. Initialized once in `FlareTeeManagerInit.init`:
 
 ```solidity
 FlareGovernance.initialise(_governanceSettings, _initialGovernance);
 ```
 
-`GovernedFacet` provides the `onlyGovernance` modifier for any facet that needs it (most do — every method tagged `onlyGovernance` reaches `FlareGovernance.governance()` to verify the caller).
+`FlareGovernedAccess` provides the `onlyGovernance` modifier (and `onlyImmediateGovernance`) for any facet that needs it — every method tagged `onlyGovernance` reaches `FlareGovernance.governance()` to verify the caller. `FlareGovernedAccess` deliberately exposes **no** public functions, so non-governance facets don't pollute the diamond ABI with duplicate governance selectors. The seven public governance functions (`executeGovernanceCall`, `cancelGovernanceCall`, `switchToProductionMode`, `governance`, `governanceSettings`, `productionMode`, `isExecutor`) live on `FlareGovernedBase`, which `DiamondGovernanceFacet` inherits.
 
 `DiamondGovernanceFacet` provides:
 

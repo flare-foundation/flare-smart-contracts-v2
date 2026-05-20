@@ -27,6 +27,7 @@ import {
 import { IInstructions } from "../../../../contracts/userInterfaces/tee/IInstructions.sol";
 import { TeeIdKeyIdPair } from "../../../../contracts/userInterfaces/tee/ITeeIdKeyIdPair.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 
 // solhint-disable-next-line max-states-count
 contract TeePaymentsLimitsManagerTest is Test {
@@ -222,7 +223,7 @@ contract TeePaymentsLimitsManagerTest is Test {
 
     function testUpgradeProxyRevertOnlyGovernance() public {
         TeePaymentsLimitsManager newImpl = new TeePaymentsLimitsManager();
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         manager.upgradeToAndCall(address(newImpl), bytes(""));
     }
 

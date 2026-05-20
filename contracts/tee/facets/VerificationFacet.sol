@@ -21,14 +21,14 @@ import { ExternalAddresses } from "../library/ExternalAddresses.sol";
 import { Instructions } from "../library/Instructions.sol";
 import { WalletManager } from "../library/WalletManager.sol";
 import { WalletKeyManager } from "../library/WalletKeyManager.sol";
-import { GovernedFacet } from "./GovernedFacet.sol";
+import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * @title VerificationFacet
  * @notice Facet for TEE machine attestation, availability checks, and wallet (PMW) verification.
  */
-contract VerificationFacet is IIVerification, GovernedFacet {
+contract VerificationFacet is IIVerification, FlareGovernedAccess {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     bytes32 internal constant TEE_ATTESTATION = bytes32("TEE_ATTESTATION");

@@ -11,6 +11,7 @@ import { IFdc2InflationConfigurations } from
 import { IFdc2RequestFeeConfigurations } from
     "../../../../contracts/userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 
 contract Fdc2InflationConfigurationsTest is Test {
 
@@ -174,7 +175,7 @@ contract Fdc2InflationConfigurationsTest is Test {
         vm.stopPrank();
         IFdc2InflationConfigurations.Fdc2Configuration[] memory configs =
             new IFdc2InflationConfigurations.Fdc2Configuration[](0);
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         inflationConfigs.addFdc2Configurations(configs);
     }
 

@@ -57,8 +57,8 @@ import { IWalletBackupManager } from "../../contracts/userInterfaces/tee/IWallet
 import { IVrf } from "../../contracts/userInterfaces/tee/IVrf.sol";
 import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManager.sol";
 
-import { IFlareGovernance } from "../../contracts/userInterfaces/tee/IFlareGovernance.sol";
-import { IIFlareGovernance } from "../../contracts/tee/interface/IIFlareGovernance.sol";
+import { IFlareGovernance } from "../../contracts/userInterfaces/IFlareGovernance.sol";
+import { IIFlareGovernance } from "../../contracts/governance/interface/IIFlareGovernance.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 /**

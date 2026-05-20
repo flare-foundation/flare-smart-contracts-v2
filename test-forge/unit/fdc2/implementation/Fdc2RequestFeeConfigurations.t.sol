@@ -12,6 +12,7 @@ import {
     IFdc2RequestFeeConfigurations
 } from "../../../../contracts/userInterfaces/fdc2/IFdc2RequestFeeConfigurations.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 
 contract Fdc2RequestFeeConfigurationsTest is Test {
 
@@ -56,7 +57,7 @@ contract Fdc2RequestFeeConfigurationsTest is Test {
 
     // setTypeAndSourceFee
     function testSetTypeAndSourceFeeRevertOnlyGovernance() public {
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         fdc2RequestFeeConfigurations.setTypeAndSourceFee(testType, source, fee);
     }
 
@@ -80,7 +81,7 @@ contract Fdc2RequestFeeConfigurationsTest is Test {
 
     // removeTypeAndSourceFee
     function testRemoveTypeAndSourceFeeRevertOnlyGovernance() public {
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         fdc2RequestFeeConfigurations.removeTypeAndSourceFee(testType, source);
     }
 
@@ -105,7 +106,7 @@ contract Fdc2RequestFeeConfigurationsTest is Test {
 
     // setTypeAndSourceFees
     function testSetTypeAndSourceFeesRevertOnlyGovernance() public {
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         fdc2RequestFeeConfigurations.setTypeAndSourceFees(testTypes, sources, fees);
     }
 
@@ -130,7 +131,7 @@ contract Fdc2RequestFeeConfigurationsTest is Test {
 
     // removeTypeAndSourceFees
     function testRemoveTypeAndSourceFeesRevertOnlyGovernance() public {
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         fdc2RequestFeeConfigurations.removeTypeAndSourceFees(testTypes, sources);
     }
 

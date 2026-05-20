@@ -6,7 +6,7 @@ import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IOperationFees } from "../../../../contracts/userInterfaces/tee/IOperationFees.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
-import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract OperationFeesFacetTest is Test {

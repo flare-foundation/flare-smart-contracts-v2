@@ -6,6 +6,7 @@ import { TeePaymentsRegistry } from "../../../../contracts/tee/implementation/Te
 import { TeePaymentsRegistryProxy } from "../../../../contracts/tee/proxy/TeePaymentsRegistryProxy.sol";
 import { ITeePaymentsRegistry } from "../../../../contracts/userInterfaces/tee/ITeePaymentsRegistry.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 
 contract TeePaymentsRegistryTest is Test {
 
@@ -47,7 +48,7 @@ contract TeePaymentsRegistryTest is Test {
         ITeePaymentsRegistry.SourceRegistration[] memory inputs =
             new ITeePaymentsRegistry.SourceRegistration[](1);
         inputs[0] = ITeePaymentsRegistry.SourceRegistration(SOURCE_ID_1, teePaymentsA);
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         registry.registerSources(inputs);
     }
 
@@ -223,7 +224,7 @@ contract TeePaymentsRegistryTest is Test {
         testRegisterSourcesNewSourceId();
         bytes32[] memory remove = new bytes32[](1);
         remove[0] = SOURCE_ID_1;
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         registry.unregisterSources(remove);
     }
 
@@ -276,7 +277,7 @@ contract TeePaymentsRegistryTest is Test {
 
     function testUpgradeProxyRevertOnlyGovernance() public {
         TeePaymentsRegistry newImpl = new TeePaymentsRegistry();
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         registry.upgradeToAndCall(address(newImpl), bytes(""));
     }
 

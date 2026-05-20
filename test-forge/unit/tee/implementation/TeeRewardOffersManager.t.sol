@@ -8,6 +8,7 @@ import { RewardManager } from "../../../../contracts/protocol/implementation/Rew
 import { ITeeRewardOffersManager } from "../../../../contracts/userInterfaces/tee/ITeeRewardOffersManager.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 
 contract TeeRewardOffersManagerTest is Test {
 
@@ -135,7 +136,7 @@ contract TeeRewardOffersManagerTest is Test {
     }
 
     function testSetTeeOwnersPPMRevertOnlyGovernance() public {
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         teeRewardOffersManager.setTeeOwnersPPM(12345);
     }
 

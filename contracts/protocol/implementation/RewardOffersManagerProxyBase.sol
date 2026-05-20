@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { GovernedProxyImplementation } from "../../governance/implementation/GovernedProxyImplementation.sol";
-import { GovernedBase } from "../../governance/implementation/GovernedBase.sol";
+import { FlareGovernedBase } from "../../governance/implementation/FlareGovernedBase.sol";
+import { FlareGovernance } from "../../governance/lib/FlareGovernance.sol";
 import { InflationReceiver } from "../../inflation/implementation/InflationReceiver.sol";
 import { TokenPoolBase } from "../../utils/implementation/TokenPoolBase.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
@@ -20,15 +20,15 @@ import { IITokenPool } from "@flarenetwork/flare-periphery-contracts/flare/token
  * RewardOffersManagerProxyBase contract.
  *
  * Sibling of RewardOffersManagerBase for UUPS-upgradeable reward offers managers.
- * Combines GovernedProxyImplementation + UUPSUpgradeable with the inflation pool
- * accounting from InflationReceiver (which itself brings AddressUpdatable) and the
- * reward-epoch switchover trigger plumbing.
+ * Combines FlareGovernedBase (FlareGovernance ERC-7201 storage) + UUPSUpgradeable with the
+ * inflation pool accounting from InflationReceiver (which itself brings AddressUpdatable)
+ * and the reward-epoch switchover trigger plumbing.
  *
  * Subclasses only need to override `_emitInflationRewardsOffered` to emit their
  * subclass-specific event payload.
  */
 abstract contract RewardOffersManagerProxyBase is
-    GovernedProxyImplementation,
+    FlareGovernedBase,
     UUPSUpgradeable,
     InflationReceiver,
     IIRewardEpochSwitchoverTrigger
@@ -54,10 +54,11 @@ abstract contract RewardOffersManagerProxyBase is
 
     /**
      * Constructor that initializes with invalid parameters to prevent direct deployment/updates.
-     * GovernedProxyImplementation sets a dummy governance address; InflationReceiver(address(0))
-     * propagates address(0) to AddressUpdatable. Real values are set via initialize().
+     * FlareGovernedBase sets a dummy governance address (via the FlareGovernance library);
+     * InflationReceiver(address(0)) propagates address(0) to AddressUpdatable. Real values
+     * are set via initialize().
      */
-    constructor() GovernedProxyImplementation() InflationReceiver(address(0)) {}
+    constructor() InflationReceiver(address(0)) {}
 
     /**
      * @inheritdoc IIRewardEpochSwitchoverTrigger
@@ -179,7 +180,7 @@ abstract contract RewardOffersManagerProxyBase is
     )
         internal virtual
     {
-        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        FlareGovernance.initialise(_governanceSettings, _initialGovernance);
         AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
     }
 

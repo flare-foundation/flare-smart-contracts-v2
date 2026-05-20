@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { IFlareGovernance } from "../../userInterfaces/tee/IFlareGovernance.sol";
+import { IFlareGovernance } from "../../userInterfaces/IFlareGovernance.sol";
 
 /**
  * @title IIFlareGovernance

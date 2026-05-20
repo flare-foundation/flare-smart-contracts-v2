@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { GovernedProxyImplementation } from "./GovernedProxyImplementation.sol";
-import { GovernedBase } from "./GovernedBase.sol";
+import { FlareGovernedBase } from "./FlareGovernedBase.sol";
+import { FlareGovernance } from "../lib/FlareGovernance.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { ERC1967Utils } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
@@ -12,9 +12,9 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 /**
  * Base class for Flare governed proxy implementations that support UUPS upgradeability and address updatability.
  **/
-abstract contract FlareUpgradeableBase is GovernedProxyImplementation, UUPSUpgradeable, AddressUpdatable {
+abstract contract FlareUpgradeableBase is FlareGovernedBase, UUPSUpgradeable, AddressUpdatable {
 
-    constructor() GovernedProxyImplementation() AddressUpdatable(address(0)) {}
+    constructor() AddressUpdatable(address(0)) {}
 
     /**
      * Returns the current implementation address.
@@ -57,7 +57,7 @@ abstract contract FlareUpgradeableBase is GovernedProxyImplementation, UUPSUpgra
     )
         internal virtual
     {
-        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        FlareGovernance.initialise(_governanceSettings, _initialGovernance);
         AddressUpdatable.setAddressUpdaterValue(_addressUpdater);
     }
 }

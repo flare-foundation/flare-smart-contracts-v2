@@ -6,14 +6,14 @@ import { IExtensionManager } from "../../userInterfaces/tee/IExtensionManager.so
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
-import { GovernedFacet } from "./GovernedFacet.sol";
+import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * @title ExtensionManagerFacet
  * @notice Facet for TEE extension registration and instruction routing.
  */
-contract ExtensionManagerFacet is IIExtensionManager, GovernedFacet {
+contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
     /// @inheritdoc IExtensionManager

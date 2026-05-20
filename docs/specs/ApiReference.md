@@ -92,7 +92,7 @@ About 20 public interfaces under [`userInterfaces/tee/`](../../contracts/userInt
 |-----------|------|
 | [`IFlareTeeManager`](../../contracts/userInterfaces/tee/IFlareTeeManager.sol) | The diamond's combined external interface. |
 | [`IDiamondGovernance`](../../contracts/userInterfaces/tee/IDiamondGovernance.sol) | `diamondCut`, governance transfer. |
-| [`IFlareGovernance`](../../contracts/userInterfaces/tee/IFlareGovernance.sol) | `Governed` accessors at the diamond level. |
+| [`IFlareGovernance`](../../contracts/userInterfaces/IFlareGovernance.sol) | `Governed` accessors — implemented by `FlareGovernedBase` (used by `FlareUpgradeableBase`) and by the TEE diamond's `DiamondGovernanceFacet`. |
 | [`IExtensionManager`](../../contracts/userInterfaces/tee/IExtensionManager.sol) | Extension registration, version management, ownership. |
 | [`IExtensionGovernance`](../../contracts/userInterfaces/tee/IExtensionGovernance.sol) | Per-extension governance signers, `signTeeUpgrade`. |
 | [`IExternalAddresses`](../../contracts/userInterfaces/tee/IExternalAddresses.sol) | The diamond's `AddressUpdatable` view. |

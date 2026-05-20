@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { FlareGovernance } from "../library/FlareGovernance.sol";
+import { FlareGovernance } from "../../governance/lib/FlareGovernance.sol";
 import { AddressUpdatable } from "../../utils/implementation/AddressUpdatable.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { Verification } from "../library/Verification.sol";

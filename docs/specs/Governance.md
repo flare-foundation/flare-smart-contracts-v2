@@ -17,6 +17,17 @@ Every `Governed` contract takes an `IGovernanceSettings` reference at constructi
 
 `Governed` contracts that are also UUPS-upgradeable proxies use [`GovernedProxyImplementation`](../../contracts/governance/implementation/GovernedProxyImplementation.sol) — a variant that supports the proxy initialization pattern (the implementation is marked initialised in its constructor so it can't be misused; the proxy's `initialise` is what the proxy's constructor `delegatecall`s).
 
+### `FlareGovernance` library — the ERC-7201 variant
+
+A second, structurally-similar governance stack lives in [`contracts/governance/lib/FlareGovernance.sol`](../../contracts/governance/lib/FlareGovernance.sol). It stores its state in an **ERC-7201 namespaced** slot instead of fixed slots 0..N, and its timelock is **hash-keyed** (only `keccak256(encodedCall)` is stored on-chain; the executor supplies the full calldata at execution time). The public API is otherwise the same: `executeGovernanceCall`, `cancelGovernanceCall`, `switchToProductionMode`, `governance`, `governanceSettings`, `productionMode`, `isExecutor` — all declared on [`IFlareGovernance`](../../contracts/userInterfaces/IFlareGovernance.sol) as custom-error/event interfaces (no string reverts).
+
+Two abstracts sit above the library:
+
+- [`FlareGovernedAccess`](../../contracts/governance/implementation/FlareGovernedAccess.sol) — provides `onlyGovernance` / `onlyImmediateGovernance` modifiers and the anti-selfdestruct constructor. **No public functions.** Used by TEE Diamond facets that share the diamond's governance state but must not pollute its ABI with duplicate selectors.
+- [`FlareGovernedBase`](../../contracts/governance/implementation/FlareGovernedBase.sol) — extends `FlareGovernedAccess` and adds the seven public functions. Inherited by [`FlareUpgradeableBase`](../../contracts/governance/implementation/FlareUpgradeableBase.sol) (the UUPS base used by FDC2 and TEE non-Diamond contracts) and by the TEE Diamond's [`DiamondGovernanceFacet`](../../contracts/tee/facets/DiamondGovernanceFacet.sol).
+
+Scope today: this library backs the TEE Diamond and every FDC2 / TEE UUPS contract. All other governed contracts in the repo (FdcHub, FtsoRewardOffersManager, ValidatorRewardOffersManager, FastUpdateIncentiveManager, ChainlinkAdapter, FtsoV2Proxy, the protocol contracts, etc.) continue to use the legacy `GovernedBase`-derived stack above.
+
 ## `Governor` — community proposals
 
 [`Governor`](../../contracts/governance/implementation/Governor.sol) is the OpenZeppelin-style on-chain proposal system, adapted for Flare's vote-power model. It implements [`IGovernor`](../../contracts/userInterfaces/IGovernor.sol) and aggregates two helpers: [`GovernorProposals`](../../contracts/governance/implementation/GovernorProposals.sol) (proposal lifecycle) and [`GovernorVotes`](../../contracts/governance/implementation/GovernorVotes.sol) (vote counting). Inputs:

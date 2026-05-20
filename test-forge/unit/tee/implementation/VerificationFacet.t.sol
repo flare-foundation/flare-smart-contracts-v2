@@ -20,7 +20,7 @@ import {
 } from "../../../../contracts/userInterfaces/fdc2/IPMWMultisigAccountConfigured.sol";
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { RandomNumberV2Interface } from "../../../../contracts/userInterfaces/LTS/RandomNumberV2Interface.sol";
-import { IFlareGovernance } from "../../../../contracts/userInterfaces/tee/IFlareGovernance.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 import { Signature } from "../../../../contracts/userInterfaces/ISignature.sol";

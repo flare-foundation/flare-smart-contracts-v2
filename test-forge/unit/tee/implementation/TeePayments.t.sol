@@ -30,6 +30,7 @@ import {
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 
 //solhint-disable-next-line max-states-count
 contract TeePaymentsTest is Test {
@@ -1209,7 +1210,7 @@ contract TeePaymentsTest is Test {
 
     function testUpgradeProxyRevertOnlyGovernance() public {
         TeePayments newTeePaymentsImpl = new TeePayments();
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         teePayments.upgradeToAndCall(address(newTeePaymentsImpl), bytes(""));
     }
 
@@ -1217,7 +1218,7 @@ contract TeePaymentsTest is Test {
     function testUpgradeProxyAndInitializeRevert() public {
         TeePayments newTeePaymentsImpl = new TeePayments();
         vm.prank(governance);
-        vm.expectRevert("initialised != false");
+        vm.expectRevert(IFlareGovernance.GovernedAlreadyInitialized.selector);
         teePayments.upgradeToAndCall(address(newTeePaymentsImpl), abi.encodeCall(
             TeePayments.initialize, (
                 IGovernanceSettings(makeAddr("governanceSettings")),

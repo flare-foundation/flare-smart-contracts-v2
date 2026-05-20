@@ -8,14 +8,14 @@ import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { MachineManager } from "../library/MachineManager.sol";
 import { Instructions } from "../library/Instructions.sol";
-import { GovernedFacet } from "./GovernedFacet.sol";
+import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * @title InstructionsFacet
  * @notice Facet for TEE instruction routing and system instructions sender management.
  */
-contract InstructionsFacet is IIInstructions, GovernedFacet {
+contract InstructionsFacet is IIInstructions, FlareGovernedAccess {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /// @inheritdoc IInstructions

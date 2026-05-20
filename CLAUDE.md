@@ -277,10 +277,25 @@ pnpm sim-run           # Run simulation
 
 Chain parameters are in `deployment/chain-config/<network>.json`.
 
+## Governance primitives — which to use
+
+Two governance stacks live in this repo. Both implement the same on-chain semantics (timelock, propose/execute via governance settings, executors); they differ in **how state is stored** and **how the public ABI is exposed**.
+
+| Stack | Storage | Timelock key | Errors | Used by |
+|-------|---------|--------------|--------|---------|
+| Legacy: [`GovernedBase`](contracts/governance/implementation/GovernedBase.sol) / [`GovernedProxyImplementation`](contracts/governance/implementation/GovernedProxyImplementation.sol) / [`Governed`](contracts/governance/implementation/Governed.sol) | Fixed contract slots 0..N | `bytes4` selector; full encoded call stored on-chain | `require(..., "only governance")` strings | Every production-deployed contract today: `FdcHub`, `FtsoRewardOffersManager`, `ValidatorRewardOffersManager`, `FastUpdateIncentiveManager`, `ChainlinkAdapter`, `FtsoV2Proxy`, `EntityManager`, `FlareSystemsManager`, etc. |
+| New: [`FlareGovernance` library](contracts/governance/lib/FlareGovernance.sol) + [`FlareGovernedAccess`](contracts/governance/implementation/FlareGovernedAccess.sol) (modifiers only) + [`FlareGovernedBase`](contracts/governance/implementation/FlareGovernedBase.sol) (modifiers + 7 public functions) | ERC-7201 namespaced slot (`flare.FlareGovernance.State`) | Hash-keyed (`keccak256(encodedCall)` stored; executor supplies full calldata at execution time) | Custom errors / events on [`IFlareGovernance`](contracts/userInterfaces/IFlareGovernance.sol) (e.g. `OnlyGovernance.selector`) | TEE Diamond facets (via `FlareGovernedAccess`) + [`DiamondGovernanceFacet`](contracts/tee/facets/DiamondGovernanceFacet.sol) (via `FlareGovernedBase`); [`FlareUpgradeableBase`](contracts/governance/implementation/FlareUpgradeableBase.sol)-derived UUPS contracts in FDC2 and TEE non-Diamond modules. |
+
+When writing new code:
+
+- **New UUPS proxy implementation** → inherit `FlareUpgradeableBase` (which already brings `FlareGovernedBase` + `UUPSUpgradeable` + `AddressUpdatable`). Use `onlyGovernance` from the inherited base. Use `IFlareGovernance.OnlyGovernance.selector` in revert tests.
+- **New TEE Diamond facet** → inherit `FlareGovernedAccess` (modifiers only, no public functions). Only `DiamondGovernanceFacet` exposes the public governance API on the Diamond — never replicate those selectors on other facets.
+- **Touching an existing legacy contract** → keep it on `GovernedBase`. Do not silently migrate; an in-place storage-layout swap from fixed slots → ERC-7201 namespace is incompatible with UUPS impl-swaps on already-deployed proxies. Migrate only with explicit redeployment scope.
+
 ## Diamond Proxy (EIP-2535) Refactoring Guide
 
 Reference architecture for refactoring existing contracts into the Diamond proxy pattern.
-Uses Flare governance (`GovernedBase`/`GovernedProxyImplementation`) instead of ERC-173 OwnershipFacet.
+Uses Flare governance (`FlareGovernance` library + `FlareGovernedAccess` / `FlareGovernedBase` for new diamonds; `GovernedBase`/`GovernedProxyImplementation` for legacy contracts) instead of ERC-173 OwnershipFacet.
 Same pattern as FAssets AssetManager: https://github.com/flare-foundation/fassets
 
 ### Architecture Overview
@@ -304,15 +319,22 @@ contracts/
 
   governance/
     implementation/
-      GovernedBase.sol               # Timelock + governance logic (already exists in this repo)
-      GovernedProxyImplementation.sol # GovernedBase for proxies/facets (anti-selfdestruct)
-      Governed.sol                   # GovernedBase for non-proxy contracts
+      FlareGovernedAccess.sol        # Modifiers only; anti-selfdestruct constructor (for non-governance facets)
+      FlareGovernedBase.sol          # FlareGovernedAccess + public governance API (for the governance facet + FlareUpgradeableBase)
+      FlareUpgradeableBase.sol       # FlareGovernedBase + UUPSUpgradeable + AddressUpdatable (for non-Diamond UUPS contracts)
+      GovernedBase.sol               # Legacy stack — used by production contracts not on the new library
+      GovernedProxyImplementation.sol # Legacy stack — for legacy UUPS impls
+      Governed.sol                   # Legacy stack — for legacy non-proxy contracts
+    lib/
+      FlareGovernance.sol            # Library with ERC-7201 namespaced storage + hash-based timelock
+    interface/
+      IIFlareGovernance.sol          # Internal interface (cancelGovernanceCall, switchToProductionMode)
 
   <domain>/
     implementation/
       <MainController>.sol           # Diamond root (inherits Diamond, acts as entry point)
     facets/
-      DiamondCutFacet.sol            # Facet add/replace/remove (inherits GovernedProxyImplementation)
+      DiamondGovernanceFacet.sol     # diamondCut + public governance API (inherits FlareGovernedBase). Only facet to expose governance selectors.
       <Domain>Facet.sol              # One per domain — thin wrappers calling libraries
       <Domain>Init.sol               # One-time initialization (called via diamondCut init)
     library/
@@ -329,8 +351,8 @@ contracts/
 ### Key Pattern 1: Facet = Thin Wrapper, Library = Logic
 
 ```solidity
-// Facet (thin wrapper with access control via GovernedProxyImplementation)
-contract ConfigFacet is GovernedProxyImplementation {
+// Facet (thin wrapper with access control via FlareGovernedAccess — modifiers only, no public functions)
+contract ConfigFacet is FlareGovernedAccess {
     function setParam(address _param) external onlyGovernance {
         Config.setParam(_param);
     }
@@ -388,18 +410,18 @@ Interface names do NOT carry a `Facet` suffix even when they describe a single E
 
 The aggregate `II<MainController>` interface inherits ALL `II*` interfaces and represents the full Diamond API.
 
-### Key Pattern 4: Access Control via GovernedProxyImplementation
+### Key Pattern 4: Access Control via FlareGovernedAccess / FlareGovernedBase
 
-Facets that need governance protection inherit `GovernedProxyImplementation` (from `contracts/governance/`).
-This replaces both OwnershipFacet and any custom Timelock — GovernedBase has timelock built in.
+Diamond facets that need governance protection inherit `FlareGovernedAccess` (modifiers only, no public functions — see [`contracts/governance/implementation/FlareGovernedAccess.sol`](contracts/governance/implementation/FlareGovernedAccess.sol)). Only the dedicated governance facet inherits `FlareGovernedBase`, which adds the seven public governance functions on top — preventing duplicate-selector pollution across the Diamond. Both abstracts are backed by the `FlareGovernance` library (ERC-7201 namespaced storage, hash-based timelock).
 
 ```solidity
-// GovernedBase provides these modifiers:
+// FlareGovernedAccess / FlareGovernedBase provide these modifiers:
 // - onlyGovernance — in production mode, records timelocked call; before production, executes immediately
 // - onlyImmediateGovernance — always requires governance address directly, no timelock
 
-// DiamondCutFacet uses governance instead of LibDiamond.enforceIsContractOwner()
-contract DiamondCutFacet is IDiamondCut, GovernedProxyImplementation {
+// DiamondGovernanceFacet bundles diamondCut + the public governance API (it inherits FlareGovernedBase).
+// All other facets inherit FlareGovernedAccess (modifiers only — no public governance selectors).
+contract DiamondGovernanceFacet is IIDiamondGovernance, FlareGovernedBase {
     function diamondCut(
         FacetCut[] calldata _diamondCut,
         address _init,
@@ -415,16 +437,16 @@ contract DiamondCutFacet is IDiamondCut, GovernedProxyImplementation {
 
 **Governance lifecycle:**
 1. Before `switchToProductionMode()`: `initialGovernance` (deployer) can call all `onlyGovernance` functions immediately
-2. After `switchToProductionMode()`: governance calls record timelocked calls, executors execute after timelock expires
-3. `executeGovernanceCall(selector)` — executor calls after timelock to execute pending call
-4. `cancelGovernanceCall(selector)` — governance can cancel pending calls
+2. After `switchToProductionMode()`: governance calls record timelocked calls (storing only `keccak256(encodedCall)`), executors execute after timelock expires by supplying the full encoded call
+3. `executeGovernanceCall(bytes encodedCall)` — executor submits the full calldata; the hash is verified against the stored hash
+4. `cancelGovernanceCall(bytes encodedCall)` — governance can cancel pending calls
 
-**GovernedProxyImplementation** sets governance to a dummy address (`0x...1111`) in its constructor to prevent direct use of the implementation contract. The real `initialise(governanceSettings, initialGovernance)` is called through the proxy/diamond init.
+**`FlareGovernedAccess` / `FlareGovernedBase`** set governance to a dummy address (`0x...1111`) in their constructor to prevent direct use of the implementation/facet contract. The real `FlareGovernance.initialise(governanceSettings, initialGovernance)` is called through the proxy/diamond init.
 
 ### Key Pattern 5: Initialization
 
 ```solidity
-contract MyInit is GovernedProxyImplementation {
+contract MyInit {
     function init(
         IGovernanceSettings _governanceSettings,
         address _initialGovernance,
@@ -433,8 +455,8 @@ contract MyInit is GovernedProxyImplementation {
     )
         external
     {
-        // Initialize governance (from GovernedBase)
-        GovernedBase.initialise(_governanceSettings, _initialGovernance);
+        // Initialize governance (FlareGovernance ERC-7201 namespaced storage)
+        FlareGovernance.initialise(_governanceSettings, _initialGovernance);
 
         // Register ERC-165 interfaces
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
@@ -468,8 +490,8 @@ The `autoDeleteMethodsNotInInterface` option in cut configs automatically remove
 #### Initial Deployment
 
 1. Deploy all facet contracts (simple `new` / CREATE):
-   - DiamondCutFacet, DiamondLoupeFacet
-   - All domain facets
+   - DiamondGovernanceFacet (the only facet exposing the public governance API + `diamondCut`), DiamondLoupeFacet
+   - All domain facets (inherit `FlareGovernedAccess` — modifiers only)
    - Init contract
 2. Build FacetCut[] array — for each facet, intersect its ABI with the aggregate interface
 3. Encode init calldata with `GovernanceSettings` address, `initialGovernance`, and domain parameters
@@ -518,14 +540,14 @@ The upgrade script:
 1. **Identify domains** — group related functions (e.g., all config operations, all fee operations)
 2. **For each domain, create:**
    - `library/<Domain>.sol` — move logic here, add ERC-7201 State struct
-   - `facets/<Domain>Facet.sol` — thin wrapper inheriting `GovernedProxyImplementation`, using `onlyGovernance` modifier
+   - `facets/<Domain>Facet.sol` — thin wrapper inheriting `FlareGovernedAccess`, using `onlyGovernance` modifier
    - `userInterfaces/I<Domain>.sol` — public interface
    - `interface/II<Domain>.sol` — extends public interface with admin functions
 3. **Create aggregate interface** — `II<MainController>` inheriting all `II*` interfaces
-4. **Create DiamondCutFacet** — inherits `GovernedProxyImplementation`, uses `onlyGovernance` instead of `LibDiamond.enforceIsContractOwner()`
-5. **Create Init contract** — calls `GovernedBase.initialise()` + initializes all library states
+4. **Create DiamondGovernanceFacet** — inherits `FlareGovernedBase` (full public governance API), exposes `diamondCut` gated by `onlyGovernance`
+5. **Create Init contract** — calls `FlareGovernance.initialise()` + initializes all library states
 6. **Migrate storage** — convert contract storage to ERC-7201 namespaced library storage
 7. **Update deployment scripts** — deploy facets with simple `new`, build cuts, deploy Diamond
 8. **Update selector extraction** — add new facet to the helper script, filter against aggregate interface
 9. **Copy diamond infrastructure** — `Diamond.sol`, `LibDiamond.sol`, `DiamondLoupeFacet.sol`, all diamond interfaces
-10. **Reuse existing governance** — `GovernedBase.sol`, `GovernedProxyImplementation.sol` already in `contracts/governance/`
+10. **Reuse existing governance** — `FlareGovernance.sol` library + `FlareGovernedAccess.sol` + `FlareGovernedBase.sol` already in `contracts/governance/`

@@ -22,6 +22,7 @@ import {
     IWalletManager
 } from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 
 // solhint-disable-next-line max-states-count
 contract TeePaymentsFeeScheduleManagerTest is Test {
@@ -132,7 +133,7 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
         ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput[] memory inputs =
             new ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput[](1);
         inputs[0] = ITeePaymentsFeeScheduleManager.FeeScheduleConfigInput(3600, 5, SOURCE_ID);
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         manager.setFeeScheduleConfigs(inputs);
     }
 
@@ -227,7 +228,7 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
     function testClearFeeScheduleConfigRevertOnlyGovernance() public {
         bytes32[] memory sourceIds = new bytes32[](1);
         sourceIds[0] = SOURCE_ID;
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         manager.clearFeeScheduleConfigs(sourceIds);
     }
 
@@ -637,7 +638,7 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
 
     function testUpgradeProxyRevertOnlyGovernance() public {
         TeePaymentsFeeScheduleManager newImpl = new TeePaymentsFeeScheduleManager();
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         manager.upgradeToAndCall(address(newImpl), bytes(""));
     }
 

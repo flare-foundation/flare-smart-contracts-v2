@@ -4,16 +4,16 @@ pragma solidity ^0.8.27;
 import { IIOperationFees } from "../interface/IIOperationFees.sol";
 import { IOperationFees } from "../../userInterfaces/tee/IOperationFees.sol";
 import { OperationFees } from "../library/OperationFees.sol";
-import { GovernedFacet } from "./GovernedFacet.sol";
+import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 
 /**
  * @title OperationFeesFacet
  * @notice Diamond facet for calculating and managing TEE operation fees.
  * @dev Thin wrapper around the OperationFees library.
- *      Governance methods use `onlyGovernance` from GovernedBase (inherited
+ *      Governance methods use `onlyGovernance` from FlareGovernedAccess (inherited
  *      via delegatecall into Diamond storage).
  */
-contract OperationFeesFacet is IIOperationFees, GovernedFacet {
+contract OperationFeesFacet is IIOperationFees, FlareGovernedAccess {
 
     /**
      * @inheritdoc IIOperationFees

@@ -2,13 +2,14 @@
 pragma solidity ^0.8.27;
 
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
-import { IFlareGovernance } from "../../userInterfaces/tee/IFlareGovernance.sol";
+import { IFlareGovernance } from "../../userInterfaces/IFlareGovernance.sol";
 
 /**
  * @title FlareGovernance
- * @notice Library implementing Flare governance with hash-based timelock for Diamond facets.
- * @dev Uses ERC-7201 namespaced storage so all facets sharing the Diamond's delegatecall
- *      context access the same governance state without inheriting public functions.
+ * @notice Library implementing Flare governance with hash-based timelock.
+ * @dev Uses ERC-7201 namespaced storage so all contracts sharing a delegatecall
+ *      context (Diamond facets) — or a single UUPS implementation — access the
+ *      same governance state without inheriting public functions.
  *
  *      Hash-based timelock: only the keccak256 hash of the encoded call is stored on-chain.
  *      At execution time the executor provides the full calldata which is verified against
@@ -28,9 +29,9 @@ library FlareGovernance {
     }
 
     // ERC-7201 namespaced storage slot
-    // keccak256(abi.encode(uint256(keccak256("tee.FlareGovernance.State")) - 1)) & ~bytes32(uint256(0xff))
+    // keccak256(abi.encode(uint256(keccak256("flare.FlareGovernance.State")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 internal constant STATE_POSITION =
-        keccak256(abi.encode(uint256(keccak256("tee.FlareGovernance.State")) - 1)) & ~bytes32(uint256(0xff));
+        keccak256(abi.encode(uint256(keccak256("flare.FlareGovernance.State")) - 1)) & ~bytes32(uint256(0xff));
 
     function getState()
         internal pure

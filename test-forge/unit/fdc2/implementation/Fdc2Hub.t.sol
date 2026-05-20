@@ -13,6 +13,7 @@ import { IFdc2RequestFeeConfigurations } from
 import { ProtocolsV2Interface } from "../../../../contracts/userInterfaces/LTS/ProtocolsV2Interface.sol";
 import { IIRewardManager } from "../../../../contracts/protocol/interface/IIRewardManager.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 
 // solhint-disable-next-line max-states-count
 contract Fdc2HubTest is Test {
@@ -114,7 +115,7 @@ contract Fdc2HubTest is Test {
         vm.expectRevert(IFdc2Hub.MinThresholdInvalid.selector);
         fdc2Hub.setMinThresholdBIPS(1e4 + 1);
 
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         fdc2Hub.setMinThresholdBIPS(3000);
     }
 
@@ -131,7 +132,7 @@ contract Fdc2HubTest is Test {
         vm.expectRevert(IFdc2Hub.DefaultNumberOfTeesZero.selector);
         fdc2Hub.setDefaultNumberOfTees(0);
 
-        vm.expectRevert("only governance");
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
         fdc2Hub.setDefaultNumberOfTees(5);
     }
 
