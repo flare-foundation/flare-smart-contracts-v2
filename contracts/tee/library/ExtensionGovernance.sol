@@ -2,11 +2,11 @@
 pragma solidity ^0.8.27;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import { Signature } from "../../userInterfaces/ISignature.sol";
 
 /**
  * @title ExtensionGovernance
- * @notice Library for managing TEE extension governance.
+ * @notice Library for managing TEE extension governance: per-extension signer sets and thresholds
+ *         identified by a content-derived `governanceHash`.
  * @dev Uses ERC-7201 namespaced storage.
  */
 library ExtensionGovernance {
@@ -17,18 +17,7 @@ library ExtensionGovernance {
         uint64 signersThreshold;
     }
 
-    struct TeePausingAddressesState {
-        EnumerableSet.AddressSet pausingAddresses;
-        bytes32 pausingAddressesHash;
-        mapping(address => bool) signers;
-        Signature[] signatures;
-    }
-
-    struct TeeExtensionState {
-        /// Next nonce for pausing addresses.
-        uint256 nextPausingAddressesNonce;
-        mapping(uint256 nonce => TeePausingAddressesState) nonceToTeePausingAddresses;
-        mapping(address signer => bool) teePausingAddressesSigner;
+    struct TeeExtensionGovernanceState {
         /// The latest TEE governance hash.
         bytes32 latestTeeGovernanceHash;
         mapping(bytes32 governanceHash => TeeGovernanceData) governanceHashToTeeGovernance;
@@ -36,7 +25,7 @@ library ExtensionGovernance {
 
     /// @custom:storage-location erc7201:tee.ExtensionGovernance.State
     struct State {
-        mapping(uint256 extensionId => TeeExtensionState) extensionStates;
+        mapping(uint256 extensionId => TeeExtensionGovernanceState) extensionStates;
     }
 
     bytes32 internal constant STATE_POSITION = keccak256(

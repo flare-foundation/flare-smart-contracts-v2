@@ -49,11 +49,13 @@ import {WalletBackupManagerFacet} from
 import {VrfFacet} from "../../contracts/tee/facets/VrfFacet.sol";
 import {ExternalAddressesFacet} from
     "../../contracts/tee/facets/ExternalAddressesFacet.sol";
+import {ExtensionGovernanceFacet} from
+    "../../contracts/tee/facets/ExtensionGovernanceFacet.sol";
 // Later facets
 import {ReplicationFacet} from
     "../../contracts/tee/facets/ReplicationFacet.sol";
-import {ExtensionGovernanceFacet} from
-    "../../contracts/tee/facets/ExtensionGovernanceFacet.sol";
+import {ExtensionPausingFacet} from
+    "../../contracts/tee/facets/ExtensionPausingFacet.sol";
 import {UpgradeManagerFacet} from
     "../../contracts/tee/facets/UpgradeManagerFacet.sol";
 import {WalletResumeFacet} from
@@ -204,10 +206,11 @@ contract DeployTeeContracts is Script {
     WalletBackupManagerFacet private walletBackupManagerFacet;
     VrfFacet private vrfFacet;
     ExternalAddressesFacet private externalAddressesFacet;
+    ExtensionGovernanceFacet private extensionGovernanceFacet;
 
     // Later facet instances (for logging)
     ReplicationFacet private replicationFacet;
-    ExtensionGovernanceFacet private extensionGovernanceFacet;
+    ExtensionPausingFacet private extensionPausingFacet;
     UpgradeManagerFacet private upgradeManagerFacet;
     WalletResumeFacet private walletResumeFacet;
 
@@ -385,6 +388,7 @@ contract DeployTeeContracts is Script {
         walletBackupManagerFacet = new WalletBackupManagerFacet();
         vrfFacet = new VrfFacet();
         externalAddressesFacet = new ExternalAddressesFacet();
+        extensionGovernanceFacet = new ExtensionGovernanceFacet();
 
         day1Facets.push(_addFacet(
             address(diamondCutFacet), "DiamondGovernanceFacet"
@@ -433,6 +437,9 @@ contract DeployTeeContracts is Script {
         ));
         day1Facets.push(_addFacet(
             address(externalAddressesFacet), "ExternalAddressesFacet"
+        ));
+        day1Facets.push(_addFacet(
+            address(extensionGovernanceFacet), "ExtensionGovernanceFacet"
         ));
     }
 
@@ -583,7 +590,7 @@ contract DeployTeeContracts is Script {
 
     function _deployLaterFacets() internal {
         replicationFacet = new ReplicationFacet();
-        extensionGovernanceFacet = new ExtensionGovernanceFacet();
+        extensionPausingFacet = new ExtensionPausingFacet();
         upgradeManagerFacet = new UpgradeManagerFacet();
         walletResumeFacet = new WalletResumeFacet();
 
@@ -591,7 +598,7 @@ contract DeployTeeContracts is Script {
             address(replicationFacet), "ReplicationFacet"
         ));
         laterFacets.push(_addFacet(
-            address(extensionGovernanceFacet), "ExtensionGovernanceFacet"
+            address(extensionPausingFacet), "ExtensionPausingFacet"
         ));
         laterFacets.push(_addFacet(
             address(upgradeManagerFacet), "UpgradeManagerFacet"
@@ -1381,6 +1388,11 @@ contract DeployTeeContracts is Script {
             "ExternalAddressesFacet.sol",
             address(externalAddressesFacet)
         );
+        _logDeployed(
+            "ExtensionGovernanceFacet",
+            "ExtensionGovernanceFacet.sol",
+            address(extensionGovernanceFacet)
+        );
     }
 
     function _logLaterFacetAddresses() internal view {
@@ -1390,9 +1402,9 @@ contract DeployTeeContracts is Script {
             address(replicationFacet)
         );
         _logDeployed(
-            "ExtensionGovernanceFacet",
-            "ExtensionGovernanceFacet.sol",
-            address(extensionGovernanceFacet)
+            "ExtensionPausingFacet",
+            "ExtensionPausingFacet.sol",
+            address(extensionPausingFacet)
         );
         _logDeployed(
             "UpgradeManagerFacet",

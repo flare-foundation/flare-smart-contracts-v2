@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.6 <0.9;
 
-import { Signature } from "../ISignature.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
 /**
  * @title IExtensionGovernance
  * @notice Public interface for the ExtensionGovernanceFacet.
+ * @dev Manages per-extension TEE governance configurations: signer sets and thresholds
+ *      identified by a content-derived `governanceHash`. Once a hash has been recorded, its
+ *      signers and threshold are immutable; re-calling setNewTeeGovernance with the same
+ *      (signers, threshold) tuple only updates the latest-hash pointer.
  */
 interface IExtensionGovernance is ITeeCommonErrors {
 
@@ -17,66 +20,24 @@ interface IExtensionGovernance is ITeeCommonErrors {
         uint64 signersThreshold
     );
 
-    event NewPausingAddressesSet(
-        uint256 indexed extensionId,
-        uint256 indexed nonce,
-        address[] pausingAddresses
-    );
-
-    event NewPausingAddressesSigned(
-        uint256 indexed extensionId,
-        uint256 indexed nonce,
-        address indexed signer,
-        Signature signature
-    );
-
     error NoSigners();
     error SignerAlreadyExists(address signer);
-    error PausingAddressAlreadyExists(address pausingAddress);
-    error NotASigner(address signer);
-    error AlreadySigned(address signer);
-    error GovernanceNotSet();
-    error PausingAddressesNotSet();
+    error InvalidSigner();
 
     /**
-     * Sets new TEE governance.
-     * Emits NewTeeGovernanceSet event.
+     * Sets new TEE governance for the extension.
+     * Emits NewTeeGovernanceSet.
      * @param _extensionId The id of the extension.
-     * @param _signers The new governance signers.
-     * @param _signersThreshold The new governance signers threshold.
+     * @param _signers The governance signers. Must be non-empty and contain no `address(0)`
+     *      entries; each address must be unique.
+     * @param _signersThreshold The governance signers threshold. Must satisfy
+     *      0 < threshold <= signers.length.
      * Can only be called by the extension owner.
      */
     function setNewTeeGovernance(
         uint256 _extensionId,
         address[] calldata _signers,
         uint64 _signersThreshold
-    )
-        external;
-
-    /**
-     * Sets new TEE pausing addresses.
-     * Emits NewPausingAddressesSet event.
-     * @param _extensionId The id of the extension.
-     * @param _pausingAddresses The list of new pausing addresses, can be empty.
-     * Can only be called the extension owner.
-     */
-    function setTeePausingAddresses(
-        uint256 _extensionId,
-        address[] calldata _pausingAddresses
-    )
-        external;
-
-    /**
-     * Signs pausing addresses.
-     * Emits NewPausingAddressesSigned event.
-     * @param _extensionId The id of the extension.
-     * @param _nonce The nonce of the pausing addresses.
-     * @param _signature The signature of the TEE pausing addresses list.
-     */
-    function signTeePausingAddresses(
-        uint256 _extensionId,
-        uint256 _nonce,
-        Signature calldata _signature
     )
         external;
 
@@ -151,7 +112,7 @@ interface IExtensionGovernance is ITeeCommonErrors {
         );
 
     /**
-     * Checks if the governance hash is valid.
+     * Checks if the governance hash is valid (i.e. has been recorded for this extension).
      * @param _extensionId The id of the extension.
      * @param _governanceHash The governance hash.
      * @return True if the governance hash is valid, false otherwise.
@@ -159,68 +120,6 @@ interface IExtensionGovernance is ITeeCommonErrors {
     function isGovernanceHashValid(
         uint256 _extensionId,
         bytes32 _governanceHash
-    )
-        external view
-        returns (bool);
-
-    /**
-     * Returns the TEE pausing addresses for the given nonce.
-     * @param _extensionId The id of the extension.
-     * @param _nonce The nonce.
-     * @return _pausingAddresses The TEE pausing addresses.
-     * @return _signatures The signatures of the TEE pausing addresses list signed by TEE governance signers.
-     */
-    function getTeePausingAddresses(
-        uint256 _extensionId,
-        uint256 _nonce
-    )
-        external view
-        returns (
-            address[] memory _pausingAddresses,
-            Signature[] memory _signatures
-        );
-
-    /**
-     * Returns the latest TEE pausing addresses.
-     * @param _extensionId The id of the extension.
-     * @return _nonce The nonce of the latest TEE pausing addresses.
-     * @return _pausingAddresses The latest TEE pausing addresses.
-     * @return _signatures The signatures of the latest TEE pausing addresses list.
-     */
-    function getLatestTeePausingAddresses(
-        uint256 _extensionId
-    )
-        external view
-        returns (
-            uint256 _nonce,
-            address[] memory _pausingAddresses,
-            Signature[] memory _signatures
-        );
-
-    /**
-     * Checks if the given address is a TEE pausing addresses signer.
-     * @param _extensionId The id of the extension.
-     * @param _signer The address to check.
-     * @return True if the address is a TEE pausing addresses signer, false otherwise.
-     */
-    function isTeePausingAddressesSigner(
-        uint256 _extensionId,
-        address _signer
-    )
-        external view
-        returns (bool);
-
-    /**
-     * Checks if the given address has signed a TEE pausing addresses for the given nonce.
-     * @param _extensionId The id of the extension.
-     * @param _nonce The nonce.
-     * @param _signer The address to check.
-     * @return True if the address has signed, false otherwise.
-     */
-    function hasSignedTeePausingAddresses(
-        uint256 _extensionId,
-        uint256 _nonce,
-        address _signer
     )
         external view
         returns (bool);

@@ -34,4 +34,4 @@ contracts/tee/
 └── mock/            # test mocks
 ```
 
-Public interfaces — about 20 `I*.sol` files (`IFlareTeeManager`, `IExtensionManager`, `IInstructions`, `IMachineManager`, `IOperationFees`, `IOwnerAllowlist`, `IReplication`, `ISystemStateVerifier`, `IUpgradeManager`, `IVerification`, `IVrf`, `IVrfVerifier`, `IWalletManager`, `IWalletKeyManager`, `IWalletBackupManager`, `IWalletProjectManager`, `IWalletResume`, `IExtensionGovernance`, `IFlareGovernance`, `IDiamondGovernance`) — live in [`contracts/userInterfaces/`](../../../contracts/userInterfaces/).
+Public interfaces — about 20 `I*.sol` files (`IFlareTeeManager`, `IExtensionManager`, `IInstructions`, `IMachineManager`, `IOperationFees`, `IOwnerAllowlist`, `IReplication`, `ISystemStateVerifier`, `IUpgradeManager`, `IVerification`, `IVrf`, `IVrfVerifier`, `IWalletManager`, `IWalletKeyManager`, `IWalletBackupManager`, `IWalletProjectManager`, `IWalletResume`, `IExtensionGovernance`, `IExtensionPausing`, `IFlareGovernance`, `IDiamondGovernance`) — live in [`contracts/userInterfaces/`](../../../contracts/userInterfaces/).

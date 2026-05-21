@@ -19,6 +19,7 @@ import { IWalletBackupManager } from "../../userInterfaces/tee/IWalletBackupMana
 import { IVrf } from "../../userInterfaces/tee/IVrf.sol";
 import { IIReplication } from "./IIReplication.sol";
 import { IExtensionGovernance } from "../../userInterfaces/tee/IExtensionGovernance.sol";
+import { IExtensionPausing } from "../../userInterfaces/tee/IExtensionPausing.sol";
 import { IUpgradeManager } from "../../userInterfaces/tee/IUpgradeManager.sol";
 import { IIExternalAddresses } from "./IIExternalAddresses.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
@@ -50,6 +51,7 @@ interface IIFlareTeeManager is
     IVrf,
     IIReplication,
     IExtensionGovernance,
+    IExtensionPausing,
     IUpgradeManager,
     IIExternalAddresses
 {

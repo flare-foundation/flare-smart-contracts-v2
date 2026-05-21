@@ -94,7 +94,8 @@ About 20 public interfaces under [`userInterfaces/tee/`](../../contracts/userInt
 | [`IDiamondGovernance`](../../contracts/userInterfaces/tee/IDiamondGovernance.sol) | `diamondCut`, governance transfer. |
 | [`IFlareGovernance`](../../contracts/userInterfaces/IFlareGovernance.sol) | `Governed` accessors — implemented by `FlareGovernedBase` (used by `FlareUpgradeableBase`) and by the TEE diamond's `DiamondGovernanceFacet`. |
 | [`IExtensionManager`](../../contracts/userInterfaces/tee/IExtensionManager.sol) | Extension registration, version management, ownership. |
-| [`IExtensionGovernance`](../../contracts/userInterfaces/tee/IExtensionGovernance.sol) | Per-extension governance signers, `signTeeUpgrade`. |
+| [`IExtensionGovernance`](../../contracts/userInterfaces/tee/IExtensionGovernance.sol) | Per-extension governance signer-set + threshold management; signer / threshold / hash getters. |
+| [`IExtensionPausing`](../../contracts/userInterfaces/tee/IExtensionPausing.sol) | Per-extension pausing-addresses records bound to one or more governance hashes; per-approval signature collection with per-hash threshold-met events. |
 | [`IExternalAddresses`](../../contracts/userInterfaces/tee/IExternalAddresses.sol) | The diamond's `AddressUpdatable` view. |
 | [`IInstructions`](../../contracts/userInterfaces/tee/IInstructions.sol) | `sendInstructions`, `sendSystemInstructions`, system-instructions-sender registry. |
 | [`IMachineManager`](../../contracts/userInterfaces/tee/IMachineManager.sol) | Machine registration, status changes, ownership transfer. |

@@ -4,6 +4,7 @@
     "DiamondGovernanceFacet",
     "DiamondLoupeFacet",
     "ExtensionManagerFacet",
+    "ExtensionGovernanceFacet",
     "InstructionsFacet",
     "MachineManagerFacet",
     "VerificationFacet",
@@ -17,7 +18,7 @@
     "VrfFacet",
     "ExternalAddressesFacet",
     "ReplicationFacet",
-    "ExtensionGovernanceFacet",
+    "ExtensionPausingFacet",
     "UpgradeManagerFacet",
     "WalletResumeFacet"
   ],

@@ -18,6 +18,7 @@ import { IWalletBackupManager } from "./IWalletBackupManager.sol";
 import { IVrf } from "./IVrf.sol";
 import { IReplication } from "./IReplication.sol";
 import { IExtensionGovernance } from "./IExtensionGovernance.sol";
+import { IExtensionPausing } from "./IExtensionPausing.sol";
 import { IExternalAddresses } from "./IExternalAddresses.sol";
 import { IUpgradeManager } from "./IUpgradeManager.sol";
 import { IDiamondGovernance } from "./IDiamondGovernance.sol";
@@ -50,6 +51,7 @@ interface IFlareTeeManager is
     IVrf,
     IReplication,
     IExtensionGovernance,
+    IExtensionPausing,
     IExternalAddresses,
     IUpgradeManager,
     IDiamondGovernance

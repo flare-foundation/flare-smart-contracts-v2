@@ -3,7 +3,7 @@
 FCC has its own governance system, distinct from system-wide [`Governor`](../Governance.md). The diamond holds two governance layers:
 
 - **Diamond governance** — controls the diamond itself: `diamondCut` (add / replace / remove facets), update diamond-init-time settings, governance-only setters on every facet that has them. Implemented by [`DiamondGovernanceFacet`](../../../contracts/tee/facets/DiamondGovernanceFacet.sol) (inherits [`FlareGovernedBase`](../../../contracts/governance/implementation/FlareGovernedBase.sol) for the public API) + [`FlareGovernedAccess`](../../../contracts/governance/implementation/FlareGovernedAccess.sol) (modifiers-only base for the other facets) + [`FlareGovernance`](../../../contracts/governance/lib/FlareGovernance.sol) library (ERC-7201 namespaced storage, hash-based timelock).
-- **Extension governance** — per-extension governance signer sets that approve TEE software upgrades for that extension. Implemented by [`ExtensionGovernanceFacet`](../../../contracts/tee/facets/ExtensionGovernanceFacet.sol) + [`library/ExtensionGovernance`](../../../contracts/tee/library/ExtensionGovernance.sol).
+- **Extension governance** — per-extension governance signer sets that approve TEE software upgrades and pausing-address records for that extension. The signer-set + threshold management lives in [`ExtensionGovernanceFacet`](../../../contracts/tee/facets/ExtensionGovernanceFacet.sol) + [`library/ExtensionGovernance`](../../../contracts/tee/library/ExtensionGovernance.sol). Pausing-addresses (multi-hash-pinned approval records signed by those signers) live in the separate later facet [`ExtensionPausingFacet`](../../../contracts/tee/facets/ExtensionPausingFacet.sol) + [`library/ExtensionPausing`](../../../contracts/tee/library/ExtensionPausing.sol).
 
 Plus a related upgrade flow:
 
@@ -67,6 +67,17 @@ function signTeeUpgrade(
 Each governance signer calls this independently. The contract recovers the signer's address from the signature, checks it's in the current set, accumulates. When the threshold of distinct signers is reached, the upgrade is marked signed and the upgrade-manager flow can proceed.
 
 `NewGovernanceSet`, `TeeUpgradeSigned`, and related events are emitted.
+
+### Pausing addresses
+
+A second use of the extension's governance signer set, run by the separate later facet [`ExtensionPausingFacet`](../../../contracts/tee/facets/ExtensionPausingFacet.sol) + [`library/ExtensionPausing`](../../../contracts/tee/library/ExtensionPausing.sol). The extension owner posts a record consisting of:
+
+- An array of **pausing addresses** (off-chain consumers act on these to pause TEE machinery).
+- An array of **governance hashes** to which the record is bound. The hashes must be known to the extension (validated via `isGovernanceHashValid`) and must be distinct. Each bound hash gets its own *approval* (signers, signatures, and a per-hash `thresholdMet` flag).
+
+The signed `messageHash` includes `block.chainid`, `extensionId`, the record nonce, the bound hash list, and the pausing addresses — preventing cross-chain, cross-extension, and cross-governance signature replay. A single `signTeePausingAddresses(extensionId, nonce, signature)` call iterates the bound hash list and deposits the signature into **every** approval the signer is valid under (a signer in two hashes contributes to both). When any approval's signature count first reaches its hash-specific threshold, `TeePausingAddressesThresholdMet(extensionId, nonce, governanceHash)` fires; signature collection continues across all approvals regardless.
+
+Because each record's bound hash list is immutable once set, "old signers can still sign" is preserved automatically: if governance rotates to a new hash after a record is created, the rotated-out signers from the bound hash can still sign that record indefinitely.
 
 ## Upgrade manager
 

@@ -688,6 +688,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       "DiamondGovernanceFacet",
       "DiamondLoupeFacet",
       "ExtensionManagerFacet",
+      "ExtensionGovernanceFacet",
       "InstructionsFacet",
       "MachineManagerFacet",
       "VerificationFacet",
@@ -701,12 +702,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       "VrfFacet",
       "ExternalAddressesFacet",
     ];
-    const LATER_FACET_NAMES = [
-      "ReplicationFacet",
-      "ExtensionGovernanceFacet",
-      "UpgradeManagerFacet",
-      "WalletResumeFacet",
-    ];
+    const LATER_FACET_NAMES = ["ReplicationFacet", "ExtensionPausingFacet", "UpgradeManagerFacet", "WalletResumeFacet"];
 
     const facetCuts = [];
     const usedSelectors = new Set<string>();

@@ -22,10 +22,11 @@ import { WalletKeyManagerFacet } from "../../contracts/tee/facets/WalletKeyManag
 import { WalletManagerFacet } from "../../contracts/tee/facets/WalletManagerFacet.sol";
 import { WalletBackupManagerFacet } from "../../contracts/tee/facets/WalletBackupManagerFacet.sol";
 import { VrfFacet } from "../../contracts/tee/facets/VrfFacet.sol";
+import { ExtensionGovernanceFacet } from "../../contracts/tee/facets/ExtensionGovernanceFacet.sol";
 
 // TEE facets — later
 import { ReplicationFacet } from "../../contracts/tee/facets/ReplicationFacet.sol";
-import { ExtensionGovernanceFacet } from "../../contracts/tee/facets/ExtensionGovernanceFacet.sol";
+import { ExtensionPausingFacet } from "../../contracts/tee/facets/ExtensionPausingFacet.sol";
 import { UpgradeManagerFacet } from "../../contracts/tee/facets/UpgradeManagerFacet.sol";
 import { WalletResumeFacet } from "../../contracts/tee/facets/WalletResumeFacet.sol";
 
@@ -44,6 +45,7 @@ import { IInstructions } from "../../contracts/userInterfaces/tee/IInstructions.
 import { IMachineManager } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { IOwnerAllowlist } from "../../contracts/userInterfaces/tee/IOwnerAllowlist.sol";
 import { IExtensionGovernance } from "../../contracts/userInterfaces/tee/IExtensionGovernance.sol";
+import { IExtensionPausing } from "../../contracts/userInterfaces/tee/IExtensionPausing.sol";
 import { IReplication } from "../../contracts/userInterfaces/tee/IReplication.sol";
 import { IVerification } from "../../contracts/userInterfaces/tee/IVerification.sol";
 import { ISystemStateVerifier } from "../../contracts/userInterfaces/tee/ISystemStateVerifier.sol";
@@ -65,7 +67,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * @title FlareTeeManagerDeployer
  * @notice Shared test utility for deploying the FlareTeeManager Diamond.
  *         Mirrors the production deployment pattern (DeployTeeContracts.s.sol):
- *         - deployDay1Facets(): creates diamond with 15 day-1 facets + FlareTeeManagerInit
+ *         - deployDay1Facets(): creates diamond with 16 day-1 facets + FlareTeeManagerInit
  *         - deployLaterFacets(): adds 4 later facets via diamondCut + ReplicationInit
  *           Caller must vm.prank(initialGovernance) before calling deployLaterFacets.
  */
@@ -135,11 +137,11 @@ library FlareTeeManagerDeployer {
     }
 
     // =========================================================================
-    // Day-1 facet cuts (15 facets)
+    // Day-1 facet cuts (16 facets)
     // =========================================================================
 
     function _buildDay1FacetCuts() private returns (IDiamond.FacetCut[] memory cuts) {
-        cuts = new IDiamond.FacetCut[](15);
+        cuts = new IDiamond.FacetCut[](16);
 
         // 0: DiamondGovernanceFacet (diamondCut + FlareGovernance selectors)
         {
@@ -399,6 +401,21 @@ library FlareTeeManagerDeployer {
                 address(new VrfFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
+
+        // 16: ExtensionGovernanceFacet
+        {
+            bytes4[] memory s = new bytes4[](7);
+            s[0] = IExtensionGovernance.setNewTeeGovernance.selector;
+            s[1] = IExtensionGovernance.getLatestTeeGovernanceHash.selector;
+            s[2] = IExtensionGovernance.getTeeGovernanceThreshold.selector;
+            s[3] = IExtensionGovernance.isTeeGovernanceSigner.selector;
+            s[4] = IExtensionGovernance.getTeeGovernance.selector;
+            s[5] = IExtensionGovernance.getLatestTeeGovernance.selector;
+            s[6] = IExtensionGovernance.isGovernanceHashValid.selector;
+            cuts[15] = IDiamond.FacetCut(
+                address(new ExtensionGovernanceFacet()), IDiamond.FacetCutAction.Add, s
+            );
+        }
     }
 
     // =========================================================================
@@ -421,24 +438,16 @@ library FlareTeeManagerDeployer {
             );
         }
 
-        // 1: ExtensionGovernanceFacet
+        // 1: ExtensionPausingFacet
         {
-            bytes4[] memory s = new bytes4[](14);
-            s[0] = IExtensionGovernance.setNewTeeGovernance.selector;
-            s[1] = IExtensionGovernance.getLatestTeeGovernanceHash.selector;
-            s[2] = IExtensionGovernance.getTeeGovernanceThreshold.selector;
-            s[3] = IExtensionGovernance.setTeePausingAddresses.selector;
-            s[4] = IExtensionGovernance.signTeePausingAddresses.selector;
-            s[5] = IExtensionGovernance.isTeeGovernanceSigner.selector;
-            s[6] = IExtensionGovernance.getTeeGovernance.selector;
-            s[7] = IExtensionGovernance.getLatestTeeGovernance.selector;
-            s[8] = IExtensionGovernance.isGovernanceHashValid.selector;
-            s[9] = IExtensionGovernance.getTeePausingAddresses.selector;
-            s[10] = IExtensionGovernance.getLatestTeePausingAddresses.selector;
-            s[11] = IExtensionGovernance.isTeePausingAddressesSigner.selector;
-            s[12] = IExtensionGovernance.hasSignedTeePausingAddresses.selector;
+            bytes4[] memory s = new bytes4[](5);
+            s[0] = IExtensionPausing.setTeePausingAddresses.selector;
+            s[1] = IExtensionPausing.signTeePausingAddresses.selector;
+            s[2] = IExtensionPausing.getTeePausingAddresses.selector;
+            s[3] = IExtensionPausing.getLatestTeePausingAddresses.selector;
+            s[4] = IExtensionPausing.hasSignedTeePausingAddresses.selector;
             cuts[1] = IDiamond.FacetCut(
-                address(new ExtensionGovernanceFacet()), IDiamond.FacetCutAction.Add, s
+                address(new ExtensionPausingFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
 

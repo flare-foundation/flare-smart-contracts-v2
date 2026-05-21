@@ -7,7 +7,7 @@ import { IIFlareTeeManager } from "../../contracts/tee/interface/IIFlareTeeManag
 import { IDiamondLoupe } from "../../contracts/diamond/interfaces/IDiamondLoupe.sol";
 import { IMachineManager } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { TEE_SOURCE_ID } from "../../contracts/userInterfaces/tee/IVerification.sol";
-import { IExtensionGovernance } from "../../contracts/userInterfaces/tee/IExtensionGovernance.sol";
+import { IExtensionPausing } from "../../contracts/userInterfaces/tee/IExtensionPausing.sol";
 import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ISystemStateVerifier } from "../../contracts/userInterfaces/tee/ISystemStateVerifier.sol";
 import { IWalletManager } from "../../contracts/userInterfaces/tee/IWalletManager.sol";
@@ -185,15 +185,24 @@ contract TeeAndFdc2Test is Test {
     // =========================================================================
 
     function testDay1_facetCount() public view {
-        assertEq(IDiamondLoupe(address(flareTeeManager)).facets().length, 15);
+        assertEq(IDiamondLoupe(address(flareTeeManager)).facets().length, 16);
     }
 
     function testDay1_excludedSelectorsRevert() public {
+        // ExtensionGovernanceFacet is day-1; pick a selector that is still later-only:
+        // ExtensionPausingFacet.setTeePausingAddresses.
         vm.expectRevert(
-            abi.encodeWithSignature("FunctionNotFound(bytes4)", IExtensionGovernance.setNewTeeGovernance.selector)
+            abi.encodeWithSignature(
+                "FunctionNotFound(bytes4)", IExtensionPausing.setTeePausingAddresses.selector
+            )
         );
         address(flareTeeManager).call(
-            abi.encodeWithSelector(IExtensionGovernance.setNewTeeGovernance.selector, 0, new address[](0), 0)
+            abi.encodeWithSelector(
+                IExtensionPausing.setTeePausingAddresses.selector,
+                0,
+                new bytes32[](0),
+                new address[](0)
+            )
         );
     }
 

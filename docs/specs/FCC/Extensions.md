@@ -5,7 +5,8 @@ FCC is **multi-tenant**. The default tenant is the **system extension** (extensi
 The on-chain pieces:
 
 - [`ExtensionManagerFacet`](../../../contracts/tee/facets/ExtensionManagerFacet.sol) + [`library/ExtensionManager`](../../../contracts/tee/library/ExtensionManager.sol) — extension registry, supported versions, owner allowlist linkage.
-- [`ExtensionGovernanceFacet`](../../../contracts/tee/facets/ExtensionGovernanceFacet.sol) + [`library/ExtensionGovernance`](../../../contracts/tee/library/ExtensionGovernance.sol) — per-extension governance signers and threshold for signing TEE upgrades.
+- [`ExtensionGovernanceFacet`](../../../contracts/tee/facets/ExtensionGovernanceFacet.sol) + [`library/ExtensionGovernance`](../../../contracts/tee/library/ExtensionGovernance.sol) — per-extension governance signer-set + threshold management. Day-1 facet.
+- [`ExtensionPausingFacet`](../../../contracts/tee/facets/ExtensionPausingFacet.sol) + [`library/ExtensionPausing`](../../../contracts/tee/library/ExtensionPausing.sol) — per-extension pausing-addresses records bound to one or more governance hashes; signed by the governance signers. Later facet.
 
 This page covers the extension system itself. For the applications that Flare currently offers *within* the system extension (FDC2, PMW), see the per-application sections at the end.
 
@@ -152,7 +153,7 @@ A typical custom extension flow:
 2. **Configure** TEE versions (`addTeeVersion`) for the platforms the extension's TEE software runs on. The TEE software itself has to be built and the binary's code hash known in advance.
 3. **Configure** supported key types if the extension's wallets need anything beyond default.
 4. **Allowlist owners** via `OwnerAllowlistFacet.addAllowedTeeMachineOwner(extensionId, ownerAddress)` for each TEE operator the extension wants to permit.
-5. **Configure governance signers** via `ExtensionGovernanceFacet.setNewTeeGovernance(extensionId, signers, threshold)` — the addresses that will sign extension upgrades. See [Governance](./Governance.md).
+5. **Configure governance signers** via `ExtensionGovernanceFacet.setNewTeeGovernance(extensionId, signers, threshold)` — the addresses authorized to sign extension upgrades and pausing-address records. `signers` must contain no `address(0)` entries and no duplicates. See [Governance](./Governance.md).
 6. **Operators register their TEE machines** via `MachineManagerFacet.register` with the extension's ID. The machines run the registered code hash on registered platforms.
 7. **The instructions sender contract** (configured at registration via `setExtensionContracts` later if needed) is the single address that calls `InstructionsFacet.sendInstructions` on behalf of users. Application contracts call into this gateway, which validates application-level access and then forwards to FCC.
 
