@@ -521,7 +521,18 @@ contract TeeMachineReplicationTest is Test {
 
     function testSignTeeUpgrade() public {
         testFinalizeTeeUpgrade();
-        bytes32 messageHash = keccak256(abi.encode(flareTeeManager.getTeeUpgradePaths(0)));
+        // Mirror UpgradeManagerFacet.finalizeTeeUpgrade's bound messageHash composition.
+        bytes32 messageHash = keccak256(
+            abi.encode(
+                "TEE_UPGRADE",
+                block.chainid,
+                extensionId,
+                uint256(0),
+                governanceHash1,
+                governanceHash2,
+                flareTeeManager.getTeeUpgradePaths(0)
+            )
+        );
         for (uint256 i = 0; i < governanceSignersThreshold1; i++) {
             Signature memory signature =
                 SignatureHelper.createSignature(vm, messageHash, governanceSigners1[i].privateKey);

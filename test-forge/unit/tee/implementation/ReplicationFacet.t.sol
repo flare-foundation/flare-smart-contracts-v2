@@ -807,7 +807,20 @@ contract ReplicationFacetTest is Test {
     )
         private
     {
-        bytes32 messageHash = keccak256(abi.encode(flareTeeManager.getTeeUpgradePaths(_upgradeId)));
+        // Mirror UpgradeManagerFacet.finalizeTeeUpgrade's bound messageHash. In this file the
+        // source and target governance hashes are always the same (`governanceHash`); see
+        // _createTeeUpgradePathAndSign which calls createNewTeeUpgrade(extensionId, governanceHash, governanceHash).
+        bytes32 messageHash = keccak256(
+            abi.encode(
+                "TEE_UPGRADE",
+                block.chainid,
+                extensionId,
+                _upgradeId,
+                governanceHash,
+                governanceHash,
+                flareTeeManager.getTeeUpgradePaths(_upgradeId)
+            )
+        );
         // Sign with source governance signers
         for (uint256 i = 0; i < _sourceThreshold; i++) {
             Signature memory signature =

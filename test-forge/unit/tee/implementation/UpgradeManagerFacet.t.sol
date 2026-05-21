@@ -339,7 +339,10 @@ contract UpgradeManagerFacetTest is Test {
 
     // signTeeUpgrade
     function testSignTeeUpgradeRevertInvalidUpgradeId() public {
-        Signature memory signature = _createSourceSignature();
+        // No upgrade exists; signature payload is irrelevant since the validity check fires
+        // before any messageHash work. Construct a placeholder directly to avoid the helpers
+        // touching the (non-existent) on-chain upgrade.
+        Signature memory signature = Signature(0, bytes32(0), bytes32(0));
         vm.expectRevert(IUpgradeManager.InvalidUpgradeId.selector);
         flareTeeManager.signTeeUpgrade(teeUpgradeId, signature);
     }
@@ -411,7 +414,7 @@ contract UpgradeManagerFacetTest is Test {
         flareTeeManager.finalizeTeeUpgrade(upgradeId);
 
         // Sign with target signer (threshold 1 - satisfied)
-        bytes32 messageHash = keccak256(abi.encode(flareTeeManager.getTeeUpgradePaths(upgradeId)));
+        bytes32 messageHash = _upgradeMessageHash(upgradeId, newSourceGovHash, targetTeeGovernanceHash);
         Signature memory targetSig = SignatureHelper.createSignature(vm, messageHash, targetPrivateKeys[0]);
         vm.prank(targetSigners[0]);
         flareTeeManager.signTeeUpgrade(upgradeId, targetSig);
@@ -461,7 +464,7 @@ contract UpgradeManagerFacetTest is Test {
         flareTeeManager.finalizeTeeUpgrade(upgradeId);
 
         // Sign with source signer (threshold 1 - satisfied)
-        bytes32 messageHash = keccak256(abi.encode(flareTeeManager.getTeeUpgradePaths(upgradeId)));
+        bytes32 messageHash = _upgradeMessageHash(upgradeId, sourceTeeGovernanceHash, newTargetGovHash);
         Signature memory sourceSig = SignatureHelper.createSignature(vm, messageHash, sourcePrivateKeys[0]);
         vm.prank(sourceSigners[0]);
         flareTeeManager.signTeeUpgrade(upgradeId, sourceSig);
@@ -473,6 +476,31 @@ contract UpgradeManagerFacetTest is Test {
 
         // Not signed yet because target needs 2
         assertFalse(flareTeeManager.isTeeUpgradeSigned(upgradeId));
+    }
+
+    function testSignTeeUpgradeRejectsReplayAcrossUpgrades() public {
+        // Two upgrades on the same extension with IDENTICAL paths and IDENTICAL source/target
+        // governance hashes still differ in upgradeId — so the bound messageHash differs and a
+        // signature collected for upgrade 0 must NOT validate on upgrade 1.
+        testFinalizeTeeUpgrade(); // creates and finalizes upgrade 0
+
+        vm.prank(owner);
+        uint256 secondUpgradeId = flareTeeManager.createNewTeeUpgrade(
+            extensionId, sourceTeeGovernanceHash, targetTeeGovernanceHash
+        );
+        vm.prank(owner);
+        flareTeeManager.addTeeUpgradePaths(secondUpgradeId, _getUpgradePaths());
+        vm.prank(owner);
+        flareTeeManager.finalizeTeeUpgrade(secondUpgradeId);
+
+        // Source signer's signature bound to upgrade 0
+        Signature memory sigForUpgrade0 = _createSourceSignature();
+
+        // Replay against upgrade 1 — ECDSA.recover against upgrade 1's messageHash recovers a
+        // different (random) address that's in NEITHER source nor target signer sets, so the
+        // call reverts with InvalidSignature.
+        vm.expectRevert(IUpgradeManager.InvalidSignature.selector);
+        flareTeeManager.signTeeUpgrade(secondUpgradeId, sigForUpgrade0);
     }
 
     // isTeeUpgradePathValid
@@ -630,15 +658,48 @@ contract UpgradeManagerFacetTest is Test {
         private view
         returns (Signature memory)
     {
-        bytes32 messageHash = keccak256(abi.encode(_getUpgradePaths()));
-        return SignatureHelper.createSignature(vm, messageHash, sourcePrivateKeys[0]);
+        return SignatureHelper.createSignature(
+            vm,
+            _upgradeMessageHash(teeUpgradeId, sourceTeeGovernanceHash, targetTeeGovernanceHash),
+            sourcePrivateKeys[0]
+        );
     }
 
     function _createTargetSignature()
         private view
         returns (Signature memory)
     {
-        bytes32 messageHash = keccak256(abi.encode(_getUpgradePaths()));
-        return SignatureHelper.createSignature(vm, messageHash, targetPrivateKeys[0]);
+        return SignatureHelper.createSignature(
+            vm,
+            _upgradeMessageHash(teeUpgradeId, sourceTeeGovernanceHash, targetTeeGovernanceHash),
+            targetPrivateKeys[0]
+        );
+    }
+
+    /**
+     * Mirrors UpgradeManagerFacet.finalizeTeeUpgrade's messageHash composition. Must stay in
+     * lock-step with the production code: chainid + extensionId + upgradeId + source/target
+     * governance hashes + the upgrade paths content. Reads paths from the diamond, so the
+     * upgrade must already exist on-chain when this is called.
+     */
+    function _upgradeMessageHash(
+        uint256 _upgradeId,
+        bytes32 _sourceGovHash,
+        bytes32 _targetGovHash
+    )
+        private view
+        returns (bytes32)
+    {
+        return keccak256(
+            abi.encode(
+                "TEE_UPGRADE",
+                block.chainid,
+                extensionId,
+                _upgradeId,
+                _sourceGovHash,
+                _targetGovHash,
+                flareTeeManager.getTeeUpgradePaths(_upgradeId)
+            )
+        );
     }
 }

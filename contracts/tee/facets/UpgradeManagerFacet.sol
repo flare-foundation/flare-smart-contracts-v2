@@ -135,7 +135,20 @@ contract UpgradeManagerFacet is IUpgradeManager {
         ExtensionManager.checkOnlyExtensionOwner(teeUpgrade.extensionId);
         require(teeUpgrade.messageHash == bytes32(0), UpgradeAlreadyFinalized());
         require(teeUpgrade.upgradePaths.length > 0, NoUpgradePaths());
-        teeUpgrade.messageHash = keccak256(abi.encode(_getTeeUpgradePaths(_teeUpgradeId)));
+        // Bind chainid + extensionId + upgradeId + source/target governance hashes into the
+        // signed payload, preventing cross-chain, cross-extension, cross-upgrade, and
+        // cross-governance signature replay between upgrades that happen to share path content.
+        teeUpgrade.messageHash = keccak256(
+            abi.encode(
+                "TEE_UPGRADE",
+                block.chainid,
+                teeUpgrade.extensionId,
+                _teeUpgradeId,
+                teeUpgrade.sourceTeeGovernanceHash,
+                teeUpgrade.targetTeeGovernanceHash,
+                _getTeeUpgradePaths(_teeUpgradeId)
+            )
+        );
         emit TeeUpgradeFinalized(_teeUpgradeId);
     }
 
