@@ -61,6 +61,8 @@ pnpm format:check          # Prettier formatting
 pnpm coverage-forge        # Coverage (runs all Forge tests)
 ```
 
+In a Claude Code session, invoke the [`check-all`](./.claude/skills/check-all/SKILL.md) skill (or say "run the pre-commit checks") to run the full checklist plus the Hardhat integration tests and a simulation smoke test in one pass, with a compact status block at the end.
+
 Also: **update [`docs/specs/`](./docs/specs/) to reflect any code changes you made** — see the [Documentation](#documentation) section below.
 
 ## Documentation
