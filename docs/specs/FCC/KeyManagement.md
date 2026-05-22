@@ -10,8 +10,8 @@ A wallet inside FCC is a secret key (or a set of keys) generated, used, and stor
 
 The on-chain pieces are:
 
-- [`WalletKeyManagerFacet`](../../../contracts/tee/facets/WalletKeyManagerFacet.sol) + [`library/WalletKeyManager`](../../../contracts/tee/library/WalletKeyManager.sol) — generate, delete, restore.
-- [`WalletBackupManagerFacet`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol) — submit and finalize Shamir shares (uses the same `WalletKeyManager` library).
+- [`WalletKeyManagerFacet`](../../../contracts/tee/facets/WalletKeyManagerFacet.sol) + [`library/WalletKeyManager`](../../../contracts/tee/library/WalletKeyManager.sol) — generate, delete, restore. Also exposes the read-only [`getKeyNonce(teeId, walletId, keyId)`](../../../contracts/userInterfaces/tee/IWalletKeyManager.sol) view, returning `(uint256 _nonce, bool _teeHoldsKey)` so callers can disambiguate "TEE holds the key at this nonce" from "TEE never held this key".
+- [`WalletBackupManagerFacet`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol) — submit and finalize Shamir shares (uses the same `WalletKeyManager` library); additionally drives the [direct backup / restore](#direct-backup--restore) flow gated by [`MachinePathManager`](./Governance.md#machine-path-manager).
 - [`VrfFacet`](../../../contracts/tee/facets/VrfFacet.sol) + [`Vrf`](../../../contracts/tee/library/Vrf.sol) — VRF requests and proofs.
 
 ## Key types and signing algorithms
@@ -67,6 +67,83 @@ When a TEE machine custodying a wallet has failed (no replication sibling left, 
 5. The new TEE attests to successful restore. The on-chain side records the restored key descriptor and the wallet is back in business.
 
 The cryptographic core (Shamir over the underlying field, threshold checks, share validity) is enforced off-chain inside the TEE. The on-chain piece just routes shares, accumulates a threshold's worth, and keys the machinery on the right wallet.
+
+## Direct backup / restore
+
+A second restore path lets a wallet key be migrated **directly between two TEE machines** without going through admin-decryption + reconstruction. It is gated by a governance-signed [machine-path list](./Governance.md#machine-path-manager) — the extension's governance has to have explicitly approved the `(source teeId, destination teeId)` pair before either operation is callable.
+
+### `directBackup`
+
+Triggers backup creation on the source TEE. Both source and destination must be in `PRODUCTION` status. The source produces an encrypted backup blob and exposes it on its proxy.
+
+```solidity
+function directBackup(
+    address _sourceTeeId,
+    address _destinationTeeId,
+    bytes32 _walletId,
+    uint64 _keyId,
+    address _claimBackAddress
+)
+    external payable
+    returns (bytes32 _instructionId);
+```
+
+On-chain validation, in order:
+
+1. **Project auth** — caller must be the wallet's project owner or backup manager.
+2. **Both ends are PRODUCTION** — neither side accepts a backup operation in any other status (the backup blob is no use if a side is paused / suspended / banned).
+3. **Extension match** — source, destination, and the wallet's project must all share the same extension.
+4. **Active-list path** — `(sourceTeeId, destinationTeeId)` must be present in the extension's currently-active signed `MachinePathList`. Reverts `NoActiveMachinePathList` if the extension has never had a signed list, `InvalidMachinePath` if the pair isn't in the active list. The function captures the active list nonce and ships it as `machinePathListNonce` in the instruction payload — the relay client reads the list from chain by `(extensionId, nonce)` and forwards it alongside the instruction so the source TEE can verify path membership locally.
+5. **Source actually holds the key** — `getWalletKeyTeeIds(walletId, keyId)` must contain the source teeId; otherwise reverts `SourceTeeDoesNotHoldKey`.
+6. **Destination nonce — read, do NOT mutate** — the function computes `destinationNonce = WalletKeyManager.getKeyNonce(destinationTeeId, walletId, keyId) + 1` and ships that exact value in the instruction. The destination's stored nonce is left unchanged until `directRestore`.
+
+The dispatched instruction is `(F_WALLET, "KEY_DIRECT_BACKUP")` with payload [`KeyDirectBackup`](../../../contracts/userInterfaces/tee/IWalletBackupManager.sol) (sourceTeeId, walletId, keyId, destination TEE's public key, destinationNonce, machinePathListNonce). No additional cosigners are required on the instruction — the governance-signed path list is itself the authorization.
+
+`DirectBackupTriggered` fires with the returned instructionId; the off-chain caller captures that id and passes it as `_backupInstructionId` into the later `directRestore`.
+
+### `directRestore`
+
+Triggers the key import on the destination TEE. The destination must be in `PRODUCTION`; the source must be in any status other than `INITIALIZED` (it may have moved past `PRODUCTION` since the backup was created — what matters is that its attestation is real).
+
+```solidity
+function directRestore(
+    address _destinationTeeId,
+    BackupId calldata _backupId,
+    bytes32 _backupInstructionId,
+    address _claimBackAddress
+)
+    external payable
+    returns (bytes32 _instructionId);
+```
+
+Shares the same restore-side gate block with the legacy `backupRestore` (factored as `_validateRestoreInputs` in the facet): destination PRODUCTION, source not INITIALIZED, destination must not already hold the key, stored public key matches `BackupId.publicKey`, reward-epoch in the supported range, keyType / signingAlgo match the project, all teeIds belong to the extension.
+
+In addition:
+
+1. **Active-list path** — `(BackupId.teeId, destinationTeeId)` must be in the active list (same gate as `directBackup`).
+2. **Now mutate the destination nonce** — `WalletKeyManager.increaseKeyNonce(destinationTeeId, walletId, keyId)` bumps the stored value by `+1`. The new value must equal the `destinationNonce` the source committed to during the prior `directBackup` — off-chain enforcement based on the `DirectBackupTriggered` event the relay client observed.
+
+The dispatched instruction is `(F_WALLET, "KEY_DIRECT_RESTORE")` with payload [`KeyDirectRestore`](../../../contracts/userInterfaces/tee/IWalletBackupManager.sol) (sourceTeeId, source's proxy URL looked up on-chain, the BackupId, `backupInstructionId` so the destination knows which response to fetch from the source proxy, just-incremented destinationNonce, machinePathListNonce). Again, no cosigners — the path list is the authorization.
+
+`DirectRestoreTriggered` fires with the just-incremented destination nonce.
+
+### Read-vs-bump nonce contract
+
+The two calls together implement a single nonce-coordinated handshake:
+
+| Call | Reads destination nonce? | Writes destination nonce? | Value shipped to TEE |
+|---|---|---|---|
+| `directBackup` | yes (via `getKeyNonce`) | **no** | `current + 1` (the value the destination will be at after `directRestore` succeeds) |
+| `directRestore` | n/a | yes (`increaseKeyNonce`) | the just-incremented value |
+
+If the destination's nonce changes between `directBackup` and `directRestore` (some other key operation slipped in), the value the source committed its backup blob to no longer matches the destination's actual post-restore value — and the proof the destination produces afterward will not match the source's expectation. The two calls thus form a tight handshake; nothing on chain enforces ordering or atomicity beyond this nonce binding, so callers should not interleave key-mutating operations on the destination between the two calls.
+
+### When to use which restore
+
+- **Use `backupRestore`** when bringing a key back from admin-encrypted Shamir shares (the original mechanism). The wallet's admin set acts as the trust anchor.
+- **Use `directBackup` + `directRestore`** when migrating a key directly between two extension-attested TEE machines. The extension's governance acts as the trust anchor (via the path list); admins are not involved per-operation.
+
+The two paths coexist — neither replaces the other. They share the restore-side validation block (`_validateRestoreInputs`) so any future tightening of that gate applies to both flows uniformly.
 
 ## VRF
 

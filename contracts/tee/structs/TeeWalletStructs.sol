@@ -20,6 +20,10 @@ interface TeeWalletStructs {
 
     function backupIdStruct(IWalletBackupManager.BackupId calldata) external;
 
+    function keyDirectBackupStruct(IWalletBackupManager.KeyDirectBackup calldata) external;
+
+    function keyDirectRestoreStruct(IWalletBackupManager.KeyDirectRestore calldata) external;
+
     function setPausingAddressesStruct(IWalletResume.SetPausingAddresses calldata) external;
 
     function resumeStruct(IWalletResume.Resume calldata) external;

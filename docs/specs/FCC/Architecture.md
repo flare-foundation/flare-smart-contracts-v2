@@ -1,6 +1,6 @@
 # FCC Architecture
 
-FCC is a single EIP-2535 diamond proxy. One address (`FlareTeeManager`) on Flare; internally, every state-changing call is routed via `delegatecall` to one of around 21 facets, each holding a small slice of behavior. State lives in **ERC-7201 namespaced storage** so facets can be added, replaced, or removed without storage collisions.
+FCC is a single EIP-2535 diamond proxy. One address (`FlareTeeManager`) on Flare; internally, every state-changing call is routed via `delegatecall` to one of around 22 facets, each holding a small slice of behavior. State lives in **ERC-7201 namespaced storage** so facets can be added, replaced, or removed without storage collisions.
 
 This page describes the on-chain layout: how the diamond is constructed, how facets and libraries split responsibilities, the storage model, and how the auxiliary `TeePayments*` contracts plug in around the diamond.
 
@@ -47,7 +47,7 @@ The on-chain code separates into three layers:
 - `contracts/userInterfaces/tee/I*.sol` — public ABI surface (what consumers and integrators see). Examples: `IFlareTeeManager`, `IInstructions`, `IMachineManager`, `IOperationFees`.
 - `contracts/tee/interface/II*.sol` — internal interfaces used between FCC pieces and by other modules (`Fdc2Hub` imports `IIFlareTeeManager`). The `II*` prefix marks these as internal.
 
-The 21 facets and what they expose:
+The 22 facets and what they expose:
 
 | Facet | Library | What it does |
 |-------|---------|--------------|
@@ -59,6 +59,7 @@ The 21 facets and what they expose:
 | [`FlareGovernedAccess`](../../../contracts/governance/implementation/FlareGovernedAccess.sol) (inherited by every non-governance facet) and [`DiamondGovernanceFacet`](../../../contracts/tee/facets/DiamondGovernanceFacet.sol) (inherits [`FlareGovernedBase`](../../../contracts/governance/implementation/FlareGovernedBase.sol) for the public API) | (`FlareGovernance`) | Diamond-internal `onlyGovernance` modifier (all facets) and the public `Governed` accessors / `diamondCut` (only `DiamondGovernanceFacet`). |
 | [`InstructionsFacet`](../../../contracts/tee/facets/InstructionsFacet.sol) | `Instructions` | The main `sendInstructions` entry — fee-validated TEE instruction dispatch. Also: register / unregister system-instructions sender contracts. |
 | [`MachineManagerFacet`](../../../contracts/tee/facets/MachineManagerFacet.sol) | `MachineManager` | TEE machine registration, status changes (initialized → production → paused → upgraded), ownership transfers, attestation acceptance. |
+| [`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol) | `MachinePathManager` | Per-extension governance-signed allow-list of `(sourceTeeIds[], destinationTeeIds[])` paths. Generic primitive; currently gates [`WalletBackupManagerFacet.directBackup` / `directRestore`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol). Day-1 facet. |
 | [`OperationFeesFacet`](../../../contracts/tee/facets/OperationFeesFacet.sol) | `OperationFees` | Per-extension, per-`(opType, opCommand)` fee schedule. Lookup methods used by `InstructionsFacet` to compute the required fee. |
 | [`OwnerAllowlistFacet`](../../../contracts/tee/facets/OwnerAllowlistFacet.sol) | `OwnerAllowlist` | Per-extension allowlist of TEE-machine owners. Only allowlisted addresses can register machines for that extension. |
 | [`ReplicationFacet`](../../../contracts/tee/facets/ReplicationFacet.sol) | `Replication` | TEE machine replication: pair primary and replicate machines, control replication state. |
@@ -116,6 +117,9 @@ ExtensionManager ←── MachineManager ←── Instructions ←── (most
                                                                       ├── WalletBackupManager (uses same lib)
                                                                       └── WalletResume
                                             UpgradeManager ←── ExtensionGovernance
+                                            MachinePathManager ←── ExtensionGovernance
+                                                                    ↑
+                                                         (read by WalletBackupManager.directBackup/directRestore)
                                             Vrf (own state, calls MachineManager)
                                             OwnerAllowlist (own state)
 ```
@@ -144,6 +148,7 @@ Cross-library structs live in [`contracts/tee/structs/`](../../../contracts/tee/
 - `TeePaymentsStructs` — payment / fee schedule structs.
 - `TeeWalletStructs` — wallet, key, admin set structs.
 - `TeeUpgradeStructs` — upgrade lifecycle.
+- `TeeMachinePathStructs` — machine path lists (`MachinePath` exposer for ABI codegen).
 - `TeeVerificationStructs`, `TeeVrfStructs` — verification-flow specifics.
 
 ## What's "in" the diamond vs "around" it

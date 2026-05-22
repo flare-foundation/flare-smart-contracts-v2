@@ -297,6 +297,38 @@ contract WalletKeyManagerFacet is IWalletKeyManager {
         return WalletKeyManager.getWalletKeyTeeIds(_walletId, _keyId);
     }
 
+    /**
+     * @inheritdoc IWalletKeyManager
+     */
+    function getKeyNonce(
+        address _teeId,
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        external view
+        returns (
+            uint256 _nonce,
+            bool _teeHoldsKey
+        )
+    {
+        WalletKeyManager.KeyDefinition storage keyDefinition =
+            WalletKeyManager.getState().walletKeys[_walletId].keyDefinitions[_keyId];
+        require(keyDefinition.publicKey.length > 0, InvalidKeyId());
+        bytes32 projectId = WalletManager.getWalletProjectId(_walletId);
+        require(
+            MachineManager.getExtensionId(_teeId) == WalletProjectManager.getExtensionId(projectId),
+            ExtensionIdMismatch()
+        );
+        _nonce = keyDefinition.nonces[_teeId];
+        address[] storage teeIds = keyDefinition.teeIds;
+        for (uint256 i = 0; i < teeIds.length; i++) {
+            if (teeIds[i] == _teeId) {
+                _teeHoldsKey = true;
+                break;
+            }
+        }
+    }
+
     // =========================================================================
     // Private helpers
     // =========================================================================

@@ -70,6 +70,45 @@ library WalletKeyManager {
         return getState().walletKeys[_walletId].keyDefinitions[_keyId].teeIds;
     }
 
+    /**
+     * Returns true iff `_teeId` is currently registered as holding `(walletId, keyId)`.
+     * Returns false for keys that don't exist (the underlying teeIds array is empty).
+     */
+    function isKeyAvailable(
+        address _teeId,
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        internal view
+        returns (bool)
+    {
+        address[] storage teeIds =
+            getState().walletKeys[_walletId].keyDefinitions[_keyId].teeIds;
+        for (uint256 i = 0; i < teeIds.length; i++) {
+            if (teeIds[i] == _teeId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Raw read of the per-(teeId, walletId, keyId) nonce. Performs NO validation — callers are
+     * expected to enforce key existence / extension match independently (the backup & restore
+     * flows already do this for their own reasons). Returns 0 for any input combination that does
+     * not have a stored entry, including non-existent keys.
+     */
+    function getKeyNonce(
+        address _teeId,
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        internal view
+        returns (uint256)
+    {
+        return getState().walletKeys[_walletId].keyDefinitions[_keyId].nonces[_teeId];
+    }
+
     function increaseKeyNonce(
         address _teeId,
         bytes32 _walletId,

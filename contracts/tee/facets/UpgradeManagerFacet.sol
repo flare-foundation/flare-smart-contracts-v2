@@ -247,6 +247,17 @@ contract UpgradeManagerFacet is IUpgradeManager {
     }
 
     /// @inheritdoc IUpgradeManager
+    function getTeeUpgradeMessageHash(
+        uint256 _teeUpgradeId
+    )
+        external view
+        onlyValidTeeUpgradeId(_teeUpgradeId)
+        returns (bytes32)
+    {
+        return UpgradeManager.getState().teeUpgrades[_teeUpgradeId].messageHash;
+    }
+
+    /// @inheritdoc IUpgradeManager
     function getTeeUpgradesCount()
         external view
         returns (uint256)

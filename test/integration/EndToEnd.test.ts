@@ -390,6 +390,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
   const challenges: string[] = [];
   const instructionIds: string[] = [];
 
+  // Direct backup / restore — populated by the machine-path-list creation step and reused by the
+  // subsequent directBackup + directRestore steps.
+  let machinePathListNonce: string;
+  let machinePaths: { sourceTeeIds: string[]; destinationTeeIds: string[] }[];
+  let directBackupInstructionId: string;
+
   [x1, y1] = util.privateKeyToPublicKeyPairString(privateKeys[10].privateKey.slice(2));
   [x2, y2] = util.privateKeyToPublicKeyPairString(privateKeys[11].privateKey.slice(2));
   const adminsPublicKeys1 = [
@@ -701,6 +707,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       "WalletBackupManagerFacet",
       "VrfFacet",
       "ExternalAddressesFacet",
+      "MachinePathManagerFacet",
     ];
     const LATER_FACET_NAMES = ["ReplicationFacet", "ExtensionPausingFacet", "UpgradeManagerFacet", "WalletResumeFacet"];
 
@@ -749,6 +756,22 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     );
     const flareTeeManagerDiamondCut = await IDiamondCut.at(flareTeeManagerDiamond.address);
     await flareTeeManagerDiamondCut.diamondCut(laterFacetCuts, replicationInit.address, replicationInitCalldata);
+
+    // Test-only facet: lets us retrofit a non-zero governance hash onto an existing codeHash
+    // binding so MachinePathManager flows can be exercised without going through the full TEE
+    // node-version upgrade dance.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const MockTeeGovernanceHashSetterArtifact = artifacts.require("MockTeeGovernanceHashSetter" as any);
+    const mockSetterInstance = await MockTeeGovernanceHashSetterArtifact.new();
+    const mockSetterSelectors = getSelectors(MockTeeGovernanceHashSetterArtifact.abi).filter(
+      (s) => !usedSelectors.has(s)
+    );
+    mockSetterSelectors.forEach((s) => usedSelectors.add(s));
+    await flareTeeManagerDiamondCut.diamondCut(
+      [{ facetAddress: mockSetterInstance.address, action: 0, functionSelectors: mockSetterSelectors }],
+      constants.ZERO_ADDRESS,
+      "0x"
+    );
 
     // Get IIFlareTeeManager view at Diamond address (single interface covering all facets)
     flareTeeManager = await IIFlareTeeManager.at(flareTeeManagerDiamond.address);
@@ -2250,6 +2273,137 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     expectEvent(tx, "WalletEnabled", {
       walletId: WALLET2_ID,
     });
+  });
+
+  // ===========================================================================================
+  // Direct backup / restore — exercise the MachinePathManager-gated key migration flow.
+  // Key 0 of WALLET1 currently lives on TEE_IDS[0]. We authorize a path TEE_IDS[0] → TEE_IDS[1]
+  // via a governance-signed list, then trigger directBackup and directRestore for that key.
+  // ===========================================================================================
+
+  it("Should create + sign a machine-path list authorizing TEE0 → TEE1", async () => {
+    // Retrofit a non-zero governance hash onto TEE_CODE_HASH for the MachinePathManager flow.
+    // The earlier `addTeeVersion(... ZERO_BYTES32)` call leaves the binding zero, which is fine
+    // for the legacy TEE production / availability-check path but means `getTeeGovernanceHash`
+    // returns zero — making no signer recognisable to MachinePathManager. Use the test-only
+    // mock setter (added during diamond construction above) to wire the actual governance hash in.
+    const teeGovernanceHash = await flareTeeManager.getLatestTeeGovernanceHash(0);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mockSetter = (await artifacts.require("MockTeeGovernanceHashSetter" as any).at(
+      flareTeeManager.address
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    )) as any;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    await mockSetter.mockSetTeeGovernanceHash(0, TEE_CODE_HASH, teeGovernanceHash);
+
+    let tx = await flareTeeManager.createNewMachinePathList(0);
+    expectEvent(tx, "MachinePathListStarted", { extensionId: "0", nonce: "1" });
+    machinePathListNonce = "1";
+
+    machinePaths = [
+      {
+        sourceTeeIds: [TEE_IDS[0]],
+        destinationTeeIds: [TEE_IDS[1]],
+      },
+    ];
+    tx = await flareTeeManager.addMachinePaths(0, machinePathListNonce, machinePaths);
+    expectEvent(tx, "MachinePathsAdded", { extensionId: "0", nonce: machinePathListNonce });
+
+    tx = await flareTeeManager.finalizeMachinePathList(0, machinePathListNonce);
+    expectEvent(tx, "MachinePathListFinalized", { extensionId: "0", nonce: machinePathListNonce });
+
+    // Read the canonical messageHash from the contract — the value off-chain signers must sign.
+    // (Computing it independently in JS is brittle because Solidity's `abi.encode` of string
+    // literals + struct arrays has subtle interactions with web3 / ethers ABI coders.)
+    const messageHash = await flareTeeManager.getMachinePathListMessageHash(0, machinePathListNonce);
+
+    // teeGovernanceSignersThreshold = 3. Sign with the first 3 of the 6 governance signers.
+    for (let i = 0; i < teeGovernanceSignersThreshold; i++) {
+      const sig = await ECDSASignature.signMessageHash(messageHash, privateKeys[50 + i].privateKey);
+      tx = await flareTeeManager.signMachinePathList(0, machinePathListNonce, sig);
+    }
+    expectEvent(tx, "MachinePathListSigned", { extensionId: "0", nonce: machinePathListNonce });
+
+    const activeNonce = await flareTeeManager.getActiveMachinePathListNonce(0);
+    expect(activeNonce.toString()).to.equal(machinePathListNonce);
+  });
+
+  it("Should trigger direct backup of key 0 from TEE0 to TEE1", async () => {
+    const keyDirectBackupStruct = getStruct("TeeWalletStructs", "keyDirectBackupStruct");
+
+    // Pre-condition: destination's per-key nonce is 0 and TEE1 does not currently hold the key.
+    const nonceInfoBefore = await flareTeeManager.getKeyNonce(TEE_IDS[1], WALLET1_ID, 0);
+    expect(nonceInfoBefore[0].toString()).to.equal("0");
+    expect(nonceInfoBefore[1]).to.equal(false);
+
+    const tx = await flareTeeManager.directBackup(TEE_IDS[0], TEE_IDS[1], WALLET1_ID, 0, constants.ZERO_ADDRESS, {
+      value: "10",
+      from: TEE_WALLET_OWNERS[0],
+    });
+
+    const event = requiredEventArgsFrom(tx, flareTeeManager, "DirectBackupTriggered") as any;
+    expect(event.sourceTeeId).to.equal(TEE_IDS[0]);
+    expect(event.destinationTeeId).to.equal(TEE_IDS[1]);
+    expect(event.walletId).to.equal(WALLET1_ID);
+    expect(event.keyId.toString()).to.equal("0");
+    expect(event.destinationNonce.toString()).to.equal("1");
+    directBackupInstructionId = event.backupInstructionId;
+
+    // Verify the on-chain instruction payload is the KeyDirectBackup struct, op = KEY_DIRECT_BACKUP.
+    const ev = requiredEventArgsFrom(tx, flareTeeManager, "TeeInstructionsSent") as any;
+    expect(ev.opType).to.equal(web3.utils.utf8ToHex("F_WALLET").padEnd(66, "0"));
+    expect(ev.opCommand).to.equal(web3.utils.utf8ToHex("KEY_DIRECT_BACKUP").padEnd(66, "0"));
+
+    const expectedPayload = {
+      sourceTeeId: TEE_IDS[0],
+      walletId: WALLET1_ID,
+      keyId: "0",
+      destinationTeePublicKey: { x: TEE_PUBLIC_KEYS[1].x, y: TEE_PUBLIC_KEYS[1].y },
+      destinationNonce: "1",
+      machinePathListNonce: machinePathListNonce,
+    };
+    expect(ev.message).to.equal(web3.eth.abi.encodeParameter(keyDirectBackupStruct, expectedPayload));
+
+    // directBackup must NOT mutate the destination's per-key nonce.
+    const nonceInfoAfter = await flareTeeManager.getKeyNonce(TEE_IDS[1], WALLET1_ID, 0);
+    expect(nonceInfoAfter[0].toString()).to.equal("0");
+    expect(nonceInfoAfter[1]).to.equal(false);
+  });
+
+  it("Should trigger direct restore of key 0 onto TEE1", async () => {
+    const backupId = {
+      teeId: TEE_IDS[0],
+      walletId: WALLET1_ID,
+      keyId: "0",
+      keyType: TEE_KEY_CONFIGURATIONS[0],
+      signingAlgo: TEE_SIGNING_ALGOS[0][0],
+      publicKey: xrpPublicKeys[0],
+      rewardEpochId: "2",
+      randomNonce: web3.utils.keccak256("rn"),
+    };
+
+    const tx = await flareTeeManager.directRestore(
+      TEE_IDS[1],
+      backupId,
+      directBackupInstructionId,
+      constants.ZERO_ADDRESS,
+      { value: "10", from: TEE_WALLET_OWNERS[0] }
+    );
+    expectEvent(tx, "DirectRestoreTriggered", {
+      destinationTeeId: TEE_IDS[1],
+      walletId: WALLET1_ID,
+      keyId: "0",
+      destinationNonce: "1",
+      backupInstructionId: directBackupInstructionId,
+    });
+
+    const ev = requiredEventArgsFrom(tx, flareTeeManager, "TeeInstructionsSent") as any;
+    expect(ev.opType).to.equal(web3.utils.utf8ToHex("F_WALLET").padEnd(66, "0"));
+    expect(ev.opCommand).to.equal(web3.utils.utf8ToHex("KEY_DIRECT_RESTORE").padEnd(66, "0"));
+
+    // directRestore must bump the destination's per-key nonce by exactly +1.
+    const nonceInfoAfter = await flareTeeManager.getKeyNonce(TEE_IDS[1], WALLET1_ID, 0);
+    expect(nonceInfoAfter[0].toString()).to.equal("1");
   });
 
   it("Should trigger PMW Multisig account configured attestations", async () => {

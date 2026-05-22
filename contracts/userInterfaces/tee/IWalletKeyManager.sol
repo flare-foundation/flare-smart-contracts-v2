@@ -195,6 +195,38 @@ interface IWalletKeyManager is ITeeCommonErrors {
         returns (bytes memory _publicKey);
 
     /**
+     * Returns the current per-(teeId, walletId, keyId) nonce and whether the TEE currently holds the key.
+     * Reverts with `InvalidKeyId` if the wallet has no such key at all.
+     * Reverts with `TeeNotFound` if `_teeId` is not a registered TEE machine.
+     * Reverts with `ExtensionIdMismatch` if `_teeId` is registered but belongs to a different extension than
+     * the wallet. Together these three reverts guarantee the return tuple is meaningful — a successful call
+     * always concerns a real key on a real TEE in the right extension.
+     *
+     * Interpretation of the return tuple:
+     * - (N, true)   : TEE currently holds the key and the next operation will use nonce N+1.
+     * - (0, false)  : TEE in the wallet's extension that has never been involved with this key.
+     * - (N, false)  : TEE previously held the key (with nonce N) but it has since been deleted from this TEE;
+     *                 the nonce is retained so a future re-introduction continues from N+1.
+     *
+     * Callers MUST consult `_teeHoldsKey` rather than treating nonce 0 as "key present" — nonce 0 alone is ambiguous.
+     * @param _teeId The tee id.
+     * @param _walletId The wallet id.
+     * @param _keyId The key id.
+     * @return _nonce The current per-tee nonce for this key.
+     * @return _teeHoldsKey True iff the TEE is currently registered as holding this key.
+     */
+    function getKeyNonce(
+        address _teeId,
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        external view
+        returns (
+            uint256 _nonce,
+            bool _teeHoldsKey
+        );
+
+    /**
      * Returns information about the wallet keys.
      * @param _walletId The wallet id.
      * @return _multisigThreshold The multisig threshold.

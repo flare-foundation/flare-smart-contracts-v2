@@ -17,6 +17,7 @@
     "WalletBackupManagerFacet",
     "VrfFacet",
     "ExternalAddressesFacet",
+    "MachinePathManagerFacet",
     "ReplicationFacet",
     "ExtensionPausingFacet",
     "UpgradeManagerFacet",

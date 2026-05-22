@@ -23,6 +23,7 @@ import { WalletManagerFacet } from "../../contracts/tee/facets/WalletManagerFace
 import { WalletBackupManagerFacet } from "../../contracts/tee/facets/WalletBackupManagerFacet.sol";
 import { VrfFacet } from "../../contracts/tee/facets/VrfFacet.sol";
 import { ExtensionGovernanceFacet } from "../../contracts/tee/facets/ExtensionGovernanceFacet.sol";
+import { MachinePathManagerFacet } from "../../contracts/tee/facets/MachinePathManagerFacet.sol";
 
 // TEE facets — later
 import { ReplicationFacet } from "../../contracts/tee/facets/ReplicationFacet.sol";
@@ -50,6 +51,7 @@ import { IReplication } from "../../contracts/userInterfaces/tee/IReplication.so
 import { IVerification } from "../../contracts/userInterfaces/tee/IVerification.sol";
 import { ISystemStateVerifier } from "../../contracts/userInterfaces/tee/ISystemStateVerifier.sol";
 import { IUpgradeManager } from "../../contracts/userInterfaces/tee/IUpgradeManager.sol";
+import { IMachinePathManager } from "../../contracts/userInterfaces/tee/IMachinePathManager.sol";
 import { IOperationFees } from "../../contracts/userInterfaces/tee/IOperationFees.sol";
 import { IWalletProjectManager } from "../../contracts/userInterfaces/tee/IWalletProjectManager.sol";
 import { IWalletKeyManager } from "../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
@@ -137,11 +139,11 @@ library FlareTeeManagerDeployer {
     }
 
     // =========================================================================
-    // Day-1 facet cuts (16 facets)
+    // Day-1 facet cuts (17 facets)
     // =========================================================================
 
     function _buildDay1FacetCuts() private returns (IDiamond.FacetCut[] memory cuts) {
-        cuts = new IDiamond.FacetCut[](16);
+        cuts = new IDiamond.FacetCut[](17);
 
         // 0: DiamondGovernanceFacet (diamondCut + FlareGovernance selectors)
         {
@@ -345,7 +347,7 @@ library FlareTeeManagerDeployer {
 
         // 12: WalletKeyManagerFacet
         {
-            bytes4[] memory s = new bytes4[](9);
+            bytes4[] memory s = new bytes4[](10);
             s[0] = IWalletKeyManager.addKey.selector;
             s[1] = IWalletKeyManager.confirmKey.selector;
             s[2] = IWalletKeyManager.setMultisigThreshold.selector;
@@ -355,6 +357,7 @@ library FlareTeeManagerDeployer {
             s[6] = IWalletKeyManager.cleanUpTeeIds.selector;
             s[7] = IWalletKeyManager.getWalletKeyPublicKey.selector;
             s[8] = IWalletKeyManager.getWalletKeyTeeIds.selector;
+            s[9] = IWalletKeyManager.getKeyNonce.selector;
             cuts[11] = IDiamond.FacetCut(
                 address(new WalletKeyManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -384,8 +387,10 @@ library FlareTeeManagerDeployer {
 
         // 14: WalletBackupManagerFacet
         {
-            bytes4[] memory s = new bytes4[](1);
+            bytes4[] memory s = new bytes4[](3);
             s[0] = IWalletBackupManager.backupRestore.selector;
+            s[1] = IWalletBackupManager.directBackup.selector;
+            s[2] = IWalletBackupManager.directRestore.selector;
             cuts[13] = IDiamond.FacetCut(
                 address(new WalletBackupManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -414,6 +419,26 @@ library FlareTeeManagerDeployer {
             s[6] = IExtensionGovernance.isGovernanceHashValid.selector;
             cuts[15] = IDiamond.FacetCut(
                 address(new ExtensionGovernanceFacet()), IDiamond.FacetCutAction.Add, s
+            );
+        }
+
+        // 17: MachinePathManagerFacet
+        {
+            bytes4[] memory s = new bytes4[](12);
+            s[0] = IMachinePathManager.createNewMachinePathList.selector;
+            s[1] = IMachinePathManager.addMachinePaths.selector;
+            s[2] = IMachinePathManager.finalizeMachinePathList.selector;
+            s[3] = IMachinePathManager.signMachinePathList.selector;
+            s[4] = IMachinePathManager.isMachinePathValid.selector;
+            s[5] = IMachinePathManager.getActiveMachinePathListNonce.selector;
+            s[6] = IMachinePathManager.isMachinePathListFinalized.selector;
+            s[7] = IMachinePathManager.isMachinePathListSigned.selector;
+            s[8] = IMachinePathManager.getMachinePathListsCount.selector;
+            s[9] = IMachinePathManager.getMachinePathList.selector;
+            s[10] = IMachinePathManager.getMachinePathListSignatureCount.selector;
+            s[11] = IMachinePathManager.getMachinePathListMessageHash.selector;
+            cuts[16] = IDiamond.FacetCut(
+                address(new MachinePathManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
     }
@@ -453,7 +478,7 @@ library FlareTeeManagerDeployer {
 
         // 2: UpgradeManagerFacet
         {
-            bytes4[] memory s = new bytes4[](10);
+            bytes4[] memory s = new bytes4[](11);
             s[0] = IUpgradeManager.createNewTeeUpgrade.selector;
             s[1] = IUpgradeManager.addTeeUpgradePaths.selector;
             s[2] = IUpgradeManager.finalizeTeeUpgrade.selector;
@@ -464,6 +489,7 @@ library FlareTeeManagerDeployer {
             s[7] = IUpgradeManager.getTeeUpgradePaths.selector;
             s[8] = IUpgradeManager.isTeeUpgradePathValid.selector;
             s[9] = IUpgradeManager.getTeeUpgradeSignatures.selector;
+            s[10] = IUpgradeManager.getTeeUpgradeMessageHash.selector;
             cuts[2] = IDiamond.FacetCut(
                 address(new UpgradeManagerFacet()), IDiamond.FacetCutAction.Add, s
             );

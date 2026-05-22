@@ -6,7 +6,7 @@ The on-chain pieces:
 
 - [`WalletManagerFacet`](../../../contracts/tee/facets/WalletManagerFacet.sol) + [`library/WalletManager`](../../../contracts/tee/library/WalletManager.sol) — wallet creation, owner administration, key admin set updates, lifecycle.
 - [`WalletProjectManagerFacet`](../../../contracts/tee/facets/WalletProjectManagerFacet.sol) + [`library/WalletProjectManager`](../../../contracts/tee/library/WalletProjectManager.sol) — *project*-level grouping (a project owns multiple wallets and is administered by a single project owner).
-- [`WalletBackupManagerFacet`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol) — Shamir backup share submission/finalization (uses `WalletKeyManager`).
+- [`WalletBackupManagerFacet`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol) — admin-share-based key restore (`backupRestore`) AND the path-list-gated direct backup/restore between two TEE machines (`directBackup` / `directRestore`). See [Key management → direct backup / restore](./KeyManagement.md#direct-backup--restore).
 - [`WalletResumeFacet`](../../../contracts/tee/facets/WalletResumeFacet.sol) + [`library/WalletResume`](../../../contracts/tee/library/WalletResume.sol) — resume wallet operations after a pause / upgrade.
 
 ## The hierarchy

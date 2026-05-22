@@ -21,6 +21,7 @@ import { IExtensionGovernance } from "./IExtensionGovernance.sol";
 import { IExtensionPausing } from "./IExtensionPausing.sol";
 import { IExternalAddresses } from "./IExternalAddresses.sol";
 import { IUpgradeManager } from "./IUpgradeManager.sol";
+import { IMachinePathManager } from "./IMachinePathManager.sol";
 import { IDiamondGovernance } from "./IDiamondGovernance.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
 
@@ -54,6 +55,7 @@ interface IFlareTeeManager is
     IExtensionPausing,
     IExternalAddresses,
     IUpgradeManager,
+    IMachinePathManager,
     IDiamondGovernance
 {
 }

@@ -1154,6 +1154,68 @@ contract WalletKeyManagerFacetTest is Test {
     }
 
     // =========================================================================
+    // getKeyNonce
+    // =========================================================================
+
+    function testGetKeyNonceRevertInvalidKeyId() public {
+        vm.expectRevert(IWalletKeyManager.InvalidKeyId.selector);
+        flareTeeManager.getKeyNonce(teeId, walletId, keyId);
+    }
+
+    function testGetKeyNonceRevertTeeNotFound() public {
+        // Make the key exist so we get past the InvalidKeyId guard.
+        testConfirmKeyNotInWallet();
+        // Unregistered teeId: MachineManager.getExtensionId reverts with TeeNotFound before the
+        // extension-mismatch comparison runs.
+        vm.expectRevert(IMachineManager.TeeNotFound.selector);
+        flareTeeManager.getKeyNonce(makeAddr("unregistered"), walletId, keyId);
+    }
+
+    function testGetKeyNonceRevertExtensionIdMismatch() public {
+        // Make the key exist so we get past the InvalidKeyId guard.
+        testConfirmKeyNotInWallet();
+        // Registered TEE in a different extension reverts with ExtensionIdMismatch.
+        address foreignTee = makeAddr("foreignTee");
+        helper.setTeeMachineState(
+            foreignTee,
+            extensionId + 1,
+            teeMachineOwner,
+            IMachineManager.TeeStatus.PRODUCTION,
+            PublicKey(bytes32(0), bytes32(0)),
+            1,
+            "https://foreign.tee.url"
+        );
+        vm.expectRevert(ITeeCommonErrors.ExtensionIdMismatch.selector);
+        flareTeeManager.getKeyNonce(foreignTee, walletId, keyId);
+    }
+
+    function testGetKeyNonce() public {
+        // After confirmKey: key exists; teeId holds it; nonce on its teeId is 0 (no operations targeted it yet).
+        testConfirmKeyNotInWallet();
+        (uint256 nonce, bool teeHoldsKey) = flareTeeManager.getKeyNonce(teeId, walletId, keyId);
+        assertEq(nonce, 0);
+        assertTrue(teeHoldsKey);
+
+        // A different TEE in the SAME extension that has never touched this key: (0, false).
+        // newTeeId is registered as PRODUCTION under `extensionId` in setUp.
+        (nonce, teeHoldsKey) = flareTeeManager.getKeyNonce(newTeeId, walletId, keyId);
+        assertEq(nonce, 0);
+        assertFalse(teeHoldsKey);
+
+        // deleteKey bumps nonce[teeId] to 1 AND removes teeId from the key's holders.
+        vm.prank(owner);
+        flareTeeManager.deleteKey{value: 0}(teeId, walletId, keyId, address(0));
+        (nonce, teeHoldsKey) = flareTeeManager.getKeyNonce(teeId, walletId, keyId);
+        assertEq(nonce, 1);
+        assertFalse(teeHoldsKey);
+
+        // newTeeId still untouched: (0, false).
+        (nonce, teeHoldsKey) = flareTeeManager.getKeyNonce(newTeeId, walletId, keyId);
+        assertEq(nonce, 0);
+        assertFalse(teeHoldsKey);
+    }
+
+    // =========================================================================
     // Private helpers
     // =========================================================================
 

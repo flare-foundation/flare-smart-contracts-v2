@@ -51,6 +51,8 @@ import {ExternalAddressesFacet} from
     "../../contracts/tee/facets/ExternalAddressesFacet.sol";
 import {ExtensionGovernanceFacet} from
     "../../contracts/tee/facets/ExtensionGovernanceFacet.sol";
+import {MachinePathManagerFacet} from
+    "../../contracts/tee/facets/MachinePathManagerFacet.sol";
 // Later facets
 import {ReplicationFacet} from
     "../../contracts/tee/facets/ReplicationFacet.sol";
@@ -207,6 +209,7 @@ contract DeployTeeContracts is Script {
     VrfFacet private vrfFacet;
     ExternalAddressesFacet private externalAddressesFacet;
     ExtensionGovernanceFacet private extensionGovernanceFacet;
+    MachinePathManagerFacet private machinePathManagerFacet;
 
     // Later facet instances (for logging)
     ReplicationFacet private replicationFacet;
@@ -389,6 +392,7 @@ contract DeployTeeContracts is Script {
         vrfFacet = new VrfFacet();
         externalAddressesFacet = new ExternalAddressesFacet();
         extensionGovernanceFacet = new ExtensionGovernanceFacet();
+        machinePathManagerFacet = new MachinePathManagerFacet();
 
         day1Facets.push(_addFacet(
             address(diamondCutFacet), "DiamondGovernanceFacet"
@@ -440,6 +444,9 @@ contract DeployTeeContracts is Script {
         ));
         day1Facets.push(_addFacet(
             address(extensionGovernanceFacet), "ExtensionGovernanceFacet"
+        ));
+        day1Facets.push(_addFacet(
+            address(machinePathManagerFacet), "MachinePathManagerFacet"
         ));
     }
 
@@ -1392,6 +1399,11 @@ contract DeployTeeContracts is Script {
             "ExtensionGovernanceFacet",
             "ExtensionGovernanceFacet.sol",
             address(extensionGovernanceFacet)
+        );
+        _logDeployed(
+            "MachinePathManagerFacet",
+            "MachinePathManagerFacet.sol",
+            address(machinePathManagerFacet)
         );
     }
 

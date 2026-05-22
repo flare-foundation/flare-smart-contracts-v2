@@ -8,6 +8,7 @@ FCC has its own governance system, distinct from system-wide [`Governor`](../Gov
 Plus a related upgrade flow:
 
 - [`UpgradeManagerFacet`](../../../contracts/tee/facets/UpgradeManagerFacet.sol) + [`library/UpgradeManager`](../../../contracts/tee/library/UpgradeManager.sol) — the upgrade lifecycle for TEE software (collect threshold of governance signatures over an upgrade announcement, schedule the activation, propagate to TEE machines).
+- [`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol) + [`library/MachinePathManager`](../../../contracts/tee/library/MachinePathManager.sol) — per-extension governance-signed allow-list of authorized `(sourceTeeIds[], destinationTeeIds[])` paths. A *generic* primitive (no protocol semantics of its own); currently gates [`WalletBackupManagerFacet.directBackup` / `directRestore`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol).
 - [`OwnerAllowlistFacet`](../../../contracts/tee/facets/OwnerAllowlistFacet.sol) + [`library/OwnerAllowlist`](../../../contracts/tee/library/OwnerAllowlist.sol) — per-extension allowlist of TEE machine owners. Maintained by extension owners.
 - [`ExternalAddressesFacet`](../../../contracts/tee/facets/ExternalAddressesFacet.sol) + [`library/ExternalAddresses`](../../../contracts/tee/library/ExternalAddresses.sol) — the diamond's `AddressUpdatable` plug-in. Holds addresses of external contracts (FlareSystemsManager, RewardManager, Relay, etc.) that the diamond's libraries reach into.
 
@@ -90,6 +91,41 @@ Because each record's bound hash list is immutable once set, "old signers can st
 5. **Cleanup** — once all machines are migrated, the old version can be `disableCodeHashPlatform`'d so it can never be used again.
 
 The activation time is measured from when the upgrade is signed, with a configurable minimum delay (so signers cannot front-run the network with a sudden upgrade). Specific timing parameters are in `UpgradeManager.State` and tunable by extension governance.
+
+## Machine path manager
+
+[`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol) is a *generic* governance-signed allow-list of authorized `(sourceTeeIds[], destinationTeeIds[])` paths. It carries no protocol semantics of its own — it just records which TEE machine pairs an extension's governance has approved for some downstream flow. The first consumer is [`WalletBackupManagerFacet.directBackup` / `directRestore`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol), but the primitive is reusable for any future "governance-attested TEE-to-TEE authorization" need.
+
+### Shape
+
+A **path list** lives at `(extensionId, nonce)`. Storage is per-extension: each extension has its own array of lists, the list at array index `N - 1` is the list with nonce `N`. Nonces start at 1 per extension. A list contains:
+
+- **Paths** — an array of `MachinePath { address[] sourceTeeIds; address[] destinationTeeIds; }`. Semantics within one path are many-to-many: any source ∈ A may authorize the action against any destination ∈ B.
+- **Involved governance hashes** — the union of the derived governance hash of every teeId ever added to any path on this list, regardless of role. Each teeId's hash is derived from its codeHash via [`ExtensionManager.getTeeGovernanceHash(extensionId, codeHash)`](../../../contracts/tee/facets/ExtensionManagerFacet.sol). Note that a single path may mix multiple governances within its source list, its destination list, or both — the primitive treats a list-wide set; no per-path hash tracking.
+- **Signatures** — collected from every involved governance, stored once per unique signer in a global array. A signature counts toward every involved governance the signer belongs to (a signer in two governances contributes to both with a single submission).
+- **`messageHash`** — set when the list is finalized; binds `("TEE_MACHINE_PATH_LIST", block.chainid, extensionId, nonce, paths)`. Signers EIP-191 sign this hash. The same content with a different `(extensionId, nonce)` produces a different hash, preventing cross-chain, cross-extension, and cross-list signature replay.
+
+### Lifecycle
+
+1. **Create** — extension owner calls `createNewMachinePathList(extensionId)`. A fresh nonce is allocated; the list is empty.
+2. **Add paths** — extension owner calls `addMachinePaths(extensionId, nonce, paths)` (potentially across multiple calls). For each teeId in each path, the library:
+   - Verifies the teeId belongs to this extension (`ExtensionIdMismatch` from `ITeeCommonErrors` otherwise).
+   - Verifies the teeId is **not in INITIALIZED status** — i.e. it has been attested at least once (`TeeIdNotEligible` otherwise). The check is intentionally loose (any post-attestation status is accepted) because path-list creation can run in advance of an actual operation, and the operation-side facet (`directBackup` / `directRestore`) re-checks status at trigger time.
+   - Derives the governance hash from the teeId's codeHash and adds it to the list's involved-governance set.
+   - Rejects duplicate teeIds within a single path (`SourceTeeIdAlreadyExists`, `DestinationTeeIdAlreadyExists`).
+3. **Finalize** — extension owner calls `finalizeMachinePathList(extensionId, nonce)`. The library computes `messageHash` and emits `MachinePathListFinalized` with the involved-governance hashes so off-chain signers know which sets need to sign. After this, no further paths can be added.
+4. **Sign** — anyone may relay a signature. `signMachinePathList(extensionId, nonce, signature)` recovers the signer (EIP-191), iterates the involved-governance set, and increments the per-governance count for every governance the signer is a member of. The same signer cannot be counted twice — `signerHasSigned[signer]` dedup. A signature that recovers to nobody-in-any-governance reverts `UnrecognizedSigner`.
+5. **Activate** — the list automatically transitions to active once every involved governance has reached its threshold (each governance's threshold comes from `ExtensionGovernance.getTeeGovernanceThreshold`). `MachinePathListSigned` fires, and if the nonce strictly exceeds the extension's current active nonce, `extensionActiveListNonce[extensionId]` is updated.
+
+### Replay / deprecation model
+
+Only the **latest-nonce signed list** per extension is active. Older signed lists are deprecated automatically:
+
+- The active pointer is `extensionActiveListNonce[extensionId]`, set during sign-completion when `_nonce > current`.
+- Signing an older-nonce list *after* a newer one is already active does **not** demote the newer one — the older list becomes "signed but not active".
+- Consumers (`directBackup` / `directRestore`) look up paths via [`MachinePathManager.requireActiveListNonceForPath`](../../../contracts/tee/library/MachinePathManager.sol), which reverts `NoActiveMachinePathList` if the extension has none yet and `InvalidMachinePath` if the pair isn't present in the currently-active list.
+
+The nonce binding (in `messageHash`) and the latest-wins activation rule together produce a clean "rotate-by-replacement" pattern: extension governance signs a new list, and the old paths are immediately superseded.
 
 ## Owner allowlist
 

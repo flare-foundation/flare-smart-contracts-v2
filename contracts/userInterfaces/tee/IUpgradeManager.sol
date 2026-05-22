@@ -164,6 +164,18 @@ interface IUpgradeManager {
         returns (bool);
 
     /**
+     * Returns the messageHash bound to the upgrade after `finalizeTeeUpgrade` — the value
+     * off-chain signers must EIP-191 sign. Returns `bytes32(0)` before finalize.
+     * @param _teeUpgradeId The TEE upgrade id.
+     * @return The messageHash.
+     */
+    function getTeeUpgradeMessageHash(
+        uint256 _teeUpgradeId
+    )
+        external view
+        returns (bytes32);
+
+    /**
      * Returns TEE upgrades count.
      * @return The TEE upgrades count.
      */

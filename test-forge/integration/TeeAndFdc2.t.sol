@@ -185,7 +185,7 @@ contract TeeAndFdc2Test is Test {
     // =========================================================================
 
     function testDay1_facetCount() public view {
-        assertEq(IDiamondLoupe(address(flareTeeManager)).facets().length, 16);
+        assertEq(IDiamondLoupe(address(flareTeeManager)).facets().length, 17);
     }
 
     function testDay1_excludedSelectorsRevert() public {

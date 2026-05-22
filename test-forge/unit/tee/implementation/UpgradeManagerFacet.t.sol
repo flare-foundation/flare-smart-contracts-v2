@@ -573,6 +573,27 @@ contract UpgradeManagerFacetTest is Test {
         );
     }
 
+    // getTeeUpgradeMessageHash
+    function testGetTeeUpgradeMessageHashRevertInvalidUpgradeId() public {
+        vm.expectRevert(IUpgradeManager.InvalidUpgradeId.selector);
+        flareTeeManager.getTeeUpgradeMessageHash(teeUpgradeId);
+    }
+
+    function testGetTeeUpgradeMessageHashBeforeFinalize() public {
+        testCreateNewTeeUpgrade();
+        // The upgrade exists but has not been finalized — stored messageHash is the default zero.
+        assertEq(flareTeeManager.getTeeUpgradeMessageHash(teeUpgradeId), bytes32(0));
+    }
+
+    function testGetTeeUpgradeMessageHashAfterFinalize() public {
+        testFinalizeTeeUpgrade();
+        // Returned value must equal the hash an off-chain signer would compute over the same
+        // bound payload — same encoding the contract uses internally.
+        bytes32 expected =
+            _upgradeMessageHash(teeUpgradeId, sourceTeeGovernanceHash, targetTeeGovernanceHash);
+        assertEq(flareTeeManager.getTeeUpgradeMessageHash(teeUpgradeId), expected);
+    }
+
     // isTeeUpgradeSigned
     function testIsTeeUpgradeSignedRevertInvalidUpgradeId() public {
         vm.expectRevert(IUpgradeManager.InvalidUpgradeId.selector);

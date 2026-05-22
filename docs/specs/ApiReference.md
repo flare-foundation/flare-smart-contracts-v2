@@ -104,6 +104,7 @@ About 20 public interfaces under [`userInterfaces/tee/`](../../contracts/userInt
 | [`IReplication`](../../contracts/userInterfaces/tee/IReplication.sol) | Replication group management. |
 | [`ISystemStateVerifier`](../../contracts/userInterfaces/tee/ISystemStateVerifier.sol) | System-state verification of TEE-signed messages. |
 | [`IUpgradeManager`](../../contracts/userInterfaces/tee/IUpgradeManager.sol) | TEE software upgrade lifecycle. |
+| [`IMachinePathManager`](../../contracts/userInterfaces/tee/IMachinePathManager.sol) | Per-extension governance-signed allow-list of `(sourceTeeIds[], destinationTeeIds[])` paths — the generic primitive that gates [`IWalletBackupManager.directBackup` / `directRestore`](../../contracts/userInterfaces/tee/IWalletBackupManager.sol). |
 | [`IVerification`](../../contracts/userInterfaces/tee/IVerification.sol) | TEE attestation / availability-check verification. |
 | [`IVrf`](../../contracts/userInterfaces/tee/IVrf.sol), [`IVrfVerifier`](../../contracts/userInterfaces/tee/IVrfVerifier.sol) | VRF request and verification. |
 | [`IWalletManager`](../../contracts/userInterfaces/tee/IWalletManager.sol), [`IWalletKeyManager`](../../contracts/userInterfaces/tee/IWalletKeyManager.sol), [`IWalletBackupManager`](../../contracts/userInterfaces/tee/IWalletBackupManager.sol), [`IWalletProjectManager`](../../contracts/userInterfaces/tee/IWalletProjectManager.sol), [`IWalletResume`](../../contracts/userInterfaces/tee/IWalletResume.sol) | Wallet / key / project lifecycle. |
