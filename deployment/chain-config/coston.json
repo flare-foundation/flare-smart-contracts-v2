@@ -459,6 +459,7 @@
     "teeAvailabilityCheckValidityDurationSeconds": 21600,
     "teeSigningPolicyValidityDurationInRewardEpochs": 100,
     "teeChallengeValidityDurationSeconds": 600,
+    "teePublicExtensionCreationEnabled": true,
     "teeOwnersPPM": 100000,
     "teeOperationFees": [
         {"opType": "F_REG", "opCommand": "TEE_ATTESTATION", "feeWei": "1"},

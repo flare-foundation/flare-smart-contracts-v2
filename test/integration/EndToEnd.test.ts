@@ -728,7 +728,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     const flareTeeManagerInit = await FlareTeeManagerInit.new();
     const flareTeeManagerInitCalldata = web3.eth.abi.encodeFunctionCall(
       FlareTeeManagerInit.abi.find((item: any) => item.name === "init"),
-      [governanceSettings.address, accounts[0], addressUpdater.address, "3600", "10", "600", "1"]
+      [governanceSettings.address, accounts[0], addressUpdater.address, "3600", "10", "600", "1", true]
     );
 
     const flareTeeManagerDiamond = await FlareTeeManager.new(facetCuts, {

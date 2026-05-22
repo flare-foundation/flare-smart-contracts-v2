@@ -150,7 +150,8 @@ contract WalletPaymentsTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 10,
             challengeValidityDurationSeconds: 600,
-            defaultFee: defaultFee
+            defaultFee: defaultFee,
+            publicExtensionCreationEnabled: true
         }));
         vm.startPrank(governance);
         FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({

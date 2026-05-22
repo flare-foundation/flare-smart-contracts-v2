@@ -368,7 +368,8 @@ contract VerificationFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 1 hours,
             signingPolicyValidityDurationInRewardEpochs: 1,
             challengeValidityDurationSeconds: 1 minutes,
-            defaultFee: 0
+            defaultFee: 0,
+            publicExtensionCreationEnabled: true
         }));
         vm.startPrank(initialGovernance);
         FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
@@ -541,7 +542,8 @@ contract VerificationFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 1 hours,
             signingPolicyValidityDurationInRewardEpochs: 1,
             challengeValidityDurationSeconds: 1 minutes,
-            defaultFee: 1000
+            defaultFee: 1000,
+            publicExtensionCreationEnabled: true
         }));
     }
 

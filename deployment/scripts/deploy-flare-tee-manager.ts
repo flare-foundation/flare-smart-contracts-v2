@@ -165,6 +165,7 @@ export async function deployFlareTeeManager(
       parameters.teeSigningPolicyValidityDurationInRewardEpochs.toString(),
       parameters.teeChallengeValidityDurationSeconds.toString(),
       parameters.teeDefaultFeeWei.toString(),
+      parameters.teePublicExtensionCreationEnabled as unknown as string,
     ]
   );
 

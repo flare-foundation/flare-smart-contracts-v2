@@ -128,7 +128,8 @@ contract ReplicationFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 6000,
-            defaultFee: 100
+            defaultFee: 100,
+            publicExtensionCreationEnabled: true
         }));
         vm.startPrank(initialGovernance);
         FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({

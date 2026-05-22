@@ -6,6 +6,7 @@ import { IExtensionManager } from "../../userInterfaces/tee/IExtensionManager.so
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
+import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
 import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
@@ -24,15 +25,35 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
         external
         returns (uint256 _extensionId)
     {
+        require(OwnerAllowlist.isAllowedExtensionOwner(msg.sender), NotAllowedExtensionOwner());
         require(_teeExtensionInstructionsSender != address(0), InvalidInstructionsSender());
         ExtensionManager.State storage s = ExtensionManager.getState();
-        _extensionId = s.extensionsCounter++;
+        _extensionId = s.nextPublicExtensionId++;
         ExtensionManager.TeeExtension storage newExtension = s.extensions[_extensionId];
         newExtension.owner = msg.sender;
         newExtension.stateVerifier = _teeExtensionStateVerifier;
         newExtension.instructionsSender = _teeExtensionInstructionsSender;
         emit TeeExtensionRegistered(_extensionId, msg.sender);
         emit TeeExtensionContractsSet(_extensionId, _teeExtensionStateVerifier, _teeExtensionInstructionsSender);
+    }
+
+    /// @inheritdoc IExtensionManager
+    function registerReserved(
+        uint256 _extensionId,
+        address _owner
+    )
+        external
+        onlyImmediateGovernance
+    {
+        require(
+            _extensionId > 0 && _extensionId < ExtensionManager.PUBLIC_EXTENSION_ID_START,
+            InvalidReservedExtensionId()
+        );
+        require(_owner != address(0), InvalidExtensionOwner());
+        ExtensionManager.State storage s = ExtensionManager.getState();
+        require(s.extensions[_extensionId].owner == address(0), ReservedExtensionIdAlreadyAssigned());
+        s.extensions[_extensionId].owner = _owner;
+        emit TeeExtensionRegistered(_extensionId, _owner);
     }
 
     /// @inheritdoc IExtensionManager
@@ -172,6 +193,10 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
     {
         ExtensionManager.checkOnlyExtensionOwner(_extensionId);
         require(_extensionId != 0, SystemOwnedExtensionId());
+        require(
+            _newOwner == address(0) || OwnerAllowlist.isAllowedExtensionOwner(_newOwner),
+            NotAllowedExtensionOwner()
+        );
         ExtensionManager.getState().proposedExtensionOwner[_extensionId] = _newOwner;
         emit NewOwnerProposed(_extensionId, msg.sender, _newOwner);
     }
@@ -184,6 +209,7 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
     {
         ExtensionManager.State storage s = ExtensionManager.getState();
         require(s.proposedExtensionOwner[_extensionId] == msg.sender, OnlyProposedOwner());
+        require(OwnerAllowlist.isAllowedExtensionOwner(msg.sender), NotAllowedExtensionOwner());
         s.extensions[_extensionId].owner = msg.sender;
         delete s.proposedExtensionOwner[_extensionId];
         emit NewOwnerConfirmed(_extensionId, msg.sender);
@@ -238,11 +264,11 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
     // =========================================================================
 
     /// @inheritdoc IExtensionManager
-    function extensionsCounter()
+    function nextPublicExtensionId()
         external view
         returns (uint256)
     {
-        return ExtensionManager.getState().extensionsCounter;
+        return ExtensionManager.getState().nextPublicExtensionId;
     }
 
     /// @inheritdoc IExtensionManager

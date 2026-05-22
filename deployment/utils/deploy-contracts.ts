@@ -578,6 +578,7 @@ export async function deployContracts(
       "10", // signingPolicyValidityDurationInRewardEpochs
       "600", // challengeValidityDurationSeconds
       "1", // defaultFee
+      true as unknown as string, // publicExtensionCreationEnabled — open for local simulation
     ]
   );
 
@@ -1056,12 +1057,13 @@ export async function deployContracts(
   await flareDaemon.registerToDaemonize(registrations, { from: genesisGovernance });
 
   // TEE EXTENSION
+  const teeExtensionId = (await extensionManager.nextPublicExtensionId()).toString();
   await extensionManager.register(ZERO_ADDRESS, teeExtensionInstructionsSenderMock.address, {
     from: extensionOwnerAccount.address,
   });
 
   await extensionManager.addTeeVersion(
-    1,
+    teeExtensionId,
     "v0.1.0",
     TEE_EXTENSION_CODE_HASH,
     TEE_PLATFORMS.map((platform: string) => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
@@ -1070,13 +1072,13 @@ export async function deployContracts(
   );
 
   await extensionManager.addSupportedKeyTypes(
-    1,
+    teeExtensionId,
     [await teeExtensionInstructionsSenderMock.KEY_TYPE()], // EVM
     { from: extensionOwnerAccount.address }
   );
 
-  await ownerAllowlist.allowAllTeeMachineOwners(1, { from: extensionOwnerAccount.address });
-  await ownerAllowlist.allowAllTeeWalletProjectOwners(1, { from: extensionOwnerAccount.address });
+  await ownerAllowlist.allowAllTeeMachineOwners(teeExtensionId, { from: extensionOwnerAccount.address });
+  await ownerAllowlist.allowAllTeeWalletProjectOwners(teeExtensionId, { from: extensionOwnerAccount.address });
 
   logger.info(
     `Finished deploying contracts:\n` +

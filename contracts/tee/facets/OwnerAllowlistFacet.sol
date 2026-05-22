@@ -4,14 +4,64 @@ pragma solidity ^0.8.27;
 import { IOwnerAllowlist } from "../../userInterfaces/tee/IOwnerAllowlist.sol";
 import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
+import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
  * @title OwnerAllowlistFacet
- * @notice Facet for managing TEE machine owner and wallet project owner allowlists.
+ * @notice Facet for managing the global extension-owner allowlist (governance-gated)
+ *         and the per-extension TEE machine owner / wallet project owner allowlists
+ *         (extension-owner-gated).
  */
-contract OwnerAllowlistFacet is IOwnerAllowlist {
+contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
     using EnumerableSet for EnumerableSet.AddressSet;
+
+    /// @inheritdoc IOwnerAllowlist
+    function addAllowedExtensionOwners(
+        address[] memory _owners
+    )
+        external
+        onlyImmediateGovernance
+    {
+        OwnerAllowlist.State storage s = OwnerAllowlist.getState();
+        for (uint256 i = 0; i < _owners.length; i++) {
+            require(_owners[i] != address(0), InvalidOwner());
+            require(s.allowedExtensionOwners.add(_owners[i]), OwnerAlreadyAllowed(_owners[i]));
+        }
+        emit AllowedExtensionOwnersAdded(_owners);
+    }
+
+    /// @inheritdoc IOwnerAllowlist
+    function removeAllowedExtensionOwners(
+        address[] memory _owners
+    )
+        external
+        onlyImmediateGovernance
+    {
+        OwnerAllowlist.State storage s = OwnerAllowlist.getState();
+        for (uint256 i = 0; i < _owners.length; i++) {
+            require(s.allowedExtensionOwners.remove(_owners[i]), OwnerNotInAllowlist(_owners[i]));
+        }
+        emit AllowedExtensionOwnersRemoved(_owners);
+    }
+
+    /// @inheritdoc IOwnerAllowlist
+    function allowAllExtensionOwners()
+        external
+        onlyImmediateGovernance
+    {
+        OwnerAllowlist.getState().allExtensionOwnersAllowed = true;
+        emit AllExtensionOwnersAllowed();
+    }
+
+    /// @inheritdoc IOwnerAllowlist
+    function disallowAllExtensionOwners()
+        external
+        onlyImmediateGovernance
+    {
+        OwnerAllowlist.getState().allExtensionOwnersAllowed = false;
+        emit AllExtensionOwnersDisallowed();
+    }
 
     /// @inheritdoc IOwnerAllowlist
     function addAllowedTeeMachineOwners(
@@ -129,6 +179,32 @@ contract OwnerAllowlistFacet is IOwnerAllowlist {
         ExtensionManager.checkOnlyExtensionOwner(_extensionId);
         OwnerAllowlist.getState().allTeeWalletProjectOwnersAllowed[_extensionId] = false;
         emit AllTeeWalletProjectOwnersDisallowed(_extensionId);
+    }
+
+    /// @inheritdoc IOwnerAllowlist
+    function getAllowedExtensionOwners()
+        external view
+        returns (address[] memory _allowedOwners)
+    {
+        return OwnerAllowlist.getState().allowedExtensionOwners.values();
+    }
+
+    /// @inheritdoc IOwnerAllowlist
+    function isAllowedExtensionOwner(
+        address _owner
+    )
+        external view
+        returns (bool _isAllowed)
+    {
+        return OwnerAllowlist.isAllowedExtensionOwner(_owner);
+    }
+
+    /// @inheritdoc IOwnerAllowlist
+    function allExtensionOwnersAllowed()
+        external view
+        returns (bool _allAllowed)
+    {
+        return OwnerAllowlist.getState().allExtensionOwnersAllowed;
     }
 
     /// @inheritdoc IOwnerAllowlist

@@ -83,6 +83,7 @@ library FlareTeeManagerDeployer {
         uint64 signingPolicyValidityDurationInRewardEpochs;
         uint64 challengeValidityDurationSeconds;
         uint256 defaultFee;
+        bool publicExtensionCreationEnabled;
     }
 
     struct LaterDeployParams {
@@ -102,7 +103,8 @@ library FlareTeeManagerDeployer {
                 _params.availabilityCheckValidityDurationSeconds,
                 _params.signingPolicyValidityDurationInRewardEpochs,
                 _params.challengeValidityDurationSeconds,
-                _params.defaultFee
+                _params.defaultFee,
+                _params.publicExtensionCreationEnabled
             )
         );
 
@@ -175,7 +177,7 @@ library FlareTeeManagerDeployer {
 
         // 2: ExtensionManagerFacet
         {
-            bytes4[] memory s = new bytes4[](25);
+            bytes4[] memory s = new bytes4[](26);
             s[0] = IExtensionManager.register.selector;
             s[1] = IExtensionManager.addTeeVersion.selector;
             s[2] = IExtensionManager.getExtensionOwner.selector;
@@ -187,7 +189,7 @@ library FlareTeeManagerDeployer {
             s[8] = IIExtensionManager.addSystemSupportedPlatforms.selector;
             s[9] = IIExtensionManager.addSystemSupportedKeyTypesAndSigningAlgos.selector;
             s[10] = IExtensionManager.addSupportedKeyTypes.selector;
-            s[11] = IExtensionManager.extensionsCounter.selector;
+            s[11] = IExtensionManager.nextPublicExtensionId.selector;
             s[12] = IExtensionManager.isKeyTypeSupported.selector;
             s[13] = IExtensionManager.setExtensionContracts.selector;
             s[14] = IExtensionManager.disableCodeHashPlatform.selector;
@@ -201,6 +203,7 @@ library FlareTeeManagerDeployer {
             s[22] = IExtensionManager.isCodeHashPlatformDisabled.selector;
             s[23] = IExtensionManager.getSystemSupportedSigningAlgos.selector;
             s[24] = IExtensionManager.getSupportedKeyTypes.selector;
+            s[25] = IExtensionManager.registerReserved.selector;
             cuts[2] = IDiamond.FacetCut(
                 address(new ExtensionManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -289,7 +292,7 @@ library FlareTeeManagerDeployer {
 
         // 8: OwnerAllowlistFacet
         {
-            bytes4[] memory s = new bytes4[](14);
+            bytes4[] memory s = new bytes4[](21);
             s[0] = IOwnerAllowlist.addAllowedTeeMachineOwners.selector;
             s[1] = IOwnerAllowlist.isAllowedTeeMachineOwner.selector;
             s[2] = IOwnerAllowlist.getAllowedTeeMachineOwners.selector;
@@ -304,6 +307,13 @@ library FlareTeeManagerDeployer {
             s[11] = IOwnerAllowlist.getAllowedTeeWalletProjectOwners.selector;
             s[12] = IOwnerAllowlist.allTeeMachineOwnersAllowed.selector;
             s[13] = IOwnerAllowlist.allTeeWalletProjectOwnersAllowed.selector;
+            s[14] = IOwnerAllowlist.addAllowedExtensionOwners.selector;
+            s[15] = IOwnerAllowlist.removeAllowedExtensionOwners.selector;
+            s[16] = IOwnerAllowlist.allowAllExtensionOwners.selector;
+            s[17] = IOwnerAllowlist.disallowAllExtensionOwners.selector;
+            s[18] = IOwnerAllowlist.getAllowedExtensionOwners.selector;
+            s[19] = IOwnerAllowlist.isAllowedExtensionOwner.selector;
+            s[20] = IOwnerAllowlist.allExtensionOwnersAllowed.selector;
             cuts[7] = IDiamond.FacetCut(
                 address(new OwnerAllowlistFacet()), IDiamond.FacetCutAction.Add, s
             );

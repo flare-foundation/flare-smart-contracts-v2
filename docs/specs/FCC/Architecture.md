@@ -33,7 +33,8 @@ The diamond is initialized via [`FlareTeeManagerInit`](../../../contracts/tee/fa
 - Sets the address-updater value used by `ExternalAddressesFacet`.
 - Initializes verification settings (availability check / signing policy / challenge validity durations).
 - Sets `OperationFees.defaultFee`.
-- Reserves extension ID `0` for the **system extension** (`extensionsCounter = 1` so the next extension is ID 1).
+- Initialises `nextPublicExtensionId` to `65536` so public registrations via `register()` start at ID `65536`. IDs `1..65535` are the reserved range (governance-minted via `registerReserved`); ID `0` is the system extension.
+- Initialises the global extension-owner allowlist's `allExtensionOwnersAllowed` flag from the `teePublicExtensionCreationEnabled` deploy parameter (open on testnets, closed on mainnets).
 
 ## Facets, libraries, interfaces
 

@@ -465,16 +465,16 @@
             "description": "The default number of TEEs used in FDC2.",
             "type": "integer"
         },
-        "fdc2MinThresholdBIPS": {
-            "description": "The minimal threshold for FDC2 in BIPS (e.g. 30%).",
-            "type": "integer"
-        },
         "fdc2InflationConfigurations": {
             "description": "The inflation configurations for the FDC2 protocol.",
             "items": {
                 "$ref": "#/definitions/Fdc2InflationConfiguration"
             },
             "type": "array"
+        },
+        "fdc2MinThresholdBIPS": {
+            "description": "The minimal threshold for FDC2 in BIPS (e.g. 30%).",
+            "type": "integer"
         },
         "fdc2RequestFees": {
             "description": "The supported FDC2 requests fee configurations.",
@@ -837,6 +837,10 @@
             },
             "type": "array"
         },
+        "teePublicExtensionCreationEnabled": {
+            "description": "If true, anyone can call IExtensionManager.register() from day 1 (the global\nextension-owner allowlist starts in \"allow all\" mode). If false, registration\nis closed at deploy time and governance must seed / open the allowlist later.\nReserved-id minting via registerReserved() is always governance-only and is\nunaffected by this flag.",
+            "type": "boolean"
+        },
         "teeSigningPolicyValidityDurationInRewardEpochs": {
             "description": "The signing policy validity duration, in reward epochs (e.g. 10).\nUsed when extending availability or putting tee machine into production:\n- in case of registration, the check is done for the initial signing policy,\n- in other cases, the check is done for the last confirmed signing policy.",
             "type": "integer"
@@ -980,6 +984,7 @@
         "teeOwnersPPM",
         "teePauseBeforeUpgradeMinDurationSeconds",
         "teePaymentConfigurations",
+        "teePublicExtensionCreationEnabled",
         "teeSigningPolicyValidityDurationInRewardEpochs",
         "teeSupportedKeyTypesWithSigningAlgos",
         "teeSupportedPlatforms",

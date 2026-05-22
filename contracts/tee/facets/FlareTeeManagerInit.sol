@@ -7,6 +7,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
 import { Verification } from "../library/Verification.sol";
 import { OperationFees } from "../library/OperationFees.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
+import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
 import { LibDiamond } from "../../diamond/libraries/LibDiamond.sol";
 import { IDiamondCut } from "../../diamond/interfaces/IDiamondCut.sol";
 import { IDiamondLoupe } from "../../diamond/interfaces/IDiamondLoupe.sol";
@@ -40,6 +41,12 @@ contract FlareTeeManagerInit is Initializable, AddressUpdatable {
      * @param _signingPolicyValidityDurationInRewardEpochs Signing policy validity in reward epochs.
      * @param _challengeValidityDurationSeconds Challenge validity duration.
      * @param _defaultFee Default fee for operations.
+     * @param _publicExtensionCreationEnabled If true, anyone may call
+     *        IExtensionManager.register() from day 1 (global extension-owner
+     *        allowlist starts in "allow all" mode). If false, the allowlist is
+     *        closed and governance must seed or open it later. Reserved-id
+     *        minting via registerReserved is always governance-only and is
+     *        unaffected by this flag.
      */
     function init(
         IGovernanceSettings _governanceSettings,
@@ -48,7 +55,8 @@ contract FlareTeeManagerInit is Initializable, AddressUpdatable {
         uint64 _availabilityCheckValidityDurationSeconds,
         uint64 _signingPolicyValidityDurationInRewardEpochs,
         uint64 _challengeValidityDurationSeconds,
-        uint256 _defaultFee
+        uint256 _defaultFee,
+        bool _publicExtensionCreationEnabled
     )
         external
         initializer
@@ -75,8 +83,12 @@ contract FlareTeeManagerInit is Initializable, AddressUpdatable {
         // Set default fee
         OperationFees.getState().defaultFee = _defaultFee;
 
-        // Reserve extension id 0 for system use
-        ExtensionManager.getState().extensionsCounter = 1;
+        // Public registration starts at PUBLIC_EXTENSION_ID_START; reserved
+        // ids (1..65535) and id 0 are not assigned via this counter.
+        ExtensionManager.getState().nextPublicExtensionId = ExtensionManager.PUBLIC_EXTENSION_ID_START;
+
+        // Configure initial state of the global extension-owner allowlist.
+        OwnerAllowlist.getState().allExtensionOwnersAllowed = _publicExtensionCreationEnabled;
     }
 
     /**

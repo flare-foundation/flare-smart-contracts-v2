@@ -313,7 +313,8 @@ contract WalletBackupManagerFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0
+            defaultFee: 0,
+            publicExtensionCreationEnabled: true
         }));
         vm.startPrank(initialGovernance);
         FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({

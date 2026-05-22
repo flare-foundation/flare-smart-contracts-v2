@@ -1,6 +1,6 @@
 # Extensions
 
-FCC is **multi-tenant**. The default tenant is the **system extension** (extension ID `0`); around it, extensions can be registered for application-specific use cases — wallets and signing schemes, custom attestation flows, third-party VRF use, anything that benefits from TEE custody.
+FCC is **multi-tenant**. The default tenant is the **system extension** (extension ID `0`); around it, the **reserved range** (IDs `1..65535`) is for Flare-managed extensions minted only by governance, and the **public range** (IDs `65536+`) is for application-specific use cases — wallets and signing schemes, custom attestation flows, third-party VRF use, anything that benefits from TEE custody.
 
 The on-chain pieces:
 
@@ -14,7 +14,7 @@ This page covers the extension system itself. For the applications that Flare cu
 
 An extension is a tuple of:
 
-- **Extension ID** — assigned at registration. ID `0` is the **system extension** (reserved at diamond init via `extensionsCounter = 1`).
+- **Extension ID** — assigned at registration. ID `0` is the **system extension**. IDs `1..65535` are the **reserved range** (minted only by governance via `registerReserved`). IDs `65536+` are the **public range** (minted via `register()`; the `nextPublicExtensionId` counter is initialised to `65536` at diamond init).
 - **Owner** — the Flare address authorized to administer the extension.
 - **State verifier** — the address of an `ITeeExtensionStateVerifier` contract that can verify extension-specific TEE-signed messages. (Optional / `address(0)` if the extension doesn't need stateful verification.)
 - **Instructions sender** — the **single** authorized address that can call `InstructionsFacet.sendInstructions` on this extension's behalf. Typically a contract.
@@ -25,7 +25,9 @@ An extension is a tuple of:
 
 ## Registration
 
-Anyone can register an extension by calling `ExtensionManagerFacet.register(stateVerifier, instructionsSender)`:
+### Public registration
+
+Allowlisted addresses register a public extension by calling `ExtensionManagerFacet.register(stateVerifier, instructionsSender)`:
 
 ```solidity
 function register(
@@ -34,13 +36,25 @@ function register(
 ) external returns (uint256 _extensionId);
 ```
 
-The caller becomes the extension owner. `extensionsCounter` is incremented; the new ID is returned. Both the state verifier (or zero) and the instructions sender are recorded.
+The caller becomes the extension owner. The new ID is the current value of `nextPublicExtensionId` (initialised to `65536`), which is then incremented; the new ID is returned. Both the state verifier (or zero) and the instructions sender are recorded.
 
-There is no allowlist gating registration itself — anyone willing to operate an extension can register. The gates that matter come later:
+Registration is gated by the **global extension-owner allowlist** on `OwnerAllowlistFacet` (governance-controlled). The caller must either be on `allowedExtensionOwners` or the global `allExtensionOwnersAllowed` flag must be true. The flag's initial value comes from the `teePublicExtensionCreationEnabled` chain parameter — `true` on testnets / scdev (open at launch), `false` on flare / songbird (closed at launch; governance must seed the allowlist or flip the flag). The same allowlist also gates ownership transfer (see *Ownership transfer* below).
+
+Further gates that matter later:
 
 - The system-supported platform list (settable only by system governance) restricts which TEE platforms an extension can require for its software versions.
 - The system-supported key types and signing algorithms (also system governance) restrict which keys extension wallets can use.
 - The TEE machines themselves — the people willing to run extension-specific TEE software — are an off-chain market problem.
+
+### Reserved registration
+
+Governance can mint an extension in the reserved range `[1, 65535]` for Flare-managed extensions:
+
+```solidity
+function registerReserved(uint256 _extensionId, address _owner) external;  // onlyImmediateGovernance
+```
+
+Governance picks both the id and the initial owner. The verifier and instructions-sender are not set at mint time; the owner sets them later via `setExtensionContracts`. The reserved owner is **not** required to be on the global extension-owner allowlist — governance can mint to any address. Ownership transfer afterwards follows the same allowlist gating as public extensions.
 
 ## Configuring versions
 
@@ -90,6 +104,8 @@ function confirmOwnership(uint256 _extensionId) external;                    // 
 
 The system extension (`extensionId == 0`) cannot be transferred — `SystemOwnedExtensionId()` reverts on the proposal. System extension administration goes through diamond governance.
 
+`proposeNewOwner` requires `_newOwner` to be on the global extension-owner allowlist (or `address(0)` to clear a pending proposal). `confirmOwnership` re-checks that the proposed owner is still allowed at confirmation time — this defends against an address being removed from the allowlist between propose and confirm. This gate applies uniformly to public and reserved extensions (the initial reserved mint by governance is exempt; transfers after the mint follow the same rule).
+
 ## System-extension-specific configuration (governance)
 
 Two governance-only methods:
@@ -110,7 +126,7 @@ Adding a new platform or key type is a one-way operation in this code path — t
 
 Extension ID `0` is special:
 
-- Reserved at diamond init (`ExtensionManager.getState().extensionsCounter = 1` in `FlareTeeManagerInit.init`).
+- Reserved permanently — the `nextPublicExtensionId` counter starts at `65536`, and the reserved-range mint via `registerReserved` rejects `_extensionId == 0`.
 - Owner is the diamond governance itself (not transferable).
 - Hosts the Flare-operated **applications** that ship in the FCC base distribution — currently FDC2 and PMW. These applications share extension ID `0`, share the same TEE machines (system-extension TEEs), and share governance, but are otherwise independent protocols offered by Flare. They are *not* separate extensions in the on-chain sense — there is one system extension hosting many applications.
 - Instructions originating from the system extension can have `opType` starting with `F_` (the system prefix); other extensions cannot.

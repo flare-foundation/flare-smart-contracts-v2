@@ -7,6 +7,7 @@ import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTe
 import { IOwnerAllowlist } from "../../../../contracts/userInterfaces/tee/IOwnerAllowlist.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeCommonErrors } from "../../../../contracts/userInterfaces/tee/ITeeCommonErrors.sol";
+import { IFlareGovernance } from "../../../../contracts/userInterfaces/IFlareGovernance.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 contract OwnerAllowlistFacetTest is Test {
@@ -41,7 +42,8 @@ contract OwnerAllowlistFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 1000
+            defaultFee: 1000,
+            publicExtensionCreationEnabled: true
         }));
         vm.startPrank(initialGovernance);
         FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
@@ -332,5 +334,114 @@ contract OwnerAllowlistFacetTest is Test {
         assertTrue(flareTeeManager.isAllowedTeeWalletProjectOwner(extensionId, owners[0]));
         assertTrue(flareTeeManager.isAllowedTeeWalletProjectOwner(extensionId, owners[1]));
         assertFalse(flareTeeManager.isAllowedTeeWalletProjectOwner(extensionId, makeAddr("nonOwner")));
+    }
+
+    // =========================================================================
+    // Global extension-owner allowlist (governance-gated)
+    // =========================================================================
+
+    function testAllExtensionOwnersAllowedInitiallyTrue() public view {
+        // setUp deploys with publicExtensionCreationEnabled = true
+        assertTrue(flareTeeManager.allExtensionOwnersAllowed());
+    }
+
+    function testDisallowAllExtensionOwners() public {
+        vm.prank(initialGovernance);
+        vm.expectEmit();
+        emit IOwnerAllowlist.AllExtensionOwnersDisallowed();
+        flareTeeManager.disallowAllExtensionOwners();
+        assertFalse(flareTeeManager.allExtensionOwnersAllowed());
+    }
+
+    function testDisallowAllExtensionOwnersRevertOnlyGovernance() public {
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
+        flareTeeManager.disallowAllExtensionOwners();
+    }
+
+    function testAllowAllExtensionOwners() public {
+        vm.prank(initialGovernance);
+        flareTeeManager.disallowAllExtensionOwners();
+        vm.prank(initialGovernance);
+        vm.expectEmit();
+        emit IOwnerAllowlist.AllExtensionOwnersAllowed();
+        flareTeeManager.allowAllExtensionOwners();
+        assertTrue(flareTeeManager.allExtensionOwnersAllowed());
+    }
+
+    function testAllowAllExtensionOwnersRevertOnlyGovernance() public {
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
+        flareTeeManager.allowAllExtensionOwners();
+    }
+
+    function testAddAllowedExtensionOwners() public {
+        vm.prank(initialGovernance);
+        vm.expectEmit();
+        emit IOwnerAllowlist.AllowedExtensionOwnersAdded(owners);
+        flareTeeManager.addAllowedExtensionOwners(owners);
+        address[] memory got = flareTeeManager.getAllowedExtensionOwners();
+        assertEq(got.length, 2);
+        assertEq(got[0], owners[0]);
+        assertEq(got[1], owners[1]);
+    }
+
+    function testAddAllowedExtensionOwnersRevertOnlyGovernance() public {
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
+        flareTeeManager.addAllowedExtensionOwners(owners);
+    }
+
+    function testAddAllowedExtensionOwnersRevertInvalidOwner() public {
+        address[] memory bad = new address[](1);
+        bad[0] = address(0);
+        vm.prank(initialGovernance);
+        vm.expectRevert(IOwnerAllowlist.InvalidOwner.selector);
+        flareTeeManager.addAllowedExtensionOwners(bad);
+    }
+
+    function testAddAllowedExtensionOwnersRevertOwnerAlreadyAllowed() public {
+        vm.prank(initialGovernance);
+        flareTeeManager.addAllowedExtensionOwners(owners);
+        vm.prank(initialGovernance);
+        vm.expectRevert(
+            abi.encodeWithSelector(IOwnerAllowlist.OwnerAlreadyAllowed.selector, owners[0])
+        );
+        flareTeeManager.addAllowedExtensionOwners(owners);
+    }
+
+    function testRemoveAllowedExtensionOwners() public {
+        vm.prank(initialGovernance);
+        flareTeeManager.addAllowedExtensionOwners(owners);
+        vm.prank(initialGovernance);
+        vm.expectEmit();
+        emit IOwnerAllowlist.AllowedExtensionOwnersRemoved(owners);
+        flareTeeManager.removeAllowedExtensionOwners(owners);
+        assertEq(flareTeeManager.getAllowedExtensionOwners().length, 0);
+    }
+
+    function testRemoveAllowedExtensionOwnersRevertOnlyGovernance() public {
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
+        flareTeeManager.removeAllowedExtensionOwners(owners);
+    }
+
+    function testRemoveAllowedExtensionOwnersRevertOwnerNotInAllowlist() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(
+            abi.encodeWithSelector(IOwnerAllowlist.OwnerNotInAllowlist.selector, owners[0])
+        );
+        flareTeeManager.removeAllowedExtensionOwners(owners);
+    }
+
+    function testIsAllowedExtensionOwner() public {
+        // With allExtensionOwnersAllowed = true, every address passes.
+        assertTrue(flareTeeManager.isAllowedExtensionOwner(owners[0]));
+        assertTrue(flareTeeManager.isAllowedExtensionOwner(makeAddr("random")));
+        // Once closed, only explicitly added addresses pass.
+        vm.prank(initialGovernance);
+        flareTeeManager.disallowAllExtensionOwners();
+        assertFalse(flareTeeManager.isAllowedExtensionOwner(owners[0]));
+        vm.prank(initialGovernance);
+        flareTeeManager.addAllowedExtensionOwners(owners);
+        assertTrue(flareTeeManager.isAllowedExtensionOwner(owners[0]));
+        assertTrue(flareTeeManager.isAllowedExtensionOwner(owners[1]));
+        assertFalse(flareTeeManager.isAllowedExtensionOwner(makeAddr("random")));
     }
 }

@@ -470,6 +470,8 @@ contract DeployTeeContracts is Script {
         );
         uint256 defaultFeeWei =
             vm.parseJsonUint(config, ".teeDefaultFeeWei");
+        bool publicExtensionCreationEnabled =
+            vm.parseJsonBool(config, ".teePublicExtensionCreationEnabled");
 
         FlareTeeManagerInit flareTeeManagerInit =
             new FlareTeeManagerInit();
@@ -482,7 +484,8 @@ contract DeployTeeContracts is Script {
             availabilityCheckValidityDurationSeconds,
             signingPolicyValidityDurationInRewardEpochs,
             challengeValidityDurationSeconds,
-            defaultFeeWei
+            defaultFeeWei,
+            publicExtensionCreationEnabled
         );
 
         FlareTeeManager diamond = new FlareTeeManager(

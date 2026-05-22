@@ -16,6 +16,12 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 library ExtensionManager {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
+    /// @notice First id assigned to a public registration via `register()`.
+    /// @dev Reserved ids are `[1, PUBLIC_EXTENSION_ID_START - 1]` and are
+    ///      minted only by governance via `registerReserved`. Id 0 is the
+    ///      system / governance extension and is never minted.
+    uint256 internal constant PUBLIC_EXTENSION_ID_START = uint256(type(uint16).max) + 1;
+
     struct TeeVersion {
         string version;
         bytes32 governanceHash;
@@ -47,8 +53,10 @@ library ExtensionManager {
         EnumerableSet.Bytes32Set systemSupportedKeyTypes;
         /// Signing algorithms per key type.
         mapping(bytes32 keyType => EnumerableSet.Bytes32Set) systemSupportedSigningAlgos;
-        /// Extensions counter.
-        uint256 extensionsCounter;
+        /// Id that the next public `register()` call will assign.
+        /// Initialised to `PUBLIC_EXTENSION_ID_START` (= 65536) and incremented
+        /// on each successful public registration.
+        uint256 nextPublicExtensionId;
         /// Extension data.
         mapping(uint256 extensionId => TeeExtension) extensions;
         /// Proposed new extension owner.

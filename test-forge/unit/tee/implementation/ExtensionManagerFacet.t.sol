@@ -120,7 +120,7 @@ contract ExtensionManagerFacetTest is Test {
         opTypes[0] = opType;
         opCommand = keccak256("opCommand");
         message = abi.encode("message");
-        extensionId = 1;
+        extensionId = ExtensionManager.PUBLIC_EXTENSION_ID_START;
         instructionId = keccak256(abi.encode(extensionId, 0, blockhash(block.number - 1)));
         instructionsSenders = new address[](1);
         instructionsSenders[0] = makeAddr("instructionsSender");
@@ -156,7 +156,8 @@ contract ExtensionManagerFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 0
+            defaultFee: 0,
+            publicExtensionCreationEnabled: true
         }));
         vm.startPrank(initialGovernance);
         FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
@@ -989,7 +990,7 @@ contract ExtensionManagerFacetTest is Test {
         // testRegister creates a NEW extension; check its sender
         testRegister();
         // The newly registered extension has address(this) as sender
-        uint256 newExtId = flareTeeManager.extensionsCounter() - 1;
+        uint256 newExtId = flareTeeManager.nextPublicExtensionId() - 1;
         assertEq(flareTeeManager.getTeeExtensionInstructionsSender(newExtId), address(this));
     }
 
@@ -1107,5 +1108,188 @@ contract ExtensionManagerFacetTest is Test {
             // Recalculate our test's governanceHash to match what was actually set
             governanceHash = computedHash;
         }
+    }
+
+    // =========================================================================
+    // registerReserved
+    // =========================================================================
+
+    function testRegisterReservedSuccess() public {
+        uint256 reservedId = 42;
+        vm.prank(initialGovernance);
+        vm.expectEmit();
+        emit IExtensionManager.TeeExtensionRegistered(reservedId, owner);
+        flareTeeManager.registerReserved(reservedId, owner);
+        assertEq(flareTeeManager.getExtensionOwner(reservedId), owner);
+        // verifier and instructions sender are NOT set by registerReserved
+        assertEq(address(flareTeeManager.getTeeExtensionStateVerifier(reservedId)), address(0));
+        assertEq(flareTeeManager.getTeeExtensionInstructionsSender(reservedId), address(0));
+    }
+
+    function testRegisterReservedSetContractsAfter() public {
+        uint256 reservedId = 42;
+        vm.prank(initialGovernance);
+        flareTeeManager.registerReserved(reservedId, owner);
+        vm.prank(owner);
+        flareTeeManager.setExtensionContracts(reservedId, teeExtensionStateVerifier, instructionsSenders[0]);
+        assertEq(
+            address(flareTeeManager.getTeeExtensionStateVerifier(reservedId)),
+            address(teeExtensionStateVerifier)
+        );
+        assertEq(flareTeeManager.getTeeExtensionInstructionsSender(reservedId), instructionsSenders[0]);
+    }
+
+    function testRegisterReservedRevertNotGovernance() public {
+        vm.prank(owner);
+        vm.expectRevert(IFlareGovernance.OnlyGovernance.selector);
+        flareTeeManager.registerReserved(42, owner);
+    }
+
+    function testRegisterReservedRevertZeroId() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(IExtensionManager.InvalidReservedExtensionId.selector);
+        flareTeeManager.registerReserved(0, owner);
+    }
+
+    function testRegisterReservedRevertAtBoundary() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(IExtensionManager.InvalidReservedExtensionId.selector);
+        flareTeeManager.registerReserved(ExtensionManager.PUBLIC_EXTENSION_ID_START, owner);
+    }
+
+    function testRegisterReservedRevertAboveBoundary() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(IExtensionManager.InvalidReservedExtensionId.selector);
+        flareTeeManager.registerReserved(ExtensionManager.PUBLIC_EXTENSION_ID_START + 1, owner);
+    }
+
+    function testRegisterReservedRevertZeroOwner() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(IExtensionManager.InvalidExtensionOwner.selector);
+        flareTeeManager.registerReserved(42, address(0));
+    }
+
+    function testRegisterReservedRevertAlreadyAssigned() public {
+        vm.prank(initialGovernance);
+        flareTeeManager.registerReserved(42, owner);
+        vm.prank(initialGovernance);
+        vm.expectRevert(IExtensionManager.ReservedExtensionIdAlreadyAssigned.selector);
+        flareTeeManager.registerReserved(42, newOwner);
+    }
+
+    function testRegisterReservedTransferableToAllowlistedOwner() public {
+        uint256 reservedId = 42;
+        vm.prank(initialGovernance);
+        flareTeeManager.registerReserved(reservedId, owner);
+        // Close the allowlist and put newOwner on it
+        vm.prank(initialGovernance);
+        flareTeeManager.disallowAllExtensionOwners();
+        address[] memory allowed = new address[](1);
+        allowed[0] = newOwner;
+        vm.prank(initialGovernance);
+        flareTeeManager.addAllowedExtensionOwners(allowed);
+        // Propose + confirm
+        vm.prank(owner);
+        flareTeeManager.proposeNewOwner(reservedId, newOwner);
+        vm.prank(newOwner);
+        flareTeeManager.confirmOwnership(reservedId);
+        assertEq(flareTeeManager.getExtensionOwner(reservedId), newOwner);
+    }
+
+    function testRegisterReservedTransferToNonAllowlistedRevert() public {
+        uint256 reservedId = 42;
+        vm.prank(initialGovernance);
+        flareTeeManager.registerReserved(reservedId, owner);
+        // Close the allowlist; newOwner is not allowed
+        vm.prank(initialGovernance);
+        flareTeeManager.disallowAllExtensionOwners();
+        vm.prank(owner);
+        vm.expectRevert(IExtensionManager.NotAllowedExtensionOwner.selector);
+        flareTeeManager.proposeNewOwner(reservedId, newOwner);
+    }
+
+    // =========================================================================
+    // Public register() — id assignment + allowlist gating
+    // =========================================================================
+
+    function testRegisterFirstPublicIdIsBoundary() public {
+        // setUp helper-set an extension at PUBLIC_EXTENSION_ID_START, but the counter
+        // is independent of helper writes — first register() still returns the boundary id.
+        vm.prank(owner);
+        uint256 id = flareTeeManager.register(teeExtensionStateVerifier, address(this));
+        assertEq(id, ExtensionManager.PUBLIC_EXTENSION_ID_START);
+    }
+
+    function testNextPublicExtensionIdGetter() public {
+        // Initial value matches PUBLIC_EXTENSION_ID_START
+        assertEq(flareTeeManager.nextPublicExtensionId(), ExtensionManager.PUBLIC_EXTENSION_ID_START);
+        // Increments by 1 on each register
+        vm.prank(owner);
+        flareTeeManager.register(teeExtensionStateVerifier, address(this));
+        assertEq(flareTeeManager.nextPublicExtensionId(), ExtensionManager.PUBLIC_EXTENSION_ID_START + 1);
+    }
+
+    function testRegisterRevertNotAllowedExtensionOwner() public {
+        // Close the allowlist; caller is not on it
+        vm.prank(initialGovernance);
+        flareTeeManager.disallowAllExtensionOwners();
+        vm.prank(owner);
+        vm.expectRevert(IExtensionManager.NotAllowedExtensionOwner.selector);
+        flareTeeManager.register(teeExtensionStateVerifier, address(this));
+    }
+
+    function testRegisterSucceedsWhenInAllowlist() public {
+        vm.prank(initialGovernance);
+        flareTeeManager.disallowAllExtensionOwners();
+        address[] memory allowed = new address[](1);
+        allowed[0] = owner;
+        vm.prank(initialGovernance);
+        flareTeeManager.addAllowedExtensionOwners(allowed);
+        vm.prank(owner);
+        uint256 id = flareTeeManager.register(teeExtensionStateVerifier, address(this));
+        assertEq(id, ExtensionManager.PUBLIC_EXTENSION_ID_START);
+    }
+
+    // =========================================================================
+    // proposeNewOwner / confirmOwnership — allowlist gating
+    // =========================================================================
+
+    function testProposeNewOwnerRevertForNonAllowlistedOwner() public {
+        testRegister();
+        // Close the allowlist; newOwner is not in it
+        vm.prank(initialGovernance);
+        flareTeeManager.disallowAllExtensionOwners();
+        vm.prank(owner);
+        vm.expectRevert(IExtensionManager.NotAllowedExtensionOwner.selector);
+        flareTeeManager.proposeNewOwner(extensionId, newOwner);
+    }
+
+    function testProposeNewOwnerWithZeroAddressBypassesAllowlist() public {
+        testRegister();
+        // Close the allowlist; even so, clearing with zero is allowed
+        vm.prank(initialGovernance);
+        flareTeeManager.disallowAllExtensionOwners();
+        vm.prank(owner);
+        vm.expectEmit();
+        emit IExtensionManager.NewOwnerProposed(extensionId, owner, address(0));
+        flareTeeManager.proposeNewOwner(extensionId, address(0));
+    }
+
+    function testConfirmOwnershipRevertIfProposedOwnerRemovedFromAllowlist() public {
+        testRegister();
+        vm.prank(initialGovernance);
+        flareTeeManager.disallowAllExtensionOwners();
+        address[] memory allowed = new address[](1);
+        allowed[0] = newOwner;
+        vm.prank(initialGovernance);
+        flareTeeManager.addAllowedExtensionOwners(allowed);
+        vm.prank(owner);
+        flareTeeManager.proposeNewOwner(extensionId, newOwner);
+        // Now remove newOwner before they confirm
+        vm.prank(initialGovernance);
+        flareTeeManager.removeAllowedExtensionOwners(allowed);
+        vm.prank(newOwner);
+        vm.expectRevert(IExtensionManager.NotAllowedExtensionOwner.selector);
+        flareTeeManager.confirmOwnership(extensionId);
     }
 }

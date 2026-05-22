@@ -17,6 +17,7 @@ import { IVerification, TEE_SOURCE_ID } from "../../contracts/userInterfaces/tee
 import { ISystemStateVerifier } from "../../contracts/userInterfaces/tee/ISystemStateVerifier.sol";
 import { IUpgradeManager } from "../../contracts/userInterfaces/tee/IUpgradeManager.sol";
 import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
+import { ExtensionManager } from "../../contracts/tee/library/ExtensionManager.sol";
 
 // FDC2
 import { Fdc2Verification } from "../../contracts/fdc2/implementation/Fdc2Verification.sol";
@@ -141,7 +142,8 @@ contract TeeMachineReplicationTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 1000
+            defaultFee: 1000,
+            publicExtensionCreationEnabled: true
         }));
         vm.startPrank(initialGovernance);
         FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
@@ -342,17 +344,18 @@ contract TeeMachineReplicationTest is Test {
 
     function testRegisterNewTeeExtension() public {
         ITeeExtensionStateVerifier verifier = ITeeExtensionStateVerifier(address(0));
+        uint256 expectedId = ExtensionManager.PUBLIC_EXTENSION_ID_START;
         vm.prank(extensionOwner);
         vm.expectEmit();
-        emit IExtensionManager.TeeExtensionRegistered(1, extensionOwner);
+        emit IExtensionManager.TeeExtensionRegistered(expectedId, extensionOwner);
         vm.expectEmit();
         emit IExtensionManager.TeeExtensionContractsSet(
-            1,
+            expectedId,
             verifier,
             instructionsSender
         );
         extensionId = flareTeeManager.register(verifier, instructionsSender);
-        assertEq(extensionId, 1);
+        assertEq(extensionId, expectedId);
         assertEq(flareTeeManager.getExtensionOwner(extensionId), extensionOwner);
         assertEq(address(flareTeeManager.getTeeExtensionStateVerifier(extensionId)), address(0));
         assertEq(flareTeeManager.getTeeExtensionInstructionsSender(extensionId), instructionsSender);

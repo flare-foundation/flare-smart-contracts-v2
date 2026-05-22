@@ -14,15 +14,32 @@ library OwnerAllowlist {
 
     /// @custom:storage-location erc7201:tee.OwnerAllowlist.State
     struct State {
+        // --- Global allowlist of who can become a public extension owner ---
+        EnumerableSet.AddressSet allowedExtensionOwners;
+        bool allExtensionOwnersAllowed;
+
+        // --- Per-extension allowlist of TEE machine owners ---
         mapping(uint256 extensionId => EnumerableSet.AddressSet) allowedTeeMachineOwners;
-        mapping(uint256 extensionId => EnumerableSet.AddressSet) allowedTeeWalletProjectOwners;
         mapping(uint256 extensionId => bool) allTeeMachineOwnersAllowed;
+
+        // --- Per-extension allowlist of TEE wallet project owners ---
+        mapping(uint256 extensionId => EnumerableSet.AddressSet) allowedTeeWalletProjectOwners;
         mapping(uint256 extensionId => bool) allTeeWalletProjectOwnersAllowed;
     }
 
     bytes32 internal constant STATE_POSITION = keccak256(
         abi.encode(uint256(keccak256("tee.OwnerAllowlist.State")) - 1)
     ) & ~bytes32(uint256(0xff));
+
+    function isAllowedExtensionOwner(
+        address _owner
+    )
+        internal view
+        returns (bool)
+    {
+        State storage s = getState();
+        return s.allExtensionOwnersAllowed || s.allowedExtensionOwners.contains(_owner);
+    }
 
     function isAllowedTeeMachineOwner(
         uint256 _extensionId,

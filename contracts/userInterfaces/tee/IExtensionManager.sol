@@ -82,9 +82,17 @@ interface IExtensionManager is ITeeCommonErrors {
     error NoSigningAlgos(bytes32 keyType);
     error SigningAlgoEmpty();
     error SigningAlgoAlreadyExists(bytes32 keyType, bytes32 signingAlgo);
+    error InvalidReservedExtensionId();
+    error ReservedExtensionIdAlreadyAssigned();
+    error InvalidExtensionOwner();
+    error NotAllowedExtensionOwner();
 
     /**
-     * Register a new TEE extension.
+     * Register a new public TEE extension.
+     * The caller must be on the global extension-owner allowlist (governed via
+     * IOwnerAllowlist.addAllowedExtensionOwners / allowAllExtensionOwners).
+     * The assigned id starts from `type(uint16).max + 1` (= 65536); lower ids
+     * are reserved for governance-minted extensions (see registerReserved).
      * Emits TeeExtensionRegistered and TeeExtensionContractsSet events.
      * @param _teeExtensionStateVerifier The TEE extension state verifier contract.
      * @param _teeExtensionInstructionsSender The address that can send instructions to the TEE machines.
@@ -96,6 +104,25 @@ interface IExtensionManager is ITeeCommonErrors {
     )
         external
         returns (uint256 _extensionId);
+
+    /**
+     * Mint a reserved TEE extension with id in `[1, type(uint16).max]`.
+     * Governance picks both the id and the initial owner. The extension's
+     * verifier and instructions-sender are NOT set here — the owner must call
+     * setExtensionContracts before the extension is operational.
+     * Subsequent ownership transfer follows the same allowlist gating as
+     * public extensions (proposeNewOwner / confirmOwnership require the
+     * target to be on the global extension-owner allowlist).
+     * Emits TeeExtensionRegistered event.
+     * @param _extensionId The reserved id to mint (must satisfy 0 < id < 65536).
+     * @param _owner The initial owner address (must be non-zero).
+     * Can only be called by the immediate governance address.
+     */
+    function registerReserved(
+        uint256 _extensionId,
+        address _owner
+    )
+        external;
 
     /**
      * Set the extension contracts for a given extension id.
@@ -197,10 +224,14 @@ interface IExtensionManager is ITeeCommonErrors {
         external;
 
     /**
-     * Get number of registered TEE extensions.
-     * @return The number of registered TEE extensions.
+     * Get the id that the next public `register()` call will assign.
+     * Initialised to `type(uint16).max + 1` (= 65536) and incremented on each
+     * successful public registration. Reserved ids (1..65535) do not flow
+     * through this counter — they are picked explicitly by governance via
+     * registerReserved.
+     * @return The next public extension id.
      */
-    function extensionsCounter()
+    function nextPublicExtensionId()
         external view
         returns (uint256);
 

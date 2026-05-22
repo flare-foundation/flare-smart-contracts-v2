@@ -38,7 +38,8 @@ contract ExtensionGovernanceFacetTest is Test {
             availabilityCheckValidityDurationSeconds: 3600,
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
-            defaultFee: 1000
+            defaultFee: 1000,
+            publicExtensionCreationEnabled: true
         }));
 
         bytes32[] memory nameHashes = new bytes32[](6);

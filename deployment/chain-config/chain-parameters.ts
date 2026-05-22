@@ -526,6 +526,15 @@ export interface ChainParameters {
   teeChallengeValidityDurationSeconds: integer;
 
   /**
+   * If true, anyone can call IExtensionManager.register() from day 1 (the global
+   * extension-owner allowlist starts in "allow all" mode). If false, registration
+   * is closed at deploy time and governance must seed / open the allowlist later.
+   * Reserved-id minting via registerReserved() is always governance-only and is
+   * unaffected by this flag.
+   */
+  teePublicExtensionCreationEnabled: boolean;
+
+  /**
    * The amount of rewards that are distributed to TEE owners, in PPM (e.g. 10%).
    */
   teeOwnersPPM: integer;

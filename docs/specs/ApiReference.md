@@ -93,14 +93,14 @@ About 20 public interfaces under [`userInterfaces/tee/`](../../contracts/userInt
 | [`IFlareTeeManager`](../../contracts/userInterfaces/tee/IFlareTeeManager.sol) | The diamond's combined external interface. |
 | [`IDiamondGovernance`](../../contracts/userInterfaces/tee/IDiamondGovernance.sol) | `diamondCut`, governance transfer. |
 | [`IFlareGovernance`](../../contracts/userInterfaces/IFlareGovernance.sol) | `Governed` accessors — implemented by `FlareGovernedBase` (used by `FlareUpgradeableBase`) and by the TEE diamond's `DiamondGovernanceFacet`. |
-| [`IExtensionManager`](../../contracts/userInterfaces/tee/IExtensionManager.sol) | Extension registration, version management, ownership. |
+| [`IExtensionManager`](../../contracts/userInterfaces/tee/IExtensionManager.sol) | Extension registration (public `register` and governance-only `registerReserved`), `nextPublicExtensionId` getter, version management, two-step ownership transfer gated by the global extension-owner allowlist. |
 | [`IExtensionGovernance`](../../contracts/userInterfaces/tee/IExtensionGovernance.sol) | Per-extension governance signer-set + threshold management; signer / threshold / hash getters. |
 | [`IExtensionPausing`](../../contracts/userInterfaces/tee/IExtensionPausing.sol) | Per-extension pausing-addresses records bound to one or more governance hashes; per-approval signature collection with per-hash threshold-met events. |
 | [`IExternalAddresses`](../../contracts/userInterfaces/tee/IExternalAddresses.sol) | The diamond's `AddressUpdatable` view. |
 | [`IInstructions`](../../contracts/userInterfaces/tee/IInstructions.sol) | `sendInstructions`, `sendSystemInstructions`, system-instructions-sender registry. |
 | [`IMachineManager`](../../contracts/userInterfaces/tee/IMachineManager.sol) | Machine registration, status changes, ownership transfer. |
 | [`IOperationFees`](../../contracts/userInterfaces/tee/IOperationFees.sol) | Per-`(opType, opCommand)` fees, default fee. |
-| [`IOwnerAllowlist`](../../contracts/userInterfaces/tee/IOwnerAllowlist.sol) | Per-extension TEE machine owner allowlist. |
+| [`IOwnerAllowlist`](../../contracts/userInterfaces/tee/IOwnerAllowlist.sol) | Global extension-owner allowlist (governance-gated; gates `register()` and ownership transfer); per-extension TEE machine owner and wallet project owner allowlists (extension-owner-gated). |
 | [`IReplication`](../../contracts/userInterfaces/tee/IReplication.sol) | Replication group management. |
 | [`ISystemStateVerifier`](../../contracts/userInterfaces/tee/ISystemStateVerifier.sol) | System-state verification of TEE-signed messages. |
 | [`IUpgradeManager`](../../contracts/userInterfaces/tee/IUpgradeManager.sol) | TEE software upgrade lifecycle. |
