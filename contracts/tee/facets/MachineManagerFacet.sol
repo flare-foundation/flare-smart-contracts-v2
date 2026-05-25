@@ -43,8 +43,12 @@ contract MachineManagerFacet is IMachineManager {
             OwnerNotAllowed()
         );
         require(PublicKeyUtils.isPublicKeyValid(_teeMachineData.publicKey), InvalidTeePublicKey());
+        // Bind chainid into the signed payload so a TEE registration signature
+        // produced for one Flare network cannot be replayed on another.
         address teeId = ECDSA.recover(
-            MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(_teeMachineData))),
+            MessageHashUtils.toEthSignedMessageHash(
+                keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, _teeMachineData))
+            ),
             _teeMachineDataSignature.v,
             _teeMachineDataSignature.r,
             _teeMachineDataSignature.s

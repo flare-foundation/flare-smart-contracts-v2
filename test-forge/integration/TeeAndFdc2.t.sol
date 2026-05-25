@@ -465,7 +465,9 @@ contract TeeAndFdc2Test is Test {
             codeHash: codeHash,
             platform: platform
         });
-        Signature memory sig = SignatureHelper.createSignature(vm, keccak256(abi.encode(data)), _privKey);
+        Signature memory sig = SignatureHelper.createSignature(
+            vm, keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, data)), _privKey
+        );
 
         address id = PublicKeyHelper.getAddress(_pubKey);
         registerTimestamps[id] = block.timestamp;
@@ -493,6 +495,7 @@ contract TeeAndFdc2Test is Test {
         bytes32 challenge = keccak256(abi.encode(_teeId, registerTimestamps[_teeId], randomNumber));
 
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
+            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -605,7 +608,7 @@ contract TeeAndFdc2Test is Test {
         });
 
         Signature memory teeSig = SignatureHelper.createSignature(
-            vm, keccak256(abi.encode(proof)), _teePrivKey
+            vm, keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, proof)), _teePrivKey
         );
 
         vm.prank(projectOwner);
@@ -645,7 +648,7 @@ contract TeeAndFdc2Test is Test {
         });
 
         Signature memory teeSig = SignatureHelper.createSignature(
-            vm, keccak256(abi.encode(proof)), _teePrivKey
+            vm, keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, proof)), _teePrivKey
         );
 
         vm.prank(projectOwner);

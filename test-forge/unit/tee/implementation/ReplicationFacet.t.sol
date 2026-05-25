@@ -362,7 +362,9 @@ contract ReplicationFacetTest is Test {
             codeHash: codeHash2,
             platform: platforms1[0]
         });
-        Signature memory sig = SignatureHelper.createSignature(vm, keccak256(abi.encode(data)), wallet2.privateKey);
+        Signature memory sig = SignatureHelper.createSignature(
+            vm, keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, data)), wallet2.privateKey
+        );
         vm.prank(owner);
         flareTeeManager.register{value: 100}(data, sig, makeAddr("proxy2"), "https://url2", address(0));
 
@@ -640,7 +642,9 @@ contract ReplicationFacetTest is Test {
             codeHash: _codeHash,
             platform: _platform
         });
-        Signature memory sig = SignatureHelper.createSignature(vm, keccak256(abi.encode(data)), _privateKey);
+        Signature memory sig = SignatureHelper.createSignature(
+            vm, keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, data)), _privateKey
+        );
         if (_teeId == teeId) {
             teeIdRegistrationTs = block.timestamp;
         }
@@ -673,6 +677,7 @@ contract ReplicationFacetTest is Test {
         private
     {
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
+            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -813,7 +818,7 @@ contract ReplicationFacetTest is Test {
         // _createTeeUpgradePathAndSign which calls createNewTeeUpgrade(extensionId, governanceHash, governanceHash).
         bytes32 messageHash = keccak256(
             abi.encode(
-                "TEE_UPGRADE",
+                bytes32("TEE_UPGRADE"),
                 block.chainid,
                 extensionId,
                 _upgradeId,
@@ -869,6 +874,7 @@ contract ReplicationFacetTest is Test {
         returns (ITeeAvailabilityCheck.Proof memory)
     {
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
+            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -920,6 +926,7 @@ contract ReplicationFacetTest is Test {
         // but after _replicate copies new data into old state:
         // - teeProxyId, url, codeHash, platform, initialTeeId = new tee's values
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
+            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,

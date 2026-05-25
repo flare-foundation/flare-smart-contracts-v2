@@ -484,7 +484,7 @@ contract ExtensionPausingFacetTest is Test {
         returns (Signature memory)
     {
         bytes32 messageHash = keccak256(abi.encode(
-            "TEE_PAUSING_ADDRESSES",
+            bytes32("TEE_PAUSING_ADDRESSES"),
             block.chainid,
             _extensionId,
             _nonce,

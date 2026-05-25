@@ -341,6 +341,7 @@ contract VerificationFacetTest is Test {
         proof.header.thresholdBIPS = 0;
         proof.header.attestationType = bytes32("TeeAvailabilityCheck");
         proof.header.sourceId = sourceId;
+        proof.header.chainId = block.chainid;
         proof.requestBody.teeProxyId = teeProxyId;
         proof.requestBody.url = url;
         proof.responseBody.initialSigningPolicyId = signingPolicyId;
@@ -520,6 +521,7 @@ contract VerificationFacetTest is Test {
         // Set up PMW proof fields
         pmwProof.header.thresholdBIPS = 0;
         pmwProof.header.attestationType = PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE;
+        pmwProof.header.chainId = block.chainid;
         pmwProof.requestBody.accountAddress = walletAddress;
         pmwProof.requestBody.threshold = multisigThreshold;
         pmwProof.requestBody.publicKeys = new bytes[](1);

@@ -809,7 +809,7 @@ contract MachinePathManagerFacetTest is Test {
         (IMachinePathManager.MachinePath[] memory paths,,,) =
             flareTeeManager.getMachinePathList(_extensionId, _nonce);
         return keccak256(abi.encode(
-            "TEE_MACHINE_PATH_LIST",
+            bytes32("TEE_MACHINE_PATH_LIST"),
             block.chainid,
             _extensionId,
             _nonce,

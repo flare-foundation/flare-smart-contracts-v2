@@ -122,4 +122,6 @@ FDC2 uses [`Fdc2Verification`](../../../contracts/fdc2/implementation/Fdc2Verifi
 - **TEE-machine verification.** `verifyTeeSignature(sig, hash)` and `verifyTeeSignatures(sigs[], hash)` recover the TEE machine's address via ECDSA, then check `flareTeeManager.getExtensionId(teeId) == 0` (the system extension) and `flareTeeManager.getTeeMachineStatus(teeId) == PRODUCTION`. Used for direct on-Flare verification.
 - **Cosigner recovery.** `recoverCosigners(sigs[], hash)` recovers cosigner addresses for caller-side authorization checks.
 
+Each FDC2 response header carries a `chainId` field, and every FDC2 verifier that consumes such a header **must** enforce `header.chainId == block.chainid` (alongside its other header-validation checks) to prevent cross-chain replay of a signed proof onto a different Flare network. The chain binding is then naturally part of the signed `messageHash` via `keccak256(abi.encode(header))`. See `Verification.verifyAvailabilityCheckProof` and `VerificationFacet.verifyPMWMultisigAccountConfiguredProof` for canonical examples.
+
 There is **no Merkle proof** in FDC2 — each TEE machine signs its response directly, and the consumer checks the signature(s). See [Fdc2](./Fdc2.md).

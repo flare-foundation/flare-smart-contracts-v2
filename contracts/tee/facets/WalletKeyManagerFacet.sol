@@ -135,9 +135,12 @@ contract WalletKeyManagerFacet is IWalletKeyManager {
         _validateKeyExistenceConfigConstants(walletId, _proof.configConstants);
         require(_proof.settingsVersion == bytes32(0) && _proof.settings.length == 0, InvalidSettings());
 
-        // check TEE signature
+        // check TEE signature; bind chainid into the signed payload so a key-existence
+        // proof signed on one Flare network cannot be replayed on another.
         address teeId = ECDSA.recover(
-            MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(_proof))),
+            MessageHashUtils.toEthSignedMessageHash(
+                keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, _proof))
+            ),
             _teeSignature.v,
             _teeSignature.r,
             _teeSignature.s

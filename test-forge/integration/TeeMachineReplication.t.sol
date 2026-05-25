@@ -402,7 +402,7 @@ contract TeeMachineReplicationTest is Test {
         });
         Signature memory signature = SignatureHelper.createSignature(
             vm,
-            keccak256(abi.encode(teeMachineData)),
+            keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, teeMachineData)),
             teePrivateKey
         );
         flareTeeManager.register{value: 150}(
@@ -418,6 +418,7 @@ contract TeeMachineReplicationTest is Test {
         testRegisterTeeMachine();
 
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
+            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -527,7 +528,7 @@ contract TeeMachineReplicationTest is Test {
         // Mirror UpgradeManagerFacet.finalizeTeeUpgrade's bound messageHash composition.
         bytes32 messageHash = keccak256(
             abi.encode(
-                "TEE_UPGRADE",
+                bytes32("TEE_UPGRADE"),
                 block.chainid,
                 extensionId,
                 uint256(0),
@@ -591,7 +592,7 @@ contract TeeMachineReplicationTest is Test {
         });
         Signature memory signature = SignatureHelper.createSignature(
             vm,
-            keccak256(abi.encode(newTeeMachineData)),
+            keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, newTeeMachineData)),
             newTeePrivateKey
         );
         flareTeeManager.register{value: 150}(
@@ -614,6 +615,7 @@ contract TeeMachineReplicationTest is Test {
         );
 
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
+            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -685,6 +687,7 @@ contract TeeMachineReplicationTest is Test {
         testRequestTeeAttestation();
 
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
+            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,

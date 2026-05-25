@@ -307,7 +307,7 @@ contract WalletResumeFacetTest is Test {
         bytes32 signedMessageHash = keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
-                keccak256(abi.encode(proof))
+                keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, proof))
             )
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(teeKey, signedMessageHash);

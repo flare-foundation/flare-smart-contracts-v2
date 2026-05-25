@@ -52,7 +52,7 @@ Caller is the proposed owner (`msg.sender == _teeMachineData.initialOwner`). Val
 
 - The caller's address must be on the **owner allowlist** for the target extension ([`OwnerAllowlist.isAllowedTeeMachineOwner`](../../../contracts/tee/library/OwnerAllowlist.sol)). If not, `OwnerNotAllowed()`.
 - `publicKey` must be a valid uncompressed secp256k1 public key.
-- `_teeMachineDataSignature` must be the signature, by the corresponding TEE private key, over `keccak256(abi.encode(_teeMachineData))`. The recovered address becomes the `teeId`.
+- `_teeMachineDataSignature` must be the signature, by the corresponding TEE private key, over `keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, _teeMachineData))`. The recovered address becomes the `teeId`. The domain tag and `block.chainid` are bound into the payload so the same TEE registration signature cannot be replayed across Flare networks.
 - `_teeProxyId != 0`, `_url` non-empty.
 - `(codeHash, platform)` must be on the extension's supported version list ([`ExtensionManager.isCodeHashPlatformSupported`](../../../contracts/tee/library/ExtensionManager.sol)).
 - `teeId` must not already be registered (`AlreadyRegistered()`).

@@ -7,6 +7,7 @@ import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilit
 interface TeeStructs {
 
     struct Instruction {
+        uint256 chainId;
         bytes32 instructionId;
         address teeId;
         uint64 timestamp;

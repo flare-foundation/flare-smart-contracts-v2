@@ -471,7 +471,7 @@ contract MachinePathDirectBackupIntegrationTest is Test {
         returns (bytes32)
     {
         return keccak256(abi.encode(
-            "TEE_MACHINE_PATH_LIST",
+            bytes32("TEE_MACHINE_PATH_LIST"),
             block.chainid,
             extensionId,
             _nonce,

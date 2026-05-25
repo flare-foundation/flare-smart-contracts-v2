@@ -176,7 +176,7 @@ contract SystemStateVerifierFacetTest is Test {
         });
         Signature memory signature = SignatureHelper.createSignature(
             vm,
-            keccak256(abi.encode(teeMachineData)),
+            keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, teeMachineData)),
             teePrivateKey
         );
         vm.prank(teeMachineOwner);
@@ -263,7 +263,7 @@ contract SystemStateVerifierFacetTest is Test {
         });
         Signature memory sig2 = SignatureHelper.createSignature(
             vm,
-            keccak256(abi.encode(data2)),
+            keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, data2)),
             wallet2.privateKey
         );
         vm.prank(teeMachineOwner);

@@ -424,6 +424,7 @@ contract WalletPaymentsTest is Test {
                 cosignerSignatures: new Signature[](0)
             }),
             header: IFdc2Hub.Fdc2ResponseHeader({
+                chainId: block.chainid,
                 attestationType: bytes32("PMWMultisigAccountConfigured"),
                 sourceId: XRP_SOURCE_ID,
                 thresholdBIPS: 0,
@@ -679,8 +680,9 @@ contract WalletPaymentsTest is Test {
         private view
         returns (Signature memory)
     {
-        bytes32 signedMessageHash =
-            MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(keyExistenceProof)));
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(
+            keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, keyExistenceProof))
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, signedMessageHash);
         return Signature(v, r, s);
     }

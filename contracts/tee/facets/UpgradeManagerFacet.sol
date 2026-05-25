@@ -140,7 +140,7 @@ contract UpgradeManagerFacet is IUpgradeManager {
         // cross-governance signature replay between upgrades that happen to share path content.
         teeUpgrade.messageHash = keccak256(
             abi.encode(
-                "TEE_UPGRADE",
+                bytes32("TEE_UPGRADE"),
                 block.chainid,
                 teeUpgrade.extensionId,
                 _teeUpgradeId,

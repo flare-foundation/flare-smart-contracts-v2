@@ -104,7 +104,7 @@ A **path list** lives at `(extensionId, nonce)`. Storage is per-extension: each 
 - **Paths** — an array of `MachinePath { address[] sourceTeeIds; address[] destinationTeeIds; }`. Semantics within one path are many-to-many: any source ∈ A may authorize the action against any destination ∈ B.
 - **Involved governance hashes** — the union of the derived governance hash of every teeId ever added to any path on this list, regardless of role. Each teeId's hash is derived from its codeHash via [`ExtensionManager.getTeeGovernanceHash(extensionId, codeHash)`](../../../contracts/tee/facets/ExtensionManagerFacet.sol). Note that a single path may mix multiple governances within its source list, its destination list, or both — the primitive treats a list-wide set; no per-path hash tracking.
 - **Signatures** — collected from every involved governance, stored once per unique signer in a global array. A signature counts toward every involved governance the signer belongs to (a signer in two governances contributes to both with a single submission).
-- **`messageHash`** — set when the list is finalized; binds `("TEE_MACHINE_PATH_LIST", block.chainid, extensionId, nonce, paths)`. Signers EIP-191 sign this hash. The same content with a different `(extensionId, nonce)` produces a different hash, preventing cross-chain, cross-extension, and cross-list signature replay.
+- **`messageHash`** — set when the list is finalized; binds `(bytes32("TEE_MACHINE_PATH_LIST"), block.chainid, extensionId, nonce, paths)`. Signers EIP-191 sign this hash. The same content with a different `(extensionId, nonce)` produces a different hash, preventing cross-chain, cross-extension, and cross-list signature replay.
 
 ### Lifecycle
 

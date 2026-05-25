@@ -89,7 +89,7 @@ contract MachinePathManagerFacet is IMachinePathManager {
         // (which are bound), so they need not be hashed in directly.
         pathList.messageHash = keccak256(
             abi.encode(
-                "TEE_MACHINE_PATH_LIST",
+                bytes32("TEE_MACHINE_PATH_LIST"),
                 block.chainid,
                 _extensionId,
                 _nonce,

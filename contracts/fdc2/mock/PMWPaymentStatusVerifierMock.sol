@@ -75,6 +75,7 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
         }));
 
         require(
+            header.chainId == block.chainid &&
             teePayments.getOpType() == requestBody.opType &&
             walletId != bytes32(0) &&
             header.thresholdBIPS == 0 &&
@@ -85,6 +86,9 @@ contract PMWPaymentStatusVerifierMock is AddressUpdatable {
 
         IPMWPaymentStatus.ResponseBody calldata responseBody = _proof.responseBody;
 
+        // Chain binding is enforced by `header.chainId == block.chainid` above and the inner
+        // `keccak256(abi.encode(header))` — so a TEE / signing-policy / cosigner signature
+        // produced for one Flare network cannot be replayed on another.
         bytes32 messageHash = keccak256(
             abi.encode(
                 keccak256(abi.encode(header)),

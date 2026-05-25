@@ -214,7 +214,7 @@ contract MachineManagerFacetTest is Test {
         });
         teeMachineDataSignature = SignatureHelper.createSignature(
             vm,
-            keccak256(abi.encode(teeMachineData)),
+            keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, teeMachineData)),
             teePrivateKey
         );
 
@@ -227,7 +227,7 @@ contract MachineManagerFacetTest is Test {
         });
         newTeeMachineDataSignature = SignatureHelper.createSignature(
             vm,
-            keccak256(abi.encode(newTeeMachineData)),
+            keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, newTeeMachineData)),
             newTeePrivateKey
         );
 
@@ -312,7 +312,7 @@ contract MachineManagerFacetTest is Test {
         teeMachineData.codeHash = keccak256("unsupported");
         teeMachineDataSignature = SignatureHelper.createSignature(
             vm,
-            keccak256(abi.encode(teeMachineData)),
+            keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, teeMachineData)),
             teePrivateKey
         );
         vm.prank(owner);
@@ -883,6 +883,7 @@ contract MachineManagerFacetTest is Test {
         bytes32 challenge = keccak256(abi.encode(_teeId, registerTs, randomNumber));
 
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
+            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,

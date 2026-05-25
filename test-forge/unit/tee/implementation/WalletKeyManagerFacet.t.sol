@@ -1244,8 +1244,9 @@ contract WalletKeyManagerFacetTest is Test {
         private view
         returns (Signature memory)
     {
-        bytes32 signedMessageHash =
-            MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(proof)));
+        bytes32 signedMessageHash = MessageHashUtils.toEthSignedMessageHash(
+            keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, proof))
+        );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, signedMessageHash);
         return Signature(v, r, s);
     }

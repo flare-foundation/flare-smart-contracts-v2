@@ -307,6 +307,7 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
     {
         IFdc2Hub.Fdc2ResponseHeader calldata header = _proof.header;
         require(
+            header.chainId == block.chainid &&
             header.thresholdBIPS == 0 &&
             header.attestationType == PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
             InvalidAttestation()
@@ -330,6 +331,9 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
             }
         }
 
+        // Chain binding is enforced by `header.chainId == block.chainid` above and the inner
+        // `keccak256(abi.encode(header))` — so a TEE / signing-policy / cosigner signature
+        // produced for one Flare network cannot be replayed on another.
         bytes32 messageHash = keccak256(abi.encode(
             keccak256(abi.encode(header)),
             keccak256(abi.encode(_proof.requestBody)),

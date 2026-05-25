@@ -714,7 +714,7 @@ contract UpgradeManagerFacetTest is Test {
     {
         return keccak256(
             abi.encode(
-                "TEE_UPGRADE",
+                bytes32("TEE_UPGRADE"),
                 block.chainid,
                 extensionId,
                 _upgradeId,

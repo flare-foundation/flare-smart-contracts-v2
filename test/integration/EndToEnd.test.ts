@@ -208,9 +208,40 @@ function getHash(type: any, parameter: any): string {
   return web3.utils.keccak256(web3.eth.abi.encodeParameter(type, parameter));
 }
 
+function bytes32Tag(tag: string): string {
+  // Pad a short ASCII tag to bytes32 (right-padded with zeros), matching `bytes32("FOO")` in Solidity.
+  return web3.utils.utf8ToHex(tag).padEnd(66, "0");
+}
+
 function getFdc2Message(headerHash: string, requestBodyHash: string, responseBodyHash: string): string {
+  // Mirror Verification.sol / VerificationFacet.sol / PMWPaymentStatusVerifierMock.sol.
+  // Chain binding is in the header's `chainId` field, which is already part of headerHash.
   return web3.utils.keccak256(
     web3.eth.abi.encodeParameters(["bytes32", "bytes32", "bytes32"], [headerHash, requestBodyHash, responseBodyHash])
+  );
+}
+
+async function getRegisterMessageHash(teeMachineData: any): Promise<string> {
+  // Mirror MachineManagerFacet.register:
+  //   keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, _teeMachineData))
+  const chainId = await web3.eth.getChainId();
+  return web3.utils.keccak256(
+    web3.eth.abi.encodeParameters(
+      ["bytes32", "uint256", getStruct("TeeMachineStructs", "teeMachineDataStruct")],
+      [bytes32Tag("TEE_MACHINE_REGISTER"), chainId, teeMachineData]
+    )
+  );
+}
+
+async function getConfirmKeyMessageHash(proof: any): Promise<string> {
+  // Mirror WalletKeyManagerFacet.confirmKey:
+  //   keccak256(abi.encode(bytes32("TEE_KEY_EXISTENCE"), block.chainid, _proof))
+  const chainId = await web3.eth.getChainId();
+  return web3.utils.keccak256(
+    web3.eth.abi.encodeParameters(
+      ["bytes32", "uint256", getStruct("TeeWalletStructs", "keyExistenceStruct")],
+      [bytes32Tag("TEE_KEY_EXISTENCE"), chainId, proof]
+    )
   );
 }
 
@@ -1869,7 +1900,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         publicKey: TEE_PUBLIC_KEYS[i],
       };
 
-      const msg = getHash(getStruct("TeeMachineStructs", "teeMachineDataStruct"), teeMachineData);
+      const msg = await getRegisterMessageHash(teeMachineData);
       const signature = await ECDSASignature.signMessageHash(msg, privateKeys[20 + (i % 2)].privateKey);
 
       const tx = await flareTeeManager.register(
@@ -1984,6 +2015,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
           cosignerSignatures: [],
         },
         header: {
+          chainId: (await web3.eth.getChainId()).toString(),
           attestationType: web3.utils.utf8ToHex("TeeAvailabilityCheck").padEnd(66, "0"),
           sourceId: TEE_SOURCE_ID,
           thresholdBIPS: "0",
@@ -2187,7 +2219,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         settings: "0x",
       };
 
-      const msg = getHash(getStruct("TeeWalletStructs", "keyExistenceStruct"), proof);
+      const msg = await getConfirmKeyMessageHash(proof);
       const signature = await ECDSASignature.signMessageHash(msg, privateKeys[20 + (i % 2)].privateKey);
 
       await time.increase(1);
@@ -2250,7 +2282,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         settings: "0x",
       };
 
-      const msg = getHash(getStruct("TeeWalletStructs", "keyExistenceStruct"), proof);
+      const msg = await getConfirmKeyMessageHash(proof);
       const signature = await ECDSASignature.signMessageHash(msg, privateKeys[20 + (i % 2)].privateKey);
 
       await time.increase(1);
@@ -2479,6 +2511,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         cosignerSignatures: [],
       },
       header: {
+        chainId: (await web3.eth.getChainId()).toString(),
         attestationType: web3.utils.utf8ToHex("PMWMultisigAccountConfigured").padEnd(66, "0"),
         sourceId: XRP_SOURCE_ID,
         thresholdBIPS: "0",
@@ -2531,6 +2564,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         cosignerSignatures: [],
       },
       header: {
+        chainId: (await web3.eth.getChainId()).toString(),
         attestationType: web3.utils.utf8ToHex("PMWMultisigAccountConfigured").padEnd(66, "0"),
         sourceId: FLR_SOURCE_ID,
         thresholdBIPS: "0",
