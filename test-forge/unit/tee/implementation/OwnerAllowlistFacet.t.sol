@@ -389,20 +389,20 @@ contract OwnerAllowlistFacetTest is Test {
         flareTeeManager.addAllowedExtensionOwners(owners);
     }
 
-    function testAddAllowedExtensionOwnersRevertInvalidOwner() public {
+    function testAddAllowedExtensionOwnersRevertInvalidAddress() public {
         address[] memory bad = new address[](1);
         bad[0] = address(0);
         vm.prank(initialGovernance);
-        vm.expectRevert(IOwnerAllowlist.InvalidOwner.selector);
+        vm.expectRevert(ITeeCommonErrors.InvalidAddress.selector);
         flareTeeManager.addAllowedExtensionOwners(bad);
     }
 
-    function testAddAllowedExtensionOwnersRevertOwnerAlreadyAllowed() public {
+    function testAddAllowedExtensionOwnersRevertAddressAlreadyInSet() public {
         vm.prank(initialGovernance);
         flareTeeManager.addAllowedExtensionOwners(owners);
         vm.prank(initialGovernance);
         vm.expectRevert(
-            abi.encodeWithSelector(IOwnerAllowlist.OwnerAlreadyAllowed.selector, owners[0])
+            abi.encodeWithSelector(ITeeCommonErrors.AddressAlreadyInSet.selector, owners[0])
         );
         flareTeeManager.addAllowedExtensionOwners(owners);
     }
@@ -422,10 +422,10 @@ contract OwnerAllowlistFacetTest is Test {
         flareTeeManager.removeAllowedExtensionOwners(owners);
     }
 
-    function testRemoveAllowedExtensionOwnersRevertOwnerNotInAllowlist() public {
+    function testRemoveAllowedExtensionOwnersRevertAddressNotInSet() public {
         vm.prank(initialGovernance);
         vm.expectRevert(
-            abi.encodeWithSelector(IOwnerAllowlist.OwnerNotInAllowlist.selector, owners[0])
+            abi.encodeWithSelector(ITeeCommonErrors.AddressNotInSet.selector, owners[0])
         );
         flareTeeManager.removeAllowedExtensionOwners(owners);
     }
@@ -443,5 +443,45 @@ contract OwnerAllowlistFacetTest is Test {
         assertTrue(flareTeeManager.isAllowedExtensionOwner(owners[0]));
         assertTrue(flareTeeManager.isAllowedExtensionOwner(owners[1]));
         assertFalse(flareTeeManager.isAllowedExtensionOwner(makeAddr("random")));
+    }
+
+    // =========================================================================
+    // Empty-input reverts (all six add/remove methods)
+    // =========================================================================
+
+    function testAddAllowedExtensionOwnersRevertNoAddresses() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(ITeeCommonErrors.NoAddresses.selector);
+        flareTeeManager.addAllowedExtensionOwners(new address[](0));
+    }
+
+    function testRemoveAllowedExtensionOwnersRevertNoAddresses() public {
+        vm.prank(initialGovernance);
+        vm.expectRevert(ITeeCommonErrors.NoAddresses.selector);
+        flareTeeManager.removeAllowedExtensionOwners(new address[](0));
+    }
+
+    function testAddAllowedTeeMachineOwnersRevertNoAddresses() public {
+        vm.prank(extensionOwner);
+        vm.expectRevert(ITeeCommonErrors.NoAddresses.selector);
+        flareTeeManager.addAllowedTeeMachineOwners(extensionId, new address[](0));
+    }
+
+    function testRemoveAllowedTeeMachineOwnersRevertNoAddresses() public {
+        vm.prank(extensionOwner);
+        vm.expectRevert(ITeeCommonErrors.NoAddresses.selector);
+        flareTeeManager.removeAllowedTeeMachineOwners(extensionId, new address[](0));
+    }
+
+    function testAddAllowedTeeWalletProjectOwnersRevertNoAddresses() public {
+        vm.prank(extensionOwner);
+        vm.expectRevert(ITeeCommonErrors.NoAddresses.selector);
+        flareTeeManager.addAllowedTeeWalletProjectOwners(extensionId, new address[](0));
+    }
+
+    function testRemoveAllowedTeeWalletProjectOwnersRevertNoAddresses() public {
+        vm.prank(extensionOwner);
+        vm.expectRevert(ITeeCommonErrors.NoAddresses.selector);
+        flareTeeManager.removeAllowedTeeWalletProjectOwners(extensionId, new address[](0));
     }
 }

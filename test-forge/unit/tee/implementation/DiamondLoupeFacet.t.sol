@@ -41,12 +41,12 @@ contract DiamondLoupeFacetTest is Test {
 
     function testFacets() public view {
         IDiamondLoupe.Facet[] memory allFacets = loupe.facets();
-        assertEq(allFacets.length, 21, "deployer creates 21 facets");
+        assertEq(allFacets.length, 22, "deployer creates 22 facets");
     }
 
     function testFacetAddresses() public view {
         address[] memory addresses = loupe.facetAddresses();
-        assertEq(addresses.length, 21, "should have 21 unique facet addresses");
+        assertEq(addresses.length, 22, "should have 22 unique facet addresses");
     }
 
     function testFacetFunctionSelectors() public view {

@@ -5,6 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { FlareTeeManagerDeployer } from "../../../utils/FlareTeeManagerDeployer.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IWalletManager } from "../../../../contracts/userInterfaces/tee/IWalletManager.sol";
+import { IWalletProjectPause } from "../../../../contracts/userInterfaces/tee/IWalletProjectPause.sol";
 import { IWalletKeyManager } from "../../../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
 import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { ITeeExtensionStateVerifier } from "../../../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
@@ -550,16 +551,122 @@ contract WalletManagerFacetTest is Test {
 
     function testPauseWallet() public {
         _setupProductionWallet();
+        bytes32[] memory walletIds = new bytes32[](1);
+        walletIds[0] = walletId;
+        vm.expectEmit();
+        emit IWalletProjectPause.WalletsPaused(walletIds);
         vm.prank(projectOwner);
-        flareTeeManager.pauseWallet(walletId);
+        flareTeeManager.pauseWallets(walletIds);
         assertEq(uint8(flareTeeManager.getWalletStatus(walletId)), uint8(IWalletManager.WalletStatus.PAUSED));
     }
 
     function testPauseWalletRevert() public {
         testCloseWalletInitialization();
+        bytes32[] memory walletIds = new bytes32[](1);
+        walletIds[0] = walletId;
         vm.prank(projectOwner);
         vm.expectRevert(ITeeCommonErrors.InvalidWalletStatus.selector); // only production
-        flareTeeManager.pauseWallet(walletId);
+        flareTeeManager.pauseWallets(walletIds);
+    }
+
+    function testEnableWalletRevertFromPaused() public {
+        // After narrowing: enableWallet only accepts INITIALIZED, not PAUSED.
+        _setupProductionWallet();
+        bytes32[] memory walletIds = new bytes32[](1);
+        walletIds[0] = walletId;
+        vm.prank(projectOwner);
+        flareTeeManager.pauseWallets(walletIds);
+        vm.prank(projectOwner);
+        vm.expectRevert(ITeeCommonErrors.InvalidWalletStatus.selector);
+        flareTeeManager.enableWallet(walletId);
+    }
+
+    function testPauseWalletsByDelegatedPauser() public {
+        _setupProductionWallet();
+        address pauser = makeAddr("delegatedPauser");
+        address[] memory pausers = new address[](1);
+        pausers[0] = pauser;
+        vm.prank(projectOwner);
+        flareTeeManager.addWalletProjectPausers(projectId, pausers);
+
+        bytes32[] memory walletIds = new bytes32[](1);
+        walletIds[0] = walletId;
+        vm.expectEmit();
+        emit IWalletProjectPause.WalletsPaused(walletIds);
+        vm.prank(pauser);
+        flareTeeManager.pauseWallets(walletIds);
+
+        assertEq(uint8(flareTeeManager.getWalletStatus(walletId)), uint8(IWalletManager.WalletStatus.PAUSED));
+    }
+
+    function testUnpauseWalletsByDelegatedUnpauser() public {
+        _setupProductionWallet();
+        address unpauser = makeAddr("delegatedUnpauser");
+        address[] memory unpausers = new address[](1);
+        unpausers[0] = unpauser;
+        vm.prank(projectOwner);
+        flareTeeManager.addWalletProjectUnpausers(projectId, unpausers);
+
+        bytes32[] memory walletIds = new bytes32[](1);
+        walletIds[0] = walletId;
+        // Owner pauses first
+        vm.prank(projectOwner);
+        flareTeeManager.pauseWallets(walletIds);
+        // Delegated unpauser resumes
+        vm.expectEmit();
+        emit IWalletProjectPause.WalletsUnpaused(walletIds);
+        vm.prank(unpauser);
+        flareTeeManager.unpauseWallets(walletIds);
+
+        assertEq(uint8(flareTeeManager.getWalletStatus(walletId)), uint8(IWalletManager.WalletStatus.PRODUCTION));
+    }
+
+    function testPauserCannotUnpause() public {
+        _setupProductionWallet();
+        address pauser = makeAddr("delegatedPauser");
+        address[] memory pausers = new address[](1);
+        pausers[0] = pauser;
+        vm.prank(projectOwner);
+        flareTeeManager.addWalletProjectPausers(projectId, pausers);
+
+        bytes32[] memory walletIds = new bytes32[](1);
+        walletIds[0] = walletId;
+        vm.prank(pauser);
+        flareTeeManager.pauseWallets(walletIds);
+
+        // Pauser is NOT an unpauser
+        vm.prank(pauser);
+        vm.expectRevert(
+            abi.encodeWithSelector(ITeeCommonErrors.NotOwnerOrUnpauser.selector, pauser)
+        );
+        flareTeeManager.unpauseWallets(walletIds);
+    }
+
+    function testUnpauserCannotPause() public {
+        _setupProductionWallet();
+        address unpauser = makeAddr("delegatedUnpauser");
+        address[] memory unpausers = new address[](1);
+        unpausers[0] = unpauser;
+        vm.prank(projectOwner);
+        flareTeeManager.addWalletProjectUnpausers(projectId, unpausers);
+
+        bytes32[] memory walletIds = new bytes32[](1);
+        walletIds[0] = walletId;
+        vm.prank(unpauser);
+        vm.expectRevert(
+            abi.encodeWithSelector(ITeeCommonErrors.NotOwnerOrPauser.selector, unpauser)
+        );
+        flareTeeManager.pauseWallets(walletIds);
+    }
+
+    function testUnpauseWalletsRevertWrongStatus() public {
+        // INITIALIZED -> unpause must revert (only PAUSED allowed)
+        testCloseWalletInitialization();
+        bytes32[] memory walletIds = new bytes32[](1);
+        walletIds[0] = walletId;
+        vm.prank(projectOwner);
+        vm.expectRevert(ITeeCommonErrors.InvalidWalletStatus.selector);
+        flareTeeManager.unpauseWallets(walletIds);
     }
 
     //// helper functions

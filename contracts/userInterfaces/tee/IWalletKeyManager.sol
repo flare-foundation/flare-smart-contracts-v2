@@ -82,7 +82,6 @@ interface IWalletKeyManager is ITeeCommonErrors {
     error InvalidSettings();
     error InvalidTeeSignature();
     error KeyNotRestoredOnTeeMachine();
-    error InvalidAddress();
     error TeeIdAlreadyAdded();
     error KeyNotGeneratedOnTeeMachine();
     error ThresholdNotMet();

@@ -20,6 +20,7 @@ import { ExternalAddressesFacet } from "../../contracts/tee/facets/ExternalAddre
 import { WalletProjectManagerFacet } from "../../contracts/tee/facets/WalletProjectManagerFacet.sol";
 import { WalletKeyManagerFacet } from "../../contracts/tee/facets/WalletKeyManagerFacet.sol";
 import { WalletManagerFacet } from "../../contracts/tee/facets/WalletManagerFacet.sol";
+import { WalletProjectPauseFacet } from "../../contracts/tee/facets/WalletProjectPauseFacet.sol";
 import { WalletBackupManagerFacet } from "../../contracts/tee/facets/WalletBackupManagerFacet.sol";
 import { VrfFacet } from "../../contracts/tee/facets/VrfFacet.sol";
 import { ExtensionGovernanceFacet } from "../../contracts/tee/facets/ExtensionGovernanceFacet.sol";
@@ -56,6 +57,7 @@ import { IOperationFees } from "../../contracts/userInterfaces/tee/IOperationFee
 import { IWalletProjectManager } from "../../contracts/userInterfaces/tee/IWalletProjectManager.sol";
 import { IWalletKeyManager } from "../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
 import { IWalletManager } from "../../contracts/userInterfaces/tee/IWalletManager.sol";
+import { IWalletProjectPause } from "../../contracts/userInterfaces/tee/IWalletProjectPause.sol";
 import { IWalletResume } from "../../contracts/userInterfaces/tee/IWalletResume.sol";
 import { IWalletBackupManager } from "../../contracts/userInterfaces/tee/IWalletBackupManager.sol";
 import { IVrf } from "../../contracts/userInterfaces/tee/IVrf.sol";
@@ -69,7 +71,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * @title FlareTeeManagerDeployer
  * @notice Shared test utility for deploying the FlareTeeManager Diamond.
  *         Mirrors the production deployment pattern (DeployTeeContracts.s.sol):
- *         - deployDay1Facets(): creates diamond with 16 day-1 facets + FlareTeeManagerInit
+ *         - deployDay1Facets(): creates diamond with 18 day-1 facets + FlareTeeManagerInit
  *         - deployLaterFacets(): adds 4 later facets via diamondCut + ReplicationInit
  *           Caller must vm.prank(initialGovernance) before calling deployLaterFacets.
  */
@@ -141,11 +143,11 @@ library FlareTeeManagerDeployer {
     }
 
     // =========================================================================
-    // Day-1 facet cuts (17 facets)
+    // Day-1 facet cuts (18 facets)
     // =========================================================================
 
     function _buildDay1FacetCuts() private returns (IDiamond.FacetCut[] memory cuts) {
-        cuts = new IDiamond.FacetCut[](17);
+        cuts = new IDiamond.FacetCut[](18);
 
         // 0: DiamondGovernanceFacet (diamondCut + FlareGovernance selectors)
         {
@@ -375,7 +377,7 @@ library FlareTeeManagerDeployer {
 
         // 13: WalletManagerFacet
         {
-            bytes4[] memory s = new bytes4[](14);
+            bytes4[] memory s = new bytes4[](13);
             s[0] = IWalletManager.createWallet.selector;
             s[1] = IWalletManager.setAdmins.selector;
             s[2] = IWalletManager.confirmAdmin.selector;
@@ -386,10 +388,9 @@ library FlareTeeManagerDeployer {
             s[7] = IWalletManager.getWalletProjectId.selector;
             s[8] = IWalletManager.getWalletCosignersAndThreshold.selector;
             s[9] = IWalletManager.getWalletStatus.selector;
-            s[10] = IWalletManager.pauseWallet.selector;
-            s[11] = IWalletManager.getProjectWalletIds.selector;
-            s[12] = IWalletManager.getWalletAdminsPublicKeysAndThreshold.selector;
-            s[13] = IWalletManager.getWalletAdminsAndThreshold.selector;
+            s[10] = IWalletManager.getProjectWalletIds.selector;
+            s[11] = IWalletManager.getWalletAdminsPublicKeysAndThreshold.selector;
+            s[12] = IWalletManager.getWalletAdminsAndThreshold.selector;
             cuts[12] = IDiamond.FacetCut(
                 address(new WalletManagerFacet()), IDiamond.FacetCutAction.Add, s
             );
@@ -449,6 +450,24 @@ library FlareTeeManagerDeployer {
             s[11] = IMachinePathManager.getMachinePathListMessageHash.selector;
             cuts[16] = IDiamond.FacetCut(
                 address(new MachinePathManagerFacet()), IDiamond.FacetCutAction.Add, s
+            );
+        }
+
+        // 18: WalletProjectPauseFacet
+        {
+            bytes4[] memory s = new bytes4[](10);
+            s[0] = IWalletProjectPause.addWalletProjectPausers.selector;
+            s[1] = IWalletProjectPause.removeWalletProjectPausers.selector;
+            s[2] = IWalletProjectPause.addWalletProjectUnpausers.selector;
+            s[3] = IWalletProjectPause.removeWalletProjectUnpausers.selector;
+            s[4] = IWalletProjectPause.pauseWallets.selector;
+            s[5] = IWalletProjectPause.unpauseWallets.selector;
+            s[6] = IWalletProjectPause.getWalletProjectPausers.selector;
+            s[7] = IWalletProjectPause.getWalletProjectUnpausers.selector;
+            s[8] = IWalletProjectPause.isWalletProjectPauser.selector;
+            s[9] = IWalletProjectPause.isWalletProjectUnpauser.selector;
+            cuts[17] = IDiamond.FacetCut(
+                address(new WalletProjectPauseFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
     }

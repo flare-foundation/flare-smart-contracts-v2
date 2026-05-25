@@ -179,31 +179,13 @@ contract WalletManagerFacet is IWalletManager {
         onlyOwner(_walletId)
     {
         WalletManager.TeeWalletState storage wallet = WalletManager.getState().wallets[_walletId];
-        WalletStatus status = wallet.status;
-        require(status == WalletStatus.INITIALIZED || status == WalletStatus.PAUSED, InvalidWalletStatus());
-        if (status == WalletStatus.INITIALIZED) {
-            (uint64 multisigThreshold, uint64[] memory keyIds, ) =
-                WalletKeyManager.getWalletKeysInfo(_walletId);
-            require(multisigThreshold > 0, MultisigThresholdNotSet());
-            require(keyIds.length >= multisigThreshold, NotEnoughKeys());
-        }
+        WalletManager.checkWalletStatus(wallet.status, WalletStatus.INITIALIZED);
+        (uint64 multisigThreshold, uint64[] memory keyIds, ) =
+            WalletKeyManager.getWalletKeysInfo(_walletId);
+        require(multisigThreshold > 0, MultisigThresholdNotSet());
+        require(keyIds.length >= multisigThreshold, NotEnoughKeys());
         wallet.status = WalletStatus.PRODUCTION;
         emit WalletEnabled(_walletId);
-    }
-
-    /**
-     * @inheritdoc IWalletManager
-     */
-    function pauseWallet(
-        bytes32 _walletId
-    )
-        external
-        onlyOwner(_walletId)
-    {
-        WalletManager.TeeWalletState storage wallet = WalletManager.getState().wallets[_walletId];
-        WalletManager.checkWalletStatus(wallet.status, WalletStatus.PRODUCTION);
-        wallet.status = WalletStatus.PAUSED;
-        emit WalletPaused(_walletId);
     }
 
     /**

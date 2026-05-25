@@ -708,6 +708,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       "VrfFacet",
       "ExternalAddressesFacet",
       "MachinePathManagerFacet",
+      "WalletProjectPauseFacet",
     ];
     const LATER_FACET_NAMES = ["ReplicationFacet", "ExtensionPausingFacet", "UpgradeManagerFacet", "WalletResumeFacet"];
 

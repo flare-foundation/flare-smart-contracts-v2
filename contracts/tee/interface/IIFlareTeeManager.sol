@@ -15,6 +15,7 @@ import { ISystemStateVerifier } from "../../userInterfaces/tee/ISystemStateVerif
 import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
 import { IWalletResume } from "../../userInterfaces/tee/IWalletResume.sol";
 import { IWalletProjectManager } from "../../userInterfaces/tee/IWalletProjectManager.sol";
+import { IWalletProjectPause } from "../../userInterfaces/tee/IWalletProjectPause.sol";
 import { IWalletBackupManager } from "../../userInterfaces/tee/IWalletBackupManager.sol";
 import { IVrf } from "../../userInterfaces/tee/IVrf.sol";
 import { IIReplication } from "./IIReplication.sol";
@@ -48,6 +49,7 @@ interface IIFlareTeeManager is
     IWalletManager,
     IWalletResume,
     IWalletProjectManager,
+    IWalletProjectPause,
     IWalletBackupManager,
     IVrf,
     IIReplication,

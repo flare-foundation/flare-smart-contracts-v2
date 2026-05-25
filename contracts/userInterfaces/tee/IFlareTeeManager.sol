@@ -14,6 +14,7 @@ import { IWalletManager } from "./IWalletManager.sol";
 import { IWalletResume } from "./IWalletResume.sol";
 import { IWalletKeyManager } from "./IWalletKeyManager.sol";
 import { IWalletProjectManager } from "./IWalletProjectManager.sol";
+import { IWalletProjectPause } from "./IWalletProjectPause.sol";
 import { IWalletBackupManager } from "./IWalletBackupManager.sol";
 import { IVrf } from "./IVrf.sol";
 import { IReplication } from "./IReplication.sol";
@@ -48,6 +49,7 @@ interface IFlareTeeManager is
     IWalletResume,
     IWalletKeyManager,
     IWalletProjectManager,
+    IWalletProjectPause,
     IWalletBackupManager,
     IVrf,
     IReplication,

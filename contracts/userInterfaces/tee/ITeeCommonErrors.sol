@@ -19,6 +19,8 @@ interface ITeeCommonErrors {
     error OnlyOwnerOrBackupManager();
     error OnlyProductionOrPausedStatus();
     error OwnerNotAllowed();
+    error NotOwnerOrPauser(address caller);
+    error NotOwnerOrUnpauser(address caller);
 
     // =========================================================================
     // Validation
@@ -42,4 +44,8 @@ interface ITeeCommonErrors {
     error KeyTypeNotSupported(bytes32 keyType);
     error InvalidNonce();
     error InvalidGovernanceHash();
+    error InvalidAddress();
+    error AddressAlreadyInSet(address addr);
+    error AddressNotInSet(address addr);
+    error NoAddresses();
 }

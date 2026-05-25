@@ -54,10 +54,6 @@ interface IWalletManager is ITeeCommonErrors {
         bytes32 indexed walletId
     );
 
-    event WalletPaused(
-        bytes32 indexed walletId
-    );
-
     error NotEnoughAdmins();
     error InvalidAdminsThreshold();
     error DuplicatedPublicKey(PublicKey publicKey);
@@ -147,23 +143,15 @@ interface IWalletManager is ITeeCommonErrors {
         external;
 
     /**
-     * Enables the wallet.
+     * Enables a wallet for the first time, transitioning it from INITIALIZED to PRODUCTION.
+     * Requires the wallet's multisig threshold to be set and at least that many keys to be
+     * generated. Does not handle the PAUSED -> PRODUCTION transition; use
+     * IWalletProjectPause.unpauseWallets for that.
      * Emits WalletEnabled event.
      * @param _walletId The wallet id.
      * Can only be called by the wallet owner.
      */
     function enableWallet(
-        bytes32 _walletId
-    )
-        external;
-
-    /**
-     * Pauses the wallet.
-     * Emits WalletPaused event.
-     * @param _walletId The wallet id.
-     * Can only be called by the wallet owner.
-     */
-    function pauseWallet(
         bytes32 _walletId
     )
         external;

@@ -53,6 +53,8 @@ import {ExtensionGovernanceFacet} from
     "../../contracts/tee/facets/ExtensionGovernanceFacet.sol";
 import {MachinePathManagerFacet} from
     "../../contracts/tee/facets/MachinePathManagerFacet.sol";
+import {WalletProjectPauseFacet} from
+    "../../contracts/tee/facets/WalletProjectPauseFacet.sol";
 // Later facets
 import {ReplicationFacet} from
     "../../contracts/tee/facets/ReplicationFacet.sol";
@@ -210,6 +212,7 @@ contract DeployTeeContracts is Script {
     ExternalAddressesFacet private externalAddressesFacet;
     ExtensionGovernanceFacet private extensionGovernanceFacet;
     MachinePathManagerFacet private machinePathManagerFacet;
+    WalletProjectPauseFacet private walletProjectPauseFacet;
 
     // Later facet instances (for logging)
     ReplicationFacet private replicationFacet;
@@ -393,6 +396,7 @@ contract DeployTeeContracts is Script {
         externalAddressesFacet = new ExternalAddressesFacet();
         extensionGovernanceFacet = new ExtensionGovernanceFacet();
         machinePathManagerFacet = new MachinePathManagerFacet();
+        walletProjectPauseFacet = new WalletProjectPauseFacet();
 
         day1Facets.push(_addFacet(
             address(diamondCutFacet), "DiamondGovernanceFacet"
@@ -447,6 +451,9 @@ contract DeployTeeContracts is Script {
         ));
         day1Facets.push(_addFacet(
             address(machinePathManagerFacet), "MachinePathManagerFacet"
+        ));
+        day1Facets.push(_addFacet(
+            address(walletProjectPauseFacet), "WalletProjectPauseFacet"
         ));
     }
 
@@ -1407,6 +1414,11 @@ contract DeployTeeContracts is Script {
             "MachinePathManagerFacet",
             "MachinePathManagerFacet.sol",
             address(machinePathManagerFacet)
+        );
+        _logDeployed(
+            "WalletProjectPauseFacet",
+            "WalletProjectPauseFacet.sol",
+            address(walletProjectPauseFacet)
         );
     }
 

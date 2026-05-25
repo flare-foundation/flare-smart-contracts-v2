@@ -23,10 +23,11 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
         external
         onlyImmediateGovernance
     {
+        require(_owners.length > 0, NoAddresses());
         OwnerAllowlist.State storage s = OwnerAllowlist.getState();
         for (uint256 i = 0; i < _owners.length; i++) {
-            require(_owners[i] != address(0), InvalidOwner());
-            require(s.allowedExtensionOwners.add(_owners[i]), OwnerAlreadyAllowed(_owners[i]));
+            require(_owners[i] != address(0), InvalidAddress());
+            require(s.allowedExtensionOwners.add(_owners[i]), AddressAlreadyInSet(_owners[i]));
         }
         emit AllowedExtensionOwnersAdded(_owners);
     }
@@ -38,9 +39,10 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
         external
         onlyImmediateGovernance
     {
+        require(_owners.length > 0, NoAddresses());
         OwnerAllowlist.State storage s = OwnerAllowlist.getState();
         for (uint256 i = 0; i < _owners.length; i++) {
-            require(s.allowedExtensionOwners.remove(_owners[i]), OwnerNotInAllowlist(_owners[i]));
+            require(s.allowedExtensionOwners.remove(_owners[i]), AddressNotInSet(_owners[i]));
         }
         emit AllowedExtensionOwnersRemoved(_owners);
     }
@@ -71,12 +73,13 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
         external
     {
         ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        require(_owners.length > 0, NoAddresses());
         OwnerAllowlist.State storage s = OwnerAllowlist.getState();
         for (uint256 i = 0; i < _owners.length; i++) {
-            require(_owners[i] != address(0), InvalidOwner());
+            require(_owners[i] != address(0), InvalidAddress());
             require(
                 s.allowedTeeMachineOwners[_extensionId].add(_owners[i]),
-                OwnerAlreadyAllowed(_owners[i])
+                AddressAlreadyInSet(_owners[i])
             );
         }
         emit AllowedTeeMachineOwnersAdded(_extensionId, _owners);
@@ -90,11 +93,12 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
         external
     {
         ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        require(_owners.length > 0, NoAddresses());
         OwnerAllowlist.State storage s = OwnerAllowlist.getState();
         for (uint256 i = 0; i < _owners.length; i++) {
             require(
                 s.allowedTeeMachineOwners[_extensionId].remove(_owners[i]),
-                OwnerNotInAllowlist(_owners[i])
+                AddressNotInSet(_owners[i])
             );
         }
         emit AllowedTeeMachineOwnersRemoved(_extensionId, _owners);
@@ -108,12 +112,13 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
         external
     {
         ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        require(_owners.length > 0, NoAddresses());
         OwnerAllowlist.State storage s = OwnerAllowlist.getState();
         for (uint256 i = 0; i < _owners.length; i++) {
-            require(_owners[i] != address(0), InvalidOwner());
+            require(_owners[i] != address(0), InvalidAddress());
             require(
                 s.allowedTeeWalletProjectOwners[_extensionId].add(_owners[i]),
-                OwnerAlreadyAllowed(_owners[i])
+                AddressAlreadyInSet(_owners[i])
             );
         }
         emit AllowedTeeWalletProjectOwnersAdded(_extensionId, _owners);
@@ -127,11 +132,12 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
         external
     {
         ExtensionManager.checkOnlyExtensionOwner(_extensionId);
+        require(_owners.length > 0, NoAddresses());
         OwnerAllowlist.State storage s = OwnerAllowlist.getState();
         for (uint256 i = 0; i < _owners.length; i++) {
             require(
                 s.allowedTeeWalletProjectOwners[_extensionId].remove(_owners[i]),
-                OwnerNotInAllowlist(_owners[i])
+                AddressNotInSet(_owners[i])
             );
         }
         emit AllowedTeeWalletProjectOwnersRemoved(_extensionId, _owners);

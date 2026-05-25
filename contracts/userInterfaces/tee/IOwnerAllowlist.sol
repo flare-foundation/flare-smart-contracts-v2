@@ -26,10 +26,6 @@ interface IOwnerAllowlist is ITeeCommonErrors {
     event AllTeeWalletProjectOwnersAllowed(uint256 extensionId);
     event AllTeeWalletProjectOwnersDisallowed(uint256 extensionId);
 
-    error InvalidOwner();
-    error OwnerAlreadyAllowed(address owner);
-    error OwnerNotInAllowlist(address owner);
-
     /**
      * Adds a list of allowed extension owners to the global allowlist.
      * Addresses on this list (or any address when allExtensionOwnersAllowed is

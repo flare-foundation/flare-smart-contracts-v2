@@ -691,7 +691,7 @@ contract WalletKeyManagerFacetTest is Test {
         proof.configConstants.cosigners[0] = makeAddr("invalidCosigner");
         teeSignature = _createSignature(teePrivateKey);
         vm.prank(owner);
-        vm.expectRevert(IWalletKeyManager.InvalidAddress.selector);
+        vm.expectRevert(ITeeCommonErrors.InvalidAddress.selector);
         flareTeeManager.confirmKey(proof, teeSignature);
     }
 

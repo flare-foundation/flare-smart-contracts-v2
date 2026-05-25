@@ -206,8 +206,10 @@ contract WalletResumeFacetTest is Test {
 
     function testResumeRevertOnlyOwner() public {
         _setupProductionWallet();
+        bytes32[] memory walletIds = new bytes32[](1);
+        walletIds[0] = walletId;
         vm.prank(projectOwner);
-        flareTeeManager.pauseWallet(walletId);
+        flareTeeManager.pauseWallets(walletIds);
         vm.expectRevert(ITeeCommonErrors.OnlyOwner.selector);
         flareTeeManager.resume(walletId, new IWalletResume.ResumeKeyData[](0), address(0));
     }

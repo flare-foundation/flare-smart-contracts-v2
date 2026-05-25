@@ -13,7 +13,7 @@ The FCC contracts live under [`contracts/tee/`](../../../contracts/tee/) and are
 - [Machine lifecycle](./MachineLifecycle.md) — registration, state, attestation, eviction (`MachineManagerFacet`)
 - [Replication](./Replication.md) — replication groups (`ReplicationFacet`, `ReplicationInit`)
 - [Key management](./KeyManagement.md) — generate, restore, delete; VRF keys (`WalletKeyManagerFacet`, `VrfFacet`)
-- [Wallet management](./WalletManagement.md) — `WalletManagerFacet`, `WalletBackupManagerFacet`, `WalletProjectManagerFacet`, `WalletResumeFacet`
+- [Wallet management](./WalletManagement.md) — `WalletManagerFacet`, `WalletBackupManagerFacet`, `WalletProjectManagerFacet`, `WalletProjectPauseFacet`, `WalletResumeFacet`
 - [Instructions](./Instructions.md) — fee-validated TEE instruction sending and system instructions (`InstructionsFacet`)
 - [Operation fees](./OperationFees.md) — `OperationFeesFacet`, `TeePayments` suite, fee schedules and limits
 - [Verification](./Verification.md) — `VerificationFacet`, `VrfFacet`, `SystemStateVerifierFacet`, `VrfVerifier`

@@ -72,6 +72,7 @@ The 22 facets and what they expose:
 | [`WalletKeyManagerFacet`](../../../contracts/tee/facets/WalletKeyManagerFacet.sol) | `WalletKeyManager` | Generate / delete keys; restore keys from admin shares. |
 | [`WalletManagerFacet`](../../../contracts/tee/facets/WalletManagerFacet.sol) | `WalletManager` | Per-extension wallet creation, owner administration, key admin set updates. |
 | [`WalletProjectManagerFacet`](../../../contracts/tee/facets/WalletProjectManagerFacet.sol) | `WalletProjectManager` | Project-level configuration (a *project* groups multiple wallets under one owner). |
+| [`WalletProjectPauseFacet`](../../../contracts/tee/facets/WalletProjectPauseFacet.sol) | `WalletProjectPause` | Per-project pauser/unpauser delegation lists, plus the `pauseWallets`/`unpauseWallets` batch actions. The project owner adds addresses to the pauser list (authorized to pause project wallets, `PRODUCTION → PAUSED`) and the unpauser list (authorized to resume from `PAUSED → PRODUCTION`). Day-1 facet. |
 | [`WalletResumeFacet`](../../../contracts/tee/facets/WalletResumeFacet.sol) | `WalletResume` | Resume wallet operations after pause / upgrade. |
 
 Two non-facet init helpers ([`FlareTeeManagerInit`](../../../contracts/tee/facets/FlareTeeManagerInit.sol), [`ReplicationInit`](../../../contracts/tee/facets/ReplicationInit.sol)) are used only during `diamondCut` for initial / migration-time storage setup.

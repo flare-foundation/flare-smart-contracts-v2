@@ -33,6 +33,7 @@ export const DAY1_FACETS = [
   "VrfFacet",
   "ExternalAddressesFacet",
   "MachinePathManagerFacet",
+  "WalletProjectPauseFacet",
 ];
 
 // Deploy-later facets (added via diamondCut after initial deployment)

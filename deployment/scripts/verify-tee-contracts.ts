@@ -83,6 +83,7 @@ const teeContractNames = new Set([
   "ExtensionPausingFacet",
   "UpgradeManagerFacet",
   "WalletResumeFacet",
+  "WalletProjectPauseFacet",
   "ReplicationInit",
 ]);
 
