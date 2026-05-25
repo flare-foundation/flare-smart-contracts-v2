@@ -95,9 +95,11 @@ On-chain validation, in order:
 3. **Extension match** — source, destination, and the wallet's project must all share the same extension.
 4. **Active-list path** — `(sourceTeeId, destinationTeeId)` must be present in the extension's currently-active signed `MachinePathList`. Reverts `NoActiveMachinePathList` if the extension has never had a signed list, `InvalidMachinePath` if the pair isn't in the active list. The function captures the active list nonce and ships it as `machinePathListNonce` in the instruction payload — the relay client reads the list from chain by `(extensionId, nonce)` and forwards it alongside the instruction so the source TEE can verify path membership locally.
 5. **Source actually holds the key** — `getWalletKeyTeeIds(walletId, keyId)` must contain the source teeId; otherwise reverts `SourceTeeDoesNotHoldKey`.
-6. **Destination nonce — read, do NOT mutate** — the function computes `destinationNonce = WalletKeyManager.getKeyNonce(destinationTeeId, walletId, keyId) + 1` and ships that exact value in the instruction. The destination's stored nonce is left unchanged until `directRestore`.
+6. **Destination must not already hold the key** — `KeyAlreadyAvailable` fails the call if the destination already holds it, so the source doesn't waste a backup blob.
 
-The dispatched instruction is `(F_WALLET, "KEY_DIRECT_BACKUP")` with payload [`KeyDirectBackup`](../../../contracts/userInterfaces/tee/IWalletBackupManager.sol) (sourceTeeId, walletId, keyId, destination TEE's public key, destinationNonce, machinePathListNonce). No additional cosigners are required on the instruction — the governance-signed path list is itself the authorization.
+The function does not read or mutate the destination's per-key nonce. The backup blob is intentionally stateless w.r.t. destination state — see [Read-vs-bump nonce contract](#read-vs-bump-nonce-contract) for why and what protections this preserves.
+
+The dispatched instruction is `(F_WALLET, "KEY_DIRECT_BACKUP")` with payload [`KeyDirectBackup`](../../../contracts/userInterfaces/tee/IWalletBackupManager.sol) (sourceTeeId, walletId, keyId, destination TEE's public key, machinePathListNonce). No additional cosigners are required on the instruction — the governance-signed path list is itself the authorization.
 
 `DirectBackupTriggered` fires with the returned instructionId; the off-chain caller captures that id and passes it as `_backupInstructionId` into the later `directRestore`.
 
@@ -121,7 +123,7 @@ Shares the same restore-side gate block with the legacy `backupRestore` (factore
 In addition:
 
 1. **Active-list path** — `(BackupId.teeId, destinationTeeId)` must be in the active list (same gate as `directBackup`).
-2. **Now mutate the destination nonce** — `WalletKeyManager.increaseKeyNonce(destinationTeeId, walletId, keyId)` bumps the stored value by `+1`. The new value must equal the `destinationNonce` the source committed to during the prior `directBackup` — off-chain enforcement based on the `DirectBackupTriggered` event the relay client observed.
+2. **Now mutate the destination nonce** — `WalletKeyManager.increaseKeyNonce(destinationTeeId, walletId, keyId)` bumps the stored value by `+1`. The destination's restore attestation binds to this new value, so a stale attestation cannot be replayed against a later restore call.
 
 The dispatched instruction is `(F_WALLET, "KEY_DIRECT_RESTORE")` with payload [`KeyDirectRestore`](../../../contracts/userInterfaces/tee/IWalletBackupManager.sol) (sourceTeeId, source's proxy URL looked up on-chain, the BackupId, `backupInstructionId` so the destination knows which response to fetch from the source proxy, just-incremented destinationNonce, machinePathListNonce). Again, no cosigners — the path list is the authorization.
 
@@ -129,14 +131,19 @@ The dispatched instruction is `(F_WALLET, "KEY_DIRECT_RESTORE")` with payload [`
 
 ### Read-vs-bump nonce contract
 
-The two calls together implement a single nonce-coordinated handshake:
-
 | Call | Reads destination nonce? | Writes destination nonce? | Value shipped to TEE |
 |---|---|---|---|
-| `directBackup` | yes (via `getKeyNonce`) | **no** | `current + 1` (the value the destination will be at after `directRestore` succeeds) |
+| `directBackup` | **no** | **no** | n/a |
 | `directRestore` | n/a | yes (`increaseKeyNonce`) | the just-incremented value |
 
-If the destination's nonce changes between `directBackup` and `directRestore` (some other key operation slipped in), the value the source committed its backup blob to no longer matches the destination's actual post-restore value — and the proof the destination produces afterward will not match the source's expectation. The two calls thus form a tight handshake; nothing on chain enforces ordering or atomicity beyond this nonce binding, so callers should not interleave key-mutating operations on the destination between the two calls.
+The backup blob is stateless with respect to the destination's per-key nonce: the source does not bake any destination state into the encrypted payload. This is deliberate and lets `directRestore` be retried after a failure (each retry bumps the destination nonce) without forcing a re-issue of `directBackup`.
+
+Replay protection lives entirely on the restore side:
+
+- The destination's restore attestation binds to the post-increment `destinationNonce` shipped in `KeyDirectRestore`. A stale attestation cannot be replayed against a later restore call because the nonce will have moved.
+- `KeyAlreadyAvailable` blocks a second restore of the same key onto a destination that already holds it.
+- `InvalidPublicKey` matches `BackupId.publicKey` against the current on-chain key descriptor — if the key was deleted and regenerated between backup and restore, a stale blob's attested public key will not match the new on-chain value and the restore fails.
+- The blob is encrypted to `destinationTeePublicKey`, so only the intended destination TEE can decrypt it.
 
 ### When to use which restore
 

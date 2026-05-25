@@ -753,12 +753,11 @@ contract WalletBackupManagerFacetTest is Test {
         assertFalse(teeHoldsKey);
 
         // We don't assert the exact instructionId (it is derived from a counter + blockhash). We
-        // assert the topic shape: indexed(source, destination, walletId) match, keyId in data,
-        // destinationNonce == nonceBefore + 1 == 1.
+        // assert the topic shape: indexed(source, destination, walletId) match, keyId in data.
         vm.prank(owner);
         vm.expectEmit(true, true, true, false);
         emit IWalletBackupManager.DirectBackupTriggered(
-            keyHolderTeeId, teeId, walletId, keyId, 1, bytes32(0)
+            keyHolderTeeId, teeId, walletId, keyId, bytes32(0)
         );
         bytes32 instructionId =
             flareTeeManager.directBackup(keyHolderTeeId, teeId, walletId, keyId, address(0));
@@ -835,7 +834,8 @@ contract WalletBackupManagerFacetTest is Test {
     }
 
     function testDirectBackupRestoreEndToEndNonceContract() public {
-        // Full flow: directBackup ships destinationNonce N+1; directRestore lands on exactly N+1.
+        // Full flow: directBackup does not touch the destination nonce; directRestore bumps it
+        // by exactly +1.
         _registerPath(keyHolderTeeId, teeId);
 
         // backupId.teeId is `backupTeeId` from setUp; for this end-to-end we want directBackup's
@@ -855,7 +855,7 @@ contract WalletBackupManagerFacetTest is Test {
         flareTeeManager.directRestore(teeId, bid, backupInstrId, address(0));
 
         (uint256 nonceAfter, ) = flareTeeManager.getKeyNonce(teeId, walletId, keyId);
-        assertEq(nonceAfter, 1, "the value committed during directBackup matches the one stored after directRestore");
+        assertEq(nonceAfter, 1, "directRestore bumps destination nonce by exactly +1");
     }
 
     // =========================================================================

@@ -113,7 +113,6 @@ contract WalletBackupManagerFacet is IWalletBackupManager {
             walletId: _walletId,
             keyId: _keyId,
             destinationTeePublicKey: MachineManager.getPublicKey(_destinationTeeId),
-            destinationNonce: WalletKeyManager.getKeyNonce(_destinationTeeId, _walletId, _keyId) + 1,
             machinePathListNonce: listNonce
         });
 
@@ -135,7 +134,7 @@ contract WalletBackupManagerFacet is IWalletBackupManager {
             )
         );
         emit DirectBackupTriggered(
-            _sourceTeeId, _destinationTeeId, _walletId, _keyId, message.destinationNonce, _instructionId
+            _sourceTeeId, _destinationTeeId, _walletId, _keyId, _instructionId
         );
     }
 
@@ -156,9 +155,11 @@ contract WalletBackupManagerFacet is IWalletBackupManager {
             extensionId, _backupId.teeId, _destinationTeeId
         );
 
-        // Now mutate: bump the destination's nonce. The new value must equal the value the source
-        // committed to during the prior `directBackup` (off-chain enforcement based on the
-        // `DirectBackupTriggered` event the relay client observed).
+        // Now mutate: bump the destination's nonce. The destination's restore attestation binds
+        // to this new value, so a stale attestation cannot be replayed against a later restore
+        // call. The backup blob produced by the source is stateless w.r.t. this nonce, so a
+        // failed restore can be retried (bumping the nonce again) without re-issuing
+        // `directBackup`.
         uint256 destinationNonce =
             WalletKeyManager.increaseKeyNonce(_destinationTeeId, _backupId.walletId, _backupId.keyId);
 

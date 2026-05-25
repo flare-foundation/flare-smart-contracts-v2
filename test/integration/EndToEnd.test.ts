@@ -2347,7 +2347,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
     expect(event.destinationTeeId).to.equal(TEE_IDS[1]);
     expect(event.walletId).to.equal(WALLET1_ID);
     expect(event.keyId.toString()).to.equal("0");
-    expect(event.destinationNonce.toString()).to.equal("1");
     directBackupInstructionId = event.backupInstructionId;
 
     // Verify the on-chain instruction payload is the KeyDirectBackup struct, op = KEY_DIRECT_BACKUP.
@@ -2360,7 +2359,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       walletId: WALLET1_ID,
       keyId: "0",
       destinationTeePublicKey: { x: TEE_PUBLIC_KEYS[1].x, y: TEE_PUBLIC_KEYS[1].y },
-      destinationNonce: "1",
       machinePathListNonce: machinePathListNonce,
     };
     expect(ev.message).to.equal(web3.eth.abi.encodeParameter(keyDirectBackupStruct, expectedPayload));

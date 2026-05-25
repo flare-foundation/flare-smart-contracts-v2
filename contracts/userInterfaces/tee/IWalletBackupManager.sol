@@ -33,9 +33,13 @@ interface IWalletBackupManager is ITeeCommonErrors {
      * encrypted backup blob (encrypted to `destinationTeePublicKey` so only the destination TEE can
      * decrypt it). The relay client also forwards the machine-path list (looked up by
      * `(extensionId, machinePathListNonce)`) so the TEE can verify the source→destination pair is
-     * governance-attested. `destinationNonce` is the exact value the destination will be at AFTER
-     * a successful `directRestore` (current_destination_nonce + 1) — the source binds the backup
-     * blob to that future nonce.
+     * governance-attested.
+     *
+     * The blob is intentionally stateless with respect to the destination's per-key nonce: it is
+     * not bound to any specific post-restore destination state, so the destination can retry
+     * `directRestore` (which bumps the nonce on each call) without forcing a re-issue of the
+     * backup. Replay protection lives on the restore side — see `KeyDirectRestore.destinationNonce`,
+     * plus on-chain `KeyAlreadyAvailable` / `InvalidPublicKey` gates.
      *
      * The wallet key's keyType / signingAlgo / public key are NOT carried in the payload because
      * the tuple `(walletId, keyId)` uniquely identifies the on-chain key; the source TEE (and
@@ -46,7 +50,6 @@ interface IWalletBackupManager is ITeeCommonErrors {
         bytes32 walletId;
         uint64 keyId;
         PublicKey destinationTeePublicKey;
-        uint256 destinationNonce;
         uint256 machinePathListNonce;
     }
 
@@ -54,8 +57,8 @@ interface IWalletBackupManager is ITeeCommonErrors {
      * Payload sent to the DESTINATION TEE machine on a `directRestore` call. The destination
      * fetches the previously-produced backup blob from the source proxy at
      * `(sourceProxyUrl, backupInstructionId)` and imports it as the key. `destinationNonce` is
-     * the just-incremented (now mutated) nonce; it must equal the value the source committed to
-     * during `directBackup` for the restore proof to match.
+     * the just-incremented (now mutated) nonce; the destination's restore attestation binds to
+     * this value so a stale attestation cannot be replayed against a later restore call.
      */
     struct KeyDirectRestore {
         address sourceTeeId;
@@ -78,7 +81,6 @@ interface IWalletBackupManager is ITeeCommonErrors {
         address indexed destinationTeeId,
         bytes32 indexed walletId,
         uint64 keyId,
-        uint256 destinationNonce,
         bytes32 backupInstructionId
     );
 
@@ -119,9 +121,9 @@ interface IWalletBackupManager is ITeeCommonErrors {
      * `(sourceTeeId, destinationTeeId)` pair must be present in the extension's currently-active
      * signed machine-path list.
      *
-     * Does NOT mutate any on-chain nonce. The destination's current key nonce is read and `+1` is
-     * shipped to the source so its backup blob binds to the value the destination will be at after
-     * a successful `directRestore`.
+     * Does NOT read or mutate the destination's per-key nonce — the produced blob is stateless
+     * with respect to destination state, so `directRestore` can be retried on the destination
+     * without re-issuing this backup.
      *
      * Reverts:
      * - `OnlyOwnerOrBackupManager` if the caller is not the project owner / backup manager.
@@ -157,8 +159,9 @@ interface IWalletBackupManager is ITeeCommonErrors {
      * `directBackup` call. The destination fetches the blob from the source TEE's proxy URL
      * (looked up on-chain) at the `_backupInstructionId` reference.
      *
-     * Increments the destination's per-key nonce by exactly 1; the new nonce must equal the value
-     * the source committed to during `directBackup`.
+     * Increments the destination's per-key nonce by exactly 1; the destination's restore
+     * attestation binds to the new value, which prevents a stale attestation from being replayed
+     * against a later restore call.
      *
      * Reverts:
      * - `OnlyOwnerOrBackupManager`, `TeeMachineNotInProduction` (destination), `InvalidTeeMachine`
