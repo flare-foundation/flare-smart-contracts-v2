@@ -2,10 +2,12 @@
 pragma solidity ^0.8.27;
 
 import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
+import { IMachineEmergencyPause } from "../../userInterfaces/tee/IMachineEmergencyPause.sol";
 import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
 import { IIRewardManager } from "../../protocol/interface/IIRewardManager.sol";
+import { MachineEmergencyPause } from "./MachineEmergencyPause.sol";
 import { MachineManager } from "./MachineManager.sol";
 import { OperationFees } from "./OperationFees.sol";
 import { ExternalAddresses } from "./ExternalAddresses.sol";
@@ -116,6 +118,13 @@ library Instructions {
         {
             address[] memory teeIds = new address[](_teeMachines.length);
             extensionId = MachineManager.getExtensionId(_teeMachines[0].teeId);
+            // Block every dispatch path (regular + system opTypes) when the destination
+            // extension is in emergency pause. All machines are validated below to share
+            // this extensionId, so a single check covers the whole batch.
+            require(
+                !MachineEmergencyPause.isExtensionEmergencyPaused(extensionId),
+                IMachineEmergencyPause.EmergencyPauseActive(extensionId)
+            );
             if (_instructionId == bytes32(0)) {
                 _instructionId = generateInstructionId(extensionId);
             }

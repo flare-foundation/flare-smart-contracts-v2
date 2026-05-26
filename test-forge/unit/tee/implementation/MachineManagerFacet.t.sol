@@ -137,7 +137,8 @@ contract MachineManagerFacetTest is Test {
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
             defaultFee: 0,
-            publicExtensionCreationEnabled: true
+            publicExtensionCreationEnabled: true,
+            emergencyUnpauseGracePeriodSeconds: 7200
         }));
         vm.startPrank(initialGovernance);
         FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
@@ -400,6 +401,11 @@ contract MachineManagerFacetTest is Test {
     // =========================================================================
 
     function testPauseRevertOnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion() public {
+        // Advance time past MAX_GRACE_PERIOD_SECONDS (24h) so the
+        // MachineEmergencyPause.isExtensionInEmergencyOrGrace overlay short-circuits
+        // for an extension with no pause history. Production timestamps always satisfy
+        // this; forge's default block.timestamp = 1 does not.
+        vm.warp(block.timestamp + 1 days + 1);
         testToProduction();
         vm.expectRevert(IMachineManager.OnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion.selector);
         flareTeeManager.pause(teeId);

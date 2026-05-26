@@ -25,6 +25,7 @@ import { WalletBackupManagerFacet } from "../../contracts/tee/facets/WalletBacku
 import { VrfFacet } from "../../contracts/tee/facets/VrfFacet.sol";
 import { ExtensionGovernanceFacet } from "../../contracts/tee/facets/ExtensionGovernanceFacet.sol";
 import { MachinePathManagerFacet } from "../../contracts/tee/facets/MachinePathManagerFacet.sol";
+import { MachineEmergencyPauseFacet } from "../../contracts/tee/facets/MachineEmergencyPauseFacet.sol";
 
 // TEE facets — later
 import { ReplicationFacet } from "../../contracts/tee/facets/ReplicationFacet.sol";
@@ -44,6 +45,8 @@ import { IIOperationFees } from "../../contracts/tee/interface/IIOperationFees.s
 import { IIReplication } from "../../contracts/tee/interface/IIReplication.sol";
 import { IExtensionManager } from "../../contracts/userInterfaces/tee/IExtensionManager.sol";
 import { IInstructions } from "../../contracts/userInterfaces/tee/IInstructions.sol";
+import { IMachineEmergencyPause } from "../../contracts/userInterfaces/tee/IMachineEmergencyPause.sol";
+import { IIMachineEmergencyPause } from "../../contracts/tee/interface/IIMachineEmergencyPause.sol";
 import { IMachineManager } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { IOwnerAllowlist } from "../../contracts/userInterfaces/tee/IOwnerAllowlist.sol";
 import { IExtensionGovernance } from "../../contracts/userInterfaces/tee/IExtensionGovernance.sol";
@@ -71,7 +74,7 @@ import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/fla
  * @title FlareTeeManagerDeployer
  * @notice Shared test utility for deploying the FlareTeeManager Diamond.
  *         Mirrors the production deployment pattern (DeployTeeContracts.s.sol):
- *         - deployDay1Facets(): creates diamond with 18 day-1 facets + FlareTeeManagerInit
+ *         - deployDay1Facets(): creates diamond with 19 day-1 facets + FlareTeeManagerInit
  *         - deployLaterFacets(): adds 4 later facets via diamondCut + ReplicationInit
  *           Caller must vm.prank(initialGovernance) before calling deployLaterFacets.
  */
@@ -86,6 +89,7 @@ library FlareTeeManagerDeployer {
         uint64 challengeValidityDurationSeconds;
         uint256 defaultFee;
         bool publicExtensionCreationEnabled;
+        uint256 emergencyUnpauseGracePeriodSeconds;
     }
 
     struct LaterDeployParams {
@@ -106,7 +110,8 @@ library FlareTeeManagerDeployer {
                 _params.signingPolicyValidityDurationInRewardEpochs,
                 _params.challengeValidityDurationSeconds,
                 _params.defaultFee,
-                _params.publicExtensionCreationEnabled
+                _params.publicExtensionCreationEnabled,
+                _params.emergencyUnpauseGracePeriodSeconds
             )
         );
 
@@ -143,11 +148,11 @@ library FlareTeeManagerDeployer {
     }
 
     // =========================================================================
-    // Day-1 facet cuts (18 facets)
+    // Day-1 facet cuts (19 facets)
     // =========================================================================
 
     function _buildDay1FacetCuts() private returns (IDiamond.FacetCut[] memory cuts) {
-        cuts = new IDiamond.FacetCut[](18);
+        cuts = new IDiamond.FacetCut[](19);
 
         // 0: DiamondGovernanceFacet (diamondCut + FlareGovernance selectors)
         {
@@ -468,6 +473,28 @@ library FlareTeeManagerDeployer {
             s[9] = IWalletProjectPause.isWalletProjectUnpauser.selector;
             cuts[17] = IDiamond.FacetCut(
                 address(new WalletProjectPauseFacet()), IDiamond.FacetCutAction.Add, s
+            );
+        }
+
+        // 19: MachineEmergencyPauseFacet
+        {
+            bytes4[] memory s = new bytes4[](14);
+            s[0] = IMachineEmergencyPause.addExtensionEmergencyPausers.selector;
+            s[1] = IMachineEmergencyPause.removeExtensionEmergencyPausers.selector;
+            s[2] = IMachineEmergencyPause.addExtensionEmergencyUnpausers.selector;
+            s[3] = IMachineEmergencyPause.removeExtensionEmergencyUnpausers.selector;
+            s[4] = IMachineEmergencyPause.emergencyPauseExtension.selector;
+            s[5] = IMachineEmergencyPause.emergencyUnpauseExtension.selector;
+            s[6] = IIMachineEmergencyPause.setEmergencyUnpauseGracePeriodSeconds.selector;
+            s[7] = IMachineEmergencyPause.getExtensionEmergencyPausers.selector;
+            s[8] = IMachineEmergencyPause.getExtensionEmergencyUnpausers.selector;
+            s[9] = IMachineEmergencyPause.isExtensionEmergencyPauser.selector;
+            s[10] = IMachineEmergencyPause.isExtensionEmergencyUnpauser.selector;
+            s[11] = IMachineEmergencyPause.isExtensionEmergencyPaused.selector;
+            s[12] = IMachineEmergencyPause.getLastUnpauseTs.selector;
+            s[13] = IMachineEmergencyPause.getEmergencyUnpauseGracePeriodSeconds.selector;
+            cuts[18] = IDiamond.FacetCut(
+                address(new MachineEmergencyPauseFacet()), IDiamond.FacetCutAction.Add, s
             );
         }
     }

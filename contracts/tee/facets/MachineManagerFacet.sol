@@ -2,6 +2,7 @@
 pragma solidity ^0.8.27;
 
 import { IMachineManager, REG_OP_TYPE } from "../../userInterfaces/tee/IMachineManager.sol";
+import { IMachineEmergencyPause } from "../../userInterfaces/tee/IMachineEmergencyPause.sol";
 import { IVerification } from "../../userInterfaces/tee/IVerification.sol";
 import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
@@ -10,6 +11,7 @@ import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { PublicKeyUtils } from "../../utils/lib/PublicKeyUtils.sol";
 import { MachineManager } from "../library/MachineManager.sol";
+import { MachineEmergencyPause } from "../library/MachineEmergencyPause.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
 import { Verification } from "../library/Verification.sol";
@@ -142,6 +144,10 @@ contract MachineManagerFacet is IMachineManager {
             MachineManager.checkTeeStatus(state.status, TeeStatus.PRODUCTION, TeeStatus.SUSPENDED);
             newStatus = TeeStatus.PAUSED;
         } else {
+            require(
+                !MachineEmergencyPause.isExtensionInEmergencyOrGrace(state.extensionId),
+                IMachineEmergencyPause.EmergencyProtectionActive(state.extensionId)
+            );
             MachineManager.checkTeeStatus(state.status, TeeStatus.PRODUCTION);
             (uint64 endTs,) = Verification.getAvailabilityCheckValidity(_teeId);
             require(endTs < block.timestamp, OnlyOwnerOrExpiredAvailabilityCheckOrDisabledVersion());

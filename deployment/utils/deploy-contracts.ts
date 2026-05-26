@@ -579,6 +579,7 @@ export async function deployContracts(
       "600", // challengeValidityDurationSeconds
       "1", // defaultFee
       true as unknown as string, // publicExtensionCreationEnabled — open for local simulation
+      "7200", // emergencyUnpauseGracePeriodSeconds (2h default)
     ]
   );
 

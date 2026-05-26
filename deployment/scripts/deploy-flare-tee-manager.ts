@@ -34,6 +34,7 @@ export const DAY1_FACETS = [
   "ExternalAddressesFacet",
   "MachinePathManagerFacet",
   "WalletProjectPauseFacet",
+  "MachineEmergencyPauseFacet",
 ];
 
 // Deploy-later facets (added via diamondCut after initial deployment)
@@ -167,6 +168,7 @@ export async function deployFlareTeeManager(
       parameters.teeChallengeValidityDurationSeconds.toString(),
       parameters.teeDefaultFeeWei.toString(),
       parameters.teePublicExtensionCreationEnabled as unknown as string,
+      parameters.teeEmergencyUnpauseGracePeriodSeconds.toString(),
     ]
   );
 

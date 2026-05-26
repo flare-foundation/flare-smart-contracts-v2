@@ -151,7 +151,8 @@ contract WalletPaymentsTest is Test {
             signingPolicyValidityDurationInRewardEpochs: 10,
             challengeValidityDurationSeconds: 600,
             defaultFee: defaultFee,
-            publicExtensionCreationEnabled: true
+            publicExtensionCreationEnabled: true,
+            emergencyUnpauseGracePeriodSeconds: 7200
         }));
         vm.startPrank(governance);
         FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({

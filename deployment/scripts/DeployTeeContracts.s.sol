@@ -55,6 +55,8 @@ import {MachinePathManagerFacet} from
     "../../contracts/tee/facets/MachinePathManagerFacet.sol";
 import {WalletProjectPauseFacet} from
     "../../contracts/tee/facets/WalletProjectPauseFacet.sol";
+import {MachineEmergencyPauseFacet} from
+    "../../contracts/tee/facets/MachineEmergencyPauseFacet.sol";
 // Later facets
 import {ReplicationFacet} from
     "../../contracts/tee/facets/ReplicationFacet.sol";
@@ -213,6 +215,7 @@ contract DeployTeeContracts is Script {
     ExtensionGovernanceFacet private extensionGovernanceFacet;
     MachinePathManagerFacet private machinePathManagerFacet;
     WalletProjectPauseFacet private walletProjectPauseFacet;
+    MachineEmergencyPauseFacet private machineEmergencyPauseFacet;
 
     // Later facet instances (for logging)
     ReplicationFacet private replicationFacet;
@@ -397,6 +400,7 @@ contract DeployTeeContracts is Script {
         extensionGovernanceFacet = new ExtensionGovernanceFacet();
         machinePathManagerFacet = new MachinePathManagerFacet();
         walletProjectPauseFacet = new WalletProjectPauseFacet();
+        machineEmergencyPauseFacet = new MachineEmergencyPauseFacet();
 
         day1Facets.push(_addFacet(
             address(diamondCutFacet), "DiamondGovernanceFacet"
@@ -455,6 +459,9 @@ contract DeployTeeContracts is Script {
         day1Facets.push(_addFacet(
             address(walletProjectPauseFacet), "WalletProjectPauseFacet"
         ));
+        day1Facets.push(_addFacet(
+            address(machineEmergencyPauseFacet), "MachineEmergencyPauseFacet"
+        ));
     }
 
     function _createDiamond() internal {
@@ -479,6 +486,8 @@ contract DeployTeeContracts is Script {
             vm.parseJsonUint(config, ".teeDefaultFeeWei");
         bool publicExtensionCreationEnabled =
             vm.parseJsonBool(config, ".teePublicExtensionCreationEnabled");
+        uint256 emergencyUnpauseGracePeriodSeconds =
+            vm.parseJsonUint(config, ".teeEmergencyUnpauseGracePeriodSeconds");
 
         FlareTeeManagerInit flareTeeManagerInit =
             new FlareTeeManagerInit();
@@ -492,7 +501,8 @@ contract DeployTeeContracts is Script {
             signingPolicyValidityDurationInRewardEpochs,
             challengeValidityDurationSeconds,
             defaultFeeWei,
-            publicExtensionCreationEnabled
+            publicExtensionCreationEnabled,
+            emergencyUnpauseGracePeriodSeconds
         );
 
         FlareTeeManager diamond = new FlareTeeManager(
@@ -1419,6 +1429,11 @@ contract DeployTeeContracts is Script {
             "WalletProjectPauseFacet",
             "WalletProjectPauseFacet.sol",
             address(walletProjectPauseFacet)
+        );
+        _logDeployed(
+            "MachineEmergencyPauseFacet",
+            "MachineEmergencyPauseFacet.sol",
+            address(machineEmergencyPauseFacet)
         );
     }
 

@@ -245,12 +245,34 @@ Rationale: external callers, tests, and other contracts consume the ABI via the 
 
 This rule applies to **new code only** — do not retroactively move errors/events on legacy contracts (`FdcHub`, `FdcInflationConfigurations`, etc.) that use the older string-`require` or implementation-declared style; touch them only if you're already changing the file's behavior.
 
+### File / Contract Layout Ordering
+
+Solhint enforces the Solidity style-guide ordering (`ordering` rule). When you add or move declarations inside a contract / library / interface, keep this order — getting it wrong yields warnings like *"struct definition can not go after contract constant declaration"* or *"internal function can not go after internal view function"*.
+
+Inside a contract / library / interface:
+
+1. **Type declarations** — `struct`, `enum`
+2. **State variables / constants**
+3. **Events**
+4. **Errors**
+5. **Modifiers**
+6. **Functions**, in this group order:
+   1. constructor → `receive` → `fallback`
+   2. `external`
+   3. `public`
+   4. `internal`
+   5. `private`
+
+Within each function visibility group, mutability ordering is **non-view/non-pure first**, then `view`, then `pure`. A non-view internal function placed after an internal view function fires *"internal function can not go after internal view function"*.
+
+If you add a new helper to a library that already mixes view/non-view in the wrong order (pre-existing warning), keep matching the file's local style — don't retroactively reorder unrelated declarations.
+
 ### Linting
 
 - Solidity: `pnpm lint-sol` — checks contracts, test-forge, and deployment .sol files
 - TypeScript: `pnpm lint:check` — checks deployment, scripts, and test .ts files
 - Fix all linter **errors** before considering work done (warnings can be ignored)
-- Common rules: max line length 119 characters, named imports, proper function ordering
+- Common rules: max line length 119 characters, named imports, layout / function ordering (see [File / Contract Layout Ordering](#file--contract-layout-ordering))
 
 ### Forge Test Conventions
 
@@ -414,8 +436,13 @@ bytes32 internal constant STATE_POSITION = keccak256(
 
 | Prefix | Location | Purpose | Example |
 |--------|----------|---------|---------|
-| `I` | `userInterfaces/` | Public API for external callers | `IConfig` |
-| `II` | `<domain>/interface/` | Internal/admin — extends I-interface | `IIConfig` |
+| `I` | `userInterfaces/` | Public API for external callers — anything they would call to use the contract, plus **every event and error** the contract emits / raises | `IConfig` |
+| `II` | `<domain>/interface/` | Internal/admin — extends `I` and adds Flare-governance-only methods. Used by Diamond facets and also by UUPS / standalone contracts that want to split their admin surface from their public surface | `IIConfig` |
+
+**Where to declare what:**
+- Methods callable by external users (read getters, ordinary actions, owner-gated mutators where the "owner" is a project / extension / wallet owner, not Flare governance) → `I*`.
+- Methods callable only by Flare governance (`onlyGovernance` or `onlyImmediateGovernance` from the new `FlareGovernance` stack) → `II*`.
+- **All events and errors → `I*`**, regardless of which method emits / raises them. This matches the broader rule in [Errors and Events Placement](#errors-and-events-placement): a single shared ABI for every consumer.
 
 Interface names do NOT carry a `Facet` suffix even when they describe a single EIP-2535 facet's API — the suffix belongs on the *contract* (e.g., `ConfigFacet`), not on the interface that describes its behavior.
 

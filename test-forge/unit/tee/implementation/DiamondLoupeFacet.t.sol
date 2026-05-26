@@ -28,7 +28,8 @@ contract DiamondLoupeFacetTest is Test {
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
             defaultFee: 1000,
-            publicExtensionCreationEnabled: true
+            publicExtensionCreationEnabled: true,
+            emergencyUnpauseGracePeriodSeconds: 7200
         }));
         vm.startPrank(initialGovernance);
         FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
@@ -41,12 +42,12 @@ contract DiamondLoupeFacetTest is Test {
 
     function testFacets() public view {
         IDiamondLoupe.Facet[] memory allFacets = loupe.facets();
-        assertEq(allFacets.length, 22, "deployer creates 22 facets");
+        assertEq(allFacets.length, 23, "deployer creates 23 facets");
     }
 
     function testFacetAddresses() public view {
         address[] memory addresses = loupe.facetAddresses();
-        assertEq(addresses.length, 22, "should have 22 unique facet addresses");
+        assertEq(addresses.length, 23, "should have 23 unique facet addresses");
     }
 
     function testFacetFunctionSelectors() public view {

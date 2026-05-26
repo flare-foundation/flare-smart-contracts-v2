@@ -99,6 +99,7 @@ About 20 public interfaces under [`userInterfaces/tee/`](../../contracts/userInt
 | [`IExternalAddresses`](../../contracts/userInterfaces/tee/IExternalAddresses.sol) | The diamond's `AddressUpdatable` view. |
 | [`IInstructions`](../../contracts/userInterfaces/tee/IInstructions.sol) | `sendInstructions`, `sendSystemInstructions`, system-instructions-sender registry. |
 | [`IMachineManager`](../../contracts/userInterfaces/tee/IMachineManager.sol) | Machine registration, status changes, ownership transfer. |
+| [`IMachineEmergencyPause`](../../contracts/userInterfaces/tee/IMachineEmergencyPause.sol) | Per-extension emergency pause overlay + pauser/unpauser delegation lists + governance-tunable post-unpause grace window for the third-party expired-availability `pause()` branch. |
 | [`IOperationFees`](../../contracts/userInterfaces/tee/IOperationFees.sol) | Per-`(opType, opCommand)` fees, default fee. |
 | [`IOwnerAllowlist`](../../contracts/userInterfaces/tee/IOwnerAllowlist.sol) | Global extension-owner allowlist (governance-gated; gates `register()` and ownership transfer); per-extension TEE machine owner and wallet project owner allowlists (extension-owner-gated). |
 | [`IReplication`](../../contracts/userInterfaces/tee/IReplication.sol) | Replication group management. |

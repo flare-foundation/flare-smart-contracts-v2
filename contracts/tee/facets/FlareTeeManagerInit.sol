@@ -8,6 +8,7 @@ import { Verification } from "../library/Verification.sol";
 import { OperationFees } from "../library/OperationFees.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
+import { MachineEmergencyPause } from "../library/MachineEmergencyPause.sol";
 import { LibDiamond } from "../../diamond/libraries/LibDiamond.sol";
 import { IDiamondCut } from "../../diamond/interfaces/IDiamondCut.sol";
 import { IDiamondLoupe } from "../../diamond/interfaces/IDiamondLoupe.sol";
@@ -18,7 +19,8 @@ import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol
  * @title FlareTeeManagerInit
  * @notice Initialization contract for FlareTeeManager Diamond.
  * @dev Called via delegatecall from the Diamond constructor. Sets up governance,
- *      address updater, verification settings, and default fee.
+ *      address updater, verification settings, default fee, the public-extension
+ *      counter / global allowlist flag, and the emergency-unpause grace duration.
  *      This contract is NOT a facet — it is only used during diamondCut init.
  */
 contract FlareTeeManagerInit is Initializable, AddressUpdatable {
@@ -47,6 +49,12 @@ contract FlareTeeManagerInit is Initializable, AddressUpdatable {
      *        closed and governance must seed or open it later. Reserved-id
      *        minting via registerReserved is always governance-only and is
      *        unaffected by this flag.
+     * @param _emergencyUnpauseGracePeriodSeconds Initial grace duration applied after
+     *        every per-extension emergency unpause. Must be in
+     *        [MachineEmergencyPause.MIN_GRACE_PERIOD_SECONDS (30 min),
+     *        MachineEmergencyPause.MAX_GRACE_PERIOD_SECONDS (24 h)]. Governance can
+     *        retune at any time via
+     *        IIMachineEmergencyPause.setEmergencyUnpauseGracePeriodSeconds (timelocked).
      */
     function init(
         IGovernanceSettings _governanceSettings,
@@ -56,7 +64,8 @@ contract FlareTeeManagerInit is Initializable, AddressUpdatable {
         uint64 _signingPolicyValidityDurationInRewardEpochs,
         uint64 _challengeValidityDurationSeconds,
         uint256 _defaultFee,
-        bool _publicExtensionCreationEnabled
+        bool _publicExtensionCreationEnabled,
+        uint256 _emergencyUnpauseGracePeriodSeconds
     )
         external
         initializer
@@ -89,6 +98,9 @@ contract FlareTeeManagerInit is Initializable, AddressUpdatable {
 
         // Configure initial state of the global extension-owner allowlist.
         OwnerAllowlist.getState().allExtensionOwnersAllowed = _publicExtensionCreationEnabled;
+
+        // Configure initial emergency-unpause grace duration.
+        MachineEmergencyPause.setGracePeriodSeconds(_emergencyUnpauseGracePeriodSeconds);
     }
 
     /**

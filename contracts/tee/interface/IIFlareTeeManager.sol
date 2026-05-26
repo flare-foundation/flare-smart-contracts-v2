@@ -8,6 +8,7 @@ import { IIExtensionManager } from "./IIExtensionManager.sol";
 import { IIInstructions } from "./IIInstructions.sol";
 import { IIVerification } from "./IIVerification.sol";
 import { IIOperationFees } from "./IIOperationFees.sol";
+import { IIMachineEmergencyPause } from "./IIMachineEmergencyPause.sol";
 import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { IWalletKeyManager } from "../../userInterfaces/tee/IWalletKeyManager.sol";
 import { IOwnerAllowlist } from "../../userInterfaces/tee/IOwnerAllowlist.sol";
@@ -40,6 +41,7 @@ interface IIFlareTeeManager is
     IIDiamondGovernance,
     IIExtensionManager,
     IIInstructions,
+    IIMachineEmergencyPause,
     IMachineManager,
     IIVerification,
     IIOperationFees,

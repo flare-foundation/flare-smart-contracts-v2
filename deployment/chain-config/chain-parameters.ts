@@ -535,6 +535,15 @@ export interface ChainParameters {
   teePublicExtensionCreationEnabled: boolean;
 
   /**
+   * Grace period (in seconds) applied after each per-extension emergency unpause.
+   * While this window is open, the third-party expired-availability branch of
+   * IMachineManager.pause() is blocked, so machine owners have time to refresh
+   * their availability attestation without anyone immediately suspending their
+   * still-PRODUCTION machines. Must be in [30 min (1800s), 24h (86400s)] on-chain.
+   */
+  teeEmergencyUnpauseGracePeriodSeconds: integer;
+
+  /**
    * The amount of rewards that are distributed to TEE owners, in PPM (e.g. 10%).
    */
   teeOwnersPPM: integer;

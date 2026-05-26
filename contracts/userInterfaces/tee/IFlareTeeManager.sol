@@ -5,6 +5,7 @@ import { IDiamondLoupe } from "../../diamond/interfaces/IDiamondLoupe.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { IExtensionManager } from "./IExtensionManager.sol";
 import { IInstructions } from "./IInstructions.sol";
+import { IMachineEmergencyPause } from "./IMachineEmergencyPause.sol";
 import { IMachineManager } from "./IMachineManager.sol";
 import { IVerification } from "./IVerification.sol";
 import { IOperationFees } from "./IOperationFees.sol";
@@ -40,6 +41,7 @@ interface IFlareTeeManager is
     ITeeCommonErrors,
     IExtensionManager,
     IInstructions,
+    IMachineEmergencyPause,
     IMachineManager,
     IVerification,
     IOperationFees,

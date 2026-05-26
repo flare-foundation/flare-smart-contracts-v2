@@ -92,12 +92,13 @@ Inside `Instructions.sendInstructions` (the library function), every instruction
 
 1. `_teeMachines.length > 0`, `opType != 0`, `opCommand != 0`, `message.length > 0`, `cosignersThreshold ≤ cosigners.length` — basic shape checks.
 2. Resolve `extensionId = MachineManager.getExtensionId(_teeMachines[0].teeId)`.
-3. For each subsequent machine, require its `extensionId` matches the first (`ExtensionIdMismatch()` if not).
-4. For non-system opTypes, require each machine's status is `PRODUCTION` (`TeeMachineNotAvailable()` if not). For system opTypes, **status is not checked** — system operations can target machines in `INITIALIZED` state (this is how the registration availability check works — the machine is still `INITIALIZED` when the first attestation request goes out).
-5. Compute the fee: `OperationFees.calculateFeeByTeeIds(opType, opCommand, teeIds)` — see [Operation Fees](./OperationFees.md).
-6. Require `msg.value >= fee` (`FeeTooLow()` if not).
-7. Forward `msg.value` (the entire amount, not just the fee) to `RewardManager.receiveRewards{value: msg.value}(currentRewardEpochId, false)` as a community offer for the current reward epoch.
-8. Emit `TeeInstructionsSent`.
+3. Require the extension is not currently emergency-paused: `!MachineEmergencyPause.isExtensionEmergencyPaused(extensionId)` (`EmergencyPauseActive(extensionId)` if it is). This is the single chokepoint through which the per-extension overlay blocks every dispatch path — both regular and system opTypes are rejected. See [Machine Lifecycle / Emergency pause](./MachineLifecycle.md#emergency-pause).
+4. For each subsequent machine, require its `extensionId` matches the first (`ExtensionIdMismatch()` if not).
+5. For non-system opTypes, require each machine's status is `PRODUCTION` (`TeeMachineNotAvailable()` if not). For system opTypes, **status is not checked** — system operations can target machines in `INITIALIZED` state (this is how the registration availability check works — the machine is still `INITIALIZED` when the first attestation request goes out).
+6. Compute the fee: `OperationFees.calculateFeeByTeeIds(opType, opCommand, teeIds)` — see [Operation Fees](./OperationFees.md).
+7. Require `msg.value >= fee` (`FeeTooLow()` if not).
+8. Forward `msg.value` (the entire amount, not just the fee) to `RewardManager.receiveRewards{value: msg.value}(currentRewardEpochId, false)` as a community offer for the current reward epoch.
+9. Emit `TeeInstructionsSent`.
 
 **The whole `msg.value` goes to `RewardManager`** — there is no automatic refund of the difference between `fee` and `msg.value`. If a caller pays more than the fee, the surplus stays in the reward pool. Application contracts that want to forward exactly the fee should call `OperationFees.calculateFeeByTeeIds` first.
 

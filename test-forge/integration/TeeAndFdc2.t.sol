@@ -127,7 +127,8 @@ contract TeeAndFdc2Test is Test {
                 signingPolicyValidityDurationInRewardEpochs: 6,
                 challengeValidityDurationSeconds: 600,
                 defaultFee: 1000,
-                publicExtensionCreationEnabled: true
+                publicExtensionCreationEnabled: true,
+                emergencyUnpauseGracePeriodSeconds: 7200
             })
         );
 
@@ -186,7 +187,7 @@ contract TeeAndFdc2Test is Test {
     // =========================================================================
 
     function testDay1_facetCount() public view {
-        assertEq(IDiamondLoupe(address(flareTeeManager)).facets().length, 18);
+        assertEq(IDiamondLoupe(address(flareTeeManager)).facets().length, 19);
     }
 
     function testDay1_excludedSelectorsRevert() public {

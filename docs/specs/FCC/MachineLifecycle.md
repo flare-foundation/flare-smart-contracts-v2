@@ -91,6 +91,25 @@ A fourth path, `pauseWithProof(_proof)`, is a permissionless suspend triggered b
 
 All three paths emit `TeeMachineStatusChanged(teeId, newStatus)`.
 
+## Emergency pause
+
+Per-extension **emergency pause** is a boolean overlay maintained by [`MachineEmergencyPauseFacet`](../../../contracts/tee/facets/MachineEmergencyPauseFacet.sol) + [`library/MachineEmergencyPause`](../../../contracts/tee/library/MachineEmergencyPause.sol). It is a separate concern from a machine's `TeeStatus` — **machine statuses are not mutated** when the overlay flips, and neither are the active sets. While `emergencyPaused[extensionId]` is `true`, the single on-chain effect is:
+
+- [`Instructions.sendInstructions`](../../../contracts/tee/library/Instructions.sol) reverts `EmergencyPauseActive(extensionId)`. Every dispatch path funnels through this library function — `InstructionsFacet.sendInstructions`, `InstructionsFacet.sendSystemInstructions` (both overloads), `VrfFacet.requestVrf`, `WalletResumeFacet.setPausingAddresses`, and every wallet-key / backup / resume flow that emits an instruction. Both regular and system opTypes are blocked.
+
+Read getters — `getActiveTeeMachines`, `getAllActiveTeeMachines`, `getRandomTeeIds` — are intentionally **not** filtered; the active sets remain authoritative for status. Off-chain consumers that need "is this usable right now" should also call `isExtensionEmergencyPaused(extensionId)`. Verification / key-confirmation flows (`VerificationFacet.confirmAvailability`, `WalletKeyManagerFacet.confirmKey`) are not blocked either — they only record TEE-produced proofs whose generation is independent of the overlay (FDC2 attestations are signed by system-extension TEEs, and key-existence proofs are produced off-chain by the wallet's own TEEs). Blocking them would only delay submission, not prevent any state advance, so the overlay leaves them untouched.
+
+**Pause/unpause access:**
+- The extension owner OR an address on the per-extension pauser list can call `emergencyPauseExtension(extensionId)`.
+- The extension owner OR an address on the per-extension unpauser list can call `emergencyUnpauseExtension(extensionId)`.
+- The lists themselves are managed by the extension owner via `addExtensionEmergencyPausers / Unpausers` and the matching remove methods.
+
+**Post-unpause grace window.** While the overlay is paused, machines' availability proofs can expire (typical validity tracks reward-epoch length — 3.5d on mainnets, 6h on testnets — but a long emergency can still outlast it). On unpause, `emergencyUnpauseTs[extensionId]` is recorded, and for the next `emergencyUnpauseGracePeriodSeconds` (global, governance-tunable; default 2h, bounded by 30 min ≤ x ≤ 24h) the **third-party expired-availability branch** of `pause(teeId)` is blocked (reverts `EmergencyProtectionActive(extensionId)`). This gives machine owners time to refresh attestations before anyone can shove their still-`PRODUCTION` machines to `SUSPENDED`. The owner-initiated branch, version-disabled branch, and `pauseWithProof` all remain unaffected.
+
+The protection window **combines the machine's own extension AND the system extension (id 0)**. Refreshing availability requires two on-chain steps: `requestTeeAttestation(teeId)` is routed to the machine's extension (via `Instructions.sendInstructions`), and `requestAvailabilityCheckAttestation(teeId, ...)` is routed through FDC2 to system-extension TEEs only. If either side is currently emergency-paused or still inside its grace window, the third-party `pause()` branch stays blocked — protection holds for the longer of the two grace ends.
+
+The grace duration is set at init via `FlareTeeManagerInit.init`'s `_emergencyUnpauseGracePeriodSeconds` parameter and retunable via `IIMachineEmergencyPause.setEmergencyUnpauseGracePeriodSeconds(seconds)` (governance, timelocked).
+
 ## Banning and unbanning
 
 ```solidity

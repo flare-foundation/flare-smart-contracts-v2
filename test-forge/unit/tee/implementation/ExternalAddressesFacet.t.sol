@@ -26,7 +26,8 @@ contract ExternalAddressesFacetTest is Test {
             signingPolicyValidityDurationInRewardEpochs: 6,
             challengeValidityDurationSeconds: 600,
             defaultFee: 1000,
-            publicExtensionCreationEnabled: true
+            publicExtensionCreationEnabled: true,
+            emergencyUnpauseGracePeriodSeconds: 7200
         }));
         vm.startPrank(initialGovernance);
         FlareTeeManagerDeployer.deployLaterFacets(flareTeeManager, FlareTeeManagerDeployer.LaterDeployParams({
