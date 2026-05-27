@@ -1,9 +1,10 @@
 # Staking
 
-The Flare validator-staking subsystem has two on-chain pieces in this repo:
+The Flare validator-staking subsystem has one production on-chain piece in this repo:
 
 - [`ValidatorRewardOffersManager`](../../contracts/staking/implementation/ValidatorRewardOffersManager.sol) — the inflation receiver for validator-staking rewards.
-- [`PChainStakeMirrorVerifier`](../../contracts/protocol/implementation/) (in `protocol/`) — verifier for P-chain stake mirroring (via `flare-periphery` interfaces).
+
+P-chain stake mirroring itself is read through the `flare-periphery` `IPChainStakeMirror` interface (the deployed `PChainStakeMirror` lives in the v1 repo); this repo only carries a mock `PChainStakeMirrorVerifier` ([`contracts/mock/PChainStakeMirrorVerifier.sol`](../../contracts/mock/PChainStakeMirrorVerifier.sol)) for testing.
 
 The validator-staking infrastructure itself lives in the v1 contracts repo (`PChainStakeMirror`, the staking module of the Flare validator binary). This repo handles the **rewarding** layer for validator participation.
 
@@ -33,9 +34,9 @@ Validator rewards are produced as `MIRROR`-type claims in the unified rewards Me
 
 ## P-chain stake mirroring
 
-P-chain stake doesn't live on the Flare C-chain — validators stake on the P-chain (Avalanche-style staking) and the stake state is **mirrored** to the C-chain so smart contracts can read it. The mirroring contract is [`PChainStakeMirror`](https://github.com/flare-foundation/flare-smart-contracts) in the v1 repo. The verifier — [`PChainStakeMirrorVerifier`](../../contracts/protocol/implementation/) — verifies messages claiming a particular stake amount at a particular block, signed by the appropriate authority.
+P-chain stake doesn't live on the Flare C-chain — validators stake on the P-chain (Avalanche-style staking) and the stake state is **mirrored** to the C-chain so smart contracts can read it. The mirroring contract is [`PChainStakeMirror`](https://github.com/flare-foundation/flare-smart-contracts) in the v1 repo, consumed in this repo through the `flare-periphery` `IPChainStakeMirror` interface.
 
-The verifier is consumed by [`FlareSystemsCalculator`](../../contracts/protocol/implementation/FlareSystemsCalculator.sol) when computing voter registration weights — it calls `pChainStakeMirror.batchVotePowerOfAt(nodeIds, votePowerBlock)` to get each voter's mirrored stake at the snapshot block. See [FSP / Weighting](./FSP/Weighting.md).
+[`FlareSystemsCalculator`](../../contracts/protocol/implementation/FlareSystemsCalculator.sol) reads mirrored stake when computing voter registration weights — when its `pChainStakeMirror` address is set it calls `pChainStakeMirror.batchVotePowerOfAt(nodeIds, votePowerBlock)` to get each voter's mirrored stake at the snapshot block. See [FSP / Weighting](./FSP/Weighting.md).
 
 ## Node ID registration
 

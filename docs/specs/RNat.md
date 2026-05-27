@@ -5,7 +5,7 @@ RNat is a **non-transferable, vesting** ERC-20-shaped reward token. It exists so
 The on-chain pieces:
 
 - [`RNat`](../../contracts/rNat/implementation/RNat.sol) — the central manager contract. Tracks projects, monthly reward assignments, per-account claim state.
-- [`RNatAccount`](../../contracts/rNat/implementation/RNatAccount.sol) — a per-recipient personal account contract, deployed as a beacon-style minimal-proxy clone for each RNat owner. Holds the vesting schedule and the wrapped balance.
+- [`RNatAccount`](../../contracts/rNat/implementation/RNatAccount.sol) — a per-recipient personal account contract, deployed as an EIP-1167 minimal-proxy clone for each RNat owner. Holds the vesting schedule and the wrapped balance.
 - [`CloneFactory`](../../contracts/rNat/implementation/CloneFactory.sol) — the EIP-1167 minimal-proxy deployer used by `RNat` to spawn personal accounts cheaply.
 
 ## What RNat is
@@ -47,7 +47,7 @@ Each project has a **distributor** (typically a community team or external entit
 
 1. **Manager assigns rewards to a project for a specific month.** The protocol manager (a privileged role on `RNat`) calls into `RNat` to credit `assignedRewards` for project P, month M. The amount comes from the contract's `totalAssignableRewards` budget (sourced from the funding address or the incentive pool).
 2. **Distributor distributes within the project.** The project's distributor calls a method (per the `IRNat` interface) to partition the month's `assignedRewards` among recipient addresses. Each recipient's `Rewards.assignedRewards` for the month grows.
-3. **Recipient claims.** When the recipient calls `claim`, `RNat` ensures they have an `RNatAccount` (deploys one via `CloneFactory` if not), and forwards the recipient's rewards to that account, which begins vesting.
+3. **Recipient claims.** When the recipient calls `claimRewards(projectIds, month)`, `RNat` ensures they have an `RNatAccount` (deploys one via `CloneFactory` if not), and forwards the recipient's rewards to that account, which begins vesting.
 
 The distinction between *assigned* (committed to the project but not yet distributed to specific recipients) and *distributed* (allocated to a specific recipient) lets a project distribute monthly without immediate per-recipient finality — distributors can iterate on splits before recipients claim.
 
@@ -73,7 +73,7 @@ contract RNatAccount {
 }
 ```
 
-When `RNat.claim` runs, it calls `RNatAccount.receiveRewards(_wNat, months[], amounts[])`, transferring the FLR with `msg.value` and the months/amounts arrays describing which month each portion belongs to. The account auto-wraps the FLR into WNat so the balance can be delegated and earn FTSO / FSP rewards during vesting.
+When `RNat.claimRewards` runs, it calls `RNatAccount.receiveRewards(_wNat, months[], amounts[])`, transferring the FLR with `msg.value` and the months/amounts arrays describing which month each portion belongs to. The account auto-wraps the FLR into WNat so the balance can be delegated and earn FTSO / FSP rewards during vesting.
 
 ### Vesting
 
@@ -105,16 +105,18 @@ If RNat were transferable, recipients could sell the entire 12-month future stre
 ## Cross-references
 
 - **WNat** is the wrapped native token (`WFLR` on Flare, etc.). RNat accounts hold WNat-wrapped balances during vesting.
-- **`ClaimSetupManager`** lets users authorize executors (e.g. claim-bot services) to claim on their behalf — the same authorization layer that `RewardManager.claim` uses. RNat reuses this for `claim` access control.
+- **`ClaimSetupManager`** lets users authorize executors (e.g. claim-bot services) to claim on their behalf — the same authorization layer that `RewardManager.claim` uses. RNat reuses this for `claimRewards` access control.
 - **`IncentivePoolReceiver`** is the parent class — RNat receives FLR from the incentive pool through the standard `setDailyAuthorizedIncentive` / `receiveIncentive` interface, same as any other receiver. See [Inflation and Incentive Pool](./Inflation.md).
 
 ## Reading RNat state
 
 | View | Returns |
 |------|---------|
-| `getProject(projectId)` | Project metadata, totals. |
-| `getProjectMonthlyRewards(projectId, month)` | Per-month assignment and distribution data. |
-| `getOwnerInfo(owner)` | Owner's `RNatAccount` address, total received, total withdrawn, current claimable balance. |
-| `getTokenPoolSupplyData()` | Standard `IITokenPool` triple: `(lockedFundsWei, totalInflationAuthorizedWei, totalClaimedWei)` — RNat reports its incentive-pool side here. |
+| `getProjectInfo(projectId)` | Project metadata and totals. |
+| `getProjectRewardsInfo(projectId, month)` | Per-month assignment and distribution data. |
+| `getOwnerRewardsInfo(projectId, month, owner)` | An owner's assigned/claimed amounts for a project-month and whether they are claimable. |
+| `getRNatAccount(owner)` | The owner's `RNatAccount` address. |
+| `getBalancesOf(owner)` | The owner's `(wNatBalance, rNatBalance, lockedBalance)`. |
+| `getTokenPoolSupplyData()` | Standard token-pool triple: `(lockedFundsWei, totalInflationAuthorizedWei, totalClaimedWei)` — RNat reports its incentive-pool side here. |
 
 The full reader API is in [`IRNat`](../../contracts/userInterfaces/IRNat.sol) and [`IRNatAccount`](../../contracts/userInterfaces/IRNatAccount.sol).

@@ -12,13 +12,13 @@ Three FCC facets provide the on-chain verification layer:
 
 When a TEE machine registers ([Machine Lifecycle / Registration](./MachineLifecycle.md#registration)) or transitions back to PRODUCTION, the contracts request an **availability check**:
 
-1. `MachineManagerFacet._requestTeeAttestation` generates a fresh challenge:
+1. `Verification.requestTeeAttestation` (called from `MachineManagerFacet.register` on registration, or from `VerificationFacet.requestTeeAttestation` for a re-attestation) generates a challenge:
    ```solidity
    bytes32 challenge = keccak256(abi.encode(_teeId, block.timestamp, randomNumber));
-   vs.challenges[_teeId] = challenge;
-   vs.challengeTs[_teeId] = block.timestamp;
+   s.challenges[_teeId] = challenge;
+   s.challengeTs[_teeId] = block.timestamp;
    ```
-   `randomNumber` comes from `Relay.getRandomNumber()` — the FSP secure random.
+   `randomNumber` comes from `Relay.getRandomNumber()` — the FSP secure random. On registration a fresh challenge is always generated; the public re-attestation path reuses a still-valid challenge instead.
 2. It emits an `F_REG / TEE_ATTESTATION` system instruction directed at the TEE, with the `TeeAttestation` message body containing the machine's data and the challenge.
 3. **Off-chain**: the TEE proxy forwards the instruction to the TEE machine, which:
    - Confirms the challenge is fresh (within the configured availability-check validity window).
@@ -37,9 +37,9 @@ When a TEE machine registers ([Machine Lifecycle / Registration](./MachineLifecy
 If everything checks, `Verification.extendAvailability(proof)` updates the validity window:
 
 - `endTs = proof.header.timestamp + availabilityCheckValidityDurationSeconds` — typically a few hours.
-- `endRewardEpoch = currentRewardEpoch + signingPolicyValidityDurationInRewardEpochs` — typically a few reward epochs.
+- `lastSigningPolicyId = proof.responseBody.lastSigningPolicyId` — the signing policy the machine last attested to; its freshness is bounded by `signingPolicyValidityDurationInRewardEpochs` (see `Verification.isSigningPolicyValid`).
 
-A machine with an expired availability check (`endTs < block.timestamp` or `currentRewardEpoch > endRewardEpoch`) can be permissionlessly suspended by anyone via `MachineManagerFacet.pause(teeId)` (see [Machine Lifecycle / Pausing](./MachineLifecycle.md#pausing)) — this is what keeps the network of attested machines fresh: TEE owners must re-attest periodically or risk being suspended.
+A machine with an expired availability check (`endTs < block.timestamp`, or a `lastSigningPolicyId` that has fallen outside `signingPolicyValidityDurationInRewardEpochs` of the current reward epoch) can be permissionlessly suspended by anyone via `MachineManagerFacet.pause(teeId)` (see [Machine Lifecycle / Pausing](./MachineLifecycle.md#pausing)) — this is what keeps the network of attested machines fresh: TEE owners must re-attest periodically or risk being suspended.
 
 ## System state verification
 
@@ -94,7 +94,7 @@ It does *not* call into `Verification` because the FDC2 message format already c
 For each TEE:
 
 - `MachineManagerFacet.getTeeMachineWithAttestationData(teeId)` — `codeHash`, `platform`, `url`, `initialTeeId`.
-- `Verification.getAvailabilityCheckValidity(teeId)` — `(endTs, endRewardEpoch)`.
+- `Verification.getAvailabilityCheckValidity(teeId)` — `(endTs, lastSigningPolicyId)`.
 - The current `Verification.State.challenges[teeId]` (queryable via a view method on `VerificationFacet` — see source).
 
 Off-chain monitoring tools build dashboards from these to show "next availability check due at X", "machine valid until reward epoch Y", "current pending challenge: Z".

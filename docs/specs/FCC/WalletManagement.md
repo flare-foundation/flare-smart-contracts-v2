@@ -4,7 +4,7 @@ A **wallet** in FCC is a logical container for one or more keys, owned by a proj
 
 The on-chain pieces:
 
-- [`WalletManagerFacet`](../../../contracts/tee/facets/WalletManagerFacet.sol) + [`library/WalletManager`](../../../contracts/tee/library/WalletManager.sol) — wallet creation, owner administration, key admin set updates, first-time activation (`enableWallet`: `INITIALIZED → PRODUCTION`).
+- [`WalletManagerFacet`](../../../contracts/tee/facets/WalletManagerFacet.sol) + [`library/WalletManager`](../../../contracts/tee/library/WalletManager.sol) — wallet creation, admin / cosigner set configuration and confirmation, initialization (`closeWalletInitialization`: `CREATED → INITIALIZED`), first-time activation (`enableWallet`: `INITIALIZED → PRODUCTION`).
 - [`WalletProjectManagerFacet`](../../../contracts/tee/facets/WalletProjectManagerFacet.sol) + [`library/WalletProjectManager`](../../../contracts/tee/library/WalletProjectManager.sol) — *project*-level grouping (a project owns multiple wallets and is administered by a single project owner).
 - [`WalletProjectPauseFacet`](../../../contracts/tee/facets/WalletProjectPauseFacet.sol) + [`library/WalletProjectPause`](../../../contracts/tee/library/WalletProjectPause.sol) — per-project pauser/unpauser delegation lists + the batch `pauseWallets` (`PRODUCTION → PAUSED`) and `unpauseWallets` (`PAUSED → PRODUCTION`) actions. The project owner adds addresses to either list; list members can pause / resume any wallet in their project alongside the owner.
 - [`WalletBackupManagerFacet`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol) — admin-share-based key restore (`backupRestore`) AND the path-list-gated direct backup/restore between two TEE machines (`directBackup` / `directRestore`). See [Key management → direct backup / restore](./KeyManagement.md#direct-backup--restore).
@@ -24,58 +24,58 @@ Every wallet is bound to one extension and one project. Project ownership is tra
 
 ## Projects
 
-A **project** is the administrative unit that groups wallets together for a single off-chain operator. The same project owner address can administer many wallets without re-doing the per-wallet authorization. `WalletProjectManager` holds:
+A **project** is the administrative unit that groups wallets together for a single off-chain operator. The same project owner address can administer many wallets without re-doing the per-wallet authorization. Each project's `TeeWalletProjectState` (in [`WalletProjectManager`](../../../contracts/tee/library/WalletProjectManager.sol)) holds:
 
-- Project ID (assigned at creation).
-- Owner address (the Flare address authorized to make changes).
-- Project-level configuration (key admin set defaults, etc.).
-- The list of wallets under the project.
+- `owner` — the Flare address authorized to make changes.
+- `extensionId` — the extension the project belongs to.
+- `keyType` and `signingAlgo` — the project's key configuration.
+- `backupManager` — an optional address authorized alongside the owner for backup operations.
 
-Project creation typically requires an extension to opt into project-based access (some extensions might host individual wallets directly). Once created, the owner can:
+The list of wallets under a project is tracked separately in `WalletManager.projectWallets` (queryable via `getProjectWalletIds`).
 
-- Create new wallets under the project.
-- Update the project's default key admin set (applied to new wallets going forward — existing wallets retain their original admin set unless changed individually).
-- Propose / confirm a new project owner (two-step transfer).
+Projects are created on [`WalletProjectManagerFacet`](../../../contracts/tee/facets/WalletProjectManagerFacet.sol) (`createProject`). Once created, the owner can:
+
+- Create new wallets under the project (`createWallet`).
+- Propose / confirm a new project owner (two-step transfer via `proposeNewOwner` / `confirmOwnership`).
 
 ## Wallet creation
 
-The headline entry creates a wallet and attaches it to a project. Inputs (the exact parameter names live on `IWalletManager` / `WalletManagerFacet` — see source for current shape):
+Bringing a wallet to life is a multi-step flow across `WalletManagerFacet` (and the key facets); a wallet is not configured in a single call.
 
-- `extensionId` and `projectId`.
-- The desired set of TEE machines that will custody the wallet (must all be `PRODUCTION` and in the same extension).
-- Key admin set: addresses + their public keys, plus the Shamir threshold $k$.
-- Initial key descriptors (optional — the owner can also add keys later via key-generate operations).
-
-The facet:
-
-1. Validates the project (exists, caller is owner, extension matches).
-2. Validates the TEE machine set (all `PRODUCTION`, all same extension, deduplicated).
-3. Validates the admin set (no duplicates, valid public keys, threshold $\le n$).
-4. Allocates a wallet ID.
-5. Emits a `(F_WALLET, "WALLET_SETUP")` system instruction targeted at the chosen TEEs, carrying the admin set and any initial key requests in the message body. The TEE machines run the setup operation in their isolated environment; they generate any initial keys deterministically; they return signed acknowledgements.
-6. Once the threshold of TEE responses arrives, a follow-up facet method records the wallet's public state and the wallet is live.
+1. `createWallet(projectId)` — callable only by the project owner. It allocates a `walletId` (`keccak256("WALLET", msg.sender, ++walletCounter)`), records the wallet under the project, sets status to `CREATED`, and emits `WalletCreated(projectId, walletId)`. No TEE machine set or admin set is supplied here.
+2. `setAdmins` / `confirmAdmin` and (optionally) `setCosigners` / `confirmCosigner` — configure and confirm the admin and cosigner sets while the wallet is `CREATED` (see [Setting the key admin set](#setting-the-key-admin-set)).
+3. `closeWalletInitialization` — locks the admin / cosigner sets and moves the wallet to `INITIALIZED`.
+4. Keys are generated under the wallet (see [Key Management](./KeyManagement.md)); the off-chain key-generation / setup instructions to the wallet's TEE machines are emitted by the key facets, not by `createWallet`.
+5. `enableWallet` — once the multisig threshold is set and at least that many keys exist, transitions the wallet `INITIALIZED → PRODUCTION` and emits `WalletEnabled(walletId)`.
 
 ## Lifecycle states
 
-Wallets have a small state machine:
+Wallets have a small state machine. The `WalletStatus` enum on [`IWalletManager`](../../../contracts/userInterfaces/tee/IWalletManager.sol) has exactly four members:
 
-- `ACTIVE` — accepting operations.
-- `PAUSED` — owner-paused, or paused as part of a TEE upgrade. Operations against the wallet revert until resumed.
-- `RESTORING` — wallet's keys are being restored from Shamir shares (see [Key Management / Restoration](./KeyManagement.md#key-restoration)). Operations are blocked.
-- `RETIRED` — terminal. Wallet has been wound down, keys deleted; the on-chain state is preserved for historical lookups.
+- `CREATED` — wallet exists and is being configured. Admins / cosigners are set and confirmed in this state.
+- `INITIALIZED` — `closeWalletInitialization` has been called; admins and cosigners are locked. Keys may now be added before first activation.
+- `PRODUCTION` — accepting operations.
+- `PAUSED` — operations against the wallet are suspended until it is unpaused.
 
-State transitions are owner-initiated (`pause`, `resume` — see `WalletResumeFacet`) or system-driven (extension upgrade pauses all wallets in the affected machines; restore flow drives `ACTIVE → RESTORING → ACTIVE`).
+State transitions:
 
-## Key admin set updates
+- `CREATED → INITIALIZED` — `closeWalletInitialization` (owner), once all admins and cosigners are confirmed.
+- `INITIALIZED → PRODUCTION` — `enableWallet` (owner), once the multisig threshold is set and at least that many keys exist.
+- `PRODUCTION → PAUSED` — `pauseWallets` (batch) on [`WalletProjectPauseFacet`](../../../contracts/tee/facets/WalletProjectPauseFacet.sol), callable by the project owner or a project pauser.
+- `PAUSED → PRODUCTION` — `unpauseWallets` (batch) on `WalletProjectPauseFacet`, callable by the project owner or a project unpauser.
 
-The wallet's key admin set can be changed *after* creation. This is a sensitive operation — admins are who can recover the wallet if all TEEs fail — so it's a multi-step flow:
+[`WalletResumeFacet`](../../../contracts/tee/facets/WalletResumeFacet.sol) does *not* change `WalletStatus`; it sends TEE instructions: `setPausingAddresses` (configure the off-chain pausing addresses for a wallet) and `resume` (resume off-chain wallet operations after a pause / upgrade). Both require the wallet to be in `PRODUCTION` or `PAUSED`.
 
-1. Owner proposes a new admin set + threshold via `WalletManagerFacet`.
-2. The facet emits an instruction to the wallet's TEEs: "rotate the Shamir-shared backup to this new admin set, $k$-of-$n$".
-3. TEEs encrypt fresh shares for the new admin set, return them.
-4. Once shares are accepted on-chain (per the backup flow), the new admin set is recorded and the old one is invalidated.
+## Setting the key admin set
 
-Until step 4 completes, the wallet retains the old admin set — there is no window where the wallet has no recovery path.
+The wallet's key admin set (admins are who can recover the wallet if all TEEs fail) is configured during the `CREATED` phase, before the wallet is initialized:
+
+1. Owner calls `setAdmins(walletId, adminsPublicKeys[], adminsThreshold)` — only valid while the wallet is `CREATED`. Public keys must be valid and de-duplicated, and `adminsThreshold` must be in `(0, n]`. Emits `WalletAdminsSet`.
+2. Each admin calls `confirmAdmin(walletId)` from the address derived from their public key. Emits `WalletAdminConfirmed`.
+3. (Optionally) the owner sets cosigners via `setCosigners(walletId, cosigners[], cosignersThreshold)` and each cosigner calls `confirmCosigner(walletId)`.
+4. `closeWalletInitialization(walletId)` requires that admins are set and every admin and cosigner has confirmed; it transitions the wallet to `INITIALIZED` and **locks the admin and cosigner sets** — they cannot be changed afterwards.
+
+There is no on-chain method to rotate the admin set after `closeWalletInitialization`.
 
 ## Wallet enumeration
 
@@ -87,15 +87,15 @@ Off-chain tooling can list:
 - The current admin set + threshold for each wallet.
 - The TEE machines currently custodying each wallet.
 
-The exact view methods live on the relevant facets and follow the same pattern: pagination-friendly `(start, end)` getters that return arrays plus a `totalLength`.
+The exact view methods live on the relevant facets — e.g. `getProjectWalletIds(projectId)`, `getWalletAdminsAndThreshold(walletId)`, `getWalletAdminsPublicKeysAndThreshold(walletId)`, `getWalletCosignersAndThreshold(walletId)`, and `getWalletStatus(walletId)` on `WalletManagerFacet`.
 
 ## What "ownership" of a wallet means
 
 The wallet owner is the Flare address authorized to:
 
 - Generate, delete, and rotate keys (see [Key Management](./KeyManagement.md)).
-- Update the admin set / threshold.
-- Pause and resume the wallet.
+- Configure the admin / cosigner sets (during the `CREATED` phase only) and initialize / enable the wallet.
+- Pause and unpause the wallet (via `WalletProjectPauseFacet`), and configure pausing addresses / resume operations (via `WalletResumeFacet`). Pause / unpause authority can also be delegated to per-project pauser / unpauser lists.
 - Submit instructions that produce signed operations using the wallet's keys (e.g. signing an XRPL payment).
 
 The owner does **not** hold the keys themselves and cannot extract them. The off-chain TEE machines do; the on-chain owner just authorizes which operations they should perform.

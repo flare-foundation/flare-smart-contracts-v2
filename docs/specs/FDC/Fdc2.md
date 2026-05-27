@@ -168,7 +168,7 @@ Each `addFdc2Configurations` / `replaceFdc2Configurations` call validates the en
 
 ### `Fdc2RewardOffersManager`
 
-A standalone inflation receiver and reward-offers emitter. It extends [`RewardOffersManagerBase`](../../../contracts/protocol/implementation/RewardOffersManagerBase.sol) — the same base class used by [`FdcHub`](../../../contracts/fdc/implementation/FdcHub.sol) and [`TeeRewardOffersManager`](../../../contracts/tee/implementation/TeeRewardOffersManager.sol) — and follows the same lifecycle:
+A standalone inflation receiver and reward-offers emitter. It extends [`RewardOffersManagerProxyBase`](../../../contracts/protocol/implementation/RewardOffersManagerProxyBase.sol) — the UUPS-upgradeable base also used by [`TeeRewardOffersManager`](../../../contracts/tee/implementation/TeeRewardOffersManager.sol), and the proxy analogue of the [`RewardOffersManagerBase`](../../../contracts/protocol/implementation/RewardOffersManagerBase.sol) that the legacy [`FdcHub`](../../../contracts/fdc/implementation/FdcHub.sol) inherits — and follows the same lifecycle:
 
 1. The `Inflation` contract calls `setDailyAuthorizedInflation(amount)` and later `receiveInflation()` (with native value), accruing `totalInflationReceivedWei` on this contract.
 2. At each reward-epoch switchover, `FlareSystemsManager` calls `triggerRewardEpochSwitchover(epochId, endTs, durationSeconds)`. The manager pro-rates the unoffered inflation balance over the time frame, emits
@@ -189,7 +189,7 @@ Both `Fdc2RewardOffersManager` and `Fdc2InflationConfigurations` are UUPS-upgrad
 
 1. Application contract on Flare:
    ```solidity
-   bytes32 instructionId = fdc2Hub.requestAttestation{value: msg.value}(
+   fdc2Hub.requestAttestation{value: msg.value}(
        request,
        /*_numberOfTees=*/ 5,
        /*_teeIds=*/ new address[](0),  // let hub pick
@@ -198,6 +198,7 @@ Both `Fdc2RewardOffersManager` and `Fdc2InflationConfigurations` are UUPS-upgrad
        /*_claimBackAddress=*/ msg.sender
    );
    ```
+   `requestAttestation` returns nothing; the FCC `instructionId` is surfaced through the `AttestationRequested` event.
 2. Hub picks 5 random system-extension TEEs in `PRODUCTION` status. Sends a `(FDC2_OP_TYPE, "PROVE", abi.encode(request), cosigners, 3, sender)` instruction to all of them through `flareTeeManager.sendSystemInstructions`.
 3. Each selected TEE machine fetches the source data (Bitcoin RPC, EVM chain RPC, Web2 endpoint, etc.), produces the response, and signs it.
 4. Cosigners (off-chain) collect the TEE responses, verify they agree, and produce a cosigner-signed acknowledgement.

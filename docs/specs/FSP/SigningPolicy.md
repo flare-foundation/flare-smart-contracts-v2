@@ -51,7 +51,7 @@ See [Voters](./Voters.md). Open until all of:
 - `voterRegistrationMinDurationBlocks` (900) elapsed,
 - at least `signingPolicyMinNumberOfVoters` voters registered.
 
-`isVoterRegistrationEnabled(rewardEpochId)` returns the live status. The window's *upper bound* is implicit: it closes the next time `daemonize()` runs after all three minimums are satisfied.
+`isVoterRegistrationEnabled()` returns the live status for the next reward epoch (per-epoch status is available via `getVoterRegistrationData(rewardEpochId)`). The window's *upper bound* is implicit: it closes the next time `daemonize()` runs after all three minimums are satisfied.
 
 ### 4. Signing policy snapshot
 

@@ -9,9 +9,9 @@ Like every other Flare protocol, FCC reward calculation is **off-chain**: the on
 
 ## `TeeRewardOffersManager`
 
-A standard `RewardOffersManagerBase` implementation in the FCC namespace. Like the FTSO and FDC equivalents:
+A UUPS-upgradeable [`RewardOffersManagerProxyBase`](../../../contracts/protocol/implementation/RewardOffersManagerProxyBase.sol) implementation in the FCC namespace. Like the FTSO and FDC equivalents:
 
-- Inherits from `RewardOffersManagerBase`, `InflationReceiver`, `TokenPoolBase` — the same scaffolding every offers manager uses.
+- Inherits from `RewardOffersManagerProxyBase`, which combines `FlareGovernedBase`, `UUPSUpgradeable`, and `InflationReceiver` — the scaffolding the UUPS offers managers share.
 - Receives FLR inflation through `InflationReceiver` (held on-balance until reward-epoch switchover).
 - On `triggerRewardEpochSwitchover`, the same time-weighted formula:
 
@@ -21,10 +21,10 @@ A standard `RewardOffersManagerBase` implementation in the FCC namespace. Like t
                      / (intervalEnd - intervalStart);
   ```
 
-- Emits `InflationRewardsOffered(nextRewardEpochId, ...)` with the FCC-specific configuration.
+- Emits `InflationRewardsOffered(nextRewardEpochId, amount, teeOwnersPPM)`, where `teeOwnersPPM` is the FCC-specific share (parts-per-million) of the inflation pool earmarked for TEE owners.
 - Forwards the slice to `RewardManager.receiveRewards{value}(nextRewardEpochId, true)`.
 
-Whether `TeeRewardOffersManager` *also* accepts community offers (in the style of `FtsoRewardOffersManager.offerRewards`) depends on the current contract version — see source for live shape. The expectation is that community offers for FCC are mostly per-instruction (paid by the requester through `Fdc2Hub` or any extension's instructions sender), not standalone offers, but a top-up channel for extension operators or treasuries to fund FCC participation could exist.
+The only governance-tunable parameter is `teeOwnersPPM` (set at `initialize` and via `setTeeOwnersPPM`, both bounded by `PPM_MAX = 1e6`, governance-only). `TeeRewardOffersManager` does **not** expose a community-offer entry point (there is no `offerRewards` in the style of `FtsoRewardOffersManager`); community offers for FCC are entirely per-instruction (paid by the requester through `Fdc2Hub` or any extension's instructions sender). Its inflation flow is driven solely by `triggerRewardEpochSwitchover`, callable only by `FlareSystemsManager`.
 
 ## What gets rewarded
 

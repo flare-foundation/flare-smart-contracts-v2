@@ -39,7 +39,7 @@ The on-chain code is organized by sub-protocol. Each top-level folder under `con
 | [`contracts/diamond/`](../../contracts/diamond/) | Shared EIP-2535 diamond infrastructure (cut, loupe, namespaced storage) |
 | [`contracts/governance/`](../../contracts/governance/) | `Governor`, `Governed`, timelock helpers |
 | [`contracts/staking/`](../../contracts/staking/) | Validator reward offers, P-chain stake mirroring |
-| [`contracts/rNat/`](../../contracts/rNat/) | RNat token plus per-account `RNatAccount` beacon proxies |
+| [`contracts/rNat/`](../../contracts/rNat/) | RNat token plus per-account `RNatAccount` minimal-proxy clones |
 | [`contracts/inflation/`](../../contracts/inflation/), [`contracts/incentivePool/`](../../contracts/incentivePool/) | Inflation and incentive-pool receivers |
 | [`contracts/adapters/`](../../contracts/adapters/), [`contracts/customFeeds/`](../../contracts/customFeeds/) | External feed integrations (Chainlink) and custom feeds (sFlr) |
 | [`contracts/userInterfaces/`](../../contracts/userInterfaces/) | Public `I*.sol` interfaces — the integration surface |

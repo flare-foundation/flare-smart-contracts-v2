@@ -31,7 +31,7 @@ FlareGovernance.initialise(_governanceSettings, _initialGovernance);
 `DiamondGovernanceFacet` provides:
 
 - `diamondCut(FacetCut[], address init, bytes calldata)` — the standard EIP-2535 cut entry. Adds, replaces, or removes selectors. The optional `init` argument is `delegatecall`ed for migration logic. Both [`FlareTeeManagerInit`](../../../contracts/tee/facets/FlareTeeManagerInit.sol) and [`ReplicationInit`](../../../contracts/tee/facets/ReplicationInit.sol) are designed to be passed as the `init` argument during specific cut events.
-- `transferGovernance` / `claimGovernance` — two-step governance transfer (the `Governed` propose/confirm pattern, with timelocks where applicable).
+- the public governance API inherited from `FlareGovernedBase` (the seven functions listed above): `executeGovernanceCall` / `cancelGovernanceCall` run or drop a pending timelocked call, `switchToProductionMode` locks in the timelock, and `governance` / `governanceSettings` / `productionMode` / `isExecutor` are views. There is **no** governance transfer/claim entry point — the effective governance address comes from the central `IGovernanceSettings` (`getGovernanceAddress()`), and rotating it is a settings-level action, not a diamond method.
 
 The governance settings contract (`IGovernanceSettings`) provides the timelock and the executor list; the diamond's governance respects it just like any other `Governed` contract.
 
@@ -44,32 +44,30 @@ Each extension can configure a set of **governance signers** authorized to appro
 
 Stored in `ExtensionGovernance.State.governanceSets[extensionId]`, with a hash of the current set tracked separately (used to bind specific TEE versions to the governance-set-at-time-of-version-add — see [Extensions / Configuring versions](./Extensions.md#configuring-versions)).
 
-Setting the signer set:
+Setting the signer set (on `ExtensionGovernanceFacet`):
 
 ```solidity
 function setNewTeeGovernance(
     uint256 _extensionId,
     address[] calldata _signers,
-    uint64 _threshold,
-    /* additional fields per the live interface */
+    uint64 _signersThreshold
 ) external;
 ```
 
-Only the extension owner can call. The previous signer set is replaced atomically.
+Only the extension owner can call. It sets the extension's *latest* governance hash to `keccak256(abi.encode(_signers, _signersThreshold))` and emits `NewTeeGovernanceSet`. Previously-registered signer sets are retained — a signer of an older set can still sign records bound to that older hash (see Pausing addresses below and the upgrade flow).
 
-Approving an upgrade:
+Approving an upgrade uses these signers, but the call itself lives on `UpgradeManagerFacet` (see [Upgrade manager](#upgrade-manager) below):
 
 ```solidity
 function signTeeUpgrade(
-    uint256 _extensionId,
-    bytes32 _upgradeHash,
+    uint256 _teeUpgradeId,
     Signature calldata _signature
 ) external;
 ```
 
-Each governance signer calls this independently. The contract recovers the signer's address from the signature, checks it's in the current set, accumulates. When the threshold of distinct signers is reached, the upgrade is marked signed and the upgrade-manager flow can proceed.
+The contract recovers the signer from the signature over the finalized upgrade's `messageHash` and counts it toward the source and/or target governance set it belongs to. When both sets reach their thresholds, the upgrade is marked signed.
 
-`NewGovernanceSet`, `TeeUpgradeSigned`, and related events are emitted.
+`NewTeeGovernanceSet` (signer-set changes) and `TeeUpgradeSigned` (upgrade fully signed), among others, are emitted.
 
 ### Pausing addresses
 
@@ -84,15 +82,14 @@ Because each record's bound hash list is immutable once set, "old signers can st
 
 ## Upgrade manager
 
-`UpgradeManagerFacet` orchestrates the multi-stage TEE software upgrade flow:
+`UpgradeManagerFacet` records a governance-approved transition from one TEE governance hash to another and the concrete version paths it covers:
 
-1. **Announce** — extension owner declares an upgrade: target `(codeHash, platform)` pair, scheduled activation time, list of TEE machines that will be upgraded. The upgrade is in **pending** state.
-2. **Collect signatures** — extension governance signers `signTeeUpgrade(extensionId, upgradeHash, sig)`. Once threshold is reached, the upgrade is **signed**.
-3. **Activate** — at the scheduled activation time, the upgrade transitions to **active**. TEE machines on the old version go through `PRODUCTION → PAUSED_FOR_UPGRADE`. New machines registered after activation must be on the new version.
-4. **Migrate** — owners of paused machines either upgrade them (re-attest with the new code hash) or replace them with replicating siblings on the new version (see [Replication](./Replication.md)).
-5. **Cleanup** — once all machines are migrated, the old version can be `disableCodeHashPlatform`'d so it can never be used again.
+1. **Create** — `createNewTeeUpgrade(extensionId, sourceTeeGovernanceHash, targetTeeGovernanceHash)` (extension owner). Both hashes must be valid governance hashes for the extension. Allocates a `teeUpgradeId` and emits `TeeUpgradeStarted`.
+2. **Add paths** — `addTeeUpgradePaths(teeUpgradeId, TeeUpgradePath[])` (extension owner, optionally across several calls). Each path lists source `(codeHash, platform)` versions and target `(codeHash, platform)` versions; every source version must derive to `sourceTeeGovernanceHash` and every target version to `targetTeeGovernanceHash`. Emits `TeeUpgradePathsAdded`.
+3. **Finalize** — `finalizeTeeUpgrade(teeUpgradeId)` (extension owner). Computes `messageHash = keccak256(TEE_UPGRADE, chainid, extensionId, teeUpgradeId, sourceTeeGovernanceHash, targetTeeGovernanceHash, paths)`, binding chain / extension / upgrade / both governances / path content so a signature can't be replayed across any of them. No further paths can be added afterward. Emits `TeeUpgradeFinalized`.
+4. **Sign** — `signTeeUpgrade(teeUpgradeId, signature)` (anyone may relay). The recovered signer is counted toward the **source** governance set and/or the **target** set it belongs to (a signer in both sets counts once for each). When *both* sets independently reach their thresholds, `upgradeSigned` is set and `TeeUpgradeSigned` fires. A signature that recovers to neither set reverts.
 
-The activation time is measured from when the upgrade is signed, with a configurable minimum delay (so signers cannot front-run the network with a sudden upgrade). Specific timing parameters are in `UpgradeManager.State` and tunable by extension governance.
+There is no activation timer in `UpgradeManager` — a signed upgrade simply *gates* the machine lifecycle. `isTeeUpgradeSigned(...)` / `isTeeUpgradePathValid(...)` are consumed by the machine-status and replication flows: owners move old-version machines `PRODUCTION → PAUSED_FOR_UPGRADE` (`toPauseForUpgrade`) and either re-attest on the new version or replace them with replicating siblings — see [Machine Lifecycle](./MachineLifecycle.md) and [Replication](./Replication.md). Once every machine has migrated, the old version can be `disableCodeHashPlatform`'d so it can never be used again.
 
 ## Machine path manager
 
@@ -135,9 +132,9 @@ The nonce binding (in `messageHash`) and the latest-wins activation rule togethe
 
 Entry points:
 
-- `addAllowedTeeMachineOwner(extensionId, ownerAddress)` — add to allowlist.
-- `removeAllowedTeeMachineOwner(extensionId, ownerAddress)` — remove. Existing machines owned by the address are unaffected; only future registrations are blocked.
-- `isAllowedTeeMachineOwner(extensionId, ownerAddress)` — view.
+- `addAllowedTeeMachineOwners(extensionId, owners[])` — add addresses to the allowlist.
+- `removeAllowedTeeMachineOwners(extensionId, owners[])` — remove them. Existing machines owned by an address are unaffected; only future registrations are blocked.
+- `isAllowedTeeMachineOwner(extensionId, ownerAddress)` — view. (There is also an "allow all" toggle pair, `allowAllTeeMachineOwners` / `disallowAllTeeMachineOwners`, per extension.)
 
 Only the extension owner can mutate (or for `extensionId == 0`, system governance).
 

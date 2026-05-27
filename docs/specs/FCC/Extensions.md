@@ -170,7 +170,7 @@ A typical custom extension flow:
 1. **Register** via `ExtensionManagerFacet.register`. Receive an extension ID.
 2. **Configure** TEE versions (`addTeeVersion`) for the platforms the extension's TEE software runs on. The TEE software itself has to be built and the binary's code hash known in advance.
 3. **Configure** supported key types if the extension's wallets need anything beyond default.
-4. **Allowlist owners** via `OwnerAllowlistFacet.addAllowedTeeMachineOwner(extensionId, ownerAddress)` for each TEE operator the extension wants to permit.
+4. **Allowlist owners** via `OwnerAllowlistFacet.addAllowedTeeMachineOwners(extensionId, owners)` for the TEE operators the extension wants to permit.
 5. **Configure governance signers** via `ExtensionGovernanceFacet.setNewTeeGovernance(extensionId, signers, threshold)` — the addresses authorized to sign extension upgrades and pausing-address records. `signers` must contain no `address(0)` entries and no duplicates. See [Governance](./Governance.md).
 6. **Operators register their TEE machines** via `MachineManagerFacet.register` with the extension's ID. The machines run the registered code hash on registered platforms.
 7. **The instructions sender contract** (configured at registration via `setExtensionContracts` later if needed) is the single address that calls `InstructionsFacet.sendInstructions` on behalf of users. Application contracts call into this gateway, which validates application-level access and then forwards to FCC.

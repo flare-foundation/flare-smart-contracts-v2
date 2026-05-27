@@ -174,4 +174,4 @@ The `Active` views skip everything outside `PRODUCTION`. Off-chain selectors (e.
 
 ## What replication looks like in this state machine
 
-`REPLICATING` is the transient status of a machine being **paired** with another machine in the same replication group — see [Replication](./Replication.md). The pairing process moves the source through `REPLICATING` and back to `PRODUCTION`; the destination starts at `INITIALIZED` and inherits the source's wallet keys. Until pairing finishes, both machines are out of the active sets.
+`REPLICATING` is the transient status of the **new** machine being paired into an upgrade — see [Replication](./Replication.md). The upgrade source (`_oldTeeId`) moves `PRODUCTION → PAUSED → PAUSED_FOR_UPGRADE` and, on `confirmReplicate`, back to `PRODUCTION` carrying the new machine's identity; the new machine starts at `INITIALIZED`, is moved to `REPLICATING` by `replicateFrom`, and has its state row deleted when `confirmReplicate` absorbs it into the source's row. Until the upgrade finishes, both machines are out of the active sets.

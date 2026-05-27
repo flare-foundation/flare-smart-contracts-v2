@@ -41,15 +41,14 @@ function calculateFeeByTeeIds(
 
 The fee is **linear in the number of TEE machines** the instruction targets. This reflects actual cost: each additional machine that has to execute the instruction is an additional unit of paid work. Doubling the TEE set doubles the fee.
 
-The `defaultFee` is set at diamond init (`FlareTeeManagerInit.init` line 73: `OperationFees.getState().defaultFee = _defaultFee;`) and updatable by governance via `OperationFeesFacet`. It applies to every `(opType, opCommand)` that doesn't have an explicit override.
+The `defaultFee` is set at diamond init (`FlareTeeManagerInit.init`: `OperationFees.setDefaultFee(_defaultFee);`) and updatable by governance via `OperationFeesFacet`. It applies to every `(opType, opCommand)` that doesn't have an explicit override.
 
 ## Setting per-operation fees
 
 `OperationFeesFacet` exposes governance-only setters (signatures vary per the current iteration of the facet — see [`IOperationFees`](../../../contracts/userInterfaces/tee/IOperationFees.sol) for the live interface). The pattern:
 
-- `setOperationFee(opType, opCommand, fee)` — set or update the fee for a specific pair. `0` means "fall back to `defaultFee`".
-- `setOperationFees(opType[], opCommand[], fee[])` — bulk setter.
-- `setDefaultFee(fee)` — change the global default.
+- `setOperationFees(opTypes[], opCommands[], fees[])` — bulk setter for one or more `(opType, opCommand)` pairs (the three arrays must be equal length, else `LengthsMismatch()`). A fee of `0` means "fall back to `defaultFee`". Emits `OperationFeesSet`.
+- `setDefaultFee(fee)` — change the global default. Emits `DefaultFeeSet`.
 
 Reading is open:
 
@@ -93,7 +92,7 @@ The diamond's `OperationFees` is unaware of the `TeePayments*` stack; an extensi
 
 ## Fee for system instructions
 
-System instructions (those with `opType` starting with `F_`) go through the same fee calculation. The system pays itself — when `MachineManagerFacet._requestTeeAttestation` fires an `F_REG / TEE_ATTESTATION` instruction during machine registration, it forwards `msg.value` (whatever the registering owner paid) to `RewardManager`. The fact that it's a "system" instruction doesn't make it free; it just means it can target machines in `INITIALIZED` status.
+System instructions (those with `opType` starting with `F_`) go through the same fee calculation. The system pays itself — when the registration-attestation path (`Verification.requestTeeAttestation`, invoked from `MachineManagerFacet.register`) fires an `F_REG / TEE_ATTESTATION` instruction during machine registration, it forwards `msg.value` (whatever the registering owner paid) to `RewardManager`. The fact that it's a "system" instruction doesn't make it free; it just means it can target machines in `INITIALIZED` status.
 
 The default fee at deployment is set so that initial machine attestations are reasonably priced — large enough to deter spam, small enough that legitimate operators can register without prohibitive cost.
 

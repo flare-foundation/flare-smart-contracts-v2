@@ -2,7 +2,7 @@
 
 **Flare Confidential Compute (FCC)** extends Flare with **Trusted Execution Environments** (TEEs) — isolated, attested compute units that run specified code, hold cryptographic keys securely, and produce signed responses to instructions submitted on Flare. FCC is what lets a smart contract on Flare ask "sign this XRPL transaction with the wallet's secret key" or "verify this Bitcoin payment and attest to it" without the chain itself ever seeing the secret key or running the verification.
 
-The on-chain side of FCC lives in [`contracts/tee/`](../../../contracts/tee/) and is implemented as a single **EIP-2535 diamond proxy** — the [`FlareTeeManager`](https://github.com/flare-foundation/flare-smart-contracts-v2/tree/tee-diamond-cut/contracts/tee) — with around 21 facets and 17 libraries. The off-chain side (TEE machine software, TEE proxy, relay clients) lives in other Flare repositories and is not described here.
+The on-chain side of FCC lives in [`contracts/tee/`](../../../contracts/tee/) and is implemented as a single **EIP-2535 diamond proxy** — the [`FlareTeeManager`](https://github.com/flare-foundation/flare-smart-contracts-v2/tree/tee-diamond-cut/contracts/tee) — with around 22 facets and 20 libraries. The off-chain side (TEE machine software, TEE proxy, relay clients) lives in other Flare repositories and is not described here.
 
 > "TEE" and "FCC" are the same protocol — see [Terminology / TEE vs FCC](../Terminology.md#a-note-on-names-tee-vs-fcc-fdc-vs-fdc2). The hardware concept "a TEE" still applies to one machine. Code keeps the `Tee*` prefix as the contract-name pattern.
 

@@ -9,7 +9,7 @@ The internal `II*` interfaces (under `contracts/protocol/interface/`, `contracts
 | Interface | What it exposes |
 |-----------|-----------------|
 | [`IAddressUpdatable`](../../contracts/userInterfaces/IAddressUpdatable.sol) | The `_updateContractAddresses` callback shape used by every contract that takes addresses from the AddressUpdater. |
-| [`IGovernor`](../../contracts/userInterfaces/IGovernor.sol) | On-chain proposal lifecycle — `propose`, `castVote`, `castVoteBySig`, `state`, `execute`. See [Governance](./Governance.md). |
+| [`IGovernor`](../../contracts/userInterfaces/IGovernor.sol) | On-chain proposal lifecycle — `castVote`, `castVoteWithReason`, `castVoteBySig`, `cancel`, `state`, `execute`. See [Governance](./Governance.md). |
 | [`IPollingManagementGroup`](../../contracts/userInterfaces/IPollingManagementGroup.sol) | The management-group polling variant. |
 | [`IPublicKey`](../../contracts/userInterfaces/IPublicKey.sol) | The `PublicKey` struct used across signing-policy snapshots, voter registration, TEE machine identities. |
 | [`ISignature`](../../contracts/userInterfaces/ISignature.sol) | The `(v, r, s)` signature struct used in submission, signing, and verification methods system-wide. |
@@ -22,13 +22,13 @@ The internal `II*` interfaces (under `contracts/protocol/interface/`, `contracts
 | Interface | Role |
 |-----------|------|
 | [`IFlareSystemsManager`](../../contracts/userInterfaces/IFlareSystemsManager.sol) | Reward-epoch lifecycle, signing-policy/uptime/rewards signing, view methods. |
-| [`IFlareSystemsCalculator`](../../contracts/userInterfaces/IFlareSystemsCalculator.sol) | `calculateRegistrationWeight`, `calculateBurnFactorPPM`, `wNatCapPPM`. |
+| [`IFlareSystemsCalculator`](../../contracts/userInterfaces/IFlareSystemsCalculator.sol) | `wNatCapPPM`, signing-policy-signing duration getters, `VoterRegistrationInfo` event. |
 | [`IEntityManager`](../../contracts/userInterfaces/IEntityManager.sol) | Entity / address propose-confirm flow, node ID and public key registration, history-aware lookups. |
 | [`IVoterRegistry`](../../contracts/userInterfaces/IVoterRegistry.sol) | `registerVoter`, slot enumeration, normalized weights, chilling. |
 | [`IVoterPreRegistry`](../../contracts/userInterfaces/IVoterPreRegistry.sol) | `preRegisterVoter`, status views. |
 | [`ISubmission`](../../contracts/userInterfaces/ISubmission.sol) | `submit1`, `submit2`, `submit3`, `submitSignatures`, `submitAndPass`. |
 | [`IRelay`](../../contracts/userInterfaces/IRelay.sol) | `relay`, `verify`, `merkleRoots`, `getRandomNumber`, `getRandomNumberHistorical`, `toSigningPolicyHash`. |
-| [`IRewardManager`](../../contracts/userInterfaces/IRewardManager.sol) | `claim`, `autoClaim`, `initialiseWeightBasedClaims`, `getStateOfRewards`, `getRewardEpochIdsWithClaimableRewards`. |
+| [`IRewardManager`](../../contracts/userInterfaces/IRewardManager.sol) | `autoClaim`, `initialiseWeightBasedClaims`, `getStateOfRewardsAt`, `getUnclaimedRewardState`, reward-epoch totals/views. |
 | [`IWNat`](../../contracts/userInterfaces/IWNat.sol) | The wrapped-native-token interface (the WNat contract itself lives in the v1 repo). |
 | [`IWNatDelegationFee`](../../contracts/userInterfaces/IWNatDelegationFee.sol) | Voter delegation-fee schedule. |
 
@@ -38,11 +38,11 @@ The legacy / long-term-support compatibility interfaces are under [`userInterfac
 
 | Interface | Role |
 |-----------|------|
-| [`IFtsoFeedPublisher`](../../contracts/userInterfaces/IFtsoFeedPublisher.sol) | `publish`, `publishFeeds`, `getCurrentFeed`, `getFeed` for anchor-feed publication and lookup. |
+| [`IFtsoFeedPublisher`](../../contracts/userInterfaces/IFtsoFeedPublisher.sol) | `publish`, `getCurrentFeed`, `getFeed` for anchor-feed publication and lookup. |
 | [`IFtsoFeedDecimals`](../../contracts/userInterfaces/IFtsoFeedDecimals.sol) | Per-feed decimals with reward-epoch-offset updates. |
 | [`IFtsoFeedIdConverter`](../../contracts/userInterfaces/IFtsoFeedIdConverter.sol) | `(category, name)` ↔ `bytes21` conversion. |
 | [`IFtsoInflationConfigurations`](../../contracts/userInterfaces/IFtsoInflationConfigurations.sol) | Per-reward-epoch FTSO config (default feeds, IQR shares, secondary band widths). |
-| [`IFtsoRewardOffersManager`](../../contracts/userInterfaces/IFtsoRewardOffersManager.sol) | `offerRewards` for community offers; `setMinimalRewardsOfferValue`. |
+| [`IFtsoRewardOffersManager`](../../contracts/userInterfaces/IFtsoRewardOffersManager.sol) | `offerRewards` for community offers; `minimalRewardsOfferValueWei` getter. |
 | [`IFastUpdater`](../../contracts/userInterfaces/IFastUpdater.sol) | `submitUpdates`, `fetchCurrentFeeds`, `fetchAllCurrentFeeds`, sortition-data views. |
 | [`IFastUpdatesConfiguration`](../../contracts/userInterfaces/IFastUpdatesConfiguration.sol) | Block-latency feed catalog management. |
 | [`IFastUpdateIncentiveManager`](../../contracts/userInterfaces/IFastUpdateIncentiveManager.sol) | `offerIncentive`, sample-size / range / scale / precision views. |
@@ -86,18 +86,18 @@ Per-attestation-type interfaces under [`userInterfaces/fdc2/`](../../contracts/u
 
 ## FCC
 
-About 20 public interfaces under [`userInterfaces/tee/`](../../contracts/userInterfaces/tee/), one per facet:
+Around 30 public interfaces under [`userInterfaces/tee/`](../../contracts/userInterfaces/tee/), roughly one per facet:
 
 | Interface | Role |
 |-----------|------|
 | [`IFlareTeeManager`](../../contracts/userInterfaces/tee/IFlareTeeManager.sol) | The diamond's combined external interface. |
-| [`IDiamondGovernance`](../../contracts/userInterfaces/tee/IDiamondGovernance.sol) | `diamondCut`, governance transfer. |
+| [`IDiamondGovernance`](../../contracts/userInterfaces/tee/IDiamondGovernance.sol) | The DiamondGovernanceFacet's public API; re-exports the Flare governance accessors via `IFlareGovernance` (`diamondCut` lives in the internal interface). |
 | [`IFlareGovernance`](../../contracts/userInterfaces/IFlareGovernance.sol) | `Governed` accessors — implemented by `FlareGovernedBase` (used by `FlareUpgradeableBase`) and by the TEE diamond's `DiamondGovernanceFacet`. |
 | [`IExtensionManager`](../../contracts/userInterfaces/tee/IExtensionManager.sol) | Extension registration (public `register` and governance-only `registerReserved`), `nextPublicExtensionId` getter, version management, two-step ownership transfer gated by the global extension-owner allowlist. |
 | [`IExtensionGovernance`](../../contracts/userInterfaces/tee/IExtensionGovernance.sol) | Per-extension governance signer-set + threshold management; signer / threshold / hash getters. |
 | [`IExtensionPausing`](../../contracts/userInterfaces/tee/IExtensionPausing.sol) | Per-extension pausing-addresses records bound to one or more governance hashes; per-approval signature collection with per-hash threshold-met events. |
 | [`IExternalAddresses`](../../contracts/userInterfaces/tee/IExternalAddresses.sol) | The diamond's `AddressUpdatable` view. |
-| [`IInstructions`](../../contracts/userInterfaces/tee/IInstructions.sol) | `sendInstructions`, `sendSystemInstructions`, system-instructions-sender registry. |
+| [`IInstructions`](../../contracts/userInterfaces/tee/IInstructions.sol) | `sendInstructions`, `getSystemInstructionsSenders` registry view. |
 | [`IMachineManager`](../../contracts/userInterfaces/tee/IMachineManager.sol) | Machine registration, status changes, ownership transfer. |
 | [`IMachineEmergencyPause`](../../contracts/userInterfaces/tee/IMachineEmergencyPause.sol) | Per-extension emergency pause overlay + pauser/unpauser delegation lists + governance-tunable post-unpause grace window for the third-party expired-availability `pause()` branch. |
 | [`IOperationFees`](../../contracts/userInterfaces/tee/IOperationFees.sol) | Per-`(opType, opCommand)` fees, default fee. |

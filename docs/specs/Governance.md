@@ -8,10 +8,10 @@ This page covers the system-wide governance contracts (everything except FCC). F
 
 [`Governed`](../../contracts/governance/implementation/Governed.sol) and [`GovernedBase`](../../contracts/governance/implementation/GovernedBase.sol) are the base contracts that every governed contract in this repo (and the v1 repo) inherits. They provide:
 
-- A `governance()` accessor — the address authorized to perform governance-only operations.
-- An `onlyGovernance` modifier that wraps governance-only methods.
-- A two-step governance transfer (propose / claim) that respects the `IGovernanceSettings` timelock.
-- A `productionMode` flag and methods that can only be called before production-mode is locked.
+- A `governance()` accessor — the address authorized to perform governance-only operations (`initialGovernance` before production mode, the central `IGovernanceSettings.getGovernanceAddress()` after).
+- An `onlyGovernance` modifier that wraps governance-only methods, plus `onlyImmediateGovernance` for the few calls that must run without the timelock.
+- A timelocked-call mechanism that respects the `IGovernanceSettings` timelock: in production mode an `onlyGovernance` call is recorded as a pending timelocked call and later run by an executor via `executeGovernanceCall(selector)`, or dropped by governance via `cancelGovernanceCall(selector)`.
+- A `productionMode` flag and `switchToProductionMode()`; some methods can only be called before production mode is locked. There is **no** per-contract governance transfer (no propose/claim) — the effective governance address is rotated centrally in the `IGovernanceSettings` singleton.
 
 Every `Governed` contract takes an `IGovernanceSettings` reference at construction. The settings contract is a system-wide singleton (deployed at network genesis) that holds the timelock duration and the executor list — the addresses that can execute timelocked governance changes after the delay.
 

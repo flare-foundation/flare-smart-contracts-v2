@@ -11,7 +11,7 @@ An entity in `EntityManager` is keyed by a single `identityAddress` and binds fi
 
 | Role | Purpose |
 |------|---------|
-| `identityAddress` | Primary identifier. Used for administrative operations (`registerNodeId`, `propose...Address`, `setMaxNodeIdsPerEntity` cleanups). Intended to be a cold-storage key. |
+| `identityAddress` | Primary identifier. Used for administrative operations (`registerNodeId`, `propose...Address`). Intended to be a cold-storage key. (`setMaxNodeIdsPerEntity` is `onlyGovernance`, not an entity operation.) |
 | `delegationAddress` | Receives WNat delegations from the community. Vote-power of WNat delegations to this address counts toward the entity's signing weight. |
 | `submitAddress` | Used to call `submit1`/`submit2` on `Submission` for sub-protocol round payloads. |
 | `submitSignaturesAddress` | Used to call `submitSignatures` on `Submission` for finalization signatures. |

@@ -49,9 +49,9 @@ The pool is for the next reward epoch (the off-chain calculator settles at epoch
 struct FdcConfiguration {
     bytes32 attestationType;
     bytes32 source;
-    uint8   inflationShare;        // share of the FDC inflation pool
-    uint256 minRequestsThreshold;  // see below
-    uint8   mode;                  // mode flag (e.g. fixed-vs-volume rewarding)
+    uint24  inflationShare;        // share of the FDC inflation pool
+    uint8   minRequestsThreshold;  // see below
+    uint224 mode;                  // mode flag (e.g. fixed-vs-volume rewarding)
 }
 ```
 
@@ -106,7 +106,7 @@ Penalties are applied at reward-epoch end. As in FTSO, FDC penalties exceeding t
 
 ## Where fees are sent for FDC2
 
-FDC2 currently does not have its own inflation pool — neither the spec ([flare-specs/FCC/Extensions/FDC2.md](https://github.com/flare-foundation/flare-specs/blob/main/src/FCC/Extensions/FDC2.md)) nor the contracts define an `Fdc2InflationConfigurations` analogue. All FDC2 user fees go into `RewardManager` as community offers credited to the *current* reward epoch. From [`Fdc2Hub.requestAttestation`](../../../contracts/fdc2/implementation/Fdc2Hub.sol):
+FDC2 user fees go into `RewardManager` as community offers credited to the *current* reward epoch. From [`Fdc2Hub.requestAttestation`](../../../contracts/fdc2/implementation/Fdc2Hub.sol):
 
 ```solidity
 rewardManager.receiveRewards{value: fee}(flareSystemsManager.getCurrentRewardEpochId(), false);
@@ -114,7 +114,7 @@ rewardManager.receiveRewards{value: fee}(flareSystemsManager.getCurrentRewardEpo
 
 The remaining `msg.value - fee` is forwarded as instruction fees to the FCC TEE machines (via `flareTeeManager.sendSystemInstructions{value: ...}`), where the TEE operations layer's own accounting takes over (see [FCC/OperationFees](../FCC/OperationFees.md)). This means an FDC2 request's economics are split between the FDC reward pool (the per-(type, source) fee floor goes there) and the FCC fee schedule (anything above the floor pays for the TEE's work).
 
-Adding an inflation share for FDC2 (mirroring `FdcInflationConfigurations` + `_triggerInflationOffers` for the legacy FDC) is a future design decision. It would require both a spec extension and a new on-chain `Fdc2InflationConfigurations` contract.
+FDC2 also has its own inflation pool, mirroring the legacy FDC pattern but split across two dedicated contracts that sit alongside `Fdc2Hub`: [`Fdc2InflationConfigurations`](../../../contracts/fdc2/implementation/Fdc2InflationConfigurations.sol) (the governance-managed array of `Fdc2Configuration` entries) and [`Fdc2RewardOffersManager`](../../../contracts/fdc2/implementation/Fdc2RewardOffersManager.sol) (the standalone `RewardOffersManagerBase` that receives inflation and emits `InflationRewardsOffered` at each reward-epoch switchover). See [Fdc2](./Fdc2.md#inflation-and-reward-offers) for the full breakdown.
 
 ## Visibility
 

@@ -44,7 +44,7 @@ event TeeInstructionsSent(
 keccak256(abi.encode(extensionId, counter, blockhash(block.number - 1)))
 ```
 
-where `counter` is per-extension and increments on every system-instruction send.
+where `counter` is per-extension and increments on every auto-generated instruction ID (i.e. whenever the library is called with `_instructionId == bytes32(0)`, which covers the regular `sendInstructions` path and any system send that doesn't supply its own ID).
 
 ## System operation-type prefix
 
@@ -76,11 +76,11 @@ The general-purpose path on `InstructionsFacet`. The caller supplies an array of
 **Caller authorization**:
 
 - If the caller is a registered **system instructions sender** (`Instructions.isSystemInstructionsSender(msg.sender)`), the call is allowed unconditionally.
-- Otherwise, the caller must be the **extension's** `instructionsSender` (configured via `ExtensionManagerFacet.setExtensionContracts`). The opType must not be a system opType (extensions cannot dispatch under the `F_` namespace); enforced by `SystemOpTypeNotAllowed(opType)`. Extension `0` (the system extension) bypasses this — the system extension's instructionsSender is system-controlled, so it's allowed to dispatch system opTypes.
+- Otherwise, the caller must be the **extension's** `instructionsSender` (configured via `ExtensionManagerFacet.setExtensionContracts`). The opType must not be a system opType (extensions cannot dispatch under the `F_` namespace); enforced by `SystemOpTypeNotAllowed(opType)`.
 
 ### `sendSystemInstructions(_instructionId, _teeIds, _instructionParams)` and the `TeeMachine[]` overload
 
-Restricted to registered system instructions senders. Used by FCC's own contracts (e.g. `MachineManagerFacet._requestTeeAttestation`, `Fdc2Hub.requestAttestation`) when they need to send a system operation. Accepts a caller-supplied `_instructionId` (so an upper layer can deterministically derive IDs) or `bytes32(0)` to auto-generate.
+Restricted to registered system instructions senders. Used by FCC's own contracts (e.g. `Fdc2Hub.requestAttestation`, `TeePayments`) when they need to send a system operation. Accepts a caller-supplied `_instructionId` (so an upper layer can deterministically derive IDs) or `bytes32(0)` to auto-generate.
 
 ### `registerSystemInstructionsSenders` / `unregisterSystemInstructionsSenders`
 

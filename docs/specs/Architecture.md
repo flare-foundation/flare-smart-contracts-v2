@@ -51,16 +51,20 @@ Rewards flow through one central contract — [`RewardManager`](../../contracts/
 
 The pattern:
 
-1. **Inflation and incentive-pool funding.** [`InflationReceiver`](../../contracts/inflation/implementation/) and [`IncentivePoolReceiver`](../../contracts/incentivePool/implementation/) periodically push FLR into per-sub-protocol offers managers (FTSO anchor, FTSO fast updates, FDC, validators, FCC), each of which extends [`RewardOffersManagerBase`](../../contracts/protocol/implementation/RewardOffersManagerBase.sol).
+1. **Inflation funding.** [`InflationReceiver`](../../contracts/inflation/implementation/InflationReceiver.sol) periodically pushes FLR into the per-sub-protocol offers / incentive managers: [`FtsoRewardOffersManager`](../../contracts/ftso/implementation/FtsoRewardOffersManager.sol) (FTSO anchor), [`FastUpdateIncentiveManager`](../../contracts/fastUpdates/implementation/FastUpdateIncentiveManager.sol) (FTSO fast updates), [`FdcHub`](../../contracts/fdc/implementation/FdcHub.sol) (FDC), [`Fdc2RewardOffersManager`](../../contracts/fdc2/implementation/Fdc2RewardOffersManager.sol) (FDC2), [`ValidatorRewardOffersManager`](../../contracts/staking/implementation/ValidatorRewardOffersManager.sol) (validators), and [`TeeRewardOffersManager`](../../contracts/tee/implementation/TeeRewardOffersManager.sol) (FCC). The four legacy managers extend [`RewardOffersManagerBase`](../../contracts/protocol/implementation/RewardOffersManagerBase.sol); the two UUPS ones (FDC2, FCC) extend [`RewardOffersManagerProxyBase`](../../contracts/protocol/implementation/RewardOffersManagerProxyBase.sol) — both bases derive from `InflationReceiver`.
+
+   [`IncentivePoolReceiver`](../../contracts/incentivePool/implementation/IncentivePoolReceiver.sol) is a **separate** funding path, extended only by [`RNat`](../../contracts/rNat/implementation/RNat.sol). Incentive-pool FLR is distributed directly into RNat accounts and does **not** route through `RewardManager` — see [RNat](./RNat.md).
 
 2. **Reward offers.** Anyone can also fund a sub-protocol by calling `offerRewards` on the offers manager. Each offer:
    - Is validated by the offers manager (e.g. fee/turnout-band parameters in FTSO).
-   - Causes the manager to emit an event — [`RewardsOffered`](../../contracts/userInterfaces/) for community offers, [`InflationRewardsOffered`](../../contracts/userInterfaces/) for inflation top-ups (e.g. [`FtsoRewardOffersManager`](../../contracts/ftso/implementation/FtsoRewardOffersManager.sol) line 86).
+   - Causes the manager to emit an event — [`RewardsOffered`](../../contracts/userInterfaces/) for community offers, [`InflationRewardsOffered`](../../contracts/userInterfaces/) for inflation top-ups (both in [`FtsoRewardOffersManager`](../../contracts/ftso/implementation/FtsoRewardOffersManager.sol)).
    - Forwards the FLR to `RewardManager` via `RewardManager.receiveRewards{value: ...}` so the funds custody at the end of the chain is always `RewardManager`.
 
    The offers managers do **not** record per-voter reward amounts. They record *offers* and forward FLR.
 
-3. **Off-chain reward calculation.** The off-chain reward calculator (see the FSP C-chain indexer and the reward calculation service) reads:
+3. **Protocol usage fees.** Beyond inflation and explicit offers, several contracts forward the fees users pay for protocol usage straight into `RewardManager` as community rewards for the *current* reward epoch (`receiveRewards{value}(currentRewardEpochId, false)` — note the `false`, vs `true` for inflation): [`Fdc2Hub.requestAttestation`](../../contracts/fdc2/implementation/Fdc2Hub.sol) (FDC2 attestation request fees), [`FdcHub`](../../contracts/fdc/implementation/FdcHub.sol) (FDC v1 request fees), the FCC per-instruction fee in [`Instructions.sendInstructions`](../../contracts/tee/library/Instructions.sol), and the sampling-increase fee in [`FastUpdateIncentiveManager`](../../contracts/fastUpdates/implementation/FastUpdateIncentiveManager.sol). These are not inflation-based — the FLR comes from the requester — but they land in the same `RewardManager` custody and are distributed by the same off-chain calculation.
+
+4. **Off-chain reward calculation.** The off-chain reward calculator (see the FSP C-chain indexer and the reward calculation service) reads:
    - Offers events from each offers manager,
    - Submission events from `Submission`,
    - Finalization events from `Relay`,
@@ -69,9 +73,9 @@ The pattern:
 
    and produces a flat list of reward claims — `(rewardEpochId, beneficiary, amount, claimType)` — applying each protocol's per-voter rules, penalties, and the FIP-10 minimal-participation passes.
 
-4. **Reward-hash signing.** The list is hashed into a Merkle tree. Each registered voter of the *current* signing policy then submits its signature over that hash via [`FlareSystemsManager.signRewards`](../../contracts/protocol/implementation/FlareSystemsManager.sol). Once submitted signatures pass the policy's threshold, the reward hash is considered final and `RewardManager` is unlocked for the epoch.
+5. **Reward-hash signing.** The list is hashed into a Merkle tree. Each registered voter of the *current* signing policy then submits its signature over that hash via [`FlareSystemsManager.signRewards`](../../contracts/protocol/implementation/FlareSystemsManager.sol). Once submitted signatures pass the policy's threshold, the reward hash is considered final and `RewardManager` is unlocked for the epoch.
 
-5. **Claims.** Beneficiaries call into `RewardManager`, supplying their `(beneficiary, amount, claimType)` row plus a Merkle proof. `RewardManager` verifies the proof, debits the unclaimed-amount tracker for that row, and forwards FLR. Unclaimed rewards expire after a configurable number of reward epochs and are burned.
+6. **Claims.** Beneficiaries call into `RewardManager`, supplying their `(beneficiary, amount, claimType)` row plus a Merkle proof. `RewardManager` verifies the proof, debits the unclaimed-amount tracker for that row, and forwards FLR. Unclaimed rewards expire after a configurable number of reward epochs and are burned.
 
 ## Address wiring: `AddressUpdatable`
 
@@ -86,15 +90,17 @@ Every doc in this repo that mentions "the FSP manager" or "the relay" or "the WN
 ## Sub-protocol wiring at a glance
 
 ```
-                    InflationReceiver / IncentivePoolReceiver
-                              │
-                              ▼  (per reward epoch FLR)
-   FtsoRewardOffersManager ─┐
-   FdcRewardOffersManager  ─┼──► RewardManager  ◄─── Relay (rewards Merkle root)
-   ValidatorRewardOffersM. ─┤             ▲
-   TeeRewardOffersManager  ─┘             │
-                                          │ (per voting round Merkle roots)
-                                          │
+                             InflationReceiver
+                                  │
+                                  ▼  (per reward epoch FLR)
+   FtsoRewardOffersManager    ─┐
+   FastUpdateIncentiveManager ─┤
+   FdcHub                     ─┼──► RewardManager  ◄─── Relay (rewards Merkle root)
+   Fdc2RewardOffersManager    ─┤             ▲
+   ValidatorRewardOffersM.    ─┤             │
+   TeeRewardOffersManager     ─┘             │
+                                             │ (per voting round Merkle roots)
+                                             │
    FtsoFeedPublisher    ───► FlareSystemsManager  ◄─── Submission
    FastUpdater          ───►  (orchestrator)         (commit/reveal,
    FdcHub               ───►       ▲                  signature submission)
@@ -103,6 +109,8 @@ Every doc in this repo that mentions "the FSP manager" or "the relay" or "the WN
                                    │
                        VoterRegistry / EntityManager
                        FlareSystemsCalculator
+
+(IncentivePoolReceiver → RNat is a separate funding path; it does not feed RewardManager.)
 ```
 
 Reading clockwise: inflation funds reward offers; reward offers per protocol feed `RewardManager`; the orchestrator publishes signing policies; sub-protocols submit through `Submission` and finalize through `Relay`; consumers read sub-protocol roots and reward proofs.

@@ -30,7 +30,7 @@ Names shorter than 20 bytes are right-padded with `0x00` in the ID.
 ```solidity
 struct FeedConfiguration {
     bytes21 feedId;
-    uint16  rewardBandValue;   // q-parameter for the secondary reward band (PPM)
+    uint32  rewardBandValue;   // reward band value (interpreted off-chain) in relation to the median
     uint24  inflationShare;    // share of FTSO Fast Updates inflation, relative to other feeds
 }
 ```
@@ -96,11 +96,11 @@ The custom-feed pattern is open-ended: anyone can write an `IICustomFeed` implem
 ```solidity
 struct FtsoConfiguration {
     bytes   feedIds;                 // packed bytes21[] (length must be % 21 == 0)
-    uint16  inflationShare;          // weight for splitting inflation across configurations
+    uint24  inflationShare;          // weight for splitting inflation across configurations
     uint16  minRewardedTurnoutBIPS;  // min turnout for the round to be eligible for rewards
     uint24  primaryBandRewardSharePPM;
     bytes   secondaryBandWidthPPMs;  // packed uint24[] - per-feed q parameter for the PCT band
-    uint8   mode;                    // mode flag (e.g. anchor-vs-block-latency split)
+    uint16  mode;                    // rewards split mode (0 means equally, 1 means random,...)
 }
 ```
 

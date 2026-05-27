@@ -19,12 +19,12 @@ A machine is in at most one replication group. Joining a group requires going th
 Adding a new machine `B` to the same replication group as an existing machine `A`:
 
 1. **Register `B`.** The new machine goes through normal [registration](./MachineLifecycle.md#registration) and must become `INITIALIZED`.
-2. **Mark `A` as `REPLICATING`.** The owner of `A` (or governance) calls a `ReplicationFacet` entry that pauses `A` from accepting new instructions and signals to the off-chain layer that key transfer is starting.
+2. **Move `A` to `PAUSED_FOR_UPGRADE`.** The owner of `A` calls `ReplicationFacet.toPauseForUpgrade(_teeId, _claimBackAddress)`. `A` must already be `PAUSED` (and have been paused at least `pauseBeforeUpgradeMinDurationSeconds`, else `TooSoon()`); the call moves it to `PAUSED_FOR_UPGRADE` and dispatches a `TO_PAUSE_FOR_UPGRADE` instruction signalling to the off-chain layer that key transfer is starting. Access is `onlyMachineOwner` — there is no governance path.
 3. **Off-chain key transfer.** `A`'s TEE proxy negotiates an attested handshake with `B`'s proxy, encrypts the wallet keys for `B`'s TEE public key, and transfers them. `B` ingests the keys and signs an attestation that it now holds them.
-4. **`B` reports completion.** `B`'s availability check, signed by the new machine, attests that key transfer succeeded. The off-chain layer surfaces the proof.
-5. **Both → `PRODUCTION`.** With the proof, the on-chain replication state is updated: the group membership is recorded, both machines transition to `PRODUCTION`, and they are both added to `extensionActiveTeeIds`. From that point on, instructions targeting wallets in this group can be sent to either machine and produce identical (or at least equivalent — the deterministic-signing contract is wallet-specific) responses.
+4. **`B` enters `REPLICATING`.** The owner calls `ReplicationFacet.replicateFrom(_oldTeeId, _proof, _teeUpgradeId, _claimBackAddress)`, where `_proof` is `B`'s availability-check proof. `A` must be `PAUSED_FOR_UPGRADE` and `B` must be `INITIALIZED` (or already `REPLICATING` from a retry). After validating the upgrade path is signed and compatible, the call records `replicatingTeeIds[A] = B`, moves `B` to `REPLICATING`, and dispatches a `REPLICATE_FROM` instruction to both machines. Access is `onlyMachineOwner` for both `A` and `B`.
+5. **`A` → `PRODUCTION`, `B` absorbed.** The owner calls `ReplicationFacet.confirmReplicate(_newTeeId, _proof)`, where `_proof` is signed for `A`'s teeId. The call copies `B`'s machine data (initialTeeId, teeProxyId, codeHash, platform, url, initialSigningPolicyId) into `A`'s state row, **deletes `B`'s state row**, clears `replicatingTeeIds[A]`, and transitions `A` to `PRODUCTION` (re-adding it to the active sets). From that point on, `A` runs the new machine's identity and software; `B`'s teeId no longer exists as a separate row.
 
-The replication state machine is conservative: failures (handshake rejected, attestation mismatch, keys not transferred) leave both machines either `PAUSED` (recoverable) or `BANNED` (irrecoverable, governance action). The group is never left in a "half-replicated" state where some machines have the keys and the bookkeeping says they don't.
+The replication state machine is conservative: the `replicatingTeeIds[A] = B` link is only set in `replicateFrom` and only cleared in `confirmReplicate`, so the group is never left in a "half-replicated" state where the bookkeeping disagrees with which machine holds the keys. A failed/incomplete upgrade can be retried by calling `replicateFrom` again while `B` is still `REPLICATING`.
 
 ## Why `PAUSED_FOR_UPGRADE` matters
 
@@ -41,7 +41,7 @@ if (status == TeeStatus.PAUSED_FOR_UPGRADE) {
 }
 ```
 
-`getReplicatingTeeId(teeId)` returns one of the group's replicating siblings, or `address(0)` if no sibling is in `PRODUCTION`. The hub substitutes the sibling but keeps the original `teeId` in the emitted event so consumers see "the request was for TEE X" even though the work was done on TEE Y.
+`getReplicatingTeeId(teeId)` returns the address recorded in `replicatingTeeIds[teeId]` — the new machine currently in `REPLICATING` status mid-upgrade — or `address(0)` if no replication is in progress (the link is set in `replicateFrom` and cleared in `confirmReplicate`). The hub substitutes that machine but keeps the original `teeId` in the emitted event so consumers see "the request was for TEE X" even though the work was done on TEE Y.
 
 ## Why replicate at all
 
@@ -59,7 +59,7 @@ Three reasons:
 
 ## Reading the replication state
 
-`flareTeeManager.getReplicatingTeeId(teeId)` returns the address of one currently-`PRODUCTION` sibling of the given machine in its replication group, or `address(0)` if none. There are also full-group enumeration views (the exact method names live on `ReplicationFacet` / `IReplication`) that let off-chain tooling list every member of a group along with each one's status.
+`flareTeeManager.getReplicatingTeeId(teeId)` returns the address recorded in `replicatingTeeIds[teeId]` — the new machine in `REPLICATING` status during an in-progress upgrade — or `address(0)` if no replication is in progress. This is the only read view exposed by `IReplication`; there are no full-group enumeration views.
 
 ## What `ReplicationInit` does
 

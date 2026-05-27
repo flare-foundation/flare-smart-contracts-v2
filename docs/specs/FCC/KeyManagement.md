@@ -28,11 +28,11 @@ Governance configures the **system-supported** key types via [`ExtensionManagerF
 
 The key-generation flow looks like this:
 
-1. The wallet owner (the project owner — see [Wallet Management](./WalletManagement.md)) calls `WalletKeyManagerFacet`'s key-generate entry, specifying the wallet, key type, signing algorithm, and a per-instruction fee.
+1. The wallet owner (the project owner — see [Wallet Management](./WalletManagement.md)) calls [`WalletKeyManagerFacet.addKey(_teeId, _walletId, _claimBackAddress)`](../../../contracts/tee/facets/WalletKeyManagerFacet.sol), specifying the target TEE machine and wallet (plus a per-instruction fee as `msg.value`). The key type and signing algorithm are not passed in — they are taken from the wallet's project ([`WalletProjectManager`](../../../contracts/tee/library/WalletProjectManager.sol)).
 2. The facet validates: caller is the wallet owner, key type is supported by the extension, the wallet exists and is not paused.
 3. The library emits a `(F_WALLET, "KEY_GENERATE")` instruction (a `Instructions.SYSTEM_OP_TYPE_PREFIX` operation — see [Instructions](./Instructions.md)) directed at the wallet's TEE machines, with the requested parameters in the message body. The fee goes to `RewardManager` and the FCC operation-fees layer.
 4. **Off-chain**: each TEE in the wallet's group generates the new key in its TEE, deterministically (so replicas converge on the same private key), and signs an acknowledgement that includes the new public key.
-5. The off-chain layer collects the threshold of TEE responses and submits an action result back to Flare. A facet method records the new public key in the wallet's `KeyDescriptor[]` and emits `KeyGenerated`.
+5. The off-chain layer collects the threshold of TEE responses and submits an action result back to Flare. `WalletKeyManagerFacet.confirmKey` records the new public key in the wallet's `KeyDefinition` and emits `WalletKeyConfirmed`.
 
 The on-chain bookkeeping holds **public keys only**. The private key only ever exists inside TEE machines.
 
@@ -165,14 +165,16 @@ Since VRF outputs are deterministic given (key, seed), they're reproducible acro
 
 ## Key type support and disabling
 
-When governance disables a key type at the system level (`removeSupportedKeyTypes` on the extension), existing keys of that type are not deleted — they're just immobilized. Any new key-generate of that type fails; existing keys can still sign existing operations until the wallet owner explicitly deletes them. This soft-deprecation lets the system retire deprecated cryptographic primitives without breaking running wallets immediately.
+When the extension owner removes a key type from the extension's supported set (`removeSupportedKeyTypes`, extension-owner-only), existing keys of that type are not deleted — they're just immobilized. Any new key-generate of that type fails; existing keys can still sign existing operations until the wallet owner explicitly deletes them. This soft-deprecation lets the system retire deprecated cryptographic primitives without breaking running wallets immediately.
 
 ## What's stored on-chain per key
 
-Per key, the contracts hold:
+Per key, the [`KeyDefinition`](../../../contracts/tee/library/WalletKeyManager.sol) struct holds:
 
-- A descriptor: `keyType`, `signingAlgo`, the public key, the key admin set, the threshold.
-- A status (active / pending-delete / pending-restore).
-- The wallet it belongs to.
+- The public key (`publicKey`).
+- The list of TEE machines currently holding the key (`teeIds`).
+- A per-TEE nonce (`nonces`), used for replay protection on delete / restore.
+
+The key's `keyType` and `signingAlgo` are not stored per key — they are fixed at the project level (see [`WalletProjectManager`](../../../contracts/tee/library/WalletProjectManager.sol)); the admin set and threshold are stored at the wallet level (see [`WalletManager`](../../../contracts/tee/library/WalletManager.sol)).
 
 The actual private key, the Shamir shares before they reach admins, and the TEE machine internals are off-chain. The contracts coordinate; they never custody the secret.
