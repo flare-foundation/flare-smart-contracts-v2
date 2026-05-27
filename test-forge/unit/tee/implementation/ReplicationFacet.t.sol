@@ -246,8 +246,9 @@ contract ReplicationFacetTest is Test {
         vm.prank(extensionOwner);
         flareTeeManager.addAllowedTeeMachineOwners(extensionId, owners);
 
-        // Advance time
-        vm.warp(block.timestamp + 1000);
+        // Advance time past challengeValidityDurationSeconds (6000) so registration always
+        // generates a fresh attestation challenge rather than reusing a (zero) one.
+        vm.warp(block.timestamp + 10000);
     }
 
     // toPauseForUpgrade
@@ -864,6 +865,37 @@ contract ReplicationFacetTest is Test {
         _registerTee(newTeeId, newTeePrivateKey, newTeePublicKey, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]);
     }
 
+    function _signProofWithCosigners(
+        ITeeAvailabilityCheck.Proof memory _proof
+    )
+        private
+    {
+        bytes32 messageHash = keccak256(abi.encode(
+            keccak256(abi.encode(_proof.header)),
+            keccak256(abi.encode(_proof.requestBody)),
+            keccak256(abi.encode(_proof.responseBody))
+        ));
+        bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
+
+        _proof.signatures.cosignerSignatures = new Signature[](cosignersThreshold);
+        for (uint256 i = 0; i < cosignersThreshold; i++) {
+            _proof.signatures.cosignerSignatures[i] =
+                SignatureHelper.createSignature(vm, cosignersMessageHash, cosigners[i].privateKey);
+        }
+
+        // Mock the fdc2Verification calls
+        vm.mockCall(
+            fdc2Verification,
+            abi.encodeWithSelector(IFdc2Verification.verifySigningPolicySignatures.selector),
+            abi.encode(uint256(1))
+        );
+        vm.mockCall(
+            fdc2Verification,
+            abi.encodeWithSelector(IFdc2Verification.recoverCosigners.selector),
+            abi.encode(_getSignersAddresses(cosigners))
+        );
+    }
+
     function _createAvailabilityCheckProof(
         address _teeId,
         address _teeProxyId,
@@ -966,37 +998,6 @@ contract ReplicationFacetTest is Test {
             header,
             reqBody,
             respBody
-        );
-    }
-
-    function _signProofWithCosigners(
-        ITeeAvailabilityCheck.Proof memory _proof
-    )
-        private
-    {
-        bytes32 messageHash = keccak256(abi.encode(
-            keccak256(abi.encode(_proof.header)),
-            keccak256(abi.encode(_proof.requestBody)),
-            keccak256(abi.encode(_proof.responseBody))
-        ));
-        bytes32 cosignersMessageHash = keccak256(bytes.concat(hex"010000000000", messageHash));
-
-        _proof.signatures.cosignerSignatures = new Signature[](cosignersThreshold);
-        for (uint256 i = 0; i < cosignersThreshold; i++) {
-            _proof.signatures.cosignerSignatures[i] =
-                SignatureHelper.createSignature(vm, cosignersMessageHash, cosigners[i].privateKey);
-        }
-
-        // Mock the fdc2Verification calls
-        vm.mockCall(
-            fdc2Verification,
-            abi.encodeWithSelector(IFdc2Verification.verifySigningPolicySignatures.selector),
-            abi.encode(uint256(1))
-        );
-        vm.mockCall(
-            fdc2Verification,
-            abi.encodeWithSelector(IFdc2Verification.recoverCosigners.selector),
-            abi.encode(_getSignersAddresses(cosigners))
         );
     }
 

@@ -45,6 +45,29 @@ library MachineManager {
         abi.encode(uint256(keccak256("tee.MachineManager.State")) - 1)
     ) & ~bytes32(uint256(0xff));
 
+    function changeStatus(
+        address _teeId,
+        IMachineManager.TeeStatus _newStatus
+    )
+        internal
+    {
+        State storage s = getState();
+        TeeMachineState storage state = s.teeMachineStates[_teeId];
+        state.status = _newStatus;
+        state.lastStatusChangeTs = block.timestamp;
+        if (_newStatus == IMachineManager.TeeStatus.PRODUCTION) {
+            s.extensionActiveTeeIds[state.extensionId].add(_teeId);
+            s.activeTeeIds.add(_teeId);
+        } else if (
+            _newStatus == IMachineManager.TeeStatus.PAUSED ||
+            _newStatus == IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE
+        ) {
+            s.extensionActiveTeeIds[state.extensionId].remove(_teeId);
+            s.activeTeeIds.remove(_teeId);
+        }
+        emit IMachineManager.TeeMachineStatusChanged(_teeId, _newStatus);
+    }
+
     function getTeeMachine(
         address _teeId
     )
@@ -129,29 +152,6 @@ library MachineManager {
         return getTeeMachineState(_teeId).lastStatusChangeTs;
     }
 
-    function changeStatus(
-        address _teeId,
-        IMachineManager.TeeStatus _newStatus
-    )
-        internal
-    {
-        State storage s = getState();
-        TeeMachineState storage state = s.teeMachineStates[_teeId];
-        state.status = _newStatus;
-        state.lastStatusChangeTs = block.timestamp;
-        if (_newStatus == IMachineManager.TeeStatus.PRODUCTION) {
-            s.extensionActiveTeeIds[state.extensionId].add(_teeId);
-            s.activeTeeIds.add(_teeId);
-        } else if (
-            _newStatus == IMachineManager.TeeStatus.PAUSED ||
-            _newStatus == IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE
-        ) {
-            s.extensionActiveTeeIds[state.extensionId].remove(_teeId);
-            s.activeTeeIds.remove(_teeId);
-        }
-        emit IMachineManager.TeeMachineStatusChanged(_teeId, _newStatus);
-    }
-
     function checkCodeHashPlatformSupported(
         uint256 _extensionId,
         bytes32 _codeHash,
@@ -174,6 +174,28 @@ library MachineManager {
             getTeeMachineState(_teeId).status == IMachineManager.TeeStatus.PRODUCTION,
             ITeeCommonErrors.TeeMachineNotAvailable()
         );
+    }
+
+    function validateAvailabilityCheckTs(
+        address _teeId,
+        uint256 _availabilityCheckTs
+    )
+        internal view
+    {
+        require(
+            _availabilityCheckTs >= getState().teeMachineStates[_teeId].lastStatusChangeTs,
+            ITeeCommonErrors.AvailabilityCheckTimestampInvalid()
+        );
+    }
+
+    function getTeeMachineState(
+        address _teeId
+    )
+        internal view
+        returns (TeeMachineState storage _state)
+    {
+        _state = getState().teeMachineStates[_teeId];
+        require(_state.owner != address(0), IMachineManager.TeeNotFound());
     }
 
     function checkTeeStatus(
@@ -207,28 +229,6 @@ library MachineManager {
             _status == ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
             ITeeCommonErrors.InvalidAvailabilityCheckStatus()
         );
-    }
-
-    function validateAvailabilityCheckTs(
-        address _teeId,
-        uint256 _availabilityCheckTs
-    )
-        internal view
-    {
-        require(
-            _availabilityCheckTs >= getState().teeMachineStates[_teeId].lastStatusChangeTs,
-            ITeeCommonErrors.AvailabilityCheckTimestampInvalid()
-        );
-    }
-
-    function getTeeMachineState(
-        address _teeId
-    )
-        internal view
-        returns (TeeMachineState storage _state)
-    {
-        _state = getState().teeMachineStates[_teeId];
-        require(_state.owner != address(0), IMachineManager.TeeNotFound());
     }
 
     function getState()

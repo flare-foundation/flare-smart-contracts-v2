@@ -46,8 +46,7 @@ contract OperationFeesFacet is IIOperationFees, FlareGovernedAccess {
         external
         onlyGovernance
     {
-        OperationFees.getState().defaultFee = _defaultFee;
-        emit DefaultFeeSet(_defaultFee);
+        OperationFees.setDefaultFee(_defaultFee);
     }
 
     /**

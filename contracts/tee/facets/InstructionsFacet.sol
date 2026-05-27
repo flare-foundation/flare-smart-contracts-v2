@@ -41,7 +41,7 @@ contract InstructionsFacet is IIInstructions, FlareGovernedAccess {
                 OnlyInstructionsSender()
             );
             require(
-                extensionId == 0 || !Instructions.isSystemOpType(_instructionParams.opType),
+                !Instructions.isSystemOpType(_instructionParams.opType),
                 SystemOpTypeNotAllowed(_instructionParams.opType)
             );
         }

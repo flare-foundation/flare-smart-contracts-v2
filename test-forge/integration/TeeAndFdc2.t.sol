@@ -186,7 +186,7 @@ contract TeeAndFdc2Test is Test {
     // A. Diamond Introspection + Excluded Selectors
     // =========================================================================
 
-    function testDay1_facetCount() public view {
+    function testDay1_facetCount() public {
         assertEq(IDiamondLoupe(address(flareTeeManager)).facets().length, 19);
     }
 
@@ -372,7 +372,7 @@ contract TeeAndFdc2Test is Test {
     // G. FDC2 contracts wired to day-1 diamond
     // =========================================================================
 
-    function testDay1_fdc2DeployAndInitialize() public view {
+    function testDay1_fdc2DeployAndInitialize() public {
         assertEq(fdc2Hub.minThresholdBIPS(), 5000);
         assertEq(fdc2Hub.defaultNumberOfTees(), 1);
         assertEq(address(fdc2Hub.flareTeeManager()), address(flareTeeManager));
@@ -660,13 +660,6 @@ contract TeeAndFdc2Test is Test {
     // Helpers — address wiring
     // =========================================================================
 
-    function _cosignerAddresses() private view returns (address[] memory addrs) {
-        addrs = new address[](cosigners.length);
-        for (uint256 i = 0; i < cosigners.length; i++) {
-            addrs[i] = cosigners[i].addr;
-        }
-    }
-
     function _updateTeeManagerAddresses() private {
         bytes32[] memory nameHashes = new bytes32[](6);
         address[] memory addresses = new address[](6);
@@ -732,5 +725,12 @@ contract TeeAndFdc2Test is Test {
             abi.encodeWithSelector(IIRewardManager.receiveRewards.selector),
             ""
         );
+    }
+
+    function _cosignerAddresses() private view returns (address[] memory addrs) {
+        addrs = new address[](cosigners.length);
+        for (uint256 i = 0; i < cosigners.length; i++) {
+            addrs[i] = cosigners[i].addr;
+        }
     }
 }

@@ -341,7 +341,7 @@ contract OwnerAllowlistFacetTest is Test {
     // Global extension-owner allowlist (governance-gated)
     // =========================================================================
 
-    function testAllExtensionOwnersAllowedInitiallyTrue() public view {
+    function testAllExtensionOwnersAllowedInitiallyTrue() public {
         // setUp deploys with publicExtensionCreationEnabled = true
         assertTrue(flareTeeManager.allExtensionOwnersAllowed());
     }

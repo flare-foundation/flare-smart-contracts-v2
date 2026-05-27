@@ -47,21 +47,21 @@ contract DiamondGovernanceFacetTest is Test {
         vm.stopPrank();
     }
 
-    function testGovernance() public view {
+    function testGovernance() public {
         assertEq(
             IFlareGovernance(address(flareTeeManager)).governance(),
             initialGovernance
         );
     }
 
-    function testGovernanceSettings() public view {
+    function testGovernanceSettings() public {
         assertEq(
             address(IFlareGovernance(address(flareTeeManager)).governanceSettings()),
             address(governanceSettings)
         );
     }
 
-    function testProductionMode() public view {
+    function testProductionMode() public {
         assertFalse(IFlareGovernance(address(flareTeeManager)).productionMode());
     }
 

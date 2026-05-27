@@ -1069,48 +1069,6 @@ contract ExtensionManagerFacetTest is Test {
         assertEq(returnedPlatforms[0], platforms[0]);
     }
 
-    function _setupTeeMachine(
-        address _teeId,
-        uint256 _extensionId,
-        string memory _url,
-        IMachineManager.TeeStatus _status
-    ) private {
-        TestTeeMachineSetupFacet(address(flareTeeManager)).setupTeeMachineState(
-            _teeId, _extensionId, _teeId, _url, _status
-        );
-    }
-
-    function _setupTeeGovernanceHash(
-        uint256 _extensionId,
-        bytes32 _governanceHash
-    ) private {
-        // Set the governance hash through the ExtensionGovernanceFacet
-        // Use setNewTeeGovernance to set the governance hash
-        address[] memory signers = new address[](2);
-        (signers[0],) = makeAddrAndKey("govSigner1");
-        (signers[1],) = makeAddrAndKey("govSigner2");
-        uint64 threshold = 2;
-        bytes32 computedHash = keccak256(abi.encode(signers, threshold));
-
-        // If the desired governanceHash matches the computed one, we set it.
-        // Otherwise we need to find signers/threshold that produce the desired hash.
-        // For tests, we just set governance with known signers that produce the expected hash.
-        // Since tests may pass any governanceHash, we use the extension owner to set it:
-        vm.prank(owner);
-        flareTeeManager.setNewTeeGovernance(
-            _extensionId,
-            signers,
-            threshold
-        );
-
-        // Override the stored governanceHash to match the expected value for tests
-        // by updating what the test expects
-        if (_governanceHash != computedHash) {
-            // Recalculate our test's governanceHash to match what was actually set
-            governanceHash = computedHash;
-        }
-    }
-
     // =========================================================================
     // registerReserved
     // =========================================================================
@@ -1292,5 +1250,47 @@ contract ExtensionManagerFacetTest is Test {
         vm.prank(newOwner);
         vm.expectRevert(IExtensionManager.NotAllowedExtensionOwner.selector);
         flareTeeManager.confirmOwnership(extensionId);
+    }
+
+    function _setupTeeMachine(
+        address _teeId,
+        uint256 _extensionId,
+        string memory _url,
+        IMachineManager.TeeStatus _status
+    ) private {
+        TestTeeMachineSetupFacet(address(flareTeeManager)).setupTeeMachineState(
+            _teeId, _extensionId, _teeId, _url, _status
+        );
+    }
+
+    function _setupTeeGovernanceHash(
+        uint256 _extensionId,
+        bytes32 _governanceHash
+    ) private {
+        // Set the governance hash through the ExtensionGovernanceFacet
+        // Use setNewTeeGovernance to set the governance hash
+        address[] memory signers = new address[](2);
+        (signers[0],) = makeAddrAndKey("govSigner1");
+        (signers[1],) = makeAddrAndKey("govSigner2");
+        uint64 threshold = 2;
+        bytes32 computedHash = keccak256(abi.encode(signers, threshold));
+
+        // If the desired governanceHash matches the computed one, we set it.
+        // Otherwise we need to find signers/threshold that produce the desired hash.
+        // For tests, we just set governance with known signers that produce the expected hash.
+        // Since tests may pass any governanceHash, we use the extension owner to set it:
+        vm.prank(owner);
+        flareTeeManager.setNewTeeGovernance(
+            _extensionId,
+            signers,
+            threshold
+        );
+
+        // Override the stored governanceHash to match the expected value for tests
+        // by updating what the test expects
+        if (_governanceHash != computedHash) {
+            // Recalculate our test's governanceHash to match what was actually set
+            governanceHash = computedHash;
+        }
     }
 }

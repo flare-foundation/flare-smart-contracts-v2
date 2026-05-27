@@ -21,15 +21,6 @@ library Replication {
         abi.encode(uint256(keccak256("tee.Replication.State")) - 1)
     ) & ~bytes32(uint256(0xff));
 
-    function getReplicatingTeeId(
-        address _oldTeeId
-    )
-        internal view
-        returns (address)
-    {
-        return getState().replicatingTeeIds[_oldTeeId];
-    }
-
     function setPauseBeforeUpgradeMinDurationSeconds(
         uint256 _duration
     )
@@ -38,6 +29,15 @@ library Replication {
         require(1 minutes <= _duration && _duration <= 1 days, ITeeCommonErrors.InvalidDuration());
         getState().pauseBeforeUpgradeMinDurationSeconds = _duration;
         emit IReplication.PauseBeforeUpgradeMinDurationSecondsSet(_duration);
+    }
+
+    function getReplicatingTeeId(
+        address _oldTeeId
+    )
+        internal view
+        returns (address)
+    {
+        return getState().replicatingTeeIds[_oldTeeId];
     }
 
     function getState()

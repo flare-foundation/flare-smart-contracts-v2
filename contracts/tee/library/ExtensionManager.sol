@@ -16,12 +16,6 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 library ExtensionManager {
     using EnumerableSet for EnumerableSet.Bytes32Set;
 
-    /// @notice First id assigned to a public registration via `register()`.
-    /// @dev Reserved ids are `[1, PUBLIC_EXTENSION_ID_START - 1]` and are
-    ///      minted only by governance via `registerReserved`. Id 0 is the
-    ///      system / governance extension and is never minted.
-    uint256 internal constant PUBLIC_EXTENSION_ID_START = uint256(type(uint16).max) + 1;
-
     struct TeeVersion {
         string version;
         bytes32 governanceHash;
@@ -62,6 +56,12 @@ library ExtensionManager {
         /// Proposed new extension owner.
         mapping(uint256 extensionId => address) proposedExtensionOwner;
     }
+
+    /// @notice First id assigned to a public registration via `register()`.
+    /// @dev Reserved ids are `[1, PUBLIC_EXTENSION_ID_START - 1]` and are
+    ///      minted only by governance via `registerReserved`. Id 0 is the
+    ///      system / governance extension and is never minted.
+    uint256 internal constant PUBLIC_EXTENSION_ID_START = uint256(type(uint16).max) + 1;
 
     bytes32 internal constant STATE_POSITION = keccak256(
         abi.encode(uint256(keccak256("tee.ExtensionManager.State")) - 1)

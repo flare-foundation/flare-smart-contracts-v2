@@ -606,48 +606,6 @@ contract MachinePathManagerFacetTest is Test {
         assertEq(sigs.length, 1, "raw signature is stored once globally, not duplicated per governance");
     }
 
-    /**
-     * @dev Creates two distinct governance configurations whose signer sets BOTH contain
-     *      `_sharedSigner`. Returns the two governance hashes and a fresh codeHash for each so
-     *      callers can spin up TEE machines that derive to each governance.
-     */
-    function _setupTwoOverlappingGovernances(address _sharedSigner)
-        private
-        returns (
-            bytes32 _govHashX,
-            bytes32 _govHashY,
-            bytes32 _codeHashX,
-            bytes32 _codeHashY
-        )
-    {
-        bytes32[] memory plats = new bytes32[](1);
-        plats[0] = platform;
-
-        // Governance X: [shared, fillerX]
-        (address fillerX, ) = makeAddrAndKey("fillerX");
-        address[] memory setX = new address[](2);
-        setX[0] = _sharedSigner;
-        setX[1] = fillerX;
-        _govHashX = keccak256(abi.encode(setX, uint64(1)));
-        vm.prank(owner);
-        flareTeeManager.setNewTeeGovernance(extensionId, setX, 1);
-        _codeHashX = keccak256("codeHashX");
-        vm.prank(owner);
-        flareTeeManager.addTeeVersion(extensionId, "vX", _codeHashX, plats, _govHashX);
-
-        // Governance Y: [shared, fillerY] — different set → different hash, same shared signer.
-        (address fillerY, ) = makeAddrAndKey("fillerY");
-        address[] memory setY = new address[](2);
-        setY[0] = _sharedSigner;
-        setY[1] = fillerY;
-        _govHashY = keccak256(abi.encode(setY, uint64(1)));
-        vm.prank(owner);
-        flareTeeManager.setNewTeeGovernance(extensionId, setY, 1);
-        _codeHashY = keccak256("codeHashY");
-        vm.prank(owner);
-        flareTeeManager.addTeeVersion(extensionId, "vY", _codeHashY, plats, _govHashY);
-    }
-
     function testSignMachinePathListRejectsReplayAcrossLists() public {
         // Build two distinct lists (different nonces) with IDENTICAL paths and IDENTICAL involved
         // governances. A signature collected for list 1 must NOT recover to a valid signer on list 2
@@ -752,6 +710,48 @@ contract MachinePathManagerFacetTest is Test {
     // Helpers
     // =========================================================================
 
+    /**
+     * @dev Creates two distinct governance configurations whose signer sets BOTH contain
+     *      `_sharedSigner`. Returns the two governance hashes and a fresh codeHash for each so
+     *      callers can spin up TEE machines that derive to each governance.
+     */
+    function _setupTwoOverlappingGovernances(address _sharedSigner)
+        private
+        returns (
+            bytes32 _govHashX,
+            bytes32 _govHashY,
+            bytes32 _codeHashX,
+            bytes32 _codeHashY
+        )
+    {
+        bytes32[] memory plats = new bytes32[](1);
+        plats[0] = platform;
+
+        // Governance X: [shared, fillerX]
+        (address fillerX, ) = makeAddrAndKey("fillerX");
+        address[] memory setX = new address[](2);
+        setX[0] = _sharedSigner;
+        setX[1] = fillerX;
+        _govHashX = keccak256(abi.encode(setX, uint64(1)));
+        vm.prank(owner);
+        flareTeeManager.setNewTeeGovernance(extensionId, setX, 1);
+        _codeHashX = keccak256("codeHashX");
+        vm.prank(owner);
+        flareTeeManager.addTeeVersion(extensionId, "vX", _codeHashX, plats, _govHashX);
+
+        // Governance Y: [shared, fillerY] — different set → different hash, same shared signer.
+        (address fillerY, ) = makeAddrAndKey("fillerY");
+        address[] memory setY = new address[](2);
+        setY[0] = _sharedSigner;
+        setY[1] = fillerY;
+        _govHashY = keccak256(abi.encode(setY, uint64(1)));
+        vm.prank(owner);
+        flareTeeManager.setNewTeeGovernance(extensionId, setY, 1);
+        _codeHashY = keccak256("codeHashY");
+        vm.prank(owner);
+        flareTeeManager.addTeeVersion(extensionId, "vY", _codeHashY, plats, _govHashY);
+    }
+
     function _newList() private returns (uint256 _nonce) {
         vm.prank(owner);
         _nonce = flareTeeManager.createNewMachinePathList(extensionId);
@@ -792,18 +792,14 @@ contract MachinePathManagerFacetTest is Test {
         flareTeeManager.addMachinePaths(extensionId, _nonce, paths);
     }
 
-    function _onePath(address _src, address _dst)
-        private pure
-        returns (IMachinePathManager.MachinePath[] memory _paths)
-    {
-        _paths = new IMachinePathManager.MachinePath[](1);
-        _paths[0].sourceTeeIds = _arr1(_src);
-        _paths[0].destinationTeeIds = _arr1(_dst);
-    }
-
-    function _arr1(address _a) private pure returns (address[] memory _r) {
-        _r = new address[](1);
-        _r[0] = _a;
+    function _addHelperFacet() private {
+        TestMachinePathHelperFacet helperFacet = new TestMachinePathHelperFacet();
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = ITestMachinePathHelper.setTeeMachineState.selector;
+        IDiamond.FacetCut[] memory cuts = new IDiamond.FacetCut[](1);
+        cuts[0] = IDiamond.FacetCut(address(helperFacet), IDiamond.FacetCutAction.Add, selectors);
+        vm.prank(initialGovernance);
+        IDiamondCut(address(flareTeeManager)).diamondCut(cuts, address(0), "");
     }
 
     function _listMessageHash(uint256 _extensionId, uint256 _nonce) private view returns (bytes32) {
@@ -818,17 +814,21 @@ contract MachinePathManagerFacetTest is Test {
         ));
     }
 
-    function _sign(bytes32 _hash, uint256 _privKey) private pure returns (Signature memory) {
-        return SignatureHelper.createSignature(vm, _hash, _privKey);
+    function _onePath(address _src, address _dst)
+        private pure
+        returns (IMachinePathManager.MachinePath[] memory _paths)
+    {
+        _paths = new IMachinePathManager.MachinePath[](1);
+        _paths[0].sourceTeeIds = _arr1(_src);
+        _paths[0].destinationTeeIds = _arr1(_dst);
     }
 
-    function _addHelperFacet() private {
-        TestMachinePathHelperFacet helperFacet = new TestMachinePathHelperFacet();
-        bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] = ITestMachinePathHelper.setTeeMachineState.selector;
-        IDiamond.FacetCut[] memory cuts = new IDiamond.FacetCut[](1);
-        cuts[0] = IDiamond.FacetCut(address(helperFacet), IDiamond.FacetCutAction.Add, selectors);
-        vm.prank(initialGovernance);
-        IDiamondCut(address(flareTeeManager)).diamondCut(cuts, address(0), "");
+    function _arr1(address _a) private pure returns (address[] memory _r) {
+        _r = new address[](1);
+        _r[0] = _a;
+    }
+
+    function _sign(bytes32 _hash, uint256 _privKey) private pure returns (Signature memory) {
+        return SignatureHelper.createSignature(vm, _hash, _privKey);
     }
 }

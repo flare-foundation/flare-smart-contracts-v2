@@ -3,8 +3,7 @@ pragma solidity ^0.8.27;
 
 import { IIVerification } from "../interface/IIVerification.sol";
 import { IVerification, TEE_SOURCE_ID } from "../../userInterfaces/tee/IVerification.sol";
-import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
-import { IMachineManager, REG_OP_TYPE } from "../../userInterfaces/tee/IMachineManager.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { IWalletManager } from "../../userInterfaces/tee/IWalletManager.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
     from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
@@ -13,12 +12,10 @@ import { IPMWMultisigAccountConfigured, PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTAT
 import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
-import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { Verification } from "../library/Verification.sol";
 import { MachineManager } from "../library/MachineManager.sol";
 import { Replication } from "../library/Replication.sol";
 import { ExternalAddresses } from "../library/ExternalAddresses.sol";
-import { Instructions } from "../library/Instructions.sol";
 import { WalletManager } from "../library/WalletManager.sol";
 import { WalletKeyManager } from "../library/WalletKeyManager.sol";
 import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
@@ -31,8 +28,6 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 contract VerificationFacet is IIVerification, FlareGovernedAccess {
     using EnumerableSet for EnumerableSet.AddressSet;
 
-    bytes32 internal constant TEE_ATTESTATION = bytes32("TEE_ATTESTATION");
-
     /// @inheritdoc IVerification
     function requestTeeAttestation(
         address _teeId,
@@ -40,46 +35,8 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
     )
         external payable
     {
-        Verification.State storage s = Verification.getState();
-        bytes32 challenge;
-        if (s.challengeTs[_teeId] + s.challengeValidityDurationSeconds > block.timestamp) {
-            challenge = s.challenges[_teeId];
-        } else {
-            (uint256 randomNumber,,) = IRelay(ExternalAddresses.getState().relay).getRandomNumber();
-            challenge = keccak256(abi.encode(_teeId, block.timestamp, randomNumber));
-            s.challenges[_teeId] = challenge;
-            s.challengeTs[_teeId] = block.timestamp;
-        }
-
-        address attestingTeeId = _getAttestingTeeId(_teeId);
-
-        IMachineManager.TeeMachineWithAttestationData memory teeMachineWithAttestationData =
-            MachineManager.getTeeMachineWithAttestationData(attestingTeeId);
-        IMachineManager.TeeMachine memory teeMachine = MachineManager.getTeeMachine(attestingTeeId);
-        teeMachineWithAttestationData.teeId = _teeId;
-        teeMachine.teeId = _teeId;
-
-        TeeAttestation memory message = TeeAttestation({
-            teeMachine: teeMachineWithAttestationData,
-            challenge: challenge
-        });
-        IMachineManager.TeeMachine[] memory teeMachines =
-            new IMachineManager.TeeMachine[](1);
-        teeMachines[0] = teeMachine;
-
-        Instructions.sendInstructions(
-            bytes32(0),
-            teeMachines,
-            IInstructions.TeeInstructionParams(
-                REG_OP_TYPE,
-                TEE_ATTESTATION,
-                abi.encode(message),
-                new address[](0),
-                0,
-                _claimBackAddress
-            )
-        );
-        emit TeeAttestationRequested(_teeId, challenge);
+        // Public path: attest via the replicating sibling if one is mid-upgrade.
+        Verification.requestTeeAttestation(_teeId, _getAttestingTeeId(_teeId), _claimBackAddress);
     }
 
     /// @inheritdoc IVerification
@@ -207,49 +164,6 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
     }
 
     // =========================================================================
-    // Getters
-    // =========================================================================
-
-    /// @inheritdoc IVerification
-    function getCosigners()
-        external view
-        returns (
-            address[] memory _cosigners,
-            uint64 _cosignersThreshold
-        )
-    {
-        Verification.State storage s = Verification.getState();
-        _cosigners = s.cosigners.values();
-        _cosignersThreshold = s.cosignersThreshold;
-    }
-
-    /// @inheritdoc IVerification
-    function getSettings()
-        external view
-        returns (
-            uint256 _availabilityCheckValidityDurationSeconds,
-            uint256 _challengeValidityDurationSeconds
-        )
-    {
-        Verification.State storage s = Verification.getState();
-        _availabilityCheckValidityDurationSeconds = s.availabilityCheckValidityDurationSeconds;
-        _challengeValidityDurationSeconds = s.challengeValidityDurationSeconds;
-    }
-
-    /// @inheritdoc IVerification
-    function getAvailabilityCheckValidity(
-        address _teeId
-    )
-        external view
-        returns (
-            uint64 _endTs,
-            uint32 _lastSigningPolicyId
-        )
-    {
-        return Verification.getAvailabilityCheckValidity(_teeId);
-    }
-
-    // =========================================================================
     // Wallet verification (PMW)
     // =========================================================================
 
@@ -359,6 +273,49 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
         );
 
         return _proof.responseBody.status == IPMWMultisigAccountConfigured.PMWMultisigAccountStatus.OK;
+    }
+
+    // =========================================================================
+    // Getters
+    // =========================================================================
+
+    /// @inheritdoc IVerification
+    function getCosigners()
+        external view
+        returns (
+            address[] memory _cosigners,
+            uint64 _cosignersThreshold
+        )
+    {
+        Verification.State storage s = Verification.getState();
+        _cosigners = s.cosigners.values();
+        _cosignersThreshold = s.cosignersThreshold;
+    }
+
+    /// @inheritdoc IVerification
+    function getSettings()
+        external view
+        returns (
+            uint256 _availabilityCheckValidityDurationSeconds,
+            uint256 _challengeValidityDurationSeconds
+        )
+    {
+        Verification.State storage s = Verification.getState();
+        _availabilityCheckValidityDurationSeconds = s.availabilityCheckValidityDurationSeconds;
+        _challengeValidityDurationSeconds = s.challengeValidityDurationSeconds;
+    }
+
+    /// @inheritdoc IVerification
+    function getAvailabilityCheckValidity(
+        address _teeId
+    )
+        external view
+        returns (
+            uint64 _endTs,
+            uint32 _lastSigningPolicyId
+        )
+    {
+        return Verification.getAvailabilityCheckValidity(_teeId);
     }
 
     // =========================================================================

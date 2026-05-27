@@ -38,35 +38,6 @@ library Instructions {
     /// Prefix reserved for system-owned extension.
     bytes2 internal constant SYSTEM_OP_TYPE_PREFIX = bytes2("F_");
 
-    function getState()
-        internal pure
-        returns (State storage _state)
-    {
-        bytes32 position = STATE_POSITION;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            _state.slot := position
-        }
-    }
-
-    function isSystemInstructionsSender(
-        address _sender
-    )
-        internal view
-        returns (bool)
-    {
-        return getState().systemInstructionsSenders.contains(_sender);
-    }
-
-    function isSystemOpType(
-        bytes32 _opType
-    )
-        internal pure
-        returns (bool)
-    {
-        return _opType[0] == SYSTEM_OP_TYPE_PREFIX[0] && _opType[1] == SYSTEM_OP_TYPE_PREFIX[1];
-    }
-
     function generateInstructionId(
         uint256 _extensionId
     )
@@ -76,25 +47,6 @@ library Instructions {
         State storage s = getState();
         uint256 counter = s.instructionIdsCounter[_extensionId]++;
         return keccak256(abi.encode(_extensionId, counter, blockhash(block.number - 1)));
-    }
-
-    function removeDuplicates(
-        address[] memory _teeIds
-    )
-        internal pure
-    {
-        uint256 length = _teeIds.length;
-        for (uint256 i = 0; i < length; i++) {
-            for (uint256 j = i + 1; j < length; j++) {
-                if (_teeIds[i] == _teeIds[j]) {
-                    _teeIds[j] = _teeIds[length - 1];
-                    length--;
-                    j--;
-                }
-            }
-        }
-        // solhint-disable-next-line no-inline-assembly
-        assembly { mstore(_teeIds, length) }
     }
 
     function sendInstructions(
@@ -194,5 +146,53 @@ library Instructions {
             teeMachines[i] = MachineManager.getTeeMachine(_teeIds[i]);
         }
         return sendInstructions(_instructionId, teeMachines, _instructionParams);
+    }
+
+    function isSystemInstructionsSender(
+        address _sender
+    )
+        internal view
+        returns (bool)
+    {
+        return getState().systemInstructionsSenders.contains(_sender);
+    }
+
+    function isSystemOpType(
+        bytes32 _opType
+    )
+        internal pure
+        returns (bool)
+    {
+        return _opType[0] == SYSTEM_OP_TYPE_PREFIX[0] && _opType[1] == SYSTEM_OP_TYPE_PREFIX[1];
+    }
+
+    function removeDuplicates(
+        address[] memory _teeIds
+    )
+        internal pure
+    {
+        uint256 length = _teeIds.length;
+        for (uint256 i = 0; i < length; i++) {
+            for (uint256 j = i + 1; j < length; j++) {
+                if (_teeIds[i] == _teeIds[j]) {
+                    _teeIds[j] = _teeIds[length - 1];
+                    length--;
+                    j--;
+                }
+            }
+        }
+        // solhint-disable-next-line no-inline-assembly
+        assembly { mstore(_teeIds, length) }
+    }
+
+    function getState()
+        internal pure
+        returns (State storage _state)
+    {
+        bytes32 position = STATE_POSITION;
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            _state.slot := position
+        }
     }
 }

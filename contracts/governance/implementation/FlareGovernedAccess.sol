@@ -27,10 +27,6 @@ import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable
  */
 abstract contract FlareGovernedAccess is Initializable {
 
-    constructor() {
-        _disableInitializers();
-    }
-
     modifier onlyGovernance() {
         if (FlareGovernance.beforeOnlyGovernance()) {
             _;
@@ -40,5 +36,9 @@ abstract contract FlareGovernedAccess is Initializable {
     modifier onlyImmediateGovernance() {
         FlareGovernance.checkOnlyGovernance();
         _;
+    }
+
+    constructor() {
+        _disableInitializers();
     }
 }

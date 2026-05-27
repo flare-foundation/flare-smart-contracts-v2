@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IMachineManager, REG_OP_TYPE } from "../../userInterfaces/tee/IMachineManager.sol";
+import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { IMachineEmergencyPause } from "../../userInterfaces/tee/IMachineEmergencyPause.sol";
-import { IVerification } from "../../userInterfaces/tee/IVerification.sol";
-import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
@@ -16,7 +14,6 @@ import { ExtensionManager } from "../library/ExtensionManager.sol";
 import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
 import { Verification } from "../library/Verification.sol";
 import { ExternalAddresses } from "../library/ExternalAddresses.sol";
-import { Instructions } from "../library/Instructions.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -81,7 +78,8 @@ contract MachineManagerFacet is IMachineManager {
             url: _url
         });
 
-        _requestTeeAttestation(teeId, _claimBackAddress);
+        // Registration path: attesting on the machine itself (no prior challenge exists yet).
+        Verification.requestTeeAttestation(teeId, teeId, _claimBackAddress);
         emit TeeMachineRegistered(
             teeId,
             _teeProxyId,
@@ -446,46 +444,4 @@ contract MachineManagerFacet is IMachineManager {
         return MachineManager.getLastStatusChangeTs(_teeId);
     }
 
-    // =========================================================================
-    // Internal
-    // =========================================================================
-
-    function _requestTeeAttestation(
-        address _teeId,
-        address _claimBackAddress
-    )
-        private
-    {
-        Verification.State storage vs = Verification.getState();
-        (uint256 randomNumber,,) = IRelay(ExternalAddresses.getState().relay).getRandomNumber();
-        bytes32 challenge = keccak256(abi.encode(_teeId, block.timestamp, randomNumber));
-        vs.challenges[_teeId] = challenge;
-        vs.challengeTs[_teeId] = block.timestamp;
-
-        IMachineManager.TeeMachineWithAttestationData memory teeMachineWithAttestationData =
-            MachineManager.getTeeMachineWithAttestationData(_teeId);
-        IMachineManager.TeeMachine memory teeMachine = MachineManager.getTeeMachine(_teeId);
-
-        IVerification.TeeAttestation memory message = IVerification.TeeAttestation({
-            teeMachine: teeMachineWithAttestationData,
-            challenge: challenge
-        });
-
-        IMachineManager.TeeMachine[] memory teeMachines =
-            new IMachineManager.TeeMachine[](1);
-        teeMachines[0] = teeMachine;
-
-        IInstructions.TeeInstructionParams memory instrParams =
-            IInstructions.TeeInstructionParams(
-                REG_OP_TYPE,
-                bytes32("TEE_ATTESTATION"),
-                abi.encode(message),
-                new address[](0),
-                0,
-                _claimBackAddress
-            );
-
-        Instructions.sendInstructions(bytes32(0), teeMachines, instrParams);
-        emit IVerification.TeeAttestationRequested(_teeId, challenge);
-    }
 }

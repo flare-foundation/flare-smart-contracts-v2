@@ -106,18 +106,6 @@ contract TeeRewardOffersManagerTest is Test {
         );
     }
 
-    function _deployProxied(uint24 _teeOwnersPPM) internal returns (TeeRewardOffersManager) {
-        TeeRewardOffersManager impl = new TeeRewardOffersManager();
-        TeeRewardOffersManagerProxy proxy = new TeeRewardOffersManagerProxy(
-            IGovernanceSettings(makeAddr("governanceSettings")),
-            governance,
-            addressUpdater,
-            _teeOwnersPPM,
-            address(impl)
-        );
-        return TeeRewardOffersManager(address(proxy));
-    }
-
     function testGetContractName() public {
         assertEq(teeRewardOffersManager.getContractName(), "TeeRewardOffersManager");
     }
@@ -277,6 +265,18 @@ contract TeeRewardOffersManagerTest is Test {
         vm.warp(100); // block.timestamp = 100
         _mockCurrentRewardEpochExpectedEndTs(110);
         _mockNewSigningPolicyInitializationStartSeconds(5);
+    }
+
+    function _deployProxied(uint24 _teeOwnersPPM) internal returns (TeeRewardOffersManager) {
+        TeeRewardOffersManager impl = new TeeRewardOffersManager();
+        TeeRewardOffersManagerProxy proxy = new TeeRewardOffersManagerProxy(
+            IGovernanceSettings(makeAddr("governanceSettings")),
+            governance,
+            addressUpdater,
+            _teeOwnersPPM,
+            address(impl)
+        );
+        return TeeRewardOffersManager(address(proxy));
     }
 
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
+import { IOwnerAllowlist } from "../../userInterfaces/tee/IOwnerAllowlist.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
@@ -30,6 +31,25 @@ library OwnerAllowlist {
     bytes32 internal constant STATE_POSITION = keccak256(
         abi.encode(uint256(keccak256("tee.OwnerAllowlist.State")) - 1)
     ) & ~bytes32(uint256(0xff));
+
+    /// Writes the global extension-owner-allowlist bypass flag into ERC-7201 storage and
+    /// emits `IOwnerAllowlist.AllExtensionOwnersAllowed` or
+    /// `IOwnerAllowlist.AllExtensionOwnersDisallowed`. Shared by
+    /// `OwnerAllowlistFacet.allowAllExtensionOwners` / `disallowAllExtensionOwners`
+    /// (governance-gated runtime setters) and `FlareTeeManagerInit.init` (deploy-time
+    /// initialization). Auth is the caller's responsibility.
+    function setAllExtensionOwnersAllowed(
+        bool _allAllowed
+    )
+        internal
+    {
+        getState().allExtensionOwnersAllowed = _allAllowed;
+        if (_allAllowed) {
+            emit IOwnerAllowlist.AllExtensionOwnersAllowed();
+        } else {
+            emit IOwnerAllowlist.AllExtensionOwnersDisallowed();
+        }
+    }
 
     function isAllowedExtensionOwner(
         address _owner

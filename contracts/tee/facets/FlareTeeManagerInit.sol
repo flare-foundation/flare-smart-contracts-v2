@@ -90,14 +90,14 @@ contract FlareTeeManagerInit is Initializable, AddressUpdatable {
         );
 
         // Set default fee
-        OperationFees.getState().defaultFee = _defaultFee;
+        OperationFees.setDefaultFee(_defaultFee);
 
         // Public registration starts at PUBLIC_EXTENSION_ID_START; reserved
         // ids (1..65535) and id 0 are not assigned via this counter.
         ExtensionManager.getState().nextPublicExtensionId = ExtensionManager.PUBLIC_EXTENSION_ID_START;
 
         // Configure initial state of the global extension-owner allowlist.
-        OwnerAllowlist.getState().allExtensionOwnersAllowed = _publicExtensionCreationEnabled;
+        OwnerAllowlist.setAllExtensionOwnersAllowed(_publicExtensionCreationEnabled);
 
         // Configure initial emergency-unpause grace duration.
         MachineEmergencyPause.setGracePeriodSeconds(_emergencyUnpauseGracePeriodSeconds);

@@ -52,8 +52,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
         external
         onlyImmediateGovernance
     {
-        OwnerAllowlist.getState().allExtensionOwnersAllowed = true;
-        emit AllExtensionOwnersAllowed();
+        OwnerAllowlist.setAllExtensionOwnersAllowed(true);
     }
 
     /// @inheritdoc IOwnerAllowlist
@@ -61,8 +60,7 @@ contract OwnerAllowlistFacet is IOwnerAllowlist, FlareGovernedAccess {
         external
         onlyImmediateGovernance
     {
-        OwnerAllowlist.getState().allExtensionOwnersAllowed = false;
-        emit AllExtensionOwnersDisallowed();
+        OwnerAllowlist.setAllExtensionOwnersAllowed(false);
     }
 
     /// @inheritdoc IOwnerAllowlist

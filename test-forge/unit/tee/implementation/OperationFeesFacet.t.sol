@@ -107,7 +107,7 @@ contract OperationFeesFacetTest is Test {
         flareTeeManager.setDefaultFee(defaultFee + 1);
     }
 
-    function testGetDefaultFee() public view {
+    function testGetDefaultFee() public {
         assertEq(flareTeeManager.getDefaultFee(), defaultFee);
     }
 

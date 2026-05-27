@@ -36,6 +36,77 @@ library WalletKeyManager {
         abi.encode(uint256(keccak256("tee.WalletKeyManager.State")) - 1)
     ) & ~bytes32(uint256(0xff));
 
+    function increaseKeyNonce(
+        address _teeId,
+        bytes32 _walletId,
+        uint64 _keyId
+    )
+        internal
+        returns (uint256)
+    {
+        TeeWalletKeysState storage keys = getState().walletKeys[_walletId];
+        KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
+        require(keyDefinition.publicKey.length > 0, IWalletKeyManager.InvalidKeyId());
+        return ++keyDefinition.nonces[_teeId];
+    }
+
+    /**
+     * Returns wallet's receiving tees and keys.
+     * Reverts if not enough receiving tees are available.
+     */
+    function receivingTeesAndKeys(
+        bytes32 _walletId
+    )
+        internal
+        returns (TeeIdKeyIdPair[] memory _teeIdKeyIdPairs)
+    {
+        TeeWalletKeysState storage keys = getState().walletKeys[_walletId];
+        uint256 keyIdsLength = keys.keyIds.length;
+        uint256 count = 0;
+        for (uint256 i = 0; i < keyIdsLength; i++) {
+            count += keys.keyDefinitions[keys.keyIds[i]].teeIds.length;
+        }
+        uint64[] memory unavailableKeyIds = new uint64[](keyIdsLength);
+        address[] memory teeIds = new address[](count);
+        uint64[] memory keyIds = new uint64[](count);
+        count = 0;
+        uint256 threshold = 0;
+        uint256 unavailableKeyIdsCounter = 0;
+        for (uint256 i = 0; i < keyIdsLength; i++) {
+            bool keyAvailable = false;
+            uint64 keyId = keys.keyIds[i];
+            KeyDefinition storage keyDefinition = keys.keyDefinitions[keyId];
+            for (uint256 j = 0; j < keyDefinition.teeIds.length; j++) {
+                IMachineManager.TeeStatus status =
+                    MachineManager.getTeeMachineStatus(keyDefinition.teeIds[j]);
+                if (status == IMachineManager.TeeStatus.PRODUCTION) {
+                    keyAvailable = true;
+                    teeIds[count] = keyDefinition.teeIds[j];
+                    keyIds[count] = keyId;
+                    count++;
+                }
+            }
+            if (keyAvailable) {
+                threshold++;
+            } else {
+                unavailableKeyIds[unavailableKeyIdsCounter++] = keyId;
+            }
+        }
+        require(threshold >= keys.multisigThreshold, IWalletKeyManager.ThresholdNotMet());
+        _teeIdKeyIdPairs = new TeeIdKeyIdPair[](count);
+        for (uint256 i = 0; i < count; i++) {
+            _teeIdKeyIdPairs[i] = TeeIdKeyIdPair({
+                teeId: teeIds[i],
+                keyId: keyIds[i]
+            });
+        }
+        if (unavailableKeyIdsCounter > 0) {
+            // solhint-disable-next-line no-inline-assembly
+            assembly { mstore(unavailableKeyIds, unavailableKeyIdsCounter) }
+            emit IWalletKeyManager.WalletKeysNotAvailable(_walletId, unavailableKeyIds);
+        }
+    }
+
     function getWalletKeysInfo(
         bytes32 _walletId
     )
@@ -107,77 +178,6 @@ library WalletKeyManager {
         returns (uint256)
     {
         return getState().walletKeys[_walletId].keyDefinitions[_keyId].nonces[_teeId];
-    }
-
-    function increaseKeyNonce(
-        address _teeId,
-        bytes32 _walletId,
-        uint64 _keyId
-    )
-        internal
-        returns (uint256)
-    {
-        TeeWalletKeysState storage keys = getState().walletKeys[_walletId];
-        KeyDefinition storage keyDefinition = keys.keyDefinitions[_keyId];
-        require(keyDefinition.publicKey.length > 0, IWalletKeyManager.InvalidKeyId());
-        return ++keyDefinition.nonces[_teeId];
-    }
-
-    /**
-     * Returns wallet's receiving tees and keys.
-     * Reverts if not enough receiving tees are available.
-     */
-    function receivingTeesAndKeys(
-        bytes32 _walletId
-    )
-        internal
-        returns (TeeIdKeyIdPair[] memory _teeIdKeyIdPairs)
-    {
-        TeeWalletKeysState storage keys = getState().walletKeys[_walletId];
-        uint256 keyIdsLength = keys.keyIds.length;
-        uint256 count = 0;
-        for (uint256 i = 0; i < keyIdsLength; i++) {
-            count += keys.keyDefinitions[keys.keyIds[i]].teeIds.length;
-        }
-        uint64[] memory unavailableKeyIds = new uint64[](keyIdsLength);
-        address[] memory teeIds = new address[](count);
-        uint64[] memory keyIds = new uint64[](count);
-        count = 0;
-        uint256 threshold = 0;
-        uint256 unavailableKeyIdsCounter = 0;
-        for (uint256 i = 0; i < keyIdsLength; i++) {
-            bool keyAvailable = false;
-            uint64 keyId = keys.keyIds[i];
-            KeyDefinition storage keyDefinition = keys.keyDefinitions[keyId];
-            for (uint256 j = 0; j < keyDefinition.teeIds.length; j++) {
-                IMachineManager.TeeStatus status =
-                    MachineManager.getTeeMachineStatus(keyDefinition.teeIds[j]);
-                if (status == IMachineManager.TeeStatus.PRODUCTION) {
-                    keyAvailable = true;
-                    teeIds[count] = keyDefinition.teeIds[j];
-                    keyIds[count] = keyId;
-                    count++;
-                }
-            }
-            if (keyAvailable) {
-                threshold++;
-            } else {
-                unavailableKeyIds[unavailableKeyIdsCounter++] = keyId;
-            }
-        }
-        require(threshold >= keys.multisigThreshold, IWalletKeyManager.ThresholdNotMet());
-        _teeIdKeyIdPairs = new TeeIdKeyIdPair[](count);
-        for (uint256 i = 0; i < count; i++) {
-            _teeIdKeyIdPairs[i] = TeeIdKeyIdPair({
-                teeId: teeIds[i],
-                keyId: keyIds[i]
-            });
-        }
-        if (unavailableKeyIdsCounter > 0) {
-            // solhint-disable-next-line no-inline-assembly
-            assembly { mstore(unavailableKeyIds, unavailableKeyIdsCounter) }
-            emit IWalletKeyManager.WalletKeysNotAvailable(_walletId, unavailableKeyIds);
-        }
     }
 
     function getState()

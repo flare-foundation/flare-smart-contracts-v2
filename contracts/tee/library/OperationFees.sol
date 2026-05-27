@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
+import { IOperationFees } from "../../userInterfaces/tee/IOperationFees.sol";
+
 /**
  * @title OperationFees
  * @notice Library for calculating fees for TEE operations.
@@ -21,6 +23,19 @@ library OperationFees {
     bytes32 internal constant STATE_POSITION = keccak256(
         abi.encode(uint256(keccak256("tee.OperationFees.State")) - 1)
     ) & ~bytes32(uint256(0xff));
+
+    /// Writes the default fee into ERC-7201 storage and emits
+    /// `IOperationFees.DefaultFeeSet`. Shared by `OperationFeesFacet.setDefaultFee`
+    /// (governance-gated runtime setter) and `FlareTeeManagerInit.init` (deploy-time
+    /// initialization). Auth is the caller's responsibility.
+    function setDefaultFee(
+        uint256 _defaultFee
+    )
+        internal
+    {
+        getState().defaultFee = _defaultFee;
+        emit IOperationFees.DefaultFeeSet(_defaultFee);
+    }
 
     function getDefaultFee()
         internal view

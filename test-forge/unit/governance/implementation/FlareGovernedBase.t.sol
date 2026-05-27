@@ -50,13 +50,13 @@ contract FlareGovernedBaseTestHarness is FlareUpgradeableBase {
 
 contract FlareGovernedBaseTest is Test {
 
+    uint256 private constant TIMELOCK = 1 hours;
+
     FlareGovernedBaseTestHarness private harness;
     address private initialGovernance;
     address private productionGovernance;
     address private executor;
     IGovernanceSettings private governanceSettings;
-
-    uint256 private constant TIMELOCK = 1 hours;
 
     function setUp() public {
         initialGovernance = makeAddr("initialGovernance");

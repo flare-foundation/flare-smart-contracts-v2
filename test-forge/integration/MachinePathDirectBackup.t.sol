@@ -453,50 +453,6 @@ contract MachinePathDirectBackupIntegrationTest is Test {
         }
     }
 
-    function _governanceFor(address _tee) private view returns (bytes32) {
-        if (_tee == teeA) return govHashA;
-        if (_tee == teeB) return govHashB;
-        if (_tee == teeC) return govHashC;
-        revert("unknown tee");
-    }
-
-    function _privKeyFor(address _tee) private view returns (uint256) {
-        if (_tee == teeA) return privKeysA[0];
-        if (_tee == teeB) return privKeysB[0];
-        if (_tee == teeC) return privKeysC[0];
-        revert("unknown tee");
-    }
-
-    function _messageHash(uint256 _nonce, IMachinePathManager.MachinePath[] memory _paths)
-        private view
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(
-            bytes32("TEE_MACHINE_PATH_LIST"),
-            block.chainid,
-            extensionId,
-            _nonce,
-            _paths
-        ));
-    }
-
-    function _sig(bytes32 _hash, uint256 _privKey) private pure returns (Signature memory) {
-        return SignatureHelper.createSignature(vm, _hash, _privKey);
-    }
-
-    function _backupId(address _sourceTee) private view returns (IWalletBackupManager.BackupId memory) {
-        return IWalletBackupManager.BackupId({
-            teeId: _sourceTee,
-            walletId: walletId,
-            keyId: keyId,
-            keyType: keyType,
-            signingAlgo: signingAlgo,
-            publicKey: walletKeyPublicKey,
-            rewardEpochId: 1,
-            randomNonce: bytes32("rn")
-        });
-    }
-
     function _wireExternalAddresses() private {
         bytes32[] memory nameHashes = new bytes32[](6);
         address[] memory addresses = new address[](6);
@@ -538,5 +494,49 @@ contract MachinePathDirectBackupIntegrationTest is Test {
         cuts[0] = IDiamond.FacetCut(address(impl), IDiamond.FacetCutAction.Add, s);
         vm.prank(initialGovernance);
         IDiamondCut(address(flareTeeManager)).diamondCut(cuts, address(0), "");
+    }
+
+    function _governanceFor(address _tee) private view returns (bytes32) {
+        if (_tee == teeA) return govHashA;
+        if (_tee == teeB) return govHashB;
+        if (_tee == teeC) return govHashC;
+        revert("unknown tee");
+    }
+
+    function _privKeyFor(address _tee) private view returns (uint256) {
+        if (_tee == teeA) return privKeysA[0];
+        if (_tee == teeB) return privKeysB[0];
+        if (_tee == teeC) return privKeysC[0];
+        revert("unknown tee");
+    }
+
+    function _messageHash(uint256 _nonce, IMachinePathManager.MachinePath[] memory _paths)
+        private view
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(
+            bytes32("TEE_MACHINE_PATH_LIST"),
+            block.chainid,
+            extensionId,
+            _nonce,
+            _paths
+        ));
+    }
+
+    function _backupId(address _sourceTee) private view returns (IWalletBackupManager.BackupId memory) {
+        return IWalletBackupManager.BackupId({
+            teeId: _sourceTee,
+            walletId: walletId,
+            keyId: keyId,
+            keyType: keyType,
+            signingAlgo: signingAlgo,
+            publicKey: walletKeyPublicKey,
+            rewardEpochId: 1,
+            randomNonce: bytes32("rn")
+        });
+    }
+
+    function _sig(bytes32 _hash, uint256 _privKey) private pure returns (Signature memory) {
+        return SignatureHelper.createSignature(vm, _hash, _privKey);
     }
 }

@@ -229,7 +229,7 @@ contract TeePaymentsRegistryTest is Test {
     }
 
     //// getTeePaymentsForSource ////
-    function testGetTeePaymentsForSourceReturnsZeroForUnknown() public view {
+    function testGetTeePaymentsForSourceReturnsZeroForUnknown() public {
         assertEq(registry.getTeePaymentsForSource(SOURCE_ID_1), address(0));
     }
 

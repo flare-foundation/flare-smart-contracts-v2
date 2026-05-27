@@ -1266,20 +1266,6 @@ contract TeePaymentsTest is Test {
         );
     }
 
-    function _createPaymentInstruction(
-        bytes32 _paymentReference
-    )
-        internal pure returns (ITeePayments.PaymentInstruction memory)
-    {
-        return ITeePayments.PaymentInstruction({
-            recipientAddress: "recipientAddress",
-            tokenId: bytes(""),
-            amount: 100,
-            maxFee: 10,
-            paymentReference: _paymentReference
-        });
-    }
-
     function _mockGetCurrentRewardEpochId(uint24 _rewardEpochId) internal {
         vm.mockCall(
             mockFSM,
@@ -1424,6 +1410,20 @@ contract TeePaymentsTest is Test {
             abi.encodeWithSelector(ITeePaymentsFeeScheduleManager.validateAndEncodeSchedules.selector),
             abi.encode(new bytes[](0))
         );
+    }
+
+    function _createPaymentInstruction(
+        bytes32 _paymentReference
+    )
+        internal pure returns (ITeePayments.PaymentInstruction memory)
+    {
+        return ITeePayments.PaymentInstruction({
+            recipientAddress: "recipientAddress",
+            tokenId: bytes(""),
+            amount: 100,
+            maxFee: 10,
+            paymentReference: _paymentReference
+        });
     }
 
 }

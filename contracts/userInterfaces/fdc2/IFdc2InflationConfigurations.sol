@@ -6,9 +6,6 @@ pragma solidity >=0.7.6 <0.9;
  */
 interface IFdc2InflationConfigurations {
 
-    error InvalidIndex();
-    error LengthsMismatch();
-
     /// The FDC2 configuration struct.
     struct Fdc2Configuration {
         // attestation type
@@ -22,6 +19,9 @@ interface IFdc2InflationConfigurations {
         // mode (additional settings interpreted on the client side off-chain)
         uint224 mode;
     }
+
+    error InvalidIndex();
+    error LengthsMismatch();
 
     /**
      * Returns the FDC2 configuration at `_index`.

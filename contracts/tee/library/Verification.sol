@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
+import { IMachineManager, REG_OP_TYPE } from "../../userInterfaces/tee/IMachineManager.sol";
 import { IVerification, TEE_SOURCE_ID } from "../../userInterfaces/tee/IVerification.sol";
+import { IInstructions } from "../../userInterfaces/tee/IInstructions.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { ITeeExtensionStateVerifier } from "../../userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
@@ -10,11 +11,13 @@ import { ITeeAvailabilityCheck, TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE }
 import { IFdc2Hub } from "../../userInterfaces/fdc2/IFdc2Hub.sol";
 import { IFdc2Verification } from "../../userInterfaces/fdc2/IFdc2Verification.sol";
 import { IFlareSystemsManager } from "../../userInterfaces/IFlareSystemsManager.sol";
+import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { Signature } from "../../userInterfaces/ISignature.sol";
 import { MachineManager } from "./MachineManager.sol";
 import { ExtensionManager } from "./ExtensionManager.sol";
 import { SystemStateVerifier } from "./SystemStateVerifier.sol";
 import { ExternalAddresses } from "./ExternalAddresses.sol";
+import { Instructions } from "./Instructions.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /**
@@ -47,8 +50,11 @@ library Verification {
         abi.encode(uint256(keccak256("tee.Verification.State")) - 1)
     ) & ~bytes32(uint256(0xff));
 
+    /// Op command of the TEE machine registration-attestation instruction.
+    bytes32 internal constant TEE_ATTESTATION = bytes32("TEE_ATTESTATION");
+
     // =========================================================================
-    // Methods reused by other facets
+    // Methods reused by other facets (non-view / non-pure first)
     // =========================================================================
 
     /**
@@ -152,15 +158,61 @@ library Verification {
         }
     }
 
-    function getAvailabilityCheckValidity(
-        address _teeId
+    /**
+     * Reuses a still-valid challenge for `_teeId` or generates a fresh one, builds the
+     * `TEE_ATTESTATION` registration message from `_attestingTeeId`'s machine data (with the
+     * teeId fields set to `_teeId`), dispatches the instruction, and emits
+     * `TeeAttestationRequested`. `_attestingTeeId` equals `_teeId` except during replication,
+     * where the attesting work is done on the replicating sibling.
+     * @dev At registration no challenge exists yet (`challengeTs == 0`), so on a real chain —
+     *      where `block.timestamp` far exceeds `challengeValidityDurationSeconds` — a fresh
+     *      challenge is always generated. Auth (who may request) is the caller's responsibility.
+     */
+    function requestTeeAttestation(
+        address _teeId,
+        address _attestingTeeId,
+        address _claimBackAddress
     )
-        internal view
-        returns (uint64 _endTs, uint32 _lastSigningPolicyId)
+        internal
     {
-        AvailabilityCheckValidity storage validity = getState().availabilityCheckValidity[_teeId];
-        _endTs = validity.endTs;
-        _lastSigningPolicyId = validity.lastSigningPolicyId;
+        State storage s = getState();
+        bytes32 challenge;
+        if (s.challengeTs[_teeId] + s.challengeValidityDurationSeconds > block.timestamp) {
+            challenge = s.challenges[_teeId];
+        } else {
+            (uint256 randomNumber,,) = IRelay(ExternalAddresses.getState().relay).getRandomNumber();
+            challenge = keccak256(abi.encode(_teeId, block.timestamp, randomNumber));
+            s.challenges[_teeId] = challenge;
+            s.challengeTs[_teeId] = block.timestamp;
+        }
+
+        IMachineManager.TeeMachineWithAttestationData memory teeMachineWithAttestationData =
+            MachineManager.getTeeMachineWithAttestationData(_attestingTeeId);
+        IMachineManager.TeeMachine memory teeMachine = MachineManager.getTeeMachine(_attestingTeeId);
+        teeMachineWithAttestationData.teeId = _teeId;
+        teeMachine.teeId = _teeId;
+
+        IVerification.TeeAttestation memory message = IVerification.TeeAttestation({
+            teeMachine: teeMachineWithAttestationData,
+            challenge: challenge
+        });
+        IMachineManager.TeeMachine[] memory teeMachines =
+            new IMachineManager.TeeMachine[](1);
+        teeMachines[0] = teeMachine;
+
+        Instructions.sendInstructions(
+            bytes32(0),
+            teeMachines,
+            IInstructions.TeeInstructionParams(
+                REG_OP_TYPE,
+                TEE_ATTESTATION,
+                abi.encode(message),
+                new address[](0),
+                0,
+                _claimBackAddress
+            )
+        );
+        emit IVerification.TeeAttestationRequested(_teeId, challenge);
     }
 
     function checkSigningPolicySignatures(
@@ -177,34 +229,6 @@ library Verification {
             rewardEpochId == _currentRewardEpochId || rewardEpochId + 1 == _currentRewardEpochId,
             IVerification.InvalidSigningPolicy()
         );
-    }
-
-    function checkCosignerSignatures(
-        bytes32 _messageHash,
-        Signature[] calldata _signatures
-    )
-        internal view
-    {
-        State storage s = getState();
-        if (s.cosignersThreshold == 0) {
-            return;
-        }
-        ExternalAddresses.State storage ext = ExternalAddresses.getState();
-        address[] memory cosignersList = IFdc2Verification(ext.fdc2Verification)
-            .recoverCosigners(_signatures, _messageHash);
-        require(cosignersList.length >= s.cosignersThreshold, IVerification.CosignersThresholdNotMet());
-        for (uint256 i = 0; i < cosignersList.length; i++) {
-            require(s.cosigners.contains(cosignersList[i]), ITeeCommonErrors.InvalidCosigner(cosignersList[i]));
-        }
-    }
-
-    function toCosignersMessageHash(
-        bytes32 _messageHash
-    )
-        internal pure
-        returns (bytes32)
-    {
-        return keccak256(bytes.concat(hex"010000000000", _messageHash));
     }
 
     function requestFdc2Attestation(
@@ -246,16 +270,6 @@ library Verification {
         );
     }
 
-    function isSigningPolicyValid(
-        uint256 _signingPolicyId,
-        uint256 _currentRewardEpochId
-    )
-        internal view
-        returns (bool)
-    {
-        return _signingPolicyId + getState().signingPolicyValidityDurationInRewardEpochs >= _currentRewardEpochId;
-    }
-
     function updateSettings(
         uint64 _availabilityCheckValidityDurationSeconds,
         uint64 _signingPolicyValidityDurationInRewardEpochs,
@@ -275,6 +289,59 @@ library Verification {
             _signingPolicyValidityDurationInRewardEpochs,
             _challengeValidityDurationSeconds
         );
+    }
+
+    // =========================================================================
+    // Methods reused by other facets (view / pure)
+    // =========================================================================
+
+    function getAvailabilityCheckValidity(
+        address _teeId
+    )
+        internal view
+        returns (uint64 _endTs, uint32 _lastSigningPolicyId)
+    {
+        AvailabilityCheckValidity storage validity = getState().availabilityCheckValidity[_teeId];
+        _endTs = validity.endTs;
+        _lastSigningPolicyId = validity.lastSigningPolicyId;
+    }
+
+    function checkCosignerSignatures(
+        bytes32 _messageHash,
+        Signature[] calldata _signatures
+    )
+        internal view
+    {
+        State storage s = getState();
+        if (s.cosignersThreshold == 0) {
+            return;
+        }
+        ExternalAddresses.State storage ext = ExternalAddresses.getState();
+        address[] memory cosignersList = IFdc2Verification(ext.fdc2Verification)
+            .recoverCosigners(_signatures, _messageHash);
+        require(cosignersList.length >= s.cosignersThreshold, IVerification.CosignersThresholdNotMet());
+        for (uint256 i = 0; i < cosignersList.length; i++) {
+            require(s.cosigners.contains(cosignersList[i]), ITeeCommonErrors.InvalidCosigner(cosignersList[i]));
+        }
+    }
+
+    function isSigningPolicyValid(
+        uint256 _signingPolicyId,
+        uint256 _currentRewardEpochId
+    )
+        internal view
+        returns (bool)
+    {
+        return _signingPolicyId + getState().signingPolicyValidityDurationInRewardEpochs >= _currentRewardEpochId;
+    }
+
+    function toCosignersMessageHash(
+        bytes32 _messageHash
+    )
+        internal pure
+        returns (bytes32)
+    {
+        return keccak256(bytes.concat(hex"010000000000", _messageHash));
     }
 
     function validateDuration(

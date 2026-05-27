@@ -460,7 +460,7 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
     }
 
     //// getEffectiveSchedule — precedence order ////
-    function testGetEffectiveScheduleDefault() public view {
+    function testGetEffectiveScheduleDefault() public {
         bytes32 accountHash = keccak256(abi.encode(SOURCE_ID, accountAddress));
         bytes memory schedule = manager.getEffectiveSchedule(PROJECT_ID, SOURCE_ID, accountHash);
         assertEq(schedule, hex"27100000");
@@ -521,7 +521,7 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
         assertEq(encoded[1], hex"1F400000EC780708");
     }
 
-    function testValidateAndEncodeSchedulesUnconfiguredAllowsSingleInvalidation() public view {
+    function testValidateAndEncodeSchedulesUnconfiguredAllowsSingleInvalidation() public {
         // Source not configured; reissue must still be able to invalidate via a single
         // zero-delay entry with a negative factor.
         int16[][] memory factorsPerPayment = new int16[][](1);
@@ -653,6 +653,30 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
         manager.setFeeScheduleConfigs(inputs);
     }
 
+    function _mockGetOwner(bytes32 _projectId, address _owner) internal {
+        vm.mockCall(
+            flareTeeManager,
+            abi.encodeWithSelector(IWalletProjectManager.getOwner.selector, _projectId),
+            abi.encode(_owner)
+        );
+    }
+
+    function _mockGetWalletId(address _teePayments, bytes32 _walletId) internal {
+        vm.mockCall(
+            _teePayments,
+            abi.encodeWithSelector(ITeePayments.getWalletId.selector),
+            abi.encode(_walletId)
+        );
+    }
+
+    function _mockGetWalletProjectId(bytes32 _walletId, bytes32 _projectId) internal {
+        vm.mockCall(
+            flareTeeManager,
+            abi.encodeWithSelector(IWalletManager.getWalletProjectId.selector, _walletId),
+            abi.encode(_projectId)
+        );
+    }
+
     function _makeSchedule(
         int16 _factor,
         uint16 _delay
@@ -689,29 +713,5 @@ contract TeePaymentsFeeScheduleManagerTest is Test {
             delaySeconds: _d1
         });
         return schedule;
-    }
-
-    function _mockGetOwner(bytes32 _projectId, address _owner) internal {
-        vm.mockCall(
-            flareTeeManager,
-            abi.encodeWithSelector(IWalletProjectManager.getOwner.selector, _projectId),
-            abi.encode(_owner)
-        );
-    }
-
-    function _mockGetWalletId(address _teePayments, bytes32 _walletId) internal {
-        vm.mockCall(
-            _teePayments,
-            abi.encodeWithSelector(ITeePayments.getWalletId.selector),
-            abi.encode(_walletId)
-        );
-    }
-
-    function _mockGetWalletProjectId(bytes32 _walletId, bytes32 _projectId) internal {
-        vm.mockCall(
-            flareTeeManager,
-            abi.encodeWithSelector(IWalletManager.getWalletProjectId.selector, _walletId),
-            abi.encode(_projectId)
-        );
     }
 }
