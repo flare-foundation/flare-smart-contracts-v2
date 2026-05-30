@@ -425,7 +425,6 @@ contract WalletPaymentsTest is Test {
                 cosignerSignatures: new Signature[](0)
             }),
             header: IFdc2Hub.Fdc2ResponseHeader({
-                chainId: block.chainid,
                 attestationType: bytes32("PMWMultisigAccountConfigured"),
                 sourceId: XRP_SOURCE_ID,
                 thresholdBIPS: 0,

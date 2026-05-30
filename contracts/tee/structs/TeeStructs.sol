@@ -7,7 +7,6 @@ import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilit
 interface TeeStructs {
 
     struct Instruction {
-        uint256 chainId;
         bytes32 instructionId;
         address teeId;
         uint64 timestamp;
@@ -21,6 +20,7 @@ interface TeeStructs {
     }
 
     struct Attestation {
+        uint256 chainId;
         bytes32 challenge;
         PublicKey publicKey;
         uint32 initialSigningPolicyId;
@@ -29,6 +29,8 @@ interface TeeStructs {
         bytes32 lastSigningPolicyHash;
         ITeeAvailabilityCheck.TeeState state;
         uint64 teeTimestamp;
+        uint256 machinePathListNonce;
+        bytes32 machinePathListHash;
     }
 
     struct VoteSequenceInit {

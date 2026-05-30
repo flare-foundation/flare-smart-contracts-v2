@@ -18,7 +18,6 @@ library ExtensionManager {
 
     struct TeeVersion {
         string version;
-        bytes32 governanceHash;
         /// Supported platforms.
         EnumerableSet.Bytes32Set platforms;
     }
@@ -99,16 +98,6 @@ library ExtensionManager {
         returns (bool)
     {
         return getState().extensions[_extensionId].codeHashPlatformDisabled[_codeHash][_platform];
-    }
-
-    function getTeeGovernanceHash(
-        uint256 _extensionId,
-        bytes32 _codeHash
-    )
-        internal view
-        returns (bytes32)
-    {
-        return getState().extensions[_extensionId].codeHashToVersion[_codeHash].governanceHash;
     }
 
     function isCodeHashPlatformSupported(

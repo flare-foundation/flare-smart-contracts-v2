@@ -10,7 +10,6 @@ import { IMachineManager } from "./IMachineManager.sol";
 import { IVerification } from "./IVerification.sol";
 import { IOperationFees } from "./IOperationFees.sol";
 import { IOwnerAllowlist } from "./IOwnerAllowlist.sol";
-import { ISystemStateVerifier } from "./ISystemStateVerifier.sol";
 import { IWalletManager } from "./IWalletManager.sol";
 import { IWalletResume } from "./IWalletResume.sol";
 import { IWalletKeyManager } from "./IWalletKeyManager.sol";
@@ -22,7 +21,6 @@ import { IReplication } from "./IReplication.sol";
 import { IExtensionGovernance } from "./IExtensionGovernance.sol";
 import { IExtensionPausing } from "./IExtensionPausing.sol";
 import { IExternalAddresses } from "./IExternalAddresses.sol";
-import { IUpgradeManager } from "./IUpgradeManager.sol";
 import { IMachinePathManager } from "./IMachinePathManager.sol";
 import { IDiamondGovernance } from "./IDiamondGovernance.sol";
 import { ITeeCommonErrors } from "./ITeeCommonErrors.sol";
@@ -46,7 +44,6 @@ interface IFlareTeeManager is
     IVerification,
     IOperationFees,
     IOwnerAllowlist,
-    ISystemStateVerifier,
     IWalletManager,
     IWalletResume,
     IWalletKeyManager,
@@ -58,7 +55,6 @@ interface IFlareTeeManager is
     IExtensionGovernance,
     IExtensionPausing,
     IExternalAddresses,
-    IUpgradeManager,
     IMachinePathManager,
     IDiamondGovernance
 {

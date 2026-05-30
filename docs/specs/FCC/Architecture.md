@@ -61,12 +61,11 @@ The 22 facets and what they expose:
 | [`InstructionsFacet`](../../../contracts/tee/facets/InstructionsFacet.sol) | `Instructions` | The main `sendInstructions` entry — fee-validated TEE instruction dispatch. Also: register / unregister system-instructions sender contracts. |
 | [`MachineEmergencyPauseFacet`](../../../contracts/tee/facets/MachineEmergencyPauseFacet.sol) | `MachineEmergencyPause` | Per-extension emergency-pause overlay + pauser/unpauser delegation lists. While an extension is emergency-paused, `Instructions.sendInstructions` rejects every dispatch (regular and system opTypes) targeting machines in the paused extension. Statuses and active sets are untouched; off-chain readers should consult `isExtensionEmergencyPaused`. After unpause, a governance-tunable grace window blocks third-party expired-availability `pause()` calls so owners can refresh attestations. Day-1 facet. |
 | [`MachineManagerFacet`](../../../contracts/tee/facets/MachineManagerFacet.sol) | `MachineManager` | TEE machine registration, status changes (initialized → production → paused → upgraded), ownership transfers, attestation acceptance. |
-| [`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol) | `MachinePathManager` | Per-extension governance-signed allow-list of `(sourceTeeIds[], destinationTeeIds[])` paths. Generic primitive; currently gates [`WalletBackupManagerFacet.directBackup` / `directRestore`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol). Day-1 facet. |
+| [`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol) | `MachinePathManager` | Per-extension governance-signed allow-list of `(sourceTeeIds[], destinationTeeIds[])` paths. Generic primitive; gates [`WalletBackupManagerFacet.directBackup` / `directRestore`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol) and [`ReplicationFacet.replicateFrom`](../../../contracts/tee/facets/ReplicationFacet.sol). Day-1 facet. |
 | [`OperationFeesFacet`](../../../contracts/tee/facets/OperationFeesFacet.sol) | `OperationFees` | Per-extension, per-`(opType, opCommand)` fee schedule. Lookup methods used by `InstructionsFacet` to compute the required fee. |
 | [`OwnerAllowlistFacet`](../../../contracts/tee/facets/OwnerAllowlistFacet.sol) | `OwnerAllowlist` | Per-extension allowlist of TEE-machine owners. Only allowlisted addresses can register machines for that extension. |
-| [`ReplicationFacet`](../../../contracts/tee/facets/ReplicationFacet.sol) | `Replication` | TEE machine replication: pair primary and replicate machines, control replication state. |
-| [`SystemStateVerifierFacet`](../../../contracts/tee/facets/SystemStateVerifierFacet.sol) | `SystemStateVerifier` | Verifies that a TEE machine's signature is over a system-state-consistent message (signing policy hash, etc.). |
-| [`UpgradeManagerFacet`](../../../contracts/tee/facets/UpgradeManagerFacet.sol) | `UpgradeManager` | Per-extension TEE software upgrade flow — sign-off by extension governance, schedule activation. |
+| [`ReplicationFacet`](../../../contracts/tee/facets/ReplicationFacet.sol) | `Replication` | TEE machine replication: pair primary and replicate machines, control replication state. Authorisation is delegated to [`MachinePathManagerFacet`](../../../contracts/tee/facets/MachinePathManagerFacet.sol). |
+| (library only) `SystemStateVerifier` | — | Cross-checks the TEE-attested `TeeSystemState { status, initialTeeId }` payload against the chain's stored `initialTeeId`. Library-only (no diamond facet exposes it externally); consumed by `Verification._validateResponseBody`. Single uniform strict-compare path — callers `toProduction` / `replicateFrom` pre-commit the expected `initialTeeId` at `INITIALIZED → out` transitions so the comparison succeeds iff the TEE attests it. |
 | [`VerificationFacet`](../../../contracts/tee/facets/VerificationFacet.sol) | `Verification` | Verify TEE attestation data (availability checks, code hash, platform), signing policies, challenges. |
 | [`VrfFacet`](../../../contracts/tee/facets/VrfFacet.sol) | `Vrf` | Verifiable random function over TEE keys. |
 | [`WalletBackupManagerFacet`](../../../contracts/tee/facets/WalletBackupManagerFacet.sol) | `WalletKeyManager` | Wallet key backup (Shamir secret-sharing) — submit shares, finalize backup. |
@@ -119,10 +118,10 @@ ExtensionManager ←── MachineManager ←── Instructions ←── (most
                                                                       │
                                                                       ├── WalletBackupManager (uses same lib)
                                                                       └── WalletResume
-                                            UpgradeManager ←── ExtensionGovernance
                                             MachinePathManager ←── ExtensionGovernance
                                                                     ↑
-                                                         (read by WalletBackupManager.directBackup/directRestore)
+                                                         (read by ReplicationFacet.replicateFrom and
+                                                          WalletBackupManager.directBackup/directRestore)
                                             Vrf (own state, calls MachineManager)
                                             OwnerAllowlist (own state)
 ```
@@ -150,7 +149,7 @@ Cross-library structs live in [`contracts/tee/structs/`](../../../contracts/tee/
 - `TeeInstructionsStructs` — `TeeInstructionParams` (the body of an instruction), `TeeOperationParams`.
 - `TeePaymentsStructs` — payment / fee schedule structs.
 - `TeeWalletStructs` — wallet, key, admin set structs.
-- `TeeUpgradeStructs` — upgrade lifecycle.
+- `TeeReplicationStructs` — replication payload structs (`PauseForUpgrade`, `ReplicateTeeMachine`).
 - `TeeMachinePathStructs` — machine path lists (`MachinePath` exposer for ABI codegen).
 - `TeeVerificationStructs`, `TeeVrfStructs` — verification-flow specifics.
 

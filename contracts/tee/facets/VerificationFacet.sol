@@ -221,7 +221,6 @@ contract VerificationFacet is IIVerification, FlareGovernedAccess {
     {
         IFdc2Hub.Fdc2ResponseHeader calldata header = _proof.header;
         require(
-            header.chainId == block.chainid &&
             header.thresholdBIPS == 0 &&
             header.attestationType == PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE,
             InvalidAttestation()

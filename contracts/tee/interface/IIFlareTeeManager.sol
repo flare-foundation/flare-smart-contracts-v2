@@ -22,7 +22,6 @@ import { IVrf } from "../../userInterfaces/tee/IVrf.sol";
 import { IIReplication } from "./IIReplication.sol";
 import { IExtensionGovernance } from "../../userInterfaces/tee/IExtensionGovernance.sol";
 import { IExtensionPausing } from "../../userInterfaces/tee/IExtensionPausing.sol";
-import { IUpgradeManager } from "../../userInterfaces/tee/IUpgradeManager.sol";
 import { IMachinePathManager } from "../../userInterfaces/tee/IMachinePathManager.sol";
 import { IIExternalAddresses } from "./IIExternalAddresses.sol";
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
@@ -57,7 +56,6 @@ interface IIFlareTeeManager is
     IIReplication,
     IExtensionGovernance,
     IExtensionPausing,
-    IUpgradeManager,
     IMachinePathManager,
     IIExternalAddresses
 {

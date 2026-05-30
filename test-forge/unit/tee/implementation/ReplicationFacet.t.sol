@@ -10,7 +10,7 @@ import { SignatureHelper } from "../../../utils/SignatureHelper.sol";
 import { IIFlareTeeManager } from "../../../../contracts/tee/interface/IIFlareTeeManager.sol";
 import { IReplication } from "../../../../contracts/userInterfaces/tee/IReplication.sol";
 import { IMachineManager } from "../../../../contracts/userInterfaces/tee/IMachineManager.sol";
-import { IUpgradeManager } from "../../../../contracts/userInterfaces/tee/IUpgradeManager.sol";
+import { IMachinePathManager } from "../../../../contracts/userInterfaces/tee/IMachinePathManager.sol";
 import {
     TEE_SOURCE_ID
 } from "../../../../contracts/userInterfaces/tee/IVerification.sol";
@@ -69,8 +69,6 @@ contract ReplicationFacetTest is Test {
     address private newTeeProxyId;
     string private newTeeUrl;
 
-    uint256 private teeUpgradeId;
-
     Signer[] private governanceSigners;
     uint64 private governanceSignersThreshold;
 
@@ -78,11 +76,9 @@ contract ReplicationFacetTest is Test {
     uint64 private cosignersThreshold;
 
     bytes32 private governanceHash;
-    bytes32 private governanceHash2;
     bytes32 private codeHash1;
     bytes32 private codeHash2;
     bytes32[] private platforms1;
-    bytes32[] private platforms2;
 
     uint256 private randomNumber;
     uint256 private teeIdRegistrationTs;
@@ -109,8 +105,6 @@ contract ReplicationFacetTest is Test {
         newTeeId = wallet.addr;
         newTeeProxyId = makeAddr("newTeeProxyId");
         newTeeUrl = "https://new.tee.proxy.url";
-
-        teeUpgradeId = 0;
 
         initialGovernance = makeAddr("initialGovernance");
         addressUpdater = makeAddr("AddressUpdater");
@@ -179,7 +173,6 @@ contract ReplicationFacetTest is Test {
         codeHash1 = keccak256(abi.encodePacked("codeHash1"));
         codeHash2 = keccak256(abi.encodePacked("codeHash2"));
         platforms1.push(keccak256(abi.encodePacked("platform1")));
-        platforms2.push(keccak256(abi.encodePacked("platform1")));
 
         governanceHash = keccak256(abi.encode(_getSignersAddresses(governanceSigners), governanceSignersThreshold));
 
@@ -238,7 +231,7 @@ contract ReplicationFacetTest is Test {
         );
 
         // Add version for codeHash1
-        _addTeeVersion("v1.0.0", codeHash1, platforms1, governanceHash);
+        _addTeeVersion("v1.0.0", codeHash1, platforms1);
 
         // Allow owner
         address[] memory owners = new address[](1);
@@ -258,11 +251,12 @@ contract ReplicationFacetTest is Test {
         flareTeeManager.toPauseForUpgrade(teeId, address(0));
     }
 
-    function testToPauseForUpgradeRevertInvalidTeeStatus() public {
+    function testToPauseForUpgradeRevertNotReplicationCapableInitialized() public {
         _registerTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
-        // TEE machine is in INITIALIZED state
+        // TEE machine is in INITIALIZED state — `initialTeeId` has not been captured yet, so the
+        // replication-capable modifier fires before the status check.
         vm.startPrank(owner);
-        vm.expectRevert(IMachineManager.InvalidTeeStatus.selector);
+        vm.expectRevert(abi.encodeWithSelector(IReplication.NotReplicationCapable.selector, teeId));
         flareTeeManager.toPauseForUpgrade{value: 100}(teeId, address(0));
         vm.stopPrank();
     }
@@ -310,10 +304,10 @@ contract ReplicationFacetTest is Test {
             newTeeId, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]
         );
         vm.expectRevert(IReplication.OnlyMachineOwner.selector);
-        flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
+        flareTeeManager.replicateFrom{value: 200}(teeId, proof, address(0));
     }
 
-    function testReplicateFromRevertInvalidTeeStatus1() public {
+    function testReplicateFromHappyPathRetryAfterFirstCall() public {
         _setupForReplication();
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(
             newTeeId, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]
@@ -321,18 +315,18 @@ contract ReplicationFacetTest is Test {
         _signProofWithCosigners(proof);
         vm.warp(block.timestamp + 1);
         vm.prank(owner);
-        flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
-        // Now newTeeId is REPLICATING. Try again - second replicateFrom with same pair is a retry (allowed).
-        // This tests the successful retry path rather than a revert scenario.
+        flareTeeManager.replicateFrom{value: 200}(teeId, proof, address(0));
+        // newTeeId is now REPLICATING — a second replicateFrom with the same pair is a retry (allowed).
+        IMachineManager.TeeStatus newStatus = flareTeeManager.getTeeMachineStatus(newTeeId);
+        assertEq(uint256(newStatus), uint256(IMachineManager.TeeStatus.REPLICATING));
     }
 
-    function testReplicateFromRevertInvalidTeeStatus2() public {
+    function testReplicateFromRevertInvalidTeeStatusRetryAfterReplicationConfirmed() public {
         // Test retry path: old tee has replication to newTee
         assertEq(flareTeeManager.getReplicatingTeeId(teeId), address(0));
         testReplicateFrom();
         assertEq(flareTeeManager.getReplicatingTeeId(teeId), newTeeId);
         // newTeeId is now REPLICATING, and replications[teeId] == newTeeId
-        // Verify replication state is correctly set after first replicateFrom
         IMachineManager.TeeStatus newStatus = flareTeeManager.getTeeMachineStatus(newTeeId);
         assertEq(uint256(newStatus), uint256(IMachineManager.TeeStatus.REPLICATING));
     }
@@ -362,7 +356,8 @@ contract ReplicationFacetTest is Test {
             publicKey: pk2,
             initialOwner: owner,
             codeHash: codeHash2,
-            platform: platforms1[0]
+            platform: platforms1[0],
+            governanceHash: governanceHash
         });
         Signature memory sig = SignatureHelper.createSignature(
             vm, keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, data)), wallet2.privateKey
@@ -375,7 +370,7 @@ contract ReplicationFacetTest is Test {
         );
         vm.prank(owner);
         vm.expectRevert(IReplication.ExtensionMismatch.selector);
-        flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
+        flareTeeManager.replicateFrom{value: 200}(teeId, proof, address(0));
     }
 
     function testReplicateFromRevertVersionNotSupported() public {
@@ -386,15 +381,16 @@ contract ReplicationFacetTest is Test {
         vm.prank(owner);
         flareTeeManager.toPauseForUpgrade{value: 100}(teeId, address(0));
 
-        // Register new tee with unsupported codeHash (codeHash2 not yet added as a version)
-        // We need codeHash2+platform to be supported for registration but not for the upgrade check
-        // Actually, the registration itself requires isCodeHashPlatformSupported
-        // So we need to add version, register, then disable it
-        _addTeeVersion("v2.0.0", codeHash2, platforms1, governanceHash);
-        _createTeeUpgradePathAndSign();
+        // We need codeHash2+platform to be supported for registration but not for the upgrade check.
+        // Add version, register, then disable it after registration.
+        _addTeeVersion("v2.0.0", codeHash2, platforms1);
 
         vm.warp(block.timestamp + 1);
         _registerTee(newTeeId, newTeePrivateKey, newTeePublicKey, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]);
+
+        // Path list must be signed AFTER newTeeId is registered (path-list eligibility derives its
+        // governance hash from the machine state).
+        _createAndSignMachinePathList(teeId, newTeeId);
 
         // Disable the code hash platform after registration
         vm.prank(extensionOwner);
@@ -405,10 +401,12 @@ contract ReplicationFacetTest is Test {
         );
         vm.prank(owner);
         vm.expectRevert(ITeeCommonErrors.VersionNotSupported.selector);
-        flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
+        flareTeeManager.replicateFrom{value: 200}(teeId, proof, address(0));
     }
 
-    function testReplicateFromRevertInvalidUpgradePath() public {
+    function testReplicateFromRevertNoActiveMachinePathList() public {
+        // No machine-path list has been signed for the extension yet — replicateFrom must revert
+        // with NoActiveMachinePathList.
         _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
         vm.prank(owner);
         flareTeeManager.pause(teeId);
@@ -416,58 +414,7 @@ contract ReplicationFacetTest is Test {
         vm.prank(owner);
         flareTeeManager.toPauseForUpgrade{value: 100}(teeId, address(0));
 
-        _addTeeVersion("v2.0.0", codeHash2, platforms1, governanceHash);
-        // Create upgrade with non-matching paths (so path validation fails)
-        vm.prank(extensionOwner);
-        flareTeeManager.createNewTeeUpgrade(extensionId, governanceHash, governanceHash);
-        // Add paths that don't match old->new (use codeHash2->codeHash2 instead of codeHash1->codeHash2)
-        IUpgradeManager.TeeUpgradePath[] memory wrongPaths =
-            new IUpgradeManager.TeeUpgradePath[](1);
-        IUpgradeManager.TeeNodeVersion[] memory wrongSource =
-            new IUpgradeManager.TeeNodeVersion[](1);
-        wrongSource[0] = IUpgradeManager.TeeNodeVersion(codeHash2, platforms1[0]);
-        IUpgradeManager.TeeNodeVersion[] memory wrongTarget =
-            new IUpgradeManager.TeeNodeVersion[](1);
-        wrongTarget[0] = IUpgradeManager.TeeNodeVersion(codeHash1, platforms1[0]);
-        wrongPaths[0] = IUpgradeManager.TeeUpgradePath(wrongSource, wrongTarget);
-        vm.prank(extensionOwner);
-        flareTeeManager.addTeeUpgradePaths(0, wrongPaths);
-        vm.prank(extensionOwner);
-        flareTeeManager.finalizeTeeUpgrade(0);
-        // Sign upgrade
-        _signTeeUpgrade(
-            0, governanceSigners, governanceSignersThreshold, governanceSigners, governanceSignersThreshold
-        );
-
-        vm.warp(block.timestamp + 1);
-        _registerTee(newTeeId, newTeePrivateKey, newTeePublicKey, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]);
-
-        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(
-            newTeeId, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]
-        );
-        _signProofWithCosigners(proof);
-        vm.warp(block.timestamp + 1);
-        vm.prank(owner);
-        vm.expectRevert(IReplication.InvalidUpgradePath.selector);
-        flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
-    }
-
-    function testReplicateFromRevertTeeUpgradeNotSigned() public {
-        _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
-        vm.prank(owner);
-        flareTeeManager.pause(teeId);
-        vm.warp(block.timestamp + 1000);
-        vm.prank(owner);
-        flareTeeManager.toPauseForUpgrade{value: 100}(teeId, address(0));
-
-        _addTeeVersion("v2.0.0", codeHash2, platforms1, governanceHash);
-        // Create upgrade with paths but DON'T sign
-        vm.prank(extensionOwner);
-        flareTeeManager.createNewTeeUpgrade(extensionId, governanceHash, governanceHash);
-        _addUpgradePaths(0);
-        vm.prank(extensionOwner);
-        flareTeeManager.finalizeTeeUpgrade(0);
-        // Don't sign!
+        _addTeeVersion("v2.0.0", codeHash2, platforms1);
 
         vm.warp(block.timestamp + 1);
         _registerTee(newTeeId, newTeePrivateKey, newTeePublicKey, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]);
@@ -476,8 +423,44 @@ contract ReplicationFacetTest is Test {
             newTeeId, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]
         );
         vm.prank(owner);
-        vm.expectRevert(IReplication.TeeUpgradeNotSigned.selector);
-        flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
+        vm.expectRevert(IMachinePathManager.NoActiveMachinePathList.selector);
+        flareTeeManager.replicateFrom{value: 200}(teeId, proof, address(0));
+    }
+
+    function testReplicateFromRevertInvalidMachinePath() public {
+        // A path-list is signed and active, but doesn't contain the (teeId, newTeeId) pair.
+        _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
+        vm.prank(owner);
+        flareTeeManager.pause(teeId);
+        vm.warp(block.timestamp + 1000);
+        vm.prank(owner);
+        flareTeeManager.toPauseForUpgrade{value: 100}(teeId, address(0));
+
+        _addTeeVersion("v2.0.0", codeHash2, platforms1);
+
+        vm.warp(block.timestamp + 1);
+        _registerTee(newTeeId, newTeePrivateKey, newTeePublicKey, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]);
+
+        // Sign a list that does NOT include newTeeId on the destination side: use a dummy
+        // destination teeId not registered as the replication target.
+        address otherTee = makeAddr("otherTee");
+        _registerTee(
+            otherTee,
+            vm.createWallet("otherTee").privateKey,
+            _publicKeyFromWallet(vm.createWallet("otherTee")),
+            makeAddr("otherProxy"),
+            "https://other",
+            codeHash2,
+            platforms1[0]
+        );
+        _createAndSignMachinePathList(teeId, otherTee);
+
+        ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(
+            newTeeId, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]
+        );
+        vm.prank(owner);
+        vm.expectRevert(IMachinePathManager.InvalidMachinePath.selector);
+        flareTeeManager.replicateFrom{value: 200}(teeId, proof, address(0));
     }
 
     function testReplicateFromRevertInvalidAvailabilityCheckStatus() public {
@@ -488,7 +471,7 @@ contract ReplicationFacetTest is Test {
         proof.responseBody.status = ITeeAvailabilityCheck.AvailabilityCheckStatus.DOWN;
         vm.prank(owner);
         vm.expectRevert(ITeeCommonErrors.InvalidAvailabilityCheckStatus.selector);
-        flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
+        flareTeeManager.replicateFrom{value: 200}(teeId, proof, address(0));
     }
 
     function testReplicateFromRevertAvailabilityCheckTimestampInvalid() public {
@@ -501,7 +484,7 @@ contract ReplicationFacetTest is Test {
         // The AvailabilityCheckTimestampInvalid error includes the challengeTs parameter
         vm.prank(owner);
         vm.expectRevert(); // AvailabilityCheckTimestampInvalid with parameter
-        flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
+        flareTeeManager.replicateFrom{value: 200}(teeId, proof, address(0));
     }
 
     function testReplicateFromRevertInvalidResponseData() public {
@@ -516,11 +499,14 @@ contract ReplicationFacetTest is Test {
         vm.warp(block.timestamp + 1);
         vm.prank(owner);
         vm.expectRevert(ITeeCommonErrors.InvalidResponseData.selector);
-        flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
+        flareTeeManager.replicateFrom{value: 200}(teeId, proof, address(0));
     }
 
     function testReplicateFrom() public {
         _setupForReplication();
+        // The path-list created in _setupForReplication is the first one signed for this extension,
+        // so its activation nonce is 1.
+        uint256 expectedNonce = 1;
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(
             newTeeId, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]
         );
@@ -528,12 +514,13 @@ contract ReplicationFacetTest is Test {
         vm.warp(block.timestamp + 1);
         vm.prank(owner);
         vm.expectEmit();
-        emit IReplication.TeeMachineReplicationTriggered(teeId, newTeeId, teeUpgradeId);
-        flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, address(0));
+        emit IReplication.TeeMachineReplicationTriggered(teeId, newTeeId, expectedNonce);
+        flareTeeManager.replicateFrom{value: 200}(teeId, proof, address(0));
     }
 
     function testReplicateFromWithClaimBackAddress() public {
         _setupForReplication();
+        uint256 expectedNonce = 1;
         address claimBack = makeAddr("claimBack");
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProof(
             newTeeId, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]
@@ -542,8 +529,8 @@ contract ReplicationFacetTest is Test {
         vm.warp(block.timestamp + 1);
         vm.prank(owner);
         vm.expectEmit();
-        emit IReplication.TeeMachineReplicationTriggered(teeId, newTeeId, teeUpgradeId);
-        flareTeeManager.replicateFrom{value: 200}(teeId, proof, teeUpgradeId, claimBack);
+        emit IReplication.TeeMachineReplicationTriggered(teeId, newTeeId, expectedNonce);
+        flareTeeManager.replicateFrom{value: 200}(teeId, proof, claimBack);
     }
 
     // confirmReplicate
@@ -571,10 +558,6 @@ contract ReplicationFacetTest is Test {
         // Now teeId is PAUSED_FOR_UPGRADE, newTeeId is REPLICATING
         // confirmReplicate calls _replicate which copies new tee data into old tee,
         // then verifies the proof against the updated old tee data.
-        // So the proof must use:
-        // - requestBody.teeId = teeId (old)
-        // - requestBody.teeProxyId/url = newTee's values (since they get copied)
-        // - requestBody.challenge = teeId's original challenge (from registration)
 
         ITeeAvailabilityCheck.Proof memory proof = _createAvailabilityCheckProofForConfirm(
             teeId, newTeeProxyId, newTeeUrl
@@ -626,6 +609,11 @@ contract ReplicationFacetTest is Test {
     // Helper functions
     // =========================================================================
 
+    function _publicKeyFromWallet(VmSafe.Wallet memory _wallet) private pure returns (PublicKey memory _pk) {
+        _pk.x = bytes32(_wallet.publicKeyX);
+        _pk.y = bytes32(_wallet.publicKeyY);
+    }
+
     function _registerTee(
         address _teeId,
         uint256 _privateKey,
@@ -642,7 +630,8 @@ contract ReplicationFacetTest is Test {
             publicKey: _publicKey,
             initialOwner: owner,
             codeHash: _codeHash,
-            platform: _platform
+            platform: _platform,
+            governanceHash: governanceHash
         });
         Signature memory sig = SignatureHelper.createSignature(
             vm, keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, data)), _privateKey
@@ -679,7 +668,6 @@ contract ReplicationFacetTest is Test {
         private
     {
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
-            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -697,8 +685,7 @@ contract ReplicationFacetTest is Test {
         );
         ISystemStateVerifier.TeeSystemState memory systemState = ISystemStateVerifier.TeeSystemState(
             ISystemStateVerifier.TeeMachineStatus.ACTIVE,
-            _teeId,
-            governanceHash
+            _teeId
         );
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
@@ -751,13 +738,12 @@ contract ReplicationFacetTest is Test {
     function _addTeeVersion(
         string memory _version,
         bytes32 _codeHash,
-        bytes32[] memory _platforms,
-        bytes32 _govHash
+        bytes32[] memory _platforms
     )
         private
     {
         vm.prank(extensionOwner);
-        flareTeeManager.addTeeVersion(extensionId, _version, _codeHash, _platforms, _govHash);
+        flareTeeManager.addTeeVersion(extensionId, _version, _codeHash, _platforms);
     }
 
     function _addTeeVersionForExtension(
@@ -775,73 +761,43 @@ contract ReplicationFacetTest is Test {
             _getSignersAddresses(governanceSigners),
             governanceSignersThreshold
         );
-        bytes32 govHash = keccak256(abi.encode(_getSignersAddresses(governanceSigners), governanceSignersThreshold));
         vm.prank(extensionOwner);
-        flareTeeManager.addTeeVersion(_extensionId, _version, _codeHash, _platforms, govHash);
+        flareTeeManager.addTeeVersion(_extensionId, _version, _codeHash, _platforms);
     }
 
-    function _createTeeUpgradePathAndSign() private {
-        vm.prank(extensionOwner);
-        flareTeeManager.createNewTeeUpgrade(extensionId, governanceHash, governanceHash);
-        _addUpgradePaths(0);
-        vm.prank(extensionOwner);
-        flareTeeManager.finalizeTeeUpgrade(0);
-        _signTeeUpgrade(
-            0, governanceSigners, governanceSignersThreshold,
-            governanceSigners, governanceSignersThreshold
-        );
-    }
-
-    function _addUpgradePaths(uint256 _upgradeId) private {
-        IUpgradeManager.TeeUpgradePath[] memory upgradePaths =
-            new IUpgradeManager.TeeUpgradePath[](1);
-        IUpgradeManager.TeeNodeVersion[] memory sourceVersions =
-            new IUpgradeManager.TeeNodeVersion[](1);
-        sourceVersions[0] = IUpgradeManager.TeeNodeVersion(codeHash1, platforms1[0]);
-        IUpgradeManager.TeeNodeVersion[] memory targetVersions =
-            new IUpgradeManager.TeeNodeVersion[](1);
-        targetVersions[0] = IUpgradeManager.TeeNodeVersion(codeHash2, platforms1[0]);
-        upgradePaths[0] = IUpgradeManager.TeeUpgradePath(sourceVersions, targetVersions);
-        vm.prank(extensionOwner);
-        flareTeeManager.addTeeUpgradePaths(_upgradeId, upgradePaths);
-    }
-
-    function _signTeeUpgrade(
-        uint256 _upgradeId,
-        Signer[] storage _sourceSigners,
-        uint64 _sourceThreshold,
-        Signer[] storage _targetSigners,
-        uint64 _targetThreshold
+    /**
+     * Creates, finalizes and signs a machine-path list authorizing the (_source, _destination) pair.
+     * Returns the activated list nonce.
+     */
+    function _createAndSignMachinePathList(
+        address _source,
+        address _destination
     )
         private
+        returns (uint256 _nonce)
     {
-        // Mirror UpgradeManagerFacet.finalizeTeeUpgrade's bound messageHash. In this file the
-        // source and target governance hashes are always the same (`governanceHash`); see
-        // _createTeeUpgradePathAndSign which calls createNewTeeUpgrade(extensionId, governanceHash, governanceHash).
-        bytes32 messageHash = keccak256(
-            abi.encode(
-                bytes32("TEE_UPGRADE"),
-                block.chainid,
-                extensionId,
-                _upgradeId,
-                governanceHash,
-                governanceHash,
-                flareTeeManager.getTeeUpgradePaths(_upgradeId)
-            )
-        );
-        // Sign with source governance signers
-        for (uint256 i = 0; i < _sourceThreshold; i++) {
-            Signature memory signature =
-                SignatureHelper.createSignature(vm, messageHash, _sourceSigners[i].privateKey);
-            flareTeeManager.signTeeUpgrade(_upgradeId, signature);
-        }
-        // Sign with target governance signers (if different from source, they share signers here)
-        for (uint256 i = 0; i < _targetThreshold; i++) {
-            // Check if this signer already signed
-            if (i < _sourceThreshold) continue; // already signed above
-            Signature memory signature =
-                SignatureHelper.createSignature(vm, messageHash, _targetSigners[i].privateKey);
-            flareTeeManager.signTeeUpgrade(_upgradeId, signature);
+        vm.prank(extensionOwner);
+        _nonce = flareTeeManager.createNewMachinePathList(extensionId);
+
+        IMachinePathManager.MachinePath[] memory paths = new IMachinePathManager.MachinePath[](1);
+        address[] memory sources = new address[](1);
+        sources[0] = _source;
+        address[] memory destinations = new address[](1);
+        destinations[0] = _destination;
+        paths[0] = IMachinePathManager.MachinePath(sources, destinations);
+        vm.prank(extensionOwner);
+        flareTeeManager.addMachinePaths(extensionId, _nonce, paths);
+
+        vm.prank(extensionOwner);
+        flareTeeManager.finalizeMachinePathList(extensionId, _nonce);
+
+        // Sign with `governanceSignersThreshold` distinct governance signers.
+        bytes32 messageHash = flareTeeManager.getMachinePathListMessageHash(extensionId, _nonce);
+        for (uint256 i = 0; i < governanceSignersThreshold; i++) {
+            Signature memory sig = SignatureHelper.createSignature(
+                vm, messageHash, governanceSigners[i].privateKey
+            );
+            flareTeeManager.signMachinePathList(extensionId, _nonce, sig);
         }
     }
 
@@ -849,9 +805,8 @@ contract ReplicationFacetTest is Test {
         // Register and produce old tee
         _registerAndProduceTee(teeId, teePrivateKey, teePublicKey, teeProxyId, teeUrl, codeHash1, platforms1[0]);
 
-        // Add new version and create upgrade path
-        _addTeeVersion("v2.0.0", codeHash2, platforms1, governanceHash);
-        _createTeeUpgradePathAndSign();
+        // Add new version
+        _addTeeVersion("v2.0.0", codeHash2, platforms1);
 
         // Pause and upgrade old tee
         vm.prank(owner);
@@ -860,9 +815,13 @@ contract ReplicationFacetTest is Test {
         vm.prank(owner);
         flareTeeManager.toPauseForUpgrade{value: 100}(teeId, address(0));
 
-        // Register new tee
+        // Register new tee (status: INITIALIZED — that is fine for path-list membership;
+        // the path-list helper no longer requires PRODUCTION on either side).
         vm.warp(block.timestamp + 1);
         _registerTee(newTeeId, newTeePrivateKey, newTeePublicKey, newTeeProxyId, newTeeUrl, codeHash2, platforms1[0]);
+
+        // Authorize (teeId, newTeeId) replication path through a signed machine-path list.
+        _createAndSignMachinePathList(teeId, newTeeId);
     }
 
     function _signProofWithCosigners(
@@ -907,7 +866,6 @@ contract ReplicationFacetTest is Test {
         returns (ITeeAvailabilityCheck.Proof memory)
     {
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
-            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -925,8 +883,7 @@ contract ReplicationFacetTest is Test {
         );
         ISystemStateVerifier.TeeSystemState memory systemState = ISystemStateVerifier.TeeSystemState(
             ISystemStateVerifier.TeeMachineStatus.ACTIVE,
-            _teeId,
-            governanceHash
+            _teeId
         );
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
@@ -959,7 +916,6 @@ contract ReplicationFacetTest is Test {
         // but after _replicate copies new data into old state:
         // - teeProxyId, url, codeHash, platform, initialTeeId = new tee's values
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
-            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -975,11 +931,11 @@ contract ReplicationFacetTest is Test {
             keccak256(abi.encode(_oldTeeId, block.timestamp, randomNumber)),
             keccak256(abi.encode(extensionId))
         );
-        // After replication, old tee's initialTeeId = newTeeId (copied from new state)
+        // After replication, old tee's initialTeeId = newTeeId (copied from new state); the
+        // TEE software answering at the new proxy reports its own provisioning identity (newTeeId).
         ISystemStateVerifier.TeeSystemState memory systemState = ISystemStateVerifier.TeeSystemState(
             ISystemStateVerifier.TeeMachineStatus.ACTIVE,
-            newTeeId,
-            governanceHash
+            newTeeId
         );
         // After replication copy, old tee will have new tee's codeHash2 and platform
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(

@@ -48,18 +48,21 @@ function register(
 ) external payable;
 ```
 
-Caller is the proposed owner (`msg.sender == _teeMachineData.initialOwner`). Validation:
+Caller is the proposed owner (`msg.sender == _teeMachineData.initialOwner`). `TeeMachineData` carries the extension id, the TEE public key, the initial owner, the `(codeHash, platform)` pair, **and a `governanceHash`** committing the registration to a specific extension-governance signer set (or to zero if the registrant doesn't yet want to participate in governance-signed flows). Validation:
 
 - The caller's address must be on the **owner allowlist** for the target extension ([`OwnerAllowlist.isAllowedTeeMachineOwner`](../../../contracts/tee/library/OwnerAllowlist.sol)). If not, `OwnerNotAllowed()`.
+- `governanceHash` must be either `bytes32(0)` *or* the extension's current `latestTeeGovernanceHash` (the most recent value set by `ExtensionGovernanceFacet.setNewTeeGovernance`). Earlier or unrelated hashes are rejected with `InvalidGovernanceHash()`. The hash is then stored on the machine's `TeeMachineState.governanceHash` slot and consumed later by `MachinePathManager` (see [Governance / Machine path manager](./Governance.md#machine-path-manager)) and by `ReplicationFacet` — both require a non-zero stored hash.
 - `publicKey` must be a valid uncompressed secp256k1 public key.
-- `_teeMachineDataSignature` must be the signature, by the corresponding TEE private key, over `keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, _teeMachineData))`. The recovered address becomes the `teeId`. The domain tag and `block.chainid` are bound into the payload so the same TEE registration signature cannot be replayed across Flare networks.
+- `_teeMachineDataSignature` must be the signature, by the corresponding TEE private key, over `keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, _teeMachineData))`. The recovered address becomes the `teeId`. The domain tag and `block.chainid` are bound into the payload so the same TEE registration signature cannot be replayed across Flare networks. Since the encoded `_teeMachineData` includes the `governanceHash`, the TEE itself commits to the governance it's registering under.
 - `_teeProxyId != 0`, `_url` non-empty.
 - `(codeHash, platform)` must be on the extension's supported version list ([`ExtensionManager.isCodeHashPlatformSupported`](../../../contracts/tee/library/ExtensionManager.sol)).
 - `teeId` must not already be registered (`AlreadyRegistered()`).
 
-On success the state row is initialized at `INITIALIZED`. The facet then fires an **initial availability-check instruction** — a system-only `(F_REG, "TEE_ATTESTATION")` instruction directed at this single machine, with a random `challenge`. The challenge is stored in `Verification.State.challenges[teeId]` so the response can be matched. The fee paid (`msg.value`) covers the instruction fee.
+On success the state row is initialized at `INITIALIZED` with `initialTeeId = 0`. The `initialTeeId` slot is **deferred** — it is captured at the first successful availability check (in `toProduction` or `replicateFrom`) from the TEE's signed `TeeSystemState` payload. A TEE binary that supports replication signs a populated payload; the chain stores the attested value. A binary that doesn't support replication signs empty, and `initialTeeId` stays zero permanently — which is the on-chain marker that the machine cannot be replicated, even if its `governanceHash` is non-zero. See [Verification / System state verification](./Verification.md#system-state-verification) for the verifier semantics.
 
-`TeeMachineRegistered(teeId, teeProxyId, owner, extensionId, url, codeHash, platform)` is emitted.
+The facet then fires an **initial availability-check instruction** — a system-only `(F_REG, "TEE_ATTESTATION")` instruction directed at this single machine, with a random `challenge`. The challenge is stored in `Verification.State.challenges[teeId]` so the response can be matched. The fee paid (`msg.value`) covers the instruction fee.
+
+`TeeMachineRegistered(teeId, teeProxyId, owner, extensionId, url, codeHash, platform, governanceHash)` is emitted.
 
 ## Going to PRODUCTION
 

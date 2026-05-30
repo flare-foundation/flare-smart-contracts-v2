@@ -53,6 +53,7 @@ contract TestEmHelperFacet is ITestEmHelper {
             lastStatusChangeTs: block.timestamp,
             codeHash: bytes32(0),
             platform: bytes32(0),
+            governanceHash: bytes32(0),
             url: _url
         });
         if (_status == IMachineManager.TeeStatus.PRODUCTION) {

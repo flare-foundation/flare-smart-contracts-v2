@@ -393,7 +393,7 @@ const config: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: "0.8.30",
+        version: "0.8.34",
         settings: {
           evmVersion: "cancun",
           optimizer: {
@@ -425,7 +425,7 @@ const config: HardhatUserConfig = {
       },
       // enable IR only for files that require deeper stack handling (contracts in P256 usage path)
       "@openzeppelin/contracts/utils/cryptography/P256.sol": {
-        version: "0.8.30",
+        version: "0.8.34",
         settings: {
           evmVersion: "cancun",
           optimizer: {
@@ -437,7 +437,7 @@ const config: HardhatUserConfig = {
       },
       // contracts that imports P256
       "contracts/protocol/implementation/NodePossessionVerifier.sol": {
-        version: "0.8.30",
+        version: "0.8.34",
         settings: {
           evmVersion: "cancun",
           optimizer: {

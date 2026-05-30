@@ -192,7 +192,6 @@ export async function deployContracts(
   const INFLATION_ADDR = accounts[7].address;
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-  const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
   const MockContract = hre.artifacts.require("MockContract") as MockContractContract;
   const WNat = hre.artifacts.require("WNat") as WNatContract;
@@ -859,7 +858,6 @@ export async function deployContracts(
     "v0.1.0",
     TEE_CODE_HASH,
     TEE_PLATFORMS.map((platform) => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
-    ZERO_BYTES32,
     { from: governanceAccount.address }
   );
 
@@ -1068,7 +1066,6 @@ export async function deployContracts(
     "v0.1.0",
     TEE_EXTENSION_CODE_HASH,
     TEE_PLATFORMS.map((platform: string) => web3.utils.utf8ToHex(platform).padEnd(66, "0")),
-    ZERO_BYTES32,
     { from: extensionOwnerAccount.address }
   );
 

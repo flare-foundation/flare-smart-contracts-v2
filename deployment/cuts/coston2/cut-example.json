@@ -10,7 +10,6 @@
     "VerificationFacet",
     "OperationFeesFacet",
     "OwnerAllowlistFacet",
-    "SystemStateVerifierFacet",
     "WalletManagerFacet",
     "WalletKeyManagerFacet",
     "WalletProjectManagerFacet",
@@ -20,7 +19,6 @@
     "MachinePathManagerFacet",
     "ReplicationFacet",
     "ExtensionPausingFacet",
-    "UpgradeManagerFacet",
     "WalletResumeFacet"
   ],
   "deleteAllOldMethods": false,

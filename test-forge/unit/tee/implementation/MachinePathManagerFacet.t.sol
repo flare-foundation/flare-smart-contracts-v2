@@ -24,6 +24,7 @@ interface ITestMachinePathHelper {
         uint256 _extensionId,
         bytes32 _codeHash,
         bytes32 _platform,
+        bytes32 _governanceHash,
         IMachineManager.TeeStatus _status
     ) external;
 }
@@ -32,7 +33,7 @@ interface ITestMachinePathHelper {
  * @notice Test-only facet that writes TEE machine state directly into MachineManager storage,
  *         bypassing the production registration + attestation flow. Mirrors the helper pattern
  *         used in WalletKeyManagerFacet.t.sol but specialised for machine-path tests where the
- *         codeHash and platform must be controllable.
+ *         codeHash, platform and governance hash must be controllable.
  */
 contract TestMachinePathHelperFacet is ITestMachinePathHelper {
 
@@ -41,22 +42,25 @@ contract TestMachinePathHelperFacet is ITestMachinePathHelper {
         uint256 _extensionId,
         bytes32 _codeHash,
         bytes32 _platform,
+        bytes32 _governanceHash,
         IMachineManager.TeeStatus _status
     )
         external
     {
         MachineManager.State storage s = MachineManager.getState();
+        // owner must be non-zero — MachineManager.getTeeMachineState reverts TeeNotFound otherwise.
         s.teeMachineStates[_teeId] = MachineManager.TeeMachineState({
             extensionId: _extensionId,
             teePublicKey: PublicKey(bytes32(0), bytes32(0)),
             initialTeeId: _teeId,
             initialSigningPolicyId: 0,
-            owner: address(0),
+            owner: address(uint160(uint256(uint160(_teeId)) ^ 1)),
             teeProxyId: _teeId,
             status: _status,
             lastStatusChangeTs: block.timestamp,
             codeHash: _codeHash,
             platform: _platform,
+            governanceHash: _governanceHash,
             url: ""
         });
     }
@@ -175,7 +179,7 @@ contract MachinePathManagerFacetTest is Test {
         vm.prank(owner);
         flareTeeManager.setNewTeeGovernance(extensionId, signersA, 1);
         vm.prank(owner);
-        flareTeeManager.addTeeVersion(extensionId, "vA", codeHashA, platforms, govHashA);
+        flareTeeManager.addTeeVersion(extensionId, "vA", codeHashA, platforms);
 
         signersB = new address[](1);
         privKeysB = new uint256[](1);
@@ -184,7 +188,7 @@ contract MachinePathManagerFacetTest is Test {
         vm.prank(owner);
         flareTeeManager.setNewTeeGovernance(extensionId, signersB, 1);
         vm.prank(owner);
-        flareTeeManager.addTeeVersion(extensionId, "vB", codeHashB, platforms, govHashB);
+        flareTeeManager.addTeeVersion(extensionId, "vB", codeHashB, platforms);
 
         signersC = new address[](1);
         privKeysC = new uint256[](1);
@@ -193,7 +197,7 @@ contract MachinePathManagerFacetTest is Test {
         vm.prank(owner);
         flareTeeManager.setNewTeeGovernance(extensionId, signersC, 1);
         vm.prank(owner);
-        flareTeeManager.addTeeVersion(extensionId, "vC", codeHashC, platforms, govHashC);
+        flareTeeManager.addTeeVersion(extensionId, "vC", codeHashC, platforms);
 
         // Set up a governance under `otherExtensionId` so `extensionId` ≠ `otherExtensionId`
         // machines can be mismatch-tested.
@@ -201,20 +205,30 @@ contract MachinePathManagerFacetTest is Test {
         flareTeeManager.setNewTeeGovernance(otherExtensionId, signersA, 1);
         bytes32 govHashAOther = keccak256(abi.encode(signersA, uint64(1)));
         vm.prank(otherOwner);
-        flareTeeManager.addTeeVersion(otherExtensionId, "vAOther", codeHashA, platforms, govHashAOther);
+        flareTeeManager.addTeeVersion(otherExtensionId, "vAOther", codeHashA, platforms);
 
-        // Pre-register TEE machines (PRODUCTION) bound to their codeHashes.
+        // Pre-register TEE machines (PRODUCTION) bound to their codeHashes + governance hashes
+        // (the governance hash is now stored per-machine, not per-codeHash).
         teeA1 = makeAddr("teeA1");
         teeA2 = makeAddr("teeA2");
         teeB1 = makeAddr("teeB1");
         teeC1 = makeAddr("teeC1");
         teeA1Other = makeAddr("teeA1Other");
-        helper.setTeeMachineState(teeA1, extensionId, codeHashA, platform, IMachineManager.TeeStatus.PRODUCTION);
-        helper.setTeeMachineState(teeA2, extensionId, codeHashA, platform, IMachineManager.TeeStatus.PRODUCTION);
-        helper.setTeeMachineState(teeB1, extensionId, codeHashB, platform, IMachineManager.TeeStatus.PRODUCTION);
-        helper.setTeeMachineState(teeC1, extensionId, codeHashC, platform, IMachineManager.TeeStatus.PRODUCTION);
         helper.setTeeMachineState(
-            teeA1Other, otherExtensionId, codeHashA, platform, IMachineManager.TeeStatus.PRODUCTION
+            teeA1, extensionId, codeHashA, platform, govHashA, IMachineManager.TeeStatus.PRODUCTION
+        );
+        helper.setTeeMachineState(
+            teeA2, extensionId, codeHashA, platform, govHashA, IMachineManager.TeeStatus.PRODUCTION
+        );
+        helper.setTeeMachineState(
+            teeB1, extensionId, codeHashB, platform, govHashB, IMachineManager.TeeStatus.PRODUCTION
+        );
+        helper.setTeeMachineState(
+            teeC1, extensionId, codeHashC, platform, govHashC, IMachineManager.TeeStatus.PRODUCTION
+        );
+        helper.setTeeMachineState(
+            teeA1Other, otherExtensionId, codeHashA, platform, govHashAOther,
+            IMachineManager.TeeStatus.PRODUCTION
         );
     }
 
@@ -322,30 +336,33 @@ contract MachinePathManagerFacetTest is Test {
         flareTeeManager.addMachinePaths(extensionId, nonce, paths);
     }
 
-    function testAddMachinePathsRevertTeeIdNotEligible() public {
-        // teeA1 is INITIALIZED — not eligible.
+    function testAddMachinePathsRevertGovernanceHashZero() public {
+        // teeA1 has its governance hash cleared — not eligible regardless of status.
         helper.setTeeMachineState(
-            teeA1, extensionId, codeHashA, platform, IMachineManager.TeeStatus.INITIALIZED
+            teeA1, extensionId, codeHashA, platform, bytes32(0), IMachineManager.TeeStatus.PRODUCTION
         );
         uint256 nonce = _newList();
         vm.prank(owner);
-        vm.expectRevert(IMachinePathManager.TeeIdNotEligible.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IMachinePathManager.GovernanceHashZero.selector, teeA1)
+        );
         flareTeeManager.addMachinePaths(extensionId, nonce, _onePath(teeA1, teeA2));
     }
 
-    function testAddMachinePathsAcceptsAllNonInitializedStatuses() public {
-        // Each of the non-INITIALIZED statuses should be accepted as a source. We use teeA1 as a
-        // shape-shifting test machine — re-stamping its status before each addMachinePaths call.
-        IMachineManager.TeeStatus[] memory statuses = new IMachineManager.TeeStatus[](6);
-        statuses[0] = IMachineManager.TeeStatus.PRODUCTION;
-        statuses[1] = IMachineManager.TeeStatus.SUSPENDED;
-        statuses[2] = IMachineManager.TeeStatus.PAUSED;
-        statuses[3] = IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE;
-        statuses[4] = IMachineManager.TeeStatus.REPLICATING;
-        statuses[5] = IMachineManager.TeeStatus.BANNED;
+    function testAddMachinePathsAcceptsAllStatuses() public {
+        // Every status is accepted by the path-manager helper as long as a governance hash is set;
+        // status checks are the caller's responsibility (e.g. directBackup requires PRODUCTION).
+        IMachineManager.TeeStatus[] memory statuses = new IMachineManager.TeeStatus[](7);
+        statuses[0] = IMachineManager.TeeStatus.INITIALIZED;
+        statuses[1] = IMachineManager.TeeStatus.PRODUCTION;
+        statuses[2] = IMachineManager.TeeStatus.SUSPENDED;
+        statuses[3] = IMachineManager.TeeStatus.PAUSED;
+        statuses[4] = IMachineManager.TeeStatus.PAUSED_FOR_UPGRADE;
+        statuses[5] = IMachineManager.TeeStatus.REPLICATING;
+        statuses[6] = IMachineManager.TeeStatus.BANNED;
 
         for (uint256 i = 0; i < statuses.length; i++) {
-            helper.setTeeMachineState(teeA1, extensionId, codeHashA, platform, statuses[i]);
+            helper.setTeeMachineState(teeA1, extensionId, codeHashA, platform, govHashA, statuses[i]);
             uint256 nonce = _newList();
             vm.prank(owner);
             flareTeeManager.addMachinePaths(extensionId, nonce, _onePath(teeA1, teeA2));
@@ -587,8 +604,12 @@ contract MachinePathManagerFacetTest is Test {
 
         address teeX = makeAddr("teeX");
         address teeY = makeAddr("teeY");
-        helper.setTeeMachineState(teeX, extensionId, codeHashX, platform, IMachineManager.TeeStatus.PRODUCTION);
-        helper.setTeeMachineState(teeY, extensionId, codeHashY, platform, IMachineManager.TeeStatus.PRODUCTION);
+        helper.setTeeMachineState(
+            teeX, extensionId, codeHashX, platform, govHashX, IMachineManager.TeeStatus.PRODUCTION
+        );
+        helper.setTeeMachineState(
+            teeY, extensionId, codeHashY, platform, govHashY, IMachineManager.TeeStatus.PRODUCTION
+        );
 
         uint256 nonce = _newListWithPath(teeX, teeY);
         vm.prank(owner);
@@ -737,7 +758,7 @@ contract MachinePathManagerFacetTest is Test {
         flareTeeManager.setNewTeeGovernance(extensionId, setX, 1);
         _codeHashX = keccak256("codeHashX");
         vm.prank(owner);
-        flareTeeManager.addTeeVersion(extensionId, "vX", _codeHashX, plats, _govHashX);
+        flareTeeManager.addTeeVersion(extensionId, "vX", _codeHashX, plats);
 
         // Governance Y: [shared, fillerY] — different set → different hash, same shared signer.
         (address fillerY, ) = makeAddrAndKey("fillerY");
@@ -749,7 +770,7 @@ contract MachinePathManagerFacetTest is Test {
         flareTeeManager.setNewTeeGovernance(extensionId, setY, 1);
         _codeHashY = keccak256("codeHashY");
         vm.prank(owner);
-        flareTeeManager.addTeeVersion(extensionId, "vY", _codeHashY, plats, _govHashY);
+        flareTeeManager.addTeeVersion(extensionId, "vY", _codeHashY, plats);
     }
 
     function _newList() private returns (uint256 _nonce) {

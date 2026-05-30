@@ -47,6 +47,7 @@ contract TestTeeMachineSetupFacet {
             lastStatusChangeTs: block.timestamp,
             codeHash: bytes32(0),
             platform: bytes32(0),
+            governanceHash: bytes32(0),
             url: _url
         });
     }
@@ -480,28 +481,28 @@ contract ExtensionManagerFacetTest is Test {
     // addTeeVersion
     function testAddTeeVersionRevertOnlyOwner() public {
         vm.expectRevert(ITeeCommonErrors.OnlyExtensionOwner.selector);
-        flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
+        flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms);
     }
 
     function testAddTeeVersionRevertVersionEmpty() public {
         testRegister();
         vm.prank(owner);
         vm.expectRevert(IExtensionManager.VersionEmpty.selector);
-        flareTeeManager.addTeeVersion(extensionId, "", codeHash, platforms, governanceHash);
+        flareTeeManager.addTeeVersion(extensionId, "", codeHash, platforms);
     }
 
     function testAddTeeVersionRevertCodeHashZero() public {
         testRegister();
         vm.prank(owner);
         vm.expectRevert(IExtensionManager.CodeHashZero.selector);
-        flareTeeManager.addTeeVersion(extensionId, version, "", platforms, governanceHash);
+        flareTeeManager.addTeeVersion(extensionId, version, "", platforms);
     }
 
     function testAddTeeVersionRevertNoPlatforms() public {
         testRegister();
         vm.prank(owner);
         vm.expectRevert(IExtensionManager.NoPlatforms.selector);
-        flareTeeManager.addTeeVersion(extensionId, version, codeHash, new bytes32[](0), governanceHash);
+        flareTeeManager.addTeeVersion(extensionId, version, codeHash, new bytes32[](0));
     }
 
     function testAddTeeVersionRevertUnsupportedPlatform() public {
@@ -513,14 +514,14 @@ contract ExtensionManagerFacetTest is Test {
                 platforms[0]
             )
         );
-        flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
+        flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms);
     }
 
     function testAddTeeVersionRevertVersionAlreadyExists() public {
         testAddTeeVersion();
         vm.prank(owner);
         vm.expectRevert(IExtensionManager.VersionAlreadyExists.selector);
-        flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
+        flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms);
     }
 
     function testAddTeeVersionRevertPlatformAlreadyExists() public {
@@ -536,17 +537,7 @@ contract ExtensionManagerFacetTest is Test {
                 platforms[1]
             )
         );
-        flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
-    }
-
-    function testAddTeeVersionRevertInvalidGovernanceHash() public {
-        testRegister();
-        testAddSystemSupportedPlatforms();
-        _setupTeeGovernanceHash(extensionId, keccak256("someGovernanceHash"));
-        bytes32 wrongHash = keccak256("wrongHash");
-        vm.prank(owner);
-        vm.expectRevert(ITeeCommonErrors.InvalidGovernanceHash.selector);
-        flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, wrongHash);
+        flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms);
     }
 
     function testAddTeeVersion() public {
@@ -555,9 +546,9 @@ contract ExtensionManagerFacetTest is Test {
         vm.prank(owner);
         vm.expectEmit();
         emit IExtensionManager.TeeVersionAdded(
-            extensionId, version, codeHash, platforms, governanceHash
+            extensionId, version, codeHash, platforms
         );
-        flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms, governanceHash);
+        flareTeeManager.addTeeVersion(extensionId, version, codeHash, platforms);
     }
 
     // disableCodeHashPlatform
@@ -780,7 +771,7 @@ contract ExtensionManagerFacetTest is Test {
         // should not revert OnlyOwner
         vm.prank(newOwner);
         vm.expectRevert(IExtensionManager.VersionEmpty.selector);
-        flareTeeManager.addTeeVersion(extensionId, "", codeHash, platforms, governanceHash);
+        flareTeeManager.addTeeVersion(extensionId, "", codeHash, platforms);
     }
 
     // addSystemSupportedPlatforms
@@ -1044,26 +1035,15 @@ contract ExtensionManagerFacetTest is Test {
         assertTrue(val);
     }
 
-    // getTeeGovernanceHash
-    function testGetTeeGovernanceHash() public {
-        bytes32 returnedGovernanceHash = flareTeeManager.getTeeGovernanceHash(extensionId, codeHash);
-        assertEq(returnedGovernanceHash, bytes32(0));
-        testAddTeeVersion();
-        returnedGovernanceHash = flareTeeManager.getTeeGovernanceHash(extensionId, codeHash);
-        assertEq(returnedGovernanceHash, governanceHash);
-    }
-
     // getCodeHashInfo
     function testGetCodeHashInfo() public {
-        (bytes32 returnedGovernanceHash, string memory returnedVersion, bytes32[] memory returnedPlatforms) =
+        (string memory returnedVersion, bytes32[] memory returnedPlatforms) =
             flareTeeManager.getCodeHashInfo(extensionId, codeHash);
-        assertEq(returnedGovernanceHash, bytes32(0));
         assertEq(returnedVersion, "");
         assertEq(returnedPlatforms.length, 0);
         testAddTeeVersion();
-        (returnedGovernanceHash, returnedVersion, returnedPlatforms) =
+        (returnedVersion, returnedPlatforms) =
             flareTeeManager.getCodeHashInfo(extensionId, codeHash);
-        assertEq(returnedGovernanceHash, governanceHash);
         assertEq(returnedVersion, version);
         assertEq(returnedPlatforms.length, 1);
         assertEq(returnedPlatforms[0], platforms[0]);

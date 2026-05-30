@@ -9,8 +9,8 @@ import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilit
 import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { Replication } from "../library/Replication.sol";
 import { MachineManager } from "../library/MachineManager.sol";
+import { MachinePathManager } from "../library/MachinePathManager.sol";
 import { Verification } from "../library/Verification.sol";
-import { UpgradeManager } from "../library/UpgradeManager.sol";
 import { Instructions } from "../library/Instructions.sol";
 import { FlareGovernedAccess } from "../../governance/implementation/FlareGovernedAccess.sol";
 
@@ -31,6 +31,18 @@ contract ReplicationFacet is IIReplication, FlareGovernedAccess {
         _;
     }
 
+    /// Reverts `NotReplicationCapable` unless `_teeId` has both a non-zero `initialTeeId`
+    /// (TEE-attested at first availability check) and a non-zero `governanceHash`
+    /// (owner's commitment at registration). Replication and `toPauseForUpgrade` require both.
+    modifier onlyReplicationCapable(address _teeId) {
+        require(
+            MachineManager.getTeeMachineWithAttestationData(_teeId).initialTeeId != address(0) &&
+            MachineManager.getTeeMachineGovernanceHash(_teeId) != bytes32(0),
+            NotReplicationCapable(_teeId)
+        );
+        _;
+    }
+
     /// @inheritdoc IReplication
     function toPauseForUpgrade(
         address _teeId,
@@ -38,6 +50,7 @@ contract ReplicationFacet is IIReplication, FlareGovernedAccess {
     )
         external payable
         onlyMachineOwner(_teeId)
+        onlyReplicationCapable(_teeId)
     {
         IMachineManager.TeeStatus status = MachineManager.getTeeMachineStatus(_teeId);
         MachineManager.checkTeeStatus(
@@ -71,12 +84,12 @@ contract ReplicationFacet is IIReplication, FlareGovernedAccess {
     function replicateFrom(
         address _oldTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof,
-        uint256 _teeUpgradeId,
         address _claimBackAddress
     )
         external payable
         onlyMachineOwner(_oldTeeId)
         onlyMachineOwner(_proof.requestBody.teeId)
+        onlyReplicationCapable(_oldTeeId)
     {
         address newTeeId = _proof.requestBody.teeId;
         IMachineManager.TeeStatus oldStatus = MachineManager.getTeeMachineStatus(_oldTeeId);
@@ -88,17 +101,41 @@ contract ReplicationFacet is IIReplication, FlareGovernedAccess {
                 newStatus == IMachineManager.TeeStatus.REPLICATING), // retry
             IMachineManager.InvalidTeeStatus()
         );
+
+        // The destination machine's `governanceHash` is committed at registration; require it
+        // non-zero now. The `InvalidSystemStateVersion` guard plus the verifier's strict
+        // `state.initialTeeId == storedInitialTeeId` check together enforce that the new
+        // machine's TEE binary is replication-capable — the pre-write below populates the
+        // stored slot with `newTeeId` so the comparison only passes if the TEE attests it.
+        require(
+            MachineManager.getTeeMachineGovernanceHash(newTeeId) != bytes32(0),
+            NotReplicationCapable(newTeeId)
+        );
+
         uint256 extensionId = MachineManager.getExtensionId(_oldTeeId);
         require(extensionId == MachineManager.getExtensionId(newTeeId), ExtensionMismatch());
+
+        require(_proof.responseBody.state.systemStateVersion != bytes32(0), InvalidSystemStateVersion());
+
+        // Pre-commit the new machine's `initialTeeId` on first attestation so the verifier's
+        // single strict-compare path validates against `newTeeId`. State changes roll back on
+        // any subsequent revert.
+        if (newStatus == IMachineManager.TeeStatus.INITIALIZED) {
+            MachineManager.getState().teeMachineStates[newTeeId].initialTeeId = newTeeId;
+        }
+
         IMachineManager.TeeMachineWithAttestationData memory newTeeMachine =
             MachineManager.getTeeMachineWithAttestationData(newTeeId);
         MachineManager.checkCodeHashPlatformSupported(extensionId, newTeeMachine.codeHash, newTeeMachine.platform);
         IMachineManager.TeeMachineWithAttestationData memory oldTeeMachine =
             MachineManager.getTeeMachineWithAttestationData(_oldTeeId);
-        _checkTeeMachinesCompatible(_teeUpgradeId, extensionId, oldTeeMachine, newTeeMachine);
+        // Authorization: (oldTeeId, newTeeId) must be present in the extension's active path list.
+        // Reverts NoActiveMachinePathList / InvalidMachinePath on miss.
+        uint256 listNonce = MachinePathManager.requireActiveListNonceForPath(
+            extensionId, _oldTeeId, newTeeId
+        );
         MachineManager.validateAvailabilityCheckStatus(_proof.responseBody.status);
         MachineManager.validateAvailabilityCheckTs(newTeeId, _proof.header.timestamp);
-        require(_proof.responseBody.state.systemStateVersion != bytes32(0), InvalidSystemStateVersion());
 
         require(
             Verification.verifyAvailabilityCheckProof(newTeeMachine, newStatus, _proof),
@@ -108,15 +145,8 @@ contract ReplicationFacet is IIReplication, FlareGovernedAccess {
         Replication.getState().replicatingTeeIds[_oldTeeId] = newTeeId;
         MachineManager.changeStatus(newTeeId, IMachineManager.TeeStatus.REPLICATING);
 
-        ReplicateTeeMachine memory message = ReplicateTeeMachine({
-            oldTeeMachine: oldTeeMachine,
-            newTeeMachine: newTeeMachine
-        });
-        address[] memory teeIds = new address[](2);
-        teeIds[0] = _oldTeeId;
-        teeIds[1] = newTeeId;
-        _sendInstructions(teeIds, REPLICATE_FROM, abi.encode(message), _claimBackAddress);
-        emit TeeMachineReplicationTriggered(_oldTeeId, newTeeId, _teeUpgradeId);
+        _triggerReplication(oldTeeMachine, newTeeMachine, listNonce, _claimBackAddress);
+        emit TeeMachineReplicationTriggered(_oldTeeId, newTeeId, listNonce);
     }
 
     /// @inheritdoc IReplication
@@ -163,6 +193,25 @@ contract ReplicationFacet is IIReplication, FlareGovernedAccess {
     // Private helpers
     // =========================================================================
 
+    function _triggerReplication(
+        IMachineManager.TeeMachineWithAttestationData memory _oldTeeMachine,
+        IMachineManager.TeeMachineWithAttestationData memory _newTeeMachine,
+        uint256 _listNonce,
+        address _claimBackAddress
+    )
+        private
+    {
+        ReplicateTeeMachine memory message = ReplicateTeeMachine({
+            oldTeeMachine: _oldTeeMachine,
+            newTeeMachine: _newTeeMachine,
+            machinePathListNonce: _listNonce
+        });
+        address[] memory teeIds = new address[](2);
+        teeIds[0] = _oldTeeMachine.teeId;
+        teeIds[1] = _newTeeMachine.teeId;
+        _sendInstructions(teeIds, REPLICATE_FROM, abi.encode(message), _claimBackAddress);
+    }
+
     function _replicate(
         address _newTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof
@@ -193,11 +242,56 @@ contract ReplicationFacet is IIReplication, FlareGovernedAccess {
         MachineManager.validateAvailabilityCheckStatus(_proof.responseBody.status);
         MachineManager.validateAvailabilityCheckTs(_newTeeId, _proof.header.timestamp);
 
-        // copy TEE machine data from new TEE machine to old TEE machine
+        // Copy TEE machine data from the new TEE machine state into the old TEE machine slot.
+        //
+        // Chain identity preserved
+        // ------------------------
+        // The mapping key (`oldTeeId` → `oldState`) stays — we mutate the value in place, not the
+        // key. Two derived fields also stay (deliberately NOT copied):
+        //
+        //   - teeId / mapping key  — by construction, equals `address(teePublicKey)` (see
+        //                            `MachineManagerFacet.register`, which requires
+        //                            `teeId == PublicKeyUtils.getAddress(publicKey)`).
+        //   - teePublicKey         — stays the OLD TEE's public key. The `REPLICATE_FROM`
+        //                            instruction (sent below) directs the source TEE to securely
+        //                            hand over its *private* key to the destination TEE as part of
+        //                            replication — analogous to, but distinct from, the
+        //                            `KeyDirectBackup`/`KeyDirectRestore` flow that ports
+        //                            *wallet* keys. From that moment on, the new physical TEE
+        //                            holds two keypairs: its own (used only to authorize the
+        //                            takeover) and the old machine's (used to sign and decrypt
+        //                            as `oldTeeId` from now on). Because the new TEE can sign
+        //                            as `oldTeeId`, the on-chain (teeId, teePublicKey) pair must
+        //                            stay the old one — otherwise the derivation invariant
+        //                            `teeId == address(teePublicKey)` would break, and consumers
+        //                            that encrypt to `getPublicKey(oldTeeId)` would target a key
+        //                            the new TEE cannot decrypt.
+        //
+        // Replaced with the new TEE's data
+        // --------------------------------
+        //   - initialTeeId       — the new TEE's provisioning identity (the keypair it was
+        //                          registered with). From now on, availability-check proofs from
+        //                          this slot must attest `state.initialTeeId == new initialTeeId`
+        //                          (see SystemStateVerifier).
+        //   - teeProxyId, url    — the new TEE's proxy address and URL; consumers route requests here.
+        //   - codeHash, platform — the new TEE's software version and hardware platform.
+        //   - governanceHash     — the new TEE's committed extension governance set.
+        //   - initialSigningPolicyId — taken from the just-verified proof (the new TEE's attested
+        //                              starting signing policy), not from `newState`.
+        //   - status             — set to REPLICATING here; `changeStatus(...)` below advances it
+        //                          to PRODUCTION (and refreshes `lastStatusChangeTs`).
+        //
+        // Deliberately NOT copied
+        // -----------------------
+        //   - extensionId — replication is within a single extension; checked equal above.
+        //   - owner       — replication preserves ownership; checked equal above.
+        //   - teePublicKey — see "Chain identity preserved" above.
+        //   - lastStatusChangeTs — refreshed by the subsequent `changeStatus` call.
         oldState.initialTeeId = newState.initialTeeId;
         oldState.teeProxyId = newState.teeProxyId;
         oldState.codeHash = newState.codeHash;
         oldState.platform = newState.platform;
+        oldState.governanceHash = newState.governanceHash;
         oldState.url = newState.url;
         oldState.initialSigningPolicyId = _proof.responseBody.initialSigningPolicyId;
         oldState.status = IMachineManager.TeeStatus.REPLICATING;
@@ -247,27 +341,5 @@ contract ReplicationFacet is IIReplication, FlareGovernedAccess {
                 _claimBackAddress
             )
         );
-    }
-
-    function _checkTeeMachinesCompatible(
-        uint256 _teeUpgradeId,
-        uint256 _extensionId,
-        IMachineManager.TeeMachineWithAttestationData memory _oldTeeMachine,
-        IMachineManager.TeeMachineWithAttestationData memory _newTeeMachine
-    )
-        private view
-    {
-        require(
-            UpgradeManager.isTeeUpgradePathValid(
-                _teeUpgradeId,
-                _extensionId,
-                _oldTeeMachine.codeHash,
-                _oldTeeMachine.platform,
-                _newTeeMachine.codeHash,
-                _newTeeMachine.platform
-            ),
-            InvalidUpgradePath()
-        );
-        require(UpgradeManager.isTeeUpgradeSigned(_teeUpgradeId), TeeUpgradeNotSigned());
     }
 }

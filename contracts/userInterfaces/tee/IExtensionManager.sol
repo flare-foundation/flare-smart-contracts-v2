@@ -34,8 +34,7 @@ interface IExtensionManager is ITeeCommonErrors {
         uint256 indexed extensionId,
         string version,
         bytes32 indexed codeHash,
-        bytes32[] platforms,
-        bytes32 governanceHash
+        bytes32[] platforms
     );
 
     event CodeHashPlatformDisabled(
@@ -146,15 +145,13 @@ interface IExtensionManager is ITeeCommonErrors {
      * @param _version The version.
      * @param _codeHash The code hash.
      * @param _platforms The supported platforms.
-     * @param _governanceHash The governance hash.
      * Can only be called by the extension owner.
      */
     function addTeeVersion(
         uint256 _extensionId,
         string calldata _version,
         bytes32 _codeHash,
-        bytes32[] calldata _platforms,
-        bytes32 _governanceHash
+        bytes32[] calldata _platforms
     )
         external;
 
@@ -373,23 +370,9 @@ interface IExtensionManager is ITeeCommonErrors {
         returns (bool);
 
     /**
-     * Returns the governance hash for the given code hash.
+     * Returns the code hash info (version and platforms).
      * @param _extensionId The id of the extension.
      * @param _codeHash The code hash.
-     * @return _governanceHash The governance hash.
-     */
-    function getTeeGovernanceHash(
-        uint256 _extensionId,
-        bytes32 _codeHash
-    )
-        external view
-        returns (bytes32 _governanceHash);
-
-    /**
-     * Returns the code hash info (governance hash, version and platforms).
-     * @param _extensionId The id of the extension.
-     * @param _codeHash The code hash.
-     * @return _governanceHash The governance hash.
      * @return _version The version.
      * @return _platforms The supported platforms.
      */
@@ -399,7 +382,6 @@ interface IExtensionManager is ITeeCommonErrors {
     )
         external view
         returns (
-            bytes32 _governanceHash,
             string memory _version,
             bytes32[] memory _platforms
         );

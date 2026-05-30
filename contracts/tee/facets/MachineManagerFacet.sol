@@ -3,6 +3,7 @@ pragma solidity ^0.8.27;
 
 import { IMachineManager } from "../../userInterfaces/tee/IMachineManager.sol";
 import { IMachineEmergencyPause } from "../../userInterfaces/tee/IMachineEmergencyPause.sol";
+import { ITeeCommonErrors } from "../../userInterfaces/tee/ITeeCommonErrors.sol";
 import { ITeeAvailabilityCheck } from "../../userInterfaces/fdc2/ITeeAvailabilityCheck.sol";
 import { IRelay } from "../../userInterfaces/IRelay.sol";
 import { PublicKey } from "../../userInterfaces/IPublicKey.sol";
@@ -11,6 +12,7 @@ import { PublicKeyUtils } from "../../utils/lib/PublicKeyUtils.sol";
 import { MachineManager } from "../library/MachineManager.sol";
 import { MachineEmergencyPause } from "../library/MachineEmergencyPause.sol";
 import { ExtensionManager } from "../library/ExtensionManager.sol";
+import { ExtensionGovernance } from "../library/ExtensionGovernance.sol";
 import { OwnerAllowlist } from "../library/OwnerAllowlist.sol";
 import { Verification } from "../library/Verification.sol";
 import { ExternalAddresses } from "../library/ExternalAddresses.sol";
@@ -41,6 +43,12 @@ contract MachineManagerFacet is IMachineManager {
             OwnerAllowlist.isAllowedTeeMachineOwner(_teeMachineData.extensionId, _teeMachineData.initialOwner),
             OwnerNotAllowed()
         );
+        require(
+            _teeMachineData.governanceHash == bytes32(0) ||
+            _teeMachineData.governanceHash ==
+                ExtensionGovernance.getLatestTeeGovernanceHash(_teeMachineData.extensionId),
+            ITeeCommonErrors.InvalidGovernanceHash()
+        );
         require(PublicKeyUtils.isPublicKeyValid(_teeMachineData.publicKey), InvalidTeePublicKey());
         // Bind chainid into the signed payload so a TEE registration signature
         // produced for one Flare network cannot be replayed on another.
@@ -64,31 +72,7 @@ contract MachineManagerFacet is IMachineManager {
             _teeMachineData.platform
         );
 
-        s.teeMachineStates[teeId] = MachineManager.TeeMachineState({
-            extensionId: _teeMachineData.extensionId,
-            initialTeeId: teeId,
-            teePublicKey: _teeMachineData.publicKey,
-            initialSigningPolicyId: 0,
-            owner: _teeMachineData.initialOwner,
-            teeProxyId: _teeProxyId,
-            status: TeeStatus.INITIALIZED,
-            lastStatusChangeTs: block.timestamp,
-            codeHash: _teeMachineData.codeHash,
-            platform: _teeMachineData.platform,
-            url: _url
-        });
-
-        // Registration path: attesting on the machine itself (no prior challenge exists yet).
-        Verification.requestTeeAttestation(teeId, teeId, _claimBackAddress);
-        emit TeeMachineRegistered(
-            teeId,
-            _teeProxyId,
-            _teeMachineData.initialOwner,
-            _teeMachineData.extensionId,
-            _url,
-            _teeMachineData.codeHash,
-            _teeMachineData.platform
-        );
+        _persistAndAttest(s, teeId, _teeMachineData, _teeProxyId, _url, _claimBackAddress);
     }
 
     /// @inheritdoc IMachineManager
@@ -110,13 +94,20 @@ contract MachineManagerFacet is IMachineManager {
         MachineManager.validateAvailabilityCheckStatus(_proof.responseBody.status);
         MachineManager.validateAvailabilityCheckTs(teeId, _proof.header.timestamp);
 
+        if (status == TeeStatus.INITIALIZED) {
+            state.initialSigningPolicyId = _proof.responseBody.initialSigningPolicyId;
+            // Pre-commit the TEE's replication-capability signal so `SystemStateVerifier`'s
+            // single strict-compare path validates `state.initialTeeId == teeId`. Empty
+            // payload (non-replication binary) leaves the slot at zero and the verifier's
+            // empty-payload branch passes. State changes roll back on any subsequent revert.
+            if (_proof.responseBody.state.systemState.length > 0) {
+                state.initialTeeId = teeId;
+            }
+        }
+
         IMachineManager.TeeMachineWithAttestationData memory teeMachine =
             MachineManager.getTeeMachineWithAttestationData(teeId);
         require(Verification.verifyAvailabilityCheckProof(teeMachine, status, _proof), InvalidResponseData());
-
-        if (status == TeeStatus.INITIALIZED) {
-            state.initialSigningPolicyId = _proof.responseBody.initialSigningPolicyId;
-        }
 
         state.status = TeeStatus.PRODUCTION;
         state.lastStatusChangeTs = block.timestamp;
@@ -444,4 +435,50 @@ contract MachineManagerFacet is IMachineManager {
         return MachineManager.getLastStatusChangeTs(_teeId);
     }
 
+    // =========================================================================
+    // Private helpers
+    // =========================================================================
+
+    function _persistAndAttest(
+        MachineManager.State storage _state,
+        address _teeId,
+        TeeMachineData calldata _teeMachineData,
+        address _teeProxyId,
+        string calldata _url,
+        address _claimBackAddress
+    )
+        private
+    {
+        _state.teeMachineStates[_teeId] = MachineManager.TeeMachineState({
+            extensionId: _teeMachineData.extensionId,
+            // initialTeeId is deferred: the TEE attests it in its first availability check via
+            // a populated `TeeSystemState`. A machine whose binary does not support replication
+            // attests empty, leaving the value at zero — which is the on-chain marker that the
+            // machine cannot be replicated.
+            initialTeeId: address(0),
+            teePublicKey: _teeMachineData.publicKey,
+            initialSigningPolicyId: 0,
+            owner: _teeMachineData.initialOwner,
+            teeProxyId: _teeProxyId,
+            status: TeeStatus.INITIALIZED,
+            lastStatusChangeTs: block.timestamp,
+            codeHash: _teeMachineData.codeHash,
+            platform: _teeMachineData.platform,
+            governanceHash: _teeMachineData.governanceHash,
+            url: _url
+        });
+
+        // Registration path: attesting on the machine itself (no prior challenge exists yet).
+        Verification.requestTeeAttestation(_teeId, _teeId, _claimBackAddress);
+        emit TeeMachineRegistered(
+            _teeId,
+            _teeProxyId,
+            _teeMachineData.initialOwner,
+            _teeMachineData.extensionId,
+            _url,
+            _teeMachineData.codeHash,
+            _teeMachineData.platform,
+            _teeMachineData.governanceHash
+        );
+    }
 }

@@ -67,11 +67,11 @@ interface IMachinePathManager {
     error NoPaths();
     error NoSourceTeeIds();
     error NoDestinationTeeIds();
-    error TeeIdNotEligible();
     error SourceTeeIdAlreadyExists();
     error DestinationTeeIdAlreadyExists();
     error SignerAlreadySigned();
     error UnrecognizedSigner();
+    error GovernanceHashZero(address teeId);
 
     /**
      * Creates a new (empty) machine-path list for the given extension and returns its nonce.

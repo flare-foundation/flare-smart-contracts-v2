@@ -15,7 +15,7 @@ import { IExtensionGovernance } from "../../contracts/userInterfaces/tee/IExtens
 import { IReplication } from "../../contracts/userInterfaces/tee/IReplication.sol";
 import { IVerification, TEE_SOURCE_ID } from "../../contracts/userInterfaces/tee/IVerification.sol";
 import { ISystemStateVerifier } from "../../contracts/userInterfaces/tee/ISystemStateVerifier.sol";
-import { IUpgradeManager } from "../../contracts/userInterfaces/tee/IUpgradeManager.sol";
+import { IMachinePathManager } from "../../contracts/userInterfaces/tee/IMachinePathManager.sol";
 import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ExtensionManager } from "../../contracts/tee/library/ExtensionManager.sol";
 
@@ -39,8 +39,8 @@ import { IRelay } from "../../contracts/userInterfaces/IRelay.sol";
 import { IGovernanceSettings } from "@flarenetwork/flare-periphery-contracts/flare/IGovernanceSettings.sol";
 
 import { PublicKey } from "../../contracts/userInterfaces/IPublicKey.sol";
-import { SignatureHelper } from "../utils/SignatureHelper.sol";
 import { Signature } from "../../contracts/userInterfaces/ISignature.sol";
+import { SignatureHelper } from "../utils/SignatureHelper.sol";
 
 // solhint-disable-next-line max-states-count
 contract TeeMachineReplicationTest is Test {
@@ -369,7 +369,7 @@ contract TeeMachineReplicationTest is Test {
 
     function testAddTeeVersion() public {
         testSetGovernanceHash();
-        _addTeeVersion("v1.0.0", codeHash1, platforms1, governanceHash1);
+        _addTeeVersion("v1.0.0", codeHash1, platforms1);
     }
 
     function testAddAllowedTeeMachineOwners() public {
@@ -391,7 +391,7 @@ contract TeeMachineReplicationTest is Test {
         vm.prank(teeMachineOwner);
         vm.expectEmit();
         emit IMachineManager.TeeMachineRegistered(
-            teeId, teeProxyId, teeMachineOwner, extensionId, teeUrl, codeHash1, platforms1[0]
+            teeId, teeProxyId, teeMachineOwner, extensionId, teeUrl, codeHash1, platforms1[0], governanceHash1
         );
 
         IMachineManager.TeeMachineData memory teeMachineData = IMachineManager.TeeMachineData({
@@ -399,7 +399,8 @@ contract TeeMachineReplicationTest is Test {
             publicKey: teePublicKey,
             initialOwner: teeMachineOwner,
             codeHash: codeHash1,
-            platform: platforms1[0]
+            platform: platforms1[0],
+            governanceHash: governanceHash1
         });
         Signature memory signature = SignatureHelper.createSignature(
             vm,
@@ -419,7 +420,6 @@ contract TeeMachineReplicationTest is Test {
         testRegisterTeeMachine();
 
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
-            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -437,8 +437,7 @@ contract TeeMachineReplicationTest is Test {
         );
         ISystemStateVerifier.TeeSystemState memory systemState = ISystemStateVerifier.TeeSystemState(
             ISystemStateVerifier.TeeMachineStatus.ACTIVE,
-            teeId,
-            governanceHash1
+            teeId
         );
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
@@ -482,81 +481,11 @@ contract TeeMachineReplicationTest is Test {
     function testAddNewTeeVersion() public {
         testPutTeeMachineToProduction();
         _setGovernanceHash(governanceHash2, governanceSigners2, governanceSignersThreshold2);
-        _addTeeVersion("v2.0.0", codeHash2, platforms2, governanceHash2);
-    }
-
-    function testCreateNewTeeUpgrade() public {
-        testAddNewTeeVersion();
-        vm.prank(extensionOwner);
-        vm.expectEmit();
-        emit IUpgradeManager.TeeUpgradeStarted(extensionId, 0, governanceHash1, governanceHash2);
-        flareTeeManager.createNewTeeUpgrade(extensionId, governanceHash1, governanceHash2);
-        assertEq(flareTeeManager.getTeeUpgradesCount(), 1);
-        assertFalse(flareTeeManager.isTeeUpgradeFinalized(0));
-        assertFalse(flareTeeManager.isTeeUpgradeSigned(0));
-    }
-
-    function testAddTeeUpgradePaths() public {
-        testCreateNewTeeUpgrade();
-        IUpgradeManager.TeeUpgradePath[] memory upgradePaths = new IUpgradeManager.TeeUpgradePath[](1);
-        IUpgradeManager.TeeNodeVersion[] memory sourceVersions =
-            new IUpgradeManager.TeeNodeVersion[](2);
-        sourceVersions[0] = IUpgradeManager.TeeNodeVersion(codeHash1, platforms1[0]);
-        sourceVersions[1] = IUpgradeManager.TeeNodeVersion(codeHash1, platforms1[1]);
-        IUpgradeManager.TeeNodeVersion[] memory targetVersions =
-            new IUpgradeManager.TeeNodeVersion[](2);
-        targetVersions[0] = IUpgradeManager.TeeNodeVersion(codeHash2, platforms2[0]);
-        targetVersions[1] = IUpgradeManager.TeeNodeVersion(codeHash2, platforms2[1]);
-        upgradePaths[0] = IUpgradeManager.TeeUpgradePath(sourceVersions, targetVersions);
-        vm.prank(extensionOwner);
-        vm.expectEmit();
-        emit IUpgradeManager.TeeUpgradePathsAdded(0, upgradePaths);
-        flareTeeManager.addTeeUpgradePaths(0, upgradePaths);
-    }
-
-    function testFinalizeTeeUpgrade() public {
-        testAddTeeUpgradePaths();
-        vm.prank(extensionOwner);
-        vm.expectEmit();
-        emit IUpgradeManager.TeeUpgradeFinalized(0);
-        flareTeeManager.finalizeTeeUpgrade(0);
-        assertTrue(flareTeeManager.isTeeUpgradeFinalized(0));
-        assertFalse(flareTeeManager.isTeeUpgradeSigned(0));
-    }
-
-    function testSignTeeUpgrade() public {
-        testFinalizeTeeUpgrade();
-        // Mirror UpgradeManagerFacet.finalizeTeeUpgrade's bound messageHash composition.
-        bytes32 messageHash = keccak256(
-            abi.encode(
-                bytes32("TEE_UPGRADE"),
-                block.chainid,
-                extensionId,
-                uint256(0),
-                governanceHash1,
-                governanceHash2,
-                flareTeeManager.getTeeUpgradePaths(0)
-            )
-        );
-        for (uint256 i = 0; i < governanceSignersThreshold1; i++) {
-            Signature memory signature =
-                SignatureHelper.createSignature(vm, messageHash, governanceSigners1[i].privateKey);
-            flareTeeManager.signTeeUpgrade(0, signature);
-        }
-        for (uint256 i = 0; i < governanceSignersThreshold2; i++) {
-            Signature memory signature =
-                SignatureHelper.createSignature(vm, messageHash, governanceSigners2[i].privateKey);
-            if (i == governanceSignersThreshold2 - 1) {
-                vm.expectEmit();
-                emit IUpgradeManager.TeeUpgradeSigned(0);
-            }
-            flareTeeManager.signTeeUpgrade(0, signature);
-        }
-        assertTrue(flareTeeManager.isTeeUpgradeSigned(0));
+        _addTeeVersion("v2.0.0", codeHash2, platforms2);
     }
 
     function testPauseTeeMachine() public {
-        testSignTeeUpgrade();
+        testAddNewTeeVersion();
         vm.prank(teeMachineOwner);
         vm.expectEmit();
         emit IMachineManager.TeeMachineStatusChanged(teeId, IMachineManager.TeeStatus.PAUSED);
@@ -581,7 +510,8 @@ contract TeeMachineReplicationTest is Test {
         vm.prank(teeMachineOwner);
         vm.expectEmit();
         emit IMachineManager.TeeMachineRegistered(
-            newTeeId, newTeeProxyId, teeMachineOwner, extensionId, newTeeUrl, codeHash2, platforms2[1]
+            newTeeId, newTeeProxyId, teeMachineOwner, extensionId, newTeeUrl, codeHash2, platforms2[1],
+            governanceHash2
         );
 
         IMachineManager.TeeMachineData memory newTeeMachineData = IMachineManager.TeeMachineData({
@@ -589,7 +519,8 @@ contract TeeMachineReplicationTest is Test {
             publicKey: newTeePublicKey,
             initialOwner: teeMachineOwner,
             codeHash: codeHash2,
-            platform: platforms2[1]
+            platform: platforms2[1],
+            governanceHash: governanceHash2
         });
         Signature memory signature = SignatureHelper.createSignature(
             vm,
@@ -605,8 +536,53 @@ contract TeeMachineReplicationTest is Test {
         );
     }
 
-    function testReplicateFromTeeMachine() public {
+    /**
+     * Stages the per-extension authorization for the replication: builds a machine-path list with
+     * the (teeId → newTeeId) path. The list spans two involved governances (governanceHash1 from
+     * the source machine, governanceHash2 from the destination machine) so it must reach the
+     * threshold of EACH governance before activation. Returns the activated nonce.
+     */
+    function testCreateAndSignMachinePathList() public returns (uint256 _nonce) {
         testRegisterNewTeeMachine();
+
+        vm.prank(extensionOwner);
+        _nonce = flareTeeManager.createNewMachinePathList(extensionId);
+        assertEq(_nonce, 1);
+
+        IMachinePathManager.MachinePath[] memory paths = new IMachinePathManager.MachinePath[](1);
+        address[] memory sources = new address[](1);
+        sources[0] = teeId;
+        address[] memory destinations = new address[](1);
+        destinations[0] = newTeeId;
+        paths[0] = IMachinePathManager.MachinePath(sources, destinations);
+
+        vm.prank(extensionOwner);
+        flareTeeManager.addMachinePaths(extensionId, _nonce, paths);
+
+        vm.prank(extensionOwner);
+        flareTeeManager.finalizeMachinePathList(extensionId, _nonce);
+        assertTrue(flareTeeManager.isMachinePathListFinalized(extensionId, _nonce));
+
+        bytes32 messageHash = flareTeeManager.getMachinePathListMessageHash(extensionId, _nonce);
+        // Sign with both governances; activation requires every involved governance threshold.
+        for (uint256 i = 0; i < governanceSignersThreshold1; i++) {
+            Signature memory sig = SignatureHelper.createSignature(
+                vm, messageHash, governanceSigners1[i].privateKey
+            );
+            flareTeeManager.signMachinePathList(extensionId, _nonce, sig);
+        }
+        for (uint256 i = 0; i < governanceSignersThreshold2; i++) {
+            Signature memory sig = SignatureHelper.createSignature(
+                vm, messageHash, governanceSigners2[i].privateKey
+            );
+            flareTeeManager.signMachinePathList(extensionId, _nonce, sig);
+        }
+        assertTrue(flareTeeManager.isMachinePathListSigned(extensionId, _nonce));
+        assertEq(flareTeeManager.getActiveMachinePathListNonce(extensionId), _nonce);
+    }
+
+    function testReplicateFromTeeMachine() public {
+        uint256 listNonce = testCreateAndSignMachinePathList();
 
         // update current reward epoch id
         vm.mockCall(
@@ -616,7 +592,6 @@ contract TeeMachineReplicationTest is Test {
         );
 
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
-            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -634,8 +609,7 @@ contract TeeMachineReplicationTest is Test {
         );
         ISystemStateVerifier.TeeSystemState memory systemState = ISystemStateVerifier.TeeSystemState(
             ISystemStateVerifier.TeeMachineStatus.ACTIVE,
-            newTeeId,
-            governanceHash2
+            newTeeId
         );
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
@@ -671,8 +645,8 @@ contract TeeMachineReplicationTest is Test {
         vm.warp(block.timestamp + 1);
         vm.prank(teeMachineOwner);
         vm.expectEmit();
-        emit IReplication.TeeMachineReplicationTriggered(teeId, newTeeId, 0);
-        flareTeeManager.replicateFrom{value: 600}(teeId, proof, 0, address(0));
+        emit IReplication.TeeMachineReplicationTriggered(teeId, newTeeId, listNonce);
+        flareTeeManager.replicateFrom{value: 600}(teeId, proof, address(0));
         assert(flareTeeManager.getTeeMachineStatus(newTeeId) == IMachineManager.TeeStatus.REPLICATING);
     }
 
@@ -688,7 +662,6 @@ contract TeeMachineReplicationTest is Test {
         testRequestTeeAttestation();
 
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
-            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -704,10 +677,11 @@ contract TeeMachineReplicationTest is Test {
             keccak256(abi.encode(teeId, block.timestamp, randomNumber)),
             bytes32("newInstructionId")
         );
+        // Post-replication: chain has copied initialTeeId = newTeeId into the old slot, and the
+        // new TEE software (which is actually answering) reports its own provisioning identity.
         ISystemStateVerifier.TeeSystemState memory systemState = ISystemStateVerifier.TeeSystemState(
             ISystemStateVerifier.TeeMachineStatus.ACTIVE,
-            newTeeId,
-            governanceHash2
+            newTeeId
         );
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(
             ITeeAvailabilityCheck.AvailabilityCheckStatus.OK,
@@ -764,20 +738,17 @@ contract TeeMachineReplicationTest is Test {
     function _addTeeVersion(
         string memory _version,
         bytes32 _codeHash,
-        bytes32[] memory _platforms,
-        bytes32 _governanceHash
+        bytes32[] memory _platforms
     ) internal {
         vm.prank(extensionOwner);
         vm.expectEmit();
-        emit IExtensionManager.TeeVersionAdded(extensionId, _version, _codeHash, _platforms, _governanceHash);
-        flareTeeManager.addTeeVersion(extensionId, _version, _codeHash, _platforms, _governanceHash);
+        emit IExtensionManager.TeeVersionAdded(extensionId, _version, _codeHash, _platforms);
+        flareTeeManager.addTeeVersion(extensionId, _version, _codeHash, _platforms);
         for (uint256 i = 0; i < _platforms.length; i++) {
             assertTrue(flareTeeManager.isCodeHashPlatformSupported(extensionId, _codeHash, _platforms[i]));
         }
-        assertEq(flareTeeManager.getTeeGovernanceHash(extensionId, _codeHash), _governanceHash);
-        (bytes32 governanceHashResult, string memory version, bytes32[] memory platformsResult) =
+        (string memory version, bytes32[] memory platformsResult) =
             flareTeeManager.getCodeHashInfo(extensionId, _codeHash);
-        assertEq(governanceHashResult, _governanceHash);
         assertEq(keccak256(abi.encodePacked(version)), keccak256(abi.encodePacked(_version)));
         assertEq(platformsResult.length, _platforms.length);
         for (uint256 i = 0; i < _platforms.length; i++) {

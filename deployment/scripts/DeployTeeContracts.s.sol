@@ -36,8 +36,6 @@ import {OperationFeesFacet} from
     "../../contracts/tee/facets/OperationFeesFacet.sol";
 import {OwnerAllowlistFacet} from
     "../../contracts/tee/facets/OwnerAllowlistFacet.sol";
-import {SystemStateVerifierFacet} from
-    "../../contracts/tee/facets/SystemStateVerifierFacet.sol";
 import {WalletManagerFacet} from
     "../../contracts/tee/facets/WalletManagerFacet.sol";
 import {WalletKeyManagerFacet} from
@@ -62,8 +60,6 @@ import {ReplicationFacet} from
     "../../contracts/tee/facets/ReplicationFacet.sol";
 import {ExtensionPausingFacet} from
     "../../contracts/tee/facets/ExtensionPausingFacet.sol";
-import {UpgradeManagerFacet} from
-    "../../contracts/tee/facets/UpgradeManagerFacet.sol";
 import {WalletResumeFacet} from
     "../../contracts/tee/facets/WalletResumeFacet.sol";
 // FDC2 contracts
@@ -205,7 +201,6 @@ contract DeployTeeContracts is Script {
     VerificationFacet private verificationFacet;
     OperationFeesFacet private operationFeesFacet;
     OwnerAllowlistFacet private ownerAllowlistFacet;
-    SystemStateVerifierFacet private systemStateVerifierFacet;
     WalletManagerFacet private walletManagerFacet;
     WalletKeyManagerFacet private walletKeyManagerFacet;
     WalletProjectManagerFacet private walletProjectManagerFacet;
@@ -220,7 +215,6 @@ contract DeployTeeContracts is Script {
     // Later facet instances (for logging)
     ReplicationFacet private replicationFacet;
     ExtensionPausingFacet private extensionPausingFacet;
-    UpgradeManagerFacet private upgradeManagerFacet;
     WalletResumeFacet private walletResumeFacet;
 
     // Deployed contract addresses
@@ -390,7 +384,6 @@ contract DeployTeeContracts is Script {
         verificationFacet = new VerificationFacet();
         operationFeesFacet = new OperationFeesFacet();
         ownerAllowlistFacet = new OwnerAllowlistFacet();
-        systemStateVerifierFacet = new SystemStateVerifierFacet();
         walletManagerFacet = new WalletManagerFacet();
         walletKeyManagerFacet = new WalletKeyManagerFacet();
         walletProjectManagerFacet = new WalletProjectManagerFacet();
@@ -425,10 +418,6 @@ contract DeployTeeContracts is Script {
         ));
         day1Facets.push(_addFacet(
             address(ownerAllowlistFacet), "OwnerAllowlistFacet"
-        ));
-        day1Facets.push(_addFacet(
-            address(systemStateVerifierFacet),
-            "SystemStateVerifierFacet"
         ));
         day1Facets.push(_addFacet(
             address(walletManagerFacet), "WalletManagerFacet"
@@ -618,7 +607,6 @@ contract DeployTeeContracts is Script {
     function _deployLaterFacets() internal {
         replicationFacet = new ReplicationFacet();
         extensionPausingFacet = new ExtensionPausingFacet();
-        upgradeManagerFacet = new UpgradeManagerFacet();
         walletResumeFacet = new WalletResumeFacet();
 
         laterFacets.push(_addFacet(
@@ -626,9 +614,6 @@ contract DeployTeeContracts is Script {
         ));
         laterFacets.push(_addFacet(
             address(extensionPausingFacet), "ExtensionPausingFacet"
-        ));
-        laterFacets.push(_addFacet(
-            address(upgradeManagerFacet), "UpgradeManagerFacet"
         ));
         laterFacets.push(_addFacet(
             address(walletResumeFacet), "WalletResumeFacet"
@@ -1381,11 +1366,6 @@ contract DeployTeeContracts is Script {
             address(ownerAllowlistFacet)
         );
         _logDeployed(
-            "SystemStateVerifierFacet",
-            "SystemStateVerifierFacet.sol",
-            address(systemStateVerifierFacet)
-        );
-        _logDeployed(
             "WalletManagerFacet",
             "WalletManagerFacet.sol",
             address(walletManagerFacet)
@@ -1447,11 +1427,6 @@ contract DeployTeeContracts is Script {
             "ExtensionPausingFacet",
             "ExtensionPausingFacet.sol",
             address(extensionPausingFacet)
-        );
-        _logDeployed(
-            "UpgradeManagerFacet",
-            "UpgradeManagerFacet.sol",
-            address(upgradeManagerFacet)
         );
         _logDeployed(
             "WalletResumeFacet",

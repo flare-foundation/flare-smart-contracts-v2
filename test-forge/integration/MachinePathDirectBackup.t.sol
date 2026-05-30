@@ -34,6 +34,7 @@ interface ITestSetupHelper {
         uint256 _extensionId,
         bytes32 _codeHash,
         bytes32 _platform,
+        bytes32 _governanceHash,
         PublicKey calldata _teePublicKey
     ) external;
 
@@ -74,6 +75,7 @@ contract TestSetupHelperFacet is ITestSetupHelper {
         uint256 _extensionId,
         bytes32 _codeHash,
         bytes32 _platform,
+        bytes32 _governanceHash,
         PublicKey calldata _teePublicKey
     )
         external
@@ -91,6 +93,7 @@ contract TestSetupHelperFacet is ITestSetupHelper {
             lastStatusChangeTs: block.timestamp,
             codeHash: _codeHash,
             platform: _platform,
+            governanceHash: _governanceHash,
             url: "https://tee.url"
         });
     }
@@ -249,9 +252,9 @@ contract MachinePathDirectBackupIntegrationTest is Test {
         // -----------------------------------------------------------------------------------------
         // Register three TEE machines — one under each governance
         // -----------------------------------------------------------------------------------------
-        teeA = _registerTeeMachine("teeA", codeHashA);
-        teeB = _registerTeeMachine("teeB", codeHashB);
-        teeC = _registerTeeMachine("teeC", codeHashC);
+        teeA = _registerTeeMachine("teeA", codeHashA, govHashA);
+        teeB = _registerTeeMachine("teeB", codeHashB, govHashB);
+        teeC = _registerTeeMachine("teeC", codeHashC, govHashC);
 
         // -----------------------------------------------------------------------------------------
         // Wallet + key (teeA holds the key)
@@ -413,10 +416,10 @@ contract MachinePathDirectBackupIntegrationTest is Test {
         flareTeeManager.setNewTeeGovernance(extensionId, _signers, 1);
         _codeHash = keccak256(bytes(_codeHashLabel));
         vm.prank(extensionOwner);
-        flareTeeManager.addTeeVersion(extensionId, _versionLabel, _codeHash, _platforms, _govHash);
+        flareTeeManager.addTeeVersion(extensionId, _versionLabel, _codeHash, _platforms);
     }
 
-    function _registerTeeMachine(string memory _label, bytes32 _codeHash)
+    function _registerTeeMachine(string memory _label, bytes32 _codeHash, bytes32 _governanceHash)
         private
         returns (address _teeId)
     {
@@ -427,6 +430,7 @@ contract MachinePathDirectBackupIntegrationTest is Test {
             extensionId,
             _codeHash,
             platform,
+            _governanceHash,
             PublicKey(bytes32(w.publicKeyX), bytes32(w.publicKeyY))
         );
     }

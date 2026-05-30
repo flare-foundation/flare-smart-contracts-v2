@@ -65,16 +65,13 @@ function addTeeVersion(
     uint256 _extensionId,
     string calldata _version,            // human-readable label, e.g. "1.2.0"
     bytes32 _codeHash,                   // hash of the TEE binary
-    bytes32[] calldata _platforms,       // hardware platforms this version supports
-    bytes32 _governanceHash              // optional: ties this version to a governance configuration
+    bytes32[] calldata _platforms        // hardware platforms this version supports
 ) external;
 ```
 
 Each version is identified by `_codeHash`. The `_platforms` array enumerates the TEE platforms (e.g. `bytes32("INTEL_SGX_TDX")`, `bytes32("AMD_SEV_SNP")`) the version is approved on. Only platforms on the system-supported list can be added — `UnsupportedPlatform()` if not.
 
-`_governanceHash` is optional. When non-zero, it must match the *current* extension governance hash (the on-chain hash of the extension's governance signer set + threshold). This couples versions to specific governance configurations: if the extension governance changes, old versions still work but new versions added must reference the new configuration. Setting `_governanceHash = 0` skips this binding.
-
-> **Operational note for governance-gated flows.** Setting `_governanceHash = 0` is fine for the legacy upgrade flow (which compares the bound hash directly), but it makes the code hash invisible to any downstream flow that derives the governance hash from a teeId's codeHash via [`ExtensionManager.getTeeGovernanceHash`](../../../contracts/tee/library/ExtensionManager.sol) — including the [`MachinePathManager`](./Governance.md#machine-path-manager) signer-derivation in `addMachinePaths`. If your extension intends to use machine path lists, **pass the actual current governance hash** when adding the TEE version; otherwise the path list will have an empty involved-governance set and no one will be recognized as a valid signer.
+`addTeeVersion` does **not** carry a governance hash. The governance binding for a TEE is committed at machine **registration time**, not at version-add time: see [Machine Lifecycle / Registration](./MachineLifecycle.md#registration). The same `(codeHash, platform)` pair can host machines registered under different governance configurations as the extension's governance rotates over time.
 
 A version once added stays unless explicitly disabled:
 

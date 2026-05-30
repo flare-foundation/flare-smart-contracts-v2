@@ -79,10 +79,9 @@ interface ITestVerificationStateHelper {
         address _stateVerifier
     ) external;
 
-    function setTeeGovernanceHash(
-        uint256 _extensionId,
-        bytes32 _codeHash,
-        bytes32 _governanceHash
+    function setTeeMachineInitialTeeId(
+        address _teeId,
+        address _initialTeeId
     ) external;
 
     function setChallenge(
@@ -142,6 +141,7 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
             lastStatusChangeTs: block.timestamp,
             codeHash: _codeHash,
             platform: _platform,
+            governanceHash: bytes32(0),
             url: _url
         });
         if (_status == IMachineManager.TeeStatus.PRODUCTION) {
@@ -170,6 +170,7 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
             lastStatusChangeTs: block.timestamp,
             codeHash: bytes32(0),
             platform: bytes32(0),
+            governanceHash: bytes32(0),
             url: ""
         });
         if (_status == IMachineManager.TeeStatus.PRODUCTION) {
@@ -232,15 +233,13 @@ contract TestVerificationStateHelper is ITestVerificationStateHelper {
             ITeeExtensionStateVerifier(_stateVerifier);
     }
 
-    function setTeeGovernanceHash(
-        uint256 _extensionId,
-        bytes32 _codeHash,
-        bytes32 _governanceHash
+    function setTeeMachineInitialTeeId(
+        address _teeId,
+        address _initialTeeId
     )
         external
     {
-        ExtensionManager.getState().extensions[_extensionId]
-            .codeHashToVersion[_codeHash].governanceHash = _governanceHash;
+        MachineManager.getState().teeMachineStates[_teeId].initialTeeId = _initialTeeId;
     }
 
     function setChallenge(
@@ -341,7 +340,6 @@ contract VerificationFacetTest is Test {
         proof.header.thresholdBIPS = 0;
         proof.header.attestationType = bytes32("TeeAvailabilityCheck");
         proof.header.sourceId = sourceId;
-        proof.header.chainId = block.chainid;
         proof.requestBody.teeProxyId = teeProxyId;
         proof.requestBody.url = url;
         proof.responseBody.initialSigningPolicyId = signingPolicyId;
@@ -381,25 +379,6 @@ contract VerificationFacetTest is Test {
 
         // Add TestVerificationStateHelper facet to the diamond
         TestVerificationStateHelper helperImpl = new TestVerificationStateHelper();
-        bytes4[] memory helperSelectors = new bytes4[](11);
-        helperSelectors[0] = bytes4(keccak256(
-            "setTeeMachineState(address,uint256,address,address,string,"
-            "uint8,bytes32,bytes32,uint32,address)"
-        ));
-        helperSelectors[1] = ITestVerificationStateHelper.setTeeMachineStatus.selector;
-        helperSelectors[2] = ITestVerificationStateHelper.setReplicatingTeeId.selector;
-        helperSelectors[3] = ITestVerificationStateHelper.setupCodeHashPlatform.selector;
-        helperSelectors[4] = ITestVerificationStateHelper.setExtensionStateVerifier.selector;
-        helperSelectors[5] = ITestVerificationStateHelper.setTeeGovernanceHash.selector;
-        helperSelectors[6] = ITestVerificationStateHelper.setChallenge.selector;
-        helperSelectors[7] = ITestVerificationStateHelper.setWalletState.selector;
-        helperSelectors[8] = ITestVerificationStateHelper.setKeyState.selector;
-        helperSelectors[9] = bytes4(keccak256(
-            "setTeeMachineState(address,uint256,address,uint8)"
-        ));
-        helperSelectors[10] = bytes4(0); // placeholder, filled below
-
-        // Deduplicate: compute overloaded selectors manually
         bytes4 sel10Param = bytes4(keccak256(
             "setTeeMachineState(address,uint256,address,address,string,"
             "uint8,bytes32,bytes32,uint32,address)"
@@ -408,14 +387,13 @@ contract VerificationFacetTest is Test {
             "setTeeMachineState(address,uint256,address,uint8)"
         ));
 
-        // Rebuild with only unique selectors (10 total)
         bytes4[] memory uniqueSelectors = new bytes4[](10);
         uniqueSelectors[0] = sel10Param;
         uniqueSelectors[1] = ITestVerificationStateHelper.setTeeMachineStatus.selector;
         uniqueSelectors[2] = ITestVerificationStateHelper.setReplicatingTeeId.selector;
         uniqueSelectors[3] = ITestVerificationStateHelper.setupCodeHashPlatform.selector;
         uniqueSelectors[4] = ITestVerificationStateHelper.setExtensionStateVerifier.selector;
-        uniqueSelectors[5] = ITestVerificationStateHelper.setTeeGovernanceHash.selector;
+        uniqueSelectors[5] = ITestVerificationStateHelper.setTeeMachineInitialTeeId.selector;
         uniqueSelectors[6] = ITestVerificationStateHelper.setChallenge.selector;
         uniqueSelectors[7] = ITestVerificationStateHelper.setWalletState.selector;
         uniqueSelectors[8] = ITestVerificationStateHelper.setKeyState.selector;
@@ -462,7 +440,10 @@ contract VerificationFacetTest is Test {
             proof.responseBody.codeHash,
             proof.responseBody.platform,
             signingPolicyId,
-            teeId // initialTeeId
+            // initialTeeId left at zero so the verifier's non-INITIALIZED branch accepts an empty
+            // TeeSystemState (the default in this test's proof). Tests that want a populated
+            // payload mismatch set a non-zero initialTeeId via `setTeeMachineInitialTeeId`.
+            address(0)
         );
 
         // Set up extension with supported code hash + platform
@@ -522,7 +503,6 @@ contract VerificationFacetTest is Test {
         // Set up PMW proof fields
         pmwProof.header.thresholdBIPS = 0;
         pmwProof.header.attestationType = PMW_MULTISIG_ACCOUNT_CONFIGURED_ATTESTATION_TYPE;
-        pmwProof.header.chainId = block.chainid;
         pmwProof.requestBody.accountAddress = walletAddress;
         pmwProof.requestBody.threshold = multisigThreshold;
         pmwProof.requestBody.publicKeys = new bytes[](1);
@@ -700,10 +680,10 @@ contract VerificationFacetTest is Test {
     }
 
     function testConfirmAvailabilityRevertInvalidResponseData1() public {
-        // Make verifyTeeSystemState return false by setting a non-zero governance hash
-        stateHelper.setTeeGovernanceHash(
-            extensionId, proof.responseBody.codeHash, keccak256("nonZeroHash")
-        );
+        // Mark the machine as replication-capable (`stored initialTeeId != 0`) without populating
+        // the proof's `TeeSystemState`. The verifier's non-INITIALIZED branch then rejects the
+        // empty payload (it would have accepted it only if stored `initialTeeId` were zero).
+        stateHelper.setTeeMachineInitialTeeId(proof.requestBody.teeId, makeAddr("storedInitialTeeId"));
         vm.expectRevert(ITeeCommonErrors.InvalidResponseData.selector);
         flareTeeManager.confirmAvailability(proof);
     }
@@ -849,10 +829,9 @@ contract VerificationFacetTest is Test {
     //  verifyTeeSystemState -> false
     function testVerifyAvailabilityCheckProof5() public {
         testSetCosigners();
-        // Make verifyTeeSystemState return false by setting a non-zero governance hash
-        stateHelper.setTeeGovernanceHash(
-            extensionId, proof.responseBody.codeHash, keccak256("nonZeroHash")
-        );
+        // Mark the machine as replication-capable without populating the proof's payload — the
+        // verifier rejects an empty payload when the chain has a non-zero stored `initialTeeId`.
+        stateHelper.setTeeMachineInitialTeeId(proof.requestBody.teeId, makeAddr("storedInitialTeeId"));
         assertFalse(flareTeeManager.verifyAvailabilityCheckProof(proof));
     }
 

@@ -77,7 +77,6 @@ library Verification {
         {
             IFdc2Hub.Fdc2ResponseHeader calldata header = _proof.header;
             require(
-                header.chainId == block.chainid &&
                 header.thresholdBIPS == 0 &&
                 header.attestationType == TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE &&
                 header.sourceId == TEE_SOURCE_ID,

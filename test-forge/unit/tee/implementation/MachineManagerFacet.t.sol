@@ -196,7 +196,7 @@ contract MachineManagerFacetTest is Test {
 
         // Add tee version (code hash + platform)
         vm.prank(extensionOwner);
-        flareTeeManager.addTeeVersion(extensionId, "v1.0.0", codeHash, platforms, governanceHash);
+        flareTeeManager.addTeeVersion(extensionId, "v1.0.0", codeHash, platforms);
 
         // Add allowed TEE machine owners
         address[] memory owners = new address[](2);
@@ -211,7 +211,8 @@ contract MachineManagerFacetTest is Test {
             publicKey: teePublicKey,
             initialOwner: owner,
             codeHash: codeHash,
-            platform: platform
+            platform: platform,
+            governanceHash: governanceHash
         });
         teeMachineDataSignature = SignatureHelper.createSignature(
             vm,
@@ -224,7 +225,8 @@ contract MachineManagerFacetTest is Test {
             publicKey: newTeePublicKey,
             initialOwner: owner,
             codeHash: codeHash,
-            platform: platform
+            platform: platform,
+            governanceHash: governanceHash
         });
         newTeeMachineDataSignature = SignatureHelper.createSignature(
             vm,
@@ -325,7 +327,7 @@ contract MachineManagerFacetTest is Test {
         vm.prank(owner);
         vm.expectEmit();
         emit IMachineManager.TeeMachineRegistered(
-            teeId, teeProxyId, owner, extensionId, url, codeHash, platform
+            teeId, teeProxyId, owner, extensionId, url, codeHash, platform, governanceHash
         );
         flareTeeManager.register(teeMachineData, teeMachineDataSignature, teeProxyId, url, address(0));
         registerTimestamps[teeId] = block.timestamp;
@@ -752,7 +754,10 @@ contract MachineManagerFacetTest is Test {
         IMachineManager.TeeMachineWithAttestationData memory teeMachineAttData =
             flareTeeManager.getTeeMachineWithAttestationData(teeId);
         assertEq(teeMachineAttData.teeId, teeId);
-        assertEq(teeMachineAttData.initialTeeId, teeId);
+        // `initialTeeId` is deferred — registration leaves it zero, and it is captured at the
+        // first successful availability check (in `toProduction`) when the TEE attests a
+        // populated `TeeSystemState`.
+        assertEq(teeMachineAttData.initialTeeId, address(0));
         assertEq(teeMachineAttData.url, url);
         assertEq(teeMachineAttData.codeHash, codeHash);
         assertEq(teeMachineAttData.platform, platform);
@@ -889,7 +894,6 @@ contract MachineManagerFacetTest is Test {
         bytes32 challenge = keccak256(abi.encode(_teeId, registerTs, randomNumber));
 
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
-            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -909,8 +913,7 @@ contract MachineManagerFacetTest is Test {
 
         ISystemStateVerifier.TeeSystemState memory systemState = ISystemStateVerifier.TeeSystemState(
             ISystemStateVerifier.TeeMachineStatus.ACTIVE,
-            _teeId,
-            governanceHash
+            _teeId
         );
 
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(

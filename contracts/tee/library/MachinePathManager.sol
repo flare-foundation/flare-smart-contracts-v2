@@ -128,24 +128,27 @@ library MachinePathManager {
     }
 
     /**
-     * Asserts that `_teeId` belongs to `_extensionId` and is not in the INITIALIZED status, then
-     * returns the governance hash derived from its codeHash. Helper used by the facet when
-     * appending paths.
+     * Asserts that `_teeId` belongs to `_extensionId` and has a non-zero governance hash recorded,
+     * then returns that governance hash. Helper used by the facet when appending paths.
+     * @dev Status is intentionally not checked here: a freshly registered TEE (status INITIALIZED)
+     *      that has chosen the current latest governance at registration time is a legitimate
+     *      destination for replication path lists. Callers that need stricter status semantics
+     *      (e.g. directBackup requiring PRODUCTION) check status themselves.
      */
     function assertEligibleAndDeriveGovernanceHash(
         uint256 _extensionId,
         address _teeId
     )
         internal view
-        returns (bytes32)
+        returns (bytes32 _governanceHash)
     {
         MachineManager.TeeMachineState storage tee = MachineManager.getState().teeMachineStates[_teeId];
         require(tee.extensionId == _extensionId, ITeeCommonErrors.ExtensionIdMismatch());
+        _governanceHash = MachineManager.getTeeMachineGovernanceHash(_teeId);
         require(
-            tee.status != IMachineManager.TeeStatus.INITIALIZED,
-            IMachinePathManager.TeeIdNotEligible()
+            _governanceHash != bytes32(0),
+            IMachinePathManager.GovernanceHashZero(_teeId)
         );
-        return ExtensionManager.getTeeGovernanceHash(_extensionId, tee.codeHash);
     }
 
     function getState()

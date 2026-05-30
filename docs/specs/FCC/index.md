@@ -18,15 +18,15 @@ The FCC contracts live under [`contracts/tee/`](../../../contracts/tee/) and are
 - [Operation fees](./OperationFees.md) — `OperationFeesFacet`, `TeePayments` suite, fee schedules and limits
 - [Verification](./Verification.md) — `VerificationFacet`, `VrfFacet`, `SystemStateVerifierFacet`, `VrfVerifier`
 - [Extensions](./Extensions.md) — `ExtensionManagerFacet` + the system extension's currently-hosted applications (FDC2, PMW)
-- [Governance](./Governance.md) — `DiamondGovernanceFacet`, `OwnerAllowlistFacet`, `UpgradeManagerFacet`, `MachinePathManagerFacet`, `ExternalAddressesFacet`, `MachineEmergencyPauseFacet`
+- [Governance](./Governance.md) — `DiamondGovernanceFacet`, `OwnerAllowlistFacet`, `MachinePathManagerFacet`, `ExternalAddressesFacet`, `MachineEmergencyPauseFacet`
 - [Rewarding](./Rewarding.md) — `TeeRewardOffersManager`
 
 ## Key contracts and code layout
 
 ```
 contracts/tee/
-├── facets/          # ~22 facets, thin delegates
-├── library/         # ~20 libraries, business logic
+├── facets/          # 22 facets, thin delegates
+├── library/         # ~19 libraries, business logic
 ├── interface/       # II* internal interfaces (facet ↔ library)
 ├── diamond/         # FlareTeeManager (the diamond root contract)
 ├── implementation/  # shared utility contracts (TeePayments suite, TeeRewardOffersManager, VrfVerifier)
@@ -35,4 +35,4 @@ contracts/tee/
 └── mock/            # test mocks
 ```
 
-Public interfaces — the FCC `I*.sol` files (`IFlareTeeManager`, `IExtensionManager`, `IInstructions`, `IMachineManager`, `IMachineEmergencyPause`, `IMachinePathManager`, `IOperationFees`, `IOwnerAllowlist`, `IReplication`, `ISystemStateVerifier`, `IUpgradeManager`, `IVerification`, `IVrf`, `IVrfVerifier`, `IWalletManager`, `IWalletKeyManager`, `IWalletBackupManager`, `IWalletProjectManager`, `IWalletProjectPause`, `IWalletResume`, `IExtensionGovernance`, `IExtensionPausing`, `IDiamondGovernance`, `ITeeRewardOffersManager`, the `ITeePayments*` family, etc.) — live in [`contracts/userInterfaces/tee/`](../../../contracts/userInterfaces/tee/). The cross-cutting `IFlareGovernance` lives one level up in [`contracts/userInterfaces/`](../../../contracts/userInterfaces/).
+Public interfaces — the FCC `I*.sol` files (`IFlareTeeManager`, `IExtensionManager`, `IInstructions`, `IMachineManager`, `IMachineEmergencyPause`, `IMachinePathManager`, `IOperationFees`, `IOwnerAllowlist`, `IReplication`, `ISystemStateVerifier`, `IVerification`, `IVrf`, `IVrfVerifier`, `IWalletManager`, `IWalletKeyManager`, `IWalletBackupManager`, `IWalletProjectManager`, `IWalletProjectPause`, `IWalletResume`, `IExtensionGovernance`, `IExtensionPausing`, `IDiamondGovernance`, `ITeeRewardOffersManager`, the `ITeePayments*` family, etc.) — live in [`contracts/userInterfaces/tee/`](../../../contracts/userInterfaces/tee/). The cross-cutting `IFlareGovernance` lives one level up in [`contracts/userInterfaces/`](../../../contracts/userInterfaces/).

@@ -5,7 +5,7 @@ A TEE machine's signed responses are only useful if you can **verify** them — 
 Three FCC facets provide the on-chain verification layer:
 
 - [`VerificationFacet`](../../../contracts/tee/facets/VerificationFacet.sol) + [`library/Verification`](../../../contracts/tee/library/Verification.sol) — the central verification logic for TEE attestation proofs and availability checks. State stored in `Verification.State` includes the per-machine challenge, challenge timestamp, and the per-machine validity window.
-- [`SystemStateVerifierFacet`](../../../contracts/tee/facets/SystemStateVerifierFacet.sol) + [`library/SystemStateVerifier`](../../../contracts/tee/library/SystemStateVerifier.sol) — verifies that a TEE-signed message is *consistent with the on-chain system state* at the time the TEE signed it (signing policy, FCC parameters).
+- [`library/SystemStateVerifier`](../../../contracts/tee/library/SystemStateVerifier.sol) — cross-checks the TEE-attested system-state payload (`TeeSystemState { status, initialTeeId }`) against the chain's stored `initialTeeId` for the same `teeId`. Consumed library-internally by `Verification._validateResponseBody`; not exposed as a diamond facet. See [System state verification](#system-state-verification).
 - [`VrfFacet`](../../../contracts/tee/facets/VrfFacet.sol) + [`library/Vrf`](../../../contracts/tee/library/Vrf.sol) — VRF proof verification, plus an external [`VrfVerifier`](../../../contracts/tee/implementation/VrfVerifier.sol) UUPS contract for stand-alone verification outside the diamond.
 
 ## The TEE attestation flow
@@ -43,13 +43,35 @@ A machine with an expired availability check (`endTs < block.timestamp`, or a `l
 
 ## System state verification
 
-A TEE-signed message that references on-chain state must *correctly* reference that state. `SystemStateVerifierFacet` checks that:
+`SystemStateVerifier.verifyTeeSystemState(teeId, stateVersion, state)` is invoked from `Verification._validateResponseBody` for every availability-check proof. It decodes the TEE-signed `state` bytes into:
 
-- The signing policy hash referenced in the message matches the on-chain hash for the cited reward epoch.
-- The reward epoch in the message is one the machine was registered for (the message's `signingPolicyId ≥ machine.initialSigningPolicyId`).
-- Any extension-specific state references (FCC parameters, fee schedules) match the on-chain values at the cited timestamp.
+```solidity
+struct TeeSystemState {
+    TeeMachineStatus status;       // enum { ACTIVE, PAUSED, PAUSED_FOR_UPGRADE }
+    address initialTeeId;
+}
+```
 
-Used internally by `Verification` (the availability-check flow uses `SystemStateVerifier` to cross-check that the TEE knows about the right signing policy) and externally exposed for consumer contracts that need to verify TEE-signed messages without going through the standard FDC2 / wallet flow.
+The check is a **single uniform strict compare** against the chain's stored `initialTeeId`:
+
+- Empty payload (`stateVersion == 0 && state.length == 0`) — accepted only if the machine's stored `initialTeeId` is zero (binary signalled non-replication at first attestation, or hasn't attested yet).
+- Populated payload — requires `state.status == ACTIVE && state.initialTeeId == stored`.
+
+The "capture vs compare" distinction sits in the callers, not the verifier. When the machine is `INITIALIZED` and the proof carries a populated `systemState`, `MachineManagerFacet.toProduction` and `ReplicationFacet.replicateFrom` **pre-commit** the expected `initialTeeId` (the machine's own `teeId` for `toProduction`, the new machine's `newTeeId` for `replicateFrom`) to chain state *before* invoking the verifier. The verifier then simply confirms the chain value matches what the TEE signed. State changes roll back on revert, so the pre-write pattern is safe — a failed verification reverts the pre-write along with everything else.
+
+This makes the verifier purely a value-comparison primitive (the library is also exposed without an external facet wrapper, since no production contract calls it through the diamond — `Verification._validateResponseBody` consumes it directly as a library call).
+
+The library is exposed only as a library (`SystemStateVerifier`), not as a diamond facet. No production contract calls the verifier through the diamond — `Verification._validateResponseBody` consumes it directly. Off-chain consumers of an availability-check proof who need the machine's `initialTeeId` should read it via `IMachineManager.getTeeMachineWithAttestationData(teeId).initialTeeId`.
+
+### Why `initialTeeId` is load-bearing
+
+`initialTeeId` is the address derived from the keypair the TEE generated at provisioning — **fixed for the lifetime of the physical TEE machine** and not changed by anything the chain does. After replication, `_replicate` writes `oldState.initialTeeId = newState.initialTeeId` on chain, so the chain expects the *new* machine's provisioning identity in subsequent proofs at the old `teeId` slot. If a caller points the chain flow at the *old* machine's proxy after replication (skipping the off-chain key migration), the old machine's TEE software responds with its own `initialTeeId` — the old one — and the comparison fails. Without this field the chain would have no way to tell which physical machine actually answered: cosigner signatures only attest that *some* TEE-at-this-URL produced the response, not that it's the one the chain expects.
+
+`status == ACTIVE` is a freshness check: the TEE must believe itself active when it signs.
+
+### Why the empty-payload signal
+
+The TEE's choice between empty and populated `TeeSystemState` at first attestation is **how the binary itself dictates replication capability** on chain. A binary built without replication code can't synthesise an `initialTeeId` attestation; it signs empty. A replication-capable binary signs populated. The chain captures the result into `MachineManager.TeeMachineState.initialTeeId`, which then gates `ReplicationFacet.toPauseForUpgrade` and `ReplicationFacet.replicateFrom` (both require `initialTeeId != 0 && governanceHash != 0` via the `NotReplicationCapable` check). See [Replication](./Replication.md) and [Machine Lifecycle / Registration](./MachineLifecycle.md#registration).
 
 ## VRF
 

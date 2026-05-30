@@ -29,6 +29,7 @@ library MachineManager {
         uint256 lastStatusChangeTs;
         bytes32 codeHash;
         bytes32 platform;
+        bytes32 governanceHash;
         string url;
     }
 
@@ -114,6 +115,24 @@ library MachineManager {
         returns (IMachineManager.TeeStatus)
     {
         return getTeeMachineState(_teeId).status;
+    }
+
+    function getTeeMachineGovernanceHash(
+        address _teeId
+    )
+        internal view
+        returns (bytes32)
+    {
+        return getTeeMachineState(_teeId).governanceHash;
+    }
+
+    function getInitialTeeId(
+        address _teeId
+    )
+        internal view
+        returns (address)
+    {
+        return getTeeMachineState(_teeId).initialTeeId;
     }
 
     function getTeeMachineOwner(

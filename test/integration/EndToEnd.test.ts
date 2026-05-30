@@ -133,6 +133,7 @@ const FlareTeeManagerInit = artifacts.require("FlareTeeManagerInit");
 const ReplicationInit = artifacts.require("ReplicationInit");
 const IDiamondCut = artifacts.require("IDiamondCut");
 const IIFlareTeeManager = artifacts.require("IIFlareTeeManager");
+const IMachineManager = artifacts.require("IMachineManager");
 const TeeRewardOffersManager: TeeRewardOffersManagerContract = artifacts.require("TeeRewardOffersManager");
 const TeeRewardOffersManagerProxy: TeeRewardOffersManagerProxyContract =
   artifacts.require("TeeRewardOffersManagerProxy");
@@ -731,7 +732,6 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       "VerificationFacet",
       "OperationFeesFacet",
       "OwnerAllowlistFacet",
-      "SystemStateVerifierFacet",
       "WalletManagerFacet",
       "WalletKeyManagerFacet",
       "WalletProjectManagerFacet",
@@ -742,7 +742,7 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       "WalletProjectPauseFacet",
       "MachineEmergencyPauseFacet",
     ];
-    const LATER_FACET_NAMES = ["ReplicationFacet", "ExtensionPausingFacet", "UpgradeManagerFacet", "WalletResumeFacet"];
+    const LATER_FACET_NAMES = ["ReplicationFacet", "ExtensionPausingFacet", "WalletResumeFacet"];
 
     const facetCuts = [];
     const usedSelectors = new Set<string>();
@@ -1873,12 +1873,11 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
 
   it("Should add new TEE node version", async () => {
     const supportedPlatforms = TEE_PLATFORMS.map((platform) => web3.utils.utf8ToHex(platform).padEnd(66, "0"));
-    await flareTeeManager.addTeeVersion(0, "v0.1.0", TEE_CODE_HASH, supportedPlatforms, constants.ZERO_BYTES32);
+    await flareTeeManager.addTeeVersion(0, "v0.1.0", TEE_CODE_HASH, supportedPlatforms);
 
     const codeHashInfo = await flareTeeManager.getCodeHashInfo(0, TEE_CODE_HASH);
-    expect(codeHashInfo[0]).to.be.equal(constants.ZERO_BYTES32);
-    expect(codeHashInfo[1]).to.be.equal("v0.1.0");
-    expect(codeHashInfo[2]).to.be.deep.equal(supportedPlatforms);
+    expect(codeHashInfo[0]).to.be.equal("v0.1.0");
+    expect(codeHashInfo[1]).to.be.deep.equal(supportedPlatforms);
   });
 
   it("Should register new TEE machines", async () => {
@@ -1899,12 +1898,16 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
         codeHash: TEE_CODE_HASH,
         platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
         publicKey: TEE_PUBLIC_KEYS[i],
+        governanceHash: constants.ZERO_BYTES32,
       };
 
       const msg = await getRegisterMessageHash(teeMachineData);
       const signature = await ECDSASignature.signMessageHash(msg, privateKeys[20 + (i % 2)].privateKey);
 
-      const tx = await flareTeeManager.register(
+      // Disambiguate from `IExtensionManager.register(address, address)` which shares the
+      // selector name on the Diamond aggregate — go through the IMachineManager interface.
+      const machineManager = await IMachineManager.at(flareTeeManager.address);
+      const tx = await machineManager.register(
         teeMachineData,
         signature,
         TEE_PROXY_IDS[i],
@@ -1929,7 +1932,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       const message = {
         teeMachine: {
           teeId: TEE_IDS[i],
-          initialTeeId: TEE_IDS[i],
+          // initialTeeId is unset (address(0)) at register time — it is captured during
+          // the first toProduction call when the availability-check proof is verified.
+          initialTeeId: constants.ZERO_ADDRESS,
           url: TEE_URLS[i],
           codeHash: TEE_CODE_HASH,
           platform: web3.utils.utf8ToHex(TEE_PLATFORMS[i]).padEnd(66, "0"),
@@ -2316,11 +2321,12 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
   // ===========================================================================================
 
   it("Should create + sign a machine-path list authorizing TEE0 → TEE1", async () => {
-    // Retrofit a non-zero governance hash onto TEE_CODE_HASH for the MachinePathManager flow.
-    // The earlier `addTeeVersion(... ZERO_BYTES32)` call leaves the binding zero, which is fine
-    // for the legacy TEE production / availability-check path but means `getTeeGovernanceHash`
-    // returns zero — making no signer recognisable to MachinePathManager. Use the test-only
-    // mock setter (added during diamond construction above) to wire the actual governance hash in.
+    // Retrofit a non-zero governance hash onto the source and destination TEE machines for the
+    // MachinePathManager flow. The earlier `register(...)` calls were made before the
+    // per-machine governance-hash field was introduced (or with a zero hash), so the
+    // path-manager's eligibility check `tee.governanceHash != 0` would otherwise fail. Use the
+    // test-only mock setter (added during diamond construction above) to stamp the current
+    // extension governance hash onto both machines.
     const teeGovernanceHash = await flareTeeManager.getLatestTeeGovernanceHash(0);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mockSetter = (await artifacts.require("MockTeeGovernanceHashSetter" as any).at(
@@ -2328,7 +2334,9 @@ contract(`End to end test; ${getTestFile(__filename)}`, (accounts) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     )) as any;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    await mockSetter.mockSetTeeGovernanceHash(0, TEE_CODE_HASH, teeGovernanceHash);
+    await mockSetter.mockSetTeeMachineGovernanceHash(TEE_IDS[0], teeGovernanceHash);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    await mockSetter.mockSetTeeMachineGovernanceHash(TEE_IDS[1], teeGovernanceHash);
 
     let tx = await flareTeeManager.createNewMachinePathList(0);
     expectEvent(tx, "MachinePathListStarted", { extensionId: "0", nonce: "1" });

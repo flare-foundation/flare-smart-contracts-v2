@@ -8,8 +8,8 @@ import { IDiamondLoupe } from "../../contracts/diamond/interfaces/IDiamondLoupe.
 import { IMachineManager } from "../../contracts/userInterfaces/tee/IMachineManager.sol";
 import { TEE_SOURCE_ID } from "../../contracts/userInterfaces/tee/IVerification.sol";
 import { IExtensionPausing } from "../../contracts/userInterfaces/tee/IExtensionPausing.sol";
-import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { ISystemStateVerifier } from "../../contracts/userInterfaces/tee/ISystemStateVerifier.sol";
+import { ITeeExtensionStateVerifier } from "../../contracts/userInterfaces/tee/ITeeExtensionStateVerifier.sol";
 import { IWalletManager } from "../../contracts/userInterfaces/tee/IWalletManager.sol";
 import { IWalletKeyManager } from "../../contracts/userInterfaces/tee/IWalletKeyManager.sol";
 import { IWalletBackupManager } from "../../contracts/userInterfaces/tee/IWalletBackupManager.sol";
@@ -187,7 +187,7 @@ contract TeeAndFdc2Test is Test {
     // =========================================================================
 
     function testDay1_facetCount() public {
-        assertEq(IDiamondLoupe(address(flareTeeManager)).facets().length, 19);
+        assertEq(IDiamondLoupe(address(flareTeeManager)).facets().length, 18);
     }
 
     function testDay1_excludedSelectorsRevert() public {
@@ -439,7 +439,7 @@ contract TeeAndFdc2Test is Test {
         flareTeeManager.addSupportedKeyTypes(extensionId, keyTypes);
 
         vm.prank(extensionOwner);
-        flareTeeManager.addTeeVersion(extensionId, "v1.0.0", codeHash, platforms, bytes32(0));
+        flareTeeManager.addTeeVersion(extensionId, "v1.0.0", codeHash, platforms);
 
         vm.prank(extensionOwner);
         flareTeeManager.allowAllTeeMachineOwners(extensionId);
@@ -464,7 +464,8 @@ contract TeeAndFdc2Test is Test {
             publicKey: _pubKey,
             initialOwner: teeOwner,
             codeHash: codeHash,
-            platform: platform
+            platform: platform,
+            governanceHash: bytes32(0)
         });
         Signature memory sig = SignatureHelper.createSignature(
             vm, keccak256(abi.encode(bytes32("TEE_MACHINE_REGISTER"), block.chainid, data)), _privKey
@@ -496,7 +497,6 @@ contract TeeAndFdc2Test is Test {
         bytes32 challenge = keccak256(abi.encode(_teeId, registerTimestamps[_teeId], randomNumber));
 
         IFdc2Hub.Fdc2ResponseHeader memory header = IFdc2Hub.Fdc2ResponseHeader(
-            block.chainid,
             TEE_AVAILABILITY_CHECK_ATTESTATION_TYPE,
             TEE_SOURCE_ID,
             0,
@@ -511,7 +511,7 @@ contract TeeAndFdc2Test is Test {
         );
 
         ISystemStateVerifier.TeeSystemState memory sysState = ISystemStateVerifier.TeeSystemState(
-            ISystemStateVerifier.TeeMachineStatus.ACTIVE, _teeId, bytes32(0)
+            ISystemStateVerifier.TeeMachineStatus.ACTIVE, _teeId
         );
 
         ITeeAvailabilityCheck.ResponseBody memory respBody = ITeeAvailabilityCheck.ResponseBody(

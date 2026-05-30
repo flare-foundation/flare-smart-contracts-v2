@@ -81,8 +81,7 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
         uint256 _extensionId,
         string calldata _version,
         bytes32 _codeHash,
-        bytes32[] calldata _platforms,
-        bytes32 _governanceHash
+        bytes32[] calldata _platforms
     )
         external
     {
@@ -93,11 +92,6 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
         for (uint256 i = 0; i < _platforms.length; i++) {
             require(ExtensionManager.isSystemSupportedPlatform(_platforms[i]), UnsupportedPlatform(_platforms[i]));
         }
-        require(
-            _governanceHash == bytes32(0) ||
-                ExtensionGovernance.getLatestTeeGovernanceHash(_extensionId) == _governanceHash,
-            InvalidGovernanceHash()
-        );
 
         ExtensionManager.TeeExtension storage extension =
             ExtensionManager.getState().extensions[_extensionId];
@@ -107,8 +101,7 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
         for (uint256 i = 0; i < _platforms.length; i++) {
             require(teeVersion.platforms.add(_platforms[i]), PlatformAlreadyExists(_platforms[i]));
         }
-        teeVersion.governanceHash = _governanceHash;
-        emit TeeVersionAdded(_extensionId, _version, _codeHash, _platforms, _governanceHash);
+        emit TeeVersionAdded(_extensionId, _version, _codeHash, _platforms);
     }
 
     /// @inheritdoc IExtensionManager
@@ -394,31 +387,18 @@ contract ExtensionManagerFacet is IIExtensionManager, FlareGovernedAccess {
     }
 
     /// @inheritdoc IExtensionManager
-    function getTeeGovernanceHash(
-        uint256 _extensionId,
-        bytes32 _codeHash
-    )
-        external view
-        returns (bytes32)
-    {
-        return ExtensionManager.getTeeGovernanceHash(_extensionId, _codeHash);
-    }
-
-    /// @inheritdoc IExtensionManager
     function getCodeHashInfo(
         uint256 _extensionId,
         bytes32 _codeHash
     )
         external view
         returns (
-            bytes32 _governanceHash,
             string memory _version,
             bytes32[] memory _platforms
         )
     {
         ExtensionManager.TeeExtension storage extension =
             ExtensionManager.getState().extensions[_extensionId];
-        _governanceHash = extension.codeHashToVersion[_codeHash].governanceHash;
         _version = extension.codeHashToVersion[_codeHash].version;
         _platforms = extension.codeHashToVersion[_codeHash].platforms.values();
     }

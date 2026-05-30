@@ -18,6 +18,7 @@ interface IReplication {
     struct ReplicateTeeMachine {
         IMachineManager.TeeMachineWithAttestationData oldTeeMachine;
         IMachineManager.TeeMachineWithAttestationData newTeeMachine;
+        uint256 machinePathListNonce;
     }
 
     event PauseBeforeUpgradeMinDurationSecondsSet(
@@ -31,7 +32,7 @@ interface IReplication {
     event TeeMachineReplicationTriggered(
         address indexed oldTeeId,
         address indexed newTeeId,
-        uint256 teeUpgradeId
+        uint256 machinePathListNonce
     );
 
     event TeeMachineReplicationConfirmed(
@@ -43,9 +44,8 @@ interface IReplication {
     error ExtensionMismatch();
     error ReplicationNotValid();
     error InvalidSystemStateVersion();
-    error InvalidUpgradePath();
-    error TeeUpgradeNotSigned();
     error OnlyMachineOwner();
+    error NotReplicationCapable(address teeId);
 
     /**
      * Pause a TEE machine for upgrade. It has to be paused for long enough time first.
@@ -61,18 +61,17 @@ interface IReplication {
         external payable;
 
     /**
-     * Replicate a TEE machine.
+     * Replicate a TEE machine. Authorization is delegated to the per-extension active
+     * machine-path list: the (oldTeeId, newTeeId) pair must be present in that list.
      * Emits TeeMachineReplicationTriggered event.
      * @param _oldTeeId The old TEE machine id.
      * @param _proof The availability check proof for the new TEE machine.
-     * @param _teeUpgradeId The TEE upgrade id.
      * @param _claimBackAddress An address that can claim back the fee if instructions are not executed.
      * Can only be called by the TEE machines owner.
      */
     function replicateFrom(
         address _oldTeeId,
         ITeeAvailabilityCheck.Proof calldata _proof,
-        uint256 _teeUpgradeId,
         address _claimBackAddress
     )
         external payable;

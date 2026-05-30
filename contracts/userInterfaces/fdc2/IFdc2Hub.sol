@@ -33,10 +33,6 @@ interface IFdc2Hub {
     }
 
     struct Fdc2ResponseHeader {
-        // Bound to `block.chainid` of the network the response is valid on. Verifiers MUST
-        // require `header.chainId == block.chainid` to prevent cross-chain replay of signed
-        // FDC2 proofs.
-        uint256 chainId;
         bytes32 attestationType;
         bytes32 sourceId;
         uint16 thresholdBIPS;

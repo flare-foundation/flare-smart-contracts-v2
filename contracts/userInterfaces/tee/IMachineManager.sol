@@ -14,7 +14,7 @@ bytes32 constant REG_OP_TYPE = bytes32("F_REG");
  */
 interface IMachineManager is ITeeCommonErrors {
 
-    enum TeeStatus { INITIALIZED, PRODUCTION, SUSPENDED, PAUSED, PAUSED_FOR_UPGRADE, REPLICATING, BANNED }
+    enum TeeStatus { INITIALIZED, PRODUCTION, SUSPENDED, PAUSED, BANNED, PAUSED_FOR_UPGRADE, REPLICATING }
 
     struct TeeMachineData {
         uint256 extensionId;
@@ -22,6 +22,7 @@ interface IMachineManager is ITeeCommonErrors {
         bytes32 codeHash;
         bytes32 platform;
         PublicKey publicKey;
+        bytes32 governanceHash;
     }
 
     struct TeeMachine {
@@ -56,7 +57,8 @@ interface IMachineManager is ITeeCommonErrors {
         uint256 extensionId,
         string url,
         bytes32 codeHash,
-        bytes32 platform
+        bytes32 platform,
+        bytes32 governanceHash
     );
 
     event TeeMachineStatusChanged(
